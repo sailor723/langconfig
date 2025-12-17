@@ -13,8 +13,9 @@
  */
 
 import React from 'react';
-import { Volume2 } from 'lucide-react';
+import { Volume2, Download } from 'lucide-react';
 import { AudioContentBlock, contentBlockToDataUri } from '@/types/content-blocks';
+import { useDownloadContext, sanitizeFilename } from '@/contexts/DownloadContext';
 
 interface AudioBlockProps {
   block: AudioContentBlock;
@@ -23,6 +24,25 @@ interface AudioBlockProps {
 
 export const AudioBlock: React.FC<AudioBlockProps> = ({ block, className = '' }) => {
   const src = contentBlockToDataUri(block);
+  const { workflowName, getNextNumber } = useDownloadContext();
+
+  const handleDownload = () => {
+    if (!src) return;
+
+    const link = document.createElement('a');
+    link.href = src;
+
+    // Use workflow name + number for filename
+    const mimeType = block.mimeType || 'audio/mp3';
+    const extension = mimeType.split('/')[1] || 'mp3';
+    const safeName = sanitizeFilename(workflowName);
+    const number = getNextNumber();
+    link.download = `${safeName}_audio_${number}.${extension}`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   if (!src) {
     return (
@@ -49,6 +69,13 @@ export const AudioBlock: React.FC<AudioBlockProps> = ({ block, className = '' })
             {formatDuration(block.duration_seconds)}
           </span>
         )}
+        <button
+          onClick={handleDownload}
+          className="ml-auto p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+          title="Download audio"
+        >
+          <Download className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+        </button>
       </div>
       <audio controls className="w-full" preload="metadata">
         <source src={src} type={block.mimeType} />
