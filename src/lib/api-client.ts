@@ -515,11 +515,14 @@ class APIClient {
   }
 
   async setApiKeys(data: {
-    openai_api_key?: string;
     anthropic_api_key?: string;
+    openai_api_key?: string;
     google_api_key?: string;
     cohere_api_key?: string;
     replicate_api_key?: string;
+    deepseek_api_key?: string;
+    glm_api_key?: string;
+    minimax_api_key?: string;
   }) {
     return this.client.post('/api/settings/api-keys', data);
   }
