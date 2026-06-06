@@ -31,6 +31,19 @@ export const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite',
   'gemini-2.0-flash-exp': 'Gemini 2.0 Flash (Experimental)',
   'gemini-2.0-flash': 'Gemini 2.0 Flash',
+
+  // DeepSeek
+  'deepseek-chat': 'DeepSeek Chat',
+  'deepseek-reasoner': 'DeepSeek Reasoner',
+
+  // GLM (Zhipu AI)
+  'glm-4': 'GLM-4',
+  'glm-4v': 'GLM-4V',
+  'glm-4-flash': 'GLM-4 Flash',
+
+  // MiniMax
+  'minimax-t1': 'MiniMax T1',
+  'minimax-m3': 'MiniMax M3',
 };
 
 /**

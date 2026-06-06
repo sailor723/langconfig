@@ -11,18 +11,13 @@ from enum import Enum
 
 
 class ModelChoice(str, Enum):
-    """Available AI models - Updated December 16, 2025"""
+    """Available AI models - Updated Dec 2025"""
 
-    # OpenAI - GPT-5 Series (Current)
-    GPT_5_2 = "gpt-5.2"  # Latest flagship model
-    GPT_5_1 = "gpt-5.1"
-    GPT_4O = "gpt-4o"
-    GPT_4O_MINI = "gpt-4o-mini"  # Lean/fast model
-
-    # Anthropic - Claude 4.5 (Current)
-    CLAUDE_OPUS_4_5 = "claude-opus-4-5"
-    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
-    CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
+    # OpenAI - GPT-5 Series (commented out, no API key configured)
+    # GPT_5_2 = "gpt-5.2"
+    # GPT_5_1 = "gpt-5.1"
+    # GPT_4O = "gpt-4o"
+    # GPT_4O_MINI = "gpt-4o-mini"
 
     # Google - Gemini 3 (Current)
     GEMINI_3_PRO = "gemini-3-pro-preview"
@@ -32,6 +27,19 @@ class ModelChoice(str, Enum):
     GEMINI_25_FLASH = "gemini-2.5-flash"
     GEMINI_25_FLASH_LITE = "gemini-2.5-flash-lite"
 
+    # DeepSeek
+    DEEPSEEK_CHAT = "deepseek-chat"
+    DEEPSEEK_REASONER = "deepseek-reasoner"
+
+    # GLM (Zhipu AI)
+    GLM_4 = "glm-4"
+    GLM_4V = "glm-4v"
+    GLM_4_FLASH = "glm-4-flash"
+
+    # MiniMax
+    MINIMAX_T1 = "minimax-t1"
+    MINIMAX_M3 = "minimax-m3"
+
 
 # Default model
-DEFAULT_MODEL = ModelChoice.GPT_4O
+DEFAULT_MODEL = ModelChoice.DEEPSEEK_CHAT

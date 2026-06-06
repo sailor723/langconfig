@@ -24,11 +24,17 @@ export default function SettingsView() {
     anthropic: '',
     openai: '',
     google: '',
+    deepseek: '',
+    glm: '',
+    minimax: '',
   });
   const [apiKeyStatus, setApiKeyStatus] = useState({
     anthropic: false,
     openai: false,
     google: false,
+    deepseek: false,
+    glm: false,
+    minimax: false,
   });
   const [apiKeySaving, setApiKeySaving] = useState(false);
   const [apiKeySaveMessage, setApiKeySaveMessage] = useState<string | null>(null);
@@ -129,12 +135,18 @@ export default function SettingsView() {
         anthropic: keys.find((k: any) => k.provider === 'anthropic')?.is_set || false,
         openai: keys.find((k: any) => k.provider === 'openai')?.is_set || false,
         google: keys.find((k: any) => k.provider === 'google')?.is_set || false,
+        deepseek: keys.find((k: any) => k.provider === 'deepseek')?.is_set || false,
+        glm: keys.find((k: any) => k.provider === 'glm')?.is_set || false,
+        minimax: keys.find((k: any) => k.provider === 'minimax')?.is_set || false,
       });
       // Keep input fields empty - user types new key to update
       setApiKeys({
         anthropic: '',
         openai: '',
         google: '',
+        deepseek: '',
+        glm: '',
+        minimax: '',
       });
 
       // Load general settings
@@ -241,6 +253,9 @@ export default function SettingsView() {
               anthropic_api_key: apiKeys.anthropic || undefined,
               openai_api_key: apiKeys.openai || undefined,
               google_api_key: apiKeys.google || undefined,
+              deepseek_api_key: apiKeys.deepseek || undefined,
+              glm_api_key: apiKeys.glm || undefined,
+              minimax_api_key: apiKeys.minimax || undefined,
             });
             break;
 
@@ -716,6 +731,105 @@ export default function SettingsView() {
                   </p>
                 </div>
 
+                {/* DeepSeek */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                      DeepSeek API Key
+                    </label>
+                    {apiKeyStatus.deepseek ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full">
+                        <span className="material-symbols-outlined text-xs">check_circle</span>
+                        Configured
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">
+                        Not set
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="password"
+                    value={apiKeys.deepseek}
+                    onChange={(e) => setApiKeys({ ...apiKeys, deepseek: e.target.value })}
+                    placeholder={apiKeyStatus.deepseek ? "Enter new key to replace existing" : "sk-..."}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                    style={{
+                      backgroundColor: 'var(--color-input-background)',
+                      color: 'var(--color-text-primary)'
+                    }}
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Required for DeepSeek models (deepseek-chat, deepseek-reasoner)
+                  </p>
+                </div>
+
+                {/* GLM */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                      GLM API Key
+                    </label>
+                    {apiKeyStatus.glm ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full">
+                        <span className="material-symbols-outlined text-xs">check_circle</span>
+                        Configured
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">
+                        Not set
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="password"
+                    value={apiKeys.glm}
+                    onChange={(e) => setApiKeys({ ...apiKeys, glm: e.target.value })}
+                    placeholder={apiKeyStatus.glm ? "Enter new key to replace existing" : "Enter GLM API key..."}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                    style={{
+                      backgroundColor: 'var(--color-input-background)',
+                      color: 'var(--color-text-primary)'
+                    }}
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Required for GLM models (glm-4, glm-4v, etc.)
+                  </p>
+                </div>
+
+                {/* MiniMax */}
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                      MiniMax API Key
+                    </label>
+                    {apiKeyStatus.minimax ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full">
+                        <span className="material-symbols-outlined text-xs">check_circle</span>
+                        Configured
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">
+                        Not set
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="password"
+                    value={apiKeys.minimax}
+                    onChange={(e) => setApiKeys({ ...apiKeys, minimax: e.target.value })}
+                    placeholder={apiKeyStatus.minimax ? "Enter new key to replace existing" : "Enter MiniMax API key..."}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                    style={{
+                      backgroundColor: 'var(--color-input-background)',
+                      color: 'var(--color-text-primary)'
+                    }}
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Required for MiniMax models (minimax-t1, etc.)
+                  </p>
+                </div>
+
                 {/* Save Button and Status */}
                 <div className="pt-4 border-t border-gray-200 dark:border-border-dark">
                   <div className="flex items-center gap-3">
@@ -726,6 +840,9 @@ export default function SettingsView() {
                         if (apiKeys.anthropic) keysToSave.anthropic_api_key = apiKeys.anthropic;
                         if (apiKeys.openai) keysToSave.openai_api_key = apiKeys.openai;
                         if (apiKeys.google) keysToSave.google_api_key = apiKeys.google;
+                        if (apiKeys.deepseek) keysToSave.deepseek_api_key = apiKeys.deepseek;
+                        if (apiKeys.glm) keysToSave.glm_api_key = apiKeys.glm;
+                        if (apiKeys.minimax) keysToSave.minimax_api_key = apiKeys.minimax;
 
                         if (Object.keys(keysToSave).length === 0) {
                           setApiKeySaveMessage('Enter at least one API key to save');
@@ -742,9 +859,12 @@ export default function SettingsView() {
                             anthropic: apiKeyStatus.anthropic || !!apiKeys.anthropic,
                             openai: apiKeyStatus.openai || !!apiKeys.openai,
                             google: apiKeyStatus.google || !!apiKeys.google,
+                            deepseek: apiKeyStatus.deepseek || !!apiKeys.deepseek,
+                            glm: apiKeyStatus.glm || !!apiKeys.glm,
+                            minimax: apiKeyStatus.minimax || !!apiKeys.minimax,
                           });
                           // Clear input fields after successful save
-                          setApiKeys({ anthropic: '', openai: '', google: '' });
+                          setApiKeys({ anthropic: '', openai: '', google: '', deepseek: '', glm: '', minimax: '' });
                           setApiKeySaveMessage('API keys saved successfully!');
                           setTimeout(() => setApiKeySaveMessage(null), 3000);
                         } catch (error) {
@@ -755,7 +875,7 @@ export default function SettingsView() {
                           setApiKeySaving(false);
                         }
                       }}
-                      disabled={apiKeySaving || (!apiKeys.anthropic && !apiKeys.openai && !apiKeys.google)}
+                      disabled={apiKeySaving || (!apiKeys.anthropic && !apiKeys.openai && !apiKeys.google && !apiKeys.deepseek && !apiKeys.glm && !apiKeys.minimax)}
                       className="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {apiKeySaving ? (

@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 # Try to import LlamaIndex - it's optional
 try:
     from llama_index.core import Settings
-    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
     from llama_index.embeddings.openai import OpenAIEmbedding
+    from llama_index.embeddings.ollama import OllamaEmbedding
     from llama_index.llms.openai import OpenAI
     from llama_index.vector_stores.postgres import PGVectorStore
     LLAMAINDEX_AVAILABLE = True
@@ -31,10 +31,16 @@ except ImportError:
     logger.warning("LlamaIndex not available. Vector store features will be disabled.")
     LLAMAINDEX_AVAILABLE = False
     Settings = None
-    HuggingFaceEmbedding = None
     OpenAIEmbedding = None
+    OllamaEmbedding = None
     OpenAI = None
     PGVectorStore = None
+
+# HuggingFace embedding is optional (requires torch/sentence-transformers)
+try:
+    from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+except ImportError:
+    HuggingFaceEmbedding = None
 
 # Global flag to track initialization
 _initialized = False
@@ -60,26 +66,47 @@ def initialize_llama_index_settings(
         return
     
     try:
-        # Check if OpenAI API key is available for multimodal embeddings
-        openai_api_key = app_settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
+        # Priority: Ollama > OpenAI > HuggingFace (local fallback)
+        ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        ollama_embed_model = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text:latest")
 
-        if enable_multimodal and openai_api_key:
-            logger.info("Initializing OpenAI multimodal embedding model")
-            Settings.embed_model = OpenAIEmbedding(
-                model="text-embedding-3-large",
-                dimensions=1024,  # Configurable dimensions for OpenAI embeddings
-                api_key=openai_api_key
+        # Check if Ollama is available
+        import httpx
+        ollama_available = False
+        try:
+            resp = httpx.get(f"{ollama_base_url}/api/tags", timeout=2.0)
+            ollama_available = resp.status_code == 200
+        except Exception:
+            pass
+
+        if ollama_available:
+            logger.info(f"Initializing Ollama embedding model: {ollama_embed_model}")
+            Settings.embed_model = OllamaEmbedding(
+                model_name=ollama_embed_model,
+                base_url=ollama_base_url,
             )
-            _multimodal_enabled = True
-            logger.info("Multimodal embeddings enabled with OpenAI text-embedding-3-large")
-        else:
-            if enable_multimodal:
-                logger.warning("Multimodal requested but OpenAI API key not available, falling back to text-only")
-            logger.info("Initializing HuggingFace text-only embedding model")
-            Settings.embed_model = HuggingFaceEmbedding(
-                model_name="sentence-transformers/all-MiniLM-L6-v2"
-            )
+            # nomic-embed-text has 768 dimensions
             _multimodal_enabled = False
+            logger.info(f"Ollama embeddings enabled with {ollama_embed_model}")
+        else:
+            openai_api_key = app_settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
+            if enable_multimodal and openai_api_key:
+                logger.info("Initializing OpenAI multimodal embedding model")
+                Settings.embed_model = OpenAIEmbedding(
+                    model="text-embedding-3-large",
+                    dimensions=1024,
+                    api_key=openai_api_key
+                )
+                _multimodal_enabled = True
+                logger.info("Multimodal embeddings enabled with OpenAI text-embedding-3-large")
+            else:
+                if enable_multimodal:
+                    logger.warning("Multimodal requested but OpenAI API key not available, falling back to text-only")
+                logger.info("Initializing HuggingFace text-only embedding model")
+                Settings.embed_model = HuggingFaceEmbedding(
+                    model_name="sentence-transformers/all-MiniLM-L6-v2"
+                )
+                _multimodal_enabled = False
         
         # Configure LLM for HyDE if proxy details are provided
         if litellm_proxy_url and litellm_api_key:
@@ -189,12 +216,18 @@ def ensure_initialized():
 def get_embedding_dimension() -> int:
     """
     Get the embedding dimension used by the configured embedding model.
-    
+
     Returns:
-        int: Embedding dimension (1024 for multimodal, 384 for text-only)
+        int: Embedding dimension (1024 for OpenAI, 768 for Ollama nomic-embed-text, 384 for text-only)
     """
     global _multimodal_enabled
-    return 1024 if _multimodal_enabled else 384
+    if _multimodal_enabled:
+        return 1024
+    # Check if Ollama is being used (nomic-embed-text = 768 dimensions)
+    ollama_embed_model = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text:latest")
+    if "nomic" in ollama_embed_model.lower():
+        return 768
+    return 384
 
 
 def is_multimodal_enabled() -> bool:

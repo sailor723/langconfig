@@ -22,6 +22,9 @@ class APIKeySet(BaseModel):
     google_api_key: Optional[str] = None
     cohere_api_key: Optional[str] = None
     replicate_api_key: Optional[str] = None
+    deepseek_api_key: Optional[str] = None
+    glm_api_key: Optional[str] = None
+    minimax_api_key: Optional[str] = None
 
 
 class APIKeyResponse(BaseModel):
@@ -127,13 +130,14 @@ def mask_api_key(key: str) -> str:
 
 
 from services.encryption import encryption_service
+from sqlalchemy.orm.attributes import flag_modified
 
 # Endpoints
 @router.post("/api-keys")
 async def set_api_keys(keys: APIKeySet, db: Session = Depends(get_db)):
     """Set API keys (stored encrypted in PostgreSQL)"""
     settings = get_or_create_settings(db)
-    api_keys = settings.api_keys or {}
+    api_keys = dict(settings.api_keys or {})
 
     if keys.openai_api_key:
         api_keys["openai"] = encryption_service.encrypt(keys.openai_api_key)
@@ -145,8 +149,15 @@ async def set_api_keys(keys: APIKeySet, db: Session = Depends(get_db)):
         api_keys["cohere"] = encryption_service.encrypt(keys.cohere_api_key)
     if keys.replicate_api_key:
         api_keys["replicate"] = encryption_service.encrypt(keys.replicate_api_key)
+    if keys.deepseek_api_key:
+        api_keys["deepseek"] = encryption_service.encrypt(keys.deepseek_api_key)
+    if keys.glm_api_key:
+        api_keys["glm"] = encryption_service.encrypt(keys.glm_api_key)
+    if keys.minimax_api_key:
+        api_keys["minimax"] = encryption_service.encrypt(keys.minimax_api_key)
 
     settings.api_keys = api_keys
+    flag_modified(settings, "api_keys")
     db.commit()
 
     return {"message": "API keys saved successfully"}
@@ -157,7 +168,7 @@ async def get_api_keys(db: Session = Depends(get_db)):
     """Get masked API keys status"""
     settings = get_or_create_settings(db)
     api_keys = settings.api_keys or {}
-    providers = ["openai", "anthropic", "google", "cohere", "replicate"]
+    providers = ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax"]
 
     results = []
     for provider in providers:
@@ -198,6 +209,18 @@ async def get_available_models(db: Session = Depends(get_db)):
     if api_keys.get("google"):
         available.extend([m.value for m in ModelChoice if 'gemini' in m.value])
 
+    # DeepSeek models (require DeepSeek API key)
+    if api_keys.get("deepseek"):
+        available.extend([m.value for m in ModelChoice if 'deepseek' in m.value])
+
+    # GLM models (require GLM API key)
+    if api_keys.get("glm"):
+        available.extend([m.value for m in ModelChoice if 'glm' in m.value])
+
+    # MiniMax models (require MiniMax API key)
+    if api_keys.get("minimax"):
+        available.extend([m.value for m in ModelChoice if 'minimax' in m.value])
+
     # Local models (validated only)
     from models.local_model import LocalModel
     local_models = db.query(LocalModel).filter(
@@ -229,7 +252,7 @@ async def get_available_models(db: Session = Depends(get_db)):
 @router.delete("/api-keys/{provider}")
 async def delete_api_key(provider: str, db: Session = Depends(get_db)):
     """Delete an API key"""
-    if provider not in ["openai", "anthropic", "google", "cohere", "replicate"]:
+    if provider not in ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax"]:
         raise HTTPException(status_code=400, detail="Invalid provider")
 
     settings = get_or_create_settings(db)
