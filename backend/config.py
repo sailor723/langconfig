@@ -38,6 +38,7 @@ def get_api_key_from_db(key_name: str) -> Optional[str]:
             "google_api_key": "google",
             "cohere_api_key": "cohere",
             "replicate_api_key": "replicate",
+            "deepseek_api_key": "deepseek",
         }
         provider = provider_map.get(key_name)
 
@@ -109,6 +110,16 @@ class Settings(BaseSettings):
     def GOOGLE_API_KEY(self) -> Optional[str]:
         """Get Google/Gemini API key from database or .env"""
         return self.get_api_key("google_api_key") or os.getenv("GEMINI_API_KEY")
+
+    @property
+    def DEEPSEEK_API_KEY(self) -> Optional[str]:
+        """Get DeepSeek API key from database or .env"""
+        return self.get_api_key("deepseek_api_key")
+
+    @property
+    def DEEPSEEK_API_BASE(self) -> Optional[str]:
+        """Get DeepSeek API base URL from .env"""
+        return os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com")
 
     # Keep lowercase versions for backward compatibility
     @property

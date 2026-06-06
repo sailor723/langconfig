@@ -126,12 +126,11 @@ class LocalModelService:
             should_close_db = True
 
         try:
-            # Parse model name to get the lookup key
+            # Strip "local-" prefix to get the actual model identifier
+            lookup_name = model_name.replace("local-", "")
+
+            # Parse model name for provider detection (used for logging)
             parsed = cls.parse_model_name(model_name)
-            if parsed:
-                _, lookup_name = parsed
-            else:
-                lookup_name = model_name.replace("local-", "")
 
             # Query database
             local_model = db.query(LocalModel).filter(

@@ -52,6 +52,19 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   // Google Gemini 2.0
   'gemini-2.0-flash': { input: 0.075, output: 0.30 },
 
+  // DeepSeek
+  'deepseek-chat': { input: 0.14, output: 0.28 },
+  'deepseek-reasoner': { input: 0.55, output: 2.19 },
+
+  // GLM (Zhipu AI)
+  'glm-4': { input: 0.15, output: 0.15 },
+  'glm-4v': { input: 0.15, output: 0.15 },
+  'glm-4-flash': { input: 0.05, output: 0.05 },
+
+  // MiniMax
+  'minimax-t1': { input: 0.20, output: 1.10 },
+  'minimax-m3': { input: 2.00, output: 8.00 },
+
   // Default fallback
   'default': { input: 1.00, output: 3.00 }
 };

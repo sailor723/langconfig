@@ -275,6 +275,34 @@ async def create_local_model(
     )
 
     db.add(new_model)
+    db.flush()  # Get ID without finalizing transaction
+
+    # Auto-validate: test connection immediately
+    try:
+        api_key_to_test = None
+        if model_data.api_key:
+            api_key_to_test = model_data.api_key
+        elif new_model.api_key:
+            api_key_to_test = encryption_service.decrypt(new_model.api_key)
+
+        validation_result = await LocalModelValidator.test_connection(
+            base_url=new_model.base_url,
+            api_key=api_key_to_test
+        )
+
+        if validation_result.success:
+            new_model.is_validated = True
+            new_model.last_validated_at = datetime.utcnow()
+            new_model.validation_error = None
+            new_model.capabilities = validation_result.capabilities or {}
+            logger.info(f"Auto-validated local model: {new_model.name}")
+        else:
+            new_model.validation_error = validation_result.message
+            logger.warning(f"Auto-validation failed for {new_model.name}: {validation_result.message}")
+    except Exception as e:
+        logger.error(f"Auto-validation error for {new_model.name}: {e}")
+        new_model.validation_error = str(e)
+
     db.commit()
     db.refresh(new_model)
 

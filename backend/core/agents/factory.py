@@ -23,12 +23,11 @@ import logging
 from typing import Dict, Any, List, Optional, Tuple, Sequence
 from datetime import datetime
 from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.tools import BaseTool, StructuredTool
 from langchain_core.language_models import BaseLanguageModel, BaseChatModel
 # IMPORTANT: LangChain v1.0 - Using unified create_agent from langchain.agents
 from langchain.agents import create_agent
+from langchain.chat_models import init_chat_model
 from langgraph.graph.state import CompiledStateGraph
 # IMPORTANT: Added structured prompt components
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -73,6 +72,8 @@ SUPPORTED_MODELS = {
     "gpt-5.1",
     # OpenAI - GPT-4o Series
     "gpt-4o", "gpt-4o-mini",
+    # DeepSeek (OpenAI-compatible)
+    "deepseek-chat", "deepseek-reasoner",
     # Anthropic - Claude 4.5 (with and without date suffixes)
     "claude-opus-4-5", "claude-opus-4-5-20250514",
     "claude-sonnet-4-5", "claude-sonnet-4-5-20250514", "claude-sonnet-4-5-20250929",
@@ -1126,113 +1127,45 @@ You have been equipped with the following tools: {', '.join(tool_names)}
         config: Dict[str, Any]
     ) -> BaseChatModel:
         """
-        Create an LLM instance based on model name.
+        Create an LLM instance based on model name using init_chat_model.
 
         Supports:
-        - OpenAI (GPT-5, GPT-4.5, o1, etc.) - Updated for 10/6/2025
-        - Anthropic (Claude 4.x, Claude 3.7, etc.) - Updated for 10/6/2025
-        - Google (Gemini 2.0, Gemini 1.7) - Updated for 10/6/2025
-        - Local models via LiteLLM proxy
+        - OpenAI (GPT-5, GPT-4.5, o1, etc.)
+        - Anthropic (Claude 4.x, Claude 3.7, etc.)
+        - Google (Gemini 2.0, Gemini 3, etc.)
+        - DeepSeek (OpenAI-compatible via ChatOpenAI)
+        - Local models (Ollama, LM Studio, vLLM, etc.) via LiteLLM proxy
 
         Args:
-            model_name: Model identifier (e.g., "gpt-5-turbo", "claude-4-sonnet", "gemini-2-pro")
+            model_name: Model identifier (e.g., "gpt-5-turbo", "claude-4-sonnet", "deepseek-chat")
             temperature: Temperature for generation (0.0-2.0)
             max_tokens: Maximum tokens to generate
             config: Full agent config (for provider-specific params)
 
         Returns:
-            LangChain LLM instance (ChatOpenAI, ChatAnthropic, etc.)
+            LangChain LLM instance
         """
         logger.debug(f"Initializing LLM instance for model: {model_name}")
-        streaming = config.get("streaming", True)  # Enable by default for SSE streaming
+        streaming = config.get("streaming", True)
 
-        # --- OpenAI/GPT Models ---
-        if model_name.startswith("gpt"):
-            if not settings.OPENAI_API_KEY:
-                raise ValueError(f"OPENAI_API_KEY is required for model {model_name}")
+        # --- DeepSeek Models (OpenAI-compatible) ---
+        if model_name.startswith("deepseek"):
+            if not settings.DEEPSEEK_API_KEY:
+                raise ValueError(f"DEEPSEEK_API_KEY is required for model {model_name}")
 
-            params = {
-                "model": model_name, "temperature": temperature, "max_tokens": max_tokens,
-                "streaming": streaming, "api_key": settings.OPENAI_API_KEY,
-            }
-            api_base = getattr(settings, 'OPENAI_API_BASE', None)
-            if api_base:
-                params["base_url"] = api_base
-            return ChatOpenAI(**params)
-
-        # --- Anthropic/Claude Models ---
-        elif model_name.startswith("claude"):
-            if not settings.ANTHROPIC_API_KEY:
-                raise ValueError(f"ANTHROPIC_API_KEY is required for model {model_name}")
-
-            return ChatAnthropic(
-                model=model_name, temperature=temperature,
-                max_tokens=max_tokens or DEFAULT_MAX_TOKENS,  # Use default constant for consistency
-                api_key=settings.ANTHROPIC_API_KEY,
+            return ChatOpenAI(
+                model=model_name,
+                api_key=settings.DEEPSEEK_API_KEY,
+                base_url=settings.DEEPSEEK_API_BASE,
+                temperature=temperature,
+                max_tokens=max_tokens,
                 streaming=streaming,
             )
 
-        # --- Google/Gemini Models ---
-        elif model_name.startswith("gemini"):
-            api_key = settings.GOOGLE_API_KEY or settings.GEMINI_API_KEY
-            if not api_key:
-                 raise ValueError(f"Google API Key is required for model {model_name}")
-
-            # Extract reasoning_effort and modalities from config
-            reasoning_effort = config.get("reasoning_effort")
-            modalities = config.get("modalities")
-
-            # Build model kwargs
-            model_kwargs = {
-                "model": model_name,
-                "temperature": temperature,
-                "max_output_tokens": max_tokens,
-                "google_api_key": api_key,
-                "convert_system_message_to_human": True,  # CRITICAL FIX: Helps Gemini handle system prompts + tools
-            }
-
-            # Add reasoning_effort if specified (maps to Gemini's thinking parameters)
-            # Per LiteLLM docs: Gemini 3+ uses thinking_level, Gemini 2.x uses thinking_budget
-            if reasoning_effort:
-                is_gemini_3 = "gemini-3" in model_name.lower()
-
-                if is_gemini_3:
-                    # Gemini 3+ uses thinking_level: "low" or "high"
-                    thinking_level_map = {
-                        "none": "low",      # Can't fully disable in Gemini 3
-                        "minimal": "low",
-                        "low": "low",
-                        "medium": "high",   # Medium maps to high
-                        "high": "high"
-                    }
-                    thinking_level = thinking_level_map.get(reasoning_effort, "low")
-                    model_kwargs["thinking_level"] = thinking_level
-                    logger.info(f"Gemini 3 reasoning: effort={reasoning_effort} -> thinking_level={thinking_level}")
-                else:
-                    # Gemini 2.x uses thinking_budget (token count)
-                    thinking_budget_map = {
-                        "none": 0,      # Cost optimized - 96% cheaper
-                        "disable": 0,
-                        "low": 1024,
-                        "medium": 2048,
-                        "high": 4096
-                    }
-                    budget = thinking_budget_map.get(reasoning_effort, 1024)
-                    model_kwargs["thinking"] = {"budget_tokens": budget, "includeThoughts": budget > 0}
-                    logger.info(f"Gemini 2.x reasoning: effort={reasoning_effort} -> budget={budget} tokens")
-
-            # Add modalities if specified (for image generation models)
-            if modalities:
-                model_kwargs["modalities"] = modalities
-                logger.info(f"Gemini modalities: {modalities}")
-
-            return ChatGoogleGenerativeAI(**model_kwargs)
-
         # --- Local Models (Ollama, LM Studio, vLLM, etc.) ---
-        elif model_name.startswith("local-") or any(model_name.startswith(f"{p}-") for p in ["ollama", "lmstudio", "vllm", "litellm"]):
+        if model_name.startswith("local-") or any(model_name.startswith(f"{p}-") for p in ["ollama", "lmstudio", "vllm", "litellm"]):
             from services.local_model_service import LocalModelService
 
-            # Load local model configuration from database
             local_config = LocalModelService.get_local_model_config(model_name)
 
             if not local_config:
@@ -1253,9 +1186,48 @@ You have been equipped with the following tools: {', '.join(tool_names)}
                 timeout=local_config.timeout
             )
 
+        # --- Standard Providers via init_chat_model ---
+        # Determine provider and API key based on model name prefix
+        if model_name.startswith("gpt"):
+            provider = "openai"
+            api_key = settings.OPENAI_API_KEY
+            base_url = getattr(settings, 'OPENAI_API_BASE', None)
+        elif model_name.startswith("claude"):
+            provider = "anthropic"
+            api_key = settings.ANTHROPIC_API_KEY
+            base_url = None
+        elif model_name.startswith("gemini"):
+            provider = "google_genai"
+            api_key = settings.GOOGLE_API_KEY or settings.GEMINI_API_KEY
+            base_url = None
         else:
-            logger.warning(f"Unknown model '{model_name}', defaulting to OpenAI-compatible (Ensure API/Base URL configured).")
-            return ChatOpenAI(model=model_name, temperature=temperature, max_tokens=max_tokens, streaming=streaming)
+            logger.warning(f"Unknown model '{model_name}', defaulting to OpenAI-compatible.")
+            provider = "openai"
+            api_key = settings.OPENAI_API_KEY
+            base_url = getattr(settings, 'OPENAI_API_BASE', None)
+
+        if not api_key:
+            raise ValueError(f"API key is required for model {model_name} (provider: {provider})")
+
+        # Use init_chat_model for unified model creation
+        # Special handling: Google Gemini needs convert_system_message_to_human
+        init_kwargs = {
+            "model": model_name,
+            "model_provider": provider,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "api_key": api_key,
+            "streaming": streaming,
+        }
+        if base_url:
+            init_kwargs["base_url"] = base_url
+
+        # Google Gemini needs system message conversion for tool compatibility
+        if provider == "google_genai":
+            init_kwargs["convert_system_message_to_human"] = True
+
+        logger.debug(f"init_chat_model kwargs: model={model_name}, provider={provider}, ...")
+        return init_chat_model(**init_kwargs)
 
 
     @staticmethod

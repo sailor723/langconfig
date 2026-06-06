@@ -100,6 +100,19 @@ export function useAvailableModels(
         'gemini-2.0-flash': { name: 'Gemini 2.0 Flash', provider: 'Google' },
         'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', provider: 'Google' },
         'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash-Lite', provider: 'Google' },
+
+        // DeepSeek
+        'deepseek-chat': { name: 'DeepSeek Chat', provider: 'DeepSeek' },
+        'deepseek-reasoner': { name: 'DeepSeek Reasoner', provider: 'DeepSeek' },
+
+        // GLM (Zhipu AI)
+        'glm-4': { name: 'GLM-4', provider: 'GLM' },
+        'glm-4v': { name: 'GLM-4V', provider: 'GLM' },
+        'glm-4-flash': { name: 'GLM-4 Flash', provider: 'GLM' },
+
+        // MiniMax
+        'minimax-t1': { name: 'MiniMax T1', provider: 'MiniMax' },
+        'minimax-m3': { name: 'MiniMax M3', provider: 'MiniMax' },
       };
 
       // Convert cloud models to ModelOption format
