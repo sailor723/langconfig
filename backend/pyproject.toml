@@ -73,6 +73,7 @@ dependencies = [
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.11.0",
     "asyncpg",
+    "tavily-python>=0.7.25",
 ]
 
 [dependency-groups]
