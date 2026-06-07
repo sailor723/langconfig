@@ -25,6 +25,7 @@ class APIKeySet(BaseModel):
     deepseek_api_key: Optional[str] = None
     glm_api_key: Optional[str] = None
     minimax_api_key: Optional[str] = None
+    tavily_api_key: Optional[str] = None
 
 
 class APIKeyResponse(BaseModel):
@@ -155,6 +156,8 @@ async def set_api_keys(keys: APIKeySet, db: Session = Depends(get_db)):
         api_keys["glm"] = encryption_service.encrypt(keys.glm_api_key)
     if keys.minimax_api_key:
         api_keys["minimax"] = encryption_service.encrypt(keys.minimax_api_key)
+    if keys.tavily_api_key:
+        api_keys["tavily"] = encryption_service.encrypt(keys.tavily_api_key)
 
     settings.api_keys = api_keys
     flag_modified(settings, "api_keys")
@@ -168,7 +171,7 @@ async def get_api_keys(db: Session = Depends(get_db)):
     """Get masked API keys status"""
     settings = get_or_create_settings(db)
     api_keys = settings.api_keys or {}
-    providers = ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax"]
+    providers = ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax", "tavily"]
 
     results = []
     for provider in providers:

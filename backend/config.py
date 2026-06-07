@@ -39,6 +39,7 @@ def get_api_key_from_db(key_name: str) -> Optional[str]:
             "cohere_api_key": "cohere",
             "replicate_api_key": "replicate",
             "deepseek_api_key": "deepseek",
+            "tavily_api_key": "tavily",
         }
         provider = provider_map.get(key_name)
 
@@ -120,6 +121,11 @@ class Settings(BaseSettings):
     def DEEPSEEK_API_BASE(self) -> Optional[str]:
         """Get DeepSeek API base URL from .env"""
         return os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com")
+
+    @property
+    def TAVILY_API_KEY(self) -> Optional[str]:
+        """Get Tavily API key from database or .env"""
+        return self.get_api_key("tavily_api_key")
 
     # Keep lowercase versions for backward compatibility
     @property
