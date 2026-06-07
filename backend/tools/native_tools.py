@@ -40,6 +40,14 @@ except ImportError:
     PLAYWRIGHT_AVAILABLE = False
     logger.warning("Playwright not available. Browser automation tools will be disabled.")
 
+# Tavily search - conditional to avoid import errors if not installed
+try:
+    from langchain_community.tools.tavily_search import TavilySearchResults
+    TAVILY_AVAILABLE = True
+except ImportError:
+    TAVILY_AVAILABLE = False
+    logger.warning("Tavily not available. Install with: pip install langchain-community tavily-python")
+
 # Global Playwright browser instance (lazy-loaded)
 _playwright_browser = None
 
@@ -87,6 +95,10 @@ TOOL_NAME_MAP = {
     "sequential_thinking": "reasoning_chain",
     "thinking": "reasoning_chain",
     "reasoning": "reasoning_chain",
+
+    # Tavily search
+    "tavily": "tavily_search",
+    "tavily_search": "tavily_search",
 }
 
 
@@ -315,6 +327,76 @@ async def web_fetch(url: str, timeout: int = 10) -> str:
     except Exception as e:
         logger.error(f"Error fetching {url}: {e}")
         return f"Error: {str(e)}"
+
+
+# =============================================================================
+# Tavily Search (AI-optimized web search, requires API key)
+# =============================================================================
+
+@tool
+async def tavily_search(query: str, max_results: int = 5) -> str:
+    """
+    Search the web using Tavily - an AI-optimized search engine.
+
+    Returns structured, summarized results perfect for AI consumption.
+    Requires TAVILY_API_KEY configured in Settings > API Keys.
+
+    Use this for more accurate, context-aware search results compared
+    to general web search. Especially good for research questions.
+
+    Args:
+        query: The search query
+        max_results: Maximum number of results to return (default: 5)
+
+    Returns:
+        Search results as formatted text
+
+    Example:
+        >>> await tavily_search("LangGraph v1.0 middleware system")
+        >>> await tavily_search("Python async patterns", max_results=3)
+    """
+    try:
+        from config import get_api_key_from_db
+
+        api_key = get_api_key_from_db("tavily_api_key")
+        if not api_key:
+            return (
+                "Tavily API key not configured.\n\n"
+                "To use Tavily search:\n"
+                "1. Go to Settings > API Keys\n"
+                "2. Add your TAVILY_API_KEY\n"
+                "3. Alternatively, use web_search (DuckDuckGo, free, no key required)"
+            )
+
+        if not TAVILY_AVAILABLE:
+            return (
+                "Tavily package not installed.\n\n"
+                "Install with: pip install langchain-community tavily-python"
+            )
+
+        logger.info(f"Tavily search: {query}")
+
+        tavily = TavilySearchResults(api_key=api_key, max_results=max_results)
+        results = await tavily.ainvoke({"query": query})
+
+        if not results:
+            return f"No results found for: {query}"
+
+        result_text = f"Search results for '{query}' (via Tavily):\n\n"
+        for i, r in enumerate(results, 1):
+            content = r.get("content", "")
+            url = r.get("url", "")
+            if url:
+                result_text += f"{i}. {content}\n   Source: {url}\n\n"
+            else:
+                result_text += f"{i}. {content}\n\n"
+
+        logger.info(f"Tavily search returned {len(results)} results for: {query}")
+        return result_text
+
+    except Exception as e:
+        logger.error(f"Tavily search failed: {e}")
+        return f"Tavily search error: {str(e)}"
 
 
 # =============================================================================
@@ -1332,6 +1414,7 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         # Web tools
         "web_search": web_search,
         "web_fetch": web_fetch,
+        "tavily_search": tavily_search,
         # Filesystem tools (DeepAgents standard)
         "ls": ls,
         "read_file": read_file,
@@ -1401,6 +1484,7 @@ def get_available_tool_names() -> List[str]:
         # Web tools
         "web_search",
         "web_fetch",
+        "tavily_search",
         "browser",  # Playwright browser toolkit (advanced web interaction)
         # Filesystem tools (DeepAgents standard)
         "ls",
