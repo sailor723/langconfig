@@ -533,3 +533,32 @@ select {
   transform: scale(1.02);
   filter: drop-shadow(0 0 30px var(--color-primary)) brightness(1.1);
 }
+
+/* Snap-hover ring: applied to a ReactFlow node wrapper (via node.className)
+   when a Start/End control node is being dragged over an agent target. The
+   wrapper gets a pulsing emerald outline so the user can see which agent
+   will receive the link before they release the mouse. */
+.react-flow__node.snap-hover > .react-flow__handle {
+  background: var(--color-primary, #2E5C8A);
+  box-shadow: 0 0 0 2px rgba(46, 92, 138, 0.35);
+}
+.react-flow__node.snap-hover::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 16px;
+  border: 2px dashed var(--color-primary, #2E5C8A);
+  pointer-events: none;
+  animation: snap-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes snap-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
