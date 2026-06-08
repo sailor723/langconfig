@@ -1240,11 +1240,132 @@ if __name__ == "__main__":
     isDraggingRef.current = true;
   }, []);
 
+  /**
+   * Compute the rectangular overlap between two nodes in flow coordinates.
+   * Returns the overlap area as a fraction of the dragged node's area.
+   * A value >= 0.3 means "30% of the dragged node is inside the target".
+   */
+  const computeOverlapFraction = (
+    dragged: Node,
+    target: Node
+  ): number => {
+    const draggedW = dragged.width ?? 200;
+    const draggedH = dragged.height ?? 100;
+    const targetW = target.width ?? 200;
+    const targetH = target.height ?? 100;
+
+    const draggedX = dragged.position.x;
+    const draggedY = dragged.position.y;
+    const targetX = target.position.x;
+    const targetY = target.position.y;
+
+    const overlapX = Math.max(
+      0,
+      Math.min(draggedX + draggedW, targetX + targetW) -
+        Math.max(draggedX, targetX)
+    );
+    const overlapY = Math.max(
+      0,
+      Math.min(draggedY + draggedH, targetY + targetH) -
+        Math.max(draggedY, targetY)
+    );
+
+    const overlapArea = overlapX * overlapY;
+    const draggedArea = draggedW * draggedH;
+    if (draggedArea === 0) return 0;
+    return overlapArea / draggedArea;
+  };
+
+  /**
+   * Find the first node that overlaps with the dragged node by at least
+   * OVERLAP_THRESHOLD (30%). Returns null if none.
+   * Only considers "real" target nodes - the dragged node itself and the
+   * Start/End counterparts are filtered by the caller.
+   */
+  const OVERLAP_THRESHOLD = 0.3;
+  const findOverlapTarget = useCallback(
+    (draggedNode: Node, currentNodes: Node[]): Node | null => {
+      for (const candidate of currentNodes) {
+        if (candidate.id === draggedNode.id) continue;
+        const fraction = computeOverlapFraction(draggedNode, candidate);
+        if (fraction >= OVERLAP_THRESHOLD) {
+          return candidate;
+        }
+      }
+      return null;
+    },
+    []
+  );
+
   // Handle node drag stop - save workflow after drag completes
   const onNodeDragStop = useCallback(() => {
     isDraggingRef.current = false;
 
-    // Validate and fix node positions before saving
+    // 1) Overlap-to-link for Start/End nodes
+    // If a START_NODE is dropped on top of another node, create a source->target edge.
+    // If an END_NODE is dropped on top of another node, create a source->end edge.
+    setNodes((currentNodes) => {
+      // The dragged node is the last one whose position changed in this drag.
+      // ReactFlow fires onNodeDragStop after the state is already updated, so
+      // currentNodes already has the new positions. We identify the dragged
+      // node by comparing against the snapshot in `nodes` (state at hook level).
+      const draggedNode = currentNodes.find(
+        (n) => n.position.x !== nodes.find((orig) => orig.id === n.id)?.position.x
+            || n.position.y !== nodes.find((orig) => orig.id === n.id)?.position.y
+      );
+      if (!draggedNode) return currentNodes;
+
+      const draggedType = (draggedNode.data as any)?.agentType;
+      if (draggedType !== 'START_NODE' && draggedType !== 'END_NODE') {
+        return currentNodes;
+      }
+
+      const target = findOverlapTarget(draggedNode, currentNodes);
+      if (!target) return currentNodes;
+
+      // Compute the new connection in the correct direction
+      const sourceId = draggedType === 'START_NODE' ? draggedNode.id : target.id;
+      const targetId = draggedType === 'START_NODE' ? target.id : draggedNode.id;
+
+      setEdges((eds: Edge[]) => {
+        // Skip if an edge in the same direction already exists
+        const exists = eds.some(
+          (e) => e.source === sourceId && e.target === targetId
+        );
+        if (exists) return eds;
+
+        const primaryColor = getComputedStyle(document.documentElement)
+          .getPropertyValue('--color-primary')
+          .trim();
+
+        const newEdge: Edge = {
+          id: `e-${sourceId}-${targetId}-${Date.now()}`,
+          source: sourceId,
+          target: targetId,
+          type: 'smoothstep',
+          animated: false,
+          style: {
+            stroke: primaryColor || '#6366f1',
+            strokeWidth: 2.5,
+          },
+          markerEnd: {
+            type: 'arrowclosed' as const,
+            color: primaryColor || '#6366f1',
+          },
+        } as Edge;
+
+        showSuccess(
+          draggedType === 'START_NODE'
+            ? `Linked Start → ${target.data?.name || target.id}`
+            : `Linked ${target.data?.name || target.id} → End`
+        );
+        return [...eds, newEdge];
+      });
+
+      return currentNodes;
+    });
+
+    // 2) Validate and fix node positions before saving
     setNodes((currentNodes) =>
       currentNodes.map((node) => {
         const validation = validateNodePosition(node.position.x, node.position.y);
@@ -2102,10 +2223,10 @@ if __name__ == "__main__":
                     className="bg-gray-50 dark:bg-background-dark"
                   />
 
-                  {/* Controls - repositioned to top-left */}
+                  {/* Controls - moved to top-right to avoid overlapping with NodePalette */}
                   <Controls
                     showInteractive={false}
-                    position="top-left"
+                    position="top-right"
                     className="!bg-white dark:!bg-panel-dark !border-2 !border-gray-200 dark:!border-border-dark !rounded-lg !shadow-lg"
                   />
 
