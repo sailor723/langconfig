@@ -32,7 +32,7 @@ from .workflow_nodes import (
     retry_workflow_node,
     complete_workflow_node
 )
-from .context_synthesis import node_synthesize_context
+from core.context.synthesis import node_synthesize_context
 from .http_bridge_adapter import HttpBridgeAdapter
 from .checkpointing import get_checkpointer
 

@@ -52,6 +52,7 @@ import NodeContextMenu from './menus/NodeContextMenu';
 import TaskContextMenu from './menus/TaskContextMenu';
 import EmptyCanvasState from './EmptyCanvasState';
 import CanvasControlPanel from './panels/CanvasControlPanel';
+import NodePalette from './panels/NodePalette';
 import TotalCostPanel from './panels/TotalCostPanel';
 import ThinkingToastRenderer from './panels/ThinkingToastRenderer';
 import { useWorkflowMetrics } from './hooks/useWorkflowMetrics';
@@ -489,6 +490,9 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({
   // Debug modal state (separate from versioning)
   const [showDebugModal, setShowDebugModal] = useState(false);
   const [debugData, setDebugData] = useState<any>(null);
+
+  // Node palette (left-side panel) collapsed/expanded state
+  const [isNodePaletteCollapsed, setIsNodePaletteCollapsed] = useState(false);
 
   // Use extracted hook for version management
   const {
@@ -1398,6 +1402,95 @@ if __name__ == "__main__":
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAgent, onAgentAdded, reactFlowInstance, nodeIdCounter]);
 
+  /**
+   * Add a control node (Start, End, Conditional, Loop, Approval, Tool)
+   * to the canvas. Used by the NodePalette for both click-to-add and drop.
+   *
+   * @param type - agentType: START_NODE | END_NODE | CONDITIONAL_NODE | LOOP_NODE | APPROVAL_NODE | TOOL_NODE
+   * @param dropPosition - Optional position from drag-drop. If undefined,
+   *                       places the node at the canvas viewport center.
+   */
+  const handleAddControlNode = useCallback((type: string, dropPosition?: { x: number; y: number }) => {
+    // Compute position: use drop position (already in flow coords) or viewport center
+    let position: { x: number; y: number };
+
+    if (dropPosition) {
+      // Drop position is already in React Flow coordinates (from screenToFlowPosition)
+      position = dropPosition;
+    } else if (reactFlowInstance) {
+      // Place at viewport center
+      const viewport = reactFlowInstance.getViewport();
+      const viewportX = typeof viewport?.x === 'number' && !isNaN(viewport.x) ? viewport.x : 0;
+      const viewportY = typeof viewport?.y === 'number' && !isNaN(viewport.y) ? viewport.y : 0;
+      const viewportZoom = typeof viewport?.zoom === 'number' && !isNaN(viewport.zoom) && viewport.zoom > 0 ? viewport.zoom : 1;
+      position = {
+        x: (window.innerWidth / 2 - viewportX) / viewportZoom - 100,
+        y: (window.innerHeight / 2 - viewportY) / viewportZoom - 50,
+      };
+    } else {
+      position = { x: 250, y: 250 };
+    }
+
+    // Validate
+    const positionValidation = validateNodePosition(position.x, position.y);
+    if (!positionValidation.isValid) {
+      console.warn(`Invalid control node position: ${positionValidation.error}. Using default (250, 250)`);
+      position = { x: 250, y: 250 };
+    }
+
+    // Build a default config appropriate for each node type
+    const defaultConfig: Record<string, any> = {
+      model: '',
+      temperature: 0.7,
+      system_prompt: '',
+      native_tools: [],
+      tools: [],
+      custom_tools: [],
+      // Tool node defaults
+      tool_type: null,
+      tool_id: null,
+      tool_params: {},
+    };
+
+    // For CONDITIONAL_NODE / LOOP_NODE / APPROVAL_NODE, add empty control-specific fields
+    if (type === 'CONDITIONAL_NODE') {
+      defaultConfig.condition = '';
+    } else if (type === 'LOOP_NODE') {
+      defaultConfig.max_iterations = 10;
+      defaultConfig.exit_condition = '';
+    }
+
+    const displayLabel: Record<string, string> = {
+      START_NODE: 'Start',
+      END_NODE: 'End',
+      CONDITIONAL_NODE: 'Conditional',
+      LOOP_NODE: 'Loop',
+      APPROVAL_NODE: 'Approval',
+      TOOL_NODE: 'Tool',
+    };
+
+    const newNode: Node = {
+      id: `node-${nodeIdCounter}`,
+      type: 'custom',
+      position,
+      data: {
+        label: displayLabel[type] || type,
+        agentType: type,
+        config: defaultConfig,
+      },
+    };
+
+    setNodes((nds) => [...nds, newNode]);
+    setNodeIdCounter(nodeIdCounter + 1);
+
+    // Auto fit view after a short delay
+    setTimeout(() => {
+      if (reactFlowInstance?.fitView) {
+        reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+      }
+    }, 100);
+  }, [reactFlowInstance, nodeIdCounter]);
+
   // Insert workflow recipe as a set of connected nodes and edges
   useEffect(() => {
     if (selectedRecipe) {
@@ -1981,6 +2074,26 @@ if __name__ == "__main__":
                   fitView
                   fitViewOptions={{ padding: 0.5, maxZoom: 0.6, minZoom: 0.3 }}
                   defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
+                  onDragOver={(e) => {
+                    // Allow drop by preventing default
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDrop={(e) => {
+                    // Prevent file drop handling
+                    e.preventDefault();
+
+                    // Read the dragged node type from dataTransfer
+                    const nodeType = e.dataTransfer.getData('application/x-langconfig-node');
+                    if (!nodeType) return;
+
+                    // Convert screen coordinates to flow coordinates
+                    const position = reactFlowInstance?.screenToFlowPosition
+                      ? reactFlowInstance.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+                      : { x: e.clientX, y: e.clientY };
+
+                    handleAddControlNode(nodeType, position);
+                  }}
                 >
                   <Background
                     variant={BackgroundVariant.Dots}
@@ -1994,6 +2107,13 @@ if __name__ == "__main__":
                     showInteractive={false}
                     position="top-left"
                     className="!bg-white dark:!bg-panel-dark !border-2 !border-gray-200 dark:!border-border-dark !rounded-lg !shadow-lg"
+                  />
+
+                  {/* Node Palette - Top Left (drag or click to add control nodes) */}
+                  <NodePalette
+                    onAddNode={handleAddControlNode}
+                    isCollapsed={isNodePaletteCollapsed}
+                    onToggleCollapse={() => setIsNodePaletteCollapsed(prev => !prev)}
                   />
 
                   {/* Control Buttons - Top Right */}

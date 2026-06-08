@@ -15,7 +15,7 @@ import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-from .graph_state import WorkflowState
+from core.workflows.state import WorkflowState
 from .http_bridge import (
     execute_development_task,
     validate_code_changes,

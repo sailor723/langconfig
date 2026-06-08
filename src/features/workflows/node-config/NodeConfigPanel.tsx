@@ -12,6 +12,7 @@ import { ModelSelectorInline } from '@/components/common/ModelSelector';
 import AttachmentUploader, { Attachment } from '@/components/common/AttachmentUploader';
 import apiClient from '@/lib/api-client';
 import ContextPreviewModal from '@/components/workflows/ContextPreviewModal';
+import { useAvailableTools } from '@/hooks/useAvailableTools';
 
 interface NodeConfig {
   id: string;
@@ -96,22 +97,9 @@ const MIDDLEWARE_TYPES = [
 
 // Native Python Tools (local-first, no Node.js required)
 // These map to backend/tools/native_tools.py with DeepAgents standard naming
-// See: https://docs.langchain.com/oss/python/deepagents/harness
+// Native Python Tools are now fetched dynamically from the backend registry
+// (see /api/tools/registry and src/hooks/useAvailableTools.ts).
 // Note: Memory tools (enable_memory, memory_store, memory_recall, enable_rag) moved to unified Context & Memory section
-const AVAILABLE_TOOLS = [
-  { id: 'web_search', name: 'Web Search', description: 'Search the web (DuckDuckGo)', category: 'web' },
-  { id: 'web_fetch', name: 'Web Fetch', description: 'Fetch webpage content', category: 'web' },
-  { id: 'browser', name: 'Browser Automation', description: 'Advanced web interaction (Playwright)', category: 'web' },
-  // DeepAgents standard filesystem tools
-  { id: 'read_file', name: 'Read File', description: 'Read file contents with line numbers', category: 'files' },
-  { id: 'write_file', name: 'Write File', description: 'Create new files', category: 'files' },
-  { id: 'ls', name: 'List Directory', description: 'List directory contents with metadata', category: 'files' },
-  { id: 'edit_file', name: 'Edit File', description: 'Exact string replacements in files', category: 'files' },
-  { id: 'glob', name: 'Glob', description: 'Find files matching patterns', category: 'files' },
-  { id: 'grep', name: 'Grep', description: 'Search file contents with regex', category: 'files' },
-  { id: 'reasoning_chain', name: 'Reasoning Chain', description: 'Multi-step reasoning', category: 'reasoning' },
-];
-
 // Legacy: Map old MCP tool names to new native tool names for backward compatibility
 const LEGACY_TOOL_MAP: Record<string, string> = {
   'web': 'web_search',
@@ -136,6 +124,18 @@ const NodeConfigPanel = ({
 }: NodeConfigPanelProps) => {
   const [config, setConfig] = useState<NodeConfig | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Fetch native tool registry (single source of truth for tool pickers)
+  const { tools: registryTools } = useAvailableTools();
+
+  // Build AVAILABLE_TOOLS list dynamically from the registry.
+  // The registry uses 'filesystem' but the legacy UI filter expects 'files'.
+  const AVAILABLE_TOOLS = registryTools.map(t => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    category: t.category === 'filesystem' ? 'files' : t.category,
+  }));
 
   // LangGraph HITL (Human-in-the-Loop) parameters
   const [interruptBefore, setInterruptBefore] = useState(false);
@@ -1131,56 +1131,158 @@ const NodeConfigPanel = ({
                   </div>
                 </div>
 
-                {/* Custom Tools Section */}
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    Select Custom Tool
-                  </label>
-                  <select
-                    value={selectedToolId || ''}
-                    onChange={(e) => {
-                      const toolId = e.target.value;
-                      setSelectedToolId(toolId);
-                      setSelectedToolType('custom');
-
-                      // Find the tool and load its schema
-                      const tool = availableCustomTools.find(t => t.tool_id === toolId);
-                      if (tool) {
-                        loadToolSchema('custom', toolId);
-                      }
-
-                      setConfig({
-                        ...config,
-                        tool_type: 'custom',
-                        tool_id: toolId,
-                        tool_params: {}
-                      });
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onWheel={(e) => e.stopPropagation()}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    style={{
-                      backgroundColor: 'var(--color-input-background)',
-                      borderColor: 'var(--color-border-dark)',
-                      color: 'var(--color-text-primary)'
-                    }}
-                  >
-                    <option value="">Select a custom tool...</option>
-                    {availableCustomTools.map((tool: any) => (
-                      <option key={tool.tool_id} value={tool.tool_id}>
-                        {tool.name}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedToolId && (
+                {/* Tool Selection Section */}
+                <div className="space-y-3">
+                  {/* Step 1: Select Tool Type */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                      Tool Type
+                    </label>
+                    <select
+                      value={selectedToolType || ''}
+                      onChange={(e) => {
+                        const newType: string = e.target.value;
+                        // Update state: empty string means "no type selected"
+                        setSelectedToolType(newType ? newType : null);
+                        // Reset selected tool when type changes
+                        setSelectedToolId(null);
+                        setToolInputSchema(null);
+                        setConfig({
+                          ...config,
+                          tool_type: newType || undefined,
+                          tool_id: undefined,
+                          tool_params: {}
+                        });
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onWheel={(e) => e.stopPropagation()}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      style={{
+                        backgroundColor: 'var(--color-input-background)',
+                        borderColor: 'var(--color-border-dark)',
+                        color: 'var(--color-text-primary)'
+                      }}
+                    >
+                      <option value="">Select tool type...</option>
+                      <option value="mcp">MCP Tool (built-in: Tavily, Web Search, etc.)</option>
+                      <option value="custom">Custom Tool (user-created)</option>
+                      <option value="cli">CLI Tool (shell command)</option>
+                    </select>
                     <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                      {availableCustomTools.find(t => t.tool_id === selectedToolId)?.description}
+                      {selectedToolType === 'mcp' && 'Built-in native tools from the tool registry'}
+                      {selectedToolType === 'custom' && 'User-created tools (HTTP, SQL, scripts, etc.)'}
+                      {selectedToolType === 'cli' && 'Shell command execution'}
+                      {!selectedToolType && 'Choose the kind of tool to execute'}
                     </p>
+                  </div>
+
+                  {/* Step 2: Select Specific Tool (based on type) */}
+                  {selectedToolType && (
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                        Select Tool
+                      </label>
+                      <select
+                        value={selectedToolId || ''}
+                        onChange={(e) => {
+                          const toolId = e.target.value;
+                          setSelectedToolId(toolId);
+
+                          // For custom tools, load their schema for the modal
+                          if (selectedToolType === 'custom') {
+                            const tool = availableCustomTools.find(t => t.tool_id === toolId);
+                            if (tool) {
+                              loadToolSchema('custom', toolId);
+                            }
+                          } else {
+                            // For MCP/CLI, clear any custom-tool schema
+                            setToolInputSchema(null);
+                          }
+
+                          setConfig({
+                            ...config,
+                            tool_type: selectedToolType,
+                            tool_id: toolId,
+                            tool_params: {}
+                          });
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onWheel={(e) => e.stopPropagation()}
+                        className="w-full px-3 py-2 border rounded-lg"
+                        style={{
+                          backgroundColor: 'var(--color-input-background)',
+                          borderColor: 'var(--color-border-dark)',
+                          color: 'var(--color-text-primary)'
+                        }}
+                      >
+                        <option value="">Select a tool...</option>
+                        {/* MCP tools (from registry) */}
+                        {selectedToolType === 'mcp' && toolNodeAvailableTools.mcp.map((tool: any) => (
+                          <option key={tool.tool_id} value={tool.tool_id}>
+                            {tool.name}
+                          </option>
+                        ))}
+                        {/* Custom tools (user-created) */}
+                        {selectedToolType === 'custom' && availableCustomTools.map((tool: any) => (
+                          <option key={tool.tool_id} value={tool.tool_id}>
+                            {tool.name}
+                          </option>
+                        ))}
+                        {/* CLI tools (basic preset list) */}
+                        {selectedToolType === 'cli' && (
+                          <>
+                            <option value="execute_command">Execute Shell Command</option>
+                            <option value="bash">Bash Script</option>
+                            <option value="python">Python Script</option>
+                          </>
+                        )}
+                      </select>
+                      {selectedToolId && (
+                        <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                          {selectedToolType === 'mcp' && toolNodeAvailableTools.mcp.find(t => t.tool_id === selectedToolId)?.description}
+                          {selectedToolType === 'custom' && availableCustomTools.find(t => t.tool_id === selectedToolId)?.description}
+                          {selectedToolType === 'cli' && 'Configure the shell command and parameters below'}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
 
-                {/* Open Tool Configuration Button */}
-                {selectedToolId && (
+                {/* Tool Parameters - Show for MCP/CLI tools (Custom uses modal) */}
+                {selectedToolId && selectedToolType !== 'custom' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                      Tool Parameters (JSON)
+                    </label>
+                    <textarea
+                      value={JSON.stringify(config.tool_params || {}, null, 2)}
+                      onChange={(e) => {
+                        try {
+                          const params = JSON.parse(e.target.value);
+                          setConfig({ ...config, tool_params: params });
+                        } catch {
+                          // Allow invalid JSON during typing
+                        }
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onWheel={(e) => e.stopPropagation()}
+                      rows={5}
+                      placeholder='{"query": "your search query"}'
+                      className="w-full px-3 py-2 border rounded-lg font-mono text-xs"
+                      style={{
+                        backgroundColor: 'var(--color-input-background)',
+                        borderColor: 'var(--color-border-dark)',
+                        color: 'var(--color-text-primary)'
+                      }}
+                    />
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                      JSON object with the parameters this tool expects. For Tavily: <code>{'{"query": "..."}'}</code>
+                    </p>
+                  </div>
+                )}
+
+                {/* Open Tool Configuration Button (only for custom tools) */}
+                {selectedToolId && selectedToolType === 'custom' && (
                   <div>
                     <button
                       onClick={() => setShowToolConfigModal(true)}

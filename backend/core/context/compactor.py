@@ -15,7 +15,7 @@ from typing import List, Optional, Tuple
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.language_models import BaseLLM
 
-from .graph_state import WorkflowState, HandoffSummary
+from core.workflows.state import WorkflowState, HandoffSummary
 
 logger = logging.getLogger(__name__)
 
