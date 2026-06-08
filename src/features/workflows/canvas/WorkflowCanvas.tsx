@@ -1243,7 +1243,7 @@ if __name__ == "__main__":
   /**
    * Compute the rectangular overlap between two nodes in flow coordinates.
    * Returns the overlap area as a fraction of the dragged node's area.
-   * A value >= 0.3 means "30% of the dragged node is inside the target".
+   * A value >= 0.1 means "10% of the dragged node is inside the target".
    */
   const computeOverlapFraction = (
     dragged: Node,
@@ -1278,11 +1278,11 @@ if __name__ == "__main__":
 
   /**
    * Find the first node that overlaps with the dragged node by at least
-   * OVERLAP_THRESHOLD (30%). Returns null if none.
+   * OVERLAP_THRESHOLD (10%). Returns null if none.
    * Only considers "real" target nodes - the dragged node itself and the
    * Start/End counterparts are filtered by the caller.
    */
-  const OVERLAP_THRESHOLD = 0.3;
+  const OVERLAP_THRESHOLD = 0.1;
   const findOverlapTarget = useCallback(
     (draggedNode: Node, currentNodes: Node[]): Node | null => {
       for (const candidate of currentNodes) {
@@ -1305,7 +1305,7 @@ if __name__ == "__main__":
       // 1) Overlap-to-link for Start/End nodes
       // ReactFlow gives us the dragged node directly. We only care about
       // START_NODE and END_NODE; for those, we look for any other node
-      // overlapping >= OVERLAP_THRESHOLD (30%) and auto-create an edge.
+      // overlapping >= OVERLAP_THRESHOLD (10%) and auto-create an edge.
       if (draggedNode) {
         const draggedType = (draggedNode.data as any)?.agentType;
         if (draggedType === 'START_NODE' || draggedType === 'END_NODE') {
