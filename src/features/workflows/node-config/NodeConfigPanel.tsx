@@ -420,19 +420,17 @@ const NodeConfigPanel = ({
     const fetchToolNodeTools = async () => {
       try {
         // Fetch custom tools
-        const customToolsRes = await apiClient.listCustomTools();
+        const customToolsRes = await apiClient.listCustomTools({ signal: abortController.signal });
         const customTools = customToolsRes.data || [];
 
-        // MCP tools - DeepAgents standard naming
-        const mcpTools = [
-          { tool_id: 'web_search', name: 'Web Search', description: 'Search the web' },
-          { tool_id: 'read_file', name: 'Read File', description: 'Read file contents with line numbers' },
-          { tool_id: 'write_file', name: 'Write File', description: 'Create new files' },
-          { tool_id: 'ls', name: 'List Directory', description: 'List directory contents with metadata' },
-          { tool_id: 'edit_file', name: 'Edit File', description: 'Exact string replacements in files' },
-          { tool_id: 'glob', name: 'Glob', description: 'Find files matching patterns' },
-          { tool_id: 'grep', name: 'Grep', description: 'Search file contents with regex' }
-        ];
+        // MCP tools - fetched from backend registry (single source of truth)
+        const registryRes = await apiClient.listToolRegistry({ signal: abortController.signal });
+        const registry = (registryRes.data || []) as Array<{ id: string; name: string; description: string }>;
+        const mcpTools = registry.map(t => ({
+          tool_id: t.id,
+          name: t.name,
+          description: t.description,
+        }));
 
         setToolNodeAvailableTools({ custom: customTools, mcp: mcpTools, cli: [] });
       } catch (error) {
