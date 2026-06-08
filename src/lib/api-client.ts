@@ -523,6 +523,7 @@ class APIClient {
     deepseek_api_key?: string;
     glm_api_key?: string;
     minimax_api_key?: string;
+    tavily_api_key?: string;
   }) {
     return this.client.post('/api/settings/api-keys', data);
   }

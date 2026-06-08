@@ -260,6 +260,7 @@ export default function SettingsView() {
               deepseek_api_key: apiKeys.deepseek || undefined,
               glm_api_key: apiKeys.glm || undefined,
               minimax_api_key: apiKeys.minimax || undefined,
+              tavily_api_key: apiKeys.tavily || undefined,
             });
             break;
 

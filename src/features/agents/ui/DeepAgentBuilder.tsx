@@ -169,6 +169,7 @@ const FILESYSTEM_TOOLS = ['ls', 'read_file', 'write_file', 'edit_file', 'glob', 
 const DEFAULT_AGENT_TOOLS = [...FILESYSTEM_TOOLS, 'web_search'];
 
 const DEFAULT_CONFIG: DeepAgentConfig = {
+  category: 'Custom',
   model: 'claude-sonnet-4-5-20250929',
   temperature: 0.7,
   system_prompt: 'You are a helpful AI assistant with planning, research, and task delegation capabilities. When facing complex multi-step tasks, use the `task` tool to delegate specialized work to subagents.',
