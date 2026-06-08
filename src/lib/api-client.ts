@@ -540,6 +540,16 @@ class APIClient {
     return this.client.get('/api/settings/models');
   }
 
+  async modelInvoke(data: {
+    model: string;
+    message: string;
+    system_prompt?: string;
+    temperature?: number;
+    max_tokens?: number;
+  }) {
+    return this.client.post('/api/models/invoke', data);
+  }
+
   // Local Models
   async listLocalModels(params?: { only_validated?: boolean; only_active?: boolean }) {
     return this.client.get('/api/local-models/', { params });
