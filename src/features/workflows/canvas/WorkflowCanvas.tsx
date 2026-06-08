@@ -1613,6 +1613,64 @@ if __name__ == "__main__":
       position = { x: 250, y: 250 };
     }
 
+    // Smart placement for Start/End:
+    // If a regular agent node already exists on the canvas, place Start to
+    // the agent's left and End to the agent's right (vertically aligned).
+    // This works with overlap-to-link: the new node will overlap the agent
+    // and create the edge automatically.
+    const isControlType = (t: string) =>
+      t === 'START_NODE' || t === 'END_NODE' ||
+      t === 'CONDITIONAL_NODE' || t === 'LOOP_NODE' ||
+      t === 'APPROVAL_NODE' || t === 'TOOL_NODE';
+    const realAgents = nodes.filter((n) => {
+      const at = (n.data as any)?.agentType;
+      return !at || !isControlType(at);
+    });
+
+    if (!dropPosition && (type === 'START_NODE' || type === 'END_NODE') && realAgents.length > 0) {
+      // Pick the first agent that doesn't already have a Start (or End) wired to it
+      const existingStartIds = new Set(
+        nodes
+          .filter((n) => (n.data as any)?.agentType === 'START_NODE')
+          .map((n) => n.id)
+      );
+      const existingEndIds = new Set(
+        nodes
+          .filter((n) => (n.data as any)?.agentType === 'END_NODE')
+          .map((n) => n.id)
+      );
+
+      const candidate = realAgents.find((a) => {
+        if (type === 'START_NODE') {
+          return !edges.some(
+            (e) => existingStartIds.has(e.source) && e.target === a.id
+          );
+        }
+        return !edges.some(
+          (e) => existingEndIds.has(e.target) && e.source === a.id
+        );
+      }) || realAgents[0];
+
+      const GAP = 20;
+      const nodeW = candidate.width ?? 200;
+      const nodeH = candidate.height ?? 100;
+      const startW = 200; // Control nodes render at ~200x100
+      const startH = 100;
+      // Center vertically on the target, then place Start on left / End on right
+      const yAligned = candidate.position.y + (nodeH - startH) / 2;
+      if (type === 'START_NODE') {
+        position = {
+          x: candidate.position.x - startW - GAP,
+          y: yAligned,
+        };
+      } else {
+        position = {
+          x: candidate.position.x + nodeW + GAP,
+          y: yAligned,
+        };
+      }
+    }
+
     // Build a default config appropriate for each node type
     const defaultConfig: Record<string, any> = {
       model: '',
