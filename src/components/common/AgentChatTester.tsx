@@ -184,11 +184,13 @@ export default function AgentChatTester({
               const data = JSON.parse(line.substring(6));
 
               if (data.type === 'chunk') {
-                // Append to last message
+                // Append to last message (defensive: check lastMsg exists)
                 setMessages(prev => {
                   const newMessages = [...prev];
                   const lastMsg = newMessages[newMessages.length - 1];
-                  lastMsg.content += data.content;
+                  if (lastMsg && data.content != null) {
+                    lastMsg.content += String(data.content);
+                  }
                   return newMessages;
                 });
               } else if (data.type === 'complete') {
@@ -196,7 +198,9 @@ export default function AgentChatTester({
                 setMessages(prev => {
                   const newMessages = [...prev];
                   const lastMsg = newMessages[newMessages.length - 1];
-                  lastMsg.content = data.content;
+                  if (lastMsg) {
+                    lastMsg.content = data.content || '';
+                  }
                   return newMessages;
                 });
               } else if (data.type === 'error') {
@@ -211,8 +215,14 @@ export default function AgentChatTester({
 
       setIsStreaming(false);
 
-      // Fetch updated metrics
-      await fetchMetrics();
+      // Fetch updated metrics (if session still valid)
+      if (sessionId) {
+        try {
+          await fetchMetrics();
+        } catch (e) {
+          console.error('Metrics fetch failed (non-fatal):', e);
+        }
+      }
 
     } catch (err) {
       setError('Failed to send message');
@@ -230,9 +240,16 @@ export default function AgentChatTester({
     try {
       const response = await apiClient.getChatMetrics(sessionId);
       const data = response.data;
-      setMetrics(data.metrics);
-      setToolCalls(data.tool_calls || []);
-      setSubagentActivity(data.subagent_spawns || []);
+      // Merge with defaults to handle missing properties from backend
+      setMetrics({
+        total_tokens: 0,
+        tool_calls: 0,
+        subagent_spawns: 0,
+        context_operations: 0,
+        ...(data?.metrics || {})
+      });
+      setToolCalls(data?.tool_calls || []);
+      setSubagentActivity(data?.subagent_spawns || []);
     } catch (err) {
       console.error('Failed to fetch metrics:', err);
     }
@@ -478,22 +495,22 @@ export default function AgentChatTester({
                 <MetricItem
                   icon={<Activity className="w-4 h-4" />}
                   label="Total Tokens"
-                  value={metrics.total_tokens.toLocaleString()}
+                  value={String(metrics.total_tokens ?? 0)}
                 />
                 <MetricItem
                   icon={<Zap className="w-4 h-4" />}
                   label="Tool Calls"
-                  value={metrics.tool_calls.toString()}
+                  value={String(metrics.tool_calls ?? 0)}
                 />
                 <MetricItem
                   icon={<Users className="w-4 h-4" />}
                   label="Subagent Spawns"
-                  value={metrics.subagent_spawns.toString()}
+                  value={String(metrics.subagent_spawns ?? 0)}
                 />
                 <MetricItem
                   icon={<Database className="w-4 h-4" />}
                   label="Context Ops"
-                  value={metrics.context_operations.toString()}
+                  value={String(metrics.context_operations ?? 0)}
                 />
               </div>
             </div>

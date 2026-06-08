@@ -7,10 +7,12 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Trash2, Edit, Download, Copy, Upload, Sparkles, Code, Database, Terminal, X, Save, BookOpen, Tag, Clock, TrendingUp, Settings } from 'lucide-react';
+import { Search, Plus, Trash2, Edit, Download, Copy, Upload, Sparkles, Code, Database, Terminal, X, Save, BookOpen, Tag, Clock, TrendingUp, Settings, Play } from 'lucide-react';
 import DeepAgentBuilder from './DeepAgentBuilder';
 import SkillBuilderModal from './SkillBuilderModal';
 import CustomToolBuilder from '../../tools/ui/CustomToolBuilder';
+import AgentChatTester from '../../../components/common/AgentChatTester';
+import { ErrorBoundary } from '../../../components/common/ErrorBoundary';
 import apiClient, { ConflictErrorClass } from '../../../lib/api-client';
 import ConflictDialog from '../../workflows/ui/ConflictDialog';
 import { useNotification } from '../../../hooks/useNotification';
@@ -83,9 +85,10 @@ interface AgentConfigViewProps {
   onSave: (config: any) => Promise<void>;
   onDelete: () => void;
   onClose: () => void;
+  onTest?: (agentId: number, agentName: string) => void;
 }
 
-const AgentConfigView = ({ agent, onSave, onDelete, onClose }: AgentConfigViewProps) => {
+const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConfigViewProps) => {
   const [config, setConfig] = useState(agent.config || {});
   const [agentName, setAgentName] = useState(agent.name);
   const [agentDescription, setAgentDescription] = useState(agent.description);
@@ -527,9 +530,20 @@ print(result)
               <div className="flex flex-col gap-3 justify-between">
                 {/* Action Buttons Row */}
                 <div className="flex items-center gap-2">
+                  {onTest && (
+                    <button
+                      onClick={() => onTest(agent.id, agent.name)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity flex items-center gap-2"
+                      style={{ backgroundColor: 'var(--color-primary)' }}
+                    >
+                      <Play size={16} />
+                      Test Agent
+                    </button>
+                  )}
                   <button
                     onClick={handleViewCode}
-                    className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark text-gray-700 dark:text-gray-200 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity flex items-center gap-2"
+                    style={{ backgroundColor: 'var(--color-primary)' }}
                   >
                     <Code size={16} />
                     View Code
@@ -2496,6 +2510,7 @@ const AgentLoadouts = () => {
   const [editingTool, setEditingTool] = useState<string | null>(null);
   const [cameFromTypeSelector, setCameFromTypeSelector] = useState(false);
   const [toolTemplate, setToolTemplate] = useState<any>(null);
+  const [testingAgent, setTestingAgent] = useState<{ id: number; name: string } | null>(null);
 
   // Skills state
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -3572,12 +3587,12 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
             <AgentConfigView
               agent={selectedItem.data}
               onSave={async (updatedConfig) => {
-                // FIX: Pass the agent info for update instead of create
                 await handleSaveAgentFromConfigView(selectedItem.data.id, updatedConfig);
-                loadAgents(); // Refresh the list
+                loadAgents();
               }}
               onDelete={() => handleDeleteAgent(selectedItem.data.id)}
               onClose={() => setSelectedItem(null)}
+              onTest={(id, name) => setTestingAgent({ id, name })}
             />
           ) : selectedItem.type === 'skill' ? (
             /* Skill Configuration View */
@@ -4099,6 +4114,32 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
           />
         )
       }
+
+      {/* Agent Chat Tester Modal */}
+      {testingAgent && (
+        <ErrorBoundary
+          fallback={
+            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-[#0a0a0a] border border-gray-800 rounded-xl p-8 max-w-lg w-full">
+                <h2 className="text-xl font-semibold text-white mb-3">Chat Error</h2>
+                <p className="text-red-400 text-sm mb-4">Something went wrong while loading the chat. Check console for details.</p>
+                <button
+                  onClick={() => setTestingAgent(null)}
+                  className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          }
+        >
+          <AgentChatTester
+            agentId={testingAgent.id}
+            agentName={testingAgent.name}
+            onClose={() => setTestingAgent(null)}
+          />
+        </ErrorBoundary>
+      )}
 
       {/* Notification Modal */}
       <NotificationModal />

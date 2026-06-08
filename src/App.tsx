@@ -14,6 +14,7 @@ import { TaskHistoryEntry } from './features/workflows/canvas/types';
 import WorkflowLibraryView from './features/workflows/library/WorkflowLibraryView';
 import NodeConfigPanel from './features/workflows/node-config/NodeConfigPanel';
 import SettingsView from './pages/SettingsPage';
+import PlaygroundPage from './pages/PlaygroundPage';
 import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
 import AgentLoadouts from './features/agents/ui/AgentLoadouts';
 import { SkillLibrary } from './features/skills';
@@ -26,7 +27,7 @@ import { ChatProvider } from './features/chat/state/ChatContext';
 import GlobalChatModal from './features/chat/ui/GlobalChatModal';
 import apiClient from './lib/api-client';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community';
+type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -170,6 +171,7 @@ function AppContent() {
     if (path === '/skills') return 'skills';
     if (path === '/community') return 'community';
     if (path === '/settings') return 'settings';
+    if (path === '/playground') return 'playground';
     return 'home';
   })();
 
@@ -218,7 +220,8 @@ function AppContent() {
       skills: '/skills',
       knowledge: '/knowledge',
       community: '/community',
-      settings: '/settings'
+      settings: '/settings',
+      playground: '/playground'
     };
     navigate(routes[view]);
   };
@@ -428,6 +431,7 @@ function AppContent() {
           {currentView === 'knowledge' && <KnowledgeBaseView />}
           {currentView === 'community' && <CommunityPage />}
           {currentView === 'settings' && <SettingsView />}
+          {currentView === 'playground' && <PlaygroundPage />}
         </div>
 
         {/* Right Panel - Node Config (only in studio view on studio tab with selected node) */}
