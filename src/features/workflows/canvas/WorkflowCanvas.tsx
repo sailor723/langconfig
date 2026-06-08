@@ -1298,72 +1298,60 @@ if __name__ == "__main__":
   );
 
   // Handle node drag stop - save workflow after drag completes
-  const onNodeDragStop = useCallback(() => {
-    isDraggingRef.current = false;
+  const onNodeDragStop = useCallback(
+    (_event: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent, draggedNode?: Node) => {
+      isDraggingRef.current = false;
 
-    // 1) Overlap-to-link for Start/End nodes
-    // If a START_NODE is dropped on top of another node, create a source->target edge.
-    // If an END_NODE is dropped on top of another node, create a source->end edge.
-    setNodes((currentNodes) => {
-      // The dragged node is the last one whose position changed in this drag.
-      // ReactFlow fires onNodeDragStop after the state is already updated, so
-      // currentNodes already has the new positions. We identify the dragged
-      // node by comparing against the snapshot in `nodes` (state at hook level).
-      const draggedNode = currentNodes.find(
-        (n) => n.position.x !== nodes.find((orig) => orig.id === n.id)?.position.x
-            || n.position.y !== nodes.find((orig) => orig.id === n.id)?.position.y
-      );
-      if (!draggedNode) return currentNodes;
+      // 1) Overlap-to-link for Start/End nodes
+      // ReactFlow gives us the dragged node directly. We only care about
+      // START_NODE and END_NODE; for those, we look for any other node
+      // overlapping >= OVERLAP_THRESHOLD (30%) and auto-create an edge.
+      if (draggedNode) {
+        const draggedType = (draggedNode.data as any)?.agentType;
+        if (draggedType === 'START_NODE' || draggedType === 'END_NODE') {
+          // Read the latest nodes snapshot (drag has already committed)
+          const latestNodes = nodes;
+          const target = findOverlapTarget(draggedNode, latestNodes);
+          if (target) {
+            const sourceId = draggedType === 'START_NODE' ? draggedNode.id : target.id;
+            const targetId = draggedType === 'START_NODE' ? target.id : draggedNode.id;
 
-      const draggedType = (draggedNode.data as any)?.agentType;
-      if (draggedType !== 'START_NODE' && draggedType !== 'END_NODE') {
-        return currentNodes;
+            setEdges((eds: Edge[]) => {
+              const exists = eds.some(
+                (e) => e.source === sourceId && e.target === targetId
+              );
+              if (exists) return eds;
+
+              const primaryColor = getComputedStyle(document.documentElement)
+                .getPropertyValue('--color-primary')
+                .trim();
+
+              const newEdge: Edge = {
+                id: `e-${sourceId}-${targetId}-${Date.now()}`,
+                source: sourceId,
+                target: targetId,
+                type: 'smoothstep',
+                animated: false,
+                style: {
+                  stroke: primaryColor || '#6366f1',
+                  strokeWidth: 2.5,
+                },
+                markerEnd: {
+                  type: 'arrowclosed' as const,
+                  color: primaryColor || '#6366f1',
+                },
+              } as Edge;
+
+              showSuccess(
+                draggedType === 'START_NODE'
+                  ? `Linked Start → ${(target.data as any)?.name || target.id}`
+                  : `Linked ${(target.data as any)?.name || target.id} → End`
+              );
+              return [...eds, newEdge];
+            });
+          }
+        }
       }
-
-      const target = findOverlapTarget(draggedNode, currentNodes);
-      if (!target) return currentNodes;
-
-      // Compute the new connection in the correct direction
-      const sourceId = draggedType === 'START_NODE' ? draggedNode.id : target.id;
-      const targetId = draggedType === 'START_NODE' ? target.id : draggedNode.id;
-
-      setEdges((eds: Edge[]) => {
-        // Skip if an edge in the same direction already exists
-        const exists = eds.some(
-          (e) => e.source === sourceId && e.target === targetId
-        );
-        if (exists) return eds;
-
-        const primaryColor = getComputedStyle(document.documentElement)
-          .getPropertyValue('--color-primary')
-          .trim();
-
-        const newEdge: Edge = {
-          id: `e-${sourceId}-${targetId}-${Date.now()}`,
-          source: sourceId,
-          target: targetId,
-          type: 'smoothstep',
-          animated: false,
-          style: {
-            stroke: primaryColor || '#6366f1',
-            strokeWidth: 2.5,
-          },
-          markerEnd: {
-            type: 'arrowclosed' as const,
-            color: primaryColor || '#6366f1',
-          },
-        } as Edge;
-
-        showSuccess(
-          draggedType === 'START_NODE'
-            ? `Linked Start → ${target.data?.name || target.id}`
-            : `Linked ${target.data?.name || target.id} → End`
-        );
-        return [...eds, newEdge];
-      });
-
-      return currentNodes;
-    });
 
     // 2) Validate and fix node positions before saving
     setNodes((currentNodes) =>
@@ -1402,7 +1390,7 @@ if __name__ == "__main__":
       };
       localStorage.setItem('langconfig-workflow', JSON.stringify(workflowData));
     }, 0);
-  }, [nodes, edges, nodeIdCounter, reactFlowInstance, workflowName, currentWorkflowId, setNodes]);
+  }, [nodes, edges, nodeIdCounter, reactFlowInstance, workflowName, currentWorkflowId, setNodes, setEdges, findOverlapTarget, showSuccess]);
 
   // Add selected agent as a new node
   useEffect(() => {
