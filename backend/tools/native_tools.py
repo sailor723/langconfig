@@ -1505,3 +1505,143 @@ def get_available_tool_names() -> List[str]:
 
 # Registry of filesystem tools for DeepAgents harness
 FILESYSTEM_TOOLS = ["ls", "read_file", "write_file", "edit_file", "glob", "grep"]
+
+
+# =============================================================================
+# Tool Registry (UI-facing metadata)
+# =============================================================================
+# Single source of truth for tool metadata displayed in the frontend.
+# Add a new tool here (id, name, description, category, requires_api_key) and
+# it will automatically appear in both the agent editor and the Studio node
+# config panel via GET /api/tools/registry.
+
+TOOL_REGISTRY = [
+    # Web tools
+    {
+        "id": "web_search",
+        "name": "Web Search",
+        "description": "Search the web (DuckDuckGo, no API key required)",
+        "category": "web",
+        "requires_api_key": None,
+    },
+    {
+        "id": "tavily_search",
+        "name": "Tavily Search",
+        "description": "AI-optimized web search (requires TAVILY_API_KEY in Settings > API Keys)",
+        "category": "web",
+        "requires_api_key": "TAVILY_API_KEY",
+    },
+    {
+        "id": "web_fetch",
+        "name": "Web Fetch",
+        "description": "Fetch the content of a webpage and convert to markdown",
+        "category": "web",
+        "requires_api_key": None,
+    },
+    {
+        "id": "browser",
+        "name": "Browser Automation",
+        "description": "Advanced web interaction via Playwright (navigate, click, type)",
+        "category": "web",
+        "requires_api_key": None,
+    },
+    # Filesystem tools
+    {
+        "id": "ls",
+        "name": "List Directory",
+        "description": "List directory contents with metadata",
+        "category": "filesystem",
+        "requires_api_key": None,
+    },
+    {
+        "id": "read_file",
+        "name": "Read File",
+        "description": "Read file contents with line numbers",
+        "category": "filesystem",
+        "requires_api_key": None,
+    },
+    {
+        "id": "write_file",
+        "name": "Write File",
+        "description": "Create new files",
+        "category": "filesystem",
+        "requires_api_key": None,
+    },
+    {
+        "id": "edit_file",
+        "name": "Edit File",
+        "description": "Exact string replacements in files",
+        "category": "filesystem",
+        "requires_api_key": None,
+    },
+    {
+        "id": "glob",
+        "name": "Glob",
+        "description": "Find files matching patterns",
+        "category": "filesystem",
+        "requires_api_key": None,
+    },
+    {
+        "id": "grep",
+        "name": "Grep",
+        "description": "Search file contents with regex",
+        "category": "filesystem",
+        "requires_api_key": None,
+    },
+    # Memory tools
+    {
+        "id": "memory_store",
+        "name": "Memory Store",
+        "description": "Store a fact in long-term memory",
+        "category": "memory",
+        "requires_api_key": None,
+    },
+    {
+        "id": "memory_recall",
+        "name": "Memory Recall",
+        "description": "Recall relevant facts from long-term memory",
+        "category": "memory",
+        "requires_api_key": None,
+    },
+    # Reasoning tools
+    {
+        "id": "reasoning_chain",
+        "name": "Reasoning Chain",
+        "description": "Step-by-step reasoning over complex problems",
+        "category": "reasoning",
+        "requires_api_key": None,
+    },
+    # Subagent delegation
+    {
+        "id": "task",
+        "name": "Task (Subagent)",
+        "description": "Delegate a task to a subagent",
+        "category": "delegation",
+        "requires_api_key": None,
+    },
+    {
+        "id": "delegate",
+        "name": "Delegate",
+        "description": "Alias for task (subagent delegation)",
+        "category": "delegation",
+        "requires_api_key": None,
+    },
+]
+
+
+def get_tool_registry() -> List[Dict[str, Any]]:
+    """
+    Get the full tool registry with metadata for UI display.
+
+    Returns a list of tool metadata dictionaries consumed by the frontend
+    (agent editor, Studio node config). Each entry contains:
+      - id: unique tool identifier
+      - name: human-readable name
+      - description: short description
+      - category: grouping key (web, filesystem, memory, reasoning, delegation)
+      - requires_api_key: env var name of the required API key, or None
+
+    Returns:
+        List of tool metadata dictionaries
+    """
+    return TOOL_REGISTRY

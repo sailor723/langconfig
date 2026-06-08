@@ -274,6 +274,7 @@ from api.agents import deep_agents as deepagents, routes as agents, generator as
 from api.chat import routes as chat
 from api.hitl import routes as hitl
 from api.tools import routes as custom_tools
+from api.tools import registry as tool_registry
 from api.images import routes as images
 from api.memory import routes as memory
 from api.workspace import routes as workspace
@@ -307,6 +308,7 @@ app.include_router(model_routes.router)  # Model invocation (Playground)
 app.include_router(agents.router)  # Agent templates (preset agents)
 app.include_router(action_presets.router)  # Action presets library with enhanced metadata
 app.include_router(custom_tools.router)  # Custom user-defined tools
+app.include_router(tool_registry.router)  # Native tool registry (single source of truth for UI)
 app.include_router(skills.router)  # Skills system - modular, context-aware capabilities
 app.include_router(images.router)  # Image storage and serving (for AI-generated images)
 app.include_router(deepagents.router)  # DeepAgents configuration and export

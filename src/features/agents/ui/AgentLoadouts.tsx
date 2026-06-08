@@ -17,6 +17,7 @@ import apiClient, { ConflictErrorClass } from '../../../lib/api-client';
 import ConflictDialog from '../../workflows/ui/ConflictDialog';
 import { useNotification } from '../../../hooks/useNotification';
 import { useAvailableModels } from '../../../hooks/useAvailableModels';
+import { useAvailableTools } from '../../../hooks/useAvailableTools';
 
 interface Agent {
   id: number;
@@ -120,6 +121,9 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
   // Fetch available models
   const { models: availableModelsList, isLoading: isModelsLoading } = useAvailableModels();
 
+  // Fetch native tool registry (single source of truth for tool pickers)
+  const { tools: registryTools } = useAvailableTools();
+
   // Update config when agent changes
   useEffect(() => {
     setConfig(agent.config || {});
@@ -188,24 +192,18 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     };
   }, []);
 
-  // Complete tool list from backend/tools/native_tools.py with DeepAgents standard naming
-  // See: https://docs.langchain.com/oss/python/deepagents/harness
-  const AVAILABLE_TOOLS = [
-    { id: 'web_search', name: 'Web Search', description: 'Search the web (DuckDuckGo)', category: 'web' },
-    { id: 'web_fetch', name: 'Web Fetch', description: 'Fetch webpage content', category: 'web' },
-    { id: 'browser', name: 'Browser Automation', description: 'Advanced web interaction (Playwright)', category: 'web' },
-    // DeepAgents standard filesystem tools
-    { id: 'read_file', name: 'Read File', description: 'Read file contents with line numbers', category: 'files' },
-    { id: 'write_file', name: 'Write File', description: 'Create new files', category: 'files' },
-    { id: 'ls', name: 'List Directory', description: 'List directory contents with metadata', category: 'files' },
-    { id: 'edit_file', name: 'Edit File', description: 'Exact string replacements in files', category: 'files' },
-    { id: 'glob', name: 'Glob', description: 'Find files matching patterns', category: 'files' },
-    { id: 'grep', name: 'Grep', description: 'Search file contents with regex', category: 'files' },
+  // Capability flags (not real tools - they are agent-level toggles)
+  // Real tools are fetched from the backend registry via useAvailableTools()
+  const CAPABILITY_FLAGS = [
     { id: 'enable_memory', name: 'Enable Memory', description: 'Capability flag: enables long‑term memory for this agent (persisted via project/workflow store). Not a tool by itself; pair with Store/Recall Memory.', category: 'memory' },
-    { id: 'memory_store', name: 'Store Memory', description: 'Save information to the agent\'s long‑term memory store', category: 'memory' },
-    { id: 'memory_recall', name: 'Recall Memory', description: 'Retrieve previously stored information from memory', category: 'memory' },
     { id: 'enable_rag', name: 'Enable RAG', description: 'Capability flag: enables retrieval from the project\'s vector store (documents/KB). Not a tool by itself.', category: 'memory' },
-    { id: 'reasoning_chain', name: 'Reasoning Chain', description: 'Multi-step reasoning', category: 'reasoning' },
+  ];
+
+  // Build the full list: registry tools (from backend) + capability flags
+  // Falls back to an empty list if the registry is still loading or failed to load
+  const AVAILABLE_TOOLS = [
+    ...registryTools.map(t => ({ id: t.id, name: t.name, description: t.description, category: t.category })),
+    ...CAPABILITY_FLAGS,
   ];
 
   // Complete middleware list from backend/orchestration/middleware_presets.py
