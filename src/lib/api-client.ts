@@ -731,6 +731,11 @@ class APIClient {
     return this.client.get('/api/custom-tools', { params: Object.keys(params).length ? params : undefined, signal });
   }
 
+  // Native Tool Registry (single source of truth for UI tool pickers)
+  async listToolRegistry(config?: { signal?: AbortSignal }) {
+    return this.client.get('/api/tools/registry', config);
+  }
+
   async getCustomTool(toolId: string, config?: { signal?: AbortSignal }) {
     return this.client.get(`/api/custom-tools/${toolId}`, config);
   }
