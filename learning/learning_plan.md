@@ -121,6 +121,23 @@
 
 ---
 
+## Phase 9: UI — Agents, Workflows & Studio (UX Walkthrough)
+
+> Companion guide to the backend phases — focuses on the **mental model** of how Agents and Workflows are exposed in the UI, where things live (Studio, Library, Agents), and how to navigate (Save → Library → right-click → Rename → Run → Results).
+
+| Topic | LangConfig Implementation |
+|---|---|
+| Agent vs Workflow concept | [`learning/phase6-ui/README.md`](phase6-ui/README.md) |
+| Studio (visual canvas) | [`src/features/workflows/canvas/WorkflowCanvas.tsx`](../src/features/workflows/canvas/WorkflowCanvas.tsx) |
+| Library (saved workflows browser) | [`src/features/workflows/library/WorkflowLibraryView.tsx`](../src/features/workflows/library/WorkflowLibraryView.tsx) |
+| Agent builder UI | [`src/features/agents/ui/AgentLoadouts.tsx`](../src/features/agents/ui/AgentLoadouts.tsx) |
+| Test Agent modal (streaming chat) | [`src/components/common/AgentChatTester.tsx`](../src/components/common/AgentChatTester.tsx) |
+| Modern header / navigation | [`src/components/layout/ModernHeader.tsx`](../src/components/layout/ModernHeader.tsx) |
+
+**Goal**: Build a clear mental model of Agent vs Workflow, learn the UI lifecycle (Save → Library → Rename → Run → Results), and understand why Start/End control nodes are required.
+
+---
+
 ## Suggested Study Order
 
 1. **Phase 1 -> 2 -> 3** (core: LLM -> Tools -> Memory) — the building blocks of any agent
