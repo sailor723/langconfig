@@ -35,7 +35,7 @@ from .graph_state import (
 )
 
 # Context Management
-from .context_synthesis import assemble_context_package
+from core.context.synthesis import assemble_context_package
 
 # Type hints for injected dependencies
 from core.agents.factory import AgentFactory
