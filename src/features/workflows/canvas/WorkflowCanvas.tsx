@@ -186,6 +186,51 @@ interface WorkflowCanvasProps {
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
 
+/**
+ * Play a short, pleasant two-tone chime using the Web Audio API
+ * to confirm a link was just created. No audio file required.
+ * Safe to call repeatedly; the AudioContext is created lazily on
+ * the first user interaction (most browsers block audio before then).
+ */
+let _linkAlarmCtx: AudioContext | null = null;
+const playLinkAlarm = (): void => {
+  try {
+    if (typeof window === 'undefined' || !('AudioContext' in window || 'webkitAudioContext' in (window as any))) {
+      return;
+    }
+    const Ctor = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
+    if (!_linkAlarmCtx) {
+      _linkAlarmCtx = new Ctor();
+    }
+    const ctx = _linkAlarmCtx;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    const now = ctx.currentTime;
+
+    // Two-tone "ding" — ascending pair, soft envelope
+    const tones = [
+      { freq: 660, start: 0.00, dur: 0.10 },
+      { freq: 880, start: 0.06, dur: 0.14 },
+    ];
+    for (const tone of tones) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = tone.freq;
+      gain.gain.setValueAtTime(0.0001, now + tone.start);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + tone.start + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + tone.start + tone.dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + tone.start);
+      osc.stop(now + tone.start + tone.dur + 0.02);
+    }
+  } catch {
+    // Audio is best-effort. Never let a chime break the workflow.
+  }
+};
+
 // Custom Node Component is imported from ./nodes/CustomNode.tsx
 // WorkflowCanvasContext is imported from ./context.ts
 // TaskFile type is imported from ./hooks/useFileHandling
@@ -1243,7 +1288,7 @@ if __name__ == "__main__":
   /**
    * Compute the rectangular overlap between two nodes in flow coordinates.
    * Returns the overlap area as a fraction of the dragged node's area.
-   * A value >= 0.1 means "10% of the dragged node is inside the target".
+   * A value >= 0.05 means "5% of the dragged node is inside the target".
    */
   const computeOverlapFraction = (
     dragged: Node,
@@ -1278,11 +1323,11 @@ if __name__ == "__main__":
 
   /**
    * Find the first node that overlaps with the dragged node by at least
-   * OVERLAP_THRESHOLD (10%). Returns null if none.
+   * OVERLAP_THRESHOLD (5%). Returns null if none.
    * Only considers "real" target nodes - the dragged node itself and the
    * Start/End counterparts are filtered by the caller.
    */
-  const OVERLAP_THRESHOLD = 0.1;
+  const OVERLAP_THRESHOLD = 0.05;
   const findOverlapTarget = useCallback(
     (draggedNode: Node, currentNodes: Node[]): Node | null => {
       for (const candidate of currentNodes) {
@@ -1305,7 +1350,7 @@ if __name__ == "__main__":
       // 1) Overlap-to-link for Start/End nodes
       // ReactFlow gives us the dragged node directly. We only care about
       // START_NODE and END_NODE; for those, we look for any other node
-      // overlapping >= OVERLAP_THRESHOLD (10%) and auto-create an edge.
+      // overlapping >= OVERLAP_THRESHOLD (5%) and auto-create an edge.
       if (draggedNode) {
         const draggedType = (draggedNode.data as any)?.agentType;
         if (draggedType === 'START_NODE' || draggedType === 'END_NODE') {
@@ -1331,10 +1376,11 @@ if __name__ == "__main__":
                 source: sourceId,
                 target: targetId,
                 type: 'smoothstep',
-                animated: false,
+                // Animate briefly for a visual ping, then turn it off
+                animated: true,
                 style: {
                   stroke: primaryColor || '#6366f1',
-                  strokeWidth: 2.5,
+                  strokeWidth: 4,
                 },
                 markerEnd: {
                   type: 'arrowclosed' as const,
@@ -1347,6 +1393,26 @@ if __name__ == "__main__":
                   ? `Linked Start → ${(target.data as any)?.name || target.id}`
                   : `Linked ${(target.data as any)?.name || target.id} → End`
               );
+
+              // Audio + visual alarm to confirm the link was created
+              playLinkAlarm();
+              window.setTimeout(() => {
+                setEdges((eds2: Edge[]) =>
+                  eds2.map((e) =>
+                    e.id === newEdge.id
+                      ? {
+                          ...e,
+                          animated: false,
+                          style: {
+                            ...(e.style || {}),
+                            strokeWidth: 2.5,
+                          },
+                        }
+                      : e
+                  )
+                );
+              }, 1200);
+
               return [...eds, newEdge];
             });
           }
