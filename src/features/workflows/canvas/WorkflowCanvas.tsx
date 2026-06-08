@@ -326,6 +326,9 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({
   const [workflowAttachments, setWorkflowAttachments] = useState<Attachment[]>([]);
   const hasLoadedRef = useRef(false);
   const isDraggingRef = useRef(false); // Track if user is currently dragging a node
+  // Visual hint: the agent node currently being hovered by a Start/End drag
+  const [snapHoverTargetId, setSnapHoverTargetId] = useState<string | null>(null);
+  const lastChimedTargetRef = useRef<string | null>(null); // Throttle chime per target
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
   const [editedName, setEditedName] = useState(workflowName);
   const [showCreateWorkflowModal, setShowCreateWorkflowModal] = useState(false);
@@ -579,7 +582,8 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({
     custom: CustomNode,
   }), []);
 
-  // Validate nodes and edges before passing to ReactFlow to prevent NaN rendering errors
+  // Validate nodes and edges before passing to ReactFlow to prevent NaN rendering errors.
+  // Also marks the snap-hover target so the CustomNode can render a glow ring.
   const validatedNodes = useMemo(() => {
     return nodes.map((node, index) => {
       const hasValidPosition =
@@ -603,9 +607,18 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({
         };
       }
 
+      // Tag the snap-hover target with a className so the renderer can
+      // draw a glow ring around it during a Start/End drag.
+      if (node.id === snapHoverTargetId) {
+        return { ...node, className: `${node.className || ''} snap-hover`.trim() };
+      }
+      if (node.className && node.className.includes('snap-hover')) {
+        return { ...node, className: node.className.replace(/\s*snap-hover/g, '').trim() };
+      }
+
       return node;
     });
-  }, [nodes]);
+  }, [nodes, snapHoverTargetId]);
 
   const validatedEdges = useMemo(() => {
     const validNodeIds = new Set(validatedNodes.map(n => n.id));
@@ -1283,6 +1296,9 @@ if __name__ == "__main__":
   // Handle node drag start - prevent auto-save during drag
   const onNodeDragStart = useCallback(() => {
     isDraggingRef.current = true;
+    // Reset hover/chime state so the next drag starts clean
+    setSnapHoverTargetId(null);
+    lastChimedTargetRef.current = null;
   }, []);
 
   /**
@@ -1342,6 +1358,69 @@ if __name__ == "__main__":
     []
   );
 
+  /**
+   * Compute the snap-target position to the left (for Start) or right
+   * (for End) of an existing agent, vertically centered. Mirrors the
+   * placement used at insertion time.
+   */
+  const computeSnapPosition = useCallback(
+    (draggedNode: Node, targetNode: Node) => {
+      const GAP = 20;
+      const nodeW = targetNode.width ?? 200;
+      const nodeH = targetNode.height ?? 100;
+      const startW = 200;
+      const startH = 100;
+      const yAligned = targetNode.position.y + (nodeH - startH) / 2;
+      const draggedType = (draggedNode.data as any)?.agentType;
+      if (draggedType === 'START_NODE') {
+        return {
+          x: targetNode.position.x - startW - GAP,
+          y: yAligned,
+        };
+      }
+      if (draggedType === 'END_NODE') {
+        return {
+          x: targetNode.position.x + nodeW + GAP,
+          y: yAligned,
+        };
+      }
+      return null;
+    },
+    []
+  );
+
+  /**
+   * Live feedback while a Start/End node is being dragged:
+   *  - If it overlaps a real agent by >= OVERLAP_THRESHOLD, highlight the
+   *    target and play a chime (once per target).
+   *  - When it leaves the target, clear the highlight and reset the
+   *    chime guard so a re-entry chimes again.
+   */
+  const onNodeDrag = useCallback(
+    (_event: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent, draggedNode?: Node) => {
+      if (!draggedNode) return;
+      const draggedType = (draggedNode.data as any)?.agentType;
+      if (draggedType !== 'START_NODE' && draggedType !== 'END_NODE') {
+        if (snapHoverTargetId) setSnapHoverTargetId(null);
+        return;
+      }
+      const target = findOverlapTarget(draggedNode, nodes);
+      if (target) {
+        if (snapHoverTargetId !== target.id) {
+          setSnapHoverTargetId(target.id);
+        }
+        if (lastChimedTargetRef.current !== target.id) {
+          lastChimedTargetRef.current = target.id;
+          playLinkAlarm();
+        }
+      } else {
+        if (snapHoverTargetId) setSnapHoverTargetId(null);
+        if (lastChimedTargetRef.current) lastChimedTargetRef.current = null;
+      }
+    },
+    [nodes, findOverlapTarget, snapHoverTargetId]
+  );
+
   // Handle node drag stop - save workflow after drag completes
   const onNodeDragStop = useCallback(
     (_event: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent, draggedNode?: Node) => {
@@ -1358,6 +1437,18 @@ if __name__ == "__main__":
           const latestNodes = nodes;
           const target = findOverlapTarget(draggedNode, latestNodes);
           if (target) {
+            // 1a) Snap the dragged node to its proper place beside the
+            // target (Start on the left, End on the right) so it does
+            // not visually overlap the agent.
+            const snapPosition = computeSnapPosition(draggedNode, target);
+            if (snapPosition) {
+              setNodes((nds) =>
+                nds.map((n) =>
+                  n.id === draggedNode.id ? { ...n, position: snapPosition } : n
+                )
+              );
+            }
+
             const sourceId = draggedType === 'START_NODE' ? draggedNode.id : target.id;
             const targetId = draggedType === 'START_NODE' ? target.id : draggedNode.id;
 
@@ -1419,6 +1510,10 @@ if __name__ == "__main__":
         }
       }
 
+      // Always clear the live-drag highlight when the drag ends
+      setSnapHoverTargetId(null);
+      lastChimedTargetRef.current = null;
+
     // 2) Validate and fix node positions before saving
     setNodes((currentNodes) =>
       currentNodes.map((node) => {
@@ -1456,7 +1551,7 @@ if __name__ == "__main__":
       };
       localStorage.setItem('langconfig-workflow', JSON.stringify(workflowData));
     }, 0);
-  }, [nodes, edges, nodeIdCounter, reactFlowInstance, workflowName, currentWorkflowId, setNodes, setEdges, findOverlapTarget, showSuccess]);
+  }, [nodes, edges, nodeIdCounter, reactFlowInstance, workflowName, currentWorkflowId, setNodes, setEdges, findOverlapTarget, showSuccess, computeSnapPosition]);
 
   // Add selected agent as a new node
   useEffect(() => {
@@ -2278,6 +2373,7 @@ if __name__ == "__main__":
                   onNodeClick={handleNodeClick}
                   onEdgeDoubleClick={onEdgeDoubleClick}
                   onNodeDragStart={onNodeDragStart}
+                  onNodeDrag={onNodeDrag}
                   onNodeDragStop={onNodeDragStop}
                   onInit={(instance) => {
                     setReactFlowInstance(instance);
