@@ -17,7 +17,7 @@ import logging
 from typing import Dict, Any, Optional
 from enum import Enum
 
-from .graph_state import WorkflowState
+from core.workflows.state import WorkflowState
 
 logger = logging.getLogger(__name__)
 
