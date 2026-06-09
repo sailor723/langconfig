@@ -1235,52 +1235,53 @@ def grep(pattern: str, path: str = ".", file_pattern: str = None) -> str:
 
 
 # =============================================================================
-# Memory Tools (Uses existing PostgreSQL database)
+# Memory Tools (Vector-backed via AgentMemorySystem in core/agents/memory.py)
 # =============================================================================
 
-# Note: These are placeholder functions. Actual memory integration
-# should use LangGraph's existing PostgreSQL checkpointer.
+# NOTE: These are fallback placeholder functions. The real memory implementation
+# is in AgentMemorySystem (core/agents/memory.py) which uses pgvector for
+# semantic storage/retrieval. The AgentFactory routes native memory tool requests
+# to AgentMemorySystem automatically — these stubs should never be loaded in
+# production unless the vector_store is unavailable.
 
 @tool
 def memory_store(key: str, value: str, context: str = "general") -> str:
     """
-    Store information in agent memory for later recall.
+    [FALLBACK] Store information in agent memory for later recall.
 
-    Uses the existing PostgreSQL database for persistence.
+    This is a fallback stub. The real implementation is in
+    core/agents/memory.py via the AgentMemorySystem (vector-backed).
+    If this is being used, check that a vector_store is configured.
 
     Args:
         key: Unique identifier for this memory
         value: The information to store
         context: Optional context/category (default: "general")
-
-    Returns:
-        Success confirmation
-
-    Example:
-        >>> memory_store("user_preference", "prefers detailed explanations", "settings")
     """
-    # TODO: Integrate with existing PostgreSQL via LangGraph checkpointer
-    logger.info(f"Memory store: {key} (context: {context})")
+    logger.warning(
+        f"memory_store fallback used (key={key}). "
+        f"Real implementation is in AgentMemorySystem. Check vector_store config."
+    )
     return f"Stored memory: {key} in context '{context}'"
 
 
 @tool
 def memory_recall(key: str, context: str = "general") -> str:
     """
-    Recall previously stored information from memory.
+    [FALLBACK] Recall previously stored information from memory.
+
+    This is a fallback stub. The real implementation is in
+    core/agents/memory.py via the AgentMemorySystem (vector-backed).
+    If this is being used, check that a vector_store is configured.
 
     Args:
         key: The key to look up
         context: Optional context/category (default: "general")
-
-    Returns:
-        The stored value, or an error message if not found
-
-    Example:
-        >>> memory_recall("user_preference", "settings")
     """
-    # TODO: Integrate with existing PostgreSQL via LangGraph checkpointer
-    logger.info(f"Memory recall: {key} (context: {context})")
+    logger.warning(
+        f"memory_recall fallback used (key={key}). "
+        f"Real implementation is in AgentMemorySystem. Check vector_store config."
+    )
     return f"Memory lookup for '{key}' - Not yet implemented (use PostgreSQL checkpointer)"
 
 

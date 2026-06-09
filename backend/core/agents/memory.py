@@ -8,31 +8,18 @@ Agent Memory System for LangConfig.
 
 Provides agents with explicit memory control through tools, enabling them to:
 1. Decide what information is important enough to save
-2. Search their memories when needed
-3. Update or correct outdated information
+2. Recall their memories when needed
+3. Build up project knowledge across conversation turns
 
-This is inspired by LangGraph's LangMem pattern where memory is an active
-capability rather than passive storage.
-
-Enhanced with:
-- Full LangChain VectorStore abstraction compliance
-- Pydantic validation for tool arguments (Guardrails)
-- Robust error handling (Resilience)
-- UUID-based memory IDs
-- Relevance score filtering
+Uses simple text-based storage (dict) — no vector store or embeddings required.
+The LLM reads all stored memories directly in its context window.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import List, Dict, Optional
 from enum import Enum
-import uuid
 
-# LangChain imports for VectorStore abstraction and Tool definition
-from langchain_core.vectorstores import VectorStore
-from langchain_core.documents import Document
 from langchain_core.tools import BaseTool, StructuredTool
-# Use langchain_core.pydantic_v1 for compatibility with LangChain tools
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -40,20 +27,20 @@ logger = logging.getLogger(__name__)
 
 class MemoryType(str, Enum):
     """Types of memories agents can store."""
-    FACT = "fact"  # Factual information about the project
-    DECISION = "decision"  # Architectural or design decisions
-    PATTERN = "pattern"  # Code patterns or conventions discovered
-    LEARNING = "learning"  # Bugs fixed, lessons learned
-    CONTEXT = "context"  # Important contextual information
-    RELATIONSHIP = "relationship"  # Relationships between components
+    FACT = "fact"
+    DECISION = "decision"
+    PATTERN = "pattern"
+    LEARNING = "learning"
+    CONTEXT = "context"
+    RELATIONSHIP = "relationship"
 
 
 # =============================================================================
-# Pydantic Schemas for Tool Arguments (Guardrails and Documentation)
+# Pydantic Schemas for Tool Arguments
 # =============================================================================
 
 class MemorySaveArgs(BaseModel):
-    """Schema for saving information to long-term memory."""
+    """Schema for saving information to memory."""
     memory_content: str = Field(
         ...,
         description="The specific information to remember. Be detailed, include context and rationale."
@@ -74,114 +61,73 @@ class MemorySaveArgs(BaseModel):
     )
 
 
-class MemorySearchArgs(BaseModel):
-    """Schema for searching long-term memory."""
+class MemoryRecallArgs(BaseModel):
+    """Schema for recalling information from memory."""
     query: str = Field(
-        ...,
-        description="The concept you are trying to recall (use natural language)."
+        default="",
+        description="What you are trying to recall. Leave empty to see all memories."
     )
-    memory_type: Optional[MemoryType] = Field(
+    memory_type: Optional[str] = Field(
         None,
-        description="Optional: Filter by memory type."
-    )
-    min_relevance: float = Field(
-        0.75,
-        description="Minimum relevance score (0.0-1.0) to return.",
-        ge=0.0,
-        le=1.0
-    )
-    limit: int = Field(
-        5,
-        description="Maximum number of memories to return.",
-        ge=1,
-        le=15
+        description="Optional: Filter by memory type (fact, decision, pattern, learning, context, relationship)."
     )
 
 
 # =============================================================================
-# Agent Memory System
+# Simple Text-Based Memory System
 # =============================================================================
 
-class AgentMemorySystem:
+class SimpleMemory:
     """
-    Provides agents with explicit, tool-based control over long-term memory using a VectorStore.
+    Text-based memory using a simple dict — no vector store or embeddings.
 
-    This creates more intelligent, context-aware agents that build up
-    project-specific knowledge over time.
+    Each entry is stored as a plain text record. memory_recall returns
+    the full text of all stored memories for the LLM to read directly.
+    Modern LLMs with large context windows handle this efficiently.
 
-    Example Usage:
-        >>> memory_system = AgentMemorySystem(vector_store, project_id=1, agent_id="task_42")
-        >>> tools = memory_system.create_memory_tools()
-        >>>
-        >>> # Tools can be passed directly to LangChain agent
-        >>> agent = create_react_agent(llm, tools)
+    Usage:
+        >>> memory = SimpleMemory(project_id=1, agent_id="task_42")
+        >>> tools = memory.create_memory_tools()
+        >>> await tools[0].ainvoke({"memory_content": "We use JWT auth", "memory_type": "fact"})
     """
 
-    def __init__(
-        self,
-        vector_store: VectorStore,
-        project_id: int,
-        agent_id: str
-    ):
-        """
-        Initialize agent memory system.
-
-        Args:
-            vector_store: LangChain VectorStore instance
-            project_id: Project this memory belongs to
-            agent_id: Agent identifier (e.g., "task_42")
-        """
-        # Ensure compatibility with LangChain interface
-        if not isinstance(vector_store, VectorStore):
-            raise TypeError("vector_store must be an instance of langchain_core.vectorstores.VectorStore")
-
-        self.vector_store = vector_store
+    def __init__(self, project_id: int, agent_id: str):
         self.project_id = project_id
         self.agent_id = agent_id
-
-        # Define the base filter to scope all operations to this project
-        self.base_metadata = {
-            "project_id": self.project_id,
-            "doc_type": "agent_memory"  # Differentiate from standard RAG documents
-        }
+        self._store: List[Dict] = []  # list of memory dicts
 
     def create_memory_tools(self) -> List[BaseTool]:
-        """
-        Creates a list of StructuredTools for the agent to manage its memory.
-        This list is ready to be consumed by the AgentFactory.
-
-        Returns:
-            List of BaseTool instances ready for agent binding
-        """
-        tools = [
+        """Create memory_store and memory_recall tools."""
+        return [
             StructuredTool.from_function(
-                coro=self.save_to_memory,
+                func=self.save_to_memory,
                 name="memory_store",
                 description=(
-                    "Save critical information (facts, decisions, patterns, or learnings) to long-term memory. "
-                    "Use this immediately when you discover something vital for future reference."
+                    "Save critical information (facts, decisions, patterns, or learnings) "
+                    "to memory. Use this immediately when you discover something vital "
+                    "for future reference."
                 ),
                 args_schema=MemorySaveArgs,
-                return_direct=False  # Agent should observe the confirmation message
+                return_direct=False,
             ),
             StructuredTool.from_function(
-                coro=self.search_memory,
-                name="memory_retrieve",
+                func=self.recall_memory,
+                name="memory_recall",
                 description=(
-                    "Search long-term memory using semantic similarity to recall relevant information. "
-                    "Use this before starting tasks to ensure consistency with past work and decisions."
+                    "Recall previously stored information from memory. "
+                    "Use this BEFORE starting a task to check for existing "
+                    "patterns, decisions, or conventions. Leave query empty to see all memories."
                 ),
-                args_schema=MemorySearchArgs,
-                return_direct=False
+                args_schema=MemoryRecallArgs,
+                return_direct=False,
             ),
         ]
-        return tools
 
-    # =============================================================================
-    # Tool Implementations (Agent-facing async methods)
-    # =============================================================================
+    # =========================================================================
+    # Tool Implementations (synchronous - no async needed for dict access)
+    # =========================================================================
 
-    async def save_to_memory(
+    def save_to_memory(
         self,
         memory_content: str,
         memory_type: MemoryType = MemoryType.FACT,
@@ -189,7 +135,7 @@ class AgentMemorySystem:
         tags: Optional[List[str]] = None
     ) -> str:
         """
-        Save important information to long-term memory.
+        Save important information to memory.
 
         Use this when you learn something important that you'll need later.
         Examples:
@@ -197,169 +143,112 @@ class AgentMemorySystem:
         - Code patterns discovered
         - Bugs fixed and their solutions
         - Important project conventions
-
-        Args:
-            memory_content: The information to remember (be specific and clear)
-            memory_type: Type of memory (fact, decision, pattern, learning, context)
-            importance: How important is this? (1-10, higher = more important)
-            tags: Optional tags for categorization (e.g., ["auth", "security"])
-
-        Returns:
-            Confirmation message with memory ID
         """
         try:
-            memory_id = str(uuid.uuid4())
-            metadata = {
-                **self.base_metadata,
-                "memory_id": memory_id,
-                "agent_id": self.agent_id,
-                "type": memory_type.value,
+            entry = {
+                "content": memory_content,
+                "type": memory_type if isinstance(memory_type, str) else memory_type.value,
                 "importance": importance,
                 "tags": tags or [],
-                "created_at": datetime.utcnow().isoformat(),
+                "index": len(self._store) + 1,
             }
-
-            doc = Document(page_content=memory_content, metadata=metadata)
-
-            # Use the standard LangChain asynchronous add_documents method
-            await self.vector_store.aadd_documents([doc])
+            self._store.append(entry)
 
             logger.info(
-                f"Agent {self.agent_id} saved memory (ID: {memory_id}, Type: {memory_type.value}, "
-                f"Importance: {importance}): {memory_content[:100]}..."
+                f"Agent {self.agent_id} saved memory "
+                f"(#{entry['index']}, type={entry['type']}, "
+                f"importance={importance}): {memory_content[:100]}..."
             )
 
             return (
-                f"✓ Memory stored successfully. ID: {memory_id}. "
-                f"This {memory_type.value} is now available for retrieval."
+                f"Memory stored (#{entry['index']}). "
+                f"Type: {entry['type']}, Importance: {importance}/10."
             )
 
         except Exception as e:
             logger.error(f"Failed to save memory: {e}", exc_info=True)
-            # Return informative error to the agent (Resilience)
-            return (
-                f"✗ Error: Failed to save memory due to internal error: {type(e).__name__}. "
-                f"The information was NOT saved."
-            )
+            return f"Error: Failed to save memory — {e}"
 
-    async def search_memory(
+    def recall_memory(
         self,
-        query: str,
-        memory_type: Optional[MemoryType] = None,
-        min_relevance: float = 0.75,
-        limit: int = 5
-    ) -> List[Dict[str, Any]]:
+        query: str = "",
+        memory_type: Optional[str] = None
+    ) -> str:
         """
-        Search your long-term memory for relevant information.
+        Recall stored memories. Returns all memories as formatted text.
 
-        Use this when you need to recall past information, decisions, or learnings.
-        The search uses semantic similarity, so you don't need exact keywords.
-
-        Args:
-            query: What you're trying to remember (use natural language)
-            memory_type: Filter by memory type (fact, decision, pattern, learning)
-            min_relevance: Only return memories with relevance >= this value (0.0-1.0)
-            limit: Maximum number of memories to return
-
-        Returns:
-            List of relevant memories with their content and metadata
-
-        Example:
-            search_memory("how do we handle authentication?", memory_type="decision")
-            search_memory("bugs related to JWT tokens", tags=["auth", "bug-fix"])
+        The LLM reads all returned memories in its context window and
+        determines relevance by itself — no vector search needed.
         """
         try:
-            logger.debug(
-                f"Agent {self.agent_id} searching memory: '{query}' "
-                f"(type={memory_type}, min_relevance={min_relevance})"
-            )
-
-            # Construct the filter based on scope and optional type
-            search_filter = self.base_metadata.copy()
+            # Filter by type if specified
+            entries = self._store
             if memory_type:
-                search_filter["type"] = memory_type.value
+                entries = [e for e in entries if e["type"] == memory_type]
 
-            # Use LangChain's asynchronous similarity search with scores
-            results = await self.vector_store.asimilarity_search_with_relevance_scores(
-                query=query,
-                k=limit,
-                filter=search_filter
-            )
+            if not entries:
+                return (
+                    "No memories stored yet. You are starting fresh — "
+                    "use memory_store to save important information for future turns."
+                )
 
-            memories = []
-            for doc, score in results:
-                # Filter results based on the minimum relevance threshold
-                if score >= min_relevance:
-                    memories.append({
-                        "memory_id": doc.metadata.get("memory_id"),
-                        "content": doc.page_content,
-                        "type": doc.metadata.get("type"),
-                        "importance": doc.metadata.get("importance"),
-                        "relevance_score": round(score, 3),
-                        "tags": doc.metadata.get("tags", []),
-                        "created_at": doc.metadata.get("created_at"),
-                    })
+            # Format all memories as a readable text block
+            lines = [f"=== AGENT MEMORY ({len(entries)} entries) ===\n"]
+            for e in entries:
+                type_str = e["type"].upper()
+                tags_str = f" [{', '.join(e['tags'])}]" if e["tags"] else ""
+                lines.append(
+                    f"[{e['index']}] {type_str} "
+                    f"(importance: {e['importance']}/10){tags_str}\n"
+                    f"    {e['content']}\n"
+                )
 
-            if not memories:
-                logger.debug("No matching memories found")
-                return [{
-                    "message": f"No memories found matching the query with relevance > {min_relevance}.",
-                    "suggestion": "Try broadening your search or using different keywords."
-                }]
+            if query:
+                lines.insert(1, f"Query: \"{query}\"\n")
 
-            logger.info(f"Found {len(memories)} relevant memories")
-            return memories
+            return "".join(lines)
 
         except Exception as e:
-            logger.error(f"Memory search failed: {e}", exc_info=True)
-            return [{
-                "error": f"Memory retrieval failed due to internal error: {type(e).__name__}.",
-                "message": "Unable to search memories at this time."
-            }]
+            logger.error(f"Memory recall failed: {e}", exc_info=True)
+            return f"Error recalling memories: {e}"
 
-    def get_memory_stats(self) -> Dict[str, Any]:
-        """
-        Get statistics about agent's memory usage.
+    @property
+    def memory_count(self) -> int:
+        """Number of stored memories."""
+        return len(self._store)
 
-        Returns:
-            Dictionary with memory statistics
+    def get_memory_text(self) -> str:
         """
-        return {
-            "project_id": self.project_id,
-            "agent_id": self.agent_id,
-            "system_status": "active"
-        }
+        Get all memories as a single text block for injection into system prompt.
+        Returns empty string if no memories.
+        """
+        return self.recall_memory() if self._store else ""
 
 
 # =============================================================================
-# Convenience Functions
+# Convenience Function
 # =============================================================================
 
-async def create_memory_aware_agent_tools(
-    vector_store: VectorStore,
-    project_id: int,
-    agent_id: str
-) -> List[BaseTool]:
+def create_memory_tools(project_id: int, agent_id: str) -> List[BaseTool]:
     """
-    Convenience function to create memory tools for an agent.
+    Create memory tools for an agent using SimpleMemory (text-based).
 
     Args:
-        vector_store: LangChain VectorStore instance
-        project_id: Project ID
-        agent_id: Agent ID (e.g., "task_42")
+        project_id: Project ID for scoping
+        agent_id: Agent identifier (e.g., "task_42")
 
     Returns:
-        List of memory tool instances
+        List of memory tool instances (memory_store, memory_recall)
     """
-    memory_system = AgentMemorySystem(vector_store, project_id, agent_id)
-    return memory_system.create_memory_tools()
+    memory = SimpleMemory(project_id=project_id, agent_id=agent_id)
+    return memory.create_memory_tools()
 
 
 # =============================================================================
-# Example System Prompt for Memory-Aware Agent
+# System Prompt for Memory-Aware Agent
 # =============================================================================
 
-MEMORY_AWARE_AGENT_PROMPT = """You are an intelligent coding agent with long-term memory capabilities.
+MEMORY_AWARE_AGENT_PROMPT = """You are an intelligent coding agent with memory capabilities.
 
 MEMORY TOOLS AVAILABLE:
 You have access to two memory management tools:
@@ -370,40 +259,41 @@ You have access to two memory management tools:
    - Types: fact, decision, pattern, learning, context, relationship
    - Importance: 1-10 scale (higher = more important)
 
-2. **memory_retrieve(query, memory_type, min_relevance, limit)**
-   - Search your memories using natural language
-   - Use before implementing to check for existing patterns/decisions
-   - Results are ranked by semantic relevance
+2. **memory_recall(query, memory_type)**
+   - Recall ALL stored memories (the full text is returned)
+   - Optionally filter by query or memory type
+   - Use BEFORE starting work to check for existing patterns/decisions
+   - Read through the returned memories carefully for relevant context
 
 WHEN TO USE MEMORY TOOLS:
 
-✓ After fixing a bug: Save the bug + solution as learning
-✓ When discovering patterns: Save code patterns you notice
-✓ After architectural decisions: Save decisions with rationale
-✓ Before implementing: Search for relevant past work
-✓ When refactoring: Search for similar refactoring patterns
-✓ After learning conventions: Save project-specific conventions
+- After fixing a bug: Save the bug + solution as learning
+- When discovering patterns: Save code patterns you notice
+- After architectural decisions: Save decisions with rationale
+- Before implementing: ALWAYS recall memories to check for relevant past work
+- When refactoring: Recall memories for similar refactoring patterns
+- After learning conventions: Save project-specific conventions
 
 MEMORY BEST PRACTICES:
 
-1. Be specific: "We use JWT tokens in httpOnly cookies for auth" > "auth setup"
+1. Be specific: "We use JWT tokens in httpOnly cookies for auth" not "auth setup"
 2. Include context: Why was this decision made? What problem does it solve?
 3. Add tags: Make memories easily findable later
 4. Set importance: Critical decisions = 9-10, minor facts = 3-5
-5. Search first: Before starting work, check if similar work was done
+5. Always recall first: Before starting work, check memory for existing context
 
 EXAMPLE WORKFLOW:
 
 ```
 Task: "Add user registration endpoint"
 
-1. memory_retrieve(query="user authentication patterns")
-   → Finds: "We use JWT tokens, bcrypt hashing, email validation"
+1. memory_recall(query="authentication patterns")
+   - Reads all stored memories about auth patterns
 
-2. Implement registration following past patterns
+2. Implement registration following past decisions
 
 3. memory_store(
-     memory_content="User registration endpoint added at /api/auth/register. Uses bcrypt for password hashing, returns JWT token in httpOnly cookie. Email validation with regex pattern. PostgreSQL user table.",
+     memory_content="Added /api/auth/register endpoint. Uses bcrypt (12 rounds) for password hashing, returns JWT in httpOnly cookie with 24h expiry.",
      memory_type="fact",
      importance=7,
      tags=["auth", "registration", "api"]
@@ -412,3 +302,24 @@ Task: "Add user registration endpoint"
 
 Your goal: Build up comprehensive project knowledge over time, making you more consistent and context-aware with each task.
 """
+
+
+# =============================================================================
+# Legacy compatibility (kept for existing code that imports AgentMemorySystem)
+# =============================================================================
+
+class AgentMemorySystem:
+    """
+    DEPRECATED: Use SimpleMemory instead for text-based memory.
+    
+    Kept for backward compatibility with existing code that references
+    AgentMemorySystem by name. Internally wraps SimpleMemory.
+    """
+    
+    def __init__(self, vector_store=None, project_id=0, agent_id=""):
+        self._memory = SimpleMemory(project_id=project_id, agent_id=agent_id)
+        self.project_id = project_id
+        self.agent_id = agent_id
+
+    def create_memory_tools(self) -> List[BaseTool]:
+        return self._memory.create_memory_tools()

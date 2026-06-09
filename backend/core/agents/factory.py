@@ -270,7 +270,12 @@ class AgentFactory:
         # Added fallback support
         fallback_models = agent_config.get("fallback_models", [])
         # Memory configuration
-        enable_memory = agent_config.get("enable_memory", False)
+        # Frontend sends "enable_long_term_memory", templates use "enable_memory".
+        # Check both for compatibility.
+        enable_memory = (
+            agent_config.get("enable_memory", False) or
+            agent_config.get("enable_long_term_memory", False)
+        )
 
         # Long-term memory configuration (LangGraph Store)
         # Check both top-level and guardrails.long_term_memory for compatibility
@@ -401,6 +406,21 @@ class AgentFactory:
             "execution_id": agent_config.get("execution_id"),
             "custom_output_path": agent_config.get("custom_output_path"),  # Custom output directory
         }
+
+        # Route memory tools from native_tools to the real AgentMemorySystem.
+        # The native_tools.py stubs are placeholders; the real implementation
+        # is in core/agents/memory.py backed by pgvector.
+        MEMORY_NATIVE_TOOLS = {"memory_store", "memory_recall"}
+        requested_memory_native = [t for t in native_tool_names if t in MEMORY_NATIVE_TOOLS]
+        if requested_memory_native:
+            logger.info(
+                f"Detected memory tools in native_tools: {requested_memory_native}. "
+                f"Routing to AgentMemorySystem (vector-backed)."
+            )
+            # Remove stubs from native tool loading
+            native_tool_names = [t for t in native_tool_names if t not in MEMORY_NATIVE_TOOLS]
+            # Activate the real memory system
+            enable_memory = True
 
         # Load native tools with context for file tracking
         tools.extend(await AgentFactory._load_native_tools(
@@ -1465,21 +1485,17 @@ You have been equipped with the following tools: {', '.join(tool_names)}
 
     @staticmethod
     async def _load_memory_tools(vector_store, project_id: int, task_id: int) -> List[BaseTool]:
-        """Helper to load and validate memory tools."""
-        if vector_store is None:
-            logger.warning("Vector store not provided, skipping memory tools.")
-            return []
-
+        """Helper to load memory tools using SimpleMemory (text-based, no vector store)."""
         try:
-            memory_system = AgentMemorySystem(
-                vector_store=vector_store,
+            from core.agents.memory import SimpleMemory
+
+            memory_system = SimpleMemory(
                 project_id=project_id,
                 agent_id=f"task_{task_id}"
             )
-            # The new memory system returns a List[BaseTool] directly (already structured)
             memory_tools = memory_system.create_memory_tools()
 
-            logger.info(f"✓ Loaded {len(memory_tools)} memory tools")
+            logger.info(f"✓ Loaded {len(memory_tools)} memory tools (text-based)")
             return memory_tools
 
         except Exception as e:

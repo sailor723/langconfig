@@ -1827,6 +1827,8 @@ Continue:""")
                     "cli_tools": cli_tools_list,
                     "custom_tools": custom_tools_list,
                     "enable_memory": agent_config.get("enable_memory", False),
+                    # Frontend saves memory as "enable_long_term_memory" — pass both for compatibility
+                    "enable_long_term_memory": agent_config.get("enable_long_term_memory", False),
                     "enable_rag": agent_config.get("enable_rag", False),
                     "max_tokens": agent_config.get("max_tokens"),
                     # Add middleware configuration if present (LangChain 1.0)
@@ -1889,7 +1891,10 @@ Continue:""")
                 vector_store = None
                 project_id_val = state.get("project_id")
                 enable_rag = agent_config.get("enable_rag", False)
-                enable_memory = agent_config.get("enable_memory", False)
+                enable_memory = (
+                    agent_config.get("enable_memory", False) or
+                    agent_config.get("enable_long_term_memory", False)
+                )
 
                 if project_id_val and (enable_rag or enable_memory):
                     try:
