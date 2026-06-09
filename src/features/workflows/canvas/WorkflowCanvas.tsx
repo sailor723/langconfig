@@ -1365,7 +1365,7 @@ if __name__ == "__main__":
    */
   const computeSnapPosition = useCallback(
     (draggedNode: Node, targetNode: Node) => {
-      const GAP = 20;
+      const GAP = 80;
       const nodeW = targetNode.width ?? 200;
       const nodeH = targetNode.height ?? 100;
       const startW = 200;
@@ -1746,7 +1746,7 @@ if __name__ == "__main__":
         );
       }) || realAgents[0];
 
-      const GAP = 20;
+      const GAP = 80;
       const nodeW = candidate.width ?? 200;
       const nodeH = candidate.height ?? 100;
       const startW = 200; // Control nodes render at ~200x100
