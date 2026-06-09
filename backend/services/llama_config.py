@@ -194,6 +194,105 @@ def get_vector_store(project_id: int, embed_dim: Optional[int] = None) -> PGVect
         raise
 
 
+def get_langchain_vector_store(project_id: int, collection_name: str = "agent_memory"):
+    """
+    Initialize and return a LangChain PGVector store for agent memory.
+    
+    Uses the same PostgreSQL database as the LlamaIndex vector store but
+    with LangChain's PGVector interface, which is required by AgentMemorySystem.
+    
+    Args:
+        project_id: The project identifier for table name scoping
+        collection_name: Name prefix for the pgvector table
+        
+    Returns:
+        langchain_postgres.PGVector: Configured LangChain vector store
+        
+    Raises:
+        ValueError: If database URL or OpenAI API key is invalid
+        ImportError: If langchain_postgres or langchain_openai is not installed
+    """
+    if not app_settings.database_url:
+        raise ValueError("database_url is required but not configured")
+
+    # Get OpenAI API key (required for embeddings)
+    openai_api_key = app_settings.OPENAI_API_KEY
+    if not openai_api_key:
+        raise ValueError(
+            "OPENAI_API_KEY is required for LangChain PGVector. "
+            "Configure it in Settings > API Keys."
+        )
+
+    try:
+        from langchain_postgres import PGVector
+        from langchain_openai import OpenAIEmbeddings
+    except ImportError as e:
+        raise ImportError(
+            f"Missing required package for LangChain PGVector: {e}. "
+            f"Install with: pip install langchain-postgres langchain-openai"
+        )
+
+    # Parse the database URL to build the connection string
+    parsed_url = urlparse(app_settings.database_url)
+    database_name = parsed_url.path.lstrip('/')
+
+    # Build asyncpg-compatible connection string
+    # langchain-postgres uses SQLAlchemy asyncpg dialect
+    connection = (
+        f"postgresql+asyncpg://"
+        f"{parsed_url.username}:{parsed_url.password}@"
+        f"{parsed_url.hostname}:{parsed_url.port or 5432}/"
+        f"{database_name}"
+    )
+
+    # Create project-scoped table name for multi-tenancy
+    table_name = f"{collection_name}_{project_id}"
+
+    # Use the configured embedding model
+    embedding = OpenAIEmbeddings(
+        model=app_settings.embedding_model,
+        api_key=openai_api_key,
+    )
+
+    logger.info(
+        f"Initializing LangChain PGVector for project {project_id} "
+        f"(table={table_name}, embedding={app_settings.embedding_model})"
+    )
+
+    try:
+        vector_store = PGVector(
+            embeddings=embedding,
+            collection_name=table_name,
+            connection=connection,
+            use_jsonb=True,
+        )
+        # Ensure the pgvector extension and table are created.
+        # langchain-postgres 0.0.17 creates tables via SQLAlchemy metadata
+        # on first use, but we verify the extension exists proactively.
+        import asyncio
+        try:
+            # Check/create pgvector extension (idempotent)
+            import asyncpg
+            async def _ensure_extension():
+                conn = await asyncpg.connect(dsn=app_settings.database_url)
+                try:
+                    await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+                    logger.debug("pgvector extension ensured")
+                finally:
+                    await conn.close()
+            asyncio.get_event_loop().run_until_complete(_ensure_extension())
+        except Exception:
+            # pgvector extension may already exist or be managed externally
+            logger.debug("Could not verify pgvector extension (may already exist)")
+
+        logger.info(f"LangChain PGVector initialized for memory: {table_name}")
+        return vector_store
+
+    except Exception as e:
+        logger.error(f"Failed to initialize LangChain PGVector: {e}")
+        raise
+
+
 def ensure_initialized():
     """
     Ensure LlamaIndex settings are initialized before use.
