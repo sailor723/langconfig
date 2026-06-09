@@ -22,7 +22,7 @@ Enhanced with:
 import logging
 import tiktoken
 from typing import Dict, Any, Optional
-from langchain_openai import ChatOpenAI
+from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from langchain_core.runnables.config import RunnableConfig
 
@@ -98,22 +98,14 @@ def get_compaction_llm() -> BaseChatModel:
         logger.info(f"Initializing Context Compactor LLM: {model_name}")
 
         try:
-            # Initialize using configuration settings (Supports standard API or LiteLLM proxy)
-            llm_params = {
-                "model": model_name,
-                "temperature": 0.1,  # Low temperature for deterministic summaries
-                "max_tokens": MAX_SCRATCHPAD_TOKENS + 500,  # Ensure output capacity
-            }
-
-            # Add API key if available
-            if hasattr(settings, 'OPENAI_API_KEY') and settings.OPENAI_API_KEY:
-                llm_params["api_key"] = settings.OPENAI_API_KEY
-
-            # Add base URL if available (for LiteLLM proxy)
-            if hasattr(settings, 'OPENAI_API_BASE') and settings.OPENAI_API_BASE:
-                llm_params["base_url"] = settings.OPENAI_API_BASE
-
-            _compaction_llm = ChatOpenAI(**llm_params)
+            _compaction_llm = init_chat_model(
+                model=model_name,
+                model_provider="openai",
+                temperature=0.1,
+                max_tokens=MAX_SCRATCHPAD_TOKENS + 500,
+                api_key=getattr(settings, 'OPENAI_API_KEY', None),
+                base_url=getattr(settings, 'OPENAI_API_BASE', None) or None,
+            )
 
         except Exception as e:
             logger.error(f"Failed to initialize Context Compactor LLM: {e}")

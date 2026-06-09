@@ -486,11 +486,15 @@ class ConversationContextService:
         Uses a lightweight model to summarize key points.
         """
         try:
-            from langchain_openai import ChatOpenAI
+            from langchain.chat_models import init_chat_model
             from langchain_core.prompts import ChatPromptTemplate
 
             # Use a cheap, fast model for summarization
-            llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+            llm = init_chat_model(
+                model="gpt-4o-mini",
+                model_provider="openai",
+                temperature=0,
+            )
 
             # Build conversation text
             conversation_text = "\n\n".join([

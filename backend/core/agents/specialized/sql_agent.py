@@ -26,8 +26,7 @@ import logging
 from typing import Optional, Dict, Any
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 from langchain_community.utilities import SQLDatabase
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
+from langchain.chat_models import init_chat_model
 from langchain.agents import create_agent
 from langgraph.graph.state import CompiledStateGraph
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -132,15 +131,16 @@ async def create_sql_agent(
 
         # Create LLM instance
         if llm_model.startswith("claude"):
-            llm = ChatAnthropic(
+            llm = init_chat_model(
                 model=llm_model,
+                model_provider="anthropic",
                 temperature=temperature,
                 max_tokens=4096
             )
         else:
-            # Default to OpenAI-compatible models
-            llm = ChatOpenAI(
+            llm = init_chat_model(
                 model=llm_model,
+                model_provider="openai",
                 temperature=temperature,
                 max_tokens=4096
             )

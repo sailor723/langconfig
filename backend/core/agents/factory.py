@@ -1169,17 +1169,17 @@ You have been equipped with the following tools: {', '.join(tool_names)}
         logger.debug(f"Initializing LLM instance for model: {model_name}")
         streaming = config.get("streaming", True)
 
-        # --- DeepSeek Models (OpenAI-compatible) ---
+        # --- DeepSeek Models ---
         if model_name.startswith("deepseek"):
             if not settings.DEEPSEEK_API_KEY:
                 raise ValueError(f"DEEPSEEK_API_KEY is required for model {model_name}")
 
-            return ChatOpenAI(
+            return init_chat_model(
                 model=model_name,
-                api_key=settings.DEEPSEEK_API_KEY,
-                base_url=settings.DEEPSEEK_API_BASE,
+                model_provider="deepseek",
                 temperature=temperature,
                 max_tokens=max_tokens,
+                api_key=settings.DEEPSEEK_API_KEY,
                 streaming=streaming,
             )
 

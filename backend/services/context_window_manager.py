@@ -362,8 +362,12 @@ class ContextWindowManager:
 
         try:
             if summarization_llm is None:
-                from langchain_openai import ChatOpenAI
-                summarization_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+                from langchain.chat_models import init_chat_model
+                summarization_llm = init_chat_model(
+                    model="gpt-4o-mini",
+                    model_provider="openai",
+                    temperature=0,
+                )
 
             summary_prompt = [
                 SystemMessage(content="""You are a conversation summarizer.
