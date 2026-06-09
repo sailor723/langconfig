@@ -29,8 +29,7 @@ import json
 from typing import Dict, Any, List, Optional, Union
 from langchain_community.agent_toolkits import JsonToolkit, create_json_agent
 from langchain_community.tools.json.tool import JsonSpec
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
+from langchain.chat_models import init_chat_model
 from langchain.agents import create_agent
 from langgraph.graph.state import CompiledStateGraph
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -155,14 +154,16 @@ async def create_json_agent(
 
         # Create LLM instance
         if llm_model.startswith("claude"):
-            llm = ChatAnthropic(
+            llm = init_chat_model(
                 model=llm_model,
+                model_provider="anthropic",
                 temperature=temperature,
                 max_tokens=4096
             )
         else:
-            llm = ChatOpenAI(
+            llm = init_chat_model(
                 model=llm_model,
+                model_provider="openai",
                 temperature=temperature,
                 max_tokens=4096
             )
