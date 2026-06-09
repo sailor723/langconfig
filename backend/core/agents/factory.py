@@ -1485,21 +1485,26 @@ You have been equipped with the following tools: {', '.join(tool_names)}
 
     @staticmethod
     async def _load_memory_tools(vector_store, project_id: int, task_id: int) -> List[BaseTool]:
-        """Helper to load memory tools using SimpleMemory (text-based, no vector store).
+        """Helper to load memory tools using SimpleMemory (PostgreSQL-backed).
         
         Uses a module-level cache so memories persist across agent calls."""
         try:
             from core.agents.memory import get_or_create_memory
+            from db.database import AsyncSessionLocal
+
+            # Create a fresh DB session for memory operations
+            db_session = AsyncSessionLocal()
 
             memory_system = get_or_create_memory(
                 project_id=project_id,
-                agent_id=f"task_{task_id}"
+                agent_id=f"task_{task_id}",
+                db_session=db_session,
             )
             memory_tools = memory_system.create_memory_tools()
 
             logger.info(
                 f"✓ Loaded {len(memory_tools)} memory tools "
-                f"(text-based, {memory_system.memory_count} existing memories)"
+                f"(PG-backed, {memory_system.memory_count} cached)"
             )
             return memory_tools
 

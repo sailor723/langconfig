@@ -16,11 +16,16 @@ The LLM reads all stored memories directly in its context window.
 """
 
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, TYPE_CHECKING
 from enum import Enum
 
 from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+if TYPE_CHECKING:
+    from models.agent_memory import AgentMemory
 
 logger = logging.getLogger(__name__)
 
@@ -81,38 +86,55 @@ class MemoryRecallArgs(BaseModel):
 _memory_cache: Dict[str, "SimpleMemory"] = {}
 
 
-def get_or_create_memory(project_id: int, agent_id: str) -> "SimpleMemory":
+def get_or_create_memory(
+    project_id: int, agent_id: str, db_session: Optional[AsyncSession] = None
+) -> "SimpleMemory":
     """Return an existing SimpleMemory for this agent, or create and cache a new one."""
     key = f"{project_id}:{agent_id}"
     if key not in _memory_cache:
         _memory_cache[key] = SimpleMemory(project_id, agent_id)
-    return _memory_cache[key]
+    instance = _memory_cache[key]
+    # Always update the DB session (reconnect after server restart)
+    if db_session is not None:
+        instance._db = db_session
+    return instance
 
 
 class SimpleMemory:
     """
-    Text-based memory using a simple dict — no vector store or embeddings.
+    Text-based memory with optional PostgreSQL persistence.
 
-    Each entry is stored as a plain text record. memory_recall returns
-    the full text of all stored memories for the LLM to read directly.
-    Modern LLMs with large context windows handle this efficiently.
+    Supports two backends:
+    - In-memory (dict): fast, no deps, lost on restart — always available
+    - PostgreSQL (via AsyncSession): persistent across restarts — used when available
 
     Usage:
-        >>> memory = SimpleMemory(project_id=1, agent_id="task_42")
-        >>> tools = memory.create_memory_tools()
-        >>> await tools[0].ainvoke({"memory_content": "We use JWT auth", "memory_type": "fact"})
+        # In-memory only
+        >>> mem = SimpleMemory(project_id=1, agent_id="task_42")
+        >>> tools = mem.create_memory_tools()
+
+        # With PostgreSQL
+        >>> from db.database import AsyncSessionLocal
+        >>> mem = SimpleMemory(project_id=1, agent_id="task_42", db_session=AsyncSessionLocal())
+        >>> tools = mem.create_memory_tools()
     """
 
-    def __init__(self, project_id: int, agent_id: str):
+    def __init__(
+        self,
+        project_id: int,
+        agent_id: str,
+        db_session: Optional[AsyncSession] = None,
+    ):
         self.project_id = project_id
         self.agent_id = agent_id
-        self._store: List[Dict] = []  # list of memory dicts
+        self._db = db_session
+        self._store: List[Dict] = []  # in-memory fallback / local cache
 
     def create_memory_tools(self) -> List[BaseTool]:
-        """Create memory_store and memory_recall tools."""
+        """Create memory_store and memory_recall tools (async-compatible)."""
         return [
             StructuredTool.from_function(
-                func=self.save_to_memory,
+                coroutine=self.save_to_memory,
                 name="memory_store",
                 description=(
                     "Save critical information (facts, decisions, patterns, or learnings) "
@@ -123,7 +145,7 @@ class SimpleMemory:
                 return_direct=False,
             ),
             StructuredTool.from_function(
-                func=self.recall_memory,
+                coroutine=self.recall_memory,
                 name="memory_recall",
                 description=(
                     "Recall previously stored information from memory. "
@@ -136,97 +158,198 @@ class SimpleMemory:
         ]
 
     # =========================================================================
-    # Tool Implementations (synchronous - no async needed for dict access)
+    # Async Tool Implementations (works with both backends)
     # =========================================================================
 
-    def save_to_memory(
+    async def save_to_memory(
         self,
         memory_content: str,
         memory_type: MemoryType = MemoryType.FACT,
         importance: int = 5,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
     ) -> str:
-        """
-        Save important information to memory.
-
-        Use this when you learn something important that you'll need later.
-        Examples:
-        - Architectural decisions made
-        - Code patterns discovered
-        - Bugs fixed and their solutions
-        - Important project conventions
-        """
+        """Save to PostgreSQL if available, otherwise to in-memory dict."""
         try:
-            entry = {
-                "content": memory_content,
-                "type": memory_type if isinstance(memory_type, str) else memory_type.value,
-                "importance": importance,
-                "tags": tags or [],
-                "index": len(self._store) + 1,
-            }
-            self._store.append(entry)
+            tags = tags or []
+            type_str = memory_type if isinstance(memory_type, str) else memory_type.value
 
-            logger.info(
-                f"Agent {self.agent_id} saved memory "
-                f"(#{entry['index']}, type={entry['type']}, "
-                f"importance={importance}): {memory_content[:100]}..."
-            )
-
-            return (
-                f"Memory stored (#{entry['index']}). "
-                f"Type: {entry['type']}, Importance: {importance}/10."
-            )
+            if self._db is not None:
+                return await self._save_to_db(memory_content, type_str, importance, tags)
+            else:
+                return self._save_to_inmem(memory_content, type_str, importance, tags)
 
         except Exception as e:
             logger.error(f"Failed to save memory: {e}", exc_info=True)
             return f"Error: Failed to save memory — {e}"
 
-    def recall_memory(
+    async def recall_memory(
         self,
         query: str = "",
-        memory_type: Optional[str] = None
+        memory_type: Optional[str] = None,
     ) -> str:
-        """
-        Recall stored memories. Returns all memories as formatted text.
-
-        The LLM reads all returned memories in its context window and
-        determines relevance by itself — no vector search needed.
-        """
+        """Recall from PostgreSQL if available, otherwise from in-memory dict."""
         try:
-            # Filter by type if specified
-            entries = self._store
-            if memory_type:
-                entries = [e for e in entries if e["type"] == memory_type]
-
-            if not entries:
-                return (
-                    "No memories stored yet. You are starting fresh — "
-                    "use memory_store to save important information for future turns."
-                )
-
-            # Format all memories as a readable text block
-            lines = [f"=== AGENT MEMORY ({len(entries)} entries) ===\n"]
-            for e in entries:
-                type_str = e["type"].upper()
-                tags_str = f" [{', '.join(e['tags'])}]" if e["tags"] else ""
-                lines.append(
-                    f"[{e['index']}] {type_str} "
-                    f"(importance: {e['importance']}/10){tags_str}\n"
-                    f"    {e['content']}\n"
-                )
-
-            if query:
-                lines.insert(1, f"Query: \"{query}\"\n")
-
-            return "".join(lines)
+            if self._db is not None:
+                return await self._recall_from_db(query, memory_type)
+            else:
+                return self._recall_from_inmem(query, memory_type)
 
         except Exception as e:
             logger.error(f"Memory recall failed: {e}", exc_info=True)
             return f"Error recalling memories: {e}"
 
+    # =========================================================================
+    # PostgreSQL Backend
+    # =========================================================================
+
+    async def _save_to_db(
+        self,
+        content: str,
+        memory_type: str,
+        importance: int,
+        tags: List[str],
+    ) -> str:
+        """Persist a memory entry to PostgreSQL."""
+        from models.agent_memory import AgentMemory
+
+        entry = AgentMemory(
+            project_id=self.project_id,
+            agent_id=self.agent_id,
+            memory_type=memory_type,
+            importance=importance,
+            tags=tags,
+            content=content,
+        )
+        self._db.add(entry)
+        await self._db.commit()
+        await self._db.refresh(entry)
+
+        logger.info(
+            f"Agent {self.agent_id} saved memory to DB "
+            f"(id={entry.id}, type={memory_type}, importance={importance}): "
+            f"{content[:100]}..."
+        )
+        return (
+            f"Memory stored (DB id={entry.id}). "
+            f"Type: {memory_type}, Importance: {importance}/10."
+        )
+
+    async def _recall_from_db(
+        self,
+        query: str = "",
+        memory_type: Optional[str] = None,
+    ) -> str:
+        """Recall memories from PostgreSQL, ordered by most recent first."""
+        from models.agent_memory import AgentMemory
+
+        stmt = (
+            select(AgentMemory)
+            .where(
+                AgentMemory.project_id == self.project_id,
+                AgentMemory.agent_id == self.agent_id,
+            )
+            .order_by(AgentMemory.created_at.desc())
+        )
+
+        result = await self._db.execute(stmt)
+        entries = result.scalars().all()
+
+        if not entries:
+            return (
+                "No memories stored yet. You are starting fresh — "
+                "use memory_store to save important information for future turns."
+            )
+
+        # Filter by type if specified
+        if memory_type:
+            entries = [e for e in entries if e.memory_type == memory_type]
+
+        if not entries:
+            return f"No memories found with type '{memory_type}'."
+
+        lines = [f"=== AGENT MEMORY ({len(entries)} entries) ===\n"]
+        for i, e in enumerate(entries, 1):
+            tags_str = f" [{', '.join(e.tags)}]" if e.tags else ""
+            lines.append(
+                f"[{i}] {e.memory_type.upper()} "
+                f"(importance: {e.importance}/10){tags_str}\n"
+                f"    {e.content}\n"
+            )
+
+        if query:
+            lines.insert(1, f'Query: "{query}"\n')
+
+        return "".join(lines)
+
+    # =========================================================================
+    # In-Memory Backend
+    # =========================================================================
+
+    def _save_to_inmem(
+        self,
+        content: str,
+        memory_type: str,
+        importance: int,
+        tags: List[str],
+    ) -> str:
+        """Save to in-memory list (synchronous, no I/O)."""
+        entry = {
+            "content": content,
+            "type": memory_type,
+            "importance": importance,
+            "tags": tags,
+            "index": len(self._store) + 1,
+        }
+        self._store.append(entry)
+
+        logger.info(
+            f"Agent {self.agent_id} saved memory "
+            f"(#{entry['index']}, type={memory_type}, importance={importance}): "
+            f"{content[:100]}..."
+        )
+        return (
+            f"Memory stored (#{entry['index']}). "
+            f"Type: {memory_type}, Importance: {importance}/10."
+        )
+
+    def _recall_from_inmem(
+        self,
+        query: str = "",
+        memory_type: Optional[str] = None,
+    ) -> str:
+        """Recall from in-memory list (synchronous, no I/O)."""
+        entries = self._store
+        if memory_type:
+            entries = [e for e in entries if e["type"] == memory_type]
+
+        if not entries:
+            return (
+                "No memories stored yet. You are starting fresh — "
+                "use memory_store to save important information for future turns."
+            )
+
+        lines = [f"=== AGENT MEMORY ({len(entries)} entries) ===\n"]
+        for e in entries:
+            type_str = e["type"].upper()
+            tags_str = f" [{', '.join(e['tags'])}]" if e["tags"] else ""
+            lines.append(
+                f"[{e['index']}] {type_str} "
+                f"(importance: {e['importance']}/10){tags_str}\n"
+                f"    {e['content']}\n"
+            )
+
+        if query:
+            lines.insert(1, f'Query: "{query}"\n')
+
+        return "".join(lines)
+
+    # =========================================================================
+    # Properties & Utilities
+    # =========================================================================
+
     @property
     def memory_count(self) -> int:
-        """Number of stored memories."""
+        """Number of stored memories (from in-memory cache)."""
         return len(self._store)
 
     def get_memory_text(self) -> str:
@@ -234,7 +357,7 @@ class SimpleMemory:
         Get all memories as a single text block for injection into system prompt.
         Returns empty string if no memories.
         """
-        return self.recall_memory() if self._store else ""
+        return self._recall_from_inmem() if self._store else ""
 
 
 # =============================================================================
@@ -252,7 +375,7 @@ def create_memory_tools(project_id: int, agent_id: str) -> List[BaseTool]:
     Returns:
         List of memory tool instances (memory_store, memory_recall)
     """
-    memory = SimpleMemory(project_id=project_id, agent_id=agent_id)
+    memory = get_or_create_memory(project_id=project_id, agent_id=agent_id)
     return memory.create_memory_tools()
 
 
@@ -329,7 +452,7 @@ class AgentMemorySystem:
     """
     
     def __init__(self, vector_store=None, project_id=0, agent_id=""):
-        self._memory = SimpleMemory(project_id=project_id, agent_id=agent_id)
+        self._memory = get_or_create_memory(project_id=project_id, agent_id=agent_id)
         self.project_id = project_id
         self.agent_id = agent_id
 
