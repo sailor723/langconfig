@@ -41,16 +41,16 @@ def _create_llm_for_playground(model_name: str, temperature: float, max_tokens: 
     """
     streaming = False  # Non-streaming for simplicity
 
-    # DeepSeek Models (OpenAI-compatible)
+    # DeepSeek Models
     if model_name.startswith("deepseek"):
         if not settings.DEEPSEEK_API_KEY:
             raise HTTPException(status_code=400, detail="DEEPSEEK_API_KEY not configured")
-        return ChatOpenAI(
+        return init_chat_model(
             model=model_name,
-            api_key=settings.DEEPSEEK_API_KEY,
-            base_url=settings.DEEPSEEK_API_BASE,
+            model_provider="deepseek",
             temperature=temperature,
             max_tokens=max_tokens,
+            api_key=settings.DEEPSEEK_API_KEY,
             streaming=streaming,
         )
 

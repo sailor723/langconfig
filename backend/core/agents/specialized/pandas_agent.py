@@ -30,8 +30,7 @@ import logging
 from typing import Optional, Dict, Any, Union
 import pandas as pd
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
+from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
 
 logger = logging.getLogger(__name__)
@@ -139,14 +138,16 @@ async def create_dataframe_agent(
 
         # Create LLM instance
         if llm_model.startswith("claude"):
-            llm = ChatAnthropic(
+            llm = init_chat_model(
                 model=llm_model,
+                model_provider="anthropic",
                 temperature=temperature,
                 max_tokens=4096
             )
         else:
-            llm = ChatOpenAI(
+            llm = init_chat_model(
                 model=llm_model,
+                model_provider="openai",
                 temperature=temperature,
                 max_tokens=4096
             )
