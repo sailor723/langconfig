@@ -77,6 +77,18 @@ class MemoryRecallArgs(BaseModel):
 # Simple Text-Based Memory System
 # =============================================================================
 
+# Module-level cache — persists memory instances across agent calls
+_memory_cache: Dict[str, "SimpleMemory"] = {}
+
+
+def get_or_create_memory(project_id: int, agent_id: str) -> "SimpleMemory":
+    """Return an existing SimpleMemory for this agent, or create and cache a new one."""
+    key = f"{project_id}:{agent_id}"
+    if key not in _memory_cache:
+        _memory_cache[key] = SimpleMemory(project_id, agent_id)
+    return _memory_cache[key]
+
+
 class SimpleMemory:
     """
     Text-based memory using a simple dict — no vector store or embeddings.

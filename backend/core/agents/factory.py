@@ -1485,17 +1485,22 @@ You have been equipped with the following tools: {', '.join(tool_names)}
 
     @staticmethod
     async def _load_memory_tools(vector_store, project_id: int, task_id: int) -> List[BaseTool]:
-        """Helper to load memory tools using SimpleMemory (text-based, no vector store)."""
+        """Helper to load memory tools using SimpleMemory (text-based, no vector store).
+        
+        Uses a module-level cache so memories persist across agent calls."""
         try:
-            from core.agents.memory import SimpleMemory
+            from core.agents.memory import get_or_create_memory
 
-            memory_system = SimpleMemory(
+            memory_system = get_or_create_memory(
                 project_id=project_id,
                 agent_id=f"task_{task_id}"
             )
             memory_tools = memory_system.create_memory_tools()
 
-            logger.info(f"✓ Loaded {len(memory_tools)} memory tools (text-based)")
+            logger.info(
+                f"✓ Loaded {len(memory_tools)} memory tools "
+                f"(text-based, {memory_system.memory_count} existing memories)"
+            )
             return memory_tools
 
         except Exception as e:
