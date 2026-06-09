@@ -16,11 +16,11 @@ The LLM reads all stored memories directly in its context window.
 """
 
 import logging
-from typing import List, Dict, Optional, TYPE_CHECKING
+from typing import Any, List, Dict, Optional, TYPE_CHECKING
 from enum import Enum
 
 from langchain_core.tools import BaseTool, StructuredTool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,10 +45,28 @@ class MemoryType(str, Enum):
 # =============================================================================
 
 class MemorySaveArgs(BaseModel):
-    """Schema for saving information to memory."""
-    memory_content: str = Field(
-        ...,
-        description="The specific information to remember. Be detailed, include context and rationale."
+    """Schema for saving information to memory.
+
+    Accepts both legacy (key/value/context) and modern (memory_content/...)
+    parameter names for backward compatibility with existing agents/stubs.
+    """
+    # Legacy params (what LLM/stubs generate)
+    key: Optional[str] = Field(
+        None,
+        description="[Legacy] Unique identifier for this memory."
+    )
+    value: Optional[str] = Field(
+        None,
+        description="[Legacy] The specific information to remember."
+    )
+    context: Optional[str] = Field(
+        None,
+        description="[Legacy] Context/category (e.g., 'conversation', 'user_pref')."
+    )
+    # Modern params (canonical)
+    memory_content: Optional[str] = Field(
+        None,
+        description="[Modern] The specific information to remember."
     )
     memory_type: MemoryType = Field(
         MemoryType.FACT,
@@ -65,9 +83,37 @@ class MemorySaveArgs(BaseModel):
         description="Optional tags for categorization (e.g., ['auth', 'security'])."
     )
 
+    @model_validator(mode='before')
+    @classmethod
+    def normalize_legacy_params(cls, data: Any) -> Any:
+        """Merge legacy (key/value/context) params into canonical (memory_content)."""
+        if not isinstance(data, dict):
+            return data
+        # value → memory_content
+        if data.get('value') and not data.get('memory_content'):
+            data['memory_content'] = data['value']
+        # key (when no value) → memory_content as "[key]"
+        if data.get('key') and not data.get('memory_content') and not data.get('value'):
+            data['memory_content'] = f"[{data['key']}]"
+        return data
+
 
 class MemoryRecallArgs(BaseModel):
-    """Schema for recalling information from memory."""
+    """Schema for recalling information from memory.
+
+    Accepts both legacy (key/context) and modern (query/memory_type)
+    parameter names for backward compatibility.
+    """
+    # Legacy params
+    key: Optional[str] = Field(
+        None,
+        description="[Legacy] The key to look up."
+    )
+    context: Optional[str] = Field(
+        None,
+        description="[Legacy] Context/category filter."
+    )
+    # Modern params (canonical)
     query: str = Field(
         default="",
         description="What you are trying to recall. Leave empty to see all memories."
@@ -76,6 +122,25 @@ class MemoryRecallArgs(BaseModel):
         None,
         description="Optional: Filter by memory type (fact, decision, pattern, learning, context, relationship)."
     )
+
+    @model_validator(mode='before')
+    @classmethod
+    def normalize_legacy_params(cls, data: Any) -> Any:
+        """Merge legacy (key/context) params into canonical fields."""
+        if not isinstance(data, dict):
+            return data
+        # key → query
+        if data.get('key') and not data.get('query'):
+            data['query'] = str(data['key'])
+        # context → memory_type (only if it's a known MemoryType to avoid false matches)
+        if data.get('context') and not data.get('memory_type'):
+            ctx_lower = str(data['context']).lower()
+            try:
+                MemoryType(ctx_lower)
+                data['memory_type'] = ctx_lower
+            except ValueError:
+                pass  # ignore generic context like "conversation"
+        return data
 
 
 # =============================================================================
@@ -163,20 +228,26 @@ class SimpleMemory:
 
     async def save_to_memory(
         self,
-        memory_content: str,
+        memory_content: Optional[str] = None,
         memory_type: MemoryType = MemoryType.FACT,
         importance: int = 5,
         tags: Optional[List[str]] = None,
+        **kwargs: Any,  # absorb legacy params (key, value, context)
     ) -> str:
         """Save to PostgreSQL if available, otherwise to in-memory dict."""
         try:
+            # Guard: must have content (pydantic validator should normalize legacy -> modern)
+            content = memory_content or ""
+            if not content:
+                return "Error: No memory content provided."
+
             tags = tags or []
             type_str = memory_type if isinstance(memory_type, str) else memory_type.value
 
             if self._db is not None:
-                return await self._save_to_db(memory_content, type_str, importance, tags)
+                return await self._save_to_db(content, type_str, importance, tags)
             else:
-                return self._save_to_inmem(memory_content, type_str, importance, tags)
+                return self._save_to_inmem(content, type_str, importance, tags)
 
         except Exception as e:
             logger.error(f"Failed to save memory: {e}", exc_info=True)
@@ -186,6 +257,7 @@ class SimpleMemory:
         self,
         query: str = "",
         memory_type: Optional[str] = None,
+        **kwargs: Any,  # absorb legacy params (key, context)
     ) -> str:
         """Recall from PostgreSQL if available, otherwise from in-memory dict."""
         try:

@@ -188,6 +188,32 @@ class DeepAgentFactory:
             except ImportError as e:
                 logger.warning(f"FilesystemMiddleware not available: {e}")
 
+        # Initialize SummarizationMiddleware if enabled (deepagents built-in)
+        # This automatically compresses conversation history when token count exceeds threshold.
+        if config.guardrails and config.guardrails.enable_summarization:
+            try:
+                from deepagents.middleware.summarization import SummarizationMiddleware
+                from deepagents.backends import StateBackend
+
+                trigger = ("token", config.guardrails.token_limits.get("summarization_threshold", 60000))
+                keep = ("messages", 20)
+                summarization_mw = SummarizationMiddleware(
+                    model=config.model,
+                    backend=StateBackend(),
+                    trigger=trigger,
+                    keep=keep,
+                )
+                instrumented_summ = instrument_deepagents_middleware(
+                    summarization_mw,
+                    callback_handler=callback_handler
+                )
+                middleware_instances.append(instrumented_summ)
+                logger.info(
+                    f"SummarizationMiddleware initialized: trigger={trigger}, keep={keep}"
+                )
+            except Exception as e:
+                logger.warning(f"SummarizationMiddleware not available: {e}")
+
         # NOTE: SubAgentMiddleware is NOT manually created here.
         # The deepagents library automatically creates SubAgentMiddleware (with the `task` tool)
         # when `subagents=` is passed to create_deep_agent().
@@ -302,17 +328,49 @@ class DeepAgentFactory:
         }
 
         # Load native tools (file operations, web search, etc.)
-        if config.native_tools:
+        MEMORY_NATIVE_TOOLS = {"memory_store", "memory_recall", "enable_memory"}
+        native_tool_names = config.native_tools or []
+        requested_memory_native = [t for t in native_tool_names if t in MEMORY_NATIVE_TOOLS]
+        if requested_memory_native:
+            logger.info(
+                f"Detected memory tools in native_tools: {requested_memory_native}. "
+                f"Routing to SimpleMemory (PostgreSQL-backed)."
+            )
+            # Remove stubs/config flags from native tool loading
+            native_tool_names = [t for t in native_tool_names if t not in MEMORY_NATIVE_TOOLS]
+
+        if native_tool_names:
             try:
                 from core.agents.factory import AgentFactory
                 native_tools = await AgentFactory._load_native_tools(
-                    config.native_tools,
+                    native_tool_names,
                     workspace_context=workspace_context
                 )
                 tools.extend(native_tools)
                 logger.info(f"Loaded {len(native_tools)} native tools with workspace_context")
             except Exception as e:
                 logger.error(f"Failed to load native tools: {e}")
+
+        # Load real memory tools if requested (PostgreSQL-backed SimpleMemory)
+        if requested_memory_native:
+            try:
+                from db.database import AsyncSessionLocal
+                from core.agents.memory import get_or_create_memory
+
+                db_session = AsyncSessionLocal()
+                memory_system = get_or_create_memory(
+                    project_id=project_id,
+                    agent_id=f"task_{task_id}",
+                    db_session=db_session,
+                )
+                memory_tools = memory_system.create_memory_tools()
+                tools.extend(memory_tools)
+                logger.info(
+                    f"✓ Loaded {len(memory_tools)} memory tools "
+                    f"(PG-backed, {memory_system.memory_count} cached)"
+                )
+            except Exception as e:
+                logger.error(f"Failed to add memory tools: {e}. Proceeding without them.")
 
         # Load CLI tools (command-line integrations)
         if config.cli_tools:

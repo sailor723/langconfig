@@ -74,6 +74,7 @@ dependencies = [
     "pytest-mock>=3.11.0",
     "asyncpg",
     "tavily-python>=0.7.25",
+    "langchain-deepseek>=1.1.0",
 ]
 
 [dependency-groups]

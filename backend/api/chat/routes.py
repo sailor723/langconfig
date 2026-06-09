@@ -319,7 +319,7 @@ async def send_message(
 
         # Invoke agent with thread_id for conversation persistence
         # The checkpointer automatically loads and saves conversation history
-        result = agent_instance.invoke(
+        result = await agent_instance.ainvoke(
             {"messages": [new_message]},
             config={"configurable": {"thread_id": session.session_id}}
         )
@@ -367,6 +367,69 @@ async def send_message(
         # Save session
         db.commit()
         db.refresh(session)
+
+        # ──────────────────────────────────────────────
+        # 1. Archive conversation turn (auto-save every turn)
+        # 2. Extract user metadata (LLM, only when new info detected)
+        # ──────────────────────────────────────────────
+        try:
+            from models.conversation_archive import ConversationArchive
+            from models.user_profile import UserProfile
+
+            # 1. Archive the turn
+            import re
+            turn_matches = re.findall(r'role["\']:\s*["\']user["\']', json.dumps(session.messages))
+            turn_number = len(turn_matches)
+
+            archive_record = ConversationArchive(
+                session_id=session.session_id,
+                user_id=session.user_id,
+                turn_number=turn_number,
+                user_message=request.message,
+                agent_response=response_text,
+                tool_calls=tool_calls or [],
+            )
+            db.add(archive_record)
+            db.commit()
+
+            # 2. Extract user metadata (LLM-based, uses DeepSeek internally)
+            try:
+                from core.chat.metadata_extractor import extract_metadata_from_message
+
+                metadata = await extract_metadata_from_message(
+                    request.message
+                )
+                if metadata and metadata.has_new_info:
+                    existing = db.query(UserProfile).filter_by(
+                        user_id=session.user_id
+                    ).first()
+                    if existing:
+                        if metadata.name:
+                            existing.name = metadata.name
+                        if metadata.preferences:
+                            all_prefs = list(set(
+                                (existing.preferences or []) + metadata.preferences
+                            ))
+                            existing.preferences = all_prefs
+                        existing.updated_at = datetime.utcnow()
+                    else:
+                        profile = UserProfile(
+                            user_id=session.user_id,
+                            name=metadata.name,
+                            preferences=metadata.preferences or [],
+                            metadata_snapshot=metadata.model_dump(),
+                        )
+                        db.add(profile)
+                    db.commit()
+                    logger.info(
+                        f"Extracted user metadata: name={metadata.name}, "
+                        f"preferences={metadata.preferences}"
+                    )
+            except Exception as meta_err:
+                logger.warning(f"Metadata extraction failed (non-blocking): {meta_err}")
+
+        except Exception as archive_err:
+            logger.warning(f"Conversation archive failed (non-blocking): {archive_err}")
 
         # Store messages in vector store for semantic search (if project_id available)
         # Note: Chat sessions currently don't have project association, but we'll add it later
