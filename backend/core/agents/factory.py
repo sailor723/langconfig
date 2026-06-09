@@ -410,7 +410,8 @@ class AgentFactory:
         # Route memory tools from native_tools to the real AgentMemorySystem.
         # The native_tools.py stubs are placeholders; the real implementation
         # is in core/agents/memory.py backed by pgvector.
-        MEMORY_NATIVE_TOOLS = {"memory_store", "memory_recall"}
+        # Also filter out "enable_memory" config flag from native_tools list.
+        MEMORY_NATIVE_TOOLS = {"memory_store", "memory_recall", "enable_memory"}
         requested_memory_native = [t for t in native_tool_names if t in MEMORY_NATIVE_TOOLS]
         if requested_memory_native:
             logger.info(
