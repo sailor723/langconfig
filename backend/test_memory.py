@@ -156,10 +156,65 @@ def test_multi_turn_chat():
     return True
 
 
+def test_memory_cache_persistence():
+    """Test that get_or_create_memory returns the same instance (cache works)."""
+    print("\n" + "=" * 60)
+    print("TEST 4: Memory cache persistence (get_or_create_memory)")
+    print("=" * 60)
+
+    from core.agents.memory import get_or_create_memory
+
+    # Turn 1: Create and store
+    mem1 = get_or_create_memory(project_id=5, agent_id="cache_test")
+    tools1 = mem1.create_memory_tools()
+    store_tool = [t for t in tools1 if t.name == "memory_store"][0]
+    store_tool.invoke({
+        "memory_content": "Cache test: this should persist.",
+        "memory_type": "fact",
+        "importance": 8,
+    })
+    print(f"  Turn 1: stored 1 memory (count={mem1.memory_count})")
+    assert mem1.memory_count == 1
+
+    # Turn 2: Same key → should get same instance with 1 memory
+    mem2 = get_or_create_memory(project_id=5, agent_id="cache_test")
+    assert mem2 is mem1, "Cache should return the SAME instance"
+    assert mem2.memory_count == 1, f"Expected 1, got {mem2.memory_count}"
+    print(f"  Turn 2: same instance (count={mem2.memory_count}) ✓")
+
+    # Store via mem2
+    tools2 = mem2.create_memory_tools()
+    store_tool2 = [t for t in tools2 if t.name == "memory_store"][0]
+    store_tool2.invoke({
+        "memory_content": "Another memory from turn 2.",
+        "memory_type": "fact",
+        "importance": 5,
+    })
+    assert mem2.memory_count == 2
+    assert mem1.memory_count == 2  # same instance
+    print(f"  Turn 2: added 2nd memory (count={mem2.memory_count}) ✓")
+
+    # Recall via mem1 should see both
+    recall_tool = [t for t in tools1 if t.name == "memory_recall"][0]
+    result = recall_tool.invoke({"query": ""})
+    assert "Cache test" in result
+    assert "turn 2" in result
+    print(f"  Recall via mem1 sees both memories ✓")
+
+    # Different key → new instance
+    mem3 = get_or_create_memory(project_id=5, agent_id="other_agent")
+    assert mem3 is not mem1
+    assert mem3.memory_count == 0
+    print(f"  Different agent: new instance (count={mem3.memory_count}) ✓")
+
+    print("  ✓ PASS")
+    return True
+
+
 def test_agent_memory_system_compat():
     """Test that AgentMemorySystem (legacy wrapper) still works."""
     print("\n" + "=" * 60)
-    print("TEST 4: AgentMemorySystem (legacy compat)")
+    print("TEST 5: AgentMemorySystem (legacy compat)")
     print("=" * 60)
 
     from core.agents.memory import AgentMemorySystem
@@ -200,6 +255,7 @@ def main():
         ("Store → Recall", test_basic_store_recall),
         ("Tool interface", test_tools_interface),
         ("Multi-turn chat", test_multi_turn_chat),
+        ("Cache persistence", test_memory_cache_persistence),
         ("Legacy compat", test_agent_memory_system_compat),
     ]:
         try:
