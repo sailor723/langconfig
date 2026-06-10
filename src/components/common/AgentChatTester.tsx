@@ -80,6 +80,10 @@ export default function AgentChatTester({
   const [todos, setTodos] = useState<Array<{ id: number; content: string; status: string }>>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // HITL interrupt state
+  const [pendingInterrupt, setPendingInterrupt] = useState<any>(null);
+  const [isResuming, setIsResuming] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -205,6 +209,9 @@ export default function AgentChatTester({
                 });
               } else if (data.type === 'error') {
                 setError(data.message);
+              } else if (data.type === 'interrupt') {
+                // HITL interrupt: pause and show approval modal
+                setPendingInterrupt(data.data || data);
               }
             } catch (e) {
               // Skip invalid JSON
@@ -252,6 +259,38 @@ export default function AgentChatTester({
       setSubagentActivity(data?.subagent_spawns || []);
     } catch (err) {
       console.error('Failed to fetch metrics:', err);
+    }
+  };
+
+  // Resume from interrupt
+  const handleResume = async (action: string) => {
+    if (!sessionId) return;
+    setIsResuming(true);
+    try {
+      const response = await fetch(`${apiClient.baseURL}/api/chat/${sessionId}/resume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      if (!response.ok) throw new Error(`Resume failed: ${response.statusText}`);
+      const result = await response.json();
+
+      // Add assistant response from resume result
+      if (result.content) {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: result.content,
+          timestamp: new Date().toISOString(),
+        }]);
+      }
+
+      setPendingInterrupt(null);
+      await fetchMetrics();
+    } catch (err: any) {
+      console.error('Failed to resume:', err);
+      setError('Failed to resume: ' + err.message);
+    } finally {
+      setIsResuming(false);
     }
   };
 
@@ -574,6 +613,79 @@ export default function AgentChatTester({
           </div>
         </div>
       </div>
+
+      {/* HITL Interrupt Modal */}
+      {pendingInterrupt && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
+          <div
+            className="bg-white dark:bg-panel-dark rounded-xl w-full max-w-lg shadow-2xl border"
+            style={{ borderColor: 'var(--color-border-dark)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-3 rounded-t-xl" style={{ backgroundColor: '#f59e0b' }}>
+              <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                ⏸️ Human Approval Required
+              </h3>
+              <p className="text-xs text-white/80 mt-0.5">
+                An agent action needs your approval before proceeding
+              </p>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {pendingInterrupt.action_requests?.map((req: any, i: number) => (
+                <div key={i} className="p-3 rounded-lg border" style={{
+                  borderColor: 'var(--color-border-dark)',
+                  backgroundColor: 'var(--color-background-light)'
+                }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                      {req.name}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                      Tool Call
+                    </span>
+                  </div>
+                  <div className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    {req.description && <p className="italic">{req.description}</p>}
+                    {req.args && Object.keys(req.args).length > 0 && (
+                      <pre className="mt-1 p-2 rounded text-xs font-mono overflow-x-auto" style={{
+                        backgroundColor: 'var(--color-background)',
+                        maxHeight: '120px'
+                      }}>
+                        {JSON.stringify(req.args, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-5 py-3 border-t flex items-center justify-end gap-2"
+                 style={{ borderColor: 'var(--color-border-dark)' }}>
+              <button
+                onClick={() => handleResume('reject')}
+                disabled={isResuming}
+                className="px-4 py-2 rounded-lg text-sm font-medium border"
+                style={{
+                  borderColor: 'var(--color-border-dark)',
+                  color: 'var(--color-text-primary)',
+                  backgroundColor: 'var(--color-background-light)'
+                }}
+              >
+                Reject
+              </button>
+              <button
+                onClick={() => handleResume('approve')}
+                disabled={isResuming}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+                style={{ backgroundColor: '#16a34a' }}
+              >
+                {isResuming ? 'Resuming...' : 'Approve'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

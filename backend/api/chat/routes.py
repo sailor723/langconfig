@@ -56,6 +56,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+from sqlalchemy.orm.attributes import flag_modified
 from datetime import datetime
 import asyncio
 import json
@@ -64,7 +65,9 @@ from db.database import get_db
 from models.deep_agent import DeepAgentTemplate, ChatSession, DeepAgentConfig, SessionDocument
 from models.core import DocumentType, IndexingStatus
 from services.deepagent_factory import DeepAgentFactory
+from core.agents.factory import AgentFactory
 from core.workflows.events.emitter import ExecutionEventCallbackHandler
+from langgraph.errors import GraphInterrupt
 from services.conversation_context import ConversationContextService
 
 logger = logging.getLogger(__name__)
@@ -301,16 +304,28 @@ async def send_message(
         agent_instance = get_cached_agent(request.session_id)
 
         if not agent_instance:
-            # Create agent instance
-            config = DeepAgentConfig(**agent.config)
-            agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
-                config=config,
-                project_id=0,  # Not tied to a project
-                task_id=0,  # Not tied to a task
-                context="",
-                mcp_manager=None,  # Would be injected in production
-                vector_store=None
-            )
+            # Create agent instance — branch based on agent type
+            use_deepagents = agent.config.get("use_deepagents", False)
+            if use_deepagents:
+                config = DeepAgentConfig(**agent.config)
+                agent_instance, _tools, _callbacks = await DeepAgentFactory.create_deep_agent(
+                    config=config,
+                    project_id=0,  # Not tied to a project
+                    task_id=0,  # Not tied to a task
+                    context="",
+                    mcp_manager=None,  # Would be injected in production
+                    vector_store=None
+                )
+            else:
+                # Normal agent via AgentFactory
+                agent_instance, _tools, _callbacks = await AgentFactory.create_agent(
+                    agent_config=agent.config,
+                    project_id=0,
+                    task_id=0,
+                    context="",
+                    mcp_manager=None,
+                    vector_store=None
+                )
             cache_agent(request.session_id, agent_instance)
 
         # Create new user message (checkpointer will load previous messages automatically)
@@ -511,6 +526,9 @@ async def send_message_stream(
         # to avoid detached session issues
         session_id = session.session_id
         agent_config = agent.config.copy() if agent.config else {}
+        # Merge guardrails_config separately — it's a separate DB column
+        if agent.guardrails_config:
+            agent_config["guardrails"] = agent.guardrails_config.copy()
         agent_project_id = getattr(agent, 'project_id', None)
 
         async def generate_stream():
@@ -598,15 +616,28 @@ async def send_message_stream(
                 agent_instance = get_cached_agent(request.session_id)
 
                 if not agent_instance:
-                    config = DeepAgentConfig(**agent_config)
-                    agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
-                        config=config,
-                        project_id=project_id or 0,
-                        task_id=0,
-                        context=all_context,  # Inject RAG context
-                        mcp_manager=None,
-                        vector_store=None
-                    )
+                    # Branch on agent type
+                    use_deepagents = agent_config.get("use_deepagents", False)
+                    if use_deepagents:
+                        config = DeepAgentConfig(**agent_config)
+                        agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
+                            config=config,
+                            project_id=project_id or 0,
+                            task_id=0,
+                            context=all_context,  # Inject RAG context
+                            mcp_manager=None,
+                            vector_store=None
+                        )
+                    else:
+                        # Normal agent via AgentFactory
+                        agent_instance, tools, callbacks = await AgentFactory.create_agent(
+                            agent_config=agent_config,
+                            project_id=project_id or 0,
+                            task_id=0,
+                            context=all_context,
+                            mcp_manager=None,
+                            vector_store=None
+                        )
                     cache_agent(request.session_id, agent_instance)
 
                 # Create event handler for tracking tool calls and subagent activity
@@ -633,8 +664,6 @@ async def send_message_stream(
                     version="v2"
                 ):
                     kind = event.get("event")
-
-                    # Stream tool call events
                     if kind == "on_tool_start":
                         tool_data = event.get("data", {})
                         # Tool name is in event["name"] for astream_events v2
@@ -683,8 +712,86 @@ async def send_message_stream(
                                 full_response += token
                                 yield f"data: {json.dumps({'type': 'chunk', 'content': token})}\n\n"
 
-                # Send completion event
-                yield f"data: {json.dumps({'type': 'complete', 'content': full_response})}\n\n"
+                    # Stream interrupt events (Human-in-the-Loop)
+                    elif kind == "__interrupt__":
+                        interrupt_data = event.get("data", {})
+                        safe_data = make_json_safe(interrupt_data)
+                        logger.info(f"Agent interrupted for session {session_id}: {str(safe_data)[:300]}")
+                        yield f"data: {json.dumps({
+                            'type': 'interrupt',
+                            'session_id': session_id,
+                            'data': safe_data,
+                        })}\n\n"
+
+                # After stream completes, check for pending interrupts
+                interrupted = False
+                try:
+                    state_snapshot = await agent_instance.aget_state(
+                        {"configurable": {"thread_id": session_id}}
+                    )
+                    if state_snapshot and hasattr(state_snapshot, 'interrupts') and state_snapshot.interrupts:
+                        # Deep agent interrupts (GraphInterrupt/HumanInTheLoopMiddleware)
+                        interrupt_data = state_snapshot.interrupts[0]
+                        if hasattr(interrupt_data, 'value'):
+                            safe_data = make_json_safe(interrupt_data.value)
+                        else:
+                            safe_data = make_json_safe(str(interrupt_data))
+                        logger.info(f"Agent interrupted (post-stream check) for session {session_id}: {str(safe_data)[:300]}")
+                        yield f"data: {json.dumps({
+                            'type': 'interrupt',
+                            'session_id': session_id,
+                            'data': safe_data,
+                        })}\n\n"
+                        interrupted = True
+                    elif state_snapshot and hasattr(state_snapshot, 'next') and state_snapshot.next:
+                        # Normal agent interrupts (interrupt_before=["tools"])
+                        # state.next contains the nodes execution is paused before, e.g. ("tools",)
+                        # Extract tool_calls from the last AIMessage for interrupt data
+                        next_nodes = list(state_snapshot.next)
+                        logger.info(f"Agent paused before nodes: {next_nodes} for session {session_id}")
+                        messages = state_snapshot.values.get("messages", [])
+                        tool_calls_data = []
+                        for msg in reversed(messages):
+                            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                                tool_calls_data = [
+                                    {"name": tc["name"], "args": tc["args"], "id": tc.get("id", "")}
+                                    for tc in msg.tool_calls
+                                ]
+                                break
+                        safe_data = make_json_safe({
+                            "next_nodes": next_nodes,
+                            "tool_calls": tool_calls_data,
+                        })
+                        yield f"data: {json.dumps({
+                            'type': 'interrupt',
+                            'session_id': session_id,
+                            'data': safe_data,
+                        })}\n\n"
+                        interrupted = True
+                except Exception as e:
+                    logger.debug(f"No interrupt state available: {e}")
+
+                # Send completion event (skip if interrupted)
+                if not interrupted:
+                    yield f"data: {json.dumps({'type': 'complete', 'content': full_response})}\n\n"
+                else:
+                    full_response = ""  # Clear response — interrupt means no completion happened
+
+            except GraphInterrupt as e:
+                # Agent was paused for Human-in-the-Loop input
+                interrupt_data = None
+                if e.args and isinstance(e.args[0], tuple) and len(e.args[0]) > 0:
+                    first = e.args[0][0]
+                    interrupt_data = first.value if hasattr(first, 'value') else str(first)
+                safe_data = make_json_safe(interrupt_data) if interrupt_data else {}
+                logger.info(f"Agent interrupted for session {session_id}: {str(safe_data)[:300]}")
+                yield f"data: {json.dumps({
+                    'type': 'interrupt',
+                    'session_id': session_id,
+                    'data': safe_data,
+                })}\n\n"
+                # Clear response — interrupt means no completion happened
+                full_response = ""
 
             except Exception as e:
                 logger.error(f"Error in stream: {e}")
@@ -1138,13 +1245,17 @@ async def restore_messages_from_checkpoint(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{session_id}/approve")
-async def approve_hitl(
+@router.post("/{session_id}/resume")
+async def resume_chat(
     session_id: str,
-    approval_data: Dict[str, Any],
+    resume_data: Dict[str, Any],
     db: Session = Depends(get_db)
 ):
-    """Handle HITL (Human-in-the-Loop) approval for sensitive operations."""
+    """Resume a chat session after a Human-in-the-Loop interrupt.
+
+    The agent was paused waiting for human input. This endpoint resumes it
+    using LangGraph's Command(resume=...) mechanism.
+    """
     session = db.query(ChatSession).filter(
         ChatSession.session_id == session_id
     ).first()
@@ -1152,16 +1263,107 @@ async def approve_hitl(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # This would integrate with LangGraph's interrupt/resume mechanism
-    # For now, just log the approval
+    # Check agent exists before entering try block
+    agent_instance = get_cached_agent(session_id)
+    if not agent_instance:
+        raise HTTPException(
+            status_code=400,
+            detail="Agent not found for this session. Start a new chat first."
+        )
 
-    logger.info(f"HITL approval for session {session_id}: {approval_data}")
+    try:
+        from langgraph.types import Command
 
-    return {
-        "status": "approved",
-        "session_id": session_id,
-        "approval_data": approval_data
-    }
+        # Detect agent type from DB config
+        is_deep_agent = True  # default for backwards compatibility
+        if session.agent_id:
+            agent_config = db.query(DeepAgentTemplate).filter(
+                DeepAgentTemplate.id == session.agent_id
+            ).first()
+            if agent_config and not agent_config.config.get("use_deepagents", False):
+                is_deep_agent = False
+
+        if is_deep_agent:
+            # Deep agents: HumanInTheLoopMiddleware expects {"decisions": [...]}
+            action = resume_data.get("action", "approve")
+            if isinstance(action, str):
+                decisions = [{"type": action}]
+            elif isinstance(action, list):
+                decisions = action
+            else:
+                decisions = [{"type": "approve"}]
+            resume_value = {"decisions": decisions}
+        else:
+            # Normal agents: interrupt_before pauses execution — resume to continue
+            # The resume value is passed to the tools node as input
+            action = resume_data.get("action", "approve")
+            if action == "approve":
+                resume_value = resume_data.get("approved", True)
+            elif action == "reject":
+                # For reject, we can either skip or resurface with empty resume
+                resume_value = None
+            else:
+                resume_value = resume_data.get("value", "continue")
+        result = await agent_instance.ainvoke(
+            Command(resume=resume_value),
+            config={"configurable": {"thread_id": session_id}}
+        )
+
+        response_text = ""
+        if result and "messages" in result:
+            # Find the last non-empty AIMessage content
+            for msg in reversed(result["messages"]):
+                if hasattr(msg, "content") and msg.content:
+                    response_text = msg.content
+                    break
+
+        logger.info(f"Chat resumed for session {session_id}: {response_text[:100]}")
+
+        # Save the response to the database
+        if response_text:
+            try:
+                saved_session = db.query(ChatSession).filter(
+                    ChatSession.session_id == session_id
+                ).first()
+                if saved_session:
+                    saved_session.messages.append({
+                        "role": "assistant",
+                        "content": response_text
+                    })
+                    flag_modified(saved_session, "messages")
+                    db.commit()
+                    logger.info(f"Resume response saved to session {session_id}")
+            except Exception as db_err:
+                logger.warning(f"Failed to save resume response: {db_err}")
+                db.rollback()
+
+        return {
+            "status": "resumed",
+            "session_id": session_id,
+            "content": response_text,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to resume session {session_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to resume session: {str(e)}"
+        )
+
+
+@router.post("/{session_id}/approve")
+async def approve_hitl(
+    session_id: str,
+    approval_data: Dict[str, Any],
+    db: Session = Depends(get_db)
+):
+    """Handle HITL approval by resuming the interrupted agent."""
+    # Redirect to resume endpoint
+    return await resume_chat(
+        session_id=session_id,
+        resume_data=approval_data,
+        db=db
+    )
 
 
 # =============================================================================
