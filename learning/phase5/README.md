@@ -645,7 +645,41 @@ This allows agents to embed images in chat responses using:
    ![Chart](/api/files/sales_analysis_chart.png)
 ```
 
-#### 5d. Creating the Agent via UI
+#### 5d. Uploading CSV Files
+
+The existing chat file upload button (paperclip icon) also copies CSV files to the sandbox workspace for agent access.
+
+**How it works** ([`backend/api/chat/routes.py#L1658`](../../backend/api/chat/routes.py#L1658)):
+
+```python
+# When a CSV file is uploaded via the chat upload endpoint, it's automatically
+# copied to outputs/default/ so the agent can read it via read_file / execute.
+if file.filename.lower().endswith('.csv'):
+    ws_mgr = get_workspace_manager()
+    sandbox_path = ws_mgr.base_dir / "default" / file.filename
+    sandbox_path.parent.mkdir(parents=True, exist_ok=True)
+    sandbox_path.write_bytes(content)
+```
+
+**Agent access**: Once uploaded, the agent can access the CSV with:
+```
+read_file("your_file.csv")     # Read the CSV content
+execute("python3 -c \"import pandas; print(pandas.read_csv('your_file.csv'))\"")
+```
+
+The file is also indexed for RAG (existing behavior), so the agent can answer questions about it without reading the raw file.
+
+**Auto-analysis trigger** ([`src/features/chat/ui/MessagesPanel.tsx`](../../src/features/chat/ui/MessagesPanel.tsx#L556)):
+After a CSV upload completes, the frontend automatically sends an analysis
+message to the agent — no manual typing required. The agent then runs the
+full Auto-Analysis Workflow defined in its system prompt.
+
+**CSV skip indexing**: CSV files skip RAG indexing (`IndexingStatus.READY`
+is set immediately) since they're accessed directly via the sandbox, not via
+semantic search. This prevents the "failed" status indicator that would appear
+when the RAG indexer fails on CSV content ([`backend/api/chat/routes.py`](../../backend/api/chat/routes.py#L1700)).
+
+#### 5e. Creating the Agent via UI
 
 1. Open **DeepAgent Builder** → **New Agent**
 2. Fill in:
@@ -674,7 +708,7 @@ This allows agents to embed images in chat responses using:
      ![Chart description](/api/files/filename.png)
    ```
 
-#### 5e. Standalone Demo
+#### 5f. Standalone Demo
 
 A self-contained example script at [`learning/phase5/examples/data_analysis_agent.py`](examples/data_analysis_agent.py) can be run directly with uv:
 
@@ -689,7 +723,7 @@ This script:
 - Creates a DeepAgent with `create_deep_agent(tools=[save_analysis_result], backend=sandbox)`
 - Sends an analysis request and streams the response
 
-#### 5f. Frontend `use_local_sandbox` Checkbox
+#### 5g. Frontend `use_local_sandbox` Checkbox
 
 Added to [`DeepAgentBuilder.tsx`](../../src/features/agents/ui/DeepAgentBuilder.tsx) in the **Memory & Storage** section:
 
@@ -711,7 +745,41 @@ Added to [`DeepAgentBuilder.tsx`](../../src/features/agents/ui/DeepAgentBuilder.
 </div>
 ```
 
-#### 5g. Key Learnings
+#### 5h. Auto-Analysis System Prompt
+
+For **agent 37** (`analysis agent`), the system prompt includes an
+**Auto-Analysis Workflow** that triggers immediately after CSV upload:
+
+```text
+Auto-Analysis Workflow (triggered when user uploads a CSV file):
+1. IMMEDIATELY use read_file to examine the uploaded CSV
+2. Generate a comprehensive overview covering 10 key metrics:
+   - Row count, column count, data types, missing values
+   - Descriptive statistics, distributions, correlations
+   - Time-based trends, top/bottom values, outliers
+   - Group aggregations, category summaries
+3. From the 10 metrics, identify the top 3 most impactful findings
+4. Provide a detailed analysis combining all insights
+5. Present key takeaways and actionable recommendations
+6. Be ready to answer follow-up queries about the data
+```
+
+The prompt also instructs the agent to use `matplotlib subplots(ncols=2)`
+when generating charts, keeping visualizations compact with 2 charts per row.
+
+#### 5i. Chat UI Adjustments
+
+Several frontend changes improve the chat experience:
+
+| Change | File | Effect |
+|---|---|---|
+| Wider modal | `GlobalChatModal.tsx` | `max-w-7xl` → `max-w-[95vw]` |
+| Full-width messages | `MessagesPanel.tsx` | Removed inner `max-w-6xl` limit, uses `w-full mx-8` |
+| Wider message bubbles | `MessagesPanel.tsx` | `max-w-3xl` → `max-w-6xl` (50% wider) |
+| Smaller font | `MessagesPanel.tsx` | `prose-sm` → `prose-xs` at `0.81rem` |
+| Upload auto-refresh | `SessionDocumentsPanel.tsx` | Document list refreshes via `refreshKey` prop |
+
+#### 5j. Key Learnings
 
 | Lesson | Detail |
 |---|---|

@@ -43,6 +43,7 @@ export default function MessagesPanel({
 }: MessagesPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -117,7 +118,7 @@ export default function MessagesPanel({
             </div>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="w-full space-y-4 mx-8">
 
           {messages.map((message, index) => (
             <div
@@ -148,7 +149,7 @@ export default function MessagesPanel({
 
               {/* Message Content */}
               <div className={`flex-1 ${message.role === 'user' ? 'flex justify-end' : ''}`}>
-                <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-3xl'}`}>
+                <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-6xl'}`}>
                   {message.role === 'system' ? (
                     <div
                       className="text-sm px-4 py-2 rounded-lg inline-block"
@@ -173,10 +174,11 @@ export default function MessagesPanel({
                         }}
                       >
                         <div
-                          className="prose prose-sm max-w-none"
+                          className="prose prose-xs max-w-none"
                           style={{
                             color: message.role === 'user' ? 'white' : 'inherit',
                             lineHeight: '1.65',
+                            fontSize: '0.81rem',
                           }}
                         >
                           <ReactMarkdown
@@ -539,7 +541,7 @@ export default function MessagesPanel({
       )}
 
       {/* Session Documents Panel */}
-      <SessionDocumentsPanel sessionId={sessionId} />
+      <SessionDocumentsPanel sessionId={sessionId} refreshKey={documentsRefreshKey} />
 
       {/* Input Area */}
       <div
@@ -554,6 +556,20 @@ export default function MessagesPanel({
           sessionId={sessionId}
           onFileUploaded={(file) => {
             console.log('File uploaded:', file);
+            setDocumentsRefreshKey(k => k + 1);
+            // Auto-trigger data analysis after CSV upload
+            if (file.filename.toLowerCase().endsWith('.csv') && onSendMessage) {
+              setTimeout(() => {
+                onSendMessage(
+                  `I just uploaded ${file.filename}. Please run the auto-analysis workflow: ` +
+                  `1) read the CSV to understand columns and data, ` +
+                  `2) generate 10 key metrics overview, ` +
+                  `3) identify top 3 findings, ` +
+                  `4) provide detailed analysis with charts, ` +
+                  `5) save results.`
+                );
+              }, 500);
+            }
           }}
         />
       </div>
