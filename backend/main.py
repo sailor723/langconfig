@@ -252,6 +252,34 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+from fastapi.responses import FileResponse
+
+@app.get("/api/files/{filename:path}")
+async def serve_output_file(filename: str):
+    """Serve generated files (charts, reports, etc.) from the outputs directory.
+
+    The agent can reference files in chat responses using markdown image syntax:
+      ![chart](/api/files/sales_analysis_chart.png)
+
+    Files are served from backend/outputs/default/ (chat sessions) or from
+    project/workflow/task subdirectories under backend/outputs/.
+    """
+    from services.workspace_manager import get_workspace_manager
+    workspace_mgr = get_workspace_manager()
+
+    # Try default dir first (chat sessions)
+    file_path = workspace_mgr.base_dir / "default" / filename
+    if file_path.exists() and file_path.is_file():
+        return FileResponse(str(file_path))
+
+    # Fallback: search all output directories
+    found = list(workspace_mgr.base_dir.rglob(filename))
+    if found:
+        return FileResponse(str(found[0]))
+
+    from fastapi.responses import JSONResponse
+    return JSONResponse(status_code=404, content={"error": f"File not found: {filename}"})
+
 @app.get("/")
 async def root():
     return {

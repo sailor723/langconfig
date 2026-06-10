@@ -442,3 +442,280 @@ The **Tool Library** (`/tools`) lists all native tools available for deep agents
 | Delegation | delegate_task |
 
 Each tool shows its name, description, tool ID, and whether it requires an API key.
+
+---
+
+## Tools: Custom Tools & Sandboxed Execution
+
+Deep Agents can call **any custom tool** you define alongside built-in harness tools (filesystem, planning, subagent delegation).
+
+### 1. Custom Tools
+
+The simplest way to define a tool is with the `@tool` decorator. The function's docstring becomes the tool's description.
+
+```python
+from langchain.tools import tool
+
+@tool
+def slack_send_message(text: str, file_path: str | None = None) -> str:
+    """Send a message to Slack, optionally with a file attachment.
+
+    Args:
+        text: Text content of the message
+        file_path: Optional path to a file to attach
+    """
+    # ... integration logic here
+    return "Message sent."
+```
+
+**Key rules for custom tools** (from the [LangChain tools docs](https://docs.langchain.com/oss/python/langchain/tools)):
+- Type hints are **required** — they define the tool's input schema
+- The docstring should clearly describe the tool's purpose
+- Use `snake_case` for tool names
+- Return a `string` (plain text), a `dict` (structured data), or a `Command` (state update)
+
+### 2. Tool Resolution Chain
+
+String IDs from the database are resolved to actual Python `@tool` functions at runtime:
+
+```
+DB: config.native_tools = ["web_search", "tavily_search"]   ← string IDs
+       │
+       ▼
+TOOL_NAME_MAP                                                ← normalize aliases
+[backend/tools/native_tools.py#L72](../../backend/tools/native_tools.py#L72)
+       │
+       ▼
+load_native_tools()                                          ← resolve → @tool function
+[backend/tools/native_tools.py#L1390](../../backend/tools/native_tools.py#L1390)
+       │
+       ▼
+available_tools = {                                          ← dict of tool name → callable
+    "web_search":    web_search,
+    "tavily_search": tavily_search,
+    ...
+}
+       │
+       ▼
+DeepAgentFactory._load_base_tools()                          ← builds tool list
+[backend/services/deepagent_factory.py#L371](../../backend/services/deepagent_factory.py#L371)
+       │
+       ▼
+create_deep_agent(tools=[...])                               ← passed to the agent
+```
+
+### 3. LocalShellBackend: Sandboxed Code Execution
+
+When `use_local_sandbox: true` is set in the `DeepAgentConfig`, the factory creates a `LocalShellBackend` rooted at the task workspace. This gives the agent an **`execute`** tool for running shell commands (Python scripts, pip install, etc.).
+
+**Config field** ([`backend/models/deep_agent.py`](../../backend/models/deep_agent.py#L210-L216)):
+
+```python
+use_local_sandbox: bool = Field(
+    default=False,
+    description=(
+        "If True, creates a LocalShellBackend sandbox rooted at the task workspace. "
+        "The agent gains an `execute` tool for running shell commands (e.g. Python scripts), "
+        "and file operations are scoped to the sandbox directory."
+    )
+)
+```
+
+**Factory integration** ([`backend/services/deepagent_factory.py#L255-L282`](../../backend/services/deepagent_factory.py#L255-L282)):
+
+```python
+if getattr(config, 'use_local_sandbox', False):
+    from deepagents.backends import LocalShellBackend
+    from services.workspace_manager import get_workspace_manager
+
+    workspace_mgr = get_workspace_manager()
+    sandbox_path = workspace_mgr.get_task_workspace_with_override(
+        project_id=project_id, workflow_id=workflow_id, task_id=task_id,
+        custom_output_path=custom_output_path,
+    )
+    sandbox_path.mkdir(parents=True, exist_ok=True)
+
+    local_sandbox_backend = LocalShellBackend(
+        root_dir=str(sandbox_path),
+        timeout=120,
+        max_output_bytes=100000,
+        inherit_env=True,
+    )
+
+# Then passed to create_deep_agent:
+agent_kwargs["backend"] = local_sandbox_backend
+```
+
+When a `backend` is passed, the harness automatically registers the following tools on top of the existing middleware tools:
+
+| Tool | Description |
+|---|---|
+| `ls` | List files in a directory |
+| `read_file` | Read file contents (with pagination and multimodal support) |
+| `write_file` | Create new files |
+| `edit_file` | Perform exact string replacements in files |
+| `glob` | Find files matching a glob pattern |
+| `grep` | Search file contents |
+| `execute` | Run shell commands (sandbox backends only) |
+| `task` | Spawn a subagent to handle a delegated task |
+| `write_todos` | Manage a structured todo list |
+
+### 4. MCP Tools
+
+Deep Agents also support [Model Context Protocol (MCP)](https://docs.langchain.com/oss/python/deepagents/tools#mcp-tools) servers. LangConfig's existing MCP infrastructure handles this:
+
+- **MCP Manager**: [`backend/services/mcp_manager.py`](../../backend/services/mcp_manager.py) — server lifecycle and tool discovery
+- **MCP Config API**: [`backend/api/mcp/config.py`](../../backend/api/mcp/config.py) — per-user credentials
+- **MCP Tool Schemas**: [`backend/schemas/mcp_tools.py`](../../backend/schemas/mcp_tools.py) — server definitions
+
+### 5. Data Analysis Pattern (Walkthrough)
+
+The data analysis pattern combines a sandbox backend with a custom `save_analysis_result` tool, following the [official tutorial](https://docs.langchain.com/oss/python/deepagents/data-analysis).
+
+#### 5a. The `save_analysis_result` Native Tool
+
+A custom `@tool` registered in [`backend/tools/native_tools.py`](../../backend/tools/native_tools.py#L1393-L1411):
+
+```python
+@tool
+def save_analysis_result(text: str, file_path: str | None = None) -> str:
+    """Save analysis report and optionally copy an attached file (e.g. a plot)
+    to the output directory.
+
+    Args:
+        text: Text content of the analysis report
+        file_path: Optional path of a file attachment in the sandbox
+    """
+    output_dir = Path("./_analysis_output")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = output_dir / "analysis_report.txt"
+    report_path.write_text(text)
+    if file_path:
+        fp = Path(file_path)
+        if fp.exists():
+            local_path = output_dir / fp.name
+            local_path.write_bytes(fp.read_bytes())
+    return f"Analysis results saved to {output_dir.resolve()}."
+```
+
+Registered in 4 places:
+| # | Location | Purpose |
+|---|---|---|
+| 1 | `@tool` function definition | The implementation |
+| 2 | `TOOL_NAME_MAP` | Normalizes string ID → canonical name |
+| 3 | `available_tools` (in `load_native_tools()`) | Runtime tool resolution |
+| 4 | `TOOL_REGISTRY` | UI metadata (name, description, category) |
+
+#### 5b. Static File Serving
+
+Generated files (charts, reports) are served via a FastAPI endpoint in [`backend/main.py`](../../backend/main.py#L255-L280):
+
+```python
+@app.get("/api/files/{filename:path}")
+async def serve_output_file(filename: str):
+    """Serve generated files from backend/outputs/."""
+    from services.workspace_manager import get_workspace_manager
+    workspace_mgr = get_workspace_manager()
+
+    # Try default dir first (chat sessions)
+    file_path = workspace_mgr.base_dir / "default" / filename
+    if file_path.exists() and file_path.is_file():
+        return FileResponse(str(file_path))
+
+    # Fallback: search all output directories
+    found = list(workspace_mgr.base_dir.rglob(filename))
+    if found:
+        return FileResponse(str(found[0]))
+```
+
+This allows agents to embed images in chat responses using:
+```markdown
+![Sales Analysis](/api/files/sales_analysis_chart.png)
+```
+
+#### 5c. Full Agent Workflow
+
+```
+1. Agent reads CSV data with read_file
+2. Agent writes a Python analysis script with write_file
+3. Agent runs the script with execute("python3 analysis.py")
+   → pandas + matplotlib generate summaries & plots
+4. Agent saves results with save_analysis_result
+5. Agent displays the chart inline in the chat response:
+   ![Chart](/api/files/sales_analysis_chart.png)
+```
+
+#### 5d. Creating the Agent via UI
+
+1. Open **DeepAgent Builder** → **New Agent**
+2. Fill in:
+   - **Name**: `data_analysis_agent`
+   - **Model**: `deepseek-chat` (or any)
+   - **Native Tools**: select `save_analysis_result`
+   - **LocalSandbox**: ✅ enable the checkbox (under Memory & Storage section)
+3. **System Prompt** (paste in CUSTOM or system_prompt field):
+   ```text
+   You are a data analysis agent with a local sandbox environment.
+
+   Capabilities:
+   - read_file: read CSV and other data files
+   - write_file: create Python analysis scripts
+   - execute: run Python scripts (pandas, matplotlib are available)
+   - save_analysis_result: save analysis reports and plot files
+
+   Workflow:
+   1. First use read_file to examine the data
+   2. Write a Python script with pandas + matplotlib via write_file
+   3. Execute it with execute("python3 <script>.py")
+   4. Save results with save_analysis_result
+
+   When displaying generated files in your response, use markdown image
+   syntax with the /api/files/ URL:
+     ![Chart description](/api/files/filename.png)
+   ```
+
+#### 5e. Standalone Demo
+
+A self-contained example script at [`learning/phase5/examples/data_analysis_agent.py`](examples/data_analysis_agent.py) can be run directly with uv:
+
+```bash
+cd backend && uv run data_analysis_agent.py
+```
+
+This script:
+- Creates a `LocalShellBackend` sandbox at `./_data_analysis_sandbox/`
+- Uploads a sample CSV (5 days of sales data)
+- Defines a `save_analysis_result` tool
+- Creates a DeepAgent with `create_deep_agent(tools=[save_analysis_result], backend=sandbox)`
+- Sends an analysis request and streams the response
+
+#### 5f. Frontend `use_local_sandbox` Checkbox
+
+Added to [`DeepAgentBuilder.tsx`](../../src/features/agents/ui/DeepAgentBuilder.tsx) in the **Memory & Storage** section:
+
+```tsx
+// Local Sandbox toggle
+<div className="mt-4">
+  <label className="flex items-center gap-2 text-sm font-medium ...">
+    <input
+      type="checkbox"
+      checked={config.use_local_sandbox ?? false}
+      onChange={(e) => updateConfig('use_local_sandbox', e.target.checked)}
+    />
+    LocalSandbox (Code Execution)
+  </label>
+  <p className="text-xs ...">
+    Enable a local shell sandbox for code execution. The agent gains an
+    <code>execute</code> tool for running Python scripts and shell commands.
+  </p>
+</div>
+```
+
+#### 5g. Key Learnings
+
+| Lesson | Detail |
+|---|---|
+| **Directory alignment** | `LocalShellBackend` root and `FilesystemMiddleware` workspace must point to the same directory. Chat sessions default to `outputs/default/`. |
+| **File sharing** | Without `embedding base_url` in DeepAgent responses, charts must be served via a separate `/api/files/` static endpoint. |
+| **Dependencies** | `pandas` and `matplotlib` must be added to `backend/pyproject.toml` for analysis scripts. |
+| **Untracked files** | Generated sandbox dirs (`_data_analysis_sandbox/`, `_analysis_output/`) should be gitignored. |

@@ -99,6 +99,9 @@ TOOL_NAME_MAP = {
     # Tavily search
     "tavily": "tavily_search",
     "tavily_search": "tavily_search",
+
+    # Data analysis tools
+    "save_analysis_result": "save_analysis_result",
 }
 
 
@@ -1384,6 +1387,30 @@ configured, this task will be executed by the main agent."""
 
 
 # =============================================================================
+# Data Analysis Tools
+# =============================================================================
+
+@tool
+def save_analysis_result(text: str, file_path: str | None = None) -> str:
+    """Save analysis results and optionally copy an attached file (e.g. a plot) to the output directory.
+
+    Args:
+        text: Text content of the analysis report
+        file_path: Optional path of a file attachment in the sandbox
+    """
+    output_dir = Path("./_analysis_output")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report_path = output_dir / "analysis_report.txt"
+    report_path.write_text(text)
+    if file_path:
+        fp = Path(file_path)
+        if fp.exists():
+            local_path = output_dir / fp.name
+            local_path.write_bytes(fp.read_bytes())
+    return f"Analysis results saved to {output_dir.resolve()}."
+
+
+# =============================================================================
 # Tool Loading Functions
 # =============================================================================
 
@@ -1435,6 +1462,8 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         # Subagent delegation tools
         "task": task,
         "delegate": task,  # Alias for task
+        # Data analysis tools
+        "save_analysis_result": save_analysis_result,
         # Note: Playwright tools are loaded separately via get_playwright_tools()
         # because they require async initialization
     }
@@ -1625,6 +1654,14 @@ TOOL_REGISTRY = [
         "name": "Delegate",
         "description": "Alias for task (subagent delegation)",
         "category": "delegation",
+        "requires_api_key": None,
+    },
+    # Data analysis tools
+    {
+        "id": "save_analysis_result",
+        "name": "Save Analysis Result",
+        "description": "Save analysis report and optionally copy an attached file (e.g. a plot) to the output directory",
+        "category": "data_analysis",
         "requires_api_key": None,
     },
 ]
