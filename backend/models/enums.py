@@ -24,6 +24,9 @@ class MiddlewareType(str, Enum):
     TODO_LIST = "todo_list"     # Task tracking middleware
     FILESYSTEM = "filesystem"   # File eviction middleware
     SUBAGENT = "subagent"       # Subagent spawning middleware
+    HITL = "hitl"               # Human-in-the-Loop middleware (pauses before tool calls)
+    SUMMARIZATION = "summarization"  # Auto-summarization middleware
+    TOOL_RETRY = "tool_retry"   # Tool retry middleware
 
 
 class BackendType(str, Enum):

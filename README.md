@@ -45,6 +45,7 @@ LangConfig includes workflow templates for research and content creation. We're 
 - **Event-Driven Triggers** - Fire workflows from webhooks (HMAC-SHA256 verified) or file system changes (glob patterns, debounce)
 - **File Versioning & Diff Viewer** - Track file version history with unified and side-by-side diff views
 - **Presentation Generation** - Export workflow artifacts to Google Slides, PDF, or Reveal.js presentations
+- **Deep Agent Subgraph Visualization** - Visually explore hierarchical Deep Agent architectures on the canvas: manager delegates via `task()` calls to sub-agents, each with its own tools displayed as independent nodes with color-coded connections
 - **Export to Code** - Generate standalone Python packages with Streamlit UI, FastAPI server, or raw LangGraph code
 - **LangGraph Subgraph Streaming** - Nested subgraph execution with real-time SSE streaming
 - **Human-in-the-Loop** - Add approval checkpoints for critical decisions per-tool
@@ -278,7 +279,16 @@ LangConfig uses a single PostgreSQL database with pgvector for:
 4. The supervisor automatically delegates tasks to workers and collects results
 5. Click **Run** → supervisor orchestrates the team
 
-### Example 6: Export Workflow as Standalone App
+### Example 6: Visualize a Deep Agent Subgraph on Canvas
+
+1. Go to **Studio** → **New Workflow**
+2. Drag **demo_deep_agent** (Deep Agent with sub-agents) onto the canvas
+3. The canvas auto-expands: the **manager** node appears with purple `task()` delegation indicators, while **sub-agent** nodes appear below with amber-colored backgrounds
+4. Each sub-agent's tools (e.g., `tavily_search`) appear as **independent child nodes** with color-coded connections
+5. Run the workflow — the execution panel shows real-time events independently of the visual layout
+6. The canvas visualization is purely decorative — it doesn't affect execution or get sent to the backend
+
+### Example 7: Export Workflow as Standalone App
 
 1. Build workflow visually (e.g., Research → Plan → Implement → Test)
 2. Click **Export** → **Download Python Package**

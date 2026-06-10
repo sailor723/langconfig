@@ -105,19 +105,31 @@ const CustomNode = memo(function CustomNode({ id, data, selected }: NodeProps) {
   return (
     <div
       ref={nodeRef}
-      className={`group px-5 py-6 shadow-xl ${agentType === 'TOOL_NODE' ? 'rounded-lg' : 'rounded-xl'
+      className={`group px-5 py-6 shadow-xl ${agentType === 'TOOL_NODE' || data._isToolNode ? 'rounded-lg' : 'rounded-xl'
         } relative min-w-[220px] max-w-[220px] border-2 ${selected ? '' : 'hover:border-primary/50 hover:shadow-2xl'
-        }`}
+        } ${data._isSubagent ? 'min-w-[240px] max-w-[260px]' : ''}`}
       style={{
         background: isDarkTheme
           ? `linear-gradient(135deg, var(--color-panel-dark) 0%, var(--color-background-dark) 100%)`
-          : 'var(--color-primary)',
-        backgroundColor: isDarkTheme ? 'var(--color-panel-dark)' : 'var(--color-primary)',
-        borderColor: borderColor,
+          : data._isToolNode
+            ? '#f8fafc'
+            : data._isSubagent
+              ? 'linear-gradient(135deg, #fefce8, #fffbeb)'
+              : 'var(--color-primary)',
+        backgroundColor: isDarkTheme
+          ? 'var(--color-panel-dark)'
+          : data._isToolNode
+            ? '#f8fafc'
+            : data._isSubagent
+              ? '#fef3c7'
+              : 'var(--color-primary)',
+        borderColor: data._isToolNode ? '#d1d5db' : borderColor,
         opacity: (isControlNode && agentType !== 'TOOL_NODE') ? controlStyle?.opacity : 1,
         boxShadow: selected
           ? '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-          : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+          : data._isToolNode
+            ? '0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+            : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
       }}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -125,7 +137,7 @@ const CustomNode = memo(function CustomNode({ id, data, selected }: NodeProps) {
       }}
     >
       {/* Simple decorative overlay - no animation */}
-      {!isControlNode && (
+      {!isControlNode && !data._isToolNode && (
         <div
           className="absolute inset-0 rounded-xl pointer-events-none"
           style={{
@@ -158,39 +170,66 @@ const CustomNode = memo(function CustomNode({ id, data, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Tool Count Badge - Top Right */}
+      {/* Tool Count / Subagent Count Badge - Top Right */}
       {!isControlNode && (() => {
+        // Subagent node: show tool count with amber color
+        if (data._isSubagent) {
+          const tools = data.config?.native_tools || data.config?.tools || [];
+          if (!tools.length) return null;
+          return (
+            <div
+              className="absolute top-2 right-2 flex items-center gap-1"
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))' }}
+              title={`Subagent tools: ${tools.join(', ')}`}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#f59e0b', fontWeight: 600 }}>
+                construction
+              </span>
+              <span className="text-sm font-bold" style={{ color: '#f59e0b' }}>{tools.length}</span>
+            </div>
+          );
+        }
+
+        // Deep agent with subagents: show subagent count as "task" tools
+        const subagents = data.config?.subagents || [];
+        if (subagents.length > 0) {
+          return (
+            <div
+              className="absolute top-2 right-2 flex items-center gap-1"
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))' }}
+              title={`Delegated tools: ${subagents.map((s: any) => `task(${s.name})`).join(', ')}`}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#a855f7', fontWeight: 600 }}>
+                alt_route
+              </span>
+              <span className="text-sm font-bold" style={{ color: '#a855f7' }}>{subagents.length}</span>
+            </div>
+          );
+        }
+
+        // Regular node: show tool count as before
         const nativeToolCount = data.config?.native_tools?.length || 0;
         const builtInToolCount = data.config?.tools?.length || 0;
         const customToolCount = data.config?.custom_tools?.length || 0;
         const toolCount = nativeToolCount + builtInToolCount + customToolCount;
-
         if (toolCount === 0) return null;
 
         return (
           <div
             className="absolute top-2 right-2 flex items-center gap-1"
-            style={{
-              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-            }}
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))' }}
             title={`Tools: ${nativeToolCount} Native${customToolCount > 0 ? `, ${customToolCount} Custom` : ''}`}
           >
-            <span
-              className="material-symbols-outlined"
-              style={{
-                fontSize: '16px',
-                color: customToolCount > 0 ? '#f59e0b' : (isDarkTheme ? 'var(--color-primary)' : 'var(--color-background-light)'),
-                fontWeight: 600
-              }}
-            >
+            <span className="material-symbols-outlined" style={{
+              fontSize: '16px',
+              color: customToolCount > 0 ? '#f59e0b' : (isDarkTheme ? 'var(--color-primary)' : 'var(--color-background-light)'),
+              fontWeight: 600
+            }}>
               construction
             </span>
-            <span
-              className="text-sm font-bold"
-              style={{
-                color: customToolCount > 0 ? '#f59e0b' : (isDarkTheme ? 'var(--color-primary)' : 'var(--color-background-light)')
-              }}
-            >
+            <span className="text-sm font-bold" style={{
+              color: customToolCount > 0 ? '#f59e0b' : (isDarkTheme ? 'var(--color-primary)' : 'var(--color-background-light)')
+            }}>
               {toolCount}
             </span>
           </div>
@@ -240,7 +279,35 @@ const CustomNode = memo(function CustomNode({ id, data, selected }: NodeProps) {
         />
       )}
 
-      {/* Node Header - Center aligned for better visual balance */}
+      {/* Simplified Tool Node Content - just the tool name */}
+      {data._isToolNode && (
+        <>
+          <div className="flex items-center justify-center py-2">
+            <span
+              className="material-symbols-outlined mr-1"
+              style={{ fontSize: '16px', color: '#6b7280' }}
+            >
+              construction
+            </span>
+            <span className="text-[11px] font-mono font-semibold" style={{ color: '#374151' }}>
+              {data.label}
+            </span>
+          </div>
+          <Handle
+            type="source"
+            position={Position.Right}
+            style={{
+              width: '10px',
+              height: '10px',
+              backgroundColor: '#9ca3af',
+              border: '2px solid #9ca3af',
+            }}
+            id="output"
+          />
+        </>
+      )}
+
+      {/* Full node content for non-tool nodes — top sections use early returns */}
       <div className="flex flex-col items-center text-center gap-2 relative z-10 w-full">
         {/* Optional icon from agent data */}
         {!isControlNode && data.icon && (
