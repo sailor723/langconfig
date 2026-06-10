@@ -287,10 +287,11 @@ CRITICAL: Conclude with a clear decision:
                     "enable_memory": False,
                     # Conditional node specific config
                     "control_type": "CONDITIONAL_NODE",
-                    "condition_expression": "state.get('decision') == 'PASS'",
+                    "condition": "state.get('decision') == 'PASS'",
                     "routing_map": {
                         "true": "node-dr-end",
-                        "false": "node-dr-writer"
+                        "false": "node-dr-writer",
+                        "default": "node-dr-end"
                     }
                 }
             }

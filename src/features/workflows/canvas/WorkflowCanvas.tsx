@@ -326,6 +326,9 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({
   const [workflowAttachments, setWorkflowAttachments] = useState<Attachment[]>([]);
   const hasLoadedRef = useRef(false);
   const isDraggingRef = useRef(false); // Track if user is currently dragging a node
+  // Track which parent nodes already have subagent children injected
+  const subagentsSyncedRef = useRef<Set<string>>(new Set());
+  const toolsSyncedRef = useRef<Set<string>>(new Set());
   // Visual hint: the agent node currently being hovered by a Start/End drag
   const [snapHoverTargetId, setSnapHoverTargetId] = useState<string | null>(null);
   const lastChimedTargetRef = useRef<string | null>(null); // Throttle chime per target
@@ -581,6 +584,109 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({
   const nodeTypes = useMemo(() => ({
     custom: CustomNode,
   }), []);
+
+  /**
+   * Auto-sync subagent nodes to canvas.
+   * Whenever a deep agent node has subagents in config but no matching subagent
+   * nodes exist on the canvas, create them below the parent.
+   */
+  useEffect(() => {
+    let changed = false;
+    const newSubNodes: Node[] = [];
+    const newSubEdges: Edge[] = [];
+
+    for (const node of nodes) {
+      const cfg = (node.data as any)?.config || {};
+      const subagents: any[] = cfg.subagents || [];
+      if (!subagents.length) continue;
+
+      // Skip if already synced for this parent
+      if (subagentsSyncedRef.current.has(node.id)) continue;
+
+      // Should have subagents but doesn't yet — sync them
+      const parentX = node.position.x;
+      const parentY = node.position.y;
+      const parentH = 180;
+      const gap = 60;
+
+      subagents.forEach((sa: any, idx: number) => {
+        const subId = `${node.id}-sub-${idx}`;
+        const subY = parentY + parentH + gap + idx * (160 + gap);
+        const subX = parentX;
+
+        newSubNodes.push({
+          id: subId,
+          type: 'custom',
+          position: { x: subX, y: subY },
+          data: {
+            label: `🧩 ${sa.name}`,
+            agentType: 'SUBAGENT_NODE',
+            model: sa.model || cfg.model || '',
+            config: {
+              model: sa.model || cfg.model || '',
+              system_prompt: sa.system_prompt || '',
+              tools: sa.tools || [],
+              _isSubagent: true,
+              _parentId: node.id,
+            },
+          },
+        });
+
+        newSubEdges.push({
+          id: `${node.id}->${subId}`,
+          source: node.id,
+          target: subId,
+          type: 'smoothstep',
+          animated: true,
+          style: { stroke: '#a855f7', strokeDasharray: '5 5' },
+        } as any);
+
+        // Create tool nodes below this subagent — deduplicated
+        const saTools: string[] = [...new Set(sa.tools || [])] as string[];
+        saTools.filter(Boolean).forEach((tool: string, tIdx: number) => {
+          const toolId = `${subId}-tool-${tIdx}`;
+          const toolColors = ['#d97706', '#2563eb', '#059669', '#dc2626', '#9333ea', '#db2777'];
+          const color = toolColors[tIdx % toolColors.length];
+          const toolY = subY + 160 + tIdx * 100;
+
+          newSubNodes.push({
+            id: toolId,
+            type: 'custom',
+            position: { x: subX, y: toolY },
+            data: {
+              label: tool,
+              agentType: 'AGENT_NODE',
+              model: '',
+              config: { _isToolNode: true, _parentId: subId },
+              _isToolNode: true,
+            },
+          });
+
+          newSubEdges.push({
+            id: `${subId}->${toolId}`,
+            source: subId,
+            target: toolId,
+            type: 'smoothstep',
+            animated: true,
+            style: { stroke: color },
+          } as any);
+        });
+
+        // Mark tools synced after creating them
+        toolsSyncedRef.current.add(subId);
+
+        changed = true;
+      });
+
+      // Mark as synced after generating nodes
+      subagentsSyncedRef.current.add(node.id);
+    }
+
+    if (changed) {
+      setNodes(prev => [...prev, ...newSubNodes]);
+      setEdges(prev => [...prev, ...newSubEdges]);
+    }
+  }, [nodes, setNodes, setEdges]);
 
   // Validate nodes and edges before passing to ReactFlow to prevent NaN rendering errors.
   // Also marks the snap-hover target so the CustomNode can render a glow ring.
@@ -1643,6 +1749,9 @@ if __name__ == "__main__":
             subagents: (selectedAgent as any).subagents || (selectedAgent as any).subagents_config || [],
             // Track original library agent for updates (preserves chat context)
             deep_agent_template_id: (selectedAgent as any).id || null,
+            // HITL/Guardrails configuration (preserved from agent template)
+            guardrails: (selectedAgent as any).config?.guardrails || {},
+            interrupt_before: (selectedAgent as any).config?.interrupt_before || [],
             // Tool Node configuration (instance-specific)
             tool_type: null,
             tool_id: null,
@@ -2475,7 +2584,7 @@ if __name__ == "__main__":
                   )}
                 </ReactFlow>
 
-                {/* Live Execution Panel - Slides in from left, independent from thinking toasts */}
+                {/* Live Execution Panel */}
                 <RealtimeExecutionPanel
                   isVisible={showLiveExecutionPanel}
                   events={workflowEvents}
@@ -2487,6 +2596,10 @@ if __name__ == "__main__":
                   workflowName={workflowName}
                   currentTaskId={currentTaskId}
                   onContinueFromTask={handleContinueFromTask}
+                  subagentsConfig={((nodes.find(n => {
+                    const cfg = (n.data as any)?.config || {};
+                    return cfg.use_deepagents || (cfg.subagents?.length > 0) || (n.data as any)?.agentType === 'deep_agent';
+                  }) as any)?.data?.config?.subagents) || []}
                 />
 
                 {/* Thinking Toasts - Rendered outside ReactFlow with screen coordinates */}

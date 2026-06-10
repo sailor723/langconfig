@@ -525,6 +525,23 @@ class DeepAgentFactory:
                 if sub_config.interrupt_on:
                     subagent["interrupt_on"] = sub_config.interrupt_on
 
+                if sub_config.middleware:
+                    # Convert middleware string names to actual middleware instances via factory
+                    try:
+                        resolved_middleware = await DeepAgentFactory._resolve_subagent_middleware(
+                            sub_config.middleware,
+                            sub_config.name
+                        )
+                        subagent["middleware"] = resolved_middleware
+                    except Exception as e:
+                        logger.warning(f"Failed to resolve middleware for subagent '{sub_config.name}': {e}")
+
+                if sub_config.skills:
+                    subagent["skills"] = sub_config.skills
+
+                if sub_config.response_format:
+                    subagent["response_format"] = sub_config.response_format
+
                 subagents.append(subagent)
                 logger.info(f"Dictionary subagent prepared: {sub_config.name} with {len(subagent_tools)} tools")
 
@@ -582,6 +599,36 @@ class DeepAgentFactory:
 
         logger.info(f"Prepared {len(subagents)} subagents total")
         return subagents
+
+    @staticmethod
+    async def _resolve_subagent_middleware(
+        middleware_names: List[str],
+        subagent_name: str
+    ) -> list:
+        """
+        Resolve middleware string names to actual middleware instances for subagents.
+
+        Args:
+            middleware_names: List of middleware names (e.g. ['todo_list', 'filesystem'])
+            subagent_name: Subagent name for logging
+
+        Returns:
+            List of middleware instances
+        """
+        resolved = []
+        for name in middleware_names:
+            if name == 'todo_list':
+                from deepagents.middleware.todo_list import TodoListMiddleware
+                resolved.append(TodoListMiddleware())
+                logger.info(f"  Subagent '{subagent_name}': added TodoListMiddleware")
+            elif name == 'filesystem':
+                from deepagents.middleware.filesystem import FilesystemMiddleware
+                from deepagents.memory.backends import FilesystemBackend
+                resolved.append(FilesystemMiddleware(backend=FilesystemBackend()))
+                logger.info(f"  Subagent '{subagent_name}': added FilesystemMiddleware")
+            else:
+                logger.warning(f"  Subagent '{subagent_name}': unknown middleware '{name}', skipping")
+        return resolved
 
     @staticmethod
     async def _load_and_compile_workflow(

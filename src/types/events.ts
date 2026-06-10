@@ -45,7 +45,9 @@ export type WorkflowEventType =
   | 'debug_checkpoint'
   | 'debug_graph_state'
   // LangGraph-style custom streaming events
-  | 'custom_event';
+  | 'custom_event'
+  // HITL interrupt events (approval required before tool execution)
+  | 'interrupt';
 
 export interface BaseEvent {
   event_id: number;

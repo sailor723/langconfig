@@ -190,22 +190,33 @@ export function useExecutionHandlers({
       // Make sure we have a workflow ID - always save/update before executing
       let workflowIdToExecute = currentWorkflowId;
 
+      // Filter out visual-only nodes (subagent previews, tool nodes)
+      const realNodeIds = new Set(
+        nodes
+          .filter(n => !(n.data as any)?._isSubagent && !(n.data as any)?._isToolNode)
+          .map(n => n.id)
+      );
+
       const configuration = {
-        nodes: nodes.map(n => ({
+        nodes: Array.from(realNodeIds).map(id => {
+          const n = nodes.find(node => node.id === id)!;
+          return {
           id: n.id,
           type: n.data.agentType || n.data.label.toLowerCase().replace(/\s+/g, '_'),
-          data: n.data, // Preserve data for restoration
+          data: n.data,
           config: {
-            ...n.data.config, // Preserve ALL config fields (important for CONDITIONAL_NODE, etc.)
+            ...n.data.config,
             model: n.data.config?.model || n.data.model || 'gpt-4o-mini',
             temperature: n.data.config?.temperature ?? n.data.temperature ?? 0.7,
             system_prompt: n.data.config?.system_prompt || n.data.system_prompt || '',
-            // Ensure tool fields are explicitly set for backend factory
             native_tools: n.data.config?.native_tools || n.data.native_tools || [],
             custom_tools: n.data.config?.custom_tools || n.data.custom_tools || [],
           }
-        })),
-        edges: edges.map(e => ({
+          };
+        }),
+        edges: edges
+          .filter(e => realNodeIds.has(e.source) && realNodeIds.has(e.target))
+          .map(e => ({
           id: e.id,
           source: e.source,
           target: e.target,

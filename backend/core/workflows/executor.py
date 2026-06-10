@@ -523,10 +523,11 @@ class SimpleWorkflowExecutor:
                 subgraph_namespace = None
                 subgraph_run_id = None
 
-                # Method 1: Check for langgraph_node tag with subgraph path
+                # Method 1: Check for langgraph_node tag — any event from a subgraph
+                # will have tags from the parent's node PLUS subgraph-specific tags
                 for tag in tags:
                     if isinstance(tag, str) and ":" in tag:
-                        # Tags like "task:abc123" or "subagent:xyz789" indicate subgraph
+                        # Tags like "task:uuid" or "subagent:uuid" indicate subgraph
                         parts = tag.split(":")
                         if len(parts) >= 2 and parts[0] in ("task", "subagent", "delegate"):
                             subgraph_namespace = tag
@@ -534,16 +535,36 @@ class SimpleWorkflowExecutor:
                             break
 
                 # Method 2: Check in metadata for langgraph_checkpoint_ns
+                # Format when subgraphs=True: "parent_ns|child_ns" — the pipe indicates nesting
                 if not subgraph_namespace:
                     checkpoint_ns = metadata.get("langgraph_checkpoint_ns", "")
                     if checkpoint_ns and "|" in checkpoint_ns:
-                        # Format: "parent_ns|subgraph_ns" - extract subgraph part
                         ns_parts = checkpoint_ns.split("|")
                         if len(ns_parts) > 1:
                             subgraph_namespace = ns_parts[-1]
-                            # Try to extract run_id from namespace (format: "node_name:run_id")
                             if ":" in ns_parts[-1]:
                                 subgraph_run_id = ns_parts[-1].split(":")[1]
+
+                # Method 3: Check for langgraph_node tag that resembles a subgraph path
+                # DeepAgent SDK creates subgraphs with specific naming
+                if not subgraph_namespace:
+                    langgraph_node = metadata.get("langgraph_node", "")
+                    if langgraph_node and ":" in langgraph_node:
+                        parts = langgraph_node.split(":")
+                        if len(parts) >= 2:
+                            subgraph_namespace = langgraph_node
+                            subgraph_run_id = parts[-1]
+                    elif not langgraph_node:
+                        # No langgraph_node means this could be a parent-level event
+                        pass
+
+                # Method 4: Log ALL events that might be from subgraphs for debugging
+                if "checkpoint_ns" in metadata or "langgraph_node" in metadata:
+                    event_kind = event.get("event", "")
+                    lg_node = metadata.get("langgraph_node", "")
+                    ckpt_ns = metadata.get("checkpoint_ns", "") or metadata.get("langgraph_checkpoint_ns", "")
+                    if lg_node or ckpt_ns:
+                        logger.debug(f"[SUBGRAPH CANDIDATE] event={event_kind}, node={lg_node}, ckpt_ns={ckpt_ns}, tags={tags[:3]}")
 
                 # If we have a subgraph namespace, log it for debugging
                 if subgraph_namespace:

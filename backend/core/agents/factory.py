@@ -323,6 +323,20 @@ class AgentFactory:
         interrupt_before = agent_config.get("interrupt_before", False)
         interrupt_after = agent_config.get("interrupt_after", False)
 
+        # Auto-map middleware config → HITL params
+        # The frontend UI sends middleware: [{type: 'hitl', enabled: true, ...}]
+        # This must be mapped to interrupt_before for AgentFactory.
+        if not interrupt_before and not interrupt_after:
+            middleware_list = agent_config.get("middleware", [])
+            if middleware_list and isinstance(middleware_list, list):
+                has_hitl = any(
+                    isinstance(m, dict) and m.get("type") == "hitl" and m.get("enabled", True)
+                    for m in middleware_list
+                )
+                if has_hitl:
+                    interrupt_before = ["tools"]
+                    logger.info("HITL middleware enabled: mapped to interrupt_before=['tools']")
+
         # Multimodal input configuration
         enable_multimodal_input = agent_config.get("enable_multimodal_input", False)
         multimodal_attachments = agent_config.get("attachments", [])
@@ -680,6 +694,18 @@ class AgentFactory:
                 logger.debug(f"Context schema configured: {context_schema.__name__ if hasattr(context_schema, '__name__') else context_schema}")
 
             # Add HITL (Human-in-the-Loop) parameters
+
+            # Get PostgreSQL checkpointer for conversation persistence and HITL support
+            # Without a checkpointer, interrupt_before/interrupt_after have no effect
+            try:
+                from core.workflows.checkpointing.manager import get_checkpointer
+                checkpointer = get_checkpointer()
+                if checkpointer:
+                    create_agent_kwargs["checkpointer"] = checkpointer
+                    logger.info(f"✓ Checkpointer configured for persistence and HITL")
+            except Exception as e:
+                logger.warning(f"Failed to configure checkpointer: {e}")
+                checkpointer = None
             # interrupt_before: List of node names to pause before execution
             # interrupt_after: List of node names to pause after execution
             # Common node names: ["agent"], ["tools"]

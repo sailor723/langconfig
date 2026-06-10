@@ -66,10 +66,12 @@ class SubAgentConfig(BaseModel):
     # For dictionary-based subagents
     template_id: Optional[str] = Field(None, description="Base template to use from AgentTemplateRegistry")
     model: Optional[str] = Field(None, description="Override model (inherits from parent if not set)")
-    system_prompt: Optional[str] = Field(None, description="Subagent-specific system prompt")
-    tools: List[str] = Field(default_factory=list, description="Tool names for this subagent")
+    system_prompt: Optional[str] = Field(None, description="Subagent-specific system prompt (required for custom subagents)")
+    tools: List[str] = Field(default_factory=list, description="Tool names for this subagent (overrides parent tools)")
     middleware: List[str] = Field(default_factory=list, description="Middleware to enable")
-    interrupt_on: Dict[str, Any] = Field(default_factory=dict, description="HITL configuration")
+    interrupt_on: Dict[str, Any] = Field(default_factory=dict, description="HITL configuration (overrides parent default)")
+    skills: List[str] = Field(default_factory=list, description="Skills source paths (does not inherit from parent)")
+    response_format: Optional[Dict[str, Any]] = Field(None, description="Structured output schema for the subagent")
 
     # For compiled subagents (workflow-based)
     workflow_id: Optional[int] = Field(None, description="ID of workflow to use as compiled subagent")

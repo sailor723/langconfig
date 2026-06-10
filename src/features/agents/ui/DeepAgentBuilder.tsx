@@ -11,7 +11,6 @@ import {
   Play,
   Download,
   Plus,
-  Trash2,
   ChevronDown,
   ChevronRight,
   Settings,
@@ -24,7 +23,9 @@ import {
   AlertTriangle,
   X,
   Wrench,
-  Info
+  Info,
+  GitBranch,
+  Trash2
 } from 'lucide-react';
 import { useNotification } from '../../../hooks/useNotification';
 import { ModelSelectorInline } from '../../../components/common/ModelSelector';
@@ -74,6 +75,8 @@ interface SubAgentConfig {
   tools: string[];
   middleware: string[];
   interrupt_on: Record<string, any>;
+  skills?: string[];
+  response_format?: Record<string, any>;
 }
 
 interface BackendConfig {
@@ -346,7 +349,8 @@ export default function DeepAgentBuilder({
     memory: false,     // Collapsed - advanced Regular Agent memory
     middleware: false, // Collapsed - middleware configuration (both agent types)
     backend: false,    // Collapsed - advanced Deep Agent features
-    guardrails: false  // Collapsed - advanced Deep Agent features
+    guardrails: false,  // Collapsed - advanced Deep Agent features
+    subagents: false    // Collapsed - subagent configuration
   });
 
   // AI Generation state
@@ -355,6 +359,19 @@ export default function DeepAgentBuilder({
   // Custom tools state
   const [availableCustomTools, setAvailableCustomTools] = useState<Array<{ id: number, tool_id: string, name: string, description: string }>>([]);
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(initialConfig?.custom_tools || []);
+
+  // Subagent state
+  const [newSubagent, setNewSubagent] = useState<SubAgentConfig>({
+    name: '',
+    description: '',
+    model: undefined,
+    system_prompt: '',
+    tools: [],
+    middleware: [],
+    interrupt_on: {},
+    skills: [],
+    response_format: undefined
+  });
 
   // Unsaved changes tracking
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
@@ -2148,6 +2165,265 @@ export default function DeepAgentBuilder({
                     <span>50</span>
                   </div>
                 </div>
+              </div>
+            </ConfigSection>
+          )}
+
+          {/* Subagents - Deep Agent Only */}
+          {agentType === 'deep' && (
+            <ConfigSection
+              title="Subagents"
+              icon={<GitBranch className="w-5 h-5" />}
+              expanded={expandedSections.subagents}
+              onToggle={() => toggleSection('subagents')}
+            >
+              <div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                  Subagents are specialized agents that the main agent can delegate tasks to. They help keep the main agent's context clean by isolating detailed work.
+                </p>
+
+                {/* List existing subagents */}
+                {config.subagents.length > 0 && (
+                  <div className="space-y-3 mb-4">
+                    {config.subagents.map((sub, idx) => (
+                      <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-white dark:bg-gray-800/50">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{sub.name || 'Unnamed Subagent'}</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{sub.description || 'No description'}</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              const newSubs = config.subagents.filter((_, i) => i !== idx);
+                              updateConfig('subagents', newSubs);
+                            }}
+                            className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-gray-400 hover:text-red-500"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-500">Model:</span>{' '}
+                            <span className="font-mono text-gray-700 dark:text-gray-300">{sub.model || 'Inherited'}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Tools:</span>{' '}
+                            <span className="text-gray-700 dark:text-gray-300">{(sub.tools || []).length} configured</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add subagent form */}
+                {expandedSections.subagents && (
+                  <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/30">
+                    <h5 className="text-xs font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-3">
+                      Add New Subagent
+                    </h5>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium mb-1" style={{ color: '#6b7280' }}>Name *</label>
+                          <input
+                            type="text"
+                            value={newSubagent.name}
+                            onChange={(e) => setNewSubagent({ ...newSubagent, name: e.target.value })}
+                            placeholder="e.g. research-agent"
+                            className="w-full px-3 py-1.5 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                            style={{ backgroundColor: '#fff', color: '#1f2937', borderColor: '#d1d5db' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium mb-1" style={{ color: '#6b7280' }}>Model (optional)</label>
+                          <input
+                            type="text"
+                            value={newSubagent.model || ''}
+                            onChange={(e) => setNewSubagent({ ...newSubagent, model: e.target.value || undefined })}
+                            placeholder="Inherit from parent"
+                            className="w-full px-3 py-1.5 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                            style={{ backgroundColor: '#fff', color: '#1f2937', borderColor: '#d1d5db' }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1" style={{ color: '#6b7280' }}>Description *</label>
+                        <input
+                          type="text"
+                          value={newSubagent.description}
+                          onChange={(e) => setNewSubagent({ ...newSubagent, description: e.target.value })}
+                          placeholder="What this subagent does (used by main agent to decide when to delegate)"
+                          className="w-full px-3 py-1.5 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                          style={{ backgroundColor: '#fff', color: '#1f2937', borderColor: '#d1d5db' }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1" style={{ color: '#6b7280' }}>System Prompt *</label>
+                        <textarea
+                          value={newSubagent.system_prompt || ''}
+                          onChange={(e) => setNewSubagent({ ...newSubagent, system_prompt: e.target.value })}
+                          rows={3}
+                          placeholder="Instructions for this subagent. Include tool usage guidance and output format requirements."
+                          className="w-full px-3 py-1.5 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                          style={{ backgroundColor: '#fff', color: '#1f2937', borderColor: '#d1d5db' }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1" style={{ color: '#6b7280' }}>
+                          Tools (overrides parent tools — leave empty to inherit)
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {NATIVE_TOOLS.map(tool => (
+                            <button
+                              key={tool.id}
+                              onClick={() => {
+                                const tools = newSubagent.tools || [];
+                                const updated = tools.includes(tool.id)
+                                  ? tools.filter(t => t !== tool.id)
+                                  : [...tools, tool.id];
+                                setNewSubagent({ ...newSubagent, tools: updated });
+                              }}
+                              className={`text-[11px] px-2 py-1 rounded border transition-colors ${
+                                (newSubagent.tools || []).includes(tool.id)
+                                  ? 'bg-primary/10 border-primary text-primary'
+                                  : 'bg-white border-gray-200 hover:border-gray-300'
+                              }`}
+                              style={{ color: (newSubagent.tools || []).includes(tool.id) ? undefined : '#374151' }}
+                            >
+                              {tool.id}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Advanced Subagent Options */}
+                      <details className="text-xs border border-gray-200 rounded-lg overflow-hidden">
+                        <summary className="px-3 py-2 bg-gray-50 cursor-pointer text-gray-600 hover:text-gray-800 font-medium select-none">
+                          Advanced Options — HITL, Skills, Structured Output
+                        </summary>
+                        <div className="p-3 space-y-3 border-t border-gray-200">
+
+                          {/* Middleware */}
+                          <div>
+                            <label className="block text-xs font-medium mb-1" style={{ color: '#6b7280' }}>Middleware</label>
+                            <div className="flex flex-wrap gap-2">
+                              {['todo_list', 'filesystem'].map(mw => (
+                                <label key={mw} className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={(newSubagent.middleware || []).includes(mw)}
+                                    onChange={() => {
+                                      const m = newSubagent.middleware || [];
+                                      setNewSubagent({
+                                        ...newSubagent,
+                                        middleware: m.includes(mw) ? m.filter(x => x !== mw) : [...m, mw]
+                                      });
+                                    }}
+                                    className="rounded border-gray-300"
+                                  />
+                                  <span style={{ color: '#374151' }}>{mw}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Interrupt On (HITL) */}
+                          <div>
+                            <label className="block text-xs font-medium mb-1" style={{ color: '#6b7280' }}>
+                              Interrupt On (HITL) — pause before tool calls for human approval
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                              {(newSubagent.tools?.length ? newSubagent.tools : ['all_tools']).map(tool => (
+                                <label key={tool} className="flex items-center gap-1.5 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={(newSubagent.interrupt_on || {})[tool] === true}
+                                    onChange={() => {
+                                      const io = { ...(newSubagent.interrupt_on || {}) };
+                                      if (io[tool]) {
+                                        delete io[tool];
+                                      } else {
+                                        io[tool] = true;
+                                      }
+                                      setNewSubagent({ ...newSubagent, interrupt_on: io });
+                                    }}
+                                    className="rounded border-gray-300"
+                                  />
+                                  <span style={{ color: '#374151' }}>{tool}</span>
+                                </label>
+                              ))}
+                              {(newSubagent.tools?.length || 0) === 0 && (
+                                <p className="text-xs text-gray-400 italic">Add tools above to configure per-tool HITL</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Skills */}
+                          <div>
+                            <label className="block text-xs font-medium mb-1" style={{ color: '#6b7280' }}>
+                              Skills (source paths, one per line)
+                            </label>
+                            <textarea
+                              value={(newSubagent.skills || []).join('\n')}
+                              onChange={(e) => setNewSubagent({
+                                ...newSubagent,
+                                skills: e.target.value.split('\n').filter(s => s.trim())
+                              })}
+                              rows={2}
+                              placeholder="/skills/research/"
+                              className="w-full px-3 py-1.5 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                              style={{ backgroundColor: '#fff', color: '#1f2937', borderColor: '#d1d5db' }}
+                            />
+                          </div>
+
+                          {/* Response Format */}
+                          <div>
+                            <label className="block text-xs font-medium mb-1" style={{ color: '#6b7280' }}>
+                              Response Format (structured output schema — JSON)
+                            </label>
+                            <textarea
+                              value={newSubagent.response_format ? JSON.stringify(newSubagent.response_format, null, 2) : ''}
+                              onChange={(e) => {
+                                try {
+                                  const parsed = e.target.value ? JSON.parse(e.target.value) : undefined;
+                                  setNewSubagent({ ...newSubagent, response_format: parsed });
+                                } catch {
+                                  // Allow invalid JSON during editing
+                                }
+                              }}
+                              rows={2}
+                              placeholder='{ "type": "json_schema", "schema": { ... } }'
+                              className="w-full px-3 py-1.5 text-xs font-mono border rounded focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                              style={{ backgroundColor: '#fff', color: '#1f2937', borderColor: '#d1d5db' }}
+                            />
+                          </div>
+
+                        </div>
+                      </details>
+
+                      <div className="flex justify-end gap-2 pt-1">
+                        {newSubagent.name && newSubagent.description && (
+                          <button
+                            onClick={() => {
+                              const newSubs = [...config.subagents, { ...newSubagent }];
+                              updateConfig('subagents', newSubs);
+                              setNewSubagent({ name: '', description: '', model: undefined, system_prompt: '', tools: [], middleware: [], interrupt_on: {}, skills: [], response_format: undefined });
+                            }}
+                            className="text-xs px-3 py-1.5 bg-primary text-white rounded-lg hover:opacity-90"
+                          >
+                            Add Subagent
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {config.subagents.length === 0 && !expandedSections.subagents && (
+                  <p className="text-xs text-gray-400 text-center py-4">No subagents configured. Expand this section to add one.</p>
+                )}
               </div>
             </ConfigSection>
           )}

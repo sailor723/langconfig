@@ -81,10 +81,11 @@ export interface DeepAgent {
 }
 
 export interface ChatStreamEvent {
-  type: 'chunk' | 'complete' | 'error' | 'tool_start' | 'tool_end' | 'tool_artifact' | 'custom_event';
+  type: 'chunk' | 'complete' | 'error' | 'tool_start' | 'tool_end' | 'tool_artifact' | 'custom_event' | 'interrupt';
   content?: string;
   message?: string;
   tool_name?: string;
+  session_id?: string;
   data?: any;
   /** Multimodal content blocks from tool results */
   content_blocks?: ContentBlock[];
@@ -94,6 +95,25 @@ export interface ChatStreamEvent {
   artifact?: ContentBlock;
   /** Whether the result contains multimodal content */
   has_multimodal?: boolean;
+}
+
+export interface InterruptData {
+  action_requests: Array<{
+    name: string;
+    args: Record<string, any>;
+    description?: string;
+  }>;
+  review_configs: Array<{
+    action_name: string;
+    allowed_decisions: string[];
+  }>;
+  /** For normal agents (interrupt_before) */
+  next_nodes?: string[];
+  tool_calls?: Array<{
+    name: string;
+    args: Record<string, any>;
+    id?: string;
+  }>;
 }
 
 /** Custom event payload types for LangGraph-style streaming events */
