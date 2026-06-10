@@ -250,6 +250,42 @@ class DeepAgentFactory:
             prompt_parts.append(config.custom_suffix)
         final_system_prompt = "\n\n".join(prompt_parts)
 
+        # Initialize LocalShellBackend if sandbox mode is enabled.
+        # This gives the agent an `execute` tool for running shell commands / Python scripts
+        # scoped to the task workspace directory on the host machine.
+        local_sandbox_backend = None
+        if getattr(config, 'use_local_sandbox', False):
+            try:
+                from deepagents.backends import LocalShellBackend
+                from services.workspace_manager import get_workspace_manager
+
+                workspace_mgr = get_workspace_manager()
+
+                # If no project/workflow/task context (standalone/chat sessions),
+                # fall back to outputs/default/ to stay consistent with
+                # FilesystemMiddleware and write_file's default location.
+                if workflow_id is None:
+                    sandbox_path = workspace_mgr.base_dir / "default"
+                    sandbox_path.mkdir(parents=True, exist_ok=True)
+                else:
+                    sandbox_path = workspace_mgr.get_task_workspace_with_override(
+                        project_id=project_id,
+                        workflow_id=workflow_id,
+                        task_id=task_id,
+                        custom_output_path=custom_output_path,
+                    )
+                    sandbox_path.mkdir(parents=True, exist_ok=True)
+
+                local_sandbox_backend = LocalShellBackend(
+                    root_dir=str(sandbox_path),
+                    timeout=120,
+                    max_output_bytes=100000,
+                    inherit_env=True,  # Inherit PATH so pip/python etc. are available
+                )
+                logger.info(f"LocalShellBackend sandbox enabled at: {sandbox_path}")
+            except Exception as e:
+                logger.warning(f"Failed to initialize LocalShellBackend: {e}. Proceeding without sandbox.")
+
         # Create DeepAgent with all components
         try:
             agent_kwargs = {
@@ -260,6 +296,11 @@ class DeepAgentFactory:
                 "subagents": subagents_config if subagents_config else None,
                 "checkpointer": checkpointer,
             }
+
+            # Pass LocalShellBackend so the agent gains the `execute` tool for
+            # running scripts (Python, shell commands, pip install, etc.)
+            if local_sandbox_backend is not None:
+                agent_kwargs["backend"] = local_sandbox_backend
 
             # Debug logging for subagent configuration
             if subagents_config:

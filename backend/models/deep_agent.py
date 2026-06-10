@@ -208,6 +208,15 @@ class DeepAgentConfig(BaseModel):
         default=True,
         description="Enable CompiledSubAgent support (workflow-based subagents). Set to False to disable."
     )
+    use_local_sandbox: bool = Field(
+        default=False,
+        description=(
+            "If True, creates a LocalShellBackend sandbox rooted at the task workspace. "
+            "The agent gains an `execute` tool for running shell commands (e.g. Python scripts), "
+            "and file operations are scoped to the sandbox directory. "
+            "WARNING: shell commands run on the host machine with no security isolation."
+        )
+    )
     middleware: List[MiddlewareConfig] = Field(
         default_factory=list,
         description="Middleware configurations"
