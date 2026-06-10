@@ -133,9 +133,9 @@ class BackendConfig(BaseModel):
 
 class GuardrailsConfig(BaseModel):
     """Guardrails and safety configuration."""
-    interrupts: Dict[str, Dict[str, Any]] = Field(
+    interrupts: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Tool-specific interrupt configuration"
+        description="Tool-specific interrupt configuration (bool or InterruptOnConfig dict)"
     )
     token_limits: Dict[str, int] = Field(
         default={
@@ -221,6 +221,16 @@ class DeepAgentConfig(BaseModel):
     guardrails: GuardrailsConfig = Field(
         default_factory=GuardrailsConfig,
         description="Safety and context management"
+    )
+
+    # Normal agent config (used when use_deepagents=False)
+    interrupt_before: Optional[List[str]] = Field(
+        default=None,
+        description="HITL: pause before specified nodes (['tools'] or ['agent']). Used when use_deepagents=False."
+    )
+    interrupt_after: Optional[List[str]] = Field(
+        default=None,
+        description="HITL: pause after specified nodes. Used when use_deepagents=False."
     )
 
     # Export settings

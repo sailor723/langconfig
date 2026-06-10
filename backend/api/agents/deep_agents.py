@@ -38,8 +38,14 @@ def _ensure_deep_agent_config(config: dict) -> dict:
     DeepAgents in the deep_agent_templates table should ALWAYS have
     use_deepagents=True, even if stored incorrectly in the database.
     This fixes frontend compatibility issues.
+    
+    For regular (non-deep) agents, use_deepagents is explicitly set to False
+    and should be respected.
     """
     config = dict(config)  # Make a copy to avoid mutating
+    # Respect explicitly set use_deepagents=False (regular agents)
+    if not config.get("use_deepagents", True):
+        return config
     config["use_deepagents"] = True
     return config
 

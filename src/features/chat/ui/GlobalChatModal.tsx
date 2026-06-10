@@ -13,7 +13,8 @@ import { useChatMetrics } from '../hooks/useChatMetrics';
 import ChatHeader from './ChatHeader';
 import MessagesPanel from './MessagesPanel';
 import MetricsPanel from './MetricsPanel';
-import type { ChatMessage, ChatSession, ChatStreamEvent, CustomEventPayload } from '../types/chat';
+import type { ChatSession, ChatStreamEvent, CustomEventPayload, InterruptData } from '../types/chat';
+import apiClient from '../../../lib/api-client';
 
 export default function GlobalChatModal() {
   const {
@@ -32,6 +33,10 @@ export default function GlobalChatModal() {
   const [activeToolCalls, setActiveToolCalls] = useState<string[]>([]);
   const [customEvents, setCustomEvents] = useState<Map<string, CustomEventPayload>>(new Map());
 
+  // HITL interrupt state
+  const [pendingInterrupt, setPendingInterrupt] = useState<InterruptData | null>(null);
+  const [isResuming, setIsResuming] = useState(false);
+
   // Session management hook
   const {
     messages,
@@ -39,6 +44,7 @@ export default function GlobalChatModal() {
     error: sessionError,
     addMessage,
     updateLastMessage,
+    loadHistory,
     clearHistory,
     setError: setSessionError
   } = useChatSession(currentSessionId);
@@ -127,6 +133,9 @@ export default function GlobalChatModal() {
   const handleSendMessage = async (message: string) => {
     if (!currentSessionId) return;
 
+    // Clear any previous interrupt
+    setPendingInterrupt(null);
+
     await sendMessage(
       message,
       addMessage,
@@ -136,6 +145,7 @@ export default function GlobalChatModal() {
         await refreshMetrics();
         setActiveToolCalls([]);
         setCustomEvents(new Map());
+        // Don't clear interrupt on complete (resume may also complete the stream)
       },
       (event: ChatStreamEvent) => {
         // Handle tool events
@@ -156,8 +166,44 @@ export default function GlobalChatModal() {
             return next;
           });
         }
+      },
+      (event: ChatStreamEvent) => {
+        // Handle interrupt (HITL)
+        if (event.type === 'interrupt' && event.data) {
+          setPendingInterrupt(event.data as InterruptData);
+        }
       }
     );
+  };
+
+  // Resume from interrupt — approve/reject the tool call
+  const handleResume = async (action: 'approve' | 'reject' | 'edit' | 'respond', value?: string) => {
+    if (!currentSessionId) return;
+
+    setIsResuming(true);
+    try {
+      // Use raw fetch since apiClient doesn't have a resume method
+      const response = await fetch(`${apiClient.baseURL}/api/chat/${currentSessionId}/resume`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, value }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Resume failed: ${response.statusText}`);
+      }
+
+      // Clear interrupt state
+      setPendingInterrupt(null);
+
+      // Reload messages to show the resumed response
+      await loadHistory(currentSessionId);
+      await refreshMetrics();
+    } catch (err: any) {
+      console.error('Failed to resume:', err);
+    } finally {
+      setIsResuming(false);
+    }
   };
 
   // Handle ending the session
@@ -246,6 +292,128 @@ export default function GlobalChatModal() {
           />
         </div>
       </div>
+
+      {/* HITL Interrupt Modal */}
+      {pendingInterrupt && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]"
+          onClick={() => {}}  // Don't close on backdrop click
+        >
+          <div
+            className="bg-white dark:bg-panel-dark rounded-xl w-full max-w-lg shadow-2xl border"
+            style={{ borderColor: 'var(--color-border-dark)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-5 py-3 rounded-t-xl" style={{ backgroundColor: '#f59e0b' }}>
+              <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                ⏸️ Human Approval Required
+              </h3>
+              <p className="text-xs text-white/80 mt-0.5">
+                An agent action needs your approval before proceeding
+              </p>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              {pendingInterrupt.action_requests?.map((req, i) => (
+                <div key={i} className="p-3 rounded-lg border" style={{
+                  borderColor: 'var(--color-border-dark)',
+                  backgroundColor: 'var(--color-background-light)'
+                }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                      {req.name}
+                    </span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                      Tool Call
+                    </span>
+                  </div>
+                  <div className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    {req.description && (
+                      <p className="italic">{req.description}</p>
+                    )}
+                    {req.args && Object.keys(req.args).length > 0 && (
+                      <pre className="mt-1 p-2 rounded text-xs font-mono overflow-x-auto" style={{
+                        backgroundColor: 'var(--color-background)',
+                        color: 'var(--color-text-primary)',
+                        maxHeight: '120px'
+                      }}>
+                        {JSON.stringify(req.args, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {(!pendingInterrupt.action_requests || pendingInterrupt.action_requests.length === 0) && (
+                <div className="p-3 rounded-lg border" style={{
+                  borderColor: 'var(--color-border-dark)',
+                  backgroundColor: 'var(--color-background-light)'
+                }}>
+                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                    Agent paused before executing actions.
+                  </p>
+                  {pendingInterrupt.tool_calls && pendingInterrupt.tool_calls.length > 0 && (
+                    <pre className="mt-2 p-2 rounded text-xs font-mono overflow-x-auto" style={{
+                      backgroundColor: 'var(--color-background)',
+                      color: 'var(--color-text-primary)',
+                      maxHeight: '120px'
+                    }}>
+                      {JSON.stringify(pendingInterrupt.tool_calls, null, 2)}
+                    </pre>
+                  )}
+                  {pendingInterrupt.next_nodes && (
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                      Next nodes: {pendingInterrupt.next_nodes.join(', ')}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="px-5 py-3 border-t flex items-center justify-end gap-2" style={{
+              borderColor: 'var(--color-border-dark)'
+            }}>
+              <button
+                onClick={() => handleResume('reject')}
+                disabled={isResuming}
+                className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
+                style={{
+                  borderColor: 'var(--color-border-dark)',
+                  color: 'var(--color-text-primary)',
+                  backgroundColor: 'var(--color-background-light)'
+                }}
+              >
+                Reject
+              </button>
+              {pendingInterrupt.review_configs?.[0]?.allowed_decisions?.includes('edit') && (
+                <button
+                  onClick={() => handleResume('edit')}
+                  disabled={isResuming}
+                  className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
+                  style={{
+                    borderColor: 'var(--color-border-dark)',
+                    color: 'var(--color-text-primary)',
+                    backgroundColor: 'var(--color-background-light)'
+                  }}
+                >
+                  Edit
+                </button>
+              )}
+              <button
+                onClick={() => handleResume('approve')}
+                disabled={isResuming}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: '#16a34a' }}
+              >
+                {isResuming ? 'Resuming...' : 'Approve'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

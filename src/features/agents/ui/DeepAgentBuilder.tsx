@@ -232,6 +232,7 @@ const NATIVE_TOOLS = [
   { id: 'grep', name: 'Search Contents', description: 'Search file contents for a regex pattern. Returns matching lines with file paths and line numbers.' },
   // Web tools
   { id: 'web_search', name: 'Web Search', description: 'Search the web using DuckDuckGo (FREE, no API key required). Perfect for finding current information, news, and general knowledge.' },
+  { id: 'tavily_search', name: 'Tavily Search', description: 'Professional web search with AI-optimized results. Supports general, news, and finance topics. Requires TAVILY_API_KEY.' },
   { id: 'web_fetch', name: 'Web Fetch', description: 'Fetch and extract text content from webpages using HTTP requests. Useful for reading articles, documentation, and web pages.' },
   { id: 'browser', name: 'Browser Automation', description: 'Advanced web interaction using Playwright. Navigate, click, extract text, take screenshots, and interact with JavaScript-rendered content.' },
   // Memory tools
@@ -1968,6 +1969,29 @@ export default function DeepAgentBuilder({
               onToggle={() => toggleSection('guardrails')}
             >
               <div className="space-y-4">
+                {/* HITL Interrupt Toggle */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
+                    <input
+                      type="checkbox"
+                      checked={Object.keys(config.guardrails.interrupts || {}).length > 0}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        updateConfig('guardrails', {
+                          ...config.guardrails,
+                          interrupts: enabled
+                            ? { "tools": { "allowed_decisions": ["approve", "edit", "reject", "respond"], "description": "Approve tool action?" } }
+                            : {}
+                        });
+                      }}
+                    />
+                    Require Approval for Tool Calls (HITL)
+                  </label>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-6">
+                    Pause before executing tools and require human approval (Approve/Reject/Edit). Essential for production workflows.
+                  </p>
+                </div>
+
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
                     <input
