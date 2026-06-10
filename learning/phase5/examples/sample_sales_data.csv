@@ -1,0 +1,31 @@
+Date,Product,Category,Units Sold,Unit Price,Revenue,Region,Sales Rep
+2025-01-06,MacBook Pro 16,Mobile,3,2499,7497,North,Alice Chen
+2025-01-06,AirPods Pro,Audio,15,249,3735,South,Bob Smith
+2025-01-07,iPhone 16 Pro,Mobile,8,1199,9592,East,Diana Park
+2025-01-07,MacBook Air,Mobile,5,1299,6495,West,John Davis
+2025-01-08,iPad Air,Tablets,12,699,8388,North,Alice Chen
+2025-01-08,AirPods Max,Audio,4,549,2196,South,Bob Smith
+2025-01-09,iPhone 16,Mobile,10,899,8990,East,Diana Park
+2025-01-09,MacBook Pro 14,Mobile,2,1999,3998,West,John Davis
+2025-01-10,Apple Watch Ultra,Wearables,6,799,4794,North,Alice Chen
+2025-01-10,iPad Pro,Tablets,4,1099,4396,South,Bob Smith
+2025-01-13,iPhone 16 Pro Max,Mobile,7,1499,10493,East,Diana Park
+2025-01-13,AirPods Pro,Audio,20,249,4980,West,John Davis
+2025-01-14,MacBook Air,Mobile,6,1299,7794,North,Alice Chen
+2025-01-14,iPad mini,Tablets,9,599,5391,South,Bob Smith
+2025-01-15,Apple Vision Pro,Wearables,1,3499,3499,East,Diana Park
+2025-01-15,iPhone 16 Pro,Mobile,12,1199,14388,West,John Davis
+2025-01-16,AirPods Max,Audio,3,549,1647,North,Alice Chen
+2025-01-16,MacBook Pro 16,Mobile,4,2499,9996,South,Bob Smith
+2025-01-17,iPad Air,Tablets,15,699,10485,East,Diana Park
+2025-01-17,Apple Watch SE,Wearables,10,249,2490,West,John Davis
+2025-01-20,iPhone 16,Mobile,8,899,7192,North,Alice Chen
+2025-01-20,MacBook Pro 14,Mobile,3,1999,5997,South,Bob Smith
+2025-01-21,AirPods Pro,Audio,25,249,6225,East,Diana Park
+2025-01-21,iPad Pro,Tablets,5,1099,5495,West,John Davis
+2025-01-22,Apple Watch Ultra,Wearables,4,799,3196,North,Alice Chen
+2025-01-22,iPhone 16 Pro Max,Mobile,6,1499,8994,South,Bob Smith
+2025-01-23,MacBook Air,Mobile,7,1299,9093,East,Diana Park
+2025-01-23,AirPods Max,Audio,2,549,1098,West,John Davis
+2025-01-24,iPad mini,Tablets,11,599,6589,North,Alice Chen
+2025-01-24,Apple Vision Pro,Wearables,2,3499,6998,South,Bob Smith

@@ -12,9 +12,10 @@ import apiClient from '../../../lib/api-client';
 
 interface SessionDocumentsPanelProps {
   sessionId: string | null;
+  refreshKey?: number;
 }
 
-export default function SessionDocumentsPanel({ sessionId }: SessionDocumentsPanelProps) {
+export default function SessionDocumentsPanel({ sessionId, refreshKey = 0 }: SessionDocumentsPanelProps) {
   const [documents, setDocuments] = useState<SessionDocument[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +25,7 @@ export default function SessionDocumentsPanel({ sessionId }: SessionDocumentsPan
     } else {
       setDocuments([]);
     }
-  }, [sessionId]);
+  }, [sessionId, refreshKey]);
 
   const loadDocuments = async () => {
     if (!sessionId) return;

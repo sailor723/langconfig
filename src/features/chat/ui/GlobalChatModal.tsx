@@ -234,7 +234,7 @@ export default function GlobalChatModal() {
     >
       <div
         ref={modalRef}
-        className="rounded-xl shadow-2xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden"
+        className="rounded-xl shadow-2xl w-full max-w-[95vw] h-[90vh] flex flex-col overflow-hidden"
         style={{
           backgroundColor: 'white',
           border: '1px solid var(--color-border-dark)',
