@@ -18,6 +18,7 @@ import PlaygroundPage from './pages/PlaygroundPage';
 import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
 import AgentLoadouts from './features/agents/ui/AgentLoadouts';
 import ToolLibrary from './features/tools/ToolLibrary';
+import PromptAssemblyPage from './pages/PromptAssemblyPage';
 import { SkillLibrary } from './features/skills';
 import HomePage from './pages/HomePage';
 import CommunityPage from './pages/CommunityPage';
@@ -28,7 +29,7 @@ import { ChatProvider } from './features/chat/state/ChatContext';
 import GlobalChatModal from './features/chat/ui/GlobalChatModal';
 import apiClient from './lib/api-client';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools';
+type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -171,6 +172,7 @@ function AppContent() {
     if (path === '/knowledge') return 'knowledge';
     if (path === '/skills') return 'skills';
     if (path === '/tools') return 'tools';
+    if (path === '/prompt') return 'prompt';
     if (path === '/community') return 'community';
     if (path === '/settings') return 'settings';
     if (path === '/playground') return 'playground';
@@ -224,7 +226,8 @@ function AppContent() {
       community: '/community',
       settings: '/settings',
       playground: '/playground',
-      tools: '/tools'
+      tools: '/tools',
+      prompt: '/prompt'
     };
     navigate(routes[view]);
   };
@@ -432,6 +435,7 @@ function AppContent() {
           {currentView === 'agents' && <AgentLoadouts />}
           {currentView === 'skills' && <SkillLibrary />}
           {currentView === 'tools' && <ToolLibrary />}
+          {currentView === 'prompt' && <PromptAssemblyPage />}
           {currentView === 'knowledge' && <KnowledgeBaseView />}
           {currentView === 'community' && <CommunityPage />}
           {currentView === 'settings' && <SettingsView />}

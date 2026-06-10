@@ -386,6 +386,9 @@ The full lifecycle of a deep agent:
 | `GET` | `/api/deepagents/{id}` | Get agent details |
 | `PUT` | `/api/deepagents/{id}` | Update agent config |
 | `DELETE` | `/api/deepagents/{id}` | Delete agent |
+| `POST` | `/api/deepagents/prompt-preview` | Preview assembled prompt from USER/BASE/CUSTOM/SUFFIX components |
+| `PATCH` | `/api/deepagents/{id}/prompt` | Save `custom_prompt` and `custom_suffix` to agent config (preserved across Builder saves) |
+| `GET` | `/api/tools/registry` | List all available native tools with metadata (name, description, category, requires_api_key) |
 | `POST` | `/api/deepagents/{id}/export` | Export agent as standalone code |
 
 ---
@@ -395,8 +398,47 @@ The full lifecycle of a deep agent:
 | File | Purpose |
 |---|---|
 | [`backend/models/deep_agent.py`](../../backend/models/deep_agent.py) | `DeepAgentConfig`, `SubAgentConfig`, `MiddlewareConfig`, `BackendConfig`, `GuardrailsConfig`, `DeepAgentTemplate` (SQLAlchemy model) |
-| [`backend/services/deepagent_factory.py`](../../backend/services/deepagent_factory.py) | `DeepAgentFactory` — builds deep agent from config, maps `guardrails.interrupts` → `interrupt_on` |
-| [`backend/api/agents/deep_agents.py`](../../backend/api/agents/deep_agents.py) | CRUD endpoints for deep agents |
+| [`backend/services/deepagent_factory.py`](../../backend/services/deepagent_factory.py) | `DeepAgentFactory` — builds deep agent from config, assembles full prompt (USER + custom_prompt/BASE + custom_suffix), maps guardrails → `interrupt_on` |
+| [`backend/api/agents/deep_agents.py`](../../backend/api/agents/deep_agents.py) | CRUD endpoints + prompt-preview + save-prompt + tool-registry endpoints |
 | [`backend/api/chat/routes.py`](../../backend/api/chat/routes.py) | SSE streaming with interrupt detection, resume endpoint |
 | [`backend/core/middleware/deep.py`](../../backend/core/middleware/deep.py) | Deep agent middleware (TodoList, Filesystem) |
 | [`backend/core/templates/deep_agent.py`](../../backend/core/templates/deep_agent.py) | Built-in deep agent templates (Code Researcher, etc.) |
+| [`src/lib/api-client.ts`](../../src/lib/api-client.ts) | API client methods including `previewPromptAssembly()`, `saveAgentPrompt()`, `listToolRegistry()` |
+| [`src/features/agents/ui/DeepAgentBuilder.tsx`](../../src/features/agents/ui/DeepAgentBuilder.tsx) | Agent config form with HITL toggle, file tool warning, all guardrails config |
+| [`src/features/agents/ui/AgentLoadouts.tsx`](../../src/features/agents/ui/AgentLoadouts.tsx) | Agent list with import/export, inline chat testing |
+| [`src/features/agents/ui/PromptCanvas.tsx`](../../src/features/agents/ui/PromptCanvas.tsx) | Visual prompt assembly component — shows USER, BASE/CUSTOM, SUFFIX segments |
+| [`src/features/tools/ToolLibrary.tsx`](../../src/features/tools/ToolLibrary.tsx) | Browse all native tools by category, search by name/ID/description |
+| [`src/pages/PromptAssemblyPage.tsx`](../../src/pages/PromptAssemblyPage.tsx) | Standalone Prompt Assembly page with model selector, example prompts, CUSTOM/SUFFIX editors, Save to Agent button |
+
+## Prompt Assembly
+
+The system prompt for a deep agent is assembled from up to 4 components:
+
+```
+[USER]\n\n[BASE or CUSTOM]\n\n[SUFFIX]
+```
+
+- **USER** — Your custom instructions (passed as `system_prompt=` to `create_deep_agent`)
+- **BASE** — SDK default prompt (`BASE_AGENT_PROMPT`, ~2258 chars), always present unless replaced
+- **CUSTOM** — Replaces BASE when set via profile or saved `custom_prompt` in agent config
+- **SUFFIX** — Model-specific guidance appended last (from HarnessProfile or saved `custom_suffix`)
+
+Users can:
+1. Edit USER, CUSTOM, and SUFFIX in the **Prompt** page (top nav)
+2. Click **Save to Agent** to persist `custom_prompt` and `custom_suffix` to agent config
+3. The factory assembles the full prompt at runtime: `system_prompt + "\n\n" + custom_prompt + "\n\n" + custom_suffix`
+4. These fields survive Builder saves (PUT endpoint preserves them during config replacement)
+
+## Tool Library
+
+The **Tool Library** (`/tools`) lists all native tools available for deep agents, grouped by category:
+
+| Category | Tools |
+|---|---|
+| Web & Search | web_search, web_fetch, web_scrape, web_fetch_all, web_search_news, tavily_search |
+| File System | list_files, read_files, write_files, file_system |
+| Memory | store_memory, read_memory |
+| Reasoning | final_result |
+| Delegation | delegate_task |
+
+Each tool shows its name, description, tool ID, and whether it requires an API key.
