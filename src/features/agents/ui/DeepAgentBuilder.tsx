@@ -120,6 +120,7 @@ interface DeepAgentConfig {
   middleware: MiddlewareConfig[];
   subagents: SubAgentConfig[];
   backend: BackendConfig;
+  use_local_sandbox: boolean;
   guardrails: GuardrailsConfig;
   export_format: string;
   include_chat_ui: boolean;
@@ -220,6 +221,7 @@ const DEFAULT_CONFIG: DeepAgentConfig = {
   export_format: 'standalone',
   include_chat_ui: true,
   include_docker: false,
+  use_local_sandbox: false,
   enforce_tool_constraints: false  // Disabled by default - users can enable for production safety
 };
 
@@ -245,6 +247,8 @@ const NATIVE_TOOLS = [
   { id: 'reasoning_chain', name: 'Reasoning Chain', description: 'Break down complex tasks into logical reasoning steps. Provides structured framework for multi-step problem solving and analysis.' },
   // Subagent delegation tools
   { id: 'task', name: 'Task Delegation', description: 'Delegate work to specialized subagents. Enables parallel processing and specialization for complex workflows.' },
+  // Data analysis tools
+  { id: 'save_analysis_result', name: 'Save Analysis Result', description: 'Save analysis report and optionally copy an attached file (e.g. a plot) to the output directory.' },
 ];
 
 const BACKEND_TYPES = [
@@ -1971,6 +1975,21 @@ export default function DeepAgentBuilder({
                   </label>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-6">
                     Enable persistent memory across sessions using LangGraph Store. The agent can remember context from previous workflow executions. Memory is isolated per workflow.
+                  </p>
+                </div>
+
+                {/* Local Sandbox */}
+                <div className="mt-4">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
+                    <input
+                      type="checkbox"
+                      checked={config.use_local_sandbox ?? false}
+                      onChange={(e) => updateConfig('use_local_sandbox', e.target.checked)}
+                    />
+                    LocalSandbox (Code Execution)
+                  </label>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-6">
+                    Enable a local shell sandbox for code execution. The agent gains an <code className="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">execute</code> tool for running Python scripts and shell commands. All file operations are scoped to the task workspace. <strong>WARNING:</strong> shell commands run on the host machine with no security isolation.
                   </p>
                 </div>
               </div>

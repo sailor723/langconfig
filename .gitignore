@@ -18,6 +18,11 @@ src-tauri/target/
 
 # IDE
 .vscode/
+
+# Generated sandbox directories (Phase 5: Data Analysis)
+_data_analysis_sandbox/
+_analysis_output/
+backend/outputs/
 .DS_Store
 
 # Database
