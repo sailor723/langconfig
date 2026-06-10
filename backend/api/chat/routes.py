@@ -1654,6 +1654,19 @@ async def upload_file_to_session(
     # Save file to disk (session-scoped storage)
     file_path = file_storage.save_file(f"chat_sessions/{session_id}", file.filename, content)
 
+    # Also copy CSV files to the sandbox workspace (outputs/default/) so the agent
+    # can access them via read_file / execute for data analysis.
+    if file.filename.lower().endswith('.csv'):
+        try:
+            from services.workspace_manager import get_workspace_manager
+            ws_mgr = get_workspace_manager()
+            sandbox_path = ws_mgr.base_dir / "default" / file.filename
+            sandbox_path.parent.mkdir(parents=True, exist_ok=True)
+            sandbox_path.write_bytes(content)
+            logger.info(f"CSV copied to sandbox workspace: {sandbox_path}")
+        except Exception as e:
+            logger.warning(f"Failed to copy CSV to sandbox: {e}")
+
     # Detect document type from file extension
     file_ext = file.filename.split('.')[-1].lower()
     doc_type_map = {
@@ -1685,8 +1698,12 @@ async def upload_file_to_session(
     db.commit()
     db.refresh(doc)
 
-    # Queue background indexing
-    background_tasks.add_task(index_session_document_background, doc.id, session.agent_id)
+    # Queue background indexing (skip for CSVs - they're already in the sandbox workspace)
+    if file.filename.lower().endswith('.csv'):
+        doc.indexing_status = IndexingStatus.READY
+        db.commit()
+    else:
+        background_tasks.add_task(index_session_document_background, doc.id, session.agent_id)
 
     return SessionDocumentResponse(
         id=doc.id,

@@ -68,7 +68,7 @@ class FileStorage:
             Absolute path to saved file
         """
         project_dir = self.base_dir / f"project_{project_id}"
-        project_dir.mkdir(exist_ok=True)
+        project_dir.mkdir(parents=True, exist_ok=True)
         
         # Generate unique filename to avoid collisions
         file_id = uuid.uuid4().hex[:8]
