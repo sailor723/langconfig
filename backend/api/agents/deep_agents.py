@@ -10,6 +10,7 @@ API endpoints for DeepAgent configuration and management.
 import logging
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from typing import List, Optional
 from pydantic import BaseModel
 
@@ -293,7 +294,21 @@ async def update_deepagent(
     if request.description:
         agent.description = request.description
     if request.config:
+        # Preserve prompt assembly fields that the Builder doesn't manage
+        old_config = agent.config or {}
+        custom_prompt = old_config.get("custom_prompt")
+        custom_suffix = old_config.get("custom_suffix")
+
         agent.config = request.config.dict()
+
+        # Merge back prompt assembly fields
+        if custom_prompt:
+            agent.config["custom_prompt"] = custom_prompt
+        if custom_suffix:
+            agent.config["custom_suffix"] = custom_suffix
+
+        flag_modified(agent, "config")
+
         agent.middleware_config = [m.dict() for m in request.config.middleware]
         agent.subagents_config = [s.dict() for s in request.config.subagents]
         agent.backend_config = request.config.backend.dict()
@@ -341,6 +356,170 @@ async def delete_deepagent(
     logger.info(f"Deleted DeepAgent: {agent.name} (id={agent_id})")
 
     return {"status": "success", "message": f"DeepAgent {agent_id} deleted"}
+
+
+# =============================================================================
+# Prompt Assembly Preview
+# =============================================================================
+
+class PromptPreviewRequest(BaseModel):
+    model: str = "deepseek:chat"
+    system_prompt: Optional[str] = None
+    custom_prompt: Optional[str] = None  # Replaces BASE with CUSTOM
+    custom_suffix: Optional[str] = None  # Appended as SUFFIX after BASE/CUSTOM
+
+
+class PromptSegment(BaseModel):
+    name: str  # USER, BASE, CUSTOM, SUFFIX
+    source: str  # "user_input", "sdk_default", "harness_profile", "custom"
+    content: str
+    editable: bool = False
+
+
+class PromptPreviewResponse(BaseModel):
+    segments: list[PromptSegment]
+    assembled: str
+
+
+@router.post("/prompt-preview", response_model=PromptPreviewResponse)
+async def preview_prompt_assembly(request: PromptPreviewRequest):
+    """
+    Preview how the system prompt will be assembled from its components.
+
+    The prompt assembly follows this order:
+      USER → (BASE or CUSTOM) → SUFFIX
+
+    Returns each segment separately plus the fully assembled prompt.
+    Accepts optional custom_prompt (to replace BASE) and custom_suffix (appended last).
+    """
+    try:
+        from deepagents.graph import BASE_AGENT_PROMPT
+        from deepagents.profiles.harness.harness_profiles import (
+            _harness_profile_for_model,
+            _apply_profile_prompt,
+        )
+    except ImportError:
+        raise HTTPException(status_code=500, detail="DeepAgents SDK not available")
+
+    segments = []
+    profile = _harness_profile_for_model(request.model, None)
+    has_base_override = profile.base_system_prompt is not None
+    has_suffix = profile.system_prompt_suffix is not None
+
+    # 1. USER segment
+    user_content = request.system_prompt or ""
+    if user_content:
+        segments.append(PromptSegment(
+            name="USER",
+            source="user_input",
+            content=user_content,
+            editable=True,
+        ))
+
+    # Determine base content: CUSTOM (user override) > profile CUSTOM > SDK BASE
+    if request.custom_prompt:
+        # User provided custom prompt → CUSTOM segment, replaces BASE
+        base_content = request.custom_prompt
+        segments.append(PromptSegment(
+            name="CUSTOM",
+            source="custom",
+            content=base_content,
+            editable=True,
+        ))
+    elif has_base_override:
+        base_content = profile.base_system_prompt
+        segments.append(PromptSegment(
+            name="CUSTOM",
+            source="harness_profile",
+            content=base_content,
+            editable=False,
+        ))
+    else:
+        base_content = BASE_AGENT_PROMPT
+        segments.append(PromptSegment(
+            name="BASE",
+            source="sdk_default",
+            content=base_content,
+            editable=False,
+        ))
+
+    # 3. SUFFIX segment
+    if request.custom_suffix:
+        segments.append(PromptSegment(
+            name="SUFFIX",
+            source="custom",
+            content=request.custom_suffix,
+            editable=True,
+        ))
+    elif has_suffix:
+        segments.append(PromptSegment(
+            name="SUFFIX",
+            source="harness_profile",
+            content=profile.system_prompt_suffix,
+            editable=False,
+        ))
+
+    # Assemble the final prompt
+    parts = []
+    if user_content:
+        parts.append(user_content)
+    if request.custom_prompt:
+        parts.append(request.custom_prompt)
+    else:
+        base_for_assembly = _apply_profile_prompt(profile, BASE_AGENT_PROMPT)
+        parts.append(base_for_assembly)
+    if request.custom_suffix:
+        parts.append(request.custom_suffix)
+    elif has_suffix:
+        parts.append(profile.system_prompt_suffix)
+
+    assembled = "\n\n".join(parts)
+
+    return PromptPreviewResponse(segments=segments, assembled=assembled)
+
+
+# =============================================================================
+# Save Prompt to Agent
+# =============================================================================
+
+class SavePromptRequest(BaseModel):
+    custom_prompt: Optional[str] = None
+    custom_suffix: Optional[str] = None
+
+
+@router.patch("/{agent_id}/prompt")
+async def save_agent_prompt(
+    agent_id: int,
+    request: SavePromptRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Save custom_prompt and custom_suffix to an existing deep agent's config.
+    These fields are used by the factory to assemble the full system prompt.
+    """
+    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
+
+    if not agent:
+        raise HTTPException(status_code=404, detail="DeepAgent not found")
+
+    # Get existing config or create new one
+    config = agent.config or {}
+    if request.custom_prompt is not None:
+        config["custom_prompt"] = request.custom_prompt
+    if request.custom_suffix is not None:
+        config["custom_suffix"] = request.custom_suffix
+
+    agent.config = config
+    flag_modified(agent, "config")
+    db.commit()
+    db.refresh(agent)
+
+    return {
+        "status": "success",
+        "agent_id": agent.id,
+        "agent_name": agent.name,
+        "config": config
+    }
 
 
 # =============================================================================
