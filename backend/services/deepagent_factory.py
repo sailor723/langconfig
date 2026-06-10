@@ -241,12 +241,21 @@ class DeepAgentFactory:
                 "interrupts": config.guardrails.interrupts
             }
 
+        # Assemble the full system prompt from user parts
+        # Order: USER + custom_prompt (replaces BASE) + custom_suffix
+        prompt_parts = [config.system_prompt]
+        if getattr(config, 'custom_prompt', None):
+            prompt_parts.append(config.custom_prompt)
+        if getattr(config, 'custom_suffix', None):
+            prompt_parts.append(config.custom_suffix)
+        final_system_prompt = "\n\n".join(prompt_parts)
+
         # Create DeepAgent with all components
         try:
             agent_kwargs = {
                 "model": config.model,
                 "tools": all_tools,
-                "system_prompt": config.system_prompt,
+                "system_prompt": final_system_prompt,
                 "middleware": middleware_instances if middleware_instances else None,
                 "subagents": subagents_config if subagents_config else None,
                 "checkpointer": checkpointer,

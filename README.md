@@ -47,8 +47,10 @@ LangConfig includes workflow templates for research and content creation. We're 
 - **Presentation Generation** - Export workflow artifacts to Google Slides, PDF, or Reveal.js presentations
 - **Export to Code** - Generate standalone Python packages with Streamlit UI, FastAPI server, or raw LangGraph code
 - **LangGraph Subgraph Streaming** - Nested subgraph execution with real-time SSE streaming
-- **Human-in-the-Loop** - Add approval checkpoints for critical decisions - Still Experimental
-- **Advanced Memory** - Short-term (LangGraph checkpoints) and long-term (pgvector + LangGraph Store) persistence
+- **Human-in-the-Loop** - Add approval checkpoints for critical decisions per-tool
+- **Advanced Memory** - Short-term (LangGraph checkpoints) and long-term (pgvector + LangGraph Store) persistence with `workflow_conversations` table for stable cross-run memory
+- **Prompt Assembly Visualizer** - Explore the 4-component prompt (USER → BASE/CUSTOM → SUFFIX) via the Prompt page; save custom prompts/suffixes to agents
+- **Tool Library** - Browse all 15+ native tools by category at `/tools`
 - **Local-First** - All data stays on your machine
 
 <img width="1872" height="930" alt="image" src="https://github.com/user-attachments/assets/a4c3ad34-39ee-4792-9f1d-77e563c6e3f3" />
@@ -146,12 +148,13 @@ langconfig/
 ├── src/                      # React 19 frontend (TypeScript + Tailwind)
 │   ├── features/
 │   │   ├── workflows/        # Visual canvas & workflow management
-│   │   ├── agents/           # Agent builder & library
+│   │   ├── agents/           # Agent builder, library, Prompt Canvas
 │   │   ├── chat/             # Interactive chat testing
 │   │   ├── knowledge/        # RAG document upload
 │   │   ├── memory/           # Memory visualization
-│   │   ├── tools/            # Custom tool builder
+│   │   ├── tools/            # Custom tool builder & Tool Library
 │   │   └── settings/         # App settings & API keys
+│   ├── pages/                # Standalone pages (PromptAssemblyPage)
 │   ├── components/           # Shared UI components
 │   ├── contexts/             # React context providers
 │   ├── hooks/                # Custom React hooks

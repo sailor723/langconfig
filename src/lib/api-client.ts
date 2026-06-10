@@ -707,6 +707,14 @@ class APIClient {
     return this.client.delete(`/api/deepagents/${id}`);
   }
 
+  async previewPromptAssembly(model: string, systemPrompt?: string, customPrompt?: string, customSuffix?: string) {
+    return this.client.post('/api/deepagents/prompt-preview', { model, system_prompt: systemPrompt, custom_prompt: customPrompt, custom_suffix: customSuffix });
+  }
+
+  async saveAgentPrompt(agentId: number, customPrompt?: string, customSuffix?: string) {
+    return this.client.patch(`/api/deepagents/${agentId}/prompt`, { custom_prompt: customPrompt, custom_suffix: customSuffix });
+  }
+
   // Generation
   async generateAgentConfig(data: {
     name: string;
