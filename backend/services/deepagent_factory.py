@@ -265,6 +265,52 @@ class DeepAgentFactory:
 
             # Try to pass guardrails if supported
             try:
+                # Map guardrails.interrupts to interrupt_on for HITL support
+                raw_interrupts = guardrails_config.get("interrupts") or None
+                interrupt_on = None
+                if raw_interrupts:
+                    # Convert bool values to proper InterruptOnConfig dicts
+                    # e.g. {"tools": True} → {"tools": {"allowed_decisions": [...], ...}}
+                    # Note: DecisionType is typing.Literal, not an iterable enum,
+                    # so we use the literal list instead of iterating.
+
+                    # Collect available tool names for resolving "tools" wildcard
+                    # HumanInTheLoopMiddleware checks interrupt_on[tool_call["name"]],
+                    # so keys must be actual tool names, not "tools".
+                    available_tool_names = [
+                        getattr(t, "name", str(t)) for t in all_tools
+                    ] if all_tools else []
+
+                    interrupt_on = {}
+                    for key, val in raw_interrupts.items():
+                        # Resolve "tools" wildcard → all available tool names
+                        if key == "tools":
+                            targets = available_tool_names
+                        else:
+                            targets = [key]
+
+                        if isinstance(val, bool) and val:
+                            config_dict = {
+                                "allowed_decisions": ["approve", "edit", "reject", "respond"],
+                                "description": f"Approve tool action?"
+                            }
+                        elif isinstance(val, dict):
+                            config_dict = val
+                        elif val:
+                            config_dict = {
+                                "allowed_decisions": ["approve", "edit", "reject", "respond"],
+                                "description": f"Approve tool action?"
+                            }
+                        else:
+                            continue
+
+                        for tname in targets:
+                            interrupt_on[tname] = config_dict
+
+                    if interrupt_on:
+                        agent_kwargs["interrupt_on"] = interrupt_on
+                        logger.info(f"  HITL interrupt_on configured for {len(interrupt_on)} tools: {list(interrupt_on.keys())}")
+
                 agent = create_deep_agent(**agent_kwargs, guardrails=guardrails_config)
                 logger.info("Guardrails configuration applied")
             except TypeError as e:

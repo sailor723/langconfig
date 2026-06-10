@@ -17,6 +17,7 @@ import SettingsView from './pages/SettingsPage';
 import PlaygroundPage from './pages/PlaygroundPage';
 import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
 import AgentLoadouts from './features/agents/ui/AgentLoadouts';
+import ToolLibrary from './features/tools/ToolLibrary';
 import { SkillLibrary } from './features/skills';
 import HomePage from './pages/HomePage';
 import CommunityPage from './pages/CommunityPage';
@@ -27,7 +28,7 @@ import { ChatProvider } from './features/chat/state/ChatContext';
 import GlobalChatModal from './features/chat/ui/GlobalChatModal';
 import apiClient from './lib/api-client';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground';
+type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -169,6 +170,7 @@ function AppContent() {
     if (path === '/agents' || path === '/deepagents') return 'agents';
     if (path === '/knowledge') return 'knowledge';
     if (path === '/skills') return 'skills';
+    if (path === '/tools') return 'tools';
     if (path === '/community') return 'community';
     if (path === '/settings') return 'settings';
     if (path === '/playground') return 'playground';
@@ -221,7 +223,8 @@ function AppContent() {
       knowledge: '/knowledge',
       community: '/community',
       settings: '/settings',
-      playground: '/playground'
+      playground: '/playground',
+      tools: '/tools'
     };
     navigate(routes[view]);
   };
@@ -428,6 +431,7 @@ function AppContent() {
           )}
           {currentView === 'agents' && <AgentLoadouts />}
           {currentView === 'skills' && <SkillLibrary />}
+          {currentView === 'tools' && <ToolLibrary />}
           {currentView === 'knowledge' && <KnowledgeBaseView />}
           {currentView === 'community' && <CommunityPage />}
           {currentView === 'settings' && <SettingsView />}

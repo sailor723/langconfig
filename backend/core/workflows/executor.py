@@ -969,6 +969,62 @@ class SimpleWorkflowExecutor:
                             logger.info("⚠️  HITL detection active but not pausing (informational mode)")
                             # In future: break  # Exit loop and wait for approval
 
+                # ========================================================================
+                # INTERRUPT HANDLING (Deep Agent HITL)
+                # ========================================================================
+                # When a deep agent inside a node calls interrupt() (via HumanInTheLoopMiddleware),
+                # LangGraph yields an __interrupt__ event. We capture this and emit an SSE
+                # event to the frontend so the user can approve/reject the tool call.
+                elif kind == "__interrupt__":
+                    interrupt_data = event.get("data", {})
+                    logger.info(f"🛑 __interrupt__ detected: {str(interrupt_data)[:200]}")
+
+                    # Extract node_id from tags for context
+                    interrupt_tags = event.get("tags", [])
+                    interrupt_metadata = event.get("metadata", {})
+                    interrupt_node_id = interrupt_metadata.get("node_id") or (
+                        interrupt_tags[0] if interrupt_tags else None
+                    )
+
+                    # Extract action requests from interrupt data
+                    interrupt_value = interrupt_data.get("value") or interrupt_data.get("resumption")
+                    action_requests = []
+                    if interrupt_value and isinstance(interrupt_value, dict):
+                        # Deep agent HITL format: {"action_requests": [...]}
+                        action_requests = interrupt_value.get("action_requests", [])
+                        if not action_requests and "tool_calls" in interrupt_value:
+                            # Normal agent HITL format: {"tool_calls": [...]}
+                            action_requests = interrupt_value["tool_calls"]
+
+                    # Also try to get tool calls from the state
+                    if not action_requests:
+                        try:
+                            state = await compiled_graph.aget_state(config)
+                            if state and hasattr(state, 'values') and state.values:
+                                messages = state.values.get("messages", [])
+                                for msg in reversed(messages):
+                                    if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                                        action_requests = [
+                                            {"name": tc["name"], "args": tc["args"]}
+                                            for tc in msg.tool_calls
+                                        ]
+                                        break
+                        except Exception as e:
+                            logger.debug(f"Could not get state for interrupt data: {e}")
+
+                    # Emit interrupt event to frontend via SSE
+                    await event_bus.publish(channel, {
+                        "type": "interrupt",
+                        "data": {
+                            "action_requests": action_requests,
+                            "workflow_id": workflow.id,
+                            "task_id": task_id,
+                            "node_id": node_id,
+                            "timestamp": datetime.utcnow().isoformat()
+                        }
+                    })
+                    logger.info(f"✅ Emitted interrupt event to frontend: {len(action_requests)} action(s) pending")
+
             # Loop has exited naturally - LangGraph is done
             logger.info(f"[COMPLETION] Graph execution completed after {event_count} events")
 
@@ -1842,6 +1898,9 @@ Continue:""")
                     # Multimodal input configuration
                     "enable_multimodal_input": agent_config.get("enable_multimodal_input", False),
                     "supported_input_types": agent_config.get("supported_input_types", ["image"]),
+                    # HITL/Guardrails configuration (preserved from agent template)
+                    "guardrails": agent_config.get("guardrails", {}),
+                    "interrupt_before": agent_config.get("interrupt_before", []),
                 }
 
 
@@ -1931,6 +1990,30 @@ Continue:""")
 
                     logger.info(f"[{display_name}] Component tools for DeepAgent: {native_tools_list}")
 
+                    # Resolve guardrails: prefer node config, fall back to original agent template
+                    guardrails_config = agent_config.get("guardrails", {})
+                    if not guardrails_config or not guardrails_config.get("interrupts"):
+                        # Try to load from the original deep agent template
+                        deep_agent_template_id = agent_config.get("deep_agent_template_id")
+                        if deep_agent_template_id and isinstance(deep_agent_template_id, str) and deep_agent_template_id.startswith("custom_"):
+                            try:
+                                template_id = int(deep_agent_template_id.replace("custom_", ""))
+                                from db.database import engine
+                                from sqlalchemy import text
+                                with engine.connect() as conn:
+                                    row = conn.execute(
+                                        text("SELECT config::text FROM deep_agent_templates WHERE id = :tid"),
+                                        {"tid": template_id}
+                                    ).fetchone()
+                                    if row:
+                                        template_config = json.loads(row[0])
+                                        template_guardrails = template_config.get("guardrails", {})
+                                        if template_guardrails and template_guardrails.get("interrupts"):
+                                            guardrails_config = template_guardrails
+                                            logger.info(f"[{display_name}] Loaded guardrails from template #{template_id}: {guardrails_config}")
+                            except Exception as templ_err:
+                                logger.warning(f"[{display_name}] Failed to load template guardrails: {templ_err}")
+
                     # Debug: Log raw subagent configuration before Pydantic parsing
                     raw_subagents = agent_config.get("subagents", [])
                     if raw_subagents:
@@ -1965,6 +2048,9 @@ Continue:""")
                         ],
                         # Subagents can be added from agent_config if specified
                         subagents=raw_subagents,
+                        # IMPORTANT: Preserve HITL/guardrails from original agent config
+                        guardrails=guardrails_config,
+                        interrupt_before=agent_config.get("interrupt_before", []),
                     )
 
                     # Build context with completion criteria
@@ -2031,8 +2117,9 @@ When your work is complete, deliver the final result and END."""
                     parent_config = config if config else {}
 
                     # Build agent config with callbacks from parent AND agent
+                    thread_id = f"workflow_{state.get('workflow_id', 0)}_node_{node_id}"
                     agent_config_dict = {
-                        "configurable": {"thread_id": f"node_{node_id}_task_{state.get('task_id', 0)}"},
+                        "configurable": {"thread_id": thread_id},
                         # Pass node_id in metadata so callback handler can look up agent_label
                         "metadata": {"node_id": node_id},
                         # Also add as tag for fallback lookup
@@ -2147,6 +2234,58 @@ When your work is complete, deliver the final result and END."""
                         if attempt > 0:
                             logger.warning(f"[{display_name}] Retry attempt {attempt}/{max_retries} due to UNEXPECTED_TOOL_CALL")
 
+                        # WORKFLOW CONVERSATION MEMORY: Load previous messages from DB
+                        # Deep agent & regular agent: load stored conversation history
+                        thread_id = agent_config_dict.get("configurable", {}).get("thread_id", "")
+                        if thread_id and current_messages:
+                            try:
+                                from db.database import engine as mem_engine
+                                from sqlalchemy import text as mem_text
+                                import json as mem_json
+                                with mem_engine.connect() as conn:
+                                    row = conn.execute(
+                                        mem_text("SELECT CAST(messages AS text) FROM workflow_conversations WHERE thread_id = :tid"),
+                                        {"tid": thread_id}
+                                    ).fetchone()
+                                    if row and row[0]:
+                                        stored_msgs = mem_json.loads(row[0])
+                                        # Filter out messages already in current_messages
+                                        existing = {str(m.content) for m in current_messages if hasattr(m, 'content')}
+                                        unique_prev = [m for m in stored_msgs if m.get("content") not in existing]
+                                        if unique_prev:
+                                            from langchain_core.messages import HumanMessage as _HM, AIMessage as _AM, ToolMessage as _TM
+                                            restored = []
+                                            for m in unique_prev:
+                                                role = m.get("role", "user")
+                                                content = m.get("content", "")
+                                                if role == "assistant" or role == "ai":
+                                                    restored.append(_AM(content=content))
+                                                elif role == "tool":
+                                                    restored.append(_TM(content=content, tool_call_id=m.get("tool_call_id", "")))
+                                                else:
+                                                    restored.append(_HM(content=content))
+                                            current_messages = list(restored) + list(current_messages)
+                                            logger.info(f"[{display_name}] Loaded {len(restored)} msgs from conversation memory ({thread_id})")
+                            except Exception as mem_err:
+                                logger.debug(f"[{display_name}] No conversation memory: {mem_err}")
+
+                        # SAVE INPUT MESSAGES to conversation memory BEFORE agent runs
+                        if thread_id:
+                            try:
+                                from db.database import engine as save_eng
+                                from sqlalchemy import text as save_txt
+                                import json as save_j
+                                input_save = [{"role": "user" if hasattr(m, '__class__') and 'Human' in m.__class__.__name__ else "ai", "content": str(getattr(m, 'content', ''))} for m in current_messages if hasattr(m, 'content')]
+                                with save_eng.connect() as c:
+                                    c.execute(
+                                        save_txt("INSERT INTO workflow_conversations (thread_id, messages, updated_at) VALUES (:tid, CAST(:msgs AS jsonb), NOW()) ON CONFLICT (thread_id) DO UPDATE SET messages = CAST(:msgs AS jsonb), updated_at = NOW()"),
+                                        {"tid": thread_id, "msgs": save_j.dumps(input_save)}
+                                    )
+                                    c.commit()
+                                logger.info(f"[{display_name}] Saved {len(input_save)} input msgs ({thread_id})")
+                            except Exception as se:
+                                logger.warning(f"[{display_name}] Failed to save input conv: {se}")
+
                         # Try astream_events() first for streaming, fall back to ainvoke() if streaming unsupported
                         response = None
                         try:
@@ -2163,6 +2302,12 @@ When your work is complete, deliver the final result and END."""
                                 if kind == "on_chain_end" and event.get("name") == "LangGraph":
                                     # Extract final state from the agent completion event
                                     response = event.get("data", {}).get("output")
+                                    # Debug: log response type for deep agent debugging
+                                    if response is not None:
+                                        rt = type(response).__name__
+                                        logger.debug(f"[{display_name}] on_chain_end response type={rt}")
+                                        if isinstance(response, dict):
+                                            logger.debug(f"[{display_name}] response keys={list(response.keys())}")
                                 # All other events (on_chat_model_stream, on_chain_start, etc.)
                                 # are handled by the callback handler automatically
                         except Exception as stream_error:
@@ -2185,6 +2330,59 @@ When your work is complete, deliver the final result and END."""
                         # appends them, so we only want the NEW messages not already in state
                         new_messages = []
                         all_response_messages = []
+
+                        # CHECK FOR INTERRUPT: if response is None but agent has checkpointer,
+                        # the graph may have been interrupted (HITL paused execution)
+                        if response is None:
+                            logger.info(f"[{display_name}] Response is None - checking for interrupt")
+                            try:
+                                # Check if agent graph was interrupted
+                                agent_state = await agent_graph.aget_state(agent_config_dict)
+                                if agent_state and agent_state.next:
+                                    logger.info(f"[{display_name}] ✅ Agent INTERRUPTED! Next nodes: {agent_state.next}")
+                                    
+                                    # Extract tool calls from the last AI message
+                                    tool_calls_data = []
+                                    if agent_state.values:
+                                        agent_messages = agent_state.values.get("messages", [])
+                                        for msg in reversed(agent_messages):
+                                            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                                                tool_calls_data = [
+                                                    {"name": tc["name"], "args": tc["args"]}
+                                                    for tc in msg.tool_calls
+                                                ]
+                                                break
+                                    
+                                    # Emit interrupt event to frontend
+                                    try:
+                                        from services.event_bus import get_event_bus
+                                        wf_event_bus = get_event_bus()
+                                        wf_id = state.get('workflow_id', 0)
+                                        wf_task_id = state.get('task_id', 0)
+                                        wf_channel = f"workflow:{wf_id}"
+                                        await wf_event_bus.publish(wf_channel, {
+                                            "type": "interrupt",
+                                            "data": {
+                                                "action_requests": tool_calls_data,
+                                                "workflow_id": wf_id,
+                                                "task_id": wf_task_id,
+                                                "node_id": node_id,
+                                                "agent_label": display_name,
+                                                "timestamp": datetime.utcnow().isoformat()
+                                            }
+                                        })
+                                        logger.info(f"[{display_name}] ✅ Emitted interrupt event ({len(tool_calls_data)} actions)")
+                                    except Exception as pub_err:
+                                        logger.warning(f"[{display_name}] Failed to emit interrupt event: {pub_err}")
+                                    
+                                    # Return empty result - workflow continues
+                                    response = {"messages": []}
+                                else:
+                                    logger.info(f"[{display_name}] No interrupt detected (state.next is empty)")
+                                    response = {"messages": []}
+                            except Exception as state_err:
+                                logger.warning(f"[{display_name}] Failed to check agent state: {state_err}")
+                                response = {"messages": []}
 
                         if isinstance(response, dict) and "messages" in response:
                             all_response_messages = response["messages"]
@@ -2218,6 +2416,46 @@ When your work is complete, deliver the final result and END."""
                                     new_messages = [msg]
                                     logger.info(f"[{display_name}] Fallback found AI message: {str(msg.content)[:100]}...")
                                     break
+
+                        # SAVE CONVERSATION MEMORY: Store messages for recall on next workflow run
+                        if thread_id and all_response_messages:
+                            try:
+                                from db.database import engine as save_engine
+                                from sqlalchemy import text as save_text
+                                import json as save_json
+                                
+                                # Convert messages to serializable dicts
+                                serialized = []
+                                for m in all_response_messages:
+                                    role = "user"
+                                    if hasattr(m, '__class__'):
+                                        cn = m.__class__.__name__
+                                        if 'AI' in cn:
+                                            role = "ai"
+                                        elif 'Tool' in cn or 'tool' in cn:
+                                            role = "tool"
+                                        elif 'Human' in cn or 'human' in cn:
+                                            role = "user"
+                                    serialized.append({
+                                        "role": role,
+                                        "content": str(getattr(m, 'content', '')),
+                                        "tool_call_id": getattr(m, 'tool_call_id', '') if hasattr(m, 'tool_call_id') else ''
+                                    })
+                                
+                                with save_engine.connect() as conn:
+                                    conn.execute(
+                                        save_text("""
+                                            INSERT INTO workflow_conversations (thread_id, messages, updated_at)
+                                            VALUES (:tid, :msgs::jsonb, NOW())
+                                            ON CONFLICT (thread_id) 
+                                            DO UPDATE SET messages = :msgs::jsonb, updated_at = NOW()
+                                        """),
+                                        {"tid": thread_id, "msgs": save_json.dumps(serialized)}
+                                    )
+                                    conn.commit()
+                                    logger.info(f"[{display_name}] Saved {len(serialized)} msgs to conversation memory ({thread_id})")
+                            except Exception as save_err:
+                                logger.debug(f"[{display_name}] Failed to save conversation: {save_err}")
 
                         # CHECK FOR UNEXPECTED_TOOL_CALL FAILURE
                         # If the last message has finish_reason='UNEXPECTED_TOOL_CALL' but NO tool calls were executed
@@ -2538,10 +2776,25 @@ When your work is complete, deliver the final result and END."""
                 elif control_type == 'CONDITIONAL_NODE':
                     # Conditional routing based on state evaluation
                     config = node_data.get("config", {})
-                    condition_expr = config.get("condition", "").strip()
+                    # Support both "condition" and "condition_expression" keys
+                    condition_expr = (config.get("condition", "") or config.get("condition_expression", "")).strip()
                     routing_map = config.get("routing_map", {})
 
                     logger.info(f"[CONDITIONAL_NODE] Evaluating condition: '{condition_expr}'")
+
+                    # Extract decision from recent messages if not yet in state
+                    # Critic agents output **[DECISION: PASS]** or **[DECISION: REVISE]** markers
+                    # which get merged into state.messages by the LangGraph reducer
+                    if "decision" not in state:
+                        import re
+                        messages = state.get("messages", [])
+                        for msg in reversed(messages):
+                            content = str(msg.content) if hasattr(msg, 'content') else str(msg)
+                            match = re.search(r'\[DECISION:\s*(PASS|REVISE)\]', content)
+                            if match:
+                                state["decision"] = match.group(1)
+                                logger.info(f"[CONDITIONAL_NODE] Extracted decision from messages: {state['decision']}")
+                                break
 
                     # Default route if no condition specified
                     if not condition_expr:
@@ -2550,6 +2803,29 @@ When your work is complete, deliver the final result and END."""
                         return {
                             "current_step": node_id,
                             "conditional_route": condition_result
+                        }
+
+                    # Reflection-loop guard: track iterations through condition nodes
+                    # to prevent infinite Writer→Critic→Conditional→Writer loops
+                    condition_hits = state.get("condition_hits", {})
+                    condition_count = condition_hits.get(node_id, 0)
+                    condition_count += 1
+                    condition_hits[node_id] = condition_count
+
+                    MAX_CONDITION_ITERATIONS = 5  # Max reflection/critique rounds
+                    if condition_count > MAX_CONDITION_ITERATIONS:
+                        route_key = "true"  # Force forward exit (PASS route)
+                        logger.warning(
+                            f"[CONDITIONAL_NODE] Max iterations ({MAX_CONDITION_ITERATIONS}) reached. "
+                            f"Forcing exit via 'true' route."
+                        )
+                        target_route = routing_map.get("true", routing_map.get("default", "default"))
+                        return {
+                            "current_step": node_id,
+                            "conditional_route": target_route,
+                            "condition_result": True,
+                            "condition_hits": condition_hits,
+                            "forced_exit": True
                         }
 
                     # Evaluate condition expression safely
@@ -2598,7 +2874,8 @@ When your work is complete, deliver the final result and END."""
                         return {
                             "current_step": node_id,
                             "conditional_route": target_route,
-                            "condition_result": condition_met
+                            "condition_result": condition_met,
+                            "condition_hits": condition_hits,
                         }
 
                     except Exception as e:

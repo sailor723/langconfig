@@ -126,10 +126,28 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
 
   // Update config when agent changes
   useEffect(() => {
-    setConfig(agent.config || {});
+    const rawConfig = agent.config || {};
+
+    // Sync: if guardrails.interrupts has entries, ensure HITL middleware is checked
+    // This keeps deep agent middleware ↔ guardrails.interrupts in sync
+    const guardrails = rawConfig.guardrails || {};
+    const interrupts = guardrails.interrupts || {};
+    const hasInterrupts = Object.keys(interrupts).length > 0;
+    const middleware = rawConfig.middleware || [];
+
+    if (hasInterrupts && !middleware.some((m: any) => m.type === 'hitl')) {
+      // guardrails has HITL enabled but middleware doesn't show it → auto-sync
+      middleware.push({ type: 'hitl', enabled: true, config: {} });
+    } else if (!hasInterrupts) {
+      // guardrails doesn't have HITL → remove any stale HITL middleware entry
+      const cleanMiddleware = middleware.filter((m: any) => m.type !== 'hitl');
+      rawConfig.middleware = cleanMiddleware;
+    }
+
+    setConfig(rawConfig);
     setAgentName(agent.name);
     setAgentDescription(agent.description);
-    setCustomGuardrails(agent.config?.guardrails || null);
+    setCustomGuardrails(guardrails);
   }, [agent]);
 
   // Fetch default guardrails
@@ -241,7 +259,18 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     const updated = exists
       ? middleware.filter((m: any) => m.type !== middlewareId)
       : [...middleware, { type: middlewareId, enabled: true, config: {} }];
-    setConfig({ ...config, middleware: updated });
+
+    // When toggling HITL, also sync guardrails.interrupts (deep agent HITL storage)
+    // This ensures middleware checkbox ↔ guardrails.interrupts are always in sync
+    if (middlewareId === 'hitl') {
+      const guardrails = config.guardrails || {};
+      const interrupts = exists
+        ? {}  // Toggled OFF → clear interrupts
+        : { tools: true };  // Toggled ON → enable for all tools
+      setConfig({ ...config, middleware: updated, guardrails: { ...guardrails, interrupts } });
+    } else {
+      setConfig({ ...config, middleware: updated });
+    }
   };
 
   // Subagent management functions
