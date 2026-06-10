@@ -289,6 +289,8 @@ export function useWorkflowStream(
       'debug_graph_state',
       // LangGraph-style custom streaming events
       'custom_event',
+      // HITL interrupt events (approval required before tool execution)
+      'interrupt',
     ];
 
     eventTypes.forEach((eventType) => {

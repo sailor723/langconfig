@@ -29,7 +29,6 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { calculateAndFormatCost } from '@/utils/modelPricing';
 import { apiClient } from '@/lib/api-client';
-import { SubAgentPanelStack } from './SubagentPanel';
 import { ContentBlockRenderer } from '@/components/common/ContentBlockRenderer';
 import { AgentContextViewer } from './AgentContextViewer';
 import { ProgressCard, StatusBadge, FileOperationCard } from './CustomEventCards';
@@ -360,6 +359,16 @@ export interface RealtimeExecutionPanelProps {
 
   /** Callback to continue conversation from a completed task */
   onContinueFromTask?: (taskId: number) => void;
+
+  /** Static subagents config from the workflow node (shown even before execution) */
+  subagentsConfig?: Array<{
+    name: string;
+    description?: string;
+    model?: string;
+    system_prompt?: string;
+    tools?: string[];
+    [key: string]: any;
+  }>;
 }
 
 interface SectionItem {
@@ -545,6 +554,19 @@ export default function RealtimeExecutionPanel({
   const [filterType, setFilterType] = useState<'all' | 'tool_call' | 'thinking' | 'output'>('all');
   const [isFullScreen, setIsFullScreen] = useState(false); // New Full Screen State
   const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set()); // Track dismissed error IDs
+  const [pendingInterrupt, setPendingInterrupt] = useState<any>(null); // HITL interrupt state
+
+  // Watch for interrupt events
+  useEffect(() => {
+    if (latestEvent?.type === 'interrupt') {
+      const interruptData = latestEvent.data as any;
+      setPendingInterrupt({
+        action_requests: interruptData?.action_requests || [],
+        node_id: interruptData?.node_id || 'unknown',
+        timestamp: interruptData?.timestamp || new Date().toISOString(),
+      });
+    }
+  }, [latestEvent]);
 
   // Extract workflow errors from events for prominent display
   const workflowErrors = useMemo(() => {
@@ -563,76 +585,6 @@ export default function RealtimeExecutionPanel({
   const workflowFailed = useMemo(() => {
     const completeEvent = events.find(e => e.type === 'complete');
     return completeEvent?.data?.status === 'error';
-  }, [events]);
-
-  // Track active subagents from subagent_start/end events
-  const activeSubagents = useMemo(() => {
-    const subagentMap = new Map<string, {
-      id: string;
-      label: string;
-      parentRunId: string;
-      events: WorkflowEvent[];
-      status: 'running' | 'completed' | 'error';
-      inputPreview: string;
-      outputPreview: string;
-    }>();
-
-    for (const event of events) {
-      // DEBUG: Log all subagent-related events
-      if (event.type === 'subagent_start' || event.type === 'subagent_end') {
-        console.log('[SUBAGENT EVENT]', event.type, event.data);
-      }
-
-      if (event.type === 'subagent_start') {
-        const { subagent_name, subagent_run_id, parent_agent_label, parent_run_id, input_preview } = event.data as any;
-        console.log('[SUBAGENT PANEL] Creating panel for:', subagent_name, 'run_id:', subagent_run_id);
-        subagentMap.set(subagent_run_id, {
-          id: subagent_run_id,
-          label: subagent_name || 'Subagent',
-          parentRunId: parent_run_id || '',
-          events: [],
-          status: 'running',
-          inputPreview: input_preview || '',
-          outputPreview: ''
-        });
-      } else if (event.type === 'subagent_end') {
-        const { subagent_run_id, success, output_preview, full_output } = event.data as any;
-        const subagent = subagentMap.get(subagent_run_id);
-        if (subagent) {
-          subagent.status = success ? 'completed' : 'error';
-          // Use full_output for complete result, fallback to output_preview
-          subagent.outputPreview = full_output || output_preview || '';
-        }
-      }
-      // SUBAGENT EVENT ROUTING: Route events using subagent_run_id or subgraph_run_id
-      // Primary: subagent_run_id (from callback handler's task tool detection)
-      // Secondary: subgraph_run_id (from LangGraph subgraph streaming with include_subgraphs=True)
-      else {
-        const eventData = event.data as any;
-        const routingId = eventData?.subagent_run_id || eventData?.subgraph_run_id;
-
-        if (routingId && subagentMap.has(routingId)) {
-          // This event belongs to a subagent - add to its events array
-          subagentMap.get(routingId)!.events.push(event);
-          console.log('[SUBAGENT EVENT ROUTED]', event.type, 'to', routingId);
-        }
-        // Fallback: Route events by parent_run_id matching (legacy behavior)
-        else if (eventData?.parent_run_id) {
-          const parentId = eventData.parent_run_id;
-          for (const [subId, sub] of subagentMap) {
-            if (sub.parentRunId === parentId || subId === parentId) {
-              sub.events.push(event);
-              console.log('[SUBAGENT EVENT ROUTED via parent]', event.type, 'to', subId);
-            }
-          }
-        }
-      }
-    }
-
-    console.log('[SUBAGENT SUMMARY]', subagentMap.size, 'subagents,',
-      Array.from(subagentMap.values()).map(s => `${s.label}: ${s.events.length} events`).join(', '));
-
-    return Array.from(subagentMap.values());
   }, [events]);
 
   // Knowledge tips that rotate when panel is idle
@@ -1324,6 +1276,29 @@ export default function RealtimeExecutionPanel({
           )}
 
           <div className="flex items-center gap-2">
+            {/* HITL Interrupt Banner - Agent requires human approval */}
+            {pendingInterrupt && (
+              <div
+                className="flex items-center gap-3 px-4 py-2 rounded-lg border-2 animate-pulse mr-2"
+                style={{
+                  borderColor: '#f59e0b',
+                  backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                }}
+              >
+                <span className="text-lg">⏸️</span>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold" style={{ color: '#d97706' }}>
+                    Human Approval Required
+                  </span>
+                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    {pendingInterrupt.action_requests?.length > 0
+                      ? `${pendingInterrupt.action_requests.length} action(s) pending approval`
+                      : 'Agent paused before tool execution'}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Stop Execution Button */}
             {!isReplay && executionStatus?.state === 'running' && events.length > 0 && (
               <button
@@ -1905,25 +1880,6 @@ export default function RealtimeExecutionPanel({
           </button>
         </div>
       )}
-
-      {/* Subagent Panels - Slide out from right when subagents are active */}
-      {
-        activeSubagents.length > 0 && (
-          <div
-            className="fixed top-0 h-full z-40 transition-all duration-300 ease-out"
-            style={{
-              left: isFullScreen ? '66.666%' : '850px',
-              width: isFullScreen ? '33.333%' : '400px',
-              backgroundColor: 'transparent'
-            }}
-          >
-            <SubAgentPanelStack
-              subagents={activeSubagents}
-              isVisible={true}
-            />
-          </div>
-        )
-      }
     </div >
 
   );
