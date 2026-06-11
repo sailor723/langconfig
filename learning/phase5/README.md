@@ -779,6 +779,83 @@ Several frontend changes improve the chat experience:
 | Smaller font | `MessagesPanel.tsx` | `prose-sm` → `prose-xs` at `0.81rem` |
 | Upload auto-refresh | `SessionDocumentsPanel.tsx` | Document list refreshes via `refreshKey` prop |
 
+### 6. Skills System for Data Analysis
+
+The **Skills system** packages expertise into discoverable `SKILL.md` files that
+agents automatically load. Unlike Native Tools (which contain executable code),
+Skills are **structured prompts** that tell the agent *how* to use existing tools.
+
+#### 6a. Skill vs Native Tool
+
+| | **Native Tool** | **Skill** |
+|---|---|---|
+| What | Python `@tool` function | `SKILL.md` file with metadata + instructions |
+| Execution | Runs actual code | Injected into agent system prompt |
+| Location | `tools/native_tools.py` | `skills/builtin/<name>/SKILL.md` |
+| Registration | 4 places in Python | Auto-discovered from filesystem |
+| Lifecycle | Code deployment | Versioned, tagged, usage-tracked |
+
+#### 6b. The `data-analysis` Skill
+
+Created at [`backend/skills/builtin/data-analysis/SKILL.md`](../../backend/skills/builtin/data-analysis/SKILL.md).
+
+This skill unifies **CSV** and **SQL** analysis into one workflow:
+
+```
+data-analysis SKILL.md
+├── CSV  → read_file + pandas
+├── SQL  → execute("python3 -c \"from sqlalchemy import...\"") + pandas
+└── Unified pandas analysis + matplotlib charts
+```
+
+Key capabilities:
+
+| Data Source | How it works | Tools Used |
+|---|---|---|
+| **CSV (uploaded)** | Agent reads file via `read_file` + `pandas.read_csv()` | `read_file`, `execute` |
+| **SQL (PostgreSQL)** | Agent runs Python with `sqlalchemy` + `pandas.read_sql()` | `execute` (sandbox inherits `DATABASE_URL` env) |
+| **Visualization** | Agent writes matplotlib script and executes it | `write_file`, `execute` |
+| **Saving results** | Agent calls the native tool | `save_analysis_result` |
+
+No new native tools were needed — the Skill leverages the existing sandbox
+(`execute`, `read_file`, `write_file`) and the existing `DATABASE_URL`
+connection configured in [`backend/db/database.py`](../../backend/db/database.py).
+
+#### 6c. How It Gets Loaded
+
+Skills are auto-discovered on server startup by the `SkillRegistry`
+([`backend/core/skills/registry.py`](../../backend/core/skills/registry.py)):
+
+```
+skills/builtin/data-analysis/SKILL.md
+  → SkillLoader parses YAML frontmatter + markdown instructions
+  → SkillRegistry indexes in memory + persists to DB
+  → SkillMatcher matches against user context
+  → Instructions injected into agent system prompt
+```
+
+No UI configuration is needed — placing the file in the `skills/builtin/`
+directory is sufficient.
+
+#### 6d. Extending to Other Databases
+
+The same pattern works for any SQLAlchemy-supported database:
+
+- **SQLite**: `sqlite:///path/to/db.sqlite`
+- **MySQL**: `mysql+pymysql://user:pass@host/db`
+- **SQL Server**: `mssql+pyodbc://user:pass@host/db`
+
+The agent just needs the connection string passed in the analysis request.
+
+#### 6e. Key Learnings
+
+| Lesson | Detail |
+|---|---|
+| **No code needed** | SQL integration via Skill required zero new Python code — just instructions in `SKILL.md` |
+| **Leverage sandbox** | The sandbox's `execute` + `inherit_env=True` gives full access to existing tools |
+| **Skills vs Tools** | Skills = "what to do" (prompt), Tools = "how to do it" (code) |
+| **Auto-discovery** | Skills are auto-loaded from disk, no DB setup needed |
+
 #### 5j. Key Learnings
 
 | Lesson | Detail |
