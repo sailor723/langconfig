@@ -17,9 +17,11 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronRight,
+  Plus,
 } from 'lucide-react';
 import apiClient from '../../../lib/api-client';
 import type { Skill, SkillDetail, SkillsSummary, SkillSourceFilter } from '../types';
+import SkillBuilderModal from '../../agents/ui/SkillBuilderModal';
 
 interface SkillLibraryProps {
   onSelectSkill?: (skill: Skill) => void;
@@ -50,6 +52,7 @@ export default function SkillLibrary({
   const [sourceFilter, setSourceFilter] = useState<SkillSourceFilter>('all');
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['builtin', 'personal', 'project']));
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Fetch skills
   const fetchSkills = useCallback(async () => {
@@ -214,6 +217,18 @@ export default function SkillLibrary({
                   </div>
                 )}
               </div>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2 rounded-lg text-sm font-medium border flex items-center gap-2 transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-primary)',
+                  borderColor: 'var(--color-primary)',
+                  color: 'white',
+                }}
+              >
+                <Plus className="w-4 h-4" />
+                Create Skill
+              </button>
               <button
                 onClick={handleReload}
                 disabled={loading}
@@ -418,74 +433,146 @@ export default function SkillLibrary({
         </div>
       </div>
 
-      {/* Skill Detail Panel */}
+      {/* Skill Detail Modal */}
       {selectedSkill && (
         <div
-          className="fixed bottom-0 left-0 right-0 border-t shadow-lg max-h-80 overflow-y-auto"
-          style={{
-            backgroundColor: 'var(--color-panel-dark)',
-            borderTopColor: 'var(--color-border-dark)',
-          }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setSelectedSkill(null)}
         >
-          <div className="max-w-6xl mx-auto p-4">
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h3 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {selectedSkill.name}
-                </h3>
-                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                  {SOURCE_LABELS[selectedSkill.source_type]} • v{selectedSkill.version}
-                  {selectedSkill.author && ` • by ${selectedSkill.author}`}
-                </p>
+          <div
+            className="bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="border-b p-6" style={{
+              backgroundColor: 'var(--color-primary)',
+              borderBottomColor: 'var(--color-border-dark)'
+            }}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl font-semibold text-white" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.25)' }}>
+                    {selectedSkill.name}
+                  </h2>
+                  <p className="text-sm mt-1 text-white/90">
+                    {SOURCE_LABELS[selectedSkill.source_type]} • v{selectedSkill.version}
+                    {selectedSkill.author && ` • by ${selectedSkill.author}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedSkill(null)}
+                  className="p-2 transition-all text-white/90 hover:text-white hover:bg-white/15 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedSkill(null)}
-                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
-            <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
-              {selectedSkill.description}
-            </p>
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Description */}
+              <p className="text-sm leading-relaxed" style={{ color: '#374151' }}>
+                {selectedSkill.description}
+              </p>
 
-            {/* Triggers */}
-            {selectedSkill.triggers.length > 0 && (
-              <div className="mb-4">
-                <h4 className="text-xs font-semibold uppercase mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                  Auto-triggers
+              {/* Stats row */}
+              <div className="flex items-center gap-4 text-xs" style={{ color: '#6b7280' }}>
+                <span className="flex items-center gap-1">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  Used {selectedSkill.usage_count} times
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  Last used: {formatLastUsed(selectedSkill.last_used_at)}
+                </span>
+              </div>
+
+              {/* Triggers */}
+              {selectedSkill.triggers.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold uppercase mb-2" style={{ color: '#6b7280' }}>
+                    Auto-triggers
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedSkill.triggers.map((trigger, i) => (
+                      <span
+                        key={i}
+                        className="text-xs px-2 py-1 rounded-md"
+                        style={{ backgroundColor: '#f3f4f6', color: '#374151' }}
+                      >
+                        {trigger}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tags */}
+              {selectedSkill.tags.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold uppercase mb-2" style={{ color: '#6b7280' }}>
+                    Tags
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedSkill.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-xs px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: '#f3f4f6', color: '#6b7280' }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Instructions */}
+              <div>
+                <h4 className="text-xs font-semibold uppercase mb-2 flex items-center gap-1" style={{ color: '#6b7280' }}>
+                  <BookOpen className="w-3.5 h-3.5" />
+                  Instructions
                 </h4>
-                <ul className="space-y-1">
-                  {selectedSkill.triggers.map((trigger, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-primary)' }} />
-                      {trigger}
-                    </li>
-                  ))}
-                </ul>
+                <div
+                  className="p-4 rounded-lg border"
+                  style={{ backgroundColor: '#fff', borderColor: '#e5e7eb' }}
+                >
+                  <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed" style={{ color: '#1f2937' }}>
+                    {selectedSkill.instructions || 'No instructions defined.'}
+                  </pre>
+                </div>
               </div>
-            )}
 
-            {/* Instructions Preview */}
-            <div>
-              <h4 className="text-xs font-semibold uppercase mb-2 flex items-center gap-1" style={{ color: 'var(--color-text-muted)' }}>
-                <BookOpen className="w-3 h-3" />
-                Instructions
-              </h4>
-              <div
-                className="p-3 rounded-lg max-h-32 overflow-y-auto"
-                style={{ backgroundColor: 'var(--color-background-dark)' }}
-              >
-                <pre className="whitespace-pre-wrap font-mono text-xs" style={{ color: 'var(--color-text-primary)' }}>
-                  {selectedSkill.instructions.slice(0, 800)}
-                  {selectedSkill.instructions.length > 800 && '...'}
-                </pre>
-              </div>
+              {/* Examples */}
+              {selectedSkill.examples && (
+                <div>
+                  <h4 className="text-xs font-semibold uppercase mb-2" style={{ color: '#6b7280' }}>
+                    Examples
+                  </h4>
+                  <div
+                    className="p-4 rounded-lg border"
+                    style={{ backgroundColor: '#fff', borderColor: '#e5e7eb' }}
+                  >
+                    <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed" style={{ color: '#1f2937' }}>
+                      {selectedSkill.examples}
+                    </pre>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
+      )}
+
+      {/* Create Skill Modal */}
+      {showCreateModal && (
+        <SkillBuilderModal
+          onClose={() => setShowCreateModal(false)}
+          onSave={() => {
+            setShowCreateModal(false);
+            fetchSkills();
+            fetchSummary();
+          }}
+        />
       )}
     </div>
   );

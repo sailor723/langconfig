@@ -859,7 +859,52 @@ LangConfig's `deepagent_factory.py` implements the DB→sandbox pattern:
    - Passes `skills=[str(skills_root)]` to `create_deep_agent()`
 3. **Agent uses progressive disclosure** — reads SKILL.md only when user request matches skill description
 
-#### 6f. Key Learnings
+#### 6f. Agent-Generated Skills (Meta-Skills)
+
+Skills can now create other skills — the agent generates, designs, and saves reusable skills to the database.
+
+**Architecture:**
+
+```
+User: "Create a skill for analyzing Twitter data"
+      │
+      ▼
+Agent (research agent with skill-generator skill)
+      │
+      ├── 1. Reads skill-generator/SKILL.md (meta-skill)
+      ├── 2. Researches best practices (internet-research skill)
+      ├── 3. Designs name, description, tags, triggers, instructions
+      ├── 4. Calls create_skill() native tool
+      │         └── writes to PostgreSQL skills table
+      └── 5. Confirms → skill appears in Skills Library
+```
+
+**Components:**
+
+| Component | Where | Purpose |
+|---|---|---|
+| `create_skill` tool | [`native_tools.py`](../../backend/tools/native_tools.py#L1420) | Agent writes skills to DB |
+| `update_skill` tool | [`native_tools.py`](../../backend/tools/native_tools.py#L1460) | Agent updates existing skills |
+| `delete_skill` tool | [`native_tools.py`](../../backend/tools/native_tools.py#L1500) | Agent deletes skills |
+| `skill-generator` skill | [`skills/builtin/skill-generator/SKILL.md`](../../backend/skills/builtin/skill-generator/SKILL.md) | Meta-skill teaching agents to design and create skills |
+
+**Key design decisions:**
+- **No new UI** — users create skills by chatting with the agent, not filling forms
+- **Full CRUD via tools** — agent can create, update, and delete skills
+- **Skill Generator is itself a skill** — uses progressive disclosure like any other skill
+- **Research Agent as unified agent** — one agent with multiple skills replaces many specialized agents
+
+#### 6g. Skills Library UI Improvements
+
+| Change | Description |
+|---|---|
+| **Navigation tab** | Added "Skills" button to `ModernHeader` toolbar (Prompt and Community tabs) |
+| **Create Skill button** | Blue button in Skills Library header, opens `SkillBuilderModal` |
+| **Detail modal** | Full-screen modal replaces cramped bottom panel — shows all fields, triggers, instructions, examples |
+| **DB-direct queries** | `list_skills` and `get_skill` endpoints now query PostgreSQL directly (not registry cache) so tool-created skills appear immediately |
+| **Reload button** | Fires `POST /api/skills/reload-all` to sync filesystem → DB, then refreshes list |
+
+#### 6h. Key Learnings
 
 | Lesson | Detail |
 |---|---|
