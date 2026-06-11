@@ -25,7 +25,7 @@ import {
   Wrench,
   Info,
   GitBranch,
-  Trash2
+  Trash2,
 } from 'lucide-react';
 import { useNotification } from '../../../hooks/useNotification';
 import { ModelSelectorInline } from '../../../components/common/ModelSelector';
@@ -119,6 +119,7 @@ interface DeepAgentConfig {
   use_deepagents: boolean;
   middleware: MiddlewareConfig[];
   subagents: SubAgentConfig[];
+  skills: string[];
   backend: BackendConfig;
   use_local_sandbox: boolean;
   guardrails: GuardrailsConfig;
@@ -222,6 +223,7 @@ const DEFAULT_CONFIG: DeepAgentConfig = {
   include_chat_ui: true,
   include_docker: false,
   use_local_sandbox: false,
+  skills: [],
   enforce_tool_constraints: false  // Disabled by default - users can enable for production safety
 };
 

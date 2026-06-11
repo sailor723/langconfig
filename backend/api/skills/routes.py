@@ -165,20 +165,28 @@ async def list_skills(
     - tag: Filter by a specific tag
     - search: Text search across names and descriptions
     """
-    registry = get_skill_registry()
+    # Query DB directly (includes both filesystem-loaded and tool-created skills)
+    from sqlalchemy import or_
+    from db.database import SessionLocal
+    from models.skill import Skill
 
-    if not registry.is_initialized:
-        await registry.initialize()
+    db = SessionLocal()
+    try:
+        query = db.query(Skill)
 
-    # Apply filters
-    if tag:
-        skills = registry.find_by_tags([tag])
-    elif source_type:
-        skills = registry.find_by_source(source_type)
-    elif search:
-        skills = registry.search(search)
-    else:
-        skills = registry.list_all()
+        if source_type:
+            query = query.filter(Skill.source_type == source_type)
+        if tag:
+            query = query.filter(Skill.tags.any(tag))
+        if search:
+            term = f"%{search}%"
+            query = query.filter(
+                or_(Skill.name.ilike(term), Skill.description.ilike(term))
+            )
+
+        skills = query.order_by(Skill.skill_id).all()
+    finally:
+        db.close()
 
     return [_skill_to_response(s) for s in skills]
 
@@ -190,43 +198,40 @@ async def get_skills_summary():
 
     Returns counts by source type and tag statistics.
     """
-    registry = get_skill_registry()
+    from db.database import SessionLocal
+    from models.skill import Skill
 
-    if not registry.is_initialized:
-        await registry.initialize()
-
-    skills = registry.list_all()
-
-    # Count by source type
-    by_source = {}
-    tag_counts = {}
-
-    for skill in skills:
-        source = skill.source_type.value if hasattr(skill.source_type, 'value') else skill.source_type
-        by_source[source] = by_source.get(source, 0) + 1
-
-        for tag in (skill.tags or []):
-            tag_counts[tag] = tag_counts.get(tag, 0) + 1
-
-    # Sort tags by count
-    top_tags = sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+    db = SessionLocal()
+    try:
+        skills = db.query(Skill).all()
+        by_source = {}
+        tag_counts = {}
+        for skill in skills:
+            source = skill.source_type.value if hasattr(skill.source_type, 'value') else skill.source_type
+            by_source[source] = by_source.get(source, 0) + 1
+            for tag in (skill.tags or []):
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+    finally:
+        db.close()
 
     return {
-        "total_skills": len(skills),
+        "total": len(skills),
         "by_source": by_source,
-        "top_tags": dict(top_tags)
+        "top_tags": sorted(tag_counts.items(), key=lambda x: x[1], reverse=True)[:20]
     }
 
 
 @router.get("/{skill_id}", response_model=SkillDetailResponse)
 async def get_skill(skill_id: str):
     """Get detailed information for a specific skill."""
-    registry = get_skill_registry()
+    from db.database import SessionLocal
+    from models.skill import Skill
 
-    if not registry.is_initialized:
-        await registry.initialize()
-
-    skill = registry.get_skill(skill_id)
+    db = SessionLocal()
+    try:
+        skill = db.query(Skill).filter(Skill.skill_id == skill_id).first()
+    finally:
+        db.close()
 
     if not skill:
         raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")

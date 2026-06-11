@@ -102,6 +102,11 @@ TOOL_NAME_MAP = {
 
     # Data analysis tools
     "save_analysis_result": "save_analysis_result",
+
+    # Skill management tools
+    "create_skill": "create_skill",
+    "update_skill": "update_skill",
+    "delete_skill": "delete_skill",
 }
 
 
@@ -1411,6 +1416,132 @@ def save_analysis_result(text: str, file_path: str | None = None) -> str:
 
 
 # =============================================================================
+# Skill Management Tools
+# =============================================================================
+
+@tool
+def create_skill(name: str, description: str, instructions: str,
+                 tags: list[str] | None = None,
+                 triggers: list[str] | None = None) -> str:
+    """Create a new skill in the database. The skill will appear in the Skills Library and agents can use it.
+
+    Args:
+        name: Human-readable name of the skill (e.g. 'Twitter Analyzer')
+        description: Brief 1-2 sentence description of what the skill does
+        instructions: Detailed step-by-step instructions for the agent to follow
+        tags: List of categorization tags (e.g. ['data-analysis', 'social-media'])
+        triggers: List of conditions that auto-trigger this skill (e.g. ['when user uploads a CSV'])
+    """
+    from db.database import SessionLocal
+    from models.skill import Skill
+    import datetime
+
+    skill_id = name.lower().strip().replace(" ", "-").replace("_", "-")
+
+    db = SessionLocal()
+    try:
+        existing = db.query(Skill).filter(Skill.skill_id == skill_id).first()
+        if existing:
+            return f"Skill '{skill_id}' already exists (ID={existing.id}). Use update_skill to modify it."
+
+        skill = Skill(
+            skill_id=skill_id,
+            name=name.strip(),
+            description=description.strip(),
+            version="1.0.0",
+            tags=tags or ["custom"],
+            triggers=triggers or [],
+            instructions=instructions.strip(),
+            source_type="personal",
+            source_path=f"db://personal/{skill_id}",
+            file_modified_at=datetime.datetime.now(datetime.timezone.utc),
+            allowed_tools=None,
+            examples=None,
+            author="AI Generated",
+        )
+        db.add(skill)
+        db.commit()
+        db.refresh(skill)
+        return f"✅ Skill '{name}' (ID={skill_id}) created successfully!"
+    except Exception as e:
+        db.rollback()
+        return f"❌ Failed to create skill: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def update_skill(skill_id: str, name: str | None = None,
+                 description: str | None = None,
+                 instructions: str | None = None,
+                 tags: list[str] | None = None,
+                 triggers: list[str] | None = None) -> str:
+    """Update an existing skill in the database. Only provided fields are updated.
+
+    Args:
+        skill_id: The kebab-case ID of the skill to update
+        name: New human-readable name
+        description: New description
+        instructions: New instructions
+        tags: New list of tags
+        triggers: New list of triggers
+    """
+    from db.database import SessionLocal
+    from models.skill import Skill
+    import datetime
+
+    db = SessionLocal()
+    try:
+        skill = db.query(Skill).filter(Skill.skill_id == skill_id).first()
+        if not skill:
+            return f"❌ Skill '{skill_id}' not found. Use create_skill first."
+
+        if name is not None:
+            skill.name = name.strip()
+        if description is not None:
+            skill.description = description.strip()
+        if instructions is not None:
+            skill.instructions = instructions.strip()
+        if tags is not None:
+            skill.tags = tags
+        if triggers is not None:
+            skill.triggers = triggers
+        skill.updated_at = datetime.datetime.now(datetime.timezone.utc)
+        db.commit()
+        return f"✅ Skill '{skill_id}' updated successfully!"
+    except Exception as e:
+        db.rollback()
+        return f"❌ Failed to update skill: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def delete_skill(skill_id: str) -> str:
+    """Delete a skill from the database by its skill_id.
+
+    Args:
+        skill_id: The kebab-case ID of the skill to delete
+    """
+    from db.database import SessionLocal
+    from models.skill import Skill
+
+    db = SessionLocal()
+    try:
+        skill = db.query(Skill).filter(Skill.skill_id == skill_id).first()
+        if not skill:
+            return f"❌ Skill '{skill_id}' not found."
+        db.delete(skill)
+        db.commit()
+        return f"✅ Skill '{skill_id}' deleted successfully!"
+    except Exception as e:
+        db.rollback()
+        return f"❌ Failed to delete skill: {e}"
+    finally:
+        db.close()
+
+
+# =============================================================================
 # Tool Loading Functions
 # =============================================================================
 
@@ -1464,6 +1595,10 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "delegate": task,  # Alias for task
         # Data analysis tools
         "save_analysis_result": save_analysis_result,
+        # Skill management tools
+        "create_skill": create_skill,
+        "update_skill": update_skill,
+        "delete_skill": delete_skill,
         # Note: Playwright tools are loaded separately via get_playwright_tools()
         # because they require async initialization
     }
@@ -1662,6 +1797,28 @@ TOOL_REGISTRY = [
         "name": "Save Analysis Result",
         "description": "Save analysis report and optionally copy an attached file (e.g. a plot) to the output directory",
         "category": "data_analysis",
+        "requires_api_key": None,
+    },
+    # Skill management tools
+    {
+        "id": "create_skill",
+        "name": "Create Skill",
+        "description": "Create a new skill in the database. Agents use this to save generated skills to the Skills Library.",
+        "category": "skills",
+        "requires_api_key": None,
+    },
+    {
+        "id": "update_skill",
+        "name": "Update Skill",
+        "description": "Update an existing skill's name, description, instructions, tags, or triggers.",
+        "category": "skills",
+        "requires_api_key": None,
+    },
+    {
+        "id": "delete_skill",
+        "name": "Delete Skill",
+        "description": "Delete a skill from the database by its skill_id.",
+        "category": "skills",
         "requires_api_key": None,
     },
 ]

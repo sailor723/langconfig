@@ -162,7 +162,7 @@ export default function ModernHeader({
           className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'prompt'
             ? 'bg-white/30 text-white font-semibold border-white/40'
             : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            }`}
+            } `}
           style={{
             textShadow: currentView === 'prompt' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
             backdropFilter: currentView === 'prompt' ? 'blur(8px)' : 'none'
@@ -171,6 +171,22 @@ export default function ModernHeader({
           <span className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base">layers</span>
             Prompt
+          </span>
+        </button>
+        <button
+          onClick={() => onViewChange('skills')}
+          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'skills'
+            ? 'bg-white/30 text-white font-semibold border-white/40'
+            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
+            } `}
+          style={{
+            textShadow: currentView === 'skills' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
+            backdropFilter: currentView === 'skills' ? 'blur(8px)' : 'none'
+          }}
+        >
+          <span className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-base">auto_awesome</span>
+            Skills
           </span>
         </button>
         <button
