@@ -234,6 +234,14 @@ class DeepAgentConfig(BaseModel):
         description="Safety and context management"
     )
 
+    # Skills (from PostgreSQL skills table, synced to sandbox at runtime)
+    skills: List[str] = Field(
+        default_factory=list,
+        description="Skill IDs to load from the database and make available to the agent. "
+                    "Skills are synced to the sandbox filesystem at agent creation time "
+                    "and loaded via create_deep_agent(skills=[...]) for progressive disclosure."
+    )
+
     # Normal agent config (used when use_deepagents=False)
     interrupt_before: Optional[List[str]] = Field(
         default=None,

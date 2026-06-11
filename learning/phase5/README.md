@@ -847,7 +847,19 @@ The same pattern works for any SQLAlchemy-supported database:
 
 The agent just needs the connection string passed in the analysis request.
 
-#### 6e. Key Learnings
+#### 6e. DB → Sandbox Integration in LangConfig
+
+LangConfig's `deepagent_factory.py` implements the DB→sandbox pattern:
+
+1. **`DeepAgentConfig.skills`** ([`models/deep_agent.py`](../../backend/models/deep_agent.py#L237)) stores skill IDs as `List[str]`
+2. **At agent creation**, the factory ([`deepagent_factory.py`](../../backend/services/deepagent_factory.py#L293)):
+   - Loads skill records from PostgreSQL `skills` table
+   - Reconstructs `SKILL.md` from DB fields (name, description, tags, instructions)
+   - Writes to `outputs/default/skills/<id>/SKILL.md` in the sandbox
+   - Passes `skills=[str(skills_root)]` to `create_deep_agent()`
+3. **Agent uses progressive disclosure** — reads SKILL.md only when user request matches skill description
+
+#### 6f. Key Learnings
 
 | Lesson | Detail |
 |---|---|
