@@ -254,6 +254,7 @@ class DeepAgentFactory:
         # This gives the agent an `execute` tool for running shell commands / Python scripts
         # scoped to the task workspace directory on the host machine.
         local_sandbox_backend = None
+        sandbox_path = None
         if getattr(config, 'use_local_sandbox', False):
             try:
                 from deepagents.backends import LocalShellBackend
@@ -286,6 +287,59 @@ class DeepAgentFactory:
             except Exception as e:
                 logger.warning(f"Failed to initialize LocalShellBackend: {e}. Proceeding without sandbox.")
 
+        # Sync selected skills from DB to sandbox filesystem.
+        # Skills are written as SKILL.md files and made available via
+        # create_deep_agent(skills=["/skills/"]) for progressive disclosure.
+        skills_config = []
+        agent_kwargs_skills = None
+        if sandbox_path and getattr(config, 'skills', None):
+            try:
+                from db.database import SessionLocal
+                from models.skill import Skill
+
+                skills_root = sandbox_path / "skills"
+                skills_root.mkdir(parents=True, exist_ok=True)
+
+                db = SessionLocal()
+                try:
+                    skill_records = db.query(Skill).filter(
+                        Skill.skill_id.in_(config.skills)
+                    ).all()
+                finally:
+                    db.close()
+
+                for s in skill_records:
+                    skill_dir = skills_root / s.skill_id
+                    skill_dir.mkdir(parents=True, exist_ok=True)
+
+                    lines = [
+                        "---",
+                        f'name: {s.skill_id}',
+                        f'description: "{s.description}"',
+                        f'version: {s.version}',
+                    ]
+                    if s.tags:
+                        lines.append("tags:\n" + "\n".join(f"  - {t}" for t in s.tags))
+                    if s.triggers:
+                        lines.append("triggers:\n" + "\n".join(f'  - "{t}"' for t in s.triggers))
+                    if s.allowed_tools:
+                        lines.append("allowed_tools:\n" + "\n".join(f"  - {t}" for t in s.allowed_tools))
+                    lines.append("---")
+
+                    skill_md = "\n".join(lines) + "\n\n" + s.instructions
+                    if s.examples:
+                        skill_md += "\n\n## Examples\n\n" + s.examples
+
+                    (skill_dir / "SKILL.md").write_text(skill_md)
+                    skills_config.append(s.skill_id)
+
+                if skills_config:
+                    agent_kwargs_skills = [str(skills_root.resolve())]
+                    logger.info(f"Skills synced to sandbox: {skills_config}")
+
+            except Exception as e:
+                logger.warning(f"Failed to sync skills to sandbox: {e}")
+
         # Create DeepAgent with all components
         try:
             agent_kwargs = {
@@ -301,6 +355,10 @@ class DeepAgentFactory:
             # running scripts (Python, shell commands, pip install, etc.)
             if local_sandbox_backend is not None:
                 agent_kwargs["backend"] = local_sandbox_backend
+
+            # Pass skills for progressive disclosure (DB skills synced to sandbox)
+            if agent_kwargs_skills:
+                agent_kwargs["skills"] = agent_kwargs_skills
 
             # Debug logging for subagent configuration
             if subagents_config:
