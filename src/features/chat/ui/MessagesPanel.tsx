@@ -14,6 +14,8 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { ChatMessage, SessionDocument, CustomEventPayload } from '../types/chat';
 import MessageInput from './MessageInput';
 import SessionDocumentsPanel from './SessionDocumentsPanel';
+import ThinkingBlock from './ThinkingBlock';
+import type { ThinkingStep } from './ThinkingBlock';
 import { ContentBlockRenderer } from '@/components/common/ContentBlockRenderer';
 import { ProgressCard, StatusBadge, FileOperationCard } from '@/features/workflows/execution/CustomEventCards';
 import type { ProgressEvent, StatusEvent, FileStatusEvent } from '@/hooks/useCustomEvents';
@@ -28,6 +30,7 @@ interface MessagesPanelProps {
   sessionId?: string | null;
   activeToolCalls?: string[];
   customEvents?: Map<string, CustomEventPayload>;
+  thinkingTraces?: ThinkingStep[][];
 }
 
 export default function MessagesPanel({
@@ -39,7 +42,8 @@ export default function MessagesPanel({
   disabled = false,
   sessionId = null,
   activeToolCalls = [],
-  customEvents = new Map()
+  customEvents = new Map(),
+  thinkingTraces = [],
 }: MessagesPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -283,6 +287,17 @@ export default function MessagesPanel({
                           </div>
                         )}
                       </div>
+
+                      {/* Thinking Block — show tool calls for this assistant message */}
+                      {message.role === 'assistant' && (() => {
+                        // Count assistant messages up to this index
+                        const aiIdx = messages.slice(0, index + 1).filter(m => m.role === 'assistant').length - 1;
+                        const trace = thinkingTraces[aiIdx];
+                        if (trace && trace.length > 0) {
+                          return <ThinkingBlock steps={trace} />;
+                        }
+                        return null;
+                      })()}
 
                       {/* Message Footer */}
                       <div className={`flex items-center gap-2 mt-2 px-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
