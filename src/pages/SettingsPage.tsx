@@ -28,6 +28,8 @@ export default function SettingsView() {
     glm: '',
     minimax: '',
     tavily: '',
+    agnes: '',
+    agnesBaseUrl: '',
   });
   const [apiKeyStatus, setApiKeyStatus] = useState({
     anthropic: false,
@@ -37,6 +39,7 @@ export default function SettingsView() {
     glm: false,
     minimax: false,
     tavily: false,
+    agnes: false,
   });
   const [apiKeySaving, setApiKeySaving] = useState(false);
   const [apiKeySaveMessage, setApiKeySaveMessage] = useState<string | null>(null);
@@ -141,6 +144,7 @@ export default function SettingsView() {
         glm: keys.find((k: any) => k.provider === 'glm')?.is_set || false,
         minimax: keys.find((k: any) => k.provider === 'minimax')?.is_set || false,
         tavily: keys.find((k: any) => k.provider === 'tavily')?.is_set || false,
+        agnes: keys.find((k: any) => k.provider === 'agnes')?.is_set || false,
       });
       // Keep input fields empty - user types new key to update
       setApiKeys({
@@ -151,6 +155,8 @@ export default function SettingsView() {
         glm: '',
         minimax: '',
         tavily: '',
+        agnes: '',
+        agnesBaseUrl: '',
       });
 
       // Load general settings
@@ -261,6 +267,8 @@ export default function SettingsView() {
               glm_api_key: apiKeys.glm || undefined,
               minimax_api_key: apiKeys.minimax || undefined,
               tavily_api_key: apiKeys.tavily || undefined,
+              agnes_api_key: apiKeys.agnes || undefined,
+              agnes_base_url: apiKeys.agnesBaseUrl || undefined,
             });
             break;
 
@@ -871,6 +879,55 @@ export default function SettingsView() {
                   </p>
                 </div>
 
+                {/* Agnes AI API Key */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                      Agnes AI
+                    </label>
+                    {apiKeyStatus.agnes ? (
+                      <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        Set
+                      </span>
+                    ) : (
+                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                        Not set
+                      </span>
+                    )}
+                  </div>
+                  <input
+                    type="password"
+                    value={apiKeys.agnes}
+                    onChange={(e) => setApiKeys({ ...apiKeys, agnes: e.target.value })}
+                    placeholder={apiKeyStatus.agnes ? "Enter new key to replace existing" : "Enter Agnes API key..."}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                    style={{
+                      backgroundColor: 'var(--color-input-background)',
+                      color: 'var(--color-text-primary)'
+                    }}
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Required for Agnes AI models (agnes-chat, agnes-reasoning, etc.)
+                  </p>
+                  <input
+                    type="url"
+                    value={apiKeys.agnesBaseUrl}
+                    onChange={(e) => setApiKeys({ ...apiKeys, agnesBaseUrl: e.target.value })}
+                    placeholder="https://apihub.agnes-ai.com/v1"
+                    className="w-full px-3 py-2 mt-2 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                    style={{
+                      backgroundColor: 'var(--color-input-background)',
+                      color: 'var(--color-text-primary)'
+                    }}
+                  />
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                    Base URL for Agnes AI API (defaults to apihub.agnes-ai.com/v1 if left empty)
+                  </p>
+                </div>
+
                 {/* Save Button and Status */}
                 <div className="pt-4 border-t border-gray-200 dark:border-border-dark">
                   <div className="flex items-center gap-3">
@@ -885,6 +942,8 @@ export default function SettingsView() {
                         if (apiKeys.glm) keysToSave.glm_api_key = apiKeys.glm;
                         if (apiKeys.minimax) keysToSave.minimax_api_key = apiKeys.minimax;
                         if (apiKeys.tavily) keysToSave.tavily_api_key = apiKeys.tavily;
+                        if (apiKeys.agnes) keysToSave.agnes_api_key = apiKeys.agnes;
+                        if (apiKeys.agnesBaseUrl) keysToSave.agnes_base_url = apiKeys.agnesBaseUrl;
 
                         if (Object.keys(keysToSave).length === 0) {
                           setApiKeySaveMessage('Enter at least one API key to save');
@@ -905,9 +964,10 @@ export default function SettingsView() {
                             glm: apiKeyStatus.glm || !!apiKeys.glm,
                             minimax: apiKeyStatus.minimax || !!apiKeys.minimax,
                             tavily: apiKeyStatus.tavily || !!apiKeys.tavily,
+                            agnes: apiKeyStatus.agnes || !!apiKeys.agnes,
                           });
                           // Clear input fields after successful save
-                          setApiKeys({ anthropic: '', openai: '', google: '', deepseek: '', glm: '', minimax: '', tavily: '' });
+                          setApiKeys({ anthropic: '', openai: '', google: '', deepseek: '', glm: '', minimax: '', tavily: '', agnes: '', agnesBaseUrl: '' });
                           setApiKeySaveMessage('API keys saved successfully!');
                           setTimeout(() => setApiKeySaveMessage(null), 3000);
                         } catch (error) {
@@ -918,7 +978,7 @@ export default function SettingsView() {
                           setApiKeySaving(false);
                         }
                       }}
-                      disabled={apiKeySaving || (!apiKeys.anthropic && !apiKeys.openai && !apiKeys.google && !apiKeys.deepseek && !apiKeys.glm && !apiKeys.minimax && !apiKeys.tavily)}
+                      disabled={apiKeySaving || (!apiKeys.anthropic && !apiKeys.openai && !apiKeys.google && !apiKeys.deepseek && !apiKeys.glm && !apiKeys.minimax && !apiKeys.tavily && !apiKeys.agnes && !apiKeys.agnesBaseUrl)}
                       className="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {apiKeySaving ? (

@@ -1,614 +1,87 @@
 # LangConfig
 
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Node](https://img.shields.io/badge/Node-18+-green.svg)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
-[![LangChain](https://img.shields.io/badge/LangChain-v1.2.7-orange.svg)](https://langchain.com/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-1.0.7-orange.svg)](https://langchain-ai.github.io/langgraph/)
-
-
-<img width="2615" height="816" alt="Langconfig Banner" src="https://github.com/user-attachments/assets/059f5595-2a48-4fae-bab8-5760661bcbb5" />
-
-
-
-# Open-source visual platform for building, testing, and deploying LangChain agents and LangGraph workflows.
-
-LangConfig makes agentic AI accessible. Build LangChain Agents and Deep Agents with full control over their toolsets, prompts, and memory configurations—no coding required.
-
-Drop agents onto a visual canvas and connect them into multi-agent LangGraph workflows. Run workflows and watch agent thinking, tool selection, outputs, and errors in real-time. Test a workflow, review the output, tweak tools or RAG settings, run it again, and compare results—all in one place.
-
-Create custom tools using LangChain's middleware system, or use prebuilt templates for Discord, Slack, and other integrations. Open a chat interface with any agent to collaboratively improve its system prompt, test behavior, and get feedback. Conversation context flows seamlessly into workflow execution with simple on/off controls.
-
-When you're ready to share or deploy, export your workflow as a JSON config that anyone with LangConfig can import instantly. Or download a complete Python package—LangChain/LangGraph code, execution scripts, and a Streamlit web UI—ready to run anywhere.
-
-LangConfig includes workflow templates for research and content creation. We're actively building new features and templates to make it easy to pick up and start experimenting with agentic AI.
-
----
-
-## Key Features
-
-- **Visual Workflow Builder** - Drag-and-drop LangGraph state graphs on an interactive canvas
-- **Custom Agent Builder** - Create specialized agents with AI-generated configurations
-- **Interactive Chat Testing** - Test agents with live streaming, tool execution visibility, and document upload
-- **RAG Knowledge Base** - Upload documents (PDF, DOCX, code) for semantic search with pgvector
-- **Multi-Model Support** - OpenAI (GPT-4o, GPT-5), Anthropic (Claude 4.5 Sonnet/Opus/Haiku), Google (Gemini 3 Pro, Gemini 2.5), DeepSeek, local models (Ollama, LM Studio)
-- **Multi-Agent Patterns** - Supervisor (hierarchical delegation) and Swarm (peer-to-peer handoffs) strategies via `langgraph-supervisor` and `langgraph-swarm`
-- **Node-Level Caching** - Per-node `CachePolicy` with configurable TTL and backend (in-memory or Redis) to skip redundant re-execution
-- **Deferred Node Execution** - Map-reduce patterns: fan out to parallel agents, then a synthesis node collects all results
-- **Dynamic Tool System** - `langgraph-bigtool` for large tool registries (15+ tools) and middleware-based tool add/remove based on workflow state
-- **Model Capability Profiles** - Auto-detect model capabilities (function calling, structured output, vision, JSON mode) to adapt agent behavior per model
-- **Custom Tool Builder** - Create specialized tools beyond built-in MCP servers
-- **Real-Time Monitoring** - Watch agent execution, tool calls, token usage, and costs live
-- **Artifact Gallery** - View and bulk download generated images and files from workflow executions
-- **Workflow Scheduling** - Automate workflows with cron expressions, timezone support, and concurrency controls
-- **Event-Driven Triggers** - Fire workflows from webhooks (HMAC-SHA256 verified) or file system changes (glob patterns, debounce)
-- **File Versioning & Diff Viewer** - Track file version history with unified and side-by-side diff views
-- **Presentation Generation** - Export workflow artifacts to Google Slides, PDF, or Reveal.js presentations
-- **Deep Agent Subgraph Visualization** - Visually explore hierarchical Deep Agent architectures on the canvas: manager delegates via `task()` calls to sub-agents, each with its own tools displayed as independent nodes with color-coded connections
-- **Export to Code** - Generate standalone Python packages with Streamlit UI, FastAPI server, or raw LangGraph code
-- **LangGraph Subgraph Streaming** - Nested subgraph execution with real-time SSE streaming
-- **Human-in-the-Loop** - Add approval checkpoints for critical decisions per-tool
-- **Advanced Memory** - Short-term (LangGraph checkpoints) and long-term (pgvector + LangGraph Store) persistence with `workflow_conversations` table for stable cross-run memory
-- **Prompt Assembly Visualizer** - Explore the 4-component prompt (USER → BASE/CUSTOM → SUFFIX) via the Prompt page; save custom prompts/suffixes to agents
-- **Tool Library** - Browse all 15+ native tools by category at `/tools`
-- **Local-First** - All data stays on your machine
-
-<img width="1872" height="930" alt="image" src="https://github.com/user-attachments/assets/a4c3ad34-39ee-4792-9f1d-77e563c6e3f3" />
-
----
+AI Agent configuration platform with dynamic model management, skills library, and multi-agent execution modes.
 
 ## Quick Start
 
-### Prerequisites
-
-- **Node.js** 18+ ([Download](https://nodejs.org/))
-- **Python** 3.10+ ([Download](https://www.python.org/downloads/))
-- **Docker Desktop** ([Download](https://www.docker.com/products/docker-desktop/))
-
-### Installation
-
-**1. Clone Repository**
 ```bash
-git clone https://github.com/langconfig/langconfig.git
-cd langconfig
-```
-
-**2. Install Frontend Dependencies**
-```bash
-npm install
-```
-
-**3. Run Backend Setup Script**
-```bash
-python backend/scripts/setup.py
-```
-
-This automated script will:
-- Check Python 3.11+ and Docker prerequisites
-- Create `.env` from `.env.example`
-- Install backend Python dependencies
-- Start PostgreSQL via Docker
-- Initialize the database and seed agent templates
-
-**4. Add Your API Keys**
-
-Edit `.env` and add your API keys:
-```env
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-GOOGLE_API_KEY=AIza...
-```
-
----
-
-## Running LangConfig
-
-### Web App Mode (Recommended)
-
-**Terminal 1 - Start Backend:**
-```bash
+# Backend
 cd backend
-python main.py
+.venv/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8765
+
+# Frontend
+cd ..
+npx vite
 ```
 
-Backend runs at: `http://127.0.0.1:8765`
-
-**Terminal 2 - Start Frontend:**
-```bash
-npm run dev
-```
-
-Frontend runs at: `http://localhost:1420`
-
-Open your browser to `http://localhost:1420`
-
-### Desktop App Mode (Advanced)
-
-Requires **Rust** ([Install](https://rustup.rs/))
-
-**Windows users**: Install [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
-
-```bash
-# Start backend in Terminal 1
-cd backend
-python main.py
-
-# Start desktop app in Terminal 2
-npm run tauri dev
-```
-
-This opens a native desktop window instead of a browser.
-
----
-
-## Project Structure
+## Architecture
 
 ```
-langconfig/
-├── src/                      # React 19 frontend (TypeScript + Tailwind)
-│   ├── features/
-│   │   ├── workflows/        # Visual canvas & workflow management
-│   │   ├── agents/           # Agent builder, library, Prompt Canvas
-│   │   ├── chat/             # Interactive chat testing
-│   │   ├── knowledge/        # RAG document upload
-│   │   ├── memory/           # Memory visualization
-│   │   ├── tools/            # Custom tool builder & Tool Library
-│   │   └── settings/         # App settings & API keys
-│   ├── pages/                # Standalone pages (PromptAssemblyPage)
-│   ├── components/           # Shared UI components
-│   ├── contexts/             # React context providers
-│   ├── hooks/                # Custom React hooks
-│   └── lib/                  # API client & utilities
-├── backend/                  # Python FastAPI backend
-│   ├── api/                  # REST API routes
-│   │   ├── workflows/        # Workflow execution & management
-│   │   ├── agents/           # Agent CRUD & templates
-│   │   ├── chat/             # Chat sessions & streaming
-│   │   ├── knowledge/        # Document upload & RAG
-│   │   ├── tools/            # Custom tool management
-│   │   ├── schedules/        # Cron-based workflow scheduling
-│   │   ├── triggers/         # Event-driven workflow triggers
-│   │   ├── webhooks/         # Incoming webhook endpoints
-│   │   ├── presentations/    # Presentation generation (Slides, PDF, Reveal.js)
-│   │   └── settings/         # API keys & configuration
-│   ├── core/
-│   │   ├── workflows/        # LangGraph orchestration engine (caching, deferred nodes, supervisor/swarm)
-│   │   ├── agents/           # Agent factory, base classes, model profiles
-│   │   ├── templates/        # Pre-built agent & workflow templates
-│   │   ├── tools/            # Native tools, custom tools, bigtool registry
-│   │   ├── codegen/          # Python code export generation
-│   │   └── middleware/       # LangGraph middleware (RAG, validation, dynamic tools)
-│   ├── services/
-│   │   ├── context_retrieval.py    # RAG retrieval with HyDE
-│   │   ├── llama_config.py         # Vector store (pgvector)
-│   │   ├── token_counter.py        # Token tracking & cost calculation
-│   │   ├── scheduler_service.py    # APScheduler cron service
-│   │   └── triggers/               # File watcher & trigger services
-│   ├── models/               # SQLAlchemy ORM models
-│   ├── middleware/           # FastAPI middleware (performance, CORS)
-│   ├── db/                   # Database initialization
-│   │   ├── init_postgres.sql       # pgvector setup (auto-run on Docker start)
-│   │   └── init_deepagents.py      # Seed agent templates
-│   └── alembic/              # Database migrations
-├── docs/                     # Documentation
-├── scripts/                  # Utility scripts
-├── src-tauri/                # Tauri desktop app (optional)
-├── docker-compose.yml        # PostgreSQL + pgvector setup
-└── .env                      # API keys (create from .env.example)
+UI (React/Vite) ──→ BE (FastAPI/uvicorn) ──→ PostgreSQL 5433
+                        │
+                   Agent Factory
+                        │
+              ┌─────────┼─────────┐
+              │         │         │
+         Playground  LangChain  DeepAgent
+        (model.invoke)  Agent    (skills+sandbox)
 ```
 
----
+## 3 Agent Execution Modes
 
-## Database Setup Explained
+| Mode | Backend | Description |
+|---|---|---|
+| **Playground** | `POST /api/models/invoke` | Raw `model.invoke()` — no tools, no agent |
+| **LangChain Agent** | `AgentFactory.create_agent()` | Standard agent with tools, no sandbox/skills |
+| **DeepAgent** | `create_deep_agent()` | Full agent with tools + skills + sandbox + middleware |
 
-LangConfig uses a single PostgreSQL database with pgvector for:
+## Model Management (Phase 5 — DB-Driven)
 
-- **Workflows & Projects** - Visual workflow definitions and project organization
-- **Agents & Templates** - Custom agents and pre-built templates
-- **Chat Sessions** - Conversation history and session state
-- **Vector Storage** - Document embeddings for RAG retrieval
-- **LangGraph Checkpoints** - Workflow state persistence (via `langgraph-checkpoint-postgres`)
-- **Schedules & Triggers** - Cron schedules, webhook triggers, file watchers, and execution logs
-- **File Versions** - Workspace file version history with diffs
+All model configuration is stored in PostgreSQL — no hardcoded enums.
 
-**Setup Steps:**
-
-1. **Docker starts PostgreSQL** - `docker-compose up -d postgres`
-   - Automatically runs `backend/db/init_postgres.sql`
-   - Creates `vector` extension (pgvector)
-   - Creates initial `vector_documents` table
-
-2. **Alembic creates all tables** - `alembic upgrade head`
-   - Runs migrations in `backend/alembic/versions/`
-   - Creates: workflows, projects, agents, chat_sessions, session_documents, checkpoints, etc.
-
-3. **Seed agent templates (optional)** - `python db/init_deepagents.py`  **Experimental**
-   - Populates `deep_agent_templates` table with pre-built agents
-   - Adds templates like Research Agent, Code Reviewer, etc.
-
----
-
-## Usage Examples
-
-### Example 1: Test an Agent Interactively
-
-1. Click an agent from the library (e.g., "Research Agent")
-2. Click the **Chat** icon
-3. Upload documents for RAG context (optional)
-4. Send a message: `"Summarize the key findings in these papers"`
-5. Watch the agent use tools in real-time
-6. View token costs and metrics in the sidebar
-
-### Example 2: Build a Multi-Agent Workflow
-
-1. Go to **Studio** → **New Workflow**
-2. Drag "Research Agent" to canvas
-3. Drag "Code Implementer" to canvas
-4. Connect them: Research → Implementer
-5. Click **Run**
-6. Enter task: `"Research best practices for authentication and implement it"`
-7. Research Agent finds information → passes to Implementer → code is generated
-
-### Example 3: Create a Custom Agent with AI
-
-1. Click **Agent Builder** from toolbar
-2. Enter name: `"Security Auditor"`
-3. Enter description: `"Reviews code for security vulnerabilities and suggests fixes"`
-4. Click **AI Generate** → GPT-4o suggests:
-   - Model: `gpt-4o` (reasoning capability)
-   - Temperature: `0.2` (focused, deterministic)
-   - Tools: `filesystem`, `grep`, `web_search`
-   - System prompt: Specialized security analysis prompt
-5. Review and customize (add more tools, adjust prompt)
-6. Click **Save** → use in workflows or chat testing
-
-### Example 4: Fan-Out Research with Deferred Synthesis
-
-1. Go to **Studio** → **New Workflow**
-2. Add 3 research agents in parallel (e.g., "Market Research", "Technical Research", "Competitor Analysis")
-3. Add a "Synthesis" agent and connect all 3 research agents to it
-4. Open Synthesis node settings → enable **Wait for all inputs**
-5. Click **Run** → all 3 agents execute in parallel → Synthesis waits for all results → produces merged analysis
-
-### Example 5: Use Supervisor Multi-Agent Strategy
-
-1. Go to **Studio** → **New Workflow**
-2. Set strategy type to **Supervisor**
-3. Define worker agents (e.g., "Researcher", "Writer", "Editor") with their tools and prompts
-4. The supervisor automatically delegates tasks to workers and collects results
-5. Click **Run** → supervisor orchestrates the team
-
-### Example 6: Visualize a Deep Agent Subgraph on Canvas
-
-1. Go to **Studio** → **New Workflow**
-2. Drag **demo_deep_agent** (Deep Agent with sub-agents) onto the canvas
-3. The canvas auto-expands: the **manager** node appears with purple `task()` delegation indicators, while **sub-agent** nodes appear below with amber-colored backgrounds
-4. Each sub-agent's tools (e.g., `tavily_search`) appear as **independent child nodes** with color-coded connections
-5. Run the workflow — the execution panel shows real-time events independently of the visual layout
-6. The canvas visualization is purely decorative — it doesn't affect execution or get sent to the backend
-
-### Example 7: Export Workflow as Standalone App
-
-1. Build workflow visually (e.g., Research → Plan → Implement → Test)
-2. Click **Export** → **Download Python Package**
-3. Extract the ZIP file to any folder
-4. Run `pip install -r requirements.txt`
-5. Add API keys to `.env`
-6. Run `streamlit run streamlit_app.py`
-7. Use your workflow as a standalone web app with live streaming output
-
----
-
-## Configuration
-
-### Environment Variables
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-cp .env.example .env
+```
+models table (unified)
+├── source='cloud'  → 21 models (seeded from seed_models.py)
+│   Providers: openai, anthropic, deepseek, google, agnes, glm, minimax
+└── source='local'  → user-configured (Ollama, LM Studio, vLLM, etc.)
+    Added via Settings > Local Models UI
 ```
 
-**Required:**
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string (default: `postgresql://langconfig:langconfig_dev@localhost:5433/langconfig`) |
+### Key Changes
 
-**LLM API Keys** (at least one required):
-| Variable | Description |
-|----------|-------------|
-| `OPENAI_API_KEY` | OpenAI API key for GPT models |
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude models |
-| `GOOGLE_API_KEY` | Google API key for Gemini models |
+| Before | After |
+|---|---|
+| `constants/models.py` enum (hardcoded) | `models/model.py` → PostgreSQL `models` table |
+| `PROVIDER_MODELS` in PlaygroundPage.tsx | Dynamic from API `/api/settings/models` |
+| `modelDisplayNames` in useAvailableModels.ts | `display_name` from DB seed data |
+| `startswith()` routing in factory.py | `provider` field lookup from DB |
+| 30s API timeout | 300s (5min) for agent responses |
 
-**Optional:**
-| Variable | Description | Default |
-|----------|-------------|--------|
-| `DEEPSEEK_API_KEY` | DeepSeek API key | - |
-| `GITHUB_PAT` | GitHub Personal Access Token | - |
-| `GITLAB_PAT` | GitLab Personal Access Token | - |
-| `LOCAL_LLM_HOST` | Local model server URL | `http://localhost:11434` |
-| `SECRET_KEY` | App secret key | Auto-generated |
-| `ENVIRONMENT` | `development` or `production` | `development` |
-| `LOG_LEVEL` | Logging level | `INFO` |
+### Adding a New Model
 
-**Workflow Execution:**
-| Variable | Description | Default |
-|----------|-------------|--------|
-| `MAX_WORKFLOW_TIMEOUT` | Max workflow runtime (seconds) | `300` |
-| `MAX_CONCURRENT_WORKFLOWS` | Parallel workflow limit | `5` |
-| `MAX_EXECUTION_HISTORY_PER_WORKFLOW` | History entries to keep | `100` |
-| `EXECUTION_HISTORY_RETENTION_DAYS` | Days to retain history | `90` |
-
-API keys can also be configured via **Settings UI** in the app (stored encrypted in database, takes priority over `.env`).
-
-### Local Models
-
-Run models locally with zero API costs:
-
-1. Install [Ollama](https://ollama.ai/) or [LM Studio](https://lmstudio.ai/)
-2. Start local model server (default: `http://localhost:11434`)
-3. Go to **Settings** → **API Keys**
-4. Add Local Provider:
-   - **Base URL**: `http://localhost:11434/v1`
-   - **Model**: `llama3.1` (or your model name)
-5. Use in any agent configuration
-
-### Built-in Tools
-
-**Native Python Tools** (no external dependencies):
-- `web_search` - Web search via DuckDuckGo (free, no API key)
-- `web_fetch` - Fetch webpage content
-- `file_read` / `file_write` / `file_list` - File system operations
-- `memory_store` / `memory_recall` - Long-term memory (PostgreSQL-backed)
-- `reasoning_chain` - Break down complex tasks into logical steps
-
-**Browser Automation** (Playwright, requires `playwright install chromium`):
-- `browser_navigate` - Navigate URLs with JavaScript rendering
-- `browser_click` - Click elements on page
-- `browser_extract` - Extract text/links from pages
-- `browser_screenshot` - Capture page screenshots
-
-**Custom Tool Templates** (create via UI):
-- **Notifications**: Slack, Discord (multi-channel webhooks)
-- **CMS/Publishing**: WordPress REST API, Twitter/X API
-- **Image/Video**: DALL-E 3, ChatGPT Image Gen 1.5, Sora, Imagen 3, Nano Banana (Gemini 2.5 Flash Image), Veo 3.1 Fast
-- **Database**: PostgreSQL, MySQL, MongoDB queries
-- **API/Webhook**: Custom REST API calls with auth
-- **Data Transform**: JSON ↔ CSV ↔ XML ↔ YAML conversion
-
----
-
-## Tech Stack
-
-**Frontend:**
-- React 19.2 + TypeScript 5.8
-- Tailwind CSS 4.1
-- ReactFlow 11.11 (visual canvas)
-- TanStack Query 5.90
-- Tauri 2.0 (optional desktop app)
-
-**Backend:**
-- Python 3.11+
-- FastAPI 0.115
-- LangChain 1.2.7 (full ecosystem)
-- LangGraph 1.0.7 (with checkpoint-postgres, supervisor, swarm, bigtool)
-- LlamaIndex (document indexing & RAG)
-
-**Database:**
-- PostgreSQL 16 with pgvector
-- SQLAlchemy 2.0 + Alembic (migrations)
-- langgraph-checkpoint-postgres (state persistence)
-
-**AI/ML:**
-- OpenAI (GPT-4o, GPT-4o-mini, GPT-5, o3, o3-mini, o4-mini)
-- Anthropic (Claude 4.5 Sonnet, Claude 4.5 Opus, Claude 4.5 Haiku)
-- Google (Gemini 3 Pro Preview, Gemini 2.5 Flash, Gemini 2.0 Flash)
-- DeepSeek (DeepSeek Chat, DeepSeek Reasoner)
-- Local models via Ollama/LM Studio
-- Sentence Transformers (embeddings)
-- Unstructured (document processing)
-
----
-
-## Automation
-
-LangConfig supports automated workflow execution through cron schedules, webhooks, and file system triggers.
-
-### Cron Scheduling
-
-Schedule workflows to run automatically on a recurring basis:
-
-1. Open a workflow → **Settings** → **Schedule**
-2. Enter a cron expression (e.g., `0 9 * * 1-5` for weekdays at 9 AM)
-3. Select a timezone and configure optional input data
-4. Enable the schedule
-
-Schedules support concurrency limits, idempotency keys for deduplication, and a full execution history log.
-
-### Webhook Triggers
-
-Trigger workflows from external services via HTTP:
-
-1. Open a workflow → **Settings** → **Triggers** → **Add Webhook**
-2. Copy the generated webhook URL and secret
-3. Configure your external service to POST to the URL
-4. Payloads are verified with HMAC-SHA256 signatures and optional IP whitelisting
-
-Use input mapping to transform incoming payloads into workflow input.
-
-### File Watch Triggers
-
-Trigger workflows when files change on disk:
-
-1. Open a workflow → **Settings** → **Triggers** → **Add File Watch**
-2. Set a directory path and glob pattern (e.g., `*.csv`)
-3. Choose events to watch: created, modified, deleted, or moved
-4. Configure debounce interval to prevent rapid re-triggers
-
-File watchers support recursive directory monitoring.
-
----
-
-## Troubleshooting
-
-### Port Already in Use
-
-```bash
-# Windows
-taskkill /F /IM node.exe
-
-# macOS/Linux
-lsof -ti:1420 | xargs kill -9
+```sql
+INSERT INTO models (model_id, display_name, provider, source, capabilities, is_active)
+VALUES ('new-model', 'New Model', 'openai', 'cloud', '{"streaming": true}', true);
 ```
 
-### PostgreSQL Connection Failed
+Or use Settings > API Keys to configure a new provider. No code changes needed.
 
-```bash
-# Check Docker is running
-docker-compose ps
+## Skills Library
 
-# Restart PostgreSQL
-docker-compose restart postgres
+- 17 builtin + user-created skills stored in PostgreSQL
+- Skills synced to agent sandbox at creation time (progressive disclosure)
+- Agent reads `SKILL.md` on demand — meta-skill `skill-generator` can create new skills
 
-# Check logs
-docker-compose logs postgres
-```
+## Recent Commits
 
-### Database Migration Issues
+- `7ada47c` — Phase 4: agent-generated skills + Skills Library UI
+- `21c164d` — Phase 3: DeepAgent skills with DB→sandbox sync
+- `0aa08e6` — Phase 2: data-analysis skill
+- *(current)* — Phase 5: DB-driven model management (remove hardcoded enums)
 
-```bash
-# Reset migrations (WARNING: deletes all data)
-cd backend
-alembic downgrade base
-alembic upgrade head
-```
-
-### Python Dependencies Issues
-
-```bash
-# Reinstall all dependencies
-cd backend
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
----
-
-## Building Desktop Installers (Optional)
-
-**Prerequisites:**
-- Rust installed ([Install](https://rustup.rs/))
-- Visual Studio Build Tools (Windows only)
-
-```bash
-npm run tauri build
-```
-
-Generates platform-specific installers:
-- **Windows**: `.exe`, `.msi`
-- **macOS**: `.app`, `.dmg`
-- **Linux**: `.AppImage`, `.deb`
-
-Total size: ~250MB (includes Python runtime and dependencies)
-
----
-
-## Development
-
-### Running Tests
-
-```bash
-# Backend tests
-cd backend
-pytest
-
-# Frontend tests
-npm test
-```
-
-### Database Migrations
+## Tests
 
 ```bash
 cd backend
-
-# Create new migration
-alembic revision --autogenerate -m "Description of changes"
-
-# Apply migration
-alembic upgrade head
-
-# Rollback migration
-alembic downgrade -1
+.venv/bin/python3 -m pytest tests/test_models_db_refactor.py -v
 ```
-
-### Adding Custom Agent Templates
-
-Agent templates are defined in `backend/core/agents/templates.py`. Workflow recipes (multi-node templates) are in `backend/core/templates/workflow_recipes.py`.
-
-To add new templates:
-1. Add your template definition to the appropriate file
-2. Templates are auto-registered on backend startup
-3. For database-stored agents, use the Agent Builder UI or run:
-
-```bash
-cd backend
-python db/init_deepagents.py
-```
-
----
-
-## Documentation
-
-- **[Chat API Documentation](./backend/api/chat/README.md)** - Interactive chat testing API
-- **[GitHub Issues](https://github.com/langconfig/langconfig/issues)** - Report bugs and request features
-
----
-
-## Contributing
-
-We welcome contributions! Whether you're:
-- Adding agent templates
-- Improving UI/UX
-- Writing documentation
-- Reporting bugs
-- Suggesting features
-
-**How to Contribute:**
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes and add tests
-4. Commit: `git commit -m 'Add amazing feature'`
-5. Push: `git push origin feature/amazing-feature`
-6. Open a Pull Request
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
-
----
-
-## License
-
-Copyright 2025 LangConfig Contributors
-
-Licensed under the MIT License. See [LICENSE](./LICENSE) file for details.
-
-### Third-Party Licenses
-
-- **LangChain & LangGraph** - MIT License
-- **FastAPI** - MIT License
-- **React** - MIT License
-- **Tauri** - Apache 2.0 / MIT License
-- **PostgreSQL** - PostgreSQL License
-
----
-
-## Support
-
-- **GitHub Issues**: [Report bugs and request features](https://github.com/langconfig/langconfig/issues)
-- **Discussions**: [Ask questions and share ideas](https://github.com/langconfig/langconfig/discussions)
-
----
-
-**LangConfig - Visual AI Agent Workflows Powered by LangChain & LangGraph**

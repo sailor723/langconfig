@@ -66,23 +66,36 @@ MAX_MAX_TOKENS = 500000
 REASONING_NODE = "agent"
 TOOLS_NODE = "tools"
 
-# Supported Models Registry (for validation) - Updated December 4, 2025
-SUPPORTED_MODELS = {
-    # OpenAI - GPT-5 Series (Current)
-    "gpt-5.1",
-    # OpenAI - GPT-4o Series
-    "gpt-4o", "gpt-4o-mini",
-    # DeepSeek (OpenAI-compatible)
+# Supported Models Registry (for validation) - loaded from DB models table
+# Fallback kept for bootstrapping if DB is not available
+_SUPPORTED_MODELS_FALLBACK = {
+    "gpt-5.1", "gpt-4o", "gpt-4o-mini",
     "deepseek-chat", "deepseek-reasoner",
-    # Anthropic - Claude 4.5 (with and without date suffixes)
     "claude-opus-4-5", "claude-opus-4-5-20250514",
     "claude-sonnet-4-5", "claude-sonnet-4-5-20250514", "claude-sonnet-4-5-20250929",
     "claude-haiku-4-5", "claude-haiku-4-5-20251015",
-    # Google - Gemini 3 (Current)
-    "gemini-3-pro-preview",
-    # Google - Gemini 2.5
-    "gemini-2.5-flash",
+    "gemini-3-pro-preview", "gemini-2.5-flash",
 }
+
+
+def get_supported_models() -> set:
+    """Load supported model IDs from the `models` DB table. Falls back to hardcoded set."""
+    try:
+        from db.database import SessionLocal
+        from models.model import Model
+        db = SessionLocal()
+        try:
+            models = db.query(Model.model_id).filter(Model.is_active == True).all()
+            if models:
+                return {m[0] for m in models}
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return _SUPPORTED_MODELS_FALLBACK
+
+
+SUPPORTED_MODELS = _SUPPORTED_MODELS_FALLBACK  # Module-level for backward-compatible imports
 
 # =============================================================================
 # AGENT GUARDRAILS FRAMEWORK
@@ -1195,8 +1208,26 @@ You have been equipped with the following tools: {', '.join(tool_names)}
         logger.debug(f"Initializing LLM instance for model: {model_name}")
         streaming = config.get("streaming", True)
 
+        # --- Look up provider from models DB table (single source of truth) ---
+        db_provider = None
+        try:
+            from db.database import SessionLocal
+            from models.model import Model
+            db = SessionLocal()
+            try:
+                model_row = db.query(Model).filter(
+                    Model.model_id == model_name,
+                    Model.is_active == True
+                ).first()
+                if model_row and model_row.source == 'cloud':
+                    db_provider = model_row.provider
+            finally:
+                db.close()
+        except Exception:
+            pass
+
         # --- DeepSeek Models ---
-        if model_name.startswith("deepseek"):
+        if db_provider == "deepseek" or model_name.startswith("deepseek"):
             if not settings.DEEPSEEK_API_KEY:
                 raise ValueError(f"DEEPSEEK_API_KEY is required for model {model_name}")
 
@@ -1233,20 +1264,24 @@ You have been equipped with the following tools: {', '.join(tool_names)}
                 timeout=local_config.timeout
             )
 
-        # --- Standard Providers via init_chat_model ---
-        # Determine provider and API key based on model name prefix
-        if model_name.startswith("gpt"):
+        # --- Standard Providers via init_chat_model (use DB lookup, fallback to startswith) ---
+        # Determine provider and API key based on model name
+        if db_provider == "openai" or model_name.startswith("gpt"):
             provider = "openai"
             api_key = settings.OPENAI_API_KEY
             base_url = getattr(settings, 'OPENAI_API_BASE', None)
-        elif model_name.startswith("claude"):
+        elif db_provider == "anthropic" or model_name.startswith("claude"):
             provider = "anthropic"
             api_key = settings.ANTHROPIC_API_KEY
             base_url = None
-        elif model_name.startswith("gemini"):
+        elif db_provider == "google" or model_name.startswith("gemini"):
             provider = "google_genai"
             api_key = settings.GOOGLE_API_KEY or settings.GEMINI_API_KEY
             base_url = None
+        elif db_provider == "agnes" or model_name.startswith("agnes"):
+            provider = "openai"  # OpenAI-compatible API
+            api_key = settings.AGNES_API_KEY
+            base_url = settings.AGNES_BASE_URL
         else:
             logger.warning(f"Unknown model '{model_name}', defaulting to OpenAI-compatible.")
             provider = "openai"

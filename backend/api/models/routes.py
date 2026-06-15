@@ -41,8 +41,26 @@ def _create_llm_for_playground(model_name: str, temperature: float, max_tokens: 
     """
     streaming = False  # Non-streaming for simplicity
 
+    # --- Look up provider from models DB table (single source of truth) ---
+    db_provider = None
+    try:
+        from db.database import SessionLocal
+        from models.model import Model
+        db = SessionLocal()
+        try:
+            model_row = db.query(Model).filter(
+                Model.model_id == model_name,
+                Model.is_active == True
+            ).first()
+            if model_row and model_row.source == 'cloud':
+                db_provider = model_row.provider
+        finally:
+            db.close()
+    except Exception:
+        pass
+
     # DeepSeek Models
-    if model_name.startswith("deepseek"):
+    if db_provider == "deepseek" or model_name.startswith("deepseek"):
         if not settings.DEEPSEEK_API_KEY:
             raise HTTPException(status_code=400, detail="DEEPSEEK_API_KEY not configured")
         return init_chat_model(
@@ -75,24 +93,54 @@ def _create_llm_for_playground(model_name: str, temperature: float, max_tokens: 
             timeout=local_config.timeout,
         )
 
-    # Standard Providers
-    if model_name.startswith("gpt"):
+    # Agnes AI (OpenAI-compatible with custom base_url)
+    if db_provider == "agnes" or model_name.startswith("agnes"):
+        api_key = settings.AGNES_API_KEY
+        base_url = settings.AGNES_BASE_URL or "https://apihub.agnes-ai.com/v1"
+        if not api_key:
+            raise HTTPException(status_code=400, detail="AGNES_API_KEY not configured")
+        return ChatOpenAI(
+            model=model_name,
+            base_url=base_url,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            streaming=streaming,
+        )
+
+    # Standard Providers via init_chat_model
+    if db_provider == "openai" or model_name.startswith("gpt"):
         provider = "openai"
         api_key = settings.OPENAI_API_KEY
         base_url = getattr(settings, "OPENAI_API_BASE", None)
-    elif model_name.startswith("claude"):
+    elif db_provider == "anthropic" or model_name.startswith("claude"):
         provider = "anthropic"
         api_key = settings.ANTHROPIC_API_KEY
         base_url = None
-    elif model_name.startswith("gemini"):
+    elif db_provider == "google" or model_name.startswith("gemini"):
         provider = "google_genai"
         api_key = settings.GOOGLE_API_KEY or settings.GEMINI_API_KEY
         base_url = None
     else:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown model prefix: {model_name}. Supported: deepseek, gpt, claude, gemini, local-*"
-        )
+        # Fallback: try DB provider as OpenAI-compatible
+        if db_provider:
+            from db.database import SessionLocal
+            from models.model import Model
+            pdb = SessionLocal()
+            try:
+                model_row = pdb.query(Model).filter(
+                    Model.model_id == model_name
+                ).first()
+                provider = "openai"
+                api_key = getattr(settings, f"{db_provider.upper()}_API_KEY", None)
+                base_url = getattr(settings, f"{db_provider.upper()}_BASE_URL", None)
+            finally:
+                pdb.close()
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown model: {model_name}. Check available models in Settings."
+            )
 
     if not api_key:
         raise HTTPException(

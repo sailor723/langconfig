@@ -5,12 +5,11 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional, Dict
+from typing import Optional
 from pydantic import BaseModel
 
 from db.database import get_db
 from models.settings import Settings as SettingsModel
-from constants.models import ModelChoice
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -26,6 +25,8 @@ class APIKeySet(BaseModel):
     glm_api_key: Optional[str] = None
     minimax_api_key: Optional[str] = None
     tavily_api_key: Optional[str] = None
+    agnes_api_key: Optional[str] = None
+    agnes_base_url: Optional[str] = None
 
 
 class APIKeyResponse(BaseModel):
@@ -158,6 +159,10 @@ async def set_api_keys(keys: APIKeySet, db: Session = Depends(get_db)):
         api_keys["minimax"] = encryption_service.encrypt(keys.minimax_api_key)
     if keys.tavily_api_key:
         api_keys["tavily"] = encryption_service.encrypt(keys.tavily_api_key)
+    if keys.agnes_api_key:
+        api_keys["agnes"] = encryption_service.encrypt(keys.agnes_api_key)
+    if keys.agnes_base_url:
+        api_keys["agnes_base_url"] = encryption_service.encrypt(keys.agnes_base_url)
 
     settings.api_keys = api_keys
     flag_modified(settings, "api_keys")
@@ -171,7 +176,7 @@ async def get_api_keys(db: Session = Depends(get_db)):
     """Get masked API keys status"""
     settings = get_or_create_settings(db)
     api_keys = settings.api_keys or {}
-    providers = ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax", "tavily"]
+    providers = ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax", "tavily", "agnes"]
 
     results = []
     for provider in providers:
@@ -200,29 +205,29 @@ async def get_available_models(db: Session = Depends(get_db)):
     api_keys = settings.api_keys or {}
     available = []
 
-    # OpenAI models (require OpenAI API key)
-    if api_keys.get("openai"):
-        available.extend([m.value for m in ModelChoice if m.value.startswith('gpt')])
+    # Provider-to-API-key mapping
+    provider_key_map = {
+        "openai": "openai",
+        "anthropic": "anthropic",
+        "google": "google",
+        "deepseek": "deepseek",
+        "glm": "glm",
+        "minimax": "minimax",
+        "agnes": "agnes",
+    }
 
-    # Anthropic/Claude models (require Anthropic API key)
-    if api_keys.get("anthropic"):
-        available.extend([m.value for m in ModelChoice if 'claude' in m.value])
+    # Query cloud models from DB based on which API keys are configured
+    from models.model import Model
+    cloud_models = db.query(Model).filter(
+        Model.source == 'cloud',
+        Model.is_active == True
+    ).all()
 
-    # Google Gemini models (require Google API key)
-    if api_keys.get("google"):
-        available.extend([m.value for m in ModelChoice if 'gemini' in m.value])
-
-    # DeepSeek models (require DeepSeek API key)
-    if api_keys.get("deepseek"):
-        available.extend([m.value for m in ModelChoice if 'deepseek' in m.value])
-
-    # GLM models (require GLM API key)
-    if api_keys.get("glm"):
-        available.extend([m.value for m in ModelChoice if 'glm' in m.value])
-
-    # MiniMax models (require MiniMax API key)
-    if api_keys.get("minimax"):
-        available.extend([m.value for m in ModelChoice if 'minimax' in m.value])
+    for model in cloud_models:
+        # Only include if the corresponding API key is configured
+        key_name = provider_key_map.get(model.provider)
+        if key_name and api_keys.get(key_name):
+            available.append(model.model_id)
 
     # Local models (validated only)
     from models.local_model import LocalModel
@@ -328,13 +333,24 @@ async def reset_settings(db: Session = Depends(get_db)):
 
 @router.get("/models")
 async def list_available_models(db: Session = Depends(get_db)):
-    """List available AI models (cloud + validated local models)"""
-    settings = get_or_create_settings(db)
-    api_keys = settings.api_keys or {}
-    available = []
+    """List available AI models (cloud + validated local models) with full metadata"""
+    from models.model import Model
 
-    # Get all models from the ModelChoice enum (single source of truth)
-    available = [m.value for m in ModelChoice]
+    # All cloud models from the models table (single source of truth)
+    cloud_models = db.query(Model).filter(
+        Model.source == 'cloud',
+        Model.is_active == True
+    ).order_by(Model.provider, Model.model_id).all()
+
+    cloud_model_list = []
+    for m in cloud_models:
+        cloud_model_list.append({
+            "model_id": m.model_id,
+            "display_name": m.display_name,
+            "provider": m.provider,
+            "capabilities": m.capabilities or {},
+            "is_active": m.is_active,
+        })
 
     # Local models (validated only)
     from models.local_model import LocalModel
@@ -343,11 +359,10 @@ async def list_available_models(db: Session = Depends(get_db)):
         LocalModel.is_active == True
     ).all()
 
-    # Add local models to available list
+    # Local models
     local_model_list = []
     for model in local_models:
         model_id = f"local-{model.name}"
-        available.append(model_id)
         local_model_list.append({
             "id": model.id,
             "name": model_id,
@@ -358,7 +373,7 @@ async def list_available_models(db: Session = Depends(get_db)):
         })
 
     return {
-        "models": available,
+        "cloud_models": cloud_model_list,
         "local_models": local_model_list
     }
 

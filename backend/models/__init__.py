@@ -33,6 +33,7 @@ from .custom_tool import (
 )
 from .settings import Settings
 from .local_model import LocalModel
+from .model import Model
 from .background_task import BackgroundTask
 from .audit_log import AuditLog, AuditAction
 from .workspace_file import WorkspaceFile
@@ -71,6 +72,7 @@ __all__ = [
     "ToolTemplateType",
     "Settings",
     "LocalModel",
+    "Model",
     "BackgroundTask",
     "AuditLog",
     "AuditAction",
