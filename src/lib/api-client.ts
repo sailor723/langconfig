@@ -54,7 +54,7 @@ class APIClient {
   constructor() {
     this.client = axios.create({
       baseURL: this.baseURL,
-      timeout: 30000,
+      timeout: 300000,  // 5 min timeout for agent responses; individual endpoints can override
       headers: {
         'Content-Type': 'application/json',
       },
@@ -524,6 +524,8 @@ class APIClient {
     glm_api_key?: string;
     minimax_api_key?: string;
     tavily_api_key?: string;
+    agnes_api_key?: string;
+    agnes_base_url?: string;
   }) {
     return this.client.post('/api/settings/api-keys', data);
   }

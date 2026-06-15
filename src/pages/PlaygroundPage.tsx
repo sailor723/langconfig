@@ -2,32 +2,21 @@ import { useState, useRef, useEffect } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { useAvailableModels } from '@/hooks/useAvailableModels';
 
-type ModelProvider = 'deepseek' | 'gpt' | 'claude' | 'gemini' | 'local';
+type ModelProvider = string;
 
-const PROVIDER_MODELS: Record<string, string[]> = {
-  deepseek: ['deepseek-chat'],
-  gpt: ['gpt-5-turbo', 'gpt-4.5-preview', 'gpt-4o', 'gpt-4o-mini', 'o3', 'o4-mini'],
-  claude: ['claude-sonnet-4-5', 'claude-sonnet-4', 'claude-haiku-4-5'],
-  gemini: ['gemini-3-pro', 'gemini-2.5-flash', 'gemini-2.5-pro'],
-};
-
-const CLOUD_PROVIDERS: ModelProvider[] = ['deepseek', 'gpt', 'claude', 'gemini'];
-
-const PROVIDER_LABELS: Record<string, string> = {
-  deepseek: 'DeepSeek',
-  gpt: 'OpenAI',
-  claude: 'Claude',
-  gemini: 'Gemini',
-  local: 'Local',
-};
-
+// Provider display helpers - built dynamically from API data
 const PROVIDER_COLORS: Record<string, string> = {
   deepseek: 'from-blue-500 to-cyan-500',
-  gpt: 'from-emerald-500 to-teal-500',
-  claude: 'from-orange-500 to-amber-500',
-  gemini: 'from-violet-500 to-purple-500',
+  openai: 'from-emerald-500 to-teal-500',
+  anthropic: 'from-orange-500 to-amber-500',
+  google: 'from-violet-500 to-purple-500',
+  agnes: 'from-pink-500 to-rose-500',
+  glm: 'from-yellow-500 to-amber-500',
+  minimax: 'from-cyan-500 to-sky-500',
   local: 'from-slate-500 to-gray-500',
 };
+
+const DEFAULT_PROVIDER_COLOR = 'from-indigo-500 to-blue-500';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -65,12 +54,33 @@ export default function PlaygroundPage() {
     onlyValidated: true,
   });
 
-  // Determine the selected model name
+  // Derive cloud provider list from API data (dynamic - not hardcoded)
+  const cloudProviders = [...new Set(cloudModels.map(m => m.provider))].sort();
+
+  // Build display labels from API data
+  const getProviderLabel = (p: string): string => {
+    const labels: Record<string, string> = {};
+    for (const m of cloudModels) {
+      if (!labels[m.provider]) {
+        const display = m.provider.charAt(0).toUpperCase() + m.provider.slice(1);
+        labels[m.provider] = display;
+      }
+    }
+    labels['local'] = 'Local';
+    return labels[p] || p;
+  };
+
+  // Map frontend provider name to backend provider name
+  const getProviderBackendName = (p: string): string => p.toLowerCase();
+
+  const getModelsForProvider = (p: string) =>
+    p === 'local' ? localModels : cloudModels.filter(m => m.provider.toLowerCase() === getProviderBackendName(p));
+
   const selectedModel = showCustom
     ? customModel
     : provider === 'local'
       ? selectedLocalModelId
-      : PROVIDER_MODELS[provider]?.[0] || '';
+      : getModelsForProvider(provider)?.[0]?.id || '';
 
   const selectedMetadata = provider === 'local'
     ? localModels.find(m => m.id === selectedLocalModelId)
@@ -171,7 +181,7 @@ export default function PlaygroundPage() {
             <div>
               <label className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 mb-2 block">Provider</label>
               <div className="space-y-1.5">
-                {[...CLOUD_PROVIDERS, 'local' as ModelProvider].map((p) => (
+                {[...cloudProviders, 'local'].map((p) => (
                   <button
                     key={p}
                     onClick={() => handleProviderClick(p)}
@@ -181,10 +191,10 @@ export default function PlaygroundPage() {
                         : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-transparent'
                     }`}
                   >
-                    <span className={`w-2 h-2 rounded-full bg-gradient-to-r ${PROVIDER_COLORS[p]}`} />
-                    {PROVIDER_LABELS[p]}
+                    <span className={`w-2 h-2 rounded-full bg-gradient-to-r ${PROVIDER_COLORS[p] || DEFAULT_PROVIDER_COLOR}`} />
+                    {getProviderLabel(p)}
                     {p !== 'local' && (
-                      <span className={`ml-auto w-1.5 h-1.5 rounded-full ${isCloudModelConfigured(PROVIDER_MODELS[p]?.[0] || '') ? 'bg-emerald-500' : 'bg-zinc-600'}`} title={isCloudModelConfigured(PROVIDER_MODELS[p]?.[0] || '') ? 'Configured' : 'No API key'} />
+                      <span className={`ml-auto w-1.5 h-1.5 rounded-full ${getModelsForProvider(p).length > 0 ? 'bg-emerald-500' : 'bg-zinc-600'}`} title={getModelsForProvider(p).length > 0 ? 'Available' : 'No API key'} />
                     )}
                   </button>
                 ))}
@@ -241,13 +251,11 @@ export default function PlaygroundPage() {
               ) : (
                 <select
                   value={selectedModel}
-                  onChange={e => {
-                    // Provider already selects first model
-                  }}
+                  onChange={() => {}}
                   className="w-full bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
                 >
-                  {(PROVIDER_MODELS[provider] || []).map(m => (
-                    <option key={m} value={m}>{m}</option>
+                  {getModelsForProvider(provider).map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
               )}
