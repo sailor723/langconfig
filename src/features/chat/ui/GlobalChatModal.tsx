@@ -15,6 +15,7 @@ import MetricsPanel from './MetricsPanel';
 import MessagesPanel from './MessagesPanel';
 import ChatHistorySidebar from './ChatHistorySidebar';
 import type { ChatSession, ChatStreamEvent, CustomEventPayload, InterruptData } from '../types/chat';
+import type { ThinkingStep } from './ThinkingBlock';
 import apiClient from '../../../lib/api-client';
 
 export default function GlobalChatModal() {
@@ -33,6 +34,8 @@ export default function GlobalChatModal() {
   const modalRef = useRef<HTMLDivElement>(null);
   const [activeToolCalls, setActiveToolCalls] = useState<string[]>([]);
   const [customEvents, setCustomEvents] = useState<Map<string, CustomEventPayload>>(new Map());
+  const [thinkingTraces, setThinkingTraces] = useState<ThinkingStep[][]>([]);
+  const tracesRef = useRef<ThinkingStep[]>([]);  // collect events during streaming
 
   // HITL interrupt state
   const [pendingInterrupt, setPendingInterrupt] = useState<InterruptData | null>(null);
@@ -142,8 +145,10 @@ export default function GlobalChatModal() {
       addMessage,
       updateLastMessage,
       async () => {
-        // On complete: refresh metrics, clear active tools and custom events
+        // On complete: refresh metrics, save traces, clear active tools and custom events
         await refreshMetrics();
+        setThinkingTraces(prev => [...prev, [...tracesRef.current]]);
+        tracesRef.current = [];
         setActiveToolCalls([]);
         setCustomEvents(new Map());
         // Don't clear interrupt on complete (resume may also complete the stream)
@@ -152,8 +157,10 @@ export default function GlobalChatModal() {
         // Handle tool events
         if (event.type === 'tool_start' && event.tool_name) {
           setActiveToolCalls(prev => [...prev, event.tool_name!]);
+          tracesRef.current = [...tracesRef.current, { type: 'tool_start', tool_name: event.tool_name, data: event.data }];
         } else if (event.type === 'tool_end' && event.tool_name) {
           setActiveToolCalls(prev => prev.filter(t => t !== event.tool_name));
+          tracesRef.current = [...tracesRef.current, { type: 'tool_end', tool_name: event.tool_name, data: event.data }];
         }
       },
       (event: ChatStreamEvent) => {
@@ -166,6 +173,7 @@ export default function GlobalChatModal() {
             next.set(eventId, payload);
             return next;
           });
+          tracesRef.current = [...tracesRef.current, { type: 'custom_event', tool_name: event.data?.tool_name, data: event.data }];
         }
       },
       (event: ChatStreamEvent) => {
@@ -292,6 +300,7 @@ export default function GlobalChatModal() {
               sessionId={currentSessionId}
               activeToolCalls={activeToolCalls}
               customEvents={customEvents}
+              thinkingTraces={thinkingTraces}
             />
 
             {/* Metrics Panel - Right Sidebar */}
