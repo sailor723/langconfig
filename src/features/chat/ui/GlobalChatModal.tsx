@@ -14,6 +14,7 @@ import { useChatMetrics } from '../hooks/useChatMetrics';
 import MetricsPanel from './MetricsPanel';
 import MessagesPanel from './MessagesPanel';
 import ChatHistorySidebar from './ChatHistorySidebar';
+import AgentSelector from './AgentSelector';
 import type { ChatSession, ChatStreamEvent, CustomEventPayload, InterruptData } from '../types/chat';
 import type { ThinkingStep } from './ThinkingBlock';
 import apiClient from '../../../lib/api-client';
@@ -260,21 +261,42 @@ export default function GlobalChatModal() {
             style={{ borderColor: 'var(--color-border-dark)' }}
           >
             <div className="flex items-center gap-3">
-              <h2
-                className="text-base font-semibold"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                {agentName}
-              </h2>
-              <span
-                className="text-xs px-2 py-0.5 rounded-full"
-                style={{
-                  backgroundColor: 'rgba(99,102,241,0.1)',
-                  color: 'var(--color-primary)',
-                }}
-              >
-                {currentSessionId ? 'Active' : 'Select an agent'}
-              </span>
+              {currentSessionId ? (
+                <div className="flex items-center gap-3">
+                  <div>
+                    <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                      Chatting with
+                    </div>
+                    <h2
+                      className="text-base font-semibold"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
+                      {agentName}
+                    </h2>
+                  </div>
+                  <div className="h-8 w-px" style={{ backgroundColor: 'var(--color-border-dark)' }} />
+                  <AgentSelector
+                    selectedAgentId={selectedAgentId}
+                    onSelectAgent={handleStartSession}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <AgentSelector
+                    selectedAgentId={selectedAgentId}
+                    onSelectAgent={handleStartSession}
+                  />
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: 'rgba(99,102,241,0.1)',
+                      color: 'var(--color-primary)',
+                    }}
+                  >
+                    Select an agent
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
