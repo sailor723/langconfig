@@ -74,70 +74,20 @@ export function useAvailableModels(
       setIsLoading(true);
       setError(null);
 
-      // Fetch cloud models from settings endpoint
+      // Fetch cloud models from settings endpoint (now returns metadata)
       const settingsResponse = await apiClient.listAvailableModels();
-      const availableModels = settingsResponse.data.models || [];
+      const cloudModelOptionsRaw = settingsResponse.data.cloud_models || [];
       const localModelsList = settingsResponse.data.local_models || [];
 
-      // Model display name mapping (public-facing names)
-      // Updated December 16, 2025
-      const modelDisplayNames: Record<string, { name: string; provider: string }> = {
-        // OpenAI - GPT-5 Series (Current)
-        'gpt-5.2': { name: 'GPT-5.2', provider: 'OpenAI' },
-        'gpt-5.1': { name: 'GPT-5.1', provider: 'OpenAI' },
-        'gpt-4o': { name: 'GPT-4o', provider: 'OpenAI' },
-        'gpt-4o-mini': { name: 'GPT-4o Mini', provider: 'OpenAI' },
-
-        // Anthropic - Claude 4.5 (Current)
-        'claude-opus-4-5': { name: 'Claude Opus 4.5', provider: 'Anthropic' },
-        'claude-sonnet-4-5': { name: 'Claude Sonnet 4.5', provider: 'Anthropic' },
-        'claude-haiku-4-5': { name: 'Claude Haiku 4.5', provider: 'Anthropic' },
-
-        // Google - Gemini 3 (Current)
-        'gemini-3-pro-preview': { name: 'Gemini 3 Pro', provider: 'Google' },
-
-        // Google - Gemini 2.5
-        'gemini-2.0-flash': { name: 'Gemini 2.0 Flash', provider: 'Google' },
-        'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', provider: 'Google' },
-        'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash-Lite', provider: 'Google' },
-
-        // DeepSeek
-        'deepseek-chat': { name: 'DeepSeek Chat', provider: 'DeepSeek' },
-        'deepseek-reasoner': { name: 'DeepSeek Reasoner', provider: 'DeepSeek' },
-
-        // GLM (Zhipu AI)
-        'glm-4': { name: 'GLM-4', provider: 'GLM' },
-        'glm-4v': { name: 'GLM-4V', provider: 'GLM' },
-        'glm-4-flash': { name: 'GLM-4 Flash', provider: 'GLM' },
-
-        // MiniMax
-        'minimax-t1': { name: 'MiniMax T1', provider: 'MiniMax' },
-        'minimax-m3': { name: 'MiniMax M3', provider: 'MiniMax' },
-      };
-
-      // Convert cloud models to ModelOption format
-      const cloudModelOptions: ModelOption[] = availableModels
-        .filter((modelId: string) => !modelId.startsWith('local-'))
-        .map((modelId: string) => {
-          const modelInfo = modelDisplayNames[modelId];
-
-          if (modelInfo) {
-            return {
-              id: modelId,
-              name: modelInfo.name,
-              provider: modelInfo.provider,
-              type: 'cloud' as const
-            };
-          }
-
-          // Fallback for unknown models
-          return {
-            id: modelId,
-            name: modelId,
-            provider: 'Unknown',
-            type: 'cloud' as const
-          };
-        });
+      // Convert cloud models to ModelOption format (display_name + provider from API)
+      const cloudModelOptions: ModelOption[] = cloudModelOptionsRaw
+        .map((m: any) => ({
+          id: m.model_id,
+          name: m.display_name,
+          provider: m.provider.charAt(0).toUpperCase() + m.provider.slice(1),
+          type: 'cloud' as const,
+          capabilities: m.capabilities || {}
+        }));
 
       setCloudModels(cloudModelOptions);
 

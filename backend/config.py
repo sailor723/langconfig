@@ -40,6 +40,8 @@ def get_api_key_from_db(key_name: str) -> Optional[str]:
             "replicate_api_key": "replicate",
             "deepseek_api_key": "deepseek",
             "tavily_api_key": "tavily",
+            "agnes_api_key": "agnes",
+            "agnes_base_url": "agnes_base_url",
         }
         provider = provider_map.get(key_name)
 
@@ -126,6 +128,16 @@ class Settings(BaseSettings):
     def TAVILY_API_KEY(self) -> Optional[str]:
         """Get Tavily API key from database or .env"""
         return self.get_api_key("tavily_api_key")
+
+    @property
+    def AGNES_API_KEY(self) -> Optional[str]:
+        """Get Agnes AI API key from database or .env"""
+        return self.get_api_key("agnes_api_key")
+
+    @property
+    def AGNES_BASE_URL(self) -> Optional[str]:
+        """Get Agnes AI base URL from database or .env"""
+        return self.get_api_key("agnes_base_url") or os.getenv("AGNES_BASE_URL", "https://apihub.agnes-ai.com/v1")
 
     # Keep lowercase versions for backward compatibility
     @property

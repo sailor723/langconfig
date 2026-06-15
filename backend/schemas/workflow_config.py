@@ -19,9 +19,8 @@ Distinct from workflow_state.py which handles internal runtime state.
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Any
 from enum import Enum
-from constants.models import ModelChoice
 
-# Import Blueprint model for visual workflow configuration
+# All model fields use string IDs that reference the `models` DB table
 try:
     from models.blueprint import Blueprint
 except ImportError:
@@ -47,7 +46,7 @@ class SequentialConfig(BaseModel):
         description="Maximum number of retry attempts before triggering HITL"
     )
     
-    default_model: ModelChoice = Field(
+    default_model: str = Field(
         default="gpt-4o",
         description="Default LLM model to use for task execution"
     )
@@ -132,7 +131,7 @@ class RomanLegionTier(BaseModel):
         description="Human-readable name for this tier (e.g., 'Hastati', 'Principes', 'Triarii')"
     )
     
-    model: ModelChoice = Field(
+    model: str = Field(
         ...,
         description="LLM model identifier for this tier (e.g., 'gpt-4o-mini', 'gpt-4o', 'o1-mini')"
     )
@@ -437,22 +436,22 @@ class DeepResearchConfig(BaseModel):
         description="Maximum number of critique-revision cycles before finalizing report"
     )
 
-    planner_model: ModelChoice = Field(
+    planner_model: str = Field(
         default="claude-3.5-sonnet",
         description="Model for decomposing research topics into sub-questions"
     )
 
-    researcher_model: ModelChoice = Field(
+    researcher_model: str = Field(
         default="gpt-4o-mini",
         description="Model for conducting parallel research tasks"
     )
 
-    writer_model: ModelChoice = Field(
+    writer_model: str = Field(
         default="claude-3.5-sonnet",
         description="Model for synthesizing research into comprehensive reports"
     )
 
-    critic_model: ModelChoice = Field(
+    critic_model: str = Field(
         default="gpt-4o",
         description="Model for evaluating report quality and providing feedback"
     )
@@ -526,27 +525,27 @@ class LearningResearchConfig(BaseModel):
         description="Enable web search for external research"
     )
 
-    internal_reviewer_model: ModelChoice = Field(
+    internal_reviewer_model: str = Field(
         default="gpt-4o",
         description="Model for searching and reviewing internal project memory"
     )
 
-    planner_model: ModelChoice = Field(
+    planner_model: str = Field(
         default="claude-3.5-sonnet",
         description="Model for identifying knowledge gaps and planning research"
     )
 
-    researcher_model: ModelChoice = Field(
+    researcher_model: str = Field(
         default="gpt-4o-mini",
         description="Model for conducting external research on knowledge gaps"
     )
 
-    synthesizer_model: ModelChoice = Field(
+    synthesizer_model: str = Field(
         default="claude-3.5-sonnet",
         description="Model for synthesizing internal + external knowledge into reports"
     )
 
-    curator_model: ModelChoice = Field(
+    curator_model: str = Field(
         default="gpt-4o",
         description="Model for extracting insights and storing in memory"
     )
@@ -622,12 +621,12 @@ class RLMConfig(BaseModel):
         description="Allow parallel execution of independent recursive calls"
     )
     
-    recursion_model: ModelChoice = Field(
+    recursion_model: str = Field(
         default="gpt-4o-mini",
         description="Model for recursive sub-analysis (cheaper model for efficiency)"
     )
     
-    synthesis_model: ModelChoice = Field(
+    synthesis_model: str = Field(
         default="gpt-4o",
         description="Model for root-level synthesis and final answer generation"
     )
@@ -714,12 +713,12 @@ class RLMRAGHybridConfig(BaseModel):
         description="Allow parallel execution of recursive calls"
     )
     
-    recursion_model: ModelChoice = Field(
+    recursion_model: str = Field(
         default="gpt-4o-mini",
         description="Model for recursive analysis"
     )
     
-    synthesis_model: ModelChoice = Field(
+    synthesis_model: str = Field(
         default="gpt-4o",
         description="Model for final synthesis"
     )
