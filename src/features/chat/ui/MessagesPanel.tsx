@@ -57,7 +57,7 @@ export default function MessagesPanel({
   };
 
   return (
-    <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: '#f9fafb' }}>
+    <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: 'var(--color-background-light)' }}>
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
         {messages.length === 0 && !disabled ? (
@@ -65,60 +65,27 @@ export default function MessagesPanel({
             className="flex items-center justify-center h-full min-h-full"
             style={{ color: 'var(--color-text-muted)' }}
           >
-            <div className="text-center max-w-2xl px-6">
-              <img
-                src="/GhostPeony.png"
-                alt="Agent"
-                className="w-24 h-24 mx-auto mb-6 opacity-20"
-                style={{ filter: 'grayscale(100%)' }}
-              />
-              <p className="text-xl font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+            <div className="text-center max-w-md px-6">
+              <div
+                className="w-12 h-12 mx-auto mb-5 rounded-xl flex items-center justify-center"
+                style={{
+                  backgroundColor: 'var(--color-primary)',
+                  color: 'white',
+                  fontSize: '1.25rem',
+                }}
+              >
+                ✦
+              </div>
+              <p className="text-lg font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
                 Start a conversation
               </p>
-              <p className="text-sm mb-6">
-                Test your agent in real-time with streaming responses. This interface provides:
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                <div className="p-3 rounded-lg" style={{ backgroundColor: 'white', border: '1px solid var(--color-border-dark)' }}>
-                  <div className="font-medium text-sm mb-1" style={{ color: 'var(--color-primary)' }}>
-                    Live Tool Execution
-                  </div>
-                  <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Watch your agent use tools in real-time with live indicators
-                  </div>
-                </div>
-                <div className="p-3 rounded-lg" style={{ backgroundColor: 'white', border: '1px solid var(--color-border-dark)' }}>
-                  <div className="font-medium text-sm mb-1" style={{ color: 'var(--color-primary)' }}>
-                    Context Management
-                  </div>
-                  <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Upload documents for RAG retrieval and test context handling
-                  </div>
-                </div>
-                <div className="p-3 rounded-lg" style={{ backgroundColor: 'white', border: '1px solid var(--color-border-dark)' }}>
-                  <div className="font-medium text-sm mb-1" style={{ color: 'var(--color-primary)' }}>
-                    Session Persistence
-                  </div>
-                  <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Conversations persist across page reloads for continued testing
-                  </div>
-                </div>
-                <div className="p-3 rounded-lg" style={{ backgroundColor: 'white', border: '1px solid var(--color-border-dark)' }}>
-                  <div className="font-medium text-sm mb-1" style={{ color: 'var(--color-primary)' }}>
-                    Token Tracking
-                  </div>
-                  <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Monitor costs, RAG context usage, and tool calls in real-time
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs mt-6" style={{ color: 'var(--color-text-muted)' }}>
-                Perfect for validating agent behavior before deploying to workflows
+              <p className="text-sm leading-relaxed">
+                Ask anything — I can help with research, analysis, coding, and more.
               </p>
             </div>
           </div>
         ) : (
-          <div className="w-full space-y-4 mx-8">
+          <div className="w-full space-y-3 mx-8">
 
           {messages.map((message, index) => (
             <div
@@ -128,21 +95,18 @@ export default function MessagesPanel({
               {/* Avatar */}
               {message.role !== 'system' && (
                 <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
                   style={{
                     backgroundColor: message.role === 'user' ? 'var(--color-primary)' : '#e5e7eb',
-                    color: message.role === 'user' ? 'white' : '#6b7280'
+                    color: message.role === 'user' ? 'white' : '#6b7280',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
                   }}
                 >
                   {message.role === 'user' ? (
-                    <User className="w-5 h-5" />
+                    <User className="w-4 h-4" />
                   ) : (
-                    <img
-                      src="/GhostPeony.png"
-                      alt="Agent"
-                      className="w-6 h-6"
-                      style={{ filter: 'grayscale(100%) brightness(0.7)' }}
-                    />
+                    'AI'
                   )}
                 </div>
               )}
@@ -164,13 +128,14 @@ export default function MessagesPanel({
                     <>
                       {/* Message Bubble */}
                       <div
-                        className={`rounded-2xl px-5 py-3 ${
+                        className={`rounded-2xl px-4 py-2.5 ${
                           message.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'
                         }`}
                         style={{
                           backgroundColor: message.role === 'user' ? 'var(--color-primary)' : 'white',
                           color: message.role === 'user' ? 'white' : 'var(--color-text-primary)',
                           boxShadow: message.role === 'assistant' ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
+                          lineHeight: '1.5',
                         }}
                       >
                         <div
@@ -354,15 +319,10 @@ export default function MessagesPanel({
           {isStreaming && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
             <div className="flex gap-4">
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
-                style={{ backgroundColor: '#e5e7eb', color: '#6b7280' }}
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
+                style={{ backgroundColor: '#e5e7eb', color: '#6b7280', fontSize: '0.75rem', fontWeight: 600 }}
               >
-                <img
-                  src="/GhostPeony.png"
-                  alt="Agent"
-                  className="w-6 h-6"
-                  style={{ filter: 'grayscale(100%) brightness(0.7)' }}
-                />
+                AI
               </div>
               <div className="flex-1">
                 <div
@@ -374,7 +334,7 @@ export default function MessagesPanel({
                 >
                   <div className="flex items-center gap-2" style={{ color: 'var(--color-text-muted)' }}>
                     <Activity className="w-4 h-4 animate-pulse" />
-                    <span className="text-sm">Agent thinking</span>
+                    <span className="text-sm">Thinking...</span>
                   </div>
                 </div>
               </div>
