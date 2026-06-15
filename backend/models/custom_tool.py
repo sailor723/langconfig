@@ -20,6 +20,7 @@ class ToolType(str, Enum):
     IMAGE_VIDEO = "image_video"
     DATABASE = "database"
     DATA_TRANSFORM = "data_transform"
+    PYTHON_FUNCTION = "python_function"
 
 
 class ToolTemplateType(str, Enum):

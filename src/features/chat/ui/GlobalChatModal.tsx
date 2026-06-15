@@ -6,13 +6,14 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
 import { useChatSession } from '../hooks/useChatSession';
 import { useChatStreaming } from '../hooks/useChatStreaming';
 import { useChatMetrics } from '../hooks/useChatMetrics';
-import ChatHeader from './ChatHeader';
-import MessagesPanel from './MessagesPanel';
 import MetricsPanel from './MetricsPanel';
+import MessagesPanel from './MessagesPanel';
+import ChatHistorySidebar from './ChatHistorySidebar';
 import type { ChatSession, ChatStreamEvent, CustomEventPayload, InterruptData } from '../types/chat';
 import apiClient from '../../../lib/api-client';
 
@@ -234,62 +235,75 @@ export default function GlobalChatModal() {
     >
       <div
         ref={modalRef}
-        className="rounded-xl shadow-2xl w-full max-w-[95vw] h-[90vh] flex flex-col overflow-hidden"
+        className="rounded-xl shadow-2xl w-full max-w-[95vw] h-[90vh] flex overflow-hidden"
         style={{
           backgroundColor: 'white',
           border: '1px solid var(--color-border-dark)',
         }}
       >
-        {/* Header with Title */}
-        <div
-          className="px-6 py-3 border-b"
-          style={{
-            backgroundColor: 'var(--color-primary)',
-            color: 'white',
-            borderColor: 'var(--color-border-dark)',
-          }}
-        >
-          <h2 className="text-lg font-semibold">Agent Chat Interface</h2>
-        </div>
+        {/* Left Sidebar - Conversation History (ChatGPT-style) */}
+        <ChatHistorySidebar onNewSession={handleNewSession} />
 
-        {/* Header */}
-        <ChatHeader
-          sessionId={currentSessionId}
-          agentName={agentName}
-          messages={messages}
-          metrics={metrics}
-          toolCalls={toolCalls}
-          subagentActivity={subagentActivity}
-          onStartSession={handleStartSession}
-          onNewSession={handleNewSession}
-          onClearHistory={clearHistory}
-          onEndSession={handleEndSession}
-        />
+        {/* Center + Right: Chat + Metrics */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Simple Header */}
+          <div
+            className="flex items-center justify-between px-5 py-3 border-b"
+            style={{ borderColor: 'var(--color-border-dark)' }}
+          >
+            <div className="flex items-center gap-3">
+              <h2
+                className="text-base font-semibold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                {agentName}
+              </h2>
+              <span
+                className="text-xs px-2 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: 'rgba(99,102,241,0.1)',
+                  color: 'var(--color-primary)',
+                }}
+              >
+                {currentSessionId ? 'Active' : 'Select an agent'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={closeChat}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title="Close (ESC)"
+              >
+                <X className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+              </button>
+            </div>
+          </div>
 
-        {/* Main Content */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Messages Panel - Left/Center */}
-          <MessagesPanel
-            messages={messages}
-            isStreaming={isStreaming}
-            error={error}
-            onSendMessage={handleSendMessage}
-            onClearError={clearError}
-            disabled={!currentSessionId}
-            sessionId={currentSessionId}
-            activeToolCalls={activeToolCalls}
-            customEvents={customEvents}
-          />
+          {/* Main Content */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Messages Panel - Center */}
+            <MessagesPanel
+              messages={messages}
+              isStreaming={isStreaming}
+              error={error}
+              onSendMessage={handleSendMessage}
+              onClearError={clearError}
+              disabled={!currentSessionId}
+              sessionId={currentSessionId}
+              activeToolCalls={activeToolCalls}
+              customEvents={customEvents}
+            />
 
-          {/* Metrics Panel - Right Sidebar */}
-          <MetricsPanel
-            metrics={metrics}
-            toolCalls={toolCalls}
-            subagentActivity={subagentActivity}
-            isLoading={isLoadingMetrics}
-            agentName={agentName}
-            sessionId={currentSessionId}
-          />
+            {/* Metrics Panel - Right Sidebar */}
+            <MetricsPanel
+              metrics={metrics}
+              toolCalls={toolCalls}
+              subagentActivity={subagentActivity}
+              isLoading={isLoadingMetrics}
+              agentName={agentName}
+              sessionId={currentSessionId}
+            />
+          </div>
         </div>
       </div>
 

@@ -30,6 +30,7 @@ const getToolIcon = (toolType: string, iconHint?: string): string => {
     'image_video': 'image',
     'database': 'storage',
     'data_transform': 'transform',
+    'python': 'code',
   };
   return iconMap[toolType] || 'extension';
 };

@@ -14,8 +14,11 @@ import {
   Share2,
   HardDrive,
   Wrench,
+  Plus,
+  Code,
 } from 'lucide-react';
 import apiClient from '../../lib/api-client';
+import CustomToolBuilder from './ui/CustomToolBuilder';
 
 interface ToolItem {
   id: string;
@@ -45,12 +48,19 @@ export default function ToolLibrary() {
   const [tools, setTools] = useState<ToolItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [customTools, setCustomTools] = useState<any[]>([]);
+  const [showBuilder, setShowBuilder] = useState(false);
 
   useEffect(() => {
     apiClient.listToolRegistry()
       .then((res: any) => setTools(Array.isArray(res) ? res : res.data || []))
       .catch(console.error)
       .finally(() => setLoading(false));
+
+    // Load custom tools
+    apiClient.get('/api/custom-tools')
+      .then((res: any) => setCustomTools(Array.isArray(res) ? res : res.data || []))
+      .catch(console.error);
   }, []);
 
   // Group by category
@@ -115,8 +125,69 @@ export default function ToolLibrary() {
           />
         </div>
 
+        {/* Custom Tools Section */}
+        {customTools.length > 0 && (
+          <section className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-primary">
+                  <Code className="w-5 h-5" />
+                </span>
+                <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                  Custom Tools
+                </h2>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700" style={{ color: 'var(--color-text-muted)' }}>
+                  {customTools.length}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowBuilder(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-primary)',
+                  color: '#fff',
+                }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Create Tool
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {customTools.map((tool: any) => (
+                <div
+                  key={tool.tool_id || tool.id}
+                  className="p-4 rounded-lg border transition-shadow hover:shadow-md"
+                  style={{
+                    backgroundColor: 'var(--color-panel-light, #fff)',
+                    borderColor: 'var(--color-border-dark, #e5e7eb)',
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                      {tool.name}
+                    </h3>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap ml-2">
+                      {tool.tool_type || 'custom'}
+                    </span>
+                  </div>
+                  <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    {tool.description}
+                  </p>
+                  <code className="text-xs px-1.5 py-0.5 rounded" style={{
+                    backgroundColor: 'var(--color-background-dark, #f3f4f6)',
+                    color: 'var(--color-text-secondary, #6b7280)',
+                    fontFamily: 'monospace',
+                  }}>
+                    {tool.tool_id || tool.id}
+                  </code>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Categories */}
-        {Object.entries(filteredGroups).length === 0 ? (
+        {Object.entries(filteredGroups).length === 0 && customTools.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-lg" style={{ color: 'var(--color-text-muted)' }}>
               {searchQuery ? `No tools matching "${searchQuery}"` : 'No tools found'}
@@ -185,6 +256,15 @@ export default function ToolLibrary() {
           ))
         )}
       </div>
+
+      {/* Custom Tool Builder Modal */}
+      {showBuilder && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-10 pb-10 overflow-y-auto" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="relative w-full max-w-3xl mx-4 rounded-xl overflow-hidden shadow-2xl" style={{ backgroundColor: 'var(--color-background-light, #fff)' }}>
+            <CustomToolBuilder onClose={() => { setShowBuilder(false); window.location.reload(); }} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

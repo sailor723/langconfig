@@ -7,7 +7,7 @@
 
 // TypeScript interfaces for Custom Tools feature
 
-export type ToolType = 'api' | 'notification' | 'image_video' | 'database' | 'data_transform';
+export type ToolType = 'api' | 'notification' | 'image_video' | 'database' | 'data_transform' | 'python_function';
 
 export type ToolTemplateType =
   | 'slack_notification'

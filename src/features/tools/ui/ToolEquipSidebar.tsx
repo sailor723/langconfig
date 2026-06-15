@@ -90,6 +90,7 @@ const ToolEquipSidebar = ({ slotType, onEquip, onClose }: ToolEquipSidebarProps)
       image_video: 'image',
       database: 'storage',
       data_transform: 'transform',
+      python_function: 'code',
     };
     return icons[toolType] || 'build';
   };
