@@ -562,3 +562,188 @@ select {
     transform: scale(1.02);
   }
 }
+
+/* =============================================================================
+   Claude (Warm) Theme - Warm, minimal Claude-inspired aesthetic
+   ============================================================================= */
+
+[data-theme="claude"] {
+  /* Base background */
+  background-color: #F7F4F0;
+  color: #1C1917;
+}
+
+[data-theme="claude"] body {
+  background-color: #F7F4F0;
+}
+
+[data-theme="claude"] .fixed.inset-0.z-50 {
+  background-color: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Header styling */
+[data-theme="claude"] header {
+  background-color: #EDE9E3 !important;
+  border-bottom: 1px solid #DED7CE;
+}
+[data-theme="claude"] header img[alt="LangConfig"] {
+  filter: brightness(0.3) !important;  /* Darken logo for light header */
+}
+
+/* Sidebar / Panels - warm edges */
+[data-theme="claude"] [style*="background-color: var(--color-panel"],
+[data-theme="claude"] [class*="panel"],
+[data-theme="claude"] .rounded-xl,
+[data-theme="claude"] .rounded-lg {
+  background-color: #FCFAF7;
+}
+
+/* Claude-style Chat Modal */
+[data-theme="claude"] .fixed.inset-0.z-50 > .rounded-xl {
+  background-color: #F7F4F0 !important;
+  border: 1px solid #DED7CE;
+  box-shadow: none;
+}
+
+/* Message styling - Claude signature white bubbles */
+[data-theme="claude"] [class*="rounded-2xl"][style*="background-color: white"],
+[data-theme="claude"] div[style*="box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05)"] {
+  background-color: #FFFFFF !important;
+  border: 1px solid #E2DDD6;
+  box-shadow: none !important;
+  border-radius: 12px;
+}
+
+/* User messages - warm brown (not black) */
+[data-theme="claude"] div[style*="background-color: var(--color-primary)"] {
+  border: none !important;
+  background-color: #6B5C4F !important;  /* Warm brown for user messages */
+}
+
+/* Input area */
+[data-theme="claude"] textarea,
+[data-theme="claude"] input[type="text"],
+[data-theme="claude"] [class*="border-gray-300"] {
+  border-color: #DED7CE !important;
+  background-color: #FFFFFF !important;
+}
+
+[data-theme="claude"] textarea:focus,
+[data-theme="claude"] input:focus {
+  border-color: #C27D3F !important;
+  box-shadow: 0 0 0 2px rgba(194, 125, 63, 0.15) !important;
+  outline: none !important;
+}
+
+/* Buttons - warm accent */
+[data-theme="claude"] button[style*="background-color: var(--color-primary)"] {
+  background-color: #C27D3F !important;
+}
+
+[data-theme="claude"] button:hover {
+  transition: all 0.15s ease;
+}
+
+/* Links - warm brown */
+[data-theme="claude"] a,
+[data-theme="claude"] [style*="color: var(--color-primary)"] {
+  color: #C27D3F !important;
+}
+
+/* Active sidebar item - warm highlight */
+[data-theme="claude"] button[style*="background-color: var(--color-primary)"] {
+  background-color: #C27D3F !important;
+}
+
+/* Scrollbar - subtle */
+[data-theme="claude"] ::-webkit-scrollbar-thumb {
+  background: #DED7CE !important;
+  border-radius: 8px;
+}
+
+[data-theme="claude"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Metrics panel */
+[data-theme="claude"] [style*="border-left"] {
+  border-left-color: #DED7CE !important;
+}
+
+/* Select / dropdown */
+[data-theme="claude"] select,
+[data-theme="claude"] [role="listbox"] {
+  border-color: #DED7CE;
+  background-color: #FFFFFF;
+}
+
+/* All dividers: softer warm gray */
+[data-theme="claude"] [style*="border-bottom"],
+[data-theme="claude"] [style*="border-top"],
+[data-theme="claude"] [class*="border-b"],
+[data-theme="claude"] [class*="border-t"] {
+  border-color: #EDE9E3 !important;
+}
+
+/* Search/input placeholder */
+[data-theme="claude"] input::placeholder,
+[data-theme="claude"] textarea::placeholder {
+  color: #B5ADA3 !important;
+  opacity: 1;
+}
+
+/* Message copy button */
+[data-theme="claude"] button[title="Copy message"]:hover {
+  background-color: #EDE9E3 !important;
+}
+
+/* Header / title text - ensure readability */
+[data-theme="claude"] h2,
+[data-theme="claude"] h3,
+[data-theme="claude"] h4,
+[data-theme="claude"] .text-lg,
+[data-theme="claude"] .text-base.font-semibold,
+[data-theme="claude"] span[class*="font-semibold"] {
+  color: #1C1917 !important;
+}
+
+/* ModernHeader nav buttons - dark text on warm amber bg */
+[data-theme="claude"] header button:not([style*="background-color"]),
+[data-theme="claude"] header .text-white\/90,
+[data-theme="claude"] header button .material-symbols-outlined {
+  color: #4A3F35 !important;
+  text-shadow: none !important;
+}
+[data-theme="claude"] header button:hover {
+  color: #1C1917 !important;
+  background-color: rgba(0,0,0,0.06) !important;
+}
+[data-theme="claude"] header .bg-white\/30 {
+  background-color: rgba(0,0,0,0.08) !important;
+  border-color: rgba(0,0,0,0.12) !important;
+}
+[data-theme="claude"] header .bg-white\/30.text-white,
+[data-theme="claude"] header .bg-white\/30 .material-symbols-outlined {
+  color: #1C1917 !important;
+}
+
+/* Sidebar History header - too light with text-muted */
+[data-theme="claude"] .text-sm.font-semibold.tracking-wide.uppercase {
+  color: #6B5C4F !important;
+}
+
+/* Active session in sidebar - white text on primary bg */
+[data-theme="claude"] button[style*="background-color: var(--color-primary)"] .truncate,
+[data-theme="claude"] button[style*="background-color: var(--color-primary)"] .text-xs {
+  color: #FFFFFF !important;
+}
+
+/* Agent name in chat header */
+[data-theme="claude"] .flex.items-center.gap-3 h2 {
+  color: #1C1917 !important;
+}
+
+/* Sidebar session text */
+[data-theme="claude"] .text-sm.font-medium.truncate {
+  color: #1C1917 !important;
+}

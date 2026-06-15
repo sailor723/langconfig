@@ -954,6 +954,74 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
             </div>
           </div>
         )}
+
+        {/* Python Function Tool Config */}
+        {toolType === 'python_function' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                Function Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={implementationConfig.function_name || 'my_function'}
+                onChange={(e) => setImplementationConfig({ ...implementationConfig, function_name: e.target.value })}
+                placeholder="my_function"
+                className="w-full px-4 py-2 rounded-lg border text-sm font-mono"
+                style={{
+                  backgroundColor: 'var(--color-input-background)',
+                  borderColor: 'var(--color-border-dark)',
+                  color: 'var(--color-text-primary)'
+                }}
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                The Python function name the agent will call
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                Python Code <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={implementationConfig.code || ''}
+                onChange={(e) => setImplementationConfig({ ...implementationConfig, code: e.target.value })}
+                placeholder="def my_function(a: float, b: float) -> float:"
+                rows={10}
+                className="w-full px-4 py-3 rounded-lg border text-sm font-mono leading-relaxed"
+                style={{
+                  backgroundColor: 'var(--color-input-background)',
+                  borderColor: 'var(--color-border-dark)',
+                  color: 'var(--color-text-primary)',
+                  fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
+                  fontSize: '13px',
+                  lineHeight: '1.5',
+                }}
+                spellCheck={false}
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                Write the full function definition with type hints. <code>math</code> and <code>json</code> modules are pre-imported.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-lg" style={{
+              backgroundColor: 'rgba(34, 197, 94, 0.1)',
+              border: '1px solid rgba(34, 197, 94, 0.2)'
+            }}>
+              <p className="text-xs font-medium mb-1" style={{ color: 'rgb(34, 197, 94)' }}>
+                🐍 Example
+              </p>
+              <pre className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>
+{`def add(a: float, b: float) -> float:
+    """Add two numbers."""
+    return a + b`}
+              </pre>
+<p className="text-xs mt-2" style={{ color: 'var(--color-text-muted)' }}>
+  Then in Input Schema below, add params <strong>a</strong> and <strong>b</strong> (type: number).
+</p>
+            </div>
+          </div>
+        )}
       </div>
     );
   };

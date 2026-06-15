@@ -213,6 +213,8 @@ class ToolFactory:
             return await ToolFactory._create_database_tool(tool_config, project_id)
         elif tool_type == ToolTypes.DATA_TRANSFORM:
             return await ToolFactory._create_data_transform_tool(tool_config, project_id)
+        elif tool_type == ToolTypes.PYTHON_FUNCTION or tool_type == "python_function":
+            return await ToolFactory._create_python_function_tool(tool_config, project_id)
         else:
             raise NotImplementedError(f"Tool type '{tool_type}' is not yet implemented")
 
@@ -2265,3 +2267,83 @@ class ToolFactory:
         else:
             element.text = str(data)
         return element
+
+    @staticmethod
+    async def _create_python_function_tool(
+        tool_config: Dict[str, Any],
+        project_id: Optional[int]
+    ) -> BaseTool:
+        """Create a Python Function tool that executes user-defined Python code.
+
+        The tool's implementation_config should contain:
+        - code: Python code string (a function definition)
+        - function_name: name of the function to call
+        - args_schema: JSON schema for arguments
+        """
+        impl_config = tool_config["implementation_config"]
+        code_str = impl_config.get("code", "")
+        function_name = impl_config.get("function_name", "run")
+        args_schema = impl_config.get("args_schema", {})
+
+        logger.info(f"Creating python_function tool: {tool_config['name']} (fn={function_name})")
+
+        # Dynamically execute the function code
+        local_ns = {}
+        try:
+            exec(code_str, {"math": __import__("math"), "json": json, "typing": __import__("typing")}, local_ns)
+        except Exception as e:
+            raise ValueError(f"Failed to compile Python function '{function_name}': {e}")
+
+        if function_name not in local_ns:
+            raise ValueError(
+                f"Function '{function_name}' not found in provided code. "
+                f"Available: {list(local_ns.keys())}"
+            )
+
+        fn = local_ns[function_name]
+
+        async def _run(**kwargs) -> str:
+            """Execute the user-defined Python function."""
+            try:
+                result = fn(**kwargs)
+                if asyncio.iscoroutine(result):
+                    result = await result
+                return str(result)
+            except Exception as e:
+                return f"❌ Error: {e}"
+
+        # Build args schema
+        schema_fields = {}
+        arg_descriptions = {}
+        if args_schema:
+            for arg_name, arg_info in args_schema.items():
+                if isinstance(arg_info, dict):
+                    arg_type = arg_info.get("type", "str")
+                    arg_descriptions[arg_name] = arg_info.get("description", "")
+                else:
+                    arg_type = arg_info
+                type_map = {
+                    "float": (float, ...), "int": (int, ...), "str": (str, ...),
+                    "bool": (bool, ...), "number": (float, ...), "integer": (int, ...),
+                    "string": (str, ...), "boolean": (bool, ...),
+                }
+                schema_fields[arg_name] = type_map.get(arg_type, (str, ...))
+            InputModel = create_model(f"{function_name}_input", **schema_fields)
+        else:
+            InputModel = None
+
+        if InputModel:
+            tool_instance = StructuredTool.from_function(
+                func=_run,
+                name=tool_config["name"],
+                description=tool_config.get("description") or tool_config["name"],
+                args_schema=InputModel,
+            )
+        else:
+            tool_instance = StructuredTool.from_function(
+                func=_run,
+                name=tool_config["name"],
+                description=tool_config.get("description") or tool_config["name"],
+            )
+
+        return tool_instance

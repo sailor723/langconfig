@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-export type ThemeName = 'langconfig' | 'dark' | 'light' | 'midnight' | 'ocean' | 'forest' | 'botanical' | 'godspeed' | 'cream' | 'cream-peach';
+export type ThemeName = 'langconfig' | 'dark' | 'light' | 'midnight' | 'ocean' | 'forest' | 'botanical' | 'godspeed' | 'cream' | 'cream-peach' | 'claude';
 
 export interface Theme {
   name: ThemeName;
@@ -207,6 +207,24 @@ export const themes: Record<ThemeName, Theme> = {
       nodeBackground: '#F5EFE7',
       nodeBackgroundLight: '#E8DCC8',
       categoryBackground: '#E8B896', // Peachy-terracotta accent for categories
+    },
+  },
+  claude: {
+    name: 'claude',
+    displayName: 'Claude (Warm)',
+    colors: {
+      primary: '#C27D3F', // Warm amber/orange accent
+      backgroundLight: '#F7F4F0', // Warm off-white background
+      backgroundDark: '#EDE9E3', // Warm gray sidebar
+      panelDark: '#FCFAF7', // Warm white panels
+      borderDark: '#DED7CE', // Warm taupe borders
+      textMuted: '#8C8378', // Warm gray muted text
+      textPrimary: '#1C1917', // Warm near-black
+      inputBackground: '#FFFFFF', // White inputs
+      logoBackground: '#F7F4F0', // Match background
+      nodeBackground: '#EDE9E3',
+      nodeBackgroundLight: '#DED7CE',
+      categoryBackground: '#EDE9E3',
     },
   },
 };
