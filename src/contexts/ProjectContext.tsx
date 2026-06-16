@@ -15,6 +15,7 @@ interface Project {
   status: string;
   created_at: string;
   updated_at: string;
+  project_path?: string;
 }
 
 interface ProjectContextType {
@@ -23,6 +24,7 @@ interface ProjectContextType {
   projects: Project[];
   setActiveProjectId: (id: number) => void;
   refreshProjects: () => Promise<void>;
+  updateProject: (id: number, data: Partial<Project>) => Promise<void>;
   loading: boolean;
 }
 
@@ -66,6 +68,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('activeProjectId', id.toString());
   };
 
+  const updateProject = async (id: number, data: Partial<Project>) => {
+    await apiClient.updateProject(id, data);
+    await refreshProjects();
+  };
+
   const activeProject = projects.find(p => p.id === activeProjectId) || null;
 
   return (
@@ -76,6 +83,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         projects,
         setActiveProjectId,
         refreshProjects,
+        updateProject,
         loading,
       }}
     >
