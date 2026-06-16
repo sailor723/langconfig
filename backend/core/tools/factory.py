@@ -68,6 +68,7 @@ class ToolTypes:
     IMAGE_VIDEO = "image_video"
     DATABASE = "database"
     DATA_TRANSFORM = "data_transform"
+    PYTHON_FUNCTION = "python_function"
 
 
 # =============================================================================
@@ -2334,14 +2335,14 @@ class ToolFactory:
 
         if InputModel:
             tool_instance = StructuredTool.from_function(
-                func=_run,
+                coroutine=_run,
                 name=tool_config["name"],
                 description=tool_config.get("description") or tool_config["name"],
                 args_schema=InputModel,
             )
         else:
             tool_instance = StructuredTool.from_function(
-                func=_run,
+                coroutine=_run,
                 name=tool_config["name"],
                 description=tool_config.get("description") or tool_config["name"],
             )

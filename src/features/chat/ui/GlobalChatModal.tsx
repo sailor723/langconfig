@@ -15,7 +15,7 @@ import MetricsPanel from './MetricsPanel';
 import MessagesPanel from './MessagesPanel';
 import ChatHistorySidebar from './ChatHistorySidebar';
 import AgentSelector from './AgentSelector';
-import type { ChatSession, ChatStreamEvent, CustomEventPayload, InterruptData } from '../types/chat';
+import type { ChatSession, ChatStreamEvent, CustomEventPayload, InterruptData, ToolCall } from '../types/chat';
 import type { ThinkingStep } from './ThinkingBlock';
 import apiClient from '../../../lib/api-client';
 
@@ -33,7 +33,7 @@ export default function GlobalChatModal() {
   } = useChat();
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const [activeToolCalls, setActiveToolCalls] = useState<string[]>([]);
+  const [activeToolCalls, setActiveToolCalls] = useState<ToolCall[]>([]);
   const [customEvents, setCustomEvents] = useState<Map<string, CustomEventPayload>>(new Map());
   const [thinkingTraces, setThinkingTraces] = useState<ThinkingStep[][]>([]);
   const tracesRef = useRef<ThinkingStep[]>([]);  // collect events during streaming
@@ -157,10 +157,20 @@ export default function GlobalChatModal() {
       (event: ChatStreamEvent) => {
         // Handle tool events
         if (event.type === 'tool_start' && event.tool_name) {
-          setActiveToolCalls(prev => [...prev, event.tool_name!]);
+          setActiveToolCalls(prev => [...prev, {
+            tool_name: event.tool_name!,
+            arguments: event.data?.input || event.data?.args || {},
+            result: '',
+            timestamp: new Date().toISOString(),
+            status: 'running'
+          }]);
           tracesRef.current = [...tracesRef.current, { type: 'tool_start', tool_name: event.tool_name, data: event.data }];
         } else if (event.type === 'tool_end' && event.tool_name) {
-          setActiveToolCalls(prev => prev.filter(t => t !== event.tool_name));
+          setActiveToolCalls(prev => prev.map(t =>
+            t.tool_name === event.tool_name && t.status === 'running'
+              ? { ...t, status: 'completed', result: event.data?.output || '' }
+              : t
+          ));
           tracesRef.current = [...tracesRef.current, { type: 'tool_end', tool_name: event.tool_name, data: event.data }];
         }
       },
@@ -329,6 +339,7 @@ export default function GlobalChatModal() {
             <MetricsPanel
               metrics={metrics}
               toolCalls={toolCalls}
+              activeToolCalls={activeToolCalls}
               subagentActivity={subagentActivity}
               isLoading={isLoadingMetrics}
               agentName={agentName}

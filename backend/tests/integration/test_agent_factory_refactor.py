@@ -67,7 +67,7 @@ def complex_agent_config():
         "temperature": 0.5,
         "max_tokens": 8192,
         "system_prompt": "You are an advanced AI assistant with multiple capabilities.",
-        "native_tools": ["web_search", "calculator", "file_read"],
+        "native_tools": ["web_search", "file_read"],
         "cli_tools": ["git"],
         "custom_tools": [],
         "streaming": True,
@@ -379,7 +379,7 @@ class TestWorkflowIntegration:
         """Test agent creation with multiple tools for parallel execution."""
         config = {
             "model": "claude-haiku-4-5-20251015",
-            "native_tools": ["web_search", "calculator", "file_read"],
+            "native_tools": ["web_search", "file_read"],
             "enable_parallel_tools": True,
             "streaming": True,
         }
