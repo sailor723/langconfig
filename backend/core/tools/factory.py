@@ -2291,7 +2291,18 @@ class ToolFactory:
         # Dynamically execute the function code
         local_ns = {}
         try:
-            exec(code_str, {"math": __import__("math"), "json": json, "typing": __import__("typing")}, local_ns)
+            exec(code_str, {
+                "__builtins__": __builtins__,
+                "math": __import__("math"),
+                "json": json,
+                "typing": __import__("typing"),
+                "os": __import__("os"),
+                "re": __import__("re"),
+                "collections": __import__("collections"),
+                "datetime": __import__("datetime"),
+                "pathlib": __import__("pathlib"),
+                "io": __import__("io"),
+            }, local_ns)
         except Exception as e:
             raise ValueError(f"Failed to compile Python function '{function_name}': {e}")
 

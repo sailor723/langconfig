@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { AlertCircle, Play, Save, X, Settings, FileCode, TestTube, Eye, ArrowLeft, Check } from 'lucide-react';
+import { AlertCircle, Play, Save, X, Settings, FileCode, TestTube, Eye, ArrowLeft, Check, Trash2 } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 import CollapsibleSection from '../../../components/ui/CollapsibleSection';
 import ToolTemplateGallery from './ToolTemplateGallery';
@@ -94,9 +94,19 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
     warnings?: string[];
     suggested_code?: string;
     explanation?: string;
+    parsed_schema?: {
+      type: string;
+      properties: Record<string, { type: string; description: string }>;
+      required: string[];
+    };
   } | null>(null);
   const [showSuggestedFix, setShowSuggestedFix] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // AI Code Generation
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [showAiPrompt, setShowAiPrompt] = useState(false);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -221,6 +231,16 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
         auto_fix: true,
       });
       setVerifyResult(resp.data);
+
+      // Auto-fill Input Schema from parsed_schema (code is the source of truth)
+      const parsed = resp.data?.parsed_schema;
+      if (parsed && parsed.properties && Object.keys(parsed.properties).length > 0) {
+        setInputSchema({
+          type: 'object',
+          properties: parsed.properties as Record<string, { type: string; description: string }>,
+          required: parsed.required as string[],
+        });
+      }
     } catch (err: any) {
       console.error('Code verification failed:', err);
       setVerifyResult({
@@ -229,6 +249,56 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
       });
     } finally {
       setVerifying(false);
+    }
+  };
+
+  // Generate code from natural language via AI
+  const handleGenerateCode = async () => {
+    if (!aiPrompt.trim() || !implementationConfig.function_name) {
+      alert('Please enter a prompt and set a Function Name first');
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const resp = await apiClient.generateCustomToolCode({
+        prompt: aiPrompt.trim(),
+        function_name: implementationConfig.function_name,
+        description,
+      });
+      const data = resp.data;
+
+      if (data.code) {
+        // Fill the code editor
+        setImplementationConfig({ ...implementationConfig, code: data.code });
+
+        // Auto-fill Input Schema from generated code
+        if (data.parsed_schema?.properties && Object.keys(data.parsed_schema.properties).length > 0) {
+          setInputSchema({
+            type: 'object',
+            properties: data.parsed_schema.properties as Record<string, { type: string; description: string }>,
+            required: data.parsed_schema.required as string[],
+          });
+        }
+
+        // Show the explanation
+        if (data.explanation) {
+          setVerifyResult({
+            is_valid: data.is_valid,
+            errors: data.errors || [],
+            explanation: data.explanation,
+          });
+        }
+
+        // Hide the prompt input after successful generation
+        setShowAiPrompt(false);
+        setAiPrompt('');
+      }
+    } catch (err: any) {
+      console.error('Code generation failed:', err);
+      alert('Failed to generate code: ' + (err?.response?.data?.detail || err.message));
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -422,6 +492,26 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
     }
   };
 
+  // Delete the current tool
+  const handleDelete = async () => {
+    if (!existingToolId) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the tool "${toolId}"?\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setSaving(true);
+      await apiClient.deleteCustomTool(existingToolId);
+      onClose();
+    } catch (error: any) {
+      console.error('[CustomToolBuilder] Delete failed:', error);
+      alert('❌ Delete failed: ' + (error?.response?.data?.detail || error.message));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const renderAllSections = () => {
     return (
@@ -1033,6 +1123,76 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
               <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                 The Python function name the agent will call
               </p>
+            </div>
+
+            {/* AI Code Generation prompt */}
+            <div className="p-3 rounded-lg" style={{
+              backgroundColor: 'rgba(139, 92, 246, 0.08)',
+              border: '1px solid rgba(139, 92, 246, 0.2)'
+            }}>
+              {!showAiPrompt ? (
+                <button
+                  onClick={() => setShowAiPrompt(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: 'rgba(139, 92, 246, 0.12)',
+                    color: 'rgb(139, 92, 246)',
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Generate with AI
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium" style={{ color: 'rgb(139, 92, 246)' }}>
+                    Describe what the tool should do
+                  </label>
+                  <textarea
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="e.g., A function that takes a city name and returns the current weather using httpx"
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{
+                      backgroundColor: 'var(--color-input-background)',
+                      borderColor: 'var(--color-border-dark)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleGenerateCode}
+                      disabled={generating || !aiPrompt.trim()}
+                      className="px-3 py-1.5 text-xs rounded-lg flex items-center gap-1.5 transition-colors"
+                      style={{
+                        backgroundColor: generating ? 'var(--color-background-dark)' : 'rgb(139, 92, 246)',
+                        color: generating ? 'var(--color-text-muted)' : 'white',
+                      }}
+                    >
+                      {generating ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+                          Generating...
+                        </>
+                      ) : (
+                        'Generate'
+                      )}
+                    </button>
+                    <button
+                      onClick={() => { setShowAiPrompt(false); setAiPrompt(''); }}
+                      className="px-3 py-1.5 text-xs rounded-lg"
+                      style={{
+                        backgroundColor: 'var(--color-background-dark)',
+                        color: 'var(--color-text-muted)',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div>
@@ -1980,6 +2140,22 @@ ${toolId}_tool = StructuredTool.from_function(
                     </>
                   )}
                 </button>
+
+                {existingToolId && (
+                  <button
+                    onClick={handleDelete}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                      color: 'rgb(220, 38, 38)',
+                      border: '1px solid rgba(220, 38, 38, 0.3)',
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                )}
               </div>
             </>
           )}
