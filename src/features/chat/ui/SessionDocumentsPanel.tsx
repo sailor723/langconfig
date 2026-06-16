@@ -83,8 +83,7 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey = 0 }: Ses
 
   return (
     <div
-      className="border-t px-4 py-1.5"
-      style={{ borderColor: 'var(--color-border-dark)' }}
+      className="px-4 pt-2 pb-1"
     >
       <h3
         className="text-xs font-semibold mb-1.5"

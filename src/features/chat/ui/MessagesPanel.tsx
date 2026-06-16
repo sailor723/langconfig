@@ -520,8 +520,7 @@ export default function MessagesPanel({
 
       {/* Input Area */}
       <div
-        className="p-4 border-t"
-        style={{ borderColor: 'var(--color-border-dark)' }}
+        className="p-4"
       >
         <MessageInput
           onSendMessage={onSendMessage}
