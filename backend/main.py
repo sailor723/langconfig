@@ -121,6 +121,46 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"File watcher service failed to start: {e}. File triggers will not work.")
 
+    # Auto-test all saved API key connections on startup
+    try:
+        from db.database import SessionLocal
+        from models.settings import Settings
+        from sqlalchemy.orm.attributes import flag_modified
+        from services.encryption import encryption_service
+        from api.system.settings import _test_provider_connection, CHAT_PROVIDERS, CONNECTION_STATUS_KEY
+
+        db = SessionLocal()
+        settings = db.query(Settings).first()
+        if settings and settings.api_keys:
+            api_keys = settings.api_keys
+            connection_status = dict(api_keys.get(CONNECTION_STATUS_KEY, {}))
+            tested = 0
+            for provider in CHAT_PROVIDERS:
+                encrypted_key = api_keys.get(provider)
+                if not encrypted_key:
+                    continue
+                key = encryption_service.decrypt(encrypted_key)
+                if not key:
+                    continue
+                base_url_extra = encryption_service.decrypt(api_keys.get("agnes_base_url")) if provider == "agnes" else None
+                result = _test_provider_connection(provider, key, base_url_extra)
+                connection_status[provider] = result
+                tested += 1
+                if result["success"]:
+                    logger.info(f"  ✓ {provider} connected ({result['message']})")
+                else:
+                    logger.warning(f"  ✗ {provider} failed ({result['message']})")
+
+            if tested > 0:
+                api_keys[CONNECTION_STATUS_KEY] = connection_status
+                settings.api_keys = api_keys
+                flag_modified(settings, "api_keys")
+                db.commit()
+                logger.info(f"Auto-tested {tested} API key(s) on startup")
+        db.close()
+    except Exception as e:
+        logger.warning(f"Failed to auto-test API keys on startup: {e}")
+
     logger.info("LangConfig API startup complete")
 
     yield  # Server is running
