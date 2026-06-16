@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Plus, Edit, Play, Trash2, Copy, Download, Upload, AlertCircle, X } from 'lucide-react';
 import apiClient from '../../../lib/api-client';
 import CustomToolBuilder from './CustomToolBuilder';
@@ -13,6 +14,7 @@ import type { CustomTool } from '@/types/customTools';
 import type { ChangeEvent } from 'react';
 
 const ToolLibrary = () => {
+  const { t } = useTranslation('chat');
   const [tools, setTools] = useState<CustomTool[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -260,7 +262,7 @@ const ToolLibrary = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2" size={18} style={{ color: 'var(--color-text-muted)' }} />
             <input
               type="text"
-              placeholder="Search tools by name, description, or tags..."
+              placeholder={t('tool_library_search')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:border-transparent"
@@ -304,12 +306,12 @@ const ToolLibrary = () => {
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <AlertCircle size={48} style={{ color: 'var(--color-text-muted)' }} className="mb-4" />
             <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-              {searchQuery || selectedCategory !== 'all' ? 'No tools found' : 'No tools yet'}
+              {searchQuery || selectedCategory !== 'all' ? t('tool_library_no_results') : t('tool_library_empty')}
             </h3>
             <p className="mb-4" style={{ color: 'var(--color-text-muted)' }}>
               {searchQuery || selectedCategory !== 'all'
-                ? 'Try adjusting your search or filter'
-                : 'Create your first custom tool to get started'}
+                ? t('tool_library_try_adjust')
+                : t('tool_library_get_started')}
             </p>
             {!searchQuery && selectedCategory === 'all' && (
               <button
@@ -323,7 +325,7 @@ const ToolLibrary = () => {
                 onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
               >
                 <Plus size={20} />
-                Create Your First Tool
+                {t('tool_library_get_started')}
               </button>
             )}
           </div>
@@ -345,7 +347,7 @@ const ToolLibrary = () => {
                 {deleteConfirm === tool.tool_id && (
                   <div className="absolute inset-0 bg-red-500 bg-opacity-95 rounded-lg flex flex-col items-center justify-center z-10 p-4">
                     <AlertCircle size={32} className="text-white mb-2" />
-                    <p className="text-white font-semibold mb-4 text-center">Delete this tool?</p>
+                    <p className="text-white font-semibold mb-4 text-center">{t('tool_library_delete_title')}</p>
                     <div className="flex gap-3">
                       <button
                         onClick={() => handleDelete(tool.tool_id)}
@@ -422,31 +424,30 @@ const ToolLibrary = () => {
                     }}
                     className="flex-1 px-3 py-2 rounded flex items-center justify-center gap-1 text-sm transition-opacity"
                     style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}
-                    title="Edit"
+                    title={t('tool_library_edit')}
                     onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
                     onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                   >
                     <Edit size={14} />
-                    Edit
+                    {t('tool_library_edit')}
                   </button>
                   <button
                     onClick={() => {
                       setTestingTool(tool);
-                      setShowTestModal(true);
                       setTestInput(JSON.stringify(tool.input_schema, null, 2));
                       setTestResult(null);
                     }}
                     className="flex-1 px-3 py-2 bg-green-50 dark:bg-green-900 text-green-600 dark:text-green-300 rounded hover:bg-green-100 dark:hover:bg-green-800 flex items-center justify-center gap-1 text-sm"
-                    title="Test"
+                    title={t('tool_library_test')}
                   >
                     <Play size={14} />
-                    Test
+                    {t('tool_library_test')}
                   </button>
                   <button
                     onClick={() => handleDuplicate(tool)}
                     className="px-3 py-2 rounded transition-opacity"
                     style={{ backgroundColor: 'var(--color-background-dark)', color: 'var(--color-text-muted)' }}
-                    title="Duplicate"
+                    title={t('tool_library_duplicate')}
                     onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
                     onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                   >
@@ -456,7 +457,7 @@ const ToolLibrary = () => {
                     onClick={() => handleExport(tool.tool_id, tool.name)}
                     className="px-3 py-2 rounded transition-opacity"
                     style={{ backgroundColor: 'var(--color-background-dark)', color: 'var(--color-text-muted)' }}
-                    title="Export"
+                    title={t('tool_library_export')}
                     onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
                     onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                   >
@@ -465,7 +466,7 @@ const ToolLibrary = () => {
                   <button
                     onClick={() => setDeleteConfirm(tool.tool_id)}
                     className="px-3 py-2 bg-red-50 dark:bg-red-900 text-red-600 dark:text-red-300 rounded hover:bg-red-100 dark:hover:bg-red-800"
-                    title="Delete"
+                    title={t('tool_library_delete')}
                   >
                     <Trash2 size={14} />
                   </button>
