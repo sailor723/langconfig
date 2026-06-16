@@ -11,7 +11,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { ChatMessage, SessionDocument, CustomEventPayload } from '../types/chat';
+import type { ChatMessage, SessionDocument, CustomEventPayload, ToolCall } from '../types/chat';
 import MessageInput from './MessageInput';
 import SessionDocumentsPanel from './SessionDocumentsPanel';
 import ThinkingBlock from './ThinkingBlock';
@@ -28,7 +28,7 @@ interface MessagesPanelProps {
   onClearError: () => void;
   disabled?: boolean;
   sessionId?: string | null;
-  activeToolCalls?: string[];
+  activeToolCalls?: ToolCall[];
   customEvents?: Map<string, CustomEventPayload>;
   thinkingTraces?: ThinkingStep[][];
 }
@@ -382,11 +382,11 @@ export default function MessagesPanel({
                           key={idx}
                           className="text-xs px-2 py-1 rounded"
                           style={{
-                            backgroundColor: 'var(--color-primary)',
+                            backgroundColor: '#8B4513',
                             color: 'white'
                           }}
                         >
-                          {tool}
+                          {tool.tool_name}{tool.status === 'running' ? '...' : ''}
                         </span>
                       ))}
                     </div>

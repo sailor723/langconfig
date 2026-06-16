@@ -61,6 +61,7 @@ export interface ToolCall {
   arguments: Record<string, any>;
   result: string;
   timestamp: string;
+  status?: 'running' | 'completed';
 }
 
 export interface SubAgentActivity {

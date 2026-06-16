@@ -12,6 +12,7 @@ import type { SessionMetrics, ToolCall, SubAgentActivity } from '../types/chat';
 interface MetricsPanelProps {
   metrics: SessionMetrics;
   toolCalls: ToolCall[];
+  activeToolCalls?: ToolCall[];
   subagentActivity: SubAgentActivity[];
   isLoading: boolean;
   agentName?: string;
@@ -21,6 +22,7 @@ interface MetricsPanelProps {
 export default function MetricsPanel({
   metrics,
   toolCalls,
+  activeToolCalls = [],
   subagentActivity,
   isLoading,
   agentName,
@@ -132,8 +134,8 @@ export default function MetricsPanel({
         )}
       </div>
 
-      {/* Tool Calls */}
-      {toolCalls.length > 0 && (
+      {/* Tool Calls - show both active (streaming) and completed (from API) */}
+      {(activeToolCalls.length > 0 || toolCalls.length > 0) && (
         <div
           className="border-t"
           style={{ borderColor: 'var(--color-border-dark)' }}
@@ -148,7 +150,7 @@ export default function MetricsPanel({
                 className="text-xs font-semibold uppercase tracking-wide"
                 style={{ color: 'var(--color-text-primary)' }}
               >
-                Tool Calls ({toolCalls.length})
+                Tool Calls ({toolCalls.length + activeToolCalls.filter(t => t.status === 'running').length})
               </h3>
             </div>
             {toolCallsExpanded ? (
@@ -160,6 +162,36 @@ export default function MetricsPanel({
 
           {toolCallsExpanded && (
             <div className="px-3 pb-3 space-y-1.5">
+              {/* Active (streaming) tool calls first */}
+              {activeToolCalls.filter(t => t.status === 'running').slice(-5).reverse().map((call, index) => (
+                <div
+                  key={`active-${index}`}
+                  className="p-2 rounded border border-blue-300"
+                  style={{
+                    backgroundColor: '#eff6ff',
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-3 h-3 text-blue-500 animate-pulse" />
+                    <span
+                      className="font-mono text-xs font-semibold text-blue-600"
+                    >
+                      {call.tool_name}
+                    </span>
+                  </div>
+                  {call.arguments && Object.keys(call.arguments).length > 0 && (
+                    <div className="text-xs text-gray-500 mt-1 truncate" title={JSON.stringify(call.arguments)}>
+                      {JSON.stringify(call.arguments)}
+                    </div>
+                  )}
+                  <div
+                    className="text-xs mt-0.5 text-gray-400"
+                  >
+                    running...
+                  </div>
+                </div>
+              ))}
+              {/* Completed tool calls from API */}
               {toolCalls.slice(-10).reverse().map((call, index) => (
                 <div
                   key={index}

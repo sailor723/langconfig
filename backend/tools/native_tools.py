@@ -102,7 +102,6 @@ TOOL_NAME_MAP = {
 
     # Data analysis tools
     "save_analysis_result": "save_analysis_result",
-
     # Skill management tools
     "create_skill": "create_skill",
     "update_skill": "update_skill",
