@@ -127,10 +127,10 @@ class LangChainRequirements:
             if field_name not in tool_config:
                 result.warnings.append(f"Recommended field missing: {field_name}")
 
-        # Validate tool_id format (alphanumeric + underscores)
+        # Validate tool_id format (alphanumeric + underscores + hyphens)
         if "tool_id" in tool_config:
-            if not re.match(r'^[a-zA-Z0-9_]+$', tool_config["tool_id"]):
-                result.errors.append("tool_id must contain only letters, numbers, and underscores")
+            if not re.match(r'^[a-zA-Z0-9_-]+$', tool_config["tool_id"]):
+                result.errors.append("tool_id must contain only letters, numbers, underscores, and hyphens")
                 result.is_valid = False
 
         # Validate description is not empty
