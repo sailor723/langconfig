@@ -33,6 +33,8 @@ class APIKeyResponse(BaseModel):
     provider: str
     is_set: bool
     masked_key: Optional[str] = None
+    connected: Optional[bool] = None
+    connected_message: Optional[str] = None
 
 
 class SettingsUpdate(BaseModel):
@@ -134,36 +136,124 @@ def mask_api_key(key: str) -> str:
 from services.encryption import encryption_service
 from sqlalchemy.orm.attributes import flag_modified
 
+# Test models for each provider
+PROVIDER_TEST_MODELS = {
+    "openai": "gpt-4o-mini",
+    "anthropic": "claude-haiku-4-5",
+    "google": "gemini-2.5-flash",
+    "deepseek": "deepseek-chat",
+    "glm": "glm-4",
+    "minimax": "minimax-t1",
+    "agnes": "agnes-2.0-flash",
+}
+
+CHAT_PROVIDERS = ["openai", "anthropic", "google", "deepseek", "glm", "minimax", "agnes"]
+CONNECTION_STATUS_KEY = "_connection_status"
+
+
+def _test_provider_connection(provider: str, api_key: str, base_url_extra: str | None = None) -> dict:
+    """Test a provider's API key by making a real LLM call."""
+    test_model = PROVIDER_TEST_MODELS.get(provider)
+    if not test_model:
+        return {"success": False, "message": f"Unknown provider: {provider}"}
+    try:
+        if provider == "openai":
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            r = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": "ok"}], max_tokens=5, timeout=15)
+            _ = r.choices[0].message.content
+        elif provider == "anthropic":
+            from anthropic import Anthropic
+            client = Anthropic(api_key=api_key)
+            r = client.messages.create(model=test_model, messages=[{"role": "user", "content": "ok"}], max_tokens=5)
+            _ = r.content[0].text
+        elif provider == "google":
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
+            r = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": "ok"}], max_tokens=5, timeout=15)
+            _ = r.choices[0].message.content
+        elif provider == "deepseek":
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
+            r = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": "ok"}], max_tokens=5, timeout=15)
+            _ = r.choices[0].message.content
+        elif provider == "glm":
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key, base_url="https://open.bigmodel.cn/api/paas/v4/")
+            r = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": "ok"}], max_tokens=5, timeout=15)
+            _ = r.choices[0].message.content
+        elif provider == "minimax":
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key, base_url="https://api.minimax.chat/v1")
+            r = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": "ok"}], max_tokens=5, timeout=15)
+            _ = r.choices[0].message.content
+        elif provider == "agnes":
+            from openai import OpenAI
+            base_url = base_url_extra or "https://apihub.agnes-ai.com/v1"
+            client = OpenAI(api_key=api_key, base_url=base_url)
+            r = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": "ok"}], max_tokens=5, timeout=15)
+            _ = r.choices[0].message.content
+        else:
+            return {"success": False, "message": f"Test not implemented for {provider}"}
+        return {"success": True, "message": f"✓ Connected to {test_model}"}
+    except Exception as e:
+        error_msg = str(e).strip().replace("\n", " ")
+        return {"success": False, "message": f"✗ Connection failed: {error_msg[:200]}"}
+
+
 # Endpoints
 @router.post("/api-keys")
 async def set_api_keys(keys: APIKeySet, db: Session = Depends(get_db)):
-    """Set API keys (stored encrypted in PostgreSQL)"""
+    """Set API keys (stored encrypted in PostgreSQL). Auto-tests new connections."""
     settings = get_or_create_settings(db)
     api_keys = dict(settings.api_keys or {})
 
+    # Track which providers were updated
+    updated_providers = []
+
     if keys.openai_api_key:
         api_keys["openai"] = encryption_service.encrypt(keys.openai_api_key)
+        updated_providers.append("openai")
     if keys.anthropic_api_key:
         api_keys["anthropic"] = encryption_service.encrypt(keys.anthropic_api_key)
+        updated_providers.append("anthropic")
     if keys.google_api_key:
         api_keys["google"] = encryption_service.encrypt(keys.google_api_key)
+        updated_providers.append("google")
     if keys.cohere_api_key:
         api_keys["cohere"] = encryption_service.encrypt(keys.cohere_api_key)
     if keys.replicate_api_key:
         api_keys["replicate"] = encryption_service.encrypt(keys.replicate_api_key)
     if keys.deepseek_api_key:
         api_keys["deepseek"] = encryption_service.encrypt(keys.deepseek_api_key)
+        updated_providers.append("deepseek")
     if keys.glm_api_key:
         api_keys["glm"] = encryption_service.encrypt(keys.glm_api_key)
+        updated_providers.append("glm")
     if keys.minimax_api_key:
         api_keys["minimax"] = encryption_service.encrypt(keys.minimax_api_key)
+        updated_providers.append("minimax")
     if keys.tavily_api_key:
         api_keys["tavily"] = encryption_service.encrypt(keys.tavily_api_key)
     if keys.agnes_api_key:
         api_keys["agnes"] = encryption_service.encrypt(keys.agnes_api_key)
+        updated_providers.append("agnes")
     if keys.agnes_base_url:
         api_keys["agnes_base_url"] = encryption_service.encrypt(keys.agnes_base_url)
 
+    # Auto-test each updated provider
+    connection_status = dict(api_keys.get(CONNECTION_STATUS_KEY, {}))
+    for provider in updated_providers:
+        if provider not in CHAT_PROVIDERS:
+            continue
+        key = encryption_service.decrypt(api_keys.get(provider, ""))
+        if not key:
+            continue
+        base_url_extra = encryption_service.decrypt(api_keys.get("agnes_base_url")) if provider == "agnes" else None
+        result = _test_provider_connection(provider, key, base_url_extra)
+        connection_status[provider] = result
+
+    api_keys[CONNECTION_STATUS_KEY] = connection_status
     settings.api_keys = api_keys
     flag_modified(settings, "api_keys")
     db.commit()
@@ -176,22 +266,23 @@ async def get_api_keys(db: Session = Depends(get_db)):
     """Get masked API keys status"""
     settings = get_or_create_settings(db)
     api_keys = settings.api_keys or {}
+    connection_status = api_keys.get("_connection_status", {})
     providers = ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax", "tavily", "agnes"]
 
     results = []
     for provider in providers:
         encrypted_key = api_keys.get(provider)
         # Decrypt to check if it's a valid key and for masking
-        # Note: We decrypt here to ensure we're masking the actual key,
-        # though masking an encrypted string would also work for "is_set" check.
-        # But for consistency and future validation, we decrypt.
         key = encryption_service.decrypt(encrypted_key) if encrypted_key else None
+        status = connection_status.get(provider, {})
 
         results.append(
             APIKeyResponse(
                 provider=provider,
                 is_set=key is not None,
-                masked_key=mask_api_key(key) if key else None
+                masked_key=mask_api_key(key) if key else None,
+                connected=status.get("success") if status else None,
+                connected_message=status.get("message") if status else None,
             )
         )
 
