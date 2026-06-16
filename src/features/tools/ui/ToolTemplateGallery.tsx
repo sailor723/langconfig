@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 
@@ -55,6 +56,7 @@ interface ToolTemplateGalleryProps {
 }
 
 const ToolTemplateGallery = ({ onSelectTemplate, onStartFromScratch }: ToolTemplateGalleryProps) => {
+  const { t } = useTranslation('chat');
   const [templates, setTemplates] = useState<ToolTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -102,7 +104,7 @@ const ToolTemplateGallery = ({ onSelectTemplate, onStartFromScratch }: ToolTempl
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div style={{ color: 'var(--color-text-muted)' }}>Loading templates...</div>
+        <div style={{ color: 'var(--color-text-muted)' }}>{t('tool_builder_loading')}</div>
       </div>
     );
   }
@@ -112,9 +114,9 @@ const ToolTemplateGallery = ({ onSelectTemplate, onStartFromScratch }: ToolTempl
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>Choose a Template</h2>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{t('tool_builder_choose_template')}</h2>
           <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-            Start with a pre-configured template or build from scratch
+            {t('tool_builder_choose_desc')}
           </p>
         </div>
       </div>
@@ -126,7 +128,7 @@ const ToolTemplateGallery = ({ onSelectTemplate, onStartFromScratch }: ToolTempl
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
           <input
             type="text"
-            placeholder="Search templates..."
+            placeholder={t('tool_builder_search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 rounded-lg focus:ring-2"
@@ -151,7 +153,7 @@ const ToolTemplateGallery = ({ onSelectTemplate, onStartFromScratch }: ToolTempl
             outlineColor: 'var(--color-primary)'
           }}
         >
-          <option value="all">All Categories</option>
+          <option value="all">{t('tool_builder_all_categories')}</option>
           {categories.slice(1).map(cat => (
             <option key={cat} value={cat}>
               {cat.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
@@ -182,8 +184,8 @@ const ToolTemplateGallery = ({ onSelectTemplate, onStartFromScratch }: ToolTempl
             <span className="material-symbols-outlined text-xl" style={{ color: 'var(--color-primary)' }}>add_circle</span>
           </div>
           <div>
-            <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>Start from Scratch</div>
-            <div className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Build a custom tool with advanced mode (full control)</div>
+            <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{t('tool_builder_start_scratch')}</div>
+            <div className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('tool_builder_scratch_desc')}</div>
           </div>
         </div>
       </button>
@@ -250,7 +252,7 @@ const ToolTemplateGallery = ({ onSelectTemplate, onStartFromScratch }: ToolTempl
           <div className="mb-2" style={{ color: 'var(--color-text-muted)' }}>
             <span className="material-symbols-outlined text-4xl">search_off</span>
           </div>
-          <p style={{ color: 'var(--color-text-muted)' }}>No templates found matching your search</p>
+          <p style={{ color: 'var(--color-text-muted)' }}>{t('tool_builder_no_templates')}</p>
           <button
             onClick={() => {
               setSearchQuery('');
@@ -259,7 +261,7 @@ const ToolTemplateGallery = ({ onSelectTemplate, onStartFromScratch }: ToolTempl
             className="mt-2 text-sm font-medium"
             style={{ color: 'var(--color-primary)' }}
           >
-            Clear filters
+            {t('tool_builder_clear_filters')}
           </button>
         </div>
       )}
