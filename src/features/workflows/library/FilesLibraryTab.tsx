@@ -131,7 +131,7 @@ interface TreeNode {
 }
 
 export default function FilesLibraryTab() {
-  const { projects, activeProjectId } = useProject();
+  const { projects } = useProject();
   const [files, setFiles] = useState<FileWithContext[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -443,18 +443,15 @@ export default function FilesLibraryTab() {
   // Fetch all files
   useEffect(() => {
     fetchFiles();
-  }, [activeProjectId]);
+  }, []);
 
   const fetchFiles = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Fetch files from filesystem, filtered by active project
-      const url = activeProjectId
-        ? `/api/workspace/files?project_id=${activeProjectId}`
-        : '/api/workspace/files';
-      const response = await fetch(url);
+      // Fetch files from filesystem
+      const response = await fetch('/api/workspace/files');
       if (!response.ok) throw new Error('Failed to fetch files');
       const data = await response.json();
       const filesFromFs = data.files || [];
