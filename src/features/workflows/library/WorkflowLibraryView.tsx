@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from "@/lib/api-client";
 import { useProject } from "@/contexts/ProjectContext";
 import ProjectSection from './ProjectSection';
@@ -23,6 +24,7 @@ export default function WorkflowLibraryView({
   onWorkflowSelect,
   onWorkflowOpen,
 }: WorkflowLibraryViewProps) {
+  const { t } = useTranslation('chat');
   const { activeProject } = useProject();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -311,7 +313,7 @@ export default function WorkflowLibraryView({
       setGeneratedCode(response.data);
     } catch (error) {
       console.error('Failed to generate code:', error);
-      setGeneratedCode('// Error generating code\n// Please try again');
+      setGeneratedCode(t('library_code_error'));
     } finally {
       setLoadingCode(false);
     }
@@ -319,7 +321,7 @@ export default function WorkflowLibraryView({
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedCode);
-    alert('Code copied to clipboard!');
+    alert(t('library_code_copied'));
   };
 
   if (loading) {
@@ -327,7 +329,7 @@ export default function WorkflowLibraryView({
       <div className="h-full flex items-center justify-center bg-background-light dark:bg-background-dark">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading workflows...</p>
+          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('library_loading')}</p>
         </div>
       </div>
     );
@@ -341,14 +343,14 @@ export default function WorkflowLibraryView({
         <div className="p-4 border-b border-gray-200 dark:border-border-dark">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-              Workflow Library
+              {t('library_title')}
             </h2>
             <button
               onClick={handleCreateWorkflow}
               className="px-3 py-1.5 text-sm font-medium text-white bg-primary rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
             >
               <span className="material-symbols-outlined text-sm">add</span>
-              New
+              {t('library_new_btn')}
             </button>
           </div>
 
@@ -362,7 +364,7 @@ export default function WorkflowLibraryView({
             </span>
             <input
               type="text"
-              placeholder="Search workflows..."
+              placeholder={t('library_search_placeholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -402,8 +404,8 @@ export default function WorkflowLibraryView({
             <ProjectSection
               project={{
                 id: -1,
-                name: 'Uncategorized',
-                description: 'Workflows not assigned to any project',
+                name: t('library_uncategorized'),
+                description: t('library_uncategorized_desc'),
                 status: 'idle'
               }}
               workflows={filteredWorkflowsByProject.get(null) || []}
@@ -428,10 +430,10 @@ export default function WorkflowLibraryView({
                 account_tree
               </span>
               <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                No workflows yet
+                {t('library_no_workflows')}
               </p>
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Create your first workflow to get started
+                {t('library_no_workflows_desc')}
               </p>
             </div>
           )}
@@ -444,10 +446,10 @@ export default function WorkflowLibraryView({
                 search_off
               </span>
               <p className="text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                No workflows found
+                {t('library_no_results')}
               </p>
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Try a different search term
+                {t('library_no_results_desc')}
               </p>
             </div>
           )}
@@ -474,7 +476,7 @@ export default function WorkflowLibraryView({
             {/* Modal Header */}
             <div className="p-6 border-b border-gray-200 dark:border-border-dark flex items-center justify-between">
               <h3 className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                Generated LangGraph Code
+                {t('library_code_title')}
               </h3>
               <button
                 onClick={() => setShowCodeModal(false)}
@@ -491,7 +493,7 @@ export default function WorkflowLibraryView({
               {loadingCode ? (
                 <div className="text-center py-12">
                   <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Generating code...</p>
+                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('library_code_generating')}</p>
                 </div>
               ) : (
                 <pre className="text-xs p-4 rounded-lg bg-gray-50 dark:bg-black/20 overflow-x-auto" style={{ color: 'var(--color-text-primary)' }}>
@@ -507,7 +509,7 @@ export default function WorkflowLibraryView({
                 className="px-4 py-2 text-sm font-medium border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 hover:border-gray-400 dark:hover:border-border-light transition-all"
                 style={{ color: 'var(--color-text-primary)' }}
               >
-                Close
+                {t('library_code_close')}
               </button>
               <button
                 onClick={copyToClipboard}
@@ -515,7 +517,7 @@ export default function WorkflowLibraryView({
                 className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:brightness-110 hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-sm">content_copy</span>
-                Copy to Clipboard
+                {t('library_code_copy')}
               </button>
             </div>
           </div>
@@ -533,34 +535,34 @@ export default function WorkflowLibraryView({
                 </span>
               </div>
               <h3 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                Delete Workflow?
+                {t('library_delete_title')}
               </h3>
             </div>
 
             <div className="mb-6">
               <p className="text-sm mb-3 font-medium text-red-600 dark:text-red-400">
-                ⚠️ This will permanently delete:
+                {t('library_delete_desc')}
               </p>
               <ul className="text-sm space-y-1.5 ml-4" style={{ color: 'var(--color-text-muted)' }}>
                 <li className="flex items-start gap-2">
                   <span className="text-red-500 mt-0.5">•</span>
-                  <span>The workflow configuration and design</span>
+                  <span>{t('library_delete_item1')}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-500 mt-0.5">•</span>
-                  <span>All execution history and task records</span>
+                  <span>{t('library_delete_item2')}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-500 mt-0.5">•</span>
-                  <span>All execution events and logs</span>
+                  <span>{t('library_delete_item3')}</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-500 mt-0.5">•</span>
-                  <span>All generated files in the workspace</span>
+                  <span>{t('library_delete_item4')}</span>
                 </li>
               </ul>
               <p className="text-sm mt-3 font-semibold text-red-600 dark:text-red-400">
-                This action cannot be undone.
+                {t('library_delete_cannot_undo')}
               </p>
             </div>
 
@@ -573,13 +575,13 @@ export default function WorkflowLibraryView({
                 className="px-4 py-2 text-sm font-medium border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 hover:border-gray-400 dark:hover:border-border-light transition-all"
                 style={{ color: 'var(--color-text-primary)' }}
               >
-                Cancel
+                {t('library_delete_cancel')}
               </button>
               <button
                 onClick={confirmDelete}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:brightness-110 hover:shadow-lg transition-all"
               >
-                Delete Workflow
+                {t('library_delete_confirm')}
               </button>
             </div>
           </div>
