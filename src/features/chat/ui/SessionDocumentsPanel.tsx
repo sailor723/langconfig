@@ -83,80 +83,54 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey = 0 }: Ses
 
   return (
     <div
-      className="border-t p-4"
+      className="border-t px-4 py-1.5"
       style={{ borderColor: 'var(--color-border-dark)' }}
     >
       <h3
-        className="text-sm font-semibold mb-3"
+        className="text-xs font-semibold mb-1.5"
         style={{ color: 'var(--color-text-primary)' }}
       >
-        Session Documents ({documents.length})
+        Documents ({documents.length})
       </h3>
 
       {loading ? (
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--color-primary)' }} />
+        <div className="flex items-center justify-center py-2">
+          <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--color-primary)' }} />
         </div>
       ) : (
-        <div className="space-y-2 max-h-48 overflow-y-auto">
+        <div className="grid grid-cols-6 gap-1.5 max-h-24 overflow-y-auto">
           {documents.map(doc => (
             <div
               key={doc.id}
-              className="flex items-center justify-between p-3 rounded-lg border"
+              className="flex flex-col gap-0.5 p-2 rounded-lg border relative min-w-0"
               style={{
                 backgroundColor: 'white',
                 borderColor: 'var(--color-border-dark)'
               }}
             >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <File className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
-                <div className="flex-1 min-w-0">
-                  <div
-                    className="text-sm font-medium truncate"
-                    style={{ color: 'var(--color-text-primary)' }}
-                    title={doc.filename}
-                  >
-                    {doc.filename}
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span
-                      className="text-xs"
-                      style={{ color: 'var(--color-text-muted)' }}
-                    >
-                      {(doc.file_size / 1024).toFixed(1)} KB
-                    </span>
-                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>•</span>
-                    <div className="flex items-center gap-1">
-                      {getStatusIcon(doc.indexing_status)}
-                      <span
-                        className="text-xs"
-                        style={{ color: 'var(--color-text-muted)' }}
-                      >
-                        {getStatusLabel(doc.indexing_status)}
-                      </span>
-                    </div>
-                    {doc.indexed_chunks_count && (
-                      <>
-                        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>•</span>
-                        <span
-                          className="text-xs"
-                          style={{ color: 'var(--color-text-muted)' }}
-                        >
-                          {doc.indexed_chunks_count} chunks
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
               <button
                 onClick={() => handleDelete(doc.id)}
-                className="p-2 rounded-lg transition-colors hover:bg-red-50 flex-shrink-0"
+                className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full transition-colors hover:bg-red-50"
                 title="Delete document"
-                style={{ color: '#ef4444' }}
+                style={{ color: '#ef4444', backgroundColor: 'white', border: '1px solid var(--color-border-dark)' }}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-2.5 h-2.5" />
               </button>
+              <div className="flex items-center gap-1 min-w-0">
+                <File className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
+                <span
+                  className="text-[11px] font-medium truncate"
+                  style={{ color: 'var(--color-text-primary)' }}
+                  title={doc.filename}
+                >
+                  {doc.filename}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                <span>{(doc.file_size / 1024).toFixed(0)}KB</span>
+                <span>•</span>
+                {getStatusIcon(doc.indexing_status)}
+              </div>
             </div>
           ))}
         </div>
