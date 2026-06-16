@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MessageSquare } from 'lucide-react';
 import { useProject } from "../../contexts/ProjectContext";
 import { useChat } from '../../features/chat/state/ChatContext';
@@ -22,6 +23,7 @@ export default function ModernHeader({
   const { activeProject, projects, setActiveProjectId, loading } = useProject();
   const { openChat } = useChat();
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const { t } = useTranslation('chat');
 
   return (
     <header className="flex items-center justify-between whitespace-nowrap border-b px-4 py-4 z-20 shrink-0 h-20" style={{ backgroundColor: 'var(--color-primary)', borderBottomColor: 'var(--color-border-dark)' }}>
@@ -90,7 +92,7 @@ export default function ModernHeader({
         >
           <span className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base">account_tree</span>
-            Studio
+            {t('nav_studio')}
           </span>
         </button>
         <button
@@ -106,7 +108,7 @@ export default function ModernHeader({
         >
           <span className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base">psychology</span>
-            Agents
+            {t('nav_agents')}
           </span>
         </button>
         <button
@@ -122,7 +124,7 @@ export default function ModernHeader({
         >
           <span className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base">folder</span>
-            Library
+            {t('nav_library')}
           </span>
         </button>
         <button
@@ -138,7 +140,7 @@ export default function ModernHeader({
         >
           <span className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base">database</span>
-            Knowledge
+            {t('nav_knowledge')}
           </span>
         </button>
         <button
@@ -154,7 +156,7 @@ export default function ModernHeader({
         >
           <span className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base">build</span>
-            Tools
+            {t('nav_tools')}
           </span>
         </button>
         <button
@@ -170,7 +172,7 @@ export default function ModernHeader({
         >
           <span className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base">layers</span>
-            Prompt
+            {t('nav_prompt')}
           </span>
         </button>
         <button
@@ -186,7 +188,7 @@ export default function ModernHeader({
         >
           <span className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base">auto_awesome</span>
-            Skills
+            {t('nav_skills')}
           </span>
         </button>
         <button
@@ -202,7 +204,7 @@ export default function ModernHeader({
         >
           <span className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base">groups</span>
-            Community
+            {t('nav_community')}
           </span>
         </button>
         <button
@@ -218,7 +220,7 @@ export default function ModernHeader({
         >
           <span className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base">play_circle</span>
-            Playground
+            {t('nav_playground')}
           </span>
         </button>
       </nav>
@@ -229,7 +231,7 @@ export default function ModernHeader({
         <button
           onClick={() => openChat()}
           className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-white/15 transition-all text-white/90 hover:text-white border border-transparent hover:border-white/20"
-          title="Chat (Ctrl+K)"
+          title={t('nav_chat')}
           style={{
             textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)'
           }}
@@ -249,7 +251,7 @@ export default function ModernHeader({
           >
             <span className="material-symbols-outlined text-base">folder_open</span>
             <span className="text-sm font-medium truncate">
-              {loading ? 'Loading...' : activeProject?.name || 'No Project'}
+              {loading ? t('nav_loading') : activeProject?.name || t('nav_no_project')}
             </span>
             <span className="material-symbols-outlined text-base ml-auto">
               {showProjectDropdown ? 'expand_less' : 'expand_more'}
@@ -272,7 +274,7 @@ export default function ModernHeader({
               >
                 {projects.length === 0 ? (
                   <div className="px-4 py-3 text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                    No projects found
+                    {t('nav_no_projects')}
                   </div>
                 ) : (
                   projects.map(project => (

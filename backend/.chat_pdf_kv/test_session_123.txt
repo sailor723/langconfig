@@ -1,0 +1,11 @@
+--- Page 1/2 ---
+Hello! This is a test PDF document.
+It contains information about LangConfig.
+The answer to the ultimate question is 42.
+The capital of France is Paris.
+Python was created by Guido van Rossum.
+
+--- Page 2/2 ---
+This is page 2 of the test PDF.
+Water boils at 100 degrees Celsius.
+The speed of light is 299,792,458 m/s.
