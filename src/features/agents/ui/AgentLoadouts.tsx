@@ -731,14 +731,14 @@ print(result)
                       >
                         {tool.id === 'enable_memory' ? (
                           <>
-                            <div className="text-xs font-semibold mb-1">Enable Memory</div>
+                            <div className="text-xs font-semibold mb-1">{t('agent_memory')}</div>
                             <div className="text-[11px] leading-snug">
                               Turns on long‑term memory for this agent (project/workflow store). Use <strong>Store Memory</strong> and <strong>Recall Memory</strong> to write/read entries.
                             </div>
                           </>
                         ) : (
                           <>
-                            <div className="text-xs font-semibold mb-1">Enable RAG</div>
+                            <div className="text-xs font-semibold mb-1">{t('agent_rag')}</div>
                             <div className="text-[11px] leading-snug">
                               Allows retrieval from your project’s vector store (documents/KB). This is a capability flag, not a tool.
                             </div>
@@ -3822,7 +3822,7 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                     title="New Skill"
                   >
                     <Plus size={14} />
-                    <span className="text-xs font-medium">New Skill</span>
+                    <span className="text-xs font-medium">{t('agent_new_skill')}</span>
                   </button>
                 </div>
 
