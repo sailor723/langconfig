@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, Loader, Search, Clock } from 'lucide-react';
 import type { DeepAgent } from '../types/chat';
 import apiClient from '../../../lib/api-client';
@@ -21,6 +22,7 @@ export default function AgentSelector({
   onSelectAgent,
   onClose
 }: AgentSelectorProps) {
+  const { t } = useTranslation('chat');
   const [isOpen, setIsOpen] = useState(false);
   const [agents, setAgents] = useState<DeepAgent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -105,7 +107,7 @@ export default function AgentSelector({
         }}
       >
         <span className="text-sm font-medium">
-          {selectedAgent ? selectedAgent.name : 'Select Agent'}
+          {selectedAgent ? selectedAgent.name : t('select_agent')}
         </span>
         <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
       </button>
@@ -137,7 +139,7 @@ export default function AgentSelector({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search agents..."
+                  placeholder={t('search_agents')}
                   className="w-full pl-10 pr-3 py-2 rounded border text-sm focus:outline-none focus:ring-2"
                   style={{
                     backgroundColor: 'var(--color-input-background)',
@@ -160,7 +162,7 @@ export default function AgentSelector({
                       border: `1px solid ${!selectedCategory ? 'var(--color-primary)' : 'var(--color-border-dark)'}`,
                     }}
                   >
-                    All
+                    {t('all')}
                   </button>
                   {categories.map(category => (
                     <button
@@ -185,11 +187,11 @@ export default function AgentSelector({
               {isLoading ? (
                 <div className="p-4 flex items-center justify-center gap-2" style={{ color: 'var(--color-text-muted)' }}>
                   <Loader className="w-4 h-4 animate-spin" />
-                  <span className="text-sm">Loading agents...</span>
+                  <span className="text-sm">{t('loading_agents')}</span>
                 </div>
               ) : agents.length === 0 ? (
                 <div className="p-4 text-center text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                  No agents available. Create a deep agent first.
+                  {t('no_agents_available')}
                 </div>
               ) : (
                 <>
@@ -201,7 +203,7 @@ export default function AgentSelector({
                         style={{ color: 'var(--color-text-muted)' }}
                       >
                         <Clock className="w-3 h-3" />
-                        RECENT
+                        {t('recent')}
                       </div>
                       {recentAgentsList.map((agent) => (
                         <AgentItem

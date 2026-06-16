@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { File, Trash2, Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import type { SessionDocument } from '../types/chat';
 import apiClient from '../../../lib/api-client';
@@ -15,7 +16,8 @@ interface SessionDocumentsPanelProps {
   refreshKey?: number;
 }
 
-export default function SessionDocumentsPanel({ sessionId, refreshKey = 0 }: SessionDocumentsPanelProps) {
+export default function SessionDocumentsPanel({ sessionId, refreshKey }: SessionDocumentsPanelProps) {
+  const { t } = useTranslation('chat');
   const [documents, setDocuments] = useState<SessionDocument[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -89,7 +91,7 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey = 0 }: Ses
         className="text-xs font-semibold mb-1.5"
         style={{ color: 'var(--color-text-primary)' }}
       >
-        Documents ({documents.length})
+        {t('session_documents')} ({documents.length})
       </h3>
 
       {loading ? (
@@ -112,7 +114,7 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey = 0 }: Ses
               <button
                 onClick={() => handleDelete(doc.id)}
                 className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full transition-colors hover:bg-red-50"
-                title="Delete document"
+                title={t('delete_document')}
                 style={{ color: '#ef4444', backgroundColor: 'white', border: '1px solid var(--color-border-dark)' }}
               >
                 <Trash2 className="w-2.5 h-2.5" />

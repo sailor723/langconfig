@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import apiClient from '../lib/api-client';
 import { themes, applyTheme, loadTheme, type ThemeName } from '../lib/themes';
+import LanguageSwitcher from '../i18n/LanguageSwitcher';
 import SettingsLayout, { SettingsCategory } from "../features/settings/ui/SettingsLayout";
 import LocalModelsSettings from "../features/settings/ui/LocalModelsSettings";
 import LocalWorkspaceSettings from "../features/settings/ui/LocalWorkspaceSettings";
@@ -662,6 +663,18 @@ export default function SettingsView() {
                         </p>
                       </div>
                     </label>
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-200 dark:border-border-dark pt-3 mt-3">
+                  <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                    Language
+                  </h4>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                      Interface language:
+                    </span>
+                    <LanguageSwitcher />
                   </div>
                 </div>
               </div>
