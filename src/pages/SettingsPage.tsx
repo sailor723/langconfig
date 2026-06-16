@@ -41,8 +41,11 @@ export default function SettingsView() {
     tavily: false,
     agnes: false,
   });
+  const [apiKeyConnection, setApiKeyConnection] = useState<Record<string, { connected: boolean | null; message: string | null }>>({});
   const [apiKeySaving, setApiKeySaving] = useState(false);
   const [apiKeySaveMessage, setApiKeySaveMessage] = useState<string | null>(null);
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
 
   // Theme state
   const [currentTheme, setCurrentTheme] = useState<ThemeName>('dark');
@@ -134,8 +137,8 @@ export default function SettingsView() {
   const loadSettings = async () => {
     try {
       // Load API keys status (don't load masked keys into inputs!)
-      const keysResponse = await apiClient.getApiKeys();
-      const keys = keysResponse.data || [];
+      const res = await apiClient.getApiKeys();
+      const keys = res.data || [];
       setApiKeyStatus({
         anthropic: keys.find((k: any) => k.provider === 'anthropic')?.is_set || false,
         openai: keys.find((k: any) => k.provider === 'openai')?.is_set || false,
@@ -145,6 +148,16 @@ export default function SettingsView() {
         minimax: keys.find((k: any) => k.provider === 'minimax')?.is_set || false,
         tavily: keys.find((k: any) => k.provider === 'tavily')?.is_set || false,
         agnes: keys.find((k: any) => k.provider === 'agnes')?.is_set || false,
+      });
+      setApiKeyConnection({
+        anthropic: keys.find((k: any) => k.provider === 'anthropic'),
+        openai: keys.find((k: any) => k.provider === 'openai'),
+        google: keys.find((k: any) => k.provider === 'google'),
+        deepseek: keys.find((k: any) => k.provider === 'deepseek'),
+        glm: keys.find((k: any) => k.provider === 'glm'),
+        minimax: keys.find((k: any) => k.provider === 'minimax'),
+        tavily: keys.find((k: any) => k.provider === 'tavily'),
+        agnes: keys.find((k: any) => k.provider === 'agnes'),
       });
       // Keep input fields empty - user types new key to update
       setApiKeys({
@@ -336,6 +349,26 @@ export default function SettingsView() {
       }
     }, 1000); // 1 second debounce
   }, [apiKeys, generalSettings, ragSettings, localModelsSettings, workspaceSettings, modelDefaultsSettings]);
+
+  const handleTestConnection = async (provider: string) => {
+    setTestingProvider(provider);
+    setTestResults(prev => ({ ...prev, [provider]: { success: false, message: 'Testing...' } }));
+    try {
+      const res = await apiClient.testApiKey(provider);
+      const data = res.data;
+      setTestResults(prev => ({ ...prev, [provider]: { success: data.success, message: data.message } }));
+      // Clear result after 8 seconds
+      setTimeout(() => setTestResults(prev => {
+        const next = { ...prev };
+        delete next[provider];
+        return next;
+      }), 8000);
+    } catch (err: any) {
+      setTestResults(prev => ({ ...prev, [provider]: { success: false, message: err?.message || 'Connection test failed' } }));
+    } finally {
+      setTestingProvider(null);
+    }
+  };
 
   const handleThemeChange = (themeName: ThemeName) => {
     const theme = themes[themeName];
@@ -652,10 +685,16 @@ export default function SettingsView() {
                       Anthropic API Key
                     </label>
                     {apiKeyStatus.anthropic ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full">
-                        <span className="material-symbols-outlined text-xs">check_circle</span>
-                        Configured
-                      </span>
+                      (() => {
+                        const conn = apiKeyConnection.anthropic;
+                        if (conn?.connected === true) {
+                          return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Connected</span>;
+                        } else if (conn?.connected === false) {
+                          return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 rounded-full"><span className="material-symbols-outlined text-xs">error</span> Failed</span>;
+                        } else {
+                          return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 rounded-full"><span className="material-symbols-outlined text-xs">pending</span> Configured</span>;
+                        }
+                      })()
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">
                         Not set
@@ -676,6 +715,28 @@ export default function SettingsView() {
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                     Required for Claude models (claude-sonnet-4-5, claude-haiku-4-5, etc.)
                   </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      onClick={() => handleTestConnection('anthropic')}
+                      disabled={testingProvider === 'anthropic' || !apiKeyStatus.anthropic}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{
+                        borderColor: 'var(--color-border-dark)',
+                        color: testingProvider === 'anthropic' ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
+                      }}
+                    >
+                      {testingProvider === 'anthropic' ? (
+                        <><div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> Testing...</>
+                      ) : (
+                        <><span className="material-symbols-outlined text-xs">link</span> Test Connection</>
+                      )}
+                    </button>
+                    {testResults.anthropic && (
+                      <span className={`text-xs ${testResults.anthropic.success ? 'text-green-600' : 'text-red-500'}`}>
+                        {testResults.anthropic.message}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* OpenAI */}
@@ -685,14 +746,14 @@ export default function SettingsView() {
                       OpenAI API Key
                     </label>
                     {apiKeyStatus.openai ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full">
-                        <span className="material-symbols-outlined text-xs">check_circle</span>
-                        Configured
-                      </span>
+                      (() => {
+                        const conn = apiKeyConnection.openai;
+                        if (conn?.connected === true) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Connected</span>;
+                        else if (conn?.connected === false) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 rounded-full"><span className="material-symbols-outlined text-xs">error</span> Failed</span>;
+                        else return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Configured</span>;
+                      })()
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">
-                        Not set
-                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">Not set</span>
                     )}
                   </div>
                   <input
@@ -709,6 +770,12 @@ export default function SettingsView() {
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                     Required for GPT models (gpt-4o, gpt-4o-mini, gpt-4-turbo, etc.)
                   </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button onClick={() => handleTestConnection('openai')} disabled={testingProvider === 'openai' || !apiKeyStatus.openai} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed" style={{ borderColor: 'var(--color-border-dark)', color: testingProvider === 'openai' ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>
+                      {testingProvider === 'openai' ? <><div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> Testing...</> : <><span className="material-symbols-outlined text-xs">link</span> Test Connection</>}
+                    </button>
+                    {testResults.openai && <span className={`text-xs ${testResults.openai.success ? 'text-green-600' : 'text-red-500'}`}>{testResults.openai.message}</span>}
+                  </div>
                 </div>
 
                 {/* Google */}
@@ -718,14 +785,14 @@ export default function SettingsView() {
                       Google API Key
                     </label>
                     {apiKeyStatus.google ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full">
-                        <span className="material-symbols-outlined text-xs">check_circle</span>
-                        Configured
-                      </span>
+                      (() => {
+                        const conn = apiKeyConnection.google;
+                        if (conn?.connected === true) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Connected</span>;
+                        else if (conn?.connected === false) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 rounded-full"><span className="material-symbols-outlined text-xs">error</span> Failed</span>;
+                        else return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Configured</span>;
+                      })()
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">
-                        Not set
-                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">Not set</span>
                     )}
                   </div>
                   <input
@@ -742,6 +809,12 @@ export default function SettingsView() {
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                     Required for Gemini models (gemini-2.5-pro, gemini-2.5-flash, etc.)
                   </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button onClick={() => handleTestConnection('google')} disabled={testingProvider === 'google' || !apiKeyStatus.google} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed" style={{ borderColor: 'var(--color-border-dark)', color: testingProvider === 'google' ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>
+                      {testingProvider === 'google' ? <><div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> Testing...</> : <><span className="material-symbols-outlined text-xs">link</span> Test Connection</>}
+                    </button>
+                    {testResults.google && <span className={`text-xs ${testResults.google.success ? 'text-green-600' : 'text-red-500'}`}>{testResults.google.message}</span>}
+                  </div>
                 </div>
 
                 {/* DeepSeek */}
@@ -751,14 +824,14 @@ export default function SettingsView() {
                       DeepSeek API Key
                     </label>
                     {apiKeyStatus.deepseek ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full">
-                        <span className="material-symbols-outlined text-xs">check_circle</span>
-                        Configured
-                      </span>
+                      (() => {
+                        const conn = apiKeyConnection.deepseek;
+                        if (conn?.connected === true) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Connected</span>;
+                        else if (conn?.connected === false) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 rounded-full"><span className="material-symbols-outlined text-xs">error</span> Failed</span>;
+                        else return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Configured</span>;
+                      })()
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">
-                        Not set
-                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">Not set</span>
                     )}
                   </div>
                   <input
@@ -775,6 +848,12 @@ export default function SettingsView() {
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                     Required for DeepSeek models (deepseek-chat, deepseek-reasoner)
                   </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button onClick={() => handleTestConnection('deepseek')} disabled={testingProvider === 'deepseek' || !apiKeyStatus.deepseek} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed" style={{ borderColor: 'var(--color-border-dark)', color: testingProvider === 'deepseek' ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>
+                      {testingProvider === 'deepseek' ? <><div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> Testing...</> : <><span className="material-symbols-outlined text-xs">link</span> Test Connection</>}
+                    </button>
+                    {testResults.deepseek && <span className={`text-xs ${testResults.deepseek.success ? 'text-green-600' : 'text-red-500'}`}>{testResults.deepseek.message}</span>}
+                  </div>
                 </div>
 
                 {/* GLM */}
@@ -784,14 +863,14 @@ export default function SettingsView() {
                       GLM API Key
                     </label>
                     {apiKeyStatus.glm ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full">
-                        <span className="material-symbols-outlined text-xs">check_circle</span>
-                        Configured
-                      </span>
+                      (() => {
+                        const conn = apiKeyConnection.glm;
+                        if (conn?.connected === true) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Connected</span>;
+                        else if (conn?.connected === false) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 rounded-full"><span className="material-symbols-outlined text-xs">error</span> Failed</span>;
+                        else return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Configured</span>;
+                      })()
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">
-                        Not set
-                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">Not set</span>
                     )}
                   </div>
                   <input
@@ -808,6 +887,12 @@ export default function SettingsView() {
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                     Required for GLM models (glm-4, glm-4v, etc.)
                   </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button onClick={() => handleTestConnection('glm')} disabled={testingProvider === 'glm' || !apiKeyStatus.glm} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed" style={{ borderColor: 'var(--color-border-dark)', color: testingProvider === 'glm' ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>
+                      {testingProvider === 'glm' ? <><div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> Testing...</> : <><span className="material-symbols-outlined text-xs">link</span> Test Connection</>}
+                    </button>
+                    {testResults.glm && <span className={`text-xs ${testResults.glm.success ? 'text-green-600' : 'text-red-500'}`}>{testResults.glm.message}</span>}
+                  </div>
                 </div>
 
                 {/* MiniMax */}
@@ -817,14 +902,14 @@ export default function SettingsView() {
                       MiniMax API Key
                     </label>
                     {apiKeyStatus.minimax ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full">
-                        <span className="material-symbols-outlined text-xs">check_circle</span>
-                        Configured
-                      </span>
+                      (() => {
+                        const conn = apiKeyConnection.minimax;
+                        if (conn?.connected === true) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Connected</span>;
+                        else if (conn?.connected === false) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 rounded-full"><span className="material-symbols-outlined text-xs">error</span> Failed</span>;
+                        else return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Configured</span>;
+                      })()
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">
-                        Not set
-                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">Not set</span>
                     )}
                   </div>
                   <input
@@ -841,6 +926,12 @@ export default function SettingsView() {
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                     Required for MiniMax models (minimax-t1, etc.)
                   </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button onClick={() => handleTestConnection('minimax')} disabled={testingProvider === 'minimax' || !apiKeyStatus.minimax} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed" style={{ borderColor: 'var(--color-border-dark)', color: testingProvider === 'minimax' ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>
+                      {testingProvider === 'minimax' ? <><div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> Testing...</> : <><span className="material-symbols-outlined text-xs">link</span> Test Connection</>}
+                    </button>
+                    {testResults.minimax && <span className={`text-xs ${testResults.minimax.success ? 'text-green-600' : 'text-red-500'}`}>{testResults.minimax.message}</span>}
+                  </div>
                 </div>
 
                 {/* Tavily API Key */}
@@ -880,22 +971,20 @@ export default function SettingsView() {
                 </div>
 
                 {/* Agnes AI API Key */}
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                      Agnes AI
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                      Agnes AI API Key
                     </label>
                     {apiKeyStatus.agnes ? (
-                      <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                        Set
-                      </span>
+                      (() => {
+                        const conn = apiKeyConnection.agnes;
+                        if (conn?.connected === true) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Connected</span>;
+                        else if (conn?.connected === false) return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400 rounded-full"><span className="material-symbols-outlined text-xs">error</span> Failed</span>;
+                        else return <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 rounded-full"><span className="material-symbols-outlined text-xs">check_circle</span> Configured</span>;
+                      })()
                     ) : (
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                        Not set
-                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400 rounded-full">Not set</span>
                     )}
                   </div>
                   <input
@@ -926,6 +1015,12 @@ export default function SettingsView() {
                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                     Base URL for Agnes AI API (defaults to apihub.agnes-ai.com/v1 if left empty)
                   </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <button onClick={() => handleTestConnection('agnes')} disabled={testingProvider === 'agnes' || !apiKeyStatus.agnes} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed" style={{ borderColor: 'var(--color-border-dark)', color: testingProvider === 'agnes' ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>
+                      {testingProvider === 'agnes' ? <><div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" /> Testing...</> : <><span className="material-symbols-outlined text-xs">link</span> Test Connection</>}
+                    </button>
+                    {testResults.agnes && <span className={`text-xs ${testResults.agnes.success ? 'text-green-600' : 'text-red-500'}`}>{testResults.agnes.message}</span>}
+                  </div>
                 </div>
 
                 {/* Save Button and Status */}
@@ -970,6 +1065,21 @@ export default function SettingsView() {
                           setApiKeys({ anthropic: '', openai: '', google: '', deepseek: '', glm: '', minimax: '', tavily: '', agnes: '', agnesBaseUrl: '' });
                           setApiKeySaveMessage('API keys saved successfully!');
                           setTimeout(() => setApiKeySaveMessage(null), 3000);
+                          // Reload connection status (backend auto-tested after save)
+                          try {
+                            const refreshRes = await apiClient.getApiKeys();
+                            const freshKeys = refreshRes.data || [];
+                            setApiKeyConnection({
+                              anthropic: freshKeys.find((k: any) => k.provider === 'anthropic'),
+                              openai: freshKeys.find((k: any) => k.provider === 'openai'),
+                              google: freshKeys.find((k: any) => k.provider === 'google'),
+                              deepseek: freshKeys.find((k: any) => k.provider === 'deepseek'),
+                              glm: freshKeys.find((k: any) => k.provider === 'glm'),
+                              minimax: freshKeys.find((k: any) => k.provider === 'minimax'),
+                              tavily: freshKeys.find((k: any) => k.provider === 'tavily'),
+                              agnes: freshKeys.find((k: any) => k.provider === 'agnes'),
+                            });
+                          } catch (_) {} // Silently skip refresh error
                         } catch (error) {
                           console.error('Failed to save API keys:', error);
                           setApiKeySaveMessage('Failed to save API keys. Please try again.');
