@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Search,
   Globe,
@@ -37,15 +38,17 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   delegation: <Share2 className="w-5 h-5" />,
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  web: 'Web & Search',
-  filesystem: 'File System',
-  memory: 'Memory',
-  reasoning: 'Reasoning',
-  delegation: 'Delegation',
-};
-
 export default function ToolLibrary() {
+  const { t } = useTranslation('chat');
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    web: t('tool_library_cat_web'),
+    filesystem: t('tool_library_cat_filesystem'),
+    memory: t('tool_library_cat_memory'),
+    reasoning: t('tool_library_cat_reasoning'),
+    delegation: t('tool_library_cat_delegation'),
+  };
+
   const [tools, setTools] = useState<ToolItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,12 +104,11 @@ export default function ToolLibrary() {
           <div className="flex items-center gap-3 mb-2">
             <Wrench className="w-8 h-8 text-primary" />
             <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>
-              Tool Library
+              {t('tool_library_title')}
             </h1>
           </div>
           <p className="text-sm ml-11" style={{ color: 'var(--color-text-muted)' }}>
-            {tools.length} native tools available for deep agents. Tools are grouped by category.
-            {searchQuery && ` Showing results for "${searchQuery}"`}
+            {t('tool_library_desc', { count: tools.length })}{searchQuery && ` ${t('tool_library_showing_results', { query: searchQuery })}`}
           </p>
         </div>
 
@@ -115,7 +117,7 @@ export default function ToolLibrary() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
           <input
             type="text"
-            placeholder="Search tools by name, ID, or description..."
+            placeholder={t('tool_library_search_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
@@ -136,7 +138,7 @@ export default function ToolLibrary() {
                   <Code className="w-5 h-5" />
                 </span>
                 <h2 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  Custom Tools
+                  {t('tool_library_custom_tools')}
                 </h2>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700" style={{ color: 'var(--color-text-muted)' }}>
                   {customTools.length}
@@ -151,10 +153,10 @@ export default function ToolLibrary() {
                 }}
               >
                 <Plus className="w-3.5 h-3.5" />
-                Create Tool
+                {t('tool_library_create_tool')}
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {customTools.map((tool: any) => (
                 <div
                   key={tool.tool_id || tool.id}
@@ -175,12 +177,12 @@ export default function ToolLibrary() {
                           setShowBuilder(true);
                         }}
                         className="p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-200 dark:hover:bg-gray-600"
-                        title="Edit tool"
+                        title={t('tool_library_edit_tool')}
                       >
                         <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
                       </button>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap ml-1">
-                        {tool.tool_type || 'custom'}
+                        {tool.tool_type || t('tool_library_type_custom')}
                       </span>
                     </div>
                   </div>
@@ -204,7 +206,7 @@ export default function ToolLibrary() {
         {Object.entries(filteredGroups).length === 0 && customTools.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-lg" style={{ color: 'var(--color-text-muted)' }}>
-              {searchQuery ? `No tools matching "${searchQuery}"` : 'No tools found'}
+              {searchQuery ? t('tool_library_no_match', { query: searchQuery }) : t('tool_library_no_results')}
             </p>
           </div>
         ) : (
@@ -222,7 +224,7 @@ export default function ToolLibrary() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {items.map(tool => (
                   <div
                     key={tool.id}
@@ -238,7 +240,7 @@ export default function ToolLibrary() {
                       </h3>
                       {tool.requires_api_key && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium whitespace-nowrap ml-2">
-                          API Key
+                          {t('tool_library_api_key')}
                         </span>
                       )}
                     </div>
