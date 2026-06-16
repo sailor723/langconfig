@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../lib/api-client';
 import { themes, applyTheme, loadTheme, type ThemeName } from '../lib/themes';
 import LanguageSwitcher from '../i18n/LanguageSwitcher';
@@ -16,6 +17,7 @@ import ModelDefaultsSettings from '../features/settings/ui/ModelDefaultsSettings
 import SettingsSection, { SettingsInput } from '../features/settings/ui/SettingsSection';
 
 export default function SettingsView() {
+  const { t } = useTranslation('chat');
   const [currentCategory, setCurrentCategory] = useState<SettingsCategory>('general');
   const [isLoading, setIsLoading] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -383,14 +385,14 @@ export default function SettingsView() {
         return (
           <div>
             <SettingsSection
-              title="Application Settings"
-              description="General application preferences and behavior"
+              title={t('settings_application')}
+              description={t('settings_application_desc')}
               icon="tune"
             >
               <div className="space-y-4">
                 <div className="border-t border-gray-200 dark:border-border-dark pt-3 mt-3">
                   <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    Auto-Save
+                    {t('settings_auto_save')}
                   </h4>
                   <div className="space-y-2.5">
                     <label className="flex items-center gap-3 cursor-pointer">
@@ -405,10 +407,10 @@ export default function SettingsView() {
                       />
                       <div className="flex-1">
                         <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                          Enable auto-save
+                          {t('settings_auto_save_enable')}
                         </span>
                         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          Automatically save workflows at regular intervals
+                          {t('settings_auto_save_desc')}
                         </p>
                       </div>
                     </label>
@@ -621,7 +623,7 @@ export default function SettingsView() {
 
                 <div className="border-t border-gray-200 dark:border-border-dark pt-3 mt-3">
                   <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    Updates & Telemetry
+                    {t('settings_updates')}
                   </h4>
                   <div className="space-y-2.5">
                     <label className="flex items-center gap-3 cursor-pointer">
@@ -636,10 +638,10 @@ export default function SettingsView() {
                       />
                       <div className="flex-1">
                         <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                          Check for updates
+                          {t('settings_check_updates')}
                         </span>
                         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          Automatically check for new versions on startup
+                          {t('settings_check_updates_desc')}
                         </p>
                       </div>
                     </label>
@@ -656,10 +658,10 @@ export default function SettingsView() {
                       />
                       <div className="flex-1">
                         <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                          Anonymous usage statistics
+                          {t('settings_telemetry')}
                         </span>
                         <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          Help improve LangConfig by sharing anonymous usage data
+                          {t('settings_telemetry_desc')}
                         </p>
                       </div>
                     </label>
@@ -668,12 +670,12 @@ export default function SettingsView() {
 
                 <div className="border-t border-gray-200 dark:border-border-dark pt-3 mt-3">
                   <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    Language
-                  </h4>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                      Interface language:
-                    </span>
+                  {t('settings_language')}
+                </h4>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                    {t('settings_language_label')}
+                  </span>
                     <LanguageSwitcher />
                   </div>
                 </div>
@@ -686,8 +688,8 @@ export default function SettingsView() {
         return (
           <div>
             <SettingsSection
-              title="API Keys & Providers"
-              description="Configure your AI provider API keys. These are required for agent execution. Keys are encrypted and stored in the database."
+              title={t('settings_api_keys_title')}
+              description={t('settings_api_keys_desc')}
               icon="key"
             >
               <div className="space-y-4">
@@ -1204,13 +1206,13 @@ export default function SettingsView() {
       case 'appearance':
         return (
           <SettingsSection
-            title="Appearance & Theme"
-            description="Customize the look and feel of LangConfig"
+              title={t('settings_appearance_title')}
+              description={t('settings_appearance_desc')}
             icon="palette"
           >
             <div>
               <label className="text-sm font-medium mb-3 block" style={{ color: 'var(--color-text-primary)' }}>
-                Color Theme
+                {t('settings_color_theme')}
               </label>
               <div className="grid grid-cols-2 gap-3">
                 {Object.values(themes).map((theme) => (
@@ -1257,7 +1259,7 @@ export default function SettingsView() {
         return (
           <div>
             <SettingsSection
-              title="About LangConfig"
+              title={t('settings_about_title')}
               icon="info"
             >
               <div className="space-y-4">
