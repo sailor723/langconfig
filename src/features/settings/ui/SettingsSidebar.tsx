@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import { useTranslation } from 'react-i18next';
 import { SettingsCategory } from './SettingsLayout';
 
 interface SettingsSidebarProps {
@@ -14,31 +15,32 @@ interface SettingsSidebarProps {
 
 interface MenuSection {
   id: SettingsCategory;
-  label: string;
+  labelKey: string;
   icon: string;
 }
 
 const menuSections: MenuSection[] = [
-  { id: 'general', label: 'General', icon: 'tune' },
-  { id: 'api-keys', label: 'API Keys & Providers', icon: 'key' },
-  { id: 'model-defaults', label: 'Model Defaults', icon: 'psychology' },
-  { id: 'local-models', label: 'Local Models', icon: 'computer' },
-  { id: 'local-workspace', label: 'Local Workspace', icon: 'folder_open' },
-  { id: 'appearance', label: 'Appearance', icon: 'palette' },
-  { id: 'about', label: 'About', icon: 'info' },
+  { id: 'general', labelKey: 'settings_general', icon: 'tune' },
+  { id: 'api-keys', labelKey: 'settings_api_keys', icon: 'key' },
+  { id: 'model-defaults', labelKey: 'settings_model_defaults', icon: 'psychology' },
+  { id: 'local-models', labelKey: 'settings_local_models', icon: 'computer' },
+  { id: 'local-workspace', labelKey: 'settings_local_workspace', icon: 'folder_open' },
+  { id: 'appearance', labelKey: 'settings_appearance', icon: 'palette' },
+  { id: 'about', labelKey: 'settings_about', icon: 'info' },
 ];
 
 export default function SettingsSidebar({
   currentCategory,
   onCategoryChange
 }: SettingsSidebarProps) {
+  const { t } = useTranslation('chat');
   return (
     <aside className="w-60 border-r border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark flex flex-col">
       {/* Header */}
       <div className="px-4 py-6 border-b border-gray-200 dark:border-border-dark">
         <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
           <span className="material-symbols-outlined text-xl">settings</span>
-          Settings
+          {t('settings_title')}
         </h2>
       </div>
 
@@ -64,7 +66,7 @@ export default function SettingsSidebar({
               <span className="material-symbols-outlined text-base">
                 {section.icon}
               </span>
-              <span>{section.label}</span>
+              <span>{t(section.labelKey)}</span>
             </button>
           );
         })}
