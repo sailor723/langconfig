@@ -38,6 +38,7 @@ interface ToolCall {
   arguments: Record<string, any>;
   result: string;
   timestamp: string;
+  status: 'running' | 'completed';
 }
 
 interface SubAgentActivity {
@@ -196,6 +197,33 @@ export default function AgentChatTester({
                     lastMsg.content += String(data.content);
                   }
                   return newMessages;
+                });
+              } else if (data.type === 'tool_start') {
+                // Show tool call in sidebar in real-time
+                const toolName = data.tool_name || 'unknown';
+                const toolArgs = data.data?.input || data.data?.args || {};
+                setToolCalls(prev => [...prev, {
+                  tool_name: toolName,
+                  arguments: toolArgs,
+                  result: '',
+                  timestamp: new Date().toISOString(),
+                  status: 'running'
+                }]);
+              } else if (data.type === 'tool_end') {
+                // Mark matching tool call as completed
+                const toolName = data.tool_name || '';
+                const output = data.data?.output || data.data?.result || '';
+                const outputStr = typeof output === 'string' ? output : JSON.stringify(output);
+                setToolCalls(prev => {
+                  // Find the last running tool with matching name
+                  const idx = [...prev].reverse().findIndex(
+                    t => t.tool_name === toolName && t.status === 'running'
+                  );
+                  if (idx === -1) return prev;
+                  const realIdx = prev.length - 1 - idx;
+                  const updated = [...prev];
+                  updated[realIdx] = { ...updated[realIdx], result: outputStr, status: 'completed' };
+                  return updated;
                 });
               } else if (data.type === 'complete') {
                 // Final message received
@@ -583,9 +611,34 @@ export default function AgentChatTester({
                 <h3 className="text-sm font-semibold text-gray-400 mb-3">TOOL CALLS</h3>
                 <div className="space-y-2">
                   {toolCalls.slice(-5).reverse().map((call, index) => (
-                    <div key={index} className="p-2 bg-gray-800/50 rounded text-xs">
-                      <div className="font-mono text-blue-400">{call.tool_name}</div>
-                      <div className="text-gray-500 mt-1">{new Date(call.timestamp).toLocaleTimeString()}</div>
+                    <div key={index} className={`p-2 rounded text-xs ${
+                      call.status === 'running'
+                        ? 'bg-blue-600/10 border border-blue-600/30'
+                        : 'bg-gray-800/50'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {call.status === 'running' ? (
+                          <Activity className="w-3 h-3 text-blue-400 animate-pulse" />
+                        ) : (
+                          <CheckCircle className="w-3 h-3 text-green-500" />
+                        )}
+                        <span className={`font-mono ${call.status === 'running' ? 'text-blue-400' : 'text-green-400'}`}>
+                          {call.tool_name}
+                        </span>
+                      </div>
+                      {call.arguments && Object.keys(call.arguments).length > 0 && (
+                        <div className="text-gray-500 mt-1 truncate">
+                          {JSON.stringify(call.arguments)}
+                        </div>
+                      )}
+                      {call.result && (
+                        <div className="text-gray-400 mt-0.5 truncate" title={call.result}>
+                          → {call.result.slice(0, 60)}
+                        </div>
+                      )}
+                      <div className="text-gray-600 mt-1 text-[10px]">
+                        {new Date(call.timestamp).toLocaleTimeString()}
+                      </div>
                     </div>
                   ))}
                 </div>
