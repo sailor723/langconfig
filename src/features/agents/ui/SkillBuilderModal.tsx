@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Plus, Tag, Zap, BookOpen, Save, ArrowLeft } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 
@@ -23,6 +24,7 @@ interface SkillBuilderModalProps {
 }
 
 const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModalProps) => {
+  const { t } = useTranslation('chat');
   const isEditing = !!existingSkill;
 
   // Form state
@@ -40,15 +42,15 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
 
   const handleSave = async () => {
     if (!name.trim()) {
-      setError('Name is required');
+      setError(t('skill_builder_error_name'));
       return;
     }
     if (!description.trim()) {
-      setError('Description is required');
+      setError(t('skill_builder_error_desc'));
       return;
     }
     if (!instructions.trim()) {
-      setError('Instructions are required');
+      setError(t('skill_builder_error_instructions'));
       return;
     }
 
@@ -83,7 +85,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
       onClose();
     } catch (e: any) {
       console.error('Failed to save skill:', e);
-      setError(e.response?.data?.detail || 'Failed to save skill');
+      setError(e.response?.data?.detail || t('skill_builder_error_save'));
     } finally {
       setSaving(false);
     }
@@ -131,16 +133,16 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
                 onClick={onClose}
                 className="p-2 transition-all text-white/90 hover:text-white hover:bg-white/15 rounded-lg"
                 style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)' }}
-                title="Back"
+                title={t('skill_builder_back')}
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div className="flex-1">
                 <h2 className="text-2xl font-semibold text-white" style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.25)' }}>
-                  {isEditing ? 'Edit Skill' : 'New Skill'}
+                  {isEditing ? t('skill_builder_title_edit') : t('skill_builder_title_new')}
                 </h2>
                 <p className="text-sm mt-1 text-white/90" style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)' }}>
-                  Create reusable expertise modules that inject instructions into agent context
+                  {t('skill_builder_subtitle')}
                 </p>
               </div>
             </div>
@@ -148,7 +150,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
               onClick={onClose}
               className="p-2 transition-all text-white/90 hover:text-white hover:bg-white/15 rounded-lg"
               style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)' }}
-              title="Close"
+              title={t('skill_builder_close')}
             >
               <X className="w-6 h-6" />
             </button>
@@ -167,13 +169,13 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
             {/* Name */}
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 uppercase">
-                Skill Name <span className="text-red-500">*</span>
+                {t('skill_builder_name_label')}
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Code Review Expert"
+                placeholder={t('skill_builder_name_placeholder')}
                 className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
@@ -181,13 +183,13 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
             {/* Description */}
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 uppercase">
-                Description <span className="text-red-500">*</span>
+                {t('skill_builder_desc_label')}
               </label>
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description of what this skill does"
+                placeholder={t('skill_builder_desc_placeholder')}
                 className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
@@ -196,7 +198,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 uppercase">
                 <Tag size={12} className="inline mr-1" />
-                Tags
+                {t('skill_builder_tags_label')}
               </label>
               <div className="flex flex-wrap gap-2 mb-2">
                 {tags.map((tag) => (
@@ -221,7 +223,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                  placeholder="Add tag..."
+                  placeholder={t('skill_builder_tags_placeholder')}
                   className="flex-1 px-3 py-1.5 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
                 <button
@@ -237,10 +239,10 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 uppercase">
                 <Zap size={12} className="inline mr-1" />
-                Auto-Triggers
+                {t('skill_builder_triggers_label')}
               </label>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                Keywords or phrases that automatically activate this skill
+                {t('skill_builder_triggers_desc')}
               </p>
               <div className="flex flex-wrap gap-2 mb-2">
                 {triggers.map((trigger) => (
@@ -264,7 +266,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
                   value={newTrigger}
                   onChange={(e) => setNewTrigger(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTrigger())}
-                  placeholder="e.g., review my code"
+                  placeholder={t('skill_builder_triggers_placeholder')}
                   className="flex-1 px-3 py-1.5 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
                 <button
@@ -279,22 +281,15 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
             {/* Instructions */}
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 uppercase">
-                Instructions <span className="text-red-500">*</span>
+                {t('skill_builder_instructions_label')}
               </label>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                Detailed instructions that will be injected into the agent's system prompt when this skill is active
+                {t('skill_builder_instructions_desc')}
               </p>
               <textarea
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
-                placeholder="## Instructions
-
-Describe the expertise and behavior this skill should provide...
-
-## Guidelines
-- Be specific about what the agent should do
-- Include examples if helpful
-- Define output format expectations"
+                placeholder={t('skill_builder_instructions_placeholder')}
                 rows={12}
                 className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
@@ -308,7 +303,7 @@ Describe the expertise and behavior this skill should provide...
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
-            Cancel
+            {t('skill_builder_cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -317,7 +312,7 @@ Describe the expertise and behavior this skill should provide...
             style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}
           >
             <Save size={14} />
-            {saving ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Skill'}
+            {saving ? t('skill_builder_saving') : isEditing ? t('skill_builder_save_changes') : t('skill_builder_create')}
           </button>
         </div>
       </div>
