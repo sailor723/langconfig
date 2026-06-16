@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import PromptCanvas from '../features/agents/ui/PromptCanvas';
 import apiClient from '../lib/api-client';
 import { Layers, Save, Loader2, GitBranch, User } from 'lucide-react';
@@ -37,6 +38,7 @@ interface AgentData {
 }
 
 export default function PromptAssemblyPage() {
+  const { t } = useTranslation('chat');
   const [agents, setAgents] = useState<any[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null);
   const [agent, setAgent] = useState<AgentData | null>(null);
@@ -127,11 +129,11 @@ export default function PromptAssemblyPage() {
       cfg.subagents = subs;
 
       await apiClient.updateDeepAgent(agent.id, { config: cfg });
-      setSaveSuccess(`Saved "${agent.name}" ✅`);
+      setSaveSuccess(t('prompt_saved', { name: agent.name }));
       setTimeout(() => setSaveSuccess(null), 2000);
     } catch (err) {
       console.error('Failed to save:', err);
-      setSaveSuccess('Save failed ❌');
+      setSaveSuccess(t('prompt_save_failed'));
     } finally {
       setSaving(false);
     }
@@ -148,10 +150,10 @@ export default function PromptAssemblyPage() {
             <Layers className="w-8 h-8 text-purple-500" />
             <div>
               <h1 className="text-2xl font-bold" style={{ color: '#111827' }}>
-                Prompt Assembly
+                {t('prompt_title')}
               </h1>
               <p className="text-sm" style={{ color: '#4b5563' }}>
-                Edit prompts for your agent and its subagents
+                {t('prompt_subtitle')}
               </p>
             </div>
           </div>
@@ -160,7 +162,7 @@ export default function PromptAssemblyPage() {
         {/* Agent Selector */}
         <div className="mb-6 p-4 rounded-lg border bg-white" style={{ borderColor: '#e5e7eb' }}>
           <label className="block text-xs font-medium mb-1.5 uppercase" style={{ color: '#6b7280' }}>
-            Select Agent
+            {t('prompt_select_label')}
           </label>
           <div className="flex gap-3 items-center">
             <select
@@ -176,7 +178,7 @@ export default function PromptAssemblyPage() {
                 borderColor: '#d1d5db',
               }}
             >
-              <option value="">— Choose an agent —</option>
+              <option value="">{t('prompt_select_placeholder')}</option>
               {agents.map(a => (
                 <option key={a.id} value={a.id}>{a.name}{a.description && a.description !== a.name ? ` — ${a.description.slice(0, 50)}` : ''}</option>
               ))}
@@ -189,7 +191,7 @@ export default function PromptAssemblyPage() {
               className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border transition-colors bg-primary text-white hover:opacity-90 disabled:opacity-40"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saveSuccess || 'Save All'}
+              {saveSuccess || t('prompt_save_all')}
             </button>
           </div>
         </div>
@@ -202,7 +204,7 @@ export default function PromptAssemblyPage() {
 
         {!loadingAgent && !agent && !selectedAgentId && (
           <div className="text-center py-12 text-sm" style={{ color: '#9ca3af' }}>
-            Select an agent above to start editing its prompts
+            {t('prompt_editor_placeholder')}
           </div>
         )}
 
@@ -219,7 +221,7 @@ export default function PromptAssemblyPage() {
                 }`}
               >
                 <User className="w-4 h-4" />
-                Manager
+                {t('prompt_tab_manager')}
               </button>
               {subagents.map((sa: SubAgentData, i: number) => (
                 <button
@@ -244,7 +246,7 @@ export default function PromptAssemblyPage() {
                 <div>
                   {/* Model selector for assembly preview */}
                   <div className="mb-4 flex items-center gap-3">
-                    <label className="text-xs font-medium uppercase" style={{ color: '#6b7280' }}>Preview Model:</label>
+                    <label className="text-xs font-medium uppercase" style={{ color: '#6b7280' }}>{t('prompt_preview_model')}</label>
                     <select
                       value={agent.config?.model || 'deepseek:chat'}
                       disabled
@@ -278,7 +280,7 @@ export default function PromptAssemblyPage() {
                           <span className="text-xs ml-2" style={{ color: '#6b7280' }}>{sa.description}</span>
                         </div>
                         <span className="text-xs px-2 py-0.5 rounded bg-gray-100" style={{ color: '#374151' }}>
-                          model: {sa.model || '(inherited)'} · tools: {sa.tools.length}
+                          {t('prompt_preview_model')} {sa.model || t('prompt_model_inherited')} · {t('prompt_tools_count', { count: sa.tools.length })}
                         </span>
                       </div>
                     </div>
@@ -296,8 +298,8 @@ export default function PromptAssemblyPage() {
             {/* Bottom save bar */}
             <div className="mt-6 flex items-center justify-between p-4 rounded-lg border bg-white" style={{ borderColor: '#e5e7eb' }}>
               <span className="text-xs" style={{ color: '#6b7280' }}>
-                Editing: <strong>{agent.name}</strong>
-                {subagents.length > 0 && ` · ${subagents.length} subagent(s)`}
+                {t('prompt_editing')} <strong>{agent.name}</strong>
+                {subagents.length > 0 && ` · ${t('prompt_subagent_count', { count: subagents.length })}`}
               </span>
               <button
                 onClick={handleSave}
@@ -305,7 +307,7 @@ export default function PromptAssemblyPage() {
                 className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-primary text-white hover:opacity-90 disabled:opacity-40"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Save All Changes
+                {t('prompt_save_all_changes')}
               </button>
             </div>
           </>

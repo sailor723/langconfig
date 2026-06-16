@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import LearnLangChainTab from './LearnLangChainTab';
 import BestPracticesTab from './BestPracticesTab';
 import FilesLibraryTab from './FilesLibraryTab';
@@ -33,6 +34,7 @@ export default function LibraryContentPanel({
 }: LibraryContentPanelProps) {
   const [activeTab, setActiveTab] = useState<'workflows' | 'projects' | 'files' | 'learn' | 'best-practices'>('workflows');
   const [searchQuery, setSearchQuery] = useState('');
+  const { t } = useTranslation('chat');
 
   return (
     <div className="h-full flex flex-col">
@@ -49,7 +51,7 @@ export default function LibraryContentPanel({
             >
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-base">account_tree</span>
-                Your Workflows
+                {t('library_tab_workflows')}
               </span>
             </button>
             <button
@@ -61,7 +63,7 @@ export default function LibraryContentPanel({
             >
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-base">folder</span>
-                Projects
+                {t('library_tab_projects')}
               </span>
             </button>
             <button
@@ -73,7 +75,7 @@ export default function LibraryContentPanel({
             >
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-base">folder_open</span>
-                Files
+                {t('library_tab_files')}
               </span>
             </button>
             <button
@@ -85,7 +87,7 @@ export default function LibraryContentPanel({
             >
               <span className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-base">school</span>
-                Learn LangChain
+                {t('library_tab_learn')}
               </span>
             </button>
             <button
@@ -96,8 +98,8 @@ export default function LibraryContentPanel({
                 }`}
             >
               <span className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-base">workspace_premium</span>
-                Best Practices
+                <span className="material-symbols-outlined text-base">lightbulb</span>
+                {t('library_tab_best_practices')}
               </span>
             </button>
           </div>
@@ -113,7 +115,7 @@ export default function LibraryContentPanel({
               </span>
               <input
                 type="text"
-                placeholder="Search content..."
+                placeholder={t('library_search_content')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 pr-4 py-1.5 text-sm border rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-primary"
@@ -145,10 +147,10 @@ export default function LibraryContentPanel({
                 {/* Welcome Header */}
                 <div className="text-center pt-8 pb-4">
                   <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    Welcome to the Library
+                    {t('library_welcome_title')}
                   </h1>
                   <p className="text-base" style={{ color: 'var(--color-text-muted)' }}>
-                    Build, learn, and master LangChain agent development
+                    {t('library_welcome_subtitle')}
                   </p>
                 </div>
 
@@ -165,15 +167,15 @@ export default function LibraryContentPanel({
                       </div>
                       <div className="flex-1">
                         <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                          Projects
+                          {t('library_feature_projects')}
                         </h3>
                         <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-                          Organize your workflows, manage RAG knowledge bases, and track project metrics all in one place.
+                          {t('library_feature_projects_desc')}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                      Explore Projects
+                      {t('library_feature_projects_cta')}
                       <span className="material-symbols-outlined text-base group-hover:translate-x-1 transition-transform">arrow_forward</span>
                     </div>
                   </button>
@@ -189,15 +191,15 @@ export default function LibraryContentPanel({
                       </div>
                       <div className="flex-1">
                         <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                          Workflows
+                          {t('library_feature_workflows')}
                         </h3>
                         <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-                          Create powerful multi-agent workflows with our visual studio. Build, test, and deploy AI orchestration.
+                          {t('library_feature_workflows_desc')}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                      Create Workflow
+                      {t('library_feature_workflows_cta')}
                       <span className="material-symbols-outlined text-base group-hover:translate-x-1 transition-transform">arrow_forward</span>
                     </div>
                   </button>
@@ -213,15 +215,15 @@ export default function LibraryContentPanel({
                       </div>
                       <div className="flex-1">
                         <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                          Learn LangChain
+                          {t('library_feature_learn')}
                         </h3>
                         <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-                          Master agent development with comprehensive tutorials, from basic concepts to advanced patterns.
+                          {t('library_feature_learn_desc')}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                      Start Learning
+                      {t('library_feature_learn_cta')}
                       <span className="material-symbols-outlined text-base group-hover:translate-x-1 transition-transform">arrow_forward</span>
                     </div>
                   </button>
@@ -237,15 +239,15 @@ export default function LibraryContentPanel({
                       </div>
                       <div className="flex-1">
                         <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                          Best Practices
+                          {t('library_feature_best')}
                         </h3>
                         <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-                          Production-ready code examples, design patterns, and expert tips for building reliable AI systems.
+                          {t('library_feature_best_desc')}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                      View Examples
+                      {t('library_feature_best_cta')}
                       <span className="material-symbols-outlined text-base group-hover:translate-x-1 transition-transform">arrow_forward</span>
                     </div>
                   </button>
@@ -261,11 +263,11 @@ export default function LibraryContentPanel({
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                            Active Project: {activeProject.name}
+                            {t('library_active_project', { name: activeProject.name })}
                           </h3>
                           {activeProject.status === 'active' && (
                             <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400">
-                              Active
+                              {t('library_active_badge')}
                             </span>
                           )}
                         </div>
@@ -280,7 +282,7 @@ export default function LibraryContentPanel({
                               description
                             </span>
                             <span style={{ color: 'var(--color-text-muted)' }}>
-                              {activeProject.indexed_nodes_count || 0} indexed docs
+                              {t('library_indexed_docs', { count: activeProject.indexed_nodes_count || 0 })}
                             </span>
                           </div>
                         </div>
@@ -295,7 +297,7 @@ export default function LibraryContentPanel({
                     <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 flex-shrink-0 text-xl">tips_and_updates</span>
                     <div>
                       <h4 className="text-sm font-semibold mb-2 text-blue-800 dark:text-blue-300">
-                        Pro Tip
+                                                {t('library_tip_title')}
                       </h4>
                       <p className="text-sm text-blue-700 dark:text-blue-400/90 leading-relaxed">
                         Start with the "Learn LangChain" tab to understand core concepts, then check out "Best Practices" for production-ready patterns. When you're ready, create your first workflow and experiment with different agent configurations!
