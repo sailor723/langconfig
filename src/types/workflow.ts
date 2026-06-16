@@ -173,6 +173,7 @@ export interface Project {
   indexed_nodes_count?: number;
   created_at?: string;
   updated_at?: string;
+  project_path?: string;
 }
 
 /**

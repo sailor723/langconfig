@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from db.database import get_db
 from models.core import Project, ProjectStatus, IndexingStatus
+from services.workspace_manager import get_workspace_manager
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -37,6 +38,7 @@ class ProjectResponse(BaseModel):
     configuration: dict
     indexing_status: IndexingStatus
     workflow_profile_id: Optional[int]
+    project_path: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -56,6 +58,16 @@ async def list_projects(
         query = query.filter(Project.status == status)
 
     projects = query.offset(skip).limit(limit).all()
+
+    # Attach project_path from workspace manager
+    workspace_mgr = get_workspace_manager()
+    for p in projects:
+        try:
+            workspace = workspace_mgr.get_project_workspace(p.id)
+            p.project_path = str(workspace)
+        except Exception:
+            pass
+
     return projects
 
 
@@ -68,6 +80,14 @@ async def get_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        workspace_mgr = get_workspace_manager()
+        workspace = workspace_mgr.get_project_workspace(project.id)
+        project.project_path = str(workspace)
+    except Exception:
+        pass
+
     return project
 
 
@@ -95,6 +115,16 @@ async def create_project(
     db.add(db_project)
     db.commit()
     db.refresh(db_project)
+
+    # Create project workspace directory
+    try:
+        workspace_mgr = get_workspace_manager()
+        workspace_path = workspace_mgr.get_project_workspace(db_project.id)
+        db_project.project_path = str(workspace_path)
+    except Exception as e:
+        # Non-critical: folder creation failure shouldn't block project creation
+        pass
+
     return db_project
 
 
