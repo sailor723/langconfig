@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useProject } from '@/contexts/ProjectContext';
 import LearnLangChainTab from './LearnLangChainTab';
 import BestPracticesTab from './BestPracticesTab';
 import FilesLibraryTab from './FilesLibraryTab';
@@ -35,6 +36,7 @@ export default function LibraryContentPanel({
   const [activeTab, setActiveTab] = useState<'workflows' | 'projects' | 'files' | 'learn' | 'best-practices'>('workflows');
   const [searchQuery, setSearchQuery] = useState('');
   const { t } = useTranslation('chat');
+  const { updateProject } = useProject();
 
   return (
     <div className="h-full flex flex-col">
@@ -285,8 +287,30 @@ export default function LibraryContentPanel({
                               {t('library_indexed_docs', { count: activeProject.indexed_nodes_count || 0 })}
                             </span>
                           </div>
+                          {activeProject.project_path && (
+                            <div className="flex items-center gap-1">
+                              <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                                folder
+                              </span>
+                              <span style={{ color: 'var(--color-text-muted)' }} className="truncate max-w-[200px]">
+                                {activeProject.project_path}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
+                      <button
+                        onClick={() => {
+                          const newName = prompt('Rename project:', activeProject.name);
+                          if (newName && newName.trim() && newName !== activeProject.name) {
+                            updateProject(activeProject.id, { name: newName.trim() });
+                          }
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors flex-shrink-0 self-start"
+                        title="Rename project"
+                      >
+                        <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-text-muted)' }}>edit</span>
+                      </button>
                     </div>
                   </div>
                 )}
