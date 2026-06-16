@@ -6,6 +6,7 @@
  */
 
 import { useState, useRef, KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send } from 'lucide-react';
 import FileUploadButton from './FileUploadButton';
 import type { SessionDocument } from '../types/chat';
@@ -23,10 +24,10 @@ export default function MessageInput({
   onSendMessage,
   disabled = false,
   isStreaming = false,
-  placeholder = "Type your message...",
   sessionId = null,
   onFileUploaded = () => {}
 }: MessageInputProps) {
+  const { t } = useTranslation('chat');
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -64,7 +65,7 @@ export default function MessageInput({
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyPress={handleKeyPress}
-        placeholder={placeholder}
+        placeholder={t('type_message')}
         disabled={disabled || isStreaming}
         className="flex-1 px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
         style={{
@@ -83,7 +84,7 @@ export default function MessageInput({
           backgroundColor: 'var(--color-primary)',
           color: 'white',
         }}
-        title="Send message (Enter)"
+        title={t('send_message')}
       >
         <Send className="w-4 h-4" />
       </button>
