@@ -784,6 +784,10 @@ class APIClient {
     return this.client.post('/api/custom-tools/import', formData);
   }
 
+  async verifyCustomToolCode(data: { code: string; function_name: string; description?: string; auto_fix?: boolean }) {
+    return this.client.post('/api/custom-tools/verify-code', data);
+  }
+
   async listToolTemplates() {
     return this.client.get('/api/custom-tools/templates/list');
   }

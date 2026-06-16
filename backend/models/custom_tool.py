@@ -130,13 +130,13 @@ class CustomTool(Base):
 
     @validates('tool_id')
     def validate_tool_id(self, key, value):
-        """Ensure tool_id is valid (alphanumeric + underscores)"""
+        """Ensure tool_id is valid (alphanumeric + underscores + hyphens)"""
         if not value or not value.strip():
             raise ValueError("Tool ID cannot be empty")
-        # Basic validation - alphanumeric and underscores only
+        # Basic validation - alphanumeric, underscores, and hyphens only
         import re
-        if not re.match(r'^[a-zA-Z0-9_]+$', value.strip()):
-            raise ValueError("Tool ID must contain only letters, numbers, and underscores")
+        if not re.match(r'^[a-zA-Z0-9_-]+$', value.strip()):
+            raise ValueError("Tool ID must contain only letters, numbers, underscores, and hyphens")
         return value.strip()
 
     def __repr__(self):
