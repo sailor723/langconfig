@@ -528,7 +528,7 @@ class DynamicToolLoadout:
             "deploy": ["run_command", "docker", "kubernetes"],
             "test": ["run_tests", "run_command"],
             "document": ["read_file", "write_file", "glob"],
-            "research": ["web_search", "web_fetch", "calculator"],
+            "research": ["web_search", "web_fetch"],
         }
 
     def select_tools(

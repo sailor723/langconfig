@@ -546,6 +546,102 @@ if getattr(config, 'use_local_sandbox', False):
 agent_kwargs["backend"] = local_sandbox_backend
 ```
 
+### 4. DB-Backed Custom Tools (Python Function Type)
+
+Beyond native tools (hardcoded in `native_tools.py`) and `@tool` decorators (code-defined), tools can be stored entirely in the PostgreSQL database as **`PYTHON_FUNCTION`** custom tools. This allows users to define, edit, and manage tools through the UI without any code deployment.
+
+#### Storage Model
+
+**File**: [`backend/models/custom_tool.py`](../../backend/models/custom_tool.py)
+
+Each custom tool is stored in the `custom_tools` table:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `tool_id` | String (PK) | Unique ID (e.g. `math_sqrt`) |
+| `name` | String | Display name |
+| `description` | Text | Tool description (shown to LLM) |
+| `tool_type` | String | `"python_function"` |
+| `implementation_config` | JSON | `{ code, function_name, args_schema }` |
+| `project_id` | Integer (FK) | Scoped to a project |
+
+#### Implementation Config Structure
+
+```json
+{
+  "code": "import math\ndef sqrt(x: float) -> str:\n    if x < 0:\n        return 'Error: Negative input not supported'\n    return str(math.sqrt(x))",
+  "function_name": "sqrt",
+  "args_schema": {
+    "x": {"type": "float", "description": "Number to find the square root of"}
+  }
+}
+```
+
+#### Runtime Resolution
+
+**File**: [`backend/core/tools/factory.py#L2270-L2350`](../../backend/core/tools/factory.py#L2270-L2350)
+
+When an agent config references custom tools via `config.custom_tools = ["math_sqrt", ...]`, the `AgentFactory` loads them at runtime:
+
+```python
+# AgentFactory._load_custom_tools() -> ToolFactory._create_python_function_tool()
+# For each tool_id in config.custom_tools:
+#   1. Query custom_tools table by tool_id
+#   2. exec() the Python code from implementation_config.code
+#   3. Wrap the function in StructuredTool with coroutine support
+#   4. Bind to agent via create_agent(tools=[...])
+```
+
+Key implementation details:
+
+```python
+# backend/core/tools/factory.py
+async def _create_python_function_tool(tool_config, project_id):
+    impl_config = tool_config["implementation_config"]
+    
+    # 1. exec the user's code
+    local_ns = {}
+    exec(code_str, {"math": __import__("math"), "json": json, "typing": __import__("typing")}, local_ns)
+    fn = local_ns[function_name]
+    
+    # 2. Create async wrapper
+    async def _run(**kwargs) -> str:
+        result = fn(**kwargs)
+        return str(result)
+    
+    # 3. Build Pydantic args schema from impl_config.args_schema
+    InputModel = create_model(...)
+    
+    # 4. Return StructuredTool
+    return StructuredTool.from_function(coroutine=_run, name=name, description=desc, args_schema=InputModel)
+```
+
+#### Usage Example: math_agent (id=40)
+
+Rather than hardcoding a `calculator` tool in `native_tools.py`, we created separate math functions as DB-backed tools:
+
+| tool_id | Function | Code |
+|---------|----------|------|
+| `math_sqrt` | `sqrt(x)` → `math.sqrt(x)` | `import math` |
+| `math_add` | `add(a, b)` → `a + b` | Simple arithmetic |
+| `math_multiply` | `multiply(a, b)` → `a * b` | Simple arithmetic |
+
+Agent config:
+```json
+{
+  "custom_tools": ["math_sqrt", "math_add", "math_subtract", "math_multiply", "math_divide"],
+  "native_tools": ["ls", "read_file", ...],
+  "use_deepagents": false
+}
+```
+
+This approach offers several advantages over native tools:
+- **No code deploy** — Add/edit tools via the `custom_tools` table directly
+- **User-defined** — Non-developers can create custom tools through the frontend
+- **Scoped to projects** — Each tool can be associated with a specific project
+- **No registry needed** — Tools are resolved from DB at runtime, no `TOOL_NAME_MAP` or `TOOL_REGISTRY` maintenance
+```
+
 When a `backend` is passed, the harness automatically registers the following tools on top of the existing middleware tools:
 
 | Tool | Description |
