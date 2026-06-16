@@ -98,14 +98,16 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey = 0 }: Ses
           <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--color-primary)' }} />
         </div>
       ) : (
-        <div className="grid grid-cols-6 gap-1.5 max-h-24 overflow-y-auto">
+        <div className="flex flex-wrap justify-center gap-1.5 max-h-24 overflow-y-auto">
           {documents.map(doc => (
             <div
               key={doc.id}
-              className="flex flex-col gap-0.5 p-2 rounded-lg border relative min-w-0"
+              className="flex flex-col items-center gap-0.5 p-2 rounded-lg border relative"
               style={{
                 backgroundColor: 'white',
-                borderColor: 'var(--color-border-dark)'
+                borderColor: 'var(--color-border-dark)',
+                width: 'fit-content',
+                minWidth: '90px'
               }}
             >
               <button
@@ -116,17 +118,17 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey = 0 }: Ses
               >
                 <Trash2 className="w-2.5 h-2.5" />
               </button>
-              <div className="flex items-center gap-1 min-w-0">
+              <div className="flex items-center justify-center gap-1 min-w-0">
                 <File className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
                 <span
-                  className="text-[11px] font-medium truncate"
+                  className="text-[11px] font-medium truncate max-w-[80px]"
                   style={{ color: 'var(--color-text-primary)' }}
                   title={doc.filename}
                 >
                   {doc.filename}
                 </span>
               </div>
-              <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+              <div className="flex items-center justify-center gap-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
                 <span>{(doc.file_size / 1024).toFixed(0)}KB</span>
                 <span>•</span>
                 {getStatusIcon(doc.indexing_status)}
