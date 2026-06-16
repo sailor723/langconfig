@@ -480,7 +480,7 @@ print(result)
                   onChange={(e) => setAgentDescription(e.target.value)}
                   className="text-sm w-full px-3 py-2 border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none flex-1"
                   rows={4}
-                  placeholder="Description..."
+                  placeholder={t('agent_config_description_placeholder')}
                   style={{
                     color: 'var(--color-text-primary)',
                     minHeight: '100px'
@@ -697,7 +697,7 @@ print(result)
             <div>
               <div className="px-3 py-1.5 rounded-lg mb-2" style={{ backgroundColor: 'var(--color-primary)' }}>
                 <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
-                  Agent Tools
+                  {t('agent_config_tools')}
                 </h3>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -754,7 +754,7 @@ print(result)
                   <>
                     <div className="px-3 py-1.5 rounded-lg mb-2 mt-4" style={{ backgroundColor: 'var(--color-primary)' }}>
                       <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
-                        Custom Tools
+                        {t('agent_config_custom_tools')}
                       </h3>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -847,7 +847,7 @@ print(result)
               <div>
                 <div className="px-3 py-1.5 rounded-lg mb-2" style={{ backgroundColor: 'var(--color-primary)' }}>
                   <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
-                    System Prompt
+                    {t('agent_system_prompt')}
                   </h3>
                 </div>
                 <textarea
@@ -871,7 +871,7 @@ print(result)
           <div>
             <div className="px-3 py-1.5 rounded-lg mb-2" style={{ backgroundColor: 'var(--color-primary)' }}>
               <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
-                Middleware
+                {t('agent_config_middleware')}
               </h3>
             </div>
             <div className="grid grid-cols-4 gap-3">
@@ -2977,7 +2977,7 @@ const AgentLoadouts = () => {
           <div className="p-4 border-b border-gray-200 dark:border-border-dark bg-white/50 dark:bg-panel-dark/50 backdrop-blur-sm sticky top-0 z-10">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white font-display">
-                Agent Loadouts
+                {t('agent_loadouts')}
               </h2>
             </div>
 
@@ -3000,7 +3000,7 @@ const AgentLoadouts = () => {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                    Agents
+                    {t('agent_list_title')}
                   </h3>
                   <span className="text-xs px-2 py-0.5 rounded-full" style={{
                     backgroundColor: 'var(--color-background-dark)',
@@ -3020,13 +3020,13 @@ const AgentLoadouts = () => {
                   onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
                   <Plus size={14} />
-                  New Agent
+                  {t('agent_new')}
                 </button>
               </div>
 
               {loading ? (
                 <div className="text-center py-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                  Loading...
+                  {t('agent_loading')}
                 </div>
               ) : filteredAgents.length === 0 ? (
                 <div className="text-center py-8 px-4">
@@ -3034,14 +3034,14 @@ const AgentLoadouts = () => {
                     smart_toy
                   </span>
                   <p className="text-sm mb-3" style={{ color: 'var(--color-text-muted)' }}>
-                    No agents yet
+                    {t('agent_no_agents')}
                   </p>
                   <button
                     onClick={() => setSelectedItem({ type: 'template', category: 'agent' })}
                     className="text-xs px-3 py-1.5 rounded-lg"
                     style={{ color: 'var(--color-primary)', backgroundColor: 'var(--color-background-dark)' }}
                   >
-                    View Templates
+                    {t('agent_view_templates')}
                   </button>
                 </div>
               ) : (
@@ -3056,7 +3056,7 @@ const AgentLoadouts = () => {
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                            Agents
+                            {t('agent_section_regular')}
                           </span>
                           <span className="text-xs px-1.5 py-0.5 rounded" style={{
                             backgroundColor: 'var(--color-background-light)',
@@ -3119,7 +3119,7 @@ const AgentLoadouts = () => {
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                            Deep Agents
+                            {t('agent_section_deep')}
                           </span>
                           <span className="text-xs px-1.5 py-0.5 rounded" style={{
                             backgroundColor: 'var(--color-background-light)',
@@ -3186,10 +3186,10 @@ const AgentLoadouts = () => {
               <div className="max-w-6xl w-full">
                 <div className="mb-12 text-center">
                   <h2 className="text-3xl font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                    Get Started
+                    {t('agent_template_title')}
                   </h2>
                   <p className="text-base" style={{ color: 'var(--color-text-muted)' }}>
-                    Choose a template to quickly create agents and tools
+                    {t('agent_template_subtitle')}
                   </p>
                 </div>
 
@@ -3199,7 +3199,7 @@ const AgentLoadouts = () => {
                   <div className="flex flex-col">
                     <h3 className="text-xl font-semibold mb-6 flex items-center justify-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
                       <Sparkles size={20} style={{ color: 'var(--color-primary)' }} />
-                      Agent Templates
+                      {t('agent_template_agent')}
                     </h3>
                     <div className="space-y-4 flex-1">
                       <button
@@ -3250,10 +3250,10 @@ Always explain your code changes and provide context for your decisions.`,
                           </span>
                           <div>
                             <h4 className="font-semibold text-base mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                              Code Generator
+                              {t('agent_template_code_gen')}
                             </h4>
                             <p className="text-xs" style={{ color: 'var(--color-text-muted)', lineHeight: '1.3' }}>
-                              Generate, refactor, and document code with filesystem tools and GitHub integration
+                              {t('agent_template_code_gen_desc')}
                             </p>
                           </div>
                         </div>
@@ -3307,10 +3307,10 @@ Always provide balanced perspectives and acknowledge uncertainties when appropri
                           </span>
                           <div>
                             <h4 className="font-semibold text-base mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                              Research Assistant
+                              {t('agent_template_research')}
                             </h4>
                             <p className="text-xs" style={{ color: 'var(--color-text-muted)', lineHeight: '1.3' }}>
-                              Gather information from the web, synthesize findings, and generate reports
+                              {t('agent_template_research_desc')}
                             </p>
                           </div>
                         </div>
@@ -3364,10 +3364,10 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                           </span>
                           <div>
                             <h4 className="font-semibold text-base mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                              Testing Agent
+                              {t('agent_template_testing')}
                             </h4>
                             <p className="text-xs" style={{ color: 'var(--color-text-muted)', lineHeight: '1.3' }}>
-                              Write and execute tests, analyze coverage, and identify edge cases
+                              {t('agent_template_testing_desc')}
                             </p>
                           </div>
                         </div>
@@ -3393,7 +3393,7 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                         }}
                       >
                         <Plus size={20} />
-                        Create Custom Agent
+                        {t('agent_template_create_agent')}
                       </button>
                     </div>
                   </div>
@@ -3402,7 +3402,7 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                   <div className="flex flex-col">
                     <h3 className="text-xl font-semibold mb-6 flex items-center justify-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
                       <Database size={20} style={{ color: 'var(--color-primary)' }} />
-                      Tool Templates
+                      {t('agent_template_tool')}
                     </h3>
                     <div className="space-y-4 flex-1">
                       <button
@@ -3456,10 +3456,10 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                           </span>
                           <div>
                             <h4 className="font-semibold text-base mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                              API Call
+                              {t('agent_template_api')}
                             </h4>
                             <p className="text-xs" style={{ color: 'var(--color-text-muted)', lineHeight: '1.3' }}>
-                              Make HTTP requests to external APIs, handle authentication, and process responses
+                              {t('agent_template_api_desc')}
                             </p>
                           </div>
                         </div>
@@ -3513,10 +3513,10 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                           </span>
                           <div>
                             <h4 className="font-semibold text-base mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                              Notification
+                              {t('agent_template_notification')}
                             </h4>
                             <p className="text-xs" style={{ color: 'var(--color-text-muted)', lineHeight: '1.3' }}>
-                              Send alerts and notifications via Slack, email, webhooks, or custom channels
+                              {t('agent_template_notification_desc')}
                             </p>
                           </div>
                         </div>
@@ -3573,10 +3573,10 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                           </span>
                           <div>
                             <h4 className="font-semibold text-base mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                              Database Query
+                              {t('agent_template_db')}
                             </h4>
                             <p className="text-xs" style={{ color: 'var(--color-text-muted)', lineHeight: '1.3' }}>
-                              Execute queries on PostgreSQL, MySQL, and other databases securely
+                              {t('agent_template_db_desc')}
                             </p>
                           </div>
                         </div>
@@ -3604,7 +3604,7 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                         }}
                       >
                         <Plus size={20} />
-                        Create Custom Tool
+                        {t('agent_template_create_tool')}
                       </button>
                     </div>
                   </div>
