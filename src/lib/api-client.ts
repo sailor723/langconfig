@@ -534,6 +534,10 @@ class APIClient {
     return this.client.get('/api/settings/api-keys');
   }
 
+  async testApiKey(provider: string, apiKey?: string) {
+    return this.client.post('/api/settings/api-keys/test', { provider, api_key: apiKey });
+  }
+
   async deleteApiKey(provider: string) {
     return this.client.delete(`/api/settings/api-keys/${provider}`);
   }
