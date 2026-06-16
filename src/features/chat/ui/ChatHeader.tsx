@@ -55,18 +55,6 @@ export default function ChatHeader({
         {/* Current Agent Display and Agent Selector */}
         {sessionId ? (
           <div className="flex items-center gap-3">
-            <div>
-              <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Chatting with
-              </div>
-              <h2
-                className="text-base font-semibold"
-                style={{ color: 'var(--color-primary)' }}
-              >
-                {agentName}
-              </h2>
-            </div>
-            <div className="h-8 w-px" style={{ backgroundColor: 'var(--color-border-dark)' }} />
             <AgentSelector
               selectedAgentId={selectedAgentId}
               onSelectAgent={handleSelectAgent}

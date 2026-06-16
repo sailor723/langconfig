@@ -8,7 +8,7 @@ interface ChatHistorySidebarProps {
 }
 
 export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarProps) {
-  const { sessions, currentSessionId, switchSession } = useChat();
+  const { sessions, currentSessionId, switchSession, endSession } = useChat();
   const [collapsed, setCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [hoveredSession, setHoveredSession] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
 
   return (
     <div
-      className="flex flex-col border-r transition-all duration-200"
+      className="flex flex-col transition-all duration-200"
       style={{
         width: '280px',
         minWidth: '280px',
@@ -88,11 +88,10 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b"
-        style={{ borderColor: 'var(--color-border-dark)' }}
+        className="flex items-center justify-between px-5 py-3"
       >
         <h2
-          className="text-sm font-semibold tracking-wide uppercase"
+          className="text-xs font-semibold tracking-wide uppercase"
           style={{ color: 'var(--color-text-muted)' }}
         >
           History
@@ -136,19 +135,6 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
         </div>
       </div>
 
-      {/* New Chat Button */}
-      <button
-        onClick={onNewSession}
-        className="flex items-center gap-2 mx-3 mb-3 px-4 py-2.5 rounded-lg border border-dashed text-sm font-medium transition-all hover:shadow-sm"
-        style={{
-          borderColor: 'var(--color-border-dark)',
-          color: 'var(--color-text-primary)',
-        }}
-      >
-        <Plus className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-        New conversation
-      </button>
-
       {/* Session List */}
       <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
         {filteredSessions.length === 0 ? (
@@ -168,7 +154,7 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
                 onClick={() => switchSession(session.session_id)}
                 onMouseEnter={() => setHoveredSession(session.session_id)}
                 onMouseLeave={() => setHoveredSession(null)}
-                className="w-full text-left px-3 py-2.5 rounded-lg transition-all group"
+                className="w-full text-left px-1.5 py-2 rounded-lg transition-all group"
                 style={{
                   backgroundColor: isActive
                     ? 'var(--color-primary)'
@@ -180,26 +166,31 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div
-                      className="text-sm font-medium truncate"
+                      className="text-xs font-medium truncate"
                       style={{
                         color: isActive ? 'white' : 'var(--color-text-primary)',
                       }}
                     >
+                      <span className="text-[10px] font-normal" style={{ color: isActive ? 'rgba(255,255,255,0.4)' : '#9ca3af' }}>
+                        {formatTimestamp(session.updated_at)}
+                      </span>
+                      &nbsp;&nbsp;
                       {session.last_message_preview
-                        ? session.last_message_preview.slice(0, 60)
+                        ? session.last_message_preview.slice(0, 50)
                         : 'New conversation'}
-                    </div>
-                    <div
-                      className="text-xs mt-0.5"
-                      style={{
-                        color: isActive ? 'rgba(255,255,255,0.7)' : 'var(--color-text-muted)',
-                      }}
-                    >
-                      {formatTimestamp(session.updated_at)}
                     </div>
                   </div>
                   {isHovered && !isActive && (
-                    <Trash2 className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--color-text-muted)' }} />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        endSession(session.session_id);
+                      }}
+                      className="p-1 rounded hover:bg-red-50 transition-colors flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100"
+                      title="End session"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" style={{ color: '#ef4444' }} />
+                    </button>
                   )}
                   {isActive && (
                     <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 flex-shrink-0" />
