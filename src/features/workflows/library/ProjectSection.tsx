@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import WorkflowContextMenu from './WorkflowContextMenu';
 import type { Workflow, Project } from '@/types/workflow';
 
@@ -36,6 +37,7 @@ export default function ProjectSection({
   onChangeProjectWorkflow,
   onDeleteWorkflow
 }: ProjectSectionProps) {
+  const { t } = useTranslation('chat');
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -94,7 +96,7 @@ export default function ProjectSection({
             </h3>
             {project.status === 'active' && (
               <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400">
-                Active
+                {t('library_active_badge')}
               </span>
             )}
           </div>
@@ -111,7 +113,7 @@ export default function ProjectSection({
             className="px-2 py-1 text-xs font-medium rounded-md bg-gray-100 dark:bg-white/10"
             style={{ color: 'var(--color-text-primary)' }}
           >
-            {workflows.length} workflow{workflows.length !== 1 ? 's' : ''}
+            {workflows.length === 1 ? t('library_workflow_count', { count: workflows.length }) : t('library_workflow_count_plural', { count: workflows.length })}
           </span>
         </div>
       </button>
@@ -128,7 +130,7 @@ export default function ProjectSection({
                 account_tree
               </span>
               <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                No workflows in this project yet
+                {t('library_empty_project')}
               </p>
             </div>
           ) : (
@@ -164,7 +166,7 @@ export default function ProjectSection({
                       {workflow.name}
                     </p>
                     <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      {workflowNodeCount} node{workflowNodeCount !== 1 ? 's' : ''}
+                      {workflowNodeCount === 1 ? t('library_node_count', { count: workflowNodeCount }) : t('library_node_count_plural', { count: workflowNodeCount })}
                     </span>
                   </div>
                 </button>
