@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Search,
   RefreshCw,
@@ -29,17 +30,19 @@ interface SkillLibraryProps {
   multiSelect?: boolean;
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  builtin: 'Built-in',
-  personal: 'Personal',
-  project: 'Project',
-};
-
 export default function SkillLibrary({
   onSelectSkill,
   selectedSkillIds = [],
   multiSelect = false,
 }: SkillLibraryProps) {
+  const { t } = useTranslation('chat');
+
+  const SOURCE_LABELS: Record<string, string> = {
+    builtin: t('skills_source_builtin'),
+    personal: t('skills_source_personal'),
+    project: t('skills_source_project'),
+  };
+
   // State
   const [skills, setSkills] = useState<Skill[]>([]);
   const [summary, setSummary] = useState<SkillsSummary | null>(null);
@@ -70,7 +73,7 @@ export default function SkillLibrary({
       const response = await apiClient.get(url);
       setSkills(response.data);
     } catch (err: any) {
-      setError(err.message || 'Failed to load skills');
+      setError(err.message || t('skills_error_failed'));
       console.error('Error fetching skills:', err);
     } finally {
       setLoading(false);
@@ -169,15 +172,15 @@ export default function SkillLibrary({
   };
 
   const formatLastUsed = (dateStr: string | null) => {
-    if (!dateStr) return 'Never';
+    if (!dateStr) return t('skills_never');
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays === 0) return t('skills_today');
+    if (diffDays === 1) return t('skills_yesterday');
+    if (diffDays < 7) return t('skills_days_ago', { count: diffDays });
     return date.toLocaleDateString();
   };
 
@@ -196,10 +199,10 @@ export default function SkillLibrary({
               </div>
               <div className="flex-1">
                 <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                  Skills Library
+                  {t('skills_library_title')}
                 </h1>
                 <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                  Modular capabilities that agents can automatically invoke based on context
+                  {t('skills_library_subtitle')}
                 </p>
                 {summary && (
                   <div className="flex items-center gap-4 mt-2">
@@ -207,7 +210,7 @@ export default function SkillLibrary({
                       backgroundColor: 'var(--color-primary)',
                       color: 'white'
                     }}>
-                      {summary.total_skills} Skills
+                      {t('skills_count', { count: summary.total_skills })}
                     </span>
                     {Object.entries(summary.by_source).map(([source, count]) => (
                       <span key={source} className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
@@ -227,7 +230,7 @@ export default function SkillLibrary({
                 }}
               >
                 <Plus className="w-4 h-4" />
-                Create Skill
+                {t('skills_create')}
               </button>
               <button
                 onClick={handleReload}
@@ -240,7 +243,7 @@ export default function SkillLibrary({
                 }}
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                Reload
+                {t('skills_reload')}
               </button>
             </div>
           </div>
@@ -251,7 +254,7 @@ export default function SkillLibrary({
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
               <input
                 type="text"
-                placeholder="Search skills..."
+                placeholder={t('skills_search')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-10 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -275,7 +278,7 @@ export default function SkillLibrary({
             {/* Tag Filters */}
             {availableTags.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Tags:</span>
+                <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>{t('skills_tags')}</span>
                 {availableTags.slice(0, 12).map((tag) => (
                   <button
                     key={tag}
@@ -339,7 +342,7 @@ export default function SkillLibrary({
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {sourceSkills.length === 0 ? (
                         <div className="col-span-full text-center py-8" style={{ color: 'var(--color-text-muted)' }}>
-                          <p className="text-sm">No {SOURCE_LABELS[sourceType].toLowerCase()} skills found</p>
+                          <p className="text-sm">{t('skills_no_skills', { source: SOURCE_LABELS[sourceType].toLowerCase() })}</p>
                         </div>
                       ) : (
                         sourceSkills.map((skill) => (
@@ -369,7 +372,7 @@ export default function SkillLibrary({
                                   {skill.name}
                                 </h3>
                                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                                  v{skill.version}
+                                  {t('skills_version', { version: skill.version })}
                                 </span>
                               </div>
                             </div>
@@ -427,7 +430,7 @@ export default function SkillLibrary({
           {loading && skills.length === 0 && (
             <div className="flex items-center justify-center py-12">
               <RefreshCw className="w-6 h-6 animate-spin" style={{ color: 'var(--color-text-muted)' }} />
-              <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>Loading skills...</span>
+              <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>{t('skills_loading')}</span>
             </div>
           )}
         </div>
@@ -454,8 +457,8 @@ export default function SkillLibrary({
                     {selectedSkill.name}
                   </h2>
                   <p className="text-sm mt-1 text-white/90">
-                    {SOURCE_LABELS[selectedSkill.source_type]} • v{selectedSkill.version}
-                    {selectedSkill.author && ` • by ${selectedSkill.author}`}
+                    {SOURCE_LABELS[selectedSkill.source_type]} • {t('skills_version', { version: selectedSkill.version })}
+                    {selectedSkill.author && ` • ${t('skills_by_author', { author: selectedSkill.author })}`}
                   </p>
                 </div>
                 <button
@@ -478,11 +481,11 @@ export default function SkillLibrary({
               <div className="flex items-center gap-4 text-xs" style={{ color: '#6b7280' }}>
                 <span className="flex items-center gap-1">
                   <TrendingUp className="w-3.5 h-3.5" />
-                  Used {selectedSkill.usage_count} times
+                  {t('skills_used_times', { count: selectedSkill.usage_count })}
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5" />
-                  Last used: {formatLastUsed(selectedSkill.last_used_at)}
+                  {t('skills_last_used', { date: formatLastUsed(selectedSkill.last_used_at) })}
                 </span>
               </div>
 
@@ -490,7 +493,7 @@ export default function SkillLibrary({
               {selectedSkill.triggers.length > 0 && (
                 <div>
                   <h4 className="text-xs font-semibold uppercase mb-2" style={{ color: '#6b7280' }}>
-                    Auto-triggers
+                    {t('skills_auto_triggers')}
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedSkill.triggers.map((trigger, i) => (
@@ -510,7 +513,7 @@ export default function SkillLibrary({
               {selectedSkill.tags.length > 0 && (
                 <div>
                   <h4 className="text-xs font-semibold uppercase mb-2" style={{ color: '#6b7280' }}>
-                    Tags
+                    {t('skills_tags_label')}
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedSkill.tags.map((tag) => (
@@ -530,14 +533,14 @@ export default function SkillLibrary({
               <div>
                 <h4 className="text-xs font-semibold uppercase mb-2 flex items-center gap-1" style={{ color: '#6b7280' }}>
                   <BookOpen className="w-3.5 h-3.5" />
-                  Instructions
+                  {t('skills_instructions')}
                 </h4>
                 <div
                   className="p-4 rounded-lg border"
                   style={{ backgroundColor: '#fff', borderColor: '#e5e7eb' }}
                 >
                   <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed" style={{ color: '#1f2937' }}>
-                    {selectedSkill.instructions || 'No instructions defined.'}
+                    {selectedSkill.instructions || t('skills_no_instructions')}
                   </pre>
                 </div>
               </div>
@@ -546,7 +549,7 @@ export default function SkillLibrary({
               {selectedSkill.examples && (
                 <div>
                   <h4 className="text-xs font-semibold uppercase mb-2" style={{ color: '#6b7280' }}>
-                    Examples
+                    {t('skills_examples')}
                   </h4>
                   <div
                     className="p-4 rounded-lg border"
