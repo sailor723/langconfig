@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Activity, Zap, Users, Database, ChevronDown, ChevronRight, DollarSign, FileText, AlertTriangle } from 'lucide-react';
 import type { SessionMetrics, ToolCall, SubAgentActivity } from '../types/chat';
 
@@ -32,6 +33,7 @@ export default function MetricsPanel({
 }: MetricsPanelProps) {
   const [toolCallsExpanded, setToolCallsExpanded] = useState(false);
   const [subagentsExpanded, setSubagentsExpanded] = useState(false);
+  const { t } = useTranslation('chat');
 
   return (
     <div
@@ -50,7 +52,7 @@ export default function MetricsPanel({
             className="text-[10px] uppercase tracking-wider font-medium mb-1"
             style={{ color: 'var(--color-text-muted)' }}
           >
-            Active Agent
+            {t('active_agent')}
           </div>
           <div
             className="text-sm font-semibold truncate"
@@ -62,7 +64,7 @@ export default function MetricsPanel({
             className="text-[11px] mt-1 leading-relaxed line-clamp-2"
             style={{ color: 'var(--color-text-muted)' }}
           >
-            {agentDescription || 'Chat session active'}
+            {agentDescription || t('chat_session_active')}
           </div>
         </div>
       )}
@@ -73,7 +75,7 @@ export default function MetricsPanel({
           className="text-[10px] uppercase tracking-wider font-medium mb-2"
           style={{ color: 'var(--color-text-muted)' }}
         >
-          Session Metrics
+          {t('session_metrics')}
         </div>
 
         {isLoading ? (
@@ -81,24 +83,24 @@ export default function MetricsPanel({
             className="text-sm"
             style={{ color: 'var(--color-text-muted)' }}
           >
-            Loading metrics...
+            {t('loading')}
           </div>
         ) : (
           <div className="space-y-1.5">
             <MetricCard
               icon={<Activity className="w-4 h-4" />}
-              label="Total Tokens"
+              label={t('total_tokens')}
               value={(metrics?.total_tokens ?? 0).toLocaleString()}
             />
             <MetricCard
               icon={<DollarSign className="w-4 h-4" />}
-              label="Total Cost"
+              label={t('total_cost')}
               value={`$${(metrics?.total_cost_usd ?? 0).toFixed(4)}`}
             />
             {metrics?.rag_context_tokens ? (
               <MetricCard
                 icon={<FileText className="w-4 h-4" />}
-                label="RAG Context"
+                label={t('rag_context')}
                 value={`${(metrics.rag_context_tokens ?? 0).toLocaleString()} tokens`}
               />
             ) : null}
@@ -111,24 +113,24 @@ export default function MetricsPanel({
                     <Database className="w-4 h-4" />
                   )
                 }
-                label="Context Size"
+                label={t('context_size')}
                 value={`${(metrics.context_tokens ?? 0).toLocaleString()} tokens`}
                 warning={(metrics.context_tokens ?? 0) > 30000}
               />
             )}
             <MetricCard
               icon={<Zap className="w-4 h-4" />}
-              label="Tool Calls"
+              label={t('tool_calls')}
               value={(metrics?.tool_calls ?? 0).toString()}
             />
             <MetricCard
               icon={<Users className="w-4 h-4" />}
-              label="Subagent Spawns"
+              label={t('subagent_spawns')}
               value={(metrics?.subagent_spawns ?? 0).toString()}
             />
             <MetricCard
               icon={<Database className="w-4 h-4" />}
-              label="Context Ops"
+              label={t('context_ops')}
               value={(metrics?.context_operations ?? 0).toString()}
             />
           </div>

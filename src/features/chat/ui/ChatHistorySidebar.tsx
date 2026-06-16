@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, MessageSquare, Trash2, PenLine, Search } from 'lucide-react';
 import type { ChatSession } from '../types/chat';
 import { useChat } from '../state/ChatContext';
@@ -8,6 +9,7 @@ interface ChatHistorySidebarProps {
 }
 
 export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarProps) {
+  const { t } = useTranslation('chat');
   const { sessions, currentSessionId, switchSession, endSession } = useChat();
   const [collapsed, setCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,20 +96,20 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
           className="text-xs font-semibold tracking-wide uppercase"
           style={{ color: 'var(--color-text-muted)' }}
         >
-          History
+          {t('history')}
         </h2>
         <div className="flex items-center gap-1">
           <button
             onClick={onNewSession}
             className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            title="New conversation"
+            title={t('new_conversation')}
           >
             <Plus className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
           </button>
           <button
             onClick={() => setCollapsed(true)}
             className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            title="Collapse sidebar"
+            title={t('collapse_sidebar')}
           >
             <PenLine className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
           </button>
@@ -128,7 +130,7 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search conversations..."
+            placeholder={t('search_conversations')}
             className="w-full bg-transparent outline-none text-sm"
             style={{ color: 'var(--color-text-primary)' }}
           />
@@ -177,7 +179,7 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
                       &nbsp;&nbsp;
                       {session.last_message_preview
                         ? session.last_message_preview.slice(0, 50)
-                        : 'New conversation'}
+                        : t('new_conversation')}
                     </div>
                   </div>
                   {isHovered && !isActive && (
