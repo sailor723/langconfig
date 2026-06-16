@@ -91,7 +91,25 @@ class CodeVerificationResponse(BaseModel):
     warnings: List[str] = Field(default_factory=list, description="List of warnings")
     suggested_code: Optional[str] = Field(None, description="AI-suggested fixed code")
     explanation: Optional[str] = Field(None, description="Explanation of what was fixed")
+    parsed_schema: Optional[Dict[str, Any]] = Field(None, description="Auto-detected input schema from function signature")
     verified_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+
+class CodeGenerationRequest(BaseModel):
+    """Request model for AI code generation"""
+    prompt: str = Field(..., description="Natural language description of what the tool should do")
+    function_name: str = Field(..., description="Name of the function to generate")
+    description: Optional[str] = Field(None, description="Tool description for context")
+
+
+class CodeGenerationResponse(BaseModel):
+    """Response model for code generation"""
+    code: str = Field(..., description="Generated Python code")
+    is_valid: bool = Field(..., description="Whether the generated code compiles")
+    errors: List[Dict[str, Any]] = Field(default_factory=list, description="Compilation errors if any")
+    parsed_schema: Optional[Dict[str, Any]] = Field(None, description="Auto-detected input schema from generated code")
+    explanation: Optional[str] = Field(None, description="Explanation of what was generated")
+    generated_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
 # =============================================================================
@@ -793,6 +811,7 @@ def _compile_python_code(code: str, function_name: str) -> List[Dict[str, Any]]:
             # Collect locally assigned names (a = ...)
             assigned_names = set()
             for node in ast.walk(target_fn):
+                # Regular assignments: a = ...
                 if isinstance(node, ast.Assign):
                     for target in node.targets:
                         if isinstance(target, ast.Name):
@@ -801,25 +820,81 @@ def _compile_python_code(code: str, function_name: str) -> List[Dict[str, Any]]:
                             for elt in target.elts:
                                 if isinstance(elt, ast.Name):
                                     assigned_names.add(elt.id)
+                # Type-annotated assignment: a: int = ...
                 elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
                     assigned_names.add(node.target.id)
+                # Augmented assignment: a += 1
                 elif isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name):
                     assigned_names.add(node.target.id)
-                # Also catch for-loop variables
-                elif isinstance(node, ast.For) and isinstance(node.target, ast.Name):
+                # For-loop variables: for i in range(10):
+                elif isinstance(node, ast.For):
+                    # Handle single var: for i in ...
+                    if isinstance(node.target, ast.Name):
+                        assigned_names.add(node.target.id)
+                    # Handle tuple destructuring: for i, page in ...
+                    elif isinstance(node.target, (ast.Tuple, ast.List)):
+                        for elt in node.target.elts:
+                            if isinstance(elt, ast.Name):
+                                assigned_names.add(elt.id)
+                # Exception variables: except Exception as e:
+                elif isinstance(node, ast.ExceptHandler):
+                    if isinstance(node.name, ast.Name):
+                        assigned_names.add(node.name.id)
+                    elif isinstance(node.name, str):
+                        assigned_names.add(node.name)
+                # With-as: with open(...) as f:
+                elif isinstance(node, ast.With):
+                    for item in node.items:
+                        if item.optional_vars and isinstance(item.optional_vars, ast.Name):
+                            assigned_names.add(item.optional_vars.id)
+                # Comprehensions: [x for x in items]
+                elif isinstance(node, ast.comprehension) and isinstance(node.target, ast.Name):
                     assigned_names.add(node.target.id)
+
+            # Collect imported module names (import os, from x import y)
+            import_names = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        import_names.add(alias.asname or alias.name.split('.')[0])
+                elif isinstance(node, ast.ImportFrom):
+                    for alias in node.names:
+                        import_names.add(alias.asname or alias.name)
 
             # Built-in names that are always available
             builtins = {
                 "abs", "all", "any", "bin", "bool", "bytearray", "bytes",
-                "chr", "complex", "dict", "dir", "divmod", "enumerate",
+                "callable", "chr", "classmethod", "complex", "delattr",
+                "dict", "dir", "divmod", "enumerate", "eval", "exec",
                 "filter", "float", "format", "frozenset", "getattr",
-                "hasattr", "hash", "hex", "id", "int", "isinstance",
-                "issubclass", "iter", "len", "list", "map", "max", "min",
+                "globals", "hasattr", "hash", "hex", "id", "input",
+                "int", "isinstance", "issubclass", "iter", "len",
+                "list", "locals", "map", "max", "memoryview", "min",
                 "next", "object", "oct", "open", "ord", "pow", "print",
-                "range", "repr", "reversed", "round", "set", "setattr",
-                "slice", "sorted", "str", "sum", "tuple", "type", "vars",
-                "zip", "__import__",
+                "property", "range", "repr", "reversed", "round",
+                "set", "setattr", "slice", "sorted", "staticmethod",
+                "str", "sum", "super", "tuple", "type", "vars", "zip",
+                "__import__", "__file__", "__name__", "__doc__",
+                # Exception classes
+                "Exception", "BaseException", "ArithmeticError",
+                "AssertionError", "AttributeError", "BufferError",
+                "EOFError", "FileNotFoundError", "FloatingPointError",
+                "GeneratorExit", "ImportError", "IOError",
+                "ModuleNotFoundError", "IndexError",
+                "KeyError", "KeyboardInterrupt", "LookupError",
+                "MemoryError", "NameError", "NotImplementedError",
+                "OSError", "OverflowError", "RecursionError",
+                "ReferenceError", "RuntimeError", "StopIteration",
+                "SyntaxError", "IndentationError", "TabError",
+                "SystemError", "SystemExit", "TypeError", "UnboundLocalError",
+                "UnicodeError", "ValueError", "ZeroDivisionError",
+                "Warning", "UserWarning", "DeprecationWarning",
+                "PendingDeprecationWarning", "RuntimeWarning",
+                "SyntaxWarning", "FutureWarning", "ImportWarning",
+                "UnicodeWarning", "BytesWarning", "ResourceWarning",
+                "StopIteration", "GeneratorExit", "KeyboardInterrupt",
+                # Constants
+                "True", "False", "None", "Ellipsis", "NotImplemented",
                 # from pre-imported modules
                 "math", "json", "jsonify",
             }
@@ -835,7 +910,7 @@ def _compile_python_code(code: str, function_name: str) -> List[Dict[str, Any]]:
                         used_names.add(node.id)
 
             # Find undefined names
-            defined = param_names | assigned_names | builtins
+            defined = param_names | assigned_names | import_names | builtins
             undefined = used_names - defined
 
             if undefined:
@@ -892,6 +967,144 @@ def _compile_python_code(code: str, function_name: str) -> List[Dict[str, Any]]:
         })
 
     return errors
+
+
+def _extract_schema_from_code(code: str, function_name: str) -> Optional[Dict[str, Any]]:
+    """
+    Parse function signature from Python code and extract input schema.
+
+    Uses AST to find the function, extract parameter names, type annotations,
+    and docstring descriptions.
+
+    Returns a dict compatible with input_schema:
+    {
+        "type": "object",
+        "properties": {
+            "param_name": {"type": "string", "description": "..."}
+        },
+        "required": ["param_name"]
+    }
+
+    Returns None if the function can't be found.
+    """
+    import ast
+
+    TYPE_MAP = {
+        "str": "string", "string": "string",
+        "int": "integer", "integer": "integer",
+        "float": "number", "number": "number",
+        "bool": "boolean", "boolean": "boolean",
+        "dict": "object", "object": "object",
+        "list": "array", "array": "array",
+        "Any": "string",
+    }
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return None
+
+    target_fn = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == function_name:
+            target_fn = node
+            break
+
+    if target_fn is None:
+        return None
+
+    # Extract docstring
+    docstring = ast.get_docstring(target_fn) or ""
+
+    # Extract parameter descriptions from docstring (Args: section)
+    param_descriptions = {}
+    if docstring:
+        import re
+        # Match Args: section with lines like "param_name: description"
+        in_args = False
+        for line in docstring.split('\n'):
+            stripped = line.strip()
+            if stripped.lower().startswith('args:'):
+                in_args = True
+                continue
+            if in_args:
+                # Stop at next section or blank line followed by section
+                if stripped == '' or (':' in stripped and not stripped.startswith('-') and not stripped.startswith('  ')):
+                    # Check if it's a new section header
+                    if stripped.endswith(':') and not stripped.startswith('-') and len(stripped) < 40:
+                        break
+                match = re.match(r'^(\w+)\s*:\s*(.+)$', stripped)
+                if match:
+                    param_descriptions[match.group(1)] = match.group(2).strip()
+
+    # Build schema from function parameters
+    properties = {}
+    required = []
+    defaults_seen = set()
+
+    # Collect default values to determine optional params
+    defaults = {}
+    if target_fn.args.defaults:
+        # Defaults align to the last N args
+        for idx, default in enumerate(target_fn.args.defaults):
+            param_idx = len(target_fn.args.args) - len(target_fn.args.defaults) + idx
+            if param_idx >= 0 and param_idx < len(target_fn.args.args):
+                defaults[target_fn.args.args[param_idx].arg] = True
+
+    for arg in target_fn.args.args:
+        if arg.arg in ('self', 'cls'):
+            continue
+
+        # Determine type
+        py_type = "string"
+        if arg.annotation:
+            ann = arg.annotation
+            if isinstance(ann, ast.Name):
+                py_type = TYPE_MAP.get(ann.id, "string")
+            elif isinstance(ann, ast.Constant):
+                py_type = TYPE_MAP.get(str(ann.value), "string")
+            elif isinstance(ann, ast.Subscript):
+                # Handle Optional[str], List[int], etc.
+                if isinstance(ann.value, ast.Name):
+                    py_type = TYPE_MAP.get(ann.value.id, "string")
+
+        # Determine description
+        description = param_descriptions.get(arg.arg, f"Parameter `{arg.arg}`")
+        # Use a simple name-based heuristic for better descriptions
+        if description == f"Parameter `{arg.arg}`":
+            name_heuristics = {
+                "path": "File path",
+                "file": "File path",
+                "pdf": "PDF file path",
+                "session": "Session identifier",
+                "session_id": "Chat session identifier",
+                "id": "Unique identifier",
+                "name": "Name",
+                "query": "Search query",
+                "text": "Text content",
+                "data": "Data payload",
+                "max_chars": "Maximum characters to return",
+                "max_tokens": "Maximum tokens to generate",
+                "timeout": "Timeout in seconds",
+            }
+            description = name_heuristics.get(arg.arg, f"Parameter `{arg.arg}`")
+
+        properties[arg.arg] = {
+            "type": py_type,
+            "description": description,
+        }
+
+        if arg.arg not in defaults:
+            required.append(arg.arg)
+
+    if not properties:
+        return None
+
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": required,
+    }
 
 
 async def _fix_code_with_llm(
@@ -1011,6 +1224,156 @@ Return the fixed code in ```python ... ``` markers."""),
         return {"suggested_code": None, "explanation": None}
 
 
+async def _generate_code_with_llm(
+    prompt: str,
+    function_name: str,
+    description: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Use LLM to generate Python code for a custom tool from a natural language description.
+
+    Returns dict with:
+      - code: The generated Python code
+      - explanation: Explanation of what was generated
+      - error: Error message if generation failed
+    """
+    from langchain.chat_models import init_chat_model
+    from langchain_core.prompts import ChatPromptTemplate
+    from config import settings
+
+    # Determine which model to use
+    model_name = None
+    model_provider = None
+    api_key = None
+
+    if settings.DEEPSEEK_API_KEY:
+        model_name = "deepseek-chat"
+        model_provider = "deepseek"
+        api_key = settings.DEEPSEEK_API_KEY
+    elif settings.OPENAI_API_KEY:
+        model_name = "gpt-4o-mini"
+        model_provider = "openai"
+        api_key = settings.OPENAI_API_KEY
+    elif settings.ANTHROPIC_API_KEY:
+        model_name = "claude-3-haiku-20240307"
+        model_provider = "anthropic"
+        api_key = settings.ANTHROPIC_API_KEY
+    elif settings.GOOGLE_API_KEY:
+        model_name = "gemini-2.0-flash"
+        model_provider = "google"
+        api_key = settings.GOOGLE_API_KEY
+
+    if not model_name or not model_provider:
+        return {"code": None, "explanation": None, "error": "No LLM API key configured. Please add one in Settings > API Keys."}
+
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", "You are an expert Python developer. Generate a Python function for use as a LangChain tool.\n\nRules:\n- Return ONLY valid Python code wrapped in ```python ... ``` markers\n- The function must have a docstring with Args: and Returns: sections\n- The function must have type hints on ALL parameters and return type\n- Available pre-imported modules: `math`, `json`, `typing`\n- For HTTP/file operations, add the necessary imports INSIDE the function body\n- The function MUST be synchronous (def, not async def)\n- Do NOT include any LangChain decorators like @tool\n- After the code block, add `# EXPLAIN:` on a single line with a brief description of what the code does"),
+        ("human", "Generate a Python function `{fn_name}` for this description:\n\nDescription: {desc}\nPrompt: {usr_prompt}\n\nReturn the function in ```python ... ``` markers followed by # EXPLAIN:"),
+    ])
+    logger.info(f"=== DEBUG: Template input_variables={prompt_template.input_variables} ===")
+
+    try:
+        llm = init_chat_model(
+            model=model_name,
+            model_provider=model_provider,
+            temperature=0.2,
+            api_key=api_key,
+        )
+        chain = prompt_template | llm
+        result = await chain.ainvoke({
+            "fn_name": function_name,
+            "usr_prompt": prompt,
+            "desc": description or "Custom Python tool",
+        })
+
+        response_text = result.content if hasattr(result, 'content') else str(result)
+
+        # Extract code from ```python ... ``` block
+        import re
+        code_match = re.search(r'```(?:python)?\s*\n?(.*?)```', response_text, re.DOTALL)
+        if not code_match:
+            return {"code": None, "explanation": None, "error": f"Failed to parse generated code. Response: {response_text[:300]}"}
+
+        code = code_match.group(1).strip()
+
+        # Extract explanation
+        explanation = ""
+        after_code = response_text[code_match.end():].strip()
+        for line in after_code.split('\n'):
+            line = line.strip()
+            if line.startswith('# EXPLAIN:'):
+                explanation = line.replace('# EXPLAIN:', '').strip()
+                break
+        if not explanation:
+            explanation = after_code[:200]
+
+        # ── Reflection step: full AST analysis + self-review ──
+        # Use _compile_python_code() which catches both syntax errors AND
+        # undefined variables, missing imports, etc. via AST name resolution
+        reflect_errors = _compile_python_code(code, function_name)
+        if reflect_errors:
+            is_valid = False
+            error_summary = "\n".join(
+                f"- L{e['line']}: {e.get('type', 'Error')}: {e['message']}"
+                for e in reflect_errors
+            )
+            logger.info(f"Reflection: generated code has errors, requesting fix...\n{error_summary}")
+
+            reflection_prompt = ChatPromptTemplate.from_messages([
+                ("system", "You are an expert Python debugger. The code you generated has errors. Fix ALL of them and return ONLY the corrected code in ```python ... ``` markers. Do NOT change the function signature or behavior."),
+                ("human", f"The generated function `{function_name}` has these errors:\n\n{error_summary}\n\nBroken code:\n```python\n{code}\n```\n\nFix ALL errors:"),
+            ])
+
+            reflection_chain = reflection_prompt | llm
+            reflection_result = await reflection_chain.ainvoke({})
+            reflection_text = reflection_result.content if hasattr(reflection_result, 'content') else str(reflection_result)
+
+            reflection_match = re.search(r'```(?:python)?\s*\n?(.*?)```', reflection_text, re.DOTALL)
+            if reflection_match:
+                fixed_code = reflection_match.group(1).strip()
+                # Verify the fix passes full AST analysis
+                fix_errors = _compile_python_code(fixed_code, function_name)
+                if not fix_errors:
+                    code = fixed_code
+                    explanation = (explanation or "") + " [Self-reflected: fixed errors]"
+                    logger.info(f"Reflection: code fixed successfully (all checks passed)")
+                else:
+                    logger.warning(f"Reflection: fix still has {len(fix_errors)} error(s), keeping original")
+        else:
+            # Code is clean — do a quality review pass
+            logger.info(f"Reflection: code passes all checks, running quality review...")
+            review_prompt = ChatPromptTemplate.from_messages([
+                ("system", "You are an expert Python code reviewer. Review the generated code and suggest improvements. Be concise."),
+                ("human", f"Review this Python function `{function_name}` for:\n1. Missing edge cases (empty input, None, exceptions)\n2. Missing imports\n3. Docstring completeness\n4. Type hint correctness\n\n```python\n{code}\n```\n\nIf it needs changes, return the improved code in ```python ... ``` markers plus a brief note. If it's fine, just say 'OK'."),
+            ])
+
+            review_chain = review_prompt | llm
+            review_result = await review_chain.ainvoke({})
+            review_text = review_result.content if hasattr(review_result, 'content') else str(review_result)
+
+            if 'OK' not in review_text.strip()[:5]:
+                review_match = re.search(r'```(?:python)?\s*\n?(.*?)```', review_text, re.DOTALL)
+                if review_match:
+                    reviewed_code = review_match.group(1).strip()
+                    if reviewed_code and len(reviewed_code) > 50:
+                        # Verify reviewed code passes full AST analysis
+                        review_fix_errors = _compile_python_code(reviewed_code, function_name)
+                        if not review_fix_errors:
+                            code = reviewed_code
+                            review_notes = review_text[:review_text.find('```')].strip()
+                            if review_notes:
+                                explanation = (explanation or "") + f" [Review: {review_notes}]"
+                            logger.info(f"Reflection: quality improvements applied")
+                        else:
+                            logger.info(f"Reflection: reviewer suggestion had errors, keeping original")
+
+        return {"code": code, "explanation": explanation, "error": None}
+
+    except Exception as e:
+        logger.error(f"LLM code generation failed: {e}")
+        return {"code": None, "explanation": None, "error": f"Code generation failed: {str(e)}"}
+
+
 @router.post("/verify-code", response_model=CodeVerificationResponse)
 async def verify_python_code(
     request: CodeVerificationRequest,
@@ -1029,6 +1392,9 @@ async def verify_python_code(
         is_valid = len(errors) == 0
         warnings = []
 
+        # Extract input schema from function signature
+        parsed_schema = _extract_schema_from_code(request.code, request.function_name)
+
         if is_valid:
             # Basic style warnings
             if 'print(' in request.code and 'return' not in request.code:
@@ -1036,11 +1402,16 @@ async def verify_python_code(
             if len(request.code) > 2000:
                 warnings.append("Code is very long (>2000 chars); consider simplifying")
 
+            if parsed_schema:
+                num_params = len(parsed_schema.get("properties", {}))
+                warnings.append(f"Auto-detected {num_params} parameter(s). Input schema will be auto-filled in the editor.")
+
             logger.info(f"Code verification passed for: {request.function_name}")
             return CodeVerificationResponse(
                 is_valid=True,
                 errors=[],
                 warnings=warnings,
+                parsed_schema=parsed_schema,
                 verified_at=datetime.utcnow().isoformat()
             )
 
@@ -1074,12 +1445,71 @@ async def verify_python_code(
             warnings=warnings,
             suggested_code=suggested_code,
             explanation=explanation,
+            parsed_schema=parsed_schema,
             verified_at=datetime.utcnow().isoformat()
         )
 
     except Exception as e:
         logger.error(f"Code verification failed: {e}")
         raise HTTPException(status_code=500, detail=f"Code verification failed: {str(e)}")
+
+
+@router.post("/generate-code", response_model=CodeGenerationResponse)
+async def generate_tool_code(
+    request: CodeGenerationRequest,
+) -> CodeGenerationResponse:
+    """
+    Generate Python code for a custom tool from a natural language description.
+
+    Uses an LLM (DeepSeek by default) to generate the function code,
+    then compiles it and extracts the input schema automatically.
+    """
+    try:
+        logger.info(f"Generating code for function: {request.function_name} (prompt: {request.prompt[:100]}...)")
+
+        # Step 1: Generate code via LLM
+        gen_result = await _generate_code_with_llm(
+            prompt=request.prompt,
+            function_name=request.function_name,
+            description=request.description,
+        )
+
+        if gen_result.get("error"):
+            return CodeGenerationResponse(
+                code="",
+                is_valid=False,
+                errors=[{"line": 0, "message": gen_result["error"], "type": "GenerationError"}],
+                explanation=gen_result["error"],
+                generated_at=datetime.utcnow().isoformat()
+            )
+
+        code = gen_result["code"]
+        explanation = gen_result.get("explanation", "")
+
+        # Step 2: Compile and verify
+        compile_errors = _compile_python_code(code, request.function_name)
+        is_valid = len(compile_errors) == 0
+
+        # Step 3: Extract input schema
+        parsed_schema = _extract_schema_from_code(code, request.function_name)
+
+        if is_valid:
+            logger.info(f"Code generation succeeded for: {request.function_name}")
+        else:
+            logger.warning(f"Generated code has errors for: {request.function_name}")
+
+        return CodeGenerationResponse(
+            code=code,
+            is_valid=is_valid,
+            errors=compile_errors,
+            parsed_schema=parsed_schema,
+            explanation=explanation,
+            generated_at=datetime.utcnow().isoformat()
+        )
+
+    except Exception as e:
+        logger.error(f"Code generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Code generation failed: {str(e)}")
 
 
 # =============================================================================

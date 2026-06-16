@@ -119,6 +119,15 @@ class ExportResponse(BaseModel):
 # CRUD Endpoints
 # =============================================================================
 
+def _resolve_model(config: DeepAgentConfig, db: Session) -> Optional[str]:
+    """Resolve model from config or read default_model from DB settings (PostgreSQL)."""
+    if config.model:
+        return config.model
+    from models.settings import Settings
+    settings = db.query(Settings).filter(Settings.id == 1).first()
+    return settings.default_model if settings else None
+
+
 @router.post("/", response_model=DeepAgentResponse)
 async def create_deepagent(
     request: CreateDeepAgentRequest,
@@ -126,12 +135,15 @@ async def create_deepagent(
 ):
     """Create a new DeepAgent template."""
     try:
+        config_dict = request.config.dict()
+        config_dict["model"] = config_dict.get("model") or _resolve_model(request.config, db)
+
         agent = DeepAgentTemplate(
             name=request.name,
             description=request.description,
             category=request.category,
             base_template_id=request.base_template_id,
-            config=request.config.dict(),
+            config=config_dict,
             middleware_config=[m.dict() for m in request.config.middleware],
             subagents_config=[s.dict() for s in request.config.subagents],
             backend_config=request.config.backend.dict(),
@@ -299,7 +311,19 @@ async def update_deepagent(
         custom_prompt = old_config.get("custom_prompt")
         custom_suffix = old_config.get("custom_suffix")
 
-        agent.config = request.config.dict()
+        # Only overwrite fields that were explicitly provided in the request
+        new_config = request.config.model_dump(exclude_unset=True)
+
+        # Resolve model: respect explicit request, fall back to DB settings or existing config
+        if "model" in new_config and new_config["model"] is not None:
+            pass  # Use the model from the request
+        elif "model" not in new_config:
+            new_config["model"] = old_config.get("model") or _resolve_model(request.config, db)
+
+        # Merge: start from existing config, apply only the provided fields
+        merged_config = dict(old_config)
+        merged_config.update(new_config)
+        agent.config = merged_config
 
         # Merge back prompt assembly fields
         if custom_prompt:

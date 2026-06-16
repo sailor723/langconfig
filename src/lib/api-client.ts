@@ -788,6 +788,10 @@ class APIClient {
     return this.client.post('/api/custom-tools/verify-code', data);
   }
 
+  async generateCustomToolCode(data: { prompt: string; function_name: string; description?: string }) {
+    return this.client.post('/api/custom-tools/generate-code', data);
+  }
+
   async listToolTemplates() {
     return this.client.get('/api/custom-tools/templates/list');
   }
