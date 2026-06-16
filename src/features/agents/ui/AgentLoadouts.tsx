@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Search, Plus, Trash2, Edit, Download, Copy, Upload, Sparkles, Code, Database, Terminal, X, Save, BookOpen, Tag, Clock, TrendingUp, Settings, Play } from 'lucide-react';
 import DeepAgentBuilder from './DeepAgentBuilder';
@@ -90,6 +91,7 @@ interface AgentConfigViewProps {
 }
 
 const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConfigViewProps) => {
+  const { t } = useTranslation('chat');
   const [config, setConfig] = useState(agent.config || {});
   const [agentName, setAgentName] = useState(agent.name);
   const [agentDescription, setAgentDescription] = useState(agent.description);
@@ -2521,7 +2523,7 @@ const SkillConfigView = ({ skill, onClose, onDelete }: SkillConfigViewProps) => 
 };
 
 const AgentLoadouts = () => {
-
+  const { t } = useTranslation('chat');
   const [searchParams, setSearchParams] = useSearchParams();
   const { showSuccess, logError, showWarning, NotificationModal } = useNotification();
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -2984,7 +2986,7 @@ const AgentLoadouts = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={16} />
               <input
                 type="text"
-                placeholder="Search agents..."
+                placeholder={t('agent_search')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
@@ -3660,7 +3662,7 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
               >
-                Custom Tools
+                {t('agent_tools')}
               </button>
               <button
                 onClick={() => setRightPanelTab('skills')}
@@ -3669,7 +3671,7 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
               >
-                Claude Skills
+                {t('agent_skills')}
               </button>
             </div>
 
@@ -3678,7 +3680,7 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={16} />
               <input
                 type="text"
-                placeholder={rightPanelTab === 'tools' ? 'Search tools...' : 'Search skills...'}
+                placeholder={rightPanelTab === 'tools' ? t('agent_search_tools') : t('agent_search_skills')}
                 value={rightPanelTab === 'tools' ? toolSearchQuery : skillSearchQuery}
                 onChange={(e) => rightPanelTab === 'tools' ? setToolSearchQuery(e.target.value) : setSkillSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"

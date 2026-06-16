@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight, Plus, X, History, Bot, Trash2 } from 'lucide-react';
 import { getModelDisplayName } from '../../../lib/modelDisplayNames';
 import DeepAgentBuilder from './DeepAgentBuilder';
@@ -275,6 +276,7 @@ export default function ModernAgentLibrary({
   activePanel: externalActivePanel,
   onPanelChange,
 }: ModernAgentLibraryProps) {
+  const { t } = useTranslation('chat');
   const { showSuccess, logError, showWarning, NotificationModal } = useNotification();
 
   // Internal panel state (can be controlled externally or internally)
@@ -585,7 +587,7 @@ export default function ModernAgentLibrary({
               }`}
           >
             <Bot className="w-4 h-4" />
-            <span>Agents</span>
+            <span>{t('agent_tab_agents')}</span>
           </button>
           <button
             onClick={() => handlePanelChange('history')}
@@ -595,7 +597,7 @@ export default function ModernAgentLibrary({
               }`}
           >
             <History className="w-4 h-4" />
-            <span>History</span>
+            <span>{t('agent_tab_history')}</span>
             {taskHistory.length > 0 && (
               <span className={`text-xs ${activePanel === 'history' ? 'opacity-80' : 'opacity-70'}`}>({taskHistory.length})</span>
             )}
@@ -937,7 +939,7 @@ export default function ModernAgentLibrary({
               </div>
 
               <div>
-                <label className="block text-xs font-medium mb-2 uppercase" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>Tools</label>
+                <label className="block text-xs font-medium mb-2 uppercase" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>{t('agent_tools')}</label>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {selectedAgent.native_tools.map(tool => (
                     <span
@@ -953,7 +955,7 @@ export default function ModernAgentLibrary({
 
               {selectedAgent.tags && selectedAgent.tags.length > 0 && (
                 <div>
-                  <label className="block text-xs font-medium mb-2 uppercase" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>Tags</label>
+                  <label className="block text-xs font-medium mb-2 uppercase" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>{t('agent_tags')}</label>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {selectedAgent.tags.map(tag => (
                       <span
@@ -998,7 +1000,7 @@ export default function ModernAgentLibrary({
               </div>
 
               <div>
-                <label className="block text-xs font-medium mb-2 uppercase" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>System Prompt</label>
+                <label className="block text-xs font-medium mb-2 uppercase" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>{t('agent_system_prompt')}</label>
                 <div className="mt-1 p-3 bg-gray-50 dark:bg-background-dark rounded-lg border border-gray-200 dark:border-border-dark">
                   <pre className="text-xs whitespace-pre-wrap font-mono" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>
                     {selectedAgent.system_prompt}
