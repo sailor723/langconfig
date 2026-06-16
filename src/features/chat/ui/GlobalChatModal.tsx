@@ -74,6 +74,20 @@ export default function GlobalChatModal() {
   // Get current session details
   const currentSession = sessions.find((s: ChatSession) => s.session_id === currentSessionId);
   const agentName = currentSession?.agent_name || 'Agent';
+  const [agentDescription, setAgentDescription] = useState('');
+
+  // Fetch agent description when session/agent changes
+  useEffect(() => {
+    if (currentSession?.agent_id) {
+      apiClient.listDeepAgents({ public_only: false }).then(res => {
+        const agents = res.data || [];
+        const agent = agents.find((a: any) => a.id === currentSession.agent_id);
+        setAgentDescription(agent?.description || '');
+      }).catch(() => setAgentDescription(''));
+    } else {
+      setAgentDescription('');
+    }
+  }, [currentSession?.agent_id]);
 
   // Handle ESC key
   useEffect(() => {
@@ -267,24 +281,11 @@ export default function GlobalChatModal() {
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Simple Header */}
           <div
-            className="flex items-center justify-between px-5 py-3 border-b"
-            style={{ borderColor: 'var(--color-border-dark)' }}
+            className="flex items-center justify-between px-5 py-3"
           >
             <div className="flex items-center gap-3">
               {currentSessionId ? (
                 <div className="flex items-center gap-3">
-                  <div>
-                    <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      Chatting with
-                    </div>
-                    <h2
-                      className="text-base font-semibold"
-                      style={{ color: 'var(--color-text-primary)' }}
-                    >
-                      {agentName}
-                    </h2>
-                  </div>
-                  <div className="h-8 w-px" style={{ backgroundColor: 'var(--color-border-dark)' }} />
                   <AgentSelector
                     selectedAgentId={selectedAgentId}
                     onSelectAgent={handleStartSession}
@@ -343,6 +344,7 @@ export default function GlobalChatModal() {
               subagentActivity={subagentActivity}
               isLoading={isLoadingMetrics}
               agentName={agentName}
+              agentDescription={agentDescription}
               sessionId={currentSessionId}
             />
           </div>

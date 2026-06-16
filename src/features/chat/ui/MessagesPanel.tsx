@@ -6,7 +6,7 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
-import { Activity, Copy, CheckCircle, AlertCircle, X, User } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -110,7 +110,7 @@ export default function MessagesPanel({
                   {message.role === 'user' ? (
                     <User className="w-4 h-4" />
                   ) : (
-                    'AI'
+                    <Bot className="w-4 h-4" style={{ color: '#6b7280' }} />
                   )}
                 </div>
               )}
@@ -335,9 +335,9 @@ export default function MessagesPanel({
             <div className="flex gap-4">
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
-                style={{ backgroundColor: '#e5e7eb', color: '#6b7280', fontSize: '0.75rem', fontWeight: 600 }}
+                style={{ backgroundColor: '#e5e7eb', color: '#6b7280' }}
               >
-                AI
+                <Bot className="w-4 h-4 animate-pulse" />
               </div>
               <div className="flex-1">
                 <div

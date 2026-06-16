@@ -97,17 +97,17 @@ export default function AgentSelector({
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors hover:bg-gray-50"
+        className="flex items-center gap-1 transition-colors hover:opacity-80"
         style={{
-          borderColor: 'var(--color-border-dark)',
-          backgroundColor: 'white',
+          backgroundColor: 'transparent',
           color: 'var(--color-text-primary)',
+          border: 'none',
         }}
       >
         <span className="text-sm font-medium">
           {selectedAgent ? selectedAgent.name : 'Select Agent'}
         </span>
-        <ChevronDown className="w-4 h-4" />
+        <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
       </button>
 
       {isOpen && (

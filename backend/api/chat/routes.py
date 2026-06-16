@@ -649,17 +649,17 @@ async def send_message_stream(
                     save_to_db=False  # Don't persist to DB for chat sessions
                 )
 
-                # Inject PDF content into the message so agent sees it
-                # (PDF text is extracted during upload and stored in session.messages,
+                # Inject file content into the message so agent sees it
+                # (text is extracted during upload and stored in session.messages,
                 # but LangGraph checkpointer has its own history — the agent won't
                 # see the content otherwise)
-                pdf_context = ""
+                file_context = ""
                 for msg in fresh_session.messages:
                     content = msg.get("content", "")
-                    if msg.get("role") == "assistant" and "[PDF Content:" in content:
-                        pdf_context += "\n\n" + content
-                if pdf_context:
-                    augmented_content = f"{pdf_context}\n\nUser question: {request.message}"
+                    if msg.get("role") == "assistant" and "Content: \"" in content:
+                        file_context += "\n\n" + content
+                if file_context:
+                    augmented_content = f"{file_context}\n\nUser question: {request.message}"
                 else:
                     augmented_content = request.message
 
@@ -668,6 +668,7 @@ async def send_message_stream(
                 new_message = HumanMessage(content=augmented_content)
 
                 # Use astream_events for token-by-token streaming
+                tool_calls_count = 0
                 async for event in agent_instance.astream_events(
                     {"messages": [new_message]},
                     config={
@@ -679,6 +680,7 @@ async def send_message_stream(
                 ):
                     kind = event.get("event")
                     if kind == "on_tool_start":
+                        tool_calls_count += 1
                         tool_data = event.get("data", {})
                         # Tool name is in event["name"] for astream_events v2
                         tool_name = event.get("name", "unknown")
@@ -833,6 +835,7 @@ async def send_message_stream(
                             rough_tokens = len(request.message) + len(full_response)
                             final_session.metrics["total_tokens"] = final_session.metrics.get("total_tokens", 0) + rough_tokens + rag_tokens_used
                             final_session.metrics["rag_context_tokens"] = final_session.metrics.get("rag_context_tokens", 0) + rag_tokens_used
+                            final_session.metrics["tool_calls"] = final_session.metrics.get("tool_calls", 0) + tool_calls_count
                             flag_modified(final_session, "metrics")
 
                             # Update cost tracking columns (if they exist)
@@ -1636,6 +1639,102 @@ async def index_session_document_background(document_id: int, agent_id: int):
             db.close()
 
 
+def _extract_file_text(content: bytes, filename: str) -> str:
+    """Extract text from various file types (PDF, DOCX, PPTX, MD, TXT, etc.)."""
+    import io
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ""
+
+    try:
+        # --- Plain text files ---
+        if ext in ('txt', 'md', 'json', 'py', 'js', 'ts', 'tsx', 'jsx',
+                    'yaml', 'yml', 'xml', 'html', 'htm', 'css', 'scss',
+                    'sql', 'sh', 'bash', 'rb', 'go', 'rs', 'java',
+                    'c', 'cpp', 'h', 'hpp', 'rtf', 'tex', 'toml',
+                    'ini', 'cfg', 'conf', 'log'):
+            text = content.decode('utf-8', errors='replace')
+            if len(text) > 100000:
+                text = text[:100000] + "\n\n[...truncated]"
+            return text
+
+        # --- CSV ---
+        if ext == 'csv':
+            import csv
+            text = content.decode('utf-8', errors='replace')
+            reader = csv.reader(io.StringIO(text))
+            rows = []
+            for i, row in enumerate(reader):
+                rows.append(' | '.join(row))
+                if i >= 2000:  # limit rows
+                    rows.append('... (truncated)')
+                    break
+            result = '\n'.join(rows)
+            if len(result) > 100000:
+                result = result[:100000] + "\n\n[...truncated]"
+            return result
+
+        # --- PDF ---
+        if ext == 'pdf':
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(content))
+            pages = []
+            for i, page in enumerate(reader.pages, start=1):
+                text = page.extract_text()
+                if text and text.strip():
+                    pages.append(f"--- Page {i}/{len(reader.pages)} ---\n{text.strip()}")
+            if pages:
+                full_text = "\n\n".join(pages)
+                if len(full_text) > 100000:
+                    full_text = full_text[:100000] + "\n\n[...truncated]"
+                return full_text
+            return "[Empty PDF]"
+
+        # --- DOCX ---
+        if ext == 'docx':
+            from docx import Document
+            doc = Document(io.BytesIO(content))
+            paragraphs = []
+            for p in doc.paragraphs:
+                if p.text.strip():
+                    paragraphs.append(p.text.strip())
+            text = '\n'.join(paragraphs)
+            # Also extract tables
+            for table in doc.tables:
+                for row in table.rows:
+                    cells = [cell.text.strip() for cell in row.cells]
+                    text += '\n' + ' | '.join(cells)
+            if len(text) > 100000:
+                text = text[:100000] + "\n\n[...truncated]"
+            return text if text.strip() else "[Empty DOCX]"
+
+        # --- PPTX ---
+        if ext == 'pptx':
+            from pptx import Presentation
+            prs = Presentation(io.BytesIO(content))
+            slides_text = []
+            for i, slide in enumerate(prs.slides, start=1):
+                slide_lines = [f"--- Slide {i}/{len(prs.slides)} ---"]
+                for shape in slide.shapes:
+                    if shape.has_text_frame:
+                        for para in shape.text_frame.paragraphs:
+                            if para.text.strip():
+                                slide_lines.append(para.text.strip())
+                    if shape.has_table:
+                        for row in shape.table.rows:
+                            cells = [cell.text.strip() for cell in row.cells]
+                            slide_lines.append(' | '.join(cells))
+                slides_text.append('\n'.join(slide_lines))
+            text = '\n\n'.join(slides_text)
+            if len(text) > 100000:
+                text = text[:100000] + "\n\n[...truncated]"
+            return text if text.strip() else "[Empty PPTX]"
+
+        return f"[Unsupported file type: .{ext}]"
+
+    except Exception as e:
+        logger.warning(f"Failed to extract text from {filename}: {e}")
+        return f"[Text extraction failed: {e}]"
+
+
 @router.post("/{session_id}/upload", response_model=SessionDocumentResponse)
 async def upload_file_to_session(
     session_id: str,
@@ -1665,7 +1764,8 @@ async def upload_file_to_session(
 
     # Also copy files to the sandbox workspace (outputs/default/) so the agent
     # can access them via read_file / execute for data analysis.
-    if file.filename.lower().endswith(('.csv', '.pdf')):
+    sandbox_exts = ('.csv', '.pdf', '.docx', '.pptx', '.md', '.txt', '.json', '.py', '.js', '.ts', '.tsx', '.jsx')
+    if file.filename.lower().endswith(sandbox_exts):
         try:
             from services.workspace_manager import get_workspace_manager
             ws_mgr = get_workspace_manager()
@@ -1688,6 +1788,9 @@ async def upload_file_to_session(
         'ts': DocumentType.CODE,
         'tsx': DocumentType.CODE,
         'jsx': DocumentType.CODE,
+        'docx': DocumentType.TEXT,
+        'pptx': DocumentType.TEXT,
+        'csv': DocumentType.TEXT,
     }
     document_type = doc_type_map.get(file_ext, DocumentType.TEXT)
 
@@ -1707,42 +1810,32 @@ async def upload_file_to_session(
     db.commit()
     db.refresh(doc)
 
-    # For PDFs, extract text immediately and store as session message
-    if file.filename.lower().endswith('.pdf'):
+    # For supported document types, extract text immediately and store as session message
+    extractable_exts = {'.pdf', '.md', '.txt', '.json', '.py', '.js', '.ts', '.tsx', '.jsx', '.csv',
+                        '.docx', '.pptx', '.yaml', '.yml', '.xml', '.html', '.htm', '.css', '.scss',
+                        '.sql', '.sh', '.bash', '.rb', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.hpp',
+                        '.rtf', '.tex', '.toml', '.ini', '.cfg', '.conf', '.log'}
+    if file_ext.startswith('.'):
+        ext_with_dot = file_ext
+    else:
+        ext_with_dot = f".{file_ext}"
+
+    if ext_with_dot in extractable_exts:
         doc.indexing_status = IndexingStatus.READY
         db.commit()
 
-        # Extract full text from PDF immediately (in memory, no tool needed)
-        pdf_text = ""
-        try:
-            from pypdf import PdfReader
-            import io
-            reader = PdfReader(io.BytesIO(content))
-            pages = []
-            for i, page in enumerate(reader.pages, start=1):
-                text = page.extract_text()
-                if text and text.strip():
-                    pages.append(f"--- Page {i}/{len(reader.pages)} ---\n{text.strip()}")
-            if pages:
-                full_text = "\n\n".join(pages)
-                # Truncate if too large (100K chars ~ 25K tokens)
-                if len(full_text) > 100000:
-                    full_text = full_text[:100000] + "\n\n[...truncated]"
-                pdf_text = full_text
-        except Exception as e:
-            logger.warning(f"Failed to extract PDF text during upload: {e}")
-            pdf_text = f"[PDF text extraction failed: {e}]"
-
+        file_text = _extract_file_text(content, file.filename)
+        label = file_ext.upper()
         session.messages.append({
             "role": "assistant",
-            "content": f"[PDF Content: \"{file.filename}\"]\n\n{pdf_text}",
+            "content": f"[{label} Content: \"{file.filename}\"]\n\n{file_text}",
             "timestamp": datetime.utcnow().isoformat(),
             "banked": False
         })
         flag_modified(session, "messages")
         db.commit()
     else:
-        # Queue background indexing for non-PDF files
+        # Queue background indexing for non-extractable files
         background_tasks.add_task(index_session_document_background, doc.id, session.agent_id)
 
     return SessionDocumentResponse(
