@@ -1,3 +1,94 @@
+# LangConfig — Project Overview
+
+**LangConfig** is an open-source AI Agent configuration platform — a visual IDE for building, testing, and deploying LangChain agents and LangGraph workflows.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React 19 + TypeScript + Tailwind CSS 4 + ReactFlow + Vite |
+| **Backend** | Python 3.11+ / FastAPI + LangChain v1.0 + LangGraph |
+| **Database** | PostgreSQL 16 + pgvector (for embeddings/RAG) + Alembic migrations |
+| **Desktop** | Tauri 2 (Rust wrapper for desktop app) |
+| **Auth** | Google OAuth |
+| **Infra** | Docker Compose (PostgreSQL + Redis) |
+
+---
+
+## Architecture
+
+```
+React UI (port 1420) ──→ FastAPI Backend (port 8765) ──→ PostgreSQL (port 5433)
+                              │
+                         Agent Factory
+                              │
+                   ┌──────────┼──────────┐
+                   │          │          │
+              Playground   LangChain   DeepAgent
+             (raw model)   Agent w/    (skills +
+                              tools     sandbox +
+                                         middleware)
+```
+
+The backend also supports **MCP (Model Context Protocol)** tools, **SSE streaming** for real-time agent responses, and **pgvector** for RAG-based knowledge retrieval.
+
+---
+
+## Project Structure
+
+- **`backend/`** — FastAPI server with:
+  - `api/` — REST route modules (agents, chat, workflows, tools, knowledge, MCP, auth, etc.)
+  - `core/` — Business logic: Agent factory, workflow executor, middleware, tools, codegen, skills
+  - `models/` — SQLAlchemy ORM models (database-driven, no hardcoded enums)
+  - `services/` — Business services (MCP manager, chat sessions, encryption, file storage, scheduler, etc.)
+  - `db/` — Database initialization and migrations (Alembic)
+  - `schemas/` — Pydantic schemas for data validation
+  - `tools/` — Native Python tools
+  - `skills/` — Built-in skills library
+
+- **`src/`** — React frontend with:
+  - `features/` — Feature modules: agents, chat, knowledge, memory, settings, skills, tools, workflows
+  - `components/` — Shared UI components
+  - `hooks/` — Custom React hooks
+  - `contexts/` — React context providers
+  - `pages/` — Page-level components
+  - `types/` — TypeScript type definitions
+
+- **`src-tauri/`** — Tauri desktop wrapper (Rust)
+- **`learning/`** — Learning plan with 6 phases of examples
+- **`scripts/`** — Utility scripts (setup, cleanup, testing)
+
+---
+
+## Key Features
+
+1. **3 Agent Execution Modes:**
+   - **Playground** — Raw `model.invoke()`, no tools
+   - **LangChain Agent** — Standard agent with tools
+   - **DeepAgent** — Full-featured agent with tools + skills + sandbox + middleware pipeline
+
+2. **Visual Workflow Canvas** — Drag-and-drop workflow builder using ReactFlow (node-based LangGraph editor)
+
+3. **Skills Library** — 17+ built-in skills (code review, data analysis, debugging, security, etc.) + user-created skills stored in PostgreSQL, synced to agent sandboxes
+
+4. **Tool System** — Native tools (web, filesystem, memory, reasoning, delegation), MCP tools, and user-custom tools with a builder UI
+
+5. **DB-Driven Model Management** — All model configs in PostgreSQL (no hardcoded enums). Supports OpenAI, Anthropic, DeepSeek, Google, GLM, MiniMax, and local models (Ollama, LM Studio, vLLM)
+
+6. **RAG / Knowledge Base** — Document upload with vector embeddings via pgvector + LlamaIndex
+
+7. **Real-time Streaming** — SSE-based streaming for agent responses and workflow execution
+
+8. **Human-in-the-Loop** — Approval gates for sensitive operations
+
+9. **MCP Protocol Support** — Both as a client (consuming MCP tools) and server (exposing tools via MCP)
+
+10. **Scheduling & Triggers** — Cron-based workflow scheduling + file watcher triggers
+
+---
+
 # Phase 5: DeepAgent — Subagent Orchestration
 
 > How LangConfig's DeepAgent system extends simple agents with planning, middleware, subagent delegation, guardrails, and HITL via the deepagents library.
@@ -640,7 +731,66 @@ This approach offers several advantages over native tools:
 - **User-defined** — Non-developers can create custom tools through the frontend
 - **Scoped to projects** — Each tool can be associated with a specific project
 - **No registry needed** — Tools are resolved from DB at runtime, no `TOOL_NAME_MAP` or `TOOL_REGISTRY` maintenance
+
+### 4a. Custom Tool Builder UI
+
+The `CustomToolBuilder` ([`src/features/tools/ui/CustomToolBuilder.tsx`](../../src/features/tools/ui/CustomToolBuilder.tsx)) provides a visual editor for creating and managing custom Python tools.
+
+**Edit flow**: On the Tools page ([`src/features/tools/ToolLibrary.tsx`](../../src/features/tools/ToolLibrary.tsx)), custom tools appear as cards. Hover to reveal an **Edit** (pencil) button that opens the builder pre-loaded with the existing tool data. The `CustomToolBuilder` receives `existingToolId` prop and fetches the tool data via `GET /api/custom-tools/{tool_id}`.
+
+### 4b. Python Code Verification with AI Fix
+
+A **Verify Code** button sits next to the Python Code editor. It calls `POST /api/custom-tools/verify-code` ([`backend/api/tools/routes.py`](../../backend/api/tools/routes.py)) which performs two-stage validation:
+
+| Stage | Method | Catches |
+|---|---|---|
+| **1. AST Analysis** | `ast.parse()` + name resolution | Undefined variables (e.g. `{a1}` instead of `{a}`), syntax structure issues |
+| **2. Compile + Exec** | `compile()` + `exec()` | Syntax errors, missing function definition, non-callable types |
+
+When errors are found and `auto_fix=true`, the backend sends the broken code + error details to an LLM (DeepSeek Chat by default) for a suggested fix:
+
 ```
+Request:  broken code + error list
+Response: { suggested_code, explanation }
+```
+
+The frontend shows:
+1. **Red/green border** on the code editor indicating validity
+2. **Line-by-line error list** with type and message
+3. **"Show AI Suggested Fix"** button — reveals the LLM-generated fix
+4. **Apply Fix** button — replaces the editor content with the fix
+5. **Copy** button on the code editor for easy clipboard sharing
+
+#### Verification Endpoint
+
+```python
+POST /api/custom-tools/verify-code
+{
+  "code": "def my_hello(a, b): ...",
+  "function_name": "my_hello",
+  "description": "Tool description",
+  "auto_fix": true
+}
+
+Response:
+{
+  "is_valid": false,
+  "errors": [{"line": 3, "message": "Undefined variable 'a1'", "type": "NameError"}],
+  "suggested_code": "def my_hello(a, b): ...",  # AI fixed version
+  "explanation": "Fixed typo: a1 → a"
+}
+```
+
+#### Key implementation details:
+- **AST name resolution** walks the function body, collects `param_names ∪ assigned_names ∪ builtins`, and reports any unknown `Name` nodes in Load context
+- **LLM provider priority**: DeepSeek Chat → OpenAI → Anthropic → Google (whichever has a configured API key)
+- The suggested code is re-verified after LLM generation to catch persistent errors
+
+### 4c. Copy Button on Code Editor
+
+The Python Code editor header includes a **Copy** button that copies the current editor content to the system clipboard. Shows a green "Copied" confirmation for 2 seconds.
+
+---
 
 When a `backend` is passed, the harness automatically registers the following tools on top of the existing middleware tools:
 
