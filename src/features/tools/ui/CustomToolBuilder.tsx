@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, Play, Save, X, Settings, FileCode, TestTube, Eye, ArrowLeft, Check, Trash2 } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 import CollapsibleSection from '../../../components/ui/CollapsibleSection';
@@ -45,6 +46,7 @@ interface CustomToolBuilderProps {
 }
 
 const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep = false, initialTemplate }: CustomToolBuilderProps) => {
+  const { t } = useTranslation('chat');
   // Show template gallery first, unless editing or skipTemplateStep
   const [showingTemplateGallery, setShowingTemplateGallery] = useState(!existingToolId && !skipTemplateStep && !initialTemplate);
   const [selectedTemplate, setSelectedTemplate] = useState<ToolTemplate | null>(null);
@@ -518,7 +520,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
       <div className="space-y-4">
         {/* Basic Information - Always Expanded */}
         <CollapsibleSection
-          title="Basic Information"
+          title={t('tool_builder_basic_info')}
           defaultExpanded={true}
           alwaysExpanded={true}
           hasError={validationErrors.some(e =>
@@ -552,7 +554,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Tool Name <span className="text-red-500">*</span>
+                {t('tool_builder_tool_name_required')}
               </label>
               <input
                 type="text"
@@ -598,7 +600,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Category (Optional)
+                {t('tool_builder_category_optional')}
               </label>
               <input
                 type="text"
@@ -618,13 +620,13 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Tags (comma-separated)
+                {t('tool_builder_tags')}
               </label>
               <input
                 type="text"
                 value={tags.join(', ')}
                 onChange={(e) => setTags(e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
-                placeholder="slack, notification, alerts"
+                placeholder={t('tool_builder_add_field')}
                 className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                 style={{
                   backgroundColor: 'var(--color-input-background)',
@@ -640,7 +642,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
         {/* Configuration Section */}
         <CollapsibleSection
-          title="Tool Configuration"
+          title={t('tool_builder_config')}
           icon={<Settings className="w-5 h-5" />}
           defaultExpanded={expandedSections.config}
           hasError={validationErrors.some(e =>
@@ -652,7 +654,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
         {/* Input Schema Section */}
         <CollapsibleSection
-          title="Input Schema"
+          title={t('tool_builder_input_schema')}
           icon={<FileCode className="w-5 h-5" />}
           defaultExpanded={expandedSections.schema}
           hasError={validationErrors.some(e => e.includes('input parameter'))}
@@ -662,7 +664,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
         {/* Test Section */}
         <CollapsibleSection
-          title="Test Tool"
+          title={t('tool_builder_test')}
           icon={<TestTube className="w-5 h-5" />}
           defaultExpanded={expandedSections.test}
         >
@@ -671,7 +673,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
         {/* Review Section */}
         <CollapsibleSection
-          title="Review & Summary"
+          title={t('tool_builder_review')}
           icon={<Eye className="w-5 h-5" />}
           defaultExpanded={expandedSections.review}
         >
@@ -1188,7 +1190,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                         color: 'var(--color-text-muted)',
                       }}
                     >
-                      Cancel
+                      {t('tool_builder_cancel')}
                     </button>
                   </div>
                 </div>
@@ -1654,7 +1656,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                       className="rounded border-gray-300 focus:ring-2"
                       style={{ accentColor: 'var(--color-primary)' }}
                     />
-                    <span style={{ color: 'var(--color-text-primary)' }}>Required parameter</span>
+                    <span style={{ color: 'var(--color-text-primary)' }}>{t('tool_builder_required_param')}</span>
                   </label>
 
                   <button
@@ -1712,9 +1714,9 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
           Test the tool with sample input to make sure it works
         </p>
 
-        {/* Test Input Form */}
+        {/* {t('tool_builder_test_input')} Form */}
         <div className="space-y-4 mb-6">
-          <h4 className="font-medium" style={{ color: 'var(--color-text-primary)' }}>Test Input</h4>
+          <h4 className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{t('tool_builder_test_input')}</h4>
           {Object.entries(properties).map(([propName, prop]: [string, any]) => (
             <div key={propName}>
               <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
@@ -2040,12 +2042,12 @@ ${toolId}_tool = StructuredTool.from_function(
               </button>
               <div className="flex-1">
                 <h2 className="text-2xl font-semibold text-white" style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.25)' }}>
-                  {existingToolId ? 'Edit Custom Tool' : 'Custom Tool Builder'}
+                  {existingToolId ? t('tool_builder_edit_title') : t('tool_builder_title')}
                 </h2>
                 <p className="text-sm mt-1 text-white/90" style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)' }}>
                   {selectedTemplate
-                    ? `Using template: ${selectedTemplate.name}`
-                    : 'Create a custom tool for your agents to use'
+                    ? t('tool_builder_using_template', { name: selectedTemplate.name })
+                    : t('tool_builder_create_desc')
                   }
                 </p>
               </div>
@@ -2119,7 +2121,7 @@ ${toolId}_tool = StructuredTool.from_function(
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  Cancel
+                  {t('tool_builder_cancel')}
                 </button>
 
                 <button
@@ -2136,7 +2138,7 @@ ${toolId}_tool = StructuredTool.from_function(
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      Save Tool
+                      {t('tool_builder_save')}
                     </>
                   )}
                 </button>
