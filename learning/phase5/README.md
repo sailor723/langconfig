@@ -792,6 +792,123 @@ The Python Code editor header includes a **Copy** button that copies the current
 
 ---
 
+### 4d. End-to-End Walkthrough: Create a Custom Tool → Link to Agent → Run
+
+This walkthrough covers the full lifecycle of a custom Python function tool, from creation through agent execution.
+
+#### Step 1: Create the Custom Tool
+
+1. Navigate to the **Tools** page in the app (top nav)
+2. Click the **"Custom Tool"** tab, then click **"Create Custom Tool"**
+3. Fill in the Basic Information:
+   - **Tool ID**: `my_hello` (unique identifier, kebab-case)
+   - **Tool Name**: `my_hello` (display name)
+   - **Description**: `this is for testing tool with python code, use it when query is about testing tools`
+4. Select **"Python Function"** as the Tool Type
+5. In the Python Function section:
+   - **Function Name**: `my_hello`
+   - **Python Code**:
+     ```python
+     def my_hello(a: float, b: float) -> float:
+         """My custom function., this is updated version"""
+         print(f"hello world, your input is {a} and {b}")
+         return a + b
+     ```
+   - Click **"Verify Code"** to check for errors — green border means valid
+6. In **Input Schema**, add two parameters:
+   - `a`: type `number`, description `First parameter`
+   - `b`: type `number`, description `Second parameter`
+7. Click **Save** — you'll see a success message
+
+#### Step 2: Link the Tool to an Agent
+
+1. Navigate to the **Agent Builder** page (top nav)
+2. Click **"New Agent"** or edit an existing agent
+3. Fill in:
+   - **Name**: `my_hello`
+   - **Model**: `deepseek-chat` (or any configured model)
+4. In the **Tools** section, find **Custom Tools** — add `my_hello` to the list
+   - The agent config stores this as `"custom_tools": ["my_hello"]`
+5. Set the **System Prompt**:
+   ```
+   this is for testing tools via my_hello tool, please do use my_hello tool for user greeting
+   ```
+6. **Save** the agent
+
+What happens under the hood:
+- The agent config is saved to the `deep_agent_templates` table in PostgreSQL
+- The `custom_tools` field stores the string ID `"my_hello"` — no Python code, just a reference
+- At runtime, `AgentFactory._load_custom_tools()` ([`backend/core/agents/factory.py#L1457`](../../backend/core/agents/factory.py#L1457)) resolves the ID to the actual tool
+
+#### Step 3: Start a Chat & Run the Agent
+
+1. Go to the **Chat** page
+2. Select the `my_hello` agent from the agent selector
+3. Start a new chat session
+4. Send a message that the tool can process: `what is 3 + 5?`
+
+What happens at runtime:
+
+```
+User: "what is 3 + 5?"
+         │
+         ▼
+POST /api/chat/message/stream
+  → session resolved to agent_id=42
+  → agent.config loaded from deep_agent_templates
+  → config.custom_tools = ["my_hello"]
+         │
+         ▼
+AgentFactory.create_agent(agent_config)
+  ├─ LLM created (deepseek-chat)
+  ├─ Native tools loaded (ls, read_file, ...)
+  ├─ Custom tools loaded:
+  │     └─ AgentFactory._load_custom_tools(["my_hello"])
+  │           ├─ Query custom_tools WHERE tool_id='my_hello'
+  │           ├─ ToolFactory.create_tool(tool_config)
+  │           │     └─ exec(code) → wraps in StructuredTool
+  │           └─ Returns [StructuredTool(name="my_hello")]
+  └─ create_agent(model, tools=[..., my_hello], system_prompt=...)
+         │
+         ▼
+Agent receives: "what is 3 + 5?"
+  → LLM sees available tools: [my_hello(a: float, b: float) -> float]
+  → LLM decides: call my_hello(a=3.0, b=5.0)
+  → Tool executes: returns 8.0
+  → LLM responds: "3 + 5 equals 8."
+         │
+         ▼
+Response streamed to UI via SSE
+```
+
+#### Step 4: Verify It Works
+
+You can verify the tool was loaded correctly by checking the backend logs:
+
+```
+📦 Custom tool IDs from config: ['my_hello']
+✓ Loaded 1 custom tools: ['my_hello']
+🔧 TOOLS LOADED: ['ls', 'read_file', ..., 'my_hello']
+```
+
+The tool name appears in the final tools list alongside native tools, confirming it was successfully bound to the agent.
+
+#### Key Points
+
+| Stage | Storage | Resolution |
+|---|---|---|
+| **Tool Creation** | `custom_tools` table (full Python code + schema) | `POST /api/custom-tools` |
+| **Tool Linking** | `deep_agent_templates.config.custom_tools` (string ID only) | UI checkboxes / manual edit |
+| **Runtime** | `AgentFactory._load_custom_tools()` queries DB, `exec()`s code, wraps in `StructuredTool` | `create_agent(tools=...)` |
+
+- The tool's **description** field is what the LLM sees to decide when to call the tool — make it descriptive
+- The **system prompt** can reinforce when to use the tool
+- Custom tools are resolved **at agent creation time**, not at startup — so new tools are immediately available without restarting the server
+- The tool function's **type hints** define the input schema that the LLM sees
+- Tools must be **synchronous** (not `async def`) — the framework wraps them automatically
+
+---
+
 When a `backend` is passed, the harness automatically registers the following tools on top of the existing middleware tools:
 
 | Tool | Description |
