@@ -180,7 +180,7 @@ class GuardrailsConfig(BaseModel):
 class DeepAgentConfig(BaseModel):
     """Complete DeepAgent configuration (Pydantic model for validation)."""
     # Base agent settings
-    model: str = Field(default="claude-sonnet-4-5-20250929")
+    model: Optional[str] = Field(default=None, description="Model to use; falls back to settings.default_model from DB if not set")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: Optional[int] = None
     reasoning_effort: Optional[ReasoningEffort] = Field(

@@ -649,9 +649,23 @@ async def send_message_stream(
                     save_to_db=False  # Don't persist to DB for chat sessions
                 )
 
+                # Inject PDF content into the message so agent sees it
+                # (PDF text is extracted during upload and stored in session.messages,
+                # but LangGraph checkpointer has its own history — the agent won't
+                # see the content otherwise)
+                pdf_context = ""
+                for msg in fresh_session.messages:
+                    content = msg.get("content", "")
+                    if msg.get("role") == "assistant" and "[PDF Content:" in content:
+                        pdf_context += "\n\n" + content
+                if pdf_context:
+                    augmented_content = f"{pdf_context}\n\nUser question: {request.message}"
+                else:
+                    augmented_content = request.message
+
                 # Create new user message (checkpointer loads previous messages)
                 from langchain_core.messages import HumanMessage
-                new_message = HumanMessage(content=request.message)
+                new_message = HumanMessage(content=augmented_content)
 
                 # Use astream_events for token-by-token streaming
                 async for event in agent_instance.astream_events(
@@ -1590,11 +1604,6 @@ async def index_session_document_background(document_id: int, agent_id: int):
         result = await context_document_indexer.index_document(
             document_id=document_id,
             file_path=file_path,
-            metadata={
-                "session_id": session_id,
-                "agent_id": str(agent_id),
-                "doc_type": "session_document"
-            }
         )
 
         # Update status to ready
@@ -1654,18 +1663,18 @@ async def upload_file_to_session(
     # Save file to disk (session-scoped storage)
     file_path = file_storage.save_file(f"chat_sessions/{session_id}", file.filename, content)
 
-    # Also copy CSV files to the sandbox workspace (outputs/default/) so the agent
+    # Also copy files to the sandbox workspace (outputs/default/) so the agent
     # can access them via read_file / execute for data analysis.
-    if file.filename.lower().endswith('.csv'):
+    if file.filename.lower().endswith(('.csv', '.pdf')):
         try:
             from services.workspace_manager import get_workspace_manager
             ws_mgr = get_workspace_manager()
             sandbox_path = ws_mgr.base_dir / "default" / file.filename
             sandbox_path.parent.mkdir(parents=True, exist_ok=True)
             sandbox_path.write_bytes(content)
-            logger.info(f"CSV copied to sandbox workspace: {sandbox_path}")
+            logger.info(f"File copied to sandbox workspace: {sandbox_path}")
         except Exception as e:
-            logger.warning(f"Failed to copy CSV to sandbox: {e}")
+            logger.warning(f"Failed to copy {file.filename} to sandbox: {e}")
 
     # Detect document type from file extension
     file_ext = file.filename.split('.')[-1].lower()
@@ -1698,11 +1707,42 @@ async def upload_file_to_session(
     db.commit()
     db.refresh(doc)
 
-    # Queue background indexing (skip for CSVs - they're already in the sandbox workspace)
-    if file.filename.lower().endswith('.csv'):
+    # For PDFs, extract text immediately and store as session message
+    if file.filename.lower().endswith('.pdf'):
         doc.indexing_status = IndexingStatus.READY
         db.commit()
+
+        # Extract full text from PDF immediately (in memory, no tool needed)
+        pdf_text = ""
+        try:
+            from pypdf import PdfReader
+            import io
+            reader = PdfReader(io.BytesIO(content))
+            pages = []
+            for i, page in enumerate(reader.pages, start=1):
+                text = page.extract_text()
+                if text and text.strip():
+                    pages.append(f"--- Page {i}/{len(reader.pages)} ---\n{text.strip()}")
+            if pages:
+                full_text = "\n\n".join(pages)
+                # Truncate if too large (100K chars ~ 25K tokens)
+                if len(full_text) > 100000:
+                    full_text = full_text[:100000] + "\n\n[...truncated]"
+                pdf_text = full_text
+        except Exception as e:
+            logger.warning(f"Failed to extract PDF text during upload: {e}")
+            pdf_text = f"[PDF text extraction failed: {e}]"
+
+        session.messages.append({
+            "role": "assistant",
+            "content": f"[PDF Content: \"{file.filename}\"]\n\n{pdf_text}",
+            "timestamp": datetime.utcnow().isoformat(),
+            "banked": False
+        })
+        flag_modified(session, "messages")
+        db.commit()
     else:
+        # Queue background indexing for non-PDF files
         background_tasks.add_task(index_session_document_background, doc.id, session.agent_id)
 
     return SessionDocumentResponse(
