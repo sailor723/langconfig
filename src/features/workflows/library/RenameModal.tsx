@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface RenameModalProps {
   currentName: string;
@@ -14,6 +15,7 @@ interface RenameModalProps {
 }
 
 export default function RenameModal({ currentName, onRename, onClose }: RenameModalProps) {
+  const { t } = useTranslation('chat');
   const [newName, setNewName] = useState(currentName);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -41,7 +43,7 @@ export default function RenameModal({ currentName, onRename, onClose }: RenameMo
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-panel-dark rounded-lg max-w-md w-full p-6 shadow-2xl">
         <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-          Rename Workflow
+          {t('library_rename_title')}
         </h3>
 
         <form onSubmit={handleSubmit}>
@@ -56,7 +58,7 @@ export default function RenameModal({ currentName, onRename, onClose }: RenameMo
               backgroundColor: 'var(--color-input-background)',
               color: 'var(--color-text-primary)'
             }}
-            placeholder="Enter workflow name..."
+            placeholder={t('library_rename_placeholder')}
           />
 
           <div className="flex items-center justify-end gap-3 mt-6">
@@ -66,14 +68,14 @@ export default function RenameModal({ currentName, onRename, onClose }: RenameMo
               className="px-4 py-2 text-sm font-medium border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 hover:border-gray-400 dark:hover:border-border-light transition-all"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              Cancel
+              {t('library_delete_cancel')}
             </button>
             <button
               type="submit"
               disabled={!newName.trim() || newName === currentName}
               className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:brightness-110 hover:shadow-lg transition-all disabled:opacity-50"
             >
-              Rename
+              {t('library_rename_btn')}
             </button>
           </div>
         </form>
