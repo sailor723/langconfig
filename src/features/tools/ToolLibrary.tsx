@@ -16,6 +16,7 @@ import {
   Wrench,
   Plus,
   Code,
+  Pencil,
 } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 import CustomToolBuilder from './ui/CustomToolBuilder';
@@ -50,6 +51,7 @@ export default function ToolLibrary() {
   const [searchQuery, setSearchQuery] = useState('');
   const [customTools, setCustomTools] = useState<any[]>([]);
   const [showBuilder, setShowBuilder] = useState(false);
+  const [editingTool, setEditingTool] = useState<string | null>(null);
 
   useEffect(() => {
     apiClient.listToolRegistry()
@@ -156,7 +158,7 @@ export default function ToolLibrary() {
               {customTools.map((tool: any) => (
                 <div
                   key={tool.tool_id || tool.id}
-                  className="p-4 rounded-lg border transition-shadow hover:shadow-md"
+                  className="p-4 rounded-lg border transition-shadow hover:shadow-md group"
                   style={{
                     backgroundColor: 'var(--color-panel-light, #fff)',
                     borderColor: 'var(--color-border-dark, #e5e7eb)',
@@ -166,9 +168,21 @@ export default function ToolLibrary() {
                     <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>
                       {tool.name}
                     </h3>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap ml-2">
-                      {tool.tool_type || 'custom'}
-                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => {
+                          setEditingTool(tool.tool_id || tool.id);
+                          setShowBuilder(true);
+                        }}
+                        className="p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-200 dark:hover:bg-gray-600"
+                        title="Edit tool"
+                      >
+                        <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+                      </button>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap ml-1">
+                        {tool.tool_type || 'custom'}
+                      </span>
+                    </div>
                   </div>
                   <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
                     {tool.description}
@@ -261,7 +275,14 @@ export default function ToolLibrary() {
       {showBuilder && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-10 pb-10 overflow-y-auto" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="relative w-full max-w-3xl mx-4 rounded-xl overflow-hidden shadow-2xl" style={{ backgroundColor: 'var(--color-background-light, #fff)' }}>
-            <CustomToolBuilder onClose={() => { setShowBuilder(false); window.location.reload(); }} />
+            <CustomToolBuilder
+              existingToolId={editingTool || undefined}
+              onClose={() => {
+                setShowBuilder(false);
+                setEditingTool(null);
+                window.location.reload();
+              }}
+            />
           </div>
         </div>
       )}

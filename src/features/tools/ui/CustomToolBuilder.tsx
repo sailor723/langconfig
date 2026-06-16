@@ -86,6 +86,18 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Code verification
+  const [verifying, setVerifying] = useState(false);
+  const [verifyResult, setVerifyResult] = useState<{
+    is_valid: boolean;
+    errors?: { line: number; message: string; type: string }[];
+    warnings?: string[];
+    suggested_code?: string;
+    explanation?: string;
+  } | null>(null);
+  const [showSuggestedFix, setShowSuggestedFix] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
   useEffect(() => {
     const abortController = new AbortController();
 
@@ -165,7 +177,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
     // Validate basic section
     if (!toolId.trim()) errors.push('Tool ID is required');
-    if (!/^[a-zA-Z0-9_]+$/.test(toolId)) errors.push('Tool ID must contain only letters, numbers, and underscores');
+    if (!/^[a-zA-Z0-9_-]+$/.test(toolId)) errors.push('Tool ID must contain only letters, numbers, underscores, and hyphens');
     if (!toolName.trim()) errors.push('Tool name is required');
     if (!description.trim()) errors.push('Description is required (helps LLM understand the tool)');
 
@@ -190,16 +202,56 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
     return errors.length === 0;
   };
 
+  // Verify Python code before saving — detect errors + AI fix suggestions
+  const handleVerifyCode = async () => {
+    if (!implementationConfig.code || !implementationConfig.function_name) {
+      alert('Please fill in Function Name and Python Code first');
+      return;
+    }
+
+    setVerifying(true);
+    setVerifyResult(null);
+    setShowSuggestedFix(false);
+
+    try {
+      const resp = await apiClient.verifyCustomToolCode({
+        code: implementationConfig.code,
+        function_name: implementationConfig.function_name,
+        description,
+        auto_fix: true,
+      });
+      setVerifyResult(resp.data);
+    } catch (err: any) {
+      console.error('Code verification failed:', err);
+      setVerifyResult({
+        is_valid: false,
+        errors: [{ line: 0, message: err.message || 'Verification request failed', type: 'RequestError' }],
+      });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // Apply the AI-suggested fix into the code editor
+  const applySuggestedFix = () => {
+    if (verifyResult?.suggested_code) {
+      setImplementationConfig({ ...implementationConfig, code: verifyResult.suggested_code });
+      setShowSuggestedFix(false);
+      setVerifyResult(null);
+    }
+  };
+
   const handleTest = async () => {
     setTesting(true);
     try {
       // First, create/update the tool temporarily
+      const isPythonFn = selectedTemplate?.tool_type === 'python_function';
       const toolData = {
         tool_id: toolId,
         name: toolName,
         description,
         tool_type: selectedTemplate?.tool_type || 'api',
-        template_type: selectedTemplate?.template_id || null,
+        template_type: isPythonFn ? null : (selectedTemplate?.template_id || null),
         implementation_config: implementationConfig,
         input_schema: inputSchema,
         output_format: 'string',
@@ -307,12 +359,13 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
     setSaving(true);
     try {
+      const isPythonFn = selectedTemplate?.tool_type === 'python_function';
       const toolData = {
         tool_id: toolId,
         name: toolName,
         description,
         tool_type: selectedTemplate?.tool_type || 'api',
-        template_type: selectedTemplate?.template_id || null,
+        template_type: isPythonFn ? null : (selectedTemplate?.template_id || null),
         implementation_config: implementationConfig,
         input_schema: inputSchema,
         output_format: 'string',
@@ -965,7 +1018,10 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
               <input
                 type="text"
                 value={implementationConfig.function_name || 'my_function'}
-                onChange={(e) => setImplementationConfig({ ...implementationConfig, function_name: e.target.value })}
+                onChange={(e) => {
+                  setImplementationConfig({ ...implementationConfig, function_name: e.target.value });
+                  setVerifyResult(null); // Clear verification when code changes
+                }}
                 placeholder="my_function"
                 className="w-full px-4 py-2 rounded-lg border text-sm font-mono"
                 style={{
@@ -980,22 +1036,106 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Python Code <span className="text-red-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                  Python Code <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => {
+                      if (implementationConfig.code) {
+                        navigator.clipboard.writeText(implementationConfig.code);
+                        setCopiedCode(true);
+                        setTimeout(() => setCopiedCode(false), 2000);
+                      }
+                    }}
+                    className="px-2.5 py-1 text-xs rounded-lg flex items-center gap-1 transition-colors"
+                    style={{
+                      backgroundColor: copiedCode ? 'rgba(34, 197, 94, 0.15)' : 'var(--color-background-dark)',
+                      color: copiedCode ? 'rgb(34, 197, 94)' : 'var(--color-text-muted)',
+                      border: '1px solid var(--color-border-dark)',
+                    }}
+                  >
+                    {copiedCode ? (
+                      <>
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                        </svg>
+                        Copy
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleVerifyCode}
+                    disabled={verifying}
+                    className="px-3 py-1 text-xs rounded-lg flex items-center gap-1 transition-colors"
+                    style={{
+                      backgroundColor: verifying ? 'var(--color-background-dark)' : 'var(--color-primary)',
+                      color: verifying ? 'var(--color-text-muted)' : 'white',
+                    }}
+                  >
+                    {verifying ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent" />
+                        Verifying...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Verify Code
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
               <textarea
                 value={implementationConfig.code || ''}
-                onChange={(e) => setImplementationConfig({ ...implementationConfig, code: e.target.value })}
+                onChange={(e) => {
+                  setImplementationConfig({ ...implementationConfig, code: e.target.value });
+                  setVerifyResult(null); // Clear verification when code changes
+                }}
+                onKeyDown={(e) => {
+                  // Tab key → insert 4 spaces instead of moving focus
+                  if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const ta = e.currentTarget;
+                    const start = ta.selectionStart;
+                    const end = ta.selectionEnd;
+                    const before = ta.value.substring(0, start);
+                    const after = ta.value.substring(end);
+                    const newVal = before + '    ' + after;
+                    setImplementationConfig({ ...implementationConfig, code: newVal });
+                    // Restore cursor position after React rerender
+                    requestAnimationFrame(() => {
+                      ta.selectionStart = ta.selectionEnd = start + 4;
+                    });
+                  }
+                }}
                 placeholder="def my_function(a: float, b: float) -> float:"
                 rows={10}
                 className="w-full px-4 py-3 rounded-lg border text-sm font-mono leading-relaxed"
                 style={{
                   backgroundColor: 'var(--color-input-background)',
-                  borderColor: 'var(--color-border-dark)',
+                  borderColor: verifyResult && !verifyResult.is_valid
+                    ? 'rgba(239, 68, 68, 0.5)'
+                    : verifyResult?.is_valid
+                    ? 'rgba(34, 197, 94, 0.5)'
+                    : 'var(--color-border-dark)',
                   color: 'var(--color-text-primary)',
                   fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
                   fontSize: '13px',
                   lineHeight: '1.5',
+                  transition: 'border-color 0.2s',
                 }}
                 spellCheck={false}
               />
@@ -1003,6 +1143,149 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                 Write the full function definition with type hints. <code>math</code> and <code>json</code> modules are pre-imported.
               </p>
             </div>
+
+            {/* Verification result */}
+            {verifyResult && (
+              <div className={`p-3 rounded-lg border ${
+                verifyResult.is_valid
+                  ? 'border-green-500/30'
+                  : 'border-red-500/30'
+              }`} style={{
+                backgroundColor: verifyResult.is_valid
+                  ? 'rgba(34, 197, 94, 0.08)'
+                  : 'rgba(239, 68, 68, 0.08)',
+              }}>
+                {/* Valid */}
+                {verifyResult.is_valid && (
+                  <div className="flex items-center gap-2 text-sm" style={{ color: 'rgb(34, 197, 94)' }}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-medium">Code is valid</span>
+                  </div>
+                )}
+
+                {/* Errors */}
+                {!verifyResult.is_valid && verifyResult.errors && verifyResult.errors.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2 text-sm" style={{ color: 'rgb(239, 68, 68)' }}>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="font-medium">Code has errors</span>
+                    </div>
+                    <ul className="space-y-1">
+                      {verifyResult.errors.map((err, idx) => (
+                        <li key={idx} className="text-xs flex items-start gap-2" style={{ color: 'var(--color-text-muted)' }}>
+                          <span className="shrink-0 px-1.5 py-0.5 rounded font-mono" style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            color: 'rgb(239, 68, 68)',
+                          }}>
+                            L{err.line}
+                          </span>
+                          <span>{err.message}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Warnings */}
+                {verifyResult.warnings && verifyResult.warnings.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs font-medium mb-1" style={{ color: 'rgb(234, 179, 8)' }}>Warnings</p>
+                    <ul className="space-y-0.5">
+                      {verifyResult.warnings.map((w, idx) => (
+                        <li key={idx} className="text-xs" style={{ color: 'var(--color-text-muted)' }}>⚠ {w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* AI Suggestion — Show the Apply button */}
+                {!verifyResult.is_valid && verifyResult.suggested_code && !showSuggestedFix && (
+                  <button
+                    onClick={() => setShowSuggestedFix(true)}
+                    className="mt-3 px-3 py-1.5 text-xs rounded-lg flex items-center gap-1.5 transition-colors"
+                    style={{
+                      backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                      color: 'rgb(139, 92, 246)',
+                      border: '1px solid rgba(139, 92, 246, 0.3)',
+                    }}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Show AI Suggested Fix
+                  </button>
+                )}
+
+                {/* Show the actual suggested code diff */}
+                {showSuggestedFix && verifyResult.suggested_code && (
+                  <div className="mt-3 p-3 rounded-lg" style={{
+                    backgroundColor: 'var(--color-panel-dark)',
+                    border: '1px solid var(--color-border-dark)',
+                  }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold" style={{ color: 'rgb(139, 92, 246)' }}>
+                        AI Suggested Fix
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={applySuggestedFix}
+                          className="px-2 py-1 text-xs rounded transition-colors"
+                          style={{
+                            backgroundColor: 'rgb(139, 92, 246)',
+                            color: 'white',
+                          }}
+                        >
+                          Apply Fix
+                        </button>
+                        <button
+                          onClick={() => setShowSuggestedFix(false)}
+                          className="px-2 py-1 text-xs rounded transition-colors"
+                          style={{
+                            backgroundColor: 'var(--color-background-dark)',
+                            color: 'var(--color-text-muted)',
+                          }}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(verifyResult.suggested_code!);
+                          setCopiedCode(true);
+                          setTimeout(() => setCopiedCode(false), 2000);
+                        }}
+                        className="absolute top-2 right-2 px-2 py-1 text-xs rounded transition-colors z-10"
+                        style={{
+                          backgroundColor: copiedCode ? 'rgba(34, 197, 94, 0.2)' : 'var(--color-background-dark)',
+                          color: copiedCode ? 'rgb(34, 197, 94)' : 'var(--color-text-muted)',
+                        }}
+                      >
+                        {copiedCode ? 'Copied!' : 'Copy'}
+                      </button>
+                      <pre className="text-xs font-mono p-2 pt-7 rounded overflow-x-auto whitespace-pre-wrap" style={{
+                        backgroundColor: 'var(--color-input-background)',
+                        color: 'var(--color-text-primary)',
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                      }}>
+                        {verifyResult.suggested_code}
+                      </pre>
+                    </div>
+                    {verifyResult.explanation && (
+                      <p className="text-xs mt-2 italic" style={{ color: 'var(--color-text-muted)' }}>
+                        {verifyResult.explanation}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="p-3 rounded-lg" style={{
               backgroundColor: 'rgba(34, 197, 94, 0.1)',

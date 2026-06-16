@@ -76,6 +76,24 @@ class ToolTestResponse(BaseModel):
     execution_time_ms: Optional[int] = None
 
 
+class CodeVerificationRequest(BaseModel):
+    """Request model for verifying Python code"""
+    code: str = Field(..., description="Python source code to verify")
+    function_name: str = Field(..., description="Expected function name")
+    description: Optional[str] = Field(None, description="Tool description for context")
+    auto_fix: bool = Field(True, description="Whether to use AI to suggest fixes")
+
+
+class CodeVerificationResponse(BaseModel):
+    """Response model for code verification"""
+    is_valid: bool = Field(..., description="Whether the code is valid")
+    errors: List[Dict[str, Any]] = Field(default_factory=list, description="List of errors found")
+    warnings: List[str] = Field(default_factory=list, description="List of warnings")
+    suggested_code: Optional[str] = Field(None, description="AI-suggested fixed code")
+    explanation: Optional[str] = Field(None, description="Explanation of what was fixed")
+    verified_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+
 # =============================================================================
 # Tool CRUD Endpoints
 # =============================================================================
@@ -727,6 +745,341 @@ async def import_custom_tool(
         db.rollback()
         logger.error(f"Failed to import custom tool: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to import custom tool: {str(e)}")
+
+
+# =============================================================================
+# Code Verification Endpoint
+# =============================================================================
+
+def _compile_python_code(code: str, function_name: str) -> List[Dict[str, Any]]:
+    """
+    Verify Python code compiles correctly.
+
+    Checks:
+    1. Valid Python syntax (compile)
+    2. Function exists and is callable (exec)
+    3. No undefined variable references in f-strings or expressions (AST analysis)
+
+    Returns a list of errors, each with line number, message, and type.
+    Empty list means the code is valid.
+    """
+    import ast
+    import inspect
+
+    errors = []
+
+    # ── Step 1: AST-level checks (catches undefined vars, etc.) ──
+    try:
+        tree = ast.parse(code)
+
+        # Find the target function definition
+        target_fn = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == function_name:
+                target_fn = node
+                break
+
+        if target_fn is None:
+            # Function not found — will be caught by Step 2 below
+            pass
+        else:
+            # Collect defined variables (params + assignments)
+            param_names = {arg.arg for arg in target_fn.args.args}
+            if target_fn.args.vararg:
+                param_names.add(target_fn.args.vararg.arg)
+            if target_fn.args.kwarg:
+                param_names.add(target_fn.args.kwarg.arg)
+
+            # Collect locally assigned names (a = ...)
+            assigned_names = set()
+            for node in ast.walk(target_fn):
+                if isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name):
+                            assigned_names.add(target.id)
+                        elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
+                            for elt in target.elts:
+                                if isinstance(elt, ast.Name):
+                                    assigned_names.add(elt.id)
+                elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                    assigned_names.add(node.target.id)
+                elif isinstance(node, ast.AugAssign) and isinstance(node.target, ast.Name):
+                    assigned_names.add(node.target.id)
+                # Also catch for-loop variables
+                elif isinstance(node, ast.For) and isinstance(node.target, ast.Name):
+                    assigned_names.add(node.target.id)
+
+            # Built-in names that are always available
+            builtins = {
+                "abs", "all", "any", "bin", "bool", "bytearray", "bytes",
+                "chr", "complex", "dict", "dir", "divmod", "enumerate",
+                "filter", "float", "format", "frozenset", "getattr",
+                "hasattr", "hash", "hex", "id", "int", "isinstance",
+                "issubclass", "iter", "len", "list", "map", "max", "min",
+                "next", "object", "oct", "open", "ord", "pow", "print",
+                "range", "repr", "reversed", "round", "set", "setattr",
+                "slice", "sorted", "str", "sum", "tuple", "type", "vars",
+                "zip", "__import__",
+                # from pre-imported modules
+                "math", "json", "jsonify",
+            }
+
+            # Walk the function body and find all Name nodes used in expressions
+            # (but exclude function calls in decorators, defines, etc.)
+            used_names = set()
+            for node in ast.walk(target_fn):
+                # Only look at Name nodes that are being *read* (not assigned to)
+                if isinstance(node, ast.Name):
+                    # Check if this is a load context (being read)
+                    if isinstance(node.ctx, ast.Load):
+                        used_names.add(node.id)
+
+            # Find undefined names
+            defined = param_names | assigned_names | builtins
+            undefined = used_names - defined
+
+            if undefined:
+                # Group by the approximate line number for each undefined name
+                for node in ast.walk(target_fn):
+                    if isinstance(node, ast.Name) and node.id in undefined:
+                        errors.append({
+                            "line": node.lineno,
+                            "message": f"Undefined variable '{node.id}'. Did you mean one of: {', '.join(sorted(param_names))}?",
+                            "type": "NameError"
+                        })
+                        undefined.discard(node.id)
+                        if not undefined:
+                            break
+
+    except SyntaxError as e:
+        # Will be caught by compile() below
+        pass
+
+    # ── Step 2: Compile + exec (catches syntax and runtime errors) ──
+    try:
+        compiled = compile(code, "<tool_code>", "exec")
+
+        local_ns = {}
+        exec(compiled, {"math": __import__("math"), "json": __import__("json")}, local_ns)
+
+        if function_name not in local_ns:
+            errors.append({
+                "line": 1,
+                "message": f"Function '{function_name}' not defined in the provided code",
+                "type": "DefinitionError"
+            })
+        else:
+            fn = local_ns[function_name]
+            if not inspect.iscoroutinefunction(fn) and not callable(fn):
+                errors.append({
+                    "line": 1,
+                    "message": f"'{function_name}' is not a callable function",
+                    "type": "TypeError"
+                })
+
+    except SyntaxError as e:
+        errors.append({
+            "line": e.lineno or 0,
+            "message": str(e),
+            "type": "SyntaxError",
+            "text": e.text.strip() if e.text else ""
+        })
+    except Exception as e:
+        errors.append({
+            "line": 1,
+            "message": str(e),
+            "type": type(e).__name__
+        })
+
+    return errors
+
+
+async def _fix_code_with_llm(
+    code: str,
+    function_name: str,
+    description: Optional[str],
+    errors: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Use LangChain LLM to suggest fixes for broken Python code.
+
+    Returns dict with suggested_code and explanation.
+    Falls back gracefully if no LLM is available.
+    """
+    try:
+        from langchain.chat_models import init_chat_model
+        from langchain_core.prompts import ChatPromptTemplate
+        from config import settings
+
+        # Determine which model to use (try available API keys)
+        model_name = None
+        model_provider = None
+
+        if settings.OPENAI_API_KEY:
+            model_name = "gpt-4o-mini"
+            model_provider = "openai"
+        elif settings.DEEPSEEK_API_KEY:
+            model_name = "deepseek-chat"
+            model_provider = "deepseek"
+        elif settings.ANTHROPIC_API_KEY:
+            model_name = "claude-3-haiku-20240307"
+            model_provider = "anthropic"
+        elif settings.GOOGLE_API_KEY:
+            model_name = "gemini-2.0-flash"
+            model_provider = "google"
+
+        if not model_name or not model_provider:
+            logger.warning("No LLM available for code fixing")
+            return {"suggested_code": None, "explanation": None}
+
+        error_lines = "\n".join(
+            f"- Line {e.get('line', '?')} [{e.get('type', 'Error')}]: {e['message']}"
+            for e in errors
+        )
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are an expert Python developer. Fix the broken Python code below.
+Rules:
+- Only return the corrected Python code, wrapped in ```python ... ``` markers
+- Do NOT change the function signature or name
+- Fix syntax errors, indentation, missing imports, etc.
+- Keep the logic and intent of the original code intact
+- If the code has a f-string with format issues, fix the braces/quoting
+- After the code block, add a brief explanation of what was fixed"""),
+            ("human", """Fix this Python function `{function_name}`:
+
+Description: {description}
+
+Errors found:
+{error_lines}
+
+Broken code:
+```python
+{code}
+```
+
+Return the fixed code in ```python ... ``` markers."""),
+        ])
+
+        # Get API key based on provider
+        api_key = None
+        if model_provider == "openai":
+            api_key = settings.OPENAI_API_KEY
+        elif model_provider == "anthropic":
+            api_key = settings.ANTHROPIC_API_KEY
+        elif model_provider == "google":
+            api_key = settings.GOOGLE_API_KEY
+        elif model_provider == "deepseek":
+            api_key = settings.DEEPSEEK_API_KEY
+
+        llm = init_chat_model(
+            model=model_name,
+            model_provider=model_provider,
+            temperature=0.1,
+            api_key=api_key,
+        )
+
+        chain = prompt | llm
+        result = await chain.ainvoke({
+            "function_name": function_name,
+            "description": description or "Custom Python tool",
+            "error_lines": error_lines,
+            "code": code
+        })
+
+        response_text = result.content if hasattr(result, 'content') else str(result)
+
+        # Extract code from markdown ```python ... ``` block
+        import re
+        code_match = re.search(r'```(?:python)?\s*\n?(.*?)```', response_text, re.DOTALL)
+        suggested_code = code_match.group(1).strip() if code_match else None
+
+        # Extract explanation (everything after the code block)
+        explanation = None
+        if code_match:
+            after_code = response_text[code_match.end():].strip()
+            if after_code:
+                explanation = after_code
+        else:
+            # No code block found, use whole response
+            explanation = response_text
+
+        return {"suggested_code": suggested_code, "explanation": explanation}
+
+    except Exception as e:
+        logger.error(f"LLM code fixing failed: {e}")
+        return {"suggested_code": None, "explanation": None}
+
+
+@router.post("/verify-code", response_model=CodeVerificationResponse)
+async def verify_python_code(
+    request: CodeVerificationRequest,
+) -> CodeVerificationResponse:
+    """
+    Verify Python code for custom tools and optionally suggest fixes.
+
+    Compiles the code, checks the function exists, and if auto_fix is enabled
+    and errors are found, uses an LLM to suggest corrections.
+    """
+    try:
+        logger.info(f"Verifying code for function: {request.function_name}")
+
+        # Step 1: Try to compile and validate
+        errors = _compile_python_code(request.code, request.function_name)
+        is_valid = len(errors) == 0
+        warnings = []
+
+        if is_valid:
+            # Basic style warnings
+            if 'print(' in request.code and 'return' not in request.code:
+                warnings.append("Function uses print() but has no return statement")
+            if len(request.code) > 2000:
+                warnings.append("Code is very long (>2000 chars); consider simplifying")
+
+            logger.info(f"Code verification passed for: {request.function_name}")
+            return CodeVerificationResponse(
+                is_valid=True,
+                errors=[],
+                warnings=warnings,
+                verified_at=datetime.utcnow().isoformat()
+            )
+
+        logger.warning(f"Code verification failed for {request.function_name}: {errors}")
+
+        # Step 2: If auto_fix is enabled, try LLM fix
+        suggested_code = None
+        explanation = None
+
+        if request.auto_fix:
+            logger.info(f"Attempting AI fix for: {request.function_name}")
+            fix_result = await _fix_code_with_llm(
+                request.code,
+                request.function_name,
+                request.description,
+                errors
+            )
+            suggested_code = fix_result["suggested_code"]
+            explanation = fix_result["explanation"]
+
+            # If we got a suggested fix, verify it compiles too
+            if suggested_code:
+                fix_errors = _compile_python_code(suggested_code, request.function_name)
+                if fix_errors:
+                    logger.warning(f"Suggested fix still has errors: {fix_errors}")
+                    # Keep the suggestion anyway (it might be better than original)
+
+        return CodeVerificationResponse(
+            is_valid=False,
+            errors=errors,
+            warnings=warnings,
+            suggested_code=suggested_code,
+            explanation=explanation,
+            verified_at=datetime.utcnow().isoformat()
+        )
+
+    except Exception as e:
+        logger.error(f"Code verification failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Code verification failed: {str(e)}")
 
 
 # =============================================================================
