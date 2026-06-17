@@ -348,6 +348,62 @@ async def get_available_models(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/embedding-models")
+async def get_available_embedding_models(db: Session = Depends(get_db)):
+    """Get available embedding models (cloud + local)."""
+    settings = get_or_create_settings(db)
+    api_keys = settings.api_keys or {}
+    models = []
+
+    # Cloud embedding models (require OpenAI key)
+    if api_keys.get("openai"):
+        models.extend([
+            {"id": "text-embedding-3-large", "name": "text-embedding-3-large", "provider": "openai", "type": "cloud"},
+            {"id": "text-embedding-3-small", "name": "text-embedding-3-small", "provider": "openai", "type": "cloud"},
+            {"id": "text-embedding-ada-002", "name": "text-embedding-ada-002", "provider": "openai", "type": "cloud"},
+        ])
+
+    # Local embedding models from Ollama
+    try:
+        import httpx
+        local_base_url = settings.local_base_url or "http://localhost:11434"
+        ollama_url = f"{local_base_url.rstrip('/v1').rstrip('/')}/api/tags"
+        resp = httpx.get(ollama_url, timeout=3.0)
+        if resp.status_code == 200:
+            data = resp.json()
+            for tag in data.get("models", []):
+                name = tag.get("name", "")
+                models.append({
+                    "id": f"ollama-{name}",
+                    "name": name,
+                    "provider": "ollama",
+                    "type": "local",
+                })
+    except Exception:
+        pass  # Ollama not available
+
+    # Also include any local models configured in the local_models table
+    try:
+        from models.local_model import LocalModel
+        local_models = db.query(LocalModel).filter(
+            LocalModel.is_active == True
+        ).all()
+        for model in local_models:
+            # Only add if not already in list
+            mid = f"local-{model.name}"
+            if not any(m["id"] == mid for m in models):
+                models.append({
+                    "id": mid,
+                    "name": model.display_name or model.name,
+                    "provider": model.provider,
+                    "type": "local",
+                })
+    except Exception:
+        pass
+
+    return {"models": models}
+
+
 @router.delete("/api-keys/{provider}")
 async def delete_api_key(provider: str, db: Session = Depends(get_db)):
     """Delete an API key"""

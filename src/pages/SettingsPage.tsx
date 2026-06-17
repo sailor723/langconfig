@@ -124,6 +124,7 @@ export default function SettingsView() {
 
   // RAG settings state - start with null, load from backend
   const [ragSettings, setRagSettings] = useState<RagSettings | null>(null);
+  const [embeddingModels, setEmbeddingModels] = useState<{id: string; name: string; provider: string; type: string}[]>([]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -250,6 +251,14 @@ export default function SettingsView() {
         });
       } catch (error) {
         console.error('Failed to load RAG settings:', error);
+      }
+
+      // Load available embedding models
+      try {
+        const embResponse = await apiClient.getAvailableEmbeddingModels();
+        setEmbeddingModels(embResponse.data.models || []);
+      } catch (error) {
+        console.error('Failed to load embedding models:', error);
       }
 
     } catch (error) {
@@ -483,150 +492,6 @@ export default function SettingsView() {
                         </p>
                       </div>
                     </label>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 dark:border-border-dark pt-3 mt-3">
-                  <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    RAG Document Storage
-                  </h4>
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block" style={{ color: 'var(--color-text-primary)' }}>
-                      Storage Path for Vector Database Documents
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={generalSettings.storagePath}
-                        onChange={(e) => {
-                          setGeneralSettings({ ...generalSettings, storagePath: e.target.value });
-                          autoSave('general');
-                        }}
-                        placeholder="C:\Users\YourName\Documents\LangConfig or ./data/documents"
-                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono"
-                        style={{
-                          backgroundColor: 'var(--color-input-background)',
-                          color: 'var(--color-text-primary)'
-                        }}
-                      />
-                      <button
-                        onClick={async () => {
-                          try {
-                            const windowWithTauri = window as typeof window & { __TAURI__?: unknown };
-                            if (windowWithTauri.__TAURI__) {
-                              const { open } = await import('@tauri-apps/plugin-dialog');
-                              const selected = await open({
-                                directory: true,
-                                multiple: false,
-                                defaultPath: generalSettings.storagePath || undefined
-                              });
-                              if (selected && typeof selected === 'string') {
-                                setGeneralSettings({ ...generalSettings, storagePath: selected });
-                                autoSave('general');
-                              }
-                            }
-                          } catch (error) {
-                            console.error('Error selecting folder:', error);
-                          }
-                        }}
-                        title={(window as typeof window & { __TAURI__?: unknown }).__TAURI__ ? 'Browse for folder' : 'Browse button only available in desktop app - enter path manually'}
-                        className="px-3 py-1.5 text-sm font-medium bg-white dark:bg-background-dark border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ color: 'var(--color-text-primary)' }}
-                      >
-                        Browse
-                      </button>
-                    </div>
-                    <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-                      Enter full path (e.g., <code className="px-1 py-0.5 bg-gray-100 dark:bg-white/10 rounded text-xs">C:\Documents\LangConfig</code> or <code className="px-1 py-0.5 bg-gray-100 dark:bg-white/10 rounded text-xs">./data/documents</code>). Documents are stored here before indexing into embedded pgvector database. Change requires restart.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 dark:border-border-dark pt-3 mt-3">
-                  <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    RAG Configuration
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium mb-1.5 block" style={{ color: 'var(--color-text-primary)' }}>
-                        Embedding Model
-                      </label>
-                      <select
-                        value={ragSettings?.embeddingModel || 'text-embedding-3-small'}
-                        onChange={(e) => {
-                          if (ragSettings) {
-                            setRagSettings({ ...ragSettings, embeddingModel: e.target.value });
-                            autoSave('general');
-                          }
-                        }}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                        style={{
-                          backgroundColor: 'var(--color-input-background)',
-                          color: 'var(--color-text-primary)'
-                        }}
-                      >
-                        <option value="text-embedding-3-small">text-embedding-3-small (OpenAI)</option>
-                        <option value="text-embedding-3-large">text-embedding-3-large (OpenAI)</option>
-                        <option value="text-embedding-ada-002">text-embedding-ada-002 (OpenAI Legacy)</option>
-                      </select>
-                      <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                        Model used for generating embeddings for document chunking
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium mb-1.5 block" style={{ color: 'var(--color-text-primary)' }}>
-                        Chunk Size
-                      </label>
-                      <input
-                        type="number"
-                        min="100"
-                        max="4000"
-                        step="100"
-                        value={ragSettings?.chunkSize || 1000}
-                        onChange={(e) => {
-                          if (ragSettings) {
-                            setRagSettings({ ...ragSettings, chunkSize: parseInt(e.target.value) || 1000 });
-                            autoSave('general');
-                          }
-                        }}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                        style={{
-                          backgroundColor: 'var(--color-input-background)',
-                          color: 'var(--color-text-primary)'
-                        }}
-                      />
-                      <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                        Maximum characters per document chunk (100-4000)
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-medium mb-1.5 block" style={{ color: 'var(--color-text-primary)' }}>
-                        Chunk Overlap
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="1000"
-                        step="50"
-                        value={ragSettings?.chunkOverlap || 200}
-                        onChange={(e) => {
-                          if (ragSettings) {
-                            setRagSettings({ ...ragSettings, chunkOverlap: parseInt(e.target.value) || 200 });
-                            autoSave('general');
-                          }
-                        }}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                        style={{
-                          backgroundColor: 'var(--color-input-background)',
-                          color: 'var(--color-text-primary)'
-                        }}
-                      />
-                      <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                        Characters of overlap between consecutive chunks (0-1000)
-                      </p>
-                    </div>
                   </div>
                 </div>
 
@@ -1190,16 +1055,22 @@ export default function SettingsView() {
             <SettingsSelect
               label="Embedding Model"
               value={ragSettings.embeddingModel}
-              onChange={(value) => {
+              onChange={(value: string) => {
                 setRagSettings({ ...ragSettings, embeddingModel: value });
                 autoSave('embedding');
               }}
-              options={[
-                { value: 'text-embedding-3-large', label: 'text-embedding-3-large' },
-                { value: 'text-embedding-3-small', label: 'text-embedding-3-small' },
-                { value: 'text-embedding-ada-002', label: 'text-embedding-ada-002' },
-              ]}
-              description="The embedding model used to vectorize documents for semantic search."
+              options={(() => {
+                const opts = embeddingModels.map(m => ({
+                  value: m.id,
+                  label: `${m.name}${m.type === 'local' ? ' (Local)' : ''}`
+                }));
+                // Always include current value even if not in list
+                if (ragSettings?.embeddingModel && !embeddingModels.some(m => m.id === ragSettings.embeddingModel)) {
+                  opts.unshift({ value: ragSettings.embeddingModel, label: `${ragSettings.embeddingModel} (custom)` });
+                }
+                return opts.length > 0 ? opts : [{ value: 'text-embedding-3-small', label: 'text-embedding-3-small' }];
+              })()}
+              description="The embedding model used to vectorize documents for semantic search. Local models from Ollama are auto-detected."
             />
             <SettingsInput
               label="Chunk Size"
