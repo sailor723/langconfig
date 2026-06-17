@@ -82,7 +82,7 @@ export default function LocalWorkspaceSettings({
               className="px-4 py-2 text-sm font-medium bg-white dark:bg-background-dark border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              {isSelectingFolder ? 'Selecting...' : 'Browse...'}
+              {isSelectingFolder ? t('settings_local_workspace_browsing') : t('settings_local_workspace_browse')}
             </button>
           </div>
         </div>
@@ -120,7 +120,7 @@ export default function LocalWorkspaceSettings({
         {/* Git Integration */}
         <div className="border-t border-gray-200 dark:border-border-dark pt-4 mt-4">
           <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-            Version Control
+            {t('settings_local_workspace_version_control')}
           </h4>
           <div className="space-y-3">
             <SettingsCheckbox
@@ -147,11 +147,10 @@ export default function LocalWorkspaceSettings({
             </span>
             <div>
               <h5 className="text-sm font-semibold text-yellow-800 dark:text-yellow-400 mb-1">
-                Security Warning
+                {t('settings_local_workspace_warning_title')}
               </h5>
               <p className="text-xs text-yellow-700 dark:text-yellow-400/80">
-                Agents can modify files without approval. It's strongly recommended to enable "Require approval before writing files"
-                and keep "Backup files before agent edits" enabled to prevent accidental data loss.
+                {t('settings_local_workspace_warning_desc')}
               </p>
             </div>
           </div>
