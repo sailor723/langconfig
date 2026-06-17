@@ -17,6 +17,7 @@ interface MessageInputProps {
   isStreaming?: boolean;
   placeholder?: string;
   sessionId?: string | null;
+  projectId?: number | null;
   onFileUploaded?: (file: SessionDocument) => void;
 }
 
@@ -25,6 +26,7 @@ export default function MessageInput({
   disabled = false,
   isStreaming = false,
   sessionId = null,
+  projectId = null,
   onFileUploaded = () => {}
 }: MessageInputProps) {
   const { t } = useTranslation('chat');
@@ -55,6 +57,7 @@ export default function MessageInput({
     <div className="flex gap-2 items-center">
       <FileUploadButton
         sessionId={sessionId}
+        projectId={projectId}
         onFileUploaded={onFileUploaded}
         disabled={disabled || isStreaming}
       />
