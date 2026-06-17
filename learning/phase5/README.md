@@ -95,6 +95,93 @@ The backend also supports **MCP (Model Context Protocol)** tools, **SSE streamin
 
 ---
 
+## Current Status: Neo4j Document Index
+
+The current Knowledge Base experiment keeps `PageIndex` in place conceptually, but starts moving the
+document-routing layer into `Neo4j` step by step.
+
+### Current Direction
+
+- Keep the final answer flow as: `find best document -> load full document -> answer by KV`
+- Do **not** extract entities or relations from uploaded files
+- Do **not** use chunk-first RAG for this path
+- Use `Neo4j` as a **document index / router**, not as the final content store
+
+### Current Node Shape
+
+Each Neo4j `Document` node now stores only pointers plus routing metadata:
+
+- `project_id`
+- `context_doc_id`
+- `doc_index_id`
+- `name`
+- `file_path`
+- `description`
+- `tags`
+- `doc_name`
+- `page_count`
+- `content_preview`
+- `search_terms`
+- `what_this_document_is_about`
+- `supported_queries`
+- `out_of_scope`
+- `few_shot_json`
+
+Important:
+
+- Full document `content` is **no longer stored in Neo4j**
+- Neo4j returns the selected document pointer
+- Full content is loaded later from filesystem or DocIndex/PageIndex storage
+
+### Metadata Sources
+
+The current router metadata comes from two layers:
+
+1. Existing `PageIndex`-style metadata
+   - `doc_name`
+   - `page_count`
+   - `content_preview`
+   - `search_terms`
+2. LLM-enriched routing metadata
+   - `what_this_document_is_about`
+   - `supported_queries`
+   - `out_of_scope`
+   - `few_shot`
+
+### Current Runtime Flow
+
+```text
+User query
+  -> Neo4j document routing
+  -> return file_path / context_doc_id / doc_index_id
+  -> load full document from filesystem or DocIndex
+  -> answer with single-document KV prompt
+```
+
+### Current Verification Status
+
+- Focused tests pass for the Neo4j matcher and metadata builder
+- Live round-trip works for:
+  - query: `what is nike revenue`
+  - matched doc: `nke-10k-2023.pdf`
+  - final answer from full document KV context
+- Project `1` Neo4j nodes were rebuilt with pointer-only storage
+
+### Current Limitations
+
+- `Neo4j` is still a flat document index, not a full graph traversal model yet
+- `file_path` is acceptable for local development, but object storage is a better long-term production target
+- The current Neo4j flow is still validated mainly through the script:
+  - [`test_neo4j_document_kv_roundtrip.py`](../../backend/scripts/test_neo4j_document_kv_roundtrip.py)
+
+### Next Step
+
+- Wire the Neo4j document router into the existing Knowledge Base / `PageIndex` backend path
+- Keep the implementation simple
+- Grow metadata and graph structure only after the minimal document-routing path is stable
+
+---
+
 ## Architecture Overview
 
 ```

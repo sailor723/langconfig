@@ -5,9 +5,10 @@ Flow:
 1. Read project documents from PostgreSQL
 2. Store each document in Neo4j as a simple Document node:
    - name
-   - content
+   - file_path
+   - routing metadata
 3. Find one document by name-based lookup
-4. Load the full content
+4. Load the full content from filesystem or DocIndex
 5. Ask the configured LLM using that single document as KV context
 
 Usage examples:
@@ -63,13 +64,94 @@ def _load_document_content(document) -> str:
     return document.content_preview or ""
 
 
+def _load_pageindex_metadata(document) -> dict:
+    """Load lightweight PageIndex metadata for one document."""
+    if not document.doc_index_id:
+        return {}
+
+    client = _get_doc_index_client()
+    meta = client.get_document(document.doc_index_id)
+    if not isinstance(meta, dict) or "error" in meta:
+        return {}
+    return meta
+
+
 def main() -> None:
     from langchain_core.messages import HumanMessage, SystemMessage
+    from pydantic import BaseModel, Field
 
     from api.models.routes import _create_llm_for_playground, _resolve_model_name
     from db.database import SessionLocal
     from models.core import ContextDocument, IndexingStatus
-    from services.neo4j_document_index import Neo4jDocumentIndex
+    from services.neo4j_document_index import (
+        Neo4jDocumentEnrichment,
+        Neo4jDocumentIndex,
+        build_document_node_properties,
+        build_project_scope_names,
+    )
+
+    class FewShotExample(BaseModel):
+        query: str = Field(default="")
+        answer_hint: str = Field(default="")
+
+    class DocumentEnrichmentOutput(BaseModel):
+        what_this_document_is_about: str = Field(default="")
+        supported_queries: list[str] = Field(default_factory=list)
+        out_of_scope: list[str] = Field(default_factory=list)
+        few_shot: list[FewShotExample] = Field(default_factory=list)
+
+    def extract_document_enrichment(
+        llm,
+        document_name: str,
+        description: str,
+        tags: list[str],
+        pageindex_meta: dict,
+        content: str,
+        other_document_names: list[str],
+    ) -> Neo4jDocumentEnrichment:
+        """Use the LLM to create compact routing metadata for one document."""
+        structured_llm = llm.with_structured_output(DocumentEnrichmentOutput)
+        content_excerpt = content[:6000]
+        message = (
+            "Create compact routing metadata for one document.\n"
+            "We use this metadata only to choose the best document before loading full content.\n\n"
+            f"Document name: {document_name}\n"
+            f"Description: {description or 'N/A'}\n"
+            f"Tags: {tags or []}\n"
+            f"PageIndex doc_name: {pageindex_meta.get('doc_name', '')}\n"
+            f"PageIndex page_count: {pageindex_meta.get('page_count', 0)}\n"
+            f"PageIndex content_preview: {pageindex_meta.get('content_preview', '')}\n"
+            f"PageIndex search_terms: {pageindex_meta.get('search_terms', [])[:20]}\n"
+            f"Other documents in same project: {other_document_names}\n\n"
+            "Return:\n"
+            "1. what_this_document_is_about\n"
+            "2. supported_queries\n"
+            "3. out_of_scope\n"
+            "4. few_shot\n\n"
+            "Rules:\n"
+            "- Keep it concise and routing-oriented\n"
+            "- out_of_scope must be definitive where possible, using the other project documents as contrast\n"
+            "- few_shot should be short examples of the kinds of questions this document can answer\n"
+            "- Do not invent unsupported topics\n\n"
+            f"Document excerpt:\n{content_excerpt}"
+        )
+        result = structured_llm.invoke(
+            [
+                SystemMessage(
+                    content=(
+                        "You generate document routing metadata for a whole-document KV system. "
+                        "Be precise, compact, and conservative."
+                    )
+                ),
+                HumanMessage(content=message),
+            ]
+        )
+        return Neo4jDocumentEnrichment(
+            what_this_document_is_about=result.what_this_document_is_about,
+            supported_queries=result.supported_queries,
+            out_of_scope=result.out_of_scope,
+            few_shot=[example.model_dump() for example in result.few_shot],
+        )
 
     parser = argparse.ArgumentParser(description="Simple Neo4j document KV round-trip")
     parser.add_argument("--project-id", type=int, required=True)
@@ -101,26 +183,6 @@ def main() -> None:
         if not documents:
             raise RuntimeError(f"No ready documents found for project {args.project_id}")
 
-        print(f"Indexing {len(documents)} document(s) into Neo4j...")
-        for document in documents:
-            content = _load_document_content(document).strip()
-            if not content:
-                print(f"  - skipped (no content): {document.filename}")
-                continue
-            index.upsert_document(
-                project_id=args.project_id,
-                name=document.filename,
-                content=content,
-            )
-            print(f"  - indexed: {document.filename} ({len(content)} chars)")
-
-        matched = index.find_best_document(args.project_id, args.lookup)
-        if not matched:
-            raise RuntimeError(f"No document matched lookup '{args.lookup}'")
-
-        print(f"\nMatched document: {matched.name}")
-        print(f"Loaded chars: {len(matched.content)}")
-
         model_name = _resolve_model_name(args.model, db)
         llm = _create_llm_for_playground(
             model_name=model_name,
@@ -128,6 +190,73 @@ def main() -> None:
             max_tokens=1024,
             db=db,
         )
+        all_document_names = [document.filename for document in documents]
+
+        print(f"Rebuilding {len(documents)} document node(s) in Neo4j...")
+        index.delete_project_documents(args.project_id)
+        for document in documents:
+            content = _load_document_content(document).strip()
+            if not content:
+                print(f"  - skipped (no content): {document.filename}")
+                continue
+            pageindex_meta = _load_pageindex_metadata(document)
+            enrichment = extract_document_enrichment(
+                llm=llm,
+                document_name=document.filename,
+                description=document.description or "",
+                tags=list(document.tags or []),
+                pageindex_meta=pageindex_meta,
+                content=content,
+                other_document_names=build_project_scope_names(document.filename, all_document_names),
+            )
+            properties = build_document_node_properties(
+                project_id=args.project_id,
+                context_doc_id=document.id,
+                doc_index_id=document.doc_index_id,
+                name=document.filename,
+                file_path=document.file_path,
+                description=document.description or "",
+                tags=list(document.tags or []),
+                pageindex_meta=pageindex_meta,
+                enrichment=enrichment,
+            )
+            index.upsert_document(
+                project_id=args.project_id,
+                name=document.filename,
+                file_path=document.file_path,
+                properties=properties,
+            )
+            print(f"  - indexed: {document.filename} -> {document.file_path}")
+            print(f"    about: {enrichment.what_this_document_is_about[:120]}")
+            print(f"    supports: {enrichment.supported_queries[:3]}")
+
+        matched = index.find_best_document(args.project_id, args.lookup)
+        if not matched:
+            raise RuntimeError(f"No document matched lookup '{args.lookup}'")
+
+        matched_document = (
+            db.query(ContextDocument)
+            .filter(
+                ContextDocument.project_id == args.project_id,
+                ContextDocument.id == matched.context_doc_id,
+            )
+            .first()
+        )
+        if not matched_document:
+            raise RuntimeError(f"Matched Neo4j node points to missing ContextDocument {matched.context_doc_id}")
+        full_content = _load_document_content(matched_document).strip()
+        if not full_content:
+            raise RuntimeError(f"Matched document {matched.name} has no loadable content")
+
+        print(f"\nMatched document: {matched.name}")
+        print(f"File path: {matched.file_path}")
+        print(f"Loaded chars: {len(full_content)}")
+        if matched.what_this_document_is_about:
+            print(f"About: {matched.what_this_document_is_about}")
+        if matched.supported_queries:
+            print(f"Supported queries: {matched.supported_queries[:3]}")
+        if matched.out_of_scope:
+            print(f"Out of scope: {matched.out_of_scope[:3]}")
         response = llm.invoke(
             [
                 SystemMessage(
@@ -143,7 +272,7 @@ def main() -> None:
                     content=(
                         f"Document key: {matched.name}\n"
                         f"User question: {args.question}\n\n"
-                        f"Document value:\n{matched.content}"
+                        f"Document value:\n{full_content}"
                     )
                 ),
             ]
