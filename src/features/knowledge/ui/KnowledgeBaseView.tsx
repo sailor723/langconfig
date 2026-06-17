@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Upload, FileText, Trash2, Search, Database, Settings, Filter, RefreshCw } from 'lucide-react';
+import { Upload, FileText, Trash2, Search, Database, Filter, Loader } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 import { useProject } from "../../../contexts/ProjectContext";
 import SearchMetricsDisplay from './SearchMetricsDisplay';
@@ -62,7 +62,6 @@ export default function KnowledgeBaseView() {
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [showSettings, setShowSettings] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -476,72 +475,9 @@ export default function KnowledgeBaseView() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => loadDocuments()}
-              disabled={loading}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-white/5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-all disabled:opacity-50 border border-gray-200 dark:border-border-dark"
-              style={{ color: 'var(--color-text-primary)' }}
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="text-sm font-medium">Refresh</span>
-            </button>
-            <button
-              onClick={() => setShowSettings(!showSettings)}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-white/5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-all border border-gray-200 dark:border-border-dark"
-              style={{ color: 'var(--color-text-primary)' }}
-            >
-              <Settings className="w-4 h-4" />
-              <span className="text-sm font-medium">Settings</span>
-            </button>
           </div>
         </div>
       </div>
-
-      {/* Settings Panel (Collapsible) */}
-      {showSettings && (
-        <div className="bg-yellow-500/10 border-b border-yellow-500/30 p-4">
-          <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-            RAG Configuration
-          </h3>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-                EMBEDDING MODEL
-              </label>
-              <select
-                className="w-full px-3 py-2 border border-gray-200 dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
-              >
-                <option>text-embedding-3-large</option>
-                <option>text-embedding-3-small</option>
-                <option>text-embedding-ada-002</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-                CHUNK SIZE
-              </label>
-              <input
-                type="number"
-                defaultValue={1000}
-                className="w-full px-3 py-2 border border-gray-200 dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--color-text-muted)' }}>
-                CHUNK OVERLAP
-              </label>
-              <input
-                type="number"
-                defaultValue={200}
-                className="w-full px-3 py-2 border border-gray-200 dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Two-Column Layout */}
       <div className="flex-1 overflow-hidden flex gap-6 p-6">
@@ -560,7 +496,7 @@ export default function KnowledgeBaseView() {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                 {uploading ? (
-                  <RefreshCw className="w-5 h-5 text-primary animate-spin" />
+                  <Loader className="w-5 h-5 text-primary animate-spin" />
                 ) : (
                   <Upload className="w-5 h-5 text-primary" />
                 )}
@@ -637,7 +573,7 @@ export default function KnowledgeBaseView() {
             {loading ? (
               <div className="flex-1 flex items-center justify-center p-8">
                 <div className="text-center">
-                  <RefreshCw className="w-12 h-12 text-primary mx-auto mb-3 animate-spin" />
+                  <Loader className="w-12 h-12 text-primary mx-auto mb-3 animate-spin" />
                   <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading documents...</p>
                 </div>
               </div>
@@ -860,7 +796,7 @@ export default function KnowledgeBaseView() {
               >
                 {searching ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <Loader className="w-4 h-4 animate-spin" />
                     <span>Searching...</span>
                   </>
                 ) : (
