@@ -508,6 +508,12 @@ class APIClient {
     return this.client.get(`/api/rag/projects/${projectId}/storage-stats`);
   }
 
+  async previewDocument(contextDocId: number, maxChars?: number) {
+    const params = maxChars ? { max_chars: maxChars } : {};
+    const response = await this.client.get(`/api/rag/documents/${contextDocId}/preview`, { params });
+    return response.data;
+  }
+
   // Settings
   async getSettings() {
     return this.client.get('/api/settings/');
