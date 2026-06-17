@@ -213,12 +213,12 @@ export const themes: Record<ThemeName, Theme> = {
     name: 'claude',
     displayName: 'Claude (Warm)',
     colors: {
-      primary: '#C27D3F', // Warm amber/orange accent
+      primary: '#B87333', // Darker copper/bronze for better contrast
       backgroundLight: '#F7F4F0', // Warm off-white background
-      backgroundDark: '#EDE9E3', // Warm gray sidebar
-      panelDark: '#FCFAF7', // Warm white panels
-      borderDark: '#DED7CE', // Warm taupe borders
-      textMuted: '#8C8378', // Warm gray muted text
+      backgroundDark: '#E5DDD3', // Darker warm gray sidebar
+      panelDark: '#F5F0EB', // Warm light panels
+      borderDark: '#C4B8A8', // Darker taupe borders (was #DED7CE - too light)
+      textMuted: '#6B6258', // Darker muted text (was #8C8378 - too light)
       textPrimary: '#1C1917', // Warm near-black
       inputBackground: '#FFFFFF', // White inputs
       logoBackground: '#F7F4F0', // Match background
