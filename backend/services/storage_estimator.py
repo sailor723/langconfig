@@ -215,72 +215,125 @@ class StorageEstimator:
     
     def measure_actual_storage(self, project_id: int) -> Dict[str, int]:
         """
-        Query PostgreSQL for actual disk usage of vector table
-        
-        Args:
-            project_id: Project ID
-        
-        Returns:
-            Dictionary with actual storage measurements
+        Measure actual disk usage by checking PostgreSQL pgvector tables.
+
+        Checks:
+        1. context_documents_embeddings table (used by context document indexer)
+        2. Falls back to project-specific pgvector table
+        3. Falls back to ORM-level document/chunk counts
         """
-        table_name = get_table_name(project_id)
-        
+        from services.context_document_indexer import CONTEXT_DOCS_TABLE_NAME
+        from models.core import ContextDocument, IndexingStatus
+
+        # Priority 1: Check context_documents_embeddings table
+        # The actual table name has a 'data_' prefix from PGVectorStore config
+        real_table_name = f"data_{CONTEXT_DOCS_TABLE_NAME}"
         try:
             session = SessionLocal()
             try:
-                # First check if table exists to avoid PostgreSQL errors
                 check_query = text("""
                     SELECT EXISTS (
                         SELECT FROM information_schema.tables
                         WHERE table_name = :table_name
                     )
                 """)
+                table_exists = session.execute(
+                    check_query,
+                    {"table_name": real_table_name}
+                ).scalar()
 
+                if table_exists:
+                    size_query = text("""
+                        SELECT
+                            pg_total_relation_size(:table_name) as total_bytes,
+                            pg_relation_size(:table_name) as table_bytes,
+                            pg_indexes_size(:table_name) as index_bytes
+                    """)
+                    result = session.execute(
+                        size_query,
+                        {"table_name": real_table_name}
+                    )
+                    row = result.fetchone()
+                    total = (row.total_bytes or 0) + (row.index_bytes or 0)
+                    return {
+                        "exists": total > 0,
+                        "total_bytes": total,
+                        "table_bytes": row.table_bytes or 0,
+                        "index_bytes": row.index_bytes or 0,
+                        "total_gb": round(total / (1024**3), 6)
+                    }
+            finally:
+                session.close()
+        except Exception as e:
+            logger.warning(f"PostgreSQL storage measurement (context_docs) failed: {e}")
+
+        # Priority 2: Check project-specific pgvector table
+        table_name = get_table_name(project_id)
+        try:
+            session = SessionLocal()
+            try:
+                check_query = text("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables
+                        WHERE table_name = :table_name
+                    )
+                """)
                 table_exists = session.execute(
                     check_query,
                     {"table_name": table_name}
                 ).scalar()
 
-                if not table_exists:
-                    logger.info(f"Table {table_name} does not exist yet (no documents indexed)")
+                if table_exists:
+                    size_query = text("""
+                        SELECT
+                            pg_total_relation_size(:table_name) as total_bytes,
+                            pg_relation_size(:table_name) as table_bytes,
+                            pg_indexes_size(:table_name) as index_bytes
+                    """)
+                    result = session.execute(
+                        size_query,
+                        {"table_name": table_name}
+                    )
+                    row = result.fetchone()
+                    total = (row.total_bytes or 0) + (row.index_bytes or 0)
                     return {
-                        "exists": False,
-                        "total_bytes": 0,
-                        "table_bytes": 0,
-                        "index_bytes": 0,
-                        "total_gb": 0.0
+                        "exists": total > 0,
+                        "total_bytes": total,
+                        "table_bytes": row.table_bytes or 0,
+                        "index_bytes": row.index_bytes or 0,
+                        "total_gb": round(total / (1024**3), 6)
                     }
+            finally:
+                session.close()
+        except Exception as e:
+            logger.warning(f"PostgreSQL storage measurement (project table) failed: {e}")
 
-                # Table exists - now query its size
-                # pg_total_relation_size includes table data, indexes, and TOAST
-                size_query = text("""
-                    SELECT
-                        pg_total_relation_size(:table_name) as total_bytes,
-                        pg_relation_size(:table_name) as table_bytes,
-                        pg_indexes_size(:table_name) as index_bytes
-                """)
-
-                result = session.execute(
-                    size_query,
-                    {"table_name": table_name}
-                )
-                row = result.fetchone()
-
+        # Priority 3: Count from ORM (documents + estimated embedding bytes)
+        try:
+            session = SessionLocal()
+            try:
+                docs = session.query(ContextDocument).filter(
+                    ContextDocument.project_id == project_id,
+                    ContextDocument.indexing_status == IndexingStatus.READY
+                ).all()
+                total_docs = len(docs)
+                total_chunks = sum(doc.indexed_chunks_count or 0 for doc in docs)
+                total_file_bytes = sum(doc.file_size or 0 for doc in docs)
+                embed_bytes = total_chunks * 2048  # ~2KB per embedding chunk
+                total_bytes = total_file_bytes + embed_bytes
                 return {
-                    "exists": True,
-                    "total_bytes": row.total_bytes or 0,
-                    "table_bytes": row.table_bytes or 0,
-                    "index_bytes": row.index_bytes or 0,
-                    "total_gb": round((row.total_bytes or 0) / (1024**3), 3)
+                    "exists": total_docs > 0,
+                    "total_bytes": total_bytes,
+                    "table_bytes": total_file_bytes,
+                    "index_bytes": embed_bytes,
+                    "total_gb": round(total_bytes / (1024**3), 6)
                 }
             finally:
                 session.close()
-                
         except Exception as e:
             logger.error(f"Failed to measure storage for project {project_id}: {e}")
             return {
                 "exists": False,
-                "error": str(e),
                 "total_bytes": 0,
                 "table_bytes": 0,
                 "index_bytes": 0,
