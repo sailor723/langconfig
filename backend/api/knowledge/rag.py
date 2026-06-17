@@ -74,6 +74,7 @@ class SearchRequest(BaseModel):
     project_id: int
     top_k: int = 5
     use_hyde: bool = False
+    search_mode: str = "vector"  # "vector" (embedding RAG) or "pageindex" (vectorless progressive disclosure)
 
 
 class SearchResult(BaseModel):
@@ -122,6 +123,23 @@ class SearchResponse(BaseModel):
 
     # NEW: Real measured metrics
     metrics: Optional[SearchMetrics] = None
+    search_mode: str = "vector"
+
+
+class PageIndexDocItem(BaseModel):
+    """A document entry from PageIndex search"""
+    doc_id: str
+    doc_name: str
+    type: str
+    page_count: int
+    structure: Optional[list] = None
+
+
+class PageIndexSearchResponse(BaseModel):
+    query: str
+    search_mode: str = "pageindex"
+    documents: List[PageIndexDocItem]
+    total_documents: int
 
 
 async def index_document_background(document_id: int):
@@ -648,7 +666,7 @@ async def delete_document(
         raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
 
 
-@router.post("/search", response_model=SearchResponse)
+@router.post("/search")
 async def search_documents(
     request: SearchRequest,
     db: Session = Depends(get_db)
@@ -661,9 +679,52 @@ async def search_documents(
     - Project DNA augmentation for context-aware retrieval
     - PostgreSQL + pgvector for semantic search
     - Real-time metrics measurement (tokens, latency, similarity)
+
+    When search_mode='pageindex', uses vectorless progressive disclosure (PageIndex-style)
+    instead of embedding similarity search.
     """
 
     try:
+        # ===== PageIndex Mode =====
+        if request.search_mode == "pageindex":
+            from services.doc_index_service import DocIndexClient
+            import os
+            from pathlib import Path
+
+            # Use project workspace as doc_index base
+            doc_index_base = os.environ.get(
+                "DOC_INDEX_BASE",
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "outputs")
+            )
+
+            # Try project-specific workspace first, fallback to default
+            project_workspace = os.path.join(doc_index_base, f"project_{request.project_id}")
+            if not os.path.exists(project_workspace):
+                project_workspace = doc_index_base
+
+            client = DocIndexClient(project_workspace)
+            all_docs = client.list_all()
+
+            documents = []
+            for doc_id, meta in all_docs.items():
+                doc_info = client.get_document(doc_id)
+                structure = client.get_document_structure(doc_id)
+                documents.append(PageIndexDocItem(
+                    doc_id=doc_id,
+                    doc_name=meta.get("doc_name", "Unknown"),
+                    type=meta.get("type", "unknown"),
+                    page_count=meta.get("page_count", 0),
+                    structure=structure[:20] if isinstance(structure, list) else [],  # Limit structure output
+                ))
+
+            return PageIndexSearchResponse(
+                query=request.query,
+                search_mode="pageindex",
+                documents=documents,
+                total_documents=len(documents),
+            )
+
+        # ===== Vector Mode (existing) =====
         # Check if project exists and is indexed
         from models.core import Project
         project = db.query(Project).filter(Project.id == request.project_id).first()
@@ -675,7 +736,8 @@ async def search_documents(
             return SearchResponse(
                 query=request.query,
                 results=[],
-                total_results=0
+                total_results=0,
+                search_mode="vector",
             )
 
         # Use the context retriever to perform intelligent search
@@ -806,7 +868,8 @@ async def search_documents(
             query=request.query,
             results=results,
             total_results=len(results),
-            metrics=metrics
+            metrics=metrics,
+            search_mode="vector",
         )
 
     except ValueError as e:
