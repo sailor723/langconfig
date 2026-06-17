@@ -10,15 +10,14 @@ from pydantic import BaseModel
 from datetime import datetime
 import logging
 import time
+import re
 import zipfile
 import tarfile
 import tempfile
-import shutil
 from pathlib import Path
 
 from db.database import get_db
 from models.core import ContextDocument, DocumentType, IndexingStatus, SearchHistory
-from services.context_retrieval import context_retriever
 from services.token_counter import get_token_counter
 
 router = APIRouter(prefix="/api/rag", tags=["rag"])
@@ -142,8 +141,216 @@ class PageIndexSearchResponse(BaseModel):
     total_documents: int
 
 
+class PageIndexPage(BaseModel):
+    page: int
+    content: str
+
+
+class PageIndexFullDocumentResponse(BaseModel):
+    doc_id: str
+    doc_name: str
+    type: str
+    page_count: int
+    structure: list
+    pages: List[PageIndexPage]
+
+
+class PageIndexStructureResponse(BaseModel):
+    doc_id: str
+    doc_name: str
+    type: str
+    page_count: int
+    structure: list
+
+
+class PageIndexAnswerRequest(BaseModel):
+    query: str
+    project_id: int
+    context_doc_id: Optional[int] = None
+    model: Optional[str] = None
+    temperature: float = 0.2
+    max_tokens: int = 4096
+
+
+class PageIndexAnswerResponse(BaseModel):
+    query: str
+    search_mode: str = "pageindex"
+    context_doc_id: int
+    doc_id: str
+    doc_name: str
+    model: str
+    answer: str
+    pages_loaded: int
+    content_chars: int
+
+
+def _build_pageindex_query_terms(query: str) -> List[str]:
+    normalized = re.sub(r"\s+", " ", query.strip().lower())
+    if not normalized:
+        return []
+
+    terms: List[str] = [normalized]
+    terms.extend([token for token in normalized.split(" ") if token])
+
+    if " " not in normalized and len(normalized) > 1:
+        for i in range(len(normalized) - 1):
+            terms.append(normalized[i:i + 2])
+
+    return list(dict.fromkeys(terms))
+
+
+def _score_pageindex_document(query: str, meta: dict, context_doc: ContextDocument) -> float:
+    normalized_query = query.strip().lower()
+    query_terms = _build_pageindex_query_terms(query)
+    score = 0.0
+
+    searchable_terms = meta.get("search_terms", [])
+    content_preview = (meta.get("content_preview") or "").lower()
+    filename = (meta.get("doc_name") or "").lower()
+    description = (context_doc.description or "").lower()
+    tags = context_doc.tags or []
+
+    for token in query_terms:
+        if len(token) < 2:
+            continue
+        if len(normalized_query) > 8 and len(token) < 4:
+            continue
+
+        if token in filename:
+            score += 3.0
+        if description and token in description:
+            score += 2.0
+        if content_preview and token in content_preview:
+            score += 2.0
+        for tag in tags:
+            if token in str(tag).lower():
+                score += 2.5
+        for searchable in searchable_terms:
+            if token in searchable:
+                score += 1.0
+
+    return score
+
+
+def _resolve_pageindex_target_document(
+    request: "PageIndexAnswerRequest",
+    db: Session,
+    client
+) -> tuple[ContextDocument, dict]:
+    """Find the target document for a PageIndex answer request."""
+    if request.context_doc_id is not None:
+        context_doc = (
+            db.query(ContextDocument)
+            .filter(
+                ContextDocument.id == request.context_doc_id,
+                ContextDocument.project_id == request.project_id,
+            )
+            .first()
+        )
+        if not context_doc:
+            raise HTTPException(status_code=404, detail="Document not found in project")
+        meta: dict = {}
+        if context_doc.doc_index_id:
+            meta = client.get_document(context_doc.doc_index_id) or {}
+            if isinstance(meta, dict) and "error" in meta:
+                meta = {}
+        return context_doc, meta
+
+    neo4j_context_doc = _try_resolve_pageindex_target_document_via_neo4j(
+        project_id=request.project_id,
+        query=request.query,
+        db=db,
+        client=client,
+    )
+    if neo4j_context_doc is not None:
+        meta: dict = {}
+        if neo4j_context_doc.doc_index_id:
+            meta = client.get_document(neo4j_context_doc.doc_index_id) or {}
+            if isinstance(meta, dict) and "error" in meta:
+                meta = {}
+        return neo4j_context_doc, meta
+
+    project_docs = (
+        db.query(ContextDocument)
+        .filter(
+            ContextDocument.project_id == request.project_id,
+            ContextDocument.doc_index_id.isnot(None),
+        )
+        .all()
+    )
+    if not project_docs:
+        raise HTTPException(status_code=404, detail="No PageIndex documents found for project")
+
+    project_doc_map = {doc.doc_index_id: doc for doc in project_docs}
+    best_match: Optional[tuple[float, ContextDocument, dict]] = None
+    for doc_id, meta in client.list_all().items():
+        context_doc = project_doc_map.get(doc_id)
+        if not context_doc:
+            continue
+        score = _score_pageindex_document(request.query, meta, context_doc)
+        if score <= 0:
+            continue
+        if best_match is None or score > best_match[0]:
+            best_match = (score, context_doc, meta)
+
+    if best_match is None:
+        raise HTTPException(status_code=404, detail="No matching PageIndex document found")
+
+    return best_match[1], best_match[2]
+
+
+def _get_neo4j_document_index():
+    import os
+
+    from services.neo4j_document_index import Neo4jDocumentIndex
+
+    base_url = os.environ.get("NEO4J_URL", "http://localhost:7474")
+    username = os.environ.get("NEO4J_USER", "neo4j")
+    password = os.environ.get("NEO4J_PASSWORD", "password")
+    database = os.environ.get("NEO4J_DATABASE", "neo4j")
+    return Neo4jDocumentIndex(
+        base_url=base_url,
+        username=username,
+        password=password,
+        database=database,
+    )
+
+
+def _try_resolve_pageindex_target_document_via_neo4j(
+    project_id: int,
+    query: str,
+    db: Session,
+    client,
+) -> Optional[ContextDocument]:
+    try:
+        index = _get_neo4j_document_index()
+        index.ensure_constraints()
+        match = index.find_best_document(project_id=project_id, query=query)
+        if not match or not match.context_doc_id:
+            return None
+    except Exception:
+        return None
+
+    context_doc = (
+        db.query(ContextDocument)
+        .filter(
+            ContextDocument.project_id == project_id,
+            ContextDocument.id == match.context_doc_id,
+        )
+        .first()
+    )
+    if not context_doc:
+        return None
+
+    if match.doc_index_id and not context_doc.doc_index_id:
+        context_doc.doc_index_id = match.doc_index_id
+    if match.file_path and context_doc.file_path != match.file_path:
+        context_doc.file_path = match.file_path
+    return context_doc
+
+
 async def index_document_background(document_id: int):
-    """Background task to index a document with embeddings"""
+    """Background task to index a document for both vector RAG and PageIndex."""
     from db.database import SessionLocal
     from services.context_document_indexer import context_document_indexer
 
@@ -166,13 +373,12 @@ async def index_document_background(document_id: int):
         db.commit()
         db.close()
 
-        # Index the document (outside of db session)
-        result = await context_document_indexer.index_document(
-            document_id=document_id,
-            file_path=file_path
-        )
+        vector_result = None
+        vector_error = None
+        doc_index_id = None
 
-        # Also index to DocIndex (PageIndex-style vectorless index)
+        # Index to DocIndex (PageIndex-style vectorless index) first so PageIndex
+        # remains available even if vector embedding generation fails later.
         try:
             from services.doc_index_service import DocIndexClient
             import os
@@ -182,29 +388,50 @@ async def index_document_background(document_id: int):
             )
             # Use default workspace
             client = DocIndexClient(doc_index_base)
-            client.index(file_path)
-            logger.info(f"Document {document_id} also indexed to DocIndex (PageIndex mode)")
+            doc_index_id = client.index(file_path)
+            logger.info(f"Document {document_id} also indexed to DocIndex (PageIndex mode) with doc_index_id {doc_index_id}")
         except Exception as pi_e:
-            logger.warning(f"DocIndex indexing failed for {document_id} (non-critical): {pi_e}")
+            logger.warning(f"DocIndex indexing failed for {document_id}: {pi_e}")
 
-        # Update status to ready with new session
+        # Index the document for vector RAG separately.
+        try:
+            vector_result = await context_document_indexer.index_document(
+                document_id=document_id,
+                file_path=file_path
+            )
+        except Exception as ve:
+            vector_error = ve
+            logger.warning(f"Vector indexing failed for {document_id}: {ve}")
+
+        # Update status with new session
         db = SessionLocal()
         doc = db.query(ContextDocument).filter(ContextDocument.id == document_id).first()
         if doc:
-            doc.indexing_status = IndexingStatus.READY
-            doc.indexed_at = datetime.utcnow()
-            doc.indexed_chunks_count = result.get("embeddings_stored", 0)
+            if doc_index_id:
+                doc.doc_index_id = doc_index_id
+            if vector_result:
+                doc.indexed_chunks_count = vector_result.get("embeddings_stored", 0)
+            if doc_index_id or vector_result:
+                doc.indexing_status = IndexingStatus.READY
+                doc.indexed_at = datetime.utcnow()
+            else:
+                doc.indexing_status = IndexingStatus.FAILED
             db.commit()
         db.close()
 
-        logger.info(f"Document {document_id} indexed successfully")
+        if vector_error and doc_index_id:
+            logger.info(f"Document {document_id} indexed for PageIndex; vector indexing failed but document remains usable.")
+        elif vector_result or doc_index_id:
+            logger.info(f"Document {document_id} indexed successfully")
+        else:
+            raise RuntimeError("Both PageIndex and vector indexing failed")
 
     except Exception as e:
         logger.error(f"Failed to index document {document_id}: {e}", exc_info=True)
         # Create fresh session for error handling
         try:
             db.close()
-        except:
+        except Exception:
             pass
 
         db = SessionLocal()
@@ -719,7 +946,6 @@ async def search_documents(
         if request.search_mode == "pageindex":
             from services.doc_index_service import DocIndexClient
             import os
-            from pathlib import Path
 
             # Use the base outputs directory as DocIndex workspace
             # (DocIndexClient appends /doc_index internally)
@@ -728,13 +954,33 @@ async def search_documents(
                 os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "outputs")
             )
             client = DocIndexClient(doc_index_base)
-            all_docs = client.list_all()
-
-            documents = []
-            for doc_id, meta in all_docs.items():
-                doc_info = client.get_document(doc_id)
+            
+            # Get all doc_index_ids for the current project (with description and tags)
+            project_docs = db.query(ContextDocument).filter(
+                ContextDocument.project_id == request.project_id,
+                ContextDocument.doc_index_id.isnot(None)
+            ).all()
+            # Create a map from doc_index_id to ContextDocument (for description and tags)
+            project_doc_map = {doc.doc_index_id: doc for doc in project_docs}
+            
+            scored_documents = []
+            for doc_id, meta in client.list_all().items():
+                # Only include documents from the current project
+                if doc_id not in project_doc_map:
+                    continue
+                    
                 structure = client.get_document_structure(doc_id)
-                documents.append(PageIndexDocItem(
+                context_doc = project_doc_map[doc_id]
+                score = _score_pageindex_document(request.query, meta, context_doc)
+
+                if score > 0:
+                    scored_documents.append((-score, doc_id, meta, structure))  # Negative for ascending sort
+            
+            # Sort by score descending and take top N
+            scored_documents.sort()
+            top_docs = []
+            for _, doc_id, meta, structure in scored_documents[:request.top_k]:
+                top_docs.append(PageIndexDocItem(
                     doc_id=doc_id,
                     doc_name=meta.get("doc_name", "Unknown"),
                     type=meta.get("type", "unknown"),
@@ -745,8 +991,8 @@ async def search_documents(
             return PageIndexSearchResponse(
                 query=request.query,
                 search_mode="pageindex",
-                documents=documents,
-                total_documents=len(documents),
+                documents=top_docs,
+                total_documents=len(top_docs),
             )
 
         # ===== Vector Mode (existing) =====
@@ -765,77 +1011,48 @@ async def search_documents(
                 search_mode="vector",
             )
 
-        # Use the context retriever to perform intelligent search
+        # Use the search_context_documents from context_document_indexer directly
+        from services.context_document_indexer import search_context_documents
         logger.info(f"Searching project {request.project_id}: '{request.query}' (hyde={request.use_hyde}, top_k={request.top_k})")
 
         # START TIMING MEASUREMENT
         start_time = time.time()
-
-        # Determine if HyDE will be auto-detected
-        hyde_setting = request.use_hyde
-        if hyde_setting is None:
-            # HyDE will be auto-detected by context_retriever
-            from services.context_retrieval import ContextRetriever
-            cr = ContextRetriever()
-            hyde_auto_detected = cr.is_code_generation_query(request.query)
-        else:
-            hyde_auto_detected = hyde_setting
-
-        context_package = await context_retriever.retrieve_context(
+        
+        search_result = await search_context_documents(
+            query=request.query,
             project_id=request.project_id,
-            task_description=request.query,
-            similarity_top_k=request.top_k,
-            include_dna_in_context=False,  # Don't include DNA in API response
-            use_hyde=hyde_setting  # Respect user's HyDE preference
+            top_k=request.top_k
         )
-
+        
         # END TIMING MEASUREMENT
         end_time = time.time()
-        retrieval_duration_ms = (end_time - start_time) * 1000  # Convert to milliseconds
-
-        # Extract code chunks from context package
-        code_chunks = context_package.get('components', {}).get('code_chunks', [])
-
+        retrieval_duration_ms = (end_time - start_time) * 1000
+        
         # Get token counter for measuring actual token counts
         token_counter = get_token_counter()
-
+        
         # Measure query tokens
         query_tokens = token_counter.count_tokens(request.query)
-
-        # Transform to SearchResult format and measure metrics
+        
+        # Transform to SearchResult format
         results = []
-        total_context_tokens = 0
         similarity_scores = []
-
-        for i, chunk in enumerate(code_chunks):
-            # Extract metadata from chunk content (formatted by context retriever)
-            content = chunk.get('content', '')
-            score = chunk.get('score', 0.0)
-            if score:
-                similarity_scores.append(score)
-
-            # Parse document name from content header
-            # Format: "File: path/to/file.py | ..."
-            doc_name = "unknown"
-            if content.startswith("File: "):
-                header_line = content.split('\n')[0]
-                parts = header_line.split('|')
-                if parts:
-                    doc_name = parts[0].replace("File: ", "").strip()
-
-            # MEASURE TOKEN COUNTS (factual data)
-            chunk_token_count = token_counter.count_tokens(content)
-            chunk_char_count = len(content)
+        total_context_tokens = 0
+        
+        for i, item in enumerate(search_result['results']):
+            # Measure token counts
+            chunk_token_count = token_counter.count_tokens(item['text'])
+            chunk_char_count = len(item['text'])
             total_context_tokens += chunk_token_count
-
+            similarity_scores.append(item['score'])
+            
             results.append(SearchResult(
-                document_id=i + 1,  # Placeholder ID (LlamaIndex nodes don't map directly to doc IDs)
-                document_name=doc_name,
-                chunk_text=content,
-                similarity_score=score or 0.0,
-                metadata=context_package.get('metadata', {}),
-                # NEW: Real measured metrics
-                chunk_id=chunk.get('node_id', None),
+                document_id=item['document_id'],
+                document_name=item['filename'],
+                chunk_text=item['text'],
+                similarity_score=item['score'],
+                metadata={},
+                chunk_id=None,
                 chunk_index=i,
                 chunk_token_count=chunk_token_count,
                 chunk_char_count=chunk_char_count,
@@ -850,8 +1067,8 @@ async def search_documents(
         # Build metrics object with all measured facts
         metrics = SearchMetrics(
             query=request.query,
-            use_hyde=bool(hyde_setting),
-            hyde_auto_detected=hyde_auto_detected,
+            use_hyde=bool(request.use_hyde),
+            hyde_auto_detected=False,
             use_toon=False,  # Default to False for now
             top_k=request.top_k,
             retrieval_duration_ms=retrieval_duration_ms,
@@ -867,8 +1084,8 @@ async def search_documents(
         search_history = SearchHistory(
             project_id=request.project_id,
             query=request.query,
-            use_hyde=bool(hyde_setting),
-            hyde_auto_detected=hyde_auto_detected,
+            use_hyde=bool(request.use_hyde),
+            hyde_auto_detected=False,
             use_toon=False,  # Default to False for now
             top_k=request.top_k,
             results_count=len(results),
@@ -973,8 +1190,214 @@ async def get_search_history(
         .limit(limit)
         .all()
     )
-
     return history
+
+
+# PageIndex Endpoints for Progressive Disclosure
+def _get_doc_index_client():
+    """Helper to get DocIndexClient instance"""
+    import os
+    from services.doc_index_service import DocIndexClient
+    doc_index_base = os.environ.get(
+        "DOC_INDEX_BASE",
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "outputs")
+    )
+    return DocIndexClient(doc_index_base)
+
+
+def _get_doc_index_id_from_context_id(context_doc_id: int, db: Session) -> str:
+    """Helper to get DocIndex ID from ContextDocument ID"""
+    doc = db.query(ContextDocument).filter(ContextDocument.id == context_doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not doc.doc_index_id:
+        raise HTTPException(status_code=404, detail="Document not indexed in PageIndex")
+    return doc.doc_index_id
+
+
+def _load_full_content_for_kv(context_doc: ContextDocument, client) -> tuple[str, str, int, str]:
+    from pathlib import Path
+
+    if context_doc.doc_index_id:
+        full_doc = client.get_full_content(context_doc.doc_index_id)
+        if isinstance(full_doc, dict) and "error" not in full_doc:
+            pages = full_doc.get("pages", [])
+            full_content = "\n\n".join(
+                f"[Page {page.get('page', '?')}]\n{page.get('content', '')}"
+                for page in pages
+                if page.get("content")
+            )
+            if full_content.strip():
+                doc_id = str(full_doc.get("id") or context_doc.doc_index_id)
+                doc_name = str(full_doc.get("doc_name") or context_doc.filename)
+                return doc_id, doc_name, len(pages), full_content
+
+    file_path = (context_doc.file_path or "").strip()
+    if not file_path:
+        raise HTTPException(status_code=400, detail="Document has no file_path and no PageIndex content")
+
+    path = Path(file_path)
+    if not path.exists() or not path.is_file():
+        raise HTTPException(status_code=404, detail="Document file not found on disk")
+
+    suffix = path.suffix.lower()
+    if suffix in {".txt", ".md", ".json", ".yaml", ".yml", ".csv", ".html", ".xml"}:
+        full_content = path.read_text(encoding="utf-8", errors="ignore")
+        if not full_content.strip():
+            raise HTTPException(status_code=400, detail="Document file has no readable text content")
+        return f"context:{context_doc.id}", context_doc.filename, 0, full_content
+
+    if suffix == ".pdf":
+        from pypdf import PdfReader
+
+        reader = PdfReader(str(path))
+        page_texts: list[str] = []
+        for idx, page in enumerate(reader.pages, start=1):
+            text = page.extract_text() or ""
+            text = text.strip()
+            if text:
+                page_texts.append(f"[Page {idx}]\n{text}")
+        full_content = "\n\n".join(page_texts)
+        if not full_content.strip():
+            raise HTTPException(status_code=400, detail="PDF has no extractable text content")
+        return f"context:{context_doc.id}", context_doc.filename, len(reader.pages), full_content
+
+    data = path.read_bytes()
+    try:
+        full_content = data.decode("utf-8", errors="ignore")
+    except Exception:
+        full_content = ""
+    if not full_content.strip():
+        raise HTTPException(status_code=400, detail="Document file has no extractable text content")
+    return f"context:{context_doc.id}", context_doc.filename, 0, full_content
+
+
+@router.get("/documents/{context_doc_id}/pageindex/structure", response_model=PageIndexStructureResponse)
+async def get_document_structure(
+    context_doc_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the Table of Contents structure of a document using ContextDocument ID.
+    Part of the progressive disclosure workflow.
+    """
+    doc_index_id = _get_doc_index_id_from_context_id(context_doc_id, db)
+    client = _get_doc_index_client()
+    
+    doc_info = client.get_document(doc_index_id)
+    structure = client.get_document_structure(doc_index_id)
+    
+    if "error" in doc_info:
+        raise HTTPException(status_code=404, detail=doc_info["error"])
+    
+    # Map 'id' to 'doc_id' for the schema
+    doc_info_copy = doc_info.copy()
+    doc_info_copy["doc_id"] = doc_info_copy.pop("id")
+    
+    return PageIndexStructureResponse(
+        **doc_info_copy,
+        structure=structure
+    )
+
+
+@router.get("/documents/{context_doc_id}/pageindex/full", response_model=PageIndexFullDocumentResponse)
+async def get_document_full_content(
+    context_doc_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the full content of a document (all pages) using ContextDocument ID.
+    Use this once the right document is selected via progressive disclosure.
+    """
+    doc_index_id = _get_doc_index_id_from_context_id(context_doc_id, db)
+    client = _get_doc_index_client()
+    
+    full_doc = client.get_full_content(doc_index_id)
+    if "error" in full_doc:
+        raise HTTPException(status_code=404, detail=full_doc["error"])
+    
+    # Map 'id' to 'doc_id' for the schema
+    full_doc_copy = full_doc.copy()
+    full_doc_copy["doc_id"] = full_doc_copy.pop("id")
+    
+    return PageIndexFullDocumentResponse(**full_doc_copy)
+
+
+@router.post("/pageindex/answer", response_model=PageIndexAnswerResponse)
+async def answer_with_pageindex(
+    request: PageIndexAnswerRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Answer a query using the full content of a selected or auto-matched PageIndex document.
+
+    This is the KV-style flow:
+    - key: selected/found document
+    - value: full document content
+    """
+    from api.models.routes import _create_llm_for_playground, _resolve_model_name
+
+    client = _get_doc_index_client()
+    context_doc, _ = _resolve_pageindex_target_document(request, db, client)
+    doc_id, doc_name, pages_loaded, full_content = _load_full_content_for_kv(context_doc, client)
+
+    model_name = _resolve_model_name(request.model, db)
+    llm = _create_llm_for_playground(
+        model_name=model_name,
+        temperature=request.temperature,
+        max_tokens=request.max_tokens,
+        db=db,
+    )
+
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    system_prompt = (
+        "You answer questions using one selected document only.\n"
+        "Treat the document as a key-value source where the key is the document identity "
+        "and the value is the full document content loaded below.\n"
+        "Do not use outside knowledge. If the answer is not in the document, say so clearly."
+    )
+    user_prompt = (
+        f"Document key: {context_doc.filename}\n"
+        f"Document description: {context_doc.description or 'N/A'}\n"
+        f"User query: {request.query}\n\n"
+        f"Full document value:\n{full_content}"
+    )
+    response = llm.invoke([
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_prompt),
+    ])
+
+    return PageIndexAnswerResponse(
+        query=request.query,
+        context_doc_id=context_doc.id,
+        doc_id=doc_id,
+        doc_name=doc_name,
+        model=model_name,
+        answer=response.content if isinstance(response.content, str) else str(response.content),
+        pages_loaded=pages_loaded,
+        content_chars=len(full_content),
+    )
+
+
+@router.get("/documents/{context_doc_id}/pageindex/pages/{pages}", response_model=List[PageIndexPage])
+async def get_document_pages(
+    context_doc_id: int,
+    pages: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get specific pages of a document using ContextDocument ID.
+    Pages format: '5-7', '3,8', or '12' (1-indexed).
+    """
+    doc_index_id = _get_doc_index_id_from_context_id(context_doc_id, db)
+    client = _get_doc_index_client()
+    
+    page_content = client.get_page_content(doc_index_id, pages)
+    if page_content and len(page_content) > 0 and "error" in page_content[0]:
+        raise HTTPException(status_code=404, detail=page_content[0]["error"])
+    
+    return page_content
 
 
 @router.get("/projects/{project_id}/storage-stats")
