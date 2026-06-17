@@ -1,7 +1,7 @@
 """
 Focused tests for DB-backed model runtime configuration.
 
-These tests protect the PageIndex/Playground model path so it reads:
+These tests protect the GraphIndex/Playground model path so it reads:
 - default model from PostgreSQL settings
 - provider API keys from PostgreSQL settings
 - no silent fallback to environment variables for runtime model config

@@ -136,6 +136,9 @@ class ContextDocument(Base):
     indexed_at = Column(DateTime(timezone=True), nullable=True)
     indexed_chunks_count = Column(Integer, nullable=True, default=0)
 
+    # DocIndex (GraphIndex) ID
+    doc_index_id = Column(String(100), nullable=True, index=True)
+
     # Metadata
     description = Column(Text, nullable=True)
     tags = Column(JSON, default=lambda: [])

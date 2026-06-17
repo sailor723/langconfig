@@ -95,17 +95,28 @@ The backend also supports **MCP (Model Context Protocol)** tools, **SSE streamin
 
 ---
 
-## Current Status: Neo4j Document Index
+## Current Status: Neo4j Document Index — LIVE
 
-The current Knowledge Base experiment keeps `PageIndex` in place conceptually, but starts moving the
-document-routing layer into `Neo4j` step by step.
+The Neo4j document routing is now fully wired into the Knowledge Base and working end-to-end.
 
-### Current Direction
+### What's Working
 
-- Keep the final answer flow as: `find best document -> load full document -> answer by KV`
-- Do **not** extract entities or relations from uploaded files
-- Do **not** use chunk-first RAG for this path
-- Use `Neo4j` as a **document index / router**, not as the final content store
+- **Auto-sync**: Newly uploaded documents are automatically synced to Neo4j when indexing completes
+- **GraphIndex Search**: `POST /api/rag/search?search_mode=graphindex` routes through Neo4j first, falls back to DocIndex metadata scorer
+- **GraphIndex Answer**: `POST /api/rag/graphindex/answer` loads full document content and answers via KV using the Neo4j-resolved document pointer
+- **Fallback models**: If the default model (from PostgreSQL settings) fails due to missing API key, the answer endpoint tries `deepseek-chat`, `gemini-2.5-flash`, `agnes-2.0-flash` in order
+- **Frontend**: GraphIndex search results show document name, page count, structure tree, and an **Answer** button that triggers KV answering
+
+### Verification: End-to-End Flow
+
+```text
+User query: "what is this survey about"
+  -> Neo4j routing (find_best_document)
+  -> Returns document pointer (context_doc_id=8, file_path, doc_index_id)
+  -> Loads full PDF content from DocIndex/filesystem
+  -> KV answer via deepseek-chat
+  -> Response with answer, pages_loaded=3, content_chars=1111
+```
 
 ### Current Node Shape
 
@@ -131,13 +142,13 @@ Important:
 
 - Full document `content` is **no longer stored in Neo4j**
 - Neo4j returns the selected document pointer
-- Full content is loaded later from filesystem or DocIndex/PageIndex storage
+- Full content is loaded later from filesystem or DocIndex/GraphIndex storage
 
 ### Metadata Sources
 
 The current router metadata comes from two layers:
 
-1. Existing `PageIndex`-style metadata
+1. Existing `GraphIndex`-style metadata
    - `doc_name`
    - `page_count`
    - `content_preview`
@@ -176,7 +187,7 @@ User query
 
 ### Next Step
 
-- Wire the Neo4j document router into the existing Knowledge Base / `PageIndex` backend path
+- Wire the Neo4j document router into the existing Knowledge Base / `GraphIndex` backend path
 - Keep the implementation simple
 - Grow metadata and graph structure only after the minimal document-routing path is stable
 

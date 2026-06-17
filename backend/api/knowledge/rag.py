@@ -73,7 +73,7 @@ class SearchRequest(BaseModel):
     project_id: int
     top_k: int = 5
     use_hyde: bool = False
-    search_mode: str = "vector"  # "vector" (embedding RAG) or "pageindex" (vectorless progressive disclosure)
+    search_mode: str = "vector"  # "vector" (embedding RAG) or "graphindex" (vectorless progressive disclosure)
 
 
 class SearchResult(BaseModel):
@@ -125,37 +125,38 @@ class SearchResponse(BaseModel):
     search_mode: str = "vector"
 
 
-class PageIndexDocItem(BaseModel):
-    """A document entry from PageIndex search"""
+class GraphIndexDocItem(BaseModel):
+    """A document entry from GraphIndex search"""
     doc_id: str
     doc_name: str
     type: str
     page_count: int
     structure: Optional[list] = None
+    context_doc_id: Optional[int] = None
 
 
-class PageIndexSearchResponse(BaseModel):
+class GraphIndexSearchResponse(BaseModel):
     query: str
-    search_mode: str = "pageindex"
-    documents: List[PageIndexDocItem]
+    search_mode: str = "graphindex"
+    documents: List[GraphIndexDocItem]
     total_documents: int
 
 
-class PageIndexPage(BaseModel):
+class GraphIndexPage(BaseModel):
     page: int
     content: str
 
 
-class PageIndexFullDocumentResponse(BaseModel):
+class GraphIndexFullDocumentResponse(BaseModel):
     doc_id: str
     doc_name: str
     type: str
     page_count: int
     structure: list
-    pages: List[PageIndexPage]
+    pages: List[GraphIndexPage]
 
 
-class PageIndexStructureResponse(BaseModel):
+class GraphIndexStructureResponse(BaseModel):
     doc_id: str
     doc_name: str
     type: str
@@ -163,7 +164,7 @@ class PageIndexStructureResponse(BaseModel):
     structure: list
 
 
-class PageIndexAnswerRequest(BaseModel):
+class GraphIndexAnswerRequest(BaseModel):
     query: str
     project_id: int
     context_doc_id: Optional[int] = None
@@ -172,9 +173,9 @@ class PageIndexAnswerRequest(BaseModel):
     max_tokens: int = 4096
 
 
-class PageIndexAnswerResponse(BaseModel):
+class GraphIndexAnswerResponse(BaseModel):
     query: str
-    search_mode: str = "pageindex"
+    search_mode: str = "graphindex"
     context_doc_id: int
     doc_id: str
     doc_name: str
@@ -184,7 +185,7 @@ class PageIndexAnswerResponse(BaseModel):
     content_chars: int
 
 
-def _build_pageindex_query_terms(query: str) -> List[str]:
+def _build_graphindex_query_terms(query: str) -> List[str]:
     normalized = re.sub(r"\s+", " ", query.strip().lower())
     if not normalized:
         return []
@@ -199,9 +200,9 @@ def _build_pageindex_query_terms(query: str) -> List[str]:
     return list(dict.fromkeys(terms))
 
 
-def _score_pageindex_document(query: str, meta: dict, context_doc: ContextDocument) -> float:
+def _score_graphindex_document(query: str, meta: dict, context_doc: ContextDocument) -> float:
     normalized_query = query.strip().lower()
-    query_terms = _build_pageindex_query_terms(query)
+    query_terms = _build_graphindex_query_terms(query)
     score = 0.0
 
     searchable_terms = meta.get("search_terms", [])
@@ -232,12 +233,12 @@ def _score_pageindex_document(query: str, meta: dict, context_doc: ContextDocume
     return score
 
 
-def _resolve_pageindex_target_document(
-    request: "PageIndexAnswerRequest",
+def _resolve_graphindex_target_document(
+    request: "GraphIndexAnswerRequest",
     db: Session,
     client
 ) -> tuple[ContextDocument, dict]:
-    """Find the target document for a PageIndex answer request."""
+    """Find the target document for a GraphIndex answer request."""
     if request.context_doc_id is not None:
         context_doc = (
             db.query(ContextDocument)
@@ -256,7 +257,7 @@ def _resolve_pageindex_target_document(
                 meta = {}
         return context_doc, meta
 
-    neo4j_context_doc = _try_resolve_pageindex_target_document_via_neo4j(
+    neo4j_context_doc = _try_resolve_graphindex_target_document_via_neo4j(
         project_id=request.project_id,
         query=request.query,
         db=db,
@@ -279,7 +280,7 @@ def _resolve_pageindex_target_document(
         .all()
     )
     if not project_docs:
-        raise HTTPException(status_code=404, detail="No PageIndex documents found for project")
+        raise HTTPException(status_code=404, detail="No GraphIndex documents found for project")
 
     project_doc_map = {doc.doc_index_id: doc for doc in project_docs}
     best_match: Optional[tuple[float, ContextDocument, dict]] = None
@@ -287,14 +288,14 @@ def _resolve_pageindex_target_document(
         context_doc = project_doc_map.get(doc_id)
         if not context_doc:
             continue
-        score = _score_pageindex_document(request.query, meta, context_doc)
+        score = _score_graphindex_document(request.query, meta, context_doc)
         if score <= 0:
             continue
         if best_match is None or score > best_match[0]:
             best_match = (score, context_doc, meta)
 
     if best_match is None:
-        raise HTTPException(status_code=404, detail="No matching PageIndex document found")
+        raise HTTPException(status_code=404, detail="No matching GraphIndex document found")
 
     return best_match[1], best_match[2]
 
@@ -316,7 +317,7 @@ def _get_neo4j_document_index():
     )
 
 
-def _try_resolve_pageindex_target_document_via_neo4j(
+def _try_resolve_graphindex_target_document_via_neo4j(
     project_id: int,
     query: str,
     db: Session,
@@ -349,6 +350,63 @@ def _try_resolve_pageindex_target_document_via_neo4j(
     return context_doc
 
 
+def _infer_graphindex_type_from_filename(filename: str) -> str:
+    lowered = (filename or "").lower().strip()
+    if lowered.endswith(".pdf"):
+        return "pdf"
+    if lowered.endswith(".md"):
+        return "md"
+    return "text"
+
+
+def _try_graphindex_search_via_neo4j(
+    project_id: int,
+    query: str,
+    top_k: int,
+    client,
+) -> Optional[GraphIndexSearchResponse]:
+    try:
+        index = _get_neo4j_document_index()
+        index.ensure_constraints()
+        match = index.find_best_document(project_id=project_id, query=query)
+        if not match:
+            return None
+    except Exception:
+        return None
+
+    structure = []
+    if match.doc_index_id:
+        try:
+            structure_value = client.get_document_structure(match.doc_index_id)
+            if isinstance(structure_value, list):
+                structure = structure_value[:20]
+        except Exception:
+            structure = []
+
+    doc_id = match.doc_index_id or f"context:{match.context_doc_id}"
+    doc_name = match.doc_name or match.name
+    doc_type = _infer_graphindex_type_from_filename(match.name)
+    page_count = int(match.page_count or 0)
+
+    logger.info(f"[PAGEINDEX_DEBUG] context_doc_id={match.context_doc_id!r}, type={type(match.context_doc_id).__name__}")
+
+    return GraphIndexSearchResponse(
+        query=query,
+        search_mode="graphindex",
+        documents=[
+            GraphIndexDocItem(
+                doc_id=doc_id,
+                doc_name=doc_name,
+                type=doc_type,
+                page_count=page_count,
+                structure=structure,
+                context_doc_id=match.context_doc_id,
+            )
+        ][: max(1, int(top_k or 1))],
+        total_documents=1,
+    )
+
+
 def _try_sync_context_document_to_neo4j(context_doc: ContextDocument, client) -> None:
     if not context_doc.project_id:
         return
@@ -361,14 +419,14 @@ def _try_sync_context_document_to_neo4j(context_doc: ContextDocument, client) ->
     except Exception:
         return
 
-    pageindex_meta: dict = {}
+    graphindex_meta: dict = {}
     if context_doc.doc_index_id:
         try:
             meta = client.get_document(context_doc.doc_index_id) or {}
             if isinstance(meta, dict) and "error" not in meta:
-                pageindex_meta = meta
+                graphindex_meta = meta
         except Exception:
-            pageindex_meta = {}
+            graphindex_meta = {}
 
     try:
         from services.neo4j_document_index import build_document_node_properties
@@ -381,7 +439,7 @@ def _try_sync_context_document_to_neo4j(context_doc: ContextDocument, client) ->
             file_path=context_doc.file_path,
             description=context_doc.description or "",
             tags=list(context_doc.tags or []),
-            pageindex_meta=pageindex_meta,
+            graphindex_meta=graphindex_meta,
             enrichment=None,
         )
         index.upsert_document(
@@ -395,7 +453,7 @@ def _try_sync_context_document_to_neo4j(context_doc: ContextDocument, client) ->
 
 
 async def index_document_background(document_id: int):
-    """Background task to index a document for both vector RAG and PageIndex."""
+    """Background task to index a document for both vector RAG and GraphIndex."""
     from db.database import SessionLocal
     from services.context_document_indexer import context_document_indexer
 
@@ -422,7 +480,7 @@ async def index_document_background(document_id: int):
         vector_error = None
         doc_index_id = None
 
-        # Index to DocIndex (PageIndex-style vectorless index) first so PageIndex
+        # Index to DocIndex (GraphIndex-style vectorless index) first so GraphIndex
         # remains available even if vector embedding generation fails later.
         try:
             from services.doc_index_service import DocIndexClient
@@ -434,7 +492,7 @@ async def index_document_background(document_id: int):
             # Use default workspace
             client = DocIndexClient(doc_index_base)
             doc_index_id = client.index(file_path)
-            logger.info(f"Document {document_id} also indexed to DocIndex (PageIndex mode) with doc_index_id {doc_index_id}")
+            logger.info(f"Document {document_id} also indexed to DocIndex (GraphIndex mode) with doc_index_id {doc_index_id}")
         except Exception as pi_e:
             logger.warning(f"DocIndex indexing failed for {document_id}: {pi_e}")
 
@@ -471,11 +529,11 @@ async def index_document_background(document_id: int):
         db.close()
 
         if vector_error and doc_index_id:
-            logger.info(f"Document {document_id} indexed for PageIndex; vector indexing failed but document remains usable.")
+            logger.info(f"Document {document_id} indexed for GraphIndex; vector indexing failed but document remains usable.")
         elif vector_result or doc_index_id:
             logger.info(f"Document {document_id} indexed successfully")
         else:
-            raise RuntimeError("Both PageIndex and vector indexing failed")
+            raise RuntimeError("Both GraphIndex and vector indexing failed")
 
     except Exception as e:
         logger.error(f"Failed to index document {document_id}: {e}", exc_info=True)
@@ -988,15 +1046,18 @@ async def search_documents(
     - PostgreSQL + pgvector for semantic search
     - Real-time metrics measurement (tokens, latency, similarity)
 
-    When search_mode='pageindex', uses vectorless progressive disclosure (PageIndex-style)
+    When search_mode='graphindex', uses vectorless progressive disclosure (GraphIndex-style)
     instead of embedding similarity search.
     """
 
     try:
-        # ===== PageIndex Mode =====
-        if request.search_mode == "pageindex":
+        # ===== GraphIndex Mode =====
+        if request.search_mode == "graphindex":
             from services.doc_index_service import DocIndexClient
             import os
+
+            # DEBUG: log the incoming request
+            logger.info(f"[DEBUG] GraphIndex search request: query={request.query!r}, project_id={request.project_id}, top_k={request.top_k}")
 
             # Use the base outputs directory as DocIndex workspace
             # (DocIndexClient appends /doc_index internally)
@@ -1005,6 +1066,15 @@ async def search_documents(
                 os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "outputs")
             )
             client = DocIndexClient(doc_index_base)
+
+            neo4j_result = _try_graphindex_search_via_neo4j(
+                project_id=request.project_id,
+                query=request.query,
+                top_k=request.top_k,
+                client=client,
+            )
+            if neo4j_result is not None:
+                return neo4j_result
             
             # Get all doc_index_ids for the current project (with description and tags)
             project_docs = db.query(ContextDocument).filter(
@@ -1022,7 +1092,7 @@ async def search_documents(
                     
                 structure = client.get_document_structure(doc_id)
                 context_doc = project_doc_map[doc_id]
-                score = _score_pageindex_document(request.query, meta, context_doc)
+                score = _score_graphindex_document(request.query, meta, context_doc)
 
                 if score > 0:
                     scored_documents.append((-score, doc_id, meta, structure))  # Negative for ascending sort
@@ -1031,17 +1101,19 @@ async def search_documents(
             scored_documents.sort()
             top_docs = []
             for _, doc_id, meta, structure in scored_documents[:request.top_k]:
-                top_docs.append(PageIndexDocItem(
+                    context_doc = project_doc_map.get(doc_id)
+                    top_docs.append(GraphIndexDocItem(
                     doc_id=doc_id,
                     doc_name=meta.get("doc_name", "Unknown"),
                     type=meta.get("type", "unknown"),
                     page_count=meta.get("page_count", 0),
                     structure=structure[:20] if isinstance(structure, list) else [],  # Limit structure output
+                    context_doc_id=context_doc.id if context_doc else None,
                 ))
 
-            return PageIndexSearchResponse(
+            return GraphIndexSearchResponse(
                 query=request.query,
-                search_mode="pageindex",
+                search_mode="graphindex",
                 documents=top_docs,
                 total_documents=len(top_docs),
             )
@@ -1244,7 +1316,7 @@ async def get_search_history(
     return history
 
 
-# PageIndex Endpoints for Progressive Disclosure
+# GraphIndex Endpoints for Progressive Disclosure
 def _get_doc_index_client():
     """Helper to get DocIndexClient instance"""
     import os
@@ -1262,7 +1334,7 @@ def _get_doc_index_id_from_context_id(context_doc_id: int, db: Session) -> str:
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     if not doc.doc_index_id:
-        raise HTTPException(status_code=404, detail="Document not indexed in PageIndex")
+        raise HTTPException(status_code=404, detail="Document not indexed in GraphIndex")
     return doc.doc_index_id
 
 
@@ -1285,7 +1357,7 @@ def _load_full_content_for_kv(context_doc: ContextDocument, client) -> tuple[str
 
     file_path = (context_doc.file_path or "").strip()
     if not file_path:
-        raise HTTPException(status_code=400, detail="Document has no file_path and no PageIndex content")
+        raise HTTPException(status_code=400, detail="Document has no file_path and no GraphIndex content")
 
     path = Path(file_path)
     if not path.exists() or not path.is_file():
@@ -1323,7 +1395,7 @@ def _load_full_content_for_kv(context_doc: ContextDocument, client) -> tuple[str
     return f"context:{context_doc.id}", context_doc.filename, 0, full_content
 
 
-@router.get("/documents/{context_doc_id}/pageindex/structure", response_model=PageIndexStructureResponse)
+@router.get("/documents/{context_doc_id}/graphindex/structure", response_model=GraphIndexStructureResponse)
 async def get_document_structure(
     context_doc_id: int,
     db: Session = Depends(get_db)
@@ -1345,13 +1417,13 @@ async def get_document_structure(
     doc_info_copy = doc_info.copy()
     doc_info_copy["doc_id"] = doc_info_copy.pop("id")
     
-    return PageIndexStructureResponse(
+    return GraphIndexStructureResponse(
         **doc_info_copy,
         structure=structure
     )
 
 
-@router.get("/documents/{context_doc_id}/pageindex/full", response_model=PageIndexFullDocumentResponse)
+@router.get("/documents/{context_doc_id}/graphindex/full", response_model=GraphIndexFullDocumentResponse)
 async def get_document_full_content(
     context_doc_id: int,
     db: Session = Depends(get_db)
@@ -1371,16 +1443,16 @@ async def get_document_full_content(
     full_doc_copy = full_doc.copy()
     full_doc_copy["doc_id"] = full_doc_copy.pop("id")
     
-    return PageIndexFullDocumentResponse(**full_doc_copy)
+    return GraphIndexFullDocumentResponse(**full_doc_copy)
 
 
-@router.post("/pageindex/answer", response_model=PageIndexAnswerResponse)
-async def answer_with_pageindex(
-    request: PageIndexAnswerRequest,
+@router.post("/graphindex/answer", response_model=GraphIndexAnswerResponse)
+async def answer_with_graphindex(
+    request: GraphIndexAnswerRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Answer a query using the full content of a selected or auto-matched PageIndex document.
+    Answer a query using the full content of a selected or auto-matched GraphIndex document.
 
     This is the KV-style flow:
     - key: selected/found document
@@ -1389,16 +1461,41 @@ async def answer_with_pageindex(
     from api.models.routes import _create_llm_for_playground, _resolve_model_name
 
     client = _get_doc_index_client()
-    context_doc, _ = _resolve_pageindex_target_document(request, db, client)
+    context_doc, _ = _resolve_graphindex_target_document(request, db, client)
     doc_id, doc_name, pages_loaded, full_content = _load_full_content_for_kv(context_doc, client)
 
-    model_name = _resolve_model_name(request.model, db)
-    llm = _create_llm_for_playground(
-        model_name=model_name,
-        temperature=request.temperature,
-        max_tokens=request.max_tokens,
-        db=db,
-    )
+    # Read default and fallback models from PostgreSQL settings (no hardcoded model names)
+    from models.settings import Settings as SettingsModel
+    settings_row = db.query(SettingsModel).filter(SettingsModel.id == 1).first()
+    db_fallback_models: list = (settings_row.fallback_models or []) if settings_row else []
+    models_to_try = ([request.model] if request.model else [])
+    if not models_to_try:
+        # No explicit model requested: use DB default first, then DB fallbacks
+        default = _resolve_model_name(None, db)
+        models_to_try = [default] + db_fallback_models
+    else:
+        # Explicit model requested: try it, then DB fallbacks
+        models_to_try = models_to_try + db_fallback_models
+
+    model_name = None
+    llm = None
+    last_error = None
+    for mname in models_to_try:
+        try:
+            model_name = _resolve_model_name(mname, db)
+            llm = _create_llm_for_playground(
+                model_name=model_name,
+                temperature=request.temperature,
+                max_tokens=request.max_tokens,
+                db=db,
+            )
+            break
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Model {mname} failed: {e}")
+            continue
+    if llm is None:
+        raise HTTPException(status_code=400, detail=str(last_error or "No working model available"))
 
     from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -1419,7 +1516,7 @@ async def answer_with_pageindex(
         HumanMessage(content=user_prompt),
     ])
 
-    return PageIndexAnswerResponse(
+    return GraphIndexAnswerResponse(
         query=request.query,
         context_doc_id=context_doc.id,
         doc_id=doc_id,
@@ -1431,7 +1528,7 @@ async def answer_with_pageindex(
     )
 
 
-@router.get("/documents/{context_doc_id}/pageindex/pages/{pages}", response_model=List[PageIndexPage])
+@router.get("/documents/{context_doc_id}/graphindex/pages/{pages}", response_model=List[GraphIndexPage])
 async def get_document_pages(
     context_doc_id: int,
     pages: str,
