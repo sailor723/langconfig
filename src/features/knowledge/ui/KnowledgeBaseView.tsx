@@ -530,31 +530,31 @@ export default function KnowledgeBaseView() {
           </div>
 
           {/* Stats bar - compact horizontal */}
-          <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg px-4 py-2.5">
-            <div className="flex items-center gap-6 text-xs">
-              <div className="flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
+          <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg px-3 py-1.5">
+            <div className="flex items-center gap-4 text-[11px]">
+              <div className="flex items-center gap-1">
+                <FileText className="w-3 h-3" style={{ color: 'var(--color-primary)' }} />
                 <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_documents')}:</span>
-                <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{totalDocuments}</span>
+                <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{totalDocuments}</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Filter className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+              <div className="flex items-center gap-1">
+                <Filter className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
                 <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_indexed')}:</span>
-                <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{readyCount}</span>
+                <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{readyCount}</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+              <div className="flex items-center gap-1">
+                <Database className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
                 <span style={{ color: 'var(--color-text-muted)' }}>Chunks:</span>
-                <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{totalChunks}</span>
+                <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{totalChunks}</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+              <div className="flex items-center gap-1">
+                <Database className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
                 <span style={{ color: 'var(--color-text-muted)' }}>Storage:</span>
-                <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{formatFileSize(totalSize)}</span>
+                <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{formatFileSize(totalSize)}</span>
               </div>
               <div className="ml-auto">
                 <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="px-2 py-1 border border-gray-200 dark:border-border-dark rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="px-1.5 py-0.5 border border-gray-200 dark:border-border-dark rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
                   style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
                   <option value="all">{t('kb_all')}</option>
                   <option value="ready">{t('kb_indexed')}</option>
@@ -566,61 +566,57 @@ export default function KnowledgeBaseView() {
             </div>
           </div>
 
-          {/* Document Cards Grid - 6 per row */}
-          <div className="flex-1 overflow-y-auto">
+          {/* Document Cards Grid - 7 per row */}
+          <div className="max-h-[200px] overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <Loader className="w-10 h-10 text-primary mx-auto mb-2 animate-spin" />
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('kb_loading')}</p>
+                  <Loader className="w-8 h-8 text-primary mx-auto mb-1.5 animate-spin" />
+                  <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{t('kb_loading')}</p>
                 </div>
               </div>
             ) : filteredDocuments.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" style={{ color: 'var(--color-text-muted)' }} />
+                  <FileText className="w-8 h-8 mx-auto mb-1.5 opacity-50" style={{ color: 'var(--color-text-muted)' }} />
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('kb_empty')}</p>
-                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
                     {searchQuery ? t('kb_no_results', { query: searchQuery }) : ''}
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-6 gap-2">
+              <div className="grid grid-cols-7 gap-1.5">
                 {filteredDocuments.map(doc => (
                   <div key={doc.id}
-                    className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-2.5 hover:shadow-sm transition-shadow group"
+                    className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-1.5 hover:shadow-sm transition-shadow group"
                   >
                     <div className="flex flex-col items-center text-center">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center mb-1.5">
-                        <FileText className="w-4 h-4 text-primary" />
+                      <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center mb-1">
+                        <FileText className="w-3 h-3 text-primary" />
                       </div>
-                      <h4 className="text-xs font-medium leading-tight line-clamp-2 mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                      <h4 className="text-[10px] font-medium leading-tight line-clamp-2 mb-0.5" style={{ color: 'var(--color-text-primary)' }}>
                         {doc.name}
                       </h4>
-                      <div className="text-[10px] leading-tight" style={{ color: 'var(--color-text-muted)' }}>
+                      <div className="text-[9px] leading-tight" style={{ color: 'var(--color-text-muted)' }}>
                         <div>{formatFileSize(doc.size)}</div>
-                        <div className="flex items-center justify-center gap-1">
-                          <Database className="w-2.5 h-2.5" />
-                          {doc.chunk_count || 0} chunks
-                        </div>
                       </div>
-                      <div className="mt-1 flex items-center gap-1">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      <div className="mt-0.5 flex items-center gap-0.5">
+                        <span className={`inline-block px-1 py-[1px] rounded text-[9px] font-medium ${
                           doc.indexing_status === 'ready'
-                            ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400'
+                            ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400'
                             : doc.indexing_status === 'indexing'
-                              ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
+                              ? 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400'
                               : doc.indexing_status === 'failed'
-                                ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400'
-                                : 'bg-gray-100 dark:bg-gray-500/20'
+                                ? 'bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-400'
+                                : 'bg-gray-50 dark:bg-white/10'
                         }`}>
                           {getStatusDisplay(doc.indexing_status)}
                         </span>
                         <button onClick={() => handleDelete(doc.id)}
-                          className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-all"
+                          className="p-[2px] opacity-0 group-hover:opacity-100 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-all"
                           style={{ color: 'var(--color-text-muted)' }} title="Delete">
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-2.5 h-2.5" />
                         </button>
                       </div>
                     </div>
@@ -629,21 +625,9 @@ export default function KnowledgeBaseView() {
               </div>
             )}
           </div>
-        </div>
 
-        {/* ===== Right Column - Stats + Search ===== */}
-        <div className="w-80 flex-shrink-0 overflow-y-auto space-y-3">
-
-          {/* Storage Metrics */}
-          {activeProjectId && (
-            <StorageMetrics
-              projectId={activeProjectId}
-              onRefresh={loadDocuments}
-            />
-          )}
-
-          {/* Semantic Search */}
-          <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3">
+          {/* ===== Semantic Search / Chat ===== */}
+          <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-2.5">
             <div className="flex items-center gap-1.5 mb-2">
               <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
               <h3 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
@@ -655,35 +639,55 @@ export default function KnowledgeBaseView() {
               {/* Mode selector */}
               <div className="flex gap-0.5 p-0.5 bg-gray-100 dark:bg-white/5 rounded-lg">
                 <button onClick={() => { setSearchMode('vector'); setShowSearchResults(false); setPageIndexDocs([]); }}
-                  className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${
-                    searchMode === 'vector' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'
-                  }`}
+                  className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${searchMode === 'vector' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'}`}
                   style={{ color: 'var(--color-text-primary)' }}>
                   {t('kb_vector_rag')}
                 </button>
                 <button onClick={() => { setSearchMode('pageindex'); setShowSearchResults(false); setPageIndexDocs([]); }}
-                  className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${
-                    searchMode === 'pageindex' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'
-                  }`}
+                  className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${searchMode === 'pageindex' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'}`}
                   style={{ color: 'var(--color-text-primary)' }}>
                   {t('kb_page_index')}
                 </button>
               </div>
 
-              {/* Search input */}
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
-                <input type="text"
-                  placeholder={searchMode === 'pageindex' ? t('kb_search_pageindex_placeholder') : t('kb_search_placeholder')}
-                  value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="w-full pl-8 pr-3 py-1.5 border border-gray-200 dark:border-border-dark rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                  style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
-                />
+              {/* Available docs row */}
+              {filteredDocuments.length > 0 && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="text-[10px] font-medium" style={{ color: 'var(--color-text-muted)' }}>Docs:</span>
+                  {filteredDocuments.slice(0, 8).map(doc => (
+                    <button key={doc.id}
+                      onClick={() => setSearchQuery(doc.name)}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-medium transition-all border border-transparent hover:border-gray-300 dark:hover:border-border-dark"
+                      style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
+                      {doc.name.length > 12 ? doc.name.slice(0, 12) + '…' : doc.name}
+                    </button>
+                  ))}
+                  {filteredDocuments.length > 8 && (
+                    <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>+{filteredDocuments.length - 8}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Search input + button row */}
+              <div className="flex gap-1.5">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
+                  <input type="text"
+                    placeholder={searchMode === 'pageindex' ? t('kb_search_pageindex_placeholder') : t('kb_search_placeholder')}
+                    value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    className="w-full pl-7 pr-2 py-1.5 border border-gray-200 dark:border-border-dark rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
+                  />
+                </div>
+                <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
+                  className="px-3 py-1.5 bg-primary text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 text-xs font-medium">
+                  {searching ? <Loader className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                </button>
               </div>
 
               {/* Options row */}
-              <div className="flex items-center gap-2 text-[11px] flex-wrap">
+              <div className="flex items-center gap-2 text-[10px] flex-wrap">
                 {searchMode === 'vector' && (
                   <>
                     <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
@@ -703,31 +707,20 @@ export default function KnowledgeBaseView() {
                     className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-orange-600 focus:ring-orange-600" />
                   <span>{t('kb_compare')}</span>
                 </label>
-              </div>
-
-              {/* Search button */}
-              <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
-                className="w-full px-3 py-1.5 bg-primary text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-xs font-medium">
-                {searching ? (
-                  <><Loader className="w-3 h-3 animate-spin" /><span>{t('kb_searching')}</span></>
-                ) : (
-                  <><Search className="w-3 h-3" /><span>{t('kb_search_action')}</span></>
+                {showSearchResults && (
+                  <button onClick={clearSearch}
+                    className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 transition-all"
+                    style={{ color: 'var(--color-text-primary)' }}>
+                    {t('kb_clear_results')}
+                  </button>
                 )}
-              </button>
-
-              {showSearchResults && (
-                <button onClick={clearSearch}
-                  className="w-full px-3 py-1.5 bg-gray-100 dark:bg-white/5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-all border border-gray-200 dark:border-border-dark text-xs font-medium"
-                  style={{ color: 'var(--color-text-primary)' }}>
-                  {t('kb_clear_results')}
-                </button>
-              )}
+              </div>
             </div>
           </div>
 
           {/* Search Results */}
           {showSearchResults && (
-            <div className="space-y-3">
+            <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-2.5 overflow-y-auto max-h-[300px]">
               {searchMetrics && (
                 <SearchMetricsDisplay
                   metrics={searchMetrics}
@@ -735,137 +728,77 @@ export default function KnowledgeBaseView() {
                 />
               )}
 
-              <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3">
-                <h3 className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                  {pageIndexDocs.length > 0
-                    ? `Indexed Documents (${pageIndexDocs.length})`
-                    : `Search Results (${searchResults.length})`
-                  }
-                </h3>
+              <h3 className="text-[11px] font-semibold mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
+                {pageIndexDocs.length > 0
+                  ? `Indexed Documents (${pageIndexDocs.length})`
+                  : `Search Results (${searchResults.length})`
+                }
+              </h3>
 
-                {/* PageIndex Results */}
-                {pageIndexDocs.length > 0 && (
-                  <div className="space-y-2">
-                    {pageIndexDocs.map((doc: any) => (
-                      <div key={doc.doc_id} className="border border-gray-200 dark:border-border-dark rounded-lg p-2">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-xs" style={{ color: 'var(--color-primary)' }}>
-                              {doc.type === 'pdf' ? 'picture_as_pdf' : 'description'}
-                            </span>
-                            <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                              {doc.doc_name}
-                            </span>
-                          </div>
-                          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                            {doc.page_count} {t('kb_pages')}
-                          </span>
+              {/* PageIndex Results */}
+              {pageIndexDocs.length > 0 && (
+                <div className="space-y-1.5">
+                  {pageIndexDocs.map((doc: any) => (
+                    <div key={doc.doc_id} className="border border-gray-200 dark:border-border-dark rounded-lg p-1.5">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-primary)' }}>{doc.doc_name}</span>
+                        <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{doc.page_count} {t('kb_pages')}</span>
+                      </div>
+                      {doc.structure && doc.structure.length > 0 && (
+                        <div className="ml-3 space-y-0.5">
+                          {doc.structure.slice(0, 4).map((node: any, idx: number) => (
+                            <div key={idx} className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                              <span className="inline-block w-2">-</span>
+                              {node.title}{node.page && <span className="ml-0.5 opacity-60">(p.{node.page})</span>}
+                            </div>
+                          ))}
+                          {doc.structure.length > 4 && (
+                            <div className="text-[10px] italic" style={{ color: 'var(--color-text-muted)' }}>
+                              {t('kb_more_sections', { count: doc.structure.length - 4 })}
+                            </div>
+                          )}
                         </div>
-                        {doc.structure && doc.structure.length > 0 && (
-                          <div className="ml-4 space-y-0.5">
-                            {doc.structure.slice(0, 5).map((node: any, idx: number) => (
-                              <div key={idx} className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                                <span className="inline-block w-3">-</span>
-                                {node.title}
-                                {node.page && <span className="ml-1 opacity-60">(p.{node.page})</span>}
-                              </div>
-                            ))}
-                            {doc.structure.length > 5 && (
-                              <div className="text-[10px] italic" style={{ color: 'var(--color-text-muted)' }}>
-                                {t('kb_more_sections', { count: doc.structure.length - 5 })}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <div className="mt-1.5">
-                          <button onClick={async () => {
-                            try {
-                              const res = await apiClient.searchDocuments({
-                                query: `Read page 1-3 of ${doc.doc_name}`,
-                                project_id: activeProjectId || 0,
-                                top_k: 1,
-                                search_mode: 'pageindex',
-                              });
-                              const data = res as any;
-                              if (data.search_mode === 'pageindex') {
-                                setSearchResults([]);
-                                setPageIndexDocs(data.documents || []);
-                              }
-                            } catch {}
-                          }}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
-                            style={{ color: 'var(--color-text-primary)' }}>
-                            Browse
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Vector Results */}
+              {searchResults.length > 0 && (
+                <div className="space-y-1.5">
+                  {searchResults.map((result, index) => (
+                    <div key={index} className="bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg p-1.5">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-medium text-primary">{result.document_name}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                            {(result.similarity_score * 100).toFixed(0)}%
+                          </span>
+                          <button onClick={() => toggleChunkExpansion(index)}
+                            className="text-[10px] text-primary hover:underline font-medium">
+                            {expandedChunks.has(index) ? 'Hide' : 'Show'}
                           </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Vector Results */}
-                {searchResults.length > 0 && (
-                  <div className="space-y-2">
-                    {searchResults.map((result, index) => (
-                      <div key={index} className="bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg p-2">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs font-medium text-primary">{result.document_name}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                              Similarity: {(result.similarity_score * 100).toFixed(1)}%
-                            </span>
-                            {result.chunk_token_count && (
-                              <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                                {result.chunk_token_count} tokens
-                              </span>
-                            )}
-                            <button onClick={() => toggleChunkExpansion(index)}
-                              className="text-[10px] text-primary hover:underline font-medium">
-                              {expandedChunks.has(index) ? 'Hide' : 'Show'}
-                            </button>
-                          </div>
+                      {expandedChunks.has(index) && result.chunk_id && (
+                        <div className="mb-1 pb-1 border-b border-gray-200 dark:border-border-dark text-[10px]">
+                          <span className="font-mono" style={{ color: 'var(--color-text-muted)' }}>#{result.chunk_id}</span>
+                          {result.chunk_token_count && <span className="ml-1" style={{ color: 'var(--color-text-muted)' }}>{result.chunk_token_count} {t('kb_tokens')}</span>}
                         </div>
+                      )}
+                      <pre className="text-[10px] whitespace-pre-wrap font-mono p-1 rounded overflow-x-auto max-h-16 leading-snug"
+                        style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
+                        {result.chunk_text}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-                        {expandedChunks.has(index) && (
-                          <div className="mb-1.5 pb-1.5 border-b border-gray-200 dark:border-border-dark text-[10px] space-y-0.5">
-                            {result.chunk_id && (
-                              <div><span style={{ color: 'var(--color-text-muted)' }}>Chunk ID:</span>{' '}
-                                <span className="font-mono" style={{ color: 'var(--color-text-primary)' }}>{result.chunk_id}</span>
-                              </div>
-                            )}
-                            {result.chunk_index !== undefined && (
-                              <div><span style={{ color: 'var(--color-text-muted)' }}>Chunk Index:</span>{' '}
-                                <span style={{ color: 'var(--color-text-primary)' }}>{result.chunk_index} of {result.total_chunks_in_doc || '?'}</span>
-                              </div>
-                            )}
-                            {result.chunk_token_count && (
-                              <div><span style={{ color: 'var(--color-text-muted)' }}>Token Count:</span>{' '}
-                                <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{result.chunk_token_count} tokens</span>
-                              </div>
-                            )}
-                            {result.chunk_char_count && (
-                              <div><span style={{ color: 'var(--color-text-muted)' }}>Character Count:</span>{' '}
-                                <span style={{ color: 'var(--color-text-primary)' }}>{result.chunk_char_count} chars</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <pre className="text-[10px] whitespace-pre-wrap font-mono p-1.5 rounded overflow-x-auto max-h-20"
-                          style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
-                          {result.chunk_text}
-                        </pre>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {searchResults.length === 0 && pageIndexDocs.length === 0 && (
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    No results found for "{searchQuery}"
-                  </p>
-                )}
-              </div>
+              {searchResults.length === 0 && pageIndexDocs.length === 0 && (
+                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No results found for "{searchQuery}"</p>
+              )}
 
               {activeProjectId && (
                 <SearchHistoryLog
@@ -874,6 +807,16 @@ export default function KnowledgeBaseView() {
                 />
               )}
             </div>
+          )}
+        </div>
+
+        {/* ===== Right Column (narrow) ===== */}
+        <div className="w-64 flex-shrink-0 overflow-y-auto">
+          {activeProjectId && (
+            <StorageMetrics
+              projectId={activeProjectId}
+              onRefresh={loadDocuments}
+            />
           )}
         </div>
       </div>
