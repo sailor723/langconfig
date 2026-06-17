@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_community.document_loaders import (
     UnstructuredFileLoader,
-    UnstructuredPDFLoader,
+    PyMuPDFLoader,
     UnstructuredWordDocumentLoader,
     UnstructuredImageLoader,
     TextLoader,
@@ -219,15 +219,11 @@ class ContextDocumentIndexer:
 
         try:
             if doc_type == DocumentType.PDF:
-                # UnstructuredPDFLoader provides:
-                # - OCR for scanned PDFs
-                # - Table extraction
-                # - Page number metadata
-                # - Better handling of complex layouts
-                return UnstructuredPDFLoader(
+                # PyMuPDFLoader provides:
+                # - Fast, reliable PDF text extraction
+                # - No dependency on unstructured/OCR stack
+                return PyMuPDFLoader(
                     file_path_str,
-                    mode="elements",  # Preserves document structure
-                    strategy="auto",  # Auto-detects if OCR needed
                 )
 
             elif doc_type == DocumentType.DOCX:
