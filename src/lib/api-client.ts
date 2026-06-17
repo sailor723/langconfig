@@ -474,6 +474,7 @@ class APIClient {
     project_id: number;
     top_k?: number;
     use_hyde?: boolean;
+    search_mode?: string; // "vector" or "pageindex"
   }) {
     return this.client.post('/api/rag/search', data);
   }

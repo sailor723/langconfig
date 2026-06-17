@@ -69,11 +69,13 @@ export default function KnowledgeBaseView() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [useHyDE, setUseHyDE] = useState(false);
   const [useTOON, setUseTOON] = useState(false);
+  const [searchMode, setSearchMode] = useState<'vector' | 'pageindex'>('vector');
   const [compareMode, setCompareMode] = useState(false);
   const [searchMetrics, setSearchMetrics] = useState<SearchMetrics | null>(null);
   const [comparisonMetrics, setComparisonMetrics] = useState<SearchMetrics | null>(null);
   const [comparisonResults, setComparisonResults] = useState<SearchResult[]>([]);
   const [expandedChunks, setExpandedChunks] = useState<Set<number>>(new Set());
+  const [pageIndexDocs, setPageIndexDocs] = useState<any[]>([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
   const [uploadName, setUploadName] = useState('');
@@ -248,18 +250,31 @@ export default function KnowledgeBaseView() {
           project_id: activeProjectId,
           top_k: 10,
           use_hyde: useHyDE,
+          search_mode: 'pageindex',
         });
-        setSearchResults(response1.data.results);
-        setSearchMetrics(response1.data.metrics);
+        const data1 = response1 as any;
+        if (data1.search_mode === 'pageindex') {
+          setSearchResults([]);
+          setPageIndexDocs(data1.documents || []);
+        } else {
+          setPageIndexDocs([]);
+          setSearchResults(data1.results || []);
+        }
 
         const response2 = await apiClient.searchDocuments({
           query: searchQuery,
           project_id: activeProjectId,
           top_k: 10,
           use_hyde: useHyDE,
+          search_mode: 'vector',
         });
-        setComparisonResults(response2.data.results);
-        setComparisonMetrics(response2.data.metrics);
+        const data2 = response2 as any;
+        if (data2.search_mode === 'pageindex') {
+          setComparisonResults([]);
+        } else {
+          setComparisonResults(data2.results || []);
+        }
+        if (data2.metrics) setComparisonMetrics(data2.metrics);
 
       } else {
         const response = await apiClient.searchDocuments({
@@ -267,9 +282,18 @@ export default function KnowledgeBaseView() {
           project_id: activeProjectId,
           top_k: 10,
           use_hyde: useHyDE,
+          search_mode: searchMode,
         });
-        setSearchResults(response.data.results);
-        setSearchMetrics(response.data.metrics);
+        const data = response as any;
+        if (data.search_mode === 'pageindex') {
+          setSearchResults([]);
+          setPageIndexDocs(data.documents || []);
+          setSearchMetrics(null);
+        } else {
+          setPageIndexDocs([]);
+          setSearchResults(data.results || []);
+          setSearchMetrics(data.metrics || null);
+        }
         setComparisonMetrics(null);
         setComparisonResults([]);
       }
@@ -743,16 +767,50 @@ export default function KnowledgeBaseView() {
             <div className="flex items-center gap-2 mb-3">
               <Search className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
               <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                Semantic Search
+                {searchMode === 'pageindex' ? 'Document Navigation (PageIndex)' : 'Semantic Search'}
               </h3>
             </div>
 
             <div className="space-y-3">
+              {/* Mode selector */}
+              <div className="flex gap-1 p-0.5 bg-gray-100 dark:bg-white/5 rounded-lg">
+                <button
+                  onClick={() => {
+                    setSearchMode('vector');
+                    setShowSearchResults(false);
+                    setPageIndexDocs([]);
+                  }}
+                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    searchMode === 'vector'
+                      ? 'bg-white dark:bg-white/10 shadow-sm'
+                      : 'hover:bg-white/50 dark:hover:bg-white/5'
+                  }`}
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  Vector RAG
+                </button>
+                <button
+                  onClick={() => {
+                    setSearchMode('pageindex');
+                    setShowSearchResults(false);
+                    setPageIndexDocs([]);
+                  }}
+                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    searchMode === 'pageindex'
+                      ? 'bg-white dark:bg-white/10 shadow-sm'
+                      : 'hover:bg-white/50 dark:hover:bg-white/5'
+                  }`}
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  PageIndex
+                </button>
+              </div>
+
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
                 <input
                   type="text"
-                  placeholder="Search by meaning..."
+                  placeholder={searchMode === 'pageindex' ? "Index documents first, then browse..." : "Search by meaning..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -762,6 +820,8 @@ export default function KnowledgeBaseView() {
               </div>
 
               <div className="flex items-center gap-3 text-xs">
+                {searchMode === 'vector' && (
+                  <>
                 <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-opacity" style={{ color: 'var(--color-text-primary)' }}>
                   <input
                     type="checkbox"
@@ -780,6 +840,8 @@ export default function KnowledgeBaseView() {
                   />
                   <span>TOON</span>
                 </label>
+                </>
+                )}
                 <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-opacity" style={{ color: 'var(--color-text-primary)' }}>
                   <input
                     type="checkbox"
@@ -835,14 +897,77 @@ export default function KnowledgeBaseView() {
               {/* Results */}
               <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-4">
                 <h3 className="text-base font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  Search Results ({searchResults.length})
+                  {pageIndexDocs.length > 0
+                    ? `Indexed Documents (${pageIndexDocs.length})`
+                    : `Search Results (${searchResults.length})`
+                  }
                 </h3>
-                {searchResults.length === 0 ? (
-                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                    No results found for "{searchQuery}"
-                  </p>
-                ) : (
+
+                {/* PageIndex Results */}
+                {pageIndexDocs.length > 0 && (
                   <div className="space-y-3">
+                    {pageIndexDocs.map((doc: any) => (
+                      <div key={doc.doc_id} className="border border-gray-200 dark:border-border-dark rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-primary)' }}>
+                              {doc.type === 'pdf' ? 'picture_as_pdf' : 'description'}
+                            </span>
+                            <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                              {doc.doc_name}
+                            </span>
+                          </div>
+                          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                            {doc.page_count} pages
+                          </span>
+                        </div>
+                        {doc.structure && doc.structure.length > 0 && (
+                          <div className="ml-5 space-y-0.5">
+                            {doc.structure.slice(0, 10).map((node: any, idx: number) => (
+                              <div key={idx} className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                                <span className="inline-block w-4">-</span>
+                                {node.title}
+                                {node.page && <span className="ml-1 opacity-60">(p.{node.page})</span>}
+                              </div>
+                            ))}
+                            {doc.structure.length > 10 && (
+                              <div className="text-xs italic" style={{ color: 'var(--color-text-muted)' }}>
+                                ... and {doc.structure.length - 10} more sections
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                const res = await apiClient.searchDocuments({
+                                  query: `Read page 1-3 of ${doc.doc_name}`,
+                                  project_id: activeProjectId || 0,
+                                  top_k: 1,
+                                  search_mode: 'pageindex',
+                                });
+                                const data = res as any;
+                                if (data.search_mode === 'pageindex') {
+                                  setSearchResults([]);
+                                  setPageIndexDocs(data.documents || []);
+                                }
+                              } catch {}
+                            }}
+                            className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
+                            style={{ color: 'var(--color-text-primary)' }}
+                          >
+                            Browse
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Vector Results */}
+                  {searchResults.length > 0 && (
+                    <div className="space-y-3">
                     {searchResults.map((result, index) => (
                       <div key={index} className="bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg p-3">
                         <div className="flex items-center justify-between mb-2">
@@ -909,9 +1034,16 @@ export default function KnowledgeBaseView() {
                     ))}
                   </div>
                 )}
-              </div>
 
-              {/* Search History */}
+              {/* Empty State */}
+              {searchResults.length === 0 && pageIndexDocs.length === 0 && (
+                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                  No results found for "{searchQuery}"
+                </p>
+              )}
+            </div>
+
+            {/* Search History */}
               {activeProjectId && (
                 <SearchHistoryLog
                   projectId={activeProjectId}
