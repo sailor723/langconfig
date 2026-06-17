@@ -292,7 +292,7 @@ export default function LibraryContentPanel({
                               <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-text-muted)' }}>
                                 folder
                               </span>
-                              <span style={{ color: 'var(--color-text-muted)' }} className="truncate max-w-[200px]">
+                              <span style={{ color: 'var(--color-text-muted)' }}>
                                 {activeProject.project_path}
                               </span>
                             </div>
