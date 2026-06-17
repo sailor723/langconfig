@@ -1568,7 +1568,7 @@ def doc_index_list(workspace: Optional[str] = None) -> str:
     """
     List all indexed documents with metadata.
 
-    Uses PageIndex-style vectorless retrieval — no embeddings, no chunking.
+    Uses GraphIndex-style vectorless retrieval — no embeddings, no chunking.
     Returns document names, types, and page counts.
 
     Args:

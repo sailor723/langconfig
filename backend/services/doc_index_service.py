@@ -1,7 +1,7 @@
 """
-DocIndex Service — Vectorless, PageIndex-style Document Indexing & Retrieval
+DocIndex Service — Vectorless, GraphIndex-style Document Indexing & Retrieval
 
-Inspired by PageIndex (https://github.com/VectifyAI/PageIndex).
+Inspired by GraphIndex (https://github.com/VectifyAI/GraphIndex).
 
 Core idea: progressive disclosure via TOC tree navigation.
   L1: _meta.json       — all docs with summaries
@@ -15,6 +15,7 @@ import os
 import json
 import uuid
 import logging
+import re
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
@@ -22,6 +23,58 @@ logger = logging.getLogger(__name__)
 
 DOC_INDEX_DIR = "doc_index"
 META_FILE = "_meta.json"
+
+
+def _normalize_text(value: Optional[str]) -> str:
+    """Normalize text for vector-free matching."""
+    if not value:
+        return ""
+    return re.sub(r"\s+", " ", value).strip().lower()
+
+
+def _build_content_preview(pages: List[dict], max_length: int = 240) -> str:
+    """Build a short preview from the first non-empty pages."""
+    parts: List[str] = []
+    for page in pages:
+        text = (page.get("content") or "").strip()
+        if text:
+            parts.append(text)
+        if sum(len(part) for part in parts) >= max_length:
+            break
+
+    preview = " ".join(parts)
+    preview = re.sub(r"\s+", " ", preview).strip()
+    return preview[:max_length]
+
+
+def _build_search_terms(doc_name: str, structure: List[dict], pages: List[dict], preview: str) -> List[str]:
+    """Build lightweight searchable terms for metadata-first GraphIndex routing."""
+    terms: List[str] = [doc_name, preview]
+
+    def _walk(nodes: List[dict]):
+        for node in nodes:
+            title = (node.get("title") or "").strip()
+            if title:
+                terms.append(title)
+            children = node.get("children") or []
+            if children:
+                _walk(children)
+
+    _walk(structure[:20])
+
+    for page in pages[:5]:
+        content = (page.get("content") or "").strip()
+        if content:
+            terms.append(content[:200])
+
+    seen = set()
+    normalized_terms: List[str] = []
+    for term in terms:
+        normalized = _normalize_text(term)
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            normalized_terms.append(normalized)
+    return normalized_terms
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -55,16 +108,29 @@ def _extract_pdf_toc_and_pages(file_path: str) -> dict:
 
     doc_name = os.path.splitext(os.path.basename(file_path))[0]
 
-    # Build tree structure from flat TOC
-    structure = _toc_list_to_tree(raw_toc)
+    # If no TOC, create a simple structure with pages
+    if not raw_toc:
+        structure = []
+        for i in range(len(doc)):
+            structure.append({
+                "title": f"Page {i + 1}",
+                "page": i + 1,
+                "children": []
+            })
+    else:
+        # Build tree structure from flat TOC
+        structure = _toc_list_to_tree(raw_toc)
 
     doc.close()
 
+    preview = _build_content_preview(pages)
     return {
         "doc_name": doc_name,
         "page_count": len(pages),
         "structure": structure,
         "pages": pages,
+        "content_preview": preview,
+        "search_terms": _build_search_terms(doc_name, structure, pages, preview),
     }
 
 
@@ -153,12 +219,16 @@ def _extract_md_structure(file_path: str) -> dict:
             stack.append(node)
             line_count += 1
 
+    pages = [{"page": i + 1, "content": lines[i].strip()}
+             for i in range(len(lines)) if lines[i].strip()]
+    preview = _build_content_preview(pages)
     return {
         "doc_name": doc_name,
         "line_count": line_count,
         "structure": root,
-        "pages": [{"page": i + 1, "content": lines[i].strip()}
-                   for i in range(len(lines)) if lines[i].strip()],
+        "pages": pages,
+        "content_preview": preview,
+        "search_terms": _build_search_terms(doc_name, root, pages, preview),
     }
 
 
@@ -208,6 +278,8 @@ class DocIndexClient:
             "path": file_path,
             "doc_name": result["doc_name"],
             "page_count": result.get("page_count", 0),
+            "content_preview": result.get("content_preview", ""),
+            "search_terms": result.get("search_terms", []),
         }
 
         # Save full document (L2: structure + pages)
@@ -337,6 +409,25 @@ class DocIndexClient:
                     results.append(page)
                     break
         return results
+
+    def get_full_content(self, doc_id: str) -> dict:
+        """
+        Return full content of a document, including all pages.
+        
+        Returns:
+            {
+                "doc_id": str,
+                "doc_name": str,
+                "type": str,
+                "page_count": int,
+                "structure": list,
+                "pages": list of {"page": int, "content": str}
+            }
+        """
+        doc = self._load_doc(doc_id)
+        if not doc:
+            return {"error": f"Document {doc_id} not found"}
+        return doc
 
     def search(self, query: str, doc_ids: Optional[List[str]] = None) -> List[dict]:
         """

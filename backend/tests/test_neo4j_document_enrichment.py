@@ -1,5 +1,5 @@
 """
-Tests for enriching Neo4j document nodes with PageIndex metadata plus
+Tests for enriching Neo4j document nodes with GraphIndex metadata plus
 LLM-generated routing metadata.
 """
 
@@ -19,7 +19,7 @@ def test_build_project_scope_names_excludes_current_document():
     assert names == ["pricing-policy.md", "人物库.pdf"]
 
 
-def test_build_document_node_properties_keeps_pageindex_and_llm_metadata():
+def test_build_document_node_properties_keeps_graphindex_and_llm_metadata():
     enrichment = Neo4jDocumentEnrichment(
         what_this_document_is_about="Nike annual report focused on company financials.",
         supported_queries=[
@@ -46,7 +46,7 @@ def test_build_document_node_properties_keeps_pageindex_and_llm_metadata():
         file_path="/tmp/nke-10k-2023.pdf",
         description="Nike annual report",
         tags=["finance", "annual-report"],
-        pageindex_meta={
+        graphindex_meta={
             "doc_name": "nke-10k-2023",
             "page_count": 108,
             "content_preview": "Nike annual report preview",
