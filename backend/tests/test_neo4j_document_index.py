@@ -2,7 +2,7 @@
 Mock tests for a minimal Neo4j-style document index.
 
 Goal:
-- keep PageIndex in place
+- keep GraphIndex in place
 - add a tiny document index prototype beside it
 - use document name as the key and full content as the value
 - prove the minimal routing behavior before touching backend code

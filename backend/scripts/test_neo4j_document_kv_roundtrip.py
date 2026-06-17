@@ -34,7 +34,7 @@ def _get_doc_index_client():
 
 
 def _load_document_content(document) -> str:
-    """Load full content from file or existing DocIndex/PageIndex storage."""
+    """Load full content from file or existing DocIndex/GraphIndex storage."""
     from models.core import DocumentType
     from pypdf import PdfReader
 
@@ -64,8 +64,8 @@ def _load_document_content(document) -> str:
     return document.content_preview or ""
 
 
-def _load_pageindex_metadata(document) -> dict:
-    """Load lightweight PageIndex metadata for one document."""
+def _load_graphindex_metadata(document) -> dict:
+    """Load lightweight GraphIndex metadata for one document."""
     if not document.doc_index_id:
         return {}
 
@@ -105,7 +105,7 @@ def main() -> None:
         document_name: str,
         description: str,
         tags: list[str],
-        pageindex_meta: dict,
+        graphindex_meta: dict,
         content: str,
         other_document_names: list[str],
     ) -> Neo4jDocumentEnrichment:
@@ -118,10 +118,10 @@ def main() -> None:
             f"Document name: {document_name}\n"
             f"Description: {description or 'N/A'}\n"
             f"Tags: {tags or []}\n"
-            f"PageIndex doc_name: {pageindex_meta.get('doc_name', '')}\n"
-            f"PageIndex page_count: {pageindex_meta.get('page_count', 0)}\n"
-            f"PageIndex content_preview: {pageindex_meta.get('content_preview', '')}\n"
-            f"PageIndex search_terms: {pageindex_meta.get('search_terms', [])[:20]}\n"
+            f"GraphIndex doc_name: {graphindex_meta.get('doc_name', '')}\n"
+            f"GraphIndex page_count: {graphindex_meta.get('page_count', 0)}\n"
+            f"GraphIndex content_preview: {graphindex_meta.get('content_preview', '')}\n"
+            f"GraphIndex search_terms: {graphindex_meta.get('search_terms', [])[:20]}\n"
             f"Other documents in same project: {other_document_names}\n\n"
             "Return:\n"
             "1. what_this_document_is_about\n"
@@ -199,13 +199,13 @@ def main() -> None:
             if not content:
                 print(f"  - skipped (no content): {document.filename}")
                 continue
-            pageindex_meta = _load_pageindex_metadata(document)
+            graphindex_meta = _load_graphindex_metadata(document)
             enrichment = extract_document_enrichment(
                 llm=llm,
                 document_name=document.filename,
                 description=document.description or "",
                 tags=list(document.tags or []),
-                pageindex_meta=pageindex_meta,
+                graphindex_meta=graphindex_meta,
                 content=content,
                 other_document_names=build_project_scope_names(document.filename, all_document_names),
             )
@@ -217,7 +217,7 @@ def main() -> None:
                 file_path=document.file_path,
                 description=document.description or "",
                 tags=list(document.tags or []),
-                pageindex_meta=pageindex_meta,
+                graphindex_meta=graphindex_meta,
                 enrichment=enrichment,
             )
             index.upsert_document(
