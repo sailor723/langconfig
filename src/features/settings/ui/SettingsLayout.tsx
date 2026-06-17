@@ -6,6 +6,7 @@
  */
 
 import { useState, ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SettingsSidebar from './SettingsSidebar';
 
 export type SettingsCategory =
@@ -30,6 +31,8 @@ export default function SettingsLayout({
   currentCategory,
   onCategoryChange
 }: SettingsLayoutProps) {
+  const navigate = useNavigate();
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-background-light dark:bg-background-dark">
       {/* Centered Container for Sidebar + Content */}
@@ -46,6 +49,17 @@ export default function SettingsLayout({
           <div className="flex-1 overflow-y-auto">
             <div className="px-6 py-6">
               {children}
+              {/* Close button at bottom */}
+              <div className="flex justify-center pt-4">
+                <button
+                  onClick={() => navigate('/')}
+                  className="flex items-center gap-1.5 px-6 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-border-dark hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  <span className="material-symbols-outlined text-base">close</span>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
