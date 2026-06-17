@@ -51,7 +51,7 @@ GET /api/chat/health - Returns session manager stats and validates consistency
 
 import logging
 import uuid
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
@@ -1639,7 +1639,7 @@ async def index_session_document_background(document_id: int, agent_id: int):
             db.close()
 
 
-def _extract_file_text(content: bytes, filename: str) -> str:
+def _extract_file_text(content: bytes, filename: str, max_chars: int = 1_000_000) -> str:
     """Extract text from various file types (PDF, DOCX, PPTX, MD, TXT, etc.)."""
     import io
     ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ""
@@ -1652,8 +1652,8 @@ def _extract_file_text(content: bytes, filename: str) -> str:
                     'c', 'cpp', 'h', 'hpp', 'rtf', 'tex', 'toml',
                     'ini', 'cfg', 'conf', 'log'):
             text = content.decode('utf-8', errors='replace')
-            if len(text) > 100000:
-                text = text[:100000] + "\n\n[...truncated]"
+            if len(text) > max_chars:
+                text = text[:max_chars] + "\n\n[...truncated]"
             return text
 
         # --- CSV ---
@@ -1668,8 +1668,8 @@ def _extract_file_text(content: bytes, filename: str) -> str:
                     rows.append('... (truncated)')
                     break
             result = '\n'.join(rows)
-            if len(result) > 100000:
-                result = result[:100000] + "\n\n[...truncated]"
+            if len(result) > max_chars:
+                result = result[:max_chars] + "\n\n[...truncated]"
             return result
 
         # --- PDF ---
@@ -1683,8 +1683,8 @@ def _extract_file_text(content: bytes, filename: str) -> str:
                     pages.append(f"--- Page {i}/{len(reader.pages)} ---\n{text.strip()}")
             if pages:
                 full_text = "\n\n".join(pages)
-                if len(full_text) > 100000:
-                    full_text = full_text[:100000] + "\n\n[...truncated]"
+                if len(full_text) > max_chars:
+                    full_text = full_text[:max_chars] + "\n\n[...truncated]"
                 return full_text
             return "[Empty PDF]"
 
@@ -1702,8 +1702,8 @@ def _extract_file_text(content: bytes, filename: str) -> str:
                 for row in table.rows:
                     cells = [cell.text.strip() for cell in row.cells]
                     text += '\n' + ' | '.join(cells)
-            if len(text) > 100000:
-                text = text[:100000] + "\n\n[...truncated]"
+            if len(text) > max_chars:
+                text = text[:max_chars] + "\n\n[...truncated]"
             return text if text.strip() else "[Empty DOCX]"
 
         # --- PPTX ---
@@ -1724,8 +1724,8 @@ def _extract_file_text(content: bytes, filename: str) -> str:
                             slide_lines.append(' | '.join(cells))
                 slides_text.append('\n'.join(slide_lines))
             text = '\n\n'.join(slides_text)
-            if len(text) > 100000:
-                text = text[:100000] + "\n\n[...truncated]"
+            if len(text) > max_chars:
+                text = text[:max_chars] + "\n\n[...truncated]"
             return text if text.strip() else "[Empty PPTX]"
 
         return f"[Unsupported file type: .{ext}]"
@@ -1735,35 +1735,156 @@ def _extract_file_text(content: bytes, filename: str) -> str:
         return f"[Text extraction failed: {e}]"
 
 
+async def _index_to_graphindex_for_chat(
+    project_id: int,
+    file_content: bytes,
+    filename: str,
+    file_path: str,
+    file_size: int,
+    mime_type: str,
+    file_text: str,
+):
+    """
+    Background: Index a chat-uploaded file into GraphIndex (Neo4j).
+
+    Deduplicates by SHA256 content hash first, then filename as fallback.
+    If the exact same content already exists in the project, reuses it.
+    Otherwise creates a new ContextDocument and syncs to Neo4j.
+    """
+    import logging
+    import hashlib
+    logger = logging.getLogger(__name__)
+    try:
+        from db.database import SessionLocal
+        from models.core import ContextDocument, DocumentType, IndexingStatus
+        from services.file_storage import file_storage
+
+        content_hash = hashlib.sha256(file_content).hexdigest()
+
+        db = SessionLocal()
+        try:
+            # Dedup: check by content hash first (precise)
+            existing = db.query(ContextDocument).filter(
+                ContextDocument.project_id == project_id,
+                ContextDocument.content_hash == content_hash,
+                ContextDocument.indexing_status != IndexingStatus.FAILED,
+            ).first()
+
+            # Fallback: check by filename (user may re-upload same name, different content)
+            if not existing:
+                existing = db.query(ContextDocument).filter(
+                    ContextDocument.project_id == project_id,
+                    ContextDocument.filename == filename,
+                    ContextDocument.indexing_status != IndexingStatus.FAILED,
+                ).first()
+
+            if existing:
+                # Update hash if it was missing (backfill for old docs)
+                if not existing.content_hash:
+                    existing.content_hash = content_hash
+
+                logger.info(f"Dedup ({'hash' if existing.content_hash == content_hash else 'filename'}): "
+                           f"reusing ContextDocument {existing.id} for {filename}")
+                # Re-index if not already indexing
+                if existing.indexing_status != IndexingStatus.INDEXING:
+                    existing.indexing_status = IndexingStatus.NOT_INDEXED
+                    db.commit()
+                    from api.knowledge.rag import index_document_background
+                    await index_document_background(existing.id)
+                    logger.info(f"Re-indexed existing doc {existing.id}: {filename}")
+                else:
+                    db.commit()
+                return
+
+            # Save file to project storage
+            project_file_path = file_storage.save_file(project_id, filename, file_content)
+
+            doc = ContextDocument(
+                project_id=project_id,
+                filename=filename,
+                original_filename=filename,
+                file_path=project_file_path,
+                file_size=file_size,
+                mime_type=mime_type,
+                content_hash=content_hash,
+                document_type=DocumentType.PDF if filename.lower().endswith('.pdf') else DocumentType.TEXT,
+                indexing_status=IndexingStatus.INDEXING,
+                description=f"Uploaded via chat: {filename}",
+            )
+            db.add(doc)
+            db.commit()
+            db.refresh(doc)
+
+            # Trigger full indexing (GraphIndex + vector)
+            from api.knowledge.rag import index_document_background
+            await index_document_background(doc.id)
+
+            logger.info(f"GraphIndex indexing completed for chat-uploaded doc {doc.id}: {filename}")
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Failed to index chat-uploaded file to GraphIndex: {e}")
+
+
 @router.post("/{session_id}/upload", response_model=SessionDocumentResponse)
 async def upload_file_to_session(
     session_id: str,
     file: UploadFile = File(...),
     background_tasks: BackgroundTasks = BackgroundTasks(),
+    project_id: Optional[int] = Query(None, description="Project ID for GraphIndex indexing"),
     db: Session = Depends(get_db)
 ):
     """
-    Upload a file to a chat session for agent context.
-
-    Files are indexed for semantic search and available to the agent
-    in this session only (session-scoped RAG).
+    Upload a single file to a chat session for agent context.
     """
+    result = await _process_single_chat_upload(session_id, file, background_tasks, project_id, db)
+    return result
+
+
+@router.post("/{session_id}/upload-multiple", response_model=List[SessionDocumentResponse])
+async def upload_multiple_files_to_session(
+    session_id: str,
+    files: List[UploadFile] = File(..., description="Multiple files to upload"),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    project_id: Optional[int] = Query(None, description="Project ID for GraphIndex indexing"),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload multiple files to a chat session at once. Each file is extracted,
+    injected as a separate context message, and optionally indexed to GraphIndex.
+    """
+    results = []
+    for file in files:
+        try:
+            result = await _process_single_chat_upload(session_id, file, background_tasks, project_id, db)
+            results.append(result)
+        except Exception as e:
+            logger.error(f"Failed to upload {file.filename} in batch: {e}")
+            # Continue with other files
+    return results
+
+
+async def _process_single_chat_upload(
+    session_id: str,
+    file: UploadFile,
+    background_tasks: BackgroundTasks,
+    project_id: Optional[int],
+    db: Session,
+) -> SessionDocumentResponse:
+    """Process a single file upload for chat: save, extract, inject as context message."""
     from services.file_storage import file_storage
 
-    # Verify session exists
     session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Read file
     content = await file.read()
     file_size = len(content)
 
-    # Save file to disk (session-scoped storage)
+    # Save file to session-scoped storage
     file_path = file_storage.save_file(f"chat_sessions/{session_id}", file.filename, content)
 
-    # Also copy files to the sandbox workspace (outputs/default/) so the agent
-    # can access them via read_file / execute for data analysis.
+    # Copy to sandbox workspace for agent access
     sandbox_exts = ('.csv', '.pdf', '.docx', '.pptx', '.md', '.txt', '.json', '.py', '.js', '.ts', '.tsx', '.jsx')
     if file.filename.lower().endswith(sandbox_exts):
         try:
@@ -1776,21 +1897,13 @@ async def upload_file_to_session(
         except Exception as e:
             logger.warning(f"Failed to copy {file.filename} to sandbox: {e}")
 
-    # Detect document type from file extension
+    # Detect document type
     file_ext = file.filename.split('.')[-1].lower()
     doc_type_map = {
-        'txt': DocumentType.TEXT,
-        'md': DocumentType.MARKDOWN,
-        'pdf': DocumentType.PDF,
-        'json': DocumentType.JSON,
-        'py': DocumentType.CODE,
-        'js': DocumentType.CODE,
-        'ts': DocumentType.CODE,
-        'tsx': DocumentType.CODE,
-        'jsx': DocumentType.CODE,
-        'docx': DocumentType.TEXT,
-        'pptx': DocumentType.TEXT,
-        'csv': DocumentType.TEXT,
+        'txt': DocumentType.TEXT, 'md': DocumentType.MARKDOWN, 'pdf': DocumentType.PDF,
+        'json': DocumentType.JSON, 'py': DocumentType.CODE, 'js': DocumentType.CODE,
+        'ts': DocumentType.CODE, 'tsx': DocumentType.CODE, 'jsx': DocumentType.CODE,
+        'docx': DocumentType.TEXT, 'pptx': DocumentType.TEXT, 'csv': DocumentType.TEXT,
     }
     document_type = doc_type_map.get(file_ext, DocumentType.TEXT)
 
@@ -1810,7 +1923,7 @@ async def upload_file_to_session(
     db.commit()
     db.refresh(doc)
 
-    # For supported document types, extract text immediately and store as session message
+    # Extract text and inject as session message
     extractable_exts = {'.pdf', '.md', '.txt', '.json', '.py', '.js', '.ts', '.tsx', '.jsx', '.csv',
                         '.docx', '.pptx', '.yaml', '.yml', '.xml', '.html', '.htm', '.css', '.scss',
                         '.sql', '.sh', '.bash', '.rb', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.hpp',
@@ -1834,8 +1947,22 @@ async def upload_file_to_session(
         })
         flag_modified(session, "messages")
         db.commit()
+
+        # If project_id provided, index to GraphIndex asynchronously
+        if project_id and file_ext in ('pdf', 'md', 'txt'):
+            import asyncio
+            asyncio.create_task(
+                _index_to_graphindex_for_chat(
+                    project_id=project_id,
+                    file_content=content,
+                    filename=file.filename,
+                    file_path=file_path,
+                    file_size=file_size,
+                    mime_type=file.content_type,
+                    file_text=file_text,
+                )
+            )
     else:
-        # Queue background indexing for non-extractable files
         background_tasks.add_task(index_session_document_background, doc.id, session.agent_id)
 
     return SessionDocumentResponse(
@@ -1849,7 +1976,7 @@ async def upload_file_to_session(
         indexing_status=doc.indexing_status.value,
         uploaded_at=doc.uploaded_at,
         message_index=doc.message_index,
-        indexed_chunks_count=doc.indexed_chunks_count
+        indexed_chunks_count=doc.indexed_chunks_count,
     )
 
 
