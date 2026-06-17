@@ -547,6 +547,10 @@ class APIClient {
     return this.client.get('/api/settings/models');
   }
 
+  async getAvailableEmbeddingModels() {
+    return this.client.get('/api/settings/embedding-models');
+  }
+
   async modelInvoke(data: {
     model: string;
     message: string;
