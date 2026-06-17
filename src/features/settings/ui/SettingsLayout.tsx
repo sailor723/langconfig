@@ -14,6 +14,7 @@ export type SettingsCategory =
   | 'local-models'
   | 'local-workspace'
   | 'model-defaults'
+  | 'embedding'
   | 'backend'
   | 'workflow'
   | 'general'

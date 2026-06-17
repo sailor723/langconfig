@@ -22,6 +22,7 @@ interface MenuSection {
 const menuSections: MenuSection[] = [
   { id: 'general', labelKey: 'settings_general', icon: 'tune' },
   { id: 'api-keys', labelKey: 'settings_api_keys', icon: 'key' },
+  { id: 'embedding', labelKey: 'settings_embedding', icon: 'database' },
   { id: 'model-defaults', labelKey: 'settings_model_defaults', icon: 'psychology' },
   { id: 'local-models', labelKey: 'settings_local_models', icon: 'computer' },
   { id: 'local-workspace', labelKey: 'settings_local_workspace', icon: 'folder_open' },

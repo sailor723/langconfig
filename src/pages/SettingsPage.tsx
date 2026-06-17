@@ -14,7 +14,7 @@ import SettingsLayout, { SettingsCategory } from "../features/settings/ui/Settin
 import LocalModelsSettings from "../features/settings/ui/LocalModelsSettings";
 import LocalWorkspaceSettings from "../features/settings/ui/LocalWorkspaceSettings";
 import ModelDefaultsSettings from '../features/settings/ui/ModelDefaultsSettings';
-import SettingsSection, { SettingsInput } from '../features/settings/ui/SettingsSection';
+import SettingsSection, { SettingsInput, SettingsSelect } from '../features/settings/ui/SettingsSection';
 
 export default function SettingsView() {
   const { t } = useTranslation('chat');
@@ -329,6 +329,15 @@ export default function SettingsView() {
               require_approval: workspaceSettings.requireApproval,
               auto_detect_git: workspaceSettings.autoDetectGit,
               backup_before_edit: workspaceSettings.backupBeforeEdit
+            });
+            break;
+
+          case 'embedding':
+            if (!ragSettings) return;
+            await apiClient.updateSettings({
+              embedding_model: ragSettings.embeddingModel,
+              chunk_size: ragSettings.chunkSize,
+              chunk_overlap: ragSettings.chunkOverlap
             });
             break;
 
@@ -1168,6 +1177,51 @@ export default function SettingsView() {
               autoSave('local-workspace');
             }}
           />
+        );
+
+      case 'embedding':
+        if (!ragSettings) return null;
+        return (
+          <SettingsSection
+            title="Embedding Configuration"
+            description="Configure vector embedding model and chunking settings for RAG document indexing."
+            icon="database"
+          >
+            <SettingsSelect
+              label="Embedding Model"
+              value={ragSettings.embeddingModel}
+              onChange={(value) => {
+                setRagSettings({ ...ragSettings, embeddingModel: value });
+                autoSave('embedding');
+              }}
+              options={[
+                { value: 'text-embedding-3-large', label: 'text-embedding-3-large' },
+                { value: 'text-embedding-3-small', label: 'text-embedding-3-small' },
+                { value: 'text-embedding-ada-002', label: 'text-embedding-ada-002' },
+              ]}
+              description="The embedding model used to vectorize documents for semantic search."
+            />
+            <SettingsInput
+              label="Chunk Size"
+              type="number"
+              value={ragSettings.chunkSize.toString()}
+              onChange={(value) => {
+                setRagSettings({ ...ragSettings, chunkSize: parseInt(value) || 1000 });
+                autoSave('embedding');
+              }}
+              description="Maximum number of characters per document chunk."
+            />
+            <SettingsInput
+              label="Chunk Overlap"
+              type="number"
+              value={ragSettings.chunkOverlap.toString()}
+              onChange={(value) => {
+                setRagSettings({ ...ragSettings, chunkOverlap: parseInt(value) || 200 });
+                autoSave('embedding');
+              }}
+              description="Number of overlapping characters between consecutive chunks."
+            />
+          </SettingsSection>
         );
 
       case 'model-defaults':
