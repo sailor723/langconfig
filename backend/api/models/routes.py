@@ -6,18 +6,27 @@ Supports all model types: DeepSeek, OpenAI, Anthropic, Google, and local models.
 """
 
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional
+from sqlalchemy.orm import Session
 
-from config import settings
+from db.database import get_db
+from models.model import Model
+from models.settings import Settings as SettingsModel
 from langchain_openai import ChatOpenAI
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
+from services.encryption import encryption_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/models", tags=["models"])
+
+OPENAI_COMPATIBLE_PROVIDER_BASE_URLS = {
+    "glm": "https://open.bigmodel.cn/api/paas/v4/",
+    "minimax": "https://api.minimax.chat/v1",
+}
 
 
 class ModelInvokeRequest(BaseModel):
@@ -34,54 +43,102 @@ class ModelInvokeResponse(BaseModel):
     model: str
 
 
-def _create_llm_for_playground(model_name: str, temperature: float, max_tokens: Optional[int]):
+def _get_settings_row(db: Session) -> SettingsModel:
+    """Read the single runtime settings row from PostgreSQL."""
+    settings_row = db.query(SettingsModel).filter(SettingsModel.id == 1).first()
+    if not settings_row:
+        raise HTTPException(
+            status_code=400,
+            detail="Settings row not found. Configure Settings before invoking a model.",
+        )
+    return settings_row
+
+
+def _resolve_model_name(model_name: Optional[str], db: Session) -> str:
+    """Resolve the explicit model or the DB-backed default model."""
+    if model_name:
+        return model_name
+
+    settings_row = _get_settings_row(db)
+    if settings_row.default_model:
+        return settings_row.default_model
+
+    raise HTTPException(
+        status_code=400,
+        detail="Default model is not configured in PostgreSQL Settings.",
+    )
+
+
+def _get_active_model_row(db: Session, model_name: str) -> Optional[Model]:
+    """Fetch the active model record from PostgreSQL."""
+    return (
+        db.query(Model)
+        .filter(
+            Model.model_id == model_name,
+            Model.is_active.is_(True),
+        )
+        .first()
+    )
+
+
+def _get_decrypted_setting_value(settings_row: SettingsModel, key_name: str) -> Optional[str]:
+    """Decrypt a provider credential stored in settings.api_keys."""
+    encrypted_value = (settings_row.api_keys or {}).get(key_name)
+    if not encrypted_value:
+        return None
+    return encryption_service.decrypt(encrypted_value)
+
+
+def _create_openai_compatible_llm(
+    model_name: str,
+    temperature: float,
+    max_tokens: Optional[int],
+    api_key: str,
+    base_url: str,
+):
+    """Create an OpenAI-compatible client for providers that expose custom base URLs."""
+    return ChatOpenAI(
+        model=model_name,
+        base_url=base_url,
+        api_key=api_key,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        streaming=False,
+    )
+
+
+def _create_llm_for_playground(
+    model_name: str,
+    temperature: float,
+    max_tokens: Optional[int],
+    db: Session,
+):
     """
     Create an LLM instance for the playground.
-    Mirrors the provider logic from AgentFactory._create_llm().
+    Reads model metadata and provider credentials from PostgreSQL.
     """
     streaming = False  # Non-streaming for simplicity
 
-    # --- Look up provider from models DB table (single source of truth) ---
-    db_provider = None
-    try:
-        from db.database import SessionLocal
-        from models.model import Model
-        db = SessionLocal()
-        try:
-            model_row = db.query(Model).filter(
-                Model.model_id == model_name,
-                Model.is_active == True
-            ).first()
-            if model_row and model_row.source == 'cloud':
-                db_provider = model_row.provider
-        finally:
-            db.close()
-    except Exception:
-        pass
+    resolved_model_name = _resolve_model_name(model_name, db)
+    settings_row = _get_settings_row(db)
+    model_row = _get_active_model_row(db, resolved_model_name)
 
-    # DeepSeek Models
-    if db_provider == "deepseek" or model_name.startswith("deepseek"):
-        if not settings.DEEPSEEK_API_KEY:
-            raise HTTPException(status_code=400, detail="DEEPSEEK_API_KEY not configured")
-        return init_chat_model(
-            model=model_name,
-            model_provider="deepseek",
-            temperature=temperature,
-            max_tokens=max_tokens,
-            api_key=settings.DEEPSEEK_API_KEY,
-            streaming=streaming,
-        )
-
-    # Local Models
-    if model_name.startswith("local-") or any(
-        model_name.startswith(f"{p}-") for p in ["ollama", "lmstudio", "vllm", "litellm"]
+    if resolved_model_name.startswith("local-") or (
+        model_row and model_row.source == "local"
+    ) or any(
+        resolved_model_name.startswith(f"{provider}-")
+        for provider in ["ollama", "lmstudio", "vllm", "litellm"]
     ):
         from services.local_model_service import LocalModelService
-        local_config = LocalModelService.get_local_model_config(model_name)
+
+        local_config = LocalModelService.get_local_model_config(resolved_model_name)
         if not local_config:
             raise HTTPException(
                 status_code=400,
-                detail=f"Local model '{model_name}' not found. Configure it in Settings > Local Models."
+                detail=(
+                    f"Local model '{resolved_model_name}' not found. "
+                    "Configure it in Settings > Local Models."
+                ),
             )
         return ChatOpenAI(
             model=local_config.model_name,
@@ -93,79 +150,73 @@ def _create_llm_for_playground(model_name: str, temperature: float, max_tokens: 
             timeout=local_config.timeout,
         )
 
-    # Agnes AI (OpenAI-compatible with custom base_url)
-    if db_provider == "agnes" or model_name.startswith("agnes"):
-        api_key = settings.AGNES_API_KEY
-        base_url = settings.AGNES_BASE_URL or "https://apihub.agnes-ai.com/v1"
-        if not api_key:
-            raise HTTPException(status_code=400, detail="AGNES_API_KEY not configured")
-        return ChatOpenAI(
-            model=model_name,
-            base_url=base_url,
-            api_key=api_key,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            streaming=streaming,
+    if not model_row:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown model: {resolved_model_name}. Check available models in Settings.",
         )
 
-    # Standard Providers via init_chat_model
-    if db_provider == "openai" or model_name.startswith("gpt"):
-        provider = "openai"
-        api_key = settings.OPENAI_API_KEY
-        base_url = getattr(settings, "OPENAI_API_BASE", None)
-    elif db_provider == "anthropic" or model_name.startswith("claude"):
-        provider = "anthropic"
-        api_key = settings.ANTHROPIC_API_KEY
-        base_url = None
-    elif db_provider == "google" or model_name.startswith("gemini"):
-        provider = "google_genai"
-        api_key = settings.GOOGLE_API_KEY or settings.GEMINI_API_KEY
-        base_url = None
-    else:
-        # Fallback: try DB provider as OpenAI-compatible
-        if db_provider:
-            from db.database import SessionLocal
-            from models.model import Model
-            pdb = SessionLocal()
-            try:
-                model_row = pdb.query(Model).filter(
-                    Model.model_id == model_name
-                ).first()
-                provider = "openai"
-                api_key = getattr(settings, f"{db_provider.upper()}_API_KEY", None)
-                base_url = getattr(settings, f"{db_provider.upper()}_BASE_URL", None)
-            finally:
-                pdb.close()
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unknown model: {model_name}. Check available models in Settings."
-            )
-
+    provider = model_row.provider
+    api_key = _get_decrypted_setting_value(settings_row, provider)
     if not api_key:
         raise HTTPException(
             status_code=400,
-            detail=f"API key required for {model_name} (provider: {provider}). Add it in Settings > API Keys."
+            detail=(
+                f"API key required for {resolved_model_name} (provider: {provider}). "
+                "Add it in Settings > API Keys."
+            ),
+        )
+
+    if provider == "deepseek":
+        return init_chat_model(
+            model=resolved_model_name,
+            model_provider="deepseek",
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_key=api_key,
+            streaming=streaming,
+        )
+
+    if provider == "agnes":
+        base_url = _get_decrypted_setting_value(settings_row, "agnes_base_url") or model_row.base_url
+        if not base_url:
+            raise HTTPException(
+                status_code=400,
+                detail="Agnes base URL must be configured in PostgreSQL Settings.",
+            )
+        return _create_openai_compatible_llm(
+            model_name=resolved_model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_key=api_key,
+            base_url=base_url,
+        )
+
+    if provider in OPENAI_COMPATIBLE_PROVIDER_BASE_URLS:
+        return _create_openai_compatible_llm(
+            model_name=resolved_model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_key=api_key,
+            base_url=OPENAI_COMPATIBLE_PROVIDER_BASE_URLS[provider],
         )
 
     init_kwargs = {
-        "model": model_name,
-        "model_provider": provider,
+        "model": resolved_model_name,
+        "model_provider": "google_genai" if provider == "google" else provider,
         "temperature": temperature,
         "max_tokens": max_tokens,
         "api_key": api_key,
         "streaming": streaming,
     }
-    if base_url:
-        init_kwargs["base_url"] = base_url
-    if provider == "google_genai":
+    if provider == "google":
         init_kwargs["convert_system_message_to_human"] = True
 
     return init_chat_model(**init_kwargs)
 
 
 @router.post("/invoke", response_model=ModelInvokeResponse)
-async def model_invoke(request: ModelInvokeRequest):
+async def model_invoke(request: ModelInvokeRequest, db: Session = Depends(get_db)):
     """
     Direct model invocation — no agent, no tools.
 
@@ -176,7 +227,13 @@ async def model_invoke(request: ModelInvokeRequest):
     Use this from the Playground UI to test any configured model.
     """
     try:
-        llm = _create_llm_for_playground(request.model, request.temperature, request.max_tokens)
+        resolved_model_name = _resolve_model_name(request.model, db)
+        llm = _create_llm_for_playground(
+            resolved_model_name,
+            request.temperature,
+            request.max_tokens,
+            db,
+        )
 
         messages = []
         if request.system_prompt:
@@ -196,7 +253,7 @@ async def model_invoke(request: ModelInvokeRequest):
         return ModelInvokeResponse(
             content=response.content,
             usage=usage_meta,
-            model=request.model,
+            model=resolved_model_name,
         )
 
     except HTTPException:
