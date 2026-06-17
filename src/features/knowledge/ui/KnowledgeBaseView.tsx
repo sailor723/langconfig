@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Upload, FileText, Trash2, Search, Database, Filter, Loader } from 'lucide-react';
+import { Upload, FileText, Trash2, Search, Database, Filter, Loader, RefreshCw } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 import { useProject } from "../../../contexts/ProjectContext";
 import SearchMetricsDisplay from './SearchMetricsDisplay';
@@ -64,6 +64,7 @@ export default function KnowledgeBaseView() {
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -101,14 +102,41 @@ export default function KnowledgeBaseView() {
     };
   }, [selectedStatus, activeProjectId]);
 
-  const loadDocuments = async (signal?: AbortSignal) => {
+  // Poll for document status updates every 2 seconds if there are indexing docs
+  useEffect(() => {
+    const hasIndexingDocs = documents.some(doc => doc.indexing_status === 'indexing');
+    
+    if (!hasIndexingDocs) return;
+
+    const interval = setInterval(() => {
+      loadDocuments();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [documents]);
+
+  useEffect(() => {
+    if (documents.length === 0) {
+      if (selectedDocId !== null) setSelectedDocId(null);
+      return;
+    }
+
+    const selectedStillExists = documents.some(doc => doc.id === selectedDocId);
+    if (selectedStillExists) return;
+
+    const firstReadyDoc = documents.find(doc => doc.indexing_status === 'ready');
+    setSelectedDocId(firstReadyDoc?.id ?? documents[0].id);
+  }, [documents, selectedDocId]);
+
+  const loadDocuments = async (signal?: AbortSignal, overrideStatus?: string) => {
     if (!activeProjectId) return;
 
     try {
       setLoading(true);
       const params: any = { project_id: activeProjectId };
-      if (selectedStatus !== 'all') {
-        params.status = selectedStatus;
+      const effectiveStatus = overrideStatus ?? selectedStatus;
+      if (effectiveStatus !== 'all') {
+        params.status = effectiveStatus;
       }
       const response = await apiClient.listDocuments({ ...params, signal });
       setDocuments(response.data);
@@ -194,7 +222,8 @@ export default function KnowledgeBaseView() {
         }
       }
 
-      await loadDocuments();
+      setSelectedStatus('all');
+      await loadDocuments(undefined, 'all');
       setUploadName('');
       setUploadDescription('');
       setUploadTags('');
@@ -240,6 +269,10 @@ export default function KnowledgeBaseView() {
 
   const handleSearch = async () => {
     if (!searchQuery.trim() || !activeProjectId) return;
+    if ((searchMode === 'vector' || compareMode) && !selectedDocId) {
+      alert('Please select a ready document first for Vector RAG search.');
+      return;
+    }
 
     try {
       setSearching(true);
@@ -273,7 +306,10 @@ export default function KnowledgeBaseView() {
         if (data2.search_mode === 'pageindex') {
           setComparisonResults([]);
         } else {
-          setComparisonResults(data2.results || []);
+          const vectorResults = (data2.results || []).filter((result: SearchResult) =>
+            selectedDocId ? result.document_id === selectedDocId : true
+          );
+          setComparisonResults(vectorResults);
         }
         if (data2.metrics) setComparisonMetrics(data2.metrics);
 
@@ -291,8 +327,11 @@ export default function KnowledgeBaseView() {
           setPageIndexDocs(data.documents || []);
           setSearchMetrics(null);
         } else {
+          const vectorResults = (data.results || []).filter((result: SearchResult) =>
+            selectedDocId ? result.document_id === selectedDocId : true
+          );
           setPageIndexDocs([]);
-          setSearchResults(data.results || []);
+          setSearchResults(vectorResults);
           setSearchMetrics(data.metrics || null);
         }
         setComparisonMetrics(null);
@@ -335,16 +374,13 @@ export default function KnowledgeBaseView() {
     setExpandedChunks(newExpanded);
   };
 
-  const filteredDocuments = documents.filter(doc => {
-    if (!doc.name) return false;
-    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
-
   const totalDocuments = documents.length;
   const totalChunks = documents.reduce((sum, doc) => sum + (doc.chunk_count || 0), 0);
   const totalSize = documents.reduce((sum, doc) => sum + (doc.size || 0), 0);
   const readyCount = documents.filter(d => d.indexing_status === 'ready').length;
+  const selectedDoc = documents.find(doc => doc.id === selectedDocId) ?? null;
+  const readyDocuments = documents.filter(doc => doc.indexing_status === 'ready');
+  const notReadyDocuments = documents.filter(doc => doc.indexing_status !== 'ready');
 
   const getStatusDisplay = (status: string) => {
     switch (status) {
@@ -481,343 +517,402 @@ export default function KnowledgeBaseView() {
         </div>
       </div>
 
-      {/* Main layout: left = upload + doc grid, right = stats + search */}
-      <div className="flex-1 overflow-hidden flex gap-4 p-4">
-        {/* ===== Left Column ===== */}
-        <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+      <div className="flex-1 overflow-hidden p-4">
+        <div
+          className={`border-2 border-dashed rounded-lg p-2.5 mb-3 transition-all ${isDragging
+            ? 'border-primary bg-primary/5'
+            : 'border-gray-300 dark:border-border-dark bg-white dark:bg-panel-dark'
+            }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              {uploading ? (
+                <Loader className="w-4 h-4 text-primary animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 text-primary" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
+                {uploading ? t('kb_uploading') : t('kb_upload_drop')}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-xs font-medium">
+                <Upload className="w-3.5 h-3.5" />
+                <span>{t('kb_browse')}</span>
+                <input type="file" multiple accept={SUPPORTED_FILES}
+                  onChange={(e) => { setIsFolderUpload(false); handleFileSelect(e.target.files); }}
+                  className="hidden" disabled={uploading} />
+              </label>
+              <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-600 text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-xs font-medium">
+                <Database className="w-3.5 h-3.5" />
+                <span>{t('kb_select_folder')}</span>
+                <input type="file" // @ts-ignore - webkitdirectory is not in TS types
+                  webkitdirectory="" directory="" multiple
+                  onChange={(e) => { setIsFolderUpload(true); handleFileSelect(e.target.files); }}
+                  className="hidden" disabled={uploading} />
+              </label>
+            </div>
+          </div>
+        </div>
 
-          {/* Upload area - compact */}
-          <div
-            className={`border-2 border-dashed rounded-lg p-2.5 transition-all ${isDragging
-              ? 'border-primary bg-primary/5'
-              : 'border-gray-300 dark:border-border-dark bg-white dark:bg-panel-dark'
-              }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                {uploading ? (
-                  <Loader className="w-4 h-4 text-primary animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4 text-primary" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
-                  {uploading ? t('kb_uploading') : t('kb_upload_drop')}
+        <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg px-3 py-1.5 mb-3">
+          <div className="flex items-center gap-4 text-[11px]">
+            <div className="flex items-center gap-1">
+              <FileText className="w-3 h-3" style={{ color: 'var(--color-primary)' }} />
+              <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_documents')}:</span>
+              <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{totalDocuments}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Filter className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
+              <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_indexed')}:</span>
+              <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{readyCount}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Database className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
+              <span style={{ color: 'var(--color-text-muted)' }}>Chunks:</span>
+              <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{totalChunks}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Database className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
+              <span style={{ color: 'var(--color-text-muted)' }}>Storage:</span>
+              <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{formatFileSize(totalSize)}</span>
+            </div>
+            <button
+              onClick={() => loadDocuments()}
+              className="ml-auto flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-all"
+              style={{ color: 'var(--color-text-primary)' }}
+              title="Refresh document statuses"
+            >
+              <RefreshCw className="w-3 h-3" style={{ color: 'var(--color-primary)' }} />
+              <span className="text-[11px]">Refresh</span>
+            </button>
+            <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
+              className="px-1.5 py-0.5 border border-gray-200 dark:border-border-dark rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
+              style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
+              <option value="all">{t('kb_all')}</option>
+              <option value="ready">{t('kb_indexed')}</option>
+              <option value="indexing">Processing</option>
+              <option value="not_indexed">Pending</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex h-[calc(100%-108px)] gap-4">
+          <div className="w-72 flex-shrink-0 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Documents</h3>
+                <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                  Vector RAG uses the selected ready doc
                 </p>
               </div>
-              <div className="flex items-center gap-1.5">
-                <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-xs font-medium">
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>{t('kb_browse')}</span>
-                  <input type="file" multiple accept={SUPPORTED_FILES}
-                    onChange={(e) => { setIsFolderUpload(false); handleFileSelect(e.target.files); }}
-                    className="hidden" disabled={uploading} />
-                </label>
-                <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-600 text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-xs font-medium">
-                  <Database className="w-3.5 h-3.5" />
-                  <span>{t('kb_select_folder')}</span>
-                  <input type="file" // @ts-ignore - webkitdirectory is not in TS types
-                    webkitdirectory="" directory="" multiple
-                    onChange={(e) => { setIsFolderUpload(true); handleFileSelect(e.target.files); }}
-                    className="hidden" disabled={uploading} />
-                </label>
-              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10" style={{ color: 'var(--color-text-muted)' }}>
+                {documents.length}
+              </span>
             </div>
-          </div>
 
-          {/* Stats bar - compact horizontal */}
-          <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg px-3 py-1.5">
-            <div className="flex items-center gap-4 text-[11px]">
-              <div className="flex items-center gap-1">
-                <FileText className="w-3 h-3" style={{ color: 'var(--color-primary)' }} />
-                <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_documents')}:</span>
-                <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{totalDocuments}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Filter className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
-                <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_indexed')}:</span>
-                <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{readyCount}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Database className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
-                <span style={{ color: 'var(--color-text-muted)' }}>Chunks:</span>
-                <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{totalChunks}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Database className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
-                <span style={{ color: 'var(--color-text-muted)' }}>Storage:</span>
-                <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{formatFileSize(totalSize)}</span>
-              </div>
-              <div className="ml-auto">
-                <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="px-1.5 py-0.5 border border-gray-200 dark:border-border-dark rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-                  style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
-                  <option value="all">{t('kb_all')}</option>
-                  <option value="ready">{t('kb_indexed')}</option>
-                  <option value="indexing">Processing</option>
-                  <option value="not_indexed">Pending</option>
-                  <option value="failed">Failed</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Document Cards Grid - 7 per row */}
-          <div className="max-h-[200px] overflow-y-auto">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <Loader className="w-8 h-8 text-primary mx-auto mb-1.5 animate-spin" />
-                  <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{t('kb_loading')}</p>
+            <div className="flex-1 overflow-y-auto space-y-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+                    Ready
+                  </h4>
+                  <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{readyDocuments.length}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {readyDocuments.map(doc => (
+                    <button
+                      key={doc.id}
+                      onClick={() => setSelectedDocId(doc.id)}
+                      className={`w-full text-left rounded-lg border px-2.5 py-2 transition-all ${
+                        selectedDocId === doc.id
+                          ? 'border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10'
+                          : 'border-gray-200 dark:border-border-dark hover:bg-gray-50 dark:hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                            {doc.name}
+                          </div>
+                          <div className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                            {formatFileSize(doc.size)} · {doc.chunk_count || 0} chunks
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(doc.id);
+                          }}
+                          className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10"
+                          style={{ color: 'var(--color-text-muted)' }}
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </button>
+                  ))}
+                  {readyDocuments.length === 0 && (
+                    <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>No ready documents</p>
+                  )}
                 </div>
               </div>
-            ) : filteredDocuments.length === 0 ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <FileText className="w-8 h-8 mx-auto mb-1.5 opacity-50" style={{ color: 'var(--color-text-muted)' }} />
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('kb_empty')}</p>
-                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                    {searchQuery ? t('kb_no_results', { query: searchQuery }) : ''}
-                  </p>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+                    Not Ready
+                  </h4>
+                  <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{notReadyDocuments.length}</span>
                 </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-7 gap-1.5">
-                {filteredDocuments.map(doc => (
-                  <div key={doc.id}
-                    className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-1.5 hover:shadow-sm transition-shadow group"
-                  >
-                    <div className="flex flex-col items-center text-center">
-                      <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center mb-1">
-                        <FileText className="w-3 h-3 text-primary" />
-                      </div>
-                      <h4 className="text-[10px] font-medium leading-tight line-clamp-2 mb-0.5" style={{ color: 'var(--color-text-primary)' }}>
-                        {doc.name}
-                      </h4>
-                      <div className="text-[9px] leading-tight" style={{ color: 'var(--color-text-muted)' }}>
-                        <div>{formatFileSize(doc.size)}</div>
-                      </div>
-                      <div className="mt-0.5 flex items-center gap-0.5">
-                        <span className={`inline-block px-1 py-[1px] rounded text-[9px] font-medium ${
-                          doc.indexing_status === 'ready'
-                            ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400'
-                            : doc.indexing_status === 'indexing'
-                              ? 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400'
-                              : doc.indexing_status === 'failed'
-                                ? 'bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-400'
-                                : 'bg-gray-50 dark:bg-white/10'
-                        }`}>
-                          {getStatusDisplay(doc.indexing_status)}
-                        </span>
-                        <button onClick={() => handleDelete(doc.id)}
-                          className="p-[2px] opacity-0 group-hover:opacity-100 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-all"
-                          style={{ color: 'var(--color-text-muted)' }} title="Delete">
-                          <Trash2 className="w-2.5 h-2.5" />
+                <div className="space-y-1.5">
+                  {notReadyDocuments.map(doc => (
+                    <div
+                      key={doc.id}
+                      className="rounded-lg border border-gray-200 dark:border-border-dark px-2.5 py-2"
+                    >
+                      <div className="flex items-start gap-2">
+                        <div className={`mt-0.5 h-2.5 w-2.5 rounded-full flex-shrink-0 ${
+                          doc.indexing_status === 'indexing'
+                            ? 'bg-blue-500'
+                            : doc.indexing_status === 'failed'
+                              ? 'bg-red-500'
+                              : 'bg-gray-400'
+                        }`} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                            {doc.name}
+                          </div>
+                          <div className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                            {getStatusDisplay(doc.indexing_status)} · {formatFileSize(doc.size)}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDelete(doc.id)}
+                          className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10"
+                          style={{ color: 'var(--color-text-muted)' }}
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ===== Semantic Search / Chat ===== */}
-          <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-2.5">
-            <div className="flex items-center gap-1.5 mb-2">
-              <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
-              <h3 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                {searchMode === 'pageindex' ? 'Document Navigation (PageIndex)' : 'Semantic Search'}
-              </h3>
-            </div>
-
-            <div className="space-y-2">
-              {/* Mode selector */}
-              <div className="flex gap-0.5 p-0.5 bg-gray-100 dark:bg-white/5 rounded-lg">
-                <button onClick={() => { setSearchMode('vector'); setShowSearchResults(false); setPageIndexDocs([]); }}
-                  className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${searchMode === 'vector' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'}`}
-                  style={{ color: 'var(--color-text-primary)' }}>
-                  {t('kb_vector_rag')}
-                </button>
-                <button onClick={() => { setSearchMode('pageindex'); setShowSearchResults(false); setPageIndexDocs([]); }}
-                  className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${searchMode === 'pageindex' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'}`}
-                  style={{ color: 'var(--color-text-primary)' }}>
-                  {t('kb_page_index')}
-                </button>
-              </div>
-
-              {/* Available docs row */}
-              {filteredDocuments.length > 0 && (
-                <div className="flex items-center gap-1 flex-wrap">
-                  <span className="text-[10px] font-medium" style={{ color: 'var(--color-text-muted)' }}>Docs:</span>
-                  {filteredDocuments.slice(0, 8).map(doc => (
-                    <button key={doc.id}
-                      onClick={() => setSearchQuery(doc.name)}
-                      className="px-1.5 py-0.5 rounded text-[10px] font-medium transition-all border border-transparent hover:border-gray-300 dark:hover:border-border-dark"
-                      style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
-                      {doc.name.length > 12 ? doc.name.slice(0, 12) + '…' : doc.name}
-                    </button>
                   ))}
-                  {filteredDocuments.length > 8 && (
-                    <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>+{filteredDocuments.length - 8}</span>
+                  {notReadyDocuments.length === 0 && (
+                    <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>All documents are ready</p>
                   )}
                 </div>
-              )}
-
-              {/* Search input + button row */}
-              <div className="flex gap-1.5">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
-                  <input type="text"
-                    placeholder={searchMode === 'pageindex' ? t('kb_search_pageindex_placeholder') : t('kb_search_placeholder')}
-                    value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    className="w-full pl-7 pr-2 py-1.5 border border-gray-200 dark:border-border-dark rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                    style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
-                  />
-                </div>
-                <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
-                  className="px-3 py-1.5 bg-primary text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 text-xs font-medium">
-                  {searching ? <Loader className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
-                </button>
-              </div>
-
-              {/* Options row */}
-              <div className="flex items-center gap-2 text-[10px] flex-wrap">
-                {searchMode === 'vector' && (
-                  <>
-                    <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
-                      <input type="checkbox" checked={useHyDE} onChange={(e) => setUseHyDE(e.target.checked)}
-                        className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-primary focus:ring-primary" />
-                      <span>{t('kb_hyde')}</span>
-                    </label>
-                    <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
-                      <input type="checkbox" checked={useTOON} onChange={(e) => setUseTOON(e.target.checked)}
-                        className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-purple-600 focus:ring-purple-600" />
-                      <span>{t('kb_toon')}</span>
-                    </label>
-                  </>
-                )}
-                <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
-                  <input type="checkbox" checked={compareMode} onChange={(e) => setCompareMode(e.target.checked)}
-                    className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-orange-600 focus:ring-orange-600" />
-                  <span>{t('kb_compare')}</span>
-                </label>
-                {showSearchResults && (
-                  <button onClick={clearSearch}
-                    className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 transition-all"
-                    style={{ color: 'var(--color-text-primary)' }}>
-                    {t('kb_clear_results')}
-                  </button>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Search Results */}
-          {showSearchResults && (
-            <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-2.5 overflow-y-auto max-h-[300px]">
-              {searchMetrics && (
-                <SearchMetricsDisplay
-                  metrics={searchMetrics}
-                  comparisonMetrics={comparisonMetrics || undefined}
-                />
-              )}
+          <div className="min-w-0 flex-1 flex flex-col gap-3 overflow-hidden">
+            <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                  {searchMode === 'pageindex' ? 'PageIndex Search' : 'Vector RAG Search'}
+                </h3>
+              </div>
 
-              <h3 className="text-[11px] font-semibold mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
-                {pageIndexDocs.length > 0
-                  ? `Indexed Documents (${pageIndexDocs.length})`
-                  : `Search Results (${searchResults.length})`
-                }
-              </h3>
+              <div className="space-y-2">
+                <div className="flex gap-0.5 p-0.5 bg-gray-100 dark:bg-white/5 rounded-lg">
+                  <button onClick={() => { setSearchMode('vector'); setShowSearchResults(false); setPageIndexDocs([]); }}
+                    className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${searchMode === 'vector' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'}`}
+                    style={{ color: 'var(--color-text-primary)' }}>
+                    {t('kb_vector_rag')}
+                  </button>
+                  <button onClick={() => { setSearchMode('pageindex'); setShowSearchResults(false); setPageIndexDocs([]); }}
+                    className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${searchMode === 'pageindex' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'}`}
+                    style={{ color: 'var(--color-text-primary)' }}>
+                    {t('kb_page_index')}
+                  </button>
+                </div>
 
-              {/* PageIndex Results */}
-              {pageIndexDocs.length > 0 && (
-                <div className="space-y-1.5">
-                  {pageIndexDocs.map((doc: any) => (
-                    <div key={doc.doc_id} className="border border-gray-200 dark:border-border-dark rounded-lg p-1.5">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-primary)' }}>{doc.doc_name}</span>
-                        <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{doc.page_count} {t('kb_pages')}</span>
-                      </div>
-                      {doc.structure && doc.structure.length > 0 && (
-                        <div className="ml-3 space-y-0.5">
-                          {doc.structure.slice(0, 4).map((node: any, idx: number) => (
-                            <div key={idx} className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                              <span className="inline-block w-2">-</span>
-                              {node.title}{node.page && <span className="ml-0.5 opacity-60">(p.{node.page})</span>}
-                            </div>
-                          ))}
-                          {doc.structure.length > 4 && (
-                            <div className="text-[10px] italic" style={{ color: 'var(--color-text-muted)' }}>
-                              {t('kb_more_sections', { count: doc.structure.length - 4 })}
+                <div className="rounded-lg border border-gray-200 dark:border-border-dark px-2.5 py-2" style={{ backgroundColor: 'var(--color-input-background)' }}>
+                  <div className="text-[10px] mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                    {searchMode === 'pageindex' ? 'Search scope' : 'Selected document'}
+                  </div>
+                  <div className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {searchMode === 'pageindex'
+                      ? 'All project documents'
+                      : selectedDoc
+                        ? selectedDoc.name
+                        : 'Choose one ready document from the left sidebar'}
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
+                    <input type="text"
+                      placeholder={searchMode === 'pageindex' ? t('kb_search_pageindex_placeholder') : t('kb_search_placeholder')}
+                      value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      className="w-full pl-7 pr-2 py-2 border border-gray-200 dark:border-border-dark rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                      style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
+                    />
+                  </div>
+                  <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
+                    className="px-3 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 text-xs font-medium">
+                    {searching ? <Loader className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 text-[10px] flex-wrap">
+                  {searchMode === 'vector' && (
+                    <>
+                      <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
+                        <input type="checkbox" checked={useHyDE} onChange={(e) => setUseHyDE(e.target.checked)}
+                          className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-primary focus:ring-primary" />
+                        <span>{t('kb_hyde')}</span>
+                      </label>
+                      <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
+                        <input type="checkbox" checked={useTOON} onChange={(e) => setUseTOON(e.target.checked)}
+                          className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-purple-600 focus:ring-purple-600" />
+                        <span>{t('kb_toon')}</span>
+                      </label>
+                    </>
+                  )}
+                  <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
+                    <input type="checkbox" checked={compareMode} onChange={(e) => setCompareMode(e.target.checked)}
+                      className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-orange-600 focus:ring-orange-600" />
+                    <span>{t('kb_compare')}</span>
+                  </label>
+                  {showSearchResults && (
+                    <button onClick={clearSearch}
+                      className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 transition-all"
+                      style={{ color: 'var(--color-text-primary)' }}>
+                      {t('kb_clear_results')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3 overflow-y-auto">
+              {!showSearchResults ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <Search className="w-8 h-8 mx-auto mb-2 opacity-50" style={{ color: 'var(--color-text-muted)' }} />
+                    <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                      {searchMode === 'pageindex' ? 'Search to find the right document' : 'Select a doc and run Vector RAG'}
+                    </p>
+                    <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                      {searchMode === 'pageindex'
+                        ? 'PageIndex searches the whole project without selecting a document first.'
+                        : 'Vector search is scoped to the selected ready document.'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-[11px] font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                    {pageIndexDocs.length > 0
+                      ? `Indexed Documents (${pageIndexDocs.length})`
+                      : `Search Results (${searchResults.length})`
+                    }
+                  </h3>
+
+                  {pageIndexDocs.length > 0 && (
+                    <div className="space-y-1.5">
+                      {pageIndexDocs.map((doc: any) => (
+                        <div key={doc.doc_id} className="border border-gray-200 dark:border-border-dark rounded-lg p-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-primary)' }}>{doc.doc_name}</span>
+                            <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{doc.page_count} {t('kb_pages')}</span>
+                          </div>
+                          {doc.structure && doc.structure.length > 0 && (
+                            <div className="ml-3 space-y-0.5">
+                              {doc.structure.slice(0, 4).map((node: any, idx: number) => (
+                                <div key={idx} className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                                  <span className="inline-block w-2">-</span>
+                                  {node.title}{node.page && <span className="ml-0.5 opacity-60">(p.{node.page})</span>}
+                                </div>
+                              ))}
+                              {doc.structure.length > 4 && (
+                                <div className="text-[10px] italic" style={{ color: 'var(--color-text-muted)' }}>
+                                  {t('kb_more_sections', { count: doc.structure.length - 4 })}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
-                      )}
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
+                  )}
 
-              {/* Vector Results */}
-              {searchResults.length > 0 && (
-                <div className="space-y-1.5">
-                  {searchResults.map((result, index) => (
-                    <div key={index} className="bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg p-1.5">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] font-medium text-primary">{result.document_name}</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                            {(result.similarity_score * 100).toFixed(0)}%
-                          </span>
-                          <button onClick={() => toggleChunkExpansion(index)}
-                            className="text-[10px] text-primary hover:underline font-medium">
-                            {expandedChunks.has(index) ? 'Hide' : 'Show'}
-                          </button>
+                  {searchResults.length > 0 && (
+                    <div className="space-y-1.5">
+                      {searchResults.map((result, index) => (
+                        <div key={index} className="bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg p-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-medium text-primary">{result.document_name}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                                {(result.similarity_score * 100).toFixed(0)}%
+                              </span>
+                              <button onClick={() => toggleChunkExpansion(index)}
+                                className="text-[10px] text-primary hover:underline font-medium">
+                                {expandedChunks.has(index) ? 'Hide' : 'Show'}
+                              </button>
+                            </div>
+                          </div>
+                          {expandedChunks.has(index) && result.chunk_id && (
+                            <div className="mb-1 pb-1 border-b border-gray-200 dark:border-border-dark text-[10px]">
+                              <span className="font-mono" style={{ color: 'var(--color-text-muted)' }}>#{result.chunk_id}</span>
+                              {result.chunk_token_count && <span className="ml-1" style={{ color: 'var(--color-text-muted)' }}>{result.chunk_token_count} {t('kb_tokens')}</span>}
+                            </div>
+                          )}
+                          <pre className="text-[10px] whitespace-pre-wrap font-mono p-1 rounded overflow-x-auto max-h-28 leading-snug"
+                            style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
+                            {result.chunk_text}
+                          </pre>
                         </div>
-                      </div>
-                      {expandedChunks.has(index) && result.chunk_id && (
-                        <div className="mb-1 pb-1 border-b border-gray-200 dark:border-border-dark text-[10px]">
-                          <span className="font-mono" style={{ color: 'var(--color-text-muted)' }}>#{result.chunk_id}</span>
-                          {result.chunk_token_count && <span className="ml-1" style={{ color: 'var(--color-text-muted)' }}>{result.chunk_token_count} {t('kb_tokens')}</span>}
-                        </div>
-                      )}
-                      <pre className="text-[10px] whitespace-pre-wrap font-mono p-1 rounded overflow-x-auto max-h-16 leading-snug"
-                        style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
-                        {result.chunk_text}
-                      </pre>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
+                  )}
 
-              {searchResults.length === 0 && pageIndexDocs.length === 0 && (
-                <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No results found for "{searchQuery}"</p>
+                  {searchResults.length === 0 && pageIndexDocs.length === 0 && (
+                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No results found for "{searchQuery}"</p>
+                  )}
+                </>
               )}
+            </div>
+          </div>
 
-              {activeProjectId && (
+          <div className="w-72 flex-shrink-0 overflow-y-auto space-y-3">
+            {activeProjectId && (
+              <StorageMetrics
+                projectId={activeProjectId}
+                onRefresh={loadDocuments}
+              />
+            )}
+
+            {showSearchResults && searchMetrics && (
+              <SearchMetricsDisplay
+                metrics={searchMetrics}
+                comparisonMetrics={comparisonMetrics || undefined}
+              />
+            )}
+
+            {showSearchResults && activeProjectId && (
+              <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3">
                 <SearchHistoryLog
                   projectId={activeProjectId}
                   onRerun={handleRerunFromHistory}
                 />
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ===== Right Column (narrow) ===== */}
-        <div className="w-64 flex-shrink-0 overflow-y-auto">
-          {activeProjectId && (
-            <StorageMetrics
-              projectId={activeProjectId}
-              onRefresh={loadDocuments}
-            />
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
