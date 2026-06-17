@@ -12,34 +12,63 @@ import apiClient from '../../../lib/api-client';
 
 interface FileUploadButtonProps {
   sessionId: string | null;
+  projectId?: number | null;
   onFileUploaded: (file: SessionDocument) => void;
+  onMultipleUploaded?: (files: SessionDocument[]) => void;
   disabled?: boolean;
 }
 
-export default function FileUploadButton({ sessionId, onFileUploaded, disabled }: FileUploadButtonProps) {
+export default function FileUploadButton({ sessionId, projectId, onFileUploaded, onMultipleUploaded, disabled }: FileUploadButtonProps) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !sessionId) return;
+    const files = e.target.files;
+    if (!files || files.length === 0 || !sessionId) return;
 
     setUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
+      if (files.length === 1) {
+        // Single file upload
+        const formData = new FormData();
+        formData.append('file', files[0]);
 
-      const response = await apiClient.post(
-        `/api/chat/${sessionId}/upload`,
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
+        const params: Record<string, any> = {};
+        if (projectId) params.project_id = projectId;
 
-      onFileUploaded(response.data);
+        const response = await apiClient.post(
+          `/api/chat/${sessionId}/upload`,
+          formData,
+          { headers: { 'Content-Type': 'multipart/form-data' }, params }
+        );
+
+        onFileUploaded(response.data);
+      } else {
+        // Multiple files upload
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+          formData.append('files', files[i]);
+        }
+
+        const params: Record<string, any> = {};
+        if (projectId) params.project_id = projectId;
+
+        const response = await apiClient.post(
+          `/api/chat/${sessionId}/upload-multiple`,
+          formData,
+          { headers: { 'Content-Type': 'multipart/form-data' }, params }
+        );
+
+        const uploadedFiles: SessionDocument[] = response.data || [];
+        uploadedFiles.forEach(f => onFileUploaded(f));
+        if (onMultipleUploaded) {
+          onMultipleUploaded(uploadedFiles);
+        }
+      }
     } catch (error: any) {
-      console.error('Failed to upload file:', error);
-      alert(error.response?.data?.detail || 'Failed to upload file');
+      console.error('Failed to upload file(s):', error);
+      alert(error.response?.data?.detail || 'Failed to upload file(s)');
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -53,6 +82,7 @@ export default function FileUploadButton({ sessionId, onFileUploaded, disabled }
       <input
         ref={fileInputRef}
         type="file"
+        multiple
         onChange={handleFileSelect}
         style={{ display: 'none' }}
         accept=".txt,.md,.pdf,.json,.py,.js,.ts,.tsx,.jsx,.java,.c,.cpp,.h,.hpp,.cs,.rb,.go,.rs,.php,.swift,.kt,.scala,.r,.sql,.sh,.bash,.doc,.docx,.html,.htm,.xml,.csv,.yaml,.yml,.rtf,.odt,.epub,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.tiff,.webp"

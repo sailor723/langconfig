@@ -122,15 +122,12 @@ export default function KnowledgeBaseView() {
     };
   }, [selectedStatus, activeProjectId]);
 
-  // Poll for document status updates every 2 seconds if there are indexing docs
+  // Poll for document updates: every 2s if indexing, every 10s otherwise
   useEffect(() => {
     const hasIndexingDocs = documents.some(doc => doc.indexing_status === 'indexing');
-    
-    if (!hasIndexingDocs) return;
-
     const interval = setInterval(() => {
       loadDocuments();
-    }, 2000);
+    }, hasIndexingDocs ? 2000 : 10000);
 
     return () => clearInterval(interval);
   }, [documents]);

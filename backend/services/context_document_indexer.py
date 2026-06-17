@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 CONTEXT_DOCS_TABLE_NAME = "context_documents_embeddings"
 
 
-async def search_context_documents(query: str, top_k: int = 5) -> Dict[str, Any]:
+async def search_context_documents(query: str, project_id: Optional[int] = None, top_k: int = 5) -> Dict[str, Any]:
     """
     Search uploaded context documents using semantic similarity.
 
@@ -94,10 +94,25 @@ async def search_context_documents(query: str, top_k: int = 5) -> Dict[str, Any]
 
         # Create index and retriever
         index = VectorStoreIndex.from_vector_store(vector_store)
-        retriever = VectorIndexRetriever(
-            index=index,
-            similarity_top_k=top_k,
-        )
+        
+        # Add project filter if needed
+        if project_id:
+            from llama_index.core.vector_stores import MetadataFilter, MetadataFilters
+            filters = MetadataFilters(
+                filters=[
+                    MetadataFilter(key="project_id", value=project_id)
+                ]
+            )
+            retriever = VectorIndexRetriever(
+                index=index,
+                similarity_top_k=top_k,
+                filters=filters
+            )
+        else:
+            retriever = VectorIndexRetriever(
+                index=index,
+                similarity_top_k=top_k
+            )
 
         # Perform search
         logger.info(f"Searching context documents for: {query}")
@@ -443,6 +458,107 @@ class ContextDocumentIndexer:
 
         return documents
 
+    async def _configure_embed_model_from_db(self):
+        """
+        Read embedding model configuration from DB Settings table and
+        configure llama_index Settings.embed_model accordingly.
+
+        Reads solely from the database 'settings' table (id=1) to determine:
+        - Which embedding model to use (e.g. ollama-nomic-embed-text:latest, text-embedding-3-small)
+        - The base URL for local providers (e.g. Ollama)
+        Never reads from environment variables or hardcoded values.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            from db.database import SessionLocal
+            from models.settings import Settings as DBSettings
+            from llama_index.core import Settings as LlamaSettings
+            LlamaSettings  # noqa: used below
+
+            # Try to import embedding classes (may not be installed)
+            try:
+                from llama_index.embeddings.ollama import OllamaEmbedding
+            except ImportError:
+                OllamaEmbedding = None
+
+            try:
+                from llama_index.embeddings.openai import OpenAIEmbedding
+            except ImportError:
+                OpenAIEmbedding = None
+
+            db = SessionLocal()
+            try:
+                db_settings = db.query(DBSettings).filter(DBSettings.id == 1).first()
+                if not db_settings or not db_settings.embedding_model:
+                    logger.warning("No embedding model configured in DB settings, skipping")
+                    return
+
+                embed_model_name = db_settings.embedding_model
+                logger.info(f"Configuring llama_index embed_model from DB: {embed_model_name}")
+
+                # Strip /v1 suffix if present (Ollama uses root API path, not /v1)
+                base_url_raw = (db_settings.local_base_url or "http://localhost:11434").rstrip("/")
+                base_url_ollama = base_url_raw.replace("/v1", "").rstrip("/")
+
+                # Check if it's an Ollama model
+                if embed_model_name.startswith("ollama-") or embed_model_name == "nomic-embed-text:latest" or "nomic" in embed_model_name.lower():
+                    model_name = embed_model_name.replace("ollama-", "", 1)
+                    LlamaSettings.embed_model = OllamaEmbedding(
+                        model_name=model_name,
+                        base_url=base_url_ollama,
+                    )
+                    logger.info(f"Configured Ollama embedding: {model_name} @ {base_url_ollama}")
+                # Check if it's an OpenAI model
+                elif embed_model_name.startswith("text-embedding-"):
+                    api_keys = db_settings.api_keys or {}
+                    openai_key = api_keys.get("openai") or api_keys.get("OPENAI_API_KEY")
+                    if openai_key:
+                        LlamaSettings.embed_model = OpenAIEmbedding(
+                            model=embed_model_name,
+                            api_key=openai_key,
+                        )
+                        logger.info(f"Configured OpenAI embedding: {embed_model_name}")
+                    else:
+                        logger.warning(f"OpenAI embedding model {embed_model_name} configured but no API key found")
+                else:
+                    # Try as a generic Ollama model name
+                    from llama_index.embeddings.ollama import OllamaEmbedding
+                    LlamaSettings.embed_model = OllamaEmbedding(
+                        model_name=embed_model_name,
+                        base_url=base_url_ollama,
+                    )
+                    logger.info(f"Configured generic Ollama embedding: {embed_model_name} @ {base_url_ollama}")
+
+                # Also configure LLM from DB if needed
+                if db_settings.default_model:
+                    api_keys = db_settings.api_keys or {}
+                    try:
+                        if db_settings.local_provider == "ollama" or not db_settings.default_model.startswith("gpt"):
+                            from llama_index.llms.ollama import Ollama
+                            LlamaSettings.llm = Ollama(
+                                model=db_settings.default_model,
+                                base_url=base_url_ollama,
+                                request_timeout=120.0,
+                            )
+                            logger.info(f"Configured Ollama LLM: {db_settings.default_model} @ {base_url_ollama}")
+                        else:
+                            openai_key = api_keys.get("openai") or api_keys.get("OPENAI_API_KEY")
+                            if openai_key:
+                                from llama_index.llms.openai import OpenAI
+                                LlamaSettings.llm = OpenAI(
+                                    model=db_settings.default_model,
+                                    api_key=openai_key,
+                                )
+                                logger.info(f"Configured OpenAI LLM: {db_settings.default_model}")
+                    except ImportError as ie:
+                        logger.warning(f"Could not configure LLM from DB (package not installed): {ie}")
+
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Failed to configure embed model from DB: {e}", exc_info=True)
+
     async def _create_embeddings(
         self,
         chunks: List,  # List of LangChain Document objects
@@ -469,6 +585,9 @@ class ContextDocumentIndexer:
         try:
             from llama_index.core.schema import TextNode
             from llama_index.core import Settings
+
+            # Read embedding model from DB Settings table (no hardcoded env vars)
+            await self._configure_embed_model_from_db()
 
             nodes = []
             embed_model = Settings.embed_model

@@ -139,6 +139,9 @@ class ContextDocument(Base):
     # DocIndex (GraphIndex) ID
     doc_index_id = Column(String(100), nullable=True, index=True)
 
+    # Content fingerprint for dedup (SHA256)
+    content_hash = Column(String(64), nullable=True, index=True)
+
     # Metadata
     description = Column(Text, nullable=True)
     tags = Column(JSON, default=lambda: [])
