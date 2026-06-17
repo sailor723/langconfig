@@ -59,8 +59,8 @@ export default function ProjectSection({
       <button
         onClick={onToggle}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-          ? 'bg-primary/10 border border-primary/30'
-          : 'bg-white dark:bg-panel-dark hover:bg-gray-50 dark:hover:bg-white/5 border border-gray-200 dark:border-border-dark'
+          ? 'bg-primary/10'
+          : 'bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10'
           }`}
       >
         {/* Expand/Collapse Icon */}
@@ -144,9 +144,9 @@ export default function ProjectSection({
                   key={workflow.id}
                   onClick={() => onSelectWorkflow(workflow)}
                   onContextMenu={(e) => handleContextMenu(e, workflow)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 border ${isSelected
-                    ? 'bg-white dark:bg-gray-800 border-primary shadow-sm ring-1 ring-primary/20'
-                    : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:border-primary/50 hover:shadow-md'
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 ${isSelected
+                    ? 'bg-primary/10 dark:bg-primary/20 shadow-sm'
+                    : 'bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10'
                     }`}
                 >
                   {/* Workflow Icon */}
@@ -157,15 +157,15 @@ export default function ProjectSection({
                     account_tree
                   </span>
 
-                  {/* Workflow Info */}
-                  <div className="flex-1 text-left min-w-0">
+                  {/* Workflow Info + Node Count */}
+                  <div className="flex-1 text-left min-w-0 flex items-center justify-between gap-2">
                     <p
                       className="text-sm font-medium truncate"
                       style={{ color: isSelected ? 'var(--color-primary)' : 'var(--color-text-primary)' }}
                     >
                       {workflow.name}
                     </p>
-                    <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    <span className="text-xs whitespace-nowrap flex-shrink-0" style={{ color: 'var(--color-text-muted)' }}>
                       {workflowNodeCount === 1 ? t('library_node_count', { count: workflowNodeCount }) : t('library_node_count_plural', { count: workflowNodeCount })}
                     </span>
                   </div>
