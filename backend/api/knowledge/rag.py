@@ -11,6 +11,7 @@ from datetime import datetime
 import logging
 import time
 import re
+import hashlib
 import zipfile
 import tarfile
 import tempfile
@@ -667,6 +668,7 @@ async def upload_document(
         mime_type=file.content_type,
         document_type=document_type,
         indexing_status=IndexingStatus.NOT_INDEXED,
+        content_hash=hashlib.sha256(content).hexdigest(),
         description=description,
         tags=tags or []
     )
@@ -773,6 +775,7 @@ async def _process_single_file_for_bulk(
         mime_type=file.content_type,
         document_type=document_type,
         indexing_status=IndexingStatus.NOT_INDEXED,
+        content_hash=hashlib.sha256(content).hexdigest(),
         description=description,
         tags=tags or []
     )

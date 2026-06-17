@@ -46,10 +46,19 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       const projectList = response.data || [];
       setProjects(projectList);
 
-      // If no active project set, default to first project
+      // If no active project set, default to first non-system project
       if (!activeProjectId && projectList.length > 0) {
-        setActiveProjectIdState(projectList[0].id);
-        localStorage.setItem('activeProjectId', projectList[0].id.toString());
+        const firstRealProject = projectList.find((p: Project) => p.id > 0) || projectList[0];
+        setActiveProjectIdState(firstRealProject.id);
+        localStorage.setItem('activeProjectId', firstRealProject.id.toString());
+      } else if (activeProjectId) {
+        // Verify the stored project still exists
+        const stillExists = projectList.some((p: Project) => p.id === activeProjectId);
+        if (!stillExists && projectList.length > 0) {
+          const firstRealProject = projectList.find((p: Project) => p.id > 0) || projectList[0];
+          setActiveProjectIdState(firstRealProject.id);
+          localStorage.setItem('activeProjectId', firstRealProject.id.toString());
+        }
       }
     } catch (error) {
       console.error('Failed to fetch projects:', error);

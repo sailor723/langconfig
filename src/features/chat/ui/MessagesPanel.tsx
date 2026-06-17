@@ -28,6 +28,7 @@ interface MessagesPanelProps {
   onClearError: () => void;
   disabled?: boolean;
   sessionId?: string | null;
+  projectId?: number | null;
   activeToolCalls?: ToolCall[];
   customEvents?: Map<string, CustomEventPayload>;
   thinkingTraces?: ThinkingStep[][];
@@ -41,6 +42,7 @@ export default function MessagesPanel({
   onClearError,
   disabled = false,
   sessionId = null,
+  projectId = null,
   activeToolCalls = [],
   customEvents = new Map(),
   thinkingTraces = [],
@@ -528,11 +530,22 @@ export default function MessagesPanel({
           isStreaming={isStreaming}
           placeholder={disabled ? "Select an agent first..." : "Type your message..."}
           sessionId={sessionId}
+          projectId={projectId}
           onFileUploaded={(file) => {
             console.log('File uploaded:', file);
             setDocumentsRefreshKey(k => k + 1);
+            // Auto-trigger briefing after document upload
+            const docExt = file.filename.split('.').pop()?.toLowerCase() || '';
+            const briefingExts = ['pdf', 'md', 'txt', 'docx', 'pptx'];
+            if (briefingExts.includes(docExt) && onSendMessage) {
+              setTimeout(() => {
+                onSendMessage(
+                  `A new document "${file.filename}" has been uploaded. Please read it and provide a briefing.`
+                );
+              }, 500);
+            }
             // Auto-trigger data analysis after CSV upload
-            if (file.filename.toLowerCase().endsWith('.csv') && onSendMessage) {
+            if (docExt === 'csv' && onSendMessage) {
               setTimeout(() => {
                 onSendMessage(
                   `I just uploaded ${file.filename}. Please run the auto-analysis workflow: ` +

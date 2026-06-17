@@ -18,8 +18,10 @@ import AgentSelector from './AgentSelector';
 import type { ChatSession, ChatStreamEvent, CustomEventPayload, InterruptData, ToolCall } from '../types/chat';
 import type { ThinkingStep } from './ThinkingBlock';
 import apiClient from '../../../lib/api-client';
+import { useProject } from '../../../contexts/ProjectContext';
 
 export default function GlobalChatModal() {
+  const { activeProjectId } = useProject();
   const {
     isOpen,
     closeChat,
@@ -331,6 +333,7 @@ export default function GlobalChatModal() {
               onClearError={clearError}
               disabled={!currentSessionId}
               sessionId={currentSessionId}
+              projectId={activeProjectId}
               activeToolCalls={activeToolCalls}
               customEvents={customEvents}
               thinkingTraces={thinkingTraces}
