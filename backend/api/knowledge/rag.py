@@ -172,6 +172,21 @@ async def index_document_background(document_id: int):
             file_path=file_path
         )
 
+        # Also index to DocIndex (PageIndex-style vectorless index)
+        try:
+            from services.doc_index_service import DocIndexClient
+            import os
+            doc_index_base = os.environ.get(
+                "DOC_INDEX_BASE",
+                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "outputs")
+            )
+            # Use default workspace
+            client = DocIndexClient(doc_index_base)
+            client.index(file_path)
+            logger.info(f"Document {document_id} also indexed to DocIndex (PageIndex mode)")
+        except Exception as pi_e:
+            logger.warning(f"DocIndex indexing failed for {document_id} (non-critical): {pi_e}")
+
         # Update status to ready with new session
         db = SessionLocal()
         doc = db.query(ContextDocument).filter(ContextDocument.id == document_id).first()
