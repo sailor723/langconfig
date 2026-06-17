@@ -6,12 +6,14 @@
  */
 
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FolderPlus, FolderOpen } from 'lucide-react';
 import { useProject } from '../contexts/ProjectContext';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api-client';
 
 export default function HomePage() {
+  const { t } = useTranslation('chat');
   const { projects, refreshProjects, setActiveProjectId } = useProject();
   const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -108,7 +110,7 @@ export default function HomePage() {
           className="text-base mb-16 text-center max-w-lg"
           style={{ color: 'var(--color-text-muted)' }}
         >
-          Visual AI workflow builder with multi-agent orchestration
+          {t('home_subtitle')}
         </p>
 
         {/* Action Cards Grid */}
@@ -129,10 +131,10 @@ export default function HomePage() {
                 className="text-base font-semibold mb-0.5"
                 style={{ color: 'var(--color-text-primary)' }}
               >
-                Create Project
+                {t('home_create_project')}
               </div>
               <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Start building a new workflow
+                {t('home_start_building')}
               </div>
             </div>
           </button>
@@ -157,10 +159,10 @@ export default function HomePage() {
                 className="text-base font-semibold mb-0.5"
                 style={{ color: 'var(--color-text-primary)' }}
               >
-                Open Project
+                {t('home_open_project')}
               </div>
               <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                Browse existing projects
+                {t('home_browse_projects')}
               </div>
             </div>
           </button>
@@ -177,7 +179,7 @@ export default function HomePage() {
                   className="text-sm font-semibold"
                   style={{ color: 'var(--color-text-primary)' }}
                 >
-                  Recent Projects
+                  {t('home_recent_projects')}
                 </span>
                 <span
                   className="text-xs px-2 py-0.5 rounded-full"
@@ -237,7 +239,7 @@ export default function HomePage() {
                 className="w-full mt-2 p-2 rounded-lg text-xs font-medium transition-all hover:bg-white/5"
                 style={{ color: 'var(--color-text-muted)' }}
               >
-                View all {projects.length} projects →
+                {t('home_view_all', { count: projects.length })}
               </button>
             )}
           </div>
