@@ -4,45 +4,139 @@ Minimal Neo4j-backed document index for whole-document KV loading.
 This service intentionally stays simple:
 - one Document node per uploaded document
 - key = document name
-- value = full document content
+- value = document pointer + routing metadata
 
 No entity extraction, no relation extraction, no chunking.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import json
 import re
 from typing import Any, Optional
 
 import httpx
+
+COMMON_QUERY_STOPWORDS = {
+    "a",
+    "an",
+    "about",
+    "are",
+    "can",
+    "does",
+    "for",
+    "how",
+    "in",
+    "is",
+    "me",
+    "of",
+    "show",
+    "tell",
+    "the",
+    "this",
+    "what",
+    "which",
+    "who",
+}
 
 
 @dataclass
 class Neo4jDocumentRecord:
     project_id: int
     name: str
-    content: str
+    file_path: str
+    context_doc_id: int = 0
+    doc_index_id: str = ""
+    description: str = ""
+    tags: list[str] = field(default_factory=list)
+    doc_name: str = ""
+    page_count: int = 0
+    content_preview: str = ""
+    search_terms: list[str] = field(default_factory=list)
+    what_this_document_is_about: str = ""
+    supported_queries: list[str] = field(default_factory=list)
+    out_of_scope: list[str] = field(default_factory=list)
+    few_shot: list[dict[str, str]] = field(default_factory=list)
+
+
+@dataclass
+class Neo4jDocumentEnrichment:
+    what_this_document_is_about: str = ""
+    supported_queries: list[str] = field(default_factory=list)
+    out_of_scope: list[str] = field(default_factory=list)
+    few_shot: list[dict[str, str]] = field(default_factory=list)
+
+
+def build_project_scope_names(current_name: str, all_document_names: list[str]) -> list[str]:
+    """Return other project document names for reflection-style prompts."""
+    return sorted(name for name in all_document_names if name != current_name)
+
+
+def build_document_node_properties(
+    project_id: int,
+    context_doc_id: int,
+    doc_index_id: Optional[str],
+    name: str,
+    file_path: str,
+    description: Optional[str] = None,
+    tags: Optional[list[str]] = None,
+    pageindex_meta: Optional[dict[str, Any]] = None,
+    enrichment: Optional[Neo4jDocumentEnrichment] = None,
+) -> dict[str, Any]:
+    """Build a flat Neo4j property map for one document node."""
+    pageindex_meta = pageindex_meta or {}
+    enrichment = enrichment or Neo4jDocumentEnrichment()
+
+    return {
+        "project_id": project_id,
+        "context_doc_id": context_doc_id,
+        "doc_index_id": doc_index_id or "",
+        "name": name,
+        "file_path": file_path,
+        "description": description or "",
+        "tags": tags or [],
+        "doc_name": pageindex_meta.get("doc_name") or name,
+        "page_count": int(pageindex_meta.get("page_count") or 0),
+        "content_preview": pageindex_meta.get("content_preview") or "",
+        "search_terms": pageindex_meta.get("search_terms") or [],
+        "what_this_document_is_about": enrichment.what_this_document_is_about,
+        "supported_queries": enrichment.supported_queries,
+        "out_of_scope": enrichment.out_of_scope,
+        "few_shot_json": json.dumps(enrichment.few_shot, ensure_ascii=False),
+    }
 
 
 def normalize_lookup_terms(query: str) -> list[str]:
-    """Build a small set of query terms for name-based lookup."""
+    """Build a small set of routing terms and filter generic question filler."""
     normalized = re.sub(r"\s+", " ", query.strip().lower())
     if not normalized:
         return []
 
-    terms: list[str] = [normalized]
+    terms: list[str] = []
     words = [word for word in re.split(r"[^a-z0-9\u4e00-\u9fff]+", normalized) if word]
+    content_words = [word for word in words if word not in COMMON_QUERY_STOPWORDS]
 
-    # Keep longer phrases first so name matching stays focused.
-    if len(words) >= 2:
+    if content_words:
+        terms.append(" ".join(content_words))
+    else:
+        terms.append(normalized)
+
+    # Keep longer phrases first so routing stays focused on meaningful tokens.
+    if len(content_words) >= 2:
+        for size in range(len(content_words), 1, -1):
+            for start in range(0, len(content_words) - size + 1):
+                phrase = " ".join(content_words[start : start + size])
+                if phrase and phrase not in terms:
+                    terms.append(phrase)
+    elif len(words) >= 2:
         for size in range(len(words), 1, -1):
             for start in range(0, len(words) - size + 1):
                 phrase = " ".join(words[start : start + size])
                 if phrase and phrase not in terms:
                     terms.append(phrase)
 
-    for word in words:
+    for word in content_words or words:
         if word not in terms:
             terms.append(word)
 
@@ -77,6 +171,62 @@ def choose_best_name_match(
             best_match = candidate
 
     return best_match[2] if best_match else None
+
+
+def choose_best_document_match(
+    query: str,
+    documents: list[Neo4jDocumentRecord],
+) -> Optional[Neo4jDocumentRecord]:
+    """Choose the best document using enriched document node metadata."""
+    lookup_terms = normalize_lookup_terms(query)
+    if not lookup_terms:
+        return None
+
+    best_match: Optional[tuple[float, Neo4jDocumentRecord]] = None
+    for document in documents:
+        score = 0.0
+        doc_name = document.name.lower()
+        doc_name_alt = document.doc_name.lower()
+        description = document.description.lower()
+        preview = document.content_preview.lower()
+        about = document.what_this_document_is_about.lower()
+        tags = [str(tag).lower() for tag in document.tags]
+        search_terms = [str(term).lower() for term in document.search_terms]
+        supported_queries = [str(item).lower() for item in document.supported_queries]
+        out_of_scope = [str(item).lower() for item in document.out_of_scope]
+
+        for term in lookup_terms:
+            if len(term) < 2:
+                continue
+
+            if term in doc_name or term in doc_name_alt:
+                score += 3.0
+            if description and term in description:
+                score += 2.0
+            if preview and term in preview:
+                score += 2.0
+            if about and term in about:
+                score += 2.5
+            if any(term in tag for tag in tags):
+                score += 2.0
+            if any(term in candidate for candidate in search_terms):
+                score += 1.5
+            if any(term in candidate for candidate in supported_queries):
+                score += 3.0
+            if any(term in candidate for candidate in out_of_scope):
+                score -= 3.0
+
+        if score <= 0:
+            continue
+
+        candidate = (score, document)
+        if best_match is None or candidate[0] > best_match[0]:
+            best_match = candidate
+
+    if best_match is not None:
+        return best_match[1]
+
+    return choose_best_name_match(query, documents)
 
 
 class Neo4jDocumentIndex:
@@ -143,14 +293,29 @@ class Neo4jDocumentIndex:
             )
         )
 
-    def upsert_document(self, project_id: int, name: str, content: str) -> None:
-        """Store one whole document as a simple Neo4j node."""
+    def upsert_document(self, project_id: int, name: str, file_path: str, properties: Optional[dict[str, Any]] = None) -> None:
+        """Store one document pointer plus routing metadata as a Neo4j node."""
+        properties = properties or build_document_node_properties(
+            project_id=project_id,
+            context_doc_id=0,
+            doc_index_id=None,
+            name=name,
+            file_path=file_path,
+        )
         self._run_cypher(
             (
                 "MERGE (d:Document {project_id: $project_id, name: $name}) "
-                "SET d.content = $content"
+                "SET d += $properties "
+                "REMOVE d.content"
             ),
-            {"project_id": project_id, "name": name, "content": content},
+            {"project_id": project_id, "name": name, "properties": properties},
+        )
+
+    def delete_project_documents(self, project_id: int) -> None:
+        """Delete all Document nodes for one project before a clean rebuild."""
+        self._run_cypher(
+            "MATCH (d:Document {project_id: $project_id}) DETACH DELETE d",
+            {"project_id": project_id},
         )
 
     def get_document(self, project_id: int, name: str) -> Optional[Neo4jDocumentRecord]:
@@ -158,7 +323,12 @@ class Neo4jDocumentIndex:
         rows = self._run_cypher(
             (
                 "MATCH (d:Document {project_id: $project_id, name: $name}) "
-                "RETURN d.project_id AS project_id, d.name AS name, d.content AS content "
+                "RETURN d.project_id AS project_id, d.context_doc_id AS context_doc_id, "
+                "d.doc_index_id AS doc_index_id, d.name AS name, d.file_path AS file_path, "
+                "d.description AS description, d.tags AS tags, d.doc_name AS doc_name, "
+                "d.page_count AS page_count, d.content_preview AS content_preview, "
+                "d.search_terms AS search_terms, d.what_this_document_is_about AS what_this_document_is_about, "
+                "d.supported_queries AS supported_queries, d.out_of_scope AS out_of_scope, d.few_shot_json AS few_shot_json "
                 "LIMIT 1"
             ),
             {"project_id": project_id, "name": name},
@@ -168,8 +338,20 @@ class Neo4jDocumentIndex:
         row = rows[0]
         return Neo4jDocumentRecord(
             project_id=int(row["project_id"]),
+            context_doc_id=int(row.get("context_doc_id") or 0),
+            doc_index_id=str(row.get("doc_index_id") or ""),
             name=str(row["name"]),
-            content=str(row["content"]),
+            file_path=str(row.get("file_path") or ""),
+            description=str(row.get("description") or ""),
+            tags=list(row.get("tags") or []),
+            doc_name=str(row.get("doc_name") or row["name"]),
+            page_count=int(row.get("page_count") or 0),
+            content_preview=str(row.get("content_preview") or ""),
+            search_terms=list(row.get("search_terms") or []),
+            what_this_document_is_about=str(row.get("what_this_document_is_about") or ""),
+            supported_queries=list(row.get("supported_queries") or []),
+            out_of_scope=list(row.get("out_of_scope") or []),
+            few_shot=json.loads(row.get("few_shot_json") or "[]"),
         )
 
     def list_documents(self, project_id: int) -> list[Neo4jDocumentRecord]:
@@ -177,7 +359,12 @@ class Neo4jDocumentIndex:
         rows = self._run_cypher(
             (
                 "MATCH (d:Document {project_id: $project_id}) "
-                "RETURN d.project_id AS project_id, d.name AS name, d.content AS content "
+                "RETURN d.project_id AS project_id, d.context_doc_id AS context_doc_id, "
+                "d.doc_index_id AS doc_index_id, d.name AS name, d.file_path AS file_path, "
+                "d.description AS description, d.tags AS tags, d.doc_name AS doc_name, "
+                "d.page_count AS page_count, d.content_preview AS content_preview, "
+                "d.search_terms AS search_terms, d.what_this_document_is_about AS what_this_document_is_about, "
+                "d.supported_queries AS supported_queries, d.out_of_scope AS out_of_scope, d.few_shot_json AS few_shot_json "
                 "ORDER BY d.name"
             ),
             {"project_id": project_id},
@@ -185,13 +372,25 @@ class Neo4jDocumentIndex:
         return [
             Neo4jDocumentRecord(
                 project_id=int(row["project_id"]),
+                context_doc_id=int(row.get("context_doc_id") or 0),
+                doc_index_id=str(row.get("doc_index_id") or ""),
                 name=str(row["name"]),
-                content=str(row["content"]),
+                file_path=str(row.get("file_path") or ""),
+                description=str(row.get("description") or ""),
+                tags=list(row.get("tags") or []),
+                doc_name=str(row.get("doc_name") or row["name"]),
+                page_count=int(row.get("page_count") or 0),
+                content_preview=str(row.get("content_preview") or ""),
+                search_terms=list(row.get("search_terms") or []),
+                what_this_document_is_about=str(row.get("what_this_document_is_about") or ""),
+                supported_queries=list(row.get("supported_queries") or []),
+                out_of_scope=list(row.get("out_of_scope") or []),
+                few_shot=json.loads(row.get("few_shot_json") or "[]"),
             )
             for row in rows
         ]
 
     def find_best_document(self, project_id: int, query: str) -> Optional[Neo4jDocumentRecord]:
-        """Find the best document using simple name-based matching."""
+        """Find the best document using enriched node metadata first."""
         documents = self.list_documents(project_id)
-        return choose_best_name_match(query, documents)
+        return choose_best_document_match(query, documents)
