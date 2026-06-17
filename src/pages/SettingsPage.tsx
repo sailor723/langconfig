@@ -1057,7 +1057,6 @@ export default function SettingsView() {
               value={ragSettings.embeddingModel}
               onChange={(value: string) => {
                 setRagSettings({ ...ragSettings, embeddingModel: value });
-                autoSave('embedding');
               }}
               options={(() => {
                 const opts = embeddingModels.map(m => ({
@@ -1078,7 +1077,6 @@ export default function SettingsView() {
               value={ragSettings.chunkSize.toString()}
               onChange={(value) => {
                 setRagSettings({ ...ragSettings, chunkSize: parseInt(value) || 1000 });
-                autoSave('embedding');
               }}
               description={t('settings_embedding_chunk_size_desc')}
             />
@@ -1088,10 +1086,18 @@ export default function SettingsView() {
               value={ragSettings.chunkOverlap.toString()}
               onChange={(value) => {
                 setRagSettings({ ...ragSettings, chunkOverlap: parseInt(value) || 200 });
-                autoSave('embedding');
               }}
               description={t('settings_embedding_chunk_overlap_desc')}
             />
+            <div className="pt-4">
+              <button
+                onClick={() => autoSave('embedding')}
+                className="px-6 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+              >
+                Save
+              </button>
+            </div>
           </SettingsSection>
         );
 
