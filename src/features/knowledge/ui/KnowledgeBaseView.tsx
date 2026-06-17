@@ -481,13 +481,14 @@ export default function KnowledgeBaseView() {
         </div>
       </div>
 
-      {/* Two-Column Layout */}
-      <div className="flex-1 overflow-hidden flex gap-6 p-6">
-        {/* Left Column - Documents List (Larger) */}
-        <div className="flex-1 flex flex-col gap-4 overflow-hidden">
-          {/* Compact Upload Area */}
+      {/* Main layout: left = upload + doc grid, right = stats + search */}
+      <div className="flex-1 overflow-hidden flex gap-4 p-4">
+        {/* ===== Left Column ===== */}
+        <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+
+          {/* Upload area - compact */}
           <div
-            className={`border-2 border-dashed rounded-lg p-3 transition-all ${isDragging
+            className={`border-2 border-dashed rounded-lg p-2.5 transition-all ${isDragging
               ? 'border-primary bg-primary/5'
               : 'border-gray-300 dark:border-border-dark bg-white dark:bg-panel-dark'
               }`}
@@ -495,151 +496,131 @@ export default function KnowledgeBaseView() {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                 {uploading ? (
-                  <Loader className="w-5 h-5 text-primary animate-spin" />
+                  <Loader className="w-4 h-4 text-primary animate-spin" />
                 ) : (
-                  <Upload className="w-5 h-5 text-primary" />
+                  <Upload className="w-4 h-4 text-primary" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {uploading ? t('kb_uploading') : t('kb_upload')}
-                </h3>
                 <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
-                  {t('kb_upload_drop')}
+                  {uploading ? t('kb_uploading') : t('kb_upload_drop')}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <label className={`flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-sm font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                  <Upload className="w-4 h-4" />
+              <div className="flex items-center gap-1.5">
+                <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-xs font-medium">
+                  <Upload className="w-3.5 h-3.5" />
                   <span>{t('kb_browse')}</span>
-                  <input
-                    type="file"
-                    multiple
-                    accept={SUPPORTED_FILES}
-                    onChange={(e) => {
-                      setIsFolderUpload(false);
-                      handleFileSelect(e.target.files);
-                    }}
-                    className="hidden"
-                    disabled={uploading}
-                  />
+                  <input type="file" multiple accept={SUPPORTED_FILES}
+                    onChange={(e) => { setIsFolderUpload(false); handleFileSelect(e.target.files); }}
+                    className="hidden" disabled={uploading} />
                 </label>
-                <label className={`flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-sm font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                  <Database className="w-4 h-4" />
+                <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-600 text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-xs font-medium">
+                  <Database className="w-3.5 h-3.5" />
                   <span>{t('kb_select_folder')}</span>
-                  <input
-                    type="file"
-                    // @ts-ignore - webkitdirectory is not in TS types but works in browsers
-                    webkitdirectory=""
-                    directory=""
-                    multiple
-                    onChange={(e) => {
-                      setIsFolderUpload(true);
-                      handleFileSelect(e.target.files);
-                    }}
-                    className="hidden"
-                    disabled={uploading}
-                  />
+                  <input type="file" // @ts-ignore - webkitdirectory is not in TS types
+                    webkitdirectory="" directory="" multiple
+                    onChange={(e) => { setIsFolderUpload(true); handleFileSelect(e.target.files); }}
+                    className="hidden" disabled={uploading} />
                 </label>
               </div>
             </div>
           </div>
 
-          {/* Documents List */}
-          <div className="flex-1 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-gray-200 dark:border-border-dark flex items-center justify-between flex-shrink-0">
-              <div>
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {t('kb_documents')}
-                </h3>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                  {totalDocuments} total • {readyCount} {t('kb_indexed')}
-                </p>
+          {/* Stats bar - compact horizontal */}
+          <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg px-4 py-2.5">
+            <div className="flex items-center gap-6 text-xs">
+              <div className="flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
+                <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_documents')}:</span>
+                <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{totalDocuments}</span>
               </div>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="px-3 py-1.5 border border-gray-200 dark:border-border-dark rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
-              >
-                <option value="all">{t('kb_all')}</option>
-                <option value="ready">{t('kb_indexed')}</option>
-                <option value="indexing">Processing</option>
-                <option value="not_indexed">Pending</option>
-                <option value="failed">Failed</option>
-              </select>
+              <div className="flex items-center gap-1.5">
+                <Filter className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+                <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_indexed')}:</span>
+                <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{readyCount}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Database className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+                <span style={{ color: 'var(--color-text-muted)' }}>Chunks:</span>
+                <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{totalChunks}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Database className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+                <span style={{ color: 'var(--color-text-muted)' }}>Storage:</span>
+                <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>{formatFileSize(totalSize)}</span>
+              </div>
+              <div className="ml-auto">
+                <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="px-2 py-1 border border-gray-200 dark:border-border-dark rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                  style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
+                  <option value="all">{t('kb_all')}</option>
+                  <option value="ready">{t('kb_indexed')}</option>
+                  <option value="indexing">Processing</option>
+                  <option value="not_indexed">Pending</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
             </div>
+          </div>
+
+          {/* Document Cards Grid - 6 per row */}
+          <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="flex-1 flex items-center justify-center p-8">
+              <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <Loader className="w-12 h-12 text-primary mx-auto mb-3 animate-spin" />
-                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('kb_loading')}</p>
+                  <Loader className="w-10 h-10 text-primary mx-auto mb-2 animate-spin" />
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('kb_loading')}</p>
                 </div>
               </div>
             ) : filteredDocuments.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center p-8">
+              <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" style={{ color: 'var(--color-text-muted)' }} />
-                  <p className="text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>{t('kb_empty')}</p>
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  <FileText className="w-10 h-10 mx-auto mb-2 opacity-50" style={{ color: 'var(--color-text-muted)' }} />
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('kb_empty')}</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                     {searchQuery ? t('kb_no_results', { query: searchQuery }) : ''}
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto divide-y divide-gray-200 dark:divide-border-dark">
+              <div className="grid grid-cols-6 gap-2">
                 {filteredDocuments.map(doc => (
-                  <div
-                    key={doc.id}
-                    className="p-3 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                  <div key={doc.id}
+                    className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-2.5 hover:shadow-sm transition-shadow group"
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-5 h-5 text-primary" />
+                    <div className="flex flex-col items-center text-center">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center mb-1.5">
+                        <FileText className="w-4 h-4 text-primary" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium mb-1 truncate" style={{ color: 'var(--color-text-primary)' }}>
-                          {doc.name}
-                        </h4>
-                        <div className="flex items-center gap-2 flex-wrap text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          <span>{formatFileSize(doc.size)}</span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Database className="w-3 h-3" />
-                            {doc.chunk_count || 0} {t('kb_chunks')}
-                          </span>
-                          <span>•</span>
-                          <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-white/5 rounded">
-                            {doc.document_type}
-                          </span>
-                          <span>•</span>
-                          <span>{formatDate(doc.created_at)}</span>
+                      <h4 className="text-xs font-medium leading-tight line-clamp-2 mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                        {doc.name}
+                      </h4>
+                      <div className="text-[10px] leading-tight" style={{ color: 'var(--color-text-muted)' }}>
+                        <div>{formatFileSize(doc.size)}</div>
+                        <div className="flex items-center justify-center gap-1">
+                          <Database className="w-2.5 h-2.5" />
+                          {doc.chunk_count || 0} chunks
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-medium ${doc.indexing_status === 'ready'
+                      <div className="mt-1 flex items-center gap-1">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          doc.indexing_status === 'ready'
                             ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400'
                             : doc.indexing_status === 'indexing'
                               ? 'bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
                               : doc.indexing_status === 'failed'
                                 ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400'
                                 : 'bg-gray-100 dark:bg-gray-500/20'
-                            }`}
-                          style={doc.indexing_status === 'not_indexed' ? { color: 'var(--color-text-muted)' } : {}}
-                        >
+                        }`}>
                           {getStatusDisplay(doc.indexing_status)}
                         </span>
-                        <button
-                          onClick={() => handleDelete(doc.id)}
-                          className="p-1.5 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-colors"
-                          style={{ color: 'var(--color-text-muted)' }}
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
+                        <button onClick={() => handleDelete(doc.id)}
+                          className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-all"
+                          style={{ color: 'var(--color-text-muted)' }} title="Delete">
+                          <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
                     </div>
@@ -650,49 +631,10 @@ export default function KnowledgeBaseView() {
           </div>
         </div>
 
-        {/* Right Column - Stats & Search (Narrower) */}
-        <div className="w-96 flex-shrink-0 overflow-y-auto space-y-4">
-          {/* Stats Cards */}
-          <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-4">
-            <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-              Statistics
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-gray-50 dark:bg-background-dark rounded-lg border border-gray-200 dark:border-border-dark">
-                <div className="flex items-center gap-2 mb-1">
-                  <FileText className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Documents</p>
-                </div>
-                <p className="text-xl font-bold" style={{ color: 'var(--color-primary)' }}>{totalDocuments}</p>
-              </div>
+        {/* ===== Right Column - Stats + Search ===== */}
+        <div className="w-80 flex-shrink-0 overflow-y-auto space-y-3">
 
-              <div className="p-3 bg-gray-50 dark:bg-background-dark rounded-lg border border-gray-200 dark:border-border-dark">
-                <div className="flex items-center gap-2 mb-1">
-                  <Filter className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Indexed</p>
-                </div>
-                <p className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{readyCount}</p>
-              </div>
-
-              <div className="p-3 bg-gray-50 dark:bg-background-dark rounded-lg border border-gray-200 dark:border-border-dark">
-                <div className="flex items-center gap-2 mb-1">
-                  <Database className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Chunks</p>
-                </div>
-                <p className="text-xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{totalChunks}</p>
-              </div>
-
-              <div className="p-3 bg-gray-50 dark:bg-background-dark rounded-lg border border-gray-200 dark:border-border-dark">
-                <div className="flex items-center gap-2 mb-1">
-                  <Database className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
-                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Storage</p>
-                </div>
-                <p className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>{formatFileSize(totalSize)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Storage Metrics - Detailed breakdown */}
+          {/* Storage Metrics */}
           {activeProjectId && (
             <StorageMetrics
               projectId={activeProjectId}
@@ -700,121 +642,83 @@ export default function KnowledgeBaseView() {
             />
           )}
 
-          {/* Compact Search Interface */}
-          <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Search className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          {/* Semantic Search */}
+          <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
+              <h3 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                 {searchMode === 'pageindex' ? 'Document Navigation (PageIndex)' : 'Semantic Search'}
               </h3>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {/* Mode selector */}
-              <div className="flex gap-1 p-0.5 bg-gray-100 dark:bg-white/5 rounded-lg">
-                <button
-                  onClick={() => {
-                    setSearchMode('vector');
-                    setShowSearchResults(false);
-                    setPageIndexDocs([]);
-                  }}
-                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                    searchMode === 'vector'
-                      ? 'bg-white dark:bg-white/10 shadow-sm'
-                      : 'hover:bg-white/50 dark:hover:bg-white/5'
+              <div className="flex gap-0.5 p-0.5 bg-gray-100 dark:bg-white/5 rounded-lg">
+                <button onClick={() => { setSearchMode('vector'); setShowSearchResults(false); setPageIndexDocs([]); }}
+                  className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${
+                    searchMode === 'vector' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'
                   }`}
-                  style={{ color: 'var(--color-text-primary)' }}
-                >
+                  style={{ color: 'var(--color-text-primary)' }}>
                   {t('kb_vector_rag')}
                 </button>
-                <button
-                  onClick={() => {
-                    setSearchMode('pageindex');
-                    setShowSearchResults(false);
-                    setPageIndexDocs([]);
-                  }}
-                  className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                    searchMode === 'pageindex'
-                      ? 'bg-white dark:bg-white/10 shadow-sm'
-                      : 'hover:bg-white/50 dark:hover:bg-white/5'
+                <button onClick={() => { setSearchMode('pageindex'); setShowSearchResults(false); setPageIndexDocs([]); }}
+                  className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${
+                    searchMode === 'pageindex' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'
                   }`}
-                  style={{ color: 'var(--color-text-primary)' }}
-                >
+                  style={{ color: 'var(--color-text-primary)' }}>
                   {t('kb_page_index')}
                 </button>
               </div>
 
+              {/* Search input */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
-                <input
-                  type="text"
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
+                <input type="text"
                   placeholder={searchMode === 'pageindex' ? t('kb_search_pageindex_placeholder') : t('kb_search_placeholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-border-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full pl-8 pr-3 py-1.5 border border-gray-200 dark:border-border-dark rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                   style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
                 />
               </div>
 
-              <div className="flex items-center gap-3 text-xs">
+              {/* Options row */}
+              <div className="flex items-center gap-2 text-[11px] flex-wrap">
                 {searchMode === 'vector' && (
                   <>
-                <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-opacity" style={{ color: 'var(--color-text-primary)' }}>
-                  <input
-                    type="checkbox"
-                    checked={useHyDE}
-                    onChange={(e) => setUseHyDE(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-gray-300 dark:border-border-dark text-primary focus:ring-primary"
-                  />
-                  <span>{t('kb_hyde')}</span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-opacity" style={{ color: 'var(--color-text-primary)' }}>
-                  <input
-                    type="checkbox"
-                    checked={useTOON}
-                    onChange={(e) => setUseTOON(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-gray-300 dark:border-border-dark text-purple-600 focus:ring-purple-600"
-                  />
-                  <span>{t('kb_toon')}</span>
-                </label>
-                </>
+                    <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
+                      <input type="checkbox" checked={useHyDE} onChange={(e) => setUseHyDE(e.target.checked)}
+                        className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-primary focus:ring-primary" />
+                      <span>{t('kb_hyde')}</span>
+                    </label>
+                    <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
+                      <input type="checkbox" checked={useTOON} onChange={(e) => setUseTOON(e.target.checked)}
+                        className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-purple-600 focus:ring-purple-600" />
+                      <span>{t('kb_toon')}</span>
+                    </label>
+                  </>
                 )}
-                <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-opacity" style={{ color: 'var(--color-text-primary)' }}>
-                  <input
-                    type="checkbox"
-                    checked={compareMode}
-                    onChange={(e) => setCompareMode(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded border-gray-300 dark:border-border-dark text-orange-600 focus:ring-orange-600"
-                  />
+                <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
+                  <input type="checkbox" checked={compareMode} onChange={(e) => setCompareMode(e.target.checked)}
+                    className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-orange-600 focus:ring-orange-600" />
                   <span>{t('kb_compare')}</span>
                 </label>
               </div>
 
-              <button
-                onClick={handleSearch}
-                disabled={searching || !searchQuery.trim()}
-                className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-              >
+              {/* Search button */}
+              <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
+                className="w-full px-3 py-1.5 bg-primary text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 text-xs font-medium">
                 {searching ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin" />
-                    <span>{t('kb_searching')}</span>
-                  </>
+                  <><Loader className="w-3 h-3 animate-spin" /><span>{t('kb_searching')}</span></>
                 ) : (
-                  <>
-                    <Search className="w-4 h-4" />
-                    <span>{t('kb_search_action')}</span>
-                  </>
+                  <><Search className="w-3 h-3" /><span>{t('kb_search_action')}</span></>
                 )}
               </button>
 
               {showSearchResults && (
-                <button
-                  onClick={clearSearch}
-                  className="w-full px-4 py-2 bg-gray-100 dark:bg-white/5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-all border border-gray-200 dark:border-border-dark text-sm font-medium"
-                  style={{ color: 'var(--color-text-primary)' }}
-                >
+                <button onClick={clearSearch}
+                  className="w-full px-3 py-1.5 bg-gray-100 dark:bg-white/5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-all border border-gray-200 dark:border-border-dark text-xs font-medium"
+                  style={{ color: 'var(--color-text-primary)' }}>
                   {t('kb_clear_results')}
                 </button>
               )}
@@ -823,8 +727,7 @@ export default function KnowledgeBaseView() {
 
           {/* Search Results */}
           {showSearchResults && (
-            <div className="space-y-4">
-              {/* Metrics Display */}
+            <div className="space-y-3">
               {searchMetrics && (
                 <SearchMetricsDisplay
                   metrics={searchMetrics}
@@ -832,9 +735,8 @@ export default function KnowledgeBaseView() {
                 />
               )}
 
-              {/* Results */}
-              <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-4">
-                <h3 className="text-base font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+              <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3">
+                <h3 className="text-xs font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
                   {pageIndexDocs.length > 0
                     ? `Indexed Documents (${pageIndexDocs.length})`
                     : `Search Results (${searchResults.length})`
@@ -843,58 +745,56 @@ export default function KnowledgeBaseView() {
 
                 {/* PageIndex Results */}
                 {pageIndexDocs.length > 0 && (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {pageIndexDocs.map((doc: any) => (
-                      <div key={doc.doc_id} className="border border-gray-200 dark:border-border-dark rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-sm" style={{ color: 'var(--color-primary)' }}>
+                      <div key={doc.doc_id} className="border border-gray-200 dark:border-border-dark rounded-lg p-2">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-xs" style={{ color: 'var(--color-primary)' }}>
                               {doc.type === 'pdf' ? 'picture_as_pdf' : 'description'}
                             </span>
-                            <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                            <span className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
                               {doc.doc_name}
                             </span>
                           </div>
-                          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
                             {doc.page_count} {t('kb_pages')}
                           </span>
                         </div>
                         {doc.structure && doc.structure.length > 0 && (
-                          <div className="ml-5 space-y-0.5">
-                            {doc.structure.slice(0, 10).map((node: any, idx: number) => (
-                              <div key={idx} className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                                <span className="inline-block w-4">-</span>
+                          <div className="ml-4 space-y-0.5">
+                            {doc.structure.slice(0, 5).map((node: any, idx: number) => (
+                              <div key={idx} className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                                <span className="inline-block w-3">-</span>
                                 {node.title}
                                 {node.page && <span className="ml-1 opacity-60">(p.{node.page})</span>}
                               </div>
                             ))}
-                            {doc.structure.length > 10 && (
-                              <div className="text-xs italic" style={{ color: 'var(--color-text-muted)' }}>
-                              {t('kb_more_sections', { count: doc.structure.length - 10 })}
+                            {doc.structure.length > 5 && (
+                              <div className="text-[10px] italic" style={{ color: 'var(--color-text-muted)' }}>
+                                {t('kb_more_sections', { count: doc.structure.length - 5 })}
                               </div>
                             )}
                           </div>
                         )}
-                        <div className="mt-2 flex gap-2">
-                          <button
-                            onClick={async () => {
-                              try {
-                                const res = await apiClient.searchDocuments({
-                                  query: `Read page 1-3 of ${doc.doc_name}`,
-                                  project_id: activeProjectId || 0,
-                                  top_k: 1,
-                                  search_mode: 'pageindex',
-                                });
-                                const data = res as any;
-                                if (data.search_mode === 'pageindex') {
-                                  setSearchResults([]);
-                                  setPageIndexDocs(data.documents || []);
-                                }
-                              } catch {}
-                            }}
-                            className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
-                            style={{ color: 'var(--color-text-primary)' }}
-                          >
+                        <div className="mt-1.5">
+                          <button onClick={async () => {
+                            try {
+                              const res = await apiClient.searchDocuments({
+                                query: `Read page 1-3 of ${doc.doc_name}`,
+                                project_id: activeProjectId || 0,
+                                top_k: 1,
+                                search_mode: 'pageindex',
+                              });
+                              const data = res as any;
+                              if (data.search_mode === 'pageindex') {
+                                setSearchResults([]);
+                                setPageIndexDocs(data.documents || []);
+                              }
+                            } catch {}
+                          }}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
+                            style={{ color: 'var(--color-text-primary)' }}>
                             Browse
                           </button>
                         </div>
@@ -904,68 +804,55 @@ export default function KnowledgeBaseView() {
                 )}
 
                 {/* Vector Results */}
-                  {searchResults.length > 0 && (
-                    <div className="space-y-3">
+                {searchResults.length > 0 && (
+                  <div className="space-y-2">
                     {searchResults.map((result, index) => (
-                      <div key={index} className="bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-primary">{result.document_name}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                      <div key={index} className="bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg p-2">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs font-medium text-primary">{result.document_name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
                               Similarity: {(result.similarity_score * 100).toFixed(1)}%
                             </span>
                             {result.chunk_token_count && (
-                              <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                              <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
                                 {result.chunk_token_count} tokens
                               </span>
                             )}
-                            <button
-                              onClick={() => toggleChunkExpansion(index)}
-                              className="text-xs text-primary hover:underline font-medium"
-                            >
-                              {expandedChunks.has(index) ? 'Hide Details' : 'Show Details'}
+                            <button onClick={() => toggleChunkExpansion(index)}
+                              className="text-[10px] text-primary hover:underline font-medium">
+                              {expandedChunks.has(index) ? 'Hide' : 'Show'}
                             </button>
                           </div>
                         </div>
 
                         {expandedChunks.has(index) && (
-                          <div className="mb-2 pb-2 border-b border-gray-200 dark:border-border-dark text-xs space-y-0.5">
+                          <div className="mb-1.5 pb-1.5 border-b border-gray-200 dark:border-border-dark text-[10px] space-y-0.5">
                             {result.chunk_id && (
-                              <div>
-                                <span style={{ color: 'var(--color-text-muted)' }}>Chunk ID:</span>{' '}
+                              <div><span style={{ color: 'var(--color-text-muted)' }}>Chunk ID:</span>{' '}
                                 <span className="font-mono" style={{ color: 'var(--color-text-primary)' }}>{result.chunk_id}</span>
                               </div>
                             )}
                             {result.chunk_index !== undefined && (
-                              <div>
-                                <span style={{ color: 'var(--color-text-muted)' }}>Chunk Index:</span>{' '}
-                                <span style={{ color: 'var(--color-text-primary)' }}>
-                                  {result.chunk_index} of {result.total_chunks_in_doc || '?'}
-                                </span>
+                              <div><span style={{ color: 'var(--color-text-muted)' }}>Chunk Index:</span>{' '}
+                                <span style={{ color: 'var(--color-text-primary)' }}>{result.chunk_index} of {result.total_chunks_in_doc || '?'}</span>
                               </div>
                             )}
                             {result.chunk_token_count && (
-                              <div>
-                                <span style={{ color: 'var(--color-text-muted)' }}>Token Count:</span>{' '}
+                              <div><span style={{ color: 'var(--color-text-muted)' }}>Token Count:</span>{' '}
                                 <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>{result.chunk_token_count} tokens</span>
                               </div>
                             )}
                             {result.chunk_char_count && (
-                              <div>
-                                <span style={{ color: 'var(--color-text-muted)' }}>Character Count:</span>{' '}
+                              <div><span style={{ color: 'var(--color-text-muted)' }}>Character Count:</span>{' '}
                                 <span style={{ color: 'var(--color-text-primary)' }}>{result.chunk_char_count} chars</span>
                               </div>
                             )}
                           </div>
                         )}
 
-                        <pre
-                          className="text-xs whitespace-pre-wrap font-mono p-2 rounded overflow-x-auto"
-                          style={{
-                            backgroundColor: 'var(--color-input-background)',
-                            color: 'var(--color-text-primary)'
-                          }}
-                        >
+                        <pre className="text-[10px] whitespace-pre-wrap font-mono p-1.5 rounded overflow-x-auto max-h-20"
+                          style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
                           {result.chunk_text}
                         </pre>
                       </div>
@@ -973,15 +860,13 @@ export default function KnowledgeBaseView() {
                   </div>
                 )}
 
-              {/* Empty State */}
-              {searchResults.length === 0 && pageIndexDocs.length === 0 && (
-                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                  No results found for "{searchQuery}"
-                </p>
-              )}
-            </div>
+                {searchResults.length === 0 && pageIndexDocs.length === 0 && (
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    No results found for "{searchQuery}"
+                  </p>
+                )}
+              </div>
 
-            {/* Search History */}
               {activeProjectId && (
                 <SearchHistoryLog
                   projectId={activeProjectId}
