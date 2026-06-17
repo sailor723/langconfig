@@ -1048,12 +1048,12 @@ export default function SettingsView() {
         if (!ragSettings) return null;
         return (
           <SettingsSection
-            title="Embedding Configuration"
-            description="Configure vector embedding model and chunking settings for RAG document indexing."
+            title={t('settings_embedding_title')}
+            description={t('settings_embedding_desc')}
             icon="database"
           >
             <SettingsSelect
-              label="Embedding Model"
+              label={t('settings_embedding_model')}
               value={ragSettings.embeddingModel}
               onChange={(value: string) => {
                 setRagSettings({ ...ragSettings, embeddingModel: value });
@@ -1062,7 +1062,7 @@ export default function SettingsView() {
               options={(() => {
                 const opts = embeddingModels.map(m => ({
                   value: m.id,
-                  label: `${m.name}${m.type === 'local' ? ' (Local)' : ''}`
+                  label: `${m.name}${m.type === 'local' ? t('settings_embedding_local') : ''}`
                 }));
                 // Always include current value even if not in list
                 if (ragSettings?.embeddingModel && !embeddingModels.some(m => m.id === ragSettings.embeddingModel)) {
@@ -1070,27 +1070,27 @@ export default function SettingsView() {
                 }
                 return opts.length > 0 ? opts : [{ value: 'text-embedding-3-small', label: 'text-embedding-3-small' }];
               })()}
-              description="The embedding model used to vectorize documents for semantic search. Local models from Ollama are auto-detected."
+              description={t('settings_embedding_model_desc')}
             />
             <SettingsInput
-              label="Chunk Size"
+              label={t('settings_embedding_chunk_size')}
               type="number"
               value={ragSettings.chunkSize.toString()}
               onChange={(value) => {
                 setRagSettings({ ...ragSettings, chunkSize: parseInt(value) || 1000 });
                 autoSave('embedding');
               }}
-              description="Maximum number of characters per document chunk."
+              description={t('settings_embedding_chunk_size_desc')}
             />
             <SettingsInput
-              label="Chunk Overlap"
+              label={t('settings_embedding_chunk_overlap')}
               type="number"
               value={ragSettings.chunkOverlap.toString()}
               onChange={(value) => {
                 setRagSettings({ ...ragSettings, chunkOverlap: parseInt(value) || 200 });
                 autoSave('embedding');
               }}
-              description="Number of overlapping characters between consecutive chunks."
+              description={t('settings_embedding_chunk_overlap_desc')}
             />
           </SettingsSection>
         );

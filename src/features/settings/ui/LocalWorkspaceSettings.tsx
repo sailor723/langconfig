@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import SettingsSection, { SettingsInput, SettingsCheckbox } from './SettingsSection';
 
 interface LocalWorkspaceSettingsProps {
@@ -24,6 +25,7 @@ export default function LocalWorkspaceSettings({
   settings,
   onSettingsChange
 }: LocalWorkspaceSettingsProps) {
+  const { t } = useTranslation();
   const [isSelectingFolder, setIsSelectingFolder] = useState(false);
 
   const handleBrowse = async () => {
@@ -57,19 +59,19 @@ export default function LocalWorkspaceSettings({
   return (
     <div>
       <SettingsSection
-        title="Local Workspace"
-        description="Configure workspace access for coding agents. Agents can read and write files in your workspace to help with development tasks."
+        title={t('settings_local_workspace_title')}
+        description={t('settings_local_workspace_desc')}
         icon="folder_open"
       >
         {/* Workspace Path */}
         <div className="flex gap-2">
           <div className="flex-1">
             <SettingsInput
-              label="Workspace Directory"
+              label={t('settings_local_workspace_dir')}
               value={settings.workspacePath}
               onChange={(value) => onSettingsChange({ ...settings, workspacePath: value })}
               placeholder="C:\Users\YourName\projects\myapp"
-              description="The root directory where agents can access files. Only files within this directory will be accessible."
+              description={t('settings_local_workspace_dir_desc')}
               required
             />
           </div>
@@ -88,29 +90,29 @@ export default function LocalWorkspaceSettings({
         {/* File Permissions */}
         <div className="border-t border-gray-200 dark:border-border-dark pt-4 mt-4">
           <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-            Agent File Permissions
+            {t('settings_local_workspace_permissions')}
           </h4>
           <div className="space-y-3">
             <SettingsCheckbox
-              label="Allow agents to read files"
+              label={t('settings_local_workspace_allow_read')}
               checked={settings.allowRead}
               onChange={(checked) => onSettingsChange({ ...settings, allowRead: checked })}
-              description="Agents can read file contents to understand your codebase and provide context-aware suggestions."
+              description={t('settings_local_workspace_allow_read_desc')}
             />
 
             <SettingsCheckbox
-              label="Allow agents to create/edit files"
+              label={t('settings_local_workspace_allow_write')}
               checked={settings.allowWrite}
               onChange={(checked) => onSettingsChange({ ...settings, allowWrite: checked })}
-              description="Agents can propose changes to existing files or create new files. Changes will be shown for review before applying."
+              description={t('settings_local_workspace_allow_write_desc')}
             />
 
             <SettingsCheckbox
-              label="Require approval before writing files"
+              label={t('settings_local_workspace_require_approval')}
               checked={settings.requireApproval}
               onChange={(checked) => onSettingsChange({ ...settings, requireApproval: checked })}
               disabled={!settings.allowWrite}
-              description="Show a diff viewer and require manual approval before any file modifications are applied."
+              description={t('settings_local_workspace_require_approval_desc')}
             />
           </div>
         </div>
@@ -122,17 +124,17 @@ export default function LocalWorkspaceSettings({
           </h4>
           <div className="space-y-3">
             <SettingsCheckbox
-              label="Auto-detect git repository"
+              label={t('settings_local_workspace_auto_detect')}
               checked={settings.autoDetectGit}
               onChange={(checked) => onSettingsChange({ ...settings, autoDetectGit: checked })}
-              description="Automatically detect if the workspace is a git repository and show repository information."
+              description={t('settings_local_workspace_auto_detect_desc')}
             />
 
             <SettingsCheckbox
-              label="Backup files before agent edits"
+              label={t('settings_local_workspace_backup')}
               checked={settings.backupBeforeEdit}
               onChange={(checked) => onSettingsChange({ ...settings, backupBeforeEdit: checked })}
-              description="Create automatic backups of files before applying agent modifications. Backups are stored in .langconfig/backups/"
+              description={t('settings_local_workspace_backup_desc')}
             />
           </div>
         </div>
