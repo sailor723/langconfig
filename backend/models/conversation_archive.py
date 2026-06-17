@@ -12,7 +12,7 @@ class ConversationArchive(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id = Column(String(255), nullable=False, index=True)
-    user_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(Integer, nullable=True, index=True)
     turn_number = Column(Integer, nullable=False)
     user_message = Column(Text, nullable=False)
     agent_response = Column(Text, nullable=False)

@@ -24,7 +24,7 @@ from llama_index.core.retrievers import BaseRetriever, VectorIndexRetriever
 from llama_index.core.indices import VectorStoreIndex
 
 from config import settings
-from db.database import SessionLocal
+from db.database import AsyncSessionLocal
 from models.core import Project, IndexingStatus
 from services.llama_config import get_vector_store, ensure_initialized
 
@@ -152,7 +152,7 @@ class ContextRetriever:
         
         try:
             # Check project indexing status
-            async with SessionLocal() as session:
+            async with AsyncSessionLocal() as session:
                 project = await session.get(Project, project_id)
                 if not project:
                     raise ValueError(f"Project {project_id} not found")
@@ -163,16 +163,46 @@ class ContextRetriever:
                         f"Status: {project.indexing_status.value if project.indexing_status else 'not_indexed'}"
                     )
             
-            # Initialize vector store and retriever
-            vector_store = get_vector_store(project_id)
+            # Initialize vector store using the same approach as context_document_indexer
+            from llama_index.core import VectorStoreIndex
+            from llama_index.core.retrievers import VectorIndexRetriever
+            from llama_index.vector_stores.postgres import PGVectorStore
+            from services.llama_config import get_embedding_dimension
+            from urllib.parse import urlparse
+            from services.llama_config import app_settings
+
+            parsed_url = urlparse(app_settings.database_url)
+            port = parsed_url.port or 5432
+            database_name = parsed_url.path.lstrip('/')
             
+            vector_store = PGVectorStore.from_params(
+                database=database_name,
+                host=parsed_url.hostname,
+                port=port,
+                user=parsed_url.username,
+                password=parsed_url.password,
+                table_name="context_documents_embeddings",  # Correct table name!
+                embed_dim=get_embedding_dimension(),
+                hnsw_kwargs={
+                    "hnsw_m": 16,
+                    "hnsw_ef_construction": 64,
+                    "hnsw_ef_search": 40,
+                }
+            )
+
             # Create a VectorStoreIndex from the vector store
             index = VectorStoreIndex.from_vector_store(vector_store)
             
             # Create retriever from the index
+            from llama_index.core.vector_stores import MetadataFilter, MetadataFilters
             retriever = VectorIndexRetriever(
                 index=index,
                 similarity_top_k=similarity_top_k,
+                filters=MetadataFilters(
+                    filters=[
+                        MetadataFilter(key="project_id", value=project_id)
+                    ]
+                )
             )
             
             logger.info(f"Successfully initialized retriever for project {project_id}")
@@ -193,7 +223,7 @@ class ContextRetriever:
             Project DNA summary string, or None if not available
         """
         try:
-            async with SessionLocal() as session:
+            async with AsyncSessionLocal() as session:
                 project = await session.get(Project, project_id)
                 if project and project.dna_summary:
                     logger.debug(f"Retrieved DNA summary for project {project_id} ({len(project.dna_summary)} chars)")
@@ -625,7 +655,7 @@ async def get_project_context_summary(project_id: int) -> Dict[str, Any]:
     """
     try:
         # Get project and indexing status
-        async with SessionLocal() as session:
+        async with AsyncSessionLocal() as session:
             project = await session.get(Project, project_id)
             if not project:
                 raise ValueError(f"Project {project_id} not found")

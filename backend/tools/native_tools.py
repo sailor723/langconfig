@@ -1700,6 +1700,138 @@ _doc_index_pages_tool = StructuredTool.from_function(
 
 
 # =============================================================================
+# GraphIndex Tools (vectorless RAG for PDF Chat)
+# =============================================================================
+
+def _get_project_id() -> Optional[int]:
+    """Get the current project ID from environment (set during agent execution)."""
+    pid = os.environ.get("GRAPHINDEX_PROJECT_ID")
+    if pid:
+        try:
+            return int(pid)
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
+def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
+    """
+    Search project documents using GraphIndex (vectorless retrieval).
+
+    Uses keyword/term matching against document metadata, filenames, and content
+    previews stored in Neo4j. No embeddings needed.
+
+    Returns matching documents with their context_doc_id, name, type, and page count.
+    Use the context_doc_id with graphindex_load() to get full document content.
+
+    Args:
+        query: Natural language search query (e.g., "department survey", "Q1 report")
+        project_id: Optional project ID. If not provided, uses the current project.
+    """
+    if not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        project_id = 1  # Default to project 1
+
+    try:
+        from api.knowledge.rag import (
+            _get_neo4j_document_index,
+            _try_graphindex_search_via_neo4j,
+            _get_doc_index_client,
+        )
+
+        client = _get_doc_index_client()
+        result = _try_graphindex_search_via_neo4j(
+            project_id=project_id,
+            query=query,
+            top_k=5,
+            client=client,
+        )
+
+        if not result or not result.documents:
+            return f"No documents found matching '{query}' in project {project_id}."
+
+        lines = [f"## GraphIndex Search Results for: '{query}'", ""]
+        for i, doc in enumerate(result.documents, 1):
+            lines.append(f"**[{i}] {doc.doc_name}**")
+            lines.append(f"   - Context Doc ID: `{doc.context_doc_id}`")
+            lines.append(f"   - Type: {doc.type}")
+            lines.append(f"   - Pages: {doc.page_count}")
+            if doc.structure:
+                toc = [s.get("title", "") for s in doc.structure[:5] if s.get("title")]
+                if toc:
+                    lines.append(f"   - Sections: {', '.join(toc[:3])}")
+            lines.append("")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error searching GraphIndex: {e}"
+
+
+def graphindex_load(context_doc_id: int) -> str:
+    """
+    Load the full content of a document by its context_doc_id.
+
+    Retrieves the complete document text from GraphIndex (or falls back to
+    file-based loading). Use this to get the full content after finding
+    a document via graphindex_search().
+
+    Args:
+        context_doc_id: The document's context_doc_id (from graphindex_search results)
+    """
+    try:
+        from api.knowledge.rag import (
+            _load_full_content_for_kv,
+            _get_doc_index_client,
+        )
+        from db.database import SessionLocal
+        from models.core import ContextDocument
+
+        client = _get_doc_index_client()
+
+        db = SessionLocal()
+        try:
+            context_doc = db.query(ContextDocument).filter(
+                ContextDocument.id == context_doc_id
+            ).first()
+        finally:
+            db.close()
+
+        if not context_doc:
+            return f"❌ Document with context_doc_id={context_doc_id} not found."
+
+        doc_id_str, doc_name, page_count, full_content = _load_full_content_for_kv(
+            context_doc, client
+        )
+
+        return (
+            f"## Document: {doc_name}\n"
+            f"Source: GraphIndex (vectorless retrieval)\n"
+            f"Pages: {page_count}\n"
+            f"Total characters: {len(full_content):,}\n"
+            f"\n"
+            f"--- Document Content ---\n"
+            f"{full_content}\n"
+            f"--- End of Document ---\n"
+        )
+    except Exception as e:
+        return f"❌ Error loading document {context_doc_id}: {e}"
+
+
+# StructuredTool wrappers
+_graphindex_search_tool = StructuredTool.from_function(
+    func=graphindex_search,
+    name="graphindex_search",
+    description="Search project documents using GraphIndex vectorless retrieval. Returns matching documents with context_doc_id, name, type, and page count. Use the context_doc_id with graphindex_load to get full content.",
+)
+_graphindex_load_tool = StructuredTool.from_function(
+    func=graphindex_load,
+    name="graphindex_load",
+    description="Load the full content of a document by its context_doc_id (obtained from graphindex_search). Returns the complete document text for the agent to read.",
+)
+
+
+# =============================================================================
 # Tool Loading Functions
 # =============================================================================
 
@@ -1761,6 +1893,9 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "doc_index_list": _doc_index_list_tool,
         "doc_index_structure": _doc_index_structure_tool,
         "doc_index_pages": _doc_index_pages_tool,
+        # GraphIndex tools (vectorless RAG for PDF Chat)
+        "graphindex_search": _graphindex_search_tool,
+        "graphindex_load": _graphindex_load_tool,
         # Note: Playwright tools are loaded separately via get_playwright_tools()
         # because they require async initialization
     }
@@ -1831,8 +1966,10 @@ def get_available_tool_names() -> List[str]:
         "doc_index_list",
         "doc_index_structure",
         "doc_index_pages",
+        # GraphIndex tools (vectorless RAG for PDF Chat)
+        "graphindex_search",
+        "graphindex_load",
     ]
-
 
 # Registry of filesystem tools for DeepAgents harness
 FILESYSTEM_TOOLS = ["ls", "read_file", "write_file", "edit_file", "glob", "grep"]
@@ -2006,6 +2143,21 @@ TOOL_REGISTRY = [
         "id": "doc_index_pages",
         "name": "Doc Index - Get Page Content",
         "description": "Get the full content of specific pages from a document (e.g. '3-5,7')",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    # GraphIndex tools (vectorless RAG for PDF Chat)
+    {
+        "id": "graphindex_search",
+        "name": "GraphIndex - Search Documents",
+        "description": "Search project documents using GraphIndex vectorless retrieval. Returns matching docs with context_doc_id.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "graphindex_load",
+        "name": "GraphIndex - Load Document Content",
+        "description": "Load the full content of a document by its context_doc_id (from graphindex_search). Returns complete document text.",
         "category": "retrieval",
         "requires_api_key": None,
     },
