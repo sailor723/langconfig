@@ -307,6 +307,21 @@ async def upload_document(
     description = doc_metadata.get("description") if isinstance(doc_metadata, dict) else None
     tags = doc_metadata.get("tags") if isinstance(doc_metadata, dict) else None
 
+    # Check for duplicate: same filename + project_id (skip failed docs so they can be re-uploaded)
+    existing = db.query(ContextDocument).filter(
+        ContextDocument.project_id == project_id,
+        ContextDocument.filename == (custom_name or file.filename),
+        ContextDocument.indexing_status != IndexingStatus.FAILED
+    ).first()
+    if existing:
+        logger.info(f"Duplicate document '{file.filename}' for project {project_id}, reusing existing id={existing.id}")
+        return DocumentUploadResponse(
+            id=existing.id,
+            name=existing.filename,
+            status=existing.indexing_status.value,
+            message="Document already exists"
+        )
+
     doc = ContextDocument(
         project_id=project_id,
         filename=custom_name or file.filename,
