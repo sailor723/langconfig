@@ -34,6 +34,7 @@ class Settings(Base):
     check_updates = Column(Boolean, default=True)
     telemetry = Column(Boolean, default=False)
     log_level = Column(String, default="info")
+    theme = Column(String, default="langconfig")
 
     # RAG/Vector Database Settings
     storage_path = Column(String, nullable=True)

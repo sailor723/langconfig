@@ -66,6 +66,7 @@ class GeneralSettings(BaseModel):
     check_updates: Optional[bool] = True
     telemetry: Optional[bool] = False
     log_level: Optional[str] = "info"
+    theme: Optional[str] = "langconfig"
 
 
 class LocalModelsSettings(BaseModel):
@@ -113,6 +114,15 @@ def get_default_storage_path() -> str:
 # Helper functions for database access
 def get_or_create_settings(db: Session) -> SettingsModel:
     """Get settings from database or create default row if it doesn't exist"""
+    # Migrate: add theme column if missing
+    try:
+        from sqlalchemy import text as sa_text
+        db.execute(sa_text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS theme VARCHAR DEFAULT 'langconfig'"))
+        db.commit()
+    except Exception:
+        db.rollback()
+        pass
+
     settings = db.query(SettingsModel).filter(SettingsModel.id == 1).first()
     if not settings:
         settings = SettingsModel(
@@ -538,7 +548,8 @@ async def get_general_settings(db: Session = Depends(get_db)):
         show_notifications=settings.show_notifications,
         check_updates=settings.check_updates,
         telemetry=settings.telemetry,
-        log_level=settings.log_level
+        log_level=settings.log_level,
+        theme=getattr(settings, 'theme', 'langconfig')
     )
 
 
@@ -562,7 +573,8 @@ async def update_general_settings(general_settings: GeneralSettings, db: Session
         show_notifications=settings.show_notifications,
         check_updates=settings.check_updates,
         telemetry=settings.telemetry,
-        log_level=settings.log_level
+        log_level=settings.log_level,
+        theme=getattr(settings, 'theme', 'langconfig')
     )
 
 
