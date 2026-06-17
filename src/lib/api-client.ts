@@ -474,9 +474,22 @@ class APIClient {
     project_id: number;
     top_k?: number;
     use_hyde?: boolean;
-    search_mode?: string; // "vector" or "pageindex"
+    search_mode?: string; // "vector" or "graphindex"
   }) {
-    return this.client.post('/api/rag/search', data);
+    const response = await this.client.post('/api/rag/search', data);
+    return response.data;
+  }
+
+  async pageIndexAnswer(data: {
+    query: string;
+    project_id: number;
+    context_doc_id?: number;
+    model?: string;
+    temperature?: number;
+    max_tokens?: number;
+  }) {
+    const response = await this.client.post('/api/rag/graphindex/answer', data);
+    return response.data;
   }
 
   async indexDocument(id: number) {

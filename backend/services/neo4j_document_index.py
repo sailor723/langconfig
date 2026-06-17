@@ -81,11 +81,11 @@ def build_document_node_properties(
     file_path: str,
     description: Optional[str] = None,
     tags: Optional[list[str]] = None,
-    pageindex_meta: Optional[dict[str, Any]] = None,
+    graphindex_meta: Optional[dict[str, Any]] = None,
     enrichment: Optional[Neo4jDocumentEnrichment] = None,
 ) -> dict[str, Any]:
     """Build a flat Neo4j property map for one document node."""
-    pageindex_meta = pageindex_meta or {}
+    graphindex_meta = graphindex_meta or {}
     enrichment = enrichment or Neo4jDocumentEnrichment()
 
     return {
@@ -96,10 +96,10 @@ def build_document_node_properties(
         "file_path": file_path,
         "description": description or "",
         "tags": tags or [],
-        "doc_name": pageindex_meta.get("doc_name") or name,
-        "page_count": int(pageindex_meta.get("page_count") or 0),
-        "content_preview": pageindex_meta.get("content_preview") or "",
-        "search_terms": pageindex_meta.get("search_terms") or [],
+        "doc_name": graphindex_meta.get("doc_name") or name,
+        "page_count": int(graphindex_meta.get("page_count") or 0),
+        "content_preview": graphindex_meta.get("content_preview") or "",
+        "search_terms": graphindex_meta.get("search_terms") or [],
         "what_this_document_is_about": enrichment.what_this_document_is_about,
         "supported_queries": enrichment.supported_queries,
         "out_of_scope": enrichment.out_of_scope,

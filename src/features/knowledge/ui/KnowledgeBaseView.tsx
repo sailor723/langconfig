@@ -71,13 +71,22 @@ export default function KnowledgeBaseView() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [useHyDE, setUseHyDE] = useState(false);
   const [useTOON, setUseTOON] = useState(false);
-  const [searchMode, setSearchMode] = useState<'vector' | 'pageindex'>('vector');
+  const [searchMode, setSearchMode] = useState<'vector' | 'graphindex'>('graphindex');
   const [compareMode, setCompareMode] = useState(false);
   const [searchMetrics, setSearchMetrics] = useState<SearchMetrics | null>(null);
   const [comparisonMetrics, setComparisonMetrics] = useState<SearchMetrics | null>(null);
   const [comparisonResults, setComparisonResults] = useState<SearchResult[]>([]);
   const [expandedChunks, setExpandedChunks] = useState<Set<number>>(new Set());
-  const [pageIndexDocs, setPageIndexDocs] = useState<any[]>([]);
+  const [pageIndexDocs, setGraphIndexDocs] = useState<any[]>([]);
+  const [answerLoading, setAnswerLoading] = useState(false);
+  const [answerResult, setAnswerResult] = useState<{
+    doc_id: string;
+    doc_name: string;
+    answer: string;
+    pages_loaded: number;
+    content_chars: number;
+    model: string;
+  } | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
   const [uploadName, setUploadName] = useState('');
@@ -284,14 +293,14 @@ export default function KnowledgeBaseView() {
           project_id: activeProjectId,
           top_k: 10,
           use_hyde: useHyDE,
-          search_mode: 'pageindex',
+          search_mode: 'graphindex',
         });
         const data1 = response1 as any;
-        if (data1.search_mode === 'pageindex') {
+        if (data1.search_mode === 'graphindex') {
           setSearchResults([]);
-          setPageIndexDocs(data1.documents || []);
+          setGraphIndexDocs(data1.documents || []);
         } else {
-          setPageIndexDocs([]);
+          setGraphIndexDocs([]);
           setSearchResults(data1.results || []);
         }
 
@@ -303,7 +312,7 @@ export default function KnowledgeBaseView() {
           search_mode: 'vector',
         });
         const data2 = response2 as any;
-        if (data2.search_mode === 'pageindex') {
+        if (data2.search_mode === 'graphindex') {
           setComparisonResults([]);
         } else {
           const vectorResults = (data2.results || []).filter((result: SearchResult) =>
@@ -322,15 +331,15 @@ export default function KnowledgeBaseView() {
           search_mode: searchMode,
         });
         const data = response as any;
-        if (data.search_mode === 'pageindex') {
+        if (data.search_mode === 'graphindex') {
           setSearchResults([]);
-          setPageIndexDocs(data.documents || []);
+          setGraphIndexDocs(data.documents || []);
           setSearchMetrics(null);
         } else {
           const vectorResults = (data.results || []).filter((result: SearchResult) =>
             selectedDocId ? result.document_id === selectedDocId : true
           );
-          setPageIndexDocs([]);
+          setGraphIndexDocs([]);
           setSearchResults(vectorResults);
           setSearchMetrics(data.metrics || null);
         }
@@ -344,6 +353,25 @@ export default function KnowledgeBaseView() {
       alert('Search failed. Make sure your project is indexed.');
     } finally {
       setSearching(false);
+    }
+  };
+
+  const handleGraphIndexAnswer = async (doc: any) => {
+    if (!activeProjectId || !searchQuery.trim()) return;
+    try {
+      setAnswerLoading(true);
+      setAnswerResult(null);
+      const result = await apiClient.pageIndexAnswer({
+        query: searchQuery,
+        project_id: activeProjectId,
+        context_doc_id: doc.context_doc_id,
+      });
+      setAnswerResult(result);
+    } catch (error) {
+      console.error('GraphIndex answer failed:', error);
+      alert('Failed to get answer from document.');
+    } finally {
+      setAnswerLoading(false);
     }
   };
 
@@ -518,110 +546,36 @@ export default function KnowledgeBaseView() {
       </div>
 
       <div className="flex-1 overflow-hidden p-4">
-        <div
-          className={`border-2 border-dashed rounded-lg p-2.5 mb-3 transition-all ${isDragging
-            ? 'border-primary bg-primary/5'
-            : 'border-gray-300 dark:border-border-dark bg-white dark:bg-panel-dark'
-            }`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              {uploading ? (
-                <Loader className="w-4 h-4 text-primary animate-spin" />
-              ) : (
-                <Upload className="w-4 h-4 text-primary" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
-                {uploading ? t('kb_uploading') : t('kb_upload_drop')}
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-primary text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-xs font-medium">
-                <Upload className="w-3.5 h-3.5" />
-                <span>{t('kb_browse')}</span>
-                <input type="file" multiple accept={SUPPORTED_FILES}
-                  onChange={(e) => { setIsFolderUpload(false); handleFileSelect(e.target.files); }}
-                  className="hidden" disabled={uploading} />
-              </label>
-              <label className="flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-600 text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-xs font-medium">
-                <Database className="w-3.5 h-3.5" />
-                <span>{t('kb_select_folder')}</span>
-                <input type="file" // @ts-ignore - webkitdirectory is not in TS types
-                  webkitdirectory="" directory="" multiple
-                  onChange={(e) => { setIsFolderUpload(true); handleFileSelect(e.target.files); }}
-                  className="hidden" disabled={uploading} />
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg px-3 py-1.5 mb-3">
-          <div className="flex items-center gap-4 text-[11px]">
-            <div className="flex items-center gap-1">
-              <FileText className="w-3 h-3" style={{ color: 'var(--color-primary)' }} />
-              <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_documents')}:</span>
-              <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{totalDocuments}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Filter className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
-              <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_indexed')}:</span>
-              <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{readyCount}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Database className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
-              <span style={{ color: 'var(--color-text-muted)' }}>Chunks:</span>
-              <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{totalChunks}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Database className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
-              <span style={{ color: 'var(--color-text-muted)' }}>Storage:</span>
-              <span className="font-semibold text-xs" style={{ color: 'var(--color-text-primary)' }}>{formatFileSize(totalSize)}</span>
-            </div>
-            <button
-              onClick={() => loadDocuments()}
-              className="ml-auto flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-all"
-              style={{ color: 'var(--color-text-primary)' }}
-              title="Refresh document statuses"
-            >
-              <RefreshCw className="w-3 h-3" style={{ color: 'var(--color-primary)' }} />
-              <span className="text-[11px]">Refresh</span>
-            </button>
-            <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-1.5 py-0.5 border border-gray-200 dark:border-border-dark rounded text-[11px] focus:outline-none focus:ring-1 focus:ring-primary"
-              style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
-              <option value="all">{t('kb_all')}</option>
-              <option value="ready">{t('kb_indexed')}</option>
-              <option value="indexing">Processing</option>
-              <option value="not_indexed">Pending</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex h-[calc(100%-108px)] gap-4">
+        <div className="flex h-full gap-4">
           <div className="w-72 flex-shrink-0 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3 overflow-hidden flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>Documents</h3>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{t('kb_documents')}</h3>
                 <p className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                  Vector RAG uses the selected ready doc
+                  {t('kb_indexed')}: {readyCount} / {totalDocuments}
                 </p>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10" style={{ color: 'var(--color-text-muted)' }}>
-                {documents.length}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10" style={{ color: 'var(--color-text-muted)' }}>
+                  {documents.length}
+                </span>
+                <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="px-1 py-0.5 border border-gray-200 dark:border-border-dark rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-primary"
+                  style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
+                  <option value="all">{t('kb_all')}</option>
+                  <option value="ready">{t('kb_indexed')}</option>
+                  <option value="indexing">{t('kb_indexing')}</option>
+                  <option value="not_indexed">{t('kb_pending')}</option>
+                  <option value="failed">{t('kb_failed')}</option>
+                </select>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
-                    Ready
+                    {t('kb_indexed')}
                   </h4>
                   <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{readyDocuments.length}</span>
                 </div>
@@ -653,7 +607,7 @@ export default function KnowledgeBaseView() {
                           }}
                           className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10"
                           style={{ color: 'var(--color-text-muted)' }}
-                          title="Delete"
+                          title={t('kb_delete')}
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -661,7 +615,7 @@ export default function KnowledgeBaseView() {
                     </button>
                   ))}
                   {readyDocuments.length === 0 && (
-                    <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>No ready documents</p>
+                    <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{t('kb_no_ready_docs')}</p>
                   )}
                 </div>
               </div>
@@ -669,7 +623,7 @@ export default function KnowledgeBaseView() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
-                    Not Ready
+                    {t('kb_not_ready')}
                   </h4>
                   <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{notReadyDocuments.length}</span>
                 </div>
@@ -699,7 +653,7 @@ export default function KnowledgeBaseView() {
                           onClick={() => handleDelete(doc.id)}
                           className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10"
                           style={{ color: 'var(--color-text-muted)' }}
-                          title="Delete"
+                          title={t('kb_delete')}
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -719,34 +673,34 @@ export default function KnowledgeBaseView() {
               <div className="flex items-center gap-1.5 mb-2">
                 <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {searchMode === 'pageindex' ? 'PageIndex Search' : 'Vector RAG Search'}
+                  {searchMode === 'graphindex' ? 'GraphIndex' : 'Vector RAG'} {t('kb_title')}
                 </h3>
               </div>
 
               <div className="space-y-2">
                 <div className="flex gap-0.5 p-0.5 bg-gray-100 dark:bg-white/5 rounded-lg">
-                  <button onClick={() => { setSearchMode('vector'); setShowSearchResults(false); setPageIndexDocs([]); }}
+                  <button onClick={() => { setSearchMode('graphindex'); setShowSearchResults(false); setGraphIndexDocs([]); }}
+                    className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${searchMode === 'graphindex' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'}`}
+                    style={{ color: 'var(--color-text-primary)' }}>
+                    {t('kb_graph_index')}
+                  </button>
+                  <button onClick={() => { setSearchMode('vector'); setShowSearchResults(false); setGraphIndexDocs([]); }}
                     className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${searchMode === 'vector' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'}`}
                     style={{ color: 'var(--color-text-primary)' }}>
                     {t('kb_vector_rag')}
-                  </button>
-                  <button onClick={() => { setSearchMode('pageindex'); setShowSearchResults(false); setPageIndexDocs([]); }}
-                    className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${searchMode === 'pageindex' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'}`}
-                    style={{ color: 'var(--color-text-primary)' }}>
-                    {t('kb_page_index')}
                   </button>
                 </div>
 
                 <div className="rounded-lg border border-gray-200 dark:border-border-dark px-2.5 py-2" style={{ backgroundColor: 'var(--color-input-background)' }}>
                   <div className="text-[10px] mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                    {searchMode === 'pageindex' ? 'Search scope' : 'Selected document'}
+                    {searchMode === 'graphindex' ? t('kb_search_scope') : t('kb_selected_doc')}
                   </div>
                   <div className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {searchMode === 'pageindex'
-                      ? 'All project documents'
+                    {searchMode === 'graphindex'
+                      ? t('kb_all_docs')
                       : selectedDoc
                         ? selectedDoc.name
-                        : 'Choose one ready document from the left sidebar'}
+                        : t('kb_choose_doc')}
                   </div>
                 </div>
 
@@ -754,7 +708,7 @@ export default function KnowledgeBaseView() {
                   <div className="relative flex-1">
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
                     <input type="text"
-                      placeholder={searchMode === 'pageindex' ? t('kb_search_pageindex_placeholder') : t('kb_search_placeholder')}
+                      placeholder={searchMode === 'graphindex' ? t('kb_search_graphindex_placeholder') : t('kb_search_placeholder')}
                       value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                       className="w-full pl-7 pr-2 py-2 border border-gray-200 dark:border-border-dark rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
@@ -804,12 +758,12 @@ export default function KnowledgeBaseView() {
                   <div className="text-center">
                     <Search className="w-8 h-8 mx-auto mb-2 opacity-50" style={{ color: 'var(--color-text-muted)' }} />
                     <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                      {searchMode === 'pageindex' ? 'Search to find the right document' : 'Select a doc and run Vector RAG'}
+                      {searchMode === 'graphindex' ? t('kb_search_hint_graph') : t('kb_search_hint_vector')}
                     </p>
                     <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                      {searchMode === 'pageindex'
-                        ? 'PageIndex searches the whole project without selecting a document first.'
-                        : 'Vector search is scoped to the selected ready document.'}
+                      {searchMode === 'graphindex'
+                        ? t('kb_search_desc_graph')
+                        : t('kb_search_desc_vector')}
                     </p>
                   </div>
                 </div>
@@ -817,8 +771,8 @@ export default function KnowledgeBaseView() {
                 <>
                   <h3 className="text-[11px] font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
                     {pageIndexDocs.length > 0
-                      ? `Indexed Documents (${pageIndexDocs.length})`
-                      : `Search Results (${searchResults.length})`
+                      ? `${t('kb_search_results_graph')} (${pageIndexDocs.length})`
+                      : `${t('kb_search_results_vector')} (${searchResults.length})`
                     }
                   </h3>
 
@@ -828,7 +782,16 @@ export default function KnowledgeBaseView() {
                         <div key={doc.doc_id} className="border border-gray-200 dark:border-border-dark rounded-lg p-2">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-primary)' }}>{doc.doc_name}</span>
-                            <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{doc.page_count} {t('kb_pages')}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{doc.page_count} {t('kb_pages')}</span>
+                              <button
+                                onClick={() => handleGraphIndexAnswer(doc)}
+                                disabled={answerLoading}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-primary text-white hover:opacity-80 transition-all disabled:opacity-50"
+                              >
+                                {answerLoading ? '...' : t('kb_answer')}
+                              </button>
+                            </div>
                           </div>
                           {doc.structure && doc.structure.length > 0 && (
                             <div className="ml-3 space-y-0.5">
@@ -850,6 +813,28 @@ export default function KnowledgeBaseView() {
                     </div>
                   )}
 
+                  {/* GraphIndex Answer Result */}
+                  {answerResult && (
+                    <div className="mt-3 border border-primary/30 dark:border-primary/20 rounded-lg p-3 bg-primary/5 dark:bg-primary/10">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                            {t('kb_answer_from')} {answerResult.doc_name}
+                          </span>
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-gray-200 dark:bg-white/10" style={{ color: 'var(--color-text-muted)' }}>
+                            {answerResult.model}
+                          </span>
+                        </div>
+                        <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
+                            {t('kb_pages_loaded', { pages: answerResult.pages_loaded, chars: answerResult.content_chars })}
+                          </span>
+                      </div>
+                      <div className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--color-text-primary)' }}>
+                        {answerResult.answer}
+                      </div>
+                    </div>
+                  )}
+
                   {searchResults.length > 0 && (
                     <div className="space-y-1.5">
                       {searchResults.map((result, index) => (
@@ -862,7 +847,7 @@ export default function KnowledgeBaseView() {
                               </span>
                               <button onClick={() => toggleChunkExpansion(index)}
                                 className="text-[10px] text-primary hover:underline font-medium">
-                                {expandedChunks.has(index) ? 'Hide' : 'Show'}
+                                {expandedChunks.has(index) ? t('kb_hide') : t('kb_show')}
                               </button>
                             </div>
                           </div>
@@ -882,7 +867,7 @@ export default function KnowledgeBaseView() {
                   )}
 
                   {searchResults.length === 0 && pageIndexDocs.length === 0 && (
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No results found for "{searchQuery}"</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('kb_no_results_for')} "{searchQuery}"</p>
                   )}
                 </>
               )}
@@ -890,10 +875,102 @@ export default function KnowledgeBaseView() {
           </div>
 
           <div className="w-72 flex-shrink-0 overflow-y-auto space-y-3">
+            {/* Upload Zone */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-2.5 transition-all ${isDragging
+                ? 'border-primary bg-primary/5'
+                : 'border-gray-300 dark:border-border-dark bg-white dark:bg-panel-dark'
+                }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  {uploading ? (
+                    <Loader className="w-4 h-4 text-primary animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 text-primary" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] truncate" style={{ color: 'var(--color-text-muted)' }}>
+                    {uploading ? t('kb_uploading') : t('kb_upload_drop')}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <label className="flex items-center gap-1 px-2 py-1 bg-primary text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-[10px] font-medium">
+                    <Upload className="w-3 h-3" />
+                    <span>{t('kb_browse')}</span>
+                    <input type="file" multiple accept={SUPPORTED_FILES}
+                      onChange={(e) => { setIsFolderUpload(false); handleFileSelect(e.target.files); }}
+                      className="hidden" disabled={uploading} />
+                  </label>
+                  <label className="flex items-center gap-1 px-2 py-1 bg-purple-600 text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-[10px] font-medium">
+                    <Database className="w-3 h-3" />
+                    <span>{t('kb_select_folder')}</span>
+                    <input type="file" // @ts-ignore - webkitdirectory is not in TS types
+                      webkitdirectory="" directory="" multiple
+                      onChange={(e) => { setIsFolderUpload(true); handleFileSelect(e.target.files); }}
+                      className="hidden" disabled={uploading} />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-2.5">
+              <div className="flex items-center gap-3 text-[10px]">
+                <div className="flex items-center gap-1">
+                  <FileText className="w-2.5 h-2.5" style={{ color: 'var(--color-primary)' }} />
+                  <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_documents')}:</span>
+                  <span className="font-semibold text-[11px]" style={{ color: 'var(--color-text-primary)' }}>{totalDocuments}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Filter className="w-2.5 h-2.5" style={{ color: 'var(--color-text-muted)' }} />
+                  <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_indexed')}:</span>
+                  <span className="font-semibold text-[11px]" style={{ color: 'var(--color-text-primary)' }}>{readyCount}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Database className="w-2.5 h-2.5" style={{ color: 'var(--color-text-muted)' }} />
+                  <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_total_chunks')}:</span>
+                  <span className="font-semibold text-[11px]" style={{ color: 'var(--color-text-primary)' }}>{totalChunks}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-100 dark:border-border-dark">
+                <div className="flex items-center gap-1 text-[10px]">
+                  <Database className="w-2.5 h-2.5" style={{ color: 'var(--color-text-muted)' }} />
+                  <span style={{ color: 'var(--color-text-muted)' }}>Storage:</span>
+                  <span className="font-semibold text-[11px]" style={{ color: 'var(--color-text-primary)' }}>{formatFileSize(totalSize)}</span>
+                </div>
+                <button onClick={() => loadDocuments()} className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-[10px]" style={{ color: 'var(--color-text-primary)' }}>
+                  <RefreshCw className="w-2.5 h-2.5" style={{ color: 'var(--color-primary)' }} />
+                  {t('kb_refresh')}
+                </button>
+              </div>
+            </div>
+
             {activeProjectId && (
               <StorageMetrics
                 projectId={activeProjectId}
                 onRefresh={loadDocuments}
+                compact
+                labels={{
+                  storageMetrics: t('kb_storage_metrics'),
+                  totalStorage: t('kb_total_storage'),
+                  indexedChunks: t('kb_indexed_chunks'),
+                  status: t('kb_status'),
+                  storageBreakdown: t('kb_storage_breakdown'),
+                  data: t('kb_data'),
+                  index: t('kb_label_index'),
+                  chunkSize: t('kb_chunk_size'),
+                  overlap: t('kb_overlap'),
+                  embedding: t('kb_embedding'),
+                  refresh: t('kb_refresh'),
+                  loading: t('kb_loading'),
+                  noData: t('kb_no_data'),
+                  noDataDesc: t('kb_no_data_desc'),
+                }}
               />
             )}
 
