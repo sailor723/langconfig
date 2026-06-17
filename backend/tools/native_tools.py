@@ -1541,6 +1541,165 @@ def delete_skill(skill_id: str) -> str:
 
 
 # =============================================================================
+# DocIndex Tools (Vectorless RAG)
+# =============================================================================
+
+_DOC_INDEX_BASE = None
+
+
+def _get_doc_index_base() -> str:
+    """Get the doc_index workspace base path."""
+    global _DOC_INDEX_BASE
+    if _DOC_INDEX_BASE is None:
+        _DOC_INDEX_BASE = os.environ.get(
+            "DOC_INDEX_BASE",
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "default")
+        )
+    return _DOC_INDEX_BASE
+
+
+def _get_doc_client():
+    """Get a DocIndexClient for the current workspace."""
+    from services.doc_index_service import DocIndexClient
+    return DocIndexClient(_get_doc_index_base())
+
+
+def doc_index_list(workspace: Optional[str] = None) -> str:
+    """
+    List all indexed documents with metadata.
+
+    Uses PageIndex-style vectorless retrieval — no embeddings, no chunking.
+    Returns document names, types, and page counts.
+
+    Args:
+        workspace: Optional override for the doc_index workspace path
+    """
+    try:
+        if workspace:
+            from services.doc_index_service import DocIndexClient
+            client = DocIndexClient(workspace)
+        else:
+            client = _get_doc_client()
+
+        docs = client.list_all()
+        if not docs:
+            return "No documents indexed yet."
+
+        lines = ["## Indexed Documents", ""]
+        for doc_id, meta in docs.items():
+            lines.append(f"- **{meta.get('doc_name', 'Unknown')}** ({meta.get('type', '?')})")
+            lines.append(f"  ID: `{doc_id}`")
+            lines.append(f"  Pages: {meta.get('page_count', 0)}")
+            lines.append("")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error listing documents: {e}"
+
+
+def doc_index_structure(doc_id: str, workspace: Optional[str] = None) -> str:
+    """
+    Get the table-of-contents tree structure for a document.
+
+    Returns the document's heading hierarchy with page numbers (no body text).
+    Use this to navigate to the right section before reading page content.
+
+    Args:
+        doc_id: The document ID (from doc_index_list)
+        workspace: Optional override for the doc_index workspace path
+    """
+    try:
+        if workspace:
+            from services.doc_index_service import DocIndexClient
+            client = DocIndexClient(workspace)
+        else:
+            client = _get_doc_client()
+
+        doc_meta = client.get_document(doc_id)
+        if "error" in doc_meta:
+            return doc_meta["error"]
+
+        structure = client.get_document_structure(doc_id)
+        if not structure:
+            return f"Document '{doc_meta.get('doc_name', doc_id)}' has no TOC structure. Use doc_index_pages to read content directly."
+
+        def _format_tree(nodes, indent=0):
+            lines = []
+            for n in nodes:
+                title = n.get("title", "")
+                page = n.get("page", n.get("line", ""))
+                prefix = "  " * indent + "- "
+                page_str = f" (p.{page})" if page else ""
+                lines.append(f"{prefix}**{title}**{page_str}")
+                children = n.get("children", [])
+                if children:
+                    lines.extend(_format_tree(children, indent + 1))
+            return lines
+
+        result = [f"## Structure: {doc_meta.get('doc_name', 'Document')}"]
+        result.extend(_format_tree(structure))
+        return "\n".join(result)
+
+    except Exception as e:
+        return f"Error getting document structure: {e}"
+
+
+def doc_index_pages(doc_id: str, pages: str, workspace: Optional[str] = None) -> str:
+    """
+    Get the full content of specific pages from a document.
+
+    Args:
+        doc_id: The document ID (from doc_index_list)
+        pages: Page numbers to retrieve. Examples: '5-7' (range), '3,8' (specific), '12' (single).
+               Use '1-3' to read the first few pages (often contains the table of contents).
+        workspace: Optional override for the doc_index workspace path
+    """
+    try:
+        if workspace:
+            from services.doc_index_service import DocIndexClient
+            client = DocIndexClient(workspace)
+        else:
+            client = _get_doc_client()
+
+        doc_meta = client.get_document(doc_id)
+        if "error" in doc_meta:
+            return doc_meta["error"]
+
+        content_list = client.get_page_content(doc_id, pages)
+        if not content_list:
+            return f"No content found for pages: {pages}"
+
+        result = [f"## Content: {doc_meta.get('doc_name', 'Document')} (pages {pages})", ""]
+        for entry in content_list:
+            page_num = entry.get("page", "?")
+            text = entry.get("content", "")
+            result.append(f"--- Page {page_num} ---")
+            result.append(text)
+            result.append("")
+
+        return "\n".join(result)
+    except Exception as e:
+        return f"Error getting page content: {e}"
+
+
+# Convert to StructuredTools
+_doc_index_list_tool = StructuredTool.from_function(
+    func=doc_index_list,
+    name="doc_index_list",
+    description="List all indexed documents with metadata. Uses vectorless RAG (no embeddings, no chunking). Returns document names, types, and page counts.",
+)
+_doc_index_structure_tool = StructuredTool.from_function(
+    func=doc_index_structure,
+    name="doc_index_structure",
+    description="Get the table-of-contents tree structure for a document (headings with page numbers, no body text). Use this to navigate before reading pages.",
+)
+_doc_index_pages_tool = StructuredTool.from_function(
+    func=doc_index_pages,
+    name="doc_index_pages",
+    description="Get the full content of specific pages from a document. Specify pages as ranges like '5-7', specific pages like '3,8', or a single page like '12'.",
+)
+
+
+# =============================================================================
 # Tool Loading Functions
 # =============================================================================
 
@@ -1598,6 +1757,10 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "create_skill": create_skill,
         "update_skill": update_skill,
         "delete_skill": delete_skill,
+        # DocIndex tools
+        "doc_index_list": _doc_index_list_tool,
+        "doc_index_structure": _doc_index_structure_tool,
+        "doc_index_pages": _doc_index_pages_tool,
         # Note: Playwright tools are loaded separately via get_playwright_tools()
         # because they require async initialization
     }
@@ -1664,6 +1827,10 @@ def get_available_tool_names() -> List[str]:
         "reasoning_chain",
         # Subagent delegation tools
         "task",
+        # DocIndex tools (vectorless RAG)
+        "doc_index_list",
+        "doc_index_structure",
+        "doc_index_pages",
     ]
 
 
@@ -1818,6 +1985,28 @@ TOOL_REGISTRY = [
         "name": "Delete Skill",
         "description": "Delete a skill from the database by its skill_id.",
         "category": "skills",
+        "requires_api_key": None,
+    },
+    # Document Index tools (vectorless RAG)
+    {
+        "id": "doc_index_list",
+        "name": "Doc Index - List Documents",
+        "description": "List all indexed documents with metadata (no embeddings, vectorless RAG)",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "doc_index_structure",
+        "name": "Doc Index - Get Document Structure",
+        "description": "Get the table-of-contents tree structure for a document",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "doc_index_pages",
+        "name": "Doc Index - Get Page Content",
+        "description": "Get the full content of specific pages from a document (e.g. '3-5,7')",
+        "category": "retrieval",
         "requires_api_key": None,
     },
 ]
