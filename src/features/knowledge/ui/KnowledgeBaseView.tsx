@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Upload, FileText, Trash2, Search, Database, Filter, Loader } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 import { useProject } from "../../../contexts/ProjectContext";
@@ -57,6 +58,7 @@ interface SearchMetrics {
 }
 
 export default function KnowledgeBaseView() {
+  const { t } = useTranslation('chat');
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -468,10 +470,10 @@ export default function KnowledgeBaseView() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-              Knowledge Base
+              {t('kb_title')}
             </h1>
             <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-              Manage documents and vector embeddings for RAG-enabled agents
+              {t('kb_title_desc')}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -503,16 +505,16 @@ export default function KnowledgeBaseView() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {uploading ? 'Uploading...' : 'Upload Documents'}
+                  {uploading ? t('kb_uploading') : t('kb_upload')}
                 </h3>
                 <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
-                  Drag files here or click to browse
+                  {t('kb_upload_drop')}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <label className={`flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-sm font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <Upload className="w-4 h-4" />
-                  <span>Files</span>
+                  <span>{t('kb_browse')}</span>
                   <input
                     type="file"
                     multiple
@@ -527,7 +529,7 @@ export default function KnowledgeBaseView() {
                 </label>
                 <label className={`flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-sm font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <Database className="w-4 h-4" />
-                  <span>Folder</span>
+                  <span>{t('kb_select_folder')}</span>
                   <input
                     type="file"
                     // @ts-ignore - webkitdirectory is not in TS types but works in browsers
@@ -551,10 +553,10 @@ export default function KnowledgeBaseView() {
             <div className="p-4 border-b border-gray-200 dark:border-border-dark flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  Documents
+                  {t('kb_documents')}
                 </h3>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                  {totalDocuments} total • {readyCount} indexed
+                  {totalDocuments} total • {readyCount} {t('kb_indexed')}
                 </p>
               </div>
               <select
@@ -563,8 +565,8 @@ export default function KnowledgeBaseView() {
                 className="px-3 py-1.5 border border-gray-200 dark:border-border-dark rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                 style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
               >
-                <option value="all">All Status</option>
-                <option value="ready">Ready</option>
+                <option value="all">{t('kb_all')}</option>
+                <option value="ready">{t('kb_indexed')}</option>
                 <option value="indexing">Processing</option>
                 <option value="not_indexed">Pending</option>
                 <option value="failed">Failed</option>
@@ -574,16 +576,16 @@ export default function KnowledgeBaseView() {
               <div className="flex-1 flex items-center justify-center p-8">
                 <div className="text-center">
                   <Loader className="w-12 h-12 text-primary mx-auto mb-3 animate-spin" />
-                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading documents...</p>
+                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>{t('kb_loading')}</p>
                 </div>
               </div>
             ) : filteredDocuments.length === 0 ? (
               <div className="flex-1 flex items-center justify-center p-8">
                 <div className="text-center">
                   <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" style={{ color: 'var(--color-text-muted)' }} />
-                  <p className="text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>No documents found</p>
+                  <p className="text-sm mb-1" style={{ color: 'var(--color-text-muted)' }}>{t('kb_empty')}</p>
                   <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    {searchQuery ? 'Try adjusting your filter' : 'Upload your first document to get started'}
+                    {searchQuery ? t('kb_no_results', { query: searchQuery }) : ''}
                   </p>
                 </div>
               </div>
@@ -607,7 +609,7 @@ export default function KnowledgeBaseView() {
                           <span>•</span>
                           <span className="flex items-center gap-1">
                             <Database className="w-3 h-3" />
-                            {doc.chunk_count || 0} chunks
+                            {doc.chunk_count || 0} {t('kb_chunks')}
                           </span>
                           <span>•</span>
                           <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-white/5 rounded">
@@ -723,7 +725,7 @@ export default function KnowledgeBaseView() {
                   }`}
                   style={{ color: 'var(--color-text-primary)' }}
                 >
-                  Vector RAG
+                  {t('kb_vector_rag')}
                 </button>
                 <button
                   onClick={() => {
@@ -738,7 +740,7 @@ export default function KnowledgeBaseView() {
                   }`}
                   style={{ color: 'var(--color-text-primary)' }}
                 >
-                  PageIndex
+                  {t('kb_page_index')}
                 </button>
               </div>
 
@@ -746,7 +748,7 @@ export default function KnowledgeBaseView() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
                 <input
                   type="text"
-                  placeholder={searchMode === 'pageindex' ? "Index documents first, then browse..." : "Search by meaning..."}
+                  placeholder={searchMode === 'pageindex' ? t('kb_search_pageindex_placeholder') : t('kb_search_placeholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -765,7 +767,7 @@ export default function KnowledgeBaseView() {
                     onChange={(e) => setUseHyDE(e.target.checked)}
                     className="w-3.5 h-3.5 rounded border-gray-300 dark:border-border-dark text-primary focus:ring-primary"
                   />
-                  <span>HyDE</span>
+                  <span>{t('kb_hyde')}</span>
                 </label>
                 <label className="flex items-center gap-1.5 cursor-pointer hover:opacity-70 transition-opacity" style={{ color: 'var(--color-text-primary)' }}>
                   <input
@@ -774,7 +776,7 @@ export default function KnowledgeBaseView() {
                     onChange={(e) => setUseTOON(e.target.checked)}
                     className="w-3.5 h-3.5 rounded border-gray-300 dark:border-border-dark text-purple-600 focus:ring-purple-600"
                   />
-                  <span>TOON</span>
+                  <span>{t('kb_toon')}</span>
                 </label>
                 </>
                 )}
@@ -785,7 +787,7 @@ export default function KnowledgeBaseView() {
                     onChange={(e) => setCompareMode(e.target.checked)}
                     className="w-3.5 h-3.5 rounded border-gray-300 dark:border-border-dark text-orange-600 focus:ring-orange-600"
                   />
-                  <span>Compare</span>
+                  <span>{t('kb_compare')}</span>
                 </label>
               </div>
 
@@ -797,12 +799,12 @@ export default function KnowledgeBaseView() {
                 {searching ? (
                   <>
                     <Loader className="w-4 h-4 animate-spin" />
-                    <span>Searching...</span>
+                    <span>{t('kb_searching')}</span>
                   </>
                 ) : (
                   <>
                     <Search className="w-4 h-4" />
-                    <span>Search</span>
+                    <span>{t('kb_search_action')}</span>
                   </>
                 )}
               </button>
@@ -813,7 +815,7 @@ export default function KnowledgeBaseView() {
                   className="w-full px-4 py-2 bg-gray-100 dark:bg-white/5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-all border border-gray-200 dark:border-border-dark text-sm font-medium"
                   style={{ color: 'var(--color-text-primary)' }}
                 >
-                  Clear Results
+                  {t('kb_clear_results')}
                 </button>
               )}
             </div>
@@ -854,7 +856,7 @@ export default function KnowledgeBaseView() {
                             </span>
                           </div>
                           <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                            {doc.page_count} pages
+                            {doc.page_count} {t('kb_pages')}
                           </span>
                         </div>
                         {doc.structure && doc.structure.length > 0 && (
@@ -868,7 +870,7 @@ export default function KnowledgeBaseView() {
                             ))}
                             {doc.structure.length > 10 && (
                               <div className="text-xs italic" style={{ color: 'var(--color-text-muted)' }}>
-                                ... and {doc.structure.length - 10} more sections
+                              {t('kb_more_sections', { count: doc.structure.length - 10 })}
                               </div>
                             )}
                           </div>
