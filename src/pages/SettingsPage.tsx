@@ -108,6 +108,7 @@ export default function SettingsView() {
 
   // Model Defaults state - start with null, load from backend
   const [modelDefaultsSettings, setModelDefaultsSettings] = useState<ModelDefaultsSettings | null>(null);
+  const [savingEmbedding, setSavingEmbedding] = useState(false);
 
   // General settings state - start with null, load from backend
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
@@ -1100,14 +1101,26 @@ export default function SettingsView() {
               }}
               description={t('settings_embedding_chunk_overlap_desc')}
             />
-            <div className="pt-4">
-              <button
-                onClick={() => autoSave('embedding')}
-                className="px-6 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
-                style={{ backgroundColor: 'var(--color-primary)' }}
-              >
-                Save
-              </button>
+            <div className="pt-6 border-t border-gray-200 dark:border-border-dark">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={async () => {
+                    setSavingEmbedding(true);
+                    await autoSave('embedding');
+                    setSavingEmbedding(false);
+                  }}
+                  disabled={savingEmbedding}
+                  className="px-8 py-2.5 text-sm font-semibold text-white rounded-lg hover:brightness-110 active:brightness-90 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  style={{ backgroundColor: 'var(--color-primary)' }}
+                >
+                  {savingEmbedding ? 'Saving...' : 'Save'}
+                </button>
+                {!savingEmbedding && ragSettings && (
+                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    Changes apply to new document indexing
+                  </span>
+                )}
+              </div>
             </div>
           </SettingsSection>
         );
