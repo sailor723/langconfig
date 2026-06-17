@@ -1092,7 +1092,7 @@ export default function SettingsView() {
             <div className="pt-4">
               <button
                 onClick={() => autoSave('embedding')}
-                className="px-6 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity"
+                className="px-6 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
                 style={{ backgroundColor: 'var(--color-primary)' }}
               >
                 Save
