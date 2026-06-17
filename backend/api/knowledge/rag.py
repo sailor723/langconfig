@@ -349,6 +349,51 @@ def _try_resolve_pageindex_target_document_via_neo4j(
     return context_doc
 
 
+def _try_sync_context_document_to_neo4j(context_doc: ContextDocument, client) -> None:
+    if not context_doc.project_id:
+        return
+    if not context_doc.file_path:
+        return
+
+    try:
+        index = _get_neo4j_document_index()
+        index.ensure_constraints()
+    except Exception:
+        return
+
+    pageindex_meta: dict = {}
+    if context_doc.doc_index_id:
+        try:
+            meta = client.get_document(context_doc.doc_index_id) or {}
+            if isinstance(meta, dict) and "error" not in meta:
+                pageindex_meta = meta
+        except Exception:
+            pageindex_meta = {}
+
+    try:
+        from services.neo4j_document_index import build_document_node_properties
+
+        properties = build_document_node_properties(
+            project_id=context_doc.project_id,
+            context_doc_id=context_doc.id,
+            doc_index_id=context_doc.doc_index_id,
+            name=context_doc.filename,
+            file_path=context_doc.file_path,
+            description=context_doc.description or "",
+            tags=list(context_doc.tags or []),
+            pageindex_meta=pageindex_meta,
+            enrichment=None,
+        )
+        index.upsert_document(
+            project_id=context_doc.project_id,
+            name=context_doc.filename,
+            file_path=context_doc.file_path,
+            properties=properties,
+        )
+    except Exception:
+        return
+
+
 async def index_document_background(document_id: int):
     """Background task to index a document for both vector RAG and PageIndex."""
     from db.database import SessionLocal
@@ -417,6 +462,12 @@ async def index_document_background(document_id: int):
             else:
                 doc.indexing_status = IndexingStatus.FAILED
             db.commit()
+            if doc.indexing_status == IndexingStatus.READY:
+                try:
+                    client = _get_doc_index_client()
+                    _try_sync_context_document_to_neo4j(doc, client)
+                except Exception:
+                    pass
         db.close()
 
         if vector_error and doc_index_id:
