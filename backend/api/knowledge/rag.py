@@ -706,18 +706,13 @@ async def search_documents(
             import os
             from pathlib import Path
 
-            # Use project workspace as doc_index base
+            # Use the base outputs directory as DocIndex workspace
+            # (DocIndexClient appends /doc_index internally)
             doc_index_base = os.environ.get(
                 "DOC_INDEX_BASE",
                 os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "outputs")
             )
-
-            # Try project-specific workspace first, fallback to default
-            project_workspace = os.path.join(doc_index_base, f"project_{request.project_id}")
-            if not os.path.exists(project_workspace):
-                project_workspace = doc_index_base
-
-            client = DocIndexClient(project_workspace)
+            client = DocIndexClient(doc_index_base)
             all_docs = client.list_all()
 
             documents = []

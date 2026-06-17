@@ -80,6 +80,8 @@ dependencies = [
     "fpdf2>=2.8.7",
     "pymupdf>=1.27.2.3",
     "pdfminer-six>=20260107",
+    "pi-heif>=1.4.0",
+    "unstructured-inference>=1.6.13",
 ]
 
 [dependency-groups]
