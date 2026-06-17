@@ -617,6 +617,7 @@ class APIClient {
     check_updates?: boolean;
     telemetry?: boolean;
     log_level?: string;
+    theme?: string;
   }) {
     return this.client.post('/api/settings/general', data);
   }

@@ -191,6 +191,13 @@ export default function SettingsView() {
           logLevel: generalData.log_level || 'info',
           storagePath: generalData.storage_path || ''
         });
+        // Load theme from backend (overrides localStorage)
+        if (generalData.theme && themes[generalData.theme as ThemeName]) {
+          const themeName = generalData.theme as ThemeName;
+          const theme = themes[themeName];
+          applyTheme(theme);
+          setCurrentTheme(themeName);
+        }
       } catch (error) {
       }
 
@@ -395,6 +402,10 @@ export default function SettingsView() {
     const theme = themes[themeName];
     applyTheme(theme);
     setCurrentTheme(themeName);
+    // Save to backend DB
+    try {
+      apiClient.updateGeneralSettings({ theme: themeName });
+    } catch {}
   };
 
   const renderCategoryContent = () => {
