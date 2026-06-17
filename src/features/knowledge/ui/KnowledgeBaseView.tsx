@@ -87,6 +87,17 @@ export default function KnowledgeBaseView() {
     content_chars: number;
     model: string;
   } | null>(null);
+  const [previewData, setPreviewData] = useState<{
+    doc_id: string;
+    context_doc_id: number;
+    doc_name: string;
+    type: string;
+    page_count: number;
+    content_preview: string;
+    has_more: boolean;
+    total_chars: number;
+  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
   const [uploadName, setUploadName] = useState('');
@@ -136,6 +147,20 @@ export default function KnowledgeBaseView() {
     const firstReadyDoc = documents.find(doc => doc.indexing_status === 'ready');
     setSelectedDocId(firstReadyDoc?.id ?? documents[0].id);
   }, [documents, selectedDocId]);
+
+  // Load preview when a document is selected
+  useEffect(() => {
+    if (!selectedDocId || !activeProjectId) {
+      setPreviewData(null);
+      return;
+    }
+    setPreviewLoading(true);
+    setPreviewData(null);
+    apiClient.previewDocument(selectedDocId, 2000)
+      .then(data => setPreviewData(data))
+      .catch(() => setPreviewData(null))
+      .finally(() => setPreviewLoading(false));
+  }, [selectedDocId, activeProjectId]);
 
   const loadDocuments = async (signal?: AbortSignal, overrideStatus?: string) => {
     if (!activeProjectId) return;
@@ -669,7 +694,45 @@ export default function KnowledgeBaseView() {
           </div>
 
           <div className="min-w-0 flex-1 flex flex-col gap-3 overflow-hidden">
-            <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3">
+            {/* Document Preview Panel */}
+            {selectedDocId && (
+              <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3 overflow-y-auto max-h-48">
+                {previewLoading ? (
+                  <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    <Loader className="w-3 h-3 animate-spin" />
+                    Loading preview...
+                  </div>
+                ) : previewData ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
+                        <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                          {previewData.doc_name}
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/10" style={{ color: 'var(--color-text-muted)' }}>
+                          {previewData.type} · {previewData.page_count} pages
+                        </span>
+                      </div>
+                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
+                        {previewData.total_chars.toLocaleString()} chars
+                      </span>
+                    </div>
+                    <div className="text-[10px] leading-relaxed whitespace-pre-wrap max-h-28 overflow-y-auto" style={{ color: 'var(--color-text-secondary)' }}>
+                      {previewData.content_preview}
+                    </div>
+                    {previewData.has_more && (
+                      <p className="text-[9px] mt-1 italic" style={{ color: 'var(--color-text-muted)' }}>
+                        ... (preview truncated, {previewData.total_chars.toLocaleString()} total chars)
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {/* Search Box */}
+            <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3 flex-shrink-0">
               <div className="flex items-center gap-1.5 mb-2">
                 <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>

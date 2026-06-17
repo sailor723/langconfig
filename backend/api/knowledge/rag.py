@@ -1446,6 +1446,48 @@ async def get_document_full_content(
     return GraphIndexFullDocumentResponse(**full_doc_copy)
 
 
+class DocumentPreviewResponse(BaseModel):
+    """Document preview data"""
+    doc_id: str
+    context_doc_id: int
+    doc_name: str
+    type: str
+    page_count: int
+    content_preview: str
+    has_more: bool
+    total_chars: int
+
+
+@router.get("/documents/{context_doc_id}/preview", response_model=DocumentPreviewResponse)
+async def preview_document(
+    context_doc_id: int,
+    max_chars: int = 2000,
+    db: Session = Depends(get_db)
+):
+    """
+    Get a preview of a document (first N chars of content + metadata).
+    """
+    from models.core import ContextDocument
+    doc = db.query(ContextDocument).filter(ContextDocument.id == context_doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    client = _get_doc_index_client()
+    doc_id_str, doc_name, page_count, full_content = _load_full_content_for_kv(doc, client)
+    preview = full_content[:max_chars]
+    has_more = len(full_content) > max_chars
+
+    return DocumentPreviewResponse(
+        doc_id=doc_id_str,
+        context_doc_id=context_doc_id,
+        doc_name=doc_name,
+        type=doc.document_type.value if hasattr(doc.document_type, 'value') else str(doc.document_type),
+        page_count=page_count,
+        content_preview=preview,
+        has_more=has_more,
+        total_chars=len(full_content),
+    )
+
 @router.post("/graphindex/answer", response_model=GraphIndexAnswerResponse)
 async def answer_with_graphindex(
     request: GraphIndexAnswerRequest,

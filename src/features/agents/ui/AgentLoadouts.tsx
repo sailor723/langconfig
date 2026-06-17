@@ -2965,31 +2965,32 @@ const AgentLoadouts = () => {
 
 
   return (
-    <div className="h-full flex flex-col bg-gray-50 dark:bg-background-dark">
+    <div className="h-full flex flex-col bg-white dark:bg-background-dark">
       {/* Header */}
 
 
       {/* Three Column Layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden p-4 gap-4">
         {/* Left Sidebar - Agent/Tool List (25%) */}
-        <div className="w-[25%] flex flex-col border-r border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark">
+        <div className="w-[25%] flex flex-col bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg">
           {/* Sidebar Header */}
-          <div className="p-4 border-b border-gray-200 dark:border-border-dark bg-white/50 dark:bg-panel-dark/50 backdrop-blur-sm sticky top-0 z-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white font-display">
+          <div className="p-3 border-b border-gray-100 dark:border-border-dark">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                 {t('agent_loadouts')}
               </h2>
             </div>
 
             {/* Search Bar */}
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-primary transition-colors" size={16} />
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2" size={14} style={{ color: 'var(--color-text-muted)' }} />
               <input
                 type="text"
                 placeholder={t('agent_search')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                className="w-full pl-8 pr-3 py-1.5 border border-gray-200 dark:border-border-dark rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
               />
             </div>
           </div>
@@ -3179,7 +3180,7 @@ const AgentLoadouts = () => {
 
         {/* Center Panel - Preview (60%) */}
         {/* Center Panel - Preview (75%) */}
-        <div className="w-[75%] flex flex-col overflow-hidden bg-white dark:bg-panel-dark">
+        <div className="w-[75%] flex flex-col overflow-hidden bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg">
           {selectedItem === null || selectedItem.type === 'template' ? (
             /* Template Gallery */
             <div className="flex-1 overflow-y-auto flex items-center justify-center p-12">
