@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 from pydantic import BaseModel
@@ -15,6 +16,11 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 
 # Pydantic Schemas
+class APIKeyTestRequest(BaseModel):
+    provider: str
+    api_key: Optional[str] = None
+
+
 class APIKeySet(BaseModel):
     openai_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None
@@ -25,6 +31,7 @@ class APIKeySet(BaseModel):
     glm_api_key: Optional[str] = None
     minimax_api_key: Optional[str] = None
     tavily_api_key: Optional[str] = None
+    serper_api_key: Optional[str] = None
     agnes_api_key: Optional[str] = None
     agnes_base_url: Optional[str] = None
 
@@ -153,11 +160,12 @@ PROVIDER_TEST_MODELS = {
     "google": "gemini-2.5-flash",
     "deepseek": "deepseek-chat",
     "glm": "glm-4",
-    "minimax": "minimax-t1",
+    "minimax": "minimax-m3",
     "agnes": "agnes-2.0-flash",
 }
 
 CHAT_PROVIDERS = ["openai", "anthropic", "google", "deepseek", "glm", "minimax", "agnes"]
+SEARCH_PROVIDERS = ["tavily", "serper"]
 CONNECTION_STATUS_KEY = "_connection_status"
 
 
@@ -211,6 +219,74 @@ def _test_provider_connection(provider: str, api_key: str, base_url_extra: str |
         return {"success": False, "message": f"✗ Connection failed: {error_msg[:200]}"}
 
 
+def _test_search_connection(provider: str, api_key: str) -> dict:
+    """Test a search provider's API key by making a lightweight API call."""
+    try:
+        import httpx
+
+        if provider == "tavily":
+            resp = httpx.post(
+                "https://api.tavily.com/search",
+                json={"api_key": api_key, "query": "test", "max_results": 1},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                return {"success": True, "message": "✓ Tavily API key is valid"}
+            else:
+                detail = resp.json().get("error", resp.text)[:200]
+                return {"success": False, "message": f"✗ Tavily error: {detail}"}
+
+        elif provider == "serper":
+            resp = httpx.post(
+                "https://google.serper.dev/search",
+                json={"q": "test", "num": 1},
+                headers={"X-API-KEY": api_key},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                return {"success": True, "message": "✓ Serper API key is valid"}
+            else:
+                detail = resp.text[:200]
+                return {"success": False, "message": f"✗ Serper error: {detail}"}
+
+        return {"success": False, "message": f"Unknown search provider: {provider}"}
+    except Exception as e:
+        error_msg = str(e).strip().replace("\n", " ")
+        return {"success": False, "message": f"✗ Connection failed: {error_msg[:200]}"}
+
+
+@router.post("/api-keys/test")
+async def test_api_key(req: APIKeyTestRequest, db: Session = Depends(get_db)):
+    """Test a provider's API key connection."""
+    key = req.api_key
+    # If no key provided, try the saved key from DB
+    if not key:
+        settings = get_or_create_settings(db)
+        api_keys = settings.api_keys or {}
+        encrypted = api_keys.get(req.provider)
+        if encrypted:
+            key = encryption_service.decrypt(encrypted)
+
+    if not key:
+        raise HTTPException(status_code=400, detail=f"No API key found for '{req.provider}'. Provide a key or save one first.")
+
+    # Route to the right test based on provider type
+    if req.provider in SEARCH_PROVIDERS:
+        result = _test_search_connection(req.provider, key)
+    else:
+        base_url_extra = None
+        if req.provider == "agnes":
+            settings = get_or_create_settings(db)
+            stored_api_keys = settings.api_keys or {}
+            encrypted_base_url = stored_api_keys.get("agnes_base_url")
+            if encrypted_base_url:
+                base_url_extra = encryption_service.decrypt(encrypted_base_url)
+
+        result = _test_provider_connection(req.provider, key, base_url_extra)
+
+    return {"success": result["success"], "message": result["message"]}
+
+
 # Endpoints
 @router.post("/api-keys")
 async def set_api_keys(keys: APIKeySet, db: Session = Depends(get_db)):
@@ -245,6 +321,8 @@ async def set_api_keys(keys: APIKeySet, db: Session = Depends(get_db)):
         updated_providers.append("minimax")
     if keys.tavily_api_key:
         api_keys["tavily"] = encryption_service.encrypt(keys.tavily_api_key)
+    if keys.serper_api_key:
+        api_keys["serper"] = encryption_service.encrypt(keys.serper_api_key)
     if keys.agnes_api_key:
         api_keys["agnes"] = encryption_service.encrypt(keys.agnes_api_key)
         updated_providers.append("agnes")
@@ -277,7 +355,7 @@ async def get_api_keys(db: Session = Depends(get_db)):
     settings = get_or_create_settings(db)
     api_keys = settings.api_keys or {}
     connection_status = api_keys.get("_connection_status", {})
-    providers = ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax", "tavily", "agnes"]
+    providers = ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax", "tavily", "serper", "agnes"]
 
     results = []
     for provider in providers:
@@ -529,10 +607,57 @@ async def list_available_models(db: Session = Depends(get_db)):
             "is_validated": model.is_validated
         })
 
-    return {
-        "cloud_models": cloud_model_list,
-        "local_models": local_model_list
-    }
+    return JSONResponse(
+        content={
+            "cloud_models": cloud_model_list,
+            "local_models": local_model_list
+        },
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
+
+
+class CreateModelRequest(BaseModel):
+    model_id: str
+    display_name: str
+    provider: str
+    capabilities: Optional[dict] = {}
+
+
+@router.post("/models")
+async def create_model(req: CreateModelRequest, db: Session = Depends(get_db)):
+    """Add a new model to the database"""
+    from models.model import Model
+
+    existing = db.query(Model).filter(Model.model_id == req.model_id).first()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Model '{req.model_id}' already exists")
+
+    model = Model(
+        model_id=req.model_id,
+        display_name=req.display_name,
+        provider=req.provider,
+        source='cloud',
+        capabilities=req.capabilities or {},
+        is_active=True,
+    )
+    db.add(model)
+    db.commit()
+    db.refresh(model)
+    return {"message": f"Model '{req.model_id}' created", "model": model.to_dict()}
+
+
+@router.delete("/models/{model_id}")
+async def delete_model(model_id: str, db: Session = Depends(get_db)):
+    """Delete a model from the database"""
+    from models.model import Model
+
+    model = db.query(Model).filter(Model.model_id == model_id).first()
+    if not model:
+        raise HTTPException(status_code=404, detail=f"Model '{model_id}' not found")
+
+    db.delete(model)
+    db.commit()
+    return {"message": f"Model '{model_id}' deleted"}
 
 
 # General Settings Endpoints

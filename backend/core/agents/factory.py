@@ -78,8 +78,14 @@ _SUPPORTED_MODELS_FALLBACK = {
 }
 
 
+_SUPPORTED_MODELS_CACHE = None
+
+
 def get_supported_models() -> set:
-    """Load supported model IDs from the `models` DB table. Falls back to hardcoded set."""
+    """Load supported model IDs from the `models` DB table. Caches result in memory."""
+    global _SUPPORTED_MODELS_CACHE
+    if _SUPPORTED_MODELS_CACHE is not None:
+        return _SUPPORTED_MODELS_CACHE
     try:
         from db.database import SessionLocal
         from models.model import Model
@@ -87,7 +93,8 @@ def get_supported_models() -> set:
         try:
             models = db.query(Model.model_id).filter(Model.is_active == True).all()
             if models:
-                return {m[0] for m in models}
+                _SUPPORTED_MODELS_CACHE = {m[0] for m in models}
+                return _SUPPORTED_MODELS_CACHE
         finally:
             db.close()
     except Exception:
