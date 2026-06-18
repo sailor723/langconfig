@@ -6,31 +6,14 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { apiClient } from '@/lib/api-client';
-import type { LocalModel } from '@/types/api';
-
-/**
- * Hook for fetching available models (cloud + local)
- *
- * This hook combines cloud models from the settings API with validated local models
- * from the local-models API, providing a unified list for model selection dropdowns.
- *
- * Usage:
- * ```typescript
- * const { models, isLoading, error, refetch } = useAvailableModels({
- *   includeLocal: true,
- *   onlyValidated: true,
- *   refreshInterval: 30000 // Auto-refresh every 30s
- * });
- * ```
- */
+import { getCachedModels, getCachedCloudModels, getCachedLocalModels, fetchAndCacheModels } from '@/lib/modelCache';
 
 export interface ModelOption {
-  id: string;                    // Model identifier (e.g., "gpt-4", "local-ollama-llama3")
-  name: string;                  // Display name (e.g., "GPT-4", "Llama 3.2 (Ollama - Local)")
-  provider: string;              // Provider name (e.g., "openai", "anthropic", "ollama")
-  type: 'cloud' | 'local';       // Model type
-  is_validated?: boolean;        // Only for local models
+  id: string;
+  name: string;
+  provider: string;
+  type: 'cloud' | 'local';
+  is_validated?: boolean;
   capabilities?: {
     streaming?: boolean;
     tools?: boolean;
@@ -40,101 +23,66 @@ export interface ModelOption {
 }
 
 export interface UseAvailableModelsOptions {
-  includeLocal?: boolean;         // Whether to include local models (default: true)
-  onlyValidated?: boolean;        // Only include validated local models (default: true)
-  refreshInterval?: number;       // Auto-refresh interval in ms (default: disabled)
+  includeLocal?: boolean;
+  onlyValidated?: boolean;
 }
 
 export interface UseAvailableModelsResult {
-  models: ModelOption[];          // Combined list of cloud + local models
-  cloudModels: ModelOption[];     // Cloud models only
-  localModels: ModelOption[];     // Local models only
+  models: ModelOption[];
+  cloudModels: ModelOption[];
+  localModels: ModelOption[];
   isLoading: boolean;
   error: string | null;
-  refetch: () => Promise<void>;   // Manual refresh function
+  refetch: () => Promise<void>;
 }
 
 export function useAvailableModels(
   options: UseAvailableModelsOptions = {}
 ): UseAvailableModelsResult {
-  const {
-    includeLocal = true,
-    onlyValidated = true,
-    refreshInterval
-  } = options;
+  const { includeLocal = true } = options;
 
-  const [models, setModels] = useState<ModelOption[]>([]);
-  const [cloudModels, setCloudModels] = useState<ModelOption[]>([]);
-  const [localModels, setLocalModels] = useState<ModelOption[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [models, setModels] = useState<ModelOption[]>(() => getCachedModels());
+  const [cloudModels, setCloudModels] = useState<ModelOption[]>(() => getCachedCloudModels());
+  const [localModels, setLocalModels] = useState<ModelOption[]>(() => getCachedLocalModels());
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchModels = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-
-      // Fetch cloud models from settings endpoint (now returns metadata)
-      const settingsResponse = await apiClient.listAvailableModels();
-      const cloudModelOptionsRaw = settingsResponse.data.cloud_models || [];
-      const localModelsList = settingsResponse.data.local_models || [];
-
-      // Convert cloud models to ModelOption format (display_name + provider from API)
-      const cloudModelOptions: ModelOption[] = cloudModelOptionsRaw
-        .map((m: any) => ({
-          id: m.model_id,
-          name: m.display_name,
-          provider: m.provider.charAt(0).toUpperCase() + m.provider.slice(1),
-          type: 'cloud' as const,
-          capabilities: m.capabilities || {}
-        }));
-
-      setCloudModels(cloudModelOptions);
-
-      // Fetch local models if enabled
-      let localModelOptions: ModelOption[] = [];
-      if (includeLocal) {
-        // Use local models already included in settings response
-        localModelOptions = localModelsList
-          .filter((model: any) => !onlyValidated || model.is_validated)
-          .map((model: any) => ({
-            id: model.name,  // Already has "local-" prefix from backend
-            name: `${model.display_name} (${model.provider.charAt(0).toUpperCase() + model.provider.slice(1)} - Local)`,
-            provider: model.provider,
-            type: 'local' as const,
-            is_validated: model.is_validated,
-            capabilities: model.capabilities
-          }));
-      }
-
-      setLocalModels(localModelOptions);
-
-      // Combine cloud and local models
-      const allModels = [...cloudModelOptions, ...localModelOptions];
-      setModels(allModels);
-
-      setIsLoading(false);
+      const result = await fetchAndCacheModels();
+      setModels(result.models);
+      setCloudModels(result.cloudModels);
+      setLocalModels(result.localModels);
     } catch (err) {
       console.error('Failed to fetch available models:', err);
-      const errorMsg = err instanceof Error ? err.message : 'Failed to fetch models';
-      setError(errorMsg);
+      setError(err instanceof Error ? err.message : 'Failed to fetch models');
+    } finally {
       setIsLoading(false);
     }
-  }, [includeLocal, onlyValidated]);
+  }, []);
 
-  // Initial fetch and auto-refresh
+  // Fetch only if cache is empty (first load)
   useEffect(() => {
-    fetchModels();
-
-    // Set up auto-refresh if interval provided
-    if (refreshInterval && refreshInterval > 0) {
-      const intervalId = setInterval(() => {
-        fetchModels();
-      }, refreshInterval);
-
-      return () => clearInterval(intervalId);
+    if (getCachedModels().length === 0) {
+      fetchModels();
     }
-  }, [fetchModels, refreshInterval]);
+  }, [fetchModels]);
+
+  // Subscribe to cache updates — re-read from cache whenever we re-render
+  // This ensures any component calling refetch() propagates to all consumers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const fresh = getCachedModels();
+      if (fresh.length > 0) {
+        setModels(fresh);
+        setCloudModels(getCachedCloudModels());
+        setLocalModels(getCachedLocalModels());
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   return {
     models,
@@ -142,6 +90,6 @@ export function useAvailableModels(
     localModels,
     isLoading,
     error,
-    refetch: fetchModels
+    refetch: fetchModels,
   };
 }

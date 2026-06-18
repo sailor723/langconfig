@@ -566,6 +566,14 @@ class APIClient {
     return this.client.get('/api/settings/models');
   }
 
+  async createModel(data: { model_id: string; display_name: string; provider: string; capabilities?: Record<string, any> }) {
+    return this.client.post('/api/settings/models', data);
+  }
+
+  async deleteModel(modelId: string) {
+    return this.client.delete(`/api/settings/models/${modelId}`);
+  }
+
   async getAvailableEmbeddingModels() {
     return this.client.get('/api/settings/embedding-models');
   }
