@@ -217,9 +217,9 @@ export const themes: Record<ThemeName, Theme> = {
       backgroundLight: '#F7F4F0', // Warm off-white background
       backgroundDark: '#E5DDD3', // Darker warm gray sidebar
       panelDark: '#F5F0EB', // Warm light panels
-      borderDark: '#C4B8A8', // Darker taupe borders (was #DED7CE - too light)
-      textMuted: '#6B6258', // Darker muted text (was #8C8378 - too light)
-      textPrimary: '#1C1917', // Warm near-black
+      borderDark: '#B0A496', // Darker taupe borders for more contrast
+      textMuted: '#5A5046', // Even darker muted text for readability
+      textPrimary: '#1A1612', // Very dark warm near-black for maximum contrast
       inputBackground: '#FFFFFF', // White inputs
       logoBackground: '#F7F4F0', // Match background
       nodeBackground: '#EDE9E3',

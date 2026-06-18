@@ -745,5 +745,17 @@ select {
 
 /* Sidebar session text */
 [data-theme="claude"] .text-sm.font-medium.truncate {
-  color: #1C1917 !important;
+  color: #1A1612 !important;
+}
+
+/* === Knowledge Base specific fixes === */
+[data-theme="claude"] .text-xs, 
+[data-theme="claude"] .text-sm,
+[data-theme="claude"] span,
+[data-theme="claude"] p {
+  color: #1A1612 !important;
+}
+
+[data-theme="claude"] [style*="color: var(--color-text-muted)"] {
+  color: #5A5046 !important;
 }

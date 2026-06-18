@@ -283,7 +283,7 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
       type: 'dictionary',  // Default to dictionary-based
       system_prompt: '',
       tools: [],
-      model: config.model || 'claude-sonnet-4-5-20250929',
+      model: config.model || (availableModelsList.find(m => m.type === 'cloud')?.id) || '',
       middleware: [],
       workflow_id: null,
       workflow_config: null
@@ -608,8 +608,9 @@ print(result)
                       Model
                     </label>
                     <select
-                      value={config.model || 'gpt-4o'}
+                      value={config.model || ''}
                       onChange={(e) => setConfig({ ...config, model: e.target.value })}
+                      onMouseDown={(e) => { e.stopPropagation(); }}
                       className="px-3 py-2 border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                       disabled={isModelsLoading}
                       style={{
@@ -639,14 +640,7 @@ print(result)
                           )}
                         </>
                       ) : (
-                        <>
-                          <option value="gpt-5.2">GPT-5.2</option>
-                          <option value="gpt-5.1">GPT-5.1</option>
-                          <option value="gpt-4o">GPT-4o</option>
-                          <option value="gpt-4o-mini">GPT-4o Mini</option>
-                          <option value="claude-sonnet-4-5">Claude Sonnet 4.5</option>
-                          <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
-                        </>
+                        <option value="" disabled>No models available</option>
                       )}
                     </select>
                   </div>
@@ -1147,12 +1141,11 @@ print(result)
                                     }}
                                   >
                                     <option value="">Use parent agent model</option>
-                                    <option value="openai:gpt-5.2">GPT-5.2</option>
-                                    <option value="openai:gpt-4o">GPT-4o</option>
-                                    <option value="openai:gpt-4o-mini">GPT-4o Mini</option>
-                                    <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5</option>
-                                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                                    <option value="anthropic:claude-opus-4-20250514">Claude Opus 4</option>
+                                    {availableModelsList
+                                      .filter(m => m.type === 'cloud')
+                                      .map(m => (
+                                        <option key={m.id} value={m.id}>{m.name}</option>
+                                      ))}
                                   </select>
                                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                                     Different models excel at different tasks (e.g., use GPT-4o for numerical analysis)

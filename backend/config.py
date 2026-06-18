@@ -40,6 +40,7 @@ def get_api_key_from_db(key_name: str) -> Optional[str]:
             "replicate_api_key": "replicate",
             "deepseek_api_key": "deepseek",
             "tavily_api_key": "tavily",
+            "serper_api_key": "serper",
             "agnes_api_key": "agnes",
             "agnes_base_url": "agnes_base_url",
         }

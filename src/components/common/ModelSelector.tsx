@@ -39,7 +39,6 @@ export interface ModelSelectorProps {
   required?: boolean;
   disabled?: boolean;
   showProviderLabels?: boolean;
-  autoRefresh?: boolean;  // Auto-refresh model list every 30s
   className?: string;
 }
 
@@ -54,13 +53,11 @@ export default function ModelSelector({
   required = false,
   disabled = false,
   showProviderLabels = true,
-  autoRefresh = false,
   className = ''
 }: ModelSelectorProps) {
   const { models, cloudModels, localModels, isLoading, error } = useAvailableModels({
     includeLocal,
     onlyValidated,
-    refreshInterval: autoRefresh ? 30000 : undefined
   });
 
   // Log error if models fail to load
