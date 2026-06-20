@@ -346,6 +346,25 @@ export default function DeepAgentBuilder({
       };
     }
 
+    // Auto-generate subagents from skills if they don't match
+    const skills = baseConfig.skills || [];
+    const currentSubNames = (baseConfig.subagents || []).map((s: any) => s.name);
+    const missingSkills = skills.filter((id: string) => !currentSubNames.includes(id));
+    if (missingSkills.length > 0) {
+      const existing = baseConfig.subagents || [];
+      // Keep existing subagents that still have a matching skill, add missing ones
+      const kept = existing.filter((s: any) => skills.includes(s.name));
+      const newSubs = missingSkills.map(id => ({
+        name: id,
+        description: `${id} skill`,
+        system_prompt: `You are a ${id} specialist. Read the SKILL.md and follow its instructions exactly. Return only the result.`,
+        tools: [],
+        middleware: [],
+        interrupt_on: {},
+      }));
+      baseConfig.subagents = [...kept, ...newSubs];
+    }
+
     return baseConfig;
   });
 
@@ -602,11 +621,14 @@ export default function DeepAgentBuilder({
    * Generate subagent entries from skill IDs.
    * This replaces all previous subagents — only current skills determine the list.
    */
-  function generateSkillSubagents(skillIds: string[]): any[] {
+  function generateSkillSubagents(skillIds: string[]): SubAgentConfig[] {
     return (skillIds || []).map(id => ({
       name: id,
       description: `${id} skill`,
       system_prompt: `You are a ${id} specialist. Read the SKILL.md and follow its instructions exactly. Return only the result.`,
+      tools: [],
+      middleware: [],
+      interrupt_on: {},
     }));
   }
 
