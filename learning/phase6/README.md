@@ -657,6 +657,50 @@ Both **non-streaming** and **streaming** endpoints pass. The skill_name is corre
 
 All 3 turns in the **same conversation thread** (same `session_id`), no context pollution between turns.
 
+---
+
+## ✅ Meta-Skill: `skill-generator` End-to-End Test
+
+**Status**: ✅ Proven via API test.
+
+The `skill-generator` skill is a **meta-skill** — it creates other skills. It follows the same subagent pattern as any other skill and stores new skills via the `create_skill()` native tool.
+
+### The Flow
+
+```
+User: "Create a text-summarizer skill"
+  │
+  ▼
+Main agent delegates via task("skill-generator")
+  │
+  ▼
+skill-generator subagent reads SKILL.md instructions
+  │
+  ├── Researches best practices (web_search, web_fetch)
+  ├── Designs name, description, tags, triggers, instructions
+  ├── Calls create_skill() → saves to DB
+  └── Returns confirmation
+```
+
+### Tools Required
+
+The `skill-generator` subagent inherits the main agent's tools. The `create_skill` tool must be in `config.native_tools`:
+
+```python
+native_tools = ["ls", "read_file", "write_file", ..., "create_skill", "update_skill", "delete_skill"]
+```
+
+### Test Results
+
+```
+Phase 1: Add create_skill to native_tools     ✅ (200)
+Phase 2: Ask skill-generator to create skill  ✅ (create_skill() called)
+Phase 3: Verify skill in DB                   ✅ (text-summarizer found)
+Phase 4: Add new skill to agent, test it      ✅ (bullet points returned)
+```
+
+The newly created `text-summarizer` skill was synced to the sandbox filesystem and used by the main agent on the next turn to summarize text into bullet points covering healthcare, finance, transportation, and ethics.
+
 ### Architecture Diagram
 
 ```
