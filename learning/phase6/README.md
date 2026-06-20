@@ -701,6 +701,197 @@ Phase 4: Add new skill to agent, test it      ✅ (bullet points returned)
 
 The newly created `text-summarizer` skill was synced to the sandbox filesystem and used by the main agent on the next turn to summarize text into bullet points covering healthcare, finance, transportation, and ethics.
 
+---
+
+## How Skill-Generator Works: Full Design & UI Guide
+
+This section explains the `skill-generator` meta-skill in detail — its design, how to create/view/edit skills in the UI, and how to run generated skills.
+
+### 1. Design & Flow
+
+The `skill-generator` is a **builtin skill** stored at `backend/skills/builtin/skill-generator/SKILL.md`. It acts as a **Skill Engineer** — an agent that designs, writes, and saves reusable skills to the database.
+
+#### Component Architecture
+
+| Component | Location | Role |
+|-----------|----------|------|
+| `SKILL.md` instructions | `backend/skills/builtin/skill-generator/SKILL.md` | Tells the subagent how to design skills (4 phases: research → design → write → save) |
+| `create_skill()` native tool | `backend/tools/native_tools.py:1422` | Python function that saves skill to PostgreSQL `skills` table |
+| `allowed_tools` frontmatter | In SKILL.md frontmatter | Restricts the subagent to `[create_skill, update_skill, delete_skill, web_search, web_fetch, read_file, write_file]` |
+| Subagent middleware | `deepagent_factory.py` (via SkillsMiddleware) | Gives the skill-generator its own isolated context with only its SKILL.md loaded |
+
+#### The Creation Flow
+
+```
+User sends: "Create a skill for analyzing Twitter data"
+      │
+      ▼
+┌──────────────────────────────────────────────────────────┐
+│  STEP 1: Main Agent Delegates                             │
+│  System sees "create... skill" → matches skill-generator  │
+│  Calls: task("Create Twitter analyzer", "skill-generator") │
+└──────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌──────────────────────────────────────────────────────────┐
+│  STEP 2: skill-generator Subagent Activates               │
+│  SkillsMiddleware loads only skill-generator/SKILL.md     │
+│  Framework passes allowed_tools as subagent's tools       │
+│  Subagent reads its SKILL.md instructions                 │
+└──────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌──────────────────────────────────────────────────────────┐
+│  STEP 3: Follow SKILL.md Workflow                         │
+│                                                           │
+│  Phase 1: Research (web_search for Twitter API best       │
+│            practices, common analysis patterns)            │
+│  Phase 2: Design fields (name, description, tags, trig-   │
+│            gers, instructions)                             │
+│  Phase 3: Write structured markdown instructions with     │
+│            numbered steps, tool references, output format  │
+│  Phase 4: Call create_skill() with all fields              │
+└──────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌──────────────────────────────────────────────────────────┐
+│  STEP 4: create_skill() Tool                              │
+│                                                           │
+│  Takes: name, description, instructions, tags, triggers   │
+│  Converts name → kebab-case skill_id (e.g. "Twitter       │
+│    Analyzer" → "twitter-analyzer")                        │
+│  Creates Skill ORM record → commits to PostgreSQL          │
+│  Returns: "✅ Skill 'Twitter Analyzer' created!"           │
+└──────────────────────────────────────────────────────────┘
+      │
+      ▼
+┌──────────────────────────────────────────────────────────┐
+│  STEP 5: Skill appears in Skills Library                  │
+│  GET /api/skills now returns the new skill                │
+│  Can be assigned to any agent via builder UI or API        │
+└──────────────────────────────────────────────────────────┘
+```
+
+#### create_skill() Tool Details
+
+Located at `backend/tools/native_tools.py` line 1422:
+
+```python
+@tool
+def create_skill(name: str, description: str, instructions: str,
+                 tags: list[str] | None = None,
+                 triggers: list[str] | None = None) -> str:
+    """Create a new skill in the database. The skill will appear in
+    the Skills Library and agents can use it."""
+    skill_id = name.lower().strip().replace(" ", "-").replace("_", "-")
+    # Checks for duplicates → if exists, recommends update_skill()
+    # Creates Skill(skill_id, name, description, version="1.0.0",
+    #   tags, triggers, instructions, source_type="personal", ...)
+    # Commits to DB → returns confirmation
+```
+
+Key behaviors:
+- **Duplicate detection**: If skill ID already exists, returns a message asking the user to use `update_skill()` instead
+- **source_type = "personal"**: Generated skills are tagged as user-created (not builtin), so they appear under the **Personal** section in the Skills Library
+- **No allowed_tools by default**: The generated skill gets `allowed_tools=None`, which means it inherits the agent's tools at runtime
+
+### 2. How to View and Edit Skills in UI
+
+The UI has two distinct surfaces for skill management:
+
+#### A. Skills Library (Browse, Create, Edit All Skills)
+
+**Navigation**: Click **Skills** button in the top header bar (between "Prompt" and "Tools").
+
+In the Skills Library you can:
+- **Browse** skills grouped by source: `builtin`, `personal`, `project`
+- **Search** by name or tag (search bar at top)
+- **Filter** by source type (tabs: All / Built-in / Personal)
+- **View details** — click any skill to see its full instructions, tags, triggers, allowed tools
+- **Edit** — click the edit/pencil icon on any personal skill to modify its instructions, tags, triggers
+- **Create manually** — click the **+ New Skill** button to open the Skill Builder modal and fill in all fields from scratch
+- **Delete** personal skills
+
+**Skill Builder Modal** fields:
+- `Name` (human-readable, e.g. "Twitter Analyzer")
+- `Description` (1-2 sentences for auto-matching)
+- `Tags` (categorization, e.g. "data-analysis, social-media")
+- `Triggers` (auto-activation conditions)
+- `Instructions` (full markdown workflow)
+- `Allowed Tools` (restrict which tools the skill can use)
+
+#### B. Agent Builder (Select Skills for an Agent)
+
+**Navigation**: Click **Studio** in the header → find an agent → click **Edit**.
+
+In the **Skills** section of the builder:
+1. Toggle **Enable Skills** ON
+2. Click the skill picker button → opens Skills Library in **multi-select mode**
+3. Search and select skills → they appear as chips/badges
+4. Click **X** on a chip to remove it
+5. Click **Save** at the bottom
+
+**Important**: The agent must have `skill-generator` in its `skills` list AND `create_skill` in its `native_tools` for the skill creation flow to work.
+
+#### C. Prompt Assembly (Edit Subagent Prompts)
+
+**Navigation**: Click **Prompt** in the header → select the agent.
+
+Each skill assigned to an agent appears as a **tab** in the Prompt Assembly page. You can edit the subagent's `system_prompt` directly — this is what the subagent sees (not the SKILL.md instructions). The SKILL.md instructions are loaded by `SkillsMiddleware` at runtime.
+
+### 3. How to Run a Generated Skill in UI
+
+After a skill is created (either by `skill-generator` or manually via the Skill Builder), follow these steps to run it:
+
+#### Step-by-Step
+
+1. **Open Studio** → find your agent → **Edit**
+2. Scroll to **Skills** section → toggle **Enable Skills** ON
+3. Click the skill picker → search for your new skill (e.g. "text-summarizer")
+4. Select it → it appears as a chip
+5. Click **Save** at the bottom
+6. **Exit** the builder (the agent config is updated in DB)
+7. Press **Ctrl+K / Cmd+K** to open chat
+8. Select your agent from the dropdown (e.g. `ticker_classifier`)
+9. Send a query that triggers the skill — e.g. for `text-summarizer`:
+   ```
+   Please summarize this text into bullet points:
+   Artificial intelligence (AI) is transforming industries worldwide...
+   ```
+
+#### How Delegation Happens
+
+```
+Chat: "Please summarize this text..."
+  │
+  ▼
+Main agent receives query
+  │
+  ├── System prompt says: "Delegate skill tasks using task()"
+  ├── Reads skill delegation hints (auto-injected by factory):
+  │     "Subagents: text-summarizer, ticket-classifier, ..."
+  │
+  └── If task matches a skill description:
+        task("summarize...", name="text-summarizer")
+          │
+          ▼
+        text-summarizer subagent activates
+          → SkillsMiddleware loads text-summarizer/SKILL.md
+          → Subagent follows instructions
+          → Returns bullet points
+```
+
+**If the query is simple enough**, the main agent may answer directly without delegating. For best results, make sure the skill's `triggers` and `description` clearly match what the user asks.
+
+#### What Happens at Runtime (Technical)
+
+When an agent with skills is used:
+1. `deepagent_factory.py` queries the `skills` DB table for the agent's `config.skills` list
+2. Writes each skill's data as `SKILL.md` on the sandbox filesystem (`outputs/default/skills/<id>/SKILL.md`)
+3. Creates a subagent per skill with isolated `SkillsMiddleware` pointing to that skill's directory
+4. Injects delegation hints into the main agent's system prompt
+5. At runtime, the main agent's LLM reads the hints and decides when to call `task()`
+
 ### Architecture Diagram
 
 ```
