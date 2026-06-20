@@ -9,6 +9,9 @@ Usage:
     # Or use explicit skill IDs:
     python scripts/agent_gen_cli.py create --name my-agent --skills ticket-classifier,data-analysis
 
+    # With native tools (e.g. graphindex for PDF chat):
+    python scripts/agent_gen_cli.py create --name doc-agent --skills pdf-chat --tools graphindex_search,graphindex_load
+
     # Dry-run to check which skills exist:
     python scripts/agent_gen_cli.py create --name test --skills a,b,c --dry-run
 
@@ -50,9 +53,22 @@ def cmd_create(args):
         print("❌ Could not determine any skills from input")
         sys.exit(1)
 
+    # Determine extra native tools
+    extra_tools = []
+    if args.tools:
+        extra_tools = [t.strip() for t in args.tools.split(",") if t.strip()]
+    # Auto-add graphindex tools when pdf-chat skill is included
+    if "pdf-chat" in skill_ids:
+        for t in ["graphindex_search", "graphindex_load"]:
+            if t not in extra_tools:
+                extra_tools.append(t)
+                print(f"    📎 Auto-added native tool: {t} (required by pdf-chat)")
+
     print(f"\n{'='*60}")
     print(f"  Agent:  {args.name}")
     print(f"  Skills: {skill_ids}")
+    if extra_tools:
+        print(f"  Tools:  {extra_tools}")
     print(f"{'='*60}\n")
 
     # Phase 1: Check
@@ -94,6 +110,7 @@ def cmd_create(args):
             name=args.name,
             skills=existing,
             description=args.desc or f"Agent with: {', '.join(existing)}",
+            extra_tools=extra_tools if extra_tools else None,
         )
         subagents = [s["name"] for s in agent.get("subagents", [])]
         print(f"    ✅ Agent ID={agent['id']}")
@@ -147,6 +164,7 @@ def main():
     p.add_argument("--desc", default="")
     p.add_argument("-q", "--query", help='Natural language: "data analysis, ticket classification and web search"')
     p.add_argument("--skills", help="Comma-separated skill IDs (alternative to --query)")
+    p.add_argument("--tools", help="Comma-separated extra native tools: graphindex_search,graphindex_load,doc_index_list")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--skip-generate", action="store_true")
 
