@@ -32,6 +32,7 @@ interface MessagesPanelProps {
   activeToolCalls?: ToolCall[];
   customEvents?: Map<string, CustomEventPayload>;
   thinkingTraces?: ThinkingStep[][];
+  thinkingBuffer?: string;
 }
 
 export default function MessagesPanel({
@@ -46,6 +47,7 @@ export default function MessagesPanel({
   activeToolCalls = [],
   customEvents = new Map(),
   thinkingTraces = [],
+  thinkingBuffer = '',
 }: MessagesPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -299,7 +301,7 @@ export default function MessagesPanel({
                       })()}
 
                       {/* During streaming: thinking toggle inside the last assistant message */}
-                      {isStreaming && message.role === 'assistant' && index === messages.length - 1 && activeToolCalls.length > 0 && (
+                      {isStreaming && message.role === 'assistant' && index === messages.length - 1 && (activeToolCalls.length > 0 || thinkingBuffer) && (
                         <div className="mt-1 px-2">
                           <button
                             onClick={() => setShowThinking(v => !v)}
@@ -310,6 +312,19 @@ export default function MessagesPanel({
                             <Brain className="w-3 h-3" />
                             <span>{showThinking ? 'Hide thinking' : `Show thinking (${activeToolCalls.length} active)`}</span>
                           </button>
+                          {/* Expanded: show thinking text */}
+                          {showThinking && thinkingBuffer && (
+                            <div
+                              className="mt-1 rounded-lg border p-3 text-xs whitespace-pre-wrap"
+                              style={{
+                                backgroundColor: 'rgba(99,102,241,0.04)',
+                                borderColor: 'var(--color-border-dark, #e5e7eb)',
+                                color: 'var(--color-text-muted)',
+                              }}
+                            >
+                              {thinkingBuffer}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -367,13 +382,27 @@ export default function MessagesPanel({
                   {!showThinking && activeToolCalls.length === 0 && <span className="ml-1 text-xs opacity-60 animate-pulse">Processing...</span>}
                 </button>
 
-                {/* Expanded: show active tool calls */}
+                {/* Expanded: show thinking text + active tool calls */}
                 {showThinking && (
                   <div className="mt-2">
-                    {activeToolCalls.length === 0 ? (
-                      <div className="text-xs italic px-2" style={{ color: 'var(--color-text-muted)' }}>
-                        Waiting for tool calls...
+                    {thinkingBuffer && (
+                      <div
+                        className="rounded-lg border p-3 text-xs whitespace-pre-wrap mb-2"
+                        style={{
+                          backgroundColor: 'rgba(99,102,241,0.04)',
+                          borderColor: 'var(--color-border-dark, #e5e7eb)',
+                          color: 'var(--color-text-muted)',
+                        }}
+                      >
+                        {thinkingBuffer}
                       </div>
+                    )}
+                    {activeToolCalls.length === 0 ? (
+                      !thinkingBuffer && (
+                        <div className="text-xs italic px-2" style={{ color: 'var(--color-text-muted)' }}>
+                          Waiting for tool calls...
+                        </div>
+                      )
                     ) : (
                       <div
                         className="rounded-lg border text-xs font-mono overflow-hidden"

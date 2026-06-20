@@ -38,6 +38,7 @@ export default function GlobalChatModal() {
   const [activeToolCalls, setActiveToolCalls] = useState<ToolCall[]>([]);
   const [customEvents, setCustomEvents] = useState<Map<string, CustomEventPayload>>(new Map());
   const [thinkingTraces, setThinkingTraces] = useState<ThinkingStep[][]>([]);
+  const [thinkingBuffer, setThinkingBuffer] = useState('');  // pre-tool-call thinking text
   const tracesRef = useRef<ThinkingStep[]>([]);  // collect events during streaming
 
   // HITL interrupt state
@@ -210,6 +211,10 @@ export default function GlobalChatModal() {
         if (event.type === 'interrupt' && event.data) {
           setPendingInterrupt(event.data as InterruptData);
         }
+      },
+      (content: string) => {
+        // Handle thinking content (pre-tool-call text, not the final answer)
+        setThinkingBuffer(content);
       }
     );
   };
@@ -339,6 +344,7 @@ export default function GlobalChatModal() {
               activeToolCalls={activeToolCalls}
               customEvents={customEvents}
               thinkingTraces={thinkingTraces}
+              thinkingBuffer={thinkingBuffer}
             />
 
             {/* Metrics Panel - Right Sidebar */}
