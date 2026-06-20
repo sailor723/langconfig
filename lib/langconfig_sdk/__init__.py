@@ -230,6 +230,7 @@ class LangConfigClient:
         model: str | None = None,
         system_prompt: str = "You are a helpful assistant with access to specialized skills.",
         native_tools: list[str] | None = None,
+        extra_tools: list[str] | None = None,
         temperature: float = 0.7,
     ) -> dict:
         """Create a deep agent with the given skills.
@@ -241,11 +242,19 @@ class LangConfigClient:
         If ``model`` is not provided, the default model from DB settings is used.
         ``skill_router_model`` is also auto-set to the same model so both
         "Bot LLM" and "Skill LLM" are populated in the UI.
+
+        ``extra_tools`` can include tools like ``graphindex_search``,
+        ``graphindex_load``, ``doc_index_list``, etc.
         """
         if model is None:
             model = self.get_default_model()
         if native_tools is None:
             native_tools = ["ls", "read_file", "write_file", "edit_file", "glob", "grep"]
+        if extra_tools:
+            # Merge extra tools, avoid duplicates
+            for t in extra_tools:
+                if t not in native_tools:
+                    native_tools.append(t)
 
         # ── Auto-version: if name exists, append -v2, -v3, ... ──
         version = "1.0.0"
