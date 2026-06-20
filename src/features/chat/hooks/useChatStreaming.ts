@@ -17,7 +17,9 @@ interface UseChatStreamingResult {
     onComplete: () => void,
     onToolEvent?: (event: ChatStreamEvent) => void,
     onCustomEvent?: (event: ChatStreamEvent) => void,
-    onInterrupt?: (event: ChatStreamEvent) => void
+    onInterrupt?: (event: ChatStreamEvent) => void,
+    /** Called with thinking content (pre-tool-call text) during streaming */
+    onThinkingUpdate?: (content: string) => void,
   ) => Promise<void>;
   isStreaming: boolean;
   error: string | null;
@@ -31,6 +33,11 @@ export function useChatStreaming(
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Track tool phase for separating thinking content from answer content
+  const toolPhaseCountRef = useRef(0);
+  const toolPhaseActiveRef = useRef(false);
+  const toolPhaseSeenRef = useRef(false);
+  const thinkingBufferRef = useRef('');
 
   const clearError = useCallback(() => {
     setError(null);
@@ -44,12 +51,19 @@ export function useChatStreaming(
       onComplete: () => void,
       onToolEvent?: (event: ChatStreamEvent) => void,
       onCustomEvent?: (event: ChatStreamEvent) => void,
-      onInterrupt?: (event: ChatStreamEvent) => void
+      onInterrupt?: (event: ChatStreamEvent) => void,
+      onThinkingUpdate?: (content: string) => void,
     ) => {
       if (!sessionId || isStreaming) return;
 
       setError(null);
       setIsStreaming(true);
+
+      // Reset tool phase tracking
+      toolPhaseCountRef.current = 0;
+      toolPhaseActiveRef.current = false;
+      toolPhaseSeenRef.current = false;
+      thinkingBufferRef.current = '';
 
       // Create abort controller for cancellation
       abortControllerRef.current = new AbortController();
@@ -104,32 +118,58 @@ export function useChatStreaming(
                 const data: ChatStreamEvent = JSON.parse(line.substring(6));
 
                 if (data.type === 'chunk') {
-                  // Stream individual tokens as they arrive
-                  accumulatedContent += data.content;
-
-                  // Add assistant message on first chunk
+                  if (!toolPhaseSeenRef.current) {
+                    // Before any tool call → this is thinking content only
+                    thinkingBufferRef.current += data.content;
+                    accumulatedContent += data.content;  // keep for fallback
+                    if (onThinkingUpdate) {
+                      onThinkingUpdate(thinkingBufferRef.current);
+                    }
+                  } else {
+                    // After tool phase → this is answer content (accumulatedContent was reset)
+                    accumulatedContent += data.content;
+                    if (!assistantMessageAdded) {
+                      const assistantMessage: ChatMessage = {
+                        role: 'assistant',
+                        content: accumulatedContent,
+                        timestamp: new Date().toISOString(),
+                      };
+                      onMessageAdd(assistantMessage);
+                      assistantMessageAdded = true;
+                    } else {
+                      onMessageUpdate(accumulatedContent);
+                    }
+                  }
+                } else if (data.type === 'complete') {
+                  // If never created assistant msg (no-tool path), create it now
                   if (!assistantMessageAdded) {
+                    const finalContent = data.content || thinkingBufferRef.current || accumulatedContent;
                     const assistantMessage: ChatMessage = {
                       role: 'assistant',
-                      content: accumulatedContent,
+                      content: finalContent,
                       timestamp: new Date().toISOString(),
                     };
                     onMessageAdd(assistantMessage);
-                    assistantMessageAdded = true;
-                  } else {
-                    onMessageUpdate(accumulatedContent);
-                  }
-                } else if (data.type === 'complete') {
-                  // Final content - use accumulated or provided
-                  const finalContent = data.content || accumulatedContent;
-                  if (finalContent !== accumulatedContent) {
-                    accumulatedContent = finalContent;
-                    onMessageUpdate(finalContent);
                   }
                 } else if (data.type === 'error') {
                   setError(data.message || 'An error occurred during streaming');
-                } else if (data.type === 'tool_start' || data.type === 'tool_end') {
-                  // Pass tool events to callback
+                } else if (data.type === 'tool_start') {
+                  // First tool call marks the end of thinking phase
+                  if (!toolPhaseSeenRef.current) {
+                    toolPhaseSeenRef.current = true;
+                    accumulatedContent = '';  // Reset for answer content
+                  }
+                  toolPhaseCountRef.current += 1;
+                  toolPhaseActiveRef.current = true;
+                  if (onToolEvent) {
+                    onToolEvent(data);
+                  }
+                } else if (data.type === 'tool_end') {
+                  toolPhaseCountRef.current -= 1;
+                  if (toolPhaseCountRef.current <= 0) {
+                    toolPhaseCountRef.current = 0;
+                    toolPhaseActiveRef.current = false;
+                  }
                   if (onToolEvent) {
                     onToolEvent(data);
                   }
