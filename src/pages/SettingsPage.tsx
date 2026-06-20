@@ -87,6 +87,7 @@ export default function SettingsView() {
   interface GeneralSettings {
     appName: string;
     storagePath: string;
+    language: string;
     autoSave: boolean;
     autoSaveInterval: number;
     confirmBeforeDelete: boolean;
@@ -115,6 +116,7 @@ export default function SettingsView() {
   // General settings state - start with null, load from backend
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
     appName: 'LangConfig',
+    language: 'en',
     autoSave: true,
     autoSaveInterval: 300,
     confirmBeforeDelete: true,
@@ -185,6 +187,7 @@ export default function SettingsView() {
         const generalData = generalResponse.data;
         setGeneralSettings({
           appName: generalData.app_name || 'LangConfig',
+          language: generalData.language || 'en',
           autoSave: generalData.auto_save ?? true,
           autoSaveInterval: generalData.auto_save_interval || 300,
           confirmBeforeDelete: generalData.confirm_before_delete ?? true,
@@ -311,6 +314,7 @@ export default function SettingsView() {
             if (!generalSettings) return;
             await apiClient.updateGeneralSettings({
               app_name: generalSettings.appName,
+              language: generalSettings.language,
               auto_save: generalSettings.autoSave,
               auto_save_interval: generalSettings.autoSaveInterval,
               confirm_before_delete: generalSettings.confirmBeforeDelete,

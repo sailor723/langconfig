@@ -66,6 +66,7 @@ class SettingsResponse(BaseModel):
 
 class GeneralSettings(BaseModel):
     app_name: Optional[str] = "LangConfig"
+    language: Optional[str] = "en"
     auto_save: Optional[bool] = True
     auto_save_interval: Optional[int] = 300
     confirm_before_delete: Optional[bool] = True
@@ -667,6 +668,7 @@ async def get_general_settings(db: Session = Depends(get_db)):
     settings = get_or_create_settings(db)
     return GeneralSettings(
         app_name=settings.app_name,
+        language=settings.language or "en",
         auto_save=settings.auto_save,
         auto_save_interval=settings.auto_save_interval,
         confirm_before_delete=settings.confirm_before_delete,
@@ -692,6 +694,7 @@ async def update_general_settings(general_settings: GeneralSettings, db: Session
 
     return GeneralSettings(
         app_name=settings.app_name,
+        language=settings.language or "en",
         auto_save=settings.auto_save,
         auto_save_interval=settings.auto_save_interval,
         confirm_before_delete=settings.confirm_before_delete,
