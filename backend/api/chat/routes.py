@@ -66,7 +66,6 @@ from models.deep_agent import DeepAgentTemplate, ChatSession, DeepAgentConfig, S
 from models.core import DocumentType, IndexingStatus
 from services.deepagent_factory import DeepAgentFactory
 from core.agents.factory import AgentFactory
-from core.utils.language_detector import detect_language, language_to_instruction
 from core.workflows.events.emitter import ExecutionEventCallbackHandler
 from langgraph.errors import GraphInterrupt
 from services.conversation_context import ConversationContextService
@@ -305,9 +304,22 @@ async def send_message(
         agent_instance = get_cached_agent(request.session_id)
 
         if not agent_instance:
-            # ── Language Detection (first message only) ──
-            lang = detect_language(request.message)
-            lang_instruction = language_to_instruction(lang)
+            # ── Language preference from DB settings ──
+            lang_instruction = ""
+            try:
+                from models.settings import Settings as SettingsModel
+                settings_row = db.query(SettingsModel).filter(SettingsModel.id == 1).first()
+                if settings_row and settings_row.language and settings_row.language not in ("en", "en-US", "en-GB"):
+                    LANG_NAMES = {"zh": "Chinese", "ja": "Japanese", "ko": "Korean",
+                                  "ru": "Russian", "ar": "Arabic", "th": "Thai",
+                                  "hi": "Hindi", "he": "Hebrew", "el": "Greek",
+                                  "es": "Spanish", "fr": "French", "de": "German",
+                                  "pt": "Portuguese", "it": "Italian", "nl": "Dutch",
+                                  "zh-CN": "Chinese", "zh-TW": "Chinese (Traditional)"}
+                    lang_name = LANG_NAMES.get(settings_row.language, settings_row.language)
+                    lang_instruction = f"\n\n**Language**: Respond in {lang_name}."
+            except Exception:
+                pass  # fallback to no language instruction
 
             # Create agent instance — branch based on agent type
             use_deepagents = agent.config.get("use_deepagents", False)

@@ -36,6 +36,21 @@ Once all implementation steps are complete, run all backend tests to ensure ever
 ### Step 5: Implement UI changes
 Only after the backend is fully tested and working, proceed to implement the corresponding UI changes.
 
+## Service Management
+
+### Rule 1: Always use `start.sh` to restart services
+When backend or frontend needs restarting (e.g., after code changes), always use:
+```bash
+cd /Users/weiping/dev/Learn/langchain-ai/langconfig && bash start.sh
+```
+This script:
+- Kills previous processes on ports 8765 (BE) and 1420 (FE)
+- Starts backend with `SKIP_STARTUP_API_TEST=true` (skips API key connection tests)
+- Starts frontend via `npm run dev`
+- Health-checks backend before returning
+
+Never kill and restart processes manually.
+
 ## Testing Philosophy
 
 ### MVP First — simplest case always wins
