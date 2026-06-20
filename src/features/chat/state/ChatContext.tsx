@@ -128,7 +128,12 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
   const switchSession = useCallback((sessionId: string) => {
     setCurrentSessionId(sessionId);
-  }, []);
+    // Restore selected agent from session data
+    const session = sessions.find(s => s.session_id === sessionId);
+    if (session?.agent_id) {
+      setSelectedAgentId(session.agent_id);
+    }
+  }, [sessions]);
 
   const endSession = useCallback(async (sessionId: string) => {
     try {
