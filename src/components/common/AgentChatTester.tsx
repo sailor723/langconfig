@@ -35,6 +35,7 @@ interface ChatMessage {
 
 interface ToolCall {
   tool_name: string;
+  skill_name?: string | null;
   arguments: Record<string, any>;
   result: string;
   timestamp: string;
@@ -202,8 +203,10 @@ export default function AgentChatTester({
                 // Show tool call in sidebar in real-time
                 const toolName = data.tool_name || 'unknown';
                 const toolArgs = data.data?.input || data.data?.args || {};
+                const skillName = data.skill_name || null;
                 setToolCalls(prev => [...prev, {
                   tool_name: toolName,
+                  skill_name: skillName,
                   arguments: toolArgs,
                   result: '',
                   timestamp: new Date().toISOString(),
@@ -625,6 +628,11 @@ export default function AgentChatTester({
                         <span className={`font-mono ${call.status === 'running' ? 'text-blue-400' : 'text-green-400'}`}>
                           {call.tool_name}
                         </span>
+                        {call.skill_name && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-medium">
+                            {call.skill_name}
+                          </span>
+                        )}
                       </div>
                       {call.arguments && Object.keys(call.arguments).length > 0 && (
                         <div className="text-gray-500 mt-1 truncate">
