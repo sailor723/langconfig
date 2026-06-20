@@ -17,7 +17,7 @@ import { ErrorBoundary } from '../../../components/common/ErrorBoundary';
 import apiClient, { ConflictErrorClass } from '../../../lib/api-client';
 import ConflictDialog from '../../workflows/ui/ConflictDialog';
 import { useNotification } from '../../../hooks/useNotification';
-import { useAvailableModels } from '../../../hooks/useAvailableModels';
+import { ModelSelectorInline } from '../../../components/common/ModelSelector';
 import { useAvailableTools } from '../../../hooks/useAvailableTools';
 
 interface Agent {
@@ -120,9 +120,6 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
   const [guardrailsDescription, setGuardrailsDescription] = useState<string>('');
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
 
-  // Fetch available models
-  const { models: availableModelsList, isLoading: isModelsLoading } = useAvailableModels();
-
   // Fetch native tool registry (single source of truth for tool pickers)
   const { tools: registryTools } = useAvailableTools();
 
@@ -212,6 +209,17 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     };
   }, []);
 
+  // Skills state
+  const [availableSkills, setAvailableSkills] = useState<Array<{ skill_id: string, name: string, description: string, source_type: string }>>([]);
+  const [showSkillPicker, setShowSkillPicker] = useState(false);
+
+  // Fetch available skills
+  useEffect(() => {
+    apiClient.get('/api/skills')
+      .then((res: any) => setAvailableSkills(res.data || res))
+      .catch(() => { /* skills are optional */ });
+  }, []);
+
   // Capability flags (not real tools - they are agent-level toggles)
   // Real tools are fetched from the backend registry via useAvailableTools()
   const CAPABILITY_FLAGS = [
@@ -283,7 +291,7 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
       type: 'dictionary',  // Default to dictionary-based
       system_prompt: '',
       tools: [],
-      model: config.model || (availableModelsList.find(m => m.type === 'cloud')?.id) || '',
+      model: config.model || 'claude-sonnet-4-5-20250929',
       middleware: [],
       workflow_id: null,
       workflow_config: null
@@ -335,8 +343,14 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
   const handleSave = async () => {
     setSaveStatus('saving');
     try {
+      // Auto-enable sandbox when skills are equipped
+      const updatedConfig = { ...config };
+      if (updatedConfig.skills && updatedConfig.skills.length > 0 && !updatedConfig.use_local_sandbox) {
+        updatedConfig.use_local_sandbox = true;
+        setConfig(updatedConfig);
+      }
       await onSave({
-        ...config,
+        ...updatedConfig,
         name: agentName,
         description: agentDescription,
         guardrails: customGuardrails || null,
@@ -607,42 +621,12 @@ print(result)
                     <label className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
                       Model
                     </label>
-                    <select
+                    <ModelSelectorInline
                       value={config.model || ''}
-                      onChange={(e) => setConfig({ ...config, model: e.target.value })}
-                      onMouseDown={(e) => { e.stopPropagation(); }}
-                      className="px-3 py-2 border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-                      disabled={isModelsLoading}
-                      style={{
-                        color: 'var(--color-text-primary)',
-                        minWidth: '200px'
-                      }}
-                    >
-                      {availableModelsList.length > 0 ? (
-                        <>
-                          {/* Cloud Models */}
-                          <optgroup label="Cloud Models">
-                            {availableModelsList.filter(m => m.type === 'cloud').map(model => (
-                              <option key={model.id} value={model.id}>
-                                {model.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                          {/* Local Models */}
-                          {availableModelsList.some(m => m.type === 'local') && (
-                            <optgroup label="Local Models">
-                              {availableModelsList.filter(m => m.type === 'local').map(model => (
-                                <option key={model.id} value={model.id}>
-                                  {model.name}
-                                </option>
-                              ))}
-                            </optgroup>
-                          )}
-                        </>
-                      ) : (
-                        <option value="" disabled>No models available</option>
-                      )}
-                    </select>
+                      onChange={(modelId) => setConfig({ ...config, model: modelId })}
+                      includeLocal={true}
+                      onlyValidated={true}
+                    />
                   </div>
 
                   <div className="flex flex-col gap-1">
@@ -893,6 +877,147 @@ print(result)
             </div>
           </div>
 
+          {/* Skills Section - Only for Deep Agents */}
+          {config.use_deepagents && (
+            <div className="mt-6">
+              <div className="px-3 py-1.5 rounded-lg mb-2 flex items-center justify-between" style={{ backgroundColor: 'var(--color-primary)' }}>
+                <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
+                  Skills
+                </h3>
+                <button
+                  onClick={() => setShowSkillPicker(true)}
+                  className="px-3 py-1 rounded text-xs font-medium bg-white text-primary hover:bg-opacity-90 transition-opacity flex items-center gap-1"
+                >
+                  <Plus size={14} />
+                  {config.skills?.length ? 'Manage' : 'Add'}
+                </button>
+              </div>
+
+              {/* Selected Skills */}
+              {config.skills && config.skills.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {config.skills.map((skillId: string) => {
+                    const skill = availableSkills.find(s => s.skill_id === skillId);
+                    return (
+                      <div
+                        key={skillId}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium"
+                        style={{
+                          backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                          color: '#7c3aed',
+                          border: '1px solid rgba(139, 92, 246, 0.2)'
+                        }}
+                      >
+                        {skill?.name || skillId}
+                        <button
+                          onClick={() => {
+                            const updated = (config.skills || []).filter((s: string) => s !== skillId);
+                            setConfig({ ...config, skills: updated });
+                          }}
+                          className="ml-0.5 hover:opacity-70"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {(!config.skills || config.skills.length === 0) && (
+                <div className="text-center py-8 border rounded-lg" style={{
+                  borderColor: 'var(--color-border-dark)',
+                  backgroundColor: 'var(--color-background-light)'
+                }}>
+                  <p className="text-sm mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    No skills configured
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    Skills provide domain expertise and task-specific instructions
+                  </p>
+                </div>
+              )}
+
+              {/* Skill Router Model */}
+              {config.skills && config.skills.length > 0 && (
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 uppercase mb-1">
+                    Skill Router Model
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Optional separate model for skill selection. If set, this model routes the user's request to the correct skill before loading it.
+                  </p>
+                  <ModelSelectorInline
+                    value={config.skill_router_model || ''}
+                    onChange={(modelId) => {
+                      if (modelId) {
+                        setConfig({ ...config, skill_router_model: modelId });
+                      } else {
+                        const { skill_router_model, ...rest } = config;
+                        setConfig(rest);
+                      }
+                    }}
+                    includeLocal={true}
+                    onlyValidated={true}
+                  />
+                </div>
+              )}
+
+              {/* Skill Picker Modal */}
+              {showSkillPicker && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                  <div className="bg-white dark:bg-panel-dark rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-border-dark">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Select Skills</h3>
+                      <button onClick={() => setShowSkillPicker(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg">
+                        <X className="w-5 h-5 text-gray-500" />
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                      <div className="space-y-2">
+                        {availableSkills.map(skill => {
+                          const isSelected = config.skills?.includes(skill.skill_id);
+                          return (
+                            <div
+                              key={skill.skill_id}
+                              onClick={() => {
+                                const current = config.skills || [];
+                                const updated = isSelected
+                                  ? current.filter((s: string) => s !== skill.skill_id)
+                                  : [...current, skill.skill_id];
+                                setConfig({ ...config, skills: updated });
+                              }}
+                              className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all border ${
+                                isSelected
+                                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                                  : 'border-gray-200 dark:border-border-dark hover:border-gray-300 dark:hover:border-gray-600'
+                              }`}
+                            >
+                              <input type="checkbox" checked={isSelected || false} onChange={() => {}} className="mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900 dark:text-white">{skill.name}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{skill.description}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {availableSkills.length === 0 && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+                            No skills available. Create one in the Skills panel first.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-border-dark">
+                      <button onClick={() => setShowSkillPicker(false)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg">Cancel</button>
+                      <button onClick={() => setShowSkillPicker(false)} className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg">Done</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Subagents Section - Only for Deep Agents */}
           {config.use_deepagents && (
             <div className="mt-6">
@@ -1141,11 +1266,12 @@ print(result)
                                     }}
                                   >
                                     <option value="">Use parent agent model</option>
-                                    {availableModelsList
-                                      .filter(m => m.type === 'cloud')
-                                      .map(m => (
-                                        <option key={m.id} value={m.id}>{m.name}</option>
-                                      ))}
+                                    <option value="openai:gpt-5.2">GPT-5.2</option>
+                                    <option value="openai:gpt-4o">GPT-4o</option>
+                                    <option value="openai:gpt-4o-mini">GPT-4o Mini</option>
+                                    <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5</option>
+                                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                                    <option value="anthropic:claude-opus-4-20250514">Claude Opus 4</option>
                                   </select>
                                   <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                                     Different models excel at different tasks (e.g., use GPT-4o for numerical analysis)

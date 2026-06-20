@@ -181,6 +181,11 @@ export default function MetricsPanel({
                     >
                       {call.tool_name}
                     </span>
+                    {call.skill_name && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                        {call.skill_name}
+                      </span>
+                    )}
                   </div>
                   {call.arguments && Object.keys(call.arguments).length > 0 && (
                     <div className="text-xs text-gray-500 mt-1 truncate" title={JSON.stringify(call.arguments)}>
@@ -204,11 +209,16 @@ export default function MetricsPanel({
                     borderColor: 'var(--color-border-dark)',
                   }}
                 >
-                  <div
-                    className="font-mono text-xs font-semibold"
-                    style={{ color: 'var(--color-primary)' }}
-                  >
-                    {call.tool_name}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-semibold"
+                      style={{ color: 'var(--color-primary)' }}>
+                      {call.tool_name}
+                    </span>
+                    {call.skill_name && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">
+                        {call.skill_name}
+                      </span>
+                    )}
                   </div>
                   <div
                     className="text-xs mt-0.5"

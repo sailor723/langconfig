@@ -173,8 +173,10 @@ export default function GlobalChatModal() {
       (event: ChatStreamEvent) => {
         // Handle tool events
         if (event.type === 'tool_start' && event.tool_name) {
+          const skill_name = event.skill_name || null;
           setActiveToolCalls(prev => [...prev, {
             tool_name: event.tool_name!,
+            skill_name: skill_name,
             arguments: event.data?.input || event.data?.args || {},
             result: '',
             timestamp: new Date().toISOString(),

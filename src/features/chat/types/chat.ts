@@ -58,6 +58,7 @@ export interface SessionDocument {
 
 export interface ToolCall {
   tool_name: string;
+  skill_name?: string | null;
   arguments: Record<string, any>;
   result: string;
   timestamp: string;
@@ -86,6 +87,8 @@ export interface ChatStreamEvent {
   content?: string;
   message?: string;
   tool_name?: string;
+  /** Skill name detected from tool call path (e.g. "ticket-classifier" from /skills/ticket-classifier/SKILL.md) */
+  skill_name?: string | null;
   session_id?: string;
   data?: any;
   /** Multimodal content blocks from tool results */
