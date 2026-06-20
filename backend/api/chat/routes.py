@@ -1163,7 +1163,7 @@ async def end_chat_session(
 @router.get("/sessions")
 async def list_chat_sessions(
     agent_id: Optional[int] = None,
-    active_only: bool = False,
+    active_only: bool = True,
     limit: int = 50,  # Default to 50 most recent conversations
     db: Session = Depends(get_db)
 ):
