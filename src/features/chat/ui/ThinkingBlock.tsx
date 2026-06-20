@@ -14,7 +14,6 @@ interface Props {
 
 export default function ThinkingBlock({ steps, defaultExpanded = false }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  if (steps.length === 0) return null;
 
   return (
     <div className="mt-2">
@@ -25,7 +24,7 @@ export default function ThinkingBlock({ steps, defaultExpanded = false }: Props)
       >
         {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         <Brain className="w-3.5 h-3.5" />
-        <span>{expanded ? 'Hide thinking' : `Show thinking (${steps.length} steps)`}</span>
+        <span>{expanded ? 'Hide thinking' : steps.length > 0 ? `Show thinking (${steps.length} steps)` : 'Show thinking'}</span>
       </button>
 
       {expanded && (
@@ -36,6 +35,11 @@ export default function ThinkingBlock({ steps, defaultExpanded = false }: Props)
             borderColor: 'var(--color-border-dark, #e5e7eb)',
           }}
         >
+          {steps.length === 0 ? (
+            <div className="p-3 text-xs italic" style={{ color: 'var(--color-text-muted)' }}>
+              No tool calls in this response.
+            </div>
+          ) : (
           <div className="max-h-72 overflow-y-auto p-3 space-y-2">
             {steps.map((step, i) => (
               <div key={i} className="flex items-start gap-2">
@@ -68,6 +72,7 @@ export default function ThinkingBlock({ steps, defaultExpanded = false }: Props)
               </div>
             ))}
           </div>
+          )}
         </div>
       )}
     </div>
