@@ -3,9 +3,19 @@ import { useTranslation } from 'react-i18next';
 export default function LanguageSwitcher() {
   const { i18n } = useTranslation();
 
-  const toggleLang = () => {
+  const toggleLang = async () => {
     const next = i18n.language === 'zh' ? 'en' : 'zh';
     i18n.changeLanguage(next);
+    // Also save to backend settings
+    try {
+      await fetch('/api/settings/general', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: next }),
+      });
+    } catch (e) {
+      console.warn('Failed to save language to backend', e);
+    }
   };
 
   return (

@@ -637,6 +637,7 @@ class APIClient {
 
   async updateGeneralSettings(data: {
     app_name?: string;
+    language?: string;
     auto_save?: boolean;
     auto_save_interval?: number;
     confirm_before_delete?: boolean;

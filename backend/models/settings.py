@@ -27,6 +27,7 @@ class Settings(Base):
 
     # General Settings
     app_name = Column(String, default="LangConfig")
+    language = Column(String, default="en")  # zh, en, etc.
     auto_save = Column(Boolean, default=True)
     auto_save_interval = Column(Integer, default=300)  # seconds
     confirm_before_delete = Column(Boolean, default=True)
