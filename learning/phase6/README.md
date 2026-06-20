@@ -560,15 +560,99 @@ SkillsMiddleware instance (per subagent)
 
 **Each subagent gets its own `SkillsMiddleware` with a separate `StateBackend` → skills state is fully isolated**. The main agent only sees the final result, not the skill instructions.
 
-### Test Results (3/3 Passed)
+### Dynamic Skill Subagent Generation (from DB)
 
-| Turn | Subagent | SkillsMiddleware | Response Keywords |
-|------|----------|-----------------|-------------------|
-| 1 | `ticket-classifier` | `sources=[ticket-classifier]` | priority, category, sentiment |
-| 2 | `code-review` | `sources=[code-review]` | SQL injection, security |
-| 3 | `data-analysis` | `sources=[data-analysis]` | CSV, sales |
+In `deepagent_factory.py`, skill subagents are generated dynamically from `skill_records` at runtime — **no hardcoded skill names**:
 
-All 3 turns in the **same conversation thread**, no context pollution between turns.
+```python
+# Build a subagent per skill with isolated SkillsMiddleware
+from deepagents.middleware.skills import SkillsMiddleware
+from deepagents.backends import FilesystemBackend
+
+skill_backend = FilesystemBackend(root_dir=str(skills_root))
+skill_subagents = []
+for s in skill_records:
+    skill_mw = SkillsMiddleware(
+        backend=skill_backend,
+        sources=[s.skill_id],      # only this skill's SKILL.md
+        system_prompt=None,
+    )
+    skill_subagents.append({
+        "name": s.skill_id,        # ← dynamic from DB
+        "description": s.description,
+        "system_prompt": (
+            f"You are a {s.skill_id} specialist. "
+            "Read the SKILL.md and follow its instructions exactly."
+        ),
+        "middleware": [skill_mw],
+    })
+```
+
+The main agent gets a **delegation prompt** with dynamic hints:
+
+```python
+delegation_hints = "\n".join(
+    f"  - {s.skill_id}: {s.description}" for s in skill_records
+)
+final_system_prompt += (
+    "\n\n## SKILLS\n"
+    "You have access to specialized subagents. When a task requires "
+    "specialized knowledge, delegate using task() with the matching subagent name:\n"
+    f"{delegation_hints}\n\n"
+    "For simple questions, answer directly. "
+    "For skill tasks, always delegate."
+)
+```
+
+Both user-configured subagents and skill subagents are **merged**:
+
+```python
+all_subagents = []
+if subagents_config:
+    all_subagents.extend(subagents_config)
+if skill_subagents:
+    all_subagents.extend(skill_subagents)
+if all_subagents:
+    agent_kwargs["subagents"] = all_subagents
+```
+
+### skill_name Detection in API Response
+
+The `routes.py` API extracts `skill_name` from `task()` tool call arguments so the frontend can display which skill was invoked:
+
+```python
+# In both streaming (on_tool_start) and non-streaming (tool_calls extraction):
+skill_name = None
+tool_name = tc.get("name", "unknown")
+args = tc.get("args", {})
+file_path = args.get("file_path", "") or str(args.get("path", ""))
+
+if "/skills/" in str(file_path):
+    # Old approach: read_file(".../skills/ticket-classifier/SKILL.md")
+    parts = file_path.split("/skills/")[1].split("/")
+    skill_name = parts[0]
+elif tool_name == "task":
+    # New subagent approach: task() passes subagent name in args
+    skill_name = args.get("subagent_type") or args.get("name") or None
+```
+
+The `skill_name` flows through:
+1. Backend streaming → `data: {"type":"tool_start","tool_name":"task","skill_name":"ticket-classifier",...}`
+2. Non-streaming → `tool_calls[].skill_name` stored in `ChatSession.tool_calls` DB column
+3. Frontend `GlobalChatModal.tsx` parses `skill_name` from SSE events
+4. `MetricsPanel.tsx` displays `skill_name` as a colored badge next to each tool call
+
+### Test Results (3/3 Passed via API)
+
+| Turn | Subagent | API endpoint | Response Keywords |
+|------|----------|-------------|-------------------|
+| 1 | `ticket-classifier` | `/api/chat/message` | priority, category, sentiment |
+| 2 | `code-review` | `/api/chat/message` | SQL injection, security |
+| 3 | `data-analysis` | `/api/chat/message` | CSV, sales |
+
+Both **non-streaming** and **streaming** endpoints pass. The skill_name is correctly detected as `task→ticket-classifier`, `task→code-review`, `task→data-analysis` in the metrics panel tool calls.
+
+All 3 turns in the **same conversation thread** (same `session_id`), no context pollution between turns.
 
 ### Architecture Diagram
 

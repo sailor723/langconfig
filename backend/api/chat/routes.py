@@ -340,22 +340,44 @@ async def send_message(
             config={"configurable": {"thread_id": session.session_id}}
         )
 
-        # Extract response
+        # Extract response — iterate backwards for the last non-empty text.
+        # When the agent uses task() to delegate, the final AIMessage may have
+        # empty content (tool_calls only). We need the ToolMessage result or
+        # the agent's follow-up response instead.
+        response_text = ""
         if hasattr(result, "messages") and result.messages:
-            response_text = result.messages[-1].content
+            for msg in reversed(result.messages):
+                c = getattr(msg, "content", "")
+                if c and isinstance(c, str) and c.strip():
+                    response_text = c
+                    break
+                # Handle list content blocks
+                if isinstance(c, list):
+                    flat = "".join(
+                        b.get("text", "") if isinstance(b, dict) else str(b)
+                        for b in c
+                    )
+                    if flat.strip():
+                        response_text = flat
+                        break
         elif isinstance(result, dict) and "messages" in result:
-            response_text = result["messages"][-1].content
+            for msg in reversed(result["messages"]):
+                c = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", "")
+                if c and isinstance(c, str) and c.strip():
+                    response_text = c
+                    break
+                if isinstance(c, list):
+                    flat = "".join(
+                        b.get("text", "") if isinstance(b, dict) else str(b)
+                        for b in c
+                    )
+                    if flat.strip():
+                        response_text = flat
+                        break
         else:
             response_text = str(result)
 
-        # Ensure response_text is a string (handle cases where content might be a list of blocks)
-        if isinstance(response_text, list):
-            # Extract text from content blocks: [{'text': '...', 'type': 'text'}, ...]
-            response_text = "".join(
-                block.get("text", "") if isinstance(block, dict) else str(block)
-                for block in response_text
-            )
-        elif not isinstance(response_text, str):
+        if not isinstance(response_text, str):
             response_text = str(response_text)
 
         # Add assistant message to history
@@ -382,14 +404,18 @@ async def send_message(
                 # AI messages with tool calls
                 if hasattr(msg, "tool_calls") and msg.tool_calls:
                     for tc in msg.tool_calls:
-                        # Detect skill name from read_file path
+                        # Detect skill name from read_file path or task subagent_type
                         skill_name = None
                         args = tc.get("args", {})
+                        tool_name = tc.get("name", "unknown")
                         file_path = args.get("file_path", "") or str(args.get("path", ""))
                         if "/skills/" in str(file_path):
                             parts = file_path.split("/skills/")[1].split("/")
                             if parts:
                                 skill_name = parts[0]
+                        elif tool_name == "task":
+                            # task() tool passes subagent name in args (subagent approach)
+                            skill_name = args.get("subagent_type") or args.get("name") or None
                         tool_calls.append({
                             "tool_name": tc.get("name", "unknown"),
                             "skill_name": skill_name,
@@ -720,11 +746,13 @@ async def send_message_stream(
                         tool_data = event.get("data", {})
                         # Tool name is in event["name"] for astream_events v2
                         tool_name = event.get("name", "unknown")
-                        # Detect skill name from read_file path (e.g. /skills/ticket-classifier/SKILL.md)
+                        # Detect skill name from read_file path or task subagent_type
                         skill_name = None
                         tool_input = tool_data.get("input", {})
                         if isinstance(tool_input, dict):
                             file_path = tool_input.get("file_path", "") or str(tool_input.get("path", ""))
+                            if tool_name == "task":
+                                skill_name = tool_input.get("subagent_type") or tool_input.get("name") or None
                         else:
                             file_path = str(tool_input) if tool_input else ""
                         if "/skills/" in file_path:

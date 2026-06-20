@@ -430,26 +430,43 @@ class DeepAgentFactory:
                     agent_kwargs_skills = [str(skills_root.resolve())]
                     logger.info(f"Skills synced to sandbox: {skills_config}")
 
-                    # Build the skill catalog section (OpenClaw-style progressive disclosure).
-                    # The agent scans name+description, picks the best match, and uses
-                    # read_file() to load the full SKILL.md. This works great for
-                    # single-turn and for models that handle meta-instructions well.
-                    catalog_lines = [
-                        "",
-                        "## SKILLS",
-                        "Before replying: scan the <available_skills> entries below.",
-                        "If exactly one skill clearly applies: read its SKILL.md with read_file, then follow it.",
-                        "If multiple could apply: choose the most specific one, then read/follow it.",
-                        "If none clearly apply: do not read any SKILL.md.",
-                        "Constraints: never read more than one skill up front; only read after selecting.",
-                        "",
-                        "<available_skills>",
-                    ]
+                    # ── Build a subagent per skill with isolated SkillsMiddleware ──
+                    # Each subagent gets its own SkillsMiddleware so Skill A's SKILL.md
+                    # never leaks into Skill B's context on subsequent turns.
+                    # The main agent stays clean (no skills=[]) and delegates via task().
+                    from deepagents.middleware.skills import SkillsMiddleware
+                    from deepagents.backends import FilesystemBackend
+                    skill_backend = FilesystemBackend(root_dir=str(skills_root))
+                    skill_subagents = []
                     for s in skill_records:
-                        skill_path = f"/skills/{s.skill_id}/SKILL.md"
-                        catalog_lines.append(f"{s.skill_id} {s.description} {skill_path}")
-                    catalog_lines.append("</available_skills>")
-                    final_system_prompt += "\n".join(catalog_lines)
+                        skill_mw = SkillsMiddleware(
+                            backend=skill_backend,
+                            sources=[s.skill_id],
+                            system_prompt=None,
+                        )
+                        skill_subagents.append({
+                            "name": s.skill_id,
+                            "description": s.description,
+                            "system_prompt": (
+                                f"You are a {s.skill_id} specialist. "
+                                "Read the SKILL.md and follow its instructions exactly. "
+                                "Return only the result."
+                            ),
+                            "middleware": [skill_mw],
+                        })
+
+                    # Build delegation hints (replaces <available_skills> catalog)
+                    delegation_hints = "\n".join(
+                        f"  - {s.skill_id}: {s.description}" for s in skill_records
+                    )
+                    final_system_prompt += (
+                        "\n\n## SKILLS\n"
+                        "You have access to specialized subagents. When a task requires "
+                        "specialized knowledge, delegate using task() with the matching subagent name:\n"
+                        f"{delegation_hints}\n\n"
+                        "For simple questions, answer directly. "
+                        "For skill tasks, always delegate."
+                    )
 
             except Exception as e:
                 logger.warning(f"Failed to sync skills to sandbox: {e}")
@@ -470,20 +487,31 @@ class DeepAgentFactory:
             if local_sandbox_backend is not None:
                 agent_kwargs["backend"] = local_sandbox_backend
 
-            # Pass skills for progressive disclosure (DB skills synced to sandbox)
-            if agent_kwargs_skills:
-                agent_kwargs["skills"] = agent_kwargs_skills
+            # Merge user subagents with skill subagents.
+            # Skill subagents have isolated SkillsMiddleware instances — one per skill.
+            # See the "## SKILLS" section above for how they're built.
+            # The main agent does NOT have skills=[] — it delegates via task().
+            all_subagents = []
+            if subagents_config:
+                all_subagents.extend(subagents_config)
+            if 'skill_subagents' in dir() and skill_subagents:
+                all_subagents.extend(skill_subagents)
+            if all_subagents:
+                agent_kwargs["subagents"] = all_subagents
 
             # Debug logging for subagent configuration
-            if subagents_config:
-                logger.info(f"Subagent configuration being passed to create_deep_agent:")
-                for i, sub in enumerate(subagents_config):
-                    if isinstance(sub, dict):
-                        sub_tools = sub.get('tools', [])
-                        tool_names = [getattr(t, 'name', str(t)) for t in sub_tools] if sub_tools else []
-                        logger.info(f"  [{i}] {sub.get('name')}: {len(sub_tools)} tools ({tool_names})")
-                    else:
-                        logger.info(f"  [{i}] CompiledSubAgent: {getattr(sub, 'name', 'unknown')}")
+            logger.info(f"All subagents: {len(all_subagents)} (user: {len(subagents_config or [])}, skill: {len(skill_subagents if 'skill_subagents' in dir() else [])})")
+            for i, sub in enumerate(all_subagents):
+                if isinstance(sub, dict):
+                    sub_tools = sub.get('tools', [])
+                    tool_names = [getattr(t, 'name', str(t)) for t in sub_tools] if sub_tools else []
+                    has_skills = 'skills' in sub
+                    has_mw = len(sub.get('middleware', [])) > 0
+                    mw_info = f"mw={len(sub.get('middleware', []))}" if has_mw else ""
+                    skills_info = "skills=[]" if has_skills else ""
+                    logger.info(f"  [{i}] {sub.get('name')}: {len(sub_tools)} tools {skills_info} {mw_info}")
+                else:
+                    logger.info(f"  [{i}] CompiledSubAgent: {getattr(sub, 'name', 'unknown')}")
 
             # Try to pass guardrails if supported
             try:
