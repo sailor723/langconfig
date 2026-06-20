@@ -298,6 +298,21 @@ export default function MessagesPanel({
                         return <ThinkingBlock steps={trace} />;
                       })()}
 
+                      {/* During streaming: thinking toggle inside the last assistant message */}
+                      {isStreaming && message.role === 'assistant' && index === messages.length - 1 && activeToolCalls.length > 0 && (
+                        <div className="mt-1 px-2">
+                          <button
+                            onClick={() => setShowThinking(v => !v)}
+                            className="flex items-center gap-1 text-xs transition-colors rounded px-1.5 py-0.5 hover:bg-black/5"
+                            style={{ color: 'var(--color-text-muted)' }}
+                          >
+                            {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                            <Brain className="w-3 h-3" />
+                            <span>{showThinking ? 'Hide thinking' : `Show thinking (${activeToolCalls.length} active)`}</span>
+                          </button>
+                        </div>
+                      )}
+
                       {/* Message Footer */}
                       <div className={`flex items-center gap-2 mt-2 px-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <span
@@ -329,7 +344,7 @@ export default function MessagesPanel({
             </div>
           ))}
 
-          {/* Streaming Indicator — collapsible thinking block */}
+          {/* Streaming Indicator — minimal during tool phase */}
           {isStreaming && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
             <div className="flex gap-4">
               <div
@@ -338,66 +353,62 @@ export default function MessagesPanel({
               >
                 <Bot className="w-4 h-4 animate-pulse" />
               </div>
-              <div className="flex-1">
-                <div
-                  className="rounded-2xl rounded-tl-sm px-5 py-3 inline-block"
-                  style={{
-                    backgroundColor: 'white',
-                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-                  }}
+              <div className="flex-1 min-w-0 pt-1.5">
+                {/* Compact toggle — no big bubble */}
+                <button
+                  onClick={() => setShowThinking(v => !v)}
+                  className="flex items-center gap-1.5 text-xs transition-colors rounded-md px-2 py-1 hover:bg-black/5"
+                  style={{ color: 'var(--color-text-muted)' }}
                 >
-                  {/* Tool calls toggle button — like ThinkingBlock */}
-                  <button
-                    onClick={() => setShowThinking(v => !v)}
-                    className="flex items-center gap-1.5 text-xs font-medium transition-colors rounded-md px-1 py-0.5 hover:bg-black/5 w-full"
-                    style={{ color: 'var(--color-text-muted)' }}
-                  >
-                    {showThinking ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                    <Brain className="w-3.5 h-3.5" />
-                    <span>{showThinking ? 'Hide thinking' : `Show thinking (${activeToolCalls.length} active)`}</span>
-                    {!showThinking && <span className="ml-2 text-xs opacity-60 animate-pulse">Thinking...</span>}
-                  </button>
+                  {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                  <Brain className="w-3 h-3" />
+                  <span>{showThinking ? 'Hide thinking' : `Show thinking (${activeToolCalls.length} active)`}</span>
+                  {!showThinking && activeToolCalls.length > 0 && <span className="ml-1 text-xs opacity-60 animate-pulse">Thinking...</span>}
+                  {!showThinking && activeToolCalls.length === 0 && <span className="ml-1 text-xs opacity-60 animate-pulse">Processing...</span>}
+                </button>
 
-                  {/* Expanded: show active tool calls */}
-                  {showThinking && activeToolCalls.length === 0 && (
-                    <div className="mt-2 text-xs italic" style={{ color: 'var(--color-text-muted)' }}>
-                      Waiting for tool calls...
-                    </div>
-                  )}
-                  {showThinking && activeToolCalls.length > 0 && (
-                    <div
-                      className="mt-2 rounded-lg border text-xs font-mono overflow-hidden"
-                      style={{
-                        backgroundColor: 'var(--color-background-dark, #f9fafb)',
-                        borderColor: 'var(--color-border-dark, #e5e7eb)',
-                      }}
-                    >
-                      <div className="max-h-72 overflow-y-auto p-3 space-y-2">
-                        {activeToolCalls.map((tc, i) => (
-                          <div key={i} className="flex items-start gap-2">
-                            <Wrench className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                                🔧 {tc.tool_name}
-                              </div>
-                              {tc.arguments && (
-                                <pre className="mt-0.5 p-1.5 rounded text-[11px] whitespace-pre-wrap overflow-x-auto" style={{ backgroundColor: 'rgba(0,0,0,0.03)', color: 'var(--color-text-muted)' }}>
-                                  {JSON.stringify(tc.arguments, null, 2).slice(0, 200)}
-                                </pre>
-                              )}
-                              {tc.result && (
-                                <div className="mt-0.5 p-1.5 rounded text-[11px]" style={{ backgroundColor: 'rgba(16,185,129,0.06)', color: 'var(--color-text-muted)' }}>
-                                  {tc.result.slice(0, 200)}
-                                  {tc.result.length > 200 && '...'}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                {/* Expanded: show active tool calls */}
+                {showThinking && (
+                  <div className="mt-2">
+                    {activeToolCalls.length === 0 ? (
+                      <div className="text-xs italic px-2" style={{ color: 'var(--color-text-muted)' }}>
+                        Waiting for tool calls...
                       </div>
-                    </div>
-                  )}
-                </div>
+                    ) : (
+                      <div
+                        className="rounded-lg border text-xs font-mono overflow-hidden"
+                        style={{
+                          backgroundColor: 'var(--color-background-dark, #f9fafb)',
+                          borderColor: 'var(--color-border-dark, #e5e7eb)',
+                        }}
+                      >
+                        <div className="max-h-72 overflow-y-auto p-3 space-y-2">
+                          {activeToolCalls.map((tc, i) => (
+                            <div key={i} className="flex items-start gap-2">
+                              <Wrench className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                                  🔧 {tc.tool_name} <span className="text-xs opacity-60">{tc.status === 'running' ? '...' : '✓'}</span>
+                                </div>
+                                {tc.arguments && (
+                                  <pre className="mt-0.5 p-1.5 rounded text-[11px] whitespace-pre-wrap overflow-x-auto" style={{ backgroundColor: 'rgba(0,0,0,0.03)', color: 'var(--color-text-muted)' }}>
+                                    {JSON.stringify(tc.arguments, null, 2).slice(0, 200)}
+                                  </pre>
+                                )}
+                                {tc.result && (
+                                  <div className="mt-0.5 p-1.5 rounded text-[11px]" style={{ backgroundColor: 'rgba(16,185,129,0.06)', color: 'var(--color-text-muted)' }}>
+                                    {tc.result.slice(0, 200)}
+                                    {tc.result.length > 200 && '...'}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
