@@ -66,6 +66,7 @@ from models.deep_agent import DeepAgentTemplate, ChatSession, DeepAgentConfig, S
 from models.core import DocumentType, IndexingStatus
 from services.deepagent_factory import DeepAgentFactory
 from core.agents.factory import AgentFactory
+from core.utils.language_detector import detect_language, language_to_instruction
 from core.workflows.events.emitter import ExecutionEventCallbackHandler
 from langgraph.errors import GraphInterrupt
 from services.conversation_context import ConversationContextService
@@ -304,26 +305,35 @@ async def send_message(
         agent_instance = get_cached_agent(request.session_id)
 
         if not agent_instance:
+            # ── Language Detection (first message only) ──
+            lang = detect_language(request.message)
+            lang_instruction = language_to_instruction(lang)
+
             # Create agent instance — branch based on agent type
             use_deepagents = agent.config.get("use_deepagents", False)
             if use_deepagents:
                 config = DeepAgentConfig(**agent.config)
+                if lang_instruction:
+                    config.system_prompt = (config.system_prompt or "") + lang_instruction
                 agent_instance, _tools, _callbacks = await DeepAgentFactory.create_deep_agent(
                     config=config,
-                    project_id=0,  # Not tied to a project
-                    task_id=0,  # Not tied to a task
+                    project_id=0,
+                    task_id=0,
                     context="",
-                    mcp_manager=None,  # Would be injected in production
+                    mcp_manager=None,
                     vector_store=None,
                     user_message=request.message
                 )
             else:
-                # Normal agent via AgentFactory
+                # Normal agent via AgentFactory — context gets appended to system prompt
+                context = ""
+                if lang_instruction:
+                    context = lang_instruction.strip()
                 agent_instance, _tools, _callbacks = await AgentFactory.create_agent(
                     agent_config=agent.config,
                     project_id=0,
                     task_id=0,
-                    context="",
+                    context=context,
                     mcp_manager=None,
                     vector_store=None
                 )
