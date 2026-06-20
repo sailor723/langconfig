@@ -493,6 +493,9 @@ Changes:
 | `src/features/chat/ui/MetricsPanel.tsx` | **Modify** | Display skill name badge next to each tool call (live + persisted) |
 | `src/components/common/AgentChatTester.tsx` | **Modify** | Added `skill_name` to tool call tracking and display |
 | `backend/scripts/test_subagent_skills.py` | **New** | Prove subagent+SkillsMiddleware isolation for multi-turn skills |
+| `backend/api/agents/deep_agents.py` | **Modify** | `_merge_skill_subagents()` injects skill subagents into all API responses |
+| `src/features/agents/ui/DeepAgentBuilder.tsx` | **Modify** | `generateSkillSubagents()` generates subagents locally from skills on save |
+| `src/features/agents/ui/AgentLoadouts.tsx` | **Modify** | Keep builder modal open for existing agents after save |
 
 ## ✅ Key Architecture Decisions
 
@@ -678,6 +681,88 @@ Main Agent (clean context, no skills)
               → loads data-analysis/SKILL.md only
               → returns analysis
 ```
+
+---
+
+## ✅ API & UI Integration: Skill Subagents Visible Everywhere
+
+**Status**: ✅ Completed.
+
+Skill subagents now appear consistently across all UI surfaces — both the **Prompt Assembly** page and the **Agent Builder** modal.
+
+### Backend: `_merge_skill_subagents` (`deep_agents.py`)
+
+A helper function injects dynamic skill subagents into all API responses (`create`, `list`, `get`, `update`):
+
+```python
+def _merge_skill_subagents(config: dict, db: Session) -> list:
+    """Generate skill subagents from config.skills and merge into subagents_config."""
+    skill_ids = config.get("skills", [])
+    if not skill_ids:
+        return config.get("subagents", []) or []
+    skills = db.query(SkillModel).filter(SkillModel.skill_id.in_(skill_ids)).all()
+    # Build subagent entries for each skill
+    merged = [...]
+    return merged
+```
+
+And `_ensure_deep_agent_config(config, db)` now accepts an optional `db` parameter to also inject merged subagents into `config.subagents` — the field the **Agent Builder** reads:
+
+```python
+def _ensure_deep_agent_config(config: dict, db: Session = None) -> dict:
+    if db is not None:
+        merged = _merge_skill_subagents(config, db)
+        config["subagents"] = merged  # ← what the frontend builder reads
+    return config
+```
+
+This means when you open an existing agent in Studio → Edit, the SubAgents section shows all skill subagents without any manual creation.
+
+### Frontend: `generateSkillSubagents` (`DeepAgentBuilder.tsx`)
+
+When saving, the builder generates subagent entries locally from the current skills list so they appear **immediately** — no need to close and reopen the modal:
+
+```typescript
+function generateSkillSubagents(skillIds: string[]): any[] {
+    return (skillIds || []).map(id => ({
+      name: id,
+      description: `${id} skill`,
+      system_prompt: `You are a ${id} specialist...`,
+    }));
+}
+```
+
+This completely replaces stale subagent entries — only current skills determine the list.
+
+### Keep Modal Open After Save (`AgentLoadouts.tsx`)
+
+The `onSave` handler now keeps the Agent Builder open for existing agents, so users can see the generated subagents right away:
+
+```typescript
+onSave={async (config) => {
+    await handleSave(config);
+    if (!selectedAgent) {
+        // Close only for new agents
+        setShowAgentBuilder(false);
+        setEditingAgent(null);
+    }
+    // Existing agents: modal stays open
+}}
+```
+
+### Example: `demo_analysis` Agent
+
+Agent **demo_analysis** (ID: 56) was created through the UI with just 2 skills and no manual subagent creation:
+
+| Field | Value |
+|-------|-------|
+| Name | `demo_analysis` |
+| Skills | `["data-analysis", "ticket-classifier"]` |
+| Auto-generated subagents | `data-analysis`, `ticket-classifier` (2 entries) |
+| System prompt | `"You are a helpful assistant with access to specialized skills."` |
+| Tools | `ls, read_file, glob, grep, web_search` |
+
+The agent works correctly — sends queries in chat → main agent delegates via `task()` → correct subagent executes → returns results.
 
 ### Key Advantage: Dynamic from DB
 
