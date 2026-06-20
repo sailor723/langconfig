@@ -6,7 +6,7 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
-import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot, Brain } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -50,7 +50,6 @@ export default function MessagesPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
-  const [showThinking, setShowThinking] = useState(false);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -93,23 +92,6 @@ export default function MessagesPanel({
           </div>
         ) : (
           <div className="w-full space-y-3 mx-8">
-            {/* Thinking traces global toggle */}
-            {thinkingTraces.some(t => t.length > 0) && (
-              <div className="flex justify-end mb-1">
-                <button
-                  onClick={() => setShowThinking(v => !v)}
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md transition-colors"
-                  style={{
-                    color: showThinking ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                    backgroundColor: showThinking ? 'rgba(99,102,241,0.08)' : 'transparent',
-                    border: '1px solid var(--color-border-dark)',
-                  }}
-                >
-                  <Brain className="w-3 h-3" />
-                  {showThinking ? 'Hide thinking' : 'Show thinking'}
-                </button>
-              </div>
-            )}
 
           {messages.map((message, index) => (
             <div
@@ -314,7 +296,7 @@ export default function MessagesPanel({
                         const aiIdx = messages.slice(0, index + 1).filter(m => m.role === 'assistant').length - 1;
                         const trace = thinkingTraces[aiIdx];
                         if (trace && trace.length > 0) {
-                          return <ThinkingBlock steps={trace} defaultExpanded={showThinking} />;
+                          return <ThinkingBlock steps={trace} />;
                         }
                         return null;
                       })()}
