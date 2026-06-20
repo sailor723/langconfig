@@ -488,6 +488,10 @@ Changes:
 | `backend/scripts/set_skill_router.py` | **New** | Set `skill_router_model` on ticker_classifer |
 | `backend/scripts/_update_prompt.py` | **New** | Update agent system prompt in DB |
 | `rules.md` | **Modify** | Added filesystem-first testing methodology |
+| `lib/langconfig_sdk/__init__.py` | **New** | Python SDK client for LangConfig API — `LangConfigClient` class |
+| `backend/scripts/agent_gen_cli.py` | **New** | CLI wrapper around SDK — natural language agent + skill creation |
+| `start.sh` | **New** | Quick-start script: kills old processes, starts BE + FE with `SKIP_STARTUP_API_TEST=true` |
+| `README.md` | **Modify** | Added Agent & Skill Generator CLI section |
 | `src/features/chat/types/chat.ts` | **Modify** | Added `skill_name` field to `ToolCall` and `ChatStreamEvent` |
 | `src/features/chat/ui/GlobalChatModal.tsx` | **Modify** | Parse `skill_name` from SSE `tool_start` events during streaming |
 | `src/features/chat/ui/MetricsPanel.tsx` | **Modify** | Display skill name badge next to each tool call (live + persisted) |
@@ -496,6 +500,106 @@ Changes:
 | `backend/api/agents/deep_agents.py` | **Modify** | `_merge_skill_subagents()` injects skill subagents into all API responses |
 | `src/features/agents/ui/DeepAgentBuilder.tsx` | **Modify** | `generateSkillSubagents()` generates subagents locally from skills on save |
 | `src/features/agents/ui/AgentLoadouts.tsx` | **Modify** | Keep builder modal open for existing agents after save |
+
+## ✅ CLI & SDK — Agent & Skill Generator
+
+**Status**: ✅ Completed.
+
+A Python SDK + CLI that creates agents from natural language — auto-generates missing skills, handles versioning, and sets proper middleware/sandbox config.
+
+### Architecture
+
+```
+User query (natural language)
+      │
+      ▼
+CLI: backend/scripts/agent_gen_cli.py
+      │  thin argparse wrapper
+      ▼
+SDK: lib/langconfig_sdk/ → LangConfigClient
+      │  typed HTTP methods
+      ▼
+API: FastAPI endpoints
+      │
+      ├── agent_gen_agent (ID=69) parses NL query → extracts skill IDs
+      ├── GET /api/skills → checks which exist
+      ├── POST /api/skills → creates missing skills
+      └── POST /api/deepagents → creates agent with proper config
+```
+
+### Key Improvements in Agent Creation
+
+The SDK sets all fields needed for a working DeepAgent — mirroring what the working `ticker_classifer` (ID=47) agent has:
+
+| Field | Before (broken) | After (SDK) |
+|---|---|---|
+| `use_local_sandbox` | `false` | `true` ✅ |
+| `middleware` | `[]` (empty) | `subagent`, `filesystem`, `todo_list` ✅ |
+| `skill_router_model` | `null` | same as `model` (from DB settings) ✅ |
+| `model` | `deepseek:deepseek-chat` | from DB `default_model` ✅ |
+
+### Version Control
+
+- **Agents**: Duplicate names auto-append `-v2`, `-v3` suffix
+- **Skills**: Duplicate IDs auto-increment version (`1.0.0` → `2.0.0`)
+- Both stored in `config.version` field
+
+### CLI Commands
+
+```bash
+# Natural language → auto-create skills + agent
+cd backend && python scripts/agent_gen_cli.py create --name support-agent \
+  -q "ticket classification, data analysis and web search"
+
+# Explicit skills (skip NL parsing)
+python scripts/agent_gen_cli.py create --name support-agent \
+  --skills ticket-classifier,data-analysis
+
+# List agents / skills
+python scripts/agent_gen_cli.py list-agents
+python scripts/agent_gen_cli.py list-skills
+
+# Dry-run (check only, no changes)
+python scripts/agent_gen_cli.py create --name test --skills a,b,c --dry-run
+```
+
+### SDK Key Methods (`lib/langconfig_sdk/`)
+
+```python
+from langconfig_sdk import LangConfigClient
+
+client = LangConfigClient(base_url="http://127.0.0.1:8765")
+
+# High-level: ensure skills exist + create agent
+agent = client.generate_agent("my-agent", ["ticket-classifier"])
+
+# Step by step:
+skills = client.parse_query_to_skills("data analysis and web search")
+client.ensure_skills(skills)  # creates missing ones
+agent = client.create_agent("my-agent", skills)  # auto-versioned
+```
+
+### `start.sh` — Quick-Start Script
+
+Located at project root, kills old processes and starts both services:
+
+```bash
+bash start.sh        # start BE + FE
+bash start.sh --be   # backend only
+bash start.sh --fe   # frontend only
+```
+
+- Kills previous processes on ports 8765 (BE) and 1420 (FE)
+- Starts backend with `SKIP_STARTUP_API_TEST=true` (skips API key connection tests)
+- Health-checks backend before starting frontend
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `lib/langconfig_sdk/__init__.py` | `LangConfigClient` — typed Python SDK wrapping all API endpoints |
+| `backend/scripts/agent_gen_cli.py` | CLI — `create`, `list-agents`, `list-skills` commands |
+| `start.sh` | Quick-start with kill + env var |
 
 ## ✅ Key Architecture Decisions
 
