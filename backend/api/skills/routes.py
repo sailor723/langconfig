@@ -296,7 +296,11 @@ async def update_skill(skill_id: str, request: SkillUpdateRequest):
     Update a skill's properties.
 
     Only updates fields that are provided in the request.
+    Works for both registry (builtin) and DB (personal) skills.
     """
+    from db.database import SessionLocal
+    from models.skill import Skill as SkillModel
+
     registry = get_skill_registry()
 
     if not registry.is_initialized:
@@ -304,10 +308,32 @@ async def update_skill(skill_id: str, request: SkillUpdateRequest):
 
     skill = registry.get_skill(skill_id)
 
+    # If not in registry, try DB (personal skills)
     if not skill:
-        raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")
+        db = SessionLocal()
+        try:
+            db_skill = db.query(SkillModel).filter(SkillModel.skill_id == skill_id).first()
+            if not db_skill:
+                raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")
 
-    # Update fields if provided
+            # Update fields if provided
+            if request.name is not None:
+                db_skill.name = request.name
+            if request.description is not None:
+                db_skill.description = request.description
+            if request.triggers is not None:
+                db_skill.triggers = request.triggers
+            if request.instructions is not None:
+                db_skill.instructions = request.instructions
+
+            db_skill.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(db_skill)
+            return _skill_to_detail_response(db_skill)
+        finally:
+            db.close()
+
+    # Registry skill (builtin)
     if request.name is not None:
         skill.name = request.name
     if request.description is not None:
@@ -319,7 +345,6 @@ async def update_skill(skill_id: str, request: SkillUpdateRequest):
 
     skill.updated_at = datetime.utcnow()
 
-    # Persist to database
     try:
         await registry.update_skill(skill)
     except Exception as e:
