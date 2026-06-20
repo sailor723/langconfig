@@ -314,7 +314,8 @@ async def send_message(
                     task_id=0,  # Not tied to a task
                     context="",
                     mcp_manager=None,  # Would be injected in production
-                    vector_store=None
+                    vector_store=None,
+                    user_message=request.message
                 )
             else:
                 # Normal agent via AgentFactory
@@ -372,14 +373,47 @@ async def send_message(
         session.metrics["total_tokens"] = session.metrics.get("total_tokens", 0) + len(request.message) + len(response_text)
         flag_modified(session, "metrics")
 
-        # Extract tool calls and subagent activity from result
+        # Extract tool calls from agent result messages
         tool_calls = []
         subagent_activity = []
 
-        # This would be populated from actual agent execution
-        # For now, return empty lists
+        if isinstance(result, dict) and "messages" in result:
+            for msg in result["messages"]:
+                # AI messages with tool calls
+                if hasattr(msg, "tool_calls") and msg.tool_calls:
+                    for tc in msg.tool_calls:
+                        # Detect skill name from read_file path
+                        skill_name = None
+                        args = tc.get("args", {})
+                        file_path = args.get("file_path", "") or str(args.get("path", ""))
+                        if "/skills/" in str(file_path):
+                            parts = file_path.split("/skills/")[1].split("/")
+                            if parts:
+                                skill_name = parts[0]
+                        tool_calls.append({
+                            "tool_name": tc.get("name", "unknown"),
+                            "skill_name": skill_name,
+                            "arguments": args,
+                            "result": "",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "status": "completed",
+                        })
+                # Tool result messages — attach to last tool call without a result
+                if hasattr(msg, "type") and getattr(msg, "type", None) == "tool":
+                    content = msg.content
+                    if isinstance(content, list):
+                        content = "".join(
+                            b.get("text", "") for b in content if isinstance(b, dict)
+                        )
+                    for tc in reversed(tool_calls):
+                        if not tc["result"]:
+                            tc["result"] = str(content)[:500]
+                            break
 
-        # Save session
+        # Save session — persist tool call names so MetricsPanel shows them
+        if tool_calls:
+            session.tool_calls = (session.tool_calls or []) + tool_calls
+            flag_modified(session, "tool_calls")
         db.commit()
         db.refresh(session)
 
@@ -626,7 +660,8 @@ async def send_message_stream(
                             task_id=0,
                             context=all_context,  # Inject RAG context
                             mcp_manager=None,
-                            vector_store=None
+                            vector_store=None,
+                            user_message=request.message
                         )
                     else:
                         # Normal agent via AgentFactory
@@ -669,6 +704,7 @@ async def send_message_stream(
 
                 # Use astream_events for token-by-token streaming
                 tool_calls_count = 0
+                collected_tool_names = []  # Track tool names for DB persistence and skill detection
                 async for event in agent_instance.astream_events(
                     {"messages": [new_message]},
                     config={
@@ -684,13 +720,43 @@ async def send_message_stream(
                         tool_data = event.get("data", {})
                         # Tool name is in event["name"] for astream_events v2
                         tool_name = event.get("name", "unknown")
+                        # Detect skill name from read_file path (e.g. /skills/ticket-classifier/SKILL.md)
+                        skill_name = None
+                        tool_input = tool_data.get("input", {})
+                        if isinstance(tool_input, dict):
+                            file_path = tool_input.get("file_path", "") or str(tool_input.get("path", ""))
+                        else:
+                            file_path = str(tool_input) if tool_input else ""
+                        if "/skills/" in file_path:
+                            parts = file_path.split("/skills/")[1].split("/")
+                            if parts:
+                                skill_name = parts[0]
+                        # Track tool name for persistence
+                        collected_tool_names.append({
+                            "tool_name": tool_name,
+                            "skill_name": skill_name,
+                            "arguments": make_json_safe(tool_data.get("input", {})),
+                            "result": "",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "status": "running",
+                        })
                         # Filter out non-serializable objects
                         safe_data = make_json_safe(tool_data)
-                        yield f"data: {json.dumps({'type': 'tool_start', 'tool_name': tool_name, 'data': safe_data})}\n\n"
+                        yield f"data: {json.dumps({'type': 'tool_start', 'tool_name': tool_name, 'skill_name': skill_name, 'data': safe_data})}\n\n"
 
                     elif kind == "on_tool_end":
                         tool_data = event.get("data", {})
                         tool_name = event.get("name", "unknown")
+                        # Update the running tool call with result
+                        for tc in reversed(collected_tool_names):
+                            if tc["tool_name"] == tool_name and tc["status"] == "running":
+                                output = tool_data.get("output", "")
+                                if isinstance(output, str):
+                                    tc["result"] = output[:500]
+                                elif isinstance(output, dict):
+                                    tc["result"] = json.dumps(output)[:500]
+                                tc["status"] = "completed"
+                                break
                         # Filter out non-serializable objects
                         safe_data = make_json_safe(tool_data)
                         yield f"data: {json.dumps({'type': 'tool_end', 'tool_name': tool_name, 'data': safe_data})}\n\n"
@@ -843,6 +909,15 @@ async def send_message_stream(
                                 final_session.rag_context_tokens = final_session.metrics.get("rag_context_tokens", 0)
                             except AttributeError:
                                 pass  # Column doesn't exist yet
+
+                            # Persist tool call names (shows skill names in MetricsPanel)
+                            if collected_tool_names:
+                                # Mark completed tool calls as completed
+                                for tc in collected_tool_names:
+                                    if tc["status"] == "running":
+                                        tc["status"] = "completed"
+                                final_session.tool_calls = (final_session.tool_calls or []) + collected_tool_names
+                                flag_modified(final_session, "tool_calls")
 
                             db.commit()
                             db.refresh(final_session)  # Refresh to confirm save

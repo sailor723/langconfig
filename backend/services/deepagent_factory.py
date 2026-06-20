@@ -14,6 +14,7 @@ import logging
 from typing import Dict, Any, List, Optional, Tuple
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
+from openai import OpenAI
 
 from models.deep_agent import (
     DeepAgentConfig,
@@ -67,6 +68,82 @@ class DeepAgentFactory:
         return errors
 
     @staticmethod
+    async def _run_skill_router(
+        router_model: str,
+        skill_records: list,
+        user_message: str
+    ) -> Optional[str]:
+        """
+        Call the router LLM to classify which skill matches the user's request.
+
+        Args:
+            router_model: Model name (e.g. "deepseek:deepseek-chat")
+            skill_records: List of Skill DB records with skill_id and description
+            user_message: The user's first message
+
+        Returns:
+            Matched skill_id string, or None if no skill matches
+        """
+        try:
+            # Build skill descriptions list
+            skill_lines = []
+            for s in skill_records:
+                desc = s.description or ""
+                skill_lines.append(f"- {s.skill_id}: {desc}")
+
+            skills_text = "\n".join(skill_lines)
+
+            routing_prompt = (
+                f"You are a skill router. Classify the user's request to the most relevant skill.\n\n"
+                f"Available skills:\n{skills_text}\n\n"
+                f"Return ONLY the skill_id (one word) that best matches, or 'none' if no skill matches. "
+                f"Do NOT include any other text, explanation, or formatting.\n\n"
+                f"User: {user_message}"
+            )
+
+            # Normalize model name — strip provider prefix
+            model_name = router_model.replace("deepseek:", "").replace("agnes:", "")
+
+            # Get API key from DB settings (not from env)
+            from config import get_api_key_from_db
+            if router_model.startswith("deepseek"):
+                api_key = get_api_key_from_db("deepseek_api_key")
+                base_url = "https://api.deepseek.com/v1"
+            elif router_model.startswith("agnes"):
+                api_key = get_api_key_from_db("agnes_api_key")
+                base_url = None  # uses default
+            else:
+                api_key = get_api_key_from_db("openai_api_key")
+                base_url = None
+
+            if not api_key:
+                logger.warning(f"Skill Router: no API key found for {router_model}. Falling back to all skills.")
+                return None
+
+            client = OpenAI(api_key=api_key, base_url=base_url)
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": routing_prompt}],
+                temperature=0.1,
+                max_tokens=20,
+            )
+
+            result = response.choices[0].message.content.strip().lower()
+
+            # Validate result is a known skill_id
+            valid_ids = {s.skill_id.lower() for s in skill_records}
+            if result in valid_ids:
+                logger.info(f"Skill Router selected: {result}")
+                return result
+            else:
+                logger.info(f"Skill Router returned '{result}' — no matching skill, using all skills")
+                return None
+
+        except Exception as e:
+            logger.warning(f"Skill Router failed: {e}. Falling back to all skills.")
+            return None
+
+    @staticmethod
     async def create_deep_agent(
         config: DeepAgentConfig,
         project_id: int,
@@ -75,7 +152,8 @@ class DeepAgentFactory:
         mcp_manager=None,
         vector_store=None,
         workflow_id: Optional[int] = None,
-        custom_output_path: Optional[str] = None
+        custom_output_path: Optional[str] = None,
+        user_message: Optional[str] = None  # First user message for skill routing
     ) -> Tuple[CompiledStateGraph, List[BaseTool], List[Any]]:
         """
         Create a DeepAgent with middleware, subagents, and backends.
@@ -89,6 +167,7 @@ class DeepAgentFactory:
             vector_store: Vector store for RAG
             workflow_id: Workflow ID for file organization
             custom_output_path: Custom output directory for file writes (overrides default)
+            user_message: First user message, used by Skill Router LLM if skill_router_model is set
 
         Returns:
             Tuple of (agent, tools, callbacks)
@@ -334,8 +413,43 @@ class DeepAgentFactory:
                     skills_config.append(s.skill_id)
 
                 if skills_config:
+                    # ── Skill Router (first message only hint, not exclusion) ──
+                    # The router suggests the best skill but does NOT exclude others.
+                    # All skills remain in the system prompt so the agent can switch
+                    # on subsequent turns. Deleting skills (old approach) broke
+                    # multi-turn — agent had no other skills to switch to.
+                    if (config.skill_router_model and user_message and skill_records):
+                        matched_skill = await DeepAgentFactory._run_skill_router(
+                            router_model=config.skill_router_model,
+                            skill_records=skill_records,
+                            user_message=user_message,
+                        )
+                        if matched_skill:
+                            logger.info(f"Skill Router suggested: {matched_skill}")
+
                     agent_kwargs_skills = [str(skills_root.resolve())]
                     logger.info(f"Skills synced to sandbox: {skills_config}")
+
+                    # Build the skill catalog section (OpenClaw-style progressive disclosure).
+                    # The agent scans name+description, picks the best match, and uses
+                    # read_file() to load the full SKILL.md. This works great for
+                    # single-turn and for models that handle meta-instructions well.
+                    catalog_lines = [
+                        "",
+                        "## SKILLS",
+                        "Before replying: scan the <available_skills> entries below.",
+                        "If exactly one skill clearly applies: read its SKILL.md with read_file, then follow it.",
+                        "If multiple could apply: choose the most specific one, then read/follow it.",
+                        "If none clearly apply: do not read any SKILL.md.",
+                        "Constraints: never read more than one skill up front; only read after selecting.",
+                        "",
+                        "<available_skills>",
+                    ]
+                    for s in skill_records:
+                        skill_path = f"/skills/{s.skill_id}/SKILL.md"
+                        catalog_lines.append(f"{s.skill_id} {s.description} {skill_path}")
+                    catalog_lines.append("</available_skills>")
+                    final_system_prompt += "\n".join(catalog_lines)
 
             except Exception as e:
                 logger.warning(f"Failed to sync skills to sandbox: {e}")

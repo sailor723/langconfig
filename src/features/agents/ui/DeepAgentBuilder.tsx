@@ -26,6 +26,7 @@ import {
   Info,
   GitBranch,
   Trash2,
+  BookOpen,
 } from 'lucide-react';
 import { useNotification } from '../../../hooks/useNotification';
 import { ModelSelectorInline } from '../../../components/common/ModelSelector';
@@ -120,6 +121,7 @@ interface DeepAgentConfig {
   middleware: MiddlewareConfig[];
   subagents: SubAgentConfig[];
   skills: string[];
+  skill_router_model?: string;  // Separate model for skill routing
   backend: BackendConfig;
   use_local_sandbox: boolean;
   guardrails: GuardrailsConfig;
@@ -351,6 +353,7 @@ export default function DeepAgentBuilder({
     basic: true,       // Always expanded - most important settings
     prompt: true,      // Always expanded - core configuration
     tools: true,       // Always expanded - essential capabilities
+    skills: !!(initialConfig?.skills && initialConfig.skills.length > 0), // Auto-expand if skills exist
     execution: false,  // Collapsed - advanced Regular Agent controls
     memory: false,     // Collapsed - advanced Regular Agent memory
     middleware: false, // Collapsed - middleware configuration (both agent types)
@@ -365,6 +368,17 @@ export default function DeepAgentBuilder({
   // Custom tools state
   const [availableCustomTools, setAvailableCustomTools] = useState<Array<{ id: number, tool_id: string, name: string, description: string }>>([]);
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(initialConfig?.custom_tools || []);
+
+  // Skills state
+  const [availableSkills, setAvailableSkills] = useState<Array<{ skill_id: string, name: string, description: string, source_type: string }>>([]);
+  const [showSkillPicker, setShowSkillPicker] = useState(false);
+
+  // Fetch available skills
+  useEffect(() => {
+    apiClient.get('/api/skills')
+      .then((res: any) => setAvailableSkills(res.data || res))
+      .catch(() => { /* skills are optional */ });
+  }, []);
 
   // Subagent state
   const [newSubagent, setNewSubagent] = useState<SubAgentConfig>({
@@ -1024,6 +1038,214 @@ export default function DeepAgentBuilder({
               </div>
             )}
           </ConfigSection>
+
+          {/* Skills - Deep Agent Only */}
+          {agentType === 'deep' && (
+            <ConfigSection
+              title="Skills"
+              icon={<BookOpen className="w-5 h-5" />}
+              expanded={expandedSections.skills}
+              onToggle={() => toggleSection('skills')}
+            >
+              {/* Enable Skills Toggle */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <input
+                    type="checkbox"
+                    checked={config.skills && config.skills.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setShowSkillPicker(true);
+                      } else {
+                        updateConfig('skills', []);
+                      }
+                    }}
+                    className="rounded"
+                  />
+                  Enable Skills
+                </label>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 ml-6">
+                  Equip the agent with skills that provide domain expertise and task-specific instructions
+                </p>
+              </div>
+
+              {/* Selected Skills Chips */}
+              {config.skills && config.skills.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 uppercase mb-2">
+                    Equipped Skills ({config.skills.length})
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {config.skills.map(skillId => {
+                      const skill = availableSkills.find(s => s.skill_id === skillId);
+                      return (
+                        <div
+                          key={skillId}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium"
+                          style={{
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            color: '#7c3aed',
+                            border: '1px solid rgba(139, 92, 246, 0.2)'
+                          }}
+                        >
+                          <BookOpen className="w-3 h-3" />
+                          {skill?.name || skillId}
+                          <button
+                            onClick={() => {
+                              const updated = config.skills.filter(s => s !== skillId);
+                              updateConfig('skills', updated);
+                              if (updated.length === 0 && config.use_local_sandbox) {
+                                updateConfig('use_local_sandbox', false);
+                              }
+                            }}
+                            className="ml-0.5 hover:opacity-70"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Add / Manage Skills Button */}
+              <div>
+                <button
+                  onClick={() => setShowSkillPicker(true)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: config.skills?.length ? 'transparent' : 'rgba(139, 92, 246, 0.1)',
+                    color: '#7c3aed',
+                    border: '1px solid rgba(139, 92, 246, 0.3)'
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  {config.skills?.length ? 'Manage Skills' : 'Add Skills'}
+                </button>
+              </div>
+
+              {/* Sandbox auto-enable hint */}
+              {config.skills && config.skills.length > 0 && config.use_local_sandbox && (
+                <div className="p-2 rounded-lg text-xs" style={{
+                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                  color: '#16a34a',
+                  border: '1px solid rgba(34, 197, 94, 0.2)'
+                }}>
+                  ✓ Sandbox automatically enabled for skill support
+                </div>
+              )}
+
+              {/* Skill Router Model */}
+              {config.skills && config.skills.length > 0 && (
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 uppercase mb-1">
+                    Skill Router Model
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Optional — use a cheaper/faster model to select the correct skill before passing to the main agent.
+                  </p>
+                  <ModelSelectorInline
+                    value={config.skill_router_model || ''}
+                    onChange={(modelId) => {
+                      if (modelId) {
+                        updateConfig('skill_router_model', modelId);
+                      } else {
+                        updateConfig('skill_router_model', undefined);
+                      }
+                    }}
+                    includeLocal={true}
+                    onlyValidated={true}
+                  />
+                </div>
+              )}
+
+              {/* Skill Picker Modal */}
+              {showSkillPicker && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                  <div className="bg-white dark:bg-panel-dark rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-border-dark">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Select Skills</h3>
+                      <button
+                        onClick={() => setShowSkillPicker(false)}
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition-colors"
+                      >
+                        <X className="w-5 h-5 text-gray-500" />
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                      <div className="space-y-2">
+                        {availableSkills.map(skill => {
+                          const isSelected = config.skills?.includes(skill.skill_id);
+                          return (
+                            <div
+                              key={skill.skill_id}
+                              onClick={() => {
+                                const current = config.skills || [];
+                                const updated = isSelected
+                                  ? current.filter(s => s !== skill.skill_id)
+                                  : [...current, skill.skill_id];
+                                updateConfig('skills', updated);
+                                if (updated.length > 0 && !config.use_local_sandbox) {
+                                  updateConfig('use_local_sandbox', true);
+                                }
+                              }}
+                              className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all border ${
+                                isSelected
+                                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                                  : 'border-gray-200 dark:border-border-dark hover:border-gray-300 dark:hover:border-gray-600'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected || false}
+                                onChange={() => {}}
+                                className="mt-0.5"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                  {skill.name}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">
+                                  {skill.description}
+                                </div>
+                              </div>
+                              <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${
+                                skill.source_type === 'builtin'
+                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                  : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                              }`}>
+                                {skill.source_type}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {availableSkills.length === 0 && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+                            No skills available. Create one in the Skills panel first.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-border-dark">
+                      <button
+                        onClick={() => setShowSkillPicker(false)}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => setShowSkillPicker(false)}
+                        className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </ConfigSection>
+          )}
 
           {/* Execution Control - Regular Agent Only */}
           {agentType === 'regular' && (
