@@ -32,7 +32,48 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/deepagents", tags=["deepagents"])
 
 
-def _ensure_deep_agent_config(config: dict) -> dict:
+def _merge_skill_subagents(config: dict, db: Session) -> list:
+    """
+    Generate skill subagents from config.skills and merge into subagents_config.
+
+    Skill subagents are generated dynamically at runtime (see deepagent_factory.py).
+    This helper ensures they appear in the API response so the UI can display/edit them.
+    """
+    from models.skill import Skill as SkillModel
+
+    skill_ids = config.get("skills", [])
+    if not skill_ids:
+        return config.get("subagents", []) or []
+
+    # Query skills from DB
+    skills = db.query(SkillModel).filter(SkillModel.skill_id.in_(skill_ids)).all()
+    if not skills:
+        return config.get("subagents", []) or []
+
+    # Build skill subagent entries (mirrors deepagent_factory.py lines 447-456)
+    skill_subagent_entries = []
+    for s in skills:
+        skill_subagent_entries.append({
+            "name": s.skill_id,
+            "description": s.description,
+            "system_prompt": (
+                f"You are a {s.skill_id} specialist. "
+                "Read the SKILL.md and follow its instructions exactly. "
+                "Return only the result."
+            ),
+        })
+
+    # Merge with existing subagents (skill subagents take priority / dedup by name)
+    existing_names = {s["name"] for s in skill_subagent_entries}
+    merged = list(skill_subagent_entries)
+    for s in (config.get("subagents", []) or []):
+        if s.get("name") not in existing_names:
+            merged.append(s)
+
+    return merged
+
+
+def _ensure_deep_agent_config(config: dict, db: Session = None) -> dict:
     """
     Ensure config has use_deepagents=true for DeepAgents.
 
@@ -42,12 +83,18 @@ def _ensure_deep_agent_config(config: dict) -> dict:
     
     For regular (non-deep) agents, use_deepagents is explicitly set to False
     and should be respected.
+    
+    If db is provided, also injects dynamic skill subagents into config.subagents.
     """
     config = dict(config)  # Make a copy to avoid mutating
     # Respect explicitly set use_deepagents=False (regular agents)
     if not config.get("use_deepagents", True):
         return config
     config["use_deepagents"] = True
+    # Inject merged skill subagents into config.subagents so frontend builder can see them
+    if db is not None:
+        merged = _merge_skill_subagents(config, db)
+        config["subagents"] = merged
     return config
 
 # =============================================================================
@@ -156,15 +203,17 @@ async def create_deepagent(
 
         logger.info(f"Created DeepAgent: {agent.name} (id={agent.id})")
 
+        cfg = _ensure_deep_agent_config(agent.config, db=db)
+        merged_subs = cfg.get("subagents", [])
         return DeepAgentResponse(
             id=agent.id,
             name=agent.name,
             description=agent.description,
             category=agent.category,
-            config=_ensure_deep_agent_config(agent.config),
+            config=cfg,
             middleware_config=agent.middleware_config,
-            subagents_config=agent.subagents_config,
-            subagents=agent.subagents_config,
+            subagents_config=merged_subs,
+            subagents=merged_subs,
             backend_config=agent.backend_config,
             guardrails_config=agent.guardrails_config,
             usage_count=agent.usage_count,
@@ -209,16 +258,18 @@ async def list_deepagents(
             ).scalar()
             session_counts[agent.id] = count or 0
 
-        return [
-            DeepAgentResponse(
+        def _build_response(agent):
+            cfg = _ensure_deep_agent_config(agent.config, db=db)
+            merged_subs = cfg.get("subagents", [])
+            return DeepAgentResponse(
                 id=agent.id,
                 name=agent.name,
                 description=agent.description,
                 category=agent.category,
-                config=_ensure_deep_agent_config(agent.config),
+                config=cfg,
                 middleware_config=agent.middleware_config,
-                subagents_config=agent.subagents_config,
-                subagents=agent.subagents_config,
+                subagents_config=merged_subs,
+                subagents=merged_subs,
                 backend_config=agent.backend_config,
                 guardrails_config=agent.guardrails_config,
                 usage_count=agent.usage_count,
@@ -229,8 +280,8 @@ async def list_deepagents(
                 created_at=agent.created_at.isoformat(),
                 updated_at=agent.updated_at.isoformat()
             )
-            for agent in agents
-        ]
+
+        return [_build_response(a) for a in agents]
 
     except Exception as e:
         logger.error(f"Error listing DeepAgents: {e}")
@@ -256,15 +307,17 @@ async def get_deepagent(
         ChatSession.agent_id == agent.id
     ).scalar() or 0
 
+    cfg = _ensure_deep_agent_config(agent.config, db=db)
+    merged_subs = cfg.get("subagents", [])
     return DeepAgentResponse(
         id=agent.id,
         name=agent.name,
         description=agent.description,
         category=agent.category,
-        config=agent.config,
+        config=cfg,
         middleware_config=agent.middleware_config,
-        subagents_config=agent.subagents_config,
-        subagents=agent.subagents_config,
+        subagents_config=merged_subs,
+        subagents=merged_subs,
         backend_config=agent.backend_config,
         guardrails_config=agent.guardrails_config,
         usage_count=agent.usage_count,
@@ -343,15 +396,17 @@ async def update_deepagent(
 
     logger.info(f"Updated DeepAgent: {agent.name} (id={agent.id})")
 
+    cfg = _ensure_deep_agent_config(agent.config, db=db)
+    merged_subs = cfg.get("subagents", [])
     return DeepAgentResponse(
         id=agent.id,
         name=agent.name,
         description=agent.description,
         category=agent.category,
-        config=agent.config,
+        config=cfg,
         middleware_config=agent.middleware_config,
-        subagents_config=agent.subagents_config,
-        subagents=agent.subagents_config,
+        subagents_config=merged_subs,
+        subagents=merged_subs,
         backend_config=agent.backend_config,
         guardrails_config=agent.guardrails_config,
         usage_count=agent.usage_count,

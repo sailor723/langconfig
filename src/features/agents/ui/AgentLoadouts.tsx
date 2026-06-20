@@ -4167,9 +4167,9 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                 agentType={agentType}
                 onSave={async (config) => {
                   await handleSave(config);
-                  if (selectedAgent) {
-                    setSearchParams({});
-                  } else {
+                  // For existing agents, keep modal open so users can see generated subagents
+                  // For new agents, close and return to list
+                  if (!selectedAgent) {
                     setShowAgentBuilder(false);
                     setEditingAgent(null);
                   }

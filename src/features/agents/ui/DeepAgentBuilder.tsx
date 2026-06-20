@@ -588,11 +588,27 @@ export default function DeepAgentBuilder({
         custom_tools: selectedCustomTools,
         // CRITICAL: Force use_deepagents based on agentType prop
         // This ensures the flag is always correct regardless of initialConfig
-        use_deepagents: agentType === 'deep'
+        use_deepagents: agentType === 'deep',
+        // Generate skill subagents locally from skills list so they appear immediately
+        subagents: generateSkillSubagents(config.skills),
       };
+      // Update local state so subagents section shows populated list immediately
+      setConfig(prev => ({ ...prev, subagents: configWithCustomTools.subagents }));
       onSave(configWithCustomTools);
     }
   };
+
+  /**
+   * Generate subagent entries from skill IDs.
+   * This replaces all previous subagents — only current skills determine the list.
+   */
+  function generateSkillSubagents(skillIds: string[]): any[] {
+    return (skillIds || []).map(id => ({
+      name: id,
+      description: `${id} skill`,
+      system_prompt: `You are a ${id} specialist. Read the SKILL.md and follow its instructions exactly. Return only the result.`,
+    }));
+  }
 
   const handleTest = () => {
     const errors = validateConfig(config);
