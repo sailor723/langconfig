@@ -53,12 +53,25 @@ export default function ChatHeader({
     >
       <div className="flex items-center gap-3">
         {/* Current Agent Display and Agent Selector */}
-        {sessionId ? (
-          <div className="flex items-center gap-3">
-            <AgentSelector
-              selectedAgentId={selectedAgentId}
-              onSelectAgent={handleSelectAgent}
-            />
+        {sessionId && selectedAgentId ? (
+          <div className="flex items-center gap-2">
+            <div
+              className="text-sm font-medium px-3 py-1.5 rounded-md"
+              style={{
+                color: 'var(--color-text-primary)',
+                backgroundColor: 'var(--color-category-background, #f3f4f6)',
+              }}
+            >
+              {agentName || `Agent #${selectedAgentId}`}
+            </div>
+            <button
+              onClick={() => setSelectedAgent(null)}
+              className="text-xs px-2 py-1 rounded hover:bg-gray-100 transition-colors"
+              style={{ color: 'var(--color-text-muted)' }}
+              title="Switch agent"
+            >
+              Change
+            </button>
           </div>
         ) : (
           <AgentSelector
