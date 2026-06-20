@@ -492,6 +492,7 @@ Changes:
 | `src/features/chat/ui/GlobalChatModal.tsx` | **Modify** | Parse `skill_name` from SSE `tool_start` events during streaming |
 | `src/features/chat/ui/MetricsPanel.tsx` | **Modify** | Display skill name badge next to each tool call (live + persisted) |
 | `src/components/common/AgentChatTester.tsx` | **Modify** | Added `skill_name` to tool call tracking and display |
+| `backend/scripts/test_subagent_skills.py` | **New** | Prove subagent+SkillsMiddleware isolation for multi-turn skills |
 
 ## ✅ Key Architecture Decisions
 
@@ -504,47 +505,116 @@ The deepagents library's `SkillsMiddleware` handles progressive disclosure:
 - **No hardcoded skill names needed** in system prompt
 - Works across 4+ skills (ticket-classifier, data-analysis, code-review, etc.)
 
-## 🔄 Iteration: Progressive Disclosure v2 — Inline Skills for Multi-Turn (Latest)
+## 🎯 Key Discovery: Skill-per-Subagent with Isolated SkillsMiddleware
 
-**Status**: ⚠️ Single-turn ✅ | Multi-turn ❌ (DeepSeek limitation)
+**Status**: ✅ Proven via test script — all multi-turn skills tests pass.
 
-### The Problem
+### The Discovery
 
-The OpenClaw-style progressive disclosure pattern (`<available_skills>` catalog → `read_file` → follow) works perfectly for **single-turn** requests. The agent scans the catalog, reads the matching SKILL.md, and follows its instructions.
+The deepagents framework's **SkillsMiddleware** is the key mechanism for progressive disclosure. It:
+1. Scans `sources` directories for SKILL.md files
+2. Reads YAML frontmatter → injects `<available_skills>` name+description catalog into system prompt
+3. Intercepts `read_file("...SKILL.md")` → loads full instructions into LLM context
 
-However, in **multi-turn conversations**, DeepSeek fails to re-scan the catalog on subsequent turns. Once turn 1's skill instructions enter the conversation history, the model reuses them for all subsequent turns — even when the new query clearly matches a different skill:
+**The critical insight**: When you pass `skills` to the **main agent**, the main agent's `SkillsMiddleware` accumulates all loaded skills into one context. On turn 2+, the old skill instructions remain in the conversation history, poisoning the context.
+
+**The fix**: Give each skill its **own subagent with its own isolated `SkillsMiddleware`**. The main agent stays clean — it delegates via `task()`:
+
+```python
+# NOT this (context bloat):
+agent = create_deep_agent(skills=["/skills/"])  # ❌ all skills in one context
+
+# BUT this (isolated):
+subagents = []
+for s in skill_records:
+    skill_mw = SkillsMiddleware(
+        backend=FilesystemBackend(root_dir=str(skills_root)),
+        sources=[s.skill_id],  # only this skill's SKILL.md
+        system_prompt=None,
+    )
+    subagents.append({
+        "name": s.skill_id,
+        "description": s.description,
+        "middleware": [skill_mw],  # ← isolated SkillsMiddleware
+    })
+
+agent = create_deep_agent(
+    subagents=subagents,  # each skill = one subagent
+    # NO skills — main agent stays clean
+)
+```
+
+### How SkillsMiddleware Works Under the Hood
 
 ```
-Turn 1: "Order #12345 is 3 weeks late!"  → read_file [ticket-classifier]   ✅
-Turn 2: "Review this SQL injection code"  → read_file [ticket-classifier]   ❌ (should be code-review)
-Turn 3: "Analyze my sales CSV"            → read_file [ticket-classifier]   ❌ (should be data-analysis)
+SkillsMiddleware instance (per subagent)
+  │
+  ├── before_agent()     → reads SKILL.md frontmatter
+  │                       → injects <available_skills> catalog
+  │                       → [ticket-classifier] Classifies tickets...
+  │
+  └── modify_request()   → intercepts read_file("...SKILL.md")
+                          → loads full instructions into this subagent only
+                          → "## Ticket Classifier\n...classification rules..."
 ```
 
-### Attempted Fixes
+**Each subagent gets its own `SkillsMiddleware` with a separate `StateBackend` → skills state is fully isolated**. The main agent only sees the final result, not the skill instructions.
 
-| Approach | Result | Why it Failed |
-|----------|--------|---------------|
-| **Re-scan reminder** in user messages | ❌ | DeepSeek ignores the reminder in favor of already-loaded skill context |
-| **Inline all skill instructions** in system prompt | ❌ | SkillsMiddleware adds conflicting "read SKILL.md" prompting — agent reads all skills from disk instead of using inlined versions |
-| **Removed SkillsMiddleware** (disabled `skills` param) | ❌ | SkillsMiddleware is the only mechanism that creates the `<available_skills>` catalog; without it, the agent has no skill discovery |
+### Test Results (3/3 Passed)
 
-### Root Cause
+| Turn | Subagent | SkillsMiddleware | Response Keywords |
+|------|----------|-----------------|-------------------|
+| 1 | `ticket-classifier` | `sources=[ticket-classifier]` | priority, category, sentiment |
+| 2 | `code-review` | `sources=[code-review]` | SQL injection, security |
+| 3 | `data-analysis` | `sources=[data-analysis]` | CSV, sales |
 
-The deepagents library's `SkillsMiddleware` works for **Claude-class models** that reliably follow meta-instructions. DeepSeek (and likely other weaker models) struggles with:
-1. **Progressive disclosure**: "Scan catalog → pick one → load instructions" requires multi-step reasoning
-2. **Context independence**: Once skill content enters the conversation window, the model defaults to reusing it rather than re-scanning
+All 3 turns in the **same conversation thread**, no context pollution between turns.
 
-### Current State
+### Architecture Diagram
 
-- **Single-turn**: ✅ Works perfectly (all 3 skills correctly selected, skill names visible in MetricsPanel)
-- **Multi-turn**: ❌ Reuses first selected skill for all subsequent turns
-- **Live in UI**: Skill name badges `[ticket-classifier]` show next to tool calls during streaming and in completed metrics
+```
+Main Agent (clean context, no skills)
+  system_prompt: "Delegate skill tasks using task()..."
+  │
+  ├── task("classify ticket", name="ticket-classifier")
+  │   └── Subagent [ticket-classifier]
+  │       └── SkillsMiddleware(sources=[ticket-classifier])
+  │           → loads ticket-classifier/SKILL.md only
+  │           → returns {priority, category, sentiment}
+  │
+  ├── task("review code", name="code-review")
+  │   └── Subagent [code-review]
+  │       └── SkillsMiddleware(sources=[code-review])
+  │           → loads code-review/SKILL.md only
+  │           → returns security review
+  │
+  └── task("analyze CSV", name="data-analysis")
+      └── Subagent [data-analysis]
+          └── SkillsMiddleware(sources=[data-analysis])
+              → loads data-analysis/SKILL.md only
+              → returns analysis
+```
 
-### Next Steps
+### Key Advantage: Dynamic from DB
 
-- Study the LangGraph `checkpointer` configuration — skill instructions could be stored outside the visible conversation window and re-injected per-turn
-- Consider model-specific behavior: Claude strictly follows the "scan → pick → read" protocol, while DeepSeek does not
-- The `MemoryMiddleware` or a custom middleware could re-inject the skill catalog before each turn without relying on the LLM to re-scan
+Both the delegation hints AND subagents are generated dynamically from `skill_records`:
+
+```python
+delegation_hints = "\n".join(
+    f"  - {s.skill_id}: {s.description}" for s in skill_records
+)
+# New skill in DB → auto-appears in hints + gets its own subagent
+# Remove from DB → auto-disappears
+```
+
+### What We Learned
+
+| Approach | Result | Why |
+|----------|--------|-----|
+| **Single agent + skills** | ❌ Multi-turn fails | Context accumulation poisons subsequent turns |
+| **Subagent per skill** | ✅ 3/3 passes | Each subagent has isolated SkillsMiddleware |
+| `SkillsMiddleware` via `skills=[]` | ✅ Works | Framework auto-creates it |
+| `SkillsMiddleware` via `middleware=[]` | ✅ Works | We construct it manually (same effect) |
 
 ---
 
