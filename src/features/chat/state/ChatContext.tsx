@@ -138,19 +138,13 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const endSession = useCallback(async (sessionId: string) => {
     try {
       await apiClient.endChatSession(sessionId);
-
-      // Remove from sessions list
       setSessions(prev => prev.filter(s => s.session_id !== sessionId));
-
-      // If this was the current session, clear it
-      if (currentSessionId === sessionId) {
-        setCurrentSessionId(null);
-      }
+      setCurrentSessionId(prev => prev === sessionId ? null : prev);
     } catch (error) {
       console.error('Failed to end session:', error);
       throw error;
     }
-  }, [currentSessionId]);
+  }, []);
 
   const toggleHitl = useCallback(() => {
     setHitlEnabled(prev => !prev);

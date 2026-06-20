@@ -182,20 +182,19 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
                         : t('new_conversation')}
                     </div>
                   </div>
-                  {isHovered && !isActive && (
+                  {isHovered && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        endSession(session.session_id);
+                        if (window.confirm('Delete this conversation? This cannot be undone.')) {
+                          endSession(session.session_id);
+                        }
                       }}
-                      className="p-1 rounded hover:bg-red-50 transition-colors flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100"
-                      title="End session"
+                      className="p-1 rounded hover:bg-red-50 transition-colors flex-shrink-0 mt-0.5"
+                      title="Delete conversation"
                     >
                       <Trash2 className="w-3.5 h-3.5" style={{ color: '#ef4444' }} />
                     </button>
-                  )}
-                  {isActive && (
-                    <div className="w-1.5 h-1.5 rounded-full bg-white mt-2 flex-shrink-0" />
                   )}
                 </div>
               </button>
