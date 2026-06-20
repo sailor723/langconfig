@@ -241,6 +241,13 @@ class DeepAgentConfig(BaseModel):
                     "Skills are synced to the sandbox filesystem at agent creation time "
                     "and loaded via create_deep_agent(skills=[...]) for progressive disclosure."
     )
+    skill_router_model: Optional[str] = Field(
+        default=None,
+        description="Optional separate model for skill routing. If set, this model is "
+                    "called first to classify which skill matches the user's request, "
+                    "and only the matched skill is passed to the main agent. "
+                    "If None, all equipped skills are passed directly (LLM auto-selects)."
+    )
 
     # Normal agent config (used when use_deepagents=False)
     interrupt_before: Optional[List[str]] = Field(

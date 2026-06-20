@@ -22,6 +22,8 @@ Any component that needs a setting value (e.g., default model for new agents) mu
 ### Step 1: Write a test script first with mock data
 Always start with a test script that uses mock data to verify the core logic works before touching any existing backend code.
 
+Prefer **filesystem-first** testing for skills and agents — use `create_deep_agent(skills=[path])` directly with SKILL.md files on disk. No PostgreSQL needed for the core logic test. The DB is only a storage/management layer; the deepagents library natively reads skills from the filesystem.
+
 ### Step 2: Implement backend changes step by step
 Make small, incremental changes to the backend code, one piece at a time.
 
@@ -33,6 +35,38 @@ Once all implementation steps are complete, run all backend tests to ensure ever
 
 ### Step 5: Implement UI changes
 Only after the backend is fully tested and working, proceed to implement the corresponding UI changes.
+
+## Testing Philosophy
+
+### MVP First — simplest case always wins
+Start with the most minimal working case. Get it green, then layer on complexity.
+
+For skills:
+1. **Filesystem test** (no DB): Create `SKILL.md` on disk → call `create_deep_agent(skills=[path])` → verify response contains skill keywords
+2. **DB test**: Store skill in PostgreSQL → sync to filesystem → call `create_deep_agent(skills=[synced_path])` → verify
+3. **API test**: `POST /api/skills` → `POST /api/deepagents` → `POST /api/chat/message` → verify
+
+### Skill testing without PostgreSQL
+The deepagents library's `SkillsMiddleware` reads SKILL.md files from the filesystem. You can test skills end-to-end without a running database:
+
+```python
+from deepagents import create_deep_agent
+from langgraph.checkpoint.memory import MemorySaver
+
+# Create a simple skill on disk
+skill_path = "/tmp/skills/my-skill"
+os.makedirs(f"{skill_path}/my-skill", exist_ok=True)
+with open(f"{skill_path}/my-skill/SKILL.md", "w") as f:
+    f.write("---\nname: my-skill\ndescription: My test skill\n---\n\nInstructions here.")
+
+# Create agent with skills loaded from filesystem
+agent = create_deep_agent(
+    model="deepseek:deepseek-chat",
+    system_prompt="You are a helpful assistant.",
+    skills=[skill_path],
+    checkpointer=MemorySaver(),
+)
+```
 
 ## Code Quality
 (Add other project rules as needed)
