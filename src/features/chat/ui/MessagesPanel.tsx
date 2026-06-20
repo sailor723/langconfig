@@ -6,7 +6,7 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
-import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot, Brain, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -50,6 +50,7 @@ export default function MessagesPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
+  const [showThinking, setShowThinking] = useState(false);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -292,13 +293,9 @@ export default function MessagesPanel({
 
                       {/* Thinking Block — show tool calls for this assistant message */}
                       {message.role === 'assistant' && (() => {
-                        // Count assistant messages up to this index
                         const aiIdx = messages.slice(0, index + 1).filter(m => m.role === 'assistant').length - 1;
-                        const trace = thinkingTraces[aiIdx];
-                        if (trace && trace.length > 0) {
-                          return <ThinkingBlock steps={trace} />;
-                        }
-                        return null;
+                        const trace = thinkingTraces[aiIdx] || [];
+                        return <ThinkingBlock steps={trace} />;
                       })()}
 
                       {/* Message Footer */}
@@ -332,7 +329,7 @@ export default function MessagesPanel({
             </div>
           ))}
 
-          {/* Streaming Indicator - only show before first token */}
+          {/* Streaming Indicator — collapsible thinking block */}
           {isStreaming && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
             <div className="flex gap-4">
               <div
@@ -349,50 +346,57 @@ export default function MessagesPanel({
                     boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
                   }}
                 >
-                  <div className="flex items-center gap-2" style={{ color: 'var(--color-text-muted)' }}>
-                    <Activity className="w-4 h-4 animate-pulse" />
-                    <span className="text-sm">Thinking...</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+                  {/* Tool calls toggle button — like ThinkingBlock */}
+                  <button
+                    onClick={() => setShowThinking(v => !v)}
+                    className="flex items-center gap-1.5 text-xs font-medium transition-colors rounded-md px-1 py-0.5 hover:bg-black/5 w-full"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    {showThinking ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                    <Brain className="w-3.5 h-3.5" />
+                    <span>{showThinking ? 'Hide thinking' : `Show thinking (${activeToolCalls.length} active)`}</span>
+                    {!showThinking && <span className="ml-2 text-xs opacity-60 animate-pulse">Thinking...</span>}
+                  </button>
 
-          {/* Active Tool Calls Indicator */}
-          {activeToolCalls.length > 0 && (
-            <div className="flex gap-4">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}
-              >
-                <Activity className="w-4 h-4 animate-pulse" />
-              </div>
-              <div className="flex-1">
-                <div
-                  className="rounded-2xl rounded-tl-sm px-5 py-3 inline-block"
-                  style={{
-                    backgroundColor: 'white',
-                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-                    borderLeft: '3px solid var(--color-primary)'
-                  }}
-                >
-                  <div style={{ color: 'var(--color-text-primary)' }}>
-                    <div className="text-sm font-medium mb-1">Running tools:</div>
-                    <div className="flex flex-wrap gap-2">
-                      {activeToolCalls.map((tool, idx) => (
-                        <span
-                          key={idx}
-                          className="text-xs px-2 py-1 rounded"
-                          style={{
-                            backgroundColor: '#8B4513',
-                            color: 'white'
-                          }}
-                        >
-                          {tool.tool_name}{tool.status === 'running' ? '...' : ''}
-                        </span>
-                      ))}
+                  {/* Expanded: show active tool calls */}
+                  {showThinking && activeToolCalls.length === 0 && (
+                    <div className="mt-2 text-xs italic" style={{ color: 'var(--color-text-muted)' }}>
+                      Waiting for tool calls...
                     </div>
-                  </div>
+                  )}
+                  {showThinking && activeToolCalls.length > 0 && (
+                    <div
+                      className="mt-2 rounded-lg border text-xs font-mono overflow-hidden"
+                      style={{
+                        backgroundColor: 'var(--color-background-dark, #f9fafb)',
+                        borderColor: 'var(--color-border-dark, #e5e7eb)',
+                      }}
+                    >
+                      <div className="max-h-72 overflow-y-auto p-3 space-y-2">
+                        {activeToolCalls.map((tc, i) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <Wrench className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                                🔧 {tc.tool_name}
+                              </div>
+                              {tc.arguments && (
+                                <pre className="mt-0.5 p-1.5 rounded text-[11px] whitespace-pre-wrap overflow-x-auto" style={{ backgroundColor: 'rgba(0,0,0,0.03)', color: 'var(--color-text-muted)' }}>
+                                  {JSON.stringify(tc.arguments, null, 2).slice(0, 200)}
+                                </pre>
+                              )}
+                              {tc.result && (
+                                <div className="mt-0.5 p-1.5 rounded text-[11px]" style={{ backgroundColor: 'rgba(16,185,129,0.06)', color: 'var(--color-text-muted)' }}>
+                                  {tc.result.slice(0, 200)}
+                                  {tc.result.length > 200 && '...'}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
