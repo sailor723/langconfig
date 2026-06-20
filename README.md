@@ -35,6 +35,63 @@ UI (React/Vite) ──→ BE (FastAPI/uvicorn) ──→ PostgreSQL 5433
 | **LangChain Agent** | `AgentFactory.create_agent()` | Standard agent with tools, no sandbox/skills |
 | **DeepAgent** | `create_deep_agent()` | Full agent with tools + skills + sandbox + middleware |
 
+## Agent & Skill Generator CLI
+
+One-shot agent creation from natural language. Uses `agent_gen_agent` (ID=69) to parse queries and auto-generate missing skills.
+
+### SDK (`lib/langconfig_sdk/`)
+
+```python
+from langconfig_sdk import LangConfigClient
+
+client = LangConfigClient()
+agent = client.generate_agent("my-agent", skills=["ticket-classifier", "data-analysis"])
+```
+
+### CLI (`backend/scripts/agent_gen_cli.py`)
+
+```bash
+# Natural language — creates agent + auto-generates missing skills
+cd backend && python scripts/agent_gen_cli.py create --name support-agent \
+  -q "ticket classification, data analysis and web search"
+
+# Explicit skill IDs (skip parsing)
+python scripts/agent_gen_cli.py create --name support-agent \
+  --skills ticket-classifier,data-analysis
+
+# List agents / skills
+python scripts/agent_gen_cli.py list-agents
+python scripts/agent_gen_cli.py list-skills
+
+# Dry-run (check only)
+python scripts/agent_gen_cli.py create --name test --skills a,b,c --dry-run
+```
+
+### Flow
+
+```
+User query → agent_gen_agent (ID=69) parses NL → skill IDs extracted
+    → check DB → missing? → create_skill() API → create agent
+    → agent created with: middleware, subagents, local_sandbox
+```
+
+### Key SDK Methods
+
+| Method | Description |
+|---|---|
+| `parse_query_to_skills(query)` | Uses agent_gen_agent to extract skill IDs from natural language |
+| `create_skill(skill_id)` | Creates a skill in DB (auto-increments version if exists) |
+| `create_agent(name, skills)` | Creates DeepAgent with auto-versioning (duplicate → -v2 suffix) |
+| `skill_exists(skill_id)` | Check if skill exists in DB |
+| `ensure_skills(ids)` | Create missing skills, return available list |
+| `generate_agent(name, skills)` | ensure_skills + create_agent in one call |
+
+### Version Control
+
+- **Agents**: Duplicate names auto-append `-v2`, `-v3` suffix
+- **Skills**: Duplicate IDs auto-increment version (`1.0.0` → `2.0.0`)
+- Both stored in `config.version` field
+
 ## Model Management (Phase 5 — DB-Driven)
 
 All model configuration is stored in PostgreSQL — no hardcoded enums.
