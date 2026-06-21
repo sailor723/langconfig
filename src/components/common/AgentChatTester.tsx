@@ -19,7 +19,11 @@ import {
   Database,
   AlertCircle,
   Loader,
-  Bookmark
+  Bookmark,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Wrench
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -82,6 +86,10 @@ export default function AgentChatTester({
   const [todos, setTodos] = useState<Array<{ id: number; content: string; status: string }>>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Agent context (loaded for the Context panel)
+  const [agentConfig, setAgentConfig] = useState<any>(null);
+  const [contextOpen, setContextOpen] = useState(false);
+
   // HITL interrupt state
   const [pendingInterrupt, setPendingInterrupt] = useState<any>(null);
   const [isResuming, setIsResuming] = useState(false);
@@ -98,6 +106,31 @@ export default function AgentChatTester({
       }
     };
   }, []);
+
+  // Load agent config (for Context panel)
+  const loadAgentContext = async () => {
+    try {
+      const res = await apiClient.getDeepAgent(agentId);
+      const agent = (res as any).data ?? res;
+      setAgentConfig(agent?.config ?? agent ?? null);
+    } catch (e) {
+      // non-fatal — just leave agentConfig null
+    }
+  };
+  loadAgentContext();
+
+  // Preset chips (Chinese-localized for quick agent testing)
+  const PRESETS = [
+    { label: '👋 打招呼', text: '你好，请用一句话介绍你自己。' },
+    { label: '🧮 数学', text: '17 × 23 + √144 等于多少？请详细计算。' },
+    { label: '📋 总结角色', text: '请用 3 个要点总结你被赋予的角色和职责。' },
+    { label: '🛠 列出工具', text: '请列出你现在可以调用的工具，并描述它们的作用。' },
+    { label: '🔍 深入话题', text: '请深入探索一个你擅长的话题，给出 5 条见解。' },
+  ];
+  const runPreset = (text: string) => {
+    setInputValue(text);
+    setTimeout(() => sendMessage(), 50);
+  };
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -442,6 +475,138 @@ export default function AgentChatTester({
           {/* Main Chat Area */}
           <div className="flex-1 flex flex-col">
 
+            {/* Context Panel (collapsible) — shows system prompt + config */}
+            <div
+              className="border-b border-gray-800"
+              style={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
+            >
+              <button
+                onClick={() => setContextOpen(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-2 text-xs uppercase tracking-widest font-semibold text-gray-400 hover:text-white transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5" />
+                  Context
+                  {agentConfig && (
+                    <span className="text-[10px] font-normal text-gray-500 normal-case">
+                      · {agentConfig.model ?? '?'} · {agentConfig.native_tools?.length ?? agentConfig.tools?.length ?? 0} tools · {agentConfig.skills?.length ?? 0} skills
+                    </span>
+                  )}
+                </span>
+                {contextOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {contextOpen && (
+                <div className="px-4 pb-3 space-y-3 text-xs text-gray-300 max-h-72 overflow-y-auto">
+                  {!agentConfig ? (
+                    <p className="text-gray-500">Loading context…</p>
+                  ) : (
+                    <>
+                      {/* Model + params row */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-gray-800/50 rounded px-2 py-1.5">
+                          <div className="text-[10px] text-gray-500">Model</div>
+                          <div className="font-mono text-white truncate">{agentConfig.model ?? '?'}</div>
+                        </div>
+                        <div className="bg-gray-800/50 rounded px-2 py-1.5">
+                          <div className="text-[10px] text-gray-500">Temperature</div>
+                          <div className="font-mono text-white">{agentConfig.temperature ?? 0.7}</div>
+                        </div>
+                        <div className="bg-gray-800/50 rounded px-2 py-1.5">
+                          <div className="text-[10px] text-gray-500">Max Tokens</div>
+                          <div className="font-mono text-white">{agentConfig.max_tokens ?? '—'}</div>
+                        </div>
+                      </div>
+
+                      {/* Skills */}
+                      {(agentConfig.skills ?? []).length > 0 && (
+                        <div>
+                          <div className="text-[10px] text-gray-500 mb-1">🎯 Skills loaded</div>
+                          <div className="flex flex-wrap gap-1">
+                            {agentConfig.skills.map((s: string) => (
+                              <span key={s} className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-indigo-500/15 text-indigo-300">
+                                📚 {s}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Native tools */}
+                      {(agentConfig.native_tools ?? agentConfig.tools ?? []).length > 0 && (
+                        <div>
+                          <div className="text-[10px] text-gray-500 mb-1 flex items-center gap-1">
+                            <Wrench className="w-3 h-3" /> Native tools
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {(agentConfig.native_tools ?? agentConfig.tools ?? []).map((t: string) => (
+                              <span key={t} className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-blue-500/15 text-blue-300">
+                                🔧 {t}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Subagents */}
+                      {(agentConfig.subagents ?? []).length > 0 && (
+                        <div>
+                          <div className="text-[10px] text-gray-500 mb-1">👥 Sub-agents</div>
+                          <div className="space-y-1">
+                            {agentConfig.subagents.map((sa: any) => (
+                              <div key={sa.name} className="text-[10px] text-gray-400 bg-gray-800/50 rounded px-2 py-1">
+                                <span className="font-mono text-purple-300">{sa.name}</span>
+                                {sa.description && <span className="ml-1">— {sa.description}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* System prompt */}
+                      {agentConfig.system_prompt && (
+                        <div>
+                          <div className="text-[10px] text-gray-500 mb-1">📜 System Prompt ({agentConfig.system_prompt.length} chars)</div>
+                          <pre
+                            className="text-[10px] font-mono leading-relaxed p-2 rounded bg-gray-900/60 border border-gray-700 whitespace-pre-wrap"
+                            style={{ color: '#d1d5db' }}
+                          >
+                            {agentConfig.system_prompt.length > 800
+                              ? agentConfig.system_prompt.slice(0, 800) + '…'
+                              : agentConfig.system_prompt}
+                          </pre>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Preset chips */}
+            <div className="flex flex-wrap items-center gap-1.5 px-4 py-2 border-b border-gray-800">
+              <span className="text-[10px] uppercase tracking-widest font-semibold text-gray-500 mr-1">
+                ⚡ Quick tests:
+              </span>
+              {PRESETS.map(p => (
+                <button
+                  key={p.label}
+                  onClick={() => runPreset(p.text)}
+                  disabled={isLoading || !sessionId}
+                  className="text-[10px] px-2 py-1 rounded-full font-medium transition-colors disabled:opacity-50"
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.06)',
+                    color: '#e5e7eb',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.12)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.06)'; }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.map((message, index) => (
@@ -465,12 +630,17 @@ export default function AgentChatTester({
                     )}
 
                     <div
-                      className={`flex-1 rounded-lg p-3 ${message.role === 'user'
-                        ? 'bg-blue-600 text-white'
+                      className={`flex-1 rounded-lg p-3 shadow-sm ${message.role === 'user'
+                        ? 'border-2 border-blue-400 font-medium'
                         : message.role === 'assistant'
-                          ? 'bg-gray-800 text-gray-100'
+                          ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700'
                           : 'bg-gray-700 text-gray-300'
                         }`}
+                      style={message.role === 'user'
+                        ? { color: '#ffffff', backgroundColor: '#3b82f6' }
+                        : message.role === 'assistant'
+                          ? { color: '#1f2937' }
+                          : {}}
                     >
                       <ReactMarkdown>{message.content}</ReactMarkdown>
                       <div className="text-xs opacity-70 mt-1 flex items-center gap-2">
@@ -540,7 +710,8 @@ export default function AgentChatTester({
                   onKeyPress={handleKeyPress}
                   placeholder="Type your message..."
                   disabled={isLoading || !sessionId}
-                  className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500"
+                  className="flex-1 px-4 py-3 bg-white dark:bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 placeholder-gray-500 font-medium"
+                  style={{ color: '#111827' }}
                 />
 
                 <button
