@@ -156,10 +156,10 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
 
   // Tools as pills at the BOTTOM (always shown if any)
   if (tools.length > 0) {
-    const TOOL_W = 130;
-    const TOOL_H = 48;
-    const ROW_Y = snap(center.y + MAIN_H / 2 + 160);
-    const SPACING = 160;
+    const TOOL_W = 200;
+    const TOOL_H = 90;
+    const ROW_Y = snap(center.y + MAIN_H / 2 + 180);
+    const SPACING = 220;
     const totalWidth = (tools.length - 1) * SPACING;
     tools.forEach((toolName, idx) => {
       const x = snap(center.x - totalWidth / 2 + idx * SPACING - TOOL_W / 2);
