@@ -69,10 +69,11 @@ function ModelCard({ model, apiKeySet, isLocal, onTest }: {
 
   return (
     <div
-      className="rounded-xl border p-4 flex flex-col gap-3 transition-all hover:border-primary/40"
+      className="rounded-xl border p-3 flex flex-col gap-2 transition-all hover:border-primary/40"
       style={{
         backgroundColor: 'var(--color-panel-dark)',
         borderColor: 'var(--color-border)',
+        aspectRatio: '1 / 0.618',
       }}
     >
       {/* Header */}
@@ -188,7 +189,7 @@ function ProviderGroupCard({ group, apiKeyStatus, onTest }: {
       </div>
 
       {/* Models grid */}
-      <div className="grid grid-cols-2 gap-3 p-4">
+      <div className="grid grid-cols-3 gap-3 p-4">
         {group.cloudModels.map(m => (
           <ModelCard
             key={m.model_id}
