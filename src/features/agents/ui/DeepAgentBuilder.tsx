@@ -795,6 +795,59 @@ export default function DeepAgentBuilder({
                   </>
                 )}
               </button>
+              {onTest && (
+                <button
+                  onClick={handleTest}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'; }}
+                >
+                  <Play className="w-4 h-4" />
+                  Test Chat
+                </button>
+              )}
+              {onExport && (
+                <button
+                  onClick={handleExport}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'; }}
+                >
+                  <Download className="w-4 h-4" />
+                  Export
+                </button>
+              )}
+              {onSave && (
+                <button
+                  onClick={handleSave}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all font-medium"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                    color: '#1f2937',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255, 255, 255, 0.5)',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'white'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.85)'; }}
+                >
+                  <Save className="w-4 h-4" />
+                  Save Agent
+                </button>
+              )}
               <button
                 onClick={() => handleCloseAttempt('close')}
                 className="p-2 transition-all text-white/90 hover:text-white hover:bg-white/15 rounded-lg"
@@ -2708,39 +2761,6 @@ export default function DeepAgentBuilder({
               </div>
             </ConfigSection>
           )}
-
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 p-6 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg">
-            {onTest && (
-              <button
-                onClick={handleTest}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
-              >
-                <Play className="w-4 h-4" />
-                Test Chat
-              </button>
-            )}
-
-            {onExport && (
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                Export
-              </button>
-            )}
-
-            {onSave && (
-              <button
-                onClick={handleSave}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-opacity"
-              >
-                <Save className="w-4 h-4" />
-                Save Agent
-              </button>
-            )}
-          </div>
         </div>
       </div>
 
