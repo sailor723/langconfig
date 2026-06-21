@@ -18,10 +18,25 @@ interface Props {
   structure: AgentStructure | null;
 }
 
-const PROP_META: Record<string, { label: string; icon: string; desc: string }> = {
-  llm: { label: 'LLM', icon: '🤖', desc: 'Language model used by the main agent — model, temperature, max tokens.' },
-  prompt: { label: 'Prompt', icon: '📜', desc: 'System prompt that defines the agent\'s role, behavior, and tools.' },
-  tools: { label: 'Tools', icon: '🔧', desc: 'Native tools always available to the main agent (called directly without delegation).' },
+const PROP_META: Record<string, { label: string; icon: string; desc: string; theme: { bg: string; border: string; accent: string } }> = {
+  llm: {
+    label: 'LLM',
+    icon: '🤖',
+    desc: 'Language model used by the main agent — model, temperature, max tokens.',
+    theme: { bg: 'rgba(59,130,246,0.08)', border: '#3b82f6', accent: '#60a5fa' },
+  },
+  prompt: {
+    label: 'Prompt',
+    icon: '📜',
+    desc: 'System prompt that defines the agent\'s role, behavior, and tools.',
+    theme: { bg: 'rgba(168,85,247,0.08)', border: '#a855f7', accent: '#c084fc' },
+  },
+  tools: {
+    label: 'Tools',
+    icon: '🔧',
+    desc: 'Native tools always available to the main agent (called directly without delegation).',
+    theme: { bg: 'rgba(245,158,11,0.08)', border: '#f59e0b', accent: '#fbbf24' },
+  },
 };
 
 export default function PropertyPopup({ structure }: Props) {
@@ -129,14 +144,14 @@ export default function PropertyPopup({ structure }: Props) {
         className="rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col"
         style={{
           backgroundColor: 'var(--color-panel-dark)',
-          border: '1px solid var(--color-border)',
+          border: `2px solid ${meta.theme.border}`,
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with back-line indicator */}
         <div
           className="flex items-center justify-between px-4 py-3 border-b"
-          style={{ borderColor: 'var(--color-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}
+          style={{ borderColor: meta.theme.border, backgroundColor: meta.theme.bg }}
         >
           <div className="flex items-center gap-3">
             <span className="text-2xl">{meta.icon}</span>

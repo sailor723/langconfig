@@ -7,6 +7,28 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps, NodeResizer } from 'reactflow';
 
+/** Distinct visual themes per property group, so LLM / Prompt / Tools are easy to tell apart. */
+const THEMES: Record<string, { bg: string; hoverBg: string; accent: string; accentSoft: string }> = {
+  llm: {
+    bg: 'rgba(59,130,246,0.10)',
+    hoverBg: 'rgba(59,130,246,0.18)',
+    accent: '#60a5fa',
+    accentSoft: '#1e3a8a',
+  },
+  prompt: {
+    bg: 'rgba(168,85,247,0.10)',
+    hoverBg: 'rgba(168,85,247,0.18)',
+    accent: '#c084fc',
+    accentSoft: '#581c87',
+  },
+  tools: {
+    bg: 'rgba(245,158,11,0.10)',
+    hoverBg: 'rgba(245,158,11,0.18)',
+    accent: '#fbbf24',
+    accentSoft: '#78350f',
+  },
+};
+
 interface Data {
   label: string;
   model: string;
@@ -84,19 +106,21 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
         ── Agent Properties ──
       </div>
 
-      {/* Property rows — clickable (3 main groups) */}
+      {/* Property rows — clickable (3 main groups, each with own theme) */}
       <div className="space-y-1.5 overflow-auto" style={{ maxHeight: 'calc(100% - 100px)' }}>
         <PropRow
           icon="🤖"
           label="LLM"
           value={`${data.model} · ${data.temperature.toFixed(1)} · ${data.max_tokens?.toLocaleString() ?? '—'}t`}
           onClick={() => onPropClick('llm')}
+          theme={THEMES.llm}
         />
         <PropRow
           icon="📜"
           label="Prompt"
           value={`${(data.prompt_preview ?? '').length} chars`}
           onClick={() => onPropClick('prompt')}
+          theme={THEMES.prompt}
         />
         {data.tools && data.tools.length > 0 && (
           <PropRow
@@ -104,6 +128,7 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
             label="Tools"
             value={`${data.tools.length} native`}
             onClick={() => onPropClick('tools')}
+            theme={THEMES.tools}
           />
         )}
       </div>
@@ -111,8 +136,16 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
   );
 });
 
-/** Compact clickable row in the node card. */
-function PropRow({ icon, label, value, onClick }: { icon: string; label: string; value: string; onClick: () => void }) {
+/** Compact clickable row in the node card with theme-specific colors. */
+function PropRow({
+  icon, label, value, onClick, theme,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  onClick: () => void;
+  theme: { bg: string; hoverBg: string; accent: string; accentSoft: string };
+}) {
   return (
     <button
       onClick={(e) => {
@@ -121,16 +154,17 @@ function PropRow({ icon, label, value, onClick }: { icon: string; label: string;
       }}
       className="w-full flex items-center gap-2 px-2 py-1 rounded text-left transition-colors"
       style={{
-        backgroundColor: 'rgba(255,255,255,0.04)',
+        backgroundColor: theme.bg,
         color: 'var(--color-text-primary)',
+        borderLeft: `3px solid ${theme.accent}`,
       }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.10)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.04)'; }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = theme.hoverBg; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = theme.bg; }}
     >
       <span className="text-xs">{icon}</span>
-      <span className="text-[11px] flex-1 truncate" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+      <span className="text-[11px] flex-1 truncate font-semibold" style={{ color: theme.accent }}>{label}</span>
       <span className="text-[11px] font-mono truncate max-w-[100px]" style={{ color: 'var(--color-text-primary)' }}>{value}</span>
-      <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>→</span>
+      <span className="text-[10px]" style={{ color: theme.accent }}>→</span>
     </button>
   );
 }
