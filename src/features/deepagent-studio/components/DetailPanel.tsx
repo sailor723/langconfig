@@ -256,12 +256,16 @@ export default function DetailPanel({ structure, selectedNodeId }: Props) {
               Middleware
             </div>
             <div className="flex flex-wrap gap-1">
-              {(item as MainAgentInfo).middleware.map(m => (
-                <span key={m} className="text-[10px] px-1.5 py-0.5 rounded"
-                  style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
-                  {m}
-                </span>
-              ))}
+              {(item as MainAgentInfo).middleware.map((m: any, idx: number) => {
+                // middleware can be a string OR an object {type, enabled, config}
+                const label = typeof m === 'string' ? m : (m?.type ?? 'unknown');
+                return (
+                  <span key={typeof m === 'string' ? m : `${label}-${idx}`} className="text-[10px] px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: '#F5E6DC', color: '#A85A2E', border: '1px solid #D97757' }}>
+                    ⚙ {label}
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
