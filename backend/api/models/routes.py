@@ -41,12 +41,22 @@ class ModelInvokeRequest(BaseModel):
     json_mode: bool = Field(False, description="Force JSON output (structured_output)")
     tools: bool = Field(False, description="Enable tool/function calling for this turn")
     stream: bool = Field(False, description="Stream the response (NDJSON chunks)")
+    tool_names: Optional[list[str]] = Field(None, description="List of demo tool names to bind (e.g. ['get_weather', 'get_current_time']). Defaults to all if not specified.")
+    image_url: Optional[str] = Field(None, description="URL of an image to include for multimodal (vision) testing.")
+
+
+class ToolCallLog(BaseModel):
+    """One tool invocation trace entry returned in ModelInvokeResponse."""
+    name: str
+    arguments: dict
+    result: str
 
 
 class ModelInvokeResponse(BaseModel):
     content: str
     usage: Optional[dict] = None
     model: str
+    tool_calls: Optional[list[ToolCallLog]] = None
 
 
 def _get_settings_row(db: Session) -> SettingsModel:
@@ -233,6 +243,138 @@ def _create_llm_for_playground(
     return init_chat_model(**init_kwargs)
 
 
+# ════════════════════════════════════════════════════════════════════════
+# Demo tool registry — used by the Playground when tools=true
+# ════════════════════════════════════════════════════════════════════════
+
+DEMO_TOOL_SCHEMAS: list[dict] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get the current weather for a city. Returns temperature and conditions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {"type": "string", "description": "City name (e.g. 'Tokyo', 'San Francisco')"},
+                    "unit": {"type": "string", "enum": ["celsius", "fahrenheit"], "description": "Temperature unit"}
+                },
+                "required": ["city"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_time",
+            "description": "Get the current date/time, optionally for a timezone.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "timezone": {"type": "string", "description": "IANA timezone (e.g. 'UTC', 'Asia/Tokyo'). Defaults to UTC."}
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_web",
+            "description": "Search the web and return a list of relevant URLs and snippets. Use this for up-to-date information.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query string"},
+                    "max_results": {"type": "integer", "description": "Max number of results to return (1-10)", "default": 3}
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "calculate",
+            "description": "Evaluate a mathematical expression. Supports + - * / ** ( ) and math functions like sqrt, sin, cos.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "expression": {"type": "string", "description": "Math expression, e.g. 'sqrt(144) + 3*4'"}
+                },
+                "required": ["expression"],
+            },
+        },
+    },
+]
+
+
+def _execute_demo_tool(name: str, args: dict) -> str:
+    """Run a demo tool and return its output as a string."""
+    try:
+        if name == "get_weather":
+            city = args.get("city", "unknown")
+            unit = args.get("unit", "celsius")
+            # Deterministic demo output (no real API call)
+            mock = {
+                "Tokyo":    (22, "Partly cloudy"),
+                "London":   (15, "Light rain"),
+                "New York": (18, "Sunny"),
+                "San Francisco": (16, "Foggy"),
+                "Paris":    (17, "Overcast"),
+                "Beijing":  (24, "Hazy"),
+                "Shanghai": (26, "Humid"),
+                "Sydney":   (20, "Clear"),
+            }
+            for key, (t, cond) in mock.items():
+                if key.lower() in city.lower():
+                    t_disp = round(t * 9/5 + 32) if unit == "fahrenheit" else t
+                    return f"Weather in {key}: {cond}, {t_disp}°{'F' if unit == 'fahrenheit' else 'C'}"
+            # generic fallback
+            t = 20
+            t_disp = round(t * 9/5 + 32) if unit == "fahrenheit" else t
+            return f"Weather in {city}: Clear, {t_disp}°{'F' if unit == 'fahrenheit' else 'C'} (mock data)"
+
+        if name == "get_current_time":
+            from datetime import datetime
+            try:
+                from zoneinfo import ZoneInfo
+                tz = ZoneInfo(args.get("timezone") or "UTC")
+            except Exception:
+                tz = None
+            now = datetime.now(tz) if tz else datetime.utcnow()
+            return f"Current time: {now.isoformat(timespec='seconds')} ({args.get('timezone') or 'UTC'})"
+
+        if name == "search_web":
+            q = args.get("query", "")
+            n = min(int(args.get("max_results", 3) or 3), 10)
+            # Deterministic mock results
+            return (
+                f"Search results for '{q}' (top {n}):\n"
+                f"1. https://example.com/{q.replace(' ', '-')}-overview\n"
+                f"   Snippet: Overview of {q} with key facts and references.\n"
+                f"2. https://docs.example.com/{q.replace(' ', '-')}\n"
+                f"   Snippet: Official documentation and latest updates on {q}.\n"
+                f"3. https://blog.example.com/{q.replace(' ', '-')}-2026\n"
+                f"   Snippet: 2026 trends and analysis on {q}.\n"
+            )[:1500]
+
+        if name == "calculate":
+            expr = args.get("expression", "")
+            import math
+            safe_globals = {
+                "__builtins__": {},
+                "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos, "tan": math.tan,
+                "log": math.log, "exp": math.exp, "pi": math.pi, "e": math.e,
+                "abs": abs, "round": round, "pow": pow,
+            }
+            result = eval(expr, safe_globals)  # noqa: S307 — controlled input
+            return f"{expr} = {result}"
+
+        return f"Unknown tool: {name}"
+    except Exception as e:
+        return f"Tool error: {type(e).__name__}: {e}"
+
+
 @router.post("/invoke", response_model=ModelInvokeResponse)
 async def model_invoke(request: ModelInvokeRequest, db: Session = Depends(get_db)):
     """
@@ -276,9 +418,81 @@ async def model_invoke(request: ModelInvokeRequest, db: Session = Depends(get_db
             messages.append(SystemMessage(content=request.system_prompt + sys_extra))
         elif sys_extra:
             messages.append(SystemMessage(content=sys_extra.strip()))
-        messages.append(HumanMessage(content=request.message))
 
+        # Build user message — text-only OR multimodal (text + image_url)
+        if request.image_url:
+            try:
+                user_msg = HumanMessage(
+                    content=[
+                        {"type": "text", "text": request.message or "What's in this image?"},
+                        {"type": "image_url", "image_url": {"url": request.image_url}},
+                    ]
+                )
+            except Exception:
+                user_msg = HumanMessage(content=request.message)
+        else:
+            user_msg = HumanMessage(content=request.message)
+        messages.append(user_msg)
+
+        # Bind demo tools if requested
+        tool_call_log: list[ToolCallLog] = []
+        if request.tools:
+            try:
+                from langchain_core.tools import tool as _tool_dec
+                tools_to_bind = []
+                names = request.tool_names or [s["function"]["name"] for s in DEMO_TOOL_SCHEMAS]
+
+                from langchain_core.tools import StructuredTool
+
+                def _make_tool(spec):
+                    """Build a LangChain StructuredTool from a DEMO_TOOL_SCHEMAS entry (mock)."""
+                    fname = spec["function"]["name"]
+                    fdesc = spec["function"]["description"]
+                    fparams = spec["function"]["parameters"]
+                    props = fparams.get("properties", {})
+                    required = fparams.get("required", [])
+
+                    def _run(**kwargs):
+                        return _execute_demo_tool(fname, kwargs)
+
+                    return StructuredTool.from_function(
+                        func=_run,
+                        name=fname,
+                        description=fdesc,
+                        args_schema={
+                            "type": "object",
+                            "properties": props,
+                            "required": required,
+                        },
+                    )
+
+                for schema in DEMO_TOOL_SCHEMAS:
+                    name = schema["function"]["name"]
+                    if name not in names:
+                        continue
+                    tools_to_bind.append(_make_tool(schema))
+
+                if tools_to_bind:
+                    llm = llm.bind_tools(tools_to_bind)
+                    logger.info(f"Bound {len(tools_to_bind)} tools: {[t.name for t in tools_to_bind]}")
+            except Exception as e:
+                logger.warning(f"Tool binding failed: {e}")
+
+        # Tool-calling agent loop (max 3 turns)
         response = llm.invoke(messages)
+        tool_turns = 0
+        while request.tools and getattr(response, "tool_calls", None) and tool_turns < 3:
+            from langchain_core.messages import ToolMessage
+            messages.append(response)
+            for tc in response.tool_calls:
+                tool_name = tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", None)
+                tool_args = tc.get("args") if isinstance(tc, dict) else getattr(tc, "args", {})
+                tool_id = tc.get("id") if isinstance(tc, dict) else getattr(tc, "id", f"call_{tool_turns}")
+                tool_result = _execute_demo_tool(tool_name, tool_args or {})
+                tool_call_log.append(ToolCallLog(name=tool_name, arguments=tool_args or {}, result=tool_result))
+                messages.append(ToolMessage(content=tool_result, tool_call_id=tool_id))
+            response = llm.invoke(messages)
+            tool_turns += 1
 
         usage_meta = None
         if hasattr(response, "usage_metadata") and response.usage_metadata:
@@ -289,9 +503,10 @@ async def model_invoke(request: ModelInvokeRequest, db: Session = Depends(get_db
             }
 
         return ModelInvokeResponse(
-            content=response.content,
+            content=response.content if isinstance(response.content, str) else str(response.content),
             usage=usage_meta,
             model=resolved_model_name,
+            tool_calls=tool_call_log or None,
         )
 
     except HTTPException:
