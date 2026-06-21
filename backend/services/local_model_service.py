@@ -284,79 +284,31 @@ class LocalModelService:
 
 def get_legacy_local_model(db: Session) -> Optional[LocalModelConfig]:
     """
-    Get local model from legacy Settings.local_* fields.
-
-    This is for backward compatibility during migration.
-
-    Args:
-        db: Database session
+    Get local model config from .env (app_settings).
 
     Returns:
-        LocalModelConfig from Settings table or None
+        LocalModelConfig based on .env values, or None if not configured.
     """
-    from models.settings import Settings
+    from config import settings as app_settings
 
-    settings = db.query(Settings).filter(Settings.id == 1).first()
-    if not settings or not settings.local_provider:
+    if not app_settings.local_llm_provider:
         return None
 
-    # Decrypt API key if present
-    api_key = None
-    if settings.local_api_key:
-        try:
-            api_key = encryption_service.decrypt(settings.local_api_key)
-        except Exception as e:
-            logger.error(f"Failed to decrypt legacy API key: {e}")
-
     return LocalModelConfig(
-        provider=settings.local_provider,
-        base_url=settings.local_base_url,
-        model_name=settings.local_model_name,
-        api_key=api_key,
+        provider=app_settings.local_llm_provider,
+        base_url=app_settings.local_llm_base_url,
+        model_name=app_settings.local_llm_model,
+        api_key=app_settings.local_llm_api_key,
         timeout=60
     )
 
 
 async def migrate_legacy_local_model(db: Session) -> bool:
     """
-    Migrate legacy Settings.local_* to local_models table.
-
-    Args:
-        db: Database session
+    Legacy DB migration is no longer needed — local config is now in .env.
 
     Returns:
-        True if migration was performed, False if not needed
+        Always False (no migration needed).
     """
-    from models.settings import Settings
-
-    settings = db.query(Settings).filter(Settings.id == 1).first()
-    if not settings or not settings.local_provider:
-        return False
-
-    # Check if already migrated
-    existing = db.query(LocalModel).filter(
-        LocalModel.provider == settings.local_provider
-    ).first()
-
-    if existing:
-        logger.info("Legacy local model already migrated")
-        return False
-
-    # Create new local model from legacy settings
-    local_model = LocalModel(
-        name=f"{settings.local_provider}-{settings.local_model_name}",
-        display_name=f"{settings.local_provider.title()} {settings.local_model_name}",
-        provider=settings.local_provider,
-        base_url=settings.local_base_url,
-        model_name=settings.local_model_name,
-        api_key=settings.local_api_key,  # Already encrypted
-        is_validated=False,
-        description="Migrated from legacy settings"
-    )
-
-    db.add(local_model)
-    db.commit()
-
-    logger.info(f"Migrated legacy local model: {local_model.name}")
-
-    return True
+    logger.info("Legacy local model migration skipped — config now comes from .env")
+    return False

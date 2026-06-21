@@ -1,8 +1,8 @@
 /**
- * Dynamic API Keys & Models section.
+ * API Keys & Models section.
  *
- * Reads providers and models from DB (models table).
- * Each provider shows: API key input, model list (read-only tags), add model form.
+ * API keys are now managed via .env file — this panel shows them read-only.
+ * Models are listed from the database.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -26,28 +26,20 @@ export default function ApiKeysAndModels() {
   const [providers, setProviders] = useState<ProviderGroup[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // API key state per provider (read from backend)
-  const [apiKeyInputs, setApiKeyInputs] = useState<Record<string, string>>({});
+  // API key status (read-only from backend, which reads from .env)
   const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, boolean>>({});
+  const [maskedKeys, setMaskedKeys] = useState<Record<string, string | null>>({});
   const [connectionStatus, setConnectionStatus] = useState<Record<string, { connected: boolean | null; message: string | null }>>({});
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   // Test connection state
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
-
-  // Add model form state
-  const [addingForProvider, setAddingForProvider] = useState<string | null>(null);
-  const [newModelId, setNewModelId] = useState('');
-  const [newModelName, setNewModelName] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       // Fetch models
       const { cloudModels } = await fetchAndCacheModels();
-      // Group by provider (lowercase keys for backend compatibility)
       const grouped: Record<string, ModelEntry[]> = {};
       for (const m of cloudModels) {
         const key = m.provider.toLowerCase();
@@ -63,16 +55,19 @@ export default function ApiKeysAndModels() {
         Object.entries(grouped).map(([provider, models]) => ({ provider, models }))
       );
 
-      // Fetch existing API keys + connection status
+      // Fetch API key status from backend (reads from .env)
       const keysRes = await apiClient.getApiKeys();
       const keysData = keysRes.data || [];
       const status: Record<string, boolean> = {};
+      const masked: Record<string, string | null> = {};
       const connection: Record<string, { connected: boolean | null; message: string | null }> = {};
       for (const k of keysData) {
         status[k.provider] = k.is_set;
+        masked[k.provider] = k.masked_key;
         connection[k.provider] = { connected: k.connected, message: k.connected_message };
       }
       setApiKeyStatus(status);
+      setMaskedKeys(masked);
       setConnectionStatus(connection);
     } catch (err) {
       console.error('Failed to load providers:', err);
@@ -87,17 +82,13 @@ export default function ApiKeysAndModels() {
     setTestingProvider(provider);
     setTestResults(prev => ({ ...prev, [provider]: { success: false, message: 'Testing...' } }));
     try {
-      // Use newly entered key if provided, otherwise test with stored key
-      const key = apiKeyInputs[provider]?.trim() || undefined;
-      const res = await apiClient.testApiKey(provider, key);
+      const res = await apiClient.testApiKey(provider);
       const data = res.data;
       setTestResults(prev => ({ ...prev, [provider]: { success: data.success, message: data.message } }));
-      // Persist the connection status so the badge updates
       setConnectionStatus(prev => ({
         ...prev,
         [provider]: { connected: data.success, message: data.message }
       }));
-      // Clear result after 8 seconds
       setTimeout(() => setTestResults(prev => {
         const next = { ...prev };
         delete next[provider];
@@ -110,308 +101,121 @@ export default function ApiKeysAndModels() {
     }
   };
 
-  const handleSaveApiKeys = async () => {
-    const keysToSave: Parameters<typeof apiClient.setApiKeys>[0] = {};
-    for (const [provider, key] of Object.entries(apiKeyInputs)) {
-      if (key.trim()) {
-        (keysToSave as Record<string, string>)[`${provider}_api_key`] = key.trim();
-      }
-    }
-    if (Object.keys(keysToSave).length === 0) {
-      setSaveMessage('Enter at least one API key to save');
-      setTimeout(() => setSaveMessage(null), 3000);
-      return;
-    }
-
-    setSaving(true);
-    setSaveMessage(null);
-    try {
-      await apiClient.setApiKeys(keysToSave);
-      await fetchAndCacheModels();
-      setApiKeyInputs({});
-      // Reset connection status for updated providers — they need re-testing
-      setConnectionStatus(prev => {
-        const next = { ...prev };
-        for (const [p, v] of Object.entries(apiKeyInputs)) {
-          if (v.trim()) {
-            next[p] = { connected: null, message: null };
-          }
-        }
-        return next;
-      });
-      setSaveMessage('API keys saved successfully!');
-      setTimeout(() => setSaveMessage(null), 3000);
-      await loadData();
-    } catch (err) {
-      console.error('Failed to save API keys:', err);
-      setSaveMessage('Failed to save API keys');
-      setTimeout(() => setSaveMessage(null), 5000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAddModel = async (provider: string) => {
-    if (!newModelId.trim() || !newModelName.trim()) return;
-    try {
-      await apiClient.createModel({
-        model_id: newModelId.trim(),
-        display_name: newModelName.trim(),
-        provider,
-      });
-      setNewModelId('');
-      setNewModelName('');
-      setAddingForProvider(null);
-      await loadData();
-      await fetchAndCacheModels();
-    } catch (err: any) {
-      alert(err?.response?.data?.detail || 'Failed to add model');
-    }
-  };
-
-  const handleDeleteModel = async (modelId: string) => {
-    if (!confirm(`Delete model "${modelId}"?`)) return;
-    try {
-      await apiClient.deleteModel(modelId);
-      await loadData();
-      await fetchAndCacheModels();
-    } catch (err) {
-      console.error('Failed to delete model:', err);
-    }
-  };
-
   if (loading) {
-    return <div className="text-sm py-4 text-gray-500">Loading providers...</div>;
+    return <div className="p-4 text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading...</div>;
   }
 
-  // Search tools that always appear (no model dependency)
-  const searchProviders = ['tavily', 'serper'];
-
   return (
-    <SettingsSection
-      title="API Keys & Models"
-      description="Manage API keys and models per provider. Models are read from the database."
-      icon="key"
-    >
-      <div className="space-y-6">
-        {/* ── LLM / Model providers ── */}
-        {providers.map(({ provider, models }) => (
-          <div key={provider} className="border border-gray-200 dark:border-border-dark rounded-lg p-4">
-            {/* Provider header */}
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold capitalize" style={{ color: 'var(--color-text-primary)' }}>
-                {provider}
-              </h4>
-              {connectionStatus[provider]?.connected === true ? (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400" title={connectionStatus[provider]?.message || ''}>
-                  ✓ Connected
-                </span>
-              ) : apiKeyStatus[provider] ? (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400" title={connectionStatus[provider]?.message || ''}>
-                  Key set (not tested)
-                </span>
-              ) : (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400">
-                  No key
-                </span>
-              )}
-            </div>
-
-            {/* API Key input + test button */}
-            <div className="flex gap-2 mb-3">
-              <input
-                type="password"
-                value={apiKeyInputs[provider] || ''}
-                onChange={(e) => setApiKeyInputs({ ...apiKeyInputs, [provider]: e.target.value })}
-                placeholder={apiKeyStatus[provider] ? 'Enter new key to replace' : 'Enter API key...'}
-                className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono"
-                style={{
-                  backgroundColor: 'var(--color-input-background)',
-                  color: 'var(--color-text-primary)',
-                }}
-              />
-              <button
-                onClick={() => handleTestConnection(provider)}
-                disabled={testingProvider === provider}
-                className="px-3 py-2 text-xs font-medium border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50 flex items-center gap-1.5 shrink-0"
-                style={{ color: 'var(--color-text-secondary)' }}
-                title="Test connection with entered or saved API key"
-              >
-                {testingProvider === provider ? (
-                  <><div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> Testing</>
-                ) : (
-                  <><span className="material-symbols-outlined text-sm">network_check</span> Test</>
-                )}
-              </button>
-            </div>
-            {/* Test result */}
-            {testResults[provider] && (
-              <div className={`mb-3 px-3 py-1.5 text-xs rounded-lg ${
-                testResults[provider].success
-                  ? 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-500/20'
-                  : 'bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20'
-              }`}>
-                {testResults[provider].message}
-              </div>
-            )}
-
-            {/* Models list */}
-            <div className="mb-2">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
-                  Models ({models.length})
-                </span>
-                <button
-                  onClick={() => setAddingForProvider(addingForProvider === provider ? null : provider)}
-                  className="text-xs px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
-                  style={{ color: 'var(--color-text-muted)' }}
-                >
-                  + Add model
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {models.map((m) => (
-                  <span
-                    key={m.model_id}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-white/5"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
-                    {m.model_id}
-                    <button
-                      onClick={() => handleDeleteModel(m.model_id)}
-                      className="hover:text-red-500 transition-colors"
-                      title="Delete model"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Add model form */}
-            {addingForProvider === provider && (
-              <div className="flex gap-2 items-start mt-2 p-2 bg-gray-50 dark:bg-white/5 rounded">
-                <div className="flex-1 space-y-1">
-                  <input
-                    value={newModelId}
-                    onChange={(e) => setNewModelId(e.target.value)}
-                    placeholder="Model ID (e.g. my-model-v1)"
-                    className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-border-dark rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                    style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
-                  />
-                  <input
-                    value={newModelName}
-                    onChange={(e) => setNewModelName(e.target.value)}
-                    placeholder="Display name (e.g. My Model V1)"
-                    className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-border-dark rounded focus:outline-none focus:ring-1 focus:ring-primary"
-                    style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
-                  />
-                </div>
-                <button
-                  onClick={() => handleAddModel(provider)}
-                  disabled={!newModelId.trim() || !newModelName.trim()}
-                  className="px-3 py-1.5 text-xs font-medium bg-primary text-white rounded hover:bg-primary/90 disabled:opacity-50"
-                >
-                  Add
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-
-        {/* ── Search Tools (always visible, no model dependency) ── */}
-        <div className="pt-4 border-t border-gray-200 dark:border-border-dark">
-          <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-            Search Tools
-          </h3>
-          <div className="text-xs mb-3" style={{ color: 'var(--color-text-muted)' }}>
-            API keys for web search services (Tavily, Serper)
-          </div>
-          {searchProviders.map((provider) => (
-            <div key={provider} className="border border-gray-200 dark:border-border-dark rounded-lg p-4 mb-3">
-              {/* Header with connection badge */}
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold capitalize" style={{ color: 'var(--color-text-primary)' }}>
-                  {provider}
-                </h4>
-                {connectionStatus[provider]?.connected === true ? (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400" title={connectionStatus[provider]?.message || ''}>
-                    ✓ Connected
-                  </span>
-                ) : apiKeyStatus[provider] ? (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400" title={connectionStatus[provider]?.message || ''}>
-                    Key set (not tested)
-                  </span>
-                ) : (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-500/20 text-gray-600 dark:text-gray-400">
-                    No key
-                  </span>
-                )}
-              </div>
-              {/* API Key input + test button */}
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={apiKeyInputs[provider] || ''}
-                  onChange={(e) => setApiKeyInputs({ ...apiKeyInputs, [provider]: e.target.value })}
-                  placeholder={apiKeyStatus[provider] ? 'Enter new key to replace' : 'Enter API key...'}
-                  className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono"
-                  style={{
-                    backgroundColor: 'var(--color-input-background)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                />
-                <button
-                  onClick={() => handleTestConnection(provider)}
-                  disabled={testingProvider === provider}
-                  className="px-3 py-2 text-xs font-medium border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors disabled:opacity-50 flex items-center gap-1.5 shrink-0"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                  title="Test connection with entered or saved API key"
-                >
-                  {testingProvider === provider ? (
-                    <><div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" /> Testing</>
-                  ) : (
-                    <><span className="material-symbols-outlined text-sm">network_check</span> Test</>
-                  )}
-                </button>
-              </div>
-              {/* Test result */}
-              {testResults[provider] && (
-                <div className={`mt-2 px-3 py-1.5 text-xs rounded-lg ${
-                  testResults[provider].success
-                    ? 'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-500/20'
-                    : 'bg-red-100 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20'
-                }`}>
-                  {testResults[provider].message}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Save button */}
-        <div className="pt-4 border-t border-gray-200 dark:border-border-dark">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleSaveApiKeys}
-              disabled={saving || Object.values(apiKeyInputs).every(v => !v.trim())}
-              className="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {saving ? (
-                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
-              ) : (
-                <><span className="material-symbols-outlined text-base">save</span> Save API Keys</>
-              )}
-            </button>
-            {saveMessage && (
-              <span className={`text-sm ${saveMessage.includes('successfully') ? 'text-green-600' : 'text-amber-600'}`}>
-                {saveMessage}
-              </span>
-            )}
-          </div>
+    <div className="space-y-6">
+      {/* Banner */}
+      <div
+        className="rounded-lg px-4 py-3 flex items-start gap-3 text-sm border"
+        style={{
+          backgroundColor: 'rgba(99,102,241,0.08)',
+          borderColor: 'rgba(99,102,241,0.2)',
+        }}
+      >
+        <span className="material-symbols-outlined text-base shrink-0 mt-0.5" style={{ color: 'var(--color-primary)' }}>info</span>
+        <div>
+          <p className="font-medium" style={{ color: 'var(--color-text-primary)' }}>API Keys from .env</p>
+          <p className="mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            API keys are now managed via the <code>.env</code> file at the project root.
+            Edit the file directly to add or update keys, then restart the server.
+          </p>
         </div>
       </div>
-    </SettingsSection>
+
+      {/* Provider Cards — read only */}
+      <SettingsSection title="Provider Keys" description="Current API key status (read from .env)">
+        <div className="space-y-3">
+          {providers.map(({ provider }) => {
+            const isSet = apiKeyStatus[provider];
+            const masked = maskedKeys[provider];
+            const conn = connectionStatus[provider];
+            const testResult = testResults[provider];
+
+            return (
+              <div
+                key={provider}
+                className="rounded-lg p-3 border"
+                style={{
+                  backgroundColor: 'var(--color-input-background)',
+                  borderColor: 'var(--color-border)',
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium capitalize" style={{ color: 'var(--color-text-primary)' }}>{provider}</span>
+                    {isSet ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981' }}>Set</span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>Not set</span>
+                    )}
+                    {conn?.connected === true && <span className="text-[10px] text-emerald-500">✓ Connected</span>}
+                    {conn?.connected === false && <span className="text-[10px] text-red-400" title={conn.message || ''}>✗ Failed</span>}
+                  </div>
+                  <button
+                    onClick={() => handleTestConnection(provider)}
+                    disabled={testingProvider === provider || !isSet}
+                    className="text-xs px-2.5 py-1 rounded-lg border transition-colors disabled:opacity-40"
+                    style={{
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-muted)',
+                    }}
+                  >
+                    {testingProvider === provider ? (
+                      <span className="flex items-center gap-1">
+                        <span className="w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--color-border)', borderTopColor: 'var(--color-primary)' }} />
+                        Testing...
+                      </span>
+                    ) : 'Test'}
+                  </button>
+                </div>
+
+                {isSet && masked && (
+                  <div className="font-mono text-xs px-2.5 py-1.5 rounded" style={{ backgroundColor: 'var(--color-background)', color: 'var(--color-text-muted)' }}>
+                    {masked}
+                  </div>
+                )}
+
+                {/* Test result */}
+                {testResult && (
+                  <div className={`mt-2 text-xs px-2.5 py-1.5 rounded flex items-start gap-1.5 ${testResult.success ? 'text-emerald-500' : 'text-red-400'}`}
+                    style={{
+                      backgroundColor: testResult.success ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                    }}
+                  >
+                    <span className="material-symbols-outlined text-xs">{testResult.success ? 'check_circle' : 'error'}</span>
+                    {testResult.message}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </SettingsSection>
+
+      {/* Models (read-only) */}
+      {providers.map(({ provider, models }) => (
+        <div key={provider} className="mb-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wider mb-2 capitalize" style={{ color: 'var(--color-text-muted)' }}>{provider}</h4>
+          <div className="flex flex-wrap gap-1.5">
+            {models.map(m => (
+              <span
+                key={m.model_id}
+                className="text-xs px-2 py-0.5 rounded-full border"
+                style={{
+                  backgroundColor: 'var(--color-background)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              >
+                {m.display_name}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

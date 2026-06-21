@@ -17,7 +17,6 @@ from models.settings import Settings as SettingsModel
 from langchain_openai import ChatOpenAI
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
-from services.encryption import encryption_service
 
 logger = logging.getLogger(__name__)
 
@@ -55,22 +54,22 @@ def _get_settings_row(db: Session) -> SettingsModel:
 
 
 def _resolve_model_name(model_name: Optional[str], db: Session) -> str:
-    """Resolve the explicit model or the DB-backed default model."""
+    """Resolve the explicit model or the default model from .env."""
     if model_name:
         return model_name
 
-    settings_row = _get_settings_row(db)
-    if settings_row.default_model:
-        return settings_row.default_model
+    from config import settings as app_settings
+    if app_settings.default_model:
+        return app_settings.default_model
 
     raise HTTPException(
         status_code=400,
-        detail="Default model is not configured in PostgreSQL Settings.",
+        detail="Default model is not configured in .env (DEFAULT_MODEL).",
     )
 
 
 def _get_active_model_row(db: Session, model_name: str) -> Optional[Model]:
-    """Fetch the active model record from PostgreSQL."""
+    """Fetch the active model record from the models table."""
     return (
         db.query(Model)
         .filter(
@@ -82,11 +81,23 @@ def _get_active_model_row(db: Session, model_name: str) -> Optional[Model]:
 
 
 def _get_decrypted_setting_value(settings_row: SettingsModel, key_name: str) -> Optional[str]:
-    """Decrypt a provider credential stored in settings.api_keys."""
-    encrypted_value = (settings_row.api_keys or {}).get(key_name)
-    if not encrypted_value:
-        return None
-    return encryption_service.decrypt(encrypted_value)
+    """Get API key from .env (via app_settings) for a provider."""
+    from config import settings as app_settings
+    mapping: dict[str, Optional[str]] = {
+        "openai": app_settings.openai_api_key,
+        "anthropic": app_settings.anthropic_api_key,
+        "google": app_settings.google_api_key,
+        "cohere": None,
+        "replicate": None,
+        "deepseek": app_settings.deepseek_api_key,
+        "glm": None,
+        "minimax": None,
+        "tavily": app_settings.tavily_api_key,
+        "serper": app_settings.serper_api_key,
+        "agnes": app_settings.agnes_api_key,
+        "agnes_base_url": app_settings.agnes_base_url,
+    }
+    return mapping.get(key_name)
 
 
 def _create_openai_compatible_llm(
@@ -182,7 +193,7 @@ def _create_llm_for_playground(
         if not base_url:
             raise HTTPException(
                 status_code=400,
-                detail="Agnes base URL must be configured in PostgreSQL Settings.",
+                detail="Agnes base URL must be configured in .env (AGNES_BASE_URL).",
             )
         return _create_openai_compatible_llm(
             model_name=resolved_model_name,
