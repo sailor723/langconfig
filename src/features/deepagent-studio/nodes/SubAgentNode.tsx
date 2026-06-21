@@ -4,7 +4,7 @@
  */
 
 import { memo } from 'react';
-import { Handle, Position, NodeProps } from 'reactflow';
+import { Handle, Position, NodeProps, NodeResizer } from 'reactflow';
 import type { ExecutionStatus } from '../types';
 
 interface Data {
@@ -32,16 +32,26 @@ const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
 
   return (
     <div
-      className="rounded-xl px-3 py-2 shadow-md relative"
+      className="rounded-xl px-3 py-2 shadow-md relative h-full w-full"
       style={{
         backgroundColor: 'var(--color-panel-dark)',
         border: `2px solid ${borderColor}`,
         minWidth: 160,
-        maxWidth: 180,
+        minHeight: 100,
         color: 'var(--color-text-primary)',
         animation: isActive ? 'da-pulse 1.2s ease-in-out infinite' : 'none',
       }}
     >
+      {/* Resize handles (only visible when selected) */}
+      <NodeResizer
+        color="var(--color-primary)"
+        isVisible={selected}
+        minWidth={160}
+        minHeight={100}
+        lineStyle={{ borderWidth: 1, opacity: 0.4 }}
+        handleStyle={{ width: 7, height: 7, borderRadius: 2 }}
+      />
+
       {/* Handles */}
       <Handle type="target" position={Position.Top} style={{ background: 'var(--color-primary)', opacity: 0 }} />
       <Handle type="source" position={Position.Bottom} style={{ background: 'var(--color-primary)', opacity: 0 }} />
@@ -69,16 +79,13 @@ const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
         {data.label}
       </div>
 
-      {/* Description */}
+      {/* Description — fills available height */}
       {data.description && (
         <div
-          className="text-[10px] mt-1 leading-snug"
+          className="text-[10px] mt-1 leading-snug overflow-auto"
           style={{
             color: 'var(--color-text-muted)',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
+            maxHeight: 'calc(100% - 60px)',
           }}
           title={data.description}
         >
