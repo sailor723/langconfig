@@ -52,7 +52,14 @@ function DeepAgentCanvasInner({ structure, selectedNodeId, onNodeSelect }: Props
   useEffect(() => {
     setNodes(layout.nodes);
     setEdges(layout.edges);
-  }, [layout, setNodes, setEdges]);
+    // Defer fitView to next frame so ReactFlow has measured the container
+    const t = setTimeout(() => {
+      try {
+        fitView({ padding: 0.15, duration: 300, maxZoom: 1.0, minZoom: 0.2 });
+      } catch {}
+    }, 100);
+    return () => clearTimeout(t);
+  }, [layout, setNodes, setEdges, fitView]);
 
   // Highlight selected node from external prop
   useEffect(() => {
@@ -104,9 +111,8 @@ function DeepAgentCanvasInner({ structure, selectedNodeId, onNodeSelect }: Props
       onPaneClick={() => onNodeSelect?.(null, null)}
       nodeTypes={nodeTypes}
       fitView
-      fitViewOptions={{ padding: 0.25, maxZoom: 1.0 }}
-      defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
-      minZoom={0.3}
+      fitViewOptions={{ padding: 0.15, maxZoom: 1.0, minZoom: 0.2 }}
+      minZoom={0.1}
       maxZoom={2}
       nodesDraggable={true}
       nodesConnectable={false}
