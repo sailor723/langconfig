@@ -66,7 +66,7 @@ export default function DeepAgentCanvas({ structure, selectedNodeId, onNodeSelec
             nodeTypes={nodeTypes}
             fitView
             fitViewOptions={{ padding: 0.3 }}
-            nodesDraggable={false}
+            nodesDraggable={true}
             nodesConnectable={false}
             elementsSelectable={true}
             zoomOnDoubleClick={false}
@@ -94,7 +94,7 @@ export default function DeepAgentCanvas({ structure, selectedNodeId, onNodeSelec
       nodeTypes={nodeTypes}
       fitView
       fitViewOptions={{ padding: 0.2 }}
-      nodesDraggable={false}
+      nodesDraggable={true}
       nodesConnectable={false}
       elementsSelectable={true}
       zoomOnDoubleClick={false}
