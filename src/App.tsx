@@ -15,6 +15,7 @@ import WorkflowLibraryView from './features/workflows/library/WorkflowLibraryVie
 import NodeConfigPanel from './features/workflows/node-config/NodeConfigPanel';
 import SettingsView from './pages/SettingsPage';
 import PlaygroundPage from './pages/PlaygroundPage';
+import DeepAgentStudioPage from './features/deepagent-studio/StudioPage';
 import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
 import AgentLoadouts from './features/agents/ui/AgentLoadouts';
 import ToolLibrary from './features/tools/ToolLibrary';
@@ -29,7 +30,7 @@ import { ChatProvider } from './features/chat/state/ChatContext';
 import GlobalChatModal from './features/chat/ui/GlobalChatModal';
 import apiClient from './lib/api-client';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt';
+type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -176,6 +177,7 @@ function AppContent() {
     if (path === '/community') return 'community';
     if (path === '/settings') return 'settings';
     if (path === '/playground') return 'playground';
+    if (path === '/deepagent-studio') return 'deepagent-studio';
     return 'home';
   })();
 
@@ -227,7 +229,8 @@ function AppContent() {
       settings: '/settings',
       playground: '/playground',
       tools: '/tools',
-      prompt: '/prompt'
+      prompt: '/prompt',
+      'deepagent-studio': '/deepagent-studio'
     };
     navigate(routes[view]);
   };
@@ -440,6 +443,7 @@ function AppContent() {
           {currentView === 'community' && <CommunityPage />}
           {currentView === 'settings' && <SettingsView />}
           {currentView === 'playground' && <PlaygroundPage />}
+          {currentView === 'deepagent-studio' && <DeepAgentStudioPage />}
         </div>
 
         {/* Right Panel - Node Config (only in studio view on studio tab with selected node) */}
