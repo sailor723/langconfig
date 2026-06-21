@@ -64,6 +64,7 @@ const en = {
   "settings_title": "Settings",
   "settings_general": "General",
   "settings_api_keys": "API Keys & Providers",
+  "settings_model_cards": "Model Cards",
   "settings_embedding": "Embedding",
   "settings_model_defaults": "Model Defaults",
   "settings_local_models": "Local Models",
