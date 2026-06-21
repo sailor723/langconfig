@@ -30,6 +30,7 @@ export default function PlaygroundPage() {
   // Model selection
   const [provider, setProvider] = useState<ModelProvider>('deepseek');
   const [selectedLocalModelId, setSelectedLocalModelId] = useState<string>('');
+  const [selectedCloudModelId, setSelectedCloudModelId] = useState<string>('');
   const [customModel, setCustomModel] = useState('');
   const [showCustom, setShowCustom] = useState(false);
   const [configOpen, setConfigOpen] = useState(true);
@@ -57,6 +58,11 @@ export default function PlaygroundPage() {
   // Derive cloud provider list from API data (dynamic - not hardcoded)
   const cloudProviders = [...new Set(cloudModels.map(m => m.provider))].sort();
 
+  // Reset selected cloud model when provider changes
+  useEffect(() => {
+    setSelectedCloudModelId('');
+  }, [provider]);
+
   // Build display labels from API data
   const getProviderLabel = (p: string): string => {
     const labels: Record<string, string> = {};
@@ -80,7 +86,7 @@ export default function PlaygroundPage() {
     ? customModel
     : provider === 'local'
       ? selectedLocalModelId
-      : getModelsForProvider(provider)?.[0]?.id || '';
+      : (selectedCloudModelId || getModelsForProvider(provider)?.[0]?.id || '');
 
   const selectedMetadata = provider === 'local'
     ? localModels.find(m => m.id === selectedLocalModelId)
@@ -274,7 +280,7 @@ export default function PlaygroundPage() {
               ) : (
                 <select
                   value={selectedModel}
-                  onChange={() => {}}
+                  onChange={e => setSelectedCloudModelId(e.target.value)}
                   className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1"
                   style={{
                     backgroundColor: 'var(--color-input-background)',
@@ -282,6 +288,7 @@ export default function PlaygroundPage() {
                     color: 'var(--color-text-primary)',
                   }}
                 >
+                  <option value="">Select model...</option>
                   {getModelsForProvider(provider).map(m => (
                     <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
