@@ -54,7 +54,7 @@ export default function DeepAgentCanvas({ structure, selectedNodeId, onNodeSelec
   }
 
   return (
-    <div className="flex-1 relative">
+    <>
     <ReactFlow
       nodes={nodes}
       edges={edges}
@@ -82,6 +82,6 @@ export default function DeepAgentCanvas({ structure, selectedNodeId, onNodeSelec
       />
     </ReactFlow>
     <PropertyPopup structure={structure} />
-    </div>
+    </>
   );
 }
