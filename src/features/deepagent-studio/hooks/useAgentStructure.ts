@@ -54,7 +54,7 @@ export function useAgentStructure(agentId: number | null) {
           name: config.name ?? agent.name ?? `Agent ${agent.id}`,
           description: config.description ?? '',
           model: config.model ?? 'unknown',
-          system_prompt_preview: (config.system_prompt ?? '').slice(0, 200),
+          system_prompt_preview: config.system_prompt ?? '',
           temperature: config.temperature ?? 0.7,
           max_tokens: config.max_tokens ?? 4096,
           tools: config.native_tools ?? config.tools ?? [],
@@ -75,7 +75,7 @@ export function useAgentStructure(agentId: number | null) {
             source: 'skill',
             model: config.model,
             tools: skill?.allowed_tools ?? [],
-            instructions_preview: skill?.instructions?.slice(0, 150),
+            instructions_preview: skill?.instructions,
             status: 'idle',
           });
         }
@@ -90,7 +90,7 @@ export function useAgentStructure(agentId: number | null) {
             source: 'user',
             model: sa.model ?? config.model,
             tools: sa.tools ?? [],
-            instructions_preview: sa.system_prompt?.slice(0, 150),
+            instructions_preview: sa.system_prompt,
             status: 'idle',
           });
         }
