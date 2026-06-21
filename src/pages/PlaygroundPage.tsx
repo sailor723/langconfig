@@ -155,58 +155,66 @@ export default function PlaygroundPage() {
     setChatHistory([]);
   };
 
-  const providerBtnClass = (p: ModelProvider, isActive: boolean) => {
-    const base = 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border';
-    if (isActive) {
-      return `${base} bg-gradient-to-r ${PROVIDER_COLORS[p]} text-white border-transparent shadow-lg shadow-${p === 'deepseek' ? 'blue' : p === 'gpt' ? 'emerald' : p === 'claude' ? 'orange' : 'violet'}-500/20`;
-    }
-    return `${base} bg-zinc-800/50 text-zinc-400 border-zinc-700/50 hover:bg-zinc-700/50 hover:text-zinc-300 hover:border-zinc-600/50`;
-  };
-
   return (
-    <div className="flex h-full bg-[#0a0a0f]">
+    <div className="flex h-full" style={{ backgroundColor: 'var(--color-background)' }}>
       {/* ═══ Left Sidebar - Model Config ═══ */}
-      <div className={`flex flex-col border-r border-zinc-800/60 bg-[#0d0d14] transition-all duration-300 ${configOpen ? 'w-72' : 'w-12'}`}>
+      <div
+        className={`flex flex-col transition-all duration-300 ${configOpen ? 'w-72' : 'w-12'}`}
+        style={{
+          backgroundColor: 'var(--color-panel-dark)',
+          borderRight: '1px solid var(--color-border)',
+        }}
+      >
         {/* Sidebar toggle */}
         <button
           onClick={() => setConfigOpen(!configOpen)}
-          className="flex items-center justify-center h-10 text-zinc-500 hover:text-zinc-300 transition-colors border-b border-zinc-800/60"
+          className="flex items-center justify-center h-10 transition-colors"
+          style={{
+            color: 'var(--color-text-muted)',
+            borderBottom: '1px solid var(--color-border)',
+          }}
         >
-          <span className="material-symbols-outlined text-lg">{configOpen ? 'chevron_left' : 'chevron_right'}</span>
+          <span className="material-symbols-outlined text-lg hover:opacity-80">{configOpen ? 'chevron_left' : 'chevron_right'}</span>
         </button>
 
         {configOpen && (
           <div className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-thin">
             {/* Provider selector */}
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 mb-2 block">Provider</label>
+              <label className="text-[11px] font-semibold uppercase tracking-widest mb-2 block" style={{ color: 'var(--color-text-muted)' }}>Provider</label>
               <div className="space-y-1.5">
                 {[...cloudProviders, 'local'].map((p) => (
                   <button
                     key={p}
                     onClick={() => handleProviderClick(p)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                      provider === p && !showCustom
-                        ? 'bg-zinc-700/80 text-white border border-zinc-600/60 shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-transparent'
-                    }`}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all border"
+                    style={{
+                      backgroundColor: provider === p && !showCustom ? 'var(--color-input-background)' : 'transparent',
+                      color: provider === p && !showCustom ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                      borderColor: provider === p && !showCustom ? 'var(--color-border)' : 'transparent',
+                    }}
                   >
                     <span className={`w-2 h-2 rounded-full bg-gradient-to-r ${PROVIDER_COLORS[p] || DEFAULT_PROVIDER_COLOR}`} />
                     {getProviderLabel(p)}
                     {p !== 'local' && (
-                      <span className={`ml-auto w-1.5 h-1.5 rounded-full ${getModelsForProvider(p).length > 0 ? 'bg-emerald-500' : 'bg-zinc-600'}`} title={getModelsForProvider(p).length > 0 ? 'Available' : 'No API key'} />
+                      <span
+                        className={`ml-auto w-1.5 h-1.5 rounded-full ${getModelsForProvider(p).length > 0 ? 'bg-emerald-500' : ''}`}
+                        style={{ backgroundColor: getModelsForProvider(p).length === 0 ? 'var(--color-text-muted)' : undefined, opacity: getModelsForProvider(p).length === 0 ? 0.4 : 1 }}
+                        title={getModelsForProvider(p).length > 0 ? 'Available' : 'No API key'}
+                      />
                     )}
                   </button>
                 ))}
                 <button
                   onClick={() => { setShowCustom(true); setProvider('deepseek'); }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    showCustom
-                      ? 'bg-zinc-700/80 text-white border border-zinc-600/60 shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 border border-transparent'
-                  }`}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all border"
+                  style={{
+                    backgroundColor: showCustom ? 'var(--color-input-background)' : 'transparent',
+                    color: showCustom ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                    borderColor: showCustom ? 'var(--color-border)' : 'transparent',
+                  }}
                 >
-                  <span className="w-2 h-2 rounded-full bg-zinc-500" />
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-text-muted)' }} />
                   Custom
                 </button>
               </div>
@@ -214,32 +222,47 @@ export default function PlaygroundPage() {
 
             {/* Model select */}
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 mb-2 block">Model</label>
+              <label className="text-[11px] font-semibold uppercase tracking-widest mb-2 block" style={{ color: 'var(--color-text-muted)' }}>Model</label>
               {showCustom ? (
                 <input
                   type="text"
                   value={customModel}
                   onChange={e => setCustomModel(e.target.value)}
                   placeholder="e.g. gpt-4o"
-                  className="w-full bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
+                  className="w-full rounded-lg px-3 py-2 text-sm placeholder-zinc-400 focus:outline-none focus:ring-1"
+                  style={{
+                    backgroundColor: 'var(--color-input-background)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
                 />
               ) : provider === 'local' ? (
                 <div>
                   {modelsLoading ? (
-                    <p className="text-xs text-zinc-500">Loading...</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Loading...</p>
                   ) : localModels.length === 0 ? (
                     <input
                       type="text"
                       value={selectedLocalModelId}
                       onChange={e => setSelectedLocalModelId(e.target.value)}
                       placeholder="e.g. local-ollama-llama3"
-                      className="w-full bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
+                      className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                      style={{
+                        backgroundColor: 'var(--color-input-background)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
                     />
                   ) : (
                     <select
                       value={selectedLocalModelId}
                       onChange={e => setSelectedLocalModelId(e.target.value)}
-                      className="w-full bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
+                      className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                      style={{
+                        backgroundColor: 'var(--color-input-background)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
                     >
                       <option value="">Select model...</option>
                       {localModels.map(m => (
@@ -252,7 +275,12 @@ export default function PlaygroundPage() {
                 <select
                   value={selectedModel}
                   onChange={() => {}}
-                  className="w-full bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
+                  className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                  style={{
+                    backgroundColor: 'var(--color-input-background)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-primary)',
+                  }}
                 >
                   {getModelsForProvider(provider).map(m => (
                     <option key={m.id} value={m.id}>{m.name}</option>
@@ -260,7 +288,7 @@ export default function PlaygroundPage() {
                 </select>
               )}
               {!showCustom && provider !== 'local' && !isCloudModelConfigured(selectedModel) && selectedModel && (
-                <p className="text-[11px] text-amber-400/80 mt-1.5 flex items-center gap-1">
+                <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: 'var(--color-warning, #f59e0b)' }}>
                   <span className="material-symbols-outlined text-xs">warning</span>
                   No API key
                 </p>
@@ -270,8 +298,8 @@ export default function PlaygroundPage() {
             {/* Temperature */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Temperature</label>
-                <span className="text-xs text-zinc-400 font-mono">{temperature.toFixed(1)}</span>
+                <label className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>Temperature</label>
+                <span className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>{temperature.toFixed(1)}</span>
               </div>
               <input
                 type="range"
@@ -280,15 +308,19 @@ export default function PlaygroundPage() {
                 step="0.1"
                 value={temperature}
                 onChange={e => setTemperature(parseFloat(e.target.value))}
-                className="w-full h-1.5 bg-zinc-700 rounded-full appearance-none cursor-pointer accent-emerald-500 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-emerald-500/30"
+                className="w-full h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-lg"
+                style={{
+                  backgroundColor: 'var(--color-border)',
+                  accentColor: 'var(--color-primary)',
+                }}
               />
             </div>
 
             {/* Max Tokens */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Max Tokens</label>
-                <span className="text-xs text-zinc-400 font-mono">{maxTokens.toLocaleString()}</span>
+                <label className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>Max Tokens</label>
+                <span className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>{maxTokens.toLocaleString()}</span>
               </div>
               <input
                 type="range"
@@ -297,19 +329,28 @@ export default function PlaygroundPage() {
                 step="256"
                 value={maxTokens}
                 onChange={e => setMaxTokens(parseInt(e.target.value))}
-                className="w-full h-1.5 bg-zinc-700 rounded-full appearance-none cursor-pointer accent-emerald-500 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-emerald-500/30"
+                className="w-full h-1.5 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-lg"
+                style={{
+                  backgroundColor: 'var(--color-border)',
+                  accentColor: 'var(--color-primary)',
+                }}
               />
             </div>
 
             {/* System Prompt */}
             <div>
-              <label className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 mb-2 block">System Prompt</label>
+              <label className="text-[11px] font-semibold uppercase tracking-widest mb-2 block" style={{ color: 'var(--color-text-muted)' }}>System Prompt</label>
               <textarea
                 value={systemPrompt}
                 onChange={e => setSystemPrompt(e.target.value)}
                 placeholder="Optional system instructions..."
                 rows={2}
-                className="w-full bg-zinc-800/60 border border-zinc-700/60 rounded-lg px-3 py-2 text-sm text-zinc-300 placeholder-zinc-600 focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 resize-none"
+                className="w-full rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1"
+                style={{
+                  backgroundColor: 'var(--color-input-background)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
               />
             </div>
           </div>
@@ -319,14 +360,27 @@ export default function PlaygroundPage() {
       {/* ═══ Main Chat Area ═══ */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Chat header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800/60 bg-[#0d0d14]/80">
+        <div
+          className="flex items-center justify-between px-5 py-3"
+          style={{
+            borderBottom: '1px solid var(--color-border)',
+            backgroundColor: 'var(--color-panel-dark)',
+          }}
+        >
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full bg-gradient-to-r ${PROVIDER_COLORS[provider]}`} />
-              <span className="text-sm font-semibold text-zinc-100">{displayModelName || 'Select a model'}</span>
+              <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{displayModelName || 'Select a model'}</span>
             </div>
             {selectedModel && (
-              <span className="text-[11px] text-zinc-500 bg-zinc-800/60 px-2 py-0.5 rounded-full border border-zinc-700/50">
+              <span
+                className="text-[11px] px-2 py-0.5 rounded-full border"
+                style={{
+                  color: 'var(--color-text-muted)',
+                  backgroundColor: 'var(--color-background)',
+                  borderColor: 'var(--color-border)',
+                }}
+              >
                 {provider === 'local' ? 'Local' : 'Cloud'}
               </span>
             )}
@@ -335,7 +389,8 @@ export default function PlaygroundPage() {
             {chatHistory.length > 0 && (
               <button
                 onClick={clearChat}
-                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors px-2.5 py-1.5 rounded-lg hover:bg-zinc-800/60"
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+                style={{ color: 'var(--color-text-muted)' }}
               >
                 <span className="material-symbols-outlined text-sm">delete</span>
                 Clear
@@ -348,11 +403,17 @@ export default function PlaygroundPage() {
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 scrollbar-thin">
           {chatHistory.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/10 flex items-center justify-center mb-4">
-                <span className="material-symbols-outlined text-3xl text-emerald-400/60">chat</span>
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+                style={{
+                  backgroundColor: 'rgba(99,102,241,0.08)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <span className="material-symbols-outlined text-3xl" style={{ color: 'var(--color-primary)' }}>chat</span>
               </div>
-              <h3 className="text-lg font-semibold text-zinc-300 mb-1">Model Playground</h3>
-              <p className="text-sm text-zinc-500 max-w-md">
+              <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>Model Playground</h3>
+              <p className="text-sm max-w-md" style={{ color: 'var(--color-text-muted)' }}>
                 Select a provider and model from the sidebar, then send a message to test it.
               </p>
             </div>
@@ -360,32 +421,51 @@ export default function PlaygroundPage() {
 
           {chatHistory.map((msg, idx) => (
             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[75%] ${msg.role === 'user' ? 'order-1' : 'order-1'}`}>
+              <div className="max-w-[75%]">
                 {/* Message bubble */}
                 {msg.role === 'user' ? (
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl rounded-br-md px-4 py-2.5">
-                    <p className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                  <div
+                    className="rounded-2xl rounded-br-md px-4 py-2.5"
+                    style={{
+                      backgroundColor: 'var(--color-primary)',
+                      color: '#FFFFFF',
+                    }}
+                  >
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                   </div>
                 ) : msg.error ? (
-                  <div className="bg-red-900/20 border border-red-800/30 rounded-2xl rounded-bl-md px-4 py-3">
+                  <div
+                    className="rounded-2xl rounded-bl-md px-4 py-3"
+                    style={{
+                      backgroundColor: 'rgba(239,68,68,0.1)',
+                      border: '1px solid rgba(239,68,68,0.2)',
+                    }}
+                  >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="material-symbols-outlined text-sm text-red-400">error</span>
-                      <span className="text-xs font-medium text-red-400">Error</span>
+                      <span className="material-symbols-outlined text-sm" style={{ color: '#ef4444' }}>error</span>
+                      <span className="text-xs font-medium" style={{ color: '#ef4444' }}>Error</span>
                     </div>
-                    <p className="text-sm text-red-300/90 whitespace-pre-wrap leading-relaxed">{msg.error}</p>
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: '#fca5a5' }}>{msg.error}</p>
                   </div>
                 ) : (
                   <div>
-                    <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-2xl rounded-bl-md px-4 py-2.5">
-                      <p className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    <div
+                      className="rounded-2xl rounded-bl-md px-4 py-2.5"
+                      style={{
+                        backgroundColor: 'var(--color-panel-dark)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text-primary)',
+                      }}
+                    >
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
                     </div>
                     {/* Metadata */}
                     <div className="flex items-center gap-3 mt-1.5 px-1">
                       {msg.model && (
-                        <span className="text-[10px] text-zinc-600 font-mono">{msg.model}</span>
+                        <span className="text-[10px] font-mono" style={{ color: 'var(--color-text-muted)' }}>{msg.model}</span>
                       )}
                       {msg.usage && (
-                        <span className="text-[10px] text-zinc-600">
+                        <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
                           {msg.usage.output_tokens} tokens
                         </span>
                       )}
@@ -399,14 +479,20 @@ export default function PlaygroundPage() {
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-zinc-800/40 border border-zinc-700/40 rounded-2xl rounded-bl-md px-4 py-3">
+              <div
+                className="rounded-2xl rounded-bl-md px-4 py-3"
+                style={{
+                  backgroundColor: 'var(--color-panel-dark)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/60 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/60 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--color-primary)', opacity: 0.6, animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--color-primary)', opacity: 0.6, animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: 'var(--color-primary)', opacity: 0.6, animationDelay: '300ms' }} />
                   </div>
-                  <span className="text-xs text-zinc-500">Thinking...</span>
+                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Thinking...</span>
                 </div>
               </div>
             </div>
@@ -416,8 +502,20 @@ export default function PlaygroundPage() {
         </div>
 
         {/* Input bar */}
-        <div className="px-4 py-3 border-t border-zinc-800/60 bg-[#0d0d14]">
-          <div className="flex items-end gap-2 bg-zinc-800/40 border border-zinc-700/50 rounded-2xl px-4 py-2 focus-within:border-emerald-500/40 focus-within:ring-1 focus-within:ring-emerald-500/10 transition-all">
+        <div
+          className="px-4 py-3"
+          style={{
+            borderTop: '1px solid var(--color-border)',
+            backgroundColor: 'var(--color-panel-dark)',
+          }}
+        >
+          <div
+            className="flex items-end gap-2 rounded-2xl px-4 py-2 transition-all"
+            style={{
+              backgroundColor: 'var(--color-input-background)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
             <textarea
               ref={inputRef}
               value={message}
@@ -425,12 +523,16 @@ export default function PlaygroundPage() {
               onKeyDown={handleKeyDown}
               placeholder="Type a message... (Shift+Enter for new line)"
               rows={1}
-              className="flex-1 bg-transparent border-none outline-none text-sm text-zinc-200 placeholder-zinc-600 resize-none max-h-32 py-1 leading-relaxed"
+              className="flex-1 bg-transparent border-none outline-none text-sm resize-none max-h-32 py-1 leading-relaxed"
+              style={{ color: 'var(--color-text-primary)' }}
             />
             <button
               onClick={handleSend}
               disabled={isLoading || !selectedModel.trim() || !message.trim()}
-              className="flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:bg-zinc-700 disabled:text-zinc-500 text-white transition-all shrink-0 disabled:cursor-not-allowed"
+              className="flex items-center justify-center w-9 h-9 rounded-xl text-white transition-all shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: 'var(--color-primary)',
+              }}
             >
               {isLoading ? (
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white/80 rounded-full animate-spin" />
@@ -439,7 +541,7 @@ export default function PlaygroundPage() {
               )}
             </button>
           </div>
-          <p className="text-[10px] text-zinc-600 mt-1.5 px-1">
+          <p className="text-[10px] mt-1.5 px-1" style={{ color: 'var(--color-text-muted)' }}>
             Model: {displayModelName || 'Not selected'} · Temp: {temperature.toFixed(1)} · Max tokens: {maxTokens.toLocaleString()}
           </p>
         </div>
