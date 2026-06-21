@@ -88,8 +88,8 @@ export function useAgentStructure(agentId: number | null) {
             name: sa.name,
             description: sa.description ?? '',
             source: 'user',
-            model: config.model,
-            tools: [],
+            model: sa.model ?? config.model,
+            tools: sa.tools ?? [],
             instructions_preview: sa.system_prompt?.slice(0, 150),
             status: 'idle',
           });
