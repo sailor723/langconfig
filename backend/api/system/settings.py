@@ -151,8 +151,7 @@ def mask_api_key(key: str) -> str:
     return f"{key[:4]}...{key[-4:]}"
 
 
-from services.encryption import encryption_service
-from sqlalchemy.orm.attributes import flag_modified
+from config import settings as app_settings
 
 # Test models for each provider
 PROVIDER_TEST_MODELS = {
@@ -256,259 +255,75 @@ def _test_search_connection(provider: str, api_key: str) -> dict:
         return {"success": False, "message": f"✗ Connection failed: {error_msg[:200]}"}
 
 
-@router.post("/api-keys/test")
-async def test_api_key(req: APIKeyTestRequest, db: Session = Depends(get_db)):
-    """Test a provider's API key connection."""
-    key = req.api_key
-    # If no key provided, try the saved key from DB
-    if not key:
-        settings = get_or_create_settings(db)
-        api_keys = settings.api_keys or {}
-        encrypted = api_keys.get(req.provider)
-        if encrypted:
-            key = encryption_service.decrypt(encrypted)
-
-    if not key:
-        raise HTTPException(status_code=400, detail=f"No API key found for '{req.provider}'. Provide a key or save one first.")
-
-    # Route to the right test based on provider type
-    if req.provider in SEARCH_PROVIDERS:
-        result = _test_search_connection(req.provider, key)
-    else:
-        base_url_extra = None
-        if req.provider == "agnes":
-            settings = get_or_create_settings(db)
-            stored_api_keys = settings.api_keys or {}
-            encrypted_base_url = stored_api_keys.get("agnes_base_url")
-            if encrypted_base_url:
-                base_url_extra = encryption_service.decrypt(encrypted_base_url)
-
-        result = _test_provider_connection(req.provider, key, base_url_extra)
-
-    return {"success": result["success"], "message": result["message"]}
-
-
-# Endpoints
-@router.post("/api-keys")
-async def set_api_keys(keys: APIKeySet, db: Session = Depends(get_db)):
-    """Set API keys (stored encrypted in PostgreSQL). Auto-tests new connections."""
-    settings = get_or_create_settings(db)
-    api_keys = dict(settings.api_keys or {})
-
-    # Track which providers were updated
-    updated_providers = []
-
-    if keys.openai_api_key:
-        api_keys["openai"] = encryption_service.encrypt(keys.openai_api_key)
-        updated_providers.append("openai")
-    if keys.anthropic_api_key:
-        api_keys["anthropic"] = encryption_service.encrypt(keys.anthropic_api_key)
-        updated_providers.append("anthropic")
-    if keys.google_api_key:
-        api_keys["google"] = encryption_service.encrypt(keys.google_api_key)
-        updated_providers.append("google")
-    if keys.cohere_api_key:
-        api_keys["cohere"] = encryption_service.encrypt(keys.cohere_api_key)
-    if keys.replicate_api_key:
-        api_keys["replicate"] = encryption_service.encrypt(keys.replicate_api_key)
-    if keys.deepseek_api_key:
-        api_keys["deepseek"] = encryption_service.encrypt(keys.deepseek_api_key)
-        updated_providers.append("deepseek")
-    if keys.glm_api_key:
-        api_keys["glm"] = encryption_service.encrypt(keys.glm_api_key)
-        updated_providers.append("glm")
-    if keys.minimax_api_key:
-        api_keys["minimax"] = encryption_service.encrypt(keys.minimax_api_key)
-        updated_providers.append("minimax")
-    if keys.tavily_api_key:
-        api_keys["tavily"] = encryption_service.encrypt(keys.tavily_api_key)
-    if keys.serper_api_key:
-        api_keys["serper"] = encryption_service.encrypt(keys.serper_api_key)
-    if keys.agnes_api_key:
-        api_keys["agnes"] = encryption_service.encrypt(keys.agnes_api_key)
-        updated_providers.append("agnes")
-    if keys.agnes_base_url:
-        api_keys["agnes_base_url"] = encryption_service.encrypt(keys.agnes_base_url)
-
-    # Auto-test each updated provider
-    connection_status = dict(api_keys.get(CONNECTION_STATUS_KEY, {}))
-    for provider in updated_providers:
-        if provider not in CHAT_PROVIDERS:
-            continue
-        key = encryption_service.decrypt(api_keys.get(provider, ""))
-        if not key:
-            continue
-        base_url_extra = encryption_service.decrypt(api_keys.get("agnes_base_url")) if provider == "agnes" else None
-        result = _test_provider_connection(provider, key, base_url_extra)
-        connection_status[provider] = result
-
-    api_keys[CONNECTION_STATUS_KEY] = connection_status
-    settings.api_keys = api_keys
-    flag_modified(settings, "api_keys")
-    db.commit()
-
-    return {"message": "API keys saved successfully"}
+# ── API Keys endpoints (now read from .env) ──
 
 
 @router.get("/api-keys")
-async def get_api_keys(db: Session = Depends(get_db)):
-    """Get masked API keys status"""
-    settings = get_or_create_settings(db)
-    api_keys = settings.api_keys or {}
-    connection_status = api_keys.get("_connection_status", {})
+async def get_api_keys():
+    """Get API key status (read from .env)."""
     providers = ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax", "tavily", "serper", "agnes"]
 
     results = []
     for provider in providers:
-        encrypted_key = api_keys.get(provider)
-        # Decrypt to check if it's a valid key and for masking
-        key = encryption_service.decrypt(encrypted_key) if encrypted_key else None
-        status = connection_status.get(provider, {})
-
+        key = _get_env_key_for_provider(provider)
         results.append(
             APIKeyResponse(
                 provider=provider,
                 is_set=key is not None,
                 masked_key=mask_api_key(key) if key else None,
-                connected=status.get("success") if status else None,
-                connected_message=status.get("message") if status else None,
+                connected=None,
+                connected_message=None,
             )
         )
 
     return results
 
 
-@router.get("/available-models")
-async def get_available_models(db: Session = Depends(get_db)):
-    """Get available models based on configured API keys and validated local models"""
-    settings = get_or_create_settings(db)
-    api_keys = settings.api_keys or {}
-    available = []
-
-    # Provider-to-API-key mapping
-    provider_key_map = {
-        "openai": "openai",
-        "anthropic": "anthropic",
-        "google": "google",
-        "deepseek": "deepseek",
-        "glm": "glm",
-        "minimax": "minimax",
-        "agnes": "agnes",
-    }
-
-    # Query cloud models from DB based on which API keys are configured
-    from models.model import Model
-    cloud_models = db.query(Model).filter(
-        Model.source == 'cloud',
-        Model.is_active == True
-    ).all()
-
-    for model in cloud_models:
-        # Only include if the corresponding API key is configured
-        key_name = provider_key_map.get(model.provider)
-        if key_name and api_keys.get(key_name):
-            available.append(model.model_id)
-
-    # Local models (validated only)
-    from models.local_model import LocalModel
-    local_models = db.query(LocalModel).filter(
-        LocalModel.is_validated == True,
-        LocalModel.is_active == True
-    ).all()
-
-    # Add local models to available list with "local-" prefix
-    local_model_list = []
-    for model in local_models:
-        model_id = f"local-{model.name}"
-        available.append(model_id)
-        local_model_list.append({
-            "id": model.id,
-            "name": model_id,
-            "display_name": model.display_name,
-            "provider": model.provider,
-            "capabilities": model.capabilities,
-            "base_url": model.base_url,
-            "model_name": model.model_name
-        })
-
-    return {
-        "models": available,
-        "local_models": local_model_list  # Include detailed local model info
-    }
-
-
-@router.get("/embedding-models")
-async def get_available_embedding_models(db: Session = Depends(get_db)):
-    """Get available embedding models (cloud + local)."""
-    settings = get_or_create_settings(db)
-    api_keys = settings.api_keys or {}
-    models = []
-
-    # Cloud embedding models (require OpenAI key)
-    if api_keys.get("openai"):
-        models.extend([
-            {"id": "text-embedding-3-large", "name": "text-embedding-3-large", "provider": "openai", "type": "cloud"},
-            {"id": "text-embedding-3-small", "name": "text-embedding-3-small", "provider": "openai", "type": "cloud"},
-            {"id": "text-embedding-ada-002", "name": "text-embedding-ada-002", "provider": "openai", "type": "cloud"},
-        ])
-
-    # Local embedding models from Ollama
-    try:
-        import httpx
-        local_base_url = settings.local_base_url or "http://localhost:11434"
-        ollama_url = f"{local_base_url.rstrip('/v1').rstrip('/')}/api/tags"
-        resp = httpx.get(ollama_url, timeout=3.0)
-        if resp.status_code == 200:
-            data = resp.json()
-            for tag in data.get("models", []):
-                name = tag.get("name", "")
-                models.append({
-                    "id": f"ollama-{name}",
-                    "name": name,
-                    "provider": "ollama",
-                    "type": "local",
-                })
-    except Exception:
-        pass  # Ollama not available
-
-    # Also include any local models configured in the local_models table
-    try:
-        from models.local_model import LocalModel
-        local_models = db.query(LocalModel).filter(
-            LocalModel.is_active == True
-        ).all()
-        for model in local_models:
-            # Only add if not already in list
-            mid = f"local-{model.name}"
-            if not any(m["id"] == mid for m in models):
-                models.append({
-                    "id": mid,
-                    "name": model.display_name or model.name,
-                    "provider": model.provider,
-                    "type": "local",
-                })
-    except Exception:
-        pass
-
-    return {"models": models}
+@router.post("/api-keys")
+async def set_api_keys():
+    """API keys are managed via .env — this endpoint is no longer used."""
+    return {"message": "API keys are configured in .env file. Edit .env directly or use Settings UI to see current status."}
 
 
 @router.delete("/api-keys/{provider}")
-async def delete_api_key(provider: str, db: Session = Depends(get_db)):
-    """Delete an API key"""
-    if provider not in ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax"]:
-        raise HTTPException(status_code=400, detail="Invalid provider")
+async def delete_api_key(provider: str):
+    """API keys are managed via .env — this endpoint is no longer used."""
+    return {"message": f"API keys are configured in .env file. Remove the entry for '{provider}' from .env directly."}
 
-    settings = get_or_create_settings(db)
-    api_keys = settings.api_keys or {}
 
-    if provider in api_keys:
-        del api_keys[provider]
-        settings.api_keys = api_keys
-        db.commit()
-        return {"message": f"{provider} API key deleted"}
+@router.post("/api-keys/test")
+async def test_api_key(req: APIKeyTestRequest):
+    """Test a provider's API key connection. Reads key from .env."""
+    key = req.api_key or _get_env_key_for_provider(req.provider)
+
+    if not key:
+        raise HTTPException(status_code=400, detail=f"No API key found for '{req.provider}'. Set it in .env file.")
+
+    if req.provider in SEARCH_PROVIDERS:
+        result = _test_search_connection(req.provider, key)
     else:
-        raise HTTPException(status_code=404, detail="API key not found")
+        base_url_extra = app_settings.AGNES_BASE_URL if req.provider == "agnes" else None
+        result = _test_provider_connection(req.provider, key, base_url_extra)
+
+    return {"success": result["success"], "message": result["message"]}
+
+
+def _get_env_key_for_provider(provider: str) -> Optional[str]:
+    """Get API key from .env for a provider."""
+    mapping = {
+        "openai": app_settings.openai_api_key,
+        "anthropic": app_settings.anthropic_api_key,
+        "google": app_settings.google_api_key,
+        "cohere": None,
+        "replicate": None,
+        "deepseek": app_settings.deepseek_api_key,
+        "glm": None,
+        "minimax": None,
+        "tavily": app_settings.tavily_api_key,
+        "serper": app_settings.serper_api_key,
+        "agnes": app_settings.agnes_api_key,
+    }
+    return mapping.get(provider)
 
 
 @router.get("/", response_model=SettingsResponse)
@@ -706,41 +521,26 @@ async def update_general_settings(general_settings: GeneralSettings, db: Session
     )
 
 
-# Local Models Settings Endpoints
+# Local Models Settings Endpoints (read from .env)
 @router.get("/local-models", response_model=LocalModelsSettings)
-async def get_local_models_settings(db: Session = Depends(get_db)):
-    """Get local models configuration"""
-    settings = get_or_create_settings(db)
+async def get_local_models_settings():
+    """Get local models configuration (from .env)."""
     return LocalModelsSettings(
-        provider=settings.local_provider,
-        base_url=settings.local_base_url,
-        model_name=settings.local_model_name,
-        api_key=encryption_service.decrypt(settings.local_api_key) if settings.local_api_key else None
+        provider=app_settings.local_llm_provider,
+        base_url=app_settings.local_llm_base_url,
+        model_name=app_settings.local_llm_model,
+        api_key=app_settings.local_llm_api_key,
     )
 
 
 @router.post("/local-models", response_model=LocalModelsSettings)
-async def update_local_models_settings(local_models: LocalModelsSettings, db: Session = Depends(get_db)):
-    """Update local models configuration"""
-    settings = get_or_create_settings(db)
-
-    if local_models.provider is not None:
-        settings.local_provider = local_models.provider
-    if local_models.base_url is not None:
-        settings.local_base_url = local_models.base_url
-    if local_models.model_name is not None:
-        settings.local_model_name = local_models.model_name
-    if local_models.api_key is not None:
-        settings.local_api_key = encryption_service.encrypt(local_models.api_key)
-
-    db.commit()
-    db.refresh(settings)
-
+async def update_local_models_settings():
+    """Local model settings are managed via .env."""
     return LocalModelsSettings(
-        provider=settings.local_provider,
-        base_url=settings.local_base_url,
-        model_name=settings.local_model_name,
-        api_key=encryption_service.decrypt(settings.local_api_key) if settings.local_api_key else None
+        provider=app_settings.local_llm_provider,
+        base_url=app_settings.local_llm_base_url,
+        model_name=app_settings.local_llm_model,
+        api_key=app_settings.local_llm_api_key,
     )
 
 
@@ -790,61 +590,38 @@ async def update_workspace_settings(workspace: WorkspaceSettings, db: Session = 
     )
 
 
-# Model Defaults Settings Endpoints
+# Model Defaults Settings Endpoints (read from .env)
 @router.get("/model-defaults", response_model=ModelDefaultsSettings)
-async def get_model_defaults_settings(db: Session = Depends(get_db)):
-    """Get model defaults configuration"""
-    settings = get_or_create_settings(db)
+async def get_model_defaults_settings():
+    """Get model defaults configuration (from .env)."""
+    fallback_list = [m.strip() for m in app_settings.fallback_models.split(",") if m.strip()] if app_settings.fallback_models else [app_settings.default_model]
     return ModelDefaultsSettings(
-        primary_model=settings.primary_model,
-        fallback_models=settings.fallback_models,
-        temperature=settings.temperature,
-        max_tokens=settings.max_tokens_default,
-        top_p=settings.top_p,
-        routing_strategy=settings.routing_strategy,
-        daily_token_limit=settings.daily_token_limit,
-        monthly_token_limit=settings.monthly_token_limit,
-        alert_threshold=settings.alert_threshold
+        primary_model=app_settings.default_model,
+        fallback_models=fallback_list or [app_settings.default_model],
+        temperature=app_settings.default_temperature,
+        max_tokens=app_settings.max_tokens,
+        top_p=app_settings.top_p,
+        routing_strategy="balanced",
+        daily_token_limit=0,
+        monthly_token_limit=0,
+        alert_threshold=80,
     )
 
 
 @router.post("/model-defaults", response_model=ModelDefaultsSettings)
-async def update_model_defaults_settings(model_defaults: ModelDefaultsSettings, db: Session = Depends(get_db)):
-    """Update model defaults configuration"""
-    settings = get_or_create_settings(db)
-
-    if model_defaults.primary_model is not None:
-        settings.primary_model = model_defaults.primary_model
-    if model_defaults.fallback_models is not None:
-        settings.fallback_models = model_defaults.fallback_models
-    if model_defaults.temperature is not None:
-        settings.temperature = model_defaults.temperature
-    if model_defaults.max_tokens is not None:
-        settings.max_tokens_default = model_defaults.max_tokens
-    if model_defaults.top_p is not None:
-        settings.top_p = model_defaults.top_p
-    if model_defaults.routing_strategy is not None:
-        settings.routing_strategy = model_defaults.routing_strategy
-    if model_defaults.daily_token_limit is not None:
-        settings.daily_token_limit = model_defaults.daily_token_limit
-    if model_defaults.monthly_token_limit is not None:
-        settings.monthly_token_limit = model_defaults.monthly_token_limit
-    if model_defaults.alert_threshold is not None:
-        settings.alert_threshold = model_defaults.alert_threshold
-
-    db.commit()
-    db.refresh(settings)
-
+async def update_model_defaults_settings():
+    """Model defaults are managed via .env."""
+    fallback_list = [m.strip() for m in app_settings.fallback_models.split(",") if m.strip()] if app_settings.fallback_models else [app_settings.default_model]
     return ModelDefaultsSettings(
-        primary_model=settings.primary_model,
-        fallback_models=settings.fallback_models,
-        temperature=settings.temperature,
-        max_tokens=settings.max_tokens_default,
-        top_p=settings.top_p,
-        routing_strategy=settings.routing_strategy,
-        daily_token_limit=settings.daily_token_limit,
-        monthly_token_limit=settings.monthly_token_limit,
-        alert_threshold=settings.alert_threshold
+        primary_model=app_settings.default_model,
+        fallback_models=fallback_list or [app_settings.default_model],
+        temperature=app_settings.default_temperature,
+        max_tokens=app_settings.max_tokens,
+        top_p=app_settings.top_p,
+        routing_strategy="balanced",
+        daily_token_limit=0,
+        monthly_token_limit=0,
+        alert_threshold=80,
     )
 
 
