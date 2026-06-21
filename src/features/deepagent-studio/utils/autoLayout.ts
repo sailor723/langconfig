@@ -10,6 +10,9 @@
 import type { Node, Edge } from 'reactflow';
 import type { AgentStructure } from '../types';
 
+/** Snap to 10px grid so edges and boxes align cleanly. */
+const snap = (n: number) => Math.round(n / 10) * 10;
+
 export interface LayoutResult {
   nodes: Node[];
   edges: Edge[];
@@ -17,17 +20,17 @@ export interface LayoutResult {
 
 const MAIN_W = 160;
 const MAIN_H = 110;
-const INFO_W = 160;
-const INFO_H = 95;
-const PROMPT_W = 190;
-const PROMPT_H = 125;
+const INFO_W = 170;
+const INFO_H = 130;
+const PROMPT_W = 200;
+const PROMPT_H = 200;
 const SUB_W = 130;
 const SUB_H = 80;
 const RING_RADIUS = 260;
 
 const THEMES = {
-  llm: { bg: 'rgba(59,130,246,0.10)', accent: '#60a5fa', border: '#3b82f6' },
-  prompt: { bg: 'rgba(168,85,247,0.10)', accent: '#c084fc', border: '#a855f7' },
+  llm: { bg: 'rgba(30, 58, 138, 0.95)', accent: '#93c5fd', border: '#3b82f6' },
+  prompt: { bg: 'rgba(88, 28, 135, 0.95)', accent: '#d8b4fe', border: '#a855f7' },
   tool: { accent: '#3b82f6' },
 };
 
@@ -42,7 +45,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
   nodes.push({
     id: 'main',
     type: 'mainAgent',
-    position: { x: center.x - MAIN_W / 2, y: center.y - MAIN_H / 2 },
+    position: { x: snap(center.x - MAIN_W / 2), y: snap(center.y - MAIN_H / 2) },
     data: {
       label: structure.main_agent.name,
       model: structure.main_agent.model,
@@ -57,7 +60,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
   nodes.push({
     id: 'info-llm',
     type: 'info',
-    position: { x: center.x - MAIN_W / 2 - INFO_W - 60, y: center.y - INFO_H / 2 },
+    position: { x: snap(center.x - MAIN_W / 2 - INFO_W - 60), y: snap(center.y - INFO_H / 2) },
     data: {
       kind: 'llm',
       label: 'LLM',
@@ -86,7 +89,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
   nodes.push({
     id: 'info-prompt',
     type: 'info',
-    position: { x: center.x + MAIN_W / 2 + 60, y: center.y - PROMPT_H / 2 },
+    position: { x: snap(center.x + MAIN_W / 2 + 60), y: snap(center.y - PROMPT_H / 2) },
     data: {
       kind: 'prompt',
       label: 'System Prompt',
@@ -118,8 +121,8 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
     const n = subAgents.length;
     subAgents.forEach((sa, idx) => {
       const angle = (2 * Math.PI * idx) / n - Math.PI / 2; // start at top
-      const x = center.x + RING_RADIUS * Math.cos(angle) - SUB_W / 2;
-      const y = center.y + RING_RADIUS * Math.sin(angle) - SUB_H / 2;
+      const x = snap(center.x + RING_RADIUS * Math.cos(angle) - SUB_W / 2);
+      const y = snap(center.y + RING_RADIUS * Math.sin(angle) - SUB_H / 2);
 
       nodes.push({
         id: sa.id,
@@ -140,6 +143,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
       edges.push({
         id: `main-${sa.id}`,
         source: 'main',
+        sourceHandle: 'tools-out',
         target: sa.id,
         type: 'smoothstep',
         animated: false,
@@ -151,12 +155,12 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
   // Tools as pills at the BOTTOM (always shown if any)
   if (tools.length > 0) {
     const TOOL_W = 130;
-    const TOOL_H = 32;
-    const ROW_Y = center.y + MAIN_H / 2 + 100;
+    const TOOL_H = 48;
+    const ROW_Y = snap(center.y + MAIN_H / 2 + 160);
     const SPACING = 160;
     const totalWidth = (tools.length - 1) * SPACING;
     tools.forEach((toolName, idx) => {
-      const x = center.x - totalWidth / 2 + idx * SPACING - TOOL_W / 2;
+      const x = snap(center.x - totalWidth / 2 + idx * SPACING - TOOL_W / 2);
       const id = `tool-${toolName}`;
       nodes.push({
         id,
@@ -170,6 +174,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
       edges.push({
         id: `main-${id}`,
         source: 'main',
+        sourceHandle: 'tools-out',
         target: id,
         type: 'smoothstep',
         animated: false,

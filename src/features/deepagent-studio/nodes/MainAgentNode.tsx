@@ -37,7 +37,7 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
       {/* Handles — left for LLM, right for Prompt, bottom for Tools/Subs, top for incoming */}
       <Handle type="source" position={Position.Left} id="llm-out" style={{ background: '#60a5fa', opacity: 0 }} />
       <Handle type="source" position={Position.Right} id="prompt-out" style={{ background: '#c084fc', opacity: 0 }} />
-      <Handle type="source" position={Position.Bottom} style={{ background: 'var(--color-primary)', opacity: 0 }} />
+      <Handle type="source" position={Position.Bottom} id="tools-out" style={{ background: 'var(--color-primary)', opacity: 0 }} />
       <Handle type="target" position={Position.Top} style={{ background: 'var(--color-primary)', opacity: 0 }} />
 
       {/* Icon */}
@@ -62,6 +62,23 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
       <div className="text-[8px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
         {data.model}
       </div>
+
+      {data.description && (
+        <div
+          className="text-[8px] mt-1 px-1 text-center"
+          style={{
+            color: 'var(--color-text-muted)',
+            maxHeight: 32,
+            overflow: 'hidden',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+          }}
+          title={data.description}
+        >
+          {data.description}
+        </div>
+      )}
     </div>
   );
 });
