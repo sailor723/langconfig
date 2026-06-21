@@ -15,6 +15,7 @@ import LocalModelsSettings from "../features/settings/ui/LocalModelsSettings";
 import LocalWorkspaceSettings from "../features/settings/ui/LocalWorkspaceSettings";
 import ModelDefaultsSettings from '../features/settings/ui/ModelDefaultsSettings';
 import ApiKeysAndModels from '../features/settings/ui/ApiKeysAndModels';
+import ModelCardsSettings from '../features/settings/ui/ModelCardsSettings';
 import SettingsSection, { SettingsInput, SettingsSelect } from '../features/settings/ui/SettingsSection';
 
 export default function SettingsView() {
@@ -479,6 +480,9 @@ export default function SettingsView() {
 
       case 'api-keys':
         return <ApiKeysAndModels />;
+
+      case 'model-cards':
+        return <ModelCardsSettings />;
 
       case 'local-models':
         return <LocalModelsSettings />;
