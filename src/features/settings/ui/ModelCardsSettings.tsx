@@ -135,12 +135,13 @@ function CapabilityTag({ label }: { label: string }) {
   );
 }
 
-function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest }: {
+function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest, onSetDefault }: {
   model: ModelInfo | LocalModelInfo;
   apiKeySet: boolean;
   isLocal: boolean;
   isDefault: boolean;
   onTest: (provider: string) => void;
+  onSetDefault: (modelId: string) => void;
 }) {
   const provider = isLocal ? 'ollama' : (model as ModelInfo).provider.toLowerCase();
   const meta = PROVIDER_META[provider] || PROVIDER_META.ollama;
@@ -186,26 +187,13 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest }: {
       }}
     >
       {/* Default badge (top-center) */}
-      {/* Top: logo + name + status dot */}
+      {/* Top: name + status dot (logo removed - shown in section header) */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-0.5">
-            <div className={`shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-md bg-gradient-to-r ${meta.gradient}`} style={{ color: '#fff' }}>
-              <ProviderLogo provider={provider} size={12} />
-            </div>
-            <h4 className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
-              {model.display_name}
-              {isDefault && (
-                <span className="ml-1.5 inline-flex items-center text-[9px] font-bold uppercase px-1 py-0.5 rounded align-middle"
-                  style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
-                  title="Default model"
-                >
-                  ★ Default
-                </span>
-              )}
-            </h4>
-          </div>
-          <p className="text-[11px] font-mono truncate" style={{ color: 'var(--color-text-muted)' }}>
+          <h4 className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
+            {model.display_name}
+          </h4>
+          <p className="text-[10px] font-mono truncate" style={{ color: 'var(--color-text-muted)' }}>
             {modelIdOrName}
           </p>
         </div>
@@ -261,8 +249,8 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest }: {
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Bottom row: Test (left) + Modality (right) */}
-      <div className="flex items-center justify-between mt-1">
+      {/* Bottom row: Test (left) + Set Default + Modality (right) */}
+      <div className="flex items-center justify-between mt-1 gap-1">
         {/* Test button — bottom-left */}
         {!isLocal ? (
           <button
@@ -283,17 +271,47 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest }: {
           </span>
         )}
 
-        {/* Modality badge — bottom-right */}
-        <span
-          className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-          style={{
-            backgroundColor: isMultimodal ? 'rgba(167,139,250,0.15)' : 'rgba(148,163,184,0.12)',
-            color: modalityColor,
-          }}
-          title={isMultimodal ? 'Accepts text and images' : 'Text only'}
-        >
-          {modalityIcon} {modality}
-        </span>
+        {/* Right side: Set Default button + Modality badge */}
+        <div className="flex items-center gap-1">
+          {!isDefault && (
+            <button
+              onClick={() => onSetDefault(modelIdOrName)}
+              title="Set as default model"
+              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border transition-colors hover:border-primary/50"
+              style={{
+                borderColor: 'var(--color-primary)',
+                color: 'var(--color-primary)',
+                backgroundColor: 'transparent',
+              }}
+            >
+              ★ Set Default
+            </button>
+          )}
+          {isDefault && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium"
+              style={{
+                backgroundColor: 'var(--color-primary)',
+                color: '#fff',
+              }}
+              title="Current default model"
+            >
+              ★ Default
+            </span>
+          )}
+
+          {/* Modality badge */}
+          <span
+            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+            style={{
+              backgroundColor: isMultimodal ? 'rgba(167,139,250,0.15)' : 'rgba(148,163,184,0.12)',
+              color: modalityColor,
+            }}
+            title={isMultimodal ? 'Accepts text and images' : 'Text only'}
+          >
+            {modalityIcon} {modality}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -306,11 +324,13 @@ function formatContextSize(size: number): string {
   return String(size);
 }
 
-function ProviderGroupCard({ group, apiKeyStatus, defaultModel, onTest }: {
+function ProviderGroupCard({ group, apiKeyStatus, defaultModel, testResult, onTest, onSetDefault }: {
   group: ProviderGroup;
   apiKeyStatus: Record<string, boolean>;
   defaultModel: string;
+  testResult?: { success: boolean; message: string };
   onTest: (provider: string) => void;
+  onSetDefault: (modelId: string) => void;
 }) {
   const meta = PROVIDER_META[group.provider] || PROVIDER_META.ollama;
   const apiKeySet = apiKeyStatus[group.provider] || false;
@@ -324,7 +344,7 @@ function ProviderGroupCard({ group, apiKeyStatus, defaultModel, onTest }: {
     >
       {/* Provider header */}
       <div
-        className="flex items-center justify-between px-4 py-3"
+        className="flex items-center justify-between px-4 py-3 flex-wrap gap-2"
         style={{ backgroundColor: 'var(--color-input-background)', borderBottom: '1px solid var(--color-border)' }}
       >
         <div className="flex items-center gap-2.5">
@@ -343,6 +363,18 @@ function ProviderGroupCard({ group, apiKeyStatus, defaultModel, onTest }: {
           >
             {apiKeySet ? 'Key Set' : 'No Key'}
           </span>
+          {/* Inline test result (replaces panel-level) */}
+          {testResult && (
+            <span
+              className="text-[10px] px-2 py-0.5 rounded-full font-medium inline-flex items-center gap-1"
+              style={{
+                backgroundColor: testResult.success ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                color: testResult.success ? '#10b981' : '#ef4444',
+              }}
+            >
+              {testResult.success ? '✓' : '✗'} {testResult.message}
+            </span>
+          )}
         </div>
         <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
           {total} model{total !== 1 ? 's' : ''}
@@ -359,6 +391,7 @@ function ProviderGroupCard({ group, apiKeyStatus, defaultModel, onTest }: {
             isLocal={false}
             isDefault={m.model_id === defaultModel}
             onTest={onTest}
+            onSetDefault={onSetDefault}
           />
         ))}
         {group.localModels.map(m => (
@@ -369,6 +402,7 @@ function ProviderGroupCard({ group, apiKeyStatus, defaultModel, onTest }: {
             isLocal={true}
             isDefault={m.name === defaultModel || `local-${m.name}` === defaultModel}
             onTest={onTest}
+            onSetDefault={onSetDefault}
           />
         ))}
       </div>
@@ -526,6 +560,26 @@ export default function ModelCardsSettings() {
     }
   };
 
+  const handleSetDefault = async (modelId: string) => {
+    try {
+      await apiClient.updateModelDefaultsSettings({ primary_model: modelId });
+      setDefaultModel(modelId);
+      setTestResult(prev => ({ ...prev, [modelId]: { success: true, message: 'Set as default ✓' } }));
+      setTimeout(() => {
+        setTestResult(prev => {
+          const next = { ...prev };
+          delete next[modelId];
+          return next;
+        });
+      }, 3000);
+    } catch (err: any) {
+      setTestResult(prev => ({ ...prev, [modelId]: {
+        success: false,
+        message: err?.response?.data?.detail || err?.message || 'Failed to set default'
+      } }));
+    }
+  };
+
   // Group by provider
   const allProviders = new Set<string>();
   cloudModels.forEach(m => allProviders.add(m.provider.toLowerCase()));
@@ -572,26 +626,7 @@ export default function ModelCardsSettings() {
         )}
       </div>
 
-      {/* Test results */}
-      {Object.entries(testResult).map(([provider, result]) => (
-        <div
-          key={provider}
-          className={`mb-4 px-4 py-3 rounded-lg text-sm flex items-center gap-2 ${
-            result.success ? 'border-emerald-500/30' : 'border-red-500/30'
-          }`}
-          style={{
-            backgroundColor: result.success ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
-            border: `1px solid ${result.success ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
-            color: result.success ? '#10b981' : '#ef4444',
-          }}
-        >
-          <span>{result.success ? '✓' : '✗'}</span>
-          <span className="capitalize font-medium">{provider}:</span>
-          <span>{result.message}</span>
-        </div>
-      ))}
-
-      {/* Provider cards */}
+      {/* Provider cards (test results shown inline next to section logo) */}
       {groups.length === 0 && (
         <div className="text-center py-8" style={{ color: 'var(--color-text-muted)' }}>
           <span className="material-symbols-outlined text-3xl mb-2">smart_toy</span>
@@ -606,7 +641,9 @@ export default function ModelCardsSettings() {
             group={g}
             apiKeyStatus={apiKeyStatus}
             defaultModel={defaultModel}
+            testResult={testResult[g.provider]}
             onTest={handleTest}
+            onSetDefault={handleSetDefault}
           />
         ))}
       </div>
