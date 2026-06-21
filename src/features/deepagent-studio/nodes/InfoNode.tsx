@@ -1,9 +1,8 @@
 /**
- * InfoNode — a thematic "property" node displayed on the canvas and linked
- * to the Main Agent via an edge. Used for LLM and Prompt properties.
+ * InfoNode — compact themed card displayed on the canvas, linked to the
+ * Main Agent via an edge. Used for LLM and Prompt properties.
  *
- * Unlike ToolNode (a small pill), InfoNode is a proper card showing key
- * details inline so the user can see them at a glance without opening.
+ * Smaller and denser — shows full content (scrollable for long prompts).
  */
 
 import { memo } from 'react';
@@ -13,7 +12,7 @@ export type InfoKind = 'llm' | 'prompt';
 
 interface Data {
   kind: InfoKind;
-  label: string;             // e.g. "LLM" or "Prompt"
+  label: string;
   /** LLM-specific */
   model?: string;
   temperature?: number;
@@ -30,33 +29,42 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
   const borderColor = selected ? '#10b981' : data.border;
   return (
     <div
-      className="rounded-xl px-3 py-2 shadow-md relative h-full w-full"
+      className="rounded-lg px-2 py-1.5 shadow-sm relative h-full w-full flex flex-col"
       style={{
         backgroundColor: data.bg,
-        border: `2px solid ${borderColor}`,
+        border: `1.5px solid ${borderColor}`,
         color: 'var(--color-text-primary)',
-        minWidth: 180,
+        minWidth: 160,
         minHeight: 80,
       }}
     >
       <NodeResizer
         color={data.accent}
         isVisible={selected}
-        minWidth={180}
+        minWidth={160}
         minHeight={80}
         lineStyle={{ borderWidth: 1, opacity: 0.4 }}
-        handleStyle={{ width: 6, height: 6, borderRadius: 2 }}
+        handleStyle={{ width: 5, height: 5, borderRadius: 2 }}
       />
 
+      {/* Handle — connects back to Main Agent */}
+      <Handle
+        type="source"
+        position={data.kind === 'llm' ? Position.Right : Position.Left}
+        style={{ background: data.accent, opacity: 0 }}
+      />
       <Handle type="target" position={Position.Top} style={{ background: data.accent, opacity: 0 }} />
 
       {/* Header */}
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <span className="text-sm" style={{ color: data.accent }}>
+      <div
+        className="flex items-center gap-1 mb-1 pb-1"
+        style={{ borderBottom: `1px solid ${data.border}` }}
+      >
+        <span className="text-[10px]" style={{ color: data.accent }}>
           {data.kind === 'llm' ? '🤖' : '📜'}
         </span>
         <div
-          className="text-[10px] uppercase tracking-widest font-bold"
+          className="text-[8px] uppercase tracking-widest font-bold"
           style={{ color: data.accent }}
         >
           {data.label}
@@ -65,27 +73,31 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
 
       {/* Body */}
       {data.kind === 'llm' ? (
-        <div className="space-y-0.5 text-[10px] overflow-auto" style={{ maxHeight: 'calc(100% - 26px)' }}>
-          <div className="font-mono font-semibold truncate" title={data.model} style={{ color: 'var(--color-text-primary)' }}>
+        <div className="flex-1 flex flex-col justify-center gap-1 text-[9px] overflow-hidden">
+          <div className="font-mono font-bold truncate" title={data.model} style={{ color: 'var(--color-text-primary)' }}>
             {data.model}
           </div>
-          <div style={{ color: 'var(--color-text-muted)' }}>
-            <span className="font-mono">{data.temperature?.toFixed(2)}</span>
-            <span className="mx-1">·</span>
-            <span className="font-mono">{data.max_tokens?.toLocaleString() ?? '—'}t</span>
+          <div className="flex items-center gap-2" style={{ color: 'var(--color-text-muted)' }}>
+            <span className="flex items-center gap-0.5">
+              <span style={{ color: data.accent }}>🌡</span>
+              <span className="font-mono">{data.temperature?.toFixed(2)}</span>
+            </span>
+            <span className="flex items-center gap-0.5">
+              <span style={{ color: data.accent }}>📏</span>
+              <span className="font-mono">{((data.max_tokens ?? 0) / 1000).toFixed(1)}k</span>
+            </span>
           </div>
         </div>
       ) : (
         <div
-          className="text-[10px] leading-snug font-mono overflow-auto whitespace-pre-wrap"
+          className="flex-1 text-[9px] leading-snug font-mono overflow-auto whitespace-pre-wrap"
           style={{
             color: 'var(--color-text-primary)',
-            maxHeight: 'calc(100% - 26px)',
-            opacity: 0.85,
+            opacity: 0.9,
+            scrollbarWidth: 'thin',
           }}
         >
-          {data.prompt?.slice(0, 200) ?? '(empty)'}
-          {(data.prompt?.length ?? 0) > 200 && '…'}
+          {data.prompt || '(empty — no system prompt)'}
         </div>
       )}
     </div>
