@@ -50,69 +50,74 @@ const PROVIDER_META: Record<string, { label: string; gradient: string }> = {
   ollama:    { label: 'Ollama',    gradient: 'from-slate-500 to-gray-500'   },
 };
 
-// Provider logos — simple SVG marks, white-on-gradient
+// Inline company logos (no network dependency)
 function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number }) {
   const p = provider.toLowerCase();
-  const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'currentColor' };
+  const s = size;
   switch (p) {
     case 'openai':
       return (
-        <svg {...common} viewBox="0 0 24 24">
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor">
           <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.052 6.052 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.79a4.495 4.495 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.013l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0l-5.843 3.369V7.012a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08-4.778 2.758a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
         </svg>
       );
     case 'anthropic':
       return (
-        <svg {...common} viewBox="0 0 24 24">
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2L2 19.5h3.5L12 7l6.5 12.5H22L12 2zm0 7.5L8.5 16h7L12 9.5z"/>
         </svg>
       );
     case 'deepseek':
       return (
-        <svg {...common} viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2"/>
-          <circle cx="12" cy="12" r="4"/>
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <circle cx="12" cy="12" r="9"/>
+          <circle cx="12" cy="12" r="5.5"/>
+          <path d="M6.5 12h11"/>
         </svg>
       );
     case 'google':
       return (
-        <svg {...common} viewBox="0 0 24 24">
-          <path d="M12 11v3.2h7.6c-.3 1.7-2 5-7.6 5-4.6 0-8.3-3.8-8.3-8.4S7.4 2.4 12 2.4c2.6 0 4.4 1.1 5.4 2l3.7-3.6C18.7-1.4 15.6-1 12-1 4.8-1-1 4.8-1 12s5.8 13 13 13c7.5 0 12.5-5.3 12.5-12.7 0-.9-.1-1.5-.2-2.3H12z"/>
-        </svg>
-      );
-    case 'agnes':
-      return (
-        <svg {...common} viewBox="0 0 24 24">
-          <path d="M12 2L4 7v10l8 5 8-5V7l-8-5zm0 2.5l6 3.7v7.6l-6 3.7-6-3.7V8.2l6-3.7z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-      );
-    case 'minimax':
-      return (
-        <svg {...common} viewBox="0 0 24 24">
-          <path d="M3 3h6v6H3V3zm6 6h6V3H9v6zm6-6h6v6h-6V3zM3 15h6v6H3v-6zm6 0h6v6H9v-6zm6 0h6v6h-6v-6z"/>
-        </svg>
-      );
-    case 'glm':
-      return (
-        <svg {...common} viewBox="0 0 24 24">
-          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 3l4 4-4 4-4-4 4-4zm0 10l4 4-4 4-4-4 4-4z"/>
+        <svg width={s} height={s} viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.5 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.22-4.74 3.22-8.32z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.1A6.94 6.94 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.06H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.94l3.66-2.84z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.46 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
         </svg>
       );
     case 'ollama':
       return (
-        <svg {...common} viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2"/>
-          <circle cx="8" cy="10" r="1.5"/>
-          <circle cx="16" cy="10" r="1.5"/>
-          <path d="M8 16q4 3 8 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        <svg width={s} height={s} viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+          <circle cx="8.5" cy="10" r="1.3" fill="currentColor"/>
+          <circle cx="15.5" cy="10" r="1.3" fill="currentColor"/>
+          <path d="M8 15q4 3 8 0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      );
+    case 'minimax':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 3h4l5 9 5-9h4v18h-4V9l-5 9-5-9v12H3z"/>
+        </svg>
+      );
+    case 'glm':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>
+        </svg>
+      );
+    case 'agnes':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 4l3 8h-6l3-8zM8 14h8M12 4v6"/>
+          <circle cx="18" cy="6" r="0.5" fill="currentColor"/>
+          <circle cx="5" cy="8" r="0.5" fill="currentColor"/>
         </svg>
       );
     default:
       return (
-        <svg {...common} viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2"/>
-          <path d="M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M8 12h8" strokeLinecap="round"/>
         </svg>
       );
   }
@@ -173,7 +178,7 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest }: {
 
   return (
     <div
-      className="rounded-xl border p-3 flex flex-col gap-2 transition-all hover:border-primary/40 w-full relative"
+      className="rounded-xl border p-3 flex flex-col transition-all hover:border-primary/40 w-full relative"
       style={{
         backgroundColor: 'var(--color-panel-dark)',
         borderColor: isDefault ? 'var(--color-primary)' : 'var(--color-border)',
@@ -181,20 +186,17 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest }: {
         aspectRatio: '1.618 / 1',
       }}
     >
-      {/* Default badge (top-left corner) */}
+      {/* Default badge (top-center) */}
       {isDefault && (
         <div
-          className="absolute top-0 left-2 -translate-y-1/2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-          style={{
-            backgroundColor: 'var(--color-primary)',
-            color: '#fff',
-          }}
+          className="absolute -top-1.5 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+          style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
         >
           ★ Default
         </div>
       )}
 
-      {/* Header */}
+      {/* Top: logo + name + status dot */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-0.5">
@@ -209,43 +211,58 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest }: {
             {modelIdOrName}
           </p>
         </div>
-        {/* Clickable status dot — triggers test for cloud models, validate for local */}
+        {/* Status dot (top-right) */}
         {!isLocal ? (
-          <button
-            onClick={() => onTest(provider)}
-            title={apiKeySet ? 'Click to test connection' : 'No API key — click to test'}
-            className="w-3.5 h-3.5 rounded-full shrink-0 ring-2 ring-transparent hover:ring-primary/40 transition-all cursor-pointer"
-            style={{
-              backgroundColor: apiKeySet ? '#10b981' : '#ef4444',
-              boxShadow: '0 0 6px rgba(0,0,0,0.3)',
-            }}
+          <span
+            className="w-2.5 h-2.5 rounded-full shrink-0 mt-1"
+            style={{ backgroundColor: apiKeySet ? '#10b981' : '#ef4444' }}
+            title={apiKeySet ? 'API key set' : 'No API key'}
           />
         ) : (
           <span
-            className="w-3.5 h-3.5 rounded-full shrink-0"
-            style={{
-              backgroundColor: isValid ? '#10b981' : '#f59e0b',
-              boxShadow: '0 0 6px rgba(0,0,0,0.3)',
-            }}
+            className="w-2.5 h-2.5 rounded-full shrink-0 mt-1"
+            style={{ backgroundColor: isValid ? '#10b981' : '#f59e0b' }}
             title={isValid ? 'Validated' : 'Not validated'}
           />
         )}
       </div>
 
-      {/* Modality + capabilities */}
-      <div className="flex flex-wrap gap-1">
-        {/* Modality badge (always shown) */}
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Bottom row: Test (left) + Modality (right) */}
+      <div className="flex items-center justify-between mt-1">
+        {/* Test button — bottom-left */}
+        {!isLocal ? (
+          <button
+            onClick={() => onTest(provider)}
+            title="Click to test connection"
+            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border transition-colors hover:border-primary/50"
+            style={{
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text-muted)',
+              backgroundColor: 'var(--color-input-background)',
+            }}
+          >
+            <span style={{ color: apiKeySet ? '#10b981' : '#ef4444' }}>●</span> Test
+          </button>
+        ) : (
+          <span className="text-[10px]" style={{ color: isValid ? '#10b981' : '#f59e0b' }}>
+            {isValid ? '✓ Validated' : '⚠ Unvalidated'}
+          </span>
+        )}
+
+        {/* Modality badge — bottom-right */}
         <span
           className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
           style={{
-            backgroundColor: isMultimodal ? 'rgba(167,139,250,0.12)' : 'rgba(148,163,184,0.12)',
+            backgroundColor: isMultimodal ? 'rgba(167,139,250,0.15)' : 'rgba(148,163,184,0.12)',
             color: modalityColor,
           }}
           title={isMultimodal ? 'Accepts text and images' : 'Text only'}
         >
           {modalityIcon} {modality}
         </span>
-        {capKeys.slice(0, 3).map(k => <CapabilityTag key={k} label={k} />)}
       </div>
     </div>
   );
@@ -332,7 +349,7 @@ function EmbeddingModelCard({ model, isDefault, onTest }: {
 
   return (
     <div
-      className="rounded-xl border p-3 flex flex-col gap-2 transition-all hover:border-primary/40 w-full relative"
+      className="rounded-xl border p-3 flex flex-col transition-all hover:border-primary/40 w-full relative"
       style={{
         backgroundColor: 'var(--color-panel-dark)',
         borderColor: isDefault ? 'var(--color-primary)' : 'var(--color-border)',
@@ -342,12 +359,13 @@ function EmbeddingModelCard({ model, isDefault, onTest }: {
     >
       {isDefault && (
         <div
-          className="absolute top-0 left-2 -translate-y-1/2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+          className="absolute -top-1.5 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
           style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
         >
           ★ Active
         </div>
       )}
+      {/* Top: logo + name + status dot */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-0.5">
@@ -362,37 +380,40 @@ function EmbeddingModelCard({ model, isDefault, onTest }: {
             {model.id}
           </p>
         </div>
-        {onTest && isCloud && (
+        {/* Status dot (top-right) */}
+        <span
+          className="w-2.5 h-2.5 rounded-full shrink-0 mt-1"
+          style={{ backgroundColor: '#10b981' }}
+          title={isCloud ? 'Available' : 'Local'}
+        />
+      </div>
+      {/* Spacer */}
+      <div className="flex-1" />
+      {/* Bottom row: Test (left) + Embedding type (right) */}
+      <div className="flex items-center justify-between mt-1">
+        {onTest && isCloud ? (
           <button
             onClick={() => onTest(provider)}
-            title="Click to test"
-            className="w-3.5 h-3.5 rounded-full shrink-0 ring-2 ring-transparent hover:ring-primary/40 transition-all cursor-pointer"
-            style={{ backgroundColor: '#10b981', boxShadow: '0 0 6px rgba(0,0,0,0.3)' }}
-          />
+            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border transition-colors hover:border-primary/50"
+            style={{
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text-muted)',
+              backgroundColor: 'var(--color-input-background)',
+            }}
+          >
+            <span style={{ color: '#10b981' }}>●</span> Test
+          </button>
+        ) : (
+          <span className="text-[10px]" style={{ color: '#10b981' }}>✓ Ready</span>
         )}
-        {!isCloud && (
-          <span
-            className="w-3.5 h-3.5 rounded-full shrink-0"
-            style={{ backgroundColor: '#10b981', boxShadow: '0 0 6px rgba(0,0,0,0.3)' }}
-            title="Local"
-          />
-        )}
-      </div>
-      <div className="flex flex-wrap gap-1">
         <span
           className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
           style={{
-            backgroundColor: isCloud ? 'rgba(99,102,241,0.12)' : 'rgba(148,163,184,0.12)',
+            backgroundColor: isCloud ? 'rgba(99,102,241,0.15)' : 'rgba(148,163,184,0.12)',
             color: isCloud ? '#a5b4fc' : '#94a3b8',
           }}
         >
           {isCloud ? '☁ Cloud' : '💻 Local'}
-        </span>
-        <span
-          className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-          style={{ backgroundColor: 'rgba(167,139,250,0.12)', color: '#a78bfa' }}
-        >
-          🧬 Embedding
         </span>
       </div>
     </div>
