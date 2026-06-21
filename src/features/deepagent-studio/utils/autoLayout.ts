@@ -13,11 +13,11 @@ export interface LayoutResult {
   edges: Edge[];
 }
 
-const MAIN_W = 280;
-const MAIN_H = 160;
+const MAIN_W = 300;
+const MAIN_H = 280;
 const SUB_W = 180;
 const SUB_H = 100;
-const RING_RADIUS = 320;
+const RING_RADIUS = 360;
 
 export function buildLayout(structure: AgentStructure): LayoutResult {
   const nodes: Node[] = [];
