@@ -13,6 +13,7 @@ import ReactFlow, {
   useEdgesState,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import PropertyPopup from './components/PropertyPopup';
 
 import { nodeTypes } from './nodes/nodeTypes';
 import { buildLayout } from './utils/autoLayout';
@@ -53,6 +54,7 @@ export default function DeepAgentCanvas({ structure, selectedNodeId, onNodeSelec
   }
 
   return (
+    <div className="flex-1 relative">
     <ReactFlow
       nodes={nodes}
       edges={edges}
@@ -79,5 +81,7 @@ export default function DeepAgentCanvas({ structure, selectedNodeId, onNodeSelec
         zoomable
       />
     </ReactFlow>
+    <PropertyPopup structure={structure} />
+    </div>
   );
 }
