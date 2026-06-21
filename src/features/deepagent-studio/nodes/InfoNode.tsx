@@ -2,10 +2,12 @@
  * InfoNode — compact themed card displayed on the canvas, linked to the
  * Main Agent via an edge. Used for LLM and Prompt properties.
  *
- * Rich key/value formatting for LLM, full prompt (scrollable) for Prompt.
+ * Rich key/value formatting for LLM, full prompt (scrollable + expand toggle)
+ * for Prompt.
  */
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { Handle, Position, NodeProps, NodeResizer } from 'reactflow';
 
 export type InfoKind = 'llm' | 'prompt';
@@ -27,14 +29,15 @@ interface Data {
 }
 
 const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
-  const borderColor = selected ? '#10b981' : data.border;
+  const borderColor = selected ? '#A85A2E' : data.border;
+  const [expanded, setExpanded] = useState(false);
   return (
     <div
       className="rounded-lg px-2 py-1.5 shadow-sm relative h-full w-full flex flex-col"
       style={{
         backgroundColor: data.bg,
         border: `1.5px solid ${borderColor}`,
-        color: '#f3f4f6',
+        color: '#1F1E1B',
         minWidth: 170,
         minHeight: 80,
       }}
@@ -65,11 +68,22 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
           {data.kind === 'llm' ? '🤖' : '📜'}
         </span>
         <div
-          className="text-[8px] uppercase tracking-widest font-bold"
+          className="text-[8px] uppercase tracking-widest font-bold flex-1 truncate"
           style={{ color: data.accent }}
         >
           {data.label}
         </div>
+        {data.kind === 'prompt' && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            title={expanded ? 'Collapse' : 'Expand to fit prompt'}
+            className="flex items-center justify-center rounded transition-colors hover:bg-black/10"
+            style={{ width: 16, height: 16, color: data.accent, flexShrink: 0 }}
+          >
+            {expanded ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
+          </button>
+        )}
       </div>
 
       {/* Body */}
@@ -86,7 +100,7 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
         <div
           className="flex-1 text-[9px] leading-snug font-mono overflow-auto whitespace-pre-wrap"
           style={{
-            color: '#f9fafb',
+            color: '#1F1E1B',
             scrollbarWidth: 'thin',
           }}
         >
@@ -103,11 +117,11 @@ function KV({ label, value, accentColor }: { label: string; value: string; accen
     <div className="flex items-center gap-1 overflow-hidden">
       <span
         className="text-[8px] font-bold uppercase tracking-wider flex-shrink-0"
-        style={{ color: accentColor, opacity: 0.85, minWidth: 32 }}
+        style={{ color: accentColor, minWidth: 32 }}
       >
         {label}
       </span>
-      <span className="font-mono font-medium truncate" style={{ color: '#ffffff' }}>
+      <span className="font-mono font-medium truncate" style={{ color: '#1F1E1B' }}>
         {value}
       </span>
     </div>
