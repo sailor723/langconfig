@@ -30,6 +30,54 @@ export default function DetailPanel({ structure, selectedNodeId }: Props) {
   }
 
   const isMain = !selectedNodeId || selectedNodeId === 'main';
+  const isTool = selectedNodeId?.startsWith('tool-') ?? false;
+
+  // Tool node case
+  if (isTool && selectedNodeId) {
+    const toolName = selectedNodeId.replace(/^tool-/, '');
+    return (
+      <div
+        className="w-72 border-l overflow-y-auto scrollbar-thin"
+        style={{
+          backgroundColor: 'var(--color-panel-dark)',
+          borderColor: 'var(--color-border)',
+        }}
+      >
+        <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🔧</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs uppercase tracking-widest font-bold" style={{ color: '#93c5fd' }}>
+                Native Tool
+              </div>
+              <div className="text-sm font-semibold font-mono truncate" style={{ color: 'var(--color-text-primary)' }}>
+                {toolName}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="px-4 py-3 space-y-3 text-xs">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+              Type
+            </div>
+            <div style={{ color: 'var(--color-text-primary)' }}>
+              Native tool (always available to main agent)
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+              Note
+            </div>
+            <div style={{ color: 'var(--color-text-muted)' }}>
+              Native tools are bound directly to the main agent and can be called in any conversation turn. They are separate from sub-agent tools (which require delegation via <code>task()</code>).
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const item: MainAgentInfo | SubAgent | null = isMain
     ? structure.main_agent
     : structure.sub_agents.find(s => s.id === selectedNodeId) ?? null;
