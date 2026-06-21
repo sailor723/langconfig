@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     deepseek_api_base: str = "https://api.deepseek.com"
     agnes_api_key: Optional[str] = None
     agnes_base_url: str = "https://apihub.agnes-ai.com/v1"
+    minimax_api_key: Optional[str] = None
+    minimax_api_base: str = "https://api.minimax.chat/v1"
+    kimi_api_key: Optional[str] = None
+    kimi_api_base: Optional[str] = None
+    qwen_api_key: Optional[str] = None
+    qwen_api_base: Optional[str] = None
+    glm_api_key: Optional[str] = None
+    glm_api_base: Optional[str] = None
     tavily_api_key: Optional[str] = None
     serper_api_key: Optional[str] = None
 
@@ -103,6 +111,38 @@ class Settings(BaseSettings):
     @property
     def AGNES_BASE_URL(self) -> str:
         return self.agnes_base_url
+
+    @property
+    def MINIMAX_API_KEY(self) -> Optional[str]:
+        return self.minimax_api_key
+
+    @property
+    def MINIMAX_API_BASE(self) -> str:
+        return self.minimax_api_base
+
+    @property
+    def KIMI_API_KEY(self) -> Optional[str]:
+        return self.kimi_api_key
+
+    @property
+    def KIMI_API_BASE(self) -> Optional[str]:
+        return self.kimi_api_base
+
+    @property
+    def QWEN_API_KEY(self) -> Optional[str]:
+        return self.qwen_api_key
+
+    @property
+    def QWEN_API_BASE(self) -> Optional[str]:
+        return self.qwen_api_base
+
+    @property
+    def GLM_API_KEY(self) -> Optional[str]:
+        return self.glm_api_key
+
+    @property
+    def GLM_API_BASE(self) -> Optional[str]:
+        return self.glm_api_base
 
     # ── Computed ──
     @property
