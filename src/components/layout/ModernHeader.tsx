@@ -12,8 +12,8 @@ import { useProject } from "../../contexts/ProjectContext";
 import { useChat } from '../../features/chat/state/ChatContext';
 
 interface ModernHeaderProps {
-  currentView: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt';
-  onViewChange: (view: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt') => void;
+  currentView: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
+  onViewChange: (view: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio') => void;
 }
 
 export default function ModernHeader({
@@ -221,6 +221,23 @@ export default function ModernHeader({
           <span className="flex items-center gap-2">
             <span className="material-symbols-outlined text-base">play_circle</span>
             {t('nav_playground')}
+          </span>
+        </button>
+        <button
+          onClick={() => onViewChange('deepagent-studio')}
+          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'deepagent-studio'
+            ? 'bg-white/30 text-white font-semibold border-white/40'
+            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
+            }`}
+          style={{
+            textShadow: currentView === 'deepagent-studio' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
+            backdropFilter: currentView === 'deepagent-studio' ? 'blur(8px)' : 'none'
+          }}
+          title="DeepAgent Studio — visualize any DeepAgent's structure"
+        >
+          <span className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-base">hub</span>
+            DeepAgent Studio
           </span>
         </button>
       </nav>
