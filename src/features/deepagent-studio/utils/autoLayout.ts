@@ -1,8 +1,10 @@
 /**
- * Auto-layout for DeepAgent Studio: main agent center, sub-agents in a ring.
- *
- * Uses simple trigonometry (no dagre dependency) to keep bundle small.
- * Result is fed to ReactFlow as Node[] with absolute positions.
+ * Auto-layout for DeepAgent Studio:
+ *   - Main agent at center
+ *   - LLM (InfoNode) on the left
+ *   - Prompt (InfoNode) on the right
+ *   - Tools as pills at the bottom (when no sub-agents)
+ *   - Sub-agents in a ring around main (when present)
  */
 
 import type { Node, Edge } from 'reactflow';
@@ -13,11 +15,21 @@ export interface LayoutResult {
   edges: Edge[];
 }
 
-const MAIN_W = 300;
-const MAIN_H = 280;
+const MAIN_W = 240;
+const MAIN_H = 160;
+const INFO_W = 240;
+const INFO_H = 140;
+const PROMPT_W = 280;
+const PROMPT_H = 180;
 const SUB_W = 180;
 const SUB_H = 100;
 const RING_RADIUS = 360;
+
+const THEMES = {
+  llm: { bg: 'rgba(59,130,246,0.10)', accent: '#60a5fa', border: '#3b82f6' },
+  prompt: { bg: 'rgba(168,85,247,0.10)', accent: '#c084fc', border: '#a855f7' },
+  tool: { accent: '#3b82f6' },
+};
 
 export function buildLayout(structure: AgentStructure): LayoutResult {
   const nodes: Node[] = [];
@@ -34,37 +46,115 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
     data: {
       label: structure.main_agent.name,
       model: structure.main_agent.model,
-      prompt_preview: structure.main_agent.system_prompt_preview,
-      temperature: structure.main_agent.temperature,
-      max_tokens: structure.main_agent.max_tokens,
-      middleware: structure.main_agent.middleware,
-      tools: structure.main_agent.tools,
       description: structure.main_agent.description,
-      use_deepagents: structure.main_agent.use_deepagents,
-      enable_compiled_subagents: structure.main_agent.enable_compiled_subagents,
-      use_local_sandbox: structure.main_agent.use_local_sandbox,
     },
     style: { width: MAIN_W, height: MAIN_H },
     draggable: true,
     selectable: true,
   });
 
-  // Sub-agents — in a ring around main
-  const n = structure.sub_agents.length;
+  // LLM info node — LEFT of main
+  nodes.push({
+    id: 'info-llm',
+    type: 'info',
+    position: { x: center.x - MAIN_W / 2 - INFO_W - 60, y: center.y - INFO_H / 2 },
+    data: {
+      kind: 'llm',
+      label: 'LLM',
+      model: structure.main_agent.model,
+      temperature: structure.main_agent.temperature,
+      max_tokens: structure.main_agent.max_tokens,
+      bg: THEMES.llm.bg,
+      accent: THEMES.llm.accent,
+      border: THEMES.llm.border,
+    },
+    style: { width: INFO_W, height: INFO_H },
+    draggable: true,
+    selectable: true,
+  });
+  edges.push({
+    id: 'main-info-llm',
+    source: 'main',
+    sourceHandle: 'left',
+    target: 'info-llm',
+    type: 'smoothstep',
+    animated: false,
+    style: { stroke: THEMES.llm.accent, strokeWidth: 1.5, opacity: 0.6 },
+  });
 
-  // No sub-agents: show native tools as small pills instead
-  if (n === 0) {
-    const tools = structure.main_agent.tools ?? [];
-    const toolCount = tools.length;
-    if (toolCount === 0) {
-      return { nodes, edges };
-    }
-    // Spread tools below the main agent in a horizontal row
+  // Prompt info node — RIGHT of main
+  nodes.push({
+    id: 'info-prompt',
+    type: 'info',
+    position: { x: center.x + MAIN_W / 2 + 60, y: center.y - PROMPT_H / 2 },
+    data: {
+      kind: 'prompt',
+      label: 'System Prompt',
+      prompt: structure.main_agent.system_prompt_preview,
+      bg: THEMES.prompt.bg,
+      accent: THEMES.prompt.accent,
+      border: THEMES.prompt.border,
+    },
+    style: { width: PROMPT_W, height: PROMPT_H },
+    draggable: true,
+    selectable: true,
+  });
+  edges.push({
+    id: 'main-info-prompt',
+    source: 'main',
+    sourceHandle: 'right',
+    target: 'info-prompt',
+    type: 'smoothstep',
+    animated: false,
+    style: { stroke: THEMES.prompt.accent, strokeWidth: 1.5, opacity: 0.6 },
+  });
+
+  // Tools + Sub-agents
+  const tools = structure.main_agent.tools ?? [];
+  const subAgents = structure.sub_agents;
+
+  if (subAgents.length > 0) {
+    // Sub-agents in a ring
+    const n = subAgents.length;
+    subAgents.forEach((sa, idx) => {
+      const angle = (2 * Math.PI * idx) / n - Math.PI / 2; // start at top
+      const x = center.x + RING_RADIUS * Math.cos(angle) - SUB_W / 2;
+      const y = center.y + RING_RADIUS * Math.sin(angle) - SUB_H / 2;
+
+      nodes.push({
+        id: sa.id,
+        type: 'subAgent',
+        position: { x, y },
+        data: {
+          label: sa.name,
+          description: sa.description,
+          source: sa.source,
+          tools: sa.tools,
+          instructions_preview: sa.instructions_preview,
+          status: sa.status,
+        },
+        style: { width: SUB_W, height: SUB_H },
+        draggable: true,
+        selectable: true,
+      });
+      edges.push({
+        id: `main-${sa.id}`,
+        source: 'main',
+        target: sa.id,
+        type: 'smoothstep',
+        animated: false,
+        style: { stroke: 'var(--color-primary)', strokeWidth: 1.5, opacity: 0.5 },
+      });
+    });
+  }
+
+  // Tools as pills at the BOTTOM (always shown if any)
+  if (tools.length > 0) {
     const TOOL_W = 130;
     const TOOL_H = 32;
-    const ROW_Y = center.y + 200;
+    const ROW_Y = center.y + MAIN_H / 2 + 100;
     const SPACING = 160;
-    const totalWidth = (toolCount - 1) * SPACING;
+    const totalWidth = (tools.length - 1) * SPACING;
     tools.forEach((toolName, idx) => {
       const x = center.x - totalWidth / 2 + idx * SPACING - TOOL_W / 2;
       const id = `tool-${toolName}`;
@@ -83,48 +173,10 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
         target: id,
         type: 'smoothstep',
         animated: false,
-        style: { stroke: '#3b82f6', strokeWidth: 1, opacity: 0.4 },
+        style: { stroke: THEMES.tool.accent, strokeWidth: 1, opacity: 0.4 },
       });
     });
-    return { nodes, edges };
   }
-
-  structure.sub_agents.forEach((sa, idx) => {
-    const angle = (2 * Math.PI * idx) / n - Math.PI / 2; // start at top
-    const x = center.x + RING_RADIUS * Math.cos(angle) - SUB_W / 2;
-    const y = center.y + RING_RADIUS * Math.sin(angle) - SUB_H / 2;
-
-    nodes.push({
-      id: sa.id,
-      type: 'subAgent',
-      position: { x, y },
-      data: {
-        label: sa.name,
-        description: sa.description,
-        source: sa.source,
-        tools: sa.tools,
-        instructions_preview: sa.instructions_preview,
-        status: sa.status,
-      },
-      style: { width: SUB_W, height: SUB_H },
-      draggable: true,
-      selectable: true,
-    });
-
-    // Edge: main → sub-agent (delegation)
-    edges.push({
-      id: `main-${sa.id}`,
-      source: 'main',
-      target: sa.id,
-      type: 'smoothstep',
-      animated: false,
-      style: {
-        stroke: 'var(--color-primary)',
-        strokeWidth: 1.5,
-        opacity: 0.5,
-      },
-    });
-  });
 
   return { nodes, edges };
 }
