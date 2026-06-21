@@ -60,6 +60,9 @@ export function useAgentStructure(agentId: number | null) {
           tools: config.native_tools ?? config.tools ?? [],
           middleware: config.middleware ?? [],
           subagents_config: config.subagents ?? [],
+          use_deepagents: config.use_deepagents,
+          enable_compiled_subagents: config.enable_compiled_subagents,
+          use_local_sandbox: config.use_local_sandbox,
         };
 
         // Build sub-agents
