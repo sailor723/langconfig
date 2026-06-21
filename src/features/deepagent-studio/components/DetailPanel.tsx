@@ -88,16 +88,16 @@ export default function DetailPanel({ structure, selectedNodeId }: Props) {
     const isLLM = selectedNodeId === 'info-llm';
     const isPrompt = selectedNodeId === 'info-prompt';
     const theme = isLLM
-      ? { bg: 'rgba(59,130,246,0.10)', accent: '#60a5fa', border: '#3b82f6' }
-      : { bg: 'rgba(168,85,247,0.10)', accent: '#c084fc', border: '#a855f7' };
+      ? { bg: '#F5E6DC', accent: '#C75F3D', border: '#D97757' }
+      : { bg: '#FAF9F5', accent: '#A85A2E', border: '#C75F3D' };
     const icon = isLLM ? '🤖' : '📜';
     const label = isLLM ? 'LLM' : 'System Prompt';
     return (
       <div
         className="w-72 border-l overflow-y-auto scrollbar-thin"
         style={{
-          backgroundColor: 'var(--color-panel-dark)',
-          borderColor: 'var(--color-border)',
+          backgroundColor: '#FAF9F5',
+          borderColor: '#E8E4DA',
         }}
       >
         <div
@@ -275,7 +275,7 @@ export default function DetailPanel({ structure, selectedNodeId }: Props) {
             <div className="flex flex-wrap gap-1">
               {(item as MainAgentInfo).tools.map(t => (
                 <span key={t} className="text-[10px] px-1.5 py-0.5 rounded font-mono"
-                  style={{ backgroundColor: 'rgba(59,130,246,0.12)', color: '#93c5fd' }}>
+                  style={{ backgroundColor: '#F5E6DC', color: '#A85A2E', border: '1px solid #D97757' }}>
                   🔧 {t}
                 </span>
               ))}
@@ -292,7 +292,7 @@ export default function DetailPanel({ structure, selectedNodeId }: Props) {
             <div className="flex flex-wrap gap-1">
               {(item as SubAgent).tools.map(t => (
                 <span key={t} className="text-[10px] px-1.5 py-0.5 rounded font-mono"
-                  style={{ backgroundColor: 'rgba(59,130,246,0.12)', color: '#93c5fd' }}>
+                  style={{ backgroundColor: '#F5E6DC', color: '#A85A2E', border: '1px solid #D97757' }}>
                   {t}
                 </span>
               ))}
