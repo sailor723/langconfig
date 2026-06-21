@@ -66,6 +66,23 @@ function Toggle({ label, checked, onChange, hint }: { label: string; checked: bo
   );
 }
 
+function PresetChip({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="text-[10px] px-2 py-1 rounded-full font-medium border transition-colors hover:brightness-125 disabled:opacity-50"
+      style={{
+        borderColor: 'var(--color-primary)',
+        color: 'var(--color-text-primary)',
+        backgroundColor: 'rgba(99,102,241,0.08)',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
 export default function ModelPlaygroundModal({ open, onClose, modelId, modelName, provider }: Props) {
   const [message, setMessage] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful assistant.');
@@ -83,6 +100,9 @@ export default function ModelPlaygroundModal({ open, onClose, modelId, modelName
   const [jsonMode, setJsonMode] = useState(false);
   const [toolsEnabled, setToolsEnabled] = useState(false);
   const [streamEnabled, setStreamEnabled] = useState(false);
+
+  // Image for multimodal test
+  const [imageUrl, setImageUrl] = useState('');
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -142,6 +162,8 @@ export default function ModelPlaygroundModal({ open, onClose, modelId, modelName
         top_p: topP < 1 ? topP : undefined,
         frequency_penalty: frequencyPenalty !== 0 ? frequencyPenalty : undefined,
         presence_penalty: presencePenalty !== 0 ? presencePenalty : undefined,
+        image_url: imageUrl.trim() || undefined,
+        tool_names: toolsEnabled ? ['get_weather', 'get_current_time', 'search_web', 'calculate'] : undefined,
         stop: stopArr,
         json_mode: jsonMode,
         tools: toolsEnabled,
@@ -170,6 +192,18 @@ export default function ModelPlaygroundModal({ open, onClose, modelId, modelName
   const handleClear = () => {
     setChatHistory([]);
     setMessage('');
+  };
+
+  const runPreset = (text: string, opts?: { jsonMode?: boolean; tools?: boolean; stream?: boolean; image?: string }) => {
+    if (isLoading) return;
+    // Apply preset-specific settings
+    if (opts?.jsonMode) setJsonMode(true); else setJsonMode(false);
+    if (opts?.tools) setToolsEnabled(true); else if (!opts?.image) setToolsEnabled(false);
+    if (opts?.stream) setStreamEnabled(true); else setStreamEnabled(false);
+    if (opts?.image) setImageUrl(opts.image); else if (!text.includes('image')) { /* keep existing */ }
+    setMessage(text);
+    // Auto-send after a tick so state updates flush
+    setTimeout(() => handleSend(), 50);
   };
 
   if (!open) return null;
@@ -388,6 +422,23 @@ export default function ModelPlaygroundModal({ open, onClose, modelId, modelName
                   <Toggle label="Streaming" checked={streamEnabled} onChange={setStreamEnabled} hint="Stream response chunks" />
                 </div>
 
+                {/* Image URL — multimodal */}
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-widest mb-1 block" style={{ color: 'var(--color-text-muted)' }} title="Send an image with your message for multimodal models">
+                    Image URL (vision)
+                  </label>
+                  <input type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)}
+                    placeholder="https://...png/jpg/webp"
+                    className="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
+                    style={{ backgroundColor: 'var(--color-input-background)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }} />
+                  {imageUrl.trim() && (
+                    // eslint-disable-next-line jsx-a11y/img-redundant-alt
+                    <img src={imageUrl} alt="preview" className="mt-1 max-h-24 rounded border"
+                      style={{ borderColor: 'var(--color-border)' }}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                  )}
+                </div>
+
                 {lastUsage && (
                   <div className="text-[10px] p-2 rounded-lg"
                     style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-muted)' }}>
@@ -449,6 +500,23 @@ export default function ModelPlaygroundModal({ open, onClose, modelId, modelName
                 </div>
               )}
               <div ref={chatEndRef} />
+            </div>
+
+            {/* Preset chips — one-click samples */}
+            <div className="border-t px-3 pt-2 pb-1 flex flex-wrap gap-1.5"
+              style={{ borderColor: 'var(--color-border)' }}>
+              <span className="text-[10px] uppercase tracking-widest mr-1 self-center"
+                style={{ color: 'var(--color-text-muted)' }}>Try:</span>
+              <PresetChip label="👋 Greeting" onClick={() => runPreset('Hi! Introduce yourself in one sentence.')} disabled={isLoading} />
+              <PresetChip label="🧮 Math" onClick={() => runPreset('What is 17 * 23 + sqrt(144)?')} disabled={isLoading} />
+              <PresetChip label="{} JSON" onClick={() => runPreset('Return JSON with keys: city, country, population for Tokyo', { jsonMode: true })} disabled={isLoading} />
+              <PresetChip label="🔧 Tools" onClick={() => runPreset('What is the weather in Tokyo and the current time in UTC?', { tools: true })} disabled={isLoading} />
+              <PresetChip label="🌐 Search" onClick={() => runPreset('Search the web for the latest DeepSeek V4 release date', { tools: true })} disabled={isLoading} />
+              <PresetChip label="📡 Stream" onClick={() => runPreset('Write a 3-line poem about AI', { stream: true })} disabled={isLoading} />
+              <PresetChip label="🖼 Vision" onClick={() => runPreset('What do you see in this image? Describe in detail.', {
+                image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1024px-Cat03.jpg'
+              })} disabled={isLoading} />
+              <PresetChip label="🇫🇷 Reason" onClick={() => runPreset('If all roses are flowers and some flowers fade quickly, can we conclude some roses fade quickly? Explain step by step.')} disabled={isLoading} />
             </div>
 
             {/* Input */}

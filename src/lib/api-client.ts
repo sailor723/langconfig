@@ -591,6 +591,8 @@ class APIClient {
     json_mode?: boolean;
     tools?: boolean;
     stream?: boolean;
+    tool_names?: string[];
+    image_url?: string;
   }) {
     return this.client.post('/api/models/invoke', data);
   }
