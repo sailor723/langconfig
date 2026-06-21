@@ -28,6 +28,9 @@ export interface MainAgentInfo {
   tools: string[];
   middleware: string[];
   subagents_config: Array<{ name: string; description: string }>;
+  use_deepagents?: boolean;
+  enable_compiled_subagents?: boolean;
+  use_local_sandbox?: boolean;
 }
 
 export interface Capability {
