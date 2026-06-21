@@ -4174,6 +4174,23 @@ Focus on writing maintainable, reliable tests that catch real issues.`,
                     setEditingAgent(null);
                   }
                 }}
+                onTest={() => {
+                  const agentId = selectedAgent?.id ?? editingAgent?.id;
+                  const agentName = selectedAgent?.name ?? editingAgent?.name ?? 'agent';
+                  if (agentId) setTestingAgent({ id: agentId, name: agentName });
+                }}
+                onExport={() => {
+                  // Export the current config as a standalone file
+                  const config = selectedAgent?.config ?? editingAgent?.config;
+                  if (!config) return;
+                  const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${(config.name ?? 'agent').replace(/\s+/g, '_')}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
                 onClose={() => {
                   if (selectedAgent) {
                     setSearchParams({});
