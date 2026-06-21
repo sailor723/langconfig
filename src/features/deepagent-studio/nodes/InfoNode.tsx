@@ -31,6 +31,21 @@ interface Data {
 const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
   const borderColor = selected ? '#A85A2E' : data.border;
   const [expanded, setExpanded] = useState(false);
+
+  const toggleExpand = () => {
+    const next = !expanded;
+    setExpanded(next);
+    // Dispatch event to parent to resize the node
+    window.dispatchEvent(new CustomEvent('da:resize-info-node', {
+      detail: {
+        nodeId: 'info-prompt',
+        expanded: next,
+        width: next ? 380 : 200,
+        height: next ? 360 : 200,
+      },
+    }));
+  };
+
   return (
     <div
       className="rounded-lg px-2 py-1.5 shadow-sm relative h-full w-full flex flex-col"
@@ -75,13 +90,13 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
         </div>
         {data.kind === 'prompt' && (
           <button
-            onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+            onClick={(e) => { e.stopPropagation(); toggleExpand(); }}
             onMouseDown={(e) => e.stopPropagation()}
-            title={expanded ? 'Collapse' : 'Expand to fit prompt'}
+            title={expanded ? 'Collapse' : 'Expand to fit prompt (380×360)'}
             className="flex items-center justify-center rounded transition-colors hover:bg-black/10"
-            style={{ width: 16, height: 16, color: data.accent, flexShrink: 0 }}
+            style={{ width: 18, height: 18, color: data.accent, flexShrink: 0 }}
           >
-            {expanded ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
+            {expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
           </button>
         )}
       </div>
@@ -98,10 +113,13 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
         </div>
       ) : (
         <div
-          className="flex-1 text-[9px] leading-snug font-mono overflow-auto whitespace-pre-wrap"
+          className="flex-1 overflow-auto whitespace-pre-wrap"
           style={{
             color: '#1F1E1B',
             scrollbarWidth: 'thin',
+            fontFamily: 'monospace',
+            fontSize: expanded ? 11 : 9,
+            lineHeight: 1.5,
           }}
         >
           {data.prompt || '(empty — no system prompt)'}
