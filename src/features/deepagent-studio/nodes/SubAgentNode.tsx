@@ -55,17 +55,17 @@ const SubAgentNode = memo(({ id, data, selected }: NodeProps<Data>) => {
       <Handle type="target" position={Position.Top} style={{ background: '#C75F3D', opacity: 0 }} />
       <Handle type="source" position={Position.Bottom} style={{ background: '#C75F3D', opacity: 0 }} />
 
-      {/* Source badge */}
+      {/* Sub-Agent badge — node IS a sub-agent, skill is just a property */}
       <div className="flex items-center justify-between mb-1">
         <span
           className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase"
           style={{
-            backgroundColor: data.source === 'skill' ? '#F5E6DC' : '#FAF9F5',
+            backgroundColor: '#F5E6DC',
             color: '#A85A2E',
             border: '1px solid #D97757',
           }}
         >
-          {data.source === 'skill' ? '📚 skill' : '👤 user'}
+          🤖 sub-agent
         </span>
         {isActive && (
           <span className="text-[9px] animate-pulse" style={{ color: '#3b82f6' }}>
@@ -79,7 +79,7 @@ const SubAgentNode = memo(({ id, data, selected }: NodeProps<Data>) => {
         {data.label}
       </div>
 
-      {/* Skill property (when source='skill', show the skill name as property badge) */}
+      {/* Skill property (inline tag — shows which skill this sub-agent is backed by) */}
       {data.source === 'skill' && (
         <div
           className="text-[9px] mt-1 px-1.5 py-0.5 rounded truncate font-mono flex items-center gap-1"
@@ -88,10 +88,23 @@ const SubAgentNode = memo(({ id, data, selected }: NodeProps<Data>) => {
             color: '#A85A2E',
             border: '1px dashed #D97757',
           }}
-          title={`Skill: ${id}`}
+          title={`Backed by skill: ${id}`}
         >
           <span>🎯</span>
-          <span className="truncate">{id}</span>
+          <span className="truncate">skill: {id}</span>
+        </div>
+      )}
+      {data.source === 'user' && (
+        <div
+          className="text-[9px] mt-1 px-1.5 py-0.5 rounded truncate font-mono flex items-center gap-1"
+          style={{
+            backgroundColor: 'rgba(168,90,46,0.05)',
+            color: '#5C5A55',
+            border: '1px dashed #C8B6A6',
+          }}
+        >
+          <span>👤</span>
+          <span className="truncate">user-defined</span>
         </div>
       )}
 
