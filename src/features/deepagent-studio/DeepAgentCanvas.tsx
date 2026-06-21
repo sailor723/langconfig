@@ -21,6 +21,13 @@ import { nodeTypes } from './nodes/nodeTypes';
 import { buildLayout } from './utils/autoLayout';
 import type { AgentStructure } from './types';
 
+interface ResizeInfoEventDetail {
+  nodeId: string;
+  expanded: boolean;
+  width: number;
+  height: number;
+}
+
 interface Props {
   structure: AgentStructure | null;
   selectedNodeId?: string | null;
@@ -58,6 +65,21 @@ function DeepAgentCanvasInner({ structure, selectedNodeId, onNodeSelect }: Props
     setEdges(fresh.edges);
     setTimeout(() => fitView({ padding: 0.25, duration: 300 }), 50);
   }, [structure, setNodes, setEdges, fitView]);
+
+  // Resize an info node when its expand/collapse button is clicked
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<ResizeInfoEventDetail>;
+      const { nodeId, width, height } = ce.detail;
+      setNodes(curr => curr.map(n =>
+        n.id === nodeId
+          ? { ...n, style: { ...(n.style ?? {}), width, height } }
+          : n
+      ));
+    };
+    window.addEventListener('da:resize-info-node', handler);
+    return () => window.removeEventListener('da:resize-info-node', handler);
+  }, [setNodes]);
 
   if (!structure) {
     return (

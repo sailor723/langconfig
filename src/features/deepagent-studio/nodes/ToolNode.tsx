@@ -1,6 +1,6 @@
 /**
- * ToolNode — small pill showing a native tool. Includes a short description
- * inside the box so users can see what the tool does without clicking.
+ * ToolNode — full info card for a native tool. 3x larger than before so the
+ * full description is readable inline.
  */
 
 import { memo } from 'react';
@@ -11,26 +11,26 @@ interface Data {
   description?: string;
 }
 
-/** Compact descriptions for common LangConfig tools (auto-shown in the pill). */
+/** Compact descriptions for common LangConfig tools (auto-shown in the card). */
 const TOOL_DESCRIPTIONS: Record<string, string> = {
-  graphindex_search: 'Search project knowledge base',
-  graphindex_load: 'Load full document by ID',
-  read_file: 'Read a file from disk',
-  write_file: 'Write a file to disk',
-  ls: 'List directory contents',
-  glob: 'Find files by pattern',
-  grep: 'Search text in files',
-  web_search: 'Search the web',
-  http_get: 'Fetch a URL',
-  shell: 'Run a shell command',
-  python_repl: 'Execute Python code',
-  calculator: 'Evaluate math expressions',
-  tavily_search: 'Tavily web search',
-  duckduckgo_search: 'DuckDuckGo search',
-  arxiv_search: 'Search arxiv papers',
-  wikipedia: 'Query Wikipedia',
-  requests_get: 'HTTP GET request',
-  human_input: 'Ask the user a question',
+  graphindex_search: 'Search the project knowledge base for relevant documents and snippets',
+  graphindex_load: 'Load the full content of a document by its ID from the knowledge base',
+  read_file: 'Read a file from the local filesystem',
+  write_file: 'Write content to a file on the local filesystem',
+  ls: 'List directory contents and file metadata',
+  glob: 'Find files by name pattern (e.g. *.py)',
+  grep: 'Search text in files using regular expressions',
+  web_search: 'Search the web using a search engine',
+  http_get: 'Fetch content from an HTTP URL',
+  shell: 'Run a shell command on the local machine',
+  python_repl: 'Execute Python code in a sandboxed REPL',
+  calculator: 'Evaluate mathematical expressions',
+  tavily_search: 'Tavily API web search with rich results',
+  duckduckgo_search: 'DuckDuckGo web search (privacy-focused)',
+  arxiv_search: 'Search arxiv.org for academic papers',
+  wikipedia: 'Query Wikipedia for factual information',
+  requests_get: 'Make an HTTP GET request to a URL',
+  human_input: 'Ask the user a clarifying question',
 };
 
 const ToolNode = memo(({ data, selected }: NodeProps<Data>) => {
@@ -39,37 +39,48 @@ const ToolNode = memo(({ data, selected }: NodeProps<Data>) => {
 
   return (
     <div
-      className="rounded-md px-2 py-1 shadow-sm relative"
+      className="rounded-lg px-3 py-2 shadow-md relative h-full w-full flex flex-col gap-1"
       style={{
         backgroundColor: '#FAF9F5',
-        border: `1.5px solid ${borderColor}`,
+        border: `2px solid ${borderColor}`,
         color: '#1F1E1B',
-        fontFamily: 'monospace',
-        fontSize: 9,
-        width: 130,
-        minHeight: 32,
+        fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
     >
       <NodeResizer
         color="#C75F3D"
         isVisible={selected}
-        minWidth={130}
-        minHeight={32}
+        minWidth={200}
+        minHeight={80}
         lineStyle={{ borderWidth: 1, opacity: 0.4 }}
-        handleStyle={{ width: 6, height: 6, borderRadius: 2 }}
+        handleStyle={{ width: 8, height: 8, borderRadius: 2 }}
       />
       <Handle type="target" position={Position.Top} style={{ background: '#C75F3D', opacity: 0 }} />
       <Handle type="source" position={Position.Bottom} style={{ background: '#C75F3D', opacity: 0 }} />
-      <div className="flex items-center gap-1 overflow-hidden">
-        <span style={{ fontSize: 9 }}>🔧</span>
-        <span className="font-bold truncate" style={{ color: '#A85A2E', fontSize: 9 }}>
+
+      {/* Header: icon + tool name */}
+      <div className="flex items-center gap-1.5">
+        <span style={{ fontSize: 14 }}>🔧</span>
+        <span
+          className="font-bold truncate"
+          style={{ color: '#A85A2E', fontSize: 12, fontFamily: 'monospace' }}
+        >
           {data.label}
         </span>
       </div>
+
+      {/* Description (full, max 3 lines) */}
       {desc && (
         <div
-          className="truncate"
-          style={{ fontSize: 8, color: '#5C5A55', marginTop: 1 }}
+          className="overflow-hidden"
+          style={{
+            fontSize: 10,
+            color: '#5C5A55',
+            lineHeight: 1.4,
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+          }}
         >
           {desc}
         </div>
