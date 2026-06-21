@@ -79,13 +79,17 @@ const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
         {data.label}
       </div>
 
-      {/* Description — fills available height */}
+      {/* Description */}
       {data.description && (
         <div
-          className="text-[10px] mt-1 leading-snug overflow-auto"
+          className="text-[10px] mt-1 leading-snug"
           style={{
             color: 'var(--color-text-muted)',
-            maxHeight: 'calc(100% - 60px)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
           }}
           title={data.description}
         >
