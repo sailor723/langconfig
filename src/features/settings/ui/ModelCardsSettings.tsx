@@ -5,7 +5,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { apiClient } from '@/lib/api-client';
-import SettingsSection from './SettingsSection';
 
 interface ModelInfo {
   model_id: string;
@@ -69,10 +68,10 @@ function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number
       );
     case 'deepseek':
       return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-          <circle cx="12" cy="12" r="9"/>
-          <circle cx="12" cy="12" r="5.5"/>
-          <path d="M6.5 12h11"/>
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2L4 7v10l8 5 8-5V7l-8-5zm0 2.2l6 3.5v8.6l-6 3.5-6-3.5V7.7l6-3.5z"/>
+          <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.2"/>
+          <path d="M9 12h6M12 9v6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
         </svg>
       );
     case 'google':
@@ -187,15 +186,6 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest }: {
       }}
     >
       {/* Default badge (top-center) */}
-      {isDefault && (
-        <div
-          className="absolute -top-1.5 left-1/2 -translate-x-1/2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-          style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
-        >
-          ★ Default
-        </div>
-      )}
-
       {/* Top: logo + name + status dot */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -205,6 +195,14 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest }: {
             </div>
             <h4 className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
               {model.display_name}
+              {isDefault && (
+                <span className="ml-1.5 inline-flex items-center text-[9px] font-bold uppercase px-1 py-0.5 rounded align-middle"
+                  style={{ backgroundColor: 'var(--color-primary)', color: '#fff' }}
+                  title="Default model"
+                >
+                  ★ Default
+                </span>
+              )}
             </h4>
           </div>
           <p className="text-[11px] font-mono truncate" style={{ color: 'var(--color-text-muted)' }}>
@@ -226,6 +224,39 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest }: {
           />
         )}
       </div>
+      {/* Properties row — streaming, tools, context */}
+      {(caps.streaming || caps.tools || caps.structured_output || caps.max_context) && (
+        <div className="flex flex-wrap items-center gap-1 mt-1.5">
+          {caps.streaming && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+              style={{ backgroundColor: 'rgba(56,189,248,0.12)', color: '#7dd3fc' }}
+              title="Supports streaming">
+              <span>📡</span> Stream
+            </span>
+          )}
+          {caps.tools && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+              style={{ backgroundColor: 'rgba(251,191,36,0.12)', color: '#fcd34d' }}
+              title="Supports function calling">
+              <span>🔧</span> Tools
+            </span>
+          )}
+          {caps.structured_output && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+              style={{ backgroundColor: 'rgba(244,114,182,0.12)', color: '#f9a8d4' }}
+              title="Supports structured output (JSON mode)">
+              <span>{}</span> JSON
+            </span>
+          )}
+          {caps.max_context && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+              style={{ backgroundColor: 'rgba(148,163,184,0.15)', color: '#cbd5e1' }}
+              title="Maximum context window">
+              <span>📏</span> {formatContextSize(caps.max_context)}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Spacer */}
       <div className="flex-1" />
@@ -266,6 +297,13 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest }: {
       </div>
     </div>
   );
+}
+
+// Format context window size: e.g. 64000 -> "64K", 200000 -> "200K", 1000000 -> "1M"
+function formatContextSize(size: number): string {
+  if (size >= 1_000_000) return `${(size / 1_000_000).toFixed(size % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (size >= 1_000) return `${Math.round(size / 1_000)}K`;
+  return String(size);
 }
 
 function ProviderGroupCard({ group, apiKeyStatus, defaultModel, onTest }: {
@@ -508,11 +546,32 @@ export default function ModelCardsSettings() {
   }
 
   return (
-    <SettingsSection
-      title="AI Models"
-      description="Overview of all configured AI models and their status."
-      icon="hub"
-    >
+    <div className="space-y-4">
+      {/* Panel header with default model badge */}
+      <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b"
+        style={{ borderColor: 'var(--color-border)' }}>
+        <div className="flex items-center gap-3">
+          <span className="material-symbols-outlined text-2xl" style={{ color: 'var(--color-text-primary)' }}>hub</span>
+          <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            AI Models
+          </h2>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            Overview of all configured AI models and their status
+          </span>
+        </div>
+        {defaultModel && (
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg"
+            style={{ backgroundColor: 'var(--color-input-background)', border: '1px solid var(--color-primary)' }}>
+            <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: 'var(--color-primary)' }}>
+              ★ Default Model
+            </span>
+            <span className="text-sm font-medium font-mono" style={{ color: 'var(--color-text-primary)' }}>
+              {defaultModel}
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* Test results */}
       {Object.entries(testResult).map(([provider, result]) => (
         <div
@@ -574,6 +633,6 @@ export default function ModelCardsSettings() {
           </div>
         </div>
       )}
-    </SettingsSection>
+    </div>
   );
 }
