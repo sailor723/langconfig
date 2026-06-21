@@ -44,11 +44,11 @@ export default function CapabilityBar({ capabilities }: Props) {
             key={`${cap.type}-${idx}`}
             className="text-[10px] px-2 py-0.5 rounded-full font-medium flex items-center gap-1"
             style={{ backgroundColor: c.bg, color: c.fg }}
-            title={`${cap.label}: ${cap.value}`}
+            title={cap.value ? `${cap.label}: ${cap.value}` : cap.label}
           >
             <span>{c.icon}</span>
             <span>{cap.label}</span>
-            {cap.type === 'tool' && <span style={{ opacity: 0.6 }}>· {cap.value}</span>}
+            {cap.value && cap.type !== 'tool' && <span style={{ opacity: 0.6 }}>· {cap.value}</span>}
           </span>
         );
       })}
