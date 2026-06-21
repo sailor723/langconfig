@@ -1282,6 +1282,22 @@ You have been equipped with the following tools: {', '.join(tool_names)}
             provider = "openai"  # OpenAI-compatible API
             api_key = settings.AGNES_API_KEY
             base_url = settings.AGNES_BASE_URL
+        elif db_provider == "minimax" or model_name.startswith("minimax"):
+            provider = "openai"  # MiniMax is OpenAI-compatible
+            api_key = settings.MINIMAX_API_KEY
+            base_url = settings.MINIMAX_API_BASE
+        elif db_provider == "kimi" or model_name.startswith("kimi"):
+            provider = "openai"  # Kimi is OpenAI-compatible
+            api_key = getattr(settings, 'KIMI_API_KEY', None) or settings.MINIMAX_API_KEY  # fallback to minimax key
+            base_url = getattr(settings, 'KIMI_API_BASE', None) or "https://api.moonshot.cn/v1"
+        elif db_provider == "qwen" or model_name.startswith("qwen"):
+            provider = "openai"  # Qwen is OpenAI-compatible
+            api_key = getattr(settings, 'QWEN_API_KEY', None)
+            base_url = getattr(settings, 'QWEN_API_BASE', None) or "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        elif db_provider == "glm" or model_name.startswith("glm"):
+            provider = "openai"  # GLM is OpenAI-compatible
+            api_key = getattr(settings, 'GLM_API_KEY', None)
+            base_url = getattr(settings, 'GLM_API_BASE', None) or "https://open.bigmodel.cn/api/paas/v4"
         else:
             logger.warning(f"Unknown model '{model_name}', defaulting to OpenAI-compatible.")
             provider = "openai"
