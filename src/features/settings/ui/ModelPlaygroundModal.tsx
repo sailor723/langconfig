@@ -46,6 +46,26 @@ function MiniLogo({ provider, size = 18 }: { provider: string; size?: number }) 
   );
 }
 
+function Toggle({ label, checked, onChange, hint }: { label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string }) {
+  return (
+    <label className="flex items-center justify-between cursor-pointer" title={hint}>
+      <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
+        {label}
+      </span>
+      <span
+        onClick={() => onChange(!checked)}
+        className="relative inline-block w-8 h-4 rounded-full transition-colors"
+        style={{ backgroundColor: checked ? 'var(--color-primary)' : 'var(--color-border)' }}
+      >
+        <span
+          className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all"
+          style={{ left: checked ? '18px' : '2px' }}
+        />
+      </span>
+    </label>
+  );
+}
+
 export default function ModelPlaygroundModal({ open, onClose, modelId, modelName, provider }: Props) {
   const [message, setMessage] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful assistant.');
@@ -54,6 +74,15 @@ export default function ModelPlaygroundModal({ open, onClose, modelId, modelName
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Extended sampling params
+  const [topP, setTopP] = useState(1.0);
+  const [frequencyPenalty, setFrequencyPenalty] = useState(0);
+  const [presencePenalty, setPresencePenalty] = useState(0);
+  const [stopSeq, setStopSeq] = useState('');
+  const [jsonMode, setJsonMode] = useState(false);
+  const [toolsEnabled, setToolsEnabled] = useState(false);
+  const [streamEnabled, setStreamEnabled] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -102,12 +131,21 @@ export default function ModelPlaygroundModal({ open, onClose, modelId, modelName
         ? msg
         : chatHistory.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n') + `\nUser: ${msg}`;
 
+      const stopArr = stopSeq.trim() ? stopSeq.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+
       const res = await apiClient.modelInvoke({
         model: modelId,
         message: historyText,
         system_prompt: systemPrompt || undefined,
         temperature,
         max_tokens: maxTokens,
+        top_p: topP < 1 ? topP : undefined,
+        frequency_penalty: frequencyPenalty !== 0 ? frequencyPenalty : undefined,
+        presence_penalty: presencePenalty !== 0 ? presencePenalty : undefined,
+        stop: stopArr,
+        json_mode: jsonMode,
+        tools: toolsEnabled,
+        stream: streamEnabled,
       });
 
       const data = (res as any).data ?? res;
@@ -288,6 +326,66 @@ export default function ModelPlaygroundModal({ open, onClose, modelId, modelName
                     className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
                     style={{ backgroundColor: 'var(--color-border)', accentColor: 'var(--color-primary)' }}
                   />
+                </div>
+
+                {/* Top P */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }} title="Nucleus sampling">
+                      Top P
+                    </label>
+                    <span className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>{topP.toFixed(2)}</span>
+                  </div>
+                  <input type="range" min="0" max="1" step="0.05" value={topP}
+                    onChange={e => setTopP(parseFloat(e.target.value))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                    style={{ backgroundColor: 'var(--color-border)', accentColor: 'var(--color-primary)' }} />
+                </div>
+
+                {/* Frequency Penalty */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
+                      Freq Penalty
+                    </label>
+                    <span className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>{frequencyPenalty.toFixed(1)}</span>
+                  </div>
+                  <input type="range" min="-2" max="2" step="0.1" value={frequencyPenalty}
+                    onChange={e => setFrequencyPenalty(parseFloat(e.target.value))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                    style={{ backgroundColor: 'var(--color-border)', accentColor: 'var(--color-primary)' }} />
+                </div>
+
+                {/* Presence Penalty */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
+                      Pres Penalty
+                    </label>
+                    <span className="text-xs font-mono" style={{ color: 'var(--color-text-muted)' }}>{presencePenalty.toFixed(1)}</span>
+                  </div>
+                  <input type="range" min="-2" max="2" step="0.1" value={presencePenalty}
+                    onChange={e => setPresencePenalty(parseFloat(e.target.value))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                    style={{ backgroundColor: 'var(--color-border)', accentColor: 'var(--color-primary)' }} />
+                </div>
+
+                {/* Stop Sequences */}
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-widest mb-1 block" style={{ color: 'var(--color-text-muted)' }} title="Comma-separated stop sequences">
+                    Stop Sequences
+                  </label>
+                  <input type="text" value={stopSeq} onChange={e => setStopSeq(e.target.value)}
+                    placeholder="e.g. END, STOP, ###"
+                    className="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1"
+                    style={{ backgroundColor: 'var(--color-input-background)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }} />
+                </div>
+
+                {/* Toggles: JSON mode, Tools, Stream */}
+                <div className="space-y-1.5 pt-1 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                  <Toggle label="JSON mode" checked={jsonMode} onChange={setJsonMode} hint="Force valid JSON output" />
+                  <Toggle label="Tool calling" checked={toolsEnabled} onChange={setToolsEnabled} hint="Enable function tools" />
+                  <Toggle label="Streaming" checked={streamEnabled} onChange={setStreamEnabled} hint="Stream response chunks" />
                 </div>
 
                 {lastUsage && (
