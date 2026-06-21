@@ -38,7 +38,7 @@ export default function SettingsLayout({
   return (
     <div className="flex h-full w-full overflow-hidden bg-background-light dark:bg-background-dark">
       {/* Centered Container for Sidebar + Content */}
-      <div className="flex max-w-[1200px] w-full mx-auto h-full overflow-hidden">
+      <div className="flex max-w-[1600px] w-full mx-auto h-full overflow-hidden">
         {/* Left Sidebar - 240px fixed */}
         <SettingsSidebar
           currentCategory={currentCategory}
@@ -49,7 +49,7 @@ export default function SettingsLayout({
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto">
-            <div className="px-6 py-6">
+            <div className="px-4 py-4">
               {children}
               {/* Close button at bottom */}
               <div className="flex justify-center pt-4">
