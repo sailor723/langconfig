@@ -23,7 +23,8 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
-  const center = { x: 0, y: 0 };
+  // Center of a typical viewport — main agent here so it appears centered
+  const center = { x: 500, y: 280 };
 
   // Main agent — center
   nodes.push({
@@ -38,7 +39,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
       max_tokens: structure.main_agent.max_tokens,
       middleware: structure.main_agent.middleware,
     },
-    draggable: false,
+    draggable: true,
     selectable: true,
   });
 
@@ -65,7 +66,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
         instructions_preview: sa.instructions_preview,
         status: sa.status,
       },
-      draggable: false,
+      draggable: true,
       selectable: true,
     });
 
