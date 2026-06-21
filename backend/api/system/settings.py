@@ -432,6 +432,40 @@ async def list_available_models(db: Session = Depends(get_db)):
     )
 
 
+@router.get("/embedding-models")
+async def get_embedding_models():
+    """Get available embedding models (reads from .env config)."""
+    from config import settings as app_settings
+    models = []
+
+    # Cloud embedding models
+    if app_settings.openai_api_key:
+        models.extend([
+            {"id": "text-embedding-3-large", "name": "text-embedding-3-large", "provider": "openai", "type": "cloud"},
+            {"id": "text-embedding-3-small", "name": "text-embedding-3-small", "provider": "openai", "type": "cloud"},
+            {"id": "text-embedding-ada-002", "name": "text-embedding-ada-002", "provider": "openai", "type": "cloud"},
+        ])
+
+    # Local embedding models from Ollama
+    try:
+        import httpx
+        base_url = app_settings.ollama_base_url.rstrip("/") or "http://localhost:11434"
+        resp = httpx.get(f"{base_url}/api/tags", timeout=3.0)
+        if resp.status_code == 200:
+            for tag in resp.json().get("models", []):
+                name = tag.get("name", "")
+                models.append({
+                    "id": f"ollama-{name}",
+                    "name": name,
+                    "provider": "ollama",
+                    "type": "local",
+                })
+    except Exception:
+        pass  # Ollama not available
+
+    return {"models": models}
+
+
 class CreateModelRequest(BaseModel):
     model_id: str
     display_name: str
