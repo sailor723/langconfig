@@ -69,43 +69,47 @@ function ModelCard({ model, apiKeySet, isLocal, onTest }: {
 
   return (
     <div
-      className="rounded-xl border p-3 flex flex-col gap-2 transition-all hover:border-primary/40"
+      className="rounded-xl border p-3 flex flex-col gap-2 transition-all hover:border-primary/40 w-full"
       style={{
         backgroundColor: 'var(--color-panel-dark)',
         borderColor: 'var(--color-border)',
-        aspectRatio: '1 / 0.618',
+        aspectRatio: '1.618 / 1',
       }}
     >
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-0.5">
-            <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${meta.gradient}`} />
-            <h4 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${meta.gradient} shrink-0`} />
+            <h4 className="text-sm font-semibold truncate" style={{ color: 'var(--color-text-primary)' }}>
               {model.display_name}
             </h4>
           </div>
-          <p className="text-[11px] font-mono" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="text-[11px] font-mono truncate" style={{ color: 'var(--color-text-muted)' }}>
             {'name' in model ? (model as LocalModelInfo).name : (model as ModelInfo).model_id}
           </p>
         </div>
-        {/* Status dot */}
-        <div className="flex flex-col items-end gap-1">
-          {!isLocal && (
-            <span
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: apiKeySet ? '#10b981' : '#ef4444' }}
-              title={apiKeySet ? 'API key set' : 'No API key'}
-            />
-          )}
-          {isLocal && (
-            <span
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: isValid ? '#10b981' : '#f59e0b' }}
-              title={isValid ? 'Validated' : 'Not validated'}
-            />
-          )}
-        </div>
+        {/* Clickable status dot — triggers test for cloud models, validate for local */}
+        {!isLocal ? (
+          <button
+            onClick={() => onTest(provider)}
+            title={apiKeySet ? 'Click to test connection' : 'No API key — click to test'}
+            className="w-3.5 h-3.5 rounded-full shrink-0 ring-2 ring-transparent hover:ring-primary/40 transition-all cursor-pointer"
+            style={{
+              backgroundColor: apiKeySet ? '#10b981' : '#ef4444',
+              boxShadow: '0 0 6px rgba(0,0,0,0.3)',
+            }}
+          />
+        ) : (
+          <span
+            className="w-3.5 h-3.5 rounded-full shrink-0"
+            style={{
+              backgroundColor: isValid ? '#10b981' : '#f59e0b',
+              boxShadow: '0 0 6px rgba(0,0,0,0.3)',
+            }}
+            title={isValid ? 'Validated' : 'Not validated'}
+          />
+        )}
       </div>
 
       {/* Capabilities */}
@@ -114,36 +118,6 @@ function ModelCard({ model, apiKeySet, isLocal, onTest }: {
           {capKeys.map(k => <CapabilityTag key={k} label={k} />)}
         </div>
       )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 pt-1" style={{ borderTop: '1px solid var(--color-border)' }}>
-        {!isLocal && (
-          <button
-            onClick={() => onTest(provider)}
-            className="text-[11px] px-2.5 py-1 rounded-lg border transition-colors"
-            style={{
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-muted)',
-            }}
-          >
-            ⚙ Test
-          </button>
-        )}
-        {isLocal && !isValid && (
-          <button
-            className="text-[11px] px-2.5 py-1 rounded-lg border transition-colors"
-            style={{
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-muted)',
-            }}
-          >
-            Validate
-          </button>
-        )}
-        {isLocal && isValid && (
-          <span className="text-[11px]" style={{ color: '#10b981' }}>✓ Validated</span>
-        )}
-      </div>
     </div>
   );
 }
