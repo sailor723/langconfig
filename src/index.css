@@ -135,6 +135,16 @@ select {
   }
 }
 
+/* Phase 8: DeepAgent Studio — pulse highlight for running sub-agents */
+@keyframes da-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+  }
+}
+
 @keyframes float {
 
   0%,
