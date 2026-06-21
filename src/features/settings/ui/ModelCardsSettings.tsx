@@ -41,11 +41,13 @@ interface ProviderGroup {
 const PROVIDER_META: Record<string, { label: string; gradient: string }> = {
   openai:    { label: 'OpenAI',    gradient: 'from-emerald-500 to-teal-500'  },
   anthropic: { label: 'Anthropic', gradient: 'from-orange-500 to-amber-500' },
-  deepseek:  { label: 'DeepSeek',  gradient: 'from-blue-500 to-cyan-500'    },
+  deepseek:  { label: 'DeepSeek',  gradient: 'from-blue-600 to-cyan-600'    },
   google:    { label: 'Google',    gradient: 'from-violet-500 to-purple-500'},
   agnes:     { label: 'Agnes AI',  gradient: 'from-pink-500 to-rose-500'   },
   minimax:   { label: 'MiniMax',  gradient: 'from-cyan-500 to-sky-500'    },
   glm:       { label: 'GLM',      gradient: 'from-yellow-500 to-amber-500' },
+  qwen:      { label: 'Qwen',     gradient: 'from-indigo-500 to-blue-500' },
+  kimi:      { label: 'Kimi',     gradient: 'from-slate-600 to-zinc-700'  },
   ollama:    { label: 'Ollama',    gradient: 'from-slate-500 to-gray-500'   },
 };
 
@@ -68,10 +70,16 @@ function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number
       );
     case 'deepseek':
       return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2L4 7v10l8 5 8-5V7l-8-5zm0 2.2l6 3.5v8.6l-6 3.5-6-3.5V7.7l6-3.5z"/>
-          <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="1.2"/>
-          <path d="M9 12h6M12 9v6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+        <svg width={s} height={s} viewBox="0 0 64 64" fill="currentColor">
+          {/* DeepSeek dolphin/whale — stylised */}
+          <path d="M4 38c4-14 16-24 30-24 12 0 22 8 22 18 0 5-3 9-8 11l-8 2c-3 5-9 9-17 9-10 0-19-7-23-16z"/>
+          {/* Eye */}
+          <circle cx="22" cy="30" r="2.5" fill="#fff"/>
+          <circle cx="22" cy="30" r="1.2"/>
+          {/* Dorsal fin */}
+          <path d="M30 14l-4 8h8z"/>
+          {/* Tail */}
+          <path d="M52 40l10-4-6 8 8 4-14 2z"/>
         </svg>
       );
     case 'google':
@@ -110,6 +118,22 @@ function ProviderLogo({ provider, size = 14 }: { provider: string; size?: number
           <path d="M12 4l3 8h-6l3-8zM8 14h8M12 4v6"/>
           <circle cx="18" cy="6" r="0.5" fill="currentColor"/>
           <circle cx="5" cy="8" r="0.5" fill="currentColor"/>
+        </svg>
+      );
+    case 'qwen':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor">
+          {/* Qwen stylized "Q" */}
+          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2"/>
+          <path d="M14 14l4 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+      );
+    case 'kimi':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          {/* Kimi moon */}
+          <path d="M16 4a8 8 0 1 0 4 12 6 6 0 0 1-4-12z" fill="currentColor" opacity="0.3"/>
+          <path d="M16 4a8 8 0 1 0 4 12 6 6 0 0 1-4-12z" fill="none" stroke="currentColor" strokeWidth="2"/>
         </svg>
       );
     default:
@@ -212,14 +236,14 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest, onSetDefault 
           />
         )}
       </div>
-      {/* Properties row — streaming, tools, context */}
-      {(caps.streaming || caps.tools || caps.structured_output || caps.max_context) && (
+      {/* Properties row — caps badges */}
+      {(caps.streaming || caps.tools || caps.structured_output || caps.thinking || caps.audio || caps.video || caps.open_source) && (
         <div className="flex flex-wrap items-center gap-1 mt-1.5">
-          {caps.streaming && (
+          {caps.thinking && (
             <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-              style={{ backgroundColor: 'rgba(56,189,248,0.12)', color: '#7dd3fc' }}
-              title="Supports streaming">
-              <span>📡</span> Stream
+              style={{ backgroundColor: 'rgba(168,85,247,0.12)', color: '#c4b5fd' }}
+              title="Reasoning / chain-of-thought">
+              <span>🧠</span> Think
             </span>
           )}
           {caps.tools && (
@@ -236,13 +260,63 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest, onSetDefault 
               <span>{}</span> JSON
             </span>
           )}
+          {caps.audio && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+              style={{ backgroundColor: 'rgba(34,211,238,0.12)', color: '#67e8f9' }}
+              title="Audio input/output">
+              <span>🎵</span>
+            </span>
+          )}
+          {caps.video && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+              style={{ backgroundColor: 'rgba(248,113,113,0.12)', color: '#fca5a5' }}
+              title="Video input">
+              <span>🎬</span>
+            </span>
+          )}
+          {caps.open_source && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+              style={{ backgroundColor: 'rgba(74,222,128,0.12)', color: '#86efac' }}
+              title={`Open source${caps.license ? ` · ${caps.license}` : ''}`}>
+              <span>📖</span> Open
+            </span>
+          )}
           {caps.max_context && (
             <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
               style={{ backgroundColor: 'rgba(148,163,184,0.15)', color: '#cbd5e1' }}
-              title="Maximum context window">
+              title={`Max context: ${caps.max_context.toLocaleString()} tokens · Max output: ${caps.max_output?.toLocaleString() || '?'}`}>
               <span>📏</span> {formatContextSize(caps.max_context)}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Stats row — pricing, speed */}
+      {(caps.input_price !== undefined || caps.speed_tps) && (
+        <div className="flex flex-wrap items-center gap-2 mt-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+          {caps.input_price !== undefined && (
+            <span title={`Input $${caps.input_price} / 1M tokens${caps.output_price !== undefined ? ` · Output $${caps.output_price} / 1M tokens` : ''}`}>
+              <span style={{ color: '#10b981' }}>$</span>
+              {caps.input_price === 0 ? 'Free' : `${caps.input_price.toFixed(2)}/${caps.output_price?.toFixed(2) ?? '?'}`}
+            </span>
+          )}
+          {caps.speed_tps && (
+            <span title={`Output speed: ~${caps.speed_tps} tokens/sec`}>
+              <span style={{ color: '#facc15' }}>⚡</span> {caps.speed_tps} t/s
+            </span>
+          )}
+          {caps.params_active && (
+            <span title={`${caps.params_total || ''} total · ${caps.params_active} active params`}>
+              <span style={{ color: '#a78bfa' }}>⚙</span> {caps.params_active}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Strength tagline */}
+      {caps.strength && (
+        <div className="mt-1 text-[10px] italic truncate" style={{ color: 'var(--color-text-muted)' }} title={caps.strength}>
+          "{caps.strength}"
         </div>
       )}
 
@@ -256,14 +330,19 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest, onSetDefault 
           <button
             onClick={() => onTest(provider)}
             title="Click to test connection"
-            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border transition-colors hover:border-primary/50"
+            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border transition-colors hover:brightness-125"
             style={{
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-muted)',
-              backgroundColor: 'var(--color-input-background)',
+              borderColor: '#3b82f6',
+              color: '#93c5fd',
+              backgroundColor: 'rgba(59,130,246,0.12)',
             }}
           >
-            <span style={{ color: apiKeySet ? '#10b981' : '#ef4444' }}>●</span> Test
+            {/* Screwdriver icon */}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 6l4-4 2 2-4 4-1-1-9 9-2-2 9-9z"/>
+              <path d="M5 19l-2 2"/>
+            </svg>
+            Test
           </button>
         ) : (
           <span className="text-[10px]" style={{ color: isValid ? '#10b981' : '#f59e0b' }}>
@@ -466,14 +545,18 @@ function EmbeddingModelCard({ model, isDefault, onTest }: {
         {onTest && isCloud ? (
           <button
             onClick={() => onTest(provider)}
-            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border transition-colors hover:border-primary/50"
+            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border transition-colors hover:brightness-125"
             style={{
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-text-muted)',
-              backgroundColor: 'var(--color-input-background)',
+              borderColor: '#3b82f6',
+              color: '#93c5fd',
+              backgroundColor: 'rgba(59,130,246,0.12)',
             }}
           >
-            <span style={{ color: '#10b981' }}>●</span> Test
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 6l4-4 2 2-4 4-1-1-9 9-2-2 9-9z"/>
+              <path d="M5 19l-2 2"/>
+            </svg>
+            Test
           </button>
         ) : (
           <span className="text-[10px]" style={{ color: '#10b981' }}>✓ Ready</span>
