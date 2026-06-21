@@ -39,6 +39,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
       max_tokens: structure.main_agent.max_tokens,
       middleware: structure.main_agent.middleware,
     },
+    style: { width: MAIN_W, height: MAIN_H },
     draggable: true,
     selectable: true,
   });
@@ -66,6 +67,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
         instructions_preview: sa.instructions_preview,
         status: sa.status,
       },
+      style: { width: SUB_W, height: SUB_H },
       draggable: true,
       selectable: true,
     });
