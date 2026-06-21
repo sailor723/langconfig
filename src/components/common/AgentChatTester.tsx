@@ -192,7 +192,10 @@ export default function AgentChatTester({
         })
       });
 
-      if (!response.ok) throw new Error('Failed to send message');
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        throw new Error(`Failed to send message (${response.status}): ${errText.slice(0, 200)}`);
+      }
 
       setIsStreaming(true);
 
@@ -296,8 +299,9 @@ export default function AgentChatTester({
       }
 
     } catch (err) {
-      setError('Failed to send message');
-      console.error(err);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setError(msg);
+      console.error('[AgentChatTester] send error:', err);
       setIsStreaming(false);
     } finally {
       setIsLoading(false);
