@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { apiClient } from '@/lib/api-client';
+import ModelPlaygroundModal from './ModelPlaygroundModal';
 
 interface ModelInfo {
   model_id: string;
@@ -159,13 +160,14 @@ function CapabilityTag({ label }: { label: string }) {
   );
 }
 
-function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest, onSetDefault }: {
+function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest, onSetDefault, onPlay }: {
   model: ModelInfo | LocalModelInfo;
   apiKeySet: boolean;
   isLocal: boolean;
   isDefault: boolean;
   onTest: (provider: string) => void;
   onSetDefault: (modelId: string) => void;
+  onPlay: (modelId: string, modelName: string, provider: string) => void;
 }) {
   const provider = isLocal ? 'ollama' : (model as ModelInfo).provider.toLowerCase();
   const meta = PROVIDER_META[provider] || PROVIDER_META.ollama;
@@ -323,32 +325,50 @@ function ModelCard({ model, apiKeySet, isLocal, isDefault, onTest, onSetDefault 
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Bottom row: Test (left) + Set Default + Modality (right) */}
+      {/* Bottom row: Test + Play (left) + Set Default + Modality (right) */}
       <div className="flex items-center justify-between mt-1 gap-1">
-        {/* Test button — bottom-left */}
-        {!isLocal ? (
+        {/* Left side: Test + Play buttons */}
+        <div className="flex items-center gap-1">
+          {!isLocal ? (
+            <button
+              onClick={() => onTest(provider)}
+              title="Click to test connection"
+              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border transition-colors hover:brightness-125"
+              style={{
+                borderColor: '#3b82f6',
+                color: '#93c5fd',
+                backgroundColor: 'rgba(59,130,246,0.12)',
+              }}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 6l4-4 2 2-4 4-1-1-9 9-2-2 9-9z"/>
+                <path d="M5 19l-2 2"/>
+              </svg>
+              Test
+            </button>
+          ) : (
+            <span className="text-[10px]" style={{ color: isValid ? '#10b981' : '#f59e0b' }}>
+              {isValid ? '✓ Validated' : '⚠ Unvalidated'}
+            </span>
+          )}
+
+          {/* Play button — opens playground modal */}
           <button
-            onClick={() => onTest(provider)}
-            title="Click to test connection"
+            onClick={() => onPlay(modelIdOrName, model.display_name, provider)}
+            title="Open Playground"
             className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium border transition-colors hover:brightness-125"
             style={{
-              borderColor: '#3b82f6',
-              color: '#93c5fd',
-              backgroundColor: 'rgba(59,130,246,0.12)',
+              borderColor: '#10b981',
+              color: '#86efac',
+              backgroundColor: 'rgba(16,185,129,0.12)',
             }}
           >
-            {/* Screwdriver icon */}
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 6l4-4 2 2-4 4-1-1-9 9-2-2 9-9z"/>
-              <path d="M5 19l-2 2"/>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#10b981' }}>
+              <path d="M8 5v14l11-7z"/>
             </svg>
-            Test
+            Play
           </button>
-        ) : (
-          <span className="text-[10px]" style={{ color: isValid ? '#10b981' : '#f59e0b' }}>
-            {isValid ? '✓ Validated' : '⚠ Unvalidated'}
-          </span>
-        )}
+        </div>
 
         {/* Right side: Set Default button + Modality badge */}
         <div className="flex items-center gap-1">
@@ -403,13 +423,14 @@ function formatContextSize(size: number): string {
   return String(size);
 }
 
-function ProviderGroupCard({ group, apiKeyStatus, defaultModel, testResult, onTest, onSetDefault }: {
+function ProviderGroupCard({ group, apiKeyStatus, defaultModel, testResult, onTest, onSetDefault, onPlay }: {
   group: ProviderGroup;
   apiKeyStatus: Record<string, boolean>;
   defaultModel: string;
   testResult?: { success: boolean; message: string };
   onTest: (provider: string) => void;
   onSetDefault: (modelId: string) => void;
+  onPlay: (modelId: string, modelName: string, provider: string) => void;
 }) {
   const meta = PROVIDER_META[group.provider] || PROVIDER_META.ollama;
   const apiKeySet = apiKeyStatus[group.provider] || false;
@@ -471,6 +492,7 @@ function ProviderGroupCard({ group, apiKeyStatus, defaultModel, testResult, onTe
             isDefault={m.model_id === defaultModel}
             onTest={onTest}
             onSetDefault={onSetDefault}
+            onPlay={onPlay}
           />
         ))}
         {group.localModels.map(m => (
@@ -482,6 +504,7 @@ function ProviderGroupCard({ group, apiKeyStatus, defaultModel, testResult, onTe
             isDefault={m.name === defaultModel || `local-${m.name}` === defaultModel}
             onTest={onTest}
             onSetDefault={onSetDefault}
+            onPlay={onPlay}
           />
         ))}
       </div>
@@ -585,6 +608,9 @@ export default function ModelCardsSettings() {
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<Record<string, { success: boolean; message: string }>>({});
+
+  // Playground modal state
+  const [playgroundModel, setPlaygroundModel] = useState<{ id: string; name: string; provider: string } | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -727,6 +753,7 @@ export default function ModelCardsSettings() {
             testResult={testResult[g.provider]}
             onTest={handleTest}
             onSetDefault={handleSetDefault}
+            onPlay={(id, name, provider) => setPlaygroundModel({ id, name, provider })}
           />
         ))}
       </div>
@@ -752,6 +779,17 @@ export default function ModelCardsSettings() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Playground Modal */}
+      {playgroundModel && (
+        <ModelPlaygroundModal
+          open={true}
+          onClose={() => setPlaygroundModel(null)}
+          modelId={playgroundModel.id}
+          modelName={playgroundModel.name}
+          provider={playgroundModel.provider}
+        />
       )}
     </div>
   );
