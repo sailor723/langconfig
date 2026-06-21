@@ -35,13 +35,13 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
   const toggleExpand = () => {
     const next = !expanded;
     setExpanded(next);
-    // Dispatch event to parent to resize the node
+    // Dispatch event to parent to resize the node — expanded = full-prompt view
     window.dispatchEvent(new CustomEvent('da:resize-info-node', {
       detail: {
         nodeId: 'info-prompt',
         expanded: next,
-        width: next ? 380 : 200,
-        height: next ? 360 : 200,
+        width: next ? 560 : 200,
+        height: next ? 500 : 200,
       },
     }));
   };
@@ -51,10 +51,15 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
       className="rounded-lg px-2 py-1.5 shadow-sm relative h-full w-full flex flex-col"
       style={{
         backgroundColor: data.bg,
-        border: `1.5px solid ${borderColor}`,
+        border: expanded ? `3px solid ${data.accent}` : `1.5px solid ${borderColor}`,
         color: '#1F1E1B',
         minWidth: 170,
         minHeight: 80,
+        boxShadow: expanded
+          ? `0 0 0 4px ${data.accent}33, 0 12px 32px rgba(168,90,46,0.25)`
+          : '0 1px 2px rgba(0,0,0,0.05)',
+        transition: 'all 0.2s ease',
+        zIndex: expanded ? 50 : 1,
       }}
     >
       <NodeResizer
@@ -113,13 +118,17 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
         </div>
       ) : (
         <div
-          className="flex-1 overflow-auto whitespace-pre-wrap"
+          className="flex-1 overflow-auto whitespace-pre-wrap rounded"
           style={{
             color: '#1F1E1B',
             scrollbarWidth: 'thin',
             fontFamily: 'monospace',
-            fontSize: expanded ? 11 : 9,
-            lineHeight: 1.5,
+            fontSize: expanded ? 13 : 9,
+            lineHeight: 1.6,
+            backgroundColor: expanded ? '#FFFFFF' : 'transparent',
+            padding: expanded ? 8 : 0,
+            border: expanded ? '1px solid #E8E4DA' : 'none',
+            transition: 'all 0.2s ease',
           }}
         >
           {data.prompt || '(empty — no system prompt)'}
