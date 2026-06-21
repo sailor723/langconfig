@@ -37,7 +37,7 @@ export default function SettingsSidebar({
 }: SettingsSidebarProps) {
   const { t } = useTranslation('chat');
   return (
-    <aside className="w-60 border-r border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark flex flex-col">
+    <aside className="w-52 border-r border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark flex flex-col">
       {/* Header */}
       <div className="px-4 py-6 border-b border-gray-200 dark:border-border-dark">
         <h2 className="text-lg font-semibold flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
