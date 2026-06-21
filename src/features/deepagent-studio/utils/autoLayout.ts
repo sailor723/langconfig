@@ -75,7 +75,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
   edges.push({
     id: 'main-info-llm',
     source: 'main',
-    sourceHandle: 'left',
+    sourceHandle: 'llm-out',
     target: 'info-llm',
     type: 'smoothstep',
     animated: false,
@@ -102,7 +102,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
   edges.push({
     id: 'main-info-prompt',
     source: 'main',
-    sourceHandle: 'right',
+    sourceHandle: 'prompt-out',
     target: 'info-prompt',
     type: 'smoothstep',
     animated: false,

@@ -82,7 +82,10 @@ function DeepAgentCanvasInner({ structure, selectedNodeId, onNodeSelect }: Props
       onPaneClick={() => onNodeSelect?.(null, null)}
       nodeTypes={nodeTypes}
       fitView
-      fitViewOptions={{ padding: 0.25 }}
+      fitViewOptions={{ padding: 0.25, maxZoom: 1.0 }}
+      defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
+      minZoom={0.3}
+      maxZoom={2}
       nodesDraggable={true}
       nodesConnectable={false}
       elementsSelectable={true}
@@ -92,7 +95,7 @@ function DeepAgentCanvasInner({ structure, selectedNodeId, onNodeSelect }: Props
       proOptions={{ hideAttribution: true }}
       style={{ width: '100%', height: '100%' }}
     >
-      <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(255,255,255,0.08)" />
+      <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(140,140,160,0.25)" />
       <Controls showInteractive={false} />
       <MiniMap
         nodeColor={(n) =>
