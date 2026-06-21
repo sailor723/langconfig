@@ -3,6 +3,7 @@
  * Read-only display. (Edit button is in the header, not here.)
  */
 
+import { useState } from 'react';
 import type { AgentStructure, MainAgentInfo, SubAgent } from '../types';
 
 interface Props {
@@ -11,6 +12,8 @@ interface Props {
 }
 
 export default function DetailPanel({ structure, selectedNodeId }: Props) {
+  const [expanded, setExpanded] = useState(false);
+
   if (!structure) {
     return (
       <div
@@ -236,19 +239,35 @@ export default function DetailPanel({ structure, selectedNodeId }: Props) {
         {/* Instructions preview (sub) */}
         {!isMainAgent && (item as SubAgent).instructions_preview && (
           <div>
-            <div className="text-[10px] uppercase tracking-widest font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
-              Instructions Preview
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+                Instructions ({(item as SubAgent).instructions_preview!.length} chars)
+              </div>
+              <button
+                onClick={() => setExpanded(v => !v)}
+                className="text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-input-background)',
+                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                {expanded ? '▲ Collapse' : '▼ Expand'}
+              </button>
             </div>
-            <div className="px-2 py-1.5 rounded text-[10px] leading-relaxed"
+            <div
+              className="px-2 py-1.5 rounded text-[10px] leading-relaxed"
               style={{
                 backgroundColor: 'var(--color-input-background)',
-                color: 'var(--color-text-muted)',
+                color: 'var(--color-text-primary)',
                 fontFamily: 'monospace',
-                maxHeight: 120,
-                overflow: 'hidden',
-              }}>
+                whiteSpace: 'pre-wrap',
+                overflowY: 'auto',
+                maxHeight: expanded ? 600 : 140,
+                transition: 'max-height 0.2s',
+              }}
+            >
               {(item as SubAgent).instructions_preview}
-              {(item as SubAgent).instructions_preview!.length >= 150 && '…'}
             </div>
           </div>
         )}
@@ -256,19 +275,35 @@ export default function DetailPanel({ structure, selectedNodeId }: Props) {
         {/* System prompt preview (main) */}
         {isMainAgent && (item as MainAgentInfo).system_prompt_preview && (
           <div>
-            <div className="text-[10px] uppercase tracking-widest font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
-              System Prompt Preview
+            <div className="flex items-center justify-between mb-1">
+              <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+                System Prompt ({(item as MainAgentInfo).system_prompt_preview!.length} chars)
+              </div>
+              <button
+                onClick={() => setExpanded(v => !v)}
+                className="text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors"
+                style={{
+                  backgroundColor: 'var(--color-input-background)',
+                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                {expanded ? '▲ Collapse' : '▼ Expand'}
+              </button>
             </div>
-            <div className="px-2 py-1.5 rounded text-[10px] leading-relaxed"
+            <div
+              className="px-2 py-1.5 rounded text-[10px] leading-relaxed"
               style={{
                 backgroundColor: 'var(--color-input-background)',
-                color: 'var(--color-text-muted)',
+                color: 'var(--color-text-primary)',
                 fontFamily: 'monospace',
-                maxHeight: 120,
-                overflow: 'hidden',
-              }}>
+                whiteSpace: 'pre-wrap',
+                overflowY: 'auto',
+                maxHeight: expanded ? 600 : 140,
+                transition: 'max-height 0.2s',
+              }}
+            >
               {(item as MainAgentInfo).system_prompt_preview}
-              {(item as MainAgentInfo).system_prompt_preview.length >= 200 && '…'}
             </div>
           </div>
         )}
