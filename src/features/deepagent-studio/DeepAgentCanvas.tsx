@@ -95,17 +95,17 @@ function DeepAgentCanvasInner({ structure, selectedNodeId, onNodeSelect }: Props
       proOptions={{ hideAttribution: true }}
       style={{ width: '100%', height: '100%' }}
     >
-      <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(140,140,160,0.25)" />
+      <Background variant={BackgroundVariant.Lines} gap={20} size={1} color="rgba(168,162,158,0.35)" />
       <Controls showInteractive={false} />
       <MiniMap
         nodeColor={(n) =>
-          n.type === 'mainAgent' ? 'var(--color-primary)' :
-          n.type === 'tool' ? '#3b82f6' :
-          n.type === 'info' ? ((n.data as any)?.accent ?? '#94a3b8') :
+          n.type === 'mainAgent' ? '#D97757' :
+          n.type === 'tool' ? '#C8B6A6' :
+          n.type === 'info' ? ((n.data as any)?.accent ?? '#A85A2E') :
           '#94a3b8'
         }
-        maskColor="rgba(0,0,0,0.5)"
-        style={{ backgroundColor: 'var(--color-panel-dark)' }}
+        maskColor="rgba(245,241,232,0.5)"
+        style={{ backgroundColor: '#FAF9F5' }}
         pannable
         zoomable
       />
@@ -115,12 +115,12 @@ function DeepAgentCanvasInner({ structure, selectedNodeId, onNodeSelect }: Props
       onClick={resetLayout}
       className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[11px] font-medium shadow-md transition-colors"
       style={{
-        backgroundColor: 'var(--color-panel-dark)',
-        color: 'var(--color-text-primary)',
-        border: '1px solid var(--color-border)',
+        backgroundColor: '#FAF9F5',
+        color: '#1F1E1B',
+        border: '1px solid #D97757',
       }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.08)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--color-panel-dark)'; }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#F5E6DC'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#FAF9F5'; }}
       title="Restore default auto-layout positions"
     >
       <RotateCcw className="w-3 h-3" />

@@ -28,10 +28,12 @@ const SUB_W = 130;
 const SUB_H = 80;
 const RING_RADIUS = 260;
 
+// Claude theme — warm orange/cream professional palette
 const THEMES = {
-  llm: { bg: 'rgba(30, 58, 138, 0.95)', accent: '#93c5fd', border: '#3b82f6' },
-  prompt: { bg: 'rgba(88, 28, 135, 0.95)', accent: '#d8b4fe', border: '#a855f7' },
-  tool: { accent: '#3b82f6' },
+  llm: { bg: '#F5E6DC', accent: '#C75F3D', border: '#D97757' },
+  prompt: { bg: '#FAF9F5', accent: '#A85A2E', border: '#C75F3D' },
+  tool: { accent: '#C8B6A6' },
+  main: { bg: '#D97757', accent: '#FFFFFF', border: '#A85A2E' },
 };
 
 export function buildLayout(structure: AgentStructure): LayoutResult {
@@ -147,7 +149,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
         target: sa.id,
         type: 'smoothstep',
         animated: false,
-        style: { stroke: 'var(--color-primary)', strokeWidth: 1.5, opacity: 0.5 },
+        style: { stroke: '#A85A2E', strokeWidth: 1.5, opacity: 0.5 },
       });
     });
   }
