@@ -46,7 +46,41 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
 
   // Sub-agents — in a ring around main
   const n = structure.sub_agents.length;
+
+  // No sub-agents: show native tools as small pills instead
   if (n === 0) {
+    const tools = structure.main_agent.tools ?? [];
+    const toolCount = tools.length;
+    if (toolCount === 0) {
+      return { nodes, edges };
+    }
+    // Spread tools below the main agent in a horizontal row
+    const TOOL_W = 130;
+    const TOOL_H = 32;
+    const ROW_Y = center.y + 200;
+    const SPACING = 160;
+    const totalWidth = (toolCount - 1) * SPACING;
+    tools.forEach((toolName, idx) => {
+      const x = center.x - totalWidth / 2 + idx * SPACING - TOOL_W / 2;
+      const id = `tool-${toolName}`;
+      nodes.push({
+        id,
+        type: 'tool',
+        position: { x, y: ROW_Y },
+        data: { label: toolName },
+        style: { width: TOOL_W, height: TOOL_H },
+        draggable: true,
+        selectable: true,
+      });
+      edges.push({
+        id: `main-${id}`,
+        source: 'main',
+        target: id,
+        type: 'smoothstep',
+        animated: false,
+        style: { stroke: '#3b82f6', strokeWidth: 1, opacity: 0.4 },
+      });
+    });
     return { nodes, edges };
   }
 
