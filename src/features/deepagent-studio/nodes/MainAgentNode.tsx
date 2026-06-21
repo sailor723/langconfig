@@ -79,10 +79,10 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
             backgroundColor: 'var(--color-input-background)',
             color: 'var(--color-text-muted)',
             height: 'calc(100% - 70px)',
+            whiteSpace: 'pre-wrap',
           }}
         >
           {data.prompt_preview}
-          {data.prompt_preview.length >= 200 && '…'}
         </div>
       )}
     </div>
