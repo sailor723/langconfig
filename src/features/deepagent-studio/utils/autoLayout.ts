@@ -15,15 +15,15 @@ export interface LayoutResult {
   edges: Edge[];
 }
 
-const MAIN_W = 240;
-const MAIN_H = 160;
-const INFO_W = 240;
-const INFO_H = 140;
-const PROMPT_W = 280;
-const PROMPT_H = 180;
-const SUB_W = 180;
-const SUB_H = 100;
-const RING_RADIUS = 360;
+const MAIN_W = 160;
+const MAIN_H = 110;
+const INFO_W = 160;
+const INFO_H = 95;
+const PROMPT_W = 190;
+const PROMPT_H = 125;
+const SUB_W = 130;
+const SUB_H = 80;
+const RING_RADIUS = 260;
 
 const THEMES = {
   llm: { bg: 'rgba(59,130,246,0.10)', accent: '#60a5fa', border: '#3b82f6' },
