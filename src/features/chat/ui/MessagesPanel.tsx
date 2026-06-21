@@ -337,20 +337,18 @@ export default function MessagesPanel({
                           {new Date(message.timestamp).toLocaleTimeString()}
                         </span>
 
-                        {message.role === 'assistant' && (
-                          <button
-                            onClick={() => copyToClipboard(message.content, index)}
-                            className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
-                            title="Copy message"
-                            style={{ color: 'var(--color-text-muted)' }}
-                          >
-                            {copiedIndex === index ? (
-                              <CheckCircle className="w-3.5 h-3.5" style={{ color: '#10b981' }} />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        )}
+                        <button
+                          onClick={() => copyToClipboard(message.content, index)}
+                          className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+                          title="Copy message"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          {copiedIndex === index ? (
+                            <CheckCircle className="w-3.5 h-3.5" style={{ color: '#10b981' }} />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
                       </div>
                     </>
                   )}
