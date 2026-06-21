@@ -189,7 +189,7 @@ function ProviderGroupCard({ group, apiKeyStatus, onTest }: {
       </div>
 
       {/* Models grid */}
-      <div className="grid grid-cols-3 gap-3 p-4">
+      <div className="grid grid-cols-4 gap-3 p-4">
         {group.cloudModels.map(m => (
           <ModelCard
             key={m.model_id}
