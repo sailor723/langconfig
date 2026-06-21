@@ -113,6 +113,10 @@ export default function ModelPlaygroundModal({ open, onClose, modelId, modelName
       setChatHistory([]);
       setMessage('');
       setIsLoading(false);
+      setImageUrl('');
+      setJsonMode(false);
+      setToolsEnabled(false);
+      setStreamEnabled(false);
     }
   }, [open, modelId]);
 
@@ -198,9 +202,10 @@ export default function ModelPlaygroundModal({ open, onClose, modelId, modelName
     if (isLoading) return;
     // Apply preset-specific settings
     if (opts?.jsonMode) setJsonMode(true); else setJsonMode(false);
-    if (opts?.tools) setToolsEnabled(true); else if (!opts?.image) setToolsEnabled(false);
+    if (opts?.tools) setToolsEnabled(true); else setToolsEnabled(false);
     if (opts?.stream) setStreamEnabled(true); else setStreamEnabled(false);
-    if (opts?.image) setImageUrl(opts.image); else if (!text.includes('image')) { /* keep existing */ }
+    // Image: set ONLY for Vision chip, otherwise CLEAR to avoid stale URL poisoning next request
+    if (opts?.image) setImageUrl(opts.image); else setImageUrl('');
     setMessage(text);
     // Auto-send after a tick so state updates flush
     setTimeout(() => handleSend(), 50);
@@ -507,16 +512,16 @@ export default function ModelPlaygroundModal({ open, onClose, modelId, modelName
               style={{ borderColor: 'var(--color-border)' }}>
               <span className="text-[10px] uppercase tracking-widest mr-1 self-center"
                 style={{ color: 'var(--color-text-muted)' }}>Try:</span>
-              <PresetChip label="👋 Greeting" onClick={() => runPreset('Hi! Introduce yourself in one sentence.')} disabled={isLoading} />
-              <PresetChip label="🧮 Math" onClick={() => runPreset('What is 17 * 23 + sqrt(144)?')} disabled={isLoading} />
-              <PresetChip label="{} JSON" onClick={() => runPreset('Return JSON with keys: city, country, population for Tokyo', { jsonMode: true })} disabled={isLoading} />
-              <PresetChip label="🔧 Tools" onClick={() => runPreset('What is the weather in Tokyo and the current time in UTC?', { tools: true })} disabled={isLoading} />
-              <PresetChip label="🌐 Search" onClick={() => runPreset('Search the web for the latest DeepSeek V4 release date', { tools: true })} disabled={isLoading} />
-              <PresetChip label="📡 Stream" onClick={() => runPreset('Write a 3-line poem about AI', { stream: true })} disabled={isLoading} />
-              <PresetChip label="🖼 Vision" onClick={() => runPreset('What do you see in this image? Describe in detail.', {
-                image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1024px-Cat03.jpg'
+              <PresetChip label="👋 打招呼" onClick={() => runPreset('你好！请用一句话介绍你自己。')} disabled={isLoading} />
+              <PresetChip label="🧮 数学" onClick={() => runPreset('17 × 23 + √144 等于多少？请详细计算。')} disabled={isLoading} />
+              <PresetChip label="{} JSON" onClick={() => runPreset('请用 JSON 返回上海的城市信息，包含字段：城市、国家、人口', { jsonMode: true })} disabled={isLoading} />
+              <PresetChip label="🔧 工具" onClick={() => runPreset('查询北京的天气和当前的 UTC 时间', { tools: true })} disabled={isLoading} />
+              <PresetChip label="🌐 搜索" onClick={() => runPreset('请搜索 DeepSeek V4 的最新发布日期', { tools: true })} disabled={isLoading} />
+              <PresetChip label="📡 流式" onClick={() => runPreset('写一首关于人工智能的三行小诗', { stream: true })} disabled={isLoading} />
+              <PresetChip label="🖼 视觉" onClick={() => runPreset('请详细描述这张图片里有什么', {
+                image: 'https://raw.githubusercontent.com/gradio-app/gradio/main/test/test_files/bus.png'
               })} disabled={isLoading} />
-              <PresetChip label="🇫🇷 Reason" onClick={() => runPreset('If all roses are flowers and some flowers fade quickly, can we conclude some roses fade quickly? Explain step by step.')} disabled={isLoading} />
+              <PresetChip label="🧠 推理" onClick={() => runPreset('所有玫瑰都是花，有些花很快会凋谢，我们能得出结论"有些玫瑰很快会凋谢"吗？请一步步推理。')} disabled={isLoading} />
             </div>
 
             {/* Input */}

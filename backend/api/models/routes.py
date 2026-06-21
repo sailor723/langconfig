@@ -312,27 +312,35 @@ def _execute_demo_tool(name: str, args: dict) -> str:
     """Run a demo tool and return its output as a string."""
     try:
         if name == "get_weather":
-            city = args.get("city", "unknown")
+            city = args.get("city", "未知城市")
             unit = args.get("unit", "celsius")
-            # Deterministic demo output (no real API call)
+            unit_label = "华氏度" if unit == "fahrenheit" else "摄氏度"
+            # Deterministic mock output — Chinese cities first
             mock = {
-                "Tokyo":    (22, "Partly cloudy"),
-                "London":   (15, "Light rain"),
-                "New York": (18, "Sunny"),
-                "San Francisco": (16, "Foggy"),
-                "Paris":    (17, "Overcast"),
-                "Beijing":  (24, "Hazy"),
-                "Shanghai": (26, "Humid"),
-                "Sydney":   (20, "Clear"),
+                "北京":   (28, "晴朗"),
+                "上海":   (30, "多云"),
+                "广州":   (32, "雷阵雨"),
+                "深圳":   (31, "晴朗"),
+                "杭州":   (29, "小雨"),
+                "成都":   (25, "阴天"),
+                "西安":   (27, "晴朗"),
+                "南京":   (28, "多云"),
+                "武汉":   (30, "闷热"),
+                "重庆":   (33, "高温"),
+                "东京":   (22, "多云"),
+                "伦敦":   (15, "小雨"),
+                "纽约":   (18, "晴朗"),
+                "巴黎":   (17, "阴天"),
+                "悉尼":   (20, "晴朗"),
             }
             for key, (t, cond) in mock.items():
-                if key.lower() in city.lower():
+                if key in city or key.lower() in city.lower():
                     t_disp = round(t * 9/5 + 32) if unit == "fahrenheit" else t
-                    return f"Weather in {key}: {cond}, {t_disp}°{'F' if unit == 'fahrenheit' else 'C'}"
+                    return f"{key}天气：{cond}，气温 {t_disp}°{'F' if unit == 'fahrenheit' else 'C'}（{unit_label}）"
             # generic fallback
             t = 20
             t_disp = round(t * 9/5 + 32) if unit == "fahrenheit" else t
-            return f"Weather in {city}: Clear, {t_disp}°{'F' if unit == 'fahrenheit' else 'C'} (mock data)"
+            return f"{city}天气：晴朗，气温 {t_disp}°{'F' if unit == 'fahrenheit' else 'C'}（模拟数据）"
 
         if name == "get_current_time":
             from datetime import datetime
@@ -342,20 +350,20 @@ def _execute_demo_tool(name: str, args: dict) -> str:
             except Exception:
                 tz = None
             now = datetime.now(tz) if tz else datetime.utcnow()
-            return f"Current time: {now.isoformat(timespec='seconds')} ({args.get('timezone') or 'UTC'})"
+            return f"当前时间：{now.isoformat(timespec='seconds')}（时区：{args.get('timezone') or 'UTC'}）"
 
         if name == "search_web":
             q = args.get("query", "")
             n = min(int(args.get("max_results", 3) or 3), 10)
             # Deterministic mock results
             return (
-                f"Search results for '{q}' (top {n}):\n"
+                f"搜索 '{q}' 的结果（前 {n} 条）：\n"
                 f"1. https://example.com/{q.replace(' ', '-')}-overview\n"
-                f"   Snippet: Overview of {q} with key facts and references.\n"
+                f"   摘要：关于 {q} 的概述、关键事实和参考资料。\n"
                 f"2. https://docs.example.com/{q.replace(' ', '-')}\n"
-                f"   Snippet: Official documentation and latest updates on {q}.\n"
+                f"   摘要：{q} 的官方文档和最新更新。\n"
                 f"3. https://blog.example.com/{q.replace(' ', '-')}-2026\n"
-                f"   Snippet: 2026 trends and analysis on {q}.\n"
+                f"   摘要：2026 年关于 {q} 的趋势与分析。\n"
             )[:1500]
 
         if name == "calculate":
