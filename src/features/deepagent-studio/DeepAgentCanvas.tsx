@@ -72,7 +72,7 @@ function DeepAgentCanvasInner({ structure, selectedNodeId, onNodeSelect }: Props
   }
 
   return (
-    <div className="relative flex-1" style={{ minHeight: 0 }}>
+    <div className="relative w-full h-full" style={{ minHeight: 0 }}>
     <ReactFlow
       nodes={nodes}
       edges={edges}
