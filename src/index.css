@@ -614,10 +614,10 @@ select {
   border-radius: 12px;
 }
 
-/* User messages - warm brown bubble + white text */
+/* User messages - warm tan/brown bubble + white text */
 [data-theme="claude"] div[style*="background-color: var(--color-primary)"] {
   border: none !important;
-  background-color: #8B7355 !important;  /* Warm brown */
+  background-color: #B8956E !important;  /* Warm tan brown */
 }
 [data-theme="claude"] div[style*="background-color: var(--color-primary)"] * {
   color: #FFFFFF !important;  /* White text */
