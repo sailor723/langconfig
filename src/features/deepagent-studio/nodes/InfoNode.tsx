@@ -2,7 +2,7 @@
  * InfoNode — compact themed card displayed on the canvas, linked to the
  * Main Agent via an edge. Used for LLM and Prompt properties.
  *
- * Smaller and denser — shows full content (scrollable for long prompts).
+ * Rich key/value formatting for LLM, full prompt (scrollable) for Prompt.
  */
 
 import { memo } from 'react';
@@ -17,6 +17,7 @@ interface Data {
   model?: string;
   temperature?: number;
   max_tokens?: number;
+  context_window?: number;  // optional
   /** Prompt-specific */
   prompt?: string;
   /** Theme colors */
@@ -33,15 +34,15 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
       style={{
         backgroundColor: data.bg,
         border: `1.5px solid ${borderColor}`,
-        color: 'var(--color-text-primary)',
-        minWidth: 160,
+        color: '#f3f4f6',
+        minWidth: 170,
         minHeight: 80,
       }}
     >
       <NodeResizer
         color={data.accent}
         isVisible={selected}
-        minWidth={160}
+        minWidth={170}
         minHeight={80}
         lineStyle={{ borderWidth: 1, opacity: 0.4 }}
         handleStyle={{ width: 5, height: 5, borderRadius: 2 }}
@@ -73,27 +74,19 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
 
       {/* Body */}
       {data.kind === 'llm' ? (
-        <div className="flex-1 flex flex-col justify-center gap-1 text-[9px] overflow-hidden">
-          <div className="font-mono font-bold truncate" title={data.model} style={{ color: 'var(--color-text-primary)' }}>
-            {data.model}
-          </div>
-          <div className="flex items-center gap-2" style={{ color: 'var(--color-text-muted)' }}>
-            <span className="flex items-center gap-0.5">
-              <span style={{ color: data.accent }}>🌡</span>
-              <span className="font-mono">{data.temperature?.toFixed(2)}</span>
-            </span>
-            <span className="flex items-center gap-0.5">
-              <span style={{ color: data.accent }}>📏</span>
-              <span className="font-mono">{((data.max_tokens ?? 0) / 1000).toFixed(1)}k</span>
-            </span>
-          </div>
+        <div className="flex-1 flex flex-col gap-0.5 text-[9px] overflow-hidden">
+          <KV label="MODEL" value={data.model ?? '—'} accentColor={data.accent} />
+          <KV label="TEMP" value={data.temperature?.toFixed(2) ?? '—'} accentColor={data.accent} />
+          <KV label="MAX" value={data.max_tokens ? `${data.max_tokens.toLocaleString()}` : '—'} accentColor={data.accent} />
+          {data.context_window !== undefined && (
+            <KV label="CTX" value={`${(data.context_window / 1000).toFixed(0)}k`} accentColor={data.accent} />
+          )}
         </div>
       ) : (
         <div
           className="flex-1 text-[9px] leading-snug font-mono overflow-auto whitespace-pre-wrap"
           style={{
-            color: 'var(--color-text-primary)',
-            opacity: 0.9,
+            color: '#f9fafb',
             scrollbarWidth: 'thin',
           }}
         >
@@ -103,6 +96,23 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
     </div>
   );
 });
+
+/** Compact key-value row inside InfoNode. */
+function KV({ label, value, accentColor }: { label: string; value: string; accentColor: string }) {
+  return (
+    <div className="flex items-center gap-1 overflow-hidden">
+      <span
+        className="text-[8px] font-bold uppercase tracking-wider flex-shrink-0"
+        style={{ color: accentColor, opacity: 0.85, minWidth: 32 }}
+      >
+        {label}
+      </span>
+      <span className="font-mono font-medium truncate" style={{ color: '#ffffff' }}>
+        {value}
+      </span>
+    </div>
+  );
+}
 
 InfoNode.displayName = 'InfoNode';
 export default InfoNode;
