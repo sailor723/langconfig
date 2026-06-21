@@ -57,7 +57,20 @@ CLOUD_MODELS = [
                       "thinking": True, "open_source": False, "release": "2025-12",
                       "strength": "Reasoning, math, science"}},
 
-    # DeepSeek V4 Series (April 2026)
+    # DeepSeek (current production models)
+    {"model_id": "deepseek-chat", "display_name": "DeepSeek Chat (V3.2)", "provider": "deepseek",
+     "capabilities": {"streaming": True, "tools": True, "structured_output": True,
+                      "max_context": 128000, "max_output": 8192,
+                      "input_price": 0.27, "output_price": 1.10, "speed_tps": 65,
+                      "thinking": False, "open_source": True, "license": "DeepSeek",
+                      "release": "2025-09", "strength": "Current production, fast, cheap"}},
+    {"model_id": "deepseek-reasoner", "display_name": "DeepSeek Reasoner (R1)", "provider": "deepseek",
+     "capabilities": {"streaming": True, "tools": False, "structured_output": False,
+                      "max_context": 128000, "max_output": 32000,
+                      "input_price": 0.55, "output_price": 2.19, "speed_tps": 35,
+                      "thinking": True, "open_source": True, "license": "MIT",
+                      "release": "2025-01", "strength": "Reasoning, math, science"}},
+    # DeepSeek V4 Series (April 2026 — preview)
     {"model_id": "deepseek-v4-pro", "display_name": "DeepSeek V4 Pro", "provider": "deepseek",
      "capabilities": {"streaming": True, "tools": True, "structured_output": True, "vision": True,
                       "audio": True,
