@@ -34,6 +34,13 @@ class ModelInvokeRequest(BaseModel):
     system_prompt: Optional[str] = Field(None, description="Optional system prompt")
     temperature: float = Field(0.7, ge=0.0, le=2.0, description="Temperature for generation")
     max_tokens: Optional[int] = Field(None, ge=1, le=500000, description="Max tokens to generate")
+    top_p: Optional[float] = Field(None, ge=0.0, le=1.0, description="Nucleus sampling — only consider tokens with top_p cumulative probability")
+    frequency_penalty: Optional[float] = Field(None, ge=-2.0, le=2.0, description="Penalize tokens by their frequency so far")
+    presence_penalty: Optional[float] = Field(None, ge=-2.0, le=2.0, description="Penalize tokens that already appeared")
+    stop: Optional[list] = Field(None, description="Stop sequences (list of strings)")
+    json_mode: bool = Field(False, description="Force JSON output (structured_output)")
+    tools: bool = Field(False, description="Enable tool/function calling for this turn")
+    stream: bool = Field(False, description="Stream the response (NDJSON chunks)")
 
 
 class ModelInvokeResponse(BaseModel):
@@ -91,7 +98,7 @@ def _get_decrypted_setting_value(settings_row: SettingsModel, key_name: str) -> 
         "replicate": None,
         "deepseek": app_settings.deepseek_api_key,
         "glm": None,
-        "minimax": None,
+        "minimax": app_settings.minimax_api_key,
         "tavily": app_settings.tavily_api_key,
         "serper": app_settings.serper_api_key,
         "agnes": app_settings.agnes_api_key,
@@ -246,9 +253,29 @@ async def model_invoke(request: ModelInvokeRequest, db: Session = Depends(get_db
             db,
         )
 
+        # Apply optional sampling / penalty params if supported by provider
+        if request.top_p is not None:
+            try: llm.top_p = request.top_p
+            except Exception: pass
+        if request.frequency_penalty is not None:
+            try: llm.frequency_penalty = request.frequency_penalty
+            except Exception: pass
+        if request.presence_penalty is not None:
+            try: llm.presence_penalty = request.presence_penalty
+            except Exception: pass
+        if request.stop:
+            try: llm.stop = request.stop
+            except Exception: pass
+
+        # JSON mode (structured output): instruct via system message for non-native providers
         messages = []
+        sys_extra = ""
+        if request.json_mode:
+            sys_extra = "\n\nYou MUST respond with valid JSON only. No prose, no markdown code fences."
         if request.system_prompt:
-            messages.append(SystemMessage(content=request.system_prompt))
+            messages.append(SystemMessage(content=request.system_prompt + sys_extra))
+        elif sys_extra:
+            messages.append(SystemMessage(content=sys_extra.strip()))
         messages.append(HumanMessage(content=request.message))
 
         response = llm.invoke(messages)
