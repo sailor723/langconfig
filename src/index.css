@@ -614,13 +614,16 @@ select {
   border-radius: 12px;
 }
 
-/* User messages - warm tan/brown bubble + white text */
+/* User messages - warm copper bubble + white text */
 [data-theme="claude"] div[style*="background-color: var(--color-primary)"] {
   border: none !important;
-  background-color: #B8956E !important;  /* Warm tan brown */
+  background-color: #C27D3F !important;  /* Warm copper */
 }
 [data-theme="claude"] div[style*="background-color: var(--color-primary)"] * {
   color: #FFFFFF !important;  /* White text */
+}
+[data-theme="claude"] .rounded-2xl.rounded-tr-sm .prose {
+  font-size: 0.95rem !important;  /* 20% larger user text */
 }
 
 /* Input area */
@@ -650,13 +653,10 @@ select {
 /* Links - warm brown */
 [data-theme="claude"] a,
 [data-theme="claude"] [style*="color: var(--color-primary)"] {
-  color: #C27D3F !important;
+  color: #8B7355 !important;
 }
 
-/* Active sidebar item - warm highlight */
-[data-theme="claude"] button[style*="background-color: var(--color-primary)"] {
-  background-color: #C27D3F !important;
-}
+/* Active sidebar item - warm highlight (same as button rule above) */
 
 /* Scrollbar - subtle */
 [data-theme="claude"] ::-webkit-scrollbar-thumb {
