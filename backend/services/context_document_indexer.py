@@ -471,10 +471,7 @@ class ContextDocumentIndexer:
         import logging
         logger = logging.getLogger(__name__)
         try:
-            from db.database import SessionLocal
-            from models.settings import Settings as DBSettings
             from llama_index.core import Settings as LlamaSettings
-            LlamaSettings  # noqa: used below
 
             # Try to import embedding classes (may not be installed)
             try:
@@ -487,77 +484,71 @@ class ContextDocumentIndexer:
             except ImportError:
                 OpenAIEmbedding = None
 
-            db = SessionLocal()
-            try:
-                db_settings = db.query(DBSettings).filter(DBSettings.id == 1).first()
-                if not db_settings or not db_settings.embedding_model:
-                    logger.warning("No embedding model configured in DB settings, skipping")
-                    return
+            from config import settings as app_settings
 
-                embed_model_name = db_settings.embedding_model
-                logger.info(f"Configuring llama_index embed_model from DB: {embed_model_name}")
+            embed_model_name = app_settings.default_embedding_model
+            if not embed_model_name:
+                logger.warning("No embedding model configured in .env, skipping")
+                return
 
-                # Strip /v1 suffix if present (Ollama uses root API path, not /v1)
-                base_url_raw = (db_settings.local_base_url or "http://localhost:11434").rstrip("/")
-                base_url_ollama = base_url_raw.replace("/v1", "").rstrip("/")
+            logger.info(f"Configuring embed model from .env: {embed_model_name}")
 
-                # Check if it's an Ollama model
-                if embed_model_name.startswith("ollama-") or embed_model_name == "nomic-embed-text:latest" or "nomic" in embed_model_name.lower():
-                    model_name = embed_model_name.replace("ollama-", "", 1)
-                    LlamaSettings.embed_model = OllamaEmbedding(
-                        model_name=model_name,
-                        base_url=base_url_ollama,
+            # Strip /v1 suffix if present (Ollama uses root API path, not /v1)
+            base_url_raw = (app_settings.local_llm_base_url or "http://localhost:11434").rstrip("/")
+            base_url_ollama = base_url_raw.replace("/v1", "").rstrip("/")
+
+            # Check if it's an Ollama model
+            if embed_model_name.startswith("ollama-") or embed_model_name == "nomic-embed-text:latest" or "nomic" in embed_model_name.lower():
+                model_name = embed_model_name.replace("ollama-", "", 1)
+                LlamaSettings.embed_model = OllamaEmbedding(
+                    model_name=model_name,
+                    base_url=base_url_ollama,
+                )
+                logger.info(f"Configured Ollama embedding: {model_name} @ {base_url_ollama}")
+            # Check if it's an OpenAI model
+            elif embed_model_name.startswith("text-embedding-"):
+                openai_key = app_settings.openai_api_key
+                if openai_key:
+                    LlamaSettings.embed_model = OpenAIEmbedding(
+                        model=embed_model_name,
+                        api_key=openai_key,
                     )
-                    logger.info(f"Configured Ollama embedding: {model_name} @ {base_url_ollama}")
-                # Check if it's an OpenAI model
-                elif embed_model_name.startswith("text-embedding-"):
-                    api_keys = db_settings.api_keys or {}
-                    openai_key = api_keys.get("openai") or api_keys.get("OPENAI_API_KEY")
-                    if openai_key:
-                        LlamaSettings.embed_model = OpenAIEmbedding(
-                            model=embed_model_name,
-                            api_key=openai_key,
-                        )
-                        logger.info(f"Configured OpenAI embedding: {embed_model_name}")
-                    else:
-                        logger.warning(f"OpenAI embedding model {embed_model_name} configured but no API key found")
+                    logger.info(f"Configured OpenAI embedding: {embed_model_name}")
                 else:
-                    # Try as a generic Ollama model name
-                    from llama_index.embeddings.ollama import OllamaEmbedding
-                    LlamaSettings.embed_model = OllamaEmbedding(
-                        model_name=embed_model_name,
-                        base_url=base_url_ollama,
-                    )
-                    logger.info(f"Configured generic Ollama embedding: {embed_model_name} @ {base_url_ollama}")
+                    logger.warning(f"OpenAI embedding model {embed_model_name} configured but no API key found in .env")
+            else:
+                # Try as a generic Ollama model name
+                from llama_index.embeddings.ollama import OllamaEmbedding
+                LlamaSettings.embed_model = OllamaEmbedding(
+                    model_name=embed_model_name,
+                    base_url=base_url_ollama,
+                )
+                logger.info(f"Configured generic Ollama embedding: {embed_model_name} @ {base_url_ollama}")
 
-                # Also configure LLM from DB if needed
-                if db_settings.default_model:
-                    api_keys = db_settings.api_keys or {}
-                    try:
-                        if db_settings.local_provider == "ollama" or not db_settings.default_model.startswith("gpt"):
-                            from llama_index.llms.ollama import Ollama
-                            LlamaSettings.llm = Ollama(
-                                model=db_settings.default_model,
-                                base_url=base_url_ollama,
-                                request_timeout=120.0,
+            # Also configure LLM from .env if needed
+            if app_settings.default_model:
+                try:
+                    if app_settings.local_llm_provider == "ollama" or not app_settings.default_model.startswith("gpt"):
+                        from llama_index.llms.ollama import Ollama
+                        LlamaSettings.llm = Ollama(
+                            model=app_settings.default_model,
+                            base_url=base_url_ollama,
+                            request_timeout=120.0,
+                        )
+                        logger.info(f"Configured Ollama LLM: {app_settings.default_model} @ {base_url_ollama}")
+                    else:
+                        openai_key = app_settings.openai_api_key
+                        if openai_key:
+                            from llama_index.llms.openai import OpenAI
+                            LlamaSettings.llm = OpenAI(
+                                model=app_settings.default_model,
+                                api_key=openai_key,
                             )
-                            logger.info(f"Configured Ollama LLM: {db_settings.default_model} @ {base_url_ollama}")
-                        else:
-                            openai_key = api_keys.get("openai") or api_keys.get("OPENAI_API_KEY")
-                            if openai_key:
-                                from llama_index.llms.openai import OpenAI
-                                LlamaSettings.llm = OpenAI(
-                                    model=db_settings.default_model,
-                                    api_key=openai_key,
-                                )
-                                logger.info(f"Configured OpenAI LLM: {db_settings.default_model}")
-                    except ImportError as ie:
-                        logger.warning(f"Could not configure LLM from DB (package not installed): {ie}")
-
-            finally:
-                db.close()
+                            logger.info(f"Configured OpenAI LLM: {app_settings.default_model}")
+                except ImportError as ie:
+                    logger.warning(f"Could not configure LLM from .env (package not installed): {ie}")
         except Exception as e:
-            logger.error(f"Failed to configure embed model from DB: {e}", exc_info=True)
+            logger.error(f"Failed to configure embed model from .env: {e}", exc_info=True)
 
     async def _create_embeddings(
         self,

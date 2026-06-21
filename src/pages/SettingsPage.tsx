@@ -16,41 +16,12 @@ import LocalWorkspaceSettings from "../features/settings/ui/LocalWorkspaceSettin
 import ModelDefaultsSettings from '../features/settings/ui/ModelDefaultsSettings';
 import ApiKeysAndModels from '../features/settings/ui/ApiKeysAndModels';
 import SettingsSection, { SettingsInput, SettingsSelect } from '../features/settings/ui/SettingsSection';
-import { fetchAndCacheModels } from '../lib/modelCache';
 
 export default function SettingsView() {
   const { t } = useTranslation('chat');
   const [currentCategory, setCurrentCategory] = useState<SettingsCategory>('general');
   const [isLoading, setIsLoading] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // API Keys state - separate "is set" status from user input
-  const [apiKeys, setApiKeys] = useState({
-    anthropic: '',
-    openai: '',
-    google: '',
-    deepseek: '',
-    glm: '',
-    minimax: '',
-    tavily: '',
-    agnes: '',
-    agnesBaseUrl: '',
-  });
-  const [apiKeyStatus, setApiKeyStatus] = useState({
-    anthropic: false,
-    openai: false,
-    google: false,
-    deepseek: false,
-    glm: false,
-    minimax: false,
-    tavily: false,
-    agnes: false,
-  });
-  const [apiKeyConnection, setApiKeyConnection] = useState<Record<string, { connected: boolean | null; message: string | null }>>({});
-  const [apiKeySaving, setApiKeySaving] = useState(false);
-  const [apiKeySaveMessage, setApiKeySaveMessage] = useState<string | null>(null);
-  const [testingProvider, setTestingProvider] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
 
   // Theme state
   const [currentTheme, setCurrentTheme] = useState<ThemeName>('dark');
@@ -145,42 +116,6 @@ export default function SettingsView() {
 
   const loadSettings = async () => {
     try {
-      // Load API keys status (don't load masked keys into inputs!)
-      const res = await apiClient.getApiKeys();
-      const keys = res.data || [];
-      setApiKeyStatus({
-        anthropic: keys.find((k: any) => k.provider === 'anthropic')?.is_set || false,
-        openai: keys.find((k: any) => k.provider === 'openai')?.is_set || false,
-        google: keys.find((k: any) => k.provider === 'google')?.is_set || false,
-        deepseek: keys.find((k: any) => k.provider === 'deepseek')?.is_set || false,
-        glm: keys.find((k: any) => k.provider === 'glm')?.is_set || false,
-        minimax: keys.find((k: any) => k.provider === 'minimax')?.is_set || false,
-        tavily: keys.find((k: any) => k.provider === 'tavily')?.is_set || false,
-        agnes: keys.find((k: any) => k.provider === 'agnes')?.is_set || false,
-      });
-      setApiKeyConnection({
-        anthropic: keys.find((k: any) => k.provider === 'anthropic'),
-        openai: keys.find((k: any) => k.provider === 'openai'),
-        google: keys.find((k: any) => k.provider === 'google'),
-        deepseek: keys.find((k: any) => k.provider === 'deepseek'),
-        glm: keys.find((k: any) => k.provider === 'glm'),
-        minimax: keys.find((k: any) => k.provider === 'minimax'),
-        tavily: keys.find((k: any) => k.provider === 'tavily'),
-        agnes: keys.find((k: any) => k.provider === 'agnes'),
-      });
-      // Keep input fields empty - user types new key to update
-      setApiKeys({
-        anthropic: '',
-        openai: '',
-        google: '',
-        deepseek: '',
-        glm: '',
-        minimax: '',
-        tavily: '',
-        agnes: '',
-        agnesBaseUrl: '',
-      });
-
       // Load general settings
       try {
         const generalResponse = await apiClient.getGeneralSettings();
@@ -296,20 +231,6 @@ export default function SettingsView() {
     saveTimeoutRef.current = setTimeout(async () => {
       try {
         switch (category) {
-          case 'api-keys':
-            await apiClient.setApiKeys({
-              anthropic_api_key: apiKeys.anthropic || undefined,
-              openai_api_key: apiKeys.openai || undefined,
-              google_api_key: apiKeys.google || undefined,
-              deepseek_api_key: apiKeys.deepseek || undefined,
-              glm_api_key: apiKeys.glm || undefined,
-              minimax_api_key: apiKeys.minimax || undefined,
-              tavily_api_key: apiKeys.tavily || undefined,
-              agnes_api_key: apiKeys.agnes || undefined,
-              agnes_base_url: apiKeys.agnesBaseUrl || undefined,
-            });
-            break;
-
           case 'general':
             if (!generalSettings) return;
             await apiClient.updateGeneralSettings({
@@ -383,27 +304,7 @@ export default function SettingsView() {
         console.error('Failed to autosave settings:', error);
       }
     }, 1000); // 1 second debounce
-  }, [apiKeys, generalSettings, ragSettings, localModelsSettings, workspaceSettings, modelDefaultsSettings]);
-
-  const handleTestConnection = async (provider: string) => {
-    setTestingProvider(provider);
-    setTestResults(prev => ({ ...prev, [provider]: { success: false, message: 'Testing...' } }));
-    try {
-      const res = await apiClient.testApiKey(provider);
-      const data = res.data;
-      setTestResults(prev => ({ ...prev, [provider]: { success: data.success, message: data.message } }));
-      // Clear result after 8 seconds
-      setTimeout(() => setTestResults(prev => {
-        const next = { ...prev };
-        delete next[provider];
-        return next;
-      }), 8000);
-    } catch (err: any) {
-      setTestResults(prev => ({ ...prev, [provider]: { success: false, message: err?.message || 'Connection test failed' } }));
-    } finally {
-      setTestingProvider(null);
-    }
-  };
+  }, [generalSettings, ragSettings, localModelsSettings, workspaceSettings, modelDefaultsSettings]);
 
   const handleThemeChange = (themeName: ThemeName) => {
     const theme = themes[themeName];

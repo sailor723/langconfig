@@ -250,13 +250,13 @@ def get_langchain_vector_store(project_id: int, collection_name: str = "agent_me
 
     # Use the configured embedding model
     embedding = OpenAIEmbeddings(
-        model=app_settings.embedding_model,
+        model=app_settings.default_embedding_model,
         api_key=openai_api_key,
     )
 
     logger.info(
         f"Initializing LangChain PGVector for project {project_id} "
-        f"(table={table_name}, embedding={app_settings.embedding_model})"
+        f"(table={table_name}, embedding={app_settings.default_embedding_model})"
     )
 
     try:
