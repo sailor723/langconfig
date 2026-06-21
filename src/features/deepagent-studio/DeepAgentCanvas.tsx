@@ -52,37 +52,6 @@ export default function DeepAgentCanvas({ structure, selectedNodeId, onNodeSelec
     );
   }
 
-  if (structure.sub_agents.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col">
-        <div className="flex-1">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onNodeClick={(_, n) => onNodeSelect?.(n.id, n.data)}
-            onPaneClick={() => onNodeSelect?.(null, null)}
-            nodeTypes={nodeTypes}
-            fitView
-            fitViewOptions={{ padding: 0.3 }}
-            nodesDraggable={true}
-            nodesConnectable={false}
-            elementsSelectable={true}
-            zoomOnDoubleClick={false}
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(255,255,255,0.06)" />
-            <Controls showInteractive={false} />
-          </ReactFlow>
-        </div>
-        <div className="text-center py-6 text-xs" style={{ color: 'var(--color-text-muted)', backgroundColor: 'var(--color-panel-dark)' }}>
-          ℹ️  This agent has no sub-agents. Add Skills or user-defined sub-agents in the builder to see the full graph.
-        </div>
-      </div>
-    );
-  }
-
   return (
     <ReactFlow
       nodes={nodes}
@@ -93,7 +62,7 @@ export default function DeepAgentCanvas({ structure, selectedNodeId, onNodeSelec
       onPaneClick={() => onNodeSelect?.(null, null)}
       nodeTypes={nodeTypes}
       fitView
-      fitViewOptions={{ padding: 0.2 }}
+      fitViewOptions={{ padding: 0.25 }}
       nodesDraggable={true}
       nodesConnectable={false}
       elementsSelectable={true}
@@ -103,7 +72,7 @@ export default function DeepAgentCanvas({ structure, selectedNodeId, onNodeSelec
       <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(255,255,255,0.06)" />
       <Controls showInteractive={false} />
       <MiniMap
-        nodeColor={(n) => n.type === 'mainAgent' ? 'var(--color-primary)' : '#94a3b8'}
+        nodeColor={(n) => n.type === 'mainAgent' ? 'var(--color-primary)' : n.type === 'tool' ? '#3b82f6' : '#94a3b8'}
         maskColor="rgba(0,0,0,0.5)"
         style={{ backgroundColor: 'var(--color-panel-dark)' }}
         pannable
