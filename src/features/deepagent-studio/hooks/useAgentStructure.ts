@@ -98,7 +98,7 @@ export function useAgentStructure(agentId: number | null) {
         // Build capabilities
         const capabilities: Capability[] = [];
         for (const t of (config.native_tools ?? config.tools ?? []).slice(0, 12)) {
-          capabilities.push({ type: 'tool', label: t, value: t, enabled: true });
+          capabilities.push({ type: 'tool', label: t, value: '', enabled: true });
         }
         if (config.use_local_sandbox) {
           capabilities.push({
