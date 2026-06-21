@@ -154,20 +154,25 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
     });
   }
 
-  // Tools as pills at the BOTTOM (always shown if any)
+  // Tools as pills at the BOTTOM (always shown if any).
+  // Wrap into multiple rows when there are too many to fit on one row.
   if (tools.length > 0) {
     const TOOL_W = 200;
     const TOOL_H = 90;
-    const ROW_Y = snap(center.y + MAIN_H / 2 + 180);
     const SPACING = 220;
-    const totalWidth = (tools.length - 1) * SPACING;
+    const PER_ROW = 4;  // wrap every 4 tools to a new row
     tools.forEach((toolName, idx) => {
-      const x = snap(center.x - totalWidth / 2 + idx * SPACING - TOOL_W / 2);
+      const row = Math.floor(idx / PER_ROW);
+      const col = idx % PER_ROW;
+      const itemsInThisRow = Math.min(PER_ROW, tools.length - row * PER_ROW);
+      const rowWidth = (itemsInThisRow - 1) * SPACING;
+      const x = snap(center.x - rowWidth / 2 + col * SPACING - TOOL_W / 2);
+      const y = snap(center.y + MAIN_H / 2 + 180 + row * (TOOL_H + 20));
       const id = `tool-${toolName}`;
       nodes.push({
         id,
         type: 'tool',
-        position: { x, y: ROW_Y },
+        position: { x, y },
         data: { label: toolName },
         style: { width: TOOL_W, height: TOOL_H },
         draggable: true,

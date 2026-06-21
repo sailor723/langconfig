@@ -18,15 +18,15 @@ interface Data {
 
 const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
   const statusColor: Record<ExecutionStatus, string> = {
-    idle: 'var(--color-border)',
-    running: '#3b82f6',     // blue, will be animated
-    success: '#10b981',     // green
-    error: '#ef4444',       // red
+    idle: '#C8B6A6',
+    running: '#3b82f6',
+    success: '#10b981',
+    error: '#ef4444',
   };
 
   const borderColor = selected
-    ? '#10b981'
-    : statusColor[data.status] ?? 'var(--color-border)';
+    ? '#A85A2E'
+    : statusColor[data.status] ?? '#C8B6A6';
 
   const isActive = data.status === 'running';
 
@@ -34,17 +34,16 @@ const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
     <div
       className="rounded-xl px-3 py-2 shadow-md relative h-full w-full"
       style={{
-        backgroundColor: 'var(--color-panel-dark)',
+        backgroundColor: '#FAF9F5',
         border: `2px solid ${borderColor}`,
         minWidth: 160,
         minHeight: 100,
-        color: 'var(--color-text-primary)',
+        color: '#1F1E1B',
         animation: isActive ? 'da-pulse 1.2s ease-in-out infinite' : 'none',
       }}
     >
-      {/* Resize handles (only visible when selected) */}
       <NodeResizer
-        color="var(--color-primary)"
+        color="#C75F3D"
         isVisible={selected}
         minWidth={160}
         minHeight={100}
@@ -52,17 +51,17 @@ const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
         handleStyle={{ width: 7, height: 7, borderRadius: 2 }}
       />
 
-      {/* Handles */}
-      <Handle type="target" position={Position.Top} style={{ background: 'var(--color-primary)', opacity: 0 }} />
-      <Handle type="source" position={Position.Bottom} style={{ background: 'var(--color-primary)', opacity: 0 }} />
+      <Handle type="target" position={Position.Top} style={{ background: '#C75F3D', opacity: 0 }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: '#C75F3D', opacity: 0 }} />
 
       {/* Source badge */}
       <div className="flex items-center justify-between mb-1">
         <span
           className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase"
           style={{
-            backgroundColor: data.source === 'skill' ? 'rgba(99,102,241,0.15)' : 'rgba(245,158,11,0.15)',
-            color: data.source === 'skill' ? '#a5b4fc' : '#fbbf24',
+            backgroundColor: data.source === 'skill' ? '#F5E6DC' : '#F5E6DC',
+            color: '#A85A2E',
+            border: '1px solid #D97757',
           }}
         >
           {data.source === 'skill' ? '📚 skill' : '👤 user'}
@@ -75,7 +74,7 @@ const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
       </div>
 
       {/* Name */}
-      <div className="text-xs font-semibold truncate" title={data.label}>
+      <div className="text-xs font-semibold truncate" title={data.label} style={{ color: '#1F1E1B' }}>
         {data.label}
       </div>
 
@@ -84,7 +83,7 @@ const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
         <div
           className="text-[10px] mt-1 leading-snug"
           style={{
-            color: 'var(--color-text-muted)',
+            color: '#5C5A55',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             display: '-webkit-box',
@@ -99,7 +98,7 @@ const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
 
       {/* Tools count */}
       {data.tools && data.tools.length > 0 && (
-        <div className="text-[9px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
+        <div className="text-[9px] mt-1" style={{ color: '#A85A2E' }}>
           🔧 {data.tools.length} tool{data.tools.length > 1 ? 's' : ''}
         </div>
       )}
