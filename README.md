@@ -131,10 +131,31 @@ Or use Settings > API Keys to configure a new provider. No code changes needed.
 
 ## Recent Commits
 
+- `bc08cb0` — Phase 7: Chinese preset chips + mock weather for Chinese cities
+- `50570f2` — Phase 7: Playground preset query chips + tool calling + image support
+- `ab100c0` — Phase 7: Playground popup modal opened via Play button
+- `9f23e9c` — Phase 7: DeepSeek V4 + enriched model cards
+- `e400ec4` — Phase 7: Model Cards — Set As Default flow
+- `1a9bd84` — Phase 7: Model Cards panel to Settings
+- `d6cea9f` — Phase 6: migrate API keys and model config from DB to .env
 - `7ada47c` — Phase 4: agent-generated skills + Skills Library UI
 - `21c164d` — Phase 3: DeepAgent skills with DB→sandbox sync
 - `0aa08e6` — Phase 2: data-analysis skill
-- *(current)* — Phase 5: DB-driven model management (remove hardcoded enums)
+- *(previous)* — Phase 5: DB-driven model management (remove hardcoded enums)
+
+## Phase 7 — Model Cards + Playground
+
+See [`phase7/README.md`](phase7/README.md) for full details.
+
+**Highlights:**
+- **Model Cards panel** with provider logos, capability badges, pricing, speed, strength tagline
+- **Set As Default** flow with live header badge
+- **Playground popup modal** (▶ Play button) with system prompt, temperature, top_p, penalties, stop, JSON mode, tool calling, streaming, image input
+- **8 preset chips** (Chinese-localized): 打招呼 / 数学 / JSON / 工具 / 搜索 / 流式 / 视觉 / 推理 — one-click demos with auto-send
+- **4 mock demo tools** (no external API): get_weather (10 Chinese cities), get_current_time, search_web, calculate
+- **Tool-calling agent loop** (max 3 turns) with structured tool call log returned to UI
+- **Multimodal vision support** via `image_url` field
+- **26 cloud models** with realistic 2026 specs (DeepSeek V4 Pro/Flash, GPT-5.5, Claude 4.8/4.6, Gemini 3.1 Pro, Qwen 3.5/3.6, Kimi K2.6, GLM 5.1, MiniMax M3, Gemma 4, etc.)
 
 ## Tests
 
