@@ -614,10 +614,13 @@ select {
   border-radius: 12px;
 }
 
-/* User messages - warm brown (not black) */
+/* User messages - warm brown bubble + white text */
 [data-theme="claude"] div[style*="background-color: var(--color-primary)"] {
   border: none !important;
-  background-color: #6B5C4F !important;  /* Warm brown for user messages */
+  background-color: #8B7355 !important;  /* Warm brown */
+}
+[data-theme="claude"] div[style*="background-color: var(--color-primary)"] * {
+  color: #FFFFFF !important;  /* White text */
 }
 
 /* Input area */
