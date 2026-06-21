@@ -8,6 +8,7 @@ import { Handle, Position, NodeProps, NodeResizer } from 'reactflow';
 import type { ExecutionStatus } from '../types';
 
 interface Data {
+  id?: string;
   label: string;
   description: string;
   source: 'skill' | 'user' | 'generated';
@@ -16,7 +17,7 @@ interface Data {
   status: ExecutionStatus;
 }
 
-const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
+const SubAgentNode = memo(({ id, data, selected }: NodeProps<Data>) => {
   const statusColor: Record<ExecutionStatus, string> = {
     idle: '#C8B6A6',
     running: '#3b82f6',
@@ -59,7 +60,7 @@ const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
         <span
           className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase"
           style={{
-            backgroundColor: data.source === 'skill' ? '#F5E6DC' : '#F5E6DC',
+            backgroundColor: data.source === 'skill' ? '#F5E6DC' : '#FAF9F5',
             color: '#A85A2E',
             border: '1px solid #D97757',
           }}
@@ -77,6 +78,22 @@ const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
       <div className="text-xs font-semibold truncate" title={data.label} style={{ color: '#1F1E1B' }}>
         {data.label}
       </div>
+
+      {/* Skill property (when source='skill', show the skill name as property badge) */}
+      {data.source === 'skill' && (
+        <div
+          className="text-[9px] mt-1 px-1.5 py-0.5 rounded truncate font-mono flex items-center gap-1"
+          style={{
+            backgroundColor: 'rgba(168,90,46,0.10)',
+            color: '#A85A2E',
+            border: '1px dashed #D97757',
+          }}
+          title={`Skill: ${id}`}
+        >
+          <span>🎯</span>
+          <span className="truncate">{id}</span>
+        </div>
+      )}
 
       {/* Description */}
       {data.description && (
