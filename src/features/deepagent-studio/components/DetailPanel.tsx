@@ -34,6 +34,7 @@ export default function DetailPanel({ structure, selectedNodeId }: Props) {
 
   const isMain = !selectedNodeId || selectedNodeId === 'main';
   const isTool = selectedNodeId?.startsWith('tool-') ?? false;
+  const isInfo = selectedNodeId?.startsWith('info-') ?? false;
 
   // Tool node case
   if (isTool && selectedNodeId) {
@@ -76,6 +77,90 @@ export default function DetailPanel({ structure, selectedNodeId }: Props) {
               Native tools are bound directly to the main agent and can be called in any conversation turn. They are separate from sub-agent tools (which require delegation via <code>task()</code>).
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Info node case (LLM / Prompt) — show full content with expand button
+  if (isInfo && selectedNodeId) {
+    const mainAgent = structure.main_agent;
+    const isLLM = selectedNodeId === 'info-llm';
+    const isPrompt = selectedNodeId === 'info-prompt';
+    const theme = isLLM
+      ? { bg: 'rgba(59,130,246,0.10)', accent: '#60a5fa', border: '#3b82f6' }
+      : { bg: 'rgba(168,85,247,0.10)', accent: '#c084fc', border: '#a855f7' };
+    const icon = isLLM ? '🤖' : '📜';
+    const label = isLLM ? 'LLM' : 'System Prompt';
+    return (
+      <div
+        className="w-72 border-l overflow-y-auto scrollbar-thin"
+        style={{
+          backgroundColor: 'var(--color-panel-dark)',
+          borderColor: 'var(--color-border)',
+        }}
+      >
+        <div
+          className="flex items-center gap-2 px-4 py-3 border-b"
+          style={{ borderColor: theme.border, backgroundColor: theme.bg }}
+        >
+          <span className="text-2xl">{icon}</span>
+          <div className="flex-1 min-w-0">
+            <div
+              className="text-xs uppercase tracking-widest font-bold"
+              style={{ color: theme.accent }}
+            >
+              {isLLM ? 'Language Model' : 'Instruction'}
+            </div>
+            <div
+              className="text-sm font-semibold truncate"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
+              {label}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 py-3 space-y-3 text-xs">
+          {isLLM ? (
+            <>
+              <Row label="Model" value={mainAgent.model} mono />
+              <Row label="Temperature" value={mainAgent.temperature.toFixed(2)} mono />
+              <Row label="Max Tokens" value={mainAgent.max_tokens?.toLocaleString() ?? '—'} mono />
+              <div
+                className="text-[11px] px-3 py-2 rounded leading-relaxed"
+                style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-muted)' }}
+              >
+                💡 Temperature 0 = deterministic · 1 = creative · 0.7 = balanced.
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+                  {mainAgent.system_prompt_preview.length} chars
+                </div>
+                <button
+                  onClick={() => setExpanded(v => !v)}
+                  className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                  style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }}
+                >
+                  {expanded ? '▲ Collapse' : '▼ Expand'}
+                </button>
+              </div>
+              <pre
+                className="text-[11px] leading-relaxed p-3 rounded font-mono whitespace-pre-wrap overflow-auto"
+                style={{
+                  backgroundColor: 'var(--color-input-background)',
+                  color: 'var(--color-text-primary)',
+                  maxHeight: expanded ? 600 : 280,
+                  transition: 'max-height 0.2s',
+                }}
+              >
+                {mainAgent.system_prompt_preview || '(empty)'}
+              </pre>
+            </>
+          )}
         </div>
       </div>
     );
@@ -151,24 +236,15 @@ export default function DetailPanel({ structure, selectedNodeId }: Props) {
           </div>
         )}
 
-        {/* Params (main only) */}
+        {/* Params (main only) — Temperature / Max Tokens are now on the LLM
+            info node on the canvas. Just show a summary here. */}
         {isMainAgent && (
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--color-text-muted)' }}>
-                Temperature
-              </div>
-              <div className="font-mono" style={{ color: 'var(--color-text-primary)' }}>
-                {(item as MainAgentInfo).temperature.toFixed(1)}
-              </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest font-semibold mb-1" style={{ color: 'var(--color-text-muted)' }}>
+              Model
             </div>
-            <div>
-              <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--color-text-muted)' }}>
-                Max Tokens
-              </div>
-              <div className="font-mono" style={{ color: 'var(--color-text-primary)' }}>
-                {(item as MainAgentInfo).max_tokens.toLocaleString()}
-              </div>
+            <div className="text-sm font-mono" style={{ color: 'var(--color-text-primary)' }}>
+              {(item as MainAgentInfo).model}
             </div>
           </div>
         )}
@@ -272,42 +348,37 @@ export default function DetailPanel({ structure, selectedNodeId }: Props) {
           </div>
         )}
 
-        {/* System prompt preview (main) */}
-        {isMainAgent && (item as MainAgentInfo).system_prompt_preview && (
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--color-text-muted)' }}>
-                System Prompt ({(item as MainAgentInfo).system_prompt_preview!.length} chars)
-              </div>
-              <button
-                onClick={() => setExpanded(v => !v)}
-                className="text-[10px] px-1.5 py-0.5 rounded font-medium transition-colors"
-                style={{
-                  backgroundColor: 'var(--color-input-background)',
-                  color: 'var(--color-text-primary)',
-                  border: '1px solid var(--color-border)',
-                }}
-              >
-                {expanded ? '▲ Collapse' : '▼ Expand'}
-              </button>
-            </div>
-            <div
-              className="px-2 py-1.5 rounded text-[10px] leading-relaxed"
-              style={{
-                backgroundColor: 'var(--color-input-background)',
-                color: 'var(--color-text-primary)',
-                fontFamily: 'monospace',
-                whiteSpace: 'pre-wrap',
-                overflowY: 'auto',
-                maxHeight: expanded ? 600 : 140,
-                transition: 'max-height 0.2s',
-              }}
-            >
-              {(item as MainAgentInfo).system_prompt_preview}
-            </div>
+        {/* Main agent now has no inline system prompt — that's a separate
+            Prompt node on the canvas. Just show a hint here. */}
+        {isMainAgent && (
+          <div
+            className="text-[11px] px-3 py-2 rounded leading-relaxed"
+            style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-muted)' }}
+          >
+            💡 See the <strong>System Prompt</strong> node on the canvas (right side) for the full instruction. Click the <strong>🤖 LLM</strong> node (left) for model parameters.
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Simple key/value row in the popup. */
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div
+      className="flex items-center justify-between px-3 py-2 rounded"
+      style={{ backgroundColor: 'var(--color-input-background)' }}
+    >
+      <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: 'var(--color-text-muted)' }}>
+        {label}
+      </span>
+      <span
+        className={`text-sm ${mono ? 'font-mono' : ''}`}
+        style={{ color: 'var(--color-text-primary)' }}
+      >
+        {value}
+      </span>
     </div>
   );
 }
