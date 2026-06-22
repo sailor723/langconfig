@@ -20,7 +20,7 @@ import json
 
 from db.database import get_db
 from core.skills.registry import get_skill_registry
-from models.skill import Skill, SkillExecution
+from models.skill import Skill, SkillExecution, SkillSourceType
 
 logger = logging.getLogger(__name__)
 
@@ -483,32 +483,62 @@ async def delete_skill(skill_id: str):
     """
     Delete a skill.
 
-    Only personal/custom skills can be deleted.
+    Only personal/project skills can be deleted.
     Builtin skills cannot be deleted.
-    """
-    registry = get_skill_registry()
 
+    Looks up the skill in BOTH the in-memory registry AND the database,
+    since DB-only personal skills may not be loaded into the registry yet.
+    """
+    from db.database import SessionLocal
+    from models.skill import Skill
+
+    registry = get_skill_registry()
     if not registry.is_initialized:
         await registry.initialize()
 
+    # Check in-memory registry first (faster path for known skills)
     skill = registry.get_skill(skill_id)
+    source_type = None
 
-    if not skill:
-        raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")
+    if skill:
+        source_type = skill.source_type
+        if hasattr(source_type, 'value'):
+            source_type = source_type.value
+    else:
+        # Fall back to DB lookup (for DB-only personal skills not in registry)
+        db = SessionLocal()
+        try:
+            db_skill = db.query(Skill).filter(Skill.skill_id == skill_id).first()
+            if not db_skill:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Skill '{skill_id}' not found"
+                )
+            source_type = (
+                db_skill.source_type.value
+                if hasattr(db_skill.source_type, 'value')
+                else db_skill.source_type
+            )
+        finally:
+            db.close()
 
     # Prevent deletion of builtin skills
-    if skill.source_type == SkillSourceType.BUILTIN:
+    if source_type == "builtin" or source_type == SkillSourceType.BUILTIN:
         raise HTTPException(
             status_code=403,
             detail="Cannot delete builtin skills"
         )
 
     try:
+        # Use registry.delete_skill which handles both in-memory and DB cleanup
         await registry.delete_skill(skill_id)
         return {"status": "deleted", "skill_id": skill_id}
     except Exception as e:
         logger.error(f"Failed to delete skill {skill_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete skill: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete skill: {str(e)}"
+        )
 
 
 @router.post("/match", response_model=List[SkillMatchResponse])

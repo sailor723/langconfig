@@ -343,7 +343,7 @@ class SkillRegistry:
         Returns:
             True if successfully deleted
         """
-        from db.models import Skill as SkillModel
+        from models.skill import Skill as SkillModel
 
         async with AsyncSessionLocal() as session:
             try:
