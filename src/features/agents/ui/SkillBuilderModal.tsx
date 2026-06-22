@@ -65,11 +65,16 @@ interface SkillBuilderModalProps {
   };
 }
 
-type SectionId = 'identity' | 'discovery' | 'configuration' | 'body' | 'examples' | 'files';
+type SectionId = 'identity' | 'discovery' | 'triggers' | 'configuration' | 'body' | 'examples' | 'files';
 
 const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModalProps) => {
   const { t } = useTranslation('chat');
-  const isEditing = !!existingSkill;
+  // After a new skill is created, store it here so the modal can switch to
+  // edit-mode (PUT instead of POST) without closing. This makes iterative
+  // editing easy: create → keep tweaking → close when done.
+  const [createdSkill, setCreatedSkill] = useState<typeof existingSkill | null>(null);
+  const effectiveExistingSkill = existingSkill ?? createdSkill ?? undefined;
+  const isEditing = !!effectiveExistingSkill;
 
   // -------- Form state (mirrors the API fields) --------
   const [name, setName] = useState(existingSkill?.name || '');
@@ -86,20 +91,20 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
   const [newTool, setNewTool] = useState('');
 
   // -------- Section UI state --------
-// New skills: open Identity + Discovery + Body so user sees required fields
-// Edit skills: open Discovery + Body (Identity is read-only so no point)
+// New skills: open Identity + Discovery + Triggers + Body so user sees required fields
+// Edit skills: open Discovery + Triggers + Body
   const [openSections, setOpenSections] = useState<Set<SectionId>>(
     new Set<SectionId>(
       existingSkill
-        ? ['discovery', 'body']
-        : ['identity', 'discovery', 'body']
+        ? ['discovery', 'triggers', 'body']
+        : ['identity', 'discovery', 'triggers', 'body']
     )
   );
   const [sectionErrors, setSectionErrors] = useState<Record<SectionId, string | null>>({
-    identity: null, discovery: null, configuration: null, body: null, examples: null, files: null,
+    identity: null, discovery: null, triggers: null, configuration: null, body: null, examples: null, files: null,
   });
   const [sectionSaving, setSectionSaving] = useState<Record<SectionId, boolean>>({
-    identity: false, discovery: false, configuration: false, body: false, examples: false, files: false,
+    identity: false, discovery: false, triggers: false, configuration: false, body: false, examples: false, files: false,
   });
 
   // -------- Draggable + Resizable state --------
@@ -199,7 +204,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
     setSectionError(id, null);
     setSectionIsSaving(id, true);
     try {
-      if (!existingSkill) {
+      if (!effectiveExistingSkill) {
         // For new skills, POST once with everything
         const missing: string[] = [];
         if (!name.trim()) missing.push('name');
@@ -233,15 +238,34 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
           examples: examples || null,
           'allowed-tools': allowedTools,  // kebab-case per Agent Skills spec
         });
-        if (onSave) onSave(result.data);
-        onClose();
+        // Switch to edit mode — keep modal open so user can keep tweaking.
+        // Store the created skill locally so subsequent saves use PUT.
+        const newSkill = {
+          skill_id: result.data.skill_id,
+          name: result.data.name,
+          description: result.data.description,
+          tags: result.data.tags,
+          triggers: result.data.triggers,
+          instructions: result.data.instructions,
+          examples: result.data.examples,
+          version: result.data.version,
+          allowed_tools: result.data['allowed-tools'] ?? result.data.allowed_tools,
+          source_path: result.data.source_path,
+          source_type: result.data.source_type,
+        };
+        setCreatedSkill(newSkill);
+        if (onSave) onSave(result.data);  // parent refreshes skill list
+        setSectionError(id, `✓ Created — now in edit mode. Keep tweaking or close when done.`);
+        setTimeout(() => setSectionError(id, null), 3000);
+        // Collapse default-open sections — user has filled required fields
+        setOpenSections(new Set<SectionId>(['discovery', 'triggers', 'body']));
       } else {
         const result = await apiClient.put(
-          `/api/skills/${encodeURIComponent(existingSkill.skill_id)}`,
+          `/api/skills/${encodeURIComponent(effectiveExistingSkill.skill_id)}`,
           buildUpdatePayload()
         );
         if (onSave) onSave(result.data);
-        setSectionError(id, '✓ Saved');
+        setSectionError(id, `✓ Saved ${id} section`);
         setTimeout(() => setSectionError(id, null), 1800);
       }
     } catch (e: any) {
@@ -288,17 +312,17 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
   const removeTool = (tl: string) => setAllowedTools(allowedTools.filter((x) => x !== tl));
 
   const resetAll = () => {
-    if (!existingSkill) {
+    if (!effectiveExistingSkill) {
       setName(''); setDescription(''); setTags(['custom']); setTriggers([]);
       setInstructions(''); setExamples(''); setAllowedTools([]);
     } else {
-      setName(existingSkill.name);
-      setDescription(existingSkill.description);
-      setTags(existingSkill.tags);
-      setTriggers(existingSkill.triggers);
-      setInstructions(existingSkill.instructions);
-      setExamples(existingSkill.examples || '');
-      setAllowedTools(Array.isArray(existingSkill.allowed_tools) ? existingSkill.allowed_tools : []);
+      setName(effectiveExistingSkill.name);
+      setDescription(effectiveExistingSkill.description);
+      setTags(effectiveExistingSkill.tags);
+      setTriggers(effectiveExistingSkill.triggers);
+      setInstructions(effectiveExistingSkill.instructions);
+      setExamples(effectiveExistingSkill.examples || '');
+      setAllowedTools(Array.isArray(effectiveExistingSkill.allowed_tools) ? effectiveExistingSkill.allowed_tools : []);
     }
   };
 
@@ -399,33 +423,40 @@ Use when the user asks:
           </button>
         </div>
       </Field>
+    </div>
+  );
 
-      <Field label="Triggers" hint="Phrases that indicate this skill should be activated. The router uses these to decide when to load your skill.">
-        {/* Existing triggers as chips */}
-        <div className="space-y-1.5 mb-3">
-          {triggers.length === 0 ? (
-            <div className="text-[11px] text-gray-400 italic px-2.5 py-2 border border-dashed border-gray-300 rounded-md text-center">
-              No triggers yet — type below and press Enter to add
+  const renderTriggers = () => (
+    <div className="space-y-3 pt-3">
+      {/* Existing triggers as chips */}
+      <div className="space-y-1.5">
+        {triggers.length === 0 ? (
+          <div className="text-[11px] text-gray-400 italic px-2.5 py-2 border border-dashed border-gray-300 rounded-md text-center">
+            No triggers yet — type below and press Enter to add
+          </div>
+        ) : (
+          <>
+            <div className="text-[10px] text-gray-500 mb-1">
+              {triggers.length} trigger{triggers.length === 1 ? '' : 's'} added:
             </div>
-          ) : (
-            <>
-              <div className="text-[10px] text-gray-500 mb-1">
-                {triggers.length} trigger{triggers.length === 1 ? '' : 's'} added:
+            {triggers.map((tr) => (
+              <div key={tr} className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-md"
+                style={{ backgroundColor: '#FAF9F5', color: '#1F1E1B', border: '1px solid #E8E4DA' }}>
+                <Zap size={11} style={{ color: '#D97757' }} />
+                <span className="flex-1 font-mono">{tr}</span>
+                <button onClick={() => removeTrigger(tr)} className="hover:text-red-500" title="Remove this trigger">
+                  <X size={12} />
+                </button>
               </div>
-              {triggers.map((tr) => (
-                <div key={tr} className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-md"
-                  style={{ backgroundColor: '#FAF9F5', color: '#1F1E1B', border: '1px solid #E8E4DA' }}>
-                  <Zap size={11} style={{ color: '#D97757' }} />
-                  <span className="flex-1 font-mono">{tr}</span>
-                  <button onClick={() => removeTrigger(tr)} className="hover:text-red-500" title="Remove this trigger">
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-        {/* Input area — multi-line, Enter adds, Shift+Enter newline */}
+            ))}
+          </>
+        )}
+      </div>
+      {/* Input area — multi-line, Enter adds, Shift+Enter newline */}
+      <div>
+        <label className="text-[10px] text-gray-500 mb-1 block">
+          Add new triggers — Enter adds one, Shift+Enter inserts newline
+        </label>
         <div className="flex gap-2 items-start">
           <textarea
             value={newTrigger}
@@ -452,7 +483,7 @@ Tip: Enter = add trigger · Shift+Enter = new line in box`}
             <Plus size={14} />
           </button>
         </div>
-      </Field>
+      </div>
     </div>
   );
 
@@ -542,11 +573,11 @@ Tip: Enter = add trigger · Shift+Enter = new line in box`}
       <p className="text-[11px] text-gray-500">
         Files in this skill's directory (read-only — use filesystem to add/edit scripts/, references/, assets/):
       </p>
-      {existingSkill?.source_path ? (
+      {effectiveExistingSkill?.source_path ? (
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-xs">
           <div className="flex items-center gap-1.5 text-gray-700 mb-2">
             <FolderOpen size={12} />
-            <span>{existingSkill.source_path}</span>
+            <span>{effectiveExistingSkill.source_path}</span>
           </div>
           <div className="pl-4 space-y-1 text-gray-600">
             <div className="flex items-center gap-1.5"><FileText size={11} /> SKILL.md <span className="text-gray-400">(required)</span></div>
@@ -568,7 +599,8 @@ Tip: Enter = add trigger · Shift+Enter = new line in box`}
 
   const sections: Array<{ id: SectionId; icon: string; title: string; subtitle: string; render: () => ReactNode }> = [
     { id: 'identity',      icon: '📇', title: 'Identity',       subtitle: 'Name, version, immutable id',          render: renderIdentity },
-    { id: 'discovery',     icon: '📝', title: 'Discovery',      subtitle: 'Description, tags, triggers (routing)', render: renderDiscovery },
+    { id: 'discovery',     icon: '📝', title: 'Discovery',      subtitle: 'Description + tags (router-matching)', render: renderDiscovery },
+    { id: 'triggers',      icon: '⚡', title: 'Triggers',       subtitle: 'Phrases that activate this skill',     render: renderTriggers },
     { id: 'configuration', icon: '⚙️', title: 'Configuration',  subtitle: 'Allowed tools',                        render: renderConfiguration },
     { id: 'body',          icon: '📜', title: 'Body (SKILL.md)',subtitle: 'Instructions loaded on activation',    render: renderBody },
     { id: 'examples',      icon: '📚', title: 'Examples',       subtitle: 'Optional USER/ASST dialogs',           render: renderExamples },
@@ -607,11 +639,11 @@ Tip: Enter = add trigger · Shift+Enter = new line in box`}
               <div className="flex items-center gap-2 mb-1">
                 <GripHorizontal size={14} className="text-white/70" />
                 <h2 className="text-xl font-semibold text-white truncate" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.25)' }}>
-                  {isEditing ? `Edit: ${existingSkill!.name}` : 'New Skill'}
+                  {isEditing ? `Edit: ${effectiveExistingSkill!.name}` : 'New Skill'}
                 </h2>
               </div>
               <p className="text-xs text-white/90" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}>
-                {existingSkill?.source_path || 'Drag header to move · Resize from bottom-right corner'}
+                {effectiveExistingSkill?.source_path || 'Drag header to move · Resize from bottom-right corner'}
               </p>
             </div>
             <div className="flex items-center gap-2">
