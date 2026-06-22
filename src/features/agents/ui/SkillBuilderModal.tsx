@@ -86,8 +86,14 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
   const [newTool, setNewTool] = useState('');
 
   // -------- Section UI state --------
+// New skills: open Identity + Discovery + Body so user sees required fields
+// Edit skills: open Discovery + Body (Identity is read-only so no point)
   const [openSections, setOpenSections] = useState<Set<SectionId>>(
-    new Set<SectionId>(['discovery', 'body'])
+    new Set<SectionId>(
+      existingSkill
+        ? ['discovery', 'body']
+        : ['identity', 'discovery', 'body']
+    )
   );
   const [sectionErrors, setSectionErrors] = useState<Record<SectionId, string | null>>({
     identity: null, discovery: null, configuration: null, body: null, examples: null, files: null,
@@ -195,9 +201,27 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
     try {
       if (!existingSkill) {
         // For new skills, POST once with everything
-        if (!name.trim() || !description.trim() || !instructions.trim()) {
-          setSectionError(id, t('skill_builder_error_required'));
+        const missing: string[] = [];
+        if (!name.trim()) missing.push('name');
+        if (!description.trim()) missing.push('description');
+        if (!instructions.trim()) missing.push('instructions');
+        if (missing.length > 0) {
+          // Open the section(s) that contain the missing fields, so user sees them
+          setOpenSections((prev) => {
+            const next = new Set(prev);
+            if (missing.includes('name')) next.add('identity');
+            if (missing.includes('description')) next.add('discovery');
+            if (missing.includes('instructions')) next.add('body');
+            return next;
+          });
+          setSectionError(
+            id,
+            `Missing required field(s): ${missing.join(', ')}. Please fill them and try again.`
+          );
           setSectionIsSaving(id, false);
+          // Also scroll to top of modal so the user sees the error
+          const body = document.querySelector('[data-skill-modal-body]');
+          if (body) body.scrollTop = 0;
           return;
         }
         const result = await apiClient.post('/api/skills', {
@@ -207,7 +231,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
           triggers,
           instructions,
           examples: examples || null,
-          allowed_tools: allowedTools,
+          'allowed-tools': allowedTools,  // kebab-case per Agent Skills spec
         });
         if (onSave) onSave(result.data);
         onClose();
@@ -217,11 +241,12 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
           buildUpdatePayload()
         );
         if (onSave) onSave(result.data);
-        setSectionError(id, t('skill_builder_saved'));
+        setSectionError(id, '✓ Saved');
         setTimeout(() => setSectionError(id, null), 1800);
       }
     } catch (e: any) {
-      setSectionError(id, e.response?.data?.detail || e.message || t('skill_builder_error_save'));
+      const msg = e.response?.data?.detail || e.message || 'Failed to save skill';
+      setSectionError(id, msg);
     } finally {
       setSectionIsSaving(id, false);
     }
@@ -609,8 +634,23 @@ Tip: Enter = add trigger · Shift+Enter = new line in box`}
         </div>
 
         {/* === Body (scrollable, sections) === */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" data-skill-modal-body>
           <div className="px-6 py-5 space-y-3">
+            {/* Top-level error banner — visible immediately when save fails */}
+            {!isEditing && (() => {
+              // Aggregate any error from the body section (where create logic lives)
+              const createErr = sectionErrors.body;
+              if (!createErr || createErr === '✓ Saved') return null;
+              return (
+                <div className="flex items-start gap-2 px-4 py-3 rounded-lg border" style={{ backgroundColor: '#FEE2E2', borderColor: '#FCA5A5', color: '#991B1B' }}>
+                  <X size={16} className="flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 text-sm">
+                    <div className="font-semibold">Cannot create skill</div>
+                    <div>{createErr}</div>
+                  </div>
+                </div>
+              );
+            })()}
             {sections.map((sec) => {
               const open = openSections.has(sec.id);
               const error = sectionErrors[sec.id];
