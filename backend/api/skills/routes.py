@@ -12,7 +12,7 @@ that agents can automatically invoke or users can trigger explicitly.
 
 from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasChoices
 from sqlalchemy.orm import Session
 from datetime import datetime
 import logging
@@ -31,32 +31,48 @@ router = APIRouter(prefix="/api/skills", tags=["skills"])
 # =============================================================================
 
 class SkillResponse(BaseModel):
-    """Skill data for API responses."""
-    skill_id: str
-    name: str
-    description: str
-    version: str
-    source_type: str
-    tags: List[str]
-    triggers: List[str]
-    allowed_tools: Optional[List[str]]
-    usage_count: int
-    last_used_at: Optional[datetime]
-    avg_success_rate: float
+    """Skill data for API responses.
 
-    class Config:
-        from_attributes = True
+    Per the Agent Skills Specification (https://agentskills.io/specification),
+    the SKILL.md frontmatter uses kebab-case `allowed-tools`. We accept both
+    snake_case (DB native) and kebab-case (spec-native) on input via
+    `validation_alias=AliasChoices(...)`. The kebab-case mirror on output
+    is added by `_skill_to_response_dict()` which post-processes the dict.
+
+    All fields are optional except `skill_id` to tolerate legacy DB records
+    that may have NULL in some columns.
+    """
+    skill_id: str
+    name: Optional[str] = ""
+    description: Optional[str] = ""
+    version: Optional[str] = ""
+    source_type: Optional[str] = ""
+    tags: Optional[List[str]] = Field(default_factory=list)
+    triggers: Optional[List[str]] = Field(default_factory=list)
+    allowed_tools: Optional[List[str]] = Field(
+        default=None,
+        validation_alias=AliasChoices("allowed_tools", "allowed-tools"),
+        description="Accepts both `allowed_tools` (snake) and `allowed-tools` (kebab).",
+    )
+    usage_count: Optional[int] = 0
+    last_used_at: Optional[datetime] = None
+    avg_success_rate: Optional[float] = 0.0
+
+    model_config = {
+        "from_attributes": True,
+        "populate_by_name": True,
+    }
 
 
 class SkillDetailResponse(SkillResponse):
     """Detailed skill with instructions and examples."""
-    instructions: str
-    examples: Optional[str]
-    source_path: str
-    author: Optional[str]
-    required_context: List[str]
-    created_at: datetime
-    updated_at: datetime
+    instructions: Optional[str] = ""
+    examples: Optional[str] = None
+    source_path: Optional[str] = ""
+    author: Optional[str] = None
+    required_context: Optional[List[str]] = Field(default_factory=list)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class SkillMatchRequest(BaseModel):
@@ -147,6 +163,30 @@ def _skill_to_detail_response(skill: Skill) -> SkillDetailResponse:
     )
 
 
+def _kebabify_skill_dict(d: dict) -> dict:
+    """Add the `allowed-tools` kebab-case mirror to a serialized skill dict.
+
+    Per the Agent Skills Specification, frontmatter uses kebab-case. We emit
+    BOTH `allowed_tools` (snake, legacy) and `allowed-tools` (kebab, spec).
+    """
+    if not isinstance(d, dict):
+        return d
+    tools = d.get("allowed_tools")
+    if tools is not None and "allowed-tools" not in d:
+        d["allowed-tools"] = tools
+    return d
+
+
+def _skill_to_response_dict(skill: Skill) -> dict:
+    """Serialize a Skill to dict with both `allowed_tools` AND `allowed-tools`."""
+    return _kebabify_skill_dict(_skill_to_response(skill).model_dump())
+
+
+def _skill_to_detail_response_dict(skill: Skill) -> dict:
+    """Serialize a Skill to dict with full detail + both `allowed_tools` AND `allowed-tools`."""
+    return _kebabify_skill_dict(_skill_to_detail_response(skill).model_dump())
+
+
 # =============================================================================
 # Skill Endpoints
 # =============================================================================
@@ -188,7 +228,7 @@ async def list_skills(
     finally:
         db.close()
 
-    return [_skill_to_response(s) for s in skills]
+    return [_skill_to_response_dict(s) for s in skills]
 
 
 @router.get("/summary")
@@ -221,7 +261,7 @@ async def get_skills_summary():
     }
 
 
-@router.get("/{skill_id}", response_model=SkillDetailResponse)
+@router.get("/{skill_id}")
 async def get_skill(skill_id: str):
     """Get detailed information for a specific skill."""
     from db.database import SessionLocal
@@ -236,7 +276,7 @@ async def get_skill(skill_id: str):
     if not skill:
         raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")
 
-    return _skill_to_detail_response(skill)
+    return _skill_to_detail_response_dict(skill)
 
 
 class SkillCreateRequest(BaseModel):
@@ -249,14 +289,25 @@ class SkillCreateRequest(BaseModel):
 
 
 class SkillUpdateRequest(BaseModel):
-    """Request to update a skill."""
+    """Request to update a skill.
+
+    Accepts both `allowed_tools` (snake) and `allowed-tools` (kebab, per
+    Agent Skills spec) on input.
+    """
+    model_config = {"populate_by_name": True}
+
     name: Optional[str] = Field(None, description="Updated skill name")
     description: Optional[str] = Field(None, description="Updated description")
     triggers: Optional[List[str]] = Field(None, description="Updated trigger conditions")
     instructions: Optional[str] = Field(None, description="Updated instructions")
+    allowed_tools: Optional[List[str]] = Field(
+        default=None,
+        validation_alias=AliasChoices("allowed_tools", "allowed-tools"),
+        description="Updated tools list (accepts both snake and kebab case).",
+    )
 
 
-@router.post("", response_model=SkillDetailResponse)
+@router.post("")
 async def create_skill(request: SkillCreateRequest):
     """
     Create a new personal skill.
@@ -284,13 +335,13 @@ async def create_skill(request: SkillCreateRequest):
             triggers=request.triggers,
             instructions=request.instructions
         )
-        return _skill_to_detail_response(skill)
+        return _skill_to_detail_response_dict(skill)
     except Exception as e:
         logger.error(f"Failed to create skill: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create skill: {str(e)}")
 
 
-@router.put("/{skill_id}", response_model=SkillDetailResponse)
+@router.put("/{skill_id}")
 async def update_skill(skill_id: str, request: SkillUpdateRequest):
     """
     Update a skill's properties.
@@ -325,11 +376,16 @@ async def update_skill(skill_id: str, request: SkillUpdateRequest):
                 db_skill.triggers = request.triggers
             if request.instructions is not None:
                 db_skill.instructions = request.instructions
+            if request.allowed_tools is not None:
+                # Persist as snake_case for DB (frontmatter will emit kebab-case)
+                import json as _json
+                if isinstance(request.allowed_tools, list):
+                    db_skill.allowed_tools = _json.dumps(request.allowed_tools)
 
             db_skill.updated_at = datetime.utcnow()
             db.commit()
             db.refresh(db_skill)
-            return _skill_to_detail_response(db_skill)
+            return _skill_to_detail_response_dict(db_skill)
         finally:
             db.close()
 
@@ -342,6 +398,8 @@ async def update_skill(skill_id: str, request: SkillUpdateRequest):
         skill.triggers = request.triggers
     if request.instructions is not None:
         skill.instructions = request.instructions
+    if request.allowed_tools is not None:
+        skill.allowed_tools = list(request.allowed_tools or [])
 
     skill.updated_at = datetime.utcnow()
 
@@ -351,7 +409,7 @@ async def update_skill(skill_id: str, request: SkillUpdateRequest):
         logger.error(f"Failed to update skill {skill_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to update skill: {str(e)}")
 
-    return _skill_to_detail_response(skill)
+    return _skill_to_detail_response_dict(skill)
 
 
 @router.delete("/{skill_id}")
@@ -745,3 +803,50 @@ async def record_skill_execution(
     )
 
     return {"status": "recorded", "skill_id": skill_id}
+
+
+@router.get("/{skill_id}/agents")
+async def get_skill_agents(skill_id: str, db: Session = Depends(get_db)):
+    """
+    List all DeepAgents that reference this skill (by id) in their config.
+
+    Searches both `config.skills` (top-level explicit list) and `subagents_config[*].skills`
+    (per-subagent skills). Returns agent id, name, and which section referenced the skill.
+    """
+    from models.deep_agent import DeepAgentTemplate
+
+    agents = db.query(DeepAgentTemplate).all()
+    matches: list[dict] = []
+
+    for agent in agents:
+        cfg = agent.config or {}
+        referenced_in: list[str] = []
+
+        # 1. Top-level config.skills list
+        top_skills = cfg.get("skills") or []
+        if isinstance(top_skills, list) and skill_id in top_skills:
+            referenced_in.append("config.skills")
+
+        # 2. Subagents that list this skill
+        sub_cfg = agent.subagents_config or []
+        if isinstance(sub_cfg, list):
+            for sub in sub_cfg:
+                if not isinstance(sub, dict):
+                    continue
+                sub_skills = sub.get("skills") or []
+                if isinstance(sub_skills, list) and skill_id in sub_skills:
+                    referenced_in.append(f"subagent:{sub.get('name', '?')}")
+
+        if referenced_in:
+            matches.append({
+                "id": agent.id,
+                "name": agent.name,
+                "category": agent.category,
+                "referenced_in": referenced_in,
+            })
+
+    return {
+        "skill_id": skill_id,
+        "agent_count": len(matches),
+        "agents": matches,
+    }
