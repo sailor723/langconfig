@@ -327,11 +327,19 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="e.g. Search the web for current information. Use when user asks about recent events..."
-          rows={3}
+          placeholder={`e.g. Search the web for current information and synthesize answers.
+
+Use when the user asks:
+- About recent events or current news
+- For external facts not in your training data
+- To look up information on a specific topic`}
+          rows={6}
           maxLength={1100}
-          className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-          style={{ borderColor: description.length > 1024 ? '#ef4444' : undefined }}
+          className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          style={{
+            borderColor: description.length > 1024 ? '#ef4444' : undefined,
+            minHeight: 130,
+          }}
         />
       </Field>
 
