@@ -346,12 +346,25 @@ async def get_skill(skill_id: str):
 
 
 class SkillCreateRequest(BaseModel):
-    """Request to create a new skill."""
+    """Request to create a new skill.
+
+    Accepts both `allowed_tools` (snake) and `allowed-tools` (kebab, per
+    Agent Skills spec) on input.
+    """
     name: str = Field(..., description="Skill name")
     description: str = Field(..., description="Brief description of the skill")
     tags: List[str] = Field(default_factory=list, description="Categorization tags")
     triggers: List[str] = Field(default_factory=list, description="Auto-trigger conditions")
     instructions: str = Field("", description="Detailed instructions for the skill")
+    examples: Optional[str] = Field(None, description="Optional example dialogs (markdown)")
+    author: Optional[str] = Field(None, description="Skill author")
+    version: Optional[str] = Field(None, description="Initial version (defaults to 1.0.0)")
+    required_context: Optional[List[str]] = Field(default=None, description="Required context entries")
+    allowed_tools: Optional[List[str]] = Field(
+        default=None,
+        validation_alias=AliasChoices("allowed_tools", "allowed-tools"),
+        description="Tools this skill may use (accepts both snake and kebab case).",
+    )
 
 
 class SkillUpdateRequest(BaseModel):
@@ -405,7 +418,12 @@ async def create_skill(request: SkillCreateRequest):
             description=request.description,
             tags=request.tags,
             triggers=request.triggers,
-            instructions=request.instructions
+            instructions=request.instructions,
+            allowed_tools=request.allowed_tools,
+            examples=request.examples,
+            author=request.author,
+            version=request.version,
+            required_context=request.required_context,
         )
         return _skill_to_detail_response_dict(skill)
     except Exception as e:
