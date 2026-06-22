@@ -358,14 +358,20 @@ class SkillUpdateRequest(BaseModel):
     """Request to update a skill.
 
     Accepts both `allowed_tools` (snake) and `allowed-tools` (kebab, per
-    Agent Skills spec) on input.
+    Agent Skills spec) on input. All fields are optional — only fields
+    that are provided will be updated.
     """
     model_config = {"populate_by_name": True}
 
     name: Optional[str] = Field(None, description="Updated skill name")
     description: Optional[str] = Field(None, description="Updated description")
+    tags: Optional[List[str]] = Field(None, description="Updated tags list")
     triggers: Optional[List[str]] = Field(None, description="Updated trigger conditions")
     instructions: Optional[str] = Field(None, description="Updated instructions")
+    examples: Optional[str] = Field(None, description="Updated examples (markdown)")
+    author: Optional[str] = Field(None, description="Updated author")
+    version: Optional[str] = Field(None, description="Updated version")
+    required_context: Optional[List[str]] = Field(None, description="Updated required context")
     allowed_tools: Optional[List[str]] = Field(
         default=None,
         validation_alias=AliasChoices("allowed_tools", "allowed-tools"),
@@ -438,10 +444,20 @@ async def update_skill(skill_id: str, request: SkillUpdateRequest):
                 db_skill.name = request.name
             if request.description is not None:
                 db_skill.description = request.description
+            if request.tags is not None:
+                db_skill.tags = list(request.tags)
             if request.triggers is not None:
-                db_skill.triggers = request.triggers
+                db_skill.triggers = list(request.triggers)
             if request.instructions is not None:
                 db_skill.instructions = request.instructions
+            if request.examples is not None:
+                db_skill.examples = request.examples
+            if request.author is not None:
+                db_skill.author = request.author
+            if request.version is not None:
+                db_skill.version = request.version
+            if request.required_context is not None:
+                db_skill.required_context = list(request.required_context)
             if request.allowed_tools is not None:
                 # Persist as snake_case for DB (frontmatter will emit kebab-case)
                 import json as _json
@@ -460,10 +476,20 @@ async def update_skill(skill_id: str, request: SkillUpdateRequest):
         skill.name = request.name
     if request.description is not None:
         skill.description = request.description
+    if request.tags is not None:
+        skill.tags = list(request.tags)
     if request.triggers is not None:
-        skill.triggers = request.triggers
+        skill.triggers = list(request.triggers)
     if request.instructions is not None:
         skill.instructions = request.instructions
+    if request.examples is not None:
+        skill.examples = request.examples
+    if request.author is not None:
+        skill.author = request.author
+    if request.version is not None:
+        skill.version = request.version
+    if request.required_context is not None:
+        skill.required_context = list(request.required_context)
     if request.allowed_tools is not None:
         skill.allowed_tools = list(request.allowed_tools or [])
 
