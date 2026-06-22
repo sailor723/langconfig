@@ -447,7 +447,7 @@ Use when the user asks:
       <div className="space-y-1.5">
         {triggers.length === 0 ? (
           <div className="text-[11px] text-gray-400 italic px-2.5 py-2 border border-dashed border-gray-300 rounded-md text-center">
-            No triggers yet — type below and press Enter to add
+            No triggers yet — paste a list or type one and press Enter
           </div>
         ) : (
           <>
@@ -467,47 +467,71 @@ Use when the user asks:
           </>
         )}
       </div>
-      {/* Input area — multi-line, Enter adds, Shift+Enter newline */}
+      {/* Input area — simple, reliable */}
       <div>
-        <label className="text-[10px] text-gray-500 mb-1 block">
-          Add new triggers — Enter adds one, Shift+Enter inserts newline
+        <label className="text-[10px] text-gray-500 mb-1 block font-medium">
+          Type or paste your triggers (one per line) — Enter or click Add to commit
         </label>
-        <div className="flex gap-2 items-start">
+        <div className="flex gap-2 items-stretch">
           <textarea
+            id="trigger-input-textarea"
             value={newTrigger}
-            onChange={(e) => setNewTrigger(e.target.value)}
+            onChange={(e) => {
+              // eslint-disable-next-line no-console
+              console.log(`[SkillBuilderModal] textarea onChange: "${e.target.value.slice(0, 30)}..."`);
+              setNewTrigger(e.target.value);
+            }}
             onPaste={(e) => {
-              // When user pastes multi-line text, auto-add each line as a trigger.
+              // When user pastes multi-line text, auto-add each line as a trigger
+              // and CLEAR the textarea so they see the result.
               const pasted = e.clipboardData.getData('text');
+              // eslint-disable-next-line no-console
+              console.log(`[SkillBuilderModal] paste detected: ${pasted.split('\n').length} line(s)`);
               if (pasted.includes('\n') && pasted.trim()) {
                 e.preventDefault();
                 addTrigger(pasted);
               }
             }}
-            autoFocus
             onKeyDown={(e) => {
               // Plain Enter → add trigger (and consume newline)
               // Shift+Enter → allow newline within the textarea
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                // Pass the textarea's current value directly to avoid any
-                // stale-closure issues with state.
+                // eslint-disable-next-line no-console
+                console.log(`[SkillBuilderModal] Enter pressed in textarea`);
                 const currentValue = (e.target as HTMLTextAreaElement).value;
                 addTrigger(currentValue);
               }
             }}
-            placeholder={`Examples:
+            placeholder={`Paste your 8 triggers here (one per line) and they'll auto-add:
+
 when user asks about recent events or current news
 when user needs external facts not in their training data
-when user wants to search the web for information
-
-Tip: Enter = add trigger · Shift+Enter = new line in box`}
-            rows={5}
-            className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            style={{ minHeight: 110 }}
+...`}
+            rows={6}
+            className="flex-1 px-3 py-2 bg-white border-2 border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            style={{ minHeight: 130 }}
           />
-          <button onClick={() => addTrigger()} className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 h-fit" title="Add trigger">
+        </div>
+        {/* Action buttons — bigger, more obvious */}
+        <div className="flex gap-2 mt-2">
+          <button
+            onClick={() => {
+              // eslint-disable-next-line no-console
+              console.log(`[SkillBuilderModal] Add button clicked`);
+              addTrigger();
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white"
+            style={{ backgroundColor: 'var(--color-primary)' }}
+          >
             <Plus size={14} />
+            Add trigger(s) from box
+          </button>
+          <button
+            onClick={() => setNewTrigger('')}
+            className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700"
+          >
+            Clear box
           </button>
         </div>
       </div>
