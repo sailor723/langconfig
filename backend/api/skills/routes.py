@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 import logging
 import json
+import os
 
 from db.database import get_db
 from core.skills.registry import get_skill_registry
@@ -828,6 +829,156 @@ async def match_skills(request: SkillMatchRequest):
     # Sort by score and limit results
     results.sort(key=lambda x: x.score, reverse=True)
     return results[:request.max_results]
+
+
+class PlaygroundRunRequest(BaseModel):
+    """Request to run a skill in the playground."""
+    skill_id: str = Field(..., description="Which skill to test")
+    query: str = Field(..., description="User query to test the skill against")
+    model: Optional[str] = Field(None, description="LLM model (defaults to DEFAULT_MODEL)")
+    overrides: Optional[Dict[str, Any]] = Field(None, description="In-memory overrides (not saved)")
+
+
+@router.post("/playground/run")
+async def playground_run_skill(request: PlaygroundRunRequest):
+    """
+    Skill Playground — run a skill against a user query.
+
+    Phase 1 (direct LLM test): builds a system prompt from the skill's
+    instructions and calls DeepSeek chat directly. No agent framework,
+    no tool execution — just verifies the skill's instructions produce
+    a sensible answer.
+
+    Phase 2 (future): will use AgentFactory for real tool execution.
+
+    Args:
+        request: {skill_id, query, model?, overrides?}
+
+    Returns:
+        {
+          "matched": [...],          # skills that matched this query
+          "agent_output": "...",      # the LLM response
+          "system_prompt": "...",     # the prompt we built (for debugging)
+          "skill": {...},             # the skill used
+          "model": "...",             # model used
+          "elapsed_ms": 1234
+        }
+    """
+    import time
+    t0 = time.time()
+
+    # 1. Load skill (registry cache + DB fallback)
+    registry = get_skill_registry()
+    if not registry.is_initialized:
+        await registry.initialize()
+
+    skill = registry.get_skill(request.skill_id)
+    if not skill:
+        # Try DB
+        try:
+            from db.database import SessionLocal
+            from models.skill import Skill as SkillModel
+            db = SessionLocal()
+            try:
+                dbs = db.query(SkillModel).filter(SkillModel.skill_id == request.skill_id).first()
+                if dbs:
+                    skill = dbs
+            finally:
+                db.close()
+        except Exception:
+            pass
+
+    if not skill:
+        raise HTTPException(status_code=404, detail=f"Skill '{request.skill_id}' not found")
+
+    # 2. Apply overrides (in-memory only, don't save)
+    overrides = request.overrides or {}
+    skill_name = overrides.get("name", skill.name)
+    skill_description = overrides.get("description", skill.description or "")
+    skill_instructions = overrides.get("instructions", skill.instructions or "")
+    skill_triggers = overrides.get("triggers", list(skill.triggers or []))
+    skill_tags = overrides.get("tags", list(skill.tags or []))
+    skill_allowed_tools = overrides.get("allowed_tools", list(skill.allowed_tools or []))
+
+    # 3. Match query against skills (to see which would activate)
+    try:
+        from core.skills.matcher import get_skill_matcher
+        matcher = get_skill_matcher()
+        matched = await matcher.find_relevant_skills(
+            context={"query": request.query},
+            max_results=5,
+        )
+        matched_serializable = [
+            {
+                "skill_id": m.skill.skill_id,
+                "name": m.skill.name,
+                "score": m.score,
+                "match_reason": m.match_reason,
+            }
+            for m in matched
+        ]
+    except Exception as e:
+        logger.warning(f"Playground: skill matching failed: {e}")
+        matched_serializable = []
+
+    # 4. Build system prompt from skill
+    system_prompt_parts = [
+        f"You are an AI assistant running a skill named '{skill_name}'.",
+        "",
+    ]
+    if skill_description:
+        system_prompt_parts.append(f"## Skill Purpose\n{skill_description}\n")
+    if skill_instructions:
+        system_prompt_parts.append(f"## Skill Instructions\n{skill_instructions}\n")
+    if skill_allowed_tools:
+        tools_list = ", ".join(skill_allowed_tools)
+        system_prompt_parts.append(
+            f"## Available Tools\nYou may use these tools if appropriate: {tools_list}\n"
+        )
+    if skill_triggers:
+        triggers_list = "\n".join(f"- {t}" for t in skill_triggers[:8])
+        system_prompt_parts.append(
+            f"## Activation Triggers\nThis skill is active when:\n{triggers_list}\n"
+        )
+    system_prompt = "\n".join(system_prompt_parts)
+
+    # 5. Call LLM
+    model_name = request.model or os.environ.get("DEFAULT_MODEL", "deepseek-chat")
+    try:
+        from langchain.chat_models import init_chat_model
+        from langchain_core.messages import SystemMessage, HumanMessage
+
+        llm = init_chat_model(
+            model=model_name,
+            temperature=0.3,
+            model_provider="deepseek",
+        )
+        response = await llm.ainvoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=request.query),
+        ])
+        agent_output = response.content or ""
+    except Exception as e:
+        logger.error(f"Playground: LLM call failed: {e}")
+        raise HTTPException(status_code=500, detail=f"LLM call failed: {str(e)}")
+
+    elapsed_ms = int((time.time() - t0) * 1000)
+
+    return {
+        "matched": matched_serializable,
+        "agent_output": agent_output,
+        "system_prompt": system_prompt,
+        "skill": {
+            "skill_id": skill.skill_id,
+            "name": skill_name,
+            "description": skill_description,
+            "triggers": skill_triggers,
+            "tags": skill_tags,
+            "allowed_tools": skill_allowed_tools,
+        },
+        "model": model_name,
+        "elapsed_ms": elapsed_ms,
+    }
 
 
 @router.post("/{skill_id}/invoke", response_model=InvokeSkillResponse)
