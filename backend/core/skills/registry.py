@@ -313,18 +313,26 @@ class SkillRegistry:
                     logger.warning(f"Cannot update unknown skill '{skill.skill_id}'")
                     return False
 
-                # Update fields
+                # Update fields — copy ALL editable fields from the new skill
+                # so the UI's per-section saves actually persist.
                 db_skill.name = skill.name
                 db_skill.description = skill.description
+                db_skill.tags = skill.tags
                 db_skill.triggers = skill.triggers
                 db_skill.instructions = skill.instructions
                 db_skill.allowed_tools = skill.allowed_tools
+                db_skill.examples = skill.examples
+                db_skill.author = skill.author
+                db_skill.version = skill.version
+                db_skill.required_context = skill.required_context
                 db_skill.updated_at = skill.updated_at
 
                 await session.commit()
+                await session.refresh(db_skill)
 
-                # Update in-memory cache
-                self._skills[skill.skill_id] = skill
+                # Update in-memory cache with the refreshed DB row (so the
+                # returned object reflects committed values, not the stale input).
+                self._skills[skill.skill_id] = db_skill
                 logger.info(f"Updated skill '{skill.skill_id}'")
                 return True
 
