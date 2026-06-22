@@ -375,17 +375,32 @@ Use when the user asks:
         </div>
       </Field>
 
-      <Field label="Triggers" hint="Phrases that indicate this skill should be activated. Enter = add · Shift+Enter = newline.">
-        <div className="space-y-1.5 mb-2">
-          {triggers.map((tr) => (
-            <div key={tr} className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-md"
-              style={{ backgroundColor: '#FAF9F5', color: '#1F1E1B', border: '1px solid #E8E4DA' }}>
-              <Zap size={11} style={{ color: '#D97757' }} />
-              <span className="flex-1 font-mono">{tr}</span>
-              <button onClick={() => removeTrigger(tr)} className="hover:text-red-500"><X size={12} /></button>
+      <Field label="Triggers" hint="Phrases that indicate this skill should be activated. The router uses these to decide when to load your skill.">
+        {/* Existing triggers as chips */}
+        <div className="space-y-1.5 mb-3">
+          {triggers.length === 0 ? (
+            <div className="text-[11px] text-gray-400 italic px-2.5 py-2 border border-dashed border-gray-300 rounded-md text-center">
+              No triggers yet — type below and press Enter to add
             </div>
-          ))}
+          ) : (
+            <>
+              <div className="text-[10px] text-gray-500 mb-1">
+                {triggers.length} trigger{triggers.length === 1 ? '' : 's'} added:
+              </div>
+              {triggers.map((tr) => (
+                <div key={tr} className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-md"
+                  style={{ backgroundColor: '#FAF9F5', color: '#1F1E1B', border: '1px solid #E8E4DA' }}>
+                  <Zap size={11} style={{ color: '#D97757' }} />
+                  <span className="flex-1 font-mono">{tr}</span>
+                  <button onClick={() => removeTrigger(tr)} className="hover:text-red-500" title="Remove this trigger">
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
         </div>
+        {/* Input area — multi-line, Enter adds, Shift+Enter newline */}
         <div className="flex gap-2 items-start">
           <textarea
             value={newTrigger}
@@ -398,12 +413,15 @@ Use when the user asks:
                 addTrigger();
               }
             }}
-            placeholder={`e.g. "when user asks to summarize text"
+            placeholder={`Examples:
+when user asks about recent events or current news
+when user needs external facts not in their training data
+when user wants to search the web for information
 
-Tip: Enter = add trigger · Shift+Enter = new line`}
-            rows={4}
+Tip: Enter = add trigger · Shift+Enter = new line in box`}
+            rows={5}
             className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            style={{ minHeight: 96 }}
+            style={{ minHeight: 110 }}
           />
           <button onClick={addTrigger} className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 h-fit" title="Add trigger">
             <Plus size={14} />
