@@ -292,18 +292,27 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
   };
   const removeTag = (tag: string) => setTags(tags.filter((x) => x !== tag));
 
-  const addTrigger = () => {
-    // Split by newline so pasting a list (e.g. from a doc) creates N triggers
-    const lines = newTrigger
+  const addTrigger = (overrideValue?: string) => {
+    // Use overrideValue if provided (avoids stale closure on Enter keypress);
+    // otherwise read from the newTrigger state.
+    const raw = overrideValue !== undefined ? overrideValue : newTrigger;
+    // DEBUG: trace so user can verify what addTrigger is seeing
+    // eslint-disable-next-line no-console
+    console.log(`[SkillBuilderModal] addTrigger called with ${raw.split('\n').length} line(s):`, raw);
+    const lines = raw
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean);
     if (lines.length === 0) return;
-    const next = [...triggers];
-    for (const ln of lines) {
-      if (!next.includes(ln)) next.push(ln);
-    }
-    setTriggers(next);
+    setTriggers((prev) => {
+      const next = [...prev];
+      for (const ln of lines) {
+        if (!next.includes(ln)) next.push(ln);
+      }
+      // eslint-disable-next-line no-console
+      console.log(`[SkillBuilderModal] triggers now: ${next.length} items`);
+      return next;
+    });
     setNewTrigger('');
   }
   const removeTrigger = (tr: string) => setTriggers(triggers.filter((x) => x !== tr));
@@ -467,12 +476,24 @@ Use when the user asks:
           <textarea
             value={newTrigger}
             onChange={(e) => setNewTrigger(e.target.value)}
+            onPaste={(e) => {
+              // When user pastes multi-line text, auto-add each line as a trigger.
+              const pasted = e.clipboardData.getData('text');
+              if (pasted.includes('\n') && pasted.trim()) {
+                e.preventDefault();
+                addTrigger(pasted);
+              }
+            }}
+            autoFocus
             onKeyDown={(e) => {
               // Plain Enter → add trigger (and consume newline)
               // Shift+Enter → allow newline within the textarea
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                addTrigger();
+                // Pass the textarea's current value directly to avoid any
+                // stale-closure issues with state.
+                const currentValue = (e.target as HTMLTextAreaElement).value;
+                addTrigger(currentValue);
               }
             }}
             placeholder={`Examples:
@@ -485,7 +506,7 @@ Tip: Enter = add trigger · Shift+Enter = new line in box`}
             className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             style={{ minHeight: 110 }}
           />
-          <button onClick={addTrigger} className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 h-fit" title="Add trigger">
+          <button onClick={() => addTrigger()} className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 h-fit" title="Add trigger">
             <Plus size={14} />
           </button>
         </div>
