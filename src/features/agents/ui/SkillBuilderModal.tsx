@@ -238,12 +238,19 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
   const removeTag = (tag: string) => setTags(tags.filter((x) => x !== tag));
 
   const addTrigger = () => {
-    const tr = newTrigger.trim();
-    if (tr && !triggers.includes(tr)) {
-      setTriggers([...triggers, tr]);
-      setNewTrigger('');
+    // Split by newline so pasting a list (e.g. from a doc) creates N triggers
+    const lines = newTrigger
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (lines.length === 0) return;
+    const next = [...triggers];
+    for (const ln of lines) {
+      if (!next.includes(ln)) next.push(ln);
     }
-  };
+    setTriggers(next);
+    setNewTrigger('');
+  }
   const removeTrigger = (tr: string) => setTriggers(triggers.filter((x) => x !== tr));
 
   const addTool = () => {
@@ -368,7 +375,7 @@ Use when the user asks:
         </div>
       </Field>
 
-      <Field label="Triggers" hint="Phrases that indicate this skill should be activated.">
+      <Field label="Triggers" hint="Phrases that indicate this skill should be activated. Enter = add · Shift+Enter = newline.">
         <div className="space-y-1.5 mb-2">
           {triggers.map((tr) => (
             <div key={tr} className="flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-md"
@@ -379,16 +386,26 @@ Use when the user asks:
             </div>
           ))}
         </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
+        <div className="flex gap-2 items-start">
+          <textarea
             value={newTrigger}
             onChange={(e) => setNewTrigger(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTrigger())}
-            placeholder='e.g. "when user asks to summarize text"'
-            className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
+            onKeyDown={(e) => {
+              // Plain Enter → add trigger (and consume newline)
+              // Shift+Enter → allow newline within the textarea
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                addTrigger();
+              }
+            }}
+            placeholder={`e.g. "when user asks to summarize text"
+
+Tip: Enter = add trigger · Shift+Enter = new line`}
+            rows={4}
+            className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            style={{ minHeight: 96 }}
           />
-          <button onClick={addTrigger} className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700">
+          <button onClick={addTrigger} className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 h-fit" title="Add trigger">
             <Plus size={14} />
           </button>
         </div>
