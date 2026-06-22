@@ -36,11 +36,26 @@ export function useAgentStructure(agentId: number | null) {
         if (skillIds.length > 0) {
           try {
             const baseURL = (apiClient as any).client?.defaults?.baseURL ?? 'http://localhost:8765';
+            // List endpoint for summary (name, description, allowed_tools)
             const skillsRes = await axios.get(`${baseURL}/api/skills`);
             const skills = (skillsRes as any).data ?? skillsRes;
             for (const s of skills) {
-              skillMap[s.skill_id ?? s.id] = s;
+              const id = s.skill_id ?? s.id;
+              skillMap[id] = s;
             }
+            // Detail endpoint for each skill (gives us `instructions` + `examples`)
+            // The list endpoint doesn't include the full prompt body.
+            await Promise.all(skillIds.map(async (sid) => {
+              try {
+                const detailRes = await axios.get(`${baseURL}/api/skills/${encodeURIComponent(sid)}`);
+                const detail = (detailRes as any).data ?? detailRes;
+                if (detail && (detail.instructions || detail.examples)) {
+                  skillMap[sid] = { ...(skillMap[sid] ?? {}), ...detail };
+                }
+              } catch {
+                // Fall back to list-only summary if detail fetch fails
+              }
+            }));
           } catch {
             // Skills endpoint may be unavailable — degrade gracefully
           }
