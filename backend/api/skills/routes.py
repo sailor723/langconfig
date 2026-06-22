@@ -123,6 +123,95 @@ class SkillStatsResponse(BaseModel):
 # Helper Functions
 # =============================================================================
 
+# Stop words for trigger matching — words too common to be meaningful signals.
+_STOP_WORDS = frozenset({
+    "the", "a", "an", "and", "or", "but", "is", "are", "was", "were", "be",
+    "been", "being", "have", "has", "had", "do", "does", "did", "will",
+    "would", "could", "should", "may", "might", "must", "shall", "can",
+    "i", "you", "he", "she", "it", "we", "they", "them", "their", "my",
+    "your", "his", "her", "its", "our", "this", "that", "these", "those",
+    "to", "of", "in", "on", "at", "by", "for", "with", "about", "as",
+    "into", "through", "during", "before", "after", "above", "below",
+    "from", "up", "down", "out", "off", "over", "under", "again",
+    "then", "once", "here", "there", "when", "where", "why", "how",
+    "all", "any", "both", "each", "few", "more", "most", "other",
+    "some", "such", "no", "nor", "not", "only", "own", "same", "so",
+    "than", "too", "very", "just", "s", "t", "d", "m", "re", "ve",
+    "ll", "user", "users", "ask", "asks", "asking", "want", "wants",
+    "wanting", "need", "needs", "needing", "use", "uses", "using",
+})
+
+import re as _re
+
+
+def _tokenize(text: str) -> list[str]:
+    """Lowercase + split into alphanumeric tokens (length >= 2)."""
+    if not text:
+        return []
+    return [t for t in _re.findall(r"[a-z0-9]+", text.lower()) if len(t) >= 2]
+
+
+def _extract_trigger_keywords(trigger: str) -> list[str]:
+    """Extract a list of meaningful phrase-level keywords from a trigger string.
+
+    Examples:
+      "when user asks about recent events or current news"
+      → ["recent events", "current news"]
+
+      "if user wants to search the web"
+      → ["search", "web"]
+
+    Strategy: keep 2-gram phrases (skip stop-word-only phrases) and unique tokens.
+    """
+    if not trigger:
+        return []
+    tokens = _tokenize(trigger)
+    if not tokens:
+        return []
+    keywords: list[str] = []
+    # 1) Bigrams (consecutive 2-word phrases) — meaningful signals like "recent events"
+    for i in range(len(tokens) - 1):
+        phrase = f"{tokens[i]} {tokens[i+1]}"
+        if any(w not in _STOP_WORDS for w in (tokens[i], tokens[i+1])):
+            keywords.append(phrase)
+    # 2) Single meaningful tokens (no duplicates)
+    seen: set[str] = set()
+    for t in tokens:
+        if t not in _STOP_WORDS and t not in seen:
+            keywords.append(t)
+            seen.add(t)
+    return keywords
+
+def _db_skill_to_match_obj(dbs):
+    """Build a duck-typed Skill-like object from a DB Skill row.
+
+    We need this because `match_skills` iterates over skills and reads
+    .description / .name / .tags / .triggers — and DB-only skills aren't in
+    the in-memory registry. Return a plain object that has those attributes.
+    """
+    from types import SimpleNamespace
+    return SimpleNamespace(
+        skill_id=dbs.skill_id,
+        name=dbs.name or "",
+        description=dbs.description or "",
+        version=dbs.version or "1.0.0",
+        author=dbs.author or "",
+        source_type=dbs.source_type or "personal",
+        source_path=dbs.source_path or "",
+        tags=list(dbs.tags or []),
+        triggers=list(dbs.triggers or []),
+        allowed_tools=_normalize_allowed_tools(dbs.allowed_tools) or [],
+        instructions=dbs.instructions or "",
+        examples=dbs.examples or "",
+        avg_success_rate=dbs.avg_success_rate or 1.0,
+        usage_count=dbs.usage_count or 0,
+        last_used_at=dbs.last_used_at,
+        created_at=dbs.created_at,
+        updated_at=dbs.updated_at,
+        required_context=list(dbs.required_context or []),
+    )
+
+
 def _normalize_allowed_tools(value):
     """Coerce allowed_tools from any of {list, JSON-string, None} to List[str] or None.
 
@@ -607,6 +696,30 @@ async def match_skills(request: SkillMatchRequest):
     results = []
 
     skills = registry.list_all()
+
+    # Also pull in DB-only personal skills that aren't yet in the in-memory
+    # registry cache. Without this, skills that were just PUT won't appear
+    # in matches until the next registry reload.
+    try:
+        from db.database import SessionLocal
+        from models.skill import Skill as SkillModel
+        db = SessionLocal()
+        try:
+            in_memory_ids = {s.skill_id for s in skills}
+            db_skills = (
+                db.query(SkillModel)
+                .filter(SkillModel.source_type != "builtin")
+                .all()
+            )
+            for dbs in db_skills:
+                if dbs.skill_id not in in_memory_ids:
+                    # Build a duck-typed Skill-like object from the DB row
+                    skills.append(_db_skill_to_match_obj(dbs))
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Failed to load DB-only skills for matching: {e}")
+
     query_lower = request.query.lower()
 
     for skill in skills:
@@ -629,14 +742,41 @@ async def match_skills(request: SkillMatchRequest):
                 score += 0.3 * len(matching_tags)
                 match_reason.append(f"tags: {', '.join(matching_tags)}")
 
-        # Trigger matching (basic keyword check)
+        # Trigger matching — extract intent keywords from natural-language triggers
+        # Trigger example: "when user asks about recent events or current news"
+        # Query example:    "what is the latest news"
+        # Strategy: split trigger into short keywords and check overlap with query tokens.
         for trigger in (skill.triggers or []):
             trigger_lower = trigger.lower()
+            keywords = _extract_trigger_keywords(trigger_lower)
+            query_tokens = set(_tokenize(query_lower))
+            trigger_tokens = set(_tokenize(trigger_lower))
+
+            # 1) "mentions X" style
             if "mentions" in trigger_lower:
-                keywords = trigger_lower.split("mentions")[-1].strip()
-                if keywords in query_lower:
+                after_mentions = trigger_lower.split("mentions", 1)[1].strip()
+                if after_mentions and any(k in query_lower for k in after_mentions.split()):
                     score += 0.6
                     match_reason.append(f"trigger: {trigger}")
+                    continue
+
+            # 2) Overlap-based scoring — count meaningful shared words
+            # Filter out stop words for noise reduction
+            overlap = query_tokens & trigger_tokens
+            meaningful_overlap = overlap - _STOP_WORDS
+            if meaningful_overlap:
+                # 0.4 base + 0.1 per shared meaningful word, capped at 0.9
+                trigger_score = min(0.4 + 0.1 * len(meaningful_overlap), 0.9)
+                if trigger_score > score:  # take the best matching trigger
+                    score = max(score, trigger_score)
+                    match_reason = [f"trigger: {trigger} (matched: {', '.join(sorted(meaningful_overlap))})"]
+                continue
+
+            # 3) Phrase/keyword presence — check if any extracted keyword appears
+            for kw in keywords:
+                if kw and kw in query_lower:
+                    score = max(score, 0.7)
+                    match_reason = [f"trigger: {trigger} (keyword: {kw})"]
                     break
 
         if score > 0:
