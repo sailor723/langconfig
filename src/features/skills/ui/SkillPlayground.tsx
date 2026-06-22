@@ -117,11 +117,13 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-panel-dark rounded-xl shadow-2xl flex flex-col"
+        className="rounded-xl shadow-2xl flex flex-col"
         style={{
           width: '90vw',
           maxWidth: 1200,
           height: '90vh',
+          backgroundColor: '#FFFFFF',
+          color: '#1F1E1B',  // explicit dark text — was inheriting white somewhere
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -130,7 +132,7 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
           <div className="flex items-center gap-2">
             <span className="text-xl">🛝</span>
             <h2 className="text-base font-semibold">Skill Playground</h2>
-            <span className="text-[10px] text-gray-500 ml-2">
+            <span className="text-[10px] ml-2" style={{ color: '#6B7280' }}>
               (Phase 1 — direct LLM test via DeepSeek chat)
             </span>
           </div>
@@ -149,13 +151,14 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
             <div className="p-4 space-y-3">
               {/* Skill selector */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1 uppercase">
+                <label className="block text-xs font-semibold mb-1 uppercase" style={{ color: '#1F1E1B' }}>
                   Skill to test
                 </label>
                 <select
                   value={selectedSkillId}
                   onChange={(e) => setSelectedSkillId(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  style={{ backgroundColor: '#FFFFFF', color: '#1F1E1B' }}
                 >
                   {skills.map((s) => (
                     <option key={s.skill_id} value={s.skill_id}>
@@ -168,18 +171,18 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
               {/* Skill preview */}
               {selectedSkill && (
                 <div className="rounded-lg border p-3 space-y-2" style={{ borderColor: '#E8E4DA', backgroundColor: '#FAF9F5' }}>
-                  <div className="text-xs font-semibold text-gray-800">{selectedSkill.name}</div>
-                  <div className="text-[11px] text-gray-600 line-clamp-3">
+                  <div className="text-xs font-semibold" style={{ color: '#1F1E1B' }}>{selectedSkill.name}</div>
+                  <div className="text-[11px] line-clamp-3" style={{ color: '#374151' }}>
                     {selectedSkill.description || '(no description)'}
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {(selectedSkill.tags || []).map((t) => (
-                      <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">
+                      <span key={t} className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: '#F3F4F6', color: '#1F1E1B' }}>
                         #{t}
                       </span>
                     ))}
                   </div>
-                  <div className="text-[10px] text-gray-500 mt-2">
+                  <div className="text-[10px] mt-2" style={{ color: '#374151' }}>
                     <div><strong>Triggers:</strong> {selectedSkill.triggers?.length || 0}</div>
                     <div><strong>Tools:</strong> {(selectedSkill.allowed_tools || []).join(', ') || '(none)'}</div>
                   </div>
@@ -188,7 +191,7 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
 
               {/* User query */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1 uppercase">
+                <label className="block text-xs font-semibold mb-1 uppercase" style={{ color: '#1F1E1B' }}>
                   User Query
                 </label>
                 <textarea
@@ -196,7 +199,8 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="e.g. What's the latest news on AI agents?"
                   rows={5}
-                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  style={{ backgroundColor: '#FFFFFF', color: '#1F1E1B' }}
                 />
               </div>
 
@@ -213,7 +217,8 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
                 </button>
                 <button
                   onClick={() => { setQuery(''); setResult(null); setError(null); }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-200"
+                  style={{ backgroundColor: '#F3F4F6', color: '#1F1E1B' }}
                 >
                   <RotateCcw size={14} />
                   Reset
@@ -222,7 +227,7 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
 
               {/* Quick examples */}
               <div>
-                <div className="text-[10px] text-gray-500 mb-1">Quick examples:</div>
+                <div className="text-[10px] mb-1" style={{ color: '#374151' }}>Quick examples:</div>
                 <div className="space-y-1">
                   {[
                     'What is the latest news on AI agents?',
@@ -232,7 +237,8 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
                     <button
                       key={ex}
                       onClick={() => setQuery(ex)}
-                      className="block w-full text-left text-[11px] px-2 py-1 rounded hover:bg-gray-100 text-gray-600"
+                      className="block w-full text-left text-[11px] px-2 py-1 rounded hover:bg-gray-100"
+                      style={{ color: '#374151' }}
                     >
                       → {ex}
                     </button>
@@ -243,12 +249,12 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
           </div>
 
           {/* === RIGHT: Results === */}
-          <div className="overflow-y-auto bg-gray-50">
+          <div className="overflow-y-auto" style={{ backgroundColor: '#F9FAFB' }}>
             {!result && !error && (
-              <div className="p-6 text-center text-gray-500 text-sm">
+              <div className="p-6 text-center text-sm" style={{ color: '#374151' }}>
                 <div className="text-4xl mb-3">🛝</div>
                 <div>Pick a skill, type a query, hit Run.</div>
-                <div className="text-[11px] mt-2 text-gray-400">
+                <div className="text-[11px] mt-2" style={{ color: '#6B7280' }}>
                   The skill's instructions + tools + triggers will be injected into a system prompt,
                   then DeepSeek chat will answer the query.
                 </div>
@@ -265,16 +271,16 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
             {result && (
               <div className="p-4 space-y-4">
                 {/* Header summary */}
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center justify-between text-xs" style={{ color: '#374151' }}>
                   <div>
-                    <strong>{result.skill.name}</strong> · model: <code>{result.model}</code> · {result.elapsed_ms}ms
+                    <strong style={{ color: '#1F1E1B' }}>{result.skill.name}</strong> · model: <code>{result.model}</code> · {result.elapsed_ms}ms
                   </div>
                 </div>
 
                 {/* Matched skills */}
                 {result.matched.length > 0 && (
                   <div className="bg-white rounded-lg border p-3" style={{ borderColor: '#E8E4DA' }}>
-                    <div className="text-[10px] text-gray-500 uppercase mb-2">
+                    <div className="text-[10px] uppercase mb-2 font-semibold" style={{ color: '#1F1E1B' }}>
                       🎯 Matched Skills ({result.matched.length})
                     </div>
                     {result.matched.map((m) => (
@@ -284,22 +290,22 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
                         style={{ borderColor: '#F3F4F6' }}
                       >
                         <div>
-                          <div className="text-sm font-medium">
+                          <div className="text-sm font-medium" style={{ color: '#1F1E1B' }}>
                             {m.name}
                             {m.skill_id === result.skill.skill_id && (
-                              <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">
+                              <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
                                 USING
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-gray-500 font-mono">
+                          <div className="text-[10px] font-mono" style={{ color: '#374151' }}>
                             {m.match_reason.slice(0, 80)}
                           </div>
                         </div>
                         <div
-                          className="text-xs font-mono"
+                          className="text-xs font-mono font-semibold"
                           style={{
-                            color: m.score >= 0.7 ? '#10B981' : m.score >= 0.4 ? '#F59E0B' : '#6B7280',
+                            color: m.score >= 0.7 ? '#10B981' : m.score >= 0.4 ? '#F59E0B' : '#374151',
                           }}
                         >
                           {m.score.toFixed(2)}
@@ -310,11 +316,17 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
                 )}
 
                 {/* Agent output */}
-                <div className="bg-white rounded-lg border p-3" style={{ borderColor: '#E8E4DA' }}>
-                  <div className="text-[10px] text-gray-500 uppercase mb-2">
+                <div className="bg-white rounded-lg border p-4" style={{ borderColor: '#E8E4DA' }}>
+                  <div className="text-[10px] uppercase mb-3 font-semibold flex items-center gap-2" style={{ color: '#1F1E1B' }}>
                     🤖 Agent Output
+                    <span className="text-[9px] normal-case font-normal" style={{ color: '#6B7280' }}>
+                      ({result.agent_output.length} chars · {result.model})
+                    </span>
                   </div>
-                  <div className="text-sm whitespace-pre-wrap text-gray-800">
+                  <div
+                    className="text-sm whitespace-pre-wrap leading-relaxed"
+                    style={{ color: '#1F1E1B' }}
+                  >
                     {result.agent_output}
                   </div>
                 </div>
@@ -325,10 +337,10 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
                     onClick={() => setShowSystemPrompt((s) => !s)}
                     className="w-full px-3 py-2 flex items-center justify-between text-left"
                   >
-                    <span className="text-[10px] text-gray-500 uppercase">
+                    <span className="text-[10px] uppercase font-semibold" style={{ color: '#1F1E1B' }}>
                       📋 System Prompt ({result.system_prompt.length} chars)
                     </span>
-                    <span className="text-gray-400 text-xs">{showSystemPrompt ? '▾' : '▸'}</span>
+                    <span className="text-xs" style={{ color: '#6B7280' }}>{showSystemPrompt ? '▾' : '▸'}</span>
                   </button>
                   {showSystemPrompt && (
                     <div className="px-3 pb-3">
@@ -339,7 +351,7 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
                         {copiedPrompt ? <Check size={10} /> : <Copy size={10} />}
                         {copiedPrompt ? 'Copied' : 'Copy'}
                       </button>
-                      <pre className="text-[10px] font-mono text-gray-700 bg-gray-50 p-2 rounded border overflow-x-auto whitespace-pre-wrap">
+                      <pre className="text-[10px] font-mono bg-gray-50 p-2 rounded border overflow-x-auto whitespace-pre-wrap" style={{ color: '#1F1E1B' }}>
                         {result.system_prompt}
                       </pre>
                     </div>
@@ -351,14 +363,15 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-2.5 border-t text-[11px] text-gray-500 flex items-center justify-between" style={{ borderColor: '#E8E4DA' }}>
+        <div className="px-5 py-2.5 border-t text-[11px] flex items-center justify-between" style={{ borderColor: '#E8E4DA', color: '#374151' }}>
           <span>
             💡 Phase 1 simulates agent execution by injecting the skill's instructions into a system prompt.
             Phase 2 will wire up real agent + tool execution.
           </span>
           <button
             onClick={onClose}
-            className="px-3 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200"
+            className="px-3 py-1 text-xs rounded hover:bg-gray-200"
+            style={{ backgroundColor: '#F3F4F6', color: '#1F1E1B' }}
           >
             Close
           </button>
