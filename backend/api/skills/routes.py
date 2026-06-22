@@ -679,27 +679,48 @@ async def match_skills(request: SkillMatchRequest):
     """
     Find skills matching the given context.
 
-    Uses multiple matching strategies:
-    1. Semantic matching against descriptions
-    2. Trigger condition evaluation
-    3. Tag matching
-
-    Returns skills ranked by relevance score.
+    Uses the production SkillMatcher (LLM-based semantic + trigger + tag).
+    Falls back to keyword matching if embeddings are unavailable.
     """
     registry = get_skill_registry()
 
     if not registry.is_initialized:
         await registry.initialize()
 
-    # For now, use simple tag + text matching
-    # Full semantic matching will be in SkillMatcher
+    # Build context for the matcher
+    context = {
+        "query": request.query,
+        "file_path": request.file_path,
+        "project_type": request.project_type,
+        "tags": request.tags or [],
+    }
+
+    # Try the production SkillMatcher first (LLM embeddings + trigger eval)
+    try:
+        from core.skills.matcher import get_skill_matcher
+        matcher = get_skill_matcher()
+        matches = await matcher.find_relevant_skills(
+            context=context,
+            max_results=request.max_results,
+            min_score=0.0,  # don't filter too aggressively; let caller decide
+        )
+        return [
+            SkillMatchResponse(
+                skill=_skill_to_response(m.skill),
+                score=m.score,
+                match_reason=m.match_reason,
+            )
+            for m in matches
+        ]
+    except Exception as e:
+        logger.warning(f"SkillMatcher failed, falling back to keyword matching: {e}")
+
+    # === Fallback: keyword-based matching ===
     results = []
 
     skills = registry.list_all()
 
-    # Also pull in DB-only personal skills that aren't yet in the in-memory
-    # registry cache. Without this, skills that were just PUT won't appear
-    # in matches until the next registry reload.
+    # Also pull in DB-only personal skills
     try:
         from db.database import SessionLocal
         from models.skill import Skill as SkillModel
@@ -713,7 +734,6 @@ async def match_skills(request: SkillMatchRequest):
             )
             for dbs in db_skills:
                 if dbs.skill_id not in in_memory_ids:
-                    # Build a duck-typed Skill-like object from the DB row
                     skills.append(_db_skill_to_match_obj(dbs))
         finally:
             db.close()
@@ -726,15 +746,24 @@ async def match_skills(request: SkillMatchRequest):
         score = 0.0
         match_reason = []
 
-        # Text matching
-        if query_lower in skill.description.lower():
-            score += 0.5
-            match_reason.append("description match")
-        if query_lower in skill.name.lower():
+        # === Description / name matching ===
+        desc_lower = (skill.description or "").lower()
+        if query_lower and query_lower in desc_lower:
+            score += 0.4
+            match_reason.append("description contains query")
+        # Multi-word overlap with description (stronger signal)
+        query_tokens = set(_tokenize(query_lower))
+        desc_tokens = set(_tokenize(desc_lower))
+        desc_overlap = (query_tokens & desc_tokens) - _STOP_WORDS
+        if desc_overlap:
+            score += min(0.15 * len(desc_overlap), 0.5)
+            match_reason.append(f"description: {', '.join(sorted(desc_overlap))}")
+
+        if query_lower and query_lower in (skill.name or "").lower():
             score += 0.3
             match_reason.append("name match")
 
-        # Tag matching
+        # === Tag matching (when caller provides tags) ===
         if request.tags:
             skill_tags_lower = [t.lower() for t in (skill.tags or [])]
             matching_tags = set(t.lower() for t in request.tags) & set(skill_tags_lower)
@@ -742,41 +771,51 @@ async def match_skills(request: SkillMatchRequest):
                 score += 0.3 * len(matching_tags)
                 match_reason.append(f"tags: {', '.join(matching_tags)}")
 
-        # Trigger matching — extract intent keywords from natural-language triggers
-        # Trigger example: "when user asks about recent events or current news"
-        # Query example:    "what is the latest news"
-        # Strategy: split trigger into short keywords and check overlap with query tokens.
+        # === Skill's own tags count too (lightweight semantic signal) ===
+        skill_tags = set(t.lower() for t in (skill.tags or []))
+        if skill_tags:
+            tag_overlap = query_tokens & skill_tags - _STOP_WORDS
+            if tag_overlap:
+                # Each matching tag adds a strong boost (tags are intentional keywords)
+                score += min(0.25 * len(tag_overlap), 0.6)
+                match_reason.append(f"skill tags: {', '.join(sorted(tag_overlap))}")
+
+        # === Trigger matching — best trigger wins ===
         for trigger in (skill.triggers or []):
             trigger_lower = trigger.lower()
             keywords = _extract_trigger_keywords(trigger_lower)
-            query_tokens = set(_tokenize(query_lower))
             trigger_tokens = set(_tokenize(trigger_lower))
 
-            # 1) "mentions X" style
+            # 1) "mentions X" style (legacy)
             if "mentions" in trigger_lower:
                 after_mentions = trigger_lower.split("mentions", 1)[1].strip()
                 if after_mentions and any(k in query_lower for k in after_mentions.split()):
-                    score += 0.6
-                    match_reason.append(f"trigger: {trigger}")
+                    score = max(score, 0.6)
+                    match_reason = [f"trigger: {trigger} (mentions: {after_mentions})"]
                     continue
 
             # 2) Overlap-based scoring — count meaningful shared words
-            # Filter out stop words for noise reduction
             overlap = query_tokens & trigger_tokens
             meaningful_overlap = overlap - _STOP_WORDS
             if meaningful_overlap:
-                # 0.4 base + 0.1 per shared meaningful word, capped at 0.9
-                trigger_score = min(0.4 + 0.1 * len(meaningful_overlap), 0.9)
-                if trigger_score > score:  # take the best matching trigger
-                    score = max(score, trigger_score)
-                    match_reason = [f"trigger: {trigger} (matched: {', '.join(sorted(meaningful_overlap))})"]
+                # Stronger than before — multi-word overlap is more specific
+                trigger_score = min(0.5 + 0.15 * len(meaningful_overlap), 0.95)
+                if trigger_score > score:
+                    score = trigger_score
+                    match_reason = [
+                        f"trigger: {trigger} (matched {len(meaningful_overlap)}: "
+                        f"{', '.join(sorted(meaningful_overlap))})"
+                    ]
                 continue
 
-            # 3) Phrase/keyword presence — check if any extracted keyword appears
+            # 3) Phrase-level keyword presence (single fuzzy keyword)
             for kw in keywords:
                 if kw and kw in query_lower:
-                    score = max(score, 0.7)
-                    match_reason = [f"trigger: {trigger} (keyword: {kw})"]
+                    # Cap keyword-only matches lower than multi-word overlap
+                    # so a specific 2-word match beats a single fuzzy keyword
+                    if 0.55 > score:
+                        score = 0.55
+                        match_reason = [f"trigger: {trigger} (keyword: {kw})"]
                     break
 
         if score > 0:
