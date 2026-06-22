@@ -24,9 +24,9 @@ const INFO_W = 170;
 const INFO_H = 130;
 const PROMPT_W = 200;
 const PROMPT_H = 200;
-const SUB_W = 150;
-const SUB_H = 110;
-const RING_RADIUS = 320;
+const SUB_W = 240;
+const SUB_H = 180;
+const RING_RADIUS = 380;
 
 // Claude theme — warm orange/cream professional palette
 const THEMES = {
@@ -41,7 +41,7 @@ export function buildLayout(structure: AgentStructure): LayoutResult {
   const edges: Edge[] = [];
 
   // Center of a typical viewport — main agent here so it appears centered
-  const center = { x: 540, y: 360 };
+  const center = { x: 540, y: 420 };
 
   // Main agent — center
   nodes.push({
