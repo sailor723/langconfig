@@ -114,7 +114,7 @@ export default function SubAgentDetailModal() {
           {/* Description */}
           {data.description && (
             <Section title="Description" icon="📋">
-              <p style={{ color: '#1F1E1B', lineHeight: 1.5 }}>{data.description}</p>
+              <p className="text-sm" style={{ color: '#1F1E1B', lineHeight: 1.6 }}>{data.description}</p>
             </Section>
           )}
 
@@ -206,7 +206,7 @@ export default function SubAgentDetailModal() {
           >
             {prompt ? (
               <pre
-                className="text-[11px] leading-relaxed p-3 rounded-lg font-mono whitespace-pre-wrap overflow-auto"
+                className="text-sm leading-relaxed p-3 rounded-lg font-mono whitespace-pre-wrap overflow-auto"
                 style={{
                   backgroundColor: '#FFFFFF',
                   color: '#1F1E1B',
