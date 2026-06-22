@@ -67,6 +67,227 @@ interface SkillBuilderModalProps {
 
 type SectionId = 'identity' | 'discovery' | 'triggers' | 'configuration' | 'body' | 'examples' | 'files';
 
+// ============================================================
+// SKILL.md (markdown) ↔ Form state conversion helpers
+// The markdown is the source of truth (matches Agent Skills spec).
+// YAML frontmatter is parsed and re-generated; the body is plain markdown.
+// ============================================================
+
+interface ParsedSkill {
+  name: string;
+  description: string;
+  tags: string[];
+  triggers: string[];
+  allowed_tools: string[];
+  instructions: string;
+  examples: string;
+}
+
+/**
+ * Build a YAML list value. Flow style for short lists:
+ *   tags: [web, research]
+ * Block style if any item contains a comma or is multi-line.
+ */
+function yamlList(items: string[]): string {
+  if (!items || items.length === 0) return '[]';
+  const simple = items.every((s) => s && !s.includes(',') && !s.includes('\n') && !s.startsWith('['));
+  if (simple && items.length <= 5) {
+    return `[${items.join(', ')}]`;
+  }
+  return items.map((i) => `  - ${i.replace(/\n/g, ' ')}`).join('\n');
+}
+
+/**
+ * Serialize a multi-line string as YAML scalar.
+ * Uses block scalar (|) so markdown formatting (lists, headings) is preserved.
+ */
+function yamlMultiline(value: string): string {
+  if (!value) return '""';
+  // If the string contains newlines, use block scalar style
+  if (value.includes('\n')) {
+    // Indent each line by 2 spaces
+    const lines = value.split('\n');
+    return '|\n' + lines.map((l) => '  ' + l).join('\n');
+  }
+  // Otherwise use double-quoted scalar
+  return JSON.stringify(value);
+}
+
+/**
+ * Build a full SKILL.md text from structured form state.
+ */
+function buildSkillMarkdown(state: {
+  name: string;
+  description: string;
+  tags: string[];
+  triggers: string[];
+  allowed_tools: string[];
+  instructions: string;
+  examples: string;
+}): string {
+  const frontmatter = [
+    '---',
+    `name: ${state.name || 'untitled'}`,
+    `description: ${yamlMultiline(state.description || '')}`,
+    `tags: ${yamlList(state.tags || [])}`,
+    `triggers:`,
+    ...(state.triggers || []).map((t) => `  - ${t}`),
+    `allowed-tools: ${yamlList(state.allowed_tools || [])}`,
+    '---',
+  ].join('\n');
+
+  // Body — just the instructions (per Agent Skills spec, body is the SKILL.md content after frontmatter)
+  let body = state.instructions || '';
+  if (state.examples && state.examples.trim()) {
+    body += '\n\n## Examples\n\n' + state.examples;
+  }
+  if (!body) body = '# Instructions\n\n(Write the skill instructions here)\n';
+  return frontmatter + '\n\n' + body + '\n';
+}
+
+/**
+ * Parse a SKILL.md text into structured form state.
+ * Returns null if the text doesn't start with a YAML frontmatter block.
+ */
+function parseSkillMarkdown(text: string): ParsedSkill | null {
+  const trimmed = text.trim();
+  // Frontmatter must start with --- on its own line and end with ---
+  const m = trimmed.match(/^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/);
+  if (!m) return null;
+
+  const yaml = m[1];
+  const body = m[2] || '';
+
+  // Parse YAML — simple line-based parser good enough for our schema:
+  //   key: value
+  //   key: [a, b, c]
+  //   key:
+  //     - item
+  const result: ParsedSkill = {
+    name: '',
+    description: '',
+    tags: [],
+    triggers: [],
+    allowed_tools: [],
+    instructions: body,
+    examples: '',
+  };
+
+  // Split body out of "## Examples" section if present
+  const examplesMatch = body.match(/\n## Examples\s*\n([\s\S]*?)$/);
+  if (examplesMatch) {
+    result.instructions = body.slice(0, examplesMatch.index).trim();
+    result.examples = examplesMatch[1].trim();
+  }
+
+  const lines = yaml.split('\n');
+  let currentKey: string | null = null;
+  let blockList: string[] = [];
+  let blockScalarValue = '';
+  let blockScalarActive = false;
+  let blockScalarIndent = 0;
+
+  function commitList() {
+    if (currentKey === 'tags') result.tags = blockList.slice();
+    else if (currentKey === 'triggers') result.triggers = blockList.slice();
+    else if (currentKey === 'allowed-tools') result.allowed_tools = blockList.slice();
+    blockList = [];
+    currentKey = null;
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Continuation of block scalar (|)
+    if (blockScalarActive) {
+      // Empty line in block scalar: include as literal newline
+      if (line.trim() === '') {
+        blockScalarValue += '\n';
+        continue;
+      }
+      // Check indentation — must be at least blockScalarIndent
+      const leading = line.match(/^(\s*)/)?.[1].length ?? 0;
+      if (leading >= blockScalarIndent) {
+        const content = line.slice(blockScalarIndent);
+        blockScalarValue += (blockScalarValue ? '\n' : '') + content;
+        continue;
+      } else {
+        // End of block scalar
+        if (currentKey === 'description') result.description = blockScalarValue.trimEnd();
+        blockScalarActive = false;
+      }
+    }
+
+    // Match "key: value" or "key:" (start of list / block scalar)
+    const kvMatch = line.match(/^([a-zA-Z][\w-]*)\s*:\s*(.*)$/);
+    if (kvMatch) {
+      // Flush any pending list
+      if (currentKey && !blockScalarActive) commitList();
+
+      const key = kvMatch[1];
+      const value = kvMatch[2];
+
+      if (value === '' || value === undefined) {
+        // Could be start of list or block scalar — peek next non-empty line
+        let nextIdx = i + 1;
+        while (nextIdx < lines.length && lines[nextIdx].trim() === '') nextIdx++;
+        const nextLine = lines[nextIdx] || '';
+        if (nextLine.match(/^\s+- /)) {
+          currentKey = key;
+        } else if (nextLine.match(/^\s+\S/) && key === 'description') {
+          // Start of block scalar
+          blockScalarActive = true;
+          blockScalarIndent = nextLine.match(/^(\s*)/)?.[1].length ?? 2;
+          currentKey = key;
+          blockScalarValue = '';
+        } else {
+          // Empty value
+          if (key === 'name') result.name = '';
+          currentKey = null;
+        }
+      } else if (value === '|' || value.startsWith('|')) {
+        // Block scalar
+        blockScalarActive = true;
+        blockScalarIndent = 2;
+        currentKey = key;
+        blockScalarValue = '';
+      } else if (value.startsWith('[') && value.endsWith(']')) {
+        // Inline list
+        const items = value
+          .slice(1, -1)
+          .split(',')
+          .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+          .filter(Boolean);
+        if (key === 'tags') result.tags = items;
+        else if (key === 'triggers') result.triggers = items;
+        else if (key === 'allowed-tools') result.allowed_tools = items;
+        currentKey = null;
+      } else {
+        // Plain scalar
+        const unquoted = value.replace(/^["']|["']$/g, '');
+        if (key === 'name') result.name = unquoted;
+        else if (key === 'description') result.description = unquoted;
+        currentKey = null;
+      }
+    } else {
+      // Continuation of list: "  - item"
+      const listItemMatch = line.match(/^\s+-\s+(.*)$/);
+      if (listItemMatch && currentKey) {
+        const item = listItemMatch[1].replace(/^["']|["']$/g, '');
+        blockList.push(item);
+      }
+    }
+  }
+
+  // Flush
+  if (blockScalarActive && currentKey === 'description') {
+    result.description = blockScalarValue.trimEnd();
+  } else if (currentKey) {
+    commitList();
+  }
+
+  return result;
+}
+
 const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModalProps) => {
   const { t } = useTranslation('chat');
   // After a new skill is created, store it here so the modal can switch to
@@ -75,6 +296,18 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
   const [createdSkill, setCreatedSkill] = useState<typeof existingSkill | null>(null);
   const effectiveExistingSkill = existingSkill ?? createdSkill ?? undefined;
   const isEditing = !!effectiveExistingSkill;
+
+  // -------- View mode (form / markdown / test) --------
+  // form     — default structured sections editor
+  // markdown — full SKILL.md as one text document, with bi-directional sync
+  // test     — test trigger matching against sample user input
+  type ViewMode = 'form' | 'markdown' | 'test';
+  const [viewMode, setViewMode] = useState<ViewMode>('form');
+  const [skillMarkdown, setSkillMarkdown] = useState<string>('');  // for markdown view
+  const [testInput, setTestInput] = useState<string>('');            // for test triggers view
+  const [testResults, setTestResults] = useState<Array<{skill_id: string; name: string; score: number; matched_trigger?: string}> | null>(null);
+  const [testRunning, setTestRunning] = useState(false);
+  const [markdownSync, setMarkdownSync] = useState<'idle' | 'parsing' | 'ok' | 'error'>('idle');
 
   // -------- Form state (mirrors the API fields) --------
   const [name, setName] = useState(existingSkill?.name || '');
@@ -562,7 +795,7 @@ when user needs external facts not in their training data
             value={newTool}
             onChange={(e) => setNewTool(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTool())}
-            placeholder="e.g. web_search, filesystem, shell, python"
+            placeholder="e.g. web_search, fetch_url, write_file, read_file"
             className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm font-mono text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <button onClick={addTool} className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700">
@@ -734,7 +967,38 @@ when user needs external facts not in their training data
                 </div>
               );
             })()}
-            {sections.map((sec) => {
+            {/* === View-mode tabs === */}
+            <div className="flex items-center gap-1 px-1 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 w-fit">
+              <TabButton
+                active={viewMode === 'form'}
+                onClick={() => setViewMode('form')}
+                icon="📝"
+                label="Form"
+              />
+              <TabButton
+                active={viewMode === 'markdown'}
+                onClick={() => {
+                  // When switching to markdown, regenerate from current form state
+                  const md = buildSkillMarkdown({
+                    name, description, tags, triggers,
+                    allowed_tools: allowedTools, instructions, examples,
+                  });
+                  setSkillMarkdown(md);
+                  setMarkdownSync('idle');
+                  setViewMode('markdown');
+                }}
+                icon="📄"
+                label="Markdown"
+              />
+              <TabButton
+                active={viewMode === 'test'}
+                onClick={() => setViewMode('test')}
+                icon="🎯"
+                label="Test Triggers"
+              />
+            </div>
+            {/* === Conditional view rendering === */}
+            {viewMode === 'form' && sections.map((sec) => {
               const open = openSections.has(sec.id);
               const error = sectionErrors[sec.id];
               const saving = sectionSaving[sec.id];
@@ -790,6 +1054,167 @@ when user needs external facts not in their training data
                 </div>
               );
             })}
+
+            {/* === Markdown view === */}
+            {viewMode === 'markdown' && (
+              <div className="rounded-xl border border-gray-200 overflow-hidden bg-white">
+                <div className="flex items-center justify-between gap-2 px-4 py-2.5" style={{ backgroundColor: '#FAF9F5', borderBottom: '1px solid #E8E4DA' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">📄</span>
+                    <span className="text-sm font-medium">SKILL.md</span>
+                    {markdownSync === 'ok' && (
+                      <span className="text-[10px] px-2 py-0.5 rounded" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
+                        ✓ parsed
+                      </span>
+                    )}
+                    {markdownSync === 'error' && (
+                      <span className="text-[10px] px-2 py-0.5 rounded" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+                        ✗ not valid SKILL.md
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        // Re-generate markdown from current form state
+                        const md = buildSkillMarkdown({
+                          name, description, tags, triggers,
+                          allowed_tools: allowedTools, instructions, examples,
+                        });
+                        setSkillMarkdown(md);
+                        setMarkdownSync('idle');
+                      }}
+                      className="px-3 py-1 text-xs font-medium bg-gray-100 hover:bg-gray-200 rounded-md"
+                      title="Re-generate markdown from current form state"
+                    >
+                      ↻ Reset to form
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Sync form state from markdown text
+                        const parsed = parseSkillMarkdown(skillMarkdown);
+                        if (parsed) {
+                          setName(parsed.name);
+                          setDescription(parsed.description);
+                          setTags(parsed.tags);
+                          setTriggers(parsed.triggers);
+                          setAllowedTools(parsed.allowed_tools);
+                          setInstructions(parsed.instructions);
+                          setExamples(parsed.examples);
+                          setMarkdownSync('ok');
+                          setTimeout(() => setMarkdownSync('idle'), 1800);
+                        } else {
+                          setMarkdownSync('error');
+                        }
+                      }}
+                      className="px-3 py-1 text-xs font-medium text-white rounded-md"
+                      style={{ backgroundColor: 'var(--color-primary)' }}
+                      title="Apply markdown to form fields (one-way: markdown → form)"
+                    >
+                      ↓ Sync to form
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <p className="text-[11px] text-gray-500 mb-2">
+                    Edit the full SKILL.md text. YAML frontmatter is parsed; body is the skill instructions. Click "Sync to form" to push changes back to form fields.
+                  </p>
+                  <textarea
+                    value={skillMarkdown}
+                    onChange={(e) => {
+                      setSkillMarkdown(e.target.value);
+                      setMarkdownSync('idle');
+                    }}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg font-mono text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    style={{ minHeight: 480, lineHeight: 1.5 }}
+                    spellCheck={false}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* === Test Triggers view === */}
+            {viewMode === 'test' && (
+              <div className="rounded-xl border border-gray-200 overflow-hidden bg-white">
+                <div className="flex items-center gap-2 px-4 py-2.5" style={{ backgroundColor: '#FAF9F5', borderBottom: '1px solid #E8E4DA' }}>
+                  <span className="text-sm">🎯</span>
+                  <span className="text-sm font-medium">Test Triggers</span>
+                  <span className="text-[10px] text-gray-500">
+                    — type a sample user query and see which skills would activate
+                  </span>
+                </div>
+                <div className="p-4 space-y-3">
+                  <label className="block text-xs font-medium text-gray-700 uppercase">
+                    Sample user input
+                  </label>
+                  <textarea
+                    value={testInput}
+                    onChange={(e) => setTestInput(e.target.value)}
+                    placeholder={`e.g. "What's the latest news on AI?"\nor "Can you help me analyze this CSV file?"`}
+                    rows={3}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!testInput.trim()) return;
+                      setTestRunning(true);
+                      setTestResults(null);
+                      try {
+                        const resp = await apiClient.post('/api/skills/match', {
+                          query: testInput,
+                          limit: 5,
+                        });
+                        // The endpoint may return matches in various shapes
+                        const data = resp.data;
+                        if (Array.isArray(data)) {
+                          setTestResults(data);
+                        } else if (data?.matches) {
+                          setTestResults(data.matches);
+                        } else {
+                          setTestResults([]);
+                        }
+                      } catch (err: any) {
+                        setTestResults([]);
+                        setSectionError('body', `Test failed: ${err.message}`);
+                      } finally {
+                        setTestRunning(false);
+                      }
+                    }}
+                    disabled={testRunning || !testInput.trim()}
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+                    style={{ backgroundColor: 'var(--color-primary)' }}
+                  >
+                    {testRunning ? 'Testing…' : '▶ Run test'}
+                  </button>
+                  {testResults !== null && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-medium text-gray-700 uppercase">Results ({testResults.length} match{testResults.length === 1 ? '' : 'es'})</div>
+                      {testResults.length === 0 && (
+                        <div className="text-xs text-gray-500 italic">No skills match. Try adding more triggers or improve description.</div>
+                      )}
+                      {testResults.map((r, i) => (
+                        <div key={i} className="px-3 py-2 rounded-lg border" style={{
+                          backgroundColor: '#FAF9F5',
+                          borderColor: r.score >= 0.7 ? '#10B981' : r.score >= 0.4 ? '#F59E0B' : '#E5E7EB',
+                        }}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium">{r.name || r.skill_id}</span>
+                            <span className="text-xs font-mono" style={{
+                              color: r.score >= 0.7 ? '#10B981' : r.score >= 0.4 ? '#F59E0B' : '#6B7280',
+                            }}>
+                              score: {typeof r.score === 'number' ? r.score.toFixed(2) : '—'}
+                            </span>
+                          </div>
+                          {r.matched_trigger && (
+                            <div className="text-[11px] text-gray-600">Matched trigger: <span className="font-mono">{r.matched_trigger}</span></div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -844,6 +1269,22 @@ const Field = ({ label, hint, required, children }: { label: string; hint?: stri
     {hint && <p className="text-[10px] text-gray-500 mb-1.5">{hint}</p>}
     {children}
   </div>
+);
+
+// Tab button — used for the Form / Markdown / Test Triggers view-mode switch
+const TabButton = ({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: string; label: string }) => (
+  <button
+    onClick={onClick}
+    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+    style={{
+      backgroundColor: active ? 'white' : 'transparent',
+      color: active ? '#1F1E1B' : '#6B7280',
+      boxShadow: active ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+    }}
+  >
+    <span>{icon}</span>
+    <span>{label}</span>
+  </button>
 );
 
 export default SkillBuilderModal;
