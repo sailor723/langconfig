@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, AliasChoices
 from sqlalchemy.orm import Session
 from datetime import datetime
 import logging
+import json
 
 from db.database import get_db
 from core.skills.registry import get_skill_registry
@@ -122,20 +123,58 @@ class SkillStatsResponse(BaseModel):
 # Helper Functions
 # =============================================================================
 
+def _normalize_allowed_tools(value):
+    """Coerce allowed_tools from any of {list, JSON-string, None} to List[str] or None.
+
+    Legacy DB records may store allowed_tools as a JSON-encoded string (e.g.
+    '["web_search", "web_fetch"]') instead of a native JSON list. The DB
+    column is JSON-typed but historical inserts via SQL might have stringified
+    the value. Accept both forms so older rows don't break Pydantic validation.
+    """
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return None
+        # Try JSON first (handles '["a","b"]' and 'null')
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, list):
+                return parsed
+            if parsed is None:
+                return None
+        except (json.JSONDecodeError, ValueError):
+            pass
+        # Fall back to Python literal (handles "['a','b']" from repr())
+        try:
+            import ast
+            parsed = ast.literal_eval(s)
+            if isinstance(parsed, list):
+                return parsed
+        except (ValueError, SyntaxError):
+            pass
+        # Last resort: treat as single tool name
+        return [s]
+    return list(value) if value else None
+
+
 def _skill_to_response(skill: Skill) -> SkillResponse:
     """Convert Skill model to SkillResponse."""
     return SkillResponse(
         skill_id=skill.skill_id,
-        name=skill.name,
-        description=skill.description,
-        version=skill.version,
-        source_type=skill.source_type.value if hasattr(skill.source_type, 'value') else skill.source_type,
+        name=skill.name or "",
+        description=skill.description or "",
+        version=skill.version or "",
+        source_type=skill.source_type.value if hasattr(skill.source_type, 'value') else (skill.source_type or ""),
         tags=skill.tags or [],
         triggers=skill.triggers or [],
-        allowed_tools=skill.allowed_tools,
-        usage_count=skill.usage_count,
+        allowed_tools=_normalize_allowed_tools(skill.allowed_tools),
+        usage_count=skill.usage_count or 0,
         last_used_at=skill.last_used_at,
-        avg_success_rate=skill.avg_success_rate
+        avg_success_rate=skill.avg_success_rate or 0.0
     )
 
 
@@ -143,19 +182,19 @@ def _skill_to_detail_response(skill: Skill) -> SkillDetailResponse:
     """Convert Skill model to SkillDetailResponse."""
     return SkillDetailResponse(
         skill_id=skill.skill_id,
-        name=skill.name,
-        description=skill.description,
-        version=skill.version,
-        source_type=skill.source_type.value if hasattr(skill.source_type, 'value') else skill.source_type,
+        name=skill.name or "",
+        description=skill.description or "",
+        version=skill.version or "",
+        source_type=skill.source_type.value if hasattr(skill.source_type, 'value') else (skill.source_type or ""),
         tags=skill.tags or [],
         triggers=skill.triggers or [],
-        allowed_tools=skill.allowed_tools,
-        usage_count=skill.usage_count,
+        allowed_tools=_normalize_allowed_tools(skill.allowed_tools),
+        usage_count=skill.usage_count or 0,
         last_used_at=skill.last_used_at,
-        avg_success_rate=skill.avg_success_rate,
-        instructions=skill.instructions,
+        avg_success_rate=skill.avg_success_rate or 0.0,
+        instructions=skill.instructions or "",
         examples=skill.examples,
-        source_path=skill.source_path,
+        source_path=skill.source_path or "",
         author=skill.author,
         required_context=skill.required_context or [],
         created_at=skill.created_at,
@@ -228,7 +267,34 @@ async def list_skills(
     finally:
         db.close()
 
-    return [_skill_to_response_dict(s) for s in skills]
+    # Tolerate per-skill validation errors — legacy DB rows may have NULL
+    # fields that fail Pydantic. Log and emit a minimal placeholder instead
+    # of failing the whole list (which would break the frontend via CORS).
+    result = []
+    for s in skills:
+        try:
+            result.append(_skill_to_response_dict(s))
+        except Exception as exc:
+            logger.warning(
+                f"Failed to serialize skill {s.skill_id!r} for list response: {exc}. "
+                f"Emitting minimal placeholder."
+            )
+            result.append({
+                "skill_id": s.skill_id,
+                "name": s.skill_id,
+                "description": "(serialization error — DB record has unexpected fields)",
+                "version": "",
+                "source_type": "",
+                "tags": [],
+                "triggers": [],
+                "allowed_tools": None,
+                "allowed-tools": None,
+                "usage_count": 0,
+                "last_used_at": None,
+                "avg_success_rate": 0.0,
+                "_serialization_error": True,
+            })
+    return result
 
 
 @router.get("/summary")
