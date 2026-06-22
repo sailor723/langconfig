@@ -180,18 +180,37 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
               />
             </div>
 
-            {/* Description */}
+            {/* Description — spec limit: 1024 chars (Agent Skills Specification) */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 uppercase">
-                {t('skill_builder_desc_label')}
+              <label className="flex items-center justify-between text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 uppercase">
+                <span>{t('skill_builder_desc_label')}</span>
+                <span
+                  className="text-[10px] font-mono normal-case tracking-normal"
+                  style={{
+                    color: description.length > 1024 ? '#ef4444' :
+                           description.length > 900 ? '#D97757' : '#5C5A55',
+                  }}
+                  title="Agent Skills Spec: description must be ≤ 1024 characters"
+                >
+                  {description.length} / 1024
+                </span>
               </label>
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder={t('skill_builder_desc_placeholder')}
-                className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                maxLength={1100}  /* allow slight over-limit, but show red warning */
+                className="w-full px-3 py-2 bg-white dark:bg-background-dark border rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                style={{
+                  borderColor: description.length > 1024 ? '#ef4444' : undefined,
+                }}
               />
+              {description.length > 1024 && (
+                <p className="text-[10px] mt-1" style={{ color: '#ef4444' }}>
+                  ⚠ Description exceeds the 1024-character spec limit. Trimming recommended before saving.
+                </p>
+              )}
             </div>
 
             {/* Tags */}

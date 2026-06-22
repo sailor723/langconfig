@@ -318,6 +318,7 @@ class SkillRegistry:
                 db_skill.description = skill.description
                 db_skill.triggers = skill.triggers
                 db_skill.instructions = skill.instructions
+                db_skill.allowed_tools = skill.allowed_tools
                 db_skill.updated_at = skill.updated_at
 
                 await session.commit()
