@@ -163,6 +163,22 @@ function AppContent() {
     }
   }, [location.pathname]);
 
+  // DeepAgent Studio → navigate to Skill Library
+  // Triggered when user clicks 'Open in Builder' in SubAgentDetailModal
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ skillId?: string }>;
+      console.log('[App] navigating to /skills', ce.detail);
+      navigate('/skills');
+      // Pass skill id via window flag so SkillLibrary can auto-select on mount
+      if (ce.detail?.skillId) {
+        sessionStorage.setItem('da:pending-skill-select', ce.detail.skillId);
+      }
+    };
+    window.addEventListener('da:navigate-skills', handler);
+    return () => window.removeEventListener('da:navigate-skills', handler);
+  }, [navigate]);
+
   // Map routes to views
   const currentView: View = (() => {
     const path = location.pathname;
