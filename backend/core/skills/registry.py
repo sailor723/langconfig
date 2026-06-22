@@ -391,7 +391,12 @@ class SkillRegistry:
         description: str,
         tags: List[str],
         triggers: List[str],
-        instructions: str
+        instructions: str,
+        allowed_tools: Optional[List[str]] = None,
+        examples: Optional[str] = None,
+        author: Optional[str] = None,
+        version: Optional[str] = None,
+        required_context: Optional[List[str]] = None,
     ) -> Skill:
         """
         Create a new skill in the database.
@@ -403,6 +408,11 @@ class SkillRegistry:
             tags: Categorization tags
             triggers: Auto-trigger conditions
             instructions: Detailed skill instructions
+            allowed_tools: List of tool names the skill may use
+            examples: Optional markdown examples
+            author: Skill author (defaults to "User")
+            version: Initial version (defaults to "1.0.0")
+            required_context: Optional list of required context keys
 
         Returns:
             The created Skill object
@@ -413,16 +423,16 @@ class SkillRegistry:
                 skill_id=skill_id,
                 name=name,
                 description=description,
-                version="1.0.0",
-                author="User",
+                version=version or "1.0.0",
+                author=author or "User",
                 source_type=SkillSourceType.PERSONAL,
                 source_path="",
                 tags=tags,
                 triggers=triggers,
-                allowed_tools=[],
-                required_context=[],
+                allowed_tools=allowed_tools or [],
+                required_context=required_context or [],
                 instructions=instructions,
-                examples=None,
+                examples=examples,
                 file_modified_at=datetime.utcnow()
             )
             session.add(skill)
