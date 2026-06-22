@@ -26,6 +26,7 @@ import {
 import apiClient from '../../../lib/api-client';
 import type { Skill, SkillDetail, SkillsSummary, SkillSourceFilter } from '../types';
 import SkillBuilderModal from '../../agents/ui/SkillBuilderModal';
+import SkillPlayground from './SkillPlayground';
 
 interface SkillLibraryProps {
   onSelectSkill?: (skill: Skill) => void;
@@ -61,6 +62,7 @@ export default function SkillLibrary({
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['builtin', 'personal', 'project']));
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showPlayground, setShowPlayground] = useState(false);
   // Edit/Delete state
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -316,6 +318,13 @@ export default function SkillLibrary({
                 </div>
               )}
             </div>
+            <button
+              onClick={() => setShowPlayground(true)}
+              className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-colors bg-gray-100 hover:bg-gray-200 text-gray-700"
+              title="Test a skill against a user query via LLM"
+            >
+              🛝 Playground
+            </button>
             <button
               onClick={() => setShowCreateModal(true)}
               className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex items-center gap-1 transition-colors"
@@ -710,6 +719,13 @@ export default function SkillLibrary({
             fetchSkills();
             fetchSummary();
           }}
+        />
+      )}
+
+      {/* Skill Playground Modal */}
+      {showPlayground && (
+        <SkillPlayground
+          onClose={() => setShowPlayground(false)}
         />
       )}
 
