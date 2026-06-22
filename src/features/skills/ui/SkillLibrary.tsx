@@ -171,25 +171,34 @@ export default function SkillLibrary({
   // Delete the currently-selected skill
   const handleDeleteSkill = async () => {
     if (!selectedSkill) return;
+    const skillIdToDelete = selectedSkill.skill_id;
     setDeleting(true);
     // Close both modals immediately for snappy UX
     setConfirmDelete(false);
     setSelectedSkill(null);
     setEditingSkill(null);
     try {
-      await apiClient.delete(`/api/skills/${encodeURIComponent(selectedSkill.skill_id)}`);
+      await apiClient.delete(`/api/skills/${encodeURIComponent(skillIdToDelete)}`);
       // Refresh the list in the background
       await Promise.all([fetchSkills(), fetchSummary()]);
     } catch (err: any) {
+      const status = err.response?.status;
       const msg = err.response?.data?.detail || err.message || 'Failed to delete skill';
-      // Re-open the detail panel so the user can retry
-      try {
-        const resp = await apiClient.get(`/api/skills/${encodeURIComponent(selectedSkill.skill_id)}`);
-        setSelectedSkill(resp.data);
-      } catch {
-        // If the skill no longer exists, leave it closed
+
+      // Treat 404 as success (skill already gone — likely from a parallel delete
+      // or a previous failed attempt that succeeded server-side)
+      if (status === 404) {
+        await Promise.all([fetchSkills(), fetchSummary()]);
+      } else {
+        // For other errors, re-open the detail panel so the user can retry
+        try {
+          const resp = await apiClient.get(`/api/skills/${encodeURIComponent(skillIdToDelete)}`);
+          setSelectedSkill(resp.data);
+        } catch {
+          // If the skill no longer exists, leave it closed
+        }
+        setError(msg);
       }
-      setError(msg);
     } finally {
       setDeleting(false);
     }
