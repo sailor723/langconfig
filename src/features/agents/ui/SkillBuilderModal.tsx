@@ -260,13 +260,19 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
         // Collapse default-open sections — user has filled required fields
         setOpenSections(new Set<SectionId>(['discovery', 'triggers', 'body']));
       } else {
+        const payload = buildUpdatePayload();
+        // DEBUG: log so user can verify what's being sent
+        // eslint-disable-next-line no-console
+        console.log(`[SkillBuilderModal] PUT ${effectiveExistingSkill.skill_id}:`, payload);
         const result = await apiClient.put(
           `/api/skills/${encodeURIComponent(effectiveExistingSkill.skill_id)}`,
-          buildUpdatePayload()
+          payload
         );
+        // eslint-disable-next-line no-console
+        console.log(`[SkillBuilderModal] PUT response:`, result.data);
         if (onSave) onSave(result.data);
-        setSectionError(id, `✓ Saved ${id} section`);
-        setTimeout(() => setSectionError(id, null), 1800);
+        setSectionError(id, `✓ Saved ${id} section (${payload.triggers?.length || 0} triggers, ${payload.tags?.length || 0} tags)`);
+        setTimeout(() => setSectionError(id, null), 3000);
       }
     } catch (e: any) {
       const msg = e.response?.data?.detail || e.message || 'Failed to save skill';
