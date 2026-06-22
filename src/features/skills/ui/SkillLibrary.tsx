@@ -172,14 +172,23 @@ export default function SkillLibrary({
   const handleDeleteSkill = async () => {
     if (!selectedSkill) return;
     setDeleting(true);
+    // Close both modals immediately for snappy UX
+    setConfirmDelete(false);
+    setSelectedSkill(null);
+    setEditingSkill(null);
     try {
       await apiClient.delete(`/api/skills/${encodeURIComponent(selectedSkill.skill_id)}`);
-      setSelectedSkill(null);
-      setConfirmDelete(false);
-      await fetchSkills();
-      await fetchSummary();
+      // Refresh the list in the background
+      await Promise.all([fetchSkills(), fetchSummary()]);
     } catch (err: any) {
       const msg = err.response?.data?.detail || err.message || 'Failed to delete skill';
+      // Re-open the detail panel so the user can retry
+      try {
+        const resp = await apiClient.get(`/api/skills/${encodeURIComponent(selectedSkill.skill_id)}`);
+        setSelectedSkill(resp.data);
+      } catch {
+        // If the skill no longer exists, leave it closed
+      }
       setError(msg);
     } finally {
       setDeleting(false);

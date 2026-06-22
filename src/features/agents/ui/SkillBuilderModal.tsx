@@ -290,7 +290,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. web-search"
-          className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
         />
       </Field>
       <Field label="Version">
@@ -330,7 +330,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
           placeholder="e.g. Search the web for current information. Use when user asks about recent events..."
           rows={3}
           maxLength={1100}
-          className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           style={{ borderColor: description.length > 1024 ? '#ef4444' : undefined }}
         />
       </Field>
@@ -352,7 +352,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
             onChange={(e) => setNewTag(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
             placeholder="add tag…"
-            className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <button onClick={addTag} className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700">
             <Plus size={14} />
@@ -378,7 +378,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
             onChange={(e) => setNewTrigger(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTrigger())}
             placeholder='e.g. "when user asks to summarize text"'
-            className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <button onClick={addTrigger} className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700">
             <Plus size={14} />
@@ -413,7 +413,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
             onChange={(e) => setNewTool(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTool())}
             placeholder="e.g. web_search, filesystem, shell, python"
-            className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm font-mono text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <button onClick={addTool} className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700">
             <Plus size={14} />
@@ -444,7 +444,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
         onChange={(e) => setInstructions(e.target.value)}
         placeholder={`# My Skill\n\n## Overview\n\n...\n\n## Instructions\n\n### Step 1: ...\n`}
         rows={16}
-        className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+        className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm font-mono text-gray-900 dark:text-white placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
         style={{ minHeight: 320 }}
       />
     </div>
@@ -464,7 +464,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
         onChange={(e) => setExamples(e.target.value)}
         placeholder={`User: What's the latest news about Apple?\nAsst: [calls web_search('latest Apple news'), returns top 3 with citations]\n`}
         rows={6}
-        className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+        className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm font-mono text-gray-900 dark:text-white placeholder:text-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
       />
     </div>
   );
