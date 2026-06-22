@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Copy, Check } from 'lucide-react';
 
 interface SubAgentDetail {
   id?: string;
@@ -22,6 +22,7 @@ interface SubAgentDetail {
 export default function SubAgentDetailModal() {
   const [data, setData] = useState<SubAgentDetail | null>(null);
   const [promptExpanded, setPromptExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -104,13 +105,13 @@ export default function SubAgentDetailModal() {
 
           {/* Model + Tools */}
           <Section title="Configuration" icon="⚙️">
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid gap-3 ${data.model ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {data.model && (
                 <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: '#F5E6DC', border: '1px solid #D97757' }}>
                   <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#A85A2E' }}>
                     Model
                   </div>
-                  <div className="font-mono text-sm mt-0.5" style={{ color: '#1F1E1B' }}>
+                  <div className="font-mono text-sm mt-0.5 truncate" style={{ color: '#1F1E1B' }} title={data.model}>
                     {data.model}
                   </div>
                 </div>
@@ -137,6 +138,14 @@ export default function SubAgentDetailModal() {
                 ))}
               </div>
             )}
+            {(!data.tools || data.tools.length === 0) && (
+              <div
+                className="mt-2 px-3 py-2 rounded-lg text-[11px]"
+                style={{ backgroundColor: '#FFFFFF', color: '#5C5A55', border: '1px dashed #C8B6A6' }}
+              >
+                No native tools bound — uses the main agent's tools via delegation.
+              </div>
+            )}
           </Section>
 
           {/* Skill ID (when source='skill') */}
@@ -156,31 +165,64 @@ export default function SubAgentDetailModal() {
             title="Skill Prompt (Instructions Preview)"
             icon="📜"
             right={
-              prompt.length > 200 && (
-                <button
-                  onClick={() => setPromptExpanded(v => !v)}
-                  className="text-[10px] px-2 py-0.5 rounded font-medium"
-                  style={{ backgroundColor: '#D97757', color: '#FFFFFF' }}
-                >
-                  {promptExpanded ? '▲ Collapse' : '▼ Expand'}
-                </button>
-              )
+              <div className="flex items-center gap-1.5">
+                {prompt && (
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(prompt);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1500);
+                    }}
+                    className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded font-medium"
+                    style={{
+                      backgroundColor: copied ? '#10b981' : '#FAF9F5',
+                      color: copied ? '#FFFFFF' : '#A85A2E',
+                      border: '1px solid #D97757',
+                      transition: 'all 0.15s',
+                    }}
+                    title="Copy prompt to clipboard"
+                  >
+                    {copied ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Copy</>}
+                  </button>
+                )}
+                {prompt.length > 200 && (
+                  <button
+                    onClick={() => setPromptExpanded(v => !v)}
+                    className="text-[10px] px-2 py-0.5 rounded font-medium"
+                    style={{ backgroundColor: '#D97757', color: '#FFFFFF' }}
+                  >
+                    {promptExpanded ? '▲ Collapse' : '▼ Expand'}
+                  </button>
+                )}
+              </div>
             }
           >
-            <pre
-              className="text-[11px] leading-relaxed p-3 rounded-lg font-mono whitespace-pre-wrap overflow-auto"
-              style={{
-                backgroundColor: '#FFFFFF',
-                color: '#1F1E1B',
-                border: '1px solid #E8E4DA',
-                maxHeight: promptExpanded ? 480 : 180,
-                transition: 'max-height 0.2s',
-              }}
-            >
-              {prompt || '(empty — no instructions_preview available)'}
-            </pre>
-            <div className="text-[10px] mt-1 text-right" style={{ color: '#5C5A55' }}>
-              {prompt.length} chars
+            {prompt ? (
+              <pre
+                className="text-[11px] leading-relaxed p-3 rounded-lg font-mono whitespace-pre-wrap overflow-auto"
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  color: '#1F1E1B',
+                  border: '1px solid #E8E4DA',
+                  maxHeight: promptExpanded ? 480 : 180,
+                  transition: 'max-height 0.2s',
+                }}
+              >
+                {prompt}
+              </pre>
+            ) : (
+              <div
+                className="px-3 py-4 rounded-lg text-[11px] text-center"
+                style={{ backgroundColor: '#FFFFFF', color: '#5C5A55', border: '1px dashed #C8B6A6' }}
+              >
+                <div className="mb-1">📜</div>
+                <div>No instructions_preview available for this skill.</div>
+                <div className="mt-1 opacity-70">Try reloading or check the skill source on the backend.</div>
+              </div>
+            )}
+            <div className="text-[10px] mt-1 flex justify-between" style={{ color: '#5C5A55' }}>
+              <span>{prompt ? `${prompt.length} chars · ${prompt.split(/\s+/).filter(Boolean).length} words` : 'no content'}</span>
+              <span>source: skill registry</span>
             </div>
           </Section>
         </div>
