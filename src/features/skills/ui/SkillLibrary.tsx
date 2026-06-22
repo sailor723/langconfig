@@ -12,6 +12,7 @@ import {
   RefreshCw,
   X,
   BookOpen,
+  Bot,
   Zap,
   Tag,
   Clock,
@@ -45,6 +46,8 @@ export default function SkillLibrary({
 
   // State
   const [skills, setSkills] = useState<Skill[]>([]);
+  // Maps skill_id → number of agents that reference this skill
+  const [agentCounts, setAgentCounts] = useState<Record<string, number>>({});
   const [summary, setSummary] = useState<SkillsSummary | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +59,27 @@ export default function SkillLibrary({
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['builtin', 'personal', 'project']));
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Fetch "Used by N agents" counts for each skill (parallel with skills list)
+  const fetchAgentCounts = useCallback(async (skillList: Skill[]) => {
+    try {
+      const results = await Promise.all(
+        skillList.map(async (s) => {
+          try {
+            const res = await apiClient.get(`/api/skills/${encodeURIComponent(s.skill_id)}/agents`);
+            return [s.skill_id, (res as any).agent_count ?? 0] as const;
+          } catch {
+            return [s.skill_id, 0] as const;
+          }
+        })
+      );
+      const map: Record<string, number> = {};
+      for (const [id, count] of results) map[id] = count;
+      setAgentCounts(map);
+    } catch (err) {
+      // Non-fatal — leave counts at previous values
+    }
+  }, []);
 
   // Fetch skills
   const fetchSkills = useCallback(async () => {
@@ -72,6 +96,8 @@ export default function SkillLibrary({
 
       const response = await apiClient.get(url);
       setSkills(response.data);
+      // Fetch reverse-link counts in background (non-blocking)
+      fetchAgentCounts(response.data);
     } catch (err: any) {
       setError(err.message || t('skills_error_failed'));
       console.error('Error fetching skills:', err);
@@ -415,7 +441,23 @@ export default function SkillLibrary({
                             )}
 
                             {/* Stats */}
-                            <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                            <div className="flex items-center gap-2 text-xs flex-wrap" style={{ color: 'var(--color-text-muted)' }}>
+                              {/* Reverse link: how many agents reference this skill */}
+                              <div
+                                className="flex items-center gap-1 px-1.5 py-0.5 rounded font-mono"
+                                style={{
+                                  backgroundColor: (agentCounts[skill.skill_id] ?? 0) > 0
+                                    ? 'rgba(217,119,87,0.12)' : 'transparent',
+                                  color: (agentCounts[skill.skill_id] ?? 0) > 0
+                                    ? '#A85A2E' : 'var(--color-text-muted)',
+                                  border: (agentCounts[skill.skill_id] ?? 0) > 0
+                                    ? '1px solid #D97757' : '1px solid transparent',
+                                }}
+                                title={`Used by ${agentCounts[skill.skill_id] ?? 0} deep agent${(agentCounts[skill.skill_id] ?? 0) === 1 ? '' : 's'}`}
+                              >
+                                <Bot className="w-3 h-3" />
+                                <span>Used by {agentCounts[skill.skill_id] ?? 0}</span>
+                              </div>
                               <div className="flex items-center gap-1">
                                 <TrendingUp className="w-3 h-3" />
                                 <span>{skill.usage_count}</span>
