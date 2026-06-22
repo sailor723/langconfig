@@ -4,29 +4,20 @@
 # LICENSE file in the root directory of this source tree.
 
 """
-Skill Matcher - Context-aware skill selection.
+Skill Matcher — LLM-based skill selection using langchain init_chat_model.
 
-Responsible for:
-- Semantic matching of user context to skills
-- Evaluating trigger conditions
-- Ranking skills by relevance
-- Caching embeddings for performance
-
-Matching Strategies:
-1. Semantic: Compare context embedding to skill description embeddings
-2. Trigger: Evaluate skill trigger conditions against context
-3. Tag: Match context keywords to skill tags
-4. Explicit: Direct skill invocation by name
+Given a user query and the list of available skills, ask a chat LLM
+(DeepSeek by default) to score each skill's relevance and return the top N.
 """
 
+import json
 import logging
-import re
-from typing import List, Optional, Dict, Any, Tuple
+import os
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
-import numpy as np
+from langchain_core.messages import HumanMessage, SystemMessage
 
-from models.skill import Skill
 from core.skills.registry import get_skill_registry
 
 logger = logging.getLogger(__name__)
@@ -35,430 +26,243 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SkillMatch:
     """A skill match with relevance score and explanation."""
-    skill: Skill
+    skill: Any  # Skill model (duck-typed OK)
     score: float
-    match_reason: str  # 'semantic', 'trigger', 'tag', 'explicit'
+    match_reason: str
+
+
+# Module-level singleton
+_matcher_instance: Optional["SkillMatcher"] = None
+
+
+def get_skill_matcher() -> "SkillMatcher":
+    """Get the singleton SkillMatcher instance."""
+    global _matcher_instance
+    if _matcher_instance is None:
+        _matcher_instance = SkillMatcher()
+    return _matcher_instance
 
 
 class SkillMatcher:
     """
-    Match user context to relevant skills.
+    Match a user query to relevant skills using an LLM.
 
-    Supports multiple matching strategies:
-    1. Semantic: Compare context embedding to skill description embeddings
-    2. Trigger: Evaluate skill trigger conditions against context
-    3. Tag: Match context keywords to skill tags
-    4. Explicit: Direct skill invocation by name
-
-    Example usage:
-        matcher = SkillMatcher()
-
-        # Find skills for a user query
-        matches = await matcher.find_relevant_skills({
-            "query": "help me write pytest tests",
-            "file_path": "tests/test_api.py",
-            "project_type": "python"
-        })
-
-        for match in matches:
-            print(f"{match.skill.name}: {match.score:.2f} ({match.match_reason})")
+    The LLM (DeepSeek chat by default — configured via .env) is asked to
+    score each skill's metadata against the query and return JSON with
+    skill_id + score + reason. The top N are returned.
     """
 
-    def __init__(self, embedding_model: str = "text-embedding-3-small"):
-        """
-        Initialize matcher with optional embedding model.
-
-        Args:
-            embedding_model: OpenAI embedding model name for semantic matching
-        """
-        self._embedding_model = embedding_model
-        self._embeddings = None  # Lazy initialization
+    def __init__(self, model_name: Optional[str] = None):
+        # Default model — read from .env / set in init_chat_model
+        self._model_name = model_name or os.environ.get("DEFAULT_MODEL", "deepseek-chat")
         self._registry = get_skill_registry()
-        self._embedding_cache: Dict[str, np.ndarray] = {}
+        self._llm = None  # Lazy init
 
-    def _get_embeddings(self):
-        """Lazy initialize embeddings client."""
-        if self._embeddings is None:
+    def _get_llm(self):
+        """Lazy-init the chat model via langchain's init_chat_model."""
+        if self._llm is None:
             try:
-                from langchain_openai import OpenAIEmbeddings
-                self._embeddings = OpenAIEmbeddings(model=self._embedding_model)
+                from langchain.chat_models import init_chat_model
+                # init_chat_model reads provider/model from env vars:
+                #   DEEPSEEK_API_KEY, DEEPSEEK_API_BASE → provider=deepseek
+                #   AZURE_OPENAI_* → provider=azure_openai
+                #   OPENAI_API_KEY → provider=openai
+                self._llm = init_chat_model(
+                    model=self._model_name,
+                    temperature=0.0,
+                    model_provider="deepseek",
+                )
+                logger.info(f"SkillMatcher initialized with model: {self._model_name}")
             except Exception as e:
-                logger.warning(f"Could not initialize embeddings: {e}")
-                self._embeddings = False  # Mark as failed
-        return self._embeddings if self._embeddings else None
+                logger.warning(f"Could not init chat model '{self._model_name}': {e}")
+                self._llm = False
+        return self._llm if self._llm else None
 
     async def find_relevant_skills(
         self,
         context: Dict[str, Any],
         max_results: int = 5,
-        min_score: float = 0.5,
-        strategies: Optional[List[str]] = None
+        min_score: float = 0.0,
+        strategies: Optional[List[str]] = None,
     ) -> List[SkillMatch]:
         """
         Find skills relevant to the given context.
 
         Args:
-            context: Dictionary with context information:
-                - query: User's query/input text (required for semantic)
-                - file_path: Current file path (for trigger evaluation)
-                - file_content: Current file content (optional)
-                - project_type: Type of project (e.g., 'python', 'nodejs')
-                - tags: Explicit tags to match
-            max_results: Maximum number of skills to return
-            min_score: Minimum relevance score (0-1)
-            strategies: List of strategies to use ['semantic', 'trigger', 'tag']
-                        Defaults to all strategies.
+            context: {"query": "...", "file_path": "...", "tags": [...]}
+            max_results: Max skills to return
+            min_score: Drop matches below this score
+            strategies: For backward compatibility — ignored, we always use LLM
 
         Returns:
-            List of SkillMatch sorted by relevance score (highest first)
+            List[SkillMatch] sorted by score descending
         """
-        strategies = strategies or ['semantic', 'trigger', 'tag']
-        all_matches: Dict[str, SkillMatch] = {}
+        query = context.get("query", "").strip()
+        if not query:
+            return []
 
-        skills = self._registry.list_all()
+        # Load skills (registry cache + DB-only personal skills)
+        skills = list(self._registry.list_all())
+        skills.extend(self._load_db_only_skills(skills))
 
-        # Strategy 1: Semantic matching (if query provided and embeddings available)
-        if 'semantic' in strategies and context.get('query'):
-            try:
-                semantic_matches = await self._semantic_match(
-                    context['query'], skills, max_results * 2
-                )
-                for match in semantic_matches:
-                    if match.skill.skill_id not in all_matches or \
-                       match.score > all_matches[match.skill.skill_id].score:
-                        all_matches[match.skill.skill_id] = match
-            except Exception as e:
-                logger.warning(f"Semantic matching failed: {e}")
+        if not skills:
+            return []
 
-        # Strategy 2: Trigger evaluation
-        if 'trigger' in strategies:
-            trigger_matches = self._evaluate_triggers(context, skills)
-            for match in trigger_matches:
-                if match.skill.skill_id not in all_matches or \
-                   match.score > all_matches[match.skill.skill_id].score:
-                    all_matches[match.skill.skill_id] = match
+        # Build compact metadata block for the prompt
+        metadata_block = self._build_metadata_block(skills)
 
-        # Strategy 3: Tag matching
-        if 'tag' in strategies:
-            # Extract implicit tags from context
-            implicit_tags = self._extract_implicit_tags(context)
-            explicit_tags = context.get('tags', [])
-            all_tags = list(set(implicit_tags + explicit_tags))
+        # Ask the LLM to score each skill
+        prompt = f"""You are a skill router. Given a user query and a list of skills,
+score each skill's relevance from 0 to 1 (0=irrelevant, 1=perfect match).
 
-            if all_tags:
-                tag_matches = self._match_tags(all_tags, skills)
-                for match in tag_matches:
-                    if match.skill.skill_id not in all_matches:
-                        all_matches[match.skill.skill_id] = match
+Skills (id | name | description | triggers | tags):
+{metadata_block}
 
-        # Filter by minimum score and sort
-        results = [m for m in all_matches.values() if m.score >= min_score]
-        results.sort(key=lambda m: m.score, reverse=True)
+User query: "{query}"
 
-        return results[:max_results]
+Return ONLY a JSON array, no markdown, no commentary:
+[
+  {{"skill_id": "skill-id", "score": 0.85, "reason": "matches because..."}},
+  ...
+]
 
-    async def _semantic_match(
-        self,
-        query: str,
-        skills: List[Skill],
-        max_results: int
-    ) -> List[SkillMatch]:
-        """Match query semantically against skill descriptions."""
-        embeddings = self._get_embeddings()
-        if not embeddings:
-            # Fallback to keyword matching
-            return self._keyword_match(query, skills, max_results)
+Rules:
+- Be strict: only score >= 0.5 if the skill should clearly activate for this query
+- Sort by score descending
+- Include all skills you scored > 0 (omit those with 0)
+- Keep each "reason" to one short sentence"""
 
         try:
-            # Get query embedding
-            query_embedding = await self._get_embedding(query)
+            llm = self._get_llm()
+            if not llm:
+                logger.warning("No LLM available; returning empty matches")
+                return []
 
-            matches = []
-            for skill in skills:
-                # Get or compute skill description embedding
-                skill_embedding = await self._get_skill_embedding(skill)
+            response = await llm.ainvoke([
+                SystemMessage(content="You are a precise skill router. Output strict JSON only."),
+                HumanMessage(content=prompt),
+            ])
+            content = (response.content or "").strip()
 
-                # Compute cosine similarity
-                similarity = self._cosine_similarity(query_embedding, skill_embedding)
+            # Strip markdown code fence if present
+            if content.startswith("```"):
+                lines = content.split("\n")
+                # drop first ```json line and last ``` line
+                content = "\n".join(lines[1:])
+                if content.rstrip().endswith("```"):
+                    content = content.rstrip()[:-3]
 
-                if similarity > 0.3:  # Basic threshold before scoring
-                    matches.append(SkillMatch(
-                        skill=skill,
-                        score=similarity,
-                        match_reason='semantic'
+            data = json.loads(content)
+            if not isinstance(data, list):
+                logger.warning(f"LLM returned non-list: {type(data)}")
+                return []
+
+            # Build lookup
+            skills_by_id = {s.skill_id: s for s in skills}
+
+            results = []
+            for item in data:
+                sid = item.get("skill_id")
+                try:
+                    score = float(item.get("score", 0.0))
+                except (TypeError, ValueError):
+                    continue
+                reason = item.get("reason", "llm semantic match")
+                if sid in skills_by_id and score > 0:
+                    results.append(SkillMatch(
+                        skill=skills_by_id[sid],
+                        score=min(score, 1.0),
+                        match_reason=f"llm: {reason}",
                     ))
 
-            matches.sort(key=lambda m: m.score, reverse=True)
-            return matches[:max_results]
+            results.sort(key=lambda m: m.score, reverse=True)
+            return [m for m in results if m.score >= min_score][:max_results]
 
         except Exception as e:
-            logger.warning(f"Semantic embedding failed, using keyword fallback: {e}")
-            return self._keyword_match(query, skills, max_results)
+            logger.warning(f"LLM skill match failed: {e}")
+            return []
 
-    def _keyword_match(
-        self,
-        query: str,
-        skills: List[Skill],
-        max_results: int
-    ) -> List[SkillMatch]:
-        """Fallback keyword matching when embeddings unavailable."""
-        matches = []
-        query_lower = query.lower()
-        query_words = set(query_lower.split())
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
-        for skill in skills:
-            score = 0.0
-            reasons = []
+    def _build_metadata_block(self, skills: List[Any]) -> str:
+        """Build a compact text representation of all skills for the prompt."""
+        lines = []
+        for s in skills:
+            desc = (s.description or "").replace("\n", " ").strip()
+            if len(desc) > 200:
+                desc = desc[:197] + "..."
+            triggers = (s.triggers or [])[:5]
+            tags = s.tags or []
+            lines.append(
+                f"- {s.skill_id} | {s.name} | {desc} | triggers: {triggers} | tags: {tags}"
+            )
+        return "\n".join(lines)
 
-            # Check description
-            desc_lower = skill.description.lower()
-            desc_words = set(desc_lower.split())
-            word_overlap = len(query_words & desc_words) / max(len(query_words), 1)
-            if word_overlap > 0:
-                score += 0.4 * word_overlap
-                reasons.append("description keywords")
+    def _load_db_only_skills(self, in_memory_skills: List[Any]) -> List[Any]:
+        """Load DB-only personal skills not yet in the registry cache."""
+        from types import SimpleNamespace
+        try:
+            from db.database import SessionLocal
+            from models.skill import Skill as SkillModel
 
-            # Check name
-            if query_lower in skill.name.lower():
-                score += 0.3
-                reasons.append("name match")
-
-            # Check skill_id
-            if query_lower in skill.skill_id:
-                score += 0.2
-                reasons.append("skill_id match")
-
-            if score > 0:
-                matches.append(SkillMatch(
-                    skill=skill,
-                    score=min(score, 1.0),
-                    match_reason=f"keywords: {', '.join(reasons)}"
-                ))
-
-        matches.sort(key=lambda m: m.score, reverse=True)
-        return matches[:max_results]
-
-    def _evaluate_triggers(
-        self,
-        context: Dict[str, Any],
-        skills: List[Skill]
-    ) -> List[SkillMatch]:
-        """Evaluate skill triggers against context."""
-        matches = []
-
-        for skill in skills:
-            if not skill.triggers:
-                continue
-
-            for trigger in skill.triggers:
-                matched, details = self._trigger_matches(trigger, context)
-                if matched:
-                    matches.append(SkillMatch(
-                        skill=skill,
-                        score=0.85,  # High confidence for trigger match
-                        match_reason=f'trigger: {details}'
-                    ))
-                    break  # One trigger match is enough
-
-        return matches
-
-    def _trigger_matches(self, trigger: str, context: Dict[str, Any]) -> Tuple[bool, str]:
-        """
-        Evaluate a single trigger condition against context.
-
-        Trigger format examples:
-        - "when user mentions python testing"
-        - "when file extension is .py"
-        - "when project type is nodejs"
-        - "when working with pytest"
-
-        Returns:
-            Tuple of (matched: bool, details: str)
-        """
-        trigger_lower = trigger.lower().strip()
-
-        # File extension trigger: "when file extension is .py"
-        if "file extension is" in trigger_lower:
-            ext = trigger_lower.split("file extension is")[-1].strip()
-            file_path = context.get('file_path', '')
-            if file_path.lower().endswith(ext):
-                return True, f"file extension {ext}"
-
-        # Project type trigger: "when project type is python"
-        if "project type is" in trigger_lower:
-            proj_type = trigger_lower.split("project type is")[-1].strip()
-            if context.get('project_type', '').lower() == proj_type:
-                return True, f"project type {proj_type}"
-
-        # Working with trigger: "when working with pytest"
-        if "working with" in trigger_lower:
-            tool = trigger_lower.split("working with")[-1].strip()
-            query = context.get('query', '').lower()
-            file_content = context.get('file_content', '').lower()
-            if tool in query or tool in file_content:
-                return True, f"working with {tool}"
-
-        # Keyword mention trigger: "when user mentions X Y Z"
-        if "mentions" in trigger_lower:
-            keywords_str = trigger_lower.split("mentions")[-1].strip()
-            keywords = [k.strip() for k in keywords_str.split() if k.strip()]
-            query = context.get('query', '').lower()
-            if all(kw in query for kw in keywords):
-                return True, f"mentions {keywords_str}"
-
-        # Generic "when" trigger with keyword matching
-        if trigger_lower.startswith("when "):
-            # Extract key terms and check against query
-            terms = trigger_lower[5:].strip().split()
-            query = context.get('query', '').lower()
-            if any(term in query for term in terms if len(term) > 3):
-                return True, trigger
-
-        return False, ""
-
-    def _match_tags(
-        self,
-        context_tags: List[str],
-        skills: List[Skill]
-    ) -> List[SkillMatch]:
-        """Match context tags against skill tags."""
-        matches = []
-        context_tags_lower = set(t.lower() for t in context_tags)
-
-        for skill in skills:
-            skill_tags_lower = set(t.lower() for t in (skill.tags or []))
-            matching_tags = context_tags_lower & skill_tags_lower
-
-            if matching_tags:
-                # Score based on tag overlap
-                overlap_ratio = len(matching_tags) / max(len(context_tags_lower), len(skill_tags_lower))
-                score = min(0.3 + (overlap_ratio * 0.5), 0.8)  # Cap at 0.8
-
-                matches.append(SkillMatch(
-                    skill=skill,
-                    score=score,
-                    match_reason=f'tags: {", ".join(matching_tags)}'
-                ))
-
-        return matches
-
-    def _extract_implicit_tags(self, context: Dict[str, Any]) -> List[str]:
-        """
-        Extract implicit tags from context.
-
-        Analyzes file paths, queries, and project type to infer relevant tags.
-        """
-        tags = []
-
-        # From file path
-        file_path = context.get('file_path', '')
-        if file_path:
-            # Extract extension
-            if '.' in file_path:
-                ext = file_path.rsplit('.', 1)[-1].lower()
-                ext_tag_map = {
-                    'py': 'python',
-                    'js': 'javascript',
-                    'ts': 'typescript',
-                    'tsx': 'typescript',
-                    'jsx': 'javascript',
-                    'go': 'golang',
-                    'rs': 'rust',
-                    'rb': 'ruby',
-                    'java': 'java',
-                    'kt': 'kotlin',
-                    'md': 'documentation',
-                    'yaml': 'configuration',
-                    'yml': 'configuration',
-                    'json': 'configuration',
-                }
-                if ext in ext_tag_map:
-                    tags.append(ext_tag_map[ext])
-
-            # Check for common patterns
-            path_lower = file_path.lower()
-            if 'test' in path_lower or 'spec' in path_lower:
-                tags.append('testing')
-            if 'api' in path_lower:
-                tags.append('api')
-            if 'component' in path_lower:
-                tags.append('frontend')
-
-        # From project type
-        project_type = context.get('project_type', '')
-        if project_type:
-            tags.append(project_type.lower())
-
-        # From query (basic keyword extraction)
-        query = context.get('query', '')
-        if query:
-            query_lower = query.lower()
-            keywords_to_tags = {
-                'test': 'testing',
-                'pytest': 'testing',
-                'unittest': 'testing',
-                'jest': 'testing',
-                'api': 'api',
-                'rest': 'api',
-                'graphql': 'api',
-                'database': 'database',
-                'sql': 'database',
-                'docker': 'devops',
-                'kubernetes': 'devops',
-                'deploy': 'devops',
-                'debug': 'debugging',
-                'error': 'debugging',
-                'document': 'documentation',
-                'readme': 'documentation',
-            }
-            for keyword, tag in keywords_to_tags.items():
-                if keyword in query_lower:
-                    tags.append(tag)
-
-        return list(set(tags))  # Deduplicate
-
-    async def _get_embedding(self, text: str) -> np.ndarray:
-        """Get embedding for text."""
-        embeddings = self._get_embeddings()
-        if not embeddings:
-            raise RuntimeError("Embeddings not available")
-
-        result = await embeddings.aembed_query(text)
-        return np.array(result)
-
-    async def _get_skill_embedding(self, skill: Skill) -> np.ndarray:
-        """Get or compute embedding for skill description."""
-        if skill.skill_id not in self._embedding_cache:
-            # Create rich text for embedding
-            text = f"{skill.name}: {skill.description}"
-            if skill.tags:
-                text += f" Tags: {', '.join(skill.tags)}"
-
-            embedding = await self._get_embedding(text)
-            self._embedding_cache[skill.skill_id] = embedding
-
-        return self._embedding_cache[skill.skill_id]
-
-    def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
-        """Compute cosine similarity between two vectors."""
-        norm_a = np.linalg.norm(a)
-        norm_b = np.linalg.norm(b)
-        if norm_a == 0 or norm_b == 0:
-            return 0.0
-        return float(np.dot(a, b) / (norm_a * norm_b))
-
-    def clear_cache(self):
-        """Clear the embedding cache."""
-        self._embedding_cache.clear()
+            db = SessionLocal()
+            try:
+                in_memory_ids = {s.skill_id for s in in_memory_skills}
+                db_skills = (
+                    db.query(SkillModel)
+                    .filter(SkillModel.source_type != "builtin")
+                    .all()
+                )
+                results = []
+                for dbs in db_skills:
+                    if dbs.skill_id not in in_memory_ids:
+                        # Build a Skill-like duck-typed object with ALL fields
+                        # that _skill_to_response might read.
+                        results.append(SimpleNamespace(
+                            skill_id=dbs.skill_id,
+                            name=dbs.name or "",
+                            description=dbs.description or "",
+                            version=dbs.version or "1.0.0",
+                            author=dbs.author or "User",
+                            source_type=dbs.source_type or "personal",
+                            source_path=dbs.source_path or "",
+                            tags=list(dbs.tags or []),
+                            triggers=list(dbs.triggers or []),
+                            allowed_tools=_normalize_allowed_tools_local(dbs.allowed_tools),
+                            instructions=dbs.instructions or "",
+                            examples=dbs.examples or "",
+                            avg_success_rate=dbs.avg_success_rate or 1.0,
+                            usage_count=dbs.usage_count or 0,
+                            last_used_at=dbs.last_used_at,
+                            created_at=dbs.created_at,
+                            updated_at=dbs.updated_at,
+                            required_context=list(dbs.required_context or []),
+                        ))
+                return results
+            finally:
+                db.close()
+        except Exception as e:
+            logger.warning(f"Failed to load DB-only skills: {e}")
+            return []
 
 
-# Singleton instance
-_matcher_instance: Optional[SkillMatcher] = None
-
-
-def get_skill_matcher() -> SkillMatcher:
-    """Get the global skill matcher instance."""
-    global _matcher_instance
-    if _matcher_instance is None:
-        _matcher_instance = SkillMatcher()
-    return _matcher_instance
+def _normalize_allowed_tools_local(value):
+    """Coerce allowed_tools from any of {list, JSON-string, None} to List[str] or []."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return []
+        try:
+            import json
+            parsed = json.loads(s)
+            if isinstance(parsed, list):
+                return parsed
+        except Exception:
+            pass
+    return []
