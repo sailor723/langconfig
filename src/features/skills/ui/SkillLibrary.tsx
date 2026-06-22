@@ -136,6 +136,19 @@ export default function SkillLibrary({
     fetchSkillDetail(skill.skill_id);
   };
 
+  // Auto-select a skill if one was requested from DeepAgent Studio
+  // (e.g. user clicked 'Open in Builder' in SubAgentDetailModal).
+  useEffect(() => {
+    const pendingId = sessionStorage.getItem('da:pending-skill-select');
+    if (!pendingId || skills.length === 0) return;
+    const match = skills.find(s => s.skill_id === pendingId);
+    if (match) {
+      handleSkillClick(match);
+      sessionStorage.removeItem('da:pending-skill-select');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skills]);
+
   // Group skills by source
   const skillsBySource = useMemo(() => {
     const grouped: Record<string, Skill[]> = {
