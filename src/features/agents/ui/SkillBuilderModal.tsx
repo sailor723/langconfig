@@ -305,7 +305,14 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
   const [viewMode, setViewMode] = useState<ViewMode>('form');
   const [skillMarkdown, setSkillMarkdown] = useState<string>('');  // for markdown view
   const [testInput, setTestInput] = useState<string>('');            // for test triggers view
-  const [testResults, setTestResults] = useState<Array<{skill_id: string; name: string; score: number; matched_trigger?: string}> | null>(null);
+  const [testResults, setTestResults] = useState<Array<{
+    skill_id?: string;
+    name?: string;
+    skill?: { name?: string; skill_id?: string };
+    score: number;
+    matched_trigger?: string;
+    match_reason?: string;
+}> | null>(null);
   const [testRunning, setTestRunning] = useState(false);
   const [markdownSync, setMarkdownSync] = useState<'idle' | 'parsing' | 'ok' | 'error'>('idle');
 
@@ -1162,7 +1169,7 @@ when user needs external facts not in their training data
                       try {
                         const resp = await apiClient.post('/api/skills/match', {
                           query: testInput,
-                          limit: 5,
+                          max_results: 20,
                         });
                         // The endpoint may return matches in various shapes
                         const data = resp.data;
@@ -1192,24 +1199,29 @@ when user needs external facts not in their training data
                       {testResults.length === 0 && (
                         <div className="text-xs text-gray-500 italic">No skills match. Try adding more triggers or improve description.</div>
                       )}
-                      {testResults.map((r, i) => (
-                        <div key={i} className="px-3 py-2 rounded-lg border" style={{
-                          backgroundColor: '#FAF9F5',
-                          borderColor: r.score >= 0.7 ? '#10B981' : r.score >= 0.4 ? '#F59E0B' : '#E5E7EB',
-                        }}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium">{r.name || r.skill_id}</span>
-                            <span className="text-xs font-mono" style={{
-                              color: r.score >= 0.7 ? '#10B981' : r.score >= 0.4 ? '#F59E0B' : '#6B7280',
-                            }}>
-                              score: {typeof r.score === 'number' ? r.score.toFixed(2) : '—'}
-                            </span>
+                      {testResults.map((r, i) => {
+                        // Handle both flat shape {skill_id, score} and nested {skill: {name}, score}
+                        const skillName = r.skill?.name || r.name || r.skill_id || '—';
+                        const matchedTrigger = r.matched_trigger || r.match_reason;
+                        return (
+                          <div key={i} className="px-3 py-2 rounded-lg border" style={{
+                            backgroundColor: '#FAF9F5',
+                            borderColor: r.score >= 0.7 ? '#10B981' : r.score >= 0.4 ? '#F59E0B' : '#E5E7EB',
+                          }}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium">{skillName}</span>
+                              <span className="text-xs font-mono" style={{
+                                color: r.score >= 0.7 ? '#10B981' : r.score >= 0.4 ? '#F59E0B' : '#6B7280',
+                              }}>
+                                score: {typeof r.score === 'number' ? r.score.toFixed(2) : '—'}
+                              </span>
+                            </div>
+                            {matchedTrigger && (
+                              <div className="text-[11px] text-gray-600">Reason: <span className="font-mono">{matchedTrigger}</span></div>
+                            )}
                           </div>
-                          {r.matched_trigger && (
-                            <div className="text-[11px] text-gray-600">Matched trigger: <span className="font-mono">{r.matched_trigger}</span></div>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
