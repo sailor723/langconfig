@@ -20,6 +20,8 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import apiClient from '../../../lib/api-client';
 import type { Skill, SkillDetail, SkillsSummary, SkillSourceFilter } from '../types';
@@ -59,6 +61,10 @@ export default function SkillLibrary({
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['builtin', 'personal', 'project']));
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // Edit/Delete state
+  const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Fetch "Used by N agents" counts for each skill (parallel with skills list)
   const fetchAgentCounts = useCallback(async (skillList: Skill[]) => {
@@ -160,6 +166,39 @@ export default function SkillLibrary({
       onSelectSkill(skill);
     }
     fetchSkillDetail(skill.skill_id);
+  };
+
+  // Delete the currently-selected skill
+  const handleDeleteSkill = async () => {
+    if (!selectedSkill) return;
+    setDeleting(true);
+    try {
+      await apiClient.delete(`/api/skills/${encodeURIComponent(selectedSkill.skill_id)}`);
+      setSelectedSkill(null);
+      setConfirmDelete(false);
+      await fetchSkills();
+      await fetchSummary();
+    } catch (err: any) {
+      const msg = err.response?.data?.detail || err.message || 'Failed to delete skill';
+      setError(msg);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Open the editor for a skill. If the detail (with instructions) isn't loaded
+// yet, fetch it first so the builder is pre-filled.
+  const handleEditSkill = async (skill: Skill) => {
+    if (selectedSkill?.skill_id !== skill.skill_id || !selectedSkill.instructions) {
+      try {
+        const resp = await apiClient.get(`/api/skills/${encodeURIComponent(skill.skill_id)}`);
+        setSelectedSkill(resp.data);
+      } catch (err) {
+        // Non-fatal — builder will just lack instructions
+        console.warn('Could not pre-fetch instructions for editing', err);
+      }
+    }
+    setEditingSkill(skill);
   };
 
   // Auto-select a skill if one was requested from DeepAgent Studio
@@ -511,12 +550,40 @@ export default function SkillLibrary({
                     {selectedSkill.author && ` • ${t('skills_by_author', { author: selectedSkill.author })}`}
                   </p>
                 </div>
-                <button
-                  onClick={() => setSelectedSkill(null)}
-                  className="p-2 transition-all text-white/90 hover:text-white hover:bg-white/15 rounded-lg"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Edit button — opens the SkillBuilderModal in edit mode.
+                      Disabled for builtin skills (filesystem-managed, not editable from UI). */}
+                  {selectedSkill.source_type !== 'builtin' && (
+                    <button
+                      onClick={() => handleEditSkill(selectedSkill)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white/95 hover:text-white bg-white/15 hover:bg-white/25 rounded-lg transition-colors"
+                      style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
+                      title="Edit this skill (opens builder)"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                  )}
+                  {/* Delete button — disabled for builtin skills (per backend 403). */}
+                  {selectedSkill.source_type !== 'builtin' && (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-red-500/80 hover:bg-red-500 rounded-lg transition-colors"
+                      style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
+                      title="Delete this skill (cannot be undone)"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSelectedSkill(null)}
+                    className="p-2 transition-all text-white/90 hover:text-white hover:bg-white/15 rounded-lg"
+                    title="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -626,6 +693,94 @@ export default function SkillLibrary({
             fetchSummary();
           }}
         />
+      )}
+
+      {/* Edit Skill Modal — reuses SkillBuilderModal in edit mode */}
+      {editingSkill && (
+        <SkillBuilderModal
+          existingSkill={{
+            skill_id: editingSkill.skill_id,
+            name: editingSkill.name,
+            description: editingSkill.description,
+            tags: editingSkill.tags,
+            triggers: editingSkill.triggers,
+            instructions: selectedSkill?.skill_id === editingSkill.skill_id
+              ? (selectedSkill?.instructions || '')
+              : '',
+          }}
+          onClose={() => {
+            setEditingSkill(null);
+            // Re-open detail modal for the skill we just edited
+            if (editingSkill) {
+              fetchSkillDetail(editingSkill.skill_id).then(() => {
+                // The detail fetch updates selectedSkill; if the skill
+                // was deleted server-side, leave the modal closed.
+              });
+            }
+          }}
+          onSave={() => {
+            setEditingSkill(null);
+            fetchSkills();
+            fetchSummary();
+            // Re-open the detail modal with the updated skill
+            if (editingSkill) {
+              fetchSkillDetail(editingSkill.skill_id);
+            }
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {confirmDelete && selectedSkill && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]"
+          onClick={() => setConfirmDelete(false)}
+        >
+          <div
+            className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-xl w-full max-w-md shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(239,68,68,0.1)' }}>
+                  <Trash2 className="w-5 h-5" style={{ color: '#ef4444' }} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold" style={{ color: '#1f2937' }}>
+                    Delete this skill?
+                  </h3>
+                  <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
+                    You're about to permanently delete{' '}
+                    <span className="font-mono font-semibold" style={{ color: '#1f2937' }}>
+                      {selectedSkill.skill_id}
+                    </span>
+                    . This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-6 py-3 border-t" style={{ backgroundColor: '#f9fafb', borderColor: '#e5e7eb' }}>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white hover:bg-gray-50 border border-gray-200 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteSkill}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white flex items-center gap-2 transition-colors disabled:opacity-50"
+                style={{ backgroundColor: '#ef4444' }}
+                onMouseEnter={(e) => { if (!deleting) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#dc2626'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#ef4444'; }}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {deleting ? 'Deleting…' : 'Delete skill'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
     </div>
