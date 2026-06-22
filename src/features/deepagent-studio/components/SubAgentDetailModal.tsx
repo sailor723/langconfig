@@ -21,14 +21,14 @@ interface SubAgentDetail {
 
 export default function SubAgentDetailModal() {
   const [data, setData] = useState<SubAgentDetail | null>(null);
-  const [promptExpanded, setPromptExpanded] = useState(false);
+  const [promptExpanded, setPromptExpanded] = useState(true);  // open by default — skill.md is the main thing
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const handler = (e: Event) => {
       const ce = e as CustomEvent<SubAgentDetail>;
       setData(ce.detail);
-      setPromptExpanded(false);
+      setPromptExpanded(true);  // open by default for new modal opens
     };
     window.addEventListener('da:open-subagent-detail', handler);
     return () => window.removeEventListener('da:open-subagent-detail', handler);
@@ -56,41 +56,56 @@ export default function SubAgentDetailModal() {
       onClick={() => setData(null)}
     >
       <div
-        className="relative rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] overflow-hidden flex flex-col"
+        className="relative rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col"
         style={{
           backgroundColor: '#FAF9F5',
           border: '2px solid #D97757',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Compact header — saves vertical space for the prompt */}
         <div
-          className="flex items-center gap-3 px-5 py-3"
+          className="flex items-center gap-2.5 px-4 py-2"
           style={{
             background: 'linear-gradient(135deg, #D97757 0%, #A85A2E 100%)',
           }}
         >
-          <span className="text-3xl">🤖</span>
-          <div className="flex-1 min-w-0">
-            <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#FAF9F5', opacity: 0.85 }}>
-              Sub-Agent
-            </div>
-            <div className="text-lg font-bold truncate" style={{ color: '#FFFFFF' }}>
+          <span className="text-xl">🤖</span>
+          <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+            <div className="text-base font-bold truncate" style={{ color: '#FFFFFF' }}>
               {data.label}
             </div>
-            <div className="text-[11px] mt-0.5" style={{ color: '#FAF9F5', opacity: 0.85 }}>
-              {sourceLabel} · status: {data.status}
-            </div>
+            <span
+              className="text-[9px] px-1.5 py-px rounded font-bold uppercase tracking-wider"
+              style={{ backgroundColor: 'rgba(255,255,255,0.20)', color: '#FFFFFF' }}
+            >
+              {sourceLabel}
+            </span>
+            <span
+              className="text-[9px] px-1.5 py-px rounded font-mono"
+              style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#FFFFFF' }}
+            >
+              ● {data.status}
+            </span>
+            {data.model && (
+              <span
+                className="text-[9px] px-1.5 py-px rounded font-mono"
+                style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#FFFFFF' }}
+                title={`Model: ${data.model}`}
+              >
+                {data.model}
+              </span>
+            )}
           </div>
           <button
             onClick={() => setData(null)}
-            className="rounded-full p-1.5 flex items-center justify-center transition-colors"
+            className="rounded-full p-1 flex items-center justify-center transition-colors flex-shrink-0"
             style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#FFFFFF' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.3)'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.15)'; }}
             title="Close (Esc)"
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
 
@@ -103,61 +118,54 @@ export default function SubAgentDetailModal() {
             </Section>
           )}
 
-          {/* Model + Tools */}
+          {/* Configuration — single compact row: total + tool names inline */}
           <Section title="Configuration" icon="⚙️">
-            <div className={`grid gap-3 ${data.model ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              {data.model && (
-                <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: '#F5E6DC', border: '1px solid #D97757' }}>
-                  <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#A85A2E' }}>
-                    Model
-                  </div>
-                  <div className="font-mono text-sm mt-0.5 truncate" style={{ color: '#1F1E1B' }} title={data.model}>
-                    {data.model}
-                  </div>
-                </div>
-              )}
-              <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: '#F5E6DC', border: '1px solid #D97757' }}>
-                <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: '#A85A2E' }}>
-                  Tools Bound
-                </div>
-                <div className="font-mono text-sm mt-0.5" style={{ color: '#1F1E1B' }}>
-                  {data.tools?.length ?? 0}
-                </div>
-              </div>
-            </div>
-            {data.tools && data.tools.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {data.tools.map(t => (
-                  <span
-                    key={t}
-                    className="text-xs px-2 py-0.5 rounded font-mono"
-                    style={{ backgroundColor: '#FAF9F5', color: '#A85A2E', border: '1px solid #D97757' }}
-                  >
-                    🔧 {t}
-                  </span>
-                ))}
-              </div>
-            )}
-            {(!data.tools || data.tools.length === 0) && (
-              <div
-                className="mt-2 px-3 py-2 rounded-lg text-[11px]"
-                style={{ backgroundColor: '#FFFFFF', color: '#5C5A55', border: '1px dashed #C8B6A6' }}
+            <div
+              className="px-3 py-2 rounded-lg flex items-start gap-2 flex-wrap"
+              style={{ backgroundColor: '#F5E6DC', border: '1px solid #D97757' }}
+            >
+              <span
+                className="text-[10px] uppercase tracking-widest font-bold flex-shrink-0"
+                style={{ color: '#A85A2E' }}
               >
-                No native tools bound — uses the main agent's tools via delegation.
-              </div>
-            )}
+                Tools ({data.tools?.length ?? 0}):
+              </span>
+              {data.tools && data.tools.length > 0 ? (
+                <div className="flex flex-wrap gap-1 flex-1">
+                  {data.tools.map(t => (
+                    <span
+                      key={t}
+                      className="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                      style={{ backgroundColor: '#FAF9F5', color: '#A85A2E', border: '1px solid #D97757' }}
+                    >
+                      🔧 {t}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-[11px]" style={{ color: '#5C5A55' }}>
+                  none — uses main agent's tools via delegation
+                </span>
+              )}
+            </div>
           </Section>
 
-          {/* Skill ID (when source='skill') */}
+          {/* Skill ID (when source='skill') — small inline chip */}
           {data.source === 'skill' && data.id && (
-            <Section title="Skill Identity" icon="🎯">
-              <div
-                className="px-3 py-2 rounded-lg font-mono text-sm"
+            <div className="flex items-center gap-2">
+              <span
+                className="text-[10px] uppercase tracking-widest font-bold"
+                style={{ color: '#A85A2E' }}
+              >
+                🎯 Skill
+              </span>
+              <code
+                className="text-xs font-mono px-2 py-0.5 rounded"
                 style={{ backgroundColor: 'rgba(168,90,46,0.10)', color: '#A85A2E', border: '1px dashed #D97757' }}
               >
-                skill: {data.id}
-              </div>
-            </Section>
+                {data.id}
+              </code>
+            </div>
           )}
 
           {/* Skill prompt / instructions */}
@@ -185,15 +193,14 @@ export default function SubAgentDetailModal() {
                     {copied ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Copy</>}
                   </button>
                 )}
-                {prompt.length > 200 && (
-                  <button
-                    onClick={() => setPromptExpanded(v => !v)}
-                    className="text-[10px] px-2 py-0.5 rounded font-medium"
-                    style={{ backgroundColor: '#D97757', color: '#FFFFFF' }}
-                  >
-                    {promptExpanded ? '▲ Collapse' : '▼ Expand'}
-                  </button>
-                )}
+                <button
+                  onClick={() => setPromptExpanded(v => !v)}
+                  className="text-[10px] px-2 py-0.5 rounded font-medium"
+                  style={{ backgroundColor: '#D97757', color: '#FFFFFF' }}
+                  title={promptExpanded ? 'Collapse prompt' : 'Expand prompt to fill more'}
+                >
+                  {promptExpanded ? '▲ Collapse' : '▼ Expand'}
+                </button>
               </div>
             }
           >
@@ -204,7 +211,7 @@ export default function SubAgentDetailModal() {
                   backgroundColor: '#FFFFFF',
                   color: '#1F1E1B',
                   border: '1px solid #E8E4DA',
-                  maxHeight: promptExpanded ? 480 : 180,
+                  maxHeight: promptExpanded ? 560 : 200,
                   transition: 'max-height 0.2s',
                 }}
               >
