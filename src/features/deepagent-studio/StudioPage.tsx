@@ -12,6 +12,7 @@ import { useState, useCallback } from 'react';
 import AgentPicker from './components/AgentPicker';
 import CapabilityBar from './components/CapabilityBar';
 import DetailPanel from './components/DetailPanel';
+import SubAgentDetailModal from './components/SubAgentDetailModal';
 import DeepAgentCanvas from './DeepAgentCanvas';
 import { useAgentStructure } from './hooks/useAgentStructure';
 
@@ -100,6 +101,9 @@ export default function DeepAgentStudioPage() {
 
         <DetailPanel structure={structure} selectedNodeId={selectedNodeId} />
       </div>
+
+      {/* Sub-agent detail modal (triggered by clicking a sub-agent node) */}
+      <SubAgentDetailModal />
     </div>
   );
 }
