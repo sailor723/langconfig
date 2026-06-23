@@ -516,10 +516,24 @@ async def create_skill(request: SkillCreateRequest):
             version=request.version,
             required_context=request.required_context,
         )
-        return _skill_to_detail_response_dict(skill)
     except Exception as e:
         logger.error(f"Failed to create skill: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create skill: {str(e)}")
+
+    # Sync to filesystem (Option A: DB primary, FS git-tracked materialized view)
+    try:
+        from core.skills.sync import db_row_to_fs
+        from db.database import SessionLocal
+        from models.skill import Skill as SkillModel
+        with SessionLocal() as db:
+            db_row = db.query(SkillModel).filter(SkillModel.skill_id == skill_id).first()
+            if db_row:
+                db_row_to_fs(db_row)
+                logger.debug(f"Created {skill_id} on FS")
+    except Exception as fs_err:
+        logger.warning(f"FS sync failed for {skill_id} (DB was updated): {fs_err}")
+
+    return _skill_to_detail_response_dict(skill)
 
 
 @router.put("/{skill_id}")
@@ -610,6 +624,21 @@ async def update_skill(skill_id: str, request: SkillUpdateRequest):
         logger.error(f"Failed to update skill {skill_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to update skill: {str(e)}")
 
+    # Sync to filesystem (Option A: DB primary, FS git-tracked materialized view)
+    try:
+        from core.skills.sync import db_row_to_fs
+        # Re-fetch from DB to get persisted state
+        from db.database import SessionLocal
+        from models.skill import Skill as SkillModel
+        with SessionLocal() as db:
+            db_row = db.query(SkillModel).filter(SkillModel.skill_id == skill_id).first()
+            if db_row:
+                db_row_to_fs(db_row)
+                logger.debug(f"Synced {skill_id} → FS")
+    except Exception as fs_err:
+        # Don't fail the request if FS sync fails — DB is primary
+        logger.warning(f"FS sync failed for {skill_id} (DB was updated): {fs_err}")
+
     return _skill_to_detail_response_dict(skill)
 
 
@@ -664,9 +693,29 @@ async def delete_skill(skill_id: str):
             detail="Cannot delete builtin skills"
         )
 
+    # For personal skills, also remove FS directory (Option A: DB primary, FS git-tracked)
+    fs_skill_dir = None
+    try:
+        from db.database import SessionLocal
+        from models.skill import Skill as SkillModel
+        with SessionLocal() as db:
+            db_skill = db.query(SkillModel).filter(SkillModel.skill_id == skill_id).first()
+            if db_skill and db_skill.source_path:
+                from pathlib import Path
+                fs_skill_dir = Path(db_skill.source_path)
+    except Exception as e:
+        logger.warning(f"Could not get source_path for delete cleanup: {e}")
+
     try:
         # Use registry.delete_skill which handles both in-memory and DB cleanup
         await registry.delete_skill(skill_id)
+
+        # Remove FS directory if it exists (Option A: keep DB and FS in sync)
+        if fs_skill_dir and fs_skill_dir.exists():
+            import shutil
+            shutil.rmtree(fs_skill_dir)
+            logger.info(f"Removed FS skill dir: {fs_skill_dir}")
+
         return {"status": "deleted", "skill_id": skill_id}
     except Exception as e:
         logger.error(f"Failed to delete skill {skill_id}: {e}")
