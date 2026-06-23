@@ -108,6 +108,19 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     template_type?: string;
   }>>([]);
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+  // Section-level expand/collapse (default: all expanded)
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    new Set(['system_prompt', 'agent_tools', 'custom_tools', 'middleware', 'skills',
+             'cat_filesystem', 'cat_web', 'cat_memory', 'cat_retrieval', 'cat_skills',
+             'cat_reasoning', 'cat_delegation', 'cat_data_analysis', 'capabilities'])
+  );
+  const toggleSection = (id: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [subagents, setSubagents] = useState(agent.config?.subagents || []);
@@ -227,12 +240,8 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     { id: 'enable_rag', name: 'Enable RAG', description: 'Capability flag: enables retrieval from the project\'s vector store (documents/KB). Not a tool by itself.', category: 'memory' },
   ];
 
-  // Build the full list: registry tools (from backend) + capability flags
-  // Falls back to an empty list if the registry is still loading or failed to load
-  const AVAILABLE_TOOLS = [
-    ...registryTools.map(t => ({ id: t.id, name: t.name, description: t.description, category: t.category })),
-    ...CAPABILITY_FLAGS,
-  ];
+  // Real tools only — capability flags are rendered in their own section
+  const AVAILABLE_TOOLS = registryTools.map(t => ({ id: t.id, name: t.name, description: t.description, category: t.category }));
 
   // Complete middleware list from backend/orchestration/middleware_presets.py
   const MIDDLEWARE_OPTIONS = [
@@ -669,257 +678,334 @@ print(result)
             </div>
           </div>
 
-          {/* Top Row: Two Column Layout */}
-          <div className="grid grid-cols-2 gap-6 mb-4">
-            {/* Left Column - Agent Tools */}
-            <div>
-              <div className="px-3 py-1.5 rounded-lg mb-2" style={{ backgroundColor: 'var(--color-primary)' }}>
+          {/* SECTION 1: System Prompt (collapsible) */}
+          <div className="mb-6">
+            <div
+              className="px-3 py-1.5 rounded-lg mb-2 flex items-center justify-between cursor-pointer hover:opacity-90"
+              style={{ backgroundColor: 'var(--color-primary)' }}
+              onClick={() => toggleSection('system_prompt')}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-white text-xs" style={{ width: '14px' }}>
+                  {expandedSections.has('system_prompt') ? '▼' : '▶'}
+                </span>
                 <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
-                  {t('agent_config_tools')}
+                  {t('agent_system_prompt')}
                 </h3>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                {/* All Tools in 2 Column Grid */}
-                {AVAILABLE_TOOLS.map(tool => (
-                  <label
-                    key={tool.id}
-                    className="group relative flex items-start gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-primary/50 hover:shadow-md"
-                    title={tool.id === 'enable_memory' || tool.id === 'enable_rag' ? undefined : tool.description}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={(config.native_tools || []).includes(tool.id)}
-                      onChange={() => toggleTool(tool.id)}
-                      className="w-3.5 h-3.5 text-primary rounded focus:ring-1 focus:ring-primary cursor-pointer flex-shrink-0 mt-0.5"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold mb-0.5" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>
-                        {tool.name}
-                      </div>
-                      <div className="text-xs leading-snug" style={{ color: 'var(--color-text-secondary, #6b7280)' }}>
-                        {tool.description}
-                      </div>
-                    </div>
-
-                    {(tool.id === 'enable_memory' || tool.id === 'enable_rag') && (
-                      <div
-                        className="pointer-events-none absolute -top-2 right-full mr-2 w-64 px-3 py-2 rounded border shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ backgroundColor: 'var(--color-panel-dark)', borderColor: 'var(--color-border-dark)', color: 'var(--color-text-primary)', zIndex: 100001 }}
-                        role="tooltip"
-                      >
-                        {tool.id === 'enable_memory' ? (
-                          <>
-                            <div className="text-xs font-semibold mb-1">{t('agent_memory')}</div>
-                            <div className="text-[11px] leading-snug">
-                              Turns on long‑term memory for this agent (project/workflow store). Use <strong>Store Memory</strong> and <strong>Recall Memory</strong> to write/read entries.
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-xs font-semibold mb-1">{t('agent_rag')}</div>
-                            <div className="text-[11px] leading-snug">
-                              Allows retrieval from your project’s vector store (documents/KB). This is a capability flag, not a tool.
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </label>
-                ))}
-
-                {/* Custom Tools — moved to its own full-width row below */}
-                {false && availableCustomTools.length > 0 && (
-                  <div className="self-start w-full">
-                    <div className="px-3 py-1.5 rounded-lg mb-2 mt-4 inline-block" style={{ backgroundColor: 'var(--color-primary)' }}>
-                      <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
-                        {t('agent_config_custom_tools')}
-                        <span className="ml-2 text-xs opacity-80">({availableCustomTools.length})</span>
-                      </h3>
-                    </div>
-                  </div>
-                )}
-
-              </div>
+              <span className="text-[10px] opacity-80" style={{ color: 'white' }}>
+                Instructions sent to the model on every turn
+              </span>
             </div>
-
-            {/* Right Column - System Prompt */}
-            <div>
-              {/* System Prompt */}
-              <div>
-                <div className="px-3 py-1.5 rounded-lg mb-2" style={{ backgroundColor: 'var(--color-primary)' }}>
-                  <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
-                    {t('agent_system_prompt')}
-                  </h3>
-                </div>
+            {expandedSections.has('system_prompt') && (
+              <>
                 <textarea
                   value={config.system_prompt || ''}
                   onChange={(e) => setConfig({ ...config, system_prompt: e.target.value })}
-                  rows={30}
-                  className="w-full px-2 py-1.5 border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark rounded-lg text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                  rows={6}
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary resize-y"
                   placeholder="Enter system prompt..."
-                  style={{
-                    color: 'var(--color-text-primary)'
-                  }}
+                  style={{ color: 'var(--color-text-primary)' }}
                 />
                 <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                   {(config.system_prompt || '').length} characters
                 </p>
-              </div>
-            </div>
+              </>
+            )}
           </div>
 
-          {/* Bottom Row: Middleware (Full Width) */}
-          <div>
-            <div className="px-3 py-1.5 rounded-lg mb-2" style={{ backgroundColor: 'var(--color-primary)' }}>
-              <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
-                {t('agent_config_middleware')}
-              </h3>
-            </div>
-            <div className="grid grid-cols-4 gap-3">
-              {MIDDLEWARE_OPTIONS.map(middleware => (
-                <label
-                  key={middleware.id}
-                  className="flex items-start gap-2 px-3 py-2.5 rounded cursor-pointer transition-colors border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark hover:border-primary/50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={(config.middleware || []).some((m: any) => m.type === middleware.id)}
-                    onChange={() => toggleMiddleware(middleware.id)}
-                    className="w-3.5 h-3.5 text-primary rounded focus:ring-1 focus:ring-primary cursor-pointer flex-shrink-0 mt-0.5"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold mb-0.5" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>
-                      {middleware.name}
-                    </div>
-                    <div className="text-xs leading-snug" style={{ color: 'var(--color-text-secondary, #6b7280)' }}>
-                      {middleware.description}
-                    </div>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Custom Tools — Full Width Row (4 cards per row) */}
-          {availableCustomTools.length > 0 && (
-            <div className="mt-6">
-              <div className="px-3 py-1.5 rounded-lg mb-2 flex items-center justify-between" style={{ backgroundColor: 'var(--color-primary)' }}>
-                <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
-                  Custom Tools
-                  <span className="ml-2 text-xs opacity-80">({availableCustomTools.length})</span>
-                </h3>
-                <span className="text-[10px] opacity-80" style={{ color: 'white' }}>
-                  User-defined tools — check to attach to this agent
+          {/* SECTION 2: Agent Tools — Native (grouped by category) + Custom */}
+          <div className="mb-6">
+            <div
+              className="px-3 py-1.5 rounded-lg mb-3 flex items-center justify-between cursor-pointer hover:opacity-90"
+              style={{ backgroundColor: 'var(--color-primary)' }}
+              onClick={() => toggleSection('agent_tools')}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-white text-xs" style={{ width: '14px' }}>
+                  {expandedSections.has('agent_tools') ? '▼' : '▶'}
                 </span>
+                <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
+                  Agent Tools
+                </h3>
               </div>
-              <div className="grid grid-cols-4 gap-3">
-                {availableCustomTools.map(tool => {
-                  const isExpanded = expandedTools.has(tool.tool_id);
-                  const isSelected = (config.custom_tools || []).includes(tool.tool_id);
-                  return (
-                    <div key={tool.tool_id} className="flex flex-col">
-                      <label
-                        className={`group relative flex items-start gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 border bg-white dark:bg-gray-900 hover:shadow-md ${
-                          isSelected
-                            ? 'border-primary border-2 ring-1 ring-primary/30'
-                            : 'border-gray-200 dark:border-gray-800 hover:border-primary/50'
-                        }`}
-                        style={isSelected ? { backgroundColor: 'rgba(46,92,138,0.04)' } : undefined}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleCustomTool(tool.tool_id)}
-                          className="w-3.5 h-3.5 text-primary rounded focus:ring-1 focus:ring-primary cursor-pointer flex-shrink-0 mt-0.5"
-                        />
-                        <div className="flex-1 min-w-0">
-                          {/* Row 1: Tool name (full, not truncated) + type badge */}
-                          <div className="flex items-center justify-between gap-1 mb-1">
-                            <div className="text-xs font-semibold flex-1" title={tool.name || tool.tool_id}
-                              style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>
-                              {tool.name || tool.tool_id}
-                            </div>
-                            <span
-                              className="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase flex-shrink-0"
-                              style={{
-                                backgroundColor: 'var(--color-input-background)',
-                                color: 'var(--color-text-muted)',
-                              }}
-                              title={`Tool type: ${tool.tool_type || 'custom'}`}
-                            >
-                              {tool.tool_type || 'custom'}
-                            </span>
-                          </div>
-                          {/* Row 2: Category */}
-                          {tool.category && (
-                            <div className="text-[10px] mb-1 italic" style={{ color: 'var(--color-text-muted)' }}>
-                              {tool.category}
-                            </div>
-                          )}
-                          {/* Row 3: Full description */}
-                          <div className="text-xs leading-snug mb-1.5" style={{ color: 'var(--color-text-secondary, #6b7280)' }}>
-                            {tool.description || 'No description available'}
-                          </div>
-                          {/* Row 4: Tool ID + Config button */}
-                          <div className="flex items-center justify-between gap-1 pt-1 border-t border-gray-100 dark:border-gray-800">
-                            <span className="text-[10px] font-mono truncate" title={tool.tool_id} style={{ color: 'var(--color-text-muted)' }}>
-                              {tool.tool_id}
-                            </span>
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setExpandedTools(prev => {
-                                  const next = new Set(prev);
-                                  if (next.has(tool.tool_id)) {
-                                    next.delete(tool.tool_id);
-                                  } else {
-                                    next.add(tool.tool_id);
-                                  }
-                                  return next;
-                                });
-                              }}
-                              className="text-[10px] px-1.5 py-0.5 rounded hover:bg-primary/10 flex-shrink-0"
-                              style={{ color: 'var(--color-primary)' }}
-                            >
-                              {isExpanded ? 'Hide' : '⚙'}
-                            </button>
-                          </div>
-                        </div>
-                      </label>
-
-                      {isExpanded && (
-                        <div className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
-                          <div className="text-xs space-y-1">
-                            <div className="font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>Configuration</div>
-                            {tool.implementation_config?.provider && (
-                              <div><strong>Provider:</strong> {tool.implementation_config.provider}</div>
-                            )}
-                            {tool.implementation_config?.model && (
-                              <div><strong>Model:</strong> {tool.implementation_config.model}</div>
-                            )}
-                            {tool.implementation_config?.url && (
-                              <div className="break-all"><strong>URL:</strong> {tool.implementation_config.url}</div>
-                            )}
-                            {tool.implementation_config?.webhook_url && (
-                              <div className="break-all"><strong>Webhook:</strong> {tool.implementation_config.webhook_url}</div>
-                            )}
-                            {tool.template_type && (
-                              <div><strong>Template:</strong> {tool.template_type}</div>
-                            )}
-                            {!tool.implementation_config && !tool.template_type && (
-                              <div className="italic" style={{ color: 'var(--color-text-muted)' }}>
-                                No additional config
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <span className="text-[10px] opacity-80" style={{ color: 'white' }}>
+                Built-in and user-defined tools this agent can call
+              </span>
             </div>
-          )}
+
+            {expandedSections.has('agent_tools') && (
+              <>
+                {/* Native Tools — grouped by category, each collapsible */}
+                {(() => {
+                  const realTools = AVAILABLE_TOOLS.filter(t => t.id !== 'enable_memory' && t.id !== 'enable_rag');
+                  const grouped: Record<string, typeof realTools> = {};
+                  for (const tool of realTools) {
+                    const cat = tool.category || 'other';
+                    if (!grouped[cat]) grouped[cat] = [];
+                    grouped[cat].push(tool);
+                  }
+                  const order = ['filesystem', 'web', 'memory', 'retrieval', 'skills', 'reasoning', 'delegation', 'data_analysis', 'other'];
+                  const sortedCats = Object.keys(grouped).sort((a, b) => {
+                    const ia = order.indexOf(a); const ib = order.indexOf(b);
+                    return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+                  });
+                  const CATEGORY_LABELS: Record<string, { label: string; desc: string }> = {
+                    filesystem:   { label: 'File System',    desc: 'Read/write files, list dirs, search content' },
+                    web:          { label: 'Web',           desc: 'Search, fetch, browser automation' },
+                    memory:       { label: 'Memory',        desc: 'Store / recall long-term memory' },
+                    retrieval:    { label: 'Retrieval',     desc: 'Doc Index / GraphIndex RAG tools' },
+                    skills:       { label: 'Skills',        desc: 'Create / update / delete skills at runtime' },
+                    reasoning:    { label: 'Reasoning',     desc: 'Multi-step reasoning chain' },
+                    delegation:   { label: 'Delegation',    desc: 'Subagent task / delegate' },
+                    data_analysis:{ label: 'Data Analysis', desc: 'Save structured analysis results' },
+                    other:        { label: 'Other',         desc: '' },
+                  };
+                  return sortedCats.map(cat => {
+                    const tools = grouped[cat];
+                    const meta = CATEGORY_LABELS[cat] || CATEGORY_LABELS.other;
+                    const isOpen = expandedSections.has(`cat_${cat}`);
+                    return (
+                      <div key={cat} className="mb-3">
+                        <div
+                          className="px-3 py-1 mb-2 flex items-center justify-between cursor-pointer hover:opacity-70"
+                          onClick={() => toggleSection(`cat_${cat}`)}
+                        >
+                          <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--color-text-muted)' }}>
+                            <span style={{ width: '10px' }}>{isOpen ? '▼' : '▶'}</span>
+                            {meta.label}
+                            <span className="normal-case font-normal">({tools.length})</span>
+                          </h4>
+                          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                            {meta.desc}
+                          </span>
+                        </div>
+                        {isOpen && (
+                          <div className="grid grid-cols-4 gap-3">
+                            {tools.map(tool => (
+                              <label
+                                key={tool.id}
+                                className="group relative flex items-start gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-primary/50 hover:shadow-md"
+                                title={tool.description}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={(config.native_tools || []).includes(tool.id)}
+                                  onChange={() => toggleTool(tool.id)}
+                                  className="w-3.5 h-3.5 text-primary rounded focus:ring-1 focus:ring-primary cursor-pointer flex-shrink-0 mt-0.5"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-semibold mb-0.5" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>
+                                    {tool.name}
+                                  </div>
+                                  <div className="text-xs leading-snug line-clamp-2" style={{ color: 'var(--color-text-secondary, #6b7280)' }}>
+                                    {tool.description}
+                                  </div>
+                                </div>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+
+                {/* Capabilities — memory + RAG flags (collapsible) */}
+                <div className="mb-3">
+                  <div
+                    className="px-3 py-1 mb-2 flex items-center justify-between cursor-pointer hover:opacity-70"
+                    onClick={() => toggleSection('capabilities')}
+                  >
+                    <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--color-text-muted)' }}>
+                      <span style={{ width: '10px' }}>{expandedSections.has('capabilities') ? '▼' : '▶'}</span>
+                      Capabilities
+                      <span className="normal-case font-normal">(2)</span>
+                    </h4>
+                    <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                      Toggles — not tools themselves
+                    </span>
+                  </div>
+                  {expandedSections.has('capabilities') && (
+                    <div className="grid grid-cols-4 gap-3">
+                      {AVAILABLE_TOOLS.filter(t => t.id === 'enable_memory' || t.id === 'enable_rag').map(tool => (
+                        <label
+                          key={tool.id}
+                          className="group relative flex items-start gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-primary/50 hover:shadow-md"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={(config.native_tools || []).includes(tool.id)}
+                            onChange={() => toggleTool(tool.id)}
+                            className="w-3.5 h-3.5 text-primary rounded focus:ring-1 focus:ring-primary cursor-pointer flex-shrink-0 mt-0.5"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-semibold mb-0.5" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>
+                              {tool.name}
+                            </div>
+                            <div className="text-xs leading-snug line-clamp-2" style={{ color: 'var(--color-text-secondary, #6b7280)' }}>
+                              {tool.description}
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Custom Tools (collapsible) */}
+                {availableCustomTools.length > 0 && (
+                  <div>
+                    <div
+                      className="px-3 py-1 mb-2 flex items-center justify-between cursor-pointer hover:opacity-70"
+                      onClick={() => toggleSection('custom_tools')}
+                    >
+                      <h4 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--color-text-muted)' }}>
+                        <span style={{ width: '10px' }}>{expandedSections.has('custom_tools') ? '▼' : '▶'}</span>
+                        Custom Tools
+                        <span className="normal-case font-normal">({availableCustomTools.length})</span>
+                      </h4>
+                      <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                        User-defined — check to attach
+                      </span>
+                    </div>
+                    {expandedSections.has('custom_tools') && (
+                      <div className="grid grid-cols-4 gap-3">
+                        {availableCustomTools.map(tool => {
+                          const isExpanded = expandedTools.has(tool.tool_id);
+                          const isSelected = (config.custom_tools || []).includes(tool.tool_id);
+                          return (
+                            <div key={tool.tool_id} className="flex flex-col">
+                              <label
+                                className={`group relative flex items-start gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 border bg-white dark:bg-gray-900 hover:shadow-md ${
+                                  isSelected
+                                    ? 'border-primary border-2 ring-1 ring-primary/30'
+                                    : 'border-gray-200 dark:border-gray-800 hover:border-primary/50'
+                                }`}
+                                style={isSelected ? { backgroundColor: 'rgba(46,92,138,0.04)' } : undefined}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleCustomTool(tool.tool_id)}
+                                  className="w-3.5 h-3.5 text-primary rounded focus:ring-1 focus:ring-primary cursor-pointer flex-shrink-0 mt-0.5"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-1 mb-1">
+                                    <div className="text-xs font-semibold flex-1" title={tool.name || tool.tool_id}
+                                      style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>
+                                      {tool.name || tool.tool_id}
+                                    </div>
+                                    <span
+                                      className="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase flex-shrink-0"
+                                      style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-muted)' }}
+                                      title={`Tool type: ${tool.tool_type || 'custom'}`}
+                                    >
+                                      {tool.tool_type || 'custom'}
+                                    </span>
+                                  </div>
+                                  {tool.category && (
+                                    <div className="text-[10px] mb-1 italic" style={{ color: 'var(--color-text-muted)' }}>
+                                      {tool.category}
+                                    </div>
+                                  )}
+                                  <div className="text-xs leading-snug mb-1.5 line-clamp-3" style={{ color: 'var(--color-text-secondary, #6b7280)' }}>
+                                    {tool.description || 'No description available'}
+                                  </div>
+                                  <div className="flex items-center justify-between gap-1 pt-1 border-t border-gray-100 dark:border-gray-800">
+                                    <span className="text-[10px] font-mono truncate" title={tool.tool_id} style={{ color: 'var(--color-text-muted)' }}>
+                                      {tool.tool_id}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        setExpandedTools(prev => {
+                                          const next = new Set(prev);
+                                          if (next.has(tool.tool_id)) next.delete(tool.tool_id);
+                                          else next.add(tool.tool_id);
+                                          return next;
+                                        });
+                                      }}
+                                      className="text-[10px] px-1.5 py-0.5 rounded hover:bg-primary/10 flex-shrink-0"
+                                      style={{ color: 'var(--color-primary)' }}
+                                    >
+                                      {isExpanded ? 'Hide' : '⚙'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </label>
+
+                              {isExpanded && (
+                                <div className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+                                  <div className="text-xs space-y-1">
+                                    <div className="font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>Configuration</div>
+                                    {tool.implementation_config?.provider && (<div><strong>Provider:</strong> {tool.implementation_config.provider}</div>)}
+                                    {tool.implementation_config?.model && (<div><strong>Model:</strong> {tool.implementation_config.model}</div>)}
+                                    {tool.implementation_config?.url && (<div className="break-all"><strong>URL:</strong> {tool.implementation_config.url}</div>)}
+                                    {tool.implementation_config?.webhook_url && (<div className="break-all"><strong>Webhook:</strong> {tool.implementation_config.webhook_url}</div>)}
+                                    {tool.template_type && (<div><strong>Template:</strong> {tool.template_type}</div>)}
+                                    {!tool.implementation_config && !tool.template_type && (
+                                      <div className="italic" style={{ color: 'var(--color-text-muted)' }}>No additional config</div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* SECTION 3: Middleware (collapsible) */}
+          <div className="mb-6">
+            <div
+              className="px-3 py-1.5 rounded-lg mb-2 flex items-center justify-between cursor-pointer hover:opacity-90"
+              style={{ backgroundColor: 'var(--color-primary)' }}
+              onClick={() => toggleSection('middleware')}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-white text-xs" style={{ width: '14px' }}>
+                  {expandedSections.has('middleware') ? '▼' : '▶'}
+                </span>
+                <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
+                  {t('agent_config_middleware')}
+                </h3>
+              </div>
+              <span className="text-[10px] opacity-80" style={{ color: 'white' }}>
+                Wrap tool calls with extra behavior
+              </span>
+            </div>
+            {expandedSections.has('middleware') && (
+              <div className="grid grid-cols-4 gap-3">
+                {MIDDLEWARE_OPTIONS.map(middleware => (
+                  <label
+                    key={middleware.id}
+                    className="flex items-start gap-2 px-3 py-2.5 rounded cursor-pointer transition-colors border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark hover:border-primary/50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={(config.middleware || []).some((m: any) => m.type === middleware.id)}
+                      onChange={() => toggleMiddleware(middleware.id)}
+                      className="w-3.5 h-3.5 text-primary rounded focus:ring-1 focus:ring-primary cursor-pointer flex-shrink-0 mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold mb-0.5" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>
+                        {middleware.name}
+                      </div>
+                      <div className="text-xs leading-snug" style={{ color: 'var(--color-text-secondary, #6b7280)' }}>
+                        {middleware.description}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Skills Section - Only for Deep Agents */}
           {config.use_deepagents && (
