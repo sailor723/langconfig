@@ -43,15 +43,23 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
-RATE_LIMIT_REQUESTS_PER_MINUTE = int(os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "60"))
+# Default raised from 60 to 5000 — agent test runs can make many requests
+# (LLM calls + tool calls + status checks) per minute, especially with
+# MiniMax / DeepSeek / etc. Bump via .env if needed.
+RATE_LIMIT_REQUESTS_PER_MINUTE = int(os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE", "5000"))
 RATE_LIMIT_CLEANUP_INTERVAL = int(os.getenv("RATE_LIMIT_CLEANUP_INTERVAL", "300"))  # 5 minutes
 
 # Endpoints to bypass rate limiting
+# Chat / agent endpoints are bypassed — they legitimately make many
+# requests during a single conversation (SSE streaming, tool calls, etc.)
 RATE_LIMIT_BYPASS_PATHS = [
     "/health",
     "/docs",
     "/redoc",
-    "/openapi.json"
+    "/openapi.json",
+    "/api/chat/",
+    "/api/agents/",
+    "/api/skills/playground/",  # playground makes LLM calls
 ]
 
 
