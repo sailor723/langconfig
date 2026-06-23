@@ -107,17 +107,24 @@ export default function AgentChatTester({
     };
   }, []);
 
-  // Load agent config (for Context panel)
-  const loadAgentContext = async () => {
-    try {
-      const res = await apiClient.getDeepAgent(agentId);
-      const agent = (res as any).data ?? res;
-      setAgentConfig(agent?.config ?? agent ?? null);
-    } catch (e) {
-      // non-fatal — just leave agentConfig null
-    }
-  };
-  loadAgentContext();
+  // Load agent config (for Context panel) — ONLY when agentId changes,
+  // not on every render. Previously this was called inline, causing an
+  // infinite loop of re-renders → network calls (200 req/sec).
+  useEffect(() => {
+    let cancelled = false;
+    const loadAgentContext = async () => {
+      try {
+        const res = await apiClient.getDeepAgent(agentId);
+        if (cancelled) return;
+        const agent = (res as any).data ?? res;
+        setAgentConfig(agent?.config ?? agent ?? null);
+      } catch (e) {
+        // non-fatal — just leave agentConfig null
+      }
+    };
+    loadAgentContext();
+    return () => { cancelled = true; };
+  }, [agentId]);
 
   // Preset chips (Chinese-localized for quick agent testing)
   const PRESETS = [
