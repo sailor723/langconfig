@@ -1,7 +1,7 @@
 ---
 name: data-analysis
-description: "Unified data analysis from CSV files and SQL databases. Use when analyzing CSV data, querying PostgreSQL databases, generating data visualizations, or building analysis reports."
-version: 2.0.0
+description: "Analyze CSV files and SQL databases. Returns data profile, aggregations, correlations, and charts. Use when user wants to analyze data, query PostgreSQL, or generate visualizations."
+version: 3.0.0
 author: LangConfig
 tags:
   - data-analysis
@@ -20,92 +20,97 @@ triggers:
   - "when user mentions PostgreSQL"
   - "when user wants data visualization or charts"
 allowed_tools:
-  - filesystem
   - execute
-  - read_file
+  - filesystem
 ---
 
 # Data Analysis Skill
 
-You are a unified data analysis agent. Analyze data from **CSV files** and **SQL databases**.
+Analyze data from **CSV files** or **SQL databases**. Run `data_analysis.py` via the `execute` tool.
 
-## Available Scripts
+## Usage
 
-All implementation lives in `scripts/`. Use the `execute` tool to run them.
+Run the bundled script from your skills directory:
 
-| Script | Purpose |
-|---|---|
-| `scripts/load_data.py` | Load data from CSV or SQL — returns shape, columns, dtypes, sample |
-| `scripts/explore_schema.py` | List all tables and columns in the database |
-| `scripts/profile.py` | Compute data profile — shape, missing, distributions, descriptive stats |
-| `scripts/aggregate.py` | Group aggregations, correlations, time series |
-| `scripts/visualize.py` | Generate matplotlib charts (histogram, bar, line, scatter, subplots) |
+```bash
+python /data-analysis/data_analysis.py < input.json > output.json
+```
 
-## Environment
-
-- Sandbox has `pandas`, `matplotlib`, `sqlalchemy`, `psycopg2-binary` installed.
-- PostgreSQL connection string is available at `DATABASE_URL` env var.
-
-## Workflow
-
-Follow these steps in order:
-
-1. **Identify the data source** — CSV file or SQL query
-2. **Load data** — run `scripts/load_data.py`
-3. **Explore schema** (SQL only) — run `scripts/explore_schema.py` first if needed
-4. **Profile the data** — run `scripts/profile.py` to get shape, missing values, distributions
-5. **Analyze** — run `scripts/aggregate.py` for group-bys, correlations, time series
-6. **Visualize** — run `scripts/visualize.py` to create charts (2 per row via subplots)
-7. **Save and report** — persist results and summarize findings
-
-## How to invoke scripts
-
-Use the `execute` tool with the script path and a JSON inputs file. Example:
+Or via the execute tool:
 
 ```
 execute(
-    command="python /data-analysis/scripts/load_data.py",
-    input_json={"source_type": "csv", "file_path": "/uploads/data.csv"}
+    command="python /data-analysis/data_analysis.py",
+    input_json={...}
 )
 ```
 
-Each script reads JSON from stdin and writes JSON to stdout:
+## Input schema (JSON via stdin)
 
 ```json
 {
-    "status": "ok",
-    "row_count": 1000,
-    "columns": ["id", "name", "value", "category"],
-    "data_preview": [...]
+  "source_type": "csv",
+  "file_path": "/uploads/data.csv",
+  "group_by": "category",
+  "agg_column": "value",
+  "agg_funcs": ["sum", "mean", "count"],
+  "top_n": 10,
+  "chart_type": "subplots",
+  "x_column": "id",
+  "y_column": "value",
+  "group_column": "category",
+  "output_path": "/uploads/chart.png",
+  "title": "My Analysis"
 }
 ```
 
-## Decision criteria
+| Field | Required | Description |
+|---|---|---|
+| `source_type` | yes | `"csv"` or `"sql"` |
+| `file_path` | if csv | Path to CSV file |
+| `query` | if sql | SQL SELECT statement |
+| `group_by` | no | Column to group by for aggregation |
+| `agg_column` | no | Column to aggregate |
+| `agg_funcs` | no | List of funcs (default: `["sum", "mean", "count"]`) |
+| `chart_type` | no | `histogram`, `bar`, `line`, `scatter`, `subplots` |
+| `x_column`, `y_column` | if chart | Columns for the chart |
+| `output_path` | no | Where to save the chart PNG |
 
-- **CSV vs SQL**: Read user's message. CSV if they uploaded a file; SQL if they mention tables/queries.
-- **Which aggregate**: Profile first, then pick group-by based on categorical columns.
-- **Which chart type**: Use `subplots` for overviews (distribution + group means); single chart for focused analysis.
+## Output schema (JSON via stdout)
 
-## Output expectations
+```json
+{
+  "status": "ok",
+  "source": "csv:/uploads/data.csv",
+  "profile": {
+    "shape": [1000, 8],
+    "columns": ["id", "name", "value", "category"],
+    "dtypes": {"id": "int64", "name": "str", "value": "int64"},
+    "missing": {"id": 0, "name": 5},
+    "sample": [...]
+  },
+  "aggregate": {
+    "groups": [{"category": "A", "value_sum": 5000, "value_mean": 250.0}],
+    "correlations": {"id": {"value": 0.95}}
+  },
+  "chart": {
+    "chart_path": "/uploads/chart.png",
+    "chart_type": "subplots",
+    "file_size_bytes": 45678
+  }
+}
+```
 
-After completing analysis, provide:
-- **Top 3 findings** (key insights from the data)
-- **Visualization** (PNG chart referenced as `![Chart](/api/files/analysis_chart.png)`)
-- **Recommendations** based on the data
+## Workflow
 
-## Edge cases
+1. **Identify source**: CSV if user uploaded a file, SQL if user mentioned tables/queries.
+2. **Load + Profile**: Run with just `source_type` + `file_path` (or `query`) — get the data profile.
+3. **Aggregate**: Add `group_by` + `agg_column` to get group aggregations and correlations.
+4. **Visualize**: Add `chart_type` + `x_column` + `y_column` to generate a chart.
+5. **Report**: Summarize top 3 findings and link to the chart.
 
-- File not found → ask user for correct path
-- Empty data → report zero rows, suggest data source check
-- Missing values → profile them, decide on imputation or exclusion
-- All numeric / no categorical → skip group-by, focus on distributions and correlations
-- Date column → use time series aggregation
+## Dependencies
 
-## Auto-analysis checklist
+Sandbox must have: `pandas`, `sqlalchemy`, `psycopg2-binary`, `matplotlib`.
 
-When data is loaded, automatically run:
-1. Profile (10 key metrics: shape, types, missing, describe, distributions, correlations, top/bottom, outliers, group aggregations, summary stats)
-2. Identify top 3 findings
-3. Create visualizations (subplots with 2 charts per row)
-4. Save results
-5. Provide detailed analysis with insights and recommendations
+PostgreSQL connection string available at `DATABASE_URL` env var.
