@@ -44,6 +44,8 @@ interface PlaygroundResult {
     tags: string[];
     allowed_tools: string[];
   };
+  skill_pool?: string[] | null;
+  skill_pool_size?: number | string;
   model: string;
   elapsed_ms: number;
 }
@@ -58,6 +60,9 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
 
   const [skills, setSkills] = useState<Skill[]>([]);
   const [selectedSkillId, setSelectedSkillId] = useState<string>(initialSkillId || '');
+  // Skill pool: which skills the matcher should consider. null = use ALL skills.
+  const [skillPool, setSkillPool] = useState<Set<string> | null>(null); // null = all
+  const [showPoolEditor, setShowPoolEditor] = useState(false);
   const [query, setQuery] = useState<string>('');
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<PlaygroundResult | null>(null);
@@ -88,10 +93,15 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
     setError(null);
     setResult(null);
     try {
-      const resp = await apiClient.post('/api/skills/playground/run', {
+      const payload: any = {
         skill_id: selectedSkillId,
         query: query.trim(),
-      });
+      };
+      // Only send skill_ids if pool is restricted (null = use all)
+      if (skillPool !== null) {
+        payload.skill_ids = Array.from(skillPool);
+      }
+      const resp = await apiClient.post('/api/skills/playground/run', payload);
       setResult(resp.data);
     } catch (e: any) {
       const msg = e.response?.data?.detail || e.message || 'Run failed';
@@ -189,6 +199,104 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
                 </div>
               )}
 
+              {/* Skill pool selector — let user restrict which skills are considered
+                  for matching (simulates real agent config that has a specific
+                  skill allowlist). null = use ALL skills (default). */}
+              <div className="rounded-lg border p-3" style={{ backgroundColor: '#F9FAFB', borderColor: '#E8E4DA' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold uppercase" style={{ color: '#1F1E1B' }}>
+                    🎯 Skill Pool
+                  </label>
+                  <button
+                    onClick={() => setShowPoolEditor((s) => !s)}
+                    className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
+                    style={{ backgroundColor: '#E8E4DA', color: '#1F1E1B' }}
+                  >
+                    {showPoolEditor ? '▾ Hide' : '✎ Edit'}
+                  </button>
+                </div>
+
+                {/* Summary */}
+                <div className="text-[11px]" style={{ color: '#374151' }}>
+                  {skillPool === null ? (
+                    <span>
+                      All <strong>{skills.length}</strong> skills (default)
+                    </span>
+                  ) : (
+                    <span>
+                      <strong>{skillPool.size}</strong> of {skills.length} skills selected
+                    </span>
+                  )}
+                </div>
+
+                {/* Pool editor (collapsible) */}
+                {showPoolEditor && (
+                  <div className="mt-2 max-h-48 overflow-y-auto space-y-1">
+                    <div className="flex gap-1 mb-2">
+                      <button
+                        onClick={() => setSkillPool(new Set(skills.map((s) => s.skill_id)))}
+                        className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
+                        style={{ backgroundColor: '#E8E4DA', color: '#1F1E1B' }}
+                      >
+                        Select all
+                      </button>
+                      <button
+                        onClick={() => setSkillPool(new Set())}
+                        className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
+                        style={{ backgroundColor: '#E8E4DA', color: '#1F1E1B' }}
+                      >
+                        Clear
+                      </button>
+                      <button
+                        onClick={() => setSkillPool(null)}
+                        className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
+                        style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}
+                        title="Reset to all skills (default)"
+                      >
+                        Use all (default)
+                      </button>
+                    </div>
+                    {skills.map((s) => {
+                      const isAll = skillPool === null;
+                      const isChecked = isAll || skillPool.has(s.skill_id);
+                      return (
+                        <label
+                          key={s.skill_id}
+                          className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isAll}
+                            onChange={(e) => {
+                              if (skillPool === null) return; // "all" is read-only
+                              const next = new Set(skillPool);
+                              if (e.target.checked) {
+                                next.add(s.skill_id);
+                              } else {
+                                next.delete(s.skill_id);
+                              }
+                              setSkillPool(next);
+                            }}
+                            style={{ accentColor: '#D97757' }}
+                          />
+                          <span className="text-[11px] flex-1" style={{ color: '#1F1E1B' }}>
+                            {s.source_type === 'builtin' ? '🔧' : '👤'} {s.name}
+                          </span>
+                          <span className="text-[9px] font-mono" style={{ color: '#6B7280' }}>
+                            {s.skill_id}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <p className="text-[10px] mt-2" style={{ color: '#6B7280' }}>
+                  💡 Restrict to simulate a real agent that only has access to specific skills.
+                </p>
+              </div>
+
               {/* User query */}
               <div>
                 <label className="block text-xs font-semibold mb-1 uppercase" style={{ color: '#1F1E1B' }}>
@@ -274,6 +382,11 @@ const SkillPlayground: React.FC<SkillPlaygroundProps> = ({ initialSkillId, onClo
                 <div className="flex items-center justify-between text-xs" style={{ color: '#374151' }}>
                   <div>
                     <strong style={{ color: '#1F1E1B' }}>{result.skill.name}</strong> · model: <code>{result.model}</code> · {result.elapsed_ms}ms
+                    {result.skill_pool_size && (
+                      <span className="ml-2 px-1.5 py-0.5 rounded text-[10px]" style={{ backgroundColor: '#E8E4DA' }}>
+                        🎯 pool: {result.skill_pool_size === 'all' ? `all (${result.matched.length} matched)` : `${result.skill_pool_size} skills`}
+                      </span>
+                    )}
                   </div>
                 </div>
 

@@ -105,6 +105,14 @@ class SkillMatcher:
         skills = list(self._registry.list_all())
         skills.extend(self._load_db_only_skills(skills))
 
+        # Optional filter: only consider skills in this allowlist
+        # (simulates real agents that have a configured skill pool)
+        skill_ids_filter = context.get("skill_ids")
+        if skill_ids_filter:
+            allowlist = set(skill_ids_filter)
+            skills = [s for s in skills if s.skill_id in allowlist]
+            logger.debug(f"Skill pool filtered to {len(skills)} skills from allowlist of {len(allowlist)}")
+
         if not skills:
             return []
 

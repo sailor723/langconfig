@@ -837,6 +837,7 @@ class PlaygroundRunRequest(BaseModel):
     query: str = Field(..., description="User query to test the skill against")
     model: Optional[str] = Field(None, description="LLM model (defaults to DEFAULT_MODEL)")
     overrides: Optional[Dict[str, Any]] = Field(None, description="In-memory overrides (not saved)")
+    skill_ids: Optional[List[str]] = Field(None, description="Optional allowlist — only match against these skills (simulates real agent config). None = use all skills.")
 
 
 @router.post("/playground/run")
@@ -904,8 +905,11 @@ async def playground_run_skill(request: PlaygroundRunRequest):
     try:
         from core.skills.matcher import get_skill_matcher
         matcher = get_skill_matcher()
+        match_context = {"query": request.query}
+        if request.skill_ids:
+            match_context["skill_ids"] = request.skill_ids
         matched = await matcher.find_relevant_skills(
-            context={"query": request.query},
+            context=match_context,
             max_results=5,
         )
         matched_serializable = [
@@ -976,6 +980,8 @@ async def playground_run_skill(request: PlaygroundRunRequest):
             "tags": skill_tags,
             "allowed_tools": skill_allowed_tools,
         },
+        "skill_pool": request.skill_ids,  # None = all skills, list = filtered
+        "skill_pool_size": len(request.skill_ids) if request.skill_ids else "all",
         "model": model_name,
         "elapsed_ms": elapsed_ms,
     }
