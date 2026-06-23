@@ -61,11 +61,15 @@ CompiledStateGraph (runnable LangGraph agent)
 ## File-by-File Breakdown
 
 ### 1. Model Definitions
-**File**: [`backend/constants/models.py`](../../backend/constants/models.py)
+**File**: [`backend/constants/models.py`](../../backend/constants/models.py) — *intentionally empty placeholder*
 
-- `ModelChoice` enum — lists all available models across providers
-- `DEFAULT_MODEL = ModelChoice.DEEPSEEK_CHAT` — sets the default
-- Each enum value is a string matching the model name expected by the provider's API
+> **⚠️ Phase 5 drift (commit `ade43ad`):** Models moved from a Python enum to the PostgreSQL `models` table.
+> See `models/model.py` for the SQLAlchemy definition and `scripts/seed_models.py` for the seed data (23 cloud models).
+> The old `ModelChoice` enum was removed; this file remains as a placeholder for legacy imports.
+
+- `ModelChoice` enum — **REMOVED in Phase 5**
+- `DEFAULT_MODEL` — now hardcoded in [`backend/core/agents/factory.py:55`](../../backend/core/agents/factory.py#L55) as `"claude-haiku-4-5-20251015"` (was `deepseek-chat` pre-Phase 5)
+- Models live in PostgreSQL → queryable via [`backend/core/agents/factory.py:_create_llm()`](../../backend/core/agents/factory.py)
 
 ### 2. Agent Config Schema
 **File**: [`backend/models/agent_config_schema.py`](../../backend/models/agent_config_schema.py)
