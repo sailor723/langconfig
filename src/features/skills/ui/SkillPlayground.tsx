@@ -23,6 +23,7 @@ interface Skill {
   tags?: string[];
   allowed_tools?: string[];
   source_type?: string;
+  source_path?: string;
 }
 
 interface MatchedSkill {
