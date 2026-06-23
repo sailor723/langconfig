@@ -423,7 +423,7 @@ function formatContextSize(size: number): string {
   return String(size);
 }
 
-function ProviderGroupCard({ group, apiKeyStatus, defaultModel, testResult, onTest, onSetDefault, onPlay }: {
+function ProviderGroupCard({ group, apiKeyStatus, defaultModel, testResult, onTest, onSetDefault, onPlay, onApiKeyChange }: {
   group: ProviderGroup;
   apiKeyStatus: Record<string, boolean>;
   defaultModel: string;
@@ -431,11 +431,31 @@ function ProviderGroupCard({ group, apiKeyStatus, defaultModel, testResult, onTe
   onTest: (provider: string) => void;
   onSetDefault: (modelId: string) => void;
   onPlay: (modelId: string, modelName: string, provider: string) => void;
+  onApiKeyChange?: (provider: string, key: string) => Promise<void>;
 }) {
   const meta = PROVIDER_META[group.provider] || PROVIDER_META.ollama;
   const apiKeySet = apiKeyStatus[group.provider] || false;
   const total = group.cloudModels.length + group.localModels.length;
   if (total === 0) return null;
+
+  // Inline API key edit state
+  const [editingKey, setEditingKey] = useState(false);
+  const [keyInput, setKeyInput] = useState('');
+  const [savingKey, setSavingKey] = useState(false);
+
+  const handleSaveKey = async () => {
+    if (!keyInput.trim() || !onApiKeyChange) return;
+    setSavingKey(true);
+    try {
+      await onApiKeyChange(group.provider, keyInput.trim());
+      setEditingKey(false);
+      setKeyInput('');
+    } catch (err) {
+      console.error('Failed to save API key:', err);
+    } finally {
+      setSavingKey(false);
+    }
+  };
 
   return (
     <div
@@ -454,15 +474,65 @@ function ProviderGroupCard({ group, apiKeyStatus, defaultModel, testResult, onTe
           <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
             {meta.label}
           </span>
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-            style={{
-              backgroundColor: apiKeySet ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.1)',
-              color: apiKeySet ? '#10b981' : '#ef4444',
-            }}
-          >
-            {apiKeySet ? 'Key Set' : 'No Key'}
-          </span>
+
+          {/* Inline API key editor — click badge to edit */}
+          {editingKey ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="password"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveKey();
+                  if (e.key === 'Escape') { setEditingKey(false); setKeyInput(''); }
+                }}
+                placeholder={`${group.provider.toUpperCase()}_API_KEY`}
+                autoFocus
+                disabled={savingKey}
+                className="text-[10px] px-2 py-0.5 rounded border font-mono w-44"
+                style={{
+                  backgroundColor: 'var(--color-bg-primary)',
+                  borderColor: 'var(--color-primary)',
+                  color: 'var(--color-text-primary)',
+                }}
+              />
+              <button
+                onClick={handleSaveKey}
+                disabled={savingKey || !keyInput.trim()}
+                className="px-3 py-1 rounded font-semibold text-sm disabled:opacity-50"
+                style={{
+                  backgroundColor: '#d97757',
+                  color: '#ffffff',
+                  border: 'none',
+                  cursor: savingKey || !keyInput.trim() ? 'not-allowed' : 'pointer',
+                  minWidth: '60px',
+                }}
+              >
+                {savingKey ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                onClick={() => { setEditingKey(false); setKeyInput(''); }}
+                className="text-[10px] px-2 py-0.5 rounded font-medium"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditingKey(true)}
+              className="text-[10px] px-1.5 py-0.5 rounded-full font-medium hover:opacity-80 transition-opacity"
+              title={apiKeySet ? 'Click to update API key' : 'Click to set API key'}
+              style={{
+                backgroundColor: apiKeySet ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.1)',
+                color: apiKeySet ? '#10b981' : '#ef4444',
+                cursor: 'pointer',
+                border: 'none',
+              }}
+            >
+              {apiKeySet ? '✓ Key Set' : '⊕ Set Key'}
+            </button>
+          )}
           {/* Inline test result (replaces panel-level) */}
           {testResult && (
             <span
@@ -601,7 +671,7 @@ function EmbeddingModelCard({ model, isDefault, onTest }: {
 export default function ModelCardsSettings() {
   const [cloudModels, setCloudModels] = useState<ModelInfo[]>([]);
   const [localModels, setLocalModels] = useState<LocalModelInfo[]>([]);
-  const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModelInfo[]>([]);
+  const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModelInfo[]>([]);  // still loaded for type info; rendered in Embedding tab
   const [defaultEmbedding, setDefaultEmbedding] = useState<string>('');
   const [defaultModel, setDefaultModel] = useState<string>('');
   const [apiKeyStatus, setApiKeyStatus] = useState<Record<string, boolean>>({});
@@ -689,6 +759,32 @@ export default function ModelCardsSettings() {
     }
   };
 
+  // Inline API key save — called by provider header's inline editor
+  const handleApiKeyChange = async (provider: string, key: string) => {
+    // Map provider name to backend key name
+    const keyMap: Record<string, string> = {
+      openai: 'openai_api_key',
+      anthropic: 'anthropic_api_key',
+      google: 'google_api_key',
+      deepseek: 'deepseek_api_key',
+      minimax: 'minimax_api_key',
+      glm: 'glm_api_key',
+      agnes: 'agnes_api_key',
+      qwen: 'qwen_api_key',
+    };
+    const backendKey = keyMap[provider.toLowerCase()] || `${provider}_api_key`;
+    await apiClient.setApiKeys({ [backendKey]: key });
+    setApiKeyStatus(prev => ({ ...prev, [provider]: true }));
+    setTestResult(prev => ({ ...prev, [provider]: { success: true, message: 'API key saved ✓' } }));
+    setTimeout(() => {
+      setTestResult(prev => {
+        const next = { ...prev };
+        delete next[provider];
+        return next;
+      });
+    }, 3000);
+  };
+
   // Group by provider
   const allProviders = new Set<string>();
   cloudModels.forEach(m => allProviders.add(m.provider.toLowerCase()));
@@ -753,33 +849,13 @@ export default function ModelCardsSettings() {
             testResult={testResult[g.provider]}
             onTest={handleTest}
             onSetDefault={handleSetDefault}
+            onApiKeyChange={handleApiKeyChange}
             onPlay={(id, name, provider) => setPlaygroundModel({ id, name, provider })}
           />
         ))}
       </div>
 
-      {/* Embedding Models Section */}
-      {embeddingModels.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
-            <span className="material-symbols-outlined text-base">database</span>
-            Embedding Models
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ backgroundColor: 'rgba(167,139,250,0.15)', color: '#a78bfa' }}>
-              {embeddingModels.length}
-            </span>
-          </h3>
-          <div className="grid grid-cols-5 gap-3">
-            {embeddingModels.map(m => (
-              <EmbeddingModelCard
-                key={m.id}
-                model={m}
-                isDefault={m.id === defaultEmbedding || m.name === defaultEmbedding}
-                onTest={handleTest}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Embedding Models moved to its own Embedding tab (2026-06-23) */}
 
       {/* Playground Modal */}
       {playgroundModel && (

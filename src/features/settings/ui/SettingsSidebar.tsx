@@ -21,11 +21,11 @@ interface MenuSection {
 
 const menuSections: MenuSection[] = [
   { id: 'general', labelKey: 'settings_general', icon: 'tune' },
-  { id: 'api-keys', labelKey: 'settings_api_keys', icon: 'key' },
+  // 'api-keys' removed 2026-06-23 — API keys now edited inline in Model Cards tab
   { id: 'model-cards', labelKey: 'settings_model_cards', icon: 'smart_toy' },
   { id: 'embedding', labelKey: 'settings_embedding', icon: 'database' },
   { id: 'model-defaults', labelKey: 'settings_model_defaults', icon: 'psychology' },
-  { id: 'local-models', labelKey: 'settings_local_models', icon: 'computer' },
+  // 'local-models' removed 2026-06-23 — local models now shown under their provider in Model Cards
   { id: 'local-workspace', labelKey: 'settings_local_workspace', icon: 'folder_open' },
   { id: 'appearance', labelKey: 'settings_appearance', icon: 'palette' },
   { id: 'about', labelKey: 'settings_about', icon: 'info' },
