@@ -46,6 +46,7 @@ import {
   Hash,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
+import { useAvailableTools } from '@/hooks/useAvailableTools';
 
 interface SkillBuilderModalProps {
   onClose: () => void;
@@ -350,6 +351,32 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill, initialTab = 'form'
   const [newTag, setNewTag] = useState('');
   const [newTrigger, setNewTrigger] = useState('');
   const [newTool, setNewTool] = useState('');
+
+  // Tool Pool selector state (reuses Skill Pool pattern from Test Triggers tab)
+  const { tools: registryTools, isLoading: toolsLoading } = useAvailableTools();
+  const [showToolPoolEditor, setShowToolPoolEditor] = useState(false);
+
+  // Common skill-related tools that aren't in /api/tools/registry (e.g., 'execute', 'filesystem')
+  const SKILL_NATIVE_TOOLS = [
+    { id: 'execute',       name: 'Execute',       description: 'Run a skill script in the sandbox (e.g., data_analysis.py)', category: 'skill' },
+    { id: 'filesystem',    name: 'Filesystem',    description: 'Read/write files in the agent sandbox',                       category: 'skill' },
+    { id: 'shell',         name: 'Shell',         description: 'Run shell commands (with safety sandbox)',                    category: 'skill' },
+    { id: 'read_file',     name: 'Read File',     description: 'Read a single file from the agent filesystem',                category: 'filesystem' },
+    { id: 'write_file',    name: 'Write File',    description: 'Write or create a file in the agent filesystem',              category: 'filesystem' },
+    { id: 'edit_file',     name: 'Edit File',     description: 'Apply edits to an existing file',                             category: 'filesystem' },
+  ];
+  // Full list: registry tools + skill-native tools (deduped by id)
+  const TOOL_POOL = [
+    ...SKILL_NATIVE_TOOLS,
+    ...registryTools.filter(rt => !SKILL_NATIVE_TOOLS.some(snt => snt.id === rt.id)),
+  ];
+  const toggleToolFromPool = (toolId: string) => {
+    if (allowedTools.includes(toolId)) {
+      setAllowedTools(allowedTools.filter((x: string) => x !== toolId));
+    } else {
+      setAllowedTools([...allowedTools, toolId]);
+    }
+  };
 
   // -------- Section UI state --------
 // New skills: open Identity + Discovery + Triggers + Body so user sees required fields
@@ -805,6 +832,7 @@ when user needs external facts not in their training data
         label="Allowed Tools"
         hint="Pre-approve these LLM tools for this skill (per Agent Skills spec field `allowed-tools`)."
       >
+        {/* Selected tools as chips (same pattern as Triggers/Tags) */}
         <div className="flex flex-wrap gap-1.5 mb-2">
           {allowedTools.length === 0 && (
             <span className="text-xs text-gray-400 italic">No tools restricted — agent uses main agent's tools</span>
@@ -817,13 +845,76 @@ when user needs external facts not in their training data
             </span>
           ))}
         </div>
+
+        {/* Tool Pool selector — reuses Skill Pool pattern from Test Triggers tab */}
+        <div className="rounded-lg border p-3 mb-3" style={{ backgroundColor: '#F9FAFB', borderColor: '#E8E4DA' }}>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-semibold uppercase" style={{ color: '#1F1E1B' }}>
+              🔧 Tool Pool
+            </label>
+            <button
+              onClick={() => setShowToolPoolEditor((s) => !s)}
+              className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
+              style={{ backgroundColor: '#E8E4DA', color: '#1F1E1B' }}
+            >
+              {showToolPoolEditor ? '▾ Hide' : '✎ Edit'}
+            </button>
+          </div>
+          <div className="text-[11px]" style={{ color: '#374151' }}>
+            <span><strong>{allowedTools.length}</strong> of {TOOL_POOL.length} tools selected</span>
+            {toolsLoading && <span className="ml-2 italic">(loading more from registry…)</span>}
+          </div>
+          {showToolPoolEditor && (
+            <div className="mt-2 max-h-48 overflow-y-auto space-y-1">
+              <div className="flex gap-1 mb-2">
+                <button
+                  onClick={() => setAllowedTools(TOOL_POOL.map(t => t.id))}
+                  className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
+                  style={{ backgroundColor: '#E8E4DA', color: '#1F1E1B' }}
+                >
+                  Select all
+                </button>
+                <button
+                  onClick={() => setAllowedTools([])}
+                  className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
+                  style={{ backgroundColor: '#E8E4DA', color: '#1F1E1B' }}
+                >
+                  Clear
+                </button>
+              </div>
+              {TOOL_POOL.map((t) => {
+                const isChecked = allowedTools.includes(t.id);
+                return (
+                  <label
+                    key={t.id}
+                    className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white cursor-pointer"
+                    title={t.description}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleToolFromPool(t.id)}
+                      style={{ accentColor: '#D97757' }}
+                    />
+                    <span className="text-[11px] flex-1" style={{ color: '#1F1E1B' }}>
+                      {t.name}
+                    </span>
+                    <span className="text-[9px] font-mono" style={{ color: '#6B7280' }}>{t.id}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Fallback: free-form input for custom tool names not in the pool */}
         <div className="flex gap-2">
           <input
             type="text"
             value={newTool}
             onChange={(e) => setNewTool(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTool())}
-            placeholder="e.g. web_search, fetch_url, write_file, read_file"
+            placeholder="Add custom tool name (not in pool) — e.g. my_custom_tool"
             className="flex-1 px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 rounded-lg text-sm font-mono text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <button onClick={addTool} className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700">
