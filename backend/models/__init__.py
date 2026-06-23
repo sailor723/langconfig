@@ -34,6 +34,7 @@ from .custom_tool import (
 from .settings import Settings
 from .local_model import LocalModel
 from .model import Model
+from .search_provider import SearchProvider
 from .background_task import BackgroundTask
 from .audit_log import AuditLog, AuditAction
 from .workspace_file import WorkspaceFile

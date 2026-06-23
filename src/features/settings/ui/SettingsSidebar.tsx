@@ -23,6 +23,7 @@ const menuSections: MenuSection[] = [
   { id: 'general', labelKey: 'settings_general', icon: 'tune' },
   // 'api-keys' removed 2026-06-23 — API keys now edited inline in Model Cards tab
   { id: 'model-cards', labelKey: 'settings_model_cards', icon: 'smart_toy' },
+  { id: 'search-providers', labelKey: 'settings_search_providers', icon: 'travel_explore' },
   { id: 'embedding', labelKey: 'settings_embedding', icon: 'database' },
   { id: 'model-defaults', labelKey: 'settings_model_defaults', icon: 'psychology' },
   // 'local-models' removed 2026-06-23 — local models now shown under their provider in Model Cards
