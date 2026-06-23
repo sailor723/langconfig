@@ -1304,7 +1304,7 @@ when user needs external facts not in their training data
                         )}
                       </div>
                       {testResults.length === 0 && (
-                        <div className="text-xs text-gray-500 italic">No skills match. Try adding more triggers or improve description.</div>
+                        <div className="text-xs italic" style={{ color: '#374151' }}>No skills match. Try adding more triggers or improve description.</div>
                       )}
                       {testResults.map((r, i) => {
                         // Handle both flat shape {skill_id, score} and nested {skill: {name}, score}
@@ -1316,15 +1316,19 @@ when user needs external facts not in their training data
                             borderColor: r.score >= 0.7 ? '#10B981' : r.score >= 0.4 ? '#F59E0B' : '#E5E7EB',
                           }}>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium">{skillName}</span>
-                              <span className="text-xs font-mono" style={{
-                                color: r.score >= 0.7 ? '#10B981' : r.score >= 0.4 ? '#F59E0B' : '#6B7280',
+                              <span className="text-sm font-semibold" style={{ color: '#1F1E1B' }}>
+                                {skillName}
+                              </span>
+                              <span className="text-xs font-mono font-semibold" style={{
+                                color: r.score >= 0.7 ? '#10B981' : r.score >= 0.4 ? '#F59E0B' : '#374151',
                               }}>
                                 score: {typeof r.score === 'number' ? r.score.toFixed(2) : '—'}
                               </span>
                             </div>
                             {matchedTrigger && (
-                              <div className="text-[11px] text-gray-600">Reason: <span className="font-mono">{matchedTrigger}</span></div>
+                              <div className="text-[11px]" style={{ color: '#374151' }}>
+                                Reason: <span className="font-mono">{matchedTrigger}</span>
+                              </div>
                             )}
                           </div>
                         );
