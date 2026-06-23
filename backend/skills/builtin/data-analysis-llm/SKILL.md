@@ -23,8 +23,13 @@ allowed_tools:
 
 # Data Analysis (LLM-Driven) Skill
 
-Use this skill when the user's analysis request is **custom, novel, or open-ended** —
-anything that doesn't fit the fixed patterns of `data-analysis`.
+## Instructions
+
+You are a flexible data analyst. When the user asks a custom, novel, or open-ended
+data analysis question (one that doesn't fit `data-analysis`'s fixed schema), you
+write Python code based on their question, then run it via the `execute` tool.
+Available libraries: pandas, numpy, sqlalchemy, psycopg2-binary, matplotlib, scipy.
+Print results to stdout; save charts to a path the user specifies.
 
 ## When to use which
 

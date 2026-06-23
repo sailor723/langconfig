@@ -53,6 +53,8 @@ from services.mcp_manager import get_mcp_manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events"""
+    from datetime import datetime, timezone
+
     # Startup
     logger.info("Starting LangConfig API...")
 
@@ -82,6 +84,52 @@ async def lifespan(app: FastAPI):
         logger.info("MCP Manager initialized successfully")
     except Exception as e:
         logger.warning(f"MCP Manager initialization failed: {e}. MCP tools may not be available.")
+
+    # Skills FS → DB sync (Option A: DB primary, FS git-tracked materialized view)
+    # On startup, scan FS SKILL.md files and upsert DB rows whose mtime is newer.
+    try:
+        from core.skills.sync import scan_builtin_skills, fs_to_db_dict, derive_source_type
+        from core.skills.registry import get_skill_registry
+        from db.database import AsyncSessionLocal
+        from sqlalchemy import select
+        from models.skill import Skill as SkillModel
+
+        registry = get_skill_registry()
+        if not registry.is_initialized:
+            await registry.initialize()
+
+        synced = 0
+        async with AsyncSessionLocal() as session:
+            for skill_md in scan_builtin_skills():
+                data = fs_to_db_dict(skill_md)
+                # Determine source_type from path
+                data["source_type"] = derive_source_type(skill_md)
+
+                # Check if DB row exists
+                result = await session.execute(
+                    select(SkillModel).where(SkillModel.skill_id == data["skill_id"])
+                )
+                existing = result.scalar_one_or_none()
+                if existing:
+                    # Update only if FS is newer
+                    fs_mtime = data.get("file_modified_at")
+                    if fs_mtime and (
+                        not existing.file_modified_at or fs_mtime > existing.file_modified_at
+                    ):
+                        for key, value in data.items():
+                            if hasattr(existing, key):
+                                setattr(existing, key, value)
+                        existing.indexed_at = datetime.now(timezone.utc)
+                        synced += 1
+                else:
+                    # Insert new row
+                    data["indexed_at"] = datetime.now(timezone.utc)
+                    session.add(SkillModel(**data))
+                    synced += 1
+            await session.commit()
+        logger.info(f"Skills FS → DB sync: {synced} skill(s) synced from filesystem")
+    except Exception as e:
+        logger.warning(f"Skills FS → DB sync failed (non-fatal): {e}")
 
     # Start chat session manager for automatic cleanup
     try:
