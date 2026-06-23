@@ -16,6 +16,7 @@ import LocalWorkspaceSettings from "../features/settings/ui/LocalWorkspaceSettin
 import ModelDefaultsSettings from '../features/settings/ui/ModelDefaultsSettings';
 import ApiKeysAndModels from '../features/settings/ui/ApiKeysAndModels';
 import ModelCardsSettings from '../features/settings/ui/ModelCardsSettings';
+import EmbeddingSettings from '../features/settings/ui/EmbeddingSettings';
 import SettingsSection, { SettingsInput, SettingsSelect } from '../features/settings/ui/SettingsSection';
 
 export default function SettingsView() {
@@ -255,16 +256,6 @@ export default function SettingsView() {
             }
             break;
 
-          case 'local-models':
-            if (!localModelsSettings) return;
-            await apiClient.updateLocalModelsSettings({
-              provider: localModelsSettings.provider,
-              base_url: localModelsSettings.baseUrl,
-              model_name: localModelsSettings.modelName,
-              api_key: localModelsSettings.apiKey || null
-            });
-            break;
-
           case 'local-workspace':
             if (!workspaceSettings) return;
             await apiClient.updateWorkspaceSettings({
@@ -478,14 +469,11 @@ export default function SettingsView() {
           </div>
         );
 
-      case 'api-keys':
-        return <ApiKeysAndModels />;
-
       case 'model-cards':
         return <ModelCardsSettings />;
 
-      case 'local-models':
-        return <LocalModelsSettings />;
+      case 'embedding':
+        return <EmbeddingSettings />;
 
       case 'local-workspace':
         if (!workspaceSettings) return null;
