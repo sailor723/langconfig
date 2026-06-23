@@ -208,22 +208,6 @@ export default function ModernHeader({
           </span>
         </button>
         <button
-          onClick={() => onViewChange('playground')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'playground'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            }`}
-          style={{
-            textShadow: currentView === 'playground' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'playground' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">play_circle</span>
-            {t('nav_playground')}
-          </span>
-        </button>
-        <button
           onClick={() => onViewChange('deepagent-studio')}
           className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'deepagent-studio'
             ? 'bg-white/30 text-white font-semibold border-white/40'
