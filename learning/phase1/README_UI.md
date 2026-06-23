@@ -13,18 +13,29 @@ The Settings page is a tabbed interface with the following sections (sidebar-dri
 | Tab | UI Component | Description |
 |---|---|---|
 | **General** | Inline form in `SettingsPage.tsx` | App name, auto-save, notifications, log level |
-| **API & Providers** | Inline form in `SettingsPage.tsx` | API keys for LLM providers (Anthropic, OpenAI, Google, etc.) |
-| **Model Cards** | [`ModelCardsSettings.tsx`](../../../src/features/settings/ui/ModelCardsSettings.tsx) | Visual grid of all available models — each card has API key status, capabilities, and a **Playground button** (opens [`ModelPlaygroundModal.tsx`](../../../src/features/settings/ui/ModelPlaygroundModal.tsx) for live testing) |
-| **Embedding** | (form) | Embedding model selection (PostgreSQL/pgvector) |
+| **Model Cards** | [`ModelCardsSettings.tsx`](../../../src/features/settings/ui/ModelCardsSettings.tsx) | Visual grid of all chat LLMs — grouped by provider. Each provider header has an **inline API key editor** (click "⊕ Set Key" / "✓ Key Set"). Each card has capabilities, pricing, "Set as Default", "Test", and **Playground ▶** button (opens [`ModelPlaygroundModal.tsx`](../../../src/features/settings/ui/ModelPlaygroundModal.tsx)) |
+| **Embedding** | [`EmbeddingSettings.tsx`](../../../src/features/settings/ui/EmbeddingSettings.tsx) | Visual grid of embedding models (text-embedding-3-small, etc.) with "Set as Default" button per model |
 | **Model Defaults** | [`ModelDefaultsSettings.tsx`](../../../src/features/settings/ui/ModelDefaultsSettings.tsx) | Default model, temperature, routing strategy, fallback chain |
-| **Local Models** | [`LocalModelsSettings.tsx`](../../../src/features/settings/ui/LocalModelsSettings.tsx) | Ollama / LM Studio / vLLM / LiteLLM provider config |
 | **Local Workspace** | [`LocalWorkspaceSettings.tsx`](../../../src/features/settings/ui/LocalWorkspaceSettings.tsx) | File system access for coding agents |
 | **Appearance** | (form) | Theme (light/dark), language |
 | **About** | (form) | Version info, docs link |
 
-> **Header Playground button removed (2026-06-23):** The global "Playground" nav button in [`ModernHeader.tsx`](../../../src/components/layout/ModernHeader.tsx) was redundant — the same playground capability now lives inside each model card (click the play icon → opens ModelPlaygroundModal).
+> **Sidebar slimmed 2026-06-23:** The `api-keys` and `local-models` tabs were removed — both consolidated into the Model Cards tab.
+> - **API keys** → inline editor on each provider header in Model Cards (click "⊕ Set Key" → input + Save button appears inline, Enter to save, Escape to cancel).
+> - **Local models** → shown grouped under their provider (e.g. `Ollama`) in Model Cards, alongside cloud models.
+>
+> **Header Playground button removed 2026-06-23:** The global "Playground" nav button in [`ModernHeader.tsx`](../../../src/components/layout/ModernHeader.tsx) was redundant — the same playground capability now lives inside each model card (click ▶ → opens ModelPlaygroundModal).
 
-The page uses a single `currentCategory` state variable (`general` | `api-keys` | `model-cards` | `embedding` | `model-defaults` | `local-models` | `local-workspace` | `appearance` | `about`) to switch between sections via a sidebar. Each tab is rendered in a `switch` statement on the `currentCategory` value.
+The page uses a single `currentCategory` state variable (`general` | `model-cards` | `embedding` | `model-defaults` | `local-workspace` | `appearance` | `about`) to switch between sections via a sidebar. Each tab is rendered in a `switch` statement on the `currentCategory` value.
+
+### Tab Count History
+
+| Date | Tabs | Reason |
+|---|---|---|
+| Initial (Phase 1) | 5 (general, api-keys, model-defaults, local-models, local-workspace) | First design |
+| Phase 5 | 9 (added model-cards, embedding, appearance, about) | Added 4 new tabs |
+| 2026-06-23 | 7 (removed api-keys, local-models) | Consolidated into Model Cards |
+| 2026-06-23 | 7 (embedding restored as its own component) | Extracted from ModelCardsSettings |
 
 ## Navigation Architecture
 
@@ -47,16 +58,19 @@ The app has **two parallel navigation surfaces**:
 │  ⚙ Settings Sidebar     │  │  Active Tab Content                      │
 │                         │  │                                          │
 │  ▸ General              │  │   <ModelCardsSettings />                 │
-│  ▸ API & Providers      │  │   ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐  │
-│  ▸ Model Cards    ◀ active│  │   │DS-V3 │ │MiniMax│ │Claude│ │ GPT-5│  │
-│  ▸ Embedding            │  │   │ ✓ready│ │ ✓ready│ │ ⚠key │ │ ✓ready│ │
-│  ▸ Model Defaults       │  │   │ [▶]  │ │ [▶]  │ │ [▶]  │ │ [▶]  │  │
-│  ▸ Local Models         │  │   └──────┘ └──────┘ └──────┘ └──────┘  │
-│  ▸ Local Workspace      │  │     ↑                                      │
-│  ▸ Appearance           │  │     └── click ▶ → ModelPlaygroundModal   │
-│  ▸ About                │  │                                          │
-└─────────────────────────┘  └──────────────────────────────────────────┘
+│  ▸ Model Cards    ◀ active│  │   ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐  │
+│  ▸ Embedding            │  │   │DS-V3 │ │MiniMax│ │Claude│ │ GPT-5│  │
+│  ▸ Model Defaults       │  │   │⊕Set K│ │⊕Set K│ │⊕Set K│ │⊕Set K│  │
+│  ▸ Local Workspace      │  │   │ [▶]  │ │ [▶]  │ │ [▶]  │ │ [▶]  │  │
+│  ▸ Appearance           │  │   └──────┘ └──────┘ └──────┘ └──────┘  │
+│  ▸ About                │  │     ↑          ↑                          │
+└─────────────────────────┘  │     │          └── click ▶ → ModelPlaygroundModal
+                            │     └── click "⊕ Set Key" → inline input + Save
+                            └──────────────────────────────────────────────┘
 ```
+
+> Note: `api-keys` and `local-models` removed from sidebar (consolidated into Model Cards).
+> Local models are shown under their provider (e.g. `Ollama`) in Model Cards.
 
 ### Data Flow — Header → Settings → Backend
 
@@ -356,15 +370,19 @@ The Model Cards tab is a **visual alternative to the model dropdown**. Instead o
 ┌─────────────────────────────────────────────────────────────────────┐
 │ <ModelCardsSettings>                                                │
 │                                                                     │
-│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐│
-│   │ Card #1     │  │ Card #2     │  │ Card #3     │  │ Card #4    ││
-│   │ ┌─────────┐ │  │ ┌─────────┐ │  │ ┌─────────┐ │  │ ┌────────┐ ││
-│   │ │ DS-V3   │ │  │ │ MiniMax │ │  │ │ Claude  │ │  │ │ GPT-5  │ ││
-│   │ │ DeepSeek│ │  │ │ MiniMax │ │  │ │ Anthrop.│ │  │ │ OpenAI │ ││
-│   │ │  ✓ready │ │  │ │  ✓ready │ │  │ │  ⚠ key  │ │  │ │ ✓ready │ ││
-│   │ │ [▶]     │ │  │ │ [▶]     │ │  │ │ [▶]     │ │  │ │ [▶]    │ ││
-│   │ └─────────┘ │  │ └─────────┘ │  │ └─────────┘ │  │ └────────┘ ││
-│   └─────────────┘  └─────────────┘  └─────────────┘  └────────────┘│
+│   Provider: DeepSeek                                                │
+│   ┌───────────────────────────────────────────────────────────────┐│
+│   │ 🟦 [⊕ Set Key]            (inline click → input + Save)       ││
+│   │                                                               ││
+│   │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      ││
+│   │  │ DS-V3    │  │ DS-Coder │  │ DS-R1    │  │ DS-V2.5  │      ││
+│   │  │ deepseek │  │ deepseek │  │ deepseek │  │ deepseek │      ││
+│   │  │ Think     │  │ Tools    │  │ Think    │  │ Tools    │      ││
+│   │  │ $0.14/M  │  │ $0.14/M  │  │ $0.55/M  │  │ $0.14/M  │      ││
+│   │  │ ★Default │  │          │  │          │  │          │      ││
+│   │  │[▶ Play]  │  │[▶ Play]  │  │[▶ Play]  │  │[▶ Play]  │      ││
+│   │  └──────────┘  └──────────┘  └──────────┘  └──────────┘      ││
+│   └───────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -392,6 +410,70 @@ User clicks ▶ on a card
         │
         └── user closes modal → returns to cards grid
 ```
+
+### Inline API Key Editor (NEW 2026-06-23)
+
+Replaces the separate `api-keys` sidebar tab. Each provider header has a clickable status badge that expands into an inline input field.
+
+```
+Provider: Anthropic   [⊕ Set Key]   ← initial state (no key)
+                ↓ click
+Provider: Anthropic   [sk-ant-...      ] [Save] [✕]   ← editing state
+                ↓ save
+Provider: Anthropic   [✓ Key Set]      ← saved state (green)
+```
+
+#### State Machine
+
+```
+┌─────────────────┐    click badge    ┌─────────────────┐
+│  No Key (red)   │ ────────────────► │  Editing input  │
+│  [⊕ Set Key]    │                   │  [type…    Save]│
+└─────────────────┘                   └─────────────────┘
+                                              │
+                  ┌───────────────────────────┘
+                  ↓ Enter / click Save
+┌─────────────────┐
+│  Key Set (green)│
+│  [✓ Key Set]    │
+└─────────────────┘
+```
+
+#### Implementation Detail
+
+```typescript
+// In ProviderGroupCard
+const [editingKey, setEditingKey] = useState(false);
+const [keyInput, setKeyInput] = useState('');
+const [savingKey, setSavingKey] = useState(false);
+
+// On save: POST /api/settings/api-keys with the right field name
+const handleSaveKey = async () => {
+  const backendKey = `${group.provider}_api_key`;  // e.g. "anthropic_api_key"
+  await apiClient.setApiKeys({ [backendKey]: keyInput });
+  setApiKeyStatus(prev => ({ ...prev, [group.provider]: true }));
+};
+```
+
+#### Keyboard Shortcuts
+
+| Key | Action |
+|---|---|
+| Enter | Save the key |
+| Escape | Cancel (close input, clear) |
+
+#### Provider → API Key Map
+
+| Provider (badge) | Backend field name |
+|---|---|
+| `openai` | `openai_api_key` |
+| `anthropic` | `anthropic_api_key` |
+| `google` | `google_api_key` |
+| `deepseek` | `deepseek_api_key` |
+| `minimax` | `minimax_api_key` |
+| `glm` | `glm_api_key` |
+| `qwen` | `qwen_api_key` |
+| `agnes` | `agnes_api_key` |
 
 ### Why Model Cards Exist (vs Dropdown)
 
@@ -426,7 +508,55 @@ This is a **navigation compression** — putting the playground next to the mode
 
 ---
 
-## 5. Local Models Settings
+## 5. Embedding Settings — Own Tab (NEW 2026-06-23)
+
+**File**: [`src/features/settings/ui/EmbeddingSettings.tsx`](../../../src/features/settings/ui/EmbeddingSettings.tsx)
+
+> **2026-06-23 refactor:** The Embedding Models section was extracted from `ModelCardsSettings` into its own component and dedicated sidebar tab. Same data sources, dedicated UI.
+
+### What It Shows
+
+A visual grid of embedding models (e.g. `text-embedding-3-small`, `text-embedding-3-large`, `nomic-embed-text`, `mxbai-embed-large`), grouped by provider (OpenAI, Google, Cohere, Ollama, HuggingFace, etc.).
+
+### Card Layout
+
+```
+┌─────────────────────────────────┐
+│  text-embedding-3-small         │
+│  openai/text-embedding-3-small  │
+│  ☁ cloud                        │
+│  [★ Current default]            │ ← only on default
+└─────────────────────────────────┘
+```
+
+Each card has:
+- Model name (large) + id (monospace, small)
+- Type badge (cloud / local)
+- "Set as default" button (changes to "★ Current default" when active)
+
+### State Management
+
+```typescript
+// Loads on mount:
+apiClient.getAvailableEmbeddingModels()  → list of {id, name, provider, type}
+apiClient.getModelDefaults()             → {embedding_model: "openai/..."}
+
+// On "Set as default" click:
+apiClient.updateModelDefaults({ embedding_model: m.id })
+```
+
+### Why Embedding Is Its Own Tab
+
+| Concern | Why not in Model Cards |
+|---|---|
+| Different concern (RAG vs chat) | Embedding is for vector search, not chat |
+| Different API endpoint | `/api/settings/embedding-models` vs `/api/models` |
+| Different default | "default chat model" ≠ "default embedding model" |
+| Less-used by most users | Don't clutter Model Cards (focused on chat) |
+
+---
+
+## 6. Local Models Settings
 
 **File**: [`src/features/settings/ui/LocalModelsSettings.tsx`](../../../src/features/settings/ui/LocalModelsSettings.tsx)
 
@@ -453,7 +583,7 @@ interface LocalModelsSettings {
 
 ---
 
-## 6. Local Workspace Settings
+## 7. Local Workspace Settings
 
 **File**: [`src/features/settings/ui/LocalWorkspaceSettings.tsx`](../../../src/features/settings/ui/LocalWorkspaceSettings.tsx)
 **Backend Endpoint**: [`backend/api/system/settings.py#L443`](../../../backend/api/system/settings.py#L443) — `GET/POST /api/settings/workspace`
@@ -524,7 +654,7 @@ def _write_file_impl(file_path, content, _workspace_context=None, ...):
 
 ---
 
-## 7. General Settings
+## 8. General Settings
 
 **Endpoint**: `backend/api/system/settings.py`
 
@@ -586,9 +716,10 @@ Stored as columns in the `settings` table:
 1. **Single-row settings table** — All app configuration lives in one PostgreSQL row (`settings.id = 1`), with a mix of typed columns and a JSON `api_keys` column.
 2. **API keys are encrypted at rest** — Fernet + PBKDF2 with a server-side `APP_ENCRYPTION_KEY`. The frontend never receives raw key values, only `is_set` status and a masked preview.
 3. **`flag_modified()` is required for JSON columns** — SQLAlchemy doesn't detect in-place dict mutations. Without `flag_modified(settings, "api_keys")`, the UPDATE won't fire.
-4. **Two save modes for API keys** — Manual button click and debounced autoSave (1s). The autoSave was previously missing `tavily_api_key` — now fixed.
+4. **Inline API key editor (NEW 2026-06-23)** — The separate `api-keys` tab was removed. API keys are now edited inline on each provider header in the Model Cards tab (click "⊕ Set Key" badge → input + Save button → Enter to save). One less sidebar tab, one less navigation hop.
 5. **Setting hierarchy** — System-wide defaults (Settings) → Per-agent config overrides (Agent Builder) → Runtime overrides (deepagents library).
 6. **Two workspace concepts** — Local Workspace (user's code, read-only by convention) and Output Workspace (agent-generated files, written to `outputs/` with path traversal protection).
 7. **All settings are independently loadable** — Each section has its own GET/POST endpoints, allowing the frontend to load only what's needed for the active tab.
-8. **Two navigation surfaces** — Global header (9 destinations, no Playground) + Settings sidebar (9 tabs). Model Cards tab is the new home for the per-model Playground.
+8. **Two navigation surfaces** — Global header (9 destinations, no Playground) + Settings sidebar (7 tabs). Model Cards is now the central hub for chat LLMs + API keys + local models; Embedding is its own tab.
 9. **Playground lives next to the model** — Removed from header, now an action button on each Model Card. One fewer click to test, no "which model?" dropdown.
+10. **Tab slimming is reversible and documented** — Each consolidation is annotated with date and reason (see Tab Count History). Easy to undo if needed.
