@@ -1165,6 +1165,96 @@ async def list_skill_files(skill_id: str):
     return {"files": files, "source_path": source_path, "exists": True}
 
 
+@router.get("/{skill_id}/files/{file_path:path}")
+async def read_skill_file(skill_id: str, file_path: str):
+    """
+    Read a single file's content from a skill's source directory.
+
+    Used by the code editor to display script content.
+    """
+    from db.database import SessionLocal
+    from models.skill import Skill as SkillModel
+    from pathlib import Path
+
+    db = SessionLocal()
+    try:
+        skill = db.query(SkillModel).filter(SkillModel.skill_id == skill_id).first()
+        if not skill:
+            raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")
+        source_root = skill.source_path
+    finally:
+        db.close()
+
+    if not source_root:
+        raise HTTPException(status_code=404, detail="No source path for this skill")
+
+    target = (Path(source_root) / file_path).resolve()
+    root_resolved = Path(source_root).resolve()
+
+    # Security: ensure target is within source_root
+    if not str(target).startswith(str(root_resolved)):
+        raise HTTPException(status_code=403, detail="Path escapes skill directory")
+
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
+
+    try:
+        content = target.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="Binary file cannot be displayed as text")
+
+    return {
+        "file_path": file_path,
+        "content": content,
+        "size": target.stat().st_size,
+        "modified": target.stat().st_mtime,
+    }
+
+
+@router.put("/{skill_id}/files/{file_path:path}")
+async def write_skill_file(skill_id: str, file_path: str, payload: dict):
+    """
+    Write a file's content to a skill's source directory.
+
+    Used by the code editor to save script edits back to FS.
+    """
+    from db.database import SessionLocal
+    from models.skill import Skill as SkillModel
+    from pathlib import Path
+
+    content = payload.get("content")
+    if content is None:
+        raise HTTPException(status_code=400, detail="Missing 'content' field")
+
+    db = SessionLocal()
+    try:
+        skill = db.query(SkillModel).filter(SkillModel.skill_id == skill_id).first()
+        if not skill:
+            raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")
+        source_root = skill.source_path
+    finally:
+        db.close()
+
+    if not source_root:
+        raise HTTPException(status_code=404, detail="No source path for this skill")
+
+    target = (Path(source_root) / file_path).resolve()
+    root_resolved = Path(source_root).resolve()
+
+    if not str(target).startswith(str(root_resolved)):
+        raise HTTPException(status_code=403, detail="Path escapes skill directory")
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+
+    return {
+        "status": "saved",
+        "file_path": file_path,
+        "size": target.stat().st_size,
+        "modified": target.stat().st_mtime,
+    }
+
+
 @router.get("/debug/paths")
 async def debug_skill_paths():
     """Debug endpoint to check skill loader paths."""
