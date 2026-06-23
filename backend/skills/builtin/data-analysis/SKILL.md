@@ -1,7 +1,7 @@
 ---
 name: data-analysis
-description: "Unified data analysis from CSV files and SQL databases using pandas. Use when analyzing CSV data, querying PostgreSQL databases, generating data visualizations, or building analysis reports."
-version: 1.0.0
+description: "Unified data analysis from CSV files and SQL databases. Use when analyzing CSV data, querying PostgreSQL databases, generating data visualizations, or building analysis reports."
+version: 2.0.0
 author: LangConfig
 tags:
   - data-analysis
@@ -21,132 +21,91 @@ triggers:
   - "when user wants data visualization or charts"
 allowed_tools:
   - filesystem
-  - shell
-  - python
+  - execute
+  - read_file
 ---
 
-## Instructions
+# Data Analysis Skill
 
-You are a unified data analysis agent. You can analyze data from **CSV files** and **SQL databases** using the same pandas-powered workflow.
+You are a unified data analysis agent. Analyze data from **CSV files** and **SQL databases**.
 
-### Environment
+## Available Scripts
 
-- Your sandbox has `pandas`, `matplotlib`, `sqlalchemy`, and `psycopg2-binary` installed.
-- PostgreSQL database connection string is available at `DATABASE_URL` environment variable:
-  ```
-  postgresql://langconfig:langconfig_dev@localhost:5433/langconfig
-  ```
-  Access it in Python with: `os.environ["DATABASE_URL"]` or `from db.database import DATABASE_URL`.
+All implementation lives in `scripts/`. Use the `execute` tool to run them.
 
-### Workflow
+| Script | Purpose |
+|---|---|
+| `scripts/load_data.py` | Load data from CSV or SQL — returns shape, columns, dtypes, sample |
+| `scripts/explore_schema.py` | List all tables and columns in the database |
+| `scripts/profile.py` | Compute data profile — shape, missing, distributions, descriptive stats |
+| `scripts/aggregate.py` | Group aggregations, correlations, time series |
+| `scripts/visualize.py` | Generate matplotlib charts (histogram, bar, line, scatter, subplots) |
 
-1. **Understand the data source** — CSV file or SQL database
-2. **Load data into pandas DataFrame**
-3. **Explore and clean** — describe, info, missing values, distributions
-4. **Analyze** — group by, aggregate, correlate, time trends
-5. **Visualize** — matplotlib charts (use `subplots(ncols=2)` for 2 charts per row)
-6. **Save results** — use `save_analysis_result` tool
+## Environment
 
----
+- Sandbox has `pandas`, `matplotlib`, `sqlalchemy`, `psycopg2-binary` installed.
+- PostgreSQL connection string is available at `DATABASE_URL` env var.
 
-### Loading Data
+## Workflow
 
-#### From CSV (uploaded file):
-```python
-import pandas as pd
-df = pd.read_csv("filename.csv")
+Follow these steps in order:
+
+1. **Identify the data source** — CSV file or SQL query
+2. **Load data** — run `scripts/load_data.py`
+3. **Explore schema** (SQL only) — run `scripts/explore_schema.py` first if needed
+4. **Profile the data** — run `scripts/profile.py` to get shape, missing values, distributions
+5. **Analyze** — run `scripts/aggregate.py` for group-bys, correlations, time series
+6. **Visualize** — run `scripts/visualize.py` to create charts (2 per row via subplots)
+7. **Save and report** — persist results and summarize findings
+
+## How to invoke scripts
+
+Use the `execute` tool with the script path and a JSON inputs file. Example:
+
 ```
-
-#### From SQL (PostgreSQL database):
-```python
-import os, pandas as pd
-from sqlalchemy import create_engine
-
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://langconfig:langconfig_dev@localhost:5433/langconfig"
+execute(
+    command="python /data-analysis/scripts/load_data.py",
+    input_json={"source_type": "csv", "file_path": "/uploads/data.csv"}
 )
-engine = create_engine(DATABASE_URL)
-
-# Load a table into a DataFrame
-df = pd.read_sql("SELECT * FROM table_name", engine)
-
-# Or run a custom query
-df = pd.read_sql("SELECT category, COUNT(*) as cnt FROM table_name GROUP BY category ORDER BY cnt DESC", engine)
 ```
 
-#### Explore the database schema first:
-```python
-from sqlalchemy import create_engine, inspect
-engine = create_engine(os.environ["DATABASE_URL"])
-inspector = inspect(engine)
-for table_name in inspector.get_table_names():
-    print(f"\n=== {table_name} ===")
-    for column in inspector.get_columns(table_name):
-        print(f"  {column['name']}: {column['type']}")
+Each script reads JSON from stdin and writes JSON to stdout:
+
+```json
+{
+    "status": "ok",
+    "row_count": 1000,
+    "columns": ["id", "name", "value", "category"],
+    "data_preview": [...]
+}
 ```
 
----
+## Decision criteria
 
-### Analysis Patterns
+- **CSV vs SQL**: Read user's message. CSV if they uploaded a file; SQL if they mention tables/queries.
+- **Which aggregate**: Profile first, then pick group-by based on categorical columns.
+- **Which chart type**: Use `subplots` for overviews (distribution + group means); single chart for focused analysis.
 
-#### 1. Data Overview (10 key metrics)
-```python
-print(f"Shape: {df.shape}")
-print(f"Columns: {list(df.columns)}")
-print(f"Dtypes:\n{df.dtypes}")
-print(f"Missing:\n{df.isnull().sum()}")
-print(f"Describe:\n{df.describe(include='all')}")
-print(f"Sample:\n{df.head()}")
-```
+## Output expectations
 
-#### 2. Group Aggregations
-```python
-summary = df.groupby("category_col").agg({
-    "revenue_col": ["sum", "mean", "count"],
-    "units_col": "sum"
-}).round(2)
-```
+After completing analysis, provide:
+- **Top 3 findings** (key insights from the data)
+- **Visualization** (PNG chart referenced as `![Chart](/api/files/analysis_chart.png)`)
+- **Recommendations** based on the data
 
-#### 3. Time Series Trends
-```python
-df["date_col"] = pd.to_datetime(df["date_col"])
-df.set_index("date_col").resample("D")["metric_col"].sum().plot()
-```
+## Edge cases
 
-#### 4. Correlations
-```python
-numeric_cols = df.select_dtypes(include="number")
-print(numeric_cols.corr().round(3))
-```
+- File not found → ask user for correct path
+- Empty data → report zero rows, suggest data source check
+- Missing values → profile them, decide on imputation or exclusion
+- All numeric / no categorical → skip group-by, focus on distributions and correlations
+- Date column → use time series aggregation
 
----
+## Auto-analysis checklist
 
-### Charting Guidelines
-
-- Use `matplotlib` with `plt.subplots(ncols=2, figsize=(14, 5))` to arrange 2 charts per row
-- Save charts as PNG with `plt.savefig("analysis_chart.png", dpi=150, bbox_inches="tight")`
-- Use descriptive titles, axis labels, and legends
-- After saving, use `save_analysis_result` to persist the report and chart
-- Display charts in chat with: `![Chart description](/api/files/analysis_chart.png)`
-
-### Auto-Analysis Workflow
-
-When data is first loaded (via CSV upload or SQL query), automatically:
-
-1. **Profile the data**: shape, columns, types, missing values, sample rows
-2. **Compute 10 key metrics**:
-   - Row/column counts and data types
-   - Missing values and data quality
-   - Descriptive statistics (mean, median, min, max, std)
-   - Distribution of categorical columns
-   - Correlations between numeric columns
-   - Time-based trends (if date column exists)
-   - Top/bottom values for key columns
-   - Outlier detection
-   - Group aggregations by category
-   - Summary statistics per group
-3. **Identify top 3 findings**
-4. **Create visualizations** (2 charts per row)
-5. **Provide detailed analysis** with key insights and recommendations
-6. **Save results** using `save_analysis_result`
+When data is loaded, automatically run:
+1. Profile (10 key metrics: shape, types, missing, describe, distributions, correlations, top/bottom, outliers, group aggregations, summary stats)
+2. Identify top 3 findings
+3. Create visualizations (subplots with 2 charts per row)
+4. Save results
+5. Provide detailed analysis with insights and recommendations
