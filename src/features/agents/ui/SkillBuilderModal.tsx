@@ -44,6 +44,7 @@ import {
   FolderOpen,
   FileText,
   Hash,
+  Edit3,
 } from 'lucide-react';
 import apiClient from '@/lib/api-client';
 import { useAvailableTools } from '@/hooks/useAvailableTools';
@@ -351,6 +352,66 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill, initialTab = 'form'
   const [newTag, setNewTag] = useState('');
   const [newTrigger, setNewTrigger] = useState('');
   const [newTool, setNewTool] = useState('');
+
+  // Files section state (must live at parent scope — can't use hooks inside renderFunctions)
+  const [skillFiles, setSkillFiles] = useState<Array<{ name: string; path: string; type: string; size: number }>>([]);
+  const [skillFilesLoading, setSkillFilesLoading] = useState(false);
+  const [skillFilesError, setSkillFilesError] = useState<string | null>(null);
+
+  // Code editor state (when user clicks a file to view/edit)
+  const [codeEditingFile, setCodeEditingFile] = useState<string | null>(null);
+  const [codeContent, setCodeContent] = useState<string>('');
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [codeSaving, setCodeSaving] = useState(false);
+  const [codeDirty, setCodeDirty] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+
+  // Fetch file content when user clicks a file
+  useEffect(() => {
+    if (!codeEditingFile || !effectiveExistingSkill?.skill_id) return;
+    setCodeLoading(true);
+    setCodeError(null);
+    setCodeDirty(false);
+    apiClient.get(`/api/skills/${effectiveExistingSkill.skill_id}/files/${codeEditingFile}`)
+      .then((res) => setCodeContent(res.data?.content || ''))
+      .catch((err) => setCodeError(err?.response?.data?.detail || err.message))
+      .finally(() => setCodeLoading(false));
+  }, [codeEditingFile, effectiveExistingSkill?.skill_id]);
+
+  const saveCodeFile = async () => {
+    if (!codeEditingFile || !effectiveExistingSkill?.skill_id) return;
+    setCodeSaving(true);
+    setCodeError(null);
+    try {
+      await apiClient.put(`/api/skills/${effectiveExistingSkill.skill_id}/files/${codeEditingFile}`, {
+        content: codeContent,
+      });
+      setCodeDirty(false);
+      // Refresh file list
+      const res = await apiClient.get(`/api/skills/${effectiveExistingSkill.skill_id}/files`);
+      setSkillFiles(res.data?.files || []);
+    } catch (err: any) {
+      setCodeError(err?.response?.data?.detail || err.message || 'Failed to save');
+    } finally {
+      setCodeSaving(false);
+    }
+  };
+
+  // Fetch files when skill changes
+  useEffect(() => {
+    if (!effectiveExistingSkill?.skill_id || !effectiveExistingSkill?.source_path) {
+      setSkillFiles([]);
+      return;
+    }
+    setSkillFilesLoading(true);
+    apiClient.get(`/api/skills/${effectiveExistingSkill.skill_id}/files`)
+      .then((res) => {
+        setSkillFiles(res.data?.files || []);
+        setSkillFilesError(null);
+      })
+      .catch((err) => setSkillFilesError(err?.message || 'Failed to load files'))
+      .finally(() => setSkillFilesLoading(false));
+  }, [effectiveExistingSkill?.skill_id, effectiveExistingSkill?.source_path]);
 
   // Tool Pool selector state (reuses Skill Pool pattern from Test Triggers tab)
   const { tools: registryTools, isLoading: toolsLoading } = useAvailableTools();
@@ -972,22 +1033,6 @@ when user needs external facts not in their training data
   );
 
   const renderFiles = () => {
-    const [files, setFiles] = useState<Array<{ name: string; path: string; type: string; size: number }>>([]);
-    const [filesLoading, setFilesLoading] = useState(false);
-    const [filesError, setFilesError] = useState<string | null>(null);
-
-    useEffect(() => {
-      if (!effectiveExistingSkill?.skill_id || !effectiveExistingSkill?.source_path) return;
-      setFilesLoading(true);
-      apiClient.get(`/api/skills/${effectiveExistingSkill.skill_id}/files`)
-        .then((res) => {
-          setFiles(res.data?.files || []);
-          setFilesError(null);
-        })
-        .catch((err) => setFilesError(err?.message || 'Failed to load files'))
-        .finally(() => setFilesLoading(false));
-    }, [effectiveExistingSkill?.skill_id, effectiveExistingSkill?.source_path]);
-
     const formatSize = (bytes: number) => {
       if (bytes < 1024) return `${bytes} B`;
       if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -995,6 +1040,11 @@ when user needs external facts not in their training data
     };
 
     const categorize = (path: string): string => {
+      // Per Agent Skills spec:
+      //   SKILL.md → required (always at root)
+      //   scripts/*.py, *.js, etc. → scripts (executable code)
+      //   references/*.md, *.pdf   → references (docs loaded on demand)
+      //   assets/*                 → assets (templates, images)
       if (path === 'SKILL.md') return 'required';
       if (path.startsWith('scripts/')) return 'scripts';
       if (path.startsWith('references/')) return 'references';
@@ -1024,16 +1074,16 @@ when user needs external facts not in their training data
               <span className="break-all">{effectiveExistingSkill.source_path}</span>
             </div>
             <div className="pl-4 space-y-1 text-gray-600">
-              {filesLoading && (
+              {skillFilesLoading && (
                 <div className="text-gray-400 italic">Loading…</div>
               )}
-              {filesError && (
-                <div className="text-red-500 italic">Error: {filesError}</div>
+              {skillFilesError && (
+                <div className="text-red-500 italic">Error: {skillFilesError}</div>
               )}
-              {!filesLoading && !filesError && files.length === 0 && (
+              {!skillFilesLoading && !skillFilesError && skillFiles.length === 0 && (
                 <div className="text-gray-400 italic">Empty directory.</div>
               )}
-              {!filesLoading && files.map((f) => {
+              {!skillFilesLoading && skillFiles.map((f) => {
                 const cat = categorize(f.path);
                 const { color, label } = labelForCategory(cat);
                 return f.type === 'dir' ? (
@@ -1043,13 +1093,19 @@ when user needs external facts not in their training data
                     <span className="text-gray-400">({label})</span>
                   </div>
                 ) : (
-                  <div key={f.path} className="flex items-center gap-1.5">
+                  <div
+                    key={f.path}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white cursor-pointer"
+                    onClick={() => setCodeEditingFile(f.path)}
+                    title="Click to view/edit"
+                  >
                     <FileText size={11} />
                     <span className="flex-1">{f.path}</span>
                     <span className="text-gray-400">{formatSize(f.size)}</span>
                     <span className="px-1.5 py-0.5 rounded text-[9px]" style={{ color, backgroundColor: `${color}15` }}>
                       {label}
                     </span>
+                    <Edit3 size={10} className="text-gray-400" />
                   </div>
                 );
               })}
@@ -1078,11 +1134,97 @@ when user needs external facts not in their training data
     { id: 'files',         icon: '🗂️', title: 'Files',          subtitle: 'scripts/ · references/ · assets/',     render: renderFiles },
   ];
 
-  return (
+  // Code editor overlay (shown when user clicks a file in Files section)
+  const codeEditorOverlay = codeEditingFile ? (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-      onClick={onClose}
+      className="fixed inset-0 z-[60] flex items-center justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.45)' }}
+      onClick={() => { if (!codeDirty) setCodeEditingFile(null); }}
     >
+      <div
+        className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl flex flex-col"
+        style={{ width: '80vw', maxWidth: 1000, height: '80vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: '#E5E7EB' }}>
+          <div className="flex items-center gap-2">
+            <FileCode size={16} style={{ color: '#D97757' }} />
+            <span className="font-mono text-sm" style={{ color: '#1F1E1B' }}>
+              {effectiveExistingSkill?.source_path}/{codeEditingFile}
+            </span>
+            {codeDirty && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+                ● unsaved
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={saveCodeFile}
+              disabled={!codeDirty || codeSaving}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-white disabled:opacity-50"
+              style={{ backgroundColor: '#D97757' }}
+            >
+              <Save size={12} />
+              {codeSaving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={() => { if (!codeDirty) setCodeEditingFile(null); }}
+              className="p-1.5 rounded hover:bg-gray-100"
+              title="Close (discard unsaved changes)"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+
+        {/* Error banner */}
+        {codeError && (
+          <div className="px-4 py-2 text-xs" style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+            {codeError}
+          </div>
+        )}
+
+        {/* Editor */}
+        <div className="flex-1 overflow-hidden">
+          {codeLoading ? (
+            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+              Loading…
+            </div>
+          ) : (
+            <textarea
+              value={codeContent}
+              onChange={(e) => { setCodeContent(e.target.value); setCodeDirty(true); }}
+              className="w-full h-full p-4 font-mono text-xs resize-none focus:outline-none"
+              style={{
+                backgroundColor: '#1F2937',
+                color: '#F9FAFB',
+                border: 'none',
+                lineHeight: '1.5',
+                tabSize: 4,
+              }}
+              spellCheck={false}
+            />
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-2 border-t text-[10px] text-gray-500 flex items-center justify-between" style={{ borderColor: '#E5E7EB' }}>
+          <span>{codeContent.length} characters · {codeContent.split('\n').length} lines</span>
+          <span>Click outside to close (saves are explicit via Save button)</span>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  return (
+    <>
+      {codeEditorOverlay}
+      <div
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        onClick={onClose}
+      >
       {/* Modal container — draggable + resizable */}
       <div
         ref={containerRef}
@@ -1543,6 +1685,7 @@ when user needs external facts not in their training data
         />
       </div>
     </div>
+    </>
   );
 };
 
