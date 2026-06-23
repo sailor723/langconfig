@@ -13,6 +13,7 @@ export type SettingsCategory =
   | 'local-workspace'
   | 'model-defaults'
   | 'model-cards'
+  | 'search-providers'
   | 'embedding'
   | 'backend'
   | 'workflow'
@@ -21,6 +22,7 @@ export type SettingsCategory =
   | 'about';
 // 'api-keys' and 'local-models' removed 2026-06-23 — consolidated into Model Cards
 // 'embedding' restored 2026-06-23 — its own tab
+// 'search-providers' added 2026-06-24 — Tavily, Wikipedia, DDG, Exa, Brave, SerpAPI
 
 interface SettingsLayoutProps {
   children: ReactNode;

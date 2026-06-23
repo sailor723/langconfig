@@ -345,7 +345,7 @@ from api.workflows import routes as workflows
 from api.projects import routes as projects
 from api.tasks import routes as tasks
 from api.knowledge import rag, store
-from api.system import settings, health, debug, background_tasks
+from api.system import settings, health, debug, background_tasks, search_providers
 from api.models import local as local_models
 from api.models import capabilities as model_capabilities
 from api.models import routes as model_routes
@@ -382,6 +382,7 @@ app.include_router(rag.router)
 app.include_router(background_tasks.router)  # Background task queue management
 app.include_router(workspace.router)  # Workspace file management
 app.include_router(settings.router)
+app.include_router(search_providers.router)  # Search provider cards + API key mgmt
 app.include_router(local_models.router, prefix="/api/local-models", tags=["local-models"])  # Local model configurations
 app.include_router(model_capabilities.router, prefix="/api/models", tags=["models"])  # Model capability profiles
 app.include_router(model_routes.router)  # Model invocation (Playground)

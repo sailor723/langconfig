@@ -17,6 +17,7 @@ import ModelDefaultsSettings from '../features/settings/ui/ModelDefaultsSettings
 import ApiKeysAndModels from '../features/settings/ui/ApiKeysAndModels';
 import ModelCardsSettings from '../features/settings/ui/ModelCardsSettings';
 import EmbeddingSettings from '../features/settings/ui/EmbeddingSettings';
+import SearchProvidersSettings from '../features/settings/ui/SearchProvidersSettings';
 import SettingsSection, { SettingsInput, SettingsSelect } from '../features/settings/ui/SettingsSection';
 
 export default function SettingsView() {
@@ -471,6 +472,9 @@ export default function SettingsView() {
 
       case 'model-cards':
         return <ModelCardsSettings />;
+
+      case 'search-providers':
+        return <SearchProvidersSettings />;
 
       case 'embedding':
         return <EmbeddingSettings />;

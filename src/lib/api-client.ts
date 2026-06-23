@@ -578,6 +578,27 @@ class APIClient {
     return this.client.get('/api/settings/embedding-models');
   }
 
+  // Search Providers (Tavily, Wikipedia, DDG, Exa, Brave, SerpAPI)
+  async listSearchProviders() {
+    return this.client.get('/api/search-providers/');
+  }
+
+  async getSearchProvider(providerId: string) {
+    return this.client.get(`/api/search-providers/${providerId}`);
+  }
+
+  async setSearchProviderKey(providerId: string, apiKey: string) {
+    return this.client.post(`/api/search-providers/${providerId}/key`, { api_key: apiKey });
+  }
+
+  async deleteSearchProviderKey(providerId: string) {
+    return this.client.delete(`/api/search-providers/${providerId}/key`);
+  }
+
+  async testSearchProvider(providerId: string) {
+    return this.client.post(`/api/search-providers/${providerId}/test`);
+  }
+
   async modelInvoke(data: {
     model: string;
     message: string;
