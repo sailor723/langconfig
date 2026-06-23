@@ -50,6 +50,7 @@ import apiClient from '@/lib/api-client';
 interface SkillBuilderModalProps {
   onClose: () => void;
   onSave?: (skill: any) => void;
+  initialTab?: 'form' | 'markdown' | 'test';  // which tab to show on open (default: form)
   existingSkill?: {
     skill_id: string;
     name: string;
@@ -288,7 +289,7 @@ function parseSkillMarkdown(text: string): ParsedSkill | null {
   return result;
 }
 
-const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModalProps) => {
+const SkillBuilderModal = ({ onClose, onSave, existingSkill, initialTab = 'form' }: SkillBuilderModalProps) => {
   const { t } = useTranslation('chat');
   // After a new skill is created, store it here so the modal can switch to
   // edit-mode (PUT instead of POST) without closing. This makes iterative
@@ -302,7 +303,7 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
   // markdown — full SKILL.md as one text document, with bi-directional sync
   // test     — test trigger matching against sample user input
   type ViewMode = 'form' | 'markdown' | 'test';
-  const [viewMode, setViewMode] = useState<ViewMode>('form');
+  const [viewMode, setViewMode] = useState<ViewMode>(initialTab);
   const [skillMarkdown, setSkillMarkdown] = useState<string>('');  // for markdown view
   const [testInput, setTestInput] = useState<string>('');            // for test triggers view
   const [testResults, setTestResults] = useState<Array<{
@@ -313,8 +314,28 @@ const SkillBuilderModal = ({ onClose, onSave, existingSkill }: SkillBuilderModal
     matched_trigger?: string;
     match_reason?: string;
 }> | null>(null);
+  const [testSkillPool, setTestSkillPool] = useState<Set<string> | null>(null);  // null = all
+  const [showTestPoolEditor, setShowTestPoolEditor] = useState(false);
+  const [allSkills, setAllSkills] = useState<Array<{skill_id: string; name: string; source_type: string}>>([]);
   const [testRunning, setTestRunning] = useState(false);
   const [markdownSync, setMarkdownSync] = useState<'idle' | 'parsing' | 'ok' | 'error'>('idle');
+
+  // Load all skills for the Test Triggers skill-pool selector
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await apiClient.get('/api/skills');
+        const skills = (resp.data || []).map((s: any) => ({
+          skill_id: s.skill_id,
+          name: s.name,
+          source_type: s.source_type,
+        }));
+        setAllSkills(skills);
+      } catch (e) {
+        // non-fatal
+      }
+    })();
+  }, []);
 
   // -------- Form state (mirrors the API fields) --------
   const [name, setName] = useState(existingSkill?.name || '');
@@ -1151,6 +1172,81 @@ when user needs external facts not in their training data
                   </span>
                 </div>
                 <div className="p-4 space-y-3">
+                  {/* === Skill Pool selector (same pattern as Skill Playground) === */}
+                  <div className="rounded-lg border p-3" style={{ backgroundColor: '#F9FAFB', borderColor: '#E8E4DA' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-semibold uppercase" style={{ color: '#1F1E1B' }}>
+                        🎯 Skill Pool
+                      </label>
+                      <button
+                        onClick={() => setShowTestPoolEditor((s) => !s)}
+                        className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
+                        style={{ backgroundColor: '#E8E4DA', color: '#1F1E1B' }}
+                      >
+                        {showTestPoolEditor ? '▾ Hide' : '✎ Edit'}
+                      </button>
+                    </div>
+                    <div className="text-[11px]" style={{ color: '#374151' }}>
+                      {testSkillPool === null ? (
+                        <span>All <strong>{allSkills.length}</strong> skills (default)</span>
+                      ) : (
+                        <span><strong>{testSkillPool.size}</strong> of {allSkills.length} skills selected</span>
+                      )}
+                    </div>
+                    {showTestPoolEditor && (
+                      <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
+                        <div className="flex gap-1 mb-2">
+                          <button
+                            onClick={() => setTestSkillPool(new Set(allSkills.map((s) => s.skill_id)))}
+                            className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
+                            style={{ backgroundColor: '#E8E4DA', color: '#1F1E1B' }}
+                          >
+                            Select all
+                          </button>
+                          <button
+                            onClick={() => setTestSkillPool(new Set())}
+                            className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
+                            style={{ backgroundColor: '#E8E4DA', color: '#1F1E1B' }}
+                          >
+                            Clear
+                          </button>
+                          <button
+                            onClick={() => setTestSkillPool(null)}
+                            className="text-[10px] px-2 py-0.5 rounded hover:bg-gray-200"
+                            style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}
+                          >
+                            Use all
+                          </button>
+                        </div>
+                        {allSkills.map((s) => {
+                          const isAll = testSkillPool === null;
+                          const isChecked = isAll || testSkillPool.has(s.skill_id);
+                          return (
+                            <label key={s.skill_id} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={isAll}
+                                onChange={(e) => {
+                                  if (testSkillPool === null) return;
+                                  const next = new Set(testSkillPool);
+                                  if (e.target.checked) next.add(s.skill_id);
+                                  else next.delete(s.skill_id);
+                                  setTestSkillPool(next);
+                                }}
+                                style={{ accentColor: '#D97757' }}
+                              />
+                              <span className="text-[11px] flex-1" style={{ color: '#1F1E1B' }}>
+                                {s.source_type === 'builtin' ? '🔧' : '👤'} {s.name}
+                              </span>
+                              <span className="text-[9px] font-mono" style={{ color: '#6B7280' }}>{s.skill_id}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
                   <label className="block text-xs font-medium text-gray-700 uppercase">
                     Sample user input
                   </label>
@@ -1167,10 +1263,14 @@ when user needs external facts not in their training data
                       setTestRunning(true);
                       setTestResults(null);
                       try {
-                        const resp = await apiClient.post('/api/skills/match', {
+                        const matchPayload: any = {
                           query: testInput,
                           max_results: 20,
-                        });
+                        };
+                        if (testSkillPool !== null) {
+                          matchPayload.skill_ids = Array.from(testSkillPool);
+                        }
+                        const resp = await apiClient.post('/api/skills/match', matchPayload);
                         // The endpoint may return matches in various shapes
                         const data = resp.data;
                         if (Array.isArray(data)) {
@@ -1195,7 +1295,14 @@ when user needs external facts not in their training data
                   </button>
                   {testResults !== null && (
                     <div className="space-y-2">
-                      <div className="text-xs font-medium text-gray-700 uppercase">Results ({testResults.length} match{testResults.length === 1 ? '' : 'es'})</div>
+                      <div className="text-xs font-medium text-gray-700 uppercase flex items-center gap-2">
+                        <span>Results ({testResults.length} match{testResults.length === 1 ? '' : 'es'})</span>
+                        {testSkillPool !== null && (
+                          <span className="text-[10px] normal-case font-normal" style={{ color: '#6B7280' }}>
+                            from pool of {testSkillPool.size} skills
+                          </span>
+                        )}
+                      </div>
                       {testResults.length === 0 && (
                         <div className="text-xs text-gray-500 italic">No skills match. Try adding more triggers or improve description.</div>
                       )}
