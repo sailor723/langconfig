@@ -298,6 +298,7 @@ export default function GlobalChatModal() {
                   <AgentSelector
                     selectedAgentId={selectedAgentId}
                     onSelectAgent={handleStartSession}
+                    displayName={agentName}
                   />
                 </div>
               ) : (
@@ -305,6 +306,7 @@ export default function GlobalChatModal() {
                   <AgentSelector
                     selectedAgentId={selectedAgentId}
                     onSelectAgent={handleStartSession}
+                    displayName={agentName}
                   />
                   <span
                     className="text-xs px-2 py-0.5 rounded-full"
