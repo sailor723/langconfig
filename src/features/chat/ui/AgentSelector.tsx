@@ -15,12 +15,16 @@ interface AgentSelectorProps {
   selectedAgentId: number | null;
   onSelectAgent: (agentId: number) => void;
   onClose?: () => void;
+  /** Display name when selectedAgentId is not yet in the loaded agents list
+   *  (e.g., when the session already has an agent but ChatContext state hasn't been synced). */
+  displayName?: string | null;
 }
 
 export default function AgentSelector({
   selectedAgentId,
   onSelectAgent,
-  onClose
+  onClose,
+  displayName
 }: AgentSelectorProps) {
   const { t } = useTranslation('chat');
   const [isOpen, setIsOpen] = useState(false);
@@ -107,7 +111,9 @@ export default function AgentSelector({
         }}
       >
         <span className="text-sm font-medium">
-          {selectedAgent ? selectedAgent.name : t('select_agent')}
+          {selectedAgent
+            ? selectedAgent.name
+            : displayName || t('select_agent')}
         </span>
         <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
       </button>
