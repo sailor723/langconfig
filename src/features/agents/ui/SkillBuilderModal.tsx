@@ -971,34 +971,102 @@ when user needs external facts not in their training data
     </div>
   );
 
-  const renderFiles = () => (
-    <div className="space-y-3 pt-3">
-      <p className="text-[11px] text-gray-500">
-        Files in this skill's directory (read-only — use filesystem to add/edit scripts/, references/, assets/):
-      </p>
-      {effectiveExistingSkill?.source_path ? (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-xs">
-          <div className="flex items-center gap-1.5 text-gray-700 mb-2">
-            <FolderOpen size={12} />
-            <span>{effectiveExistingSkill.source_path}</span>
+  const renderFiles = () => {
+    const [files, setFiles] = useState<Array<{ name: string; path: string; type: string; size: number }>>([]);
+    const [filesLoading, setFilesLoading] = useState(false);
+    const [filesError, setFilesError] = useState<string | null>(null);
+
+    useEffect(() => {
+      if (!effectiveExistingSkill?.skill_id || !effectiveExistingSkill?.source_path) return;
+      setFilesLoading(true);
+      apiClient.get(`/api/skills/${effectiveExistingSkill.skill_id}/files`)
+        .then((res) => {
+          setFiles(res.data?.files || []);
+          setFilesError(null);
+        })
+        .catch((err) => setFilesError(err?.message || 'Failed to load files'))
+        .finally(() => setFilesLoading(false));
+    }, [effectiveExistingSkill?.skill_id, effectiveExistingSkill?.source_path]);
+
+    const formatSize = (bytes: number) => {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+    };
+
+    const categorize = (path: string): string => {
+      if (path === 'SKILL.md') return 'required';
+      if (path.startsWith('scripts/')) return 'scripts';
+      if (path.startsWith('references/')) return 'references';
+      if (path.startsWith('assets/')) return 'assets';
+      return 'other';
+    };
+
+    const labelForCategory = (cat: string) => {
+      switch (cat) {
+        case 'required':   return { color: '#A85A2E', label: 'required' };
+        case 'scripts':    return { color: '#0E7490', label: 'scripts' };
+        case 'references': return { color: '#7C3AED', label: 'references' };
+        case 'assets':     return { color: '#059669', label: 'assets' };
+        default:           return { color: '#6B7280', label: 'other' };
+      }
+    };
+
+    return (
+      <div className="space-y-3 pt-3">
+        <p className="text-[11px] text-gray-500">
+          Files in this skill's directory (read-only — use filesystem to add/edit scripts/, references/, assets/):
+        </p>
+        {effectiveExistingSkill?.source_path ? (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-xs">
+            <div className="flex items-center gap-1.5 text-gray-700 mb-2">
+              <FolderOpen size={12} />
+              <span className="break-all">{effectiveExistingSkill.source_path}</span>
+            </div>
+            <div className="pl-4 space-y-1 text-gray-600">
+              {filesLoading && (
+                <div className="text-gray-400 italic">Loading…</div>
+              )}
+              {filesError && (
+                <div className="text-red-500 italic">Error: {filesError}</div>
+              )}
+              {!filesLoading && !filesError && files.length === 0 && (
+                <div className="text-gray-400 italic">Empty directory.</div>
+              )}
+              {!filesLoading && files.map((f) => {
+                const cat = categorize(f.path);
+                const { color, label } = labelForCategory(cat);
+                return f.type === 'dir' ? (
+                  <div key={f.path} className="flex items-center gap-1.5">
+                    <FolderOpen size={11} />
+                    <span>{f.path}</span>
+                    <span className="text-gray-400">({label})</span>
+                  </div>
+                ) : (
+                  <div key={f.path} className="flex items-center gap-1.5">
+                    <FileText size={11} />
+                    <span className="flex-1">{f.path}</span>
+                    <span className="text-gray-400">{formatSize(f.size)}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px]" style={{ color, backgroundColor: `${color}15` }}>
+                      {label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-3">
+              💡 Future: upload/manage scripts and references through this UI.
+              For now, edit files directly on the filesystem (or via git) and they will sync to DB on next save.
+            </p>
           </div>
-          <div className="pl-4 space-y-1 text-gray-600">
-            <div className="flex items-center gap-1.5"><FileText size={11} /> SKILL.md <span className="text-gray-400">(required)</span></div>
-            <div className="flex items-center gap-1.5 opacity-60"><FolderOpen size={11} /> scripts/ <span className="text-gray-400">(optional — executable code)</span></div>
-            <div className="flex items-center gap-1.5 opacity-60"><FolderOpen size={11} /> references/ <span className="text-gray-400">(optional — extra docs)</span></div>
-            <div className="flex items-center gap-1.5 opacity-60"><FolderOpen size={11} /> assets/ <span className="text-gray-400">(optional — templates)</span></div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-xs text-gray-500">
+            No source path (skill created in DB only).
           </div>
-          <p className="text-[10px] text-gray-400 mt-3">
-            💡 Future: upload/manage scripts and references through this UI.
-          </p>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-xs text-gray-500">
-          No source path (skill created in DB only).
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   const sections: Array<{ id: SectionId; icon: string; title: string; subtitle: string; render: () => ReactNode }> = [
     { id: 'identity',      icon: '📇', title: 'Identity',       subtitle: 'Name, version, immutable id',          render: renderIdentity },

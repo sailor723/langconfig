@@ -1114,6 +1114,57 @@ async def reload_all_skills(project_paths: Optional[List[str]] = None):
     return {"status": "reloaded", "skill_count": count}
 
 
+@router.get("/{skill_id}/files")
+async def list_skill_files(skill_id: str):
+    """
+    List files in a skill's source directory.
+
+    Used by the skill editor's Files section to show actual files
+    (SKILL.md, data_analysis.py, etc.) instead of hardcoded folder names.
+
+    Returns: { files: [{name, path, type, size}], source_path: str }
+    """
+    from db.database import SessionLocal
+    from models.skill import Skill as SkillModel
+    from pathlib import Path
+
+    db = SessionLocal()
+    try:
+        skill = db.query(SkillModel).filter(SkillModel.skill_id == skill_id).first()
+        if not skill:
+            raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")
+        source_path = skill.source_path
+    finally:
+        db.close()
+
+    if not source_path or not Path(source_path).exists():
+        return {"files": [], "source_path": source_path, "exists": False}
+
+    files = []
+    for p in sorted(Path(source_path).rglob("*")):
+        if p.is_file():
+            rel = p.relative_to(source_path).as_posix()
+            files.append({
+                "name": p.name,
+                "path": rel,
+                "full_path": str(p),
+                "type": "file",
+                "size": p.stat().st_size,
+                "modified": p.stat().st_mtime,
+            })
+        elif p.is_dir() and p != Path(source_path):
+            rel = p.relative_to(source_path).as_posix()
+            files.append({
+                "name": p.name + "/",
+                "path": rel,
+                "full_path": str(p),
+                "type": "dir",
+                "size": 0,
+            })
+
+    return {"files": files, "source_path": source_path, "exists": True}
+
+
 @router.get("/debug/paths")
 async def debug_skill_paths():
     """Debug endpoint to check skill loader paths."""
