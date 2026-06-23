@@ -52,27 +52,33 @@ def parse_skill_md(text: str) -> Tuple[Dict[str, Any], str]:
 
 
 def serialize_skill_md(frontmatter: Dict[str, Any], body: str) -> str:
-    """Build a SKILL.md file from frontmatter dict + body string."""
-    lines = ["---"]
-    # Dump with stable field order
+    """Build a SKILL.md file from frontmatter dict + body string.
+
+    Uses yaml.safe_dump for proper YAML output (not concatenated lines that
+    break parsing). The `...` document-end marker should NOT appear in the
+    middle of a single document.
+    """
+    # Order important fields first for readability
     ordered_keys = ["name", "description", "version", "author", "tags",
                     "triggers", "allowed_tools", "required_context", "examples"]
     seen = set()
+    ordered_fm: Dict[str, Any] = {}
     for key in ordered_keys:
         if key in frontmatter:
-            lines.append(f"{key}: {yaml.safe_dump(frontmatter[key], default_flow_style=False).rstrip()}")
+            ordered_fm[key] = frontmatter[key]
             seen.add(key)
-    # Append remaining keys (custom fields)
     for key, value in frontmatter.items():
         if key not in seen:
-            lines.append(f"{key}: {yaml.safe_dump(value, default_flow_style=False).rstrip()}")
-    lines.append("---")
-    lines.append("")
+            ordered_fm[key] = value
+
+    yaml_str = yaml.safe_dump(ordered_fm, default_flow_style=False, sort_keys=False).rstrip()
+
+    parts = ["---", yaml_str, "---", ""]
     if body:
-        lines.append(body)
+        parts.append(body)
         if not body.endswith("\n"):
-            lines.append("")
-    return "\n".join(lines)
+            parts.append("")
+    return "\n".join(parts)
 
 
 def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
