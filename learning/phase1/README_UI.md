@@ -26,6 +26,61 @@ The Settings page is a tabbed interface with the following sections (sidebar-dri
 
 The page uses a single `currentCategory` state variable (`general` | `api-keys` | `model-cards` | `embedding` | `model-defaults` | `local-models` | `local-workspace` | `appearance` | `about`) to switch between sections via a sidebar. Each tab is rendered in a `switch` statement on the `currentCategory` value.
 
+## Navigation Architecture
+
+The app has **two parallel navigation surfaces**:
+
+### Surface A — Global Header (`ModernHeader.tsx`)
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│  [🏠 Home] [⚡ Studio] [📚 Library] [🧠 Knowledge] [🔧 Tools]               │
+│  [📝 Prompt] [🎯 Skills] [👥 Community] [🤖 DeepAgent Studio]            │
+└────────────────────────────────────────────────────────────────────────────┘
+   ↑ 9 destinations (no Playground button as of 2026-06-23 — moved into Model Cards)
+```
+
+### Surface B — Settings Sidebar (`SettingsSidebar.tsx`)
+
+```
+┌─────────────────────────┐  ┌──────────────────────────────────────────┐
+│  ⚙ Settings Sidebar     │  │  Active Tab Content                      │
+│                         │  │                                          │
+│  ▸ General              │  │   <ModelCardsSettings />                 │
+│  ▸ API & Providers      │  │   ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐  │
+│  ▸ Model Cards    ◀ active│  │   │DS-V3 │ │MiniMax│ │Claude│ │ GPT-5│  │
+│  ▸ Embedding            │  │   │ ✓ready│ │ ✓ready│ │ ⚠key │ │ ✓ready│ │
+│  ▸ Model Defaults       │  │   │ [▶]  │ │ [▶]  │ │ [▶]  │ │ [▶]  │  │
+│  ▸ Local Models         │  │   └──────┘ └──────┘ └──────┘ └──────┘  │
+│  ▸ Local Workspace      │  │     ↑                                      │
+│  ▸ Appearance           │  │     └── click ▶ → ModelPlaygroundModal   │
+│  ▸ About                │  │                                          │
+└─────────────────────────┘  └──────────────────────────────────────────┘
+```
+
+### Data Flow — Header → Settings → Backend
+
+```
+User clicks "Settings" link in Studio
+        │
+        ▼
+SettingsPage mounts
+        │
+        ▼
+SettingsLayout renders sidebar (9 tabs) + active panel
+        │
+        ├── user clicks "Model Cards" ──► ModelCardsSettings fetches:
+        │                                 GET /api/settings/available-models
+        │                                 GET /api/settings/api-keys  (masked)
+        │                                 GET /api/models (cloud models from DB)
+        │
+        └── user clicks ▶ on a model card ──► ModelPlaygroundModal:
+                                              ├─ preset that model
+                                              ├─ POST /api/chat/playground
+                                              │     (live test)
+                                              └─ streams response back
+```
+
 ### Data Loading Pattern
 
 All settings are loaded on mount via `loadSettings()`:
@@ -278,7 +333,100 @@ useAvailableModels()
 
 ---
 
-## 4. Local Models Settings
+## 4. Model Cards — Visual Model Grid with Playground
+
+**File**: [`src/features/settings/ui/ModelCardsSettings.tsx`](../../../src/features/settings/ui/ModelCardsSettings.tsx)
+**Playground Modal**: [`src/features/settings/ui/ModelPlaygroundModal.tsx`](../../../src/features/settings/ui/ModelPlaygroundModal.tsx)
+
+The Model Cards tab is a **visual alternative to the model dropdown**. Instead of picking a model name from a list, users see a grid of cards, each with:
+
+| Card Element | Source | Description |
+|---|---|---|
+| **Model display name** | `models.name` (DB) | "Claude Sonnet 4.5", "DeepSeek V3" |
+| **Provider** | `models.provider` (DB) | Anthropic / OpenAI / DeepSeek / MiniMax |
+| **API key status** | `GET /api/settings/api-keys` masked | ✓ ready / ⚠ no key |
+| **Capabilities** | `models.capabilities` (DB JSON) | "chat", "vision", "tools", "json_mode" |
+| **Pricing** | `models.pricing` (DB JSON) | input/output $/Mtok |
+| **Context window** | `models.context_window` (DB int) | tokens |
+| **Playground button** ▶ | opens `ModelPlaygroundModal` | live test |
+
+### Card Grid — Component Structure
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ <ModelCardsSettings>                                                │
+│                                                                     │
+│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────────┐│
+│   │ Card #1     │  │ Card #2     │  │ Card #3     │  │ Card #4    ││
+│   │ ┌─────────┐ │  │ ┌─────────┐ │  │ ┌─────────┐ │  │ ┌────────┐ ││
+│   │ │ DS-V3   │ │  │ │ MiniMax │ │  │ │ Claude  │ │  │ │ GPT-5  │ ││
+│   │ │ DeepSeek│ │  │ │ MiniMax │ │  │ │ Anthrop.│ │  │ │ OpenAI │ ││
+│   │ │  ✓ready │ │  │ │  ✓ready │ │  │ │  ⚠ key  │ │  │ │ ✓ready │ ││
+│   │ │ [▶]     │ │  │ │ [▶]     │ │  │ │ [▶]     │ │  │ │ [▶]    │ ││
+│   │ └─────────┘ │  │ └─────────┘ │  │ └─────────┘ │  │ └────────┘ ││
+│   └─────────────┘  └─────────────┘  └─────────────┘  └────────────┘│
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Playground Modal — Click Flow
+
+```
+User clicks ▶ on a card
+        │
+        ▼
+<ModelPlaygroundModal model="MiniMax-M3">
+        │
+        ├── shows: model name, provider, capabilities, system prompt input
+        │
+        ├── user types a message + clicks "Send"
+        │       │
+        │       ▼
+        │   POST /api/chat/playground
+        │     body: { model: "MiniMax-M3", messages: [...], temperature: 0.7 }
+        │       │
+        │       ▼
+        │   backend: agent_factory.create_agent() with only this model
+        │       │
+        │       ▼
+        │   streams response tokens back via SSE
+        │
+        └── user closes modal → returns to cards grid
+```
+
+### Why Model Cards Exist (vs Dropdown)
+
+| Surface | UX | When to use |
+|---|---|---|
+| **Model dropdown** (in Model Defaults / Agent Builder) | Fast, compact, list | Picking the default |
+| **Model cards** (in Settings) | Visual, informational, has Playground | Browsing capabilities, live testing |
+
+### Data Sources
+
+| Field | Source | Endpoint |
+|---|---|---|
+| Card list | PostgreSQL `models` table (seeded by `scripts/seed_models.py`) | `GET /api/settings/available-models` |
+| API key status | PostgreSQL `settings.api_keys` (encrypted JSON) | `GET /api/settings/api-keys` |
+| Playground chat | Backend agent factory | `POST /api/chat/playground` |
+
+### Why the Header Playground button was removed (2026-06-23)
+
+The old flow:
+```
+Header → Playground → "which model?" dropdown → ModelPlaygroundModal
+                                              (one extra click)
+```
+
+The new flow:
+```
+Header → Settings → Model Cards → click ▶ (model already preset)
+                          ↓ (one fewer click, one fewer decision)
+```
+
+This is a **navigation compression** — putting the playground next to the model instead of behind a separate global nav.
+
+---
+
+## 5. Local Models Settings
 
 **File**: [`src/features/settings/ui/LocalModelsSettings.tsx`](../../../src/features/settings/ui/LocalModelsSettings.tsx)
 
@@ -305,7 +453,7 @@ interface LocalModelsSettings {
 
 ---
 
-## 5. Local Workspace Settings
+## 6. Local Workspace Settings
 
 **File**: [`src/features/settings/ui/LocalWorkspaceSettings.tsx`](../../../src/features/settings/ui/LocalWorkspaceSettings.tsx)
 **Backend Endpoint**: [`backend/api/system/settings.py#L443`](../../../backend/api/system/settings.py#L443) — `GET/POST /api/settings/workspace`
@@ -376,7 +524,7 @@ def _write_file_impl(file_path, content, _workspace_context=None, ...):
 
 ---
 
-## 6. General Settings
+## 7. General Settings
 
 **Endpoint**: `backend/api/system/settings.py`
 
@@ -410,7 +558,9 @@ Stored as columns in the `settings` table:
 | `/api/settings/api-keys` | GET | API Keys | List providers + masked status |
 | `/api/settings/api-keys` | POST | API Keys | Save encrypted keys |
 | `/api/settings/api-keys/{provider}` | DELETE | API Keys | Remove a key |
-| `/api/settings/available-models` | GET | Models | Fetch cloud + local model list |
+| `/api/settings/available-models` | GET | Models | Fetch cloud + local model list (DB-backed) |
+| `/api/models` | GET | Model Cards | List 23 seeded models (display cards) |
+| `/api/chat/playground` | POST | Model Cards | Live test a single model (no tools) |
 | `/api/settings/model-defaults` | GET | Model Defaults | Fetch defaults |
 | `/api/settings/model-defaults` | POST | Model Defaults | Save defaults |
 | `/api/settings/local-models` | GET | Local Models | Fetch local models config |
@@ -421,6 +571,13 @@ Stored as columns in the `settings` table:
 | `/api/settings/general` | GET | General | Fetch general settings |
 | `/api/settings/general` | POST | General | Save general settings |
 | `/api/settings` | POST | General | Update RAG settings |
+| `/api/settings/embedding` | GET | Embedding | Fetch embedding model config |
+| `/api/settings/embedding` | POST | Embedding | Save embedding model config |
+| `/api/settings/appearance` | GET | Appearance | Fetch theme/language |
+| `/api/settings/appearance` | POST | Appearance | Save theme/language |
+
+> **Added in 2026-06-23 refactor:** `/api/models`, `/api/chat/playground`, `/api/settings/embedding`, `/api/settings/appearance`.
+> The `/api/chat/playground` endpoint replaces the removed header Playground button — same capability, deeper in the navigation tree, with the model preset.
 
 ---
 
@@ -433,3 +590,5 @@ Stored as columns in the `settings` table:
 5. **Setting hierarchy** — System-wide defaults (Settings) → Per-agent config overrides (Agent Builder) → Runtime overrides (deepagents library).
 6. **Two workspace concepts** — Local Workspace (user's code, read-only by convention) and Output Workspace (agent-generated files, written to `outputs/` with path traversal protection).
 7. **All settings are independently loadable** — Each section has its own GET/POST endpoints, allowing the frontend to load only what's needed for the active tab.
+8. **Two navigation surfaces** — Global header (9 destinations, no Playground) + Settings sidebar (9 tabs). Model Cards tab is the new home for the per-model Playground.
+9. **Playground lives next to the model** — Removed from header, now an action button on each Model Card. One fewer click to test, no "which model?" dropdown.
