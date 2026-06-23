@@ -84,6 +84,7 @@ class SkillMatchRequest(BaseModel):
     project_type: Optional[str] = Field(None, description="Project type (e.g., python, nodejs)")
     tags: Optional[List[str]] = Field(None, description="Explicit tags to match")
     max_results: int = Field(5, ge=1, le=20, description="Maximum results to return")
+    skill_ids: Optional[List[str]] = Field(None, description="Optional allowlist — only consider these skills")
 
 
 class SkillMatchResponse(BaseModel):
@@ -695,6 +696,8 @@ async def match_skills(request: SkillMatchRequest):
         "project_type": request.project_type,
         "tags": request.tags or [],
     }
+    if request.skill_ids:
+        context["skill_ids"] = request.skill_ids
 
     # Try the production SkillMatcher first (LLM embeddings + trigger eval)
     try:
