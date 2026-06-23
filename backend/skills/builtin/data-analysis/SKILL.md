@@ -1,5 +1,5 @@
 ---
-name: Data Analysis
+name: data-analysis
 description: smoke test description 2
 version: 3.0.0
 author: LangConfig
