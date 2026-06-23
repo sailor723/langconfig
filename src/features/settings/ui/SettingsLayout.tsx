@@ -10,8 +10,6 @@ import { useNavigate } from 'react-router-dom';
 import SettingsSidebar from './SettingsSidebar';
 
 export type SettingsCategory =
-  | 'api-keys'
-  | 'local-models'
   | 'local-workspace'
   | 'model-defaults'
   | 'model-cards'
@@ -21,6 +19,8 @@ export type SettingsCategory =
   | 'general'
   | 'appearance'
   | 'about';
+// 'api-keys' and 'local-models' removed 2026-06-23 — consolidated into Model Cards
+// 'embedding' restored 2026-06-23 — its own tab
 
 interface SettingsLayoutProps {
   children: ReactNode;
