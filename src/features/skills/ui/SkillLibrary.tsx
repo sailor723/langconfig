@@ -785,6 +785,7 @@ export default function SkillLibrary({
             description: editingSkill.description,
             tags: editingSkill.tags,
             triggers: editingSkill.triggers,
+            source_path: editingSkill.source_path,
             instructions: selectedSkill?.skill_id === editingSkill.skill_id
               ? (selectedSkill?.instructions || '')
               : '',
