@@ -569,10 +569,16 @@ export default function SkillLibrary({
             }}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-2xl font-semibold text-white" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.25)' }}>
+                  <h2
+                    className="text-2xl font-semibold"
+                    style={{ color: '#FFFFFF', textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
+                  >
                     {selectedSkill.name}
                   </h2>
-                  <p className="text-sm mt-1 text-white/90">
+                  <p
+                    className="text-sm mt-1"
+                    style={{ color: '#FFFFFF', opacity: 0.95, textShadow: '0 1px 1px rgba(0,0,0,0.25)' }}
+                  >
                     {SOURCE_LABELS[selectedSkill.source_type]} • {t('skills_version', { version: selectedSkill.version })}
                     {selectedSkill.author && ` • ${t('skills_by_author', { author: selectedSkill.author })}`}
                   </p>
@@ -583,8 +589,14 @@ export default function SkillLibrary({
                   {selectedSkill.source_type !== 'builtin' && (
                     <button
                       onClick={() => handleEditSkill(selectedSkill)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white/95 hover:text-white bg-white/15 hover:bg-white/25 rounded-lg transition-colors"
-                      style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors"
+                      style={{
+                        color: '#FFFFFF',
+                        backgroundColor: 'rgba(255,255,255,0.22)',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.35)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.22)')}
                       title="Edit this skill (opens builder)"
                     >
                       <Pencil className="w-3.5 h-3.5" />
@@ -595,8 +607,14 @@ export default function SkillLibrary({
                   {selectedSkill.source_type !== 'builtin' && (
                     <button
                       onClick={() => setConfirmDelete(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-red-500/80 hover:bg-red-500 rounded-lg transition-colors"
-                      style={{ textShadow: '0 1px 2px rgba(0,0,0,0.15)' }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors"
+                      style={{
+                        color: '#FFFFFF',
+                        backgroundColor: '#DC2626',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#B91C1C')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#DC2626')}
                       title="Delete this skill (cannot be undone)"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -605,7 +623,10 @@ export default function SkillLibrary({
                   )}
                   <button
                     onClick={() => setSelectedSkill(null)}
-                    className="p-2 transition-all text-white/90 hover:text-white hover:bg-white/15 rounded-lg"
+                    className="p-2 transition-all rounded-lg"
+                    style={{ color: '#FFFFFF' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.22)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                     title="Close"
                   >
                     <X className="w-5 h-5" />
