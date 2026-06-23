@@ -608,13 +608,13 @@ export default function SkillLibrary({
                     Test
                   </button>
                   {/* Edit button — opens the SkillBuilderModal in edit mode.
-                      Disabled for builtin skills (filesystem-managed, not editable from UI). */}
-                  {selectedSkill.source_type !== 'builtin' && (
-                    <button
-                      onClick={() => {
-                        setLastAction('edit');
-                        handleEditSkill(selectedSkill);
-                      }}
+                      Available for ALL skills (builtin + personal) since PUT now
+                      syncs DB → filesystem. */}
+                  <button
+                    onClick={() => {
+                      setLastAction('edit');
+                      handleEditSkill(selectedSkill);
+                    }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors"
                       style={{
                         color: '#FFFFFF',
@@ -628,7 +628,6 @@ export default function SkillLibrary({
                       <Pencil className="w-3.5 h-3.5" />
                       Edit
                     </button>
-                  )}
                   {/* Delete button — disabled for builtin skills (per backend 403). */}
                   {selectedSkill.source_type !== 'builtin' && (
                     <button
