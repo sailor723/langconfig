@@ -1,24 +1,30 @@
 # Phase 1: Settings Page — UI to Backend Flow
 
-> How a user configures API keys, model defaults, local models, and workspace settings in the frontend, and how those settings flow through the API to PostgreSQL storage and runtime retrieval.
+> How a user configures API keys, model cards, model defaults, embedding, local models, workspace settings, appearance, and about — in the frontend, and how those settings flow through the API to PostgreSQL storage and runtime retrieval.
 
 ---
 
 ## Settings Page Overview
 
-**File**: [`src/pages/SettingsPage.tsx`](../../../src/pages/SettingsPage.tsx)
+**File**: [`src/pages/SettingsPage.tsx`](../../../src/pages/SettingsPage.tsx) → [`src/features/settings/ui/SettingsLayout.tsx`](../../../src/features/settings/ui/SettingsLayout.tsx)
 
-The Settings page is a tabbed interface with the following sections:
+The Settings page is a tabbed interface with the following sections (sidebar-driven via [`SettingsSidebar.tsx`](../../../src/features/settings/ui/SettingsSidebar.tsx)):
 
 | Tab | UI Component | Description |
 |---|---|---|
-| **API & Providers** | Inline form in `SettingsPage.tsx` | API keys for LLM providers (Anthropic, OpenAI, Google, etc.) |
-| **Model Defaults** | [`ModelDefaultsSettings.tsx`](../../../src/features/settings/ui/ModelDefaultsSettings.tsx) | Default model, temperature, routing strategy |
-| **Local Models** | [`LocalModelsSettings.tsx`](../../../src/features/settings/ui/LocalModelsSettings.tsx) | Ollama/LM Studio provider config |
-| **Local Workspace** | [`LocalWorkspaceSettings.tsx`](../../../src/features/settings/ui/LocalWorkspaceSettings.tsx) | File system access for coding agents |
 | **General** | Inline form in `SettingsPage.tsx` | App name, auto-save, notifications, log level |
+| **API & Providers** | Inline form in `SettingsPage.tsx` | API keys for LLM providers (Anthropic, OpenAI, Google, etc.) |
+| **Model Cards** | [`ModelCardsSettings.tsx`](../../../src/features/settings/ui/ModelCardsSettings.tsx) | Visual grid of all available models — each card has API key status, capabilities, and a **Playground button** (opens [`ModelPlaygroundModal.tsx`](../../../src/features/settings/ui/ModelPlaygroundModal.tsx) for live testing) |
+| **Embedding** | (form) | Embedding model selection (PostgreSQL/pgvector) |
+| **Model Defaults** | [`ModelDefaultsSettings.tsx`](../../../src/features/settings/ui/ModelDefaultsSettings.tsx) | Default model, temperature, routing strategy, fallback chain |
+| **Local Models** | [`LocalModelsSettings.tsx`](../../../src/features/settings/ui/LocalModelsSettings.tsx) | Ollama / LM Studio / vLLM / LiteLLM provider config |
+| **Local Workspace** | [`LocalWorkspaceSettings.tsx`](../../../src/features/settings/ui/LocalWorkspaceSettings.tsx) | File system access for coding agents |
+| **Appearance** | (form) | Theme (light/dark), language |
+| **About** | (form) | Version info, docs link |
 
-The page uses a single `activeTab` state variable (`settings` | `api-keys` | `model-defaults` | `local-models` | `local-workspace` | `general`) to switch between sections via a sidebar. Each tab is rendered in a `switch` statement on the `activeTab` value.
+> **Header Playground button removed (2026-06-23):** The global "Playground" nav button in [`ModernHeader.tsx`](../../../src/components/layout/ModernHeader.tsx) was redundant — the same playground capability now lives inside each model card (click the play icon → opens ModelPlaygroundModal).
+
+The page uses a single `currentCategory` state variable (`general` | `api-keys` | `model-cards` | `embedding` | `model-defaults` | `local-models` | `local-workspace` | `appearance` | `about`) to switch between sections via a sidebar. Each tab is rendered in a `switch` statement on the `currentCategory` value.
 
 ### Data Loading Pattern
 
