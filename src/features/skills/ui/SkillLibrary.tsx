@@ -22,6 +22,7 @@ import {
   Plus,
   Pencil,
   Trash2,
+  TestTube,
 } from 'lucide-react';
 import apiClient from '../../../lib/api-client';
 import type { Skill, SkillDetail, SkillsSummary, SkillSourceFilter } from '../types';
@@ -65,6 +66,7 @@ export default function SkillLibrary({
   const [showPlayground, setShowPlayground] = useState(false);
   // Edit/Delete state
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
+  const [lastAction, setLastAction] = useState<'edit' | 'test' | null>(null);  // track which button opened builder
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -584,11 +586,35 @@ export default function SkillLibrary({
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Test Triggers button — opens the SkillBuilderModal directly on
+                      the Test Triggers tab. Available for all skills (incl. builtin)
+                      since testing doesn't modify the skill. */}
+                  <button
+                    onClick={() => {
+                      setLastAction('test');
+                      setEditingSkill(selectedSkill);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors"
+                    style={{
+                      color: '#FFFFFF',
+                      backgroundColor: 'rgba(255,255,255,0.22)',
+                      textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.35)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.22)')}
+                    title="Test this skill's triggers directly"
+                  >
+                    <TestTube className="w-3.5 h-3.5" />
+                    Test
+                  </button>
                   {/* Edit button — opens the SkillBuilderModal in edit mode.
                       Disabled for builtin skills (filesystem-managed, not editable from UI). */}
                   {selectedSkill.source_type !== 'builtin' && (
                     <button
-                      onClick={() => handleEditSkill(selectedSkill)}
+                      onClick={() => {
+                        setLastAction('edit');
+                        handleEditSkill(selectedSkill);
+                      }}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors"
                       style={{
                         color: '#FFFFFF',
@@ -753,6 +779,7 @@ export default function SkillLibrary({
       {/* Edit Skill Modal — reuses SkillBuilderModal in edit mode */}
       {editingSkill && (
         <SkillBuilderModal
+          initialTab={editingSkill.skill_id === selectedSkill?.skill_id && lastAction === 'test' ? 'test' : 'form'}
           existingSkill={{
             skill_id: editingSkill.skill_id,
             name: editingSkill.name,
