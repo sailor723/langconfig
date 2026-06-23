@@ -727,93 +727,16 @@ print(result)
                   </label>
                 ))}
 
-                {/* Custom Tools */}
-                {availableCustomTools.length > 0 && (
-                  <>
-                    <div className="px-3 py-1.5 rounded-lg mb-2 mt-4" style={{ backgroundColor: 'var(--color-primary)' }}>
+                {/* Custom Tools — moved to its own full-width row below */}
+                {false && availableCustomTools.length > 0 && (
+                  <div className="self-start w-full">
+                    <div className="px-3 py-1.5 rounded-lg mb-2 mt-4 inline-block" style={{ backgroundColor: 'var(--color-primary)' }}>
                       <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
                         {t('agent_config_custom_tools')}
+                        <span className="ml-2 text-xs opacity-80">({availableCustomTools.length})</span>
                       </h3>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {availableCustomTools.map(tool => {
-                        const isExpanded = expandedTools.has(tool.tool_id);
-                        return (
-                          <div key={tool.tool_id} className="flex flex-col">
-                            <label
-                              className="group relative flex items-start gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-primary/50 hover:shadow-md"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={(config.custom_tools || []).includes(tool.tool_id)}
-                                onChange={() => toggleCustomTool(tool.tool_id)}
-                                className="w-3.5 h-3.5 text-primary rounded focus:ring-1 focus:ring-primary cursor-pointer flex-shrink-0 mt-0.5"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2 mb-1">
-                                  <div className="text-xs font-semibold truncate flex-1" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>
-                                    {tool.name || tool.tool_id}
-                                  </div>
-                                  <button
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setExpandedTools(prev => {
-                                        const next = new Set(prev);
-                                        if (next.has(tool.tool_id)) {
-                                          next.delete(tool.tool_id);
-                                        } else {
-                                          next.add(tool.tool_id);
-                                        }
-                                        return next;
-                                      });
-                                    }}
-                                    className="text-xs px-2 py-0.5 rounded hover:bg-primary/10 flex-shrink-0"
-                                    style={{ color: 'var(--color-primary)' }}
-                                  >
-                                    {isExpanded ? 'Hide' : 'Details'}
-                                  </button>
-                                </div>
-                                {tool.category && (
-                                  <div className="text-xs mb-1 truncate" style={{ color: 'var(--color-text-secondary, #6b7280)' }}>
-                                    {tool.category}
-                                  </div>
-                                )}
-                                <div className="text-xs leading-snug line-clamp-2" style={{ color: 'var(--color-text-secondary, #6b7280)' }}>
-                                  {tool.description || 'No description available'}
-                                </div>
-                              </div>
-                            </label>
-
-                            {isExpanded && tool.implementation_config && (
-                              <div className="mt-1 px-3 py-2.5 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
-                                <div className="text-xs space-y-1">
-                                  <div className="font-semibold mb-1.5" style={{ color: 'var(--color-text-primary)' }}>Configuration:</div>
-                                  {tool.implementation_config.provider && (
-                                    <div><strong>Provider:</strong> {tool.implementation_config.provider}</div>
-                                  )}
-                                  {tool.implementation_config.model && (
-                                    <div><strong>Model:</strong> {tool.implementation_config.model}</div>
-                                  )}
-                                  {tool.implementation_config.url && (
-                                    <div><strong>URL:</strong> {tool.implementation_config.url}</div>
-                                  )}
-                                  {tool.implementation_config.webhook_url && (
-                                    <div><strong>Webhook:</strong> {tool.implementation_config.webhook_url}</div>
-                                  )}
-                                  {tool.template_type && (
-                                    <div><strong>Template:</strong> {tool.template_type}</div>
-                                  )}
-                                  <div className="mt-1.5 pt-1.5 border-t border-gray-200 dark:border-gray-700" style={{ color: 'var(--color-text-muted)' }}>
-                                    <strong>Tool ID:</strong> {tool.tool_id}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
+                  </div>
                 )}
 
               </div>
@@ -876,6 +799,127 @@ print(result)
               ))}
             </div>
           </div>
+
+          {/* Custom Tools — Full Width Row (4 cards per row) */}
+          {availableCustomTools.length > 0 && (
+            <div className="mt-6">
+              <div className="px-3 py-1.5 rounded-lg mb-2 flex items-center justify-between" style={{ backgroundColor: 'var(--color-primary)' }}>
+                <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
+                  Custom Tools
+                  <span className="ml-2 text-xs opacity-80">({availableCustomTools.length})</span>
+                </h3>
+                <span className="text-[10px] opacity-80" style={{ color: 'white' }}>
+                  User-defined tools — check to attach to this agent
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-3">
+                {availableCustomTools.map(tool => {
+                  const isExpanded = expandedTools.has(tool.tool_id);
+                  const isSelected = (config.custom_tools || []).includes(tool.tool_id);
+                  return (
+                    <div key={tool.tool_id} className="flex flex-col">
+                      <label
+                        className={`group relative flex items-start gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 border bg-white dark:bg-gray-900 hover:shadow-md ${
+                          isSelected
+                            ? 'border-primary border-2 ring-1 ring-primary/30'
+                            : 'border-gray-200 dark:border-gray-800 hover:border-primary/50'
+                        }`}
+                        style={isSelected ? { backgroundColor: 'rgba(46,92,138,0.04)' } : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleCustomTool(tool.tool_id)}
+                          className="w-3.5 h-3.5 text-primary rounded focus:ring-1 focus:ring-primary cursor-pointer flex-shrink-0 mt-0.5"
+                        />
+                        <div className="flex-1 min-w-0">
+                          {/* Row 1: Tool name (full, not truncated) + type badge */}
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <div className="text-xs font-semibold flex-1" title={tool.name || tool.tool_id}
+                              style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>
+                              {tool.name || tool.tool_id}
+                            </div>
+                            <span
+                              className="text-[9px] px-1.5 py-0.5 rounded font-mono uppercase flex-shrink-0"
+                              style={{
+                                backgroundColor: 'var(--color-input-background)',
+                                color: 'var(--color-text-muted)',
+                              }}
+                              title={`Tool type: ${tool.tool_type || 'custom'}`}
+                            >
+                              {tool.tool_type || 'custom'}
+                            </span>
+                          </div>
+                          {/* Row 2: Category */}
+                          {tool.category && (
+                            <div className="text-[10px] mb-1 italic" style={{ color: 'var(--color-text-muted)' }}>
+                              {tool.category}
+                            </div>
+                          )}
+                          {/* Row 3: Full description */}
+                          <div className="text-xs leading-snug mb-1.5" style={{ color: 'var(--color-text-secondary, #6b7280)' }}>
+                            {tool.description || 'No description available'}
+                          </div>
+                          {/* Row 4: Tool ID + Config button */}
+                          <div className="flex items-center justify-between gap-1 pt-1 border-t border-gray-100 dark:border-gray-800">
+                            <span className="text-[10px] font-mono truncate" title={tool.tool_id} style={{ color: 'var(--color-text-muted)' }}>
+                              {tool.tool_id}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setExpandedTools(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(tool.tool_id)) {
+                                    next.delete(tool.tool_id);
+                                  } else {
+                                    next.add(tool.tool_id);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className="text-[10px] px-1.5 py-0.5 rounded hover:bg-primary/10 flex-shrink-0"
+                              style={{ color: 'var(--color-primary)' }}
+                            >
+                              {isExpanded ? 'Hide' : '⚙'}
+                            </button>
+                          </div>
+                        </div>
+                      </label>
+
+                      {isExpanded && (
+                        <div className="mt-1 px-3 py-2 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+                          <div className="text-xs space-y-1">
+                            <div className="font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>Configuration</div>
+                            {tool.implementation_config?.provider && (
+                              <div><strong>Provider:</strong> {tool.implementation_config.provider}</div>
+                            )}
+                            {tool.implementation_config?.model && (
+                              <div><strong>Model:</strong> {tool.implementation_config.model}</div>
+                            )}
+                            {tool.implementation_config?.url && (
+                              <div className="break-all"><strong>URL:</strong> {tool.implementation_config.url}</div>
+                            )}
+                            {tool.implementation_config?.webhook_url && (
+                              <div className="break-all"><strong>Webhook:</strong> {tool.implementation_config.webhook_url}</div>
+                            )}
+                            {tool.template_type && (
+                              <div><strong>Template:</strong> {tool.template_type}</div>
+                            )}
+                            {!tool.implementation_config && !tool.template_type && (
+                              <div className="italic" style={{ color: 'var(--color-text-muted)' }}>
+                                No additional config
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Skills Section - Only for Deep Agents */}
           {config.use_deepagents && (
