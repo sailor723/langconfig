@@ -1316,11 +1316,15 @@ when user needs external facts not in their training data
                             borderColor: r.score >= 0.7 ? '#10B981' : r.score >= 0.4 ? '#F59E0B' : '#E5E7EB',
                           }}>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-semibold" style={{ color: '#1F1E1B' }}>
+                              <span
+                                className="text-sm font-semibold"
+                                style={{ color: '#000000', fontWeight: 700 }}
+                              >
                                 {skillName}
                               </span>
                               <span className="text-xs font-mono font-semibold" style={{
-                                color: r.score >= 0.7 ? '#10B981' : r.score >= 0.4 ? '#F59E0B' : '#374151',
+                                color: r.score >= 0.7 ? '#047857' : r.score >= 0.4 ? '#B45309' : '#1F2937',
+                                fontWeight: 700,
                               }}>
                                 score: {typeof r.score === 'number' ? r.score.toFixed(2) : '—'}
                               </span>
