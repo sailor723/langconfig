@@ -151,6 +151,52 @@ class MemoryRecallArgs(BaseModel):
 _memory_cache: Dict[str, "SimpleMemory"] = {}
 
 
+def _format_memories_for_display(
+    entries: List[Dict[str, Any]],
+    query: str = "",
+    empty_message: str = (
+        "No memories stored yet. You are starting fresh — "
+        "use memory_store to save important information for future turns."
+    ),
+) -> str:
+    """
+    Format a list of memory entries for display to the agent.
+
+    Shared by _recall_from_db and _recall_from_inmem so the rendering is
+    consistent across backends. Each entry dict should have:
+        - "type": str       (e.g. "fact", "decision", ...)
+        - "importance": int (1-10)
+        - "tags": List[str]
+        - "content": str
+        - "index": int      (1-based display position)
+
+    Args:
+        entries: List of normalized memory entry dicts
+        query: Optional user query to show at the top
+        empty_message: Message to show when entries is empty
+
+    Returns:
+        Formatted string for the LLM to read
+    """
+    if not entries:
+        return empty_message
+
+    lines = [f"=== AGENT MEMORY ({len(entries)} entries) ===\n"]
+    for e in entries:
+        type_str = e["type"].upper()
+        tags_str = f" [{', '.join(e['tags'])}]" if e["tags"] else ""
+        lines.append(
+            f"[{e['index']}] {type_str} "
+            f"(importance: {e['importance']}/10){tags_str}\n"
+            f"    {e['content']}\n"
+        )
+
+    if query:
+        lines.insert(1, f'Query: "{query}"\n')
+
+    return "".join(lines)
+
+
 def get_or_create_memory(
     project_id: int, agent_id: str, db_session: Optional[AsyncSession] = None
 ) -> "SimpleMemory":
@@ -326,32 +372,29 @@ class SimpleMemory:
         result = await self._db.execute(stmt)
         entries = result.scalars().all()
 
-        if not entries:
-            return (
-                "No memories stored yet. You are starting fresh — "
-                "use memory_store to save important information for future turns."
-            )
+        # Normalize DB rows to dicts (for _format_memories_for_display)
+        # DB has more fields (id, created_at) but the formatter only needs these.
+        normalized = [
+            {
+                "type": e.memory_type,
+                "importance": e.importance,
+                "tags": e.tags or [],
+                "content": e.content,
+                "index": i,
+            }
+            for i, e in enumerate(entries, 1)
+        ]
 
         # Filter by type if specified
         if memory_type:
-            entries = [e for e in entries if e.memory_type == memory_type]
+            normalized = [e for e in normalized if e["type"] == memory_type]
 
-        if not entries:
-            return f"No memories found with type '{memory_type}'."
-
-        lines = [f"=== AGENT MEMORY ({len(entries)} entries) ===\n"]
-        for i, e in enumerate(entries, 1):
-            tags_str = f" [{', '.join(e.tags)}]" if e.tags else ""
-            lines.append(
-                f"[{i}] {e.memory_type.upper()} "
-                f"(importance: {e.importance}/10){tags_str}\n"
-                f"    {e.content}\n"
-            )
-
-        if query:
-            lines.insert(1, f'Query: "{query}"\n')
-
-        return "".join(lines)
+        empty_msg = (
+            f"No memories found with type '{memory_type}'."
+            if memory_type
+            else None
+        )
+        return _format_memories_for_display(normalized, query=query, empty_message=empty_msg or "")
 
     # =========================================================================
     # In-Memory Backend
@@ -394,26 +437,12 @@ class SimpleMemory:
         if memory_type:
             entries = [e for e in entries if e["type"] == memory_type]
 
-        if not entries:
-            return (
-                "No memories stored yet. You are starting fresh — "
-                "use memory_store to save important information for future turns."
-            )
-
-        lines = [f"=== AGENT MEMORY ({len(entries)} entries) ===\n"]
-        for e in entries:
-            type_str = e["type"].upper()
-            tags_str = f" [{', '.join(e['tags'])}]" if e["tags"] else ""
-            lines.append(
-                f"[{e['index']}] {type_str} "
-                f"(importance: {e['importance']}/10){tags_str}\n"
-                f"    {e['content']}\n"
-            )
-
-        if query:
-            lines.insert(1, f'Query: "{query}"\n')
-
-        return "".join(lines)
+        empty_msg = (
+            f"No memories found with type '{memory_type}'."
+            if memory_type
+            else None
+        )
+        return _format_memories_for_display(entries, query=query, empty_message=empty_msg or "")
 
     # =========================================================================
     # Properties & Utilities
