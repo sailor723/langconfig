@@ -35,7 +35,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 # Assuming these modules exist in your project structure
 # MIGRATED: Using native Python tools instead of MCP subprocess servers
 from tools.native_tools import load_native_tools
-from core.agents.memory import AgentMemorySystem
+from core.agents.memory import get_or_create_memory
 from config import settings
 
 try:
@@ -434,16 +434,16 @@ class AgentFactory:
             "custom_output_path": agent_config.get("custom_output_path"),  # Custom output directory
         }
 
-        # Route memory tools from native_tools to the real AgentMemorySystem.
+        # Route memory tools from native_tools to the real SimpleMemory.
         # The native_tools.py stubs are placeholders; the real implementation
-        # is in core/agents/memory.py backed by pgvector.
+        # is in core/agents/memory.py via SimpleMemory (text-based + PostgreSQL).
         # Also filter out "enable_memory" config flag from native_tools list.
         MEMORY_NATIVE_TOOLS = {"memory_store", "memory_recall", "enable_memory"}
         requested_memory_native = [t for t in native_tool_names if t in MEMORY_NATIVE_TOOLS]
         if requested_memory_native:
             logger.info(
                 f"Detected memory tools in native_tools: {requested_memory_native}. "
-                f"Routing to AgentMemorySystem (vector-backed)."
+                f"Routing to SimpleMemory (text-based + PostgreSQL)."
             )
             # Remove stubs from native tool loading
             native_tool_names = [t for t in native_tool_names if t not in MEMORY_NATIVE_TOOLS]
