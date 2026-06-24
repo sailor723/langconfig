@@ -47,17 +47,19 @@ Tools available to every agent without configuration. Divided into 3 categories:
 | **Future** | memory, reasoning | Registered in `TOOL_NAME_MAP` but implemented in `core/agents/memory.py` |
 
 Key design:
-- **`TOOL_NAME_MAP`** (L32-79) — maps legacy MCP names to current names for backward compatibility
-- **`load_native_tools()`** (L1307) — registry dict matching tool names → tool functions
-- **`get_available_tool_names()`** (L1388) — exposes available tools to frontend
+- **`TOOL_NAME_MAP`** (L59) — maps legacy MCP names to current names for backward compatibility
+- **`load_native_tools()`** (L1838) — registry dict matching tool names → tool functions
+- **`get_available_tool_names()`** (L1933) — exposes available tools to frontend
 - **Every tool returns `str`** — errors are returned as strings, never raised as exceptions
+
+> **⚠️ Line numbers updated 2026-06-24** — `native_tools.py` grew 2.6× (1307 → 2182 lines). See [§ Drift Log](#drift-log-since-phase-2).
 
 ### 2. Custom Tools (User-defined)
 **File**: [`backend/models/custom_tool.py`](../../backend/models/custom_tool.py)
 
 **Enums & schemas**:
-- `ToolType` enum → `API`, `DATABASE`, `CODE_EXECUTION`, `FILE_SYSTEM`, `COMMUNICATION`, `CUSTOM`
-- `ToolTemplateType` enum → `slack`, `github`, `jira`, `notion`, `postgres`, etc.
+- `ToolType` enum → `API`, `NOTIFICATION`, `IMAGE_VIDEO`, `DATABASE`, `DATA_TRANSFORM`, `PYTHON_FUNCTION`
+- `ToolTemplateType` enum → `slack`, `discord`, `webhook`, `wordpress`, `twitter`, `openai_dalle3`, `openai_sora`, `gpt_image_1_5`, `gemini_imagen3`, `gemini_nano_banana`, `gemini_veo3`, `gemini_veo3_1`, `postgres`, `json_transform`, `python_function`
 - `CustomToolCreate/Update/Response` — Pydantic schemas for CRUD operations
 
 **Flow**: user-defined tools stored in DB, created via UI or API.
@@ -67,7 +69,7 @@ POST /api/tools → stored in custom_tools table
     ↓
 Agent config references custom_tool_ids: ["my_tool"]
     ↓
-_load_custom_tools() @ factory.py#L1376 → DB lookup
+_load_custom_tools() @ factory.py#L1474 → DB lookup
     ↓
 ToolFactory.create_tool(config) → BaseTool
 ```
@@ -142,11 +144,15 @@ User picks "Slack Notification" in UI
 | **Guidance** | `setup_instructions`, `example_use_cases`, `required_user_fields` | None |
 | **Stored in DB** | User config only (references `template_id`) | Full tool definition |
 
-**14 registered templates**:
+**15 registered templates** (was 14, added PYTHON_FUNCTION in Phase 5):
 - **Notification**: Slack, Discord
+- **CMS/Social**: WordPress, Twitter
 - **API**: Webhook
 - **Image**: OpenAI DALLE-3, GPT-Image-1.5, Gemini Imagen3, Gemini Nano Banana
 - **Video**: OpenAI SORA, Gemini Veo3, Gemini Veo3.1
+- **Database**: Postgres
+- **Data Transform**: JSON
+- **Python Function** (NEW Phase 5): user-supplied Python callable wrapped as a tool
 - **CMS**: WordPress
 - **Social**: Twitter
 - **Database**: PostgreSQL
@@ -203,15 +209,15 @@ tool_config (from DB or template)
 ### 7. Tool Loading in Agent Factory
 **File**: [`backend/core/agents/factory.py`](../../backend/core/agents/factory.py)
 
-Five loading methods called during `create_agent()` Step 3 (L392). Each accepts a list of identifiers and returns `List[BaseTool]`:
+Five loading methods called during `create_agent()` Step 3 (L425). Each accepts a list of identifiers and returns `List[BaseTool]`:
 
 | Method | Line | Source | Key Detail |
 |---|---|---|---|
-| `_load_native_tools()` | L1234 | `native_tools.py` | Looks up tool names in `available_tools` registry dict |
-| `_load_cli_tools()` | L1344 | CLI command config | Creates tools from `CliCommand` DB models (git, docker) |
-| `_load_custom_tools()` | L1376 | DB `custom_tools` table | Fetches by `tool_id`, calls `ToolFactory.create_tool()`, tracks usage/error counts |
-| `_load_memory_tools()` | L1467 | Vector store + memory | Creates search/retrieval tools from `AgentMemorySystem` |
-| `_load_rag_tools()` | L1490 | RAG config | Creates codebase search tools for RAG workflows |
+| `_load_native_tools()` | L1332 | `native_tools.py` | Looks up tool names in `available_tools` registry dict |
+| `_load_cli_tools()` | L1442 | CLI command config | Creates tools from `CliCommand` DB models (git, docker) |
+| `_load_custom_tools()` | L1474 | DB `custom_tools` table | Fetches by `tool_id`, calls `ToolFactory.create_tool()`, tracks usage/error counts |
+| `_load_memory_tools()` | L1565 | Vector store + memory | Creates search/retrieval tools from `AgentMemorySystem` |
+| `_load_rag_tools()` | L1594 | RAG config | Creates codebase search tools for RAG workflows |
 
 ### 8. Execution Constraint Wrapper
 **File**: [`backend/core/tools/execution_wrapper.py`](../../backend/core/tools/execution_wrapper.py)
@@ -226,30 +232,30 @@ Five loading methods called during `create_agent()` Step 3 (L392). Each accepts 
 ## Tool Loading Flow (in AgentFactory.create_agent)
 
 ```
-Step 3 (L392):
+Step 3 (L425):
   tools: List[BaseTool] = []         # Empty list
 
   # 1. Native tools by name
   if native_tool_names:
-      tools += _load_native_tools(native_tool_names)  @ L1234
+      tools += _load_native_tools(native_tool_names)  @ L1332
 
   # 2. CLI tools
   if cli_tools:
-      tools += _load_cli_tools(cli_tools)             @ L1344
+      tools += _load_cli_tools(cli_tools)             @ L1442
 
   # 3. Custom tools by DB ID
   if custom_tool_ids:
-      tools += _load_custom_tools(custom_tool_ids)    @ L1376
+      tools += _load_custom_tools(custom_tool_ids)    @ L1474
 
   # 4. Memory tools (if memory enabled)
   if enable_memory:
-      tools += _load_memory_tools(...)                @ L1467
+      tools += _load_memory_tools(...)                @ L1565
 
   # 5. RAG tools (if RAG enabled)
   if enable_rag:
-      tools += _load_rag_tools(...)                   @ L1490
+      tools += _load_rag_tools(...)                   @ L1594
 
-Step 3b (L444):
+Step 3b (L486):
   # Wrap with constraints (timeout, retry, exclusive)
   tools = wrap_tools_with_constraints(tools)
 
@@ -471,8 +477,80 @@ POST /api/orchestration/execute  (execution.py#L106)
 3. **Execution constraints** are applied uniformly via the wrapper layer
 4. **Tool binding is now automatic** — LangChain v1.0 `create_agent()` handles it
 5. **Unified database** — PostgreSQL with pgvector handles everything: app data, vectors, LangGraph checkpoints
-6. **Dual-source API keys** — Database (encrypted) > .env fallback, managed via Settings UI
+6. **API keys are encrypted at rest** — Fernet + PBKDF2 in `settings.api_keys` JSONB column. Read by `EncryptionService`.
+   ⚠️ **Phase 5 change:** the DB→.env fallback chain documented in Phase 1 is no longer present. Current code reads keys directly from the encrypted JSONB column only.
 7. **Streaming-first runtime** — SSE events for every step: chain start/end, tool calls, LLM token usage
+
+---
+
+## Drift Log (since Phase 2)
+
+**Refreshed 2026-06-24.** Phase 2 was the "Tools Architecture" phase. Since then, the codebase has drifted as features were added in Phase 3+ (DeepAgent, Skills, Memory) and Phase 5 (DB-driven models). This section tracks what changed so the doc stays useful.
+
+### File size growth
+
+| File | Phase 2 size | Current (2026-06-24) | Delta | Reason |
+|---|---|---|---|---|
+| `backend/tools/native_tools.py` | ~1307 lines | **2182 lines** | **+875 (2.6×)** | Added web_search, web_fetch, browser, doc_index, graphindex, memory ops |
+| `backend/core/agents/factory.py` | ~1944 lines (claim) | **1944 lines** | matches | (slight growth offset by extracted helpers) |
+| `backend/core/tools/templates.py` | (no baseline) | **1385 lines** | n/a | Templates + descriptions grew |
+| `backend/core/tools/factory.py` | (no baseline) | **2361 lines** | n/a | Tool factory now has 6 routing paths (added PYTHON_FUNCTION) |
+
+### Line number drift (factory.py + native_tools.py)
+
+| Item | Phase 2 claim | Current (2026-06-24) | Drift |
+|---|---|---|---|
+| `load_native_tools()` | L1307 | **L1838** | +531 |
+| `get_available_tool_names()` | L1388 | **L1933** | +545 |
+| `_load_native_tools()` | L1234 | **L1332** | +98 |
+| `_load_cli_tools()` | L1344 | **L1442** | +98 |
+| `_load_custom_tools()` | L1376 | **L1474** | +98 |
+| `_load_memory_tools()` | L1467 | **L1565** | +98 |
+| `_load_rag_tools()` | L1490 | **L1594** | +104 |
+| `tools: List[BaseTool] = []` | L392 | **L425** | +33 |
+| `wrap_tools_with_constraints(tools)` | L444 | **L486** | +42 |
+
+### What was added (not in Phase 2)
+
+| Feature | Phase | Where | Why missing from Phase 2 doc |
+|---|---|---|---|
+| **PYTHON_FUNCTION template** | 5 | `templates.py` | Lets users write Python directly without leaving the UI |
+| **WordPress, Twitter CMS templates** | 5 | `templates.py` | Social/CMS integration |
+| **GPT-Image-1.5, Nano Banana, Veo3.1** | 5 | `templates.py` | New model providers |
+| **TOOL_NAME_MAP** at L59 (not L32-79) | n/a | `native_tools.py` | Refactored to keep MCP compat map at top |
+| **Search providers** (Tavily, DDG, Wikipedia, Exa, Brave, SerpAPI) | 5+ | `backend/api/system/search_providers.py` | Web search providers stored in DB + Settings UI tab |
+| **Skill system tools** | 3+ | `create_skill`, `update_skill`, `delete_skill` | Skills are tools that can be invoked at runtime |
+| **Memory tools** (`memory_store`, `memory_recall`) | 3+ | `native_tools.py` category=memory | Long-term memory operations on vector store |
+| **Retrieval tools** (`doc_index_*`, `graphindex_*`) | 3+ | `native_tools.py` category=retrieval | RAG + document indexing |
+
+### What BROKE since Phase 2
+
+| Item | Phase 2 claim | Reality | When broken |
+|---|---|---|---|
+| **DB→.env fallback for API keys** | Documented in Phase 1 README | ⚠️ Phase 5 removed `get_api_key_from_db()` helper. Current code reads only from encrypted `settings.api_keys` JSONB. | Phase 5 (commit `ade43ad`) |
+| **Routes count** | 22 (per Phase 2 doc) | Still 22 modules under `backend/api/` (agents, auth, chat, hitl, images, knowledge, mcp, memory, models, presentations, presets, projects, schedules, schemas, skills, system, tasks, tools, triggers, webhooks, workflows, workspace) | (no change) |
+
+### What was REMOVED since Phase 2
+
+| Item | Where removed | Notes |
+|---|---|---|
+| `get_api_key_from_db()` | `backend/config.py` | DB→.env fallback helper removed in Phase 5 |
+
+### Recommendations
+
+**Priority 1 (high signal, low risk):**
+- ✅ **Done 2026-06-24:** Refresh line numbers (done above)
+- ✅ **Done 2026-06-24:** Document PYTHON_FUNCTION template
+- ✅ **Done 2026-06-24:** Document Phase 5 API key change in Key Takeaways #6
+
+**Priority 2 (medium effort, medium risk):**
+- ❌ **Pending:** Split `factory.py` into `tool_loader.py` (extract 5 `_load_*_tools()` methods)
+- ❌ **Pending:** Audit `deepagent_factory.py` for dead code (grew 6× since Phase 2)
+- ❌ **Pending:** Decouple `tools/factory.py` (2361 lines) into per-template files
+
+**Priority 3 (cosmetic):**
+- ❌ **Pending:** Move `TOOL_NAME_MAP` from L59 to a more discoverable location
+- ❌ **Pending:** Add a "How to add a new native tool" tutorial
 
 ---
 
