@@ -1240,10 +1240,12 @@ Several frontend changes improve the chat experience:
 | Smaller font | `MessagesPanel.tsx` | `prose-sm` → `prose-xs` at `0.81rem` |
 | Upload auto-refresh | `SessionDocumentsPanel.tsx` | Document list refreshes via `refreshKey` prop |
 
-### 6. Skills System for Data Analysis
+### 6. Skills System
+
+> **Refreshed 2026-06-24.** Major drift found — earlier version of this README described the skills architecture incorrectly. See [Drift Log](#drift-log-since-phase-5) for details.
 
 The **Skills system** packages expertise into discoverable `SKILL.md` files that
-agents automatically load. Unlike Native Tools (which contain executable code),
+agents can leverage. Unlike Native Tools (which contain executable code),
 Skills are **structured prompts** that tell the agent *how* to use existing tools.
 
 #### 6a. Skill vs Native Tool
@@ -1251,10 +1253,10 @@ Skills are **structured prompts** that tell the agent *how* to use existing tool
 | | **Native Tool** | **Skill** |
 |---|---|---|
 | What | Python `@tool` function | `SKILL.md` file with metadata + instructions |
-| Execution | Runs actual code | Injected into agent system prompt |
+| Execution | Runs actual code | Injected into agent system prompt (or subagent) |
 | Location | `tools/native_tools.py` | `skills/builtin/<name>/SKILL.md` |
-| Registration | 4 places in Python | Auto-discovered from filesystem |
-| Lifecycle | Code deployment | Versioned, tagged, usage-tracked |
+| Registration | 4 places in Python | Auto-discovered from filesystem → DB |
+| Lifecycle | Code deployment | Versioned, tagged, usage-tracked, can be created by agent |
 
 #### 6b. The `data-analysis` Skill
 
@@ -1282,45 +1284,82 @@ No new native tools were needed — the Skill leverages the existing sandbox
 (`execute`, `read_file`, `write_file`) and the existing `DATABASE_URL`
 connection configured in [`backend/db/database.py`](../../backend/db/database.py).
 
-#### 6c. How It Gets Loaded
+#### 6c. How Skills Are Auto-Discovered
 
-Skills are auto-discovered on server startup by the `SkillRegistry`
-([`backend/core/skills/registry.py`](../../backend/core/skills/registry.py)):
+On server startup, the `SkillRegistry` (custom, 551 lines) auto-discovers skills:
+
+**File**: [`backend/core/skills/registry.py`](../../backend/core/skills/registry.py)
+**File**: [`backend/core/skills/loader.py`](../../backend/core/skills/loader.py) (310 lines)
+**File**: [`backend/core/skills/matcher.py`](../../backend/core/skills/matcher.py) (275 lines)
 
 ```
 skills/builtin/data-analysis/SKILL.md
   → SkillLoader parses YAML frontmatter + markdown instructions
-  → SkillRegistry indexes in memory + persists to DB
-  → SkillMatcher matches against user context
-  → Instructions injected into agent system prompt
+  → SkillRegistry indexes in memory + persists to PostgreSQL `skills` table
+  → SkillMatcher matches against user context (used by Skill Router LLM)
 ```
 
 No UI configuration is needed — placing the file in the `skills/builtin/`
 directory is sufficient.
 
-#### 6d. Extending to Other Databases
+#### 6d. The ACTUAL Skill Architecture (subagent-per-skill)
 
-The same pattern works for any SQLAlchemy-supported database:
+> ⚠️ **Important correction from earlier README versions**: We do **NOT** use
+> `create_deep_agent(skills=[...])` (the library's progressive-disclosure skill loading).
+> Instead, **each skill is wrapped as a subagent** with its own isolated
+> `SkillsMiddleware`. The main agent has no skills and delegates via `task()`.
 
-- **SQLite**: `sqlite:///path/to/db.sqlite`
-- **MySQL**: `mysql+pymysql://user:pass@host/db`
-- **SQL Server**: `mssql+pyodbc://user:pass@host/db`
+**File**: [`backend/services/deepagent_factory.py#L405-L510`](../../backend/services/deepagent_factory.py#L405-L510)
 
-The agent just needs the connection string passed in the analysis request.
+The flow:
 
-#### 6e. DB → Sandbox Integration in LangConfig
+```
+1. Agent creation starts
+2. Factory reads skill records from PostgreSQL `skills` table
+3. For each skill:
+   a. Writes SKILL.md to sandbox/skills/<id>/SKILL.md
+   b. Creates a SkillsMiddleware (backend=FilesystemBackend, sources=[<id>])
+   c. Wraps it in a subagent with system_prompt "You are a <id> specialist. Read SKILL.md."
+4. Main agent gets a "## SKILLS" delegation hint in its system prompt:
+       "## SKILLS
+        You have access to specialized subagents. When a task requires
+        specialized knowledge, delegate using task() with the matching subagent name:
+          - data-analysis: Analyze CSV/SQL data
+          - code-review: Review code for best practices
+          - ..."
+5. Main agent delegates via task() to the appropriate skill subagent
+6. The subagent reads its own SKILL.md and executes the work
+```
 
-LangConfig's `deepagent_factory.py` implements the DB→sandbox pattern:
+#### 6e. Why Subagent-per-Skill (instead of library's skills=[])
 
-1. **`DeepAgentConfig.skills`** ([`models/deep_agent.py`](../../backend/models/deep_agent.py#L237)) stores skill IDs as `List[str]`
-2. **At agent creation**, the factory ([`deepagent_factory.py`](../../backend/services/deepagent_factory.py#L293)):
-   - Loads skill records from PostgreSQL `skills` table
-   - Reconstructs `SKILL.md` from DB fields (name, description, tags, instructions)
-   - Writes to `outputs/default/skills/<id>/SKILL.md` in the sandbox
-   - Passes `skills=[str(skills_root)]` to `create_deep_agent()`
-3. **Agent uses progressive disclosure** — reads SKILL.md only when user request matches skill description
+| Aspect | Library default (`skills=[...]`) | Our design (subagents) |
+|---|---|---|
+| Skills location | One path, shared in main agent's prompt | One subagent per skill, isolated |
+| Context isolation | ❌ All skills' metadata in main prompt | ✅ Each subagent has its own context |
+| Token usage | Can be high (all metadata) | Lower (only when task is delegated) |
+| Multi-skill blending | Hard (all visible at once) | ✅ Easy (sequential subagent calls) |
+| Library idiom | `create_deep_agent(skills=...)` | `create_deep_agent(subagents=[...])` |
 
-#### 6f. Agent-Generated Skills (Meta-Skills)
+The trade-off: we give up progressive disclosure (which the library provides) in exchange for **cleaner context isolation** between skills.
+
+#### 6f. Skill Router (LLM-based, optional)
+
+**File**: [`backend/services/deepagent_factory.py#L71-L145`](../../backend/services/deepagent_factory.py#L71-L145)
+
+When `config.skill_router_model` is set, the factory runs an LLM on the first user message to **suggest** which skill to use. The router is a **hint, not a filter** — all skills remain available so the agent can switch on subsequent turns.
+
+```python
+async def _run_skill_router(router_model, skill_records, user_message):
+    # Build skill descriptions list
+    skills_text = "\n".join(f"- {s.skill_id}: {s.description}" for s in skill_records)
+    # Call the router LLM to classify which skill matches the user's request
+    # Returns the matched skill_id, or 'none' if no skill matches
+```
+
+**Configuration**: Set `skill_router_model` in `DeepAgentConfig` (e.g., `"deepseek-chat"`).
+
+#### 6g. Agent-Generated Skills (Meta-Skills)
 
 Skills can now create other skills — the agent generates, designs, and saves reusable skills to the database.
 
@@ -1336,7 +1375,7 @@ Agent (research agent with skill-generator skill)
       ├── 2. Researches best practices (internet-research skill)
       ├── 3. Designs name, description, tags, triggers, instructions
       ├── 4. Calls create_skill() native tool
-      │         └── writes to PostgreSQL skills table
+      │         └── writes to PostgreSQL `skills` table
       └── 5. Confirms → skill appears in Skills Library
 ```
 
@@ -1344,9 +1383,9 @@ Agent (research agent with skill-generator skill)
 
 | Component | Where | Purpose |
 |---|---|---|
-| `create_skill` tool | [`native_tools.py`](../../backend/tools/native_tools.py#L1420) | Agent writes skills to DB |
-| `update_skill` tool | [`native_tools.py`](../../backend/tools/native_tools.py#L1460) | Agent updates existing skills |
-| `delete_skill` tool | [`native_tools.py`](../../backend/tools/native_tools.py#L1500) | Agent deletes skills |
+| `create_skill` tool | [`native_tools.py`](../../backend/tools/native_tools.py#L1422) | Agent writes skills to DB |
+| `update_skill` tool | [`native_tools.py`](../../backend/tools/native_tools.py#L1473) | Agent updates existing skills |
+| `delete_skill` tool | [`native_tools.py`](../../backend/tools/native_tools.py#L1519) | Agent deletes skills |
 | `skill-generator` skill | [`skills/builtin/skill-generator/SKILL.md`](../../backend/skills/builtin/skill-generator/SKILL.md) | Meta-skill teaching agents to design and create skills |
 
 **Key design decisions:**
@@ -1355,17 +1394,19 @@ Agent (research agent with skill-generator skill)
 - **Skill Generator is itself a skill** — uses progressive disclosure like any other skill
 - **Research Agent as unified agent** — one agent with multiple skills replaces many specialized agents
 
-#### 6g. Skills Library UI Improvements
+#### 6h. Skills Library UI
 
-| Change | Description |
+| Feature | Description |
 |---|---|
-| **Navigation tab** | Added "Skills" button to `ModernHeader` toolbar (Prompt and Community tabs) |
+| **Navigation tab** | "Skills" button in `ModernHeader` toolbar (Prompt and Community tabs) |
 | **Create Skill button** | Blue button in Skills Library header, opens `SkillBuilderModal` |
-| **Detail modal** | Full-screen modal replaces cramped bottom panel — shows all fields, triggers, instructions, examples |
-| **DB-direct queries** | `list_skills` and `get_skill` endpoints now query PostgreSQL directly (not registry cache) so tool-created skills appear immediately |
+| **Detail modal** | Full-screen modal shows all fields, triggers, instructions, examples |
+| **DB-direct queries** | `list_skills` and `get_skill` endpoints query PostgreSQL directly (not registry cache) so tool-created skills appear immediately |
 | **Reload button** | Fires `POST /api/skills/reload-all` to sync filesystem → DB, then refreshes list |
 
-#### 6h. Key Learnings
+**File**: [`backend/api/skills/routes.py`](../../backend/api/skills/routes.py)
+
+#### 6i. Key Learnings
 
 | Lesson | Detail |
 |---|---|
@@ -1373,8 +1414,10 @@ Agent (research agent with skill-generator skill)
 | **Leverage sandbox** | The sandbox's `execute` + `inherit_env=True` gives full access to existing tools |
 | **Skills vs Tools** | Skills = "what to do" (prompt), Tools = "how to do it" (code) |
 | **Auto-discovery** | Skills are auto-loaded from disk, no DB setup needed |
+| **Subagent isolation** | Wrapping each skill as a subagent with isolated SkillsMiddleware prevents leakage |
+| **Library pattern diverged** | We chose subagent-per-skill over `create_deep_agent(skills=...)` for cleaner context isolation |
 
-#### 5j. Key Learnings
+#### 5j. Key Learnings (Data Analysis)
 
 | Lesson | Detail |
 |---|---|
@@ -1382,3 +1425,58 @@ Agent (research agent with skill-generator skill)
 | **File sharing** | Without `embedding base_url` in DeepAgent responses, charts must be served via a separate `/api/files/` static endpoint. |
 | **Dependencies** | `pandas` and `matplotlib` must be added to `backend/pyproject.toml` for analysis scripts. |
 | **Untracked files** | Generated sandbox dirs (`_data_analysis_sandbox/`, `_analysis_output/`) should be gitignored. |
+
+---
+
+## Drift Log (since Phase 5)
+
+**Refreshed 2026-06-24.** This log tracks what changed in the Skills section
+since the README was first written, so the doc stays useful.
+
+### Skills section rewrite (2026-06-24)
+
+Earlier versions of section 6 (6a-6h) described the skills architecture **incorrectly**:
+
+| Old README claim | Actual code (verified) |
+|---|---|
+| "Passes `skills=[str(skills_root)]` to `create_deep_agent()`" | ❌ **WRONG** — never uses `skills=[]`. Uses `subagents=[]` with isolated `SkillsMiddleware` |
+| "Agent uses progressive disclosure" | ❌ **WRONG** — main agent has no progressive disclosure. It delegates via `task()` to skill subagents |
+| "SkillMatcher matches against user context" | 🟡 Partially true — Skill Router LLM (not SkillMatcher) makes the routing decision |
+| "Auto-discovered on server startup" | ✅ TRUE — SkillRegistry does this |
+| `create_skill` at L1420 | Actually at L1422 |
+| `update_skill` at L1460 | Actually at L1473 |
+| `delete_skill` at L1500 | Actually at L1519 |
+| `factory.py#L293` for skills sync | Actually at L405-L510 |
+| 4-line "Key Learnings" | Expanded to 6 lines (subagent isolation, library pattern diverged added) |
+
+### What was added
+
+| Section | Content |
+|---|---|
+| 6d | "The ACTUAL Skill Architecture" — corrected to subagent-per-skill |
+| 6e | "Why Subagent-per-Skill" — comparison table vs library's `skills=[]` |
+| 6f | "Skill Router (LLM-based)" — documented the optional router LLM |
+| 6h | "Skills Library UI" — file path added |
+| 6i | "Key Learnings" — section renumbered and expanded |
+| 5j | "Key Learnings (Data Analysis)" — moved here (was misplaced after 6h) |
+| Drift Log | This section |
+
+### File size changes (this commit)
+
+- `learning/phase5/README.md`: 1384 → ~1430 lines (+46 lines net after rewrite)
+
+### What was NOT changed
+
+- The actual code (no refactor)
+- The 15 builtin skills
+- The `SkillRegistry` (still 551 lines, custom)
+- The skill CRUD tools (`create_skill`/`update_skill`/`delete_skill`)
+
+### Open questions for Phase 5 P2
+
+- ❓ Should we **migrate to library's `create_deep_agent(skills=...)`** to simplify?
+  - Trade-off: lose per-skill isolation (or keep it via per-skill middleware)
+  - Benefit: less custom code (`SkillRegistry` could be deleted)
+  - Effort: ~3-4 hours
+- ❓ Should we **auto-create the `skill-generator` skill on first run** if missing?
+- ❓ Is the **Skill Router LLM worth the latency** on first message?
