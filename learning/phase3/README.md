@@ -393,13 +393,12 @@ The Store uses `AsyncPostgresStore` which stores data in `store` and `store_blob
 - ✅ **Updated line numbers**: factory.py → tool_loader.py
 - ✅ **Added Drift Log** section
 
-**Priority 2 (medium effort, low risk) — PENDING:**
-- ❌ **Remove `AgentMemorySystem` class** (lines 518-531, ~13 lines) — dead wrapper
-- ❌ **Remove module-level `create_memory_tools()`** (lines 439-516, ~77 lines) — dead code
-- ❌ **Deduplicate memory prompt** (lines 332, 400)
-- ❌ **Remove `vector_store` param from `SimpleMemory.__init__`** (unused, kept for compat)
-- ❌ **Audit `services/llama_config.py`** — mostly unused by memory now
+**Priority 2 (medium effort, low risk) — DONE 2026-06-24:**
+- ✅ **Remove `AgentMemorySystem` class** (~18 lines) — deprecated wrapper
+- ✅ **Remove module-level `create_memory_tools()`** (~16 lines) — unused
+- ✅ **Deduplicate memory prompt** — extracted shared `_format_memories_for_display()` helper used by both `_recall_from_db` and `_recall_from_inmem`
+- ✅ **`vector_store` param** — already removed (SimpleMemory has no such param)
+- ✅ **Audit `services/llama_config.py`** — removed `get_langchain_vector_store()` (~99 lines, dead since AgentMemorySystem was deleted)
 
 **Priority 3 (open question) — PENDING:**
 - ❓ **Migrate to DeepAgent's `MemoryMiddleware`**? Library v0.6.8 provides filesystem-based memory (AGENTS.md files). Different paradigm: injected into system prompt vs tool-based. Trade-off: more idiomatic but loses tool-style control.
-7. **Embedding flexibility** — Priority chain from local (Ollama) → cloud (OpenAI) → fallback (HuggingFace)
