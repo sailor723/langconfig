@@ -294,17 +294,3 @@ class SkillLoader:
 
         return instructions, examples
 
-    def validate_skill_id(self, skill_id: str) -> bool:
-        """
-        Validate skill ID format (kebab-case).
-
-        Args:
-            skill_id: The skill identifier to validate
-
-        Returns:
-            True if valid, False otherwise
-        """
-        import re
-        if not skill_id:
-            return False
-        return bool(re.match(r'^[a-z0-9]+(-[a-z0-9]+)*$', skill_id))
