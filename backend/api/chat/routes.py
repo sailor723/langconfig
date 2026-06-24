@@ -158,22 +158,42 @@ from services.chat_session_manager import get_session_manager
 active_agents: Dict[str, Any] = {}
 
 
-def get_cached_agent(session_id: str) -> Optional[Any]:
-    """Get cached agent instance using session manager."""
+def get_cached_agent(session_id: str, agent_id: Optional[int] = None, agent_version: Optional[str] = None) -> Optional[Any]:
+    """Get cached agent instance using session manager.
+
+    If agent_id and agent_version are provided, they're included in the cache key
+    so that updates to the agent's config invalidate the cache.
+    """
     manager = get_session_manager()
-    agent = manager.get_agent(session_id)
+    agent = manager.get_agent(session_id, agent_id, agent_version)
     if agent:
         return agent
-    # Fallback to legacy cache
-    return active_agents.get(session_id)
+    # Fallback to legacy cache (uses composite key when agent_id+version provided)
+    if agent_id is not None:
+        legacy_key = f"{session_id}:{agent_id}"
+        if agent_version is not None:
+            legacy_key = f"{legacy_key}:{agent_version}"
+    else:
+        legacy_key = session_id
+    return active_agents.get(legacy_key)
 
 
-def cache_agent(session_id: str, agent_instance: Any):
-    """Cache agent instance using session manager."""
+def cache_agent(session_id: str, agent_instance: Any, agent_id: Optional[int] = None, agent_version: Optional[str] = None):
+    """Cache agent instance using session manager.
+
+    If agent_id and agent_version are provided, they're included in the cache key
+    so that updates to the agent's config invalidate the cache.
+    """
     manager = get_session_manager()
-    manager.cache_agent(session_id, agent_instance)
-    # Also update legacy cache for compatibility
-    active_agents[session_id] = agent_instance
+    manager.cache_agent(session_id, agent_instance, agent_id, agent_version)
+    # Also update legacy cache for compatibility (with same composite key)
+    if agent_id is not None:
+        legacy_key = f"{session_id}:{agent_id}"
+        if agent_version is not None:
+            legacy_key = f"{legacy_key}:{agent_version}"
+    else:
+        legacy_key = session_id
+    active_agents[legacy_key] = agent_instance
 
 
 # =============================================================================
@@ -694,8 +714,17 @@ async def send_message_stream(
                         rag_tokens_used = token_counter.count_tokens(all_context)
                         logger.info(f"Retrieved RAG context: {rag_tokens_used} tokens")
 
-                # Get or create agent instance
-                agent_instance = get_cached_agent(request.session_id)
+                # Get or create agent instance.
+                # Use (session_id, agent_id, agent.updated_at) as cache key so that
+                # updates to the agent's config invalidate the cached agent.
+                agent_version = None
+                if agent.updated_at:
+                    agent_version = str(int(agent.updated_at.timestamp()))
+                agent_instance = get_cached_agent(
+                    request.session_id,
+                    agent_id=agent.id,
+                    agent_version=agent_version,
+                )
 
                 if not agent_instance:
                     # Branch on agent type
@@ -721,7 +750,12 @@ async def send_message_stream(
                             mcp_manager=None,
                             vector_store=None
                         )
-                    cache_agent(request.session_id, agent_instance)
+                    cache_agent(
+                        request.session_id,
+                        agent_instance,
+                        agent_id=agent.id,
+                        agent_version=agent_version,
+                    )
 
                 # Create event handler for tracking tool calls and subagent activity
                 event_handler = ExecutionEventCallbackHandler(
