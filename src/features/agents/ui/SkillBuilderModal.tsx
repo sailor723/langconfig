@@ -1262,14 +1262,20 @@ when user needs external facts not in their training data
             <div className="flex items-center gap-2">
               <button
                 onClick={resetAll}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white/95 hover:text-white bg-white/15 hover:bg-white/25 rounded-lg"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg"
+                style={{ color: '#FFFFFF', backgroundColor: 'rgba(255, 255, 255, 0.18)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.28)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.18)')}
                 title="Reset to original values"
               >
                 <RotateCcw size={12} /> Reset
               </button>
               <button
                 onClick={onClose}
-                className="p-2 text-white/90 hover:text-white hover:bg-white/15 rounded-lg"
+                className="p-2 rounded-lg"
+                style={{ color: '#FFFFFF', backgroundColor: 'rgba(255, 255, 255, 0.15)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.28)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.15)')}
                 title="Close"
               >
                 <X size={18} />
@@ -1655,7 +1661,10 @@ when user needs external facts not in their training data
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors"
+              style={{ color: '#1F1E1B', backgroundColor: '#FFFFFF', borderColor: '#E8E4DA' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F5F2EC')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
             >
               Close
             </button>
@@ -1663,7 +1672,7 @@ when user needs external facts not in their training data
               <button
                 onClick={() => handleSaveSection('body')}
                 disabled={sectionSaving.body}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white flex items-center gap-2 disabled:opacity-50"
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-2 disabled:opacity-50"
                 style={{ backgroundColor: 'var(--color-primary)' }}
               >
                 <Save size={14} />
