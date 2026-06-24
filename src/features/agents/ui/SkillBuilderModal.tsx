@@ -1356,11 +1356,11 @@ when user needs external facts not in their training data
                         <button
                           onClick={() => handleSaveSection(sec.id)}
                           disabled={saving}
-                          className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-white rounded-lg disabled:opacity-50"
+                          className="flex items-center gap-1 px-3 py-1 text-xs font-semibold text-white rounded-lg shadow-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{ backgroundColor: 'var(--color-primary)' }}
                           title={`Save changes to ${sec.title}`}
                         >
-                          <Save size={11} />
+                          <Save size={11} className="text-white" />
                           {saving ? 'Saving…' : 'Save'}
                         </button>
                       )}
@@ -1368,11 +1368,11 @@ when user needs external facts not in their training data
                         <button
                           onClick={() => handleSaveSection(sec.id)}
                           disabled={saving}
-                          className="flex items-center gap-1 px-3 py-1 text-xs font-medium text-white rounded-lg disabled:opacity-50"
+                          className="flex items-center gap-1 px-3 py-1 text-xs font-semibold text-white rounded-lg shadow-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                           style={{ backgroundColor: 'var(--color-primary)' }}
                           title="Create this skill"
                         >
-                          <Check size={11} />
+                          <Check size={11} className="text-white" />
                           {saving ? 'Creating…' : 'Create skill'}
                         </button>
                       )}

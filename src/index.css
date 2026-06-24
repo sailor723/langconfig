@@ -651,9 +651,10 @@ select {
   outline: none !important;
 }
 
-/* Buttons - warm accent */
+/* Buttons - warm accent (darker copper for WCAG-AA contrast with white text) */
 [data-theme="claude"] button[style*="background-color: var(--color-primary)"] {
-  background-color: #C27D3F !important;
+  background-color: #8B5A2B !important;
+  color: #FFFFFF !important;
 }
 
 [data-theme="claude"] button:hover {
