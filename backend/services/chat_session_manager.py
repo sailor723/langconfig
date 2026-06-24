@@ -70,39 +70,57 @@ class ChatSessionManager:
 
         logger.info(f"ChatSessionManager initialized (TTL: {ttl_seconds}s, cleanup: {cleanup_interval}s)")
 
-    def get_agent(self, session_id: str) -> Optional[Any]:
+    def get_agent(self, session_id: str, agent_id: Optional[int] = None, agent_version: Optional[str] = None) -> Optional[Any]:
         """
         Get cached agent instance for a session.
 
         Args:
             session_id: Session ID
+            agent_id: Optional agent ID — used in cache key so config updates invalidate cache
+            agent_version: Optional version string (e.g. agent.updated_at epoch) — invalidates on change
 
         Returns:
             Agent instance if cached, None otherwise
         """
-        metadata = self.active_sessions.get(session_id)
+        # Build composite key — agent_id + version bust the cache when config changes
+        cache_key = session_id
+        if agent_id is not None:
+            cache_key = f"{session_id}:{agent_id}"
+            if agent_version is not None:
+                cache_key = f"{cache_key}:{agent_version}"
+
+        metadata = self.active_sessions.get(cache_key)
         if metadata:
             metadata.touch()
             return metadata.agent_instance
         return None
 
-    def cache_agent(self, session_id: str, agent_instance: Any):
+    def cache_agent(self, session_id: str, agent_instance: Any, agent_id: Optional[int] = None, agent_version: Optional[str] = None):
         """
         Cache an agent instance for a session.
 
         Args:
             session_id: Session ID
             agent_instance: Agent instance to cache
+            agent_id: Optional agent ID — used in cache key
+            agent_version: Optional version string — invalidates cache on change
         """
-        if session_id in self.active_sessions:
+        # Build composite key — see get_agent
+        cache_key = session_id
+        if agent_id is not None:
+            cache_key = f"{session_id}:{agent_id}"
+            if agent_version is not None:
+                cache_key = f"{cache_key}:{agent_version}"
+
+        if cache_key in self.active_sessions:
             # Update existing
-            self.active_sessions[session_id].agent_instance = agent_instance
-            self.active_sessions[session_id].touch()
+            self.active_sessions[cache_key].agent_instance = agent_instance
+            self.active_sessions[cache_key].touch()
         else:
             # Create new
-            self.active_sessions[session_id] = SessionMetadata(agent_instance, session_id)
+            self.active_sessions[cache_key] = SessionMetadata(agent_instance, cache_key)
 
-        logger.debug(f"Cached agent for session {session_id} (total: {len(self.active_sessions)})")
+        logger.debug(f"Cached agent for key {cache_key} (total: {len(self.active_sessions)})")
 
     def remove_session(self, session_id: str) -> bool:
         """
