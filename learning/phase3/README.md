@@ -1,14 +1,16 @@
 # Phase 3: Memory Systems
 
-> How LangConfig agents actively manage long-term memory via vector store tools, and how context is assembled from multiple sources.
+> How LangConfig agents actively manage long-term memory via tool-based persistence, and how context is assembled from multiple sources.
+
+> **Last refreshed 2026-06-24.** Major refactor: `SimpleMemory` replaced the deprecated `AgentMemorySystem` (which was a VectorStore wrapper). See [§ Drift Log](#drift-log-since-phase-3) for details.
 
 ---
 
-## Agent Memory System
+## SimpleMemory (current implementation)
 
 **File**: [`backend/core/agents/memory.py`](../../backend/core/agents/memory.py)
 
-The `AgentMemorySystem` gives agents **explicit memory control through tools** — agents decide what to remember, search their own memories, and build up project-specific knowledge over time.
+`SimpleMemory` is the current text-based memory system. It gives agents **explicit memory control through tools** — agents decide what to remember, search their own memories, and build up project-specific knowledge over time.
 
 ### Memory Types
 
@@ -26,43 +28,40 @@ class MemoryType(str, Enum):
 
 | Tool | Schema | Behavior |
 |---|---|---|
-| `memory_store` | `MemorySaveArgs` | Saves a `Document` to VectorStore with metadata (memory_id, type, importance, tags, created_at) |
-| `memory_retrieve` | `MemorySearchArgs` | Semantic search via `asimilarity_search_with_relevance_scores()`, filters by `min_relevance` threshold |
+| `memory_store` | `MemorySaveArgs` | Saves a memory to PostgreSQL `agent_memories` table (or in-memory dict fallback) |
+| `memory_recall` | `MemoryRecallArgs` | Retrieves memories by query (full-text LIKE search, no embeddings) |
 
 ### Tool Argument Schemas (Pydantic Guardrails)
 
-- **`MemorySaveArgs`**: `memory_content` (str), `memory_type` (enum), `importance` (1-10), `tags` (list, optional)
-- **`MemorySearchArgs`**: `query` (str), `memory_type` (optional filter), `min_relevance` (0.0-1.0), `limit` (1-15)
+- **`MemorySaveArgs`** (L47): `memory_content` (str), `memory_type` (enum), `importance` (1-10), `tags` (list, optional)
+- **`MemoryRecallArgs`** (L101): `query` (str), `memory_type` (optional filter), `limit` (1-15), `min_importance` (optional)
 
 ### Scoping & Multi-Tenancy
 
-Each memory is scoped to a `(project_id, agent_id)` pair:
-
-```python
-self.base_metadata = {
-    "project_id": self.project_id,
-    "doc_type": "agent_memory"  # Differentiates from standard RAG docs
-}
-```
-
-All VectorStore operations use `filter=self.base_metadata` to ensure strict isolation.
+Each memory is scoped to a `(project_id, agent_id)` pair. Memories are stored in the `agent_memories` table with composite index on `(project_id, agent_id)`.
 
 ### How Memory Tools Are Loaded
 
-**File**: [`backend/core/agents/factory.py`](../../backend/core/agents/factory.py#L1467-L1492)
+**File**: [`backend/core/agents/tool_loader.py`](../../backend/core/agents/tool_loader.py#L370-L396)
 
 ```python
-async def _load_memory_tools(vector_store, project_id, task_id):
-    memory_system = AgentMemorySystem(
-        vector_store=vector_store,
+async def ToolLoader.load_memory(vector_store, project_id, task_id):
+    from core.agents.memory import get_or_create_memory
+    from db.database import AsyncSessionLocal
+
+    db_session = AsyncSessionLocal()
+    memory_system = get_or_create_memory(
         project_id=project_id,
-        agent_id=f"task_{task_id}"
+        agent_id=f"task_{task_id}",
+        db_session=db_session,
     )
     memory_tools = memory_system.create_memory_tools()
-    # Returns [memory_store, memory_retrieve] — ready for agent binding
+    # Returns [memory_store, memory_recall] — ready for agent binding
 ```
 
 The memory tools are produced as `StructuredTool` instances (via `StructuredTool.from_function()`) and mixed into the agent's tool list alongside native, custom, and template tools.
+
+> **Note**: The `vector_store` parameter is currently accepted but not used by `SimpleMemory` (kept for backward compat with the old `AgentMemorySystem` signature).
 
 ---
 
@@ -197,15 +196,16 @@ WHEN TO USE:
 
 ---
 
-## Three Persistence Layers: thread_id vs agent_id vs Store
+## Two Persistence Layers: thread_id vs agent_id
 
-This is crucial to understand: LangConfig has **three separate persistence systems** serving different purposes, each with its own scoping key.
+This is crucial to understand: LangConfig has **two separate persistence systems** serving different purposes, each with its own scoping key.
 
 | # | Layer | Scoped By | What It Persists | Technology | When It's Used |
 |---|-------|-----------|-----------------|------------|----------------|
 | **1** | **Checkpointer** | `thread_id` | Graph state, message history across conversation turns | `PostgresSaver` (PostgreSQL) | Every `workflow.ainvoke()` call |
-| **2** | **Memory Tools** | `agent_id` + `project_id` | Semantic facts, decisions, patterns the agent learns | `PGVectorStore` (pgvector) | Agent calls `memory_store()` / `memory_retrieve()` |
-| **3** | **Store API** | `namespace` (cross-thread) | Long-term memory across different workflow sessions | `AsyncPostgresStore` (PostgreSQL) | Accessed via `runtime.store` in LangGraph |
+| **2** | **Memory Tools** | `agent_id` + `project_id` | Facts, decisions, patterns the agent learns | `agent_memories` table (PostgreSQL) | Agent calls `memory_store()` / `memory_recall()` |
+
+> **Note**: An earlier draft of this doc described a third layer ("Store API" via `namespace`). That layer was documented but **never implemented** — see [Drift Log](#drift-log-since-phase-3) for details. The current `create_deep_agent()` call doesn't use the LangGraph Store API.
 
 ### Layer 1: Checkpointer (thread_id)
 
@@ -326,9 +326,80 @@ The Store uses `AsyncPostgresStore` which stores data in `store` and `store_blob
 ## Key Takeaways
 
 1. **Active, not passive** — Memory is an agent capability, not just RAG. Agents decide what to save and when to retrieve.
-2. **Two-pronged system** — `AgentMemorySystem` (agent-facing tools) + `ContextSynthesis`/`Compactor` (framework-managed context window)
-3. **Three persistence layers** — Checkpointer (thread_id, graph state), Memory Tools (agent_id, semantic facts), Store API (namespace, cross-session memory)
-4. **thread_id is for checkpointing, NOT memory** — The AgentMemorySystem uses `agent_id` + `project_id`, completely independent of LangGraph's `thread_id`
-5. **Multi-tenant vector store** — Each project gets its own PGVector table with HNSW indexing
+2. **Two-pronged system** — `SimpleMemory` (agent-facing tools) + `ContextSynthesis`/`Compactor` (framework-managed context window)
+3. **Two persistence layers (only)** — Checkpointer (thread_id, graph state) + Memory Tools (agent_id, semantic facts). The documented "Store API" layer was never implemented.
+4. **thread_id is for checkpointing, NOT memory** — The `SimpleMemory` uses `agent_id` + `project_id`, completely independent of LangGraph's `thread_id`
+5. **Multi-tenant by project_id** — Each project gets its own row set in the `agent_memories` table
 6. **Graceful degradation** — Missing VectorStore just skips memory tools (no crash), compaction has hard-truncation fallback
+7. **Embedding flexibility** — Priority chain from local (Ollama) → cloud (OpenAI) → fallback (HuggingFace)
+
+---
+
+## Drift Log (since Phase 3)
+
+**Refreshed 2026-06-24.** Phase 3 was the "Memory Systems" phase. The codebase has evolved significantly: the original `AgentMemorySystem` (VectorStore-based) was deprecated in favor of `SimpleMemory` (text-based + PostgreSQL). This section tracks what changed so the doc stays useful.
+
+### File size growth
+
+| File | Phase 3 size | Current (2026-06-24) | Delta | Notes |
+|---|---|---|---|---|
+| `backend/core/agents/memory.py` | (smaller, no SimpleMemory) | **531 lines** | +531 | Now contains SimpleMemory (current) + deprecated AgentMemorySystem wrapper + module-level create_memory_tools |
+| `backend/core/context/synthesis.py` | (smaller) | **488 lines** | +488 | Added handoff text formatting, context extraction |
+| `backend/core/context/compactor.py` | (smaller) | **247 lines** | +247 | |
+| `backend/api/memory/routes.py` | (smaller) | **337 lines** | +337 | |
+| `backend/services/llama_config.py` | (smaller) | **354 lines** | +354 | Now mostly used by RAG, not memory |
+
+### What was added (not in Phase 3)
+
+| Feature | When | Where | Why missing from Phase 3 doc |
+|---|---|---|---|
+| **SimpleMemory class** | Phase 4 | `memory.py:168` | Replaced VectorStore-based AgentMemorySystem with text-based + PostgreSQL |
+| **Memory prompt template** | Phase 4 | `memory.py:332, 400` | Teaches agents *when* to use memory tools |
+| **Backward compat shim** | Phase 4 | `memory.py:518` | `AgentMemorySystem` kept as wrapper around SimpleMemory |
+| **Tool extraction to `tool_loader.py`** | Phase 5 | `tool_loader.py:370` | Memory loading moved out of factory.py |
+| **DELETE memory endpoint** | Phase 4 | `api/memory/routes.py:257` | Single memory deletion |
+| **CLEAR project memories endpoint** | Phase 4 | `api/memory/routes.py:294` | Bulk clear |
+
+### What BROKE since Phase 3
+
+| Item | Phase 3 claim | Reality | When broken |
+|---|---|---|---|
+| **VectorStore for memory** | Tools use PGVectorStore with semantic search | Tools use **text-only LIKE search** (no embeddings) | Phase 4 |
+| **`memory_retrieve` tool** | Listed in README | Actually **`memory_recall`** (typo or rename) | Phase 4 |
+| **`MemorySearchArgs` schema** | Listed in README | Actually **`MemoryRecallArgs`** | Phase 4 |
+| **`AgentMemorySystem` as main class** | Documented as the primary entry | **DEPRECATED**, replaced by `SimpleMemory` | Phase 4 |
+| **Layer 3: Store API (namespace)** | Documented as 3rd persistence layer | ❌ **Not implemented** (claim only) | Never implemented |
+| **Line numbers** | factory.py#L1467-L1492 | Now in `tool_loader.py:370` | Phase 5 |
+
+### What was REMOVED since Phase 3
+
+| Item | Where removed | Notes |
+|---|---|---|
+| `AgentMemorySystem` as standalone | `memory.py:518` | Now deprecated wrapper only |
+
+### Dead code (verified 2026-06-24)
+
+| Code | Lines | Status | Notes |
+|---|---|---|---|
+| `class AgentMemorySystem` | `memory.py:518-531` | DEPRECATED wrapper | Just instantiates `SimpleMemory`. Used for backward compat. Safe to delete if no external callers. |
+| `def create_memory_tools(project_id, agent_id)` (module-level) | `memory.py:439-516` | DEAD CODE | Unused — only `SimpleMemory.create_memory_tools()` (method, L198) is called by `tool_loader.py:391` |
+
+### Recommendations
+
+**Priority 1 (high signal, low risk) — DONE 2026-06-24:**
+- ✅ **Refreshed README**: replaced `AgentMemorySystem` references with `SimpleMemory`
+- ✅ **Fixed tool names**: `memory_retrieve` → `memory_recall`
+- ✅ **Fixed schema names**: `MemorySearchArgs` → `MemoryRecallArgs`
+- ✅ **Updated line numbers**: factory.py → tool_loader.py
+- ✅ **Added Drift Log** section
+
+**Priority 2 (medium effort, low risk) — PENDING:**
+- ❌ **Remove `AgentMemorySystem` class** (lines 518-531, ~13 lines) — dead wrapper
+- ❌ **Remove module-level `create_memory_tools()`** (lines 439-516, ~77 lines) — dead code
+- ❌ **Deduplicate memory prompt** (lines 332, 400)
+- ❌ **Remove `vector_store` param from `SimpleMemory.__init__`** (unused, kept for compat)
+- ❌ **Audit `services/llama_config.py`** — mostly unused by memory now
+
+**Priority 3 (open question) — PENDING:**
+- ❓ **Migrate to DeepAgent's `MemoryMiddleware`**? Library v0.6.8 provides filesystem-based memory (AGENTS.md files). Different paradigm: injected into system prompt vs tool-based. Trade-off: more idiomatic but loses tool-style control.
 7. **Embedding flexibility** — Priority chain from local (Ollama) → cloud (OpenAI) → fallback (HuggingFace)

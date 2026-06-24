@@ -433,100 +433,13 @@ class SimpleMemory:
 
 
 # =============================================================================
-# Convenience Function
+# Dead code removed 2026-06-24:
+#   - AgentMemorySystem class (deprecated wrapper around SimpleMemory)
+#   - module-level create_memory_tools() function (unused)
+#   - MEMORY_AWARE_AGENT_PROMPT constant (unused)
+#
+# If you need a memory tools factory, use:
+#   from core.agents.memory import get_or_create_memory
+#   mem = get_or_create_memory(project_id, agent_id, db_session)
+#   tools = mem.create_memory_tools()  # instance method
 # =============================================================================
-
-def create_memory_tools(project_id: int, agent_id: str) -> List[BaseTool]:
-    """
-    Create memory tools for an agent using SimpleMemory (text-based).
-
-    Args:
-        project_id: Project ID for scoping
-        agent_id: Agent identifier (e.g., "task_42")
-
-    Returns:
-        List of memory tool instances (memory_store, memory_recall)
-    """
-    memory = get_or_create_memory(project_id=project_id, agent_id=agent_id)
-    return memory.create_memory_tools()
-
-
-# =============================================================================
-# System Prompt for Memory-Aware Agent
-# =============================================================================
-
-MEMORY_AWARE_AGENT_PROMPT = """You are an intelligent coding agent with memory capabilities.
-
-MEMORY TOOLS AVAILABLE:
-You have access to two memory management tools:
-
-1. **memory_store(memory_content, memory_type, importance, tags)**
-   - Save important facts, decisions, patterns, or learnings
-   - Use when you discover something valuable for future reference
-   - Types: fact, decision, pattern, learning, context, relationship
-   - Importance: 1-10 scale (higher = more important)
-
-2. **memory_recall(query, memory_type)**
-   - Recall ALL stored memories (the full text is returned)
-   - Optionally filter by query or memory type
-   - Use BEFORE starting work to check for existing patterns/decisions
-   - Read through the returned memories carefully for relevant context
-
-WHEN TO USE MEMORY TOOLS:
-
-- After fixing a bug: Save the bug + solution as learning
-- When discovering patterns: Save code patterns you notice
-- After architectural decisions: Save decisions with rationale
-- Before implementing: ALWAYS recall memories to check for relevant past work
-- When refactoring: Recall memories for similar refactoring patterns
-- After learning conventions: Save project-specific conventions
-
-MEMORY BEST PRACTICES:
-
-1. Be specific: "We use JWT tokens in httpOnly cookies for auth" not "auth setup"
-2. Include context: Why was this decision made? What problem does it solve?
-3. Add tags: Make memories easily findable later
-4. Set importance: Critical decisions = 9-10, minor facts = 3-5
-5. Always recall first: Before starting work, check memory for existing context
-
-EXAMPLE WORKFLOW:
-
-```
-Task: "Add user registration endpoint"
-
-1. memory_recall(query="authentication patterns")
-   - Reads all stored memories about auth patterns
-
-2. Implement registration following past decisions
-
-3. memory_store(
-     memory_content="Added /api/auth/register endpoint. Uses bcrypt (12 rounds) for password hashing, returns JWT in httpOnly cookie with 24h expiry.",
-     memory_type="fact",
-     importance=7,
-     tags=["auth", "registration", "api"]
-   )
-```
-
-Your goal: Build up comprehensive project knowledge over time, making you more consistent and context-aware with each task.
-"""
-
-
-# =============================================================================
-# Legacy compatibility (kept for existing code that imports AgentMemorySystem)
-# =============================================================================
-
-class AgentMemorySystem:
-    """
-    DEPRECATED: Use SimpleMemory instead for text-based memory.
-    
-    Kept for backward compatibility with existing code that references
-    AgentMemorySystem by name. Internally wraps SimpleMemory.
-    """
-    
-    def __init__(self, vector_store=None, project_id=0, agent_id=""):
-        self._memory = get_or_create_memory(project_id=project_id, agent_id=agent_id)
-        self.project_id = project_id
-        self.agent_id = agent_id
-
-    def create_memory_tools(self) -> List[BaseTool]:
-        return self._memory.create_memory_tools()
