@@ -248,6 +248,15 @@ class DeepAgentConfig(BaseModel):
                     "and only the matched skill is passed to the main agent. "
                     "If None, all equipped skills are passed directly (LLM auto-selects)."
     )
+    disable_memory_middleware: bool = Field(
+        default=False,
+        description=(
+            "If True, do NOT load the project's AGENTS.md into the system prompt via "
+            "deepagents.MemoryMiddleware. Default is False (MemoryMiddleware is ON). "
+            "Each project has its own AGENTS.md at "
+            ".workspace_data/projects/{project_id}/AGENTS.md, editable via the API."
+        )
+    )
 
     # Normal agent config (used when use_deepagents=False)
     interrupt_before: Optional[List[str]] = Field(
