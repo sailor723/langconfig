@@ -95,7 +95,7 @@ async def lifespan(app: FastAPI):
         from models.skill import Skill as SkillModel
 
         registry = get_skill_registry()
-        if not registry.is_initialized:
+        if not registry._initialized:
             await registry.initialize()
 
         synced = 0
