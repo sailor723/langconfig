@@ -357,6 +357,7 @@ from api.tools import routes as custom_tools
 from api.tools import registry as tool_registry
 from api.images import routes as images
 from api.memory import routes as memory
+from api.agents_md import routes as agents_md_router
 from api.workspace import routes as workspace
 from api.presets import actions as action_presets
 from api.skills import routes as skills
@@ -376,6 +377,7 @@ app.include_router(hitl.router)  # Human-in-the-loop approval endpoints
 app.include_router(checkpoints.router)  # Checkpoint management endpoints
 app.include_router(store.router)  # Store (long-term memory) management endpoints
 app.include_router(memory.router)  # Agent memory management and viewing
+app.include_router(agents_md_router.router)  # AGENTS.md (MemoryMiddleware) management
 app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(rag.router)
