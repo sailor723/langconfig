@@ -82,6 +82,238 @@ type SelectedItem =
   | null;
 
 // Agent Configuration View Component
+/* ============================================================================
+   Memory config components — split by agent framework (LangChain vs DeepAgent)
+   Per LangChain docs:
+     - Regular agent:  checkpointer-based short-term memory
+                       (https://docs.langchain.com/oss/python/langchain/short-term-memory)
+     - Deep agent:     filesystem-backed long-term memory via CompositeBackend
+                       (https://docs.langchain.com/oss/python/deepagents/memory)
+   ============================================================================ */
+
+function DeepAgentMemoryConfig({ config, setConfig }: { config: any; setConfig: (c: any) => void }) {
+  const memoryEnabled = (config.native_tools || []).includes('enable_memory');
+  const memoryScope = config.memory_scope || 'agent';           // 'agent' | 'user' | 'episodic' | 'organization'
+  const memoryPaths = config.memory_paths || ['/memories/preferences.md'];
+  const storeBackend = config.store_backend || 'InMemoryStore'; // 'InMemoryStore' | 'PostgresStore'
+
+  const updatePaths = (text: string) => {
+    setConfig({ ...config, memory_paths: text.split('\n').map(p => p.trim()).filter(Boolean) });
+  };
+
+  return (
+    <div className="p-3 rounded-lg border space-y-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-primary)' }}>
+      {/* Enable toggle */}
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={memoryEnabled}
+          onChange={() => {
+            const tools = config.native_tools || [];
+            setConfig({
+              ...config,
+              native_tools: tools.includes('enable_memory')
+                ? tools.filter((t: string) => t !== 'enable_memory')
+                : [...tools, 'enable_memory'],
+            });
+          }}
+          className="w-3.5 h-3.5 text-primary rounded cursor-pointer flex-shrink-0 mt-0.5"
+        />
+        <div className="flex-1">
+          <div className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            Enable Long-term Memory
+          </div>
+          <div className="text-[10px] leading-snug mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            Activates CompositeBackend routing /memories/* → StoreBackend (persists across threads).
+          </div>
+        </div>
+      </label>
+
+      {memoryEnabled && (
+        <>
+          {/* Scope selector */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
+              Memory Scope
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { v: 'agent',        l: 'Agent',        d: 'Shared by user with this agent' },
+                { v: 'user',         l: 'User',         d: 'Shared across all user agents' },
+                { v: 'episodic',     l: 'Episodic',     d: 'Stream of past interactions' },
+                { v: 'organization', l: 'Organization', d: 'Shared across deployment' },
+              ].map(opt => (
+                <label key={opt.v}
+                  className={`flex flex-col gap-0.5 px-2 py-2 rounded border cursor-pointer transition-colors ${
+                    memoryScope === opt.v
+                      ? 'border-primary'
+                      : 'border-gray-300 hover:border-primary/50'
+                  }`}
+                  style={memoryScope === opt.v ? { backgroundColor: 'rgba(46,92,138,0.08)' } : undefined}>
+                  <input type="radio" name="memory_scope" value={opt.v}
+                    checked={memoryScope === opt.v}
+                    onChange={() => setConfig({ ...config, memory_scope: opt.v })}
+                    className="sr-only" />
+                  <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>{opt.l}</span>
+                  <span className="text-[9px] leading-tight" style={{ color: 'var(--color-text-muted)' }}>{opt.d}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* File paths */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
+              Memory File Paths
+              <span className="ml-2 font-normal normal-case text-[9px]">(/memories/ prefix for persistent)</span>
+            </label>
+            <textarea
+              value={memoryPaths.join('\n')}
+              onChange={(e) => updatePaths(e.target.value)}
+              rows={3}
+              className="w-full px-2 py-1.5 border rounded text-[11px] font-mono resize-y focus:outline-none focus:ring-1 focus:ring-primary"
+              style={{
+                backgroundColor: 'var(--color-bg-primary)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }}
+              placeholder="/memories/preferences.md&#10;/memories/conventions.md"
+            />
+          </div>
+
+          {/* Store backend selector */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
+              Store Backend
+            </label>
+            <select
+              value={storeBackend}
+              onChange={(e) => setConfig({ ...config, store_backend: e.target.value })}
+              className="w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              style={{
+                backgroundColor: 'var(--color-bg-primary)',
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              <option value="InMemoryStore">InMemoryStore (development)</option>
+              <option value="PostgresStore">PostgresStore (production)</option>
+            </select>
+          </div>
+        </>
+      )}
+
+      {/* Info box — LangChain memory model */}
+      <div className="p-2.5 rounded text-[10px] leading-relaxed"
+        style={{ backgroundColor: 'rgba(59,130,246,0.08)', borderLeft: '3px solid #3b82f6', color: 'var(--color-text-secondary)' }}>
+        <div className="font-semibold mb-1" style={{ color: '#3b82f6' }}>📘 LangChain Memory Model</div>
+        <ul className="space-y-0.5 ml-3 list-disc">
+          <li><strong>Short-term</strong>: in agent state, transient per thread (e.g. <code>/notes.txt</code>)</li>
+          <li><strong>Long-term</strong>: in <code>/memories/</code> paths, persistent via StoreBackend</li>
+          <li><strong>Episodic</strong>: consolidation agent + cron for past interactions</li>
+          <li><strong>Read-only</strong>: paths can be marked read-only to prevent overwrite</li>
+        </ul>
+        <a href="https://docs.langchain.com/oss/python/deepagents/memory" target="_blank" rel="noopener noreferrer"
+          className="text-[10px] mt-1 inline-block hover:underline"
+          style={{ color: '#3b82f6' }}>
+          Full docs ↗
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function RegularAgentMemoryConfig({ config, setConfig }: { config: any; setConfig: (c: any) => void }) {
+  // For langchain.agents.create_agent() — memory is via checkpointer
+  // https://docs.langchain.com/oss/python/langchain/short-term-memory
+  const checkpointer = config.checkpointer || 'MemorySaver'; // 'None' | 'MemorySaver' | 'PostgresSaver'
+  const threadId = config.thread_id || 'default';
+  const summarization = config.summarization_middleware || false;
+
+  return (
+    <div className="p-3 rounded-lg border space-y-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-primary)' }}>
+      <div>
+        <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
+          Checkpointer (per LangChain docs)
+        </label>
+        <select
+          value={checkpointer}
+          onChange={(e) => setConfig({ ...config, checkpointer: e.target.value })}
+          className="w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          style={{
+            backgroundColor: 'var(--color-bg-primary)',
+            borderColor: 'var(--color-border)',
+            color: 'var(--color-text-primary)',
+          }}
+        >
+          <option value="None">None (no memory)</option>
+          <option value="MemorySaver">MemorySaver (in-memory, dev only)</option>
+          <option value="PostgresSaver">PostgresSaver (production)</option>
+        </select>
+        <p className="text-[10px] mt-1 leading-snug" style={{ color: 'var(--color-text-muted)' }}>
+          Checkpointer stores conversation state per thread_id, allowing the agent to resume conversations.
+        </p>
+      </div>
+
+      {checkpointer !== 'None' && (
+        <div>
+          <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
+            Thread ID
+          </label>
+          <input
+            type="text"
+            value={threadId}
+            onChange={(e) => setConfig({ ...config, thread_id: e.target.value })}
+            className="w-full px-2 py-1.5 border rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-text-primary)',
+            }}
+            placeholder="default"
+          />
+          <p className="text-[10px] mt-1 leading-snug" style={{ color: 'var(--color-text-muted)' }}>
+            Conversations with the same thread_id share state.
+          </p>
+        </div>
+      )}
+
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={summarization}
+          onChange={() => setConfig({ ...config, summarization_middleware: !summarization })}
+          className="w-3.5 h-3.5 text-primary rounded cursor-pointer flex-shrink-0 mt-0.5"
+        />
+        <div className="flex-1">
+          <div className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+            SummarizationMiddleware
+          </div>
+          <div className="text-[10px] leading-snug mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+            Built-in LangChain middleware that summarizes conversation history when it gets too long.
+          </div>
+        </div>
+      </label>
+
+      <div className="p-2.5 rounded text-[10px] leading-relaxed"
+        style={{ backgroundColor: 'rgba(59,130,246,0.08)', borderLeft: '3px solid #3b82f6', color: 'var(--color-text-secondary)' }}>
+        <div className="font-semibold mb-1" style={{ color: '#3b82f6' }}>📘 LangChain Regular Agent Memory</div>
+        <ul className="space-y-0.5 ml-3 list-disc">
+          <li><strong>Checkpointer</strong>: stores state per thread, set via <code>checkpointer=</code> parameter</li>
+          <li><strong>MemorySaver</strong>: in-memory dict, lost on restart</li>
+          <li><strong>PostgresSaver</strong>: production-grade, requires DATABASE_URL</li>
+          <li><strong>SummarizationMiddleware</strong>: built-in to compress long history</li>
+        </ul>
+        <a href="https://docs.langchain.com/oss/python/langchain/short-term-memory" target="_blank" rel="noopener noreferrer"
+          className="text-[10px] mt-1 inline-block hover:underline"
+          style={{ color: '#3b82f6' }}>
+          Full docs ↗
+        </a>
+      </div>
+    </div>
+  );
+}
+
 interface AgentConfigViewProps {
   agent: Agent;
   onSave: (config: any) => Promise<void>;
@@ -676,6 +908,49 @@ print(result)
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* SECTION 0: Memory — LangChain-compliant (different UI for Regular vs Deep Agent) */}
+          <div className="mb-6">
+            <div
+              className="px-3 py-1.5 rounded-lg mb-2 flex items-center justify-between cursor-pointer hover:opacity-90"
+              style={{ backgroundColor: 'var(--color-primary)' }}
+              onClick={() => toggleSection('memory')}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-white text-xs" style={{ width: '14px' }}>
+                  {expandedSections.has('memory') ? '▼' : '▶'}
+                </span>
+                <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
+                  Memory
+                  <span className="ml-2 text-[10px] opacity-80">
+                    ({config.use_deepagents ? 'DeepAgent' : 'Regular Agent'} config)
+                  </span>
+                </h3>
+              </div>
+              <a
+                href={config.use_deepagents
+                  ? 'https://docs.langchain.com/oss/python/deepagents/memory'
+                  : 'https://docs.langchain.com/oss/python/langchain/short-term-memory'}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-[10px] opacity-80 hover:opacity-100"
+                style={{ color: 'white', textDecoration: 'underline' }}
+              >
+                LangChain docs ↗
+              </a>
+            </div>
+
+            {expandedSections.has('memory') && (
+              config.use_deepagents ? (
+                /* DEEPAGENT MEMORY — filesystem-backed with /memories/ paths */
+                <DeepAgentMemoryConfig config={config} setConfig={setConfig} />
+              ) : (
+                /* REGULAR LANGCHAIN AGENT MEMORY — checkpointer-based */
+                <RegularAgentMemoryConfig config={config} setConfig={setConfig} />
+              )
+            )}
           </div>
 
           {/* SECTION 1: System Prompt (collapsible) */}
