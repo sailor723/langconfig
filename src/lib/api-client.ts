@@ -382,6 +382,19 @@ class APIClient {
     return this.client.post(`/api/projects/${id}/index`);
   }
 
+  // AGENTS.md (MemoryMiddleware for DeepAgent)
+  async getAgentsMd(projectId: number) {
+    return this.client.get(`/api/projects/${projectId}/agents-md`);
+  }
+
+  async updateAgentsMd(projectId: number, content: string) {
+    return this.client.put(`/api/projects/${projectId}/agents-md`, { content });
+  }
+
+  async deleteAgentsMd(projectId: number) {
+    return this.client.delete(`/api/projects/${projectId}/agents-md`);
+  }
+
   // Tasks
   async listTasks(params?: {
     skip?: number;
