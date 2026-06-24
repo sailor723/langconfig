@@ -21,7 +21,7 @@ import os
 
 from db.database import get_db
 from core.skills.registry import get_skill_registry
-from models.skill import Skill, SkillExecution, SkillSourceType
+from models.skill import Skill, SkillSourceType
 
 logger = logging.getLogger(__name__)
 
@@ -92,33 +92,6 @@ class SkillMatchResponse(BaseModel):
     skill: SkillResponse
     score: float
     match_reason: str
-
-
-class InvokeSkillRequest(BaseModel):
-    """Request to explicitly invoke a skill."""
-    context: Dict[str, Any] = Field(default_factory=dict, description="Execution context")
-    agent_id: Optional[str] = Field(None, description="Agent ID using the skill")
-    workflow_id: Optional[int] = Field(None, description="Workflow context")
-    task_id: Optional[int] = Field(None, description="Task context")
-
-
-class InvokeSkillResponse(BaseModel):
-    """Response with skill details for invocation."""
-    skill_id: str
-    name: str
-    instructions: str
-    allowed_tools: Optional[List[str]]
-    examples: Optional[str]
-    status: str
-
-
-class SkillStatsResponse(BaseModel):
-    """Usage statistics for a skill."""
-    skill_id: str
-    usage_count: int
-    last_used_at: Optional[datetime]
-    avg_success_rate: float
-    recent_executions: List[Dict[str, Any]]
 
 
 # =============================================================================
@@ -492,7 +465,7 @@ async def create_skill(request: SkillCreateRequest):
     """
     registry = get_skill_registry()
 
-    if not registry.is_initialized:
+    if not registry._initialized:
         await registry.initialize()
 
     # Generate skill_id from name
@@ -549,7 +522,7 @@ async def update_skill(skill_id: str, request: SkillUpdateRequest):
 
     registry = get_skill_registry()
 
-    if not registry.is_initialized:
+    if not registry._initialized:
         await registry.initialize()
 
     skill = registry.get_skill(skill_id)
@@ -657,7 +630,7 @@ async def delete_skill(skill_id: str):
     from models.skill import Skill
 
     registry = get_skill_registry()
-    if not registry.is_initialized:
+    if not registry._initialized:
         await registry.initialize()
 
     # Check in-memory registry first (faster path for known skills)
@@ -735,7 +708,7 @@ async def match_skills(request: SkillMatchRequest):
     """
     registry = get_skill_registry()
 
-    if not registry.is_initialized:
+    if not registry._initialized:
         await registry.initialize()
 
     # Build context for the matcher
@@ -922,7 +895,7 @@ async def playground_run_skill(request: PlaygroundRunRequest):
 
     # 1. Load skill (registry cache + DB fallback)
     registry = get_skill_registry()
-    if not registry.is_initialized:
+    if not registry._initialized:
         await registry.initialize()
 
     skill = registry.get_skill(request.skill_id)
@@ -1037,68 +1010,6 @@ async def playground_run_skill(request: PlaygroundRunRequest):
         "model": model_name,
         "elapsed_ms": elapsed_ms,
     }
-
-
-@router.post("/{skill_id}/invoke", response_model=InvokeSkillResponse)
-async def invoke_skill(skill_id: str, request: InvokeSkillRequest):
-    """
-    Explicitly invoke a skill.
-
-    Returns the skill's instructions and configuration for use by an agent.
-    Records the invocation for analytics.
-    """
-    registry = get_skill_registry()
-
-    if not registry.is_initialized:
-        await registry.initialize()
-
-    skill = registry.get_skill(skill_id)
-
-    if not skill:
-        raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")
-
-    # Record invocation start
-    await registry.record_execution(
-        skill_id=skill_id,
-        invocation_type="explicit",
-        status="started",
-        context=request.context,
-        agent_id=request.agent_id,
-        workflow_id=request.workflow_id,
-        task_id=request.task_id
-    )
-
-    return InvokeSkillResponse(
-        skill_id=skill.skill_id,
-        name=skill.name,
-        instructions=skill.instructions,
-        allowed_tools=skill.allowed_tools,
-        examples=skill.examples,
-        status="ready"
-    )
-
-
-@router.post("/{skill_id}/reload")
-async def reload_skill(skill_id: str):
-    """
-    Reload a skill from filesystem.
-
-    Use this after modifying a SKILL.md file to pick up changes.
-    """
-    registry = get_skill_registry()
-
-    if not registry.is_initialized:
-        await registry.initialize()
-
-    if not registry.get_skill(skill_id):
-        raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")
-
-    success = await registry.reload_skill(skill_id)
-
-    if not success:
-        raise HTTPException(status_code=500, detail=f"Failed to reload skill '{skill_id}'")
-
-    return {"status": "reloaded", "skill_id": skill_id}
 
 
 @router.post("/reload-all")
@@ -1255,267 +1166,14 @@ async def write_skill_file(skill_id: str, file_path: str, payload: dict):
     }
 
 
-@router.get("/debug/paths")
-async def debug_skill_paths():
-    """Debug endpoint to check skill loader paths."""
-    import os
-    from core.skills.loader import SkillLoader
-
-    loader = SkillLoader()
-
-    # Check paths
-    builtin_exists = os.path.exists(loader.builtin_path)
-    personal_exists = os.path.exists(loader.personal_path)
-
-    # Try to discover
-    discovered = loader.discover_all()
-
-    # Try to load each
-    loaded = []
-    for d in discovered:
-        skill = loader.load_skill(d.skill_path)
-        loaded.append({
-            "path": d.skill_path,
-            "source_type": d.source_type,
-            "loaded": skill is not None,
-            "skill_id": skill.skill_id if skill else None,
-            "error": None if skill else "Failed to parse"
-        })
-
-    return {
-        "builtin_path": loader.builtin_path,
-        "builtin_exists": builtin_exists,
-        "personal_path": loader.personal_path,
-        "personal_exists": personal_exists,
-        "discovered_count": len(discovered),
-        "loaded_skills": loaded
-    }
-
-
-@router.get("/debug/registry-state")
-async def debug_registry_state():
-    """Debug endpoint to check registry state."""
-    registry = get_skill_registry()
-    return {
-        "is_initialized": registry.is_initialized,
-        "skill_count": registry.skill_count,
-        "skills_in_memory": list(registry._skills.keys()),
-        "tags_indexed": list(registry._by_tag.keys())
-    }
-
-
-@router.post("/debug/init")
-async def debug_init():
-    """Debug endpoint to force registry initialization."""
-    import traceback
-    registry = get_skill_registry()
-
-    try:
-        count = await registry.initialize()
-        return {
-            "status": "success",
-            "skill_count": count,
-            "is_initialized": registry.is_initialized,
-            "skills_in_memory": list(registry._skills.keys())
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
-
-
-@router.post("/debug/reload-verbose")
-async def debug_reload_verbose():
-    """Debug endpoint to reload skills with verbose error output."""
-    import os
-    import traceback
-    from core.skills.loader import SkillLoader
-    from db.database import AsyncSessionLocal
-    from models.skill import Skill, SkillSourceType
-    from sqlalchemy import select
-    from datetime import datetime
-
-    loader = SkillLoader()
-    discovered = loader.discover_all()
-    results = []
-
-    async with AsyncSessionLocal() as session:
-        for d in discovered:
-            result = {"path": d.skill_path, "source_type": d.source_type}
-            try:
-                parsed = loader.load_skill(d.skill_path)
-                if not parsed:
-                    result["status"] = "parse_failed"
-                    results.append(result)
-                    continue
-
-                result["skill_id"] = parsed.skill_id
-
-                # Try to check if exists
-                db_result = await session.execute(
-                    select(Skill).where(Skill.skill_id == parsed.skill_id)
-                )
-                existing = db_result.scalar_one_or_none()
-
-                if existing:
-                    result["status"] = "exists_in_db"
-                    result["db_id"] = existing.id
-                else:
-                    # Try to create
-                    skill = Skill(
-                        skill_id=parsed.skill_id,
-                        name=parsed.name,
-                        description=parsed.description,
-                        version=parsed.version,
-                        author=parsed.author,
-                        source_type=SkillSourceType(d.source_type),
-                        source_path=parsed.source_path,
-                        tags=parsed.tags,
-                        triggers=parsed.triggers,
-                        allowed_tools=parsed.allowed_tools,
-                        required_context=parsed.required_context,
-                        instructions=parsed.instructions,
-                        examples=parsed.examples,
-                        file_modified_at=parsed.file_modified_at
-                    )
-                    session.add(skill)
-                    result["status"] = "created"
-
-            except Exception as e:
-                result["status"] = "error"
-                result["error"] = str(e)
-                result["traceback"] = traceback.format_exc()
-
-            results.append(result)
-
-        try:
-            await session.commit()
-        except Exception as e:
-            return {
-                "commit_error": str(e),
-                "commit_traceback": traceback.format_exc(),
-                "results": results
-            }
-
-    return {"results": results}
-
-
-@router.get("/{skill_id}/stats", response_model=SkillStatsResponse)
-async def get_skill_stats(skill_id: str, db: Session = Depends(get_db)):
-    """Get usage statistics for a skill."""
-    registry = get_skill_registry()
-
-    if not registry.is_initialized:
-        await registry.initialize()
-
-    skill = registry.get_skill(skill_id)
-
-    if not skill:
-        raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")
-
-    # Get recent executions from database
-    recent = db.query(SkillExecution).filter(
-        SkillExecution.skill_id == skill.id
-    ).order_by(
-        SkillExecution.created_at.desc()
-    ).limit(10).all()
-
-    recent_executions = [
-        {
-            "id": ex.id,
-            "invocation_type": ex.invocation_type.value if hasattr(ex.invocation_type, 'value') else ex.invocation_type,
-            "status": ex.status,
-            "execution_time_ms": ex.execution_time_ms,
-            "created_at": ex.created_at.isoformat() if ex.created_at else None
-        }
-        for ex in recent
-    ]
-
-    return SkillStatsResponse(
-        skill_id=skill_id,
-        usage_count=skill.usage_count,
-        last_used_at=skill.last_used_at,
-        avg_success_rate=skill.avg_success_rate,
-        recent_executions=recent_executions
-    )
-
-
-@router.post("/{skill_id}/record-execution")
-async def record_skill_execution(
-    skill_id: str,
-    status: str = Query(..., description="Execution status: success, failed, partial"),
-    execution_time_ms: Optional[int] = Query(None, description="Execution time in milliseconds"),
-    error_message: Optional[str] = Query(None, description="Error message if failed"),
-    invocation_type: str = Query("explicit", description="How skill was invoked: automatic, explicit")
-):
-    """
-    Record a skill execution result.
-
-    Call this after a skill has finished executing to track metrics.
-    """
-    registry = get_skill_registry()
-
-    if not registry.is_initialized:
-        await registry.initialize()
-
-    if not registry.get_skill(skill_id):
-        raise HTTPException(status_code=404, detail=f"Skill '{skill_id}' not found")
-
-    await registry.record_execution(
-        skill_id=skill_id,
-        invocation_type=invocation_type,
-        status=status,
-        execution_time_ms=execution_time_ms,
-        error_message=error_message
-    )
-
-    return {"status": "recorded", "skill_id": skill_id}
-
-
-@router.get("/{skill_id}/agents")
-async def get_skill_agents(skill_id: str, db: Session = Depends(get_db)):
-    """
-    List all DeepAgents that reference this skill (by id) in their config.
-
-    Searches both `config.skills` (top-level explicit list) and `subagents_config[*].skills`
-    (per-subagent skills). Returns agent id, name, and which section referenced the skill.
-    """
-    from models.deep_agent import DeepAgentTemplate
-
-    agents = db.query(DeepAgentTemplate).all()
-    matches: list[dict] = []
-
-    for agent in agents:
-        cfg = agent.config or {}
-        referenced_in: list[str] = []
-
-        # 1. Top-level config.skills list
-        top_skills = cfg.get("skills") or []
-        if isinstance(top_skills, list) and skill_id in top_skills:
-            referenced_in.append("config.skills")
-
-        # 2. Subagents that list this skill
-        sub_cfg = agent.subagents_config or []
-        if isinstance(sub_cfg, list):
-            for sub in sub_cfg:
-                if not isinstance(sub, dict):
-                    continue
-                sub_skills = sub.get("skills") or []
-                if isinstance(sub_skills, list) and skill_id in sub_skills:
-                    referenced_in.append(f"subagent:{sub.get('name', '?')}")
-
-        if referenced_in:
-            matches.append({
-                "id": agent.id,
-                "name": agent.name,
-                "category": agent.category,
-                "referenced_in": referenced_in,
-            })
-
-    return {
-        "skill_id": skill_id,
-        "agent_count": len(matches),
-        "agents": matches,
-    }
+# =============================================================================
+# Dead code removed 2026-06-24 (verified by static analysis - 0 callers):
+#   - POST /{skill_id}/invoke          (replaced by subagent delegation)
+#   - POST /{skill_id}/reload          (superseded by POST /reload-all)
+#   - 4 debug endpoints (paths, registry-state, init, reload-verbose)
+#   - GET /{skill_id}/stats            (analytics, no UI consumer)
+#   - POST /{skill_id}/record-execution (analytics, no UI consumer)
+#   - GET /{skill_id}/agents           (no UI consumer)
+#   - InvokeSkillRequest, InvokeSkillResponse, SkillStatsResponse schemas
+# See git history before commit `Phase 5 P1.5` to restore.
+# =============================================================================

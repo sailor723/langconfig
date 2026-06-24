@@ -195,44 +195,6 @@ class SkillRegistry:
         """List all registered skills."""
         return list(self._skills.values())
 
-    def find_by_tags(self, tags: List[str], match_all: bool = False) -> List[Skill]:
-        """
-        Find skills matching tags.
-
-        Args:
-            tags: List of tags to match
-            match_all: If True, skill must have all tags. If False, any tag matches.
-
-        Returns:
-            List of matching skills
-        """
-        if not tags:
-            return []
-
-        tags_lower = [t.lower() for t in tags]
-
-        if match_all:
-            # Intersection of all tag sets
-            matching_ids: Optional[Set[str]] = None
-            for tag in tags_lower:
-                tag_skills = self._by_tag.get(tag, set())
-                if matching_ids is None:
-                    matching_ids = tag_skills.copy()
-                else:
-                    matching_ids &= tag_skills
-            matching_ids = matching_ids or set()
-        else:
-            # Union of all tag sets
-            matching_ids = set()
-            for tag in tags_lower:
-                matching_ids |= self._by_tag.get(tag, set())
-
-        return [self._skills[sid] for sid in matching_ids if sid in self._skills]
-
-    def find_by_source(self, source_type: str) -> List[Skill]:
-        """Find skills by source type (builtin, personal, project)."""
-        return [s for s in self._skills.values() if s.source_type.value == source_type]
-
     def search(self, query: str) -> List[Skill]:
         """
         Simple text search across skill names and descriptions.
@@ -530,16 +492,6 @@ class SkillRegistry:
                 self._skills[skill_id].usage_count = skill_obj.usage_count
                 self._skills[skill_id].last_used_at = skill_obj.last_used_at
                 self._skills[skill_id].avg_success_rate = skill_obj.avg_success_rate
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if registry has been initialized."""
-        return self._initialized
-
-    @property
-    def skill_count(self) -> int:
-        """Get number of registered skills."""
-        return len(self._skills)
 
 
 # Singleton accessor
