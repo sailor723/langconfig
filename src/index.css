@@ -627,7 +627,7 @@ select {
 /* User messages - warm copper bubble + white text */
 [data-theme="claude"] div[style*="background-color: var(--color-primary)"] {
   border: none !important;
-  background-color: #C27D3F !important;  /* Warm copper */
+  background-color: #8B5A2B !important;  /* Dark copper (WCAG-AA against white text) */
 }
 [data-theme="claude"] div[style*="background-color: var(--color-primary)"] * {
   color: #FFFFFF !important;  /* White text */
