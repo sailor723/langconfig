@@ -91,6 +91,61 @@ type SelectedItem =
                        (https://docs.langchain.com/oss/python/deepagents/memory)
    ============================================================================ */
 
+/* Shared Card UI for memory strategies — same look as Search Providers / Model Cards */
+function MemoryStrategyCard({ id, name, description, isSelected, onSelect, badge, iconColor, subtext }: {
+  id: string;
+  name: string;
+  description: string;
+  isSelected: boolean;
+  onSelect: () => void;
+  badge?: string;
+  iconColor?: string;
+  subtext?: string;
+}) {
+  return (
+    <div
+      onClick={onSelect}
+      className={`group relative rounded-xl cursor-pointer transition-all duration-200 border px-3 py-2.5 ${
+        isSelected
+          ? 'border-primary border-2 ring-1 ring-primary/30'
+          : 'border-gray-200 dark:border-gray-800 hover:border-primary/50 hover:shadow-md'
+      }`}
+      style={{
+        backgroundColor: isSelected ? 'rgba(46,92,138,0.06)' : 'var(--color-bg-primary)',
+      }}
+    >
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: iconColor || '#3b82f6' }} />
+          <span className="text-xs font-semibold truncate" style={{ color: 'var(--color-text-primary, #1a1a1a)' }}>
+            {name}
+          </span>
+        </div>
+        {isSelected && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
+            style={{ backgroundColor: 'rgba(46,92,138,0.15)', color: '#2E5C8A' }}>
+            ✓ Selected
+          </span>
+        )}
+        {badge && !isSelected && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono flex-shrink-0"
+            style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-muted)' }}>
+            {badge}
+          </span>
+        )}
+      </div>
+      <p className="text-[10px] leading-snug mb-1" style={{ color: 'var(--color-text-secondary, #6b7280)' }}>
+        {description}
+      </p>
+      {subtext && (
+        <div className="text-[9px] font-mono pt-1 border-t" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+          {subtext}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DeepAgentMemoryConfig({ config, setConfig }: { config: any; setConfig: (c: any) => void }) {
   const memoryEnabled = (config.native_tools || []).includes('enable_memory');
   const memoryScope = config.memory_scope || 'agent';           // 'agent' | 'user' | 'episodic' | 'organization'
@@ -102,106 +157,105 @@ function DeepAgentMemoryConfig({ config, setConfig }: { config: any; setConfig: 
   };
 
   return (
-    <div className="p-3 rounded-lg border space-y-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-primary)' }}>
-      {/* Enable toggle */}
-      <label className="flex items-start gap-2 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={memoryEnabled}
-          onChange={() => {
-            const tools = config.native_tools || [];
-            setConfig({
-              ...config,
-              native_tools: tools.includes('enable_memory')
-                ? tools.filter((t: string) => t !== 'enable_memory')
-                : [...tools, 'enable_memory'],
-            });
-          }}
-          className="w-3.5 h-3.5 text-primary rounded cursor-pointer flex-shrink-0 mt-0.5"
-        />
-        <div className="flex-1">
-          <div className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            Enable Long-term Memory
-          </div>
-          <div className="text-[10px] leading-snug mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-            Activates CompositeBackend routing /memories/* → StoreBackend (persists across threads).
-          </div>
+    <div className="space-y-3">
+      {/* Memory scope — single-select card grid */}
+      <div>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+            Memory Strategy
+            <span className="ml-2 normal-case font-normal">({memoryScope})</span>
+          </h4>
+          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+            Click to select
+          </span>
         </div>
-      </label>
+        <div className="grid grid-cols-4 gap-2">
+          <MemoryStrategyCard
+            id="agent" name="Agent-scoped"
+            description="Memory shared by user with this specific agent."
+            isSelected={memoryScope === 'agent'}
+            onSelect={() => setConfig({ ...config, memory_scope: 'agent' })}
+            badge="DEFAULT"
+            iconColor="#3b82f6"
+            subtext="namespace=(user_id, agent_name)"
+          />
+          <MemoryStrategyCard
+            id="user" name="User-scoped"
+            description="Memory shared across all agents the user interacts with."
+            isSelected={memoryScope === 'user'}
+            onSelect={() => setConfig({ ...config, memory_scope: 'user' })}
+            iconColor="#8b5cf6"
+            subtext="namespace=(user_id,)"
+          />
+          <MemoryStrategyCard
+            id="episodic" name="Episodic"
+            description="Stream of past interactions with a consolidation agent + cron."
+            isSelected={memoryScope === 'episodic'}
+            onSelect={() => setConfig({ ...config, memory_scope: 'episodic' })}
+            iconColor="#f97316"
+            subtext="consolidation_agent + cron"
+          />
+          <MemoryStrategyCard
+            id="organization" name="Organization"
+            description="Memory shared across the entire deployment."
+            isSelected={memoryScope === 'organization'}
+            onSelect={() => setConfig({ ...config, memory_scope: 'organization' })}
+            iconColor="#10b981"
+            subtext="namespace=('org',)"
+          />
+        </div>
+      </div>
 
-      {memoryEnabled && (
-        <>
-          {/* Scope selector */}
-          <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
-              Memory Scope
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { v: 'agent',        l: 'Agent',        d: 'Shared by user with this agent' },
-                { v: 'user',         l: 'User',         d: 'Shared across all user agents' },
-                { v: 'episodic',     l: 'Episodic',     d: 'Stream of past interactions' },
-                { v: 'organization', l: 'Organization', d: 'Shared across deployment' },
-              ].map(opt => (
-                <label key={opt.v}
-                  className={`flex flex-col gap-0.5 px-2 py-2 rounded border cursor-pointer transition-colors ${
-                    memoryScope === opt.v
-                      ? 'border-primary'
-                      : 'border-gray-300 hover:border-primary/50'
-                  }`}
-                  style={memoryScope === opt.v ? { backgroundColor: 'rgba(46,92,138,0.08)' } : undefined}>
-                  <input type="radio" name="memory_scope" value={opt.v}
-                    checked={memoryScope === opt.v}
-                    onChange={() => setConfig({ ...config, memory_scope: opt.v })}
-                    className="sr-only" />
-                  <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>{opt.l}</span>
-                  <span className="text-[9px] leading-tight" style={{ color: 'var(--color-text-muted)' }}>{opt.d}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+      {/* Store backend — single-select cards */}
+      <div>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+            Store Backend
+            <span className="ml-2 normal-case font-normal">({storeBackend})</span>
+          </h4>
+          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+            Persists memory across threads
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <MemoryStrategyCard
+            id="InMemoryStore" name="InMemoryStore"
+            description="In-memory dict. Lost on restart. Use for development."
+            isSelected={storeBackend === 'InMemoryStore'}
+            onSelect={() => setConfig({ ...config, store_backend: 'InMemoryStore' })}
+            badge="DEV"
+            iconColor="#a3a3a3"
+          />
+          <MemoryStrategyCard
+            id="PostgresStore" name="PostgresStore"
+            description="Postgres-backed store. Production-grade persistence."
+            isSelected={storeBackend === 'PostgresStore'}
+            onSelect={() => setConfig({ ...config, store_backend: 'PostgresStore' })}
+            badge="PROD"
+            iconColor="#10b981"
+          />
+        </div>
+      </div>
 
-          {/* File paths */}
-          <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
-              Memory File Paths
-              <span className="ml-2 font-normal normal-case text-[9px]">(/memories/ prefix for persistent)</span>
-            </label>
-            <textarea
-              value={memoryPaths.join('\n')}
-              onChange={(e) => updatePaths(e.target.value)}
-              rows={3}
-              className="w-full px-2 py-1.5 border rounded text-[11px] font-mono resize-y focus:outline-none focus:ring-1 focus:ring-primary"
-              style={{
-                backgroundColor: 'var(--color-bg-primary)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)',
-              }}
-              placeholder="/memories/preferences.md&#10;/memories/conventions.md"
-            />
-          </div>
-
-          {/* Store backend selector */}
-          <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
-              Store Backend
-            </label>
-            <select
-              value={storeBackend}
-              onChange={(e) => setConfig({ ...config, store_backend: e.target.value })}
-              className="w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-              style={{
-                backgroundColor: 'var(--color-bg-primary)',
-                borderColor: 'var(--color-border)',
-                color: 'var(--color-text-primary)',
-              }}
-            >
-              <option value="InMemoryStore">InMemoryStore (development)</option>
-              <option value="PostgresStore">PostgresStore (production)</option>
-            </select>
-          </div>
-        </>
-      )}
+      {/* File paths */}
+      <div className="px-1">
+        <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
+          Memory File Paths
+          <span className="ml-2 font-normal normal-case text-[9px]">(/memories/ prefix for persistent)</span>
+        </label>
+        <textarea
+          value={memoryPaths.join('\n')}
+          onChange={(e) => updatePaths(e.target.value)}
+          rows={3}
+          className="w-full px-2 py-1.5 border rounded text-[11px] font-mono resize-y focus:outline-none focus:ring-1 focus:ring-primary"
+          style={{
+            backgroundColor: 'var(--color-bg-primary)',
+            borderColor: 'var(--color-border)',
+            color: 'var(--color-text-primary)',
+          }}
+          placeholder="/memories/preferences.md&#10;/memories/conventions.md"
+        />
+      </div>
 
       {/* Info box — LangChain memory model */}
       <div className="p-2.5 rounded text-[10px] leading-relaxed"
@@ -231,32 +285,48 @@ function RegularAgentMemoryConfig({ config, setConfig }: { config: any; setConfi
   const summarization = config.summarization_middleware || false;
 
   return (
-    <div className="p-3 rounded-lg border space-y-3" style={{ borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-primary)' }}>
+    <div className="space-y-3">
+      {/* Checkpointer — single-select cards */}
       <div>
-        <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
-          Checkpointer (per LangChain docs)
-        </label>
-        <select
-          value={checkpointer}
-          onChange={(e) => setConfig({ ...config, checkpointer: e.target.value })}
-          className="w-full px-2 py-1.5 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-          style={{
-            backgroundColor: 'var(--color-bg-primary)',
-            borderColor: 'var(--color-border)',
-            color: 'var(--color-text-primary)',
-          }}
-        >
-          <option value="None">None (no memory)</option>
-          <option value="MemorySaver">MemorySaver (in-memory, dev only)</option>
-          <option value="PostgresSaver">PostgresSaver (production)</option>
-        </select>
-        <p className="text-[10px] mt-1 leading-snug" style={{ color: 'var(--color-text-muted)' }}>
-          Checkpointer stores conversation state per thread_id, allowing the agent to resume conversations.
-        </p>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <h4 className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+            Checkpointer
+            <span className="ml-2 normal-case font-normal">({checkpointer})</span>
+          </h4>
+          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+            Per LangChain docs: <code>checkpointer=</code> param
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <MemoryStrategyCard
+            id="None" name="None"
+            description="No memory. Each conversation starts fresh."
+            isSelected={checkpointer === 'None'}
+            onSelect={() => setConfig({ ...config, checkpointer: 'None' })}
+            badge="DISABLED"
+            iconColor="#a3a3a3"
+          />
+          <MemoryStrategyCard
+            id="MemorySaver" name="MemorySaver"
+            description="In-memory dict. Lost on restart. For development."
+            isSelected={checkpointer === 'MemorySaver'}
+            onSelect={() => setConfig({ ...config, checkpointer: 'MemorySaver' })}
+            badge="DEV"
+            iconColor="#3b82f6"
+          />
+          <MemoryStrategyCard
+            id="PostgresSaver" name="PostgresSaver"
+            description="Postgres-backed. Production-grade persistence."
+            isSelected={checkpointer === 'PostgresSaver'}
+            onSelect={() => setConfig({ ...config, checkpointer: 'PostgresSaver' })}
+            badge="PROD"
+            iconColor="#10b981"
+          />
+        </div>
       </div>
 
       {checkpointer !== 'None' && (
-        <div>
+        <div className="px-1">
           <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: 'var(--color-text-muted)' }}>
             Thread ID
           </label>
@@ -278,7 +348,7 @@ function RegularAgentMemoryConfig({ config, setConfig }: { config: any; setConfi
         </div>
       )}
 
-      <label className="flex items-start gap-2 cursor-pointer">
+      <label className="flex items-start gap-2 cursor-pointer px-1">
         <input
           type="checkbox"
           checked={summarization}
