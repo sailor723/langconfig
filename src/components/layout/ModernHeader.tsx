@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { MessageSquare } from 'lucide-react';
 import { useProject } from "../../contexts/ProjectContext";
 import { useChat } from '../../features/chat/state/ChatContext';
+import AgentsMdEditor from '../../features/projects/AgentsMdEditor';
 
 interface ModernHeaderProps {
   currentView: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
@@ -23,6 +24,7 @@ export default function ModernHeader({
   const { activeProject, projects, setActiveProjectId, loading } = useProject();
   const { openChat } = useChat();
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const [showAgentsMdEditor, setShowAgentsMdEditor] = useState(false);
   const { t } = useTranslation('chat');
 
   return (
@@ -240,6 +242,19 @@ export default function ModernHeader({
           <MessageSquare className="w-5 h-5" />
         </button>
 
+        {/* AGENTS.md Editor (project-level context for DeepAgent MemoryMiddleware) */}
+        {activeProject && (
+          <button
+            onClick={() => setShowAgentsMdEditor(true)}
+            className="flex items-center gap-1.5 px-2.5 h-10 rounded-lg hover:bg-white/15 transition-all text-white/90 hover:text-white border border-transparent hover:border-white/20 text-xs"
+            title="Edit AGENTS.md — loaded into DeepAgent system prompt via MemoryMiddleware"
+            style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)' }}
+          >
+            <span className="material-symbols-outlined text-base">description</span>
+            <span>AGENTS.md</span>
+          </button>
+        )}
+
         {/* Project Selector */}
         <div className="relative">
           <button
@@ -324,6 +339,24 @@ export default function ModernHeader({
           <span className="material-symbols-outlined text-base">settings</span>
         </button>
       </div>
+
+      {/* AGENTS.md Editor Modal (DeepAgent MemoryMiddleware) */}
+      {showAgentsMdEditor && activeProject && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setShowAgentsMdEditor(false)}
+        >
+          <div
+            className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl w-[800px] max-w-[95vw] h-[700px] max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <AgentsMdEditor
+              projectId={activeProject.id}
+              onClose={() => setShowAgentsMdEditor(false)}
+            />
+          </div>
+        </div>
+      )}
     </header>
   );
 }
