@@ -1242,14 +1242,14 @@ def grep(pattern: str, path: str = ".", file_pattern: str = None) -> str:
 
 
 # =============================================================================
-# Memory Tools (Vector-backed via AgentMemorySystem in core/agents/memory.py)
+# Memory Tools (Stub — real implementation in core/agents/memory.py SimpleMemory)
 # =============================================================================
 
 # NOTE: These are fallback placeholder functions. The real memory implementation
-# is in AgentMemorySystem (core/agents/memory.py) which uses pgvector for
-# semantic storage/retrieval. The AgentFactory routes native memory tool requests
-# to AgentMemorySystem automatically — these stubs should never be loaded in
-# production unless the vector_store is unavailable.
+# is in SimpleMemory (core/agents/memory.py) which is text-based + PostgreSQL.
+# The AgentFactory routes native memory tool requests to SimpleMemory
+# automatically — these stubs should never be loaded in production unless
+# the SimpleMemory system is unavailable.
 
 @tool
 def memory_store(key: str, value: str, context: str = "general") -> str:
@@ -1257,8 +1257,8 @@ def memory_store(key: str, value: str, context: str = "general") -> str:
     [FALLBACK] Store information in agent memory for later recall.
 
     This is a fallback stub. The real implementation is in
-    core/agents/memory.py via the AgentMemorySystem (vector-backed).
-    If this is being used, check that a vector_store is configured.
+    core/agents/memory.py via SimpleMemory.
+    If this is being used, check that SimpleMemory is configured.
 
     Args:
         key: Unique identifier for this memory
@@ -1267,7 +1267,7 @@ def memory_store(key: str, value: str, context: str = "general") -> str:
     """
     logger.warning(
         f"memory_store fallback used (key={key}). "
-        f"Real implementation is in AgentMemorySystem. Check vector_store config."
+        f"Real implementation is in SimpleMemory."
     )
     return f"Stored memory: {key} in context '{context}'"
 
@@ -1278,8 +1278,8 @@ def memory_recall(key: str, context: str = "general") -> str:
     [FALLBACK] Recall previously stored information from memory.
 
     This is a fallback stub. The real implementation is in
-    core/agents/memory.py via the AgentMemorySystem (vector-backed).
-    If this is being used, check that a vector_store is configured.
+    core/agents/memory.py via SimpleMemory.
+    If this is being used, check that SimpleMemory is configured.
 
     Args:
         key: The key to look up
@@ -1287,7 +1287,7 @@ def memory_recall(key: str, context: str = "general") -> str:
     """
     logger.warning(
         f"memory_recall fallback used (key={key}). "
-        f"Real implementation is in AgentMemorySystem. Check vector_store config."
+        f"Real implementation is in SimpleMemory."
     )
     return f"Memory lookup for '{key}' - Not yet implemented (use PostgreSQL checkpointer)"
 
