@@ -400,5 +400,112 @@ The Store uses `AsyncPostgresStore` which stores data in `store` and `store_blob
 - ✅ **`vector_store` param** — already removed (SimpleMemory has no such param)
 - ✅ **Audit `services/llama_config.py`** — removed `get_langchain_vector_store()` (~99 lines, dead since AgentMemorySystem was deleted)
 
-**Priority 3 (open question) — PENDING:**
-- ❓ **Migrate to DeepAgent's `MemoryMiddleware`**? Library v0.6.8 provides filesystem-based memory (AGENTS.md files). Different paradigm: injected into system prompt vs tool-based. Trade-off: more idiomatic but loses tool-style control.
+**Priority 3 — DONE 2026-06-24 (with revisions):**
+- ✅ **Migrated to DeepAgent's `MemoryMiddleware`** — added in commit `2fad2ab` and `32d008c`
+- AGENTS.md is loaded per-project at `.workspace_data/projects/{id}/AGENTS.md`
+- Loaded into system prompt via `MemoryMiddleware.wrap_model_call()`
+- UI: "AGENTS.md" button in `ModernHeader` opens editor modal
+- Per-project scope (chosen over per-user or global)
+- Default ON, opt-out via `config.disable_memory_middleware = True`
+
+See [§ Final System Prompt Walkthrough](#final-system-prompt-walkthrough) below for how it composes at runtime.
+
+---
+
+## Final System Prompt Walkthrough
+
+When a DeepAgent runs in this project, the system prompt sent to the LLM is built in **7 layers**, in order:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ [1] AGENT'S CONFIGURED SYSTEM PROMPT                                │
+│     Source: agent.config.system_prompt                              │
+│     Example: "You are a helpful AI assistant with planning, ..."   │
+│     197 chars for demo_deep_agent                                   │
+├─────────────────────────────────────────────────────────────────────┤
+│ [2] LANGUAGE INSTRUCTION                                            │
+│     Source: settings.language (e.g. "zh")                           │
+│     Example: "\n\n**Language**: Respond in Chinese."                │
+│     ~50 chars (only if language != en/en-US/en-GB)                  │
+├─────────────────────────────────────────────────────────────────────┤
+│ [3] AGENTS.MD BLOCK ← MemoryMiddleware                              │
+│     Source: .workspace_data/projects/{id}/AGENTS.md                 │
+│     Wrapped in: <agent_memory>...</agent_memory>                    │
+│     4,374 chars for project 1                                       │
+│     Contents: project base, settings resolution, KB, tools,         │
+│               conventions, memory guidelines, notes                 │
+├─────────────────────────────────────────────────────────────────────┤
+│ [4] MEMORY_GUIDELINES BLOCK ← MemoryMiddleware                      │
+│     Source: hardcoded in deepagents middleware/memory.py            │
+│     Wrapped in: <memory_guidelines>...</memory_guidelines>          │
+│     ~3.5 KB                                                         │
+│     Contents: trust/verification, when to save/recall, examples     │
+├─────────────────────────────────────────────────────────────────────┤
+│ [5] TODO LIST INSTRUCTIONS (if TodoListMiddleware enabled)          │
+│     Source: deepagents library auto-injection                       │
+│     How to use write_todos / mark in_progress / etc.                │
+├─────────────────────────────────────────────────────────────────────┤
+│ [6] SUBAGENT TOOL DESCRIPTION (if subagents configured)             │
+│     Source: deepagents library auto-injection                       │
+│     How to use the `task` tool to delegate to subagents             │
+├─────────────────────────────────────────────────────────────────────┤
+│ [7] TOOL PROMPTS (auto-injected)                                    │
+│     Source: from agent.config.tools / native_tools / custom_tools    │
+│     All 9 native + 5 custom tools listed with their schemas         │
+└─────────────────────────────────────────────────────────────────────┘
+
+TOTAL: ~10-12 KB sent to the LLM (model depends on agent.config.model)
+```
+
+### Example: `demo_deep_agent` (id=84) on project 1
+
+```python
+# Final system message sent to minimax-m3:
+
+[1] "You are a helpful AI assistant with planning, research, and task delegation capabilities.
+     When facing complex multi-step tasks, use the `task` tool to delegate specialized work
+     to subagents. 你可以会数学
+
+     **Language**: Respond in Chinese."
+
+[2] <agent_memory>
+     # My First Project — Project Base Configuration
+     ... (4,374 chars of project context) ...
+     </agent_memory>
+
+     <memory_guidelines>
+     ... (3.5 KB of memory rules) ...
+     </memory_guidelines>
+
+[3] Todo List instructions (write_todos, etc.)
+
+[4] `task` tool description (subagent delegation)
+
+[5] Tool prompts:
+     - Native: ls, read_file, write_file, edit_file, glob, grep, web_search, web_fetch, tavily_search
+     - Custom: math_add, math_subtract, math_multiply, math_divide, math_sqrt
+```
+
+### How to verify it's working
+
+1. Open `ModernHeader` → click "AGENTS.md" button
+2. Edit content → Save
+3. Next chat run with a DeepAgent in this project will see the new content
+4. Or use the API: `curl http://localhost:8765/api/projects/1/agents-md`
+
+### Settings Precedence (Important!)
+
+The AGENTS.md content is **context for the agent**, NOT configuration. For actual runtime behavior, precedence is:
+
+| Priority | Location | What it controls |
+|---|---|---|
+| 1 | `agent.config.*` (per-agent) | **THE actual config used** |
+| 2 | `project.configuration.*` (per-project) | Project defaults (often dead code) |
+| 3 | `settings` (global) | App-wide (api keys, embedding model, language) |
+| 4 | AGENTS.md (filesystem) | **Just context** — no code reads it (except MemoryMiddleware) |
+
+The AGENTS.md **tells the agent about the project**, but doesn't change what code runs.
+
+### Example AGENTS.md
+
+See [`example-AGENTS.md`](./example-AGENTS.md) for a fully populated project-level AGENTS.md.
