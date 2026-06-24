@@ -235,6 +235,42 @@ class DeepAgentFactory:
             create_todo_tracker
         )
 
+        # Initialize MemoryMiddleware (loads project AGENTS.md into system prompt)
+        # Default: ON. Library-idiomatic per deepagents. Can opt-out via
+        # config.disable_memory_middleware = True.
+        if not getattr(config, 'disable_memory_middleware', False):
+            try:
+                from deepagents.middleware.memory import MemoryMiddleware
+                from services.agents_md_service import ensure_agents_md_exists
+
+                agents_md_path = ensure_agents_md_exists(project_id)
+                # FilesystemBackend is scoped to the project root so the agent
+                # can only read/write files within its own project directory.
+                # AGENTS.md lives at projects/{id}/AGENTS.md, so we use a
+                # backend with root_dir = projects/{id}.
+                from deepagents.backends.filesystem import FilesystemBackend
+                mem_backend = FilesystemBackend(
+                    root_dir=str(agents_md_path.parent)
+                )
+                mem_middleware = MemoryMiddleware(
+                    backend=mem_backend,
+                    sources=[agents_md_path.name],  # relative to root_dir
+                    add_cache_control=True,         # for Anthropic prompt caching
+                )
+                from services.deepagents_instrumentation import (
+                    instrument_deepagents_middleware,
+                )
+                instrumented_mem = instrument_deepagents_middleware(
+                    mem_middleware,
+                    callback_handler=callback_handler
+                )
+                middleware_instances.append(instrumented_mem)
+                logger.info(
+                    f"MemoryMiddleware initialized: AGENTS.md={agents_md_path}"
+                )
+            except Exception as e:
+                logger.warning(f"MemoryMiddleware not available: {e}")
+
         # Initialize FilesystemMiddleware if enabled
         filesystem_config = next(
             (m for m in config.middleware if m.type == MiddlewareType.FILESYSTEM),
@@ -243,7 +279,7 @@ class DeepAgentFactory:
         if filesystem_config and filesystem_config.enabled:
             try:
                 from deepagents.middleware.filesystem import FilesystemMiddleware
-                from deepagents.memory.backends import FilesystemBackend
+                from deepagents.backends.filesystem import FilesystemBackend
                 from services.workspace_manager import get_workspace_manager
 
                 # Get task workspace for file storage (with custom path override if configured)
@@ -256,7 +292,7 @@ class DeepAgentFactory:
                 )
 
                 # Use FilesystemBackend with task workspace as root (files persist to disk)
-                fs_backend = FilesystemBackend(root=str(workspace_path))
+                fs_backend = FilesystemBackend(root_dir=str(workspace_path))
                 fs_middleware = FilesystemMiddleware(backend=fs_backend)
                 instrumented_fs = instrument_deepagents_middleware(
                     fs_middleware,
@@ -864,7 +900,7 @@ class DeepAgentFactory:
                 logger.info(f"  Subagent '{subagent_name}': added TodoListMiddleware")
             elif name == 'filesystem':
                 from deepagents.middleware.filesystem import FilesystemMiddleware
-                from deepagents.memory.backends import FilesystemBackend
+                from deepagents.backends.filesystem import FilesystemBackend
                 resolved.append(FilesystemMiddleware(backend=FilesystemBackend()))
                 logger.info(f"  Subagent '{subagent_name}': added FilesystemMiddleware")
             else:
