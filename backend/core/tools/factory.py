@@ -488,49 +488,6 @@ class ToolFactory:
             raise
 
     @staticmethod
-    def _validate_mongodb_query(query: Dict[str, Any]) -> bool:
-        """
-        Validate MongoDB query to prevent injection attacks.
-
-        Blocks dangerous operators:
-        - $where (allows arbitrary JavaScript execution)
-        - $function (allows arbitrary JavaScript)
-        - $accumulator (allows arbitrary JavaScript)
-
-        Args:
-            query: MongoDB query dictionary
-
-        Returns:
-            True if query is safe
-
-        Raises:
-            ValueError: If query contains dangerous operators
-        """
-        dangerous_operators = ["$where", "$function", "$accumulator"]
-
-        def check_dict(d: Any) -> None:
-            """Recursively check dictionary for dangerous operators"""
-            if isinstance(d, dict):
-                for key, value in d.items():
-                    if key in dangerous_operators:
-                        raise ValueError(f"MongoDB query validation failed: Dangerous operator '{key}' not allowed")
-                    check_dict(value)
-            elif isinstance(d, list):
-                for item in d:
-                    check_dict(item)
-
-        try:
-            check_dict(query)
-            return True
-        except ValueError as e:
-            logger.error(f"MongoDB query validation failed: {e}")
-            raise
-
-    # =============================================================================
-    # API Tool Creator
-    # =============================================================================
-
-    @staticmethod
     async def _create_api_tool(
         tool_config: Dict[str, Any],
         project_id: Optional[int]
@@ -1882,14 +1839,15 @@ class ToolFactory:
         impl_config = tool_config["implementation_config"]
         db_type = impl_config.get("db_type", "postgres")
 
+        # Only PostgreSQL is supported (DATABASE_POSTGRES_TEMPLATE is the only
+        # registered database template). MySQL/MongoDB paths were removed 2026-06-24
+        # as dead code (no template, no DB usage).
         if db_type in ["postgres", "postgresql"]:
             return await ToolFactory._create_postgres_tool(tool_config, impl_config)
-        elif db_type == "mysql":
-            return await ToolFactory._create_mysql_tool(tool_config, impl_config)
-        elif db_type == "mongodb":
-            return await ToolFactory._create_mongodb_tool(tool_config, impl_config)
         else:
-            raise ValueError(f"Unsupported database type: {db_type}")
+            raise ValueError(
+                f"Unsupported database type: {db_type}. Only 'postgres' is supported."
+            )
 
     @staticmethod
     async def _create_postgres_tool(
@@ -1963,175 +1921,6 @@ class ToolFactory:
 
         logger.info(f"Created PostgreSQL tool: {tool_config['name']}")
         return tool
-
-    @staticmethod
-    async def _create_mysql_tool(
-        tool_config: Dict[str, Any],
-        impl_config: Dict[str, Any]
-    ) -> BaseTool:
-        """Create MySQL query tool"""
-        connection_string = impl_config.get("connection_string", "")
-        query_template = impl_config.get("query_template", "SELECT * FROM {table}")
-        read_only = impl_config.get("read_only", True)
-        max_rows = impl_config.get("max_rows", 100)
-        timeout = impl_config.get("timeout", 30)
-
-        if not connection_string:
-            raise ValueError("MySQL connection_string is required")
-
-        async def execute_mysql_query(**kwargs) -> str:
-            """Execute a MySQL query"""
-            conn = None
-            try:
-                # Import aiomysql for MySQL
-                import aiomysql
-
-                # Format the query
-                query = query_template.format(**kwargs)
-
-                # Read-only check
-                if read_only:
-                    query_upper = query.upper().strip()
-                    dangerous_keywords = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE"]
-                    if any(keyword in query_upper for keyword in dangerous_keywords):
-                        return f"Error: Read-only mode enabled. Query contains forbidden keyword."
-
-                # Parse connection string for aiomysql
-                # Format: mysql://user:pass@host:port/database
-                parsed = urlparse(connection_string)
-
-                conn = await aiomysql.connect(
-                    host=parsed.hostname,
-                    port=parsed.port or 3306,
-                    user=parsed.username,
-                    password=parsed.password,
-                    db=parsed.path.lstrip('/'),
-                    connect_timeout=timeout
-                )
-
-                # Limit rows
-                if "LIMIT" not in query.upper():
-                    query = f"{query} LIMIT {max_rows}"
-
-                async with conn.cursor(aiomysql.DictCursor) as cursor:
-                    await cursor.execute(query)
-                    rows = await cursor.fetchall()
-
-                if not rows:
-                    return "Query executed successfully. No results returned."
-
-                logger.info(f"MySQL query returned {len(rows)} rows")
-                return json.dumps(rows, indent=2, default=str)
-
-            except Exception as e:
-                logger.error(f"MySQL query failed: {e}")
-                return f"Error: {str(e)}"
-            finally:
-                if conn:
-                    conn.close()
-
-        args_schema = ToolFactory._create_pydantic_args_schema(
-            tool_config["input_schema"],
-            tool_config["tool_id"]
-        )
-
-        tool = StructuredTool.from_function(
-            coroutine=execute_mysql_query,
-            name=tool_config["tool_id"],
-            description=tool_config["description"],
-            args_schema=args_schema,
-            handle_tool_error=True  # Allow agent to recover from tool errors
-        )
-
-        logger.info(f"Created MySQL tool: {tool_config['name']}")
-        return tool
-
-    @staticmethod
-    async def _create_mongodb_tool(
-        tool_config: Dict[str, Any],
-        impl_config: Dict[str, Any]
-    ) -> BaseTool:
-        """Create MongoDB query tool"""
-        connection_string = impl_config.get("connection_string", "")
-        query_template = impl_config.get("query_template", "{}")
-        read_only = impl_config.get("read_only", True)
-        max_rows = impl_config.get("max_rows", 100)
-        timeout = impl_config.get("timeout", 30)
-
-        if not connection_string:
-            raise ValueError("MongoDB connection_string is required")
-
-        async def execute_mongodb_query(**kwargs) -> str:
-            """Execute a MongoDB query"""
-            client = None
-            try:
-                # Import motor for async MongoDB
-                from motor.motor_asyncio import AsyncIOMotorClient
-
-                # Format the query template
-                query_str = query_template.format(**kwargs)
-                query = json.loads(query_str) if isinstance(query_str, str) else query_str
-
-                # Validate query for security (prevent injection attacks)
-                try:
-                    ToolFactory._validate_mongodb_query(query)
-                except ValueError as e:
-                    logger.error(f"MongoDB query validation failed: {e}")
-                    return f"Error: Query validation failed - {str(e)}"
-
-                # Collection and database from kwargs or config
-                database_name = kwargs.get("database", impl_config.get("database", ""))
-                collection_name = kwargs.get("collection", impl_config.get("collection", ""))
-
-                if not database_name or not collection_name:
-                    return "Error: database and collection parameters are required"
-
-                # Connect to MongoDB
-                client = AsyncIOMotorClient(connection_string, serverSelectionTimeoutMS=timeout * 1000)
-                db = client[database_name]
-                collection = db[collection_name]
-
-                # Execute query
-                cursor = collection.find(query).limit(max_rows)
-                results = await cursor.to_list(length=max_rows)
-
-                # Convert ObjectId to string for JSON serialization
-                for doc in results:
-                    if '_id' in doc:
-                        doc['_id'] = str(doc['_id'])
-
-                if not results:
-                    return "Query executed successfully. No results returned."
-
-                logger.info(f"MongoDB query returned {len(results)} documents")
-                return json.dumps(results, indent=2, default=str)
-
-            except Exception as e:
-                logger.error(f"MongoDB query failed: {e}")
-                return f"Error: {str(e)}"
-            finally:
-                if client:
-                    client.close()  # Motor's close() is synchronous
-
-        args_schema = ToolFactory._create_pydantic_args_schema(
-            tool_config["input_schema"],
-            tool_config["tool_id"]
-        )
-
-        tool = StructuredTool.from_function(
-            coroutine=execute_mongodb_query,
-            name=tool_config["tool_id"],
-            description=tool_config["description"],
-            args_schema=args_schema,
-            handle_tool_error=True  # Allow agent to recover from tool errors
-        )
-
-        logger.info(f"Created MongoDB tool: {tool_config['name']}")
-        return tool
-
-    # =============================================================================
-    # Data Transform Tool Creator
-    # =============================================================================
 
     @staticmethod
     async def _create_data_transform_tool(
