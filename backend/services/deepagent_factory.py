@@ -11,6 +11,7 @@ with LangConfig's existing agent factory infrastructure.
 """
 
 import logging
+import os
 from typing import Dict, Any, List, Optional, Tuple
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
@@ -329,13 +330,11 @@ class DeepAgentFactory:
             except Exception as e:
                 logger.warning(f"SummarizationMiddleware not available: {e}")
 
-        # NOTE: SubAgentMiddleware is NOT manually created here.
-        # The deepagents library automatically creates SubAgentMiddleware (with the `task` tool)
-        # when `subagents=` is passed to create_deep_agent().
-        # Manually creating it causes conflicts and prevents the `task` tool from working.
+        # NOTE: SubAgentMiddleware is added LATER (after all_subagents is built)
+        # to provide the `task` tool. The deepagents library does NOT auto-create it.
         # See: https://docs.langchain.com/oss/python/deepagents/subagents
         if subagents_config:
-            logger.info(f"SubAgents configured ({len(subagents_config)}) - will be auto-initialized by create_deep_agent")
+            logger.info(f"SubAgents configured ({len(subagents_config)}) - will be added via SubAgentMiddleware")
 
         # Get PostgreSQL checkpointer for conversation persistence
         from core.workflows.checkpointing.manager import get_checkpointer
@@ -488,6 +487,8 @@ class DeepAgentFactory:
                                 "Read the SKILL.md and follow its instructions exactly. "
                                 "Return only the result."
                             ),
+                            "model": config.model,  # Inherit from main agent
+                            "tools": [],  # Will be auto-populated by skill loader
                             "middleware": [skill_mw],
                         })
 
@@ -509,8 +510,40 @@ class DeepAgentFactory:
 
         # Create DeepAgent with all components
         try:
+            # Build a BaseChatModel instance from config.model so the deepagents
+            # library doesn't try to call init_chat_model("minimax-m3") for
+            # SummarizationMiddleware (which always fails for non-standard names).
+            from langchain_openai import ChatOpenAI
+            from config import settings as _settings_obj
+            _model_str = config.model
+            for prefix in ("deepseek:", "agnes:", "minimax:", "anthropic:", "openai:"):
+                if _model_str.startswith(prefix):
+                    _model_str = _model_str[len(prefix):]
+                    break
+            # Use the SAME API key resolution as the main AgentFactory:
+            # - minimax → settings.MINIMAX_API_KEY (from .env)
+            # - agnes   → settings.AGNES_API_KEY
+            # - deepseek → settings.DEEPSEEK_API_KEY
+            # - default → settings.OPENAI_API_KEY
+            if config.model.startswith("minimax"):
+                _api_key = _settings_obj.MINIMAX_API_KEY
+                _base_url = _settings_obj.MINIMAX_API_BASE
+            elif config.model.startswith("agnes"):
+                _api_key = _settings_obj.AGNES_API_KEY
+                _base_url = _settings_obj.AGNES_BASE_URL
+            elif config.model.startswith("deepseek"):
+                _api_key = _settings_obj.DEEPSEEK_API_KEY
+                _base_url = _settings_obj.DEEPSEEK_API_BASE or "https://api.deepseek.com/v1"
+            else:
+                _api_key = _settings_obj.OPENAI_API_KEY
+                _base_url = None
+            main_chat_model = ChatOpenAI(
+                model=_model_str,
+                base_url=_base_url,
+                api_key=_api_key,
+            )
             agent_kwargs = {
-                "model": config.model,
+                "model": main_chat_model,  # Pass BaseChatModel, not string
                 "tools": all_tools,
                 "system_prompt": final_system_prompt,
                 "middleware": middleware_instances if middleware_instances else None,
@@ -534,6 +567,26 @@ class DeepAgentFactory:
                 all_subagents.extend(skill_subagents)
             if all_subagents:
                 agent_kwargs["subagents"] = all_subagents
+
+                # NOTE: deepagents==0.6.8 does NOT auto-create SubAgentMiddleware
+                # when subagents= is passed. We must add it explicitly to expose
+                # the `task` tool. Without this, the main agent has no way to
+                # delegate to subagents.
+                # See: https://docs.langchain.com/oss/python/deepagents/subagents
+                # NOTE: deepagents==0.6.8 DOES auto-create SubAgentMiddleware internally
+                # when subagents= is passed to create_deep_agent() (see graph.py:529).
+                # We do NOT need to manually add SubAgentMiddleware — doing so
+                # creates a DUPLICATE `task` tool, causing conflicts.
+                # What we DO need: each subagent's model must be a pre-built BaseChatModel
+                # instance (since "minimax-m3" is non-standard and init_chat_model fails).
+                # We reuse the SAME main_chat_model so they share credentials.
+                try:
+                    for sa in all_subagents:
+                        if isinstance(sa, dict):
+                            sa["model"] = main_chat_model  # Reuse main agent's model
+                    logger.info(f"Subagents will be auto-wired by create_deep_agent(): {len(all_subagents)} → `task` tool exposed")
+                except Exception as e:
+                    logger.warning(f"Failed to prepare subagent models: {e}")
 
             # Debug logging for subagent configuration
             logger.info(f"All subagents: {len(all_subagents)} (user: {len(subagents_config or [])}, skill: {len(skill_subagents if 'skill_subagents' in dir() else [])})")
@@ -673,13 +726,10 @@ class DeepAgentFactory:
 
         if native_tool_names:
             try:
-                from core.agents.factory import AgentFactory
-                native_tools = await AgentFactory._load_native_tools(
-                    native_tool_names,
-                    workspace_context=workspace_context
-                )
+                from tools.native_tools import load_native_tools
+                native_tools = load_native_tools(native_tool_names)
                 tools.extend(native_tools)
-                logger.info(f"Loaded {len(native_tools)} native tools with workspace_context")
+                logger.info(f"Loaded {len(native_tools)} native tools: {native_tool_names}")
             except Exception as e:
                 logger.error(f"Failed to load native tools: {e}")
 
@@ -779,12 +829,9 @@ class DeepAgentFactory:
                 subagent_tools = []
                 if sub_config.tools:
                     try:
-                        from core.agents.factory import AgentFactory
-                        # Load native tools by name (with workspace context for file writes)
-                        subagent_tools = await AgentFactory._load_native_tools(
-                            sub_config.tools,
-                            workspace_context=workspace_context
-                        )
+                        from tools.native_tools import load_native_tools
+                        # Load native tools by name
+                        subagent_tools = load_native_tools(sub_config.tools)
                         logger.info(f"Loaded {len(subagent_tools)} tools for subagent '{sub_config.name}': {sub_config.tools}")
                     except Exception as e:
                         logger.warning(f"Failed to load tools for subagent '{sub_config.name}': {e}")
