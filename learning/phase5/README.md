@@ -1465,12 +1465,67 @@ Earlier versions of section 6 (6a-6h) described the skills architecture **incorr
 
 - `learning/phase5/README.md`: 1384 → ~1430 lines (+46 lines net after rewrite)
 
-### What was NOT changed
+### What was NOT changed (at that point)
 
 - The actual code (no refactor)
 - The 15 builtin skills
 - The `SkillRegistry` (still 551 lines, custom)
 - The skill CRUD tools (`create_skill`/`update_skill`/`delete_skill`)
+
+### Dead code removal (commit `045ccc4`, 2026-06-24, Phase 5 P1.5)
+
+After auditing the skill system, **404 lines of dead code** were removed (verified 0 callers via static analysis):
+
+| File | Before | After | Delta |
+|---|---|---|---|
+| `backend/api/skills/routes.py` | 1521 | 1179 | **−342 (−22%)** |
+| `backend/core/skills/registry.py` | 551 | 503 | −48 (−8.7%) |
+| `backend/core/skills/loader.py` | 310 | 296 | −14 (−4.5%) |
+| **Total** | **2382** | **1978** | **−404 (−16.9%)** |
+
+**9 dead endpoints removed** (all had 0 frontend + 0 backend callers):
+
+| Endpoint | Reason for removal |
+|---|---|
+| `POST /{id}/invoke` | Replaced by subagent delegation (skills are subagents, no manual invocation needed) |
+| `POST /{id}/reload` | Superseded by `POST /reload-all` (which IS used) |
+| `GET /debug/paths` | No UI consumer; dev tools only |
+| `GET /debug/registry-state` | No UI consumer; dev tools only |
+| `POST /debug/init` | No UI consumer; dev tools only |
+| `POST /debug/reload-verbose` | No UI consumer; dev tools only |
+| `GET /{id}/stats` | Analytics only; no UI consumer |
+| `POST /{id}/record-execution` | Analytics only; no UI consumer |
+| `GET /{id}/agents` | No UI consumer |
+
+**3 dead Pydantic schemas removed**: `InvokeSkillRequest`, `InvokeSkillResponse`, `SkillStatsResponse`
+
+**4 dead registry methods removed**: `find_by_tags`, `find_by_source`, `is_initialized`, `skill_count`
+
+**1 dead loader method removed**: `validate_skill_id`
+
+**Final state: 12 USED endpoints** (verified by grep):
+```
+GET    /api/skills                       (list)
+GET    /api/skills/summary               (used by SkillLibrary)
+GET    /api/skills/{id}                  (used by SkillBuilderModal)
+POST   /api/skills                       (create)
+PUT    /api/skills/{id}                  (update)
+DELETE /api/skills/{id}
+POST   /api/skills/match                 (used by SkillBuilderModal)
+POST   /api/skills/playground/run        (used by SkillPlayground)
+POST   /api/skills/reload-all            (used by SkillLibrary)
+GET    /api/skills/{id}/files            (used by SkillBuilderModal)
+GET    /api/skills/{id}/files/{path}
+PUT    /api/skills/{id}/files/{path}
+```
+
+**Regression fix**: Removed `is_initialized` method broke 5 call sites in `routes.py` (POST/PUT/DELETE endpoints). Fixed by replacing `registry.is_initialized` → `registry._initialized` (private attr still exists).
+
+**What was preserved (still alive)**:
+- The 15 builtin skills
+- The `SkillRegistry` (now 503 lines, custom)
+- The skill CRUD tools (`create_skill`/`update_skill`/`delete_skill`)
+- The subagent-per-skill architecture
 
 ### Open questions for Phase 5 P2
 
@@ -1478,5 +1533,7 @@ Earlier versions of section 6 (6a-6h) described the skills architecture **incorr
   - Trade-off: lose per-skill isolation (or keep it via per-skill middleware)
   - Benefit: less custom code (`SkillRegistry` could be deleted)
   - Effort: ~3-4 hours
+  - Status: DEFERRED — current design works, no clear pain point
 - ❓ Should we **auto-create the `skill-generator` skill on first run** if missing?
 - ❓ Is the **Skill Router LLM worth the latency** on first message?
+- ❓ Should we also remove `SkillMatcher` (~275 lines) if it becomes unused?
