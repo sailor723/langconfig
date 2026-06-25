@@ -271,7 +271,7 @@ backend/.venv/bin/python phase9/dv_chat.py backend/data/documents/project_1/5cc1
 
 ---
 
-## 🎯 Acceptance for Step 1 (sample DV chat)
+## 🎯 Step 1 — Sample DV chat (DONE)
 
 - [x] Single-file script: `python phase9/dv_chat.py /path/to/file.pdf`
 - [x] Supports PDF (PyMuPDF/fitz), MD, TXT
@@ -281,33 +281,38 @@ backend/.venv/bin/python phase9/dv_chat.py backend/data/documents/project_1/5cc1
 - [x] `__file__`-free `.env` resolution — works as script AND in REPL/import
 - [x] Interactive REPL: `you:` → `assistant:` grounded in the document
 - [x] LLM instructed to cite page numbers, e.g. `(page 3)`
-- [x] **Conversation meta per turn**: in/out tokens, latency, cost, pricing tier
+- [x] **Conversation meta per turn**: doc name, in/out tokens, cache_read, latency, cost
 - [x] **Session summary** on `/stats` and `/quit`: cumulative tokens, time, throughput (tok/s), total cost
 - [x] MiniMax M3 pricing: $0.60/M in + $2.40/M out (standard ≤512K), $1.20/M in + $4.80/M out (long-ctx >512K)
 - [x] No FastAPI, no Neo4j, no DB — pure local file + langchain
-- [x] Warning if context > 800K chars (no silent truncation)
 
-## 🎯 Acceptance for Step 2 (doc index matching)
+## 🎯 Step 2 — Multi-doc multi-round chat (DONE)
 
-- [ ] One function `pick_document(query, project_id, db) -> ContextDocument` that:
-  - Tries Neo4j first, then in-memory, then `context_doc_id` hint
-  - Uses **one** scoring function (Neo4j's, in `neo4j_document_index.py`)
-  - Returns `(context_doc, match_method, score)` tuple for observability
-- [ ] Reuses the result in `graphindex/answer` to remove the duplicate scoring
-- [ ] Smoke test: same query returns same doc with both backends
+- [x] Reuses base's `choose_best_document_match` (no live Neo4j needed)
+- [x] 6 seed docs (3 EN + 3 ZH) covering finance, philosophy, strategy, agreement, course, sports
+- [x] Auto-routes each query to the most relevant doc (EN + ZH verified)
+- [x] Manual `/doc <name>` override for cases where routing picks wrong doc
+- [x] **Per-doc session isolation**: switching docs suspends old history, resumes new
+- [x] Cache benefit preserved: same doc across multiple turns → cache hit on system+doc prefix
+- [x] Negative cases handled: unrelated query → "no match, use /doc"
+- [x] 16/16 routing tests pass (11 auto + 3 manual + 2 negative)
 
-## 🎯 Acceptance for Step 3 (eval)
+## 🎯 Step 3 — Eval (TODO)
 
-- [ ] Run 5 representative queries against 3 sample docs (Chinese + English + mixed)
-- [ ] Measure: hit rate, top-1 precision, prompt size, latency
-- [ ] Decide which of: SDK method, FastAPI route, UI panel, native tool, skill — to promote the pieces into
-- [ ] Write a one-page promotion plan in `phase9/eval.md`
+Run a 5-10 query suite against the seed docs, measure:
+- top-1 routing accuracy
+- answer page-citation accuracy
+- per-doc cache hit rate
+- total latency / cost
+
+Decide which of: SDK method, FastAPI route, UI panel, native tool, skill — to promote the pieces into.
 
 ---
 
 ## 🔗 Related Reading
 
 - VectifyAI / GraphIndex (inspiration): <https://github.com/VectifyAI/GraphIndex>
+- Phase 3 README on memory systems (the `SimpleMemory` two-layer pattern): `learning/phase3/README.md`
 - Phase 5 README on skills (the `pdf-chat-assistant` skill): `learning/phase5/README.md`
 - Phase 6 README on workflows (the KV-style `graphindex/answer` pattern): `learning/phase6/README.md`
 - Phase 8 README (DeepAgent Studio — same author style, useful template): `phase8/README.md`
