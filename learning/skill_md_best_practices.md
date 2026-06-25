@@ -151,26 +151,23 @@ Some skills **do NOT answer business questions directly** — they prepare data
 for downstream skills. Examples: `market_wizard` (cleans CSV), `data-loader`
 (loads DB), `feature-extractor`.
 
-For these skills, Section 3 should be split into:
+**Recommended approach** (loose coupling):
+- Remove the "Business Context" section entirely from data-prep skills
+- Add a single hint to the **frontmatter description**:
+  ```yaml
+  description: Cleans messy market CSVs to canonical schema, for downstream business analysis.
+  ```
+- Section 3 of the SKILL.md is purely **Data Cleaning Rules** (no business questions)
 
-```markdown
-## Business Context
-- This skill does NOT answer business questions directly.
-- It produces canonical-clean data for downstream skills.
-- Business questions enabled (via <downstream_skill>):
-  - <list 3-5 business questions>
+**Why loose coupling**:
+- market_wizard should NOT know what business questions its output enables
+- It should ONLY know how to clean data correctly
+- The downstream analysis skill (e.g., finance_pro) describes its own input contract
+- This keeps each skill independently maintainable
 
-## Data Cleaning Rules  (or "Processing Logic" / "Transformation Rules")
-### 1. <rule>
-### 2. <rule>
-...
-```
-
-**When to use this split**:
-- ✓ Data cleaning skills (CSV normalization, schema mapping)
-- ✓ Data loading skills (DB → DataFrame extraction)
-- ✓ Feature engineering skills (raw cols → derived cols)
-- ✗ NOT for analysis skills that compute aggregates, ratios, etc.
+**Example**: market_wizard has Section 3 = "Data Cleaning Rules" only.
+              finance_pro has Section 3 = "Business Logic" only.
+              Each describes ITS OWN concerns, not the other's.
 
 ### Example Business Logic section (analysis skill)
 
