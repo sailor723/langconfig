@@ -22,9 +22,11 @@ Commands:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -69,6 +71,7 @@ NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 DOCS_BASE = REPO_ROOT / "backend/data/documents"
 SESSION_START = time.time()
+SUPPORTED_EXTS = {".pdf", ".md", ".markdown", ".txt"}
 
 
 # --- Document loading (lifted from scripts/test_neo4j_document_kv_roundtrip.py) -
@@ -333,6 +336,100 @@ def cmd_show(index: Neo4jDocumentIndex, name: str) -> int:
     return 0
 
 
+# --- sha256 helpers + dedup ---------------------------------------------------
+
+def sha256_of_file(file_path: str) -> str:
+    """Compute SHA-256 hex digest of a file's bytes."""
+    h = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def scan_filesystem_for_dupe(file_path: str, content_hash: str,
+                              docs_base: Path = DOCS_BASE) -> List[Path]:
+    """Find any file under docs_base whose name ends with the same hash prefix
+    or whose full sha256 matches the candidate. Returns existing files."""
+    matches: List[Path] = []
+    if not docs_base.exists():
+        return matches
+    for p in docs_base.rglob("*"):
+        if not p.is_file() or p.resolve() == Path(file_path).resolve():
+            continue
+        # Skip chat-session copies — they are private workspace clones, not
+        # project source docs. Only check actual project_* dirs.
+        rel = p.relative_to(docs_base)
+        top = rel.parts[0] if rel.parts else ""
+        if not top.startswith("project_") or top == "project_chat_sessions":
+            continue
+        if sha256_of_file(str(p)) == content_hash:
+            matches.append(p)
+    return matches
+
+
+def scan_neo4j_for_dupe(index: Neo4jDocumentIndex, content_hash: str,
+                         project_id: int = 1) -> List[str]:
+    """Find any Document node whose content_sha256 matches. Returns names."""
+    rows = index._run_cypher(
+        "MATCH (d:Document {project_id: $pid, content_sha256: $h}) "
+        "RETURN d.name AS name",
+        {"pid": project_id, "h": content_hash},
+    )
+    return [r["name"] for r in rows]
+
+
+def cmd_ingest(
+    index: Neo4jDocumentIndex,
+    llm: BaseChatModel,
+    source_path: str,
+    target_project_dir: str = None,
+) -> int:
+    """Ingest a new file: hash it, dedup against fs + Neo4j, copy if new,
+    then run rebuild-one to add the graphindex node."""
+    src = Path(source_path).expanduser().resolve()
+    if not src.exists():
+        print(f"  ✗ source not found: {src}")
+        return 1
+    if src.suffix.lower() not in SUPPORTED_EXTS:
+        print(f"  ✗ unsupported extension: {src.suffix}")
+        return 1
+
+    # 1. Hash source
+    content_hash = sha256_of_file(str(src))
+    short_hash = content_hash[:8]
+    print(f"  hash:  {short_hash}…  ({src.stat().st_size:,} bytes)")
+
+    # 2. Dedup against filesystem
+    target_dir = Path(target_project_dir) if target_project_dir else DOCS_BASE
+    fs_dupes = scan_filesystem_for_dupe(str(src), content_hash)
+    if fs_dupes:
+        print(f"  ✗ already in fs ({len(fs_dupes)} match): {fs_dupes[0].name}")
+        return 0
+
+    # 3. Dedup against Neo4j
+    neo_dupes = scan_neo4j_for_dupe(index, content_hash)
+    if neo_dupes:
+        print(f"  ✗ already in Neo4j: {neo_dupes}")
+        return 0
+
+    # 4. Copy file with hash prefix into target dir
+    target_dir.mkdir(parents=True, exist_ok=True)
+    new_name = f"{short_hash}_{src.name}"
+    target_path = target_dir / new_name
+    if target_path.exists():
+        # Already at the target path (same content but different path)
+        print(f"  → file already at target: {target_path}")
+    else:
+        shutil.copy2(src, target_path)
+        print(f"  ✓ copied: {target_path}")
+
+    # 5. Add Neo4j node via rebuild-one (which also sets content_sha256)
+    docs = index.list_documents(project_id=1)
+    all_names = [d.name for d in docs]
+    return cmd_rebuild_one(index, llm, new_name, all_names)
+
+
 def cmd_rebuild_one(
     index: Neo4jDocumentIndex,
     llm: BaseChatModel,
@@ -406,6 +503,14 @@ def cmd_rebuild_one(
     index.upsert_document(project_id=1, name=name, file_path=file_path,
                           properties=properties)
 
+    # Also set content_sha256 (not in base properties builder)
+    content_hash = sha256_of_file(file_path)
+    index._run_cypher(
+        "MATCH (d:Document {project_id: $pid, name: $name}) "
+        "SET d.content_sha256 = $h",
+        {"pid": 1, "name": name, "h": content_hash},
+    )
+
     print(f"  ✓ upserted in {elapsed:.1f}s")
     print(f"    about: {enrichment.what_this_document_is_about[:120]}")
     print(f"    supports ({len(enrichment.supported_queries)}): "
@@ -466,9 +571,14 @@ def main() -> int:
                         help="Rebuild enrichment for every doc in project 1")
     parser.add_argument("--query", metavar="TEXT",
                         help="Route a query and print best match")
+    parser.add_argument("--ingest", metavar="FILE",
+                        help="Ingest a new file: hash, dedup, copy, build graphindex")
+    parser.add_argument("--ingest-target", metavar="DIR", default=None,
+                        help="Target directory for the ingested file "
+                             "(default: backend/data/documents/project_1)")
     args = parser.parse_args()
 
-    if not any([args.show, args.rebuild_one, args.rebuild_project, args.query]):
+    if not any([args.show, args.rebuild_one, args.rebuild_project, args.query, args.ingest]):
         parser.print_help()
         return 1
 
@@ -484,7 +594,7 @@ def main() -> int:
 
     # Build LLM (lazy — only when we need enrichment)
     llm: Optional[BaseChatModel] = None
-    if args.rebuild_one or args.rebuild_project:
+    if args.rebuild_one or args.rebuild_project or args.ingest:
         llm = make_llm()
         print(f"🔌 LLM: {MODEL}\n")
 
@@ -497,6 +607,8 @@ def main() -> int:
         return cmd_rebuild_project(index, llm)
     if args.query:
         return cmd_query(index, args.query)
+    if args.ingest:
+        return cmd_ingest(index, llm, args.ingest, args.ingest_target)
 
     return 0
 
