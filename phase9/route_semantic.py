@@ -131,46 +131,136 @@ def format_catalog(rows: List[Dict[str, Any]]) -> str:
 
 # --- LLM routing ------------------------------------------------------------
 
-ROUTING_SYSTEM_TEMPLATE = """You are a routing agent. Pick the SINGLE best document for the user query.
+ROUTING_SYSTEM_TEMPLATE = """You are a routing agent. Pick the best document for the user query, and identify any cross-domain supporting documents.
 
 Use semantic understanding, not just keyword overlap. Consider:
 - What the document is about (about field)
 - What questions the document can answer (supports field)
 - What topics the document explicitly does NOT cover (excludes — note the about/supports of each excluded doc)
 
+Domain-awareness rules:
+- Group documents by semantic domain (e.g. "deep_learning_course", "philosophy_and_strategy",
+  "financial_report", "scanned_handbook", "test_placeholder")
+- Use lowercase_snake_case short tags for primary_domain (max ~30 chars)
+- If the query clearly spans multiple domains (e.g. "compare Nike strategy with industry
+  trends"), include 1-3 supporting documents from RELATED domains — each with a concrete
+  reason explaining what context it adds
+- If the query is single-domain, leave supporting as an empty array []
+- Do NOT pad the supporting list — only include documents that genuinely add context
+- Supporting documents should come from different domains than primary
+
 Available documents in this project:
 {catalog}
 
 Reply ONLY with a JSON object on a single line:
-{{"name": "<exact doc name>", "confidence": <0.0-1.0>, "reasoning": "<one short sentence>"}}
+{{"primary": "<exact doc name>", "primary_domain": "<short_domain_tag>", "primary_confidence": <0.0-1.0>, "supporting": [{{"name": "<exact doc name>", "reason": "<why it adds context>"}}], "reasoning": "<one short sentence>"}}
 
 If NONE of the documents are relevant, reply:
-{{"name": null, "confidence": 0.0, "reasoning": "<why>"}}
+{{"primary": null, "primary_domain": null, "primary_confidence": 0.0, "supporting": [], "reasoning": "<why>"}}
 
 Do NOT include any <think> blocks, commentary, or extra text."""
 
 
 @dataclass
+class SupportingDoc:
+    name: str
+    reason: str
+
+
+@dataclass
 class RouteDecision:
-    name: Optional[str]
-    confidence: float
+    primary: Optional[str]                       # main doc (was `name` in v1)
+    primary_domain: Optional[str]                # e.g. "deep_learning_course"
+    primary_confidence: float
+    supporting: List[SupportingDoc]               # 0-3 cross-domain docs
     reasoning: str
+
+    # Backwards-compat alias
+    @property
+    def name(self) -> Optional[str]:
+        return self.primary
+
+    @property
+    def confidence(self) -> float:
+        return self.primary_confidence
 
 
 def _parse_decision(text: str) -> RouteDecision:
-    """Extract JSON decision from LLM response, handling <think> wrappers."""
+    """Extract JSON decision from LLM response. Handles both v1 ({name, confidence})
+    and v2 ({primary, primary_domain, supporting, ...}) schemas."""
     # Strip <think>...</think> if present
     if "<think>" in text and "</think>" in text:
         text = text.split("</think>", 1)[1].strip()
-    # Find the first {...} JSON object
-    match = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", text, re.DOTALL)
-    if not match:
-        raise ValueError(f"no JSON object found in: {text[:200]}")
-    data = json.loads(match.group(0))
-    name = data.get("name")
+    # Find the first balanced {...} JSON object (handles nested braces too)
+    start = text.find("{")
+    if start < 0:
+        raise ValueError(f"no JSON object in: {text[:200]}")
+    depth, in_string, escape = 0, False, False
+    end = -1
+    for i in range(start, len(text)):
+        c = text[i]
+        if escape:
+            escape = False
+            continue
+        if c == "\\":
+            escape = True
+            continue
+        if c == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                end = i
+                break
+    if end < 0:
+        # JSON was truncated (e.g. LLM hit max_tokens). Try to recover by
+        # truncating at the last complete nested object/array boundary.
+        # Heuristic: cut off trailing unclosed strings/arrays.
+        partial = text[start:]
+        last_full = partial.rfind("},")  # end of nested object
+        if last_full < 0:
+            last_full = partial.rfind("],")  # end of array
+        if last_full < 0:
+            raise ValueError(f"unbalanced JSON in: {text[:200]}")
+        truncated = partial[:last_full + 1]
+        opens = truncated.count("{") - truncated.count("}")
+        brackets = truncated.count("[") - truncated.count("]")
+        truncated += "]" * max(brackets, 0) + "}" * max(opens, 0)
+        try:
+            data = json.loads(truncated)
+        except Exception:
+            raise ValueError(f"unbalanced JSON in: {text[:200]}")
+    else:
+        data = json.loads(text[start:end + 1])
+
+    # v2 schema
+    primary = data.get("primary")
+    if primary is not None or "primary" in data:
+        supporting_raw = data.get("supporting", [])
+        supporting = [
+            SupportingDoc(name=s.get("name", ""), reason=s.get("reason", ""))
+            for s in supporting_raw
+            if s.get("name")
+        ]
+        return RouteDecision(
+            primary=primary if primary else None,
+            primary_domain=data.get("primary_domain"),
+            primary_confidence=float(data.get("primary_confidence", 0.0)),
+            supporting=supporting,
+            reasoning=data.get("reasoning", ""),
+        )
+
+    # v1 fallback
     return RouteDecision(
-        name=name if name else None,
-        confidence=float(data.get("confidence", 0.0)),
+        primary=data.get("name"),
+        primary_domain=None,
+        primary_confidence=float(data.get("confidence", 0.0)),
+        supporting=[],
         reasoning=data.get("reasoning", ""),
     )
 
@@ -185,7 +275,7 @@ def make_llm() -> BaseChatModel:
         api_key=MINIMAX_API_KEY,
         base_url=MINIMAX_BASE_URL,
         temperature=0.0,
-        max_tokens=512,
+        max_tokens=1024,    # need room for 3 supporting docs with reasons
     )
 
 
@@ -331,7 +421,24 @@ def main() -> int:
         llm_time = time.time() - t0
         if not args.compare:
             print(f"Query: {args.query!r}")
-        print_decision("llm", decision.name, decision.reasoning, decision.confidence)
+        # Print primary
+        if decision.primary:
+            domain_str = f"  domain={decision.primary_domain}" if decision.primary_domain else ""
+            print(f"  llm        → {decision.primary}  "
+                  f"(confidence={decision.primary_confidence:.2f}){domain_str}")
+            if decision.reasoning:
+                print(f"              {decision.reasoning}")
+        else:
+            print(f"  llm        → (no match)")
+            if decision.reasoning:
+                print(f"              {decision.reasoning}")
+        # Print supporting docs (if any)
+        if decision.supporting:
+            print(f"  supporting ({len(decision.supporting)}):")
+            for sup in decision.supporting:
+                print(f"    - {sup.name}")
+                if sup.reason:
+                    print(f"      reason: {sup.reason}")
         print(f"   ({llm_time:.2f}s, cache_read={cache_read:,})")
     return 0
 
