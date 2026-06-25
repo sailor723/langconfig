@@ -469,6 +469,64 @@ Matches the existing base convention (`35d142f1_C1M2.pdf`,
 is the SHA-256 leading bytes — gives ~4 billion distinct buckets while
 staying short.
 
+## 🎯 Step 2.9 — Domain-aware multi-doc routing (DONE)
+
+The routing prompt now asks the LLM to:
+
+  1. Tag the primary document with a short `primary_domain` (lowercase snake_case)
+  2. Identify 0-3 **supporting documents** from different domains that add
+     context, each with a concrete `reason`
+
+The LLM is now responsible for cross-domain selection (rather than relying
+on a fixed score-threshold or fuzzy overlap), which lets it reason about
+*semantic complementarity* — e.g. "Nike 10-K is the primary, but the
+Strategic Framework Presentation adds the methodology for industry comparison."
+
+### Schema evolution
+
+| Field | v1 (before) | v2 (current) |
+|---|---|---|
+| main doc | `name` | `primary` |
+| confidence | `confidence` | `primary_confidence` |
+| domain | — | `primary_domain` |
+| supporting | — | `supporting: [{name, reason}]` |
+
+`_parse_decision()` accepts both v1 and v2 schemas (backwards compat) and
+uses balanced-brace matching that handles nested `{...}` arrays in
+`supporting`.
+
+### Live test: cross-domain query
+
+```
+Query: 'compare Nike strategy with industry trends'
+  llm  → nke-10k-2023.pdf  (confidence=0.92)  domain=financial_report
+        Nike's 10-K is the core source for Nike's strategy and risk/competitive
+        context, while the strategic framework and survey supply cross-domain
+        scaffolding for an industry-trend comparison.
+  supporting (2):
+    - Strategic Framework Presentation.pdf
+      reason: 'DEEP RESEARCH' pillar covers industry analysis and competitive
+              intelligence methodology...
+    - Departmental Survey for Biz Strategy.pdf
+      reason: Provides strategic metrics (BCG portfolio, customer loyalty,
+              innovation/R&D) that can benchmark Nike's strategy...
+```
+
+### Live test: single-domain query
+
+```
+Query: 'philosopher profiles'
+  llm  → 6 人物库.pdf  (confidence=0.97)  domain=philosopher_entrepreneur_library
+  (no supporting — query is single-domain)
+```
+
+### Other fixes
+
+  - `max_tokens` bumped from 512 to 1024 to fit multi-supporting JSON
+  - Truncation recovery in `_parse_decision` — when LLM hits max_tokens
+    mid-JSON, we close any unclosed braces/brackets at the last complete
+    nested boundary so we still get *something* useful back
+
 ## 🎯 Step 3 — Eval (TODO)
 
 Run a 5-10 query suite against the seed docs, measure:
