@@ -326,6 +326,50 @@ Verified end-to-end against localhost:7474:
 Robustness: structured output sometimes wraps answer in `<think>...</think>` (MiniMax M3
 quirk). The script auto-falls-back to a plain text call + manual JSON extraction.
 
+## 🎯 Step 2.6 — Semantic LLM routing (DONE)
+
+String-matching routing fails on queries where the term isn't a literal substring
+of any field (e.g. "苏格拉底思想" → 苏格拉底 doesn't appear in any field, but it
+clearly relates to the philosophy doc). Solution: progressive disclosure + LLM
+routing — apply the same pattern Phase 6 SKILLS.md uses for skills, but for docs.
+
+`phase9/route_semantic.py` does this in 3 steps:
+
+  1. **fetch_catalog** — 1 Cypher query pulls every doc + its `out_of_scope`
+     neighbors' full metadata (`about`, `supported_queries`, etc.). No Neo4j
+     relationships needed — just an `OPTIONAL MATCH` + `collect()`.
+  2. **format_catalog** — render as a human-readable string with nested `excludes`
+     showing each excluded doc's full about + supports.
+  3. **route_by_llm** — put the formatted catalog in a stable `SystemMessage`
+     (→ MiniMax prompt cache 100% hit), then ask the LLM to pick the best doc
+     with a JSON response (`{name, confidence, reasoning}`).
+
+Comparison (string vs LLM, against live Neo4j with 18 docs):
+
+| Query | string (1 ms) | LLM (3-7 s) | Notes |
+|---|---|---|---|
+| `philosopher profiles` | 6 人物库.pdf | 6 人物库.pdf (0.97) | agree |
+| `苏格拉底思想` | (no match) | 6 人物库.pdf (0.30) | LLM recognizes Socrates→philosophy, is honest about partial match |
+| `machine learning neural networks` | Deep Learning in Healthcare.pdf (lucky) | cs230-midterm.pdf (0.62) | LLM knows CS230 = Stanford DL course |
+| `Nike revenue` | nke-10k-2023.pdf | nke-10k-2023.pdf | agree |
+
+Usage:
+
+```bash
+# Single query
+python phase9/route_semantic.py --query "苏格拉底思想"
+
+# Compare string vs LLM side-by-side
+python phase9/route_semantic.py --query "neural networks" --compare
+
+# Show the catalog (for debugging)
+python phase9/route_semantic.py --show-catalog
+```
+
+Cache benefit: catalog is the same across all queries within a project, so
+system-message prefix is stable → MiniMax prompt cache 100% hits → only the
+query + output costs tokens (typically 1,000-2,000 tokens per query).
+
 ## 🎯 Step 3 — Eval (TODO)
 
 Run a 5-10 query suite against the seed docs, measure:
