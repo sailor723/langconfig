@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -180,12 +181,19 @@ def extract_document_enrichment(
         "Return:\n"
         "1. what_this_document_is_about\n"
         "2. supported_queries\n"
-        "3. out_of_scope (include names of other project documents that "
-        "handle those topics — this is critical for routing)\n"
+        "3. out_of_scope\n"
         "4. few_shot\n\n"
-        "Rules:\n"
+        "CRITICAL — out_of_scope format rules:\n"
+        "- Each entry MUST be a single, exact document name from the list above\n"
+        "- Do NOT group multiple documents into one string\n"
+        "- Do NOT add phrases like 'see X' or 'and Y' — just the bare name\n"
+        "- Example (correct): ['6 人物库.pdf', 'Deep Learning in Healthcare.pdf']\n"
+        "- Example (WRONG): ['Biographical profiles (see 6 人物库.pdf)']\n"
+        "- The scoring algorithm does exact substring match against these names,\n"
+        "  so any extra text breaks routing.\n\n"
+        "Other rules:\n"
         "- Keep it concise and routing-oriented\n"
-        "- out_of_scope must be definitive where possible\n"
+        "- supported_queries are the natural questions this doc can answer\n"
         "- few_shot should be short examples of the kinds of questions "
         "this document can answer\n"
         "- Do not invent unsupported topics\n\n"
@@ -213,6 +221,8 @@ def extract_document_enrichment(
                 '"supported_queries": [str], '
                 '"out_of_scope": [str], '
                 '"few_shot": [{"query": str, "answer_hint": str}]}\n'
+                "CRITICAL: each out_of_scope entry MUST be a single, exact "
+                "document name (e.g. '6 人物库.pdf'). Do NOT group names. "
                 "Do NOT include <think> blocks or commentary."
             )),
             HumanMessage(content=message),
@@ -221,11 +231,41 @@ def extract_document_enrichment(
         # Strip <think>...</think> block if present
         if "<think>" in text and "</think>" in text:
             text = text.split("</think>", 1)[1].strip()
-        # Find the first { ... } JSON object in the response
+        # Find a balanced { ... } JSON object using brace matching (the LLM
+        # sometimes appends trailing text after the JSON).
         start = text.find("{")
-        end = text.rfind("}")
-        if start >= 0 and end > start:
-            text = text[start:end + 1]
+        if start < 0:
+            raise ValueError(f"no JSON object in response: {text[:200]}")
+        depth = 0
+        in_string = False
+        escape = False
+        end = -1
+        for i in range(start, len(text)):
+            c = text[i]
+            if escape:
+                escape = False
+                continue
+            if c == "\\":
+                escape = True
+                continue
+            if c == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        if end < 0:
+            raise ValueError(f"unbalanced JSON braces in: {text[:200]}")
+        text = text[start:end + 1]
+        # Sanitize common LLM JSON issues
+        text = text.replace("\\n", " ").replace("\\t", " ")
+        text = re.sub(r"[\x00-\x1f]+", " ", text)
         data = json.loads(text)
         result = DocumentEnrichmentOutput(**data)
     return Neo4jDocumentEnrichment(
@@ -299,16 +339,44 @@ def cmd_rebuild_one(
     name: str,
     all_names: List[str],
 ) -> int:
-    """Rebuild enrichment for one doc and upsert it."""
+    """Rebuild enrichment for one doc and upsert it.
+
+    If the node doesn't exist yet (e.g. after a delete), we locate the file
+    under backend/data/documents/ and create a fresh node.
+    """
     node = index.get_document(project_id=1, name=name)
-    if node is None:
-        print(f"  ✗ no Document node with name={name!r}")
-        return 1
-    content = load_document_content(node.file_path)
+    file_path: Optional[str] = None
+    context_doc_id = 0
+    description = ""
+    tags: List[str] = []
+    if node is not None:
+        file_path = node.file_path
+        context_doc_id = node.context_doc_id
+        description = node.description or ""
+        tags = list(node.tags or [])
+        print(f"  → found existing node (context_doc_id={context_doc_id})")
+    else:
+        # Find the file under any project_*/ folder.
+        # Filenames often have a hash prefix (e.g. "31042021_nke-10k-2023.pdf")
+        # but the node name is just the suffix. Strip .pdf and search.
+        base = name[:-4] if name.lower().endswith(".pdf") else name
+        candidates = [p for p in DOCS_BASE.rglob("*.pdf")
+                      if p.stem.endswith(base) or base in p.stem]
+        if not candidates:
+            # Fall back to exact-name match (for non-PDF files)
+            candidates = list(DOCS_BASE.rglob(name))
+        if not candidates:
+            print(f"  ✗ no Document node with name={name!r} "
+                  f"and no matching file under {DOCS_BASE}")
+            return 1
+        file_path = str(candidates[0].resolve())
+        print(f"  → node missing; will recreate from file {file_path}")
+
+    content = load_document_content(file_path)
     if not content:
-        print(f"  ✗ no content extracted from {node.file_path}")
+        print(f"  ✗ no content extracted from {file_path}")
         return 1
-    graphindex_meta = load_graphindex_metadata(node.file_path)
+    graphindex_meta = load_graphindex_metadata(file_path)
     other_names = build_project_scope_names(name, all_names)
 
     print(f"  → generating enrichment for {name!r} "
@@ -317,8 +385,8 @@ def cmd_rebuild_one(
     enrichment = extract_document_enrichment(
         llm=llm,
         document_name=name,
-        description=node.description or "",
-        tags=list(node.tags or []),
+        description=description,
+        tags=tags,
         graphindex_meta=graphindex_meta,
         content=content,
         other_document_names=other_names,
@@ -326,16 +394,16 @@ def cmd_rebuild_one(
     elapsed = time.time() - t0
 
     properties = build_properties(
-        file_path=node.file_path,
+        file_path=file_path,
         name=name,
         enrichment=enrichment,
         graphindex_meta=graphindex_meta,
-        description=node.description or "",
-        tags=list(node.tags or []),
-        context_doc_id=node.context_doc_id,
+        description=description,
+        tags=tags,
+        context_doc_id=context_doc_id,
         project_id=1,
     )
-    index.upsert_document(project_id=1, name=name, file_path=node.file_path,
+    index.upsert_document(project_id=1, name=name, file_path=file_path,
                           properties=properties)
 
     print(f"  ✓ upserted in {elapsed:.1f}s")
