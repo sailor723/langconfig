@@ -46,7 +46,33 @@ MKT_1001,LATAM,Services,1,"$2,100.00",50.0
 - `qty` 在源文件可能是 string (`"20"`),需转 int。
 - `region` 在不同文件中枚举值不同(US/EMEA/APAC vs US/EMEA/LATAM) — 保留原值,下游按值决定税率。
 
-## Business Logic
+## Business Context
+
+> ⚠️ **This skill does NOT answer business questions directly.** It produces
+> canonical-clean data that downstream skills (`finance_pro`) consume.
+
+### Business questions ENABLED (via `finance_pro`)
+Once cleaned, the data can answer:
+
+- Revenue by region (US, EMEA, APAC, LATAM)
+- Net revenue after regional taxes
+- Under-performing regions (< $500 net_after_tax)
+- Product category revenue contribution
+- Discount impact analysis
+
+### Data flow contract
+
+```
+market_wizard (THIS skill)           finance_pro (downstream)
+─────────────────────────            ───────────────────────
+Reads:  modern_marketing.csv         Reads:  cleaned_*.csv
+Writes: cleaned_<name>.csv           Writes: revenue_summary, charts
+Schema: 6 columns (canonical)        Input:  same 6 columns
+```
+
+**Schema contract is binding**: changing this output schema breaks `finance_pro`.
+
+## Data Cleaning Rules
 
 ### 1. 列名规范化
 按 §Aliases 表做 1:1 重命名。不做模糊匹配(避免误改)。

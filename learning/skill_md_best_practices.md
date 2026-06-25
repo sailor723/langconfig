@@ -133,7 +133,7 @@ Define **every column** the agent will encounter. Each column gets 4 fields:
 
 ## Section 3: Business Logic
 
-### Purpose
+### 3. Business Logic
 Capture **institutional knowledge** that doesn't exist anywhere else. These are
 the rules an experienced analyst knows but a new hire wouldn't.
 
@@ -145,8 +145,34 @@ the rules an experienced analyst knows but a new hire wouldn't.
 
 ### Format: Numbered rules with precise formulas
 
+### ⚠️ Special case: Data-Preparation Skills
+
+Some skills **do NOT answer business questions directly** — they prepare data
+for downstream skills. Examples: `market_wizard` (cleans CSV), `data-loader`
+(loads DB), `feature-extractor`.
+
+For these skills, Section 3 should be split into:
+
 ```markdown
-## Business Logic
+## Business Context
+- This skill does NOT answer business questions directly.
+- It produces canonical-clean data for downstream skills.
+- Business questions enabled (via <downstream_skill>):
+  - <list 3-5 business questions>
+
+## Data Cleaning Rules  (or "Processing Logic" / "Transformation Rules")
+### 1. <rule>
+### 2. <rule>
+...
+```
+
+**When to use this split**:
+- ✓ Data cleaning skills (CSV normalization, schema mapping)
+- ✓ Data loading skills (DB → DataFrame extraction)
+- ✓ Feature engineering skills (raw cols → derived cols)
+- ✗ NOT for analysis skills that compute aggregates, ratios, etc.
+
+### Example Business Logic section (analysis skill)
 
 ### 1. Gross Revenue per Transaction
 **Formula**: `gross_revenue = quantity × unit_price`
