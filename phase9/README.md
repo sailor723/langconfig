@@ -297,6 +297,35 @@ backend/.venv/bin/python phase9/dv_chat.py backend/data/documents/project_1/5cc1
 - [x] Negative cases handled: unrelated query → "no match, use /doc"
 - [x] 16/16 routing tests pass (11 auto + 3 manual + 2 negative)
 
+## 🎯 Step 2.5 — Complete GraphIndex builder (DONE)
+
+The production sync (`_try_sync_context_document_to_neo4j` in `api/knowledge/rag.py:444`)
+passes `enrichment=None` — so 14/18 production nodes have empty `what_this_document_is_about`
+and `supported_queries`. The enrichment generator existed as a dead nested function inside
+`scripts/test_neo4j_document_kv_roundtrip.py` but was never called from production.
+
+`phase9/build_graphindex.py` lifts that generator to a module-level function and exposes
+4 commands that operate on the live Neo4j:
+
+| Command | What |
+|---|---|
+| `--show <name>` | Dump one node's full state (enrichment + raw) |
+| `--rebuild-one <name>` | Run LLM enrichment on one doc, upsert to Neo4j |
+| `--rebuild-project` | Run enrichment on every doc in project 1 |
+| `--query <text>` | Route a query using current enrichment state |
+
+Verified end-to-end against localhost:7474:
+
+- `--show "nke-10k-2023.pdf"` — 217 chars about, 8 supported queries, 7 out_of_scope
+- `--rebuild-one "6 人物库.pdf"` — generates 367 chars about + 6 supported + 8 out_of_scope;
+  `out_of_scope` **explicitly excludes** `cs230-*.pdf`, `lecture-notes-*.pdf`, `nke-10k-2023.pdf`,
+  `Deep Learning in Healthcare.pdf`
+- `--query "philosopher profiles"` → routes to `6 人物库.pdf`
+- `--query "Nike revenue"` → routes to `nke-10k-2023.pdf`
+
+Robustness: structured output sometimes wraps answer in `<think>...</think>` (MiniMax M3
+quirk). The script auto-falls-back to a plain text call + manual JSON extraction.
+
 ## 🎯 Step 3 — Eval (TODO)
 
 Run a 5-10 query suite against the seed docs, measure:
