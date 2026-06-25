@@ -420,6 +420,55 @@ handles both cases:
 Full catalog is ~158K chars / ~40K tokens and stable per project → MiniMax
 prompt cache 100% hits on every routing call.
 
+## 🎯 Step 2.8 — Ingest with SHA-256 dedup (DONE)
+
+`--ingest <file>` adds a new doc safely: hash the file, check filesystem +
+Neo4j for any existing copy, copy with hash prefix only if genuinely new,
+then run enrichment to add the graphindex node.
+
+### Flow
+
+```
+new file (any path)
+   │
+   ▼ SHA-256 (8-char prefix used as filename prefix)
+   │
+   ├── fs dedup   : rglob docs_base, scan sha256 of each project_* file
+   │                (skip project_chat_sessions — those are private clones)
+   ├── neo4j dedup: MATCH (d:Document {content_sha256}) — skip if hit
+   │
+   └── neither hit:
+       copy → backend/data/documents/project_1/{h[:8]}_{name}
+       upsert node + SET d.content_sha256 = $h
+       run LLM enrichment (about / supported / out_of_scope / few_shot)
+```
+
+### Verified scenarios (live tests against localhost:7474)
+
+| Ingest | Result |
+|---|---|
+| `31042021_nke-10k-2023.pdf` (already in fs as `37901aa0_nke-10k-2023.pdf`) | ✗ skipped: same sha256 |
+| `/tmp/new_test_doc.txt` (genuinely new) | ✓ copied + indexed as `92707d11_new_test_doc.txt` |
+| `/tmp/new_test_doc.txt` again | ✗ skipped: already in Neo4j by content_sha256 |
+
+### Usage
+
+```bash
+# Default target dir: backend/data/documents/project_1
+python phase9/build_graphindex.py --ingest /path/to/new.pdf
+
+# Custom target dir (any project_* folder under backend/data/documents/)
+python phase9/build_graphindex.py --ingest /path/to/new.pdf \
+    --ingest-target /Users/me/projects/foo/backend/data/documents/project_42
+```
+
+### Why hash prefix filename?
+
+Matches the existing base convention (`35d142f1_C1M2.pdf`,
+`66bbde2a_Departmental Survey for Biz Strategy.pdf`). The 8-char prefix
+is the SHA-256 leading bytes — gives ~4 billion distinct buckets while
+staying short.
+
 ## 🎯 Step 3 — Eval (TODO)
 
 Run a 5-10 query suite against the seed docs, measure:
