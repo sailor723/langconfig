@@ -609,15 +609,49 @@ python phase9/route_semantic.py --query "<query>"
 python phase9/route_semantic.py --query "<query>" --compare
 ```
 
-## 🎯 Step 3 — Eval (TODO)
+## 🎯 Step 3 — Eval suite (DONE)
 
-Run a 5-10 query suite against the seed docs, measure:
-- top-1 routing accuracy
-- answer page-citation accuracy
-- per-doc cache hit rate
-- total latency / cost
+`phase9/eval_routing.py` runs a hand-labeled 14-query set across 6
+categories (simple EN, simple ZH, conceptual, cross-domain, irrelevant,
+ambiguous). Reports top-1 / top-3 accuracy, per-category breakdown,
+latency stats, and the full misroute list.
 
-Decide which of: SDK method, FastAPI route, UI panel, native tool, skill — to promote the pieces into.
+### Headline (live results, 18 docs in project 1)
+
+| Method | Primary accuracy | Top-3 | Latency mean | Latency max |
+|---|---|---|---|---|
+| String matching | 57% | 57% | 1 ms | 1 ms |
+| **LLM semantic** | **100%** | **100%** | 5,393 ms | 12,612 ms |
+
+### Per-category Δ (LLM − string)
+
+| Category | n | String | LLM | Δ |
+|---|---|---|---|---|
+| A. Simple EN literal | 2 | 100% | 100% | 0 |
+| B. Simple ZH | 2 | **0%** | **100%** | **+100 pp** |
+| C. Conceptual | 4 | 75% | 100% | +25 pp |
+| D. Cross-domain | 2 | 50% | 100% | +50 pp |
+| E. Irrelevant | 2 | 50% | 100% | +50 pp |
+| F. Ambiguous | 2 | 50% | 100% | +50 pp |
+
+### Cache benefit verified
+
+MiniMax prompt cache 100% hits on the 40K-token catalog across all 14
+queries. `cache_read` per query: 30K-35K tokens.
+
+### Full report
+
+See [`phase9/eval.md`](./eval.md) for the complete write-up including
+misroute analysis, latency distribution, caveats, and the promotion
+plan for lifting the LLM router into `backend/services/`.
+
+### How to re-run
+
+```bash
+python phase9/eval_routing.py --method both
+python phase9/eval_routing.py --method string
+python phase9/eval_routing.py --method llm --output /tmp/eval.json
+```
 
 ---
 
