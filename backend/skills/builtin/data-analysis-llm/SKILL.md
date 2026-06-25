@@ -23,28 +23,44 @@ allowed_tools:
 
 # Data Analysis (LLM-Driven) Skill
 
-## Instructions
+You are a flexible data analyst. When the user asks a custom, novel, or open-ended data analysis question (one that doesn't fit `data-analysis`'s fixed schema), you write Python code based on their question, then run it via the `execute` tool.
 
-You are a flexible data analyst. When the user asks a custom, novel, or open-ended
-data analysis question (one that doesn't fit `data-analysis`'s fixed schema), you
-write Python code based on their question, then run it via the `execute` tool.
-Available libraries: pandas, numpy, sqlalchemy, psycopg2-binary, matplotlib, scipy.
-Print results to stdout; save charts to a path the user specifies.
+## Data Source
 
-## When to use which
+### Accepted inputs
+- **CSV files**: any tabular CSV (path passed via `UPLOADED_FILE` env var or user-specified)
+- **SQL queries**: any `SELECT` against PostgreSQL (via `DATABASE_URL`)
+- **In-memory data**: anything the user supplies as context
 
-| Use `data-analysis` (this one) | Use `data-analysis-llm` |
+### Runtime environment
+- **Sandbox**: ephemeral Python process via `execute` tool
+- **Available libraries**: pandas, numpy, sqlalchemy, psycopg2-binary, matplotlib, scipy
+- **Output channels**: stdout (text) and `/uploads/charts/*.png` (visualizations)
+
+## Column Metadata
+
+| Field | Required | Data Type | Semantic | Usage |
+|---|---|---|---|---|
+| `source_type` | yes | enum (`csv` / `sql` / `inline`) | Input format | Determines loader |
+| `source_path` | if csv | string (absolute path) | CSV location | Read by pandas |
+| `query` | if sql | string (SQL SELECT) | Query text | Run via SQLAlchemy |
+| `intent` | yes | string (natural language) | User's analysis question | Drives code generation |
+| `output_format` | no | enum (`text` / `json` / `chart`) | Result format | Default `text` |
+
+**Note**: Unlike `data-analysis`, this skill has NO fixed schema for what to compute. The agent generates code from the user's intent.
+
+## Business Logic
+
+### When to use this vs. `data-analysis`
+
+| Use `data-analysis` (deterministic) | Use `data-analysis-llm` (flexible, this skill) |
 |---|---|
 | Standard profile/aggregate/chart | Custom calculations |
 | Predefined input schema | Free-form user question |
 | Fast, deterministic, predictable | Flexible, slower, can handle novel queries |
 | Same answer every run | Answer varies with model |
 
-## How this skill works
-
-You (the agent) write Python code based on the user's question, then run it via the `execute` tool.
-
-## Pattern
+### Workflow
 
 ```
 1. Understand the user's question
@@ -54,13 +70,34 @@ You (the agent) write Python code based on the user's question, then run it via 
 5. Interpret the output and explain findings
 ```
 
-## Example: Custom correlation analysis
+### Conventions
+
+- Save charts to `/uploads/charts/<name>.png` (or user-specified path)
+- Print results as text — the `execute` tool returns stdout
+- For JSON output, use `json.dumps(result)` and capture via stdout
+- For large results, write to a file and reference the path
+- Always include `matplotlib.use("Agg")` for headless chart generation
+
+### Output format (after running)
+
+Present in this order:
+1. **What you computed** (brief description)
+2. **Key findings** (insights from the output)
+3. **Visualization** (if a chart was generated, link to it)
+4. **Recommendation** (next steps or caveats)
+
+### Retry strategy
+
+- Code fails → read the error, fix, retry (max 3 attempts)
+- After 3 attempts → surface the error to the user and ask for guidance
+
+## Few-shot Examples
+
+### Example 1: Custom correlation analysis (price vs time)
 
 User asks: *"Are there any unusual correlations between the price and the date?"*
 
-The code you (the agent) should write and run:
-
-```
+```python
 import pandas as pd
 import os
 
@@ -75,27 +112,78 @@ corr = df[["price", "price_lag7", "price_rolling"]].corr()
 print(corr.to_string())
 ```
 
-Then `execute(command="python -c '<above code>'")`.
+### Example 2: Custom statistical test (is this distribution normal?)
 
-## Available libraries
+User asks: *"Is the 'fare' column normally distributed?"*
 
-The sandbox has these installed:
-- `pandas` — DataFrame operations
-- `numpy` — numerical
-- `sqlalchemy`, `psycopg2-binary` — SQL
-- `matplotlib` — charts (`matplotlib.use("Agg")` for headless)
-- `scipy` — statistics
+```python
+import pandas as pd
+from scipy import stats
+import os
 
-## Conventions
+df = pd.read_csv(os.environ["UPLOADED_FILE"])
+stat, p_value = stats.shapiro(df["fare"].dropna())
+print(f"Shapiro-Wilk test: statistic={stat:.4f}, p-value={p_value:.4e}")
+if p_value < 0.05:
+    print("Reject normality — distribution is NOT normal")
+else:
+    print("Cannot reject normality — distribution may be normal")
+```
 
-- Save charts to `/uploads/charts/<name>.png` (or user-specified path)
-- Print results as text — the execute tool returns stdout
-- For JSON output, use `json.dumps(result)` and capture via stdout
-- For large results, write to a file and reference the path
+### Example 3: Custom prediction (linear regression)
+
+User asks: *"Predict fare from age and pclass"*
+
+```python
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+import os
+
+df = pd.read_csv(os.environ["UPLOADED_FILE"]).dropna(subset=["age", "fare", "pclass"])
+X = df[["age", "pclass"]]
+y = df["fare"]
+model = LinearRegression().fit(X, y)
+print(f"Coefficients: age={model.coef_[0]:.2f}, pclass={model.coef_[1]:.2f}")
+print(f"R²: {model.score(X, y):.3f}")
+```
+
+## Edge Cases & Pitfalls
+
+### 1. Ambiguous user question
+❌ Write code based on guessing the intent
+✅ Ask for clarification on data source and intent BEFORE coding
+
+### 2. Code fails repeatedly
+❌ Keep retrying the same broken code
+✅ After 3 attempts, surface the error and ask for guidance
+
+### 3. Unexpected results
+❌ Just report them
+✅ Double-check the data, run `data-analysis` profile first, then retry
+
+### 4. Charts not displayed
+❌ Forget `matplotlib.use("Agg")` — script hangs on display
+✅ Always set `Agg` backend for headless rendering
+
+### 5. Large dataset exceeds memory
+❌ Load entire CSV into pandas
+✅ Use `pd.read_csv(chunksize=10000)` or filter upstream
+
+### 6. Secret leakage
+❌ Hardcode API keys, DB credentials in script
+✅ Use env vars only (`os.environ["DATABASE_URL"]`, etc.)
+
+### 7. SQL injection risk
+❌ Concatenate user input into query strings
+✅ Use parameterized queries: `text("SELECT * FROM x WHERE id = :id")`
+
+### 8. Importing unavailable libraries
+❌ `import tensorflow as tf` — likely not installed in sandbox
+✅ Stick to the documented library set: pandas, numpy, sqlalchemy, psycopg2-binary, matplotlib, scipy
 
 ## Decision criteria
 
-When the user asks something that DOESN'T fit the fixed `data-analysis` patterns:
+When the user's question DOESN'T fit `data-analysis`'s fixed patterns:
 - Novel statistical tests (e.g., "is this distribution normal?")
 - Custom ML models (e.g., "predict X from Y")
 - Complex multi-step analyses
@@ -110,18 +198,3 @@ When the user asks for standard profile/aggregate/chart:
 - "Make a bar chart"
 
 → Use `data-analysis` (the deterministic skill)
-
-## Output format
-
-After running, present:
-1. **What you computed** (brief description)
-2. **Key findings** (insights from the output)
-3. **Visualization** (if you generated a chart, link to it)
-4. **Recommendation** (next steps or caveats)
-
-## Edge cases
-
-- User's question is ambiguous → ask for clarification on data source and intent
-- Code fails → read the error, fix, retry (max 3 attempts)
-- Result is unexpected → double-check the data, profile first, then retry
-- Time-consuming analysis → warn user, use sampling if needed
