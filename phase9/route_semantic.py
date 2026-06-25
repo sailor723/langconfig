@@ -81,14 +81,14 @@ WITH d, ex_name
 OPTIONAL MATCH (other:Document {project_id: $pid, name: ex_name})
 WITH d, collect({
     name: other.name,
-    about: other.what_this_document_is_about,
-    supports: other.supported_queries
+    about: COALESCE(other.what_this_document_is_about, other.content_preview, ''),
+    supports: COALESCE(other.supported_queries, other.search_terms, [])
 }) AS excluded_full
 RETURN d.name AS name,
        d.context_doc_id AS cid,
        d.file_path AS fp,
-       coalesce(d.what_this_document_is_about, '') AS about,
-       coalesce(d.supported_queries, []) AS supports,
+       COALESCE(d.what_this_document_is_about, d.content_preview, '') AS about,
+       COALESCE(d.supported_queries, d.search_terms, []) AS supports,
        excluded_full AS excludes
 ORDER BY d.name
 """
@@ -276,6 +276,8 @@ def main() -> int:
                         help="Compare string-matching vs LLM routing on --query")
     parser.add_argument("--no-llm", action="store_true",
                         help="Use string-matching only (skip LLM call)")
+    parser.add_argument("--show-prompt", action="store_true",
+                        help="Print the full LLM prompt (system + user) for --query")
     args = parser.parse_args()
 
     if not any([args.query, args.show_catalog]):
@@ -299,6 +301,17 @@ def main() -> int:
         return 0
 
     if not args.query:
+        return 0
+
+    # Show the prompt the LLM would see, then exit (no LLM call)
+    if args.show_prompt:
+        catalog = format_catalog(rows)
+        system_prompt = ROUTING_SYSTEM_TEMPLATE.format(catalog=catalog)
+        print(f"\n{'='*70}\nSYSTEM MESSAGE ({len(system_prompt):,} chars)\n{'='*70}\n")
+        print(system_prompt)
+        print(f"\n{'='*70}\nUSER MESSAGE\n{'='*70}\n")
+        print(args.query)
+        print()
         return 0
 
     # String-matching baseline
