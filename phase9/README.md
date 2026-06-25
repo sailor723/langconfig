@@ -527,6 +527,88 @@ Query: 'philosopher profiles'
     mid-JSON, we close any unclosed braces/brackets at the last complete
     nested boundary so we still get *something* useful back
 
+## 🎯 Step 2.10 — Multi-doc load + synthesis (DONE)
+
+End-to-end command:
+
+```bash
+python phase9/route_semantic.py --query-answer "compare Nike strategy with industry trends"
+```
+
+Flow:
+
+```
+                 ┌─────────────────┐
+                 │  1. Route        │  LLM #1 (catalog → primary + supporting)
+                 │     (1 LLM call) │  cache: 34K tokens hit
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │  2. Load docs    │  PyMuPDF × N, capped per-doc chars
+                 │     (no LLM)     │  primary: 30K, supporting: 15K each
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │  3. Synthesize   │  LLM #2 (multi-doc → answer)
+                 │     (1 LLM call) │  cites pages, weaves primary+supporting
+                 └─────────────────┘
+```
+
+### Per-doc char caps
+
+| Role | Cap | Reason |
+|---|---|---|
+| primary | 30,000 | Main source, needs depth |
+| supporting | 15,000 | Reference material, cap tighter |
+
+Total max context: `30K + 3 × 15K = 75K chars` ≈ 18K tokens (well within
+MiniMax M3 limits).
+
+### Live test against localhost:7474
+
+```
+Query: 'compare Nike strategy with industry trends'
+
+routed → nke-10k-2023.pdf  (confidence=0.85)  domain=nike_financial_report
+supporting (2):
+  - Strategic Framework Presentation.pdf
+  - Departmental Survey for Biz Strategy.pdf
+(route: 11.93s, cache_read=34,816)
+
+loaded 42,369 chars  (0.2s)
+synthesized  (20.6s, cache_read=128)
+
+ANSWER:
+  Nike's strategy organized around 7 pillars (consumer-led product,
+  innovation-led differentiation, DTC push, ...). Industry trends Nike
+  identifies itself: hyper-competition (lists adidas/Anta/ASICS/etc.),
+  trade protectionism, supply chain volatility, ...
+  
+  The supporting documents don't add industry-trend data — Document 2 is
+  an AI integration framework, Document 3 is a generic business strategy
+  template. So comparison relies on Nike's own disclosures.
+  
+  [cites pages from Doc 1: pp.1-6]
+```
+
+The synthesis LLM correctly notes when supporting docs don't add
+context, and only cites Doc 1 when answering.
+
+### Usage
+
+```bash
+# Full end-to-end (route + load + answer)
+python phase9/route_semantic.py --query-answer "<query>"
+
+# Just route (no load, no answer)
+python phase9/route_semantic.py --query "<query>"
+
+# Side-by-side comparison
+python phase9/route_semantic.py --query "<query>" --compare
+```
+
 ## 🎯 Step 3 — Eval (TODO)
 
 Run a 5-10 query suite against the seed docs, measure:

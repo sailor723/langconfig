@@ -58,6 +58,7 @@ from services.neo4j_document_index import (  # noqa: E402
 from langchain.chat_models import init_chat_model  # noqa: E402
 from langchain_core.messages import HumanMessage, SystemMessage  # noqa: E402
 from langchain_core.language_models.chat_models import BaseChatModel  # noqa: E402
+import fitz  # noqa: E402  (PyMuPDF for PDF text extraction)
 
 # --- Constants ---------------------------------------------------------------
 
@@ -340,6 +341,114 @@ def print_catalog(rows: List[Dict[str, Any]]) -> None:
     print()
 
 
+# --- Multi-doc load + combined answer ---------------------------------------
+
+# Per-doc char limits. Primary gets more because it's the main source;
+# supporting docs are reference material so we cap them tighter.
+PRIMARY_MAX_CHARS = 30_000
+SUPPORTING_MAX_CHARS = 15_000
+
+# Cache file_path lookups so we don't hit Neo4j per doc
+_FILE_PATH_CACHE: Dict[str, str] = {}
+
+
+def _read_doc_text(file_path: str, max_chars: int) -> str:
+    """Read PDF / MD / TXT up to max_chars. Returns "" if file is missing."""
+    if not file_path or not Path(file_path).exists():
+        return ""
+    ext = Path(file_path).suffix.lower()
+    if ext == ".pdf":
+        doc = fitz.open(file_path)
+        out: List[str] = []
+        total = 0
+        for i in range(len(doc)):
+            if total >= max_chars:
+                out.append(f"\n... [truncated after page {i+1}/{len(doc)}]")
+                break
+            page_text = doc[i].get_text("text").strip()
+            if page_text:
+                chunk = f"--- Page {i+1}/{len(doc)} ---\n{page_text}"
+                out.append(chunk)
+                total += len(chunk)
+        doc.close()
+        return "\n\n".join(out)
+    # Plain text fallback
+    text = Path(file_path).read_text(encoding="utf-8", errors="ignore")
+    return text[:max_chars]
+
+
+def _file_path_for(index: Neo4jDocumentIndex, project_id: int, name: str) -> str:
+    """Look up file_path from Neo4j, with in-memory cache."""
+    if name in _FILE_PATH_CACHE:
+        return _FILE_PATH_CACHE[name]
+    node = index.get_document(project_id=project_id, name=name)
+    path = node.file_path if node else ""
+    _FILE_PATH_CACHE[name] = path
+    return path
+
+
+def load_multi_doc_context(
+    index: Neo4jDocumentIndex,
+    project_id: int,
+    primary: Optional[str],
+    supporting: List[SupportingDoc],
+) -> str:
+    """Concatenate primary + supporting docs into a single human-readable
+    string, with clear per-doc headers and character caps."""
+    parts: List[str] = []
+    if primary:
+        path = _file_path_for(index, project_id, primary)
+        text = _read_doc_text(path, PRIMARY_MAX_CHARS)
+        parts.append(
+            f"=== Document 1 (PRIMARY): {primary} ===\n{text}"
+            if text else f"=== Document 1 (PRIMARY): {primary} ===\n(no extractable text)"
+        )
+    for i, sup in enumerate(supporting, start=2):
+        path = _file_path_for(index, project_id, sup.name)
+        text = _read_doc_text(path, SUPPORTING_MAX_CHARS)
+        reason_line = f"\n[Reason included: {sup.reason}]" if sup.reason else ""
+        parts.append(
+            f"=== Document {i} (SUPPORTING): {sup.name} ==={reason_line}\n{text}"
+            if text else
+            f"=== Document {i} (SUPPORTING): {sup.name} ==={reason_line}\n(no extractable text)"
+        )
+    return "\n\n".join(parts)
+
+
+ANSWER_SYSTEM_TEMPLATE = """You are a document-grounded analyst. Answer the user's question using the provided documents.
+
+Rules:
+1. Use ONLY the supplied documents. If the answer is not present, say so.
+2. Cite document + page for every claim, e.g. "(Document 1, page 3)".
+3. If multiple documents are listed, weave them together — note where they
+   agree, disagree, or complement each other.
+4. If supporting documents are included for context, mention when a supporting
+   doc adds information that the primary doesn't have.
+"""
+
+
+def answer_multi_doc(
+    query: str,
+    combined_context: str,
+    llm: BaseChatModel,
+) -> tuple[str, int]:
+    """Run the final synthesis LLM call over the combined context. Returns
+    (answer, cache_read_tokens). The combined_context is part of the user
+    message, so it changes per query — no cache hit here."""
+    resp = llm.invoke([
+        SystemMessage(content=ANSWER_SYSTEM_TEMPLATE),
+        HumanMessage(content=(
+            f"Question:\n{query}\n\n"
+            f"--- Documents ---\n\n{combined_context}"
+        )),
+    ])
+    answer = resp.content if isinstance(resp.content, str) else str(resp.content)
+    usage = getattr(resp, "usage_metadata", None) or {}
+    details = usage.get("input_token_details", {}) or {}
+    cache_read = int(details.get("cache_read", 0) or details.get("cached_tokens", 0))
+    return answer, cache_read
+
+
 def print_decision(label: str, name: Optional[str], reasoning: str = "",
                    confidence: float = 0.0) -> None:
     if name:
@@ -368,9 +477,12 @@ def main() -> int:
                         help="Use string-matching only (skip LLM call)")
     parser.add_argument("--show-prompt", action="store_true",
                         help="Print the full LLM prompt (system + user) for --query")
+    parser.add_argument("--query-answer", metavar="TEXT",
+                        help="Full end-to-end: route query, load multi-doc context, "
+                             "and run synthesis LLM call")
     args = parser.parse_args()
 
-    if not any([args.query, args.show_catalog]):
+    if not any([args.query, args.show_catalog, args.query_answer]):
         parser.print_help()
         return 1
 
@@ -390,26 +502,34 @@ def main() -> int:
         print_catalog(rows)
         return 0
 
-    if not args.query:
-        return 0
-
     # Show the prompt the LLM would see, then exit (no LLM call)
     if args.show_prompt:
+        # Use --query-answer as the query if --query wasn't given
+        prompt_query = args.query or args.query_answer
+        if not prompt_query:
+            print("  ✗ --show-prompt needs --query or --query-answer")
+            return 1
         catalog = format_catalog(rows)
         system_prompt = ROUTING_SYSTEM_TEMPLATE.format(catalog=catalog)
         print(f"\n{'='*70}\nSYSTEM MESSAGE ({len(system_prompt):,} chars)\n{'='*70}\n")
         print(system_prompt)
         print(f"\n{'='*70}\nUSER MESSAGE\n{'='*70}\n")
-        print(args.query)
+        print(prompt_query)
         print()
         return 0
+
+    if not args.query and not args.query_answer:
+        return 0
+
+    # Unified query (used by --query, --compare, --query-answer)
+    query = args.query or args.query_answer
 
     # String-matching baseline
     if args.compare:
         t0 = time.time()
-        string_result = route_by_string(args.query, rows)
+        string_result = route_by_string(query, rows)
         string_time = time.time() - t0
-        print(f"Query: {args.query!r}")
+        print(f"Query: {query!r}")
         print_decision("string", string_result)
         print(f"   ({string_time*1000:.0f} ms)")
 
@@ -417,10 +537,10 @@ def main() -> int:
     if not args.no_llm:
         llm = make_llm()
         t0 = time.time()
-        decision, cache_read = route_by_llm(args.query, rows, llm)
+        decision, cache_read = route_by_llm(query, rows, llm)
         llm_time = time.time() - t0
         if not args.compare:
-            print(f"Query: {args.query!r}")
+            print(f"Query: {query!r}")
         # Print primary
         if decision.primary:
             domain_str = f"  domain={decision.primary_domain}" if decision.primary_domain else ""
@@ -440,6 +560,49 @@ def main() -> int:
                 if sup.reason:
                     print(f"      reason: {sup.reason}")
         print(f"   ({llm_time:.2f}s, cache_read={cache_read:,})")
+
+    # End-to-end: route + load multi-doc + synthesize answer
+    if args.query_answer:
+        llm = make_llm()
+        t0 = time.time()
+        decision, route_cache = route_by_llm(args.query_answer, rows, llm)
+        route_time = time.time() - t0
+        print(f"\nQuery: {args.query_answer!r}")
+        if decision.primary:
+            domain_str = f"  domain={decision.primary_domain}" if decision.primary_domain else ""
+            print(f"  routed   → {decision.primary}  "
+                  f"(confidence={decision.primary_confidence:.2f}){domain_str}")
+        else:
+            print(f"  routed   → (no match: {decision.reasoning})")
+        if decision.supporting:
+            print(f"  supporting ({len(decision.supporting)}):")
+            for sup in decision.supporting:
+                print(f"    - {sup.name}")
+                if sup.reason:
+                    print(f"      reason: {sup.reason}")
+        print(f"   (route: {route_time:.2f}s, cache_read={route_cache:,})")
+
+        if not decision.primary:
+            print("\n  ✗ no primary doc — cannot synthesize answer")
+            return 1
+
+        # Load multi-doc context
+        t0 = time.time()
+        context = load_multi_doc_context(idx, PROJECT_ID, decision.primary,
+                                         decision.supporting)
+        load_time = time.time() - t0
+        total_chars = len(context)
+        print(f"\n  loaded {total_chars:,} chars  ({load_time:.1f}s)")
+
+        # Synthesize answer
+        t0 = time.time()
+        answer, ans_cache = answer_multi_doc(args.query_answer, context, llm)
+        ans_time = time.time() - t0
+        print(f"  synthesized  ({ans_time:.1f}s, cache_read={ans_cache:,})")
+
+        print(f"\n{'='*70}\nANSWER\n{'='*70}\n")
+        print(answer)
+        print()
     return 0
 
 
