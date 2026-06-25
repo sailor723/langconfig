@@ -15,6 +15,10 @@ TXN_001       | US     | Software         | 10       | 500.0      | 50.0
 
 ## Column Metadata
 
+### Input contract (canonical schema)
+
+This skill expects a DataFrame already conforming to:
+
 | Canonical Name | Data Type | Semantic | Usage |
 |---|---|---|---|
 | transaction_id | string (unique) | 交易编号 | 标识唯一交易,可作索引 |
@@ -24,7 +28,12 @@ TXN_001       | US     | Software         | 10       | 500.0      | 50.0
 | unit_price | float > 0 | 单价,折扣前 | 收入公式的乘数 |
 | discount | float ≥ 0 | **绝对**折扣金额(不是百分比) | 从总收入中减去 |
 
-### 别名(由 market_wizard 清洗前)
+> 💡 This schema is typically produced by the `market_wizard` skill, but this
+> skill works on ANY DataFrame matching the schema — it doesn't require market_wizard.
+
+### Expected dirty aliases (for context only)
+
+If the input is NOT yet cleaned, common dirty column names map as:
 
 | Dirty name | Canonical name |
 |---|---|
