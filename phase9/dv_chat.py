@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-Phase 9 — Step 1: DV (Doc-Viewer) chat with cache-friendly prompts.
+Phase 9 — Step 2: multi-doc multi-round DV chat.
 
-Design:
-  - Simple llm.invoke loop (no deepagents — direct control over message shape).
-  - System message is the document + rules (STABLE across all turns).
-  - User message carries the current question + recent history.
-  - This way, the system message prefix is identical every turn → MiniMax
-    can hit its automatic prompt cache when the same question is repeated.
+Reuses the base project's `choose_best_document_match` (in
+backend/services/neo4j_document_index.py) to pick the right document for
+each user query, then loads that doc into a per-doc conversation session.
+
+Each doc gets its own messages list (so history is isolated); switching
+docs suspends the old history and resumes the new one.
 
 Per rules.md:
   - No truncation, no chunking, no embeddings.
   - MiniMax M3 via init_chat_model.
-  - Standalone script.
+  - Standalone script (no FastAPI / live Neo4j / DB).
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional
 
 from dotenv import load_dotenv
 
@@ -37,28 +37,28 @@ if not _env_path.exists():
         _env_path = _alt
 load_dotenv(_env_path)
 
-from langchain.chat_models import init_chat_model
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from langchain_core.language_models.chat_models import BaseChatModel
-import fitz
+# Reuse the base project's scoring function (no live Neo4j needed)
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT / "backend"))
+from services.neo4j_document_index import (  # noqa: E402
+    Neo4jDocumentRecord,
+    choose_best_document_match,
+)
+
+from langchain.chat_models import init_chat_model  # noqa: E402
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage  # noqa: E402
+from langchain_core.language_models.chat_models import BaseChatModel  # noqa: E402
+import fitz  # noqa: E402
 
 # --- Constants ---------------------------------------------------------------
 
 MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
 MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
 MODEL = "minimax-m3"
-WARN_CHARS = 800_000
-
-DEFAULT_DOC = "/Users/weiping/dev/Learn/langchain-ai/langconfig/backend/data/documents/project_1/31042021_nke-10k-2023.pdf"
-DEFAULT_MEMORY_DIR = str(Path(__file__).resolve().parent / ".dv_memory")
-DEFAULT_MEMORY_FILE = "AGENTS.md"
+PROJECT_ID = 1
+DOCS_DIR = REPO_ROOT / "backend/data/documents/project_1"
 SUPPORTED_EXTS = {".pdf", ".md", ".markdown", ".txt"}
 
-# History compression: how many recent Q/A pairs to inline into the user msg
-# (more = better multi-turn context, less = more cache hit probability)
-HISTORY_TURNS = 3
-
-# MiniMax M3 pricing
 PRICING = {
     "standard": {"input": 0.60, "output": 2.40},
     "long_ctx": {"input": 1.20, "output": 4.80},
@@ -67,9 +67,89 @@ TIER_THRESHOLD = 512_000
 SESSION_START = time.time()
 
 
+# --- Seed docs (used for routing — small set with rich metadata) -------------
+
+SEED_DOCS: List[Neo4jDocumentRecord] = [
+    Neo4jDocumentRecord(
+        project_id=PROJECT_ID,
+        name="nike-10k-2023",
+        file_path=str(DOCS_DIR / "31042021_nke-10k-2023.pdf"),
+        description="Nike Inc annual report 10-K filing fiscal year 2023 financial statements revenue profit",
+        tags=["nike", "finance", "annual-report", "10-K", "财务", "年报"],
+        what_this_document_is_about="nike inc 2023 10-K annual report revenue $51.2 billion risk factors strategy direct-to-consumer wholesale",
+        supported_queries=["Nike revenue 2023", "Nike risk factors", "Nike strategy"],
+        out_of_scope=["how to make shoes", "running training tips", "如何制造跑鞋"],
+        search_terms=["nike", "revenue", "10-K", "annual report", "财务", "年报"],
+        content_preview="NIKE INC 2023 ANNUAL REPORT ON FORM 10-K. Fiscal year ended May 31, 2023. Total revenues $51,217 million.",
+    ),
+    Neo4jDocumentRecord(
+        project_id=PROJECT_ID,
+        name="renwuku",
+        file_path=str(DOCS_DIR / "5cc12ddf_6 人物库 2.pdf"),
+        description="Chinese philosophers and historical figures database 哲学家 历史人物 思想家",
+        tags=["人物", "哲学", "历史", "哲学家", "思想家", "philosopher", "history"],
+        what_this_document_is_about="哲学家 思想家 企业家 古代 现代 简介 语录 苏格拉底 柏拉图 孔子 老子",
+        supported_queries=["列出哲学家", "苏格拉底思想", "孔子语录", "list philosophers", "who is Socrates"],
+        out_of_scope=["股票投资", "金融分析", "stock market"],
+        search_terms=["哲学家", "思想家", "孔子", "苏格拉底", "philosopher", "Socrates"],
+        content_preview="人物库 — 收录中外哲学家、文学家、企业家等历史人物的简介与核心思想。包含苏格拉底、柏拉图、孔子、老子等。",
+    ),
+    Neo4jDocumentRecord(
+        project_id=PROJECT_ID,
+        name="biz-strategy-survey",
+        file_path=str(DOCS_DIR / "66bbde2a_Departmental Survey for Biz Strategy.pdf"),
+        description="Departmental survey for business strategy framework 战略 框架 部门 调研",
+        tags=["strategy", "business", "framework", "战略", "框架", "部门"],
+        what_this_document_is_about="business strategy framework departmental survey goals objectives SWOT competitive analysis market positioning",
+        supported_queries=["strategy framework", "SWOT analysis", "战略框架", "部门调研"],
+        out_of_scope=["personal finance", "股票分析"],
+        search_terms=["strategy", "framework", "SWOT", "战略", "框架"],
+        content_preview="Departmental Survey for Business Strategy. Goals, objectives, and competitive analysis framework for FY24 planning.",
+    ),
+    Neo4jDocumentRecord(
+        project_id=PROJECT_ID,
+        name="shuoshuo-shuangxuan",
+        file_path=str(DOCS_DIR / "08ce0b6f_25级专硕双选协议.pdf"),
+        description="Master student dual selection agreement form 专硕 双选 协议 导师",
+        tags=["合同", "协议", "双选", "专硕", "agreement", "form"],
+        what_this_document_is_about="专硕 导师 双选 协议 签字 时间 流程 表格",
+        supported_queries=["双选流程", "导师选择", "agreement deadline", "双选协议时间"],
+        out_of_scope=["课程内容", "course content"],
+        search_terms=["双选", "协议", "导师", "agreement"],
+        content_preview="25级专硕双选协议 — 导师与学生的双向选择协议表格, 含签字栏与时间要求.",
+    ),
+    Neo4jDocumentRecord(
+        project_id=PROJECT_ID,
+        name="c2m1",
+        file_path=str(DOCS_DIR / "2561d459_C2M1.pdf"),
+        description="Course 2 module 1 lecture notes 课程 模块 讲义",
+        tags=["course", "lecture", "课程", "讲义"],
+        what_this_document_is_about="course 2 module 1 lecture notes programming algorithms data structures",
+        supported_queries=["C2M1 讲义", "course 2 module 1"],
+        out_of_scope=["non-technical content"],
+        search_terms=["C2M1", "course 2", "module 1"],
+        content_preview="Course 2 Module 1 — Lecture notes on programming, algorithms, and data structures.",
+    ),
+    Neo4jDocumentRecord(
+        project_id=PROJECT_ID,
+        name="winter-sports",
+        file_path=str(DOCS_DIR / "2a55e555_winter-sports.pdf"),
+        description="Winter sports catalog and pricing 冬季运动 目录 价格",
+        tags=["sports", "winter", "catalog", "运动", "冬季"],
+        what_this_document_is_about="winter sports equipment catalog pricing skis snowboards jackets",
+        supported_queries=["winter sports prices", "ski catalog", "冬季运动目录"],
+        out_of_scope=["summer sports", "stock analysis"],
+        search_terms=["winter", "sports", "ski", "冬季运动"],
+        content_preview="Winter sports catalog — skis, snowboards, jackets, boots. Pricing for the 2024 season.",
+    ),
+]
+
+
 # --- Text extraction ---------------------------------------------------------
 
 def _extract_text(file_path: Path) -> tuple[str, int]:
+    if not file_path.exists():
+        return f"(file not found: {file_path})", 0
     ext = file_path.suffix.lower()
     if ext == ".pdf":
         doc = fitz.open(str(file_path))
@@ -85,25 +165,20 @@ def _extract_text(file_path: Path) -> tuple[str, int]:
     return file_path.read_text(encoding="utf-8"), 1
 
 
-# --- System message (stable, minimal) ---------------------------------------
+# --- Doc routing -------------------------------------------------------------
 
-def _build_system_prompt() -> str:
-    """Short system message — the doc lives in the conversation history instead."""
-    return (
-        "You are answering questions about a document the user provides.\n"
-        "The first user message in this conversation contains the full document "
-        "text with --- Page N --- markers. Subsequent user messages are questions.\n\n"
-        "Rules:\n"
-        "1. Answer ONLY from the document. If the answer is not there, say so.\n"
-        "2. Cite page numbers, e.g. \"(page 3)\"."
-    )
+def _route_doc(query: str, docs: List[Neo4jDocumentRecord]) -> Optional[Neo4jDocumentRecord]:
+    """Pick the best doc for a query using base's scoring. None if no match."""
+    return choose_best_document_match(query, docs)
 
 
-# --- Initial user message carrying the document ------------------------------
-
-def _build_doc_message(doc_name: str, full_text: str) -> str:
-    """First user message = the document. Acts as a one-shot KV context."""
-    return f"Document: {doc_name}\n\n--- FULL DOCUMENT TEXT ---\n\n{full_text}"
+def _find_doc_by_name(name: str, docs: List[Neo4jDocumentRecord]) -> Optional[Neo4jDocumentRecord]:
+    """Exact name match (case-insensitive)."""
+    n = name.strip().lower()
+    for d in docs:
+        if d.name.lower() == n:
+            return d
+    return None
 
 
 # --- LLM ---------------------------------------------------------------------
@@ -122,22 +197,40 @@ def _make_llm() -> BaseChatModel:
     )
 
 
+def _build_system_prompt() -> str:
+    return (
+        "You are answering questions about a document the user provides.\n"
+        "The first user message in this conversation contains the full document "
+        "text with --- Page N --- markers. Subsequent user messages are questions.\n\n"
+        "Rules:\n"
+        "1. Answer ONLY from the document. If the answer is not there, say so.\n"
+        "2. Cite page numbers, e.g. \"(page 3)\"."
+    )
+
+
+def _build_doc_message(doc: Neo4jDocumentRecord, full_text: str) -> HumanMessage:
+    return HumanMessage(content=(
+        f"Document: {doc.name}\n\n"
+        f"Description: {doc.description}\n\n"
+        f"--- FULL DOCUMENT TEXT ---\n\n{full_text}"
+    ))
+
+
 # --- Conversation meta -------------------------------------------------------
 
 @dataclass
 class Turn:
+    doc: str
     question: str
     answer: str
     in_tokens: int
     out_tokens: int
-    cache_read: int           # MiniMax returns this in input_token_details
+    cache_read: int
     elapsed: float
-    started_at: float
 
 
 class Conversation:
-    def __init__(self, model: str):
-        self.model = model
+    def __init__(self):
         self.turns: List[Turn] = []
         self.total_in = 0
         self.total_out = 0
@@ -152,15 +245,9 @@ class Conversation:
         self.total_elapsed += turn.elapsed
 
     def _cost(self, in_tok: int, out_tok: int, cached: int) -> float:
-        """MiniMax charges less for cached tokens. Verify exact discount in docs."""
         tier = "long_ctx" if in_tok > TIER_THRESHOLD else "standard"
         p = PRICING[tier]
-        # Assume cached tokens are ~90% off (matches OpenAI pricing pattern).
-        # Override here when we get actual MiniMax cached-token pricing.
-        cached_discount = 0.10
-        billable = in_tok - cached
-        return (billable / 1_000_000) * p["input"] + (cached / 1_000_000) * p["input"] * cached_discount + \
-               (out_tok / 1_000_000) * p["output"]
+        return (in_tok / 1_000_000) * p["input"] + (out_tok / 1_000_000) * p["output"]
 
     def turn_cost(self, turn: Turn) -> float:
         return self._cost(turn.in_tokens, turn.out_tokens, turn.cache_read)
@@ -175,10 +262,11 @@ def _format_session_footer(turn: Turn, conv: Conversation) -> str:
     wall = time.time() - SESSION_START
     cache_pct = 100 * turn.cache_read / turn.in_tokens if turn.in_tokens else 0
     return (
-        f"   ├─ tokens:  in={turn.in_tokens:>7,}  out={turn.out_tokens:>5,}  ({tier})\n"
-        f"   │           cache_read={turn.cache_read:>6,}  ({cache_pct:.1f}% cached)\n"
-        f"   ├─ latency: {turn.elapsed:5.1f}s  (cum LLM: {conv.total_elapsed:5.1f}s, wall: {wall:5.1f}s)\n"
-        f"   └─ cost:    ${conv.turn_cost(turn):.4f}  "
+        f"   ├─ doc:      {turn.doc}\n"
+        f"   ├─ tokens:   in={turn.in_tokens:>7,}  out={turn.out_tokens:>5,}  ({tier})\n"
+        f"   │            cache_read={turn.cache_read:>6,}  ({cache_pct:.1f}% cached)\n"
+        f"   ├─ latency:  {turn.elapsed:5.1f}s  (cum LLM: {conv.total_elapsed:5.1f}s, wall: {wall:5.1f}s)\n"
+        f"   └─ cost:     ${conv.turn_cost(turn):.4f}  "
         f"(session: ${cum_cost:.4f} over {len(conv.turns)} turn{'s' if len(conv.turns) != 1 else ''})"
     )
 
@@ -193,35 +281,77 @@ def _print_session_summary(conv: Conversation) -> None:
     cache_pct = 100 * conv.total_cache_read / conv.total_in if conv.total_in else 0
     print(f"\n   ┌─ session summary")
     print(f"   ├─ turns:        {len(conv.turns)}")
-    print(f"   ├─ tokens:       in={conv.total_in:,}  out={conv.total_out:,}  "
-          f"total={conv.total_in + conv.total_out:,}")
-    print(f"   ├─ cache:        {conv.total_cache_read:,} tokens read from cache "
-          f"({cache_pct:.1f}%)")
+    print(f"   ├─ tokens:       in={conv.total_in:,}  out={conv.total_out:,}")
+    print(f"   ├─ cache:        {conv.total_cache_read:,} tokens ({cache_pct:.1f}%)")
     print(f"   ├─ time:         LLM={conv.total_elapsed:.1f}s  wall={wall:.1f}s  "
           f"({avg_tps:.0f} tok/s output)")
     print(f"   └─ cost:         ${cum_cost:.4f}")
+
+
+# --- DocSession — per-doc conversation state ---------------------------------
+
+class DocSession:
+    """One conversation per doc. Messages seeded with system + doc content."""
+
+    def __init__(self, doc: Neo4jDocumentRecord, system_message: SystemMessage):
+        self.doc = doc
+        full_text, _ = _extract_text(Path(doc.file_path))
+        self.doc_message = _build_doc_message(doc, full_text)
+        self.messages: list = [system_message, self.doc_message]
+        self.turns = 0
+
+    def ask(self, question: str, llm: BaseChatModel) -> tuple[str, int, int, int, float]:
+        """Append Q, call LLM, append A. Returns (answer, in_tok, out_tok, cache_read, elapsed)."""
+        self.messages.append(HumanMessage(content=question))
+        t0 = time.time()
+        resp = llm.invoke(self.messages)
+        elapsed = time.time() - t0
+        answer = resp.content if isinstance(resp.content, str) else str(resp.content)
+        self.messages.append(AIMessage(content=answer))
+        usage = getattr(resp, "usage_metadata", None) or {}
+        details = usage.get("input_token_details", {}) or {}
+        in_tok = int(usage.get("input_tokens", 0))
+        out_tok = int(usage.get("output_tokens", 0))
+        cache_read = int(details.get("cache_read", 0) or details.get("cached_tokens", 0))
+        self.turns += 1
+        return answer, in_tok, out_tok, cache_read, elapsed
 
 
 # --- REPL --------------------------------------------------------------------
 
 HELP_TEXT = """\
 Commands:
-  /doc               Print document stats
-  /stats             Show conversation totals (tokens, time, cache, cost)
+  /docs              List all available documents
+  /doc <name>        Switch to a specific document (manual override)
+  /stats             Show conversation totals
   /help              Show this help
   /quit              Exit
+
+Type any other text to ask a question — the system will route it
+to the most relevant document (EN + ZH supported).
 """
 
 
-def _repl(llm: BaseChatModel, system_message: SystemMessage, doc_message: HumanMessage, conv: Conversation) -> None:
-    print(f"\n{'='*60}")
-    print(f"📄 System prompt: {len(system_message.content):,} chars")
-    print(f"📄 Doc (first user msg): {len(doc_message.content):,} chars")
-    print(f"   Type /help for commands\n")
+def _list_docs(docs: List[Neo4jDocumentRecord]) -> str:
+    lines = [f"   {len(docs)} documents available:"]
+    for d in docs:
+        lines.append(f"     - {d.name:<22}  {d.description[:60]}")
+    return "\n".join(lines)
 
-    # Conversation history — doc + all turns, sent as-is to the LLM.
-    # The doc message stays in place at index 1; we append Q/A pairs after it.
-    messages: list = [system_message, doc_message]
+
+def _repl(
+    llm: BaseChatModel,
+    system_message: SystemMessage,
+    docs: List[Neo4jDocumentRecord],
+    conv: Conversation,
+) -> None:
+    print(f"\n{'='*60}")
+    print(f"Multi-doc chat — {_list_docs(docs)}")
+    print(f"\nType /help for commands\n")
+
+    # Active doc + per-doc sessions
+    active_doc: Optional[Neo4jDocumentRecord] = None
+    sessions: Dict[str, DocSession] = {}
 
     while True:
         try:
@@ -242,42 +372,47 @@ def _repl(llm: BaseChatModel, system_message: SystemMessage, doc_message: HumanM
         if low == "/help":
             print(HELP_TEXT)
             continue
-        if low == "/doc":
-            print(f"system: {len(system_message.content):,} chars  "
-                  f"doc: {len(doc_message.content):,} chars")
+        if low == "/docs":
+            print(_list_docs(docs))
             continue
         if low == "/stats":
             _print_session_summary(conv)
             continue
+        if low.startswith("/doc "):
+            name = raw[len("/doc "):].strip()
+            doc = _find_doc_by_name(name, docs)
+            if doc is None:
+                print(f"  ✗ no doc named {name!r}. Try /docs to list.")
+                continue
+            active_doc = doc
+            print(f"  → switched to '{doc.name}' (manual override)")
+            continue
 
-        # Append the user's question to the running history
-        messages.append(HumanMessage(content=raw))
-        t0 = time.time()
+        # --- Normal question — route to a doc ---
+        if active_doc is None:
+            doc = _route_doc(raw, docs)
+            if doc is None:
+                print(f"  ✗ no doc matches query. Try /doc <name> to pick one, or /docs to list.")
+                continue
+            active_doc = doc
+            print(f"  → routed to '{doc.name}'")
+
+        # Get or create the per-doc session
+        if active_doc.name not in sessions:
+            sessions[active_doc.name] = DocSession(active_doc, system_message)
+        session = sessions[active_doc.name]
+
+        # Ask
         try:
-            resp = llm.invoke(messages)
+            answer, in_tok, out_tok, cache_read, elapsed = session.ask(raw, llm)
         except Exception as e:
-            messages.pop()  # don't keep the failed question
             print(f"  ✗ error: {e}")
             continue
-        elapsed = time.time() - t0
 
-        # Extract answer + usage
-        answer = resp.content if isinstance(resp.content, str) else str(resp.content)
-        usage = getattr(resp, "usage_metadata", None) or {}
-        details = usage.get("input_token_details", {}) or {}
-        in_tok = int(usage.get("input_tokens", 0))
-        out_tok = int(usage.get("output_tokens", 0))
-        # MiniMax's field name is "cache_read" (not OpenAI's "cached_tokens")
-        cache_read = int(details.get("cache_read", 0) or details.get("cached_tokens", 0))
-
-        # Record the AI reply in history so the next turn keeps context
-        messages.append(AIMessage(content=answer))
-
-        # Record turn
         turn = Turn(
-            question=raw, answer=answer,
+            doc=active_doc.name, question=raw, answer=answer,
             in_tokens=in_tok, out_tokens=out_tok, cache_read=cache_read,
-            elapsed=elapsed, started_at=t0,
+            elapsed=elapsed,
         )
         conv.add(turn)
 
@@ -289,44 +424,28 @@ def _repl(llm: BaseChatModel, system_message: SystemMessage, doc_message: HumanM
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Phase 9 / Step 1 — DV chat with cache-friendly prompts.",
-    )
-    parser.add_argument(
-        "path", nargs="?", default=DEFAULT_DOC,
-        help=f"Path to PDF / MD / TXT. Default: {DEFAULT_DOC}",
+        description="Phase 9 / Step 2 — multi-doc multi-round DV chat.",
     )
     args = parser.parse_args()
 
-    # 1. Resolve file
-    file_path = Path(args.path).expanduser().resolve()
-    if not file_path.exists():
-        sys.stderr.write(f"FATAL: file not found: {file_path}\n")
-        return 1
-    if file_path.suffix.lower() not in SUPPORTED_EXTS:
-        sys.stderr.write(f"FATAL: unsupported file: {file_path.suffix}\n")
-        return 1
+    # Use the seed docs (in production, this would be Neo4jDocumentIndex().list_documents(...))
+    docs = SEED_DOCS
+    print(f"📚 {len(docs)} documents loaded for routing")
+    for d in docs:
+        exists = Path(d.file_path).exists()
+        flag = "✓" if exists else "✗ missing"
+        print(f"   {flag}  {d.name}")
 
-    # 2. Extract text
-    print(f"📖 Reading {file_path.name} ...")
-    full_text, page_count = _extract_text(file_path)
-    print(f"   {page_count} pages, ~{len(full_text):,} chars")
-
-    if len(full_text) < 500 and page_count > 1:
-        print(f"⚠️  Very little text extracted — likely scanned PDF")
-
-    # 3. Build system message + initial doc message (the conversation seed)
-    system_message = SystemMessage(content=_build_system_prompt())
-    doc_message = HumanMessage(content=_build_doc_message(file_path.stem, full_text))
-    print(f"System prompt: {len(system_message.content):,} chars")
-    print(f"Doc message:   {len(doc_message.content):,} chars (sealed at index 1 of history)")
-
-    # 4. Build LLM
+    # Build LLM
     llm = _make_llm()
-    print(f"LLM: {MODEL}")
+    print(f"\nLLM: {MODEL}")
 
-    # 5. REPL
-    conv = Conversation(MODEL)
-    _repl(llm, system_message, doc_message, conv)
+    # Stable system message
+    system_message = SystemMessage(content=_build_system_prompt())
+
+    # REPL
+    conv = Conversation()
+    _repl(llm, system_message, docs, conv)
     return 0
 
 
