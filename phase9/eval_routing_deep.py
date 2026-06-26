@@ -35,7 +35,7 @@ if str(REPO_ROOT / "phase9") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "phase9"))
 
 # Reuse the same hand-labeled eval set + base helpers from legacy eval
-from eval_routing import (  # noqa: E402
+from legacy.eval_routing import (  # noqa: E402
     EVAL_QUERIES,
     run_string_eval,
     run_llm_eval,
@@ -291,7 +291,7 @@ def main() -> int:
                                    string_results))
 
     if "llm" in methods:
-        from route_semantic import make_llm as _make_llm
+        from legacy.route_semantic import make_llm as _make_llm
         llm = _make_llm()
         llm_results = run_llm_eval(EVAL_QUERIES, rows, llm)
         llm_summary = summarize_results(llm_results)
