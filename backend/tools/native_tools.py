@@ -2127,6 +2127,9 @@ def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
 
 # StructuredTool wrappers
 # Note: _print_hello_tool removed — print_hello is now a custom tool (DB-backed).
+# Note: _graphindex_rebuild_one_tool, _graphindex_ingest_tool,
+#       _graphindex_rebuild_project_tool, _graphindex_show_tool removed —
+#       these tools have been moved to custom tools (DB-backed, editable in UI).
 _graphindex_search_tool = StructuredTool.from_function(
     func=graphindex_search,
     name="graphindex_search",
@@ -2147,26 +2150,10 @@ _graphindex_multi_doc_load_tool = StructuredTool.from_function(
     name="graphindex_multi_doc_load",
     description="One-shot: route a query to the best primary document, then load primary + 0-3 supporting documents as a combined context string. Equivalent to calling graphindex_search + multiple graphindex_load in one step. (Phase 9)",
 )
-_graphindex_rebuild_one_tool = StructuredTool.from_function(
-    func=graphindex_rebuild_one,
-    name="graphindex_rebuild_one",
-    description="Rebuild the LLM enrichment metadata (about / supports / out_of_scope / few_shot) for one existing document and re-upsert to Neo4j. (Phase 9 build)",
-)
-_graphindex_ingest_tool = StructuredTool.from_function(
-    func=graphindex_ingest,
-    name="graphindex_ingest",
-    description="Ingest a new file: SHA-256 dedup, copy with hash prefix, LLM enrichment, upsert to Neo4j. (Phase 9 build)",
-)
-_graphindex_rebuild_project_tool = StructuredTool.from_function(
-    func=graphindex_rebuild_project,
-    name="graphindex_rebuild_project",
-    description="Re-enrich EVERY document in the project and re-upsert to Neo4j. Slow (1 LLM call per doc, ~15s each). Use sparingly. (Phase 9 build)",
-)
-_graphindex_show_tool = StructuredTool.from_function(
-    func=graphindex_show,
-    name="graphindex_show",
-    description="Show one document's metadata (about, supported_queries, out_of_scope, content_sha256, file_path). Read-only, no LLM call. (Phase 9 build)",
-)
+
+# Note: _graphindex_rebuild_one_tool, _graphindex_ingest_tool,
+# _graphindex_rebuild_project_tool, _graphindex_show_tool removed —
+# these are now custom tools (DB-backed, editable in Studio UI).
 
 
 # =============================================================================
@@ -2237,10 +2224,10 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "graphindex_load": _graphindex_load_tool,
         "graphindex_list_docs": _graphindex_list_docs_tool,
         "graphindex_multi_doc_load": _graphindex_multi_doc_load_tool,
-        "graphindex_rebuild_one": _graphindex_rebuild_one_tool,
-        "graphindex_ingest": _graphindex_ingest_tool,
-        "graphindex_rebuild_project": _graphindex_rebuild_project_tool,
-        "graphindex_show": _graphindex_show_tool,
+        # Note: graphindex_rebuild_one / graphindex_ingest / graphindex_rebuild_project
+        # / graphindex_show have been moved to custom tools (DB-backed, editable in UI).
+        # The native Python functions are still defined above, but the StructuredTool
+        # wrappers are no longer registered in the factory dict.
         # Note: Playwright tools are loaded separately via get_playwright_tools()
         # because they require async initialization
     }
@@ -2317,10 +2304,8 @@ def get_available_tool_names() -> List[str]:
         "graphindex_load",
         "graphindex_list_docs",
         "graphindex_multi_doc_load",
-        "graphindex_rebuild_one",
-        "graphindex_ingest",
-        "graphindex_rebuild_project",
-        "graphindex_show",
+        # Note: graphindex_rebuild_one / graphindex_ingest / graphindex_rebuild_project
+        # / graphindex_show have been moved to custom tools (DB-backed, editable in UI)
     ]
 
 # Registry of filesystem tools for DeepAgents harness
@@ -2529,34 +2514,11 @@ TOOL_REGISTRY = [
         "category": "retrieval",
         "requires_api_key": None,
     },
-    {
-        "id": "graphindex_rebuild_one",
-        "name": "GraphIndex - Rebuild One Doc (Phase 9)",
-        "description": "Rebuild the LLM enrichment metadata (about / supports / out_of_scope / few_shot) for one existing document and re-upsert to Neo4j. Wraps phase9/graphindex_build_python.py.",
-        "category": "build",
-        "requires_api_key": None,
-    },
-    {
-        "id": "graphindex_ingest",
-        "name": "GraphIndex - Ingest File (Phase 9)",
-        "description": "Ingest a new file: SHA-256 dedup, copy with hash prefix, LLM enrichment, upsert to Neo4j. Wraps phase9/graphindex_build_python.py.",
-        "category": "build",
-        "requires_api_key": None,
-    },
-    {
-        "id": "graphindex_rebuild_project",
-        "name": "GraphIndex - Rebuild Project (Phase 9)",
-        "description": "Re-enrich EVERY document in the project and re-upsert to Neo4j. Slow (1 LLM call per doc, ~15s each). Use sparingly. Wraps phase9/graphindex_build_python.py.",
-        "category": "build",
-        "requires_api_key": None,
-    },
-    {
-        "id": "graphindex_show",
-        "name": "GraphIndex - Show Document (Phase 9)",
-        "description": "Show one document's metadata (about, supported_queries, out_of_scope, content_sha256, file_path). Read-only, no LLM call. Wraps phase9/graphindex_build_python.py.",
-        "category": "build",
-        "requires_api_key": None,
-    },
+    # Note: graphindex_ingest / graphindex_rebuild_one / graphindex_rebuild_project /
+    # graphindex_show have been moved to custom tools (DB-backed, editable in UI).
+    # See backend/create_graphindex_workflow_tools.py and rename_studio_tools.py.
+    # The native Python functions are still defined in this file (above) and
+    # imported by the custom tools' inline code.
 ]
 
 
