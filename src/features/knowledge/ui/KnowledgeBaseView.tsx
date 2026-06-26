@@ -277,7 +277,12 @@ export default function KnowledgeBaseView() {
   const [importingGraphindexChat, setImportingGraphindexChat] = useState(false);
   const [importedGraphindexChatId, setImportedGraphindexChatId] = useState<number | null>(null);
 
-  const GRAPHINDEX_CHAT_TEMPLATE_PAYLOAD = JSON.stringify({
+  // Phase 9 / Step L0 — template payload for the `graphindex_chat` agent.
+  // Pass as a *parsed object* to apiClient.importDeepAgent (which stringifies
+  // it inside the JSON envelope) — passing a pre-stringified string would
+  // cause axios to send Content-Type: text/plain and the server would
+  // reject with 422 ValidationError.
+  const GRAPHINDEX_CHAT_TEMPLATE_PAYLOAD = {
     version: "1.0",
     export_type: "deepagent",
     agent: {
@@ -316,7 +321,7 @@ export default function KnowledgeBaseView() {
       backend: { type: "state", config: {} },
       guardrails: {},
     },
-  });
+  };
 
   const handleImportGraphindexChat = async () => {
     if (importingGraphindexChat) return;

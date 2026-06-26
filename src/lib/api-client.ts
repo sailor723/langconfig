@@ -817,13 +817,19 @@ class APIClient {
   }
 
   /**
-   * Import a DeepAgent from a .langconfig JSON payload.
+   * Import a DeepAgent from a .langconfig payload.
    * Used by Phase 9 / Step L0 to register the `graphindex_chat` template
    * from the Knowledge panel.
+   *
+   * NOTE: Accepts a *parsed object* (not a pre-stringified string).
+   * The BE endpoint expects `langconfig_content` as a JSON string field
+   * inside a JSON object body; we serialize it here so axios sends
+   * `Content-Type: application/json` (a raw string would be sent as
+   * `text/plain` and rejected with 422).
    */
-  async importDeepAgent(langconfigContent: string) {
+  async importDeepAgent(langconfig: object) {
     return this.client.post('/api/deepagents/import', {
-      langconfig_content: langconfigContent,
+      langconfig_content: JSON.stringify(langconfig),
     });
   }
 
