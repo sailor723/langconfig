@@ -18,6 +18,9 @@ interface NodeConfig {
   id: string;
   name?: string;  // Display name for the agent node
   agentType: string;
+  // BUG FIX: the full data blob from the parent (React Flow shape)
+  // so we can read selectedNode.data.config.tool_type etc.
+  data?: any;
   model: string;
   system_prompt: string;
   temperature: number;
