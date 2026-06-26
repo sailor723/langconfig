@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-graphindex_builder_agent.py — Phase 9 / Step L (graphindex Builder)
+graphindex_build_langgraph.py — Phase 9 / Step L (graphindex Builder via LangGraph)
 
-LangGraph-based agent that orchestrates the 4 build operations
-(ingest / rebuild_one / rebuild_project / show).
+LangGraph-based CLI that orchestrates the 4 build operations
+(ingest / rebuild_one / rebuild_project / show) through an explicit
+3-node StateGraph.
 
 The graph:
     START → parse_intent ─┬─→ execute_action → format_response → END
@@ -32,10 +33,12 @@ What the LLM is used for
     call is INSIDE cmd_ingest, not in this graph.
 
 Compare:
-  graphindex_chat_agent.py    DeepAgent (multi-step, subagent delegation)
-                              → for chat: complex routing, multi-doc load
-  graphindex_builder_agent.py LangGraph 3-node StateGraph (this file)
-                              → for build: parse → dispatch → format
+  graphindex_chat_agent.py       DeepAgent (multi-step, subagent delegation)
+                                 → for chat: complex routing, multi-doc load
+  graphindex_build_langgraph.py  LangGraph 3-node StateGraph (this file)
+                                 → for build: parse → dispatch → format
+  graphindex_build_python.py     Pure Python CLI (no graph)
+                                 → for scripted use + reference impl
 """
 from __future__ import annotations
 
@@ -126,7 +129,7 @@ class BuildIntent(BaseModel):
 # ===========================================================================
 
 PARSE_INTENT_PROMPT = """\
-You are the graphindex_builder agent's intent classifier.
+You are the graphindex_build_langgraph agent's intent classifier.
 
 Given a user request, determine which of the 4 build actions they want AND
 extract ALL required arguments. This is critical: the action alone is not
@@ -165,7 +168,7 @@ optional args if mentioned, and reasoning.
 """
 
 FORMAT_RESPONSE_PROMPT = """\
-You are the graphindex_builder agent's response formatter.
+You are the graphindex_build_langgraph agent's response formatter.
 
 Given the user's request, the action taken, and the raw command output,
 produce a clear, user-friendly response.
@@ -406,7 +409,7 @@ def run(user_message: str, *, thread_id: str = "default") -> dict:
 def cmd_show_graph() -> int:
     """Print the graph structure (nodes + edges)."""
     graph = create_builder_graph()
-    print("📊 graphindex_builder_agent graph structure")
+    print("📊 graphindex_build_langgraph graph structure")
     print()
     print("Nodes:")
     print("  - parse_intent    (LLM: structured output → BuildIntent)")
@@ -434,7 +437,7 @@ def cmd_show_graph() -> int:
 
 def cmd_answer(message: str) -> int:
     """One-shot Q&A: run the graph on a user message, print the response."""
-    print(f"🛠  graphindex_builder agent")
+    print(f"🛠  graphindex_build_langgraph agent")
     print(f"   user: {message}")
     print()
 
@@ -479,7 +482,7 @@ def cmd_answer(message: str) -> int:
 
 def cmd_chat() -> int:
     """Interactive REPL: multi-turn conversation with thread persistence."""
-    print("🛠  graphindex_builder agent (REPL)")
+    print("🛠  graphindex_build_langgraph agent (REPL)")
     print("   Type your request, or 'exit' / 'quit' to leave.")
     print("   'graph' to show graph structure, 'state' to show last state.")
     print()
@@ -518,21 +521,21 @@ def cmd_chat() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="graphindex_builder agent (LangGraph 3-node StateGraph)",
+        description="graphindex_build_langgraph agent (LangGraph 3-node StateGraph)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Show graph structure
-  python graphindex_builder_agent.py --show-graph
+  python graphindex_build_langgraph.py --show-graph
 
   # One-shot Q&A
-  python graphindex_builder_agent.py --answer "Ingest /Users/me/report.pdf"
-  python graphindex_builder_agent.py --answer "Rebuild nke-10k-2023.pdf"
-  python graphindex_builder_agent.py --answer "Show me what's in nke-10k-2023.pdf"
-  python graphindex_builder_agent.py --answer "Re-enrich all docs"
+  python graphindex_build_langgraph.py --answer "Ingest /Users/me/report.pdf"
+  python graphindex_build_langgraph.py --answer "Rebuild nke-10k-2023.pdf"
+  python graphindex_build_langgraph.py --answer "Show me what's in nke-10k-2023.pdf"
+  python graphindex_build_langgraph.py --answer "Re-enrich all docs"
 
   # Interactive REPL
-  python graphindex_builder_agent.py --chat
+  python graphindex_build_langgraph.py --chat
 """,
     )
     group = parser.add_mutually_exclusive_group(required=True)
