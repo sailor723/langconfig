@@ -4,7 +4,7 @@ Phase 9 / Step D — Clean Python build CLI (recommended entry point).
 
 Why this exists:
   The legacy build_graphindex.py mixes raw llm.invoke with manual
-  orchestration. The deepagent version (build_graphindex_deep.py) adds
+  orchestration. The deepagent version (graphindex_build_deepagent.py) adds
   state-graph overhead that is unnecessary for build-side work.
 
   This file is the **recommended entry point** for ingestion: each step
@@ -25,8 +25,8 @@ Per rules.md: no truncation, no chunking, no embeddings; MiniMax M3 only.
 Compare:
   build_graphindex.py          legacy: same flow, but orchestration mixed
                                into main(), less reusable
-  build_graphindex_deep.py     parallel deepagent path (state-graph demo)
-  build_graphindex_clean.py    THIS FILE — recommended, clean Python
+  graphindex_build_deepagent.py     parallel deepagent path (state-graph demo)
+  graphindex_build_python.py    THIS FILE — recommended, clean Python
 """
 from __future__ import annotations
 

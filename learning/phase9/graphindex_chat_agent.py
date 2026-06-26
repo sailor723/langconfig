@@ -23,13 +23,13 @@ supporting docs the same way; only the orchestration differs.
 
 CLI modes:
 
-  python phase9/build_graphindex_chat_agent.py --answer "Nike revenue 2023"
-  python phase9/build_graphindex_chat_agent.py --chat
-  python phase9/build_graphindex_chat_agent.py --show-agent
+  python phase9/graphindex_chat_agent.py --answer "Nike revenue 2023"
+  python phase9/graphindex_chat_agent.py --chat
+  python phase9/graphindex_chat_agent.py --show-agent
 
 Programmatic use:
 
-  from phase9.build_graphindex_chat_agent import get_graphindex_chat_agent
+  from phase9.graphindex_chat_agent import get_graphindex_chat_agent
   agent = get_graphindex_chat_agent(project_id=1)
   result = agent.invoke({"messages": [{"role": "user", "content": "..."}]},
                           config={"configurable": {"thread_id": "..."}})
@@ -99,7 +99,7 @@ query.
 """
 
 
-def build_graphindex_chat_agent(
+def create_graphindex_chat_agent(
     project_id: int = 1,
     model_name: str = DEFAULT_MODEL,
     checkpointer: bool = True,
@@ -163,7 +163,7 @@ def get_graphindex_chat_agent(project_id: int = 1):
     Cache up to 4 agents keyed by project_id so a project switch doesn't
     rebuild.
     """
-    return build_graphindex_chat_agent(project_id=project_id)
+    return create_graphindex_chat_agent(project_id=project_id)
 
 
 # --- CLI plumbing (matches query_deep.py style) ---------------------------
@@ -177,9 +177,9 @@ Modes:
   --show-agent    print the agent's tool inventory and exit
 
 Examples:
-  python phase9/build_graphindex_chat_agent.py --answer "Nike revenue 2023"
-  python phase9/build_graphindex_chat_agent.py --answer "苏格拉底思想"
-  python phase9/build_graphindex_chat_agent.py --chat
+  python phase9/graphindex_chat_agent.py --answer "Nike revenue 2023"
+  python phase9/graphindex_chat_agent.py --answer "苏格拉底思想"
+  python phase9/graphindex_chat_agent.py --chat
 
 The REPL keeps the same thread_id across turns, so MemorySaver gives us
 session continuity (catalog and prior context cached).

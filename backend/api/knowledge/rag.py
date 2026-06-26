@@ -430,7 +430,7 @@ def _phase9_get_or_generate_enrichment(
       1. If a Neo4j Document node with this name already exists and has a
          populated `what_this_document_is_about`, reuse its enrichment
          (preserves Phase 9 build-side ingests and --rebuild-one results).
-      2. Otherwise, run a single LLM call via phase9/build_graphindex_clean
+      2. Otherwise, run a single LLM call via phase9/graphindex_build_python
          to generate about / supports / out_of_scope / few_shot.
 
     Returns:
@@ -461,7 +461,7 @@ def _phase9_get_or_generate_enrichment(
 
     # No existing enrichment — generate via Phase 9 LLM call.
     try:
-        from build_graphindex_clean import enrich_document, make_llm
+        from graphindex_build_python import enrich_document, make_llm
         llm = make_llm()
         enrichment = enrich_document(index, llm, context_doc.file_path)
         logger.info(
@@ -502,7 +502,7 @@ def _try_sync_context_document_to_neo4j(context_doc: ContextDocument, client) ->
         from services.neo4j_document_index import build_document_node_properties
 
         # Phase 9 enrichment: if the Neo4j node already has fields populated
-        # (e.g. via phase9/build_graphindex_clean.py --ingest), preserve them.
+        # (e.g. via phase9/graphindex_build_python.py --ingest), preserve them.
         # Otherwise generate fresh enrichment via LLM. This replaces the legacy
         # `enrichment=None` which left Neo4j nodes with empty about / supports /
         # out_of_scope and broke routing for knowledge-panel uploads.

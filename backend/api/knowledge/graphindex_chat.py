@@ -1,7 +1,7 @@
 """
 Phase 9 / Step K — graphindex_chat backend API endpoint.
 
-A FastAPI router that wraps the `phase9/build_graphindex_chat_agent`
+A FastAPI router that wraps the `phase9/graphindex_chat_agent`
 single-agent DeepAgent. The UI (Step L) will call this endpoint to
 let users chat with their project documents using LLM semantic routing.
 
@@ -12,7 +12,7 @@ Endpoints:
   GET  /api/graphindex/chat/show-agent       — agent introspection
 
 The "chat" model is the `graphindex_chat` single-agent DeepAgent
-(no subagents) from phase9/build_graphindex_chat_agent.py. It uses
+(no subagents) from phase9/graphindex_chat_agent.py. It uses
 the same 4 graphindex @tool wrappers as the existing
 /api/rag/graphindex/answer endpoint but adds:
 
@@ -98,12 +98,12 @@ _agent_cache: Dict[int, Any] = {}
 
 def _get_or_build_agent(project_id: int, model_name: Optional[str] = None):
     """Build a graphindex_chat agent, cached per (project_id, model_name)."""
-    from build_graphindex_chat_agent import build_graphindex_chat_agent
+    from graphindex_chat_agent import create_graphindex_chat_agent
 
     cache_key = (project_id, model_name or "default")
     if cache_key in _agent_cache:
         return _agent_cache[cache_key]
-    agent = build_graphindex_chat_agent(
+    agent = create_graphindex_chat_agent(
         project_id=project_id,
         model_name=model_name or "minimax-m3",  # default LLM
     )

@@ -2005,7 +2005,7 @@ def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
     Rebuild the LLM enrichment metadata (about / supports / out_of_scope /
     few_shot) for one existing document, then re-upsert to Neo4j.
 
-    Phase 9 wrapper around build_graphindex_clean.py.
+    Phase 9 wrapper around graphindex_build_python.py.
 
     Args:
         name: Exact document name (use graphindex_list_docs to find names).
@@ -2017,7 +2017,7 @@ def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
         project_id = 1
 
     try:
-        from build_graphindex_clean import cmd_rebuild_one as _clean_rebuild_one  # noqa: E402
+        from graphindex_build_python import cmd_rebuild_one as _clean_rebuild_one  # noqa: E402
         rc = _clean_rebuild_one(name)
         return (
             f"## Rebuild one: {name}\n"
@@ -2035,7 +2035,7 @@ def graphindex_ingest(file_path: str, project_id: Optional[int] = None,
     Ingest a new file into the project's graphindex: SHA-256 dedup, copy
     with hash prefix, LLM enrichment, upsert to Neo4j.
 
-    Phase 9 wrapper around build_graphindex_clean.py.
+    Phase 9 wrapper around graphindex_build_python.py.
 
     Args:
         file_path: Absolute path to the file on disk.
@@ -2048,7 +2048,7 @@ def graphindex_ingest(file_path: str, project_id: Optional[int] = None,
         project_id = 1
 
     try:
-        from build_graphindex_clean import cmd_ingest as _clean_ingest  # noqa: E402
+        from graphindex_build_python import cmd_ingest as _clean_ingest  # noqa: E402
         rc = _clean_ingest(file_path, target_dir=target_dir)
         return (
             f"## Ingest: {file_path}\n"
@@ -2449,14 +2449,14 @@ TOOL_REGISTRY = [
     {
         "id": "graphindex_rebuild_one",
         "name": "GraphIndex - Rebuild One Doc (Phase 9)",
-        "description": "Rebuild the LLM enrichment metadata (about / supports / out_of_scope / few_shot) for one existing document and re-upsert to Neo4j. Wraps phase9/build_graphindex_clean.py.",
+        "description": "Rebuild the LLM enrichment metadata (about / supports / out_of_scope / few_shot) for one existing document and re-upsert to Neo4j. Wraps phase9/graphindex_build_python.py.",
         "category": "build",
         "requires_api_key": None,
     },
     {
         "id": "graphindex_ingest",
         "name": "GraphIndex - Ingest File (Phase 9)",
-        "description": "Ingest a new file: SHA-256 dedup, copy with hash prefix, LLM enrichment, upsert to Neo4j. Wraps phase9/build_graphindex_clean.py.",
+        "description": "Ingest a new file: SHA-256 dedup, copy with hash prefix, LLM enrichment, upsert to Neo4j. Wraps phase9/graphindex_build_python.py.",
         "category": "build",
         "requires_api_key": None,
     },
