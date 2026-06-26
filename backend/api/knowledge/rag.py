@@ -21,12 +21,13 @@ from db.database import get_db
 from models.core import ContextDocument, DocumentType, IndexingStatus, SearchHistory
 from services.token_counter import get_token_counter
 
-# Phase 9 integration: ensure phase9/ is importable for build-graphindex-clean
-# helpers used by _phase9_get_or_generate_enrichment.
+# Phase 9 integration: ensure learning/phase9/ is importable for
+# build-graphindex-clean helpers used by _phase9_get_or_generate_enrichment.
+# (phase9/ moved from langconfig/phase9/ to langconfig/learning/phase9/ on 2026-06-26)
 import sys as _sys
 import os as _os
 _PHASE9_DIR = _os.path.abspath(
-    _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "phase9")
+    _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "learning", "phase9")
 )
 if _PHASE9_DIR not in _sys.path and _os.path.isdir(_PHASE9_DIR):
     _sys.path.insert(0, _PHASE9_DIR)

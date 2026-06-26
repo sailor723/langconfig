@@ -30,10 +30,13 @@ import os
 
 # ---------------------------------------------------------------------------
 # Phase 9 integration: prefer Phase 9 LLM-semantic query system over the
-# legacy base string-matching. Phase 9 lives at langconfig/phase9/; ensure
-# it's importable from this file.
+# legacy base string-matching. Phase 9 lives at langconfig/learning/phase9/;
+# ensure it's importable from this file.
+# (phase9/ moved from langconfig/phase9/ to langconfig/learning/phase9/ on 2026-06-26)
 # ---------------------------------------------------------------------------
-_PHASE9_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "phase9"))
+_PHASE9_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "learning", "phase9")
+)
 if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):
     sys.path.insert(0, _PHASE9_DIR)
 
