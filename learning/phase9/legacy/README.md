@@ -21,7 +21,7 @@ calls directly. They are preserved for:
 ## How current scripts use these
 
 ```python
-# phase9/build_graphindex_clean.py
+# phase9/graphindex_build_python.py
 from legacy.build_graphindex import (
     DOCS_BASE,
     SUPPORTED_EXTS,
@@ -60,7 +60,7 @@ They are still runnable from the new location:
 # All paths must be from project root so the `from legacy.xxx` import works
 cd /Users/weiping/dev/Learn/langchain-ai/langconfig
 
-# Original build CLI (deprecated — use build_graphindex_clean.py instead)
+# Original build CLI (deprecated — use graphindex_build_python.py instead)
 python phase9/legacy/build_graphindex.py --show nke-10k-2023.pdf
 
 # Original semantic router (deprecated — use query.py instead)
@@ -82,6 +82,6 @@ historical record.
 
 ## When to delete
 
-Once `phase9/build_graphindex_clean.py` and friends have fully replaced
+Once `phase9/graphindex_build_python.py` and friends have fully replaced
 the `legacy/` functions, the legacy scripts can be deleted. For now,
 they're the source of helpers we don't want to duplicate.

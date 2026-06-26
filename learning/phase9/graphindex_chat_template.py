@@ -4,7 +4,7 @@ Phase 9 / Step L0 — graphindex_chat agent template.
 
 A langconfig-importable DeepAgent template (".langconfig" JSON format)
 that recreates the `graphindex_chat` single-agent DeepAgent from
-`phase9/build_graphindex_chat_agent.py`, but using the langconfig
+`phase9/graphindex_chat_agent.py`, but using the langconfig
 **native tool registry** tools (the 4 graphindex_* tools) so users can
 load it via `POST /api/deepagents/import` and the langconfig UI can
 edit it like any other DeepAgent.
@@ -12,7 +12,7 @@ edit it like any other DeepAgent.
 Why this exists
 ---------------
 
-The single agent in `phase9/build_graphindex_chat_agent.py` is a
+The single agent in `phase9/graphindex_chat_agent.py` is a
 "reference implementation" — it hardcodes:
 
   - 4 specific tools (graphindex_list_docs, graphindex_search, etc.)
@@ -79,7 +79,7 @@ if str(REPO_ROOT / "learning" / "phase9") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "learning" / "phase9"))
 
 
-# Reuse the same system prompt as build_graphindex_chat_agent.py, but
+# Reuse the same system prompt as graphindex_chat_agent.py, but
 # mention langconfig native tools (not the phase9 @tool wrappers) so
 # the user sees familiar tool names in the langconfig UI.
 SYSTEM_PROMPT = """You are **graphindex_chat** — a conversational research
