@@ -816,6 +816,17 @@ class APIClient {
     return this.client.post(`/api/deepagents/${id}/export`, data);
   }
 
+  /**
+   * Import a DeepAgent from a .langconfig JSON payload.
+   * Used by Phase 9 / Step L0 to register the `graphindex_chat` template
+   * from the Knowledge panel.
+   */
+  async importDeepAgent(langconfigContent: string) {
+    return this.client.post('/api/deepagents/import', {
+      langconfig_content: langconfigContent,
+    });
+  }
+
   // Custom Tools
   async listCustomTools(config?: { project_id?: number; template_type?: string; tool_type?: string; signal?: AbortSignal }) {
     const { signal, ...params } = config || {};
