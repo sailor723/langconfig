@@ -979,6 +979,128 @@ python phase9/query.py prompt "binary classification neural network"
 All ~2,000 lines of legacy code is preserved on disk. `query.py` is a
 **convenience aggregator** that ships the same logic through one CLI.
 
+## 🎯 Step C — Build-side DeepAgent (NEW, no deletions)
+
+`phase9/build_graphindex.py` (raw `llm.invoke`) gets a parallel
+deepagent-based path. Legacy script remains intact.
+
+### New files
+
+```
+phase9/buildindex_tools.py    ← LangChain @tool wrappers (9 tools)
+phase9/build_agent.py         ← DeepAgent factory + 3 subagents
+phase9/build_graphindex_deep.py ← CLI entry (--ingest, --rebuild-one, ...)
+```
+
+### Architecture
+
+```
+   ┌─────────────────────────────────────────────────┐
+   │ create_deep_agent(model, system_prompt,          │
+   │                  tools=[...9...],                 │
+   │                  subagents=[ingest_checker,       │
+   │                               enricher,           │
+   │                               writer])            │
+   └─────────────────────────────────────────────────┘
+                        │
+   ┌────────────────────┼────────────────────────────────┐
+   ▼                    ▼                                ▼
+┌─────────────┐  ┌──────────────┐         ┌──────────────────┐
+│ sha256/     │  │ read_doc_tool│         │ upsert_doc_to_neo4j│
+│ scan_fs/    │  │ get_metadata │         │ _tool            │
+│ scan_neo4j  │  │ list_other_  │         │ copy_to_project_ │
+│             │  │ doc_names    │         │ dir_tool         │
+└─────────────┘  └──────────────┘         └──────────────────┘
+   ingest_checker  enricher                    writer
+```
+
+### Built-in middleware
+
+| Middleware | Effect on Phase 9 |
+|---|---|
+| TodoListMiddleware | LLM auto-tracks "hash → dedup → enrich → write" |
+| SubAgentMiddleware | 3 subagents can spawn into sub-state |
+| PatchToolCallsMiddleware | Tool-call patches flow correctly |
+
+### Live test (--ingest)
+
+```
+$ python phase9/build_graphindex_deep.py --ingest /tmp/test_doc_deep.txt
+
+🤖 Ingestion complete.
+  - Verdict: new (no dupes)
+  - SHA-256: 38191f3cf52e0ccdcf527ac5a31de317...
+  - Copied to: backend/data/documents/project_1/38191f3c_test_doc_deep.txt
+  - Neo4j upsert: OK
+  - content_sha256 set
+   ├─ tokens: in=11,482  out=191
+   │          cache_read=11,378 (99.1% cached)
+   └─ latency: 59.0s
+```
+
+Verify:
+```
+$ python phase9/build_graphindex_deep.py --show test_doc_deep.txt
+📄 test_doc_deep.txt
+   about: A short test document covering machine learning evaluation
+          metrics, including accuracy, precision, recall, F1 score, ...
+   supports (6): [precision/recall, F1, ROC/AUC, confusion matrix, ...]
+   out_of_scope (5): [6 人物库.pdf, Nike 10-K, ...]
+   content_sha256: 38191f3cf52e0ccd…
+```
+
+### Bugs found and fixed by the DeepAgent test
+
+1. `build_document_node_properties()` was missing `doc_index_id` arg
+   → fixed by passing `doc_index_id=None`.
+2. `build_document_node_properties()` expects a `Neo4jDocumentEnrichment`
+   dataclass, not a `dict` → fixed by constructing the dataclass.
+
+These were latent bugs in the legacy `build_graphindex.py` — the
+DeepAgent test exposed them via runtime error messages.
+
+### CLI
+
+```bash
+# Ingest a new file (hash + dedup + copy + enrich + upsert)
+python phase9/build_graphindex_deep.py --ingest /path/to/new.pdf
+
+# Custom target directory
+python phase9/build_graphindex_deep.py --ingest new.pdf --ingest-target /path/
+
+# Rebuild enrichment for one doc
+python phase9/build_graphindex_deep.py --rebuild-one "nke-10k-2023.pdf"
+
+# Rebuild for entire project (18 docs, ~15 min)
+python phase9/build_graphindex_deep.py --rebuild-project
+
+# Show a node
+python phase9/build_graphindex_deep.py --show "nke-10k-2023.pdf"
+
+# Print agent topology
+python phase9/build_graphindex_deep.py --show-agent
+```
+
+### Phase 9 file layout (current)
+
+```
+phase9/
+├── build_graphindex.py          ← Build (raw llm.invoke) — UNCHANGED
+├── buildindex_tools.py          🆕  Build tools (9 @tool wrappers)
+├── build_agent.py               🆕  Build DeepAgent factory
+├── build_graphindex_deep.py     🆕  Build CLI (deepagent path)
+│
+├── graphindex_tools.py          ← Query tools (4 @tool wrappers)
+├── query_agent.py               ← Query DeepAgent factory
+├── query.py                     ← Query CLI (aggregator)
+│
+├── route_semantic.py            ← Legacy query: raw llm.invoke — UNCHANGED
+├── dv_chat.py                   ← Legacy REPL: raw llm.invoke — UNCHANGED
+├── eval_routing.py              ← Legacy eval — UNCHANGED
+├── eval_routing_deep.py         ← Legacy DeepAgent eval — UNCHANGED
+└── query_deep.py                ← Legacy deepagent CLI — UNCHANGED
+```
+
 ---
 
 ## 🔗 Related Reading
