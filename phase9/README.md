@@ -980,9 +980,87 @@ Cleaned up test artifact
 1. **chat_pdf.py KV store** — still exists but unused by the new tool
    path. Future cleanup: remove `chat_pdf.py` + `.chat_pdf_kv/` directory.
 
----
+## 🎯 Step H — Frontend folder upload (DONE)
 
-## 🎯 Step A — DeepAgent unified architecture (DONE)
+Both the knowledge panel and chat panel now support uploading a whole
+folder (recursive). The browser's directory picker (via the
+`webkitdirectory` attribute) returns a flat `FileList` to the FE, which
+is then sent to the existing `upload-multiple` backend endpoint.
+
+### What changed
+
+| Panel | Status |
+|---|---|
+| Knowledge panel | Already had `webkitdirectory` (purple "Select folder" button) |
+| Chat panel | New dropdown next to paperclip — "Upload file(s)" or "Upload folder" |
+
+The chat `FileUploadButton.tsx` was refactored:
+- The single paperclip icon is now a 2-button group with a small chevron
+  that opens a popover menu (Upload file(s) / Upload folder)
+- Folder upload uses a second hidden `<input type="file" webkitdirectory>` ref
+- All files go through the existing `upload-multiple` endpoint, then
+  Phase 9 enrichment (Step G) ensures each one becomes routable
+
+### End-to-end test (folder upload via API)
+
+```
+$ mkdir -p /tmp/folder_test/{sub1,sub2}
+$ echo "NLP test" > /tmp/folder_test/a.txt
+$ echo "DL test" > /tmp/folder_test/sub1/b.txt
+$ echo "# MD test" > /tmp/folder_test/sub2/c.md
+
+$ curl -X POST "http://localhost:8765/api/chat/${SID}/upload-multiple?project_id=1" \
+    -F "files=@/tmp/folder_test/a.txt" \
+    -F "files=@/tmp/folder_test/sub1/b.txt" \
+    -F "files=@/tmp/folder_test/sub2/c.md"
+uploaded 3 files: ['a.txt', 'b.txt', 'c.md']
+```
+
+After ~30s (3 LLM enrichment calls):
+
+```
+$ python -c "from tools.native_tools import graphindex_search; ..."
+  a.txt: about='A simple test file verifying folder upload functionality, ...' supports=3
+  b.txt: about='A test/stub document containing only placeholder text about deep learning, ...' supports=2
+  c.md: about='A minimal test markdown file used to verify the folder upload path ...' supports=3
+```
+
+### Server logs (Phase 9 path visible)
+
+```
+[phase9] chat upload starting: filename='a.txt', project_id=1, file_size=118 bytes
+[phase9] generated fresh enrichment for 'a.txt': about='A simple test file verifying...'
+[phase9] chat upload indexed: doc_id=45, filename='a.txt' (now routable in Neo4j)
+[phase9] chat upload starting: filename='b.txt', project_id=1, file_size=110 bytes
+[phase9] generated fresh enrichment for 'b.txt': about='A test/stub document...'
+[phase9] chat upload indexed: doc_id=46, filename='b.txt' (now routable in Neo4j)
+[phase9] chat upload starting: filename='c.md', project_id=1, file_size=81 bytes
+[phase9] generated fresh enrichment for 'c.md': about='A minimal test markdown file...'
+[phase9] chat upload indexed: doc_id=47, filename='c.md' (now routable in Neo4j)
+```
+
+### Routing verification (each folder doc is reachable)
+
+```
+'verify recursive folder upload functionality'  -> b.txt
+'placeholder text deep learning'                -> b.txt
+'markdown folder upload path'                   -> c.md
+```
+
+### Files changed
+
+- `src/features/chat/ui/FileUploadButton.tsx`:
+  - Added `FolderUp`, `FileUp`, `ChevronUp` icon imports
+  - Added `showMenu` state + `folderInputRef` for the second input
+  - Replaced single button with a 2-button group + popover menu
+  - Added `webkitdirectory` second input for folder picking
+  - Preserves all original behaviour (single file → `/upload`,
+    multiple → `/upload-multiple`)
+
+### What still needs work
+
+1. **chat_pdf.py KV store** — still exists but unused by the new tool
+   path. Future cleanup: remove `chat_pdf.py` + `.chat_pdf_kv/` directory.
 
 The legacy scripts (`dv_chat.py`, `route_semantic.py`, `eval_routing.py`)
 use raw `llm.invoke([messages])`. This step adds a parallel **deepagent-based**
