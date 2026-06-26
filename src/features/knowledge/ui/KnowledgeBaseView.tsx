@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Upload, FileText, Trash2, Search, Database, Filter, Loader, RefreshCw } from 'lucide-react';
+import { Upload, FileText, Trash2, Search, Database, Filter, Loader, RefreshCw, Sparkles, Check } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 import { useProject } from "../../../contexts/ProjectContext";
 import SearchMetricsDisplay from './SearchMetricsDisplay';
@@ -266,6 +266,82 @@ export default function KnowledgeBaseView() {
       alert('Failed to upload some files. Check console for details.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Phase 9 / Step L1 — import the `graphindex_chat` agent template
+  // into the langconfig DeepAgent library. One click creates a new
+  // user-editable DeepAgent that uses the 4 graphindex_* native tools.
+  // (Backend reference: phase9/graphindex_chat_template.py; this payload
+  // is the exact .langconfig JSON that file would emit.)
+  const [importingGraphindexChat, setImportingGraphindexChat] = useState(false);
+  const [importedGraphindexChatId, setImportedGraphindexChatId] = useState<number | null>(null);
+
+  const GRAPHINDEX_CHAT_TEMPLATE_PAYLOAD = JSON.stringify({
+    version: "1.0",
+    export_type: "deepagent",
+    agent: {
+      name: "graphindex_chat",
+      description: "LLM-semantic-routed chat with project documents (Phase 9). 4 native tools: list, search, load, multi_doc_load.",
+      category: "research",
+      model: "minimax-m3",
+      temperature: 0.0,
+      max_tokens: 8192,
+      system_prompt:
+        "You are **graphindex_chat** — a conversational research assistant for the user's project documents. (Phase 9 / LLM semantic routing)\n\n" +
+        "You have 4 native tools (from langconfig's GraphIndex toolset, Phase 9):\n\n" +
+        "  - graphindex_list_docs(project_id)         — list available doc names\n" +
+        "  - graphindex_search(query, project_id)     — find the best primary + 0-3 supporting docs\n" +
+        "  - graphindex_load(context_doc_id)          — read a single doc's full text\n" +
+        "  - graphindex_multi_doc_load(query, project_id)  — one-shot: route + load primary + supporting\n\n" +
+        "Workflow:\n" +
+        "  1. If unsure what docs exist, call graphindex_list_docs first (cheap).\n" +
+        "  2. To answer a question, prefer graphindex_multi_doc_load — it does routing + loading in one call.\n" +
+        "  3. Synthesize the final answer from the loaded context. Cite the document name and page when relevant.\n\n" +
+        "If the user asks something unrelated to the project documents, say so politely.\n" +
+        "Don't make up document names — always check the catalog. Output language matches the query.",
+      tools: [
+        "graphindex_list_docs",
+        "graphindex_search",
+        "graphindex_load",
+        "graphindex_multi_doc_load",
+      ],
+      mcp_tools: [],
+      cli_tools: [],
+      middleware: [
+        { type: "todo_list", enabled: true, config: {} },
+        { type: "filesystem", enabled: true, config: {} },
+      ],
+      subagents: [],
+      backend: { type: "state", config: {} },
+      guardrails: {},
+    },
+  });
+
+  const handleImportGraphindexChat = async () => {
+    if (importingGraphindexChat) return;
+    setImportingGraphindexChat(true);
+    try {
+      const response = await apiClient.importDeepAgent(GRAPHINDEX_CHAT_TEMPLATE_PAYLOAD);
+      const id = response?.data?.id;
+      setImportedGraphindexChatId(id ?? null);
+      console.log(
+        `[Phase 9 / L1] Imported graphindex_chat agent (id=${id}). ` +
+        `View at: GET /api/deepagents/${id}`
+      );
+    } catch (error: any) {
+      console.error('Failed to import graphindex_chat agent:', error);
+      // 409 / "already exists" — silently treat as success; the user
+      // can find the existing one in the agent library.
+      const detail = error?.response?.data?.detail || '';
+      if (String(detail).toLowerCase().includes('exists') || error?.response?.status === 409) {
+        setImportedGraphindexChatId(-1);
+        console.log('[Phase 9 / L1] graphindex_chat agent already exists in library.');
+      } else {
+        alert(`Failed to import graphindex_chat agent: ${detail || 'unknown error'}`);
+      }
+    } finally {
+      setImportingGraphindexChat(false);
     }
   };
 
@@ -975,6 +1051,62 @@ export default function KnowledgeBaseView() {
                       className="hidden" disabled={uploading} />
                   </label>
                 </div>
+              </div>
+            </div>
+
+            {/* Phase 9 / Step L1 — one-click import of the `graphindex_chat`
+                agent template into the langconfig DeepAgent library.
+                Once imported, the user can edit it like any other agent
+                (swap model, change prompt, add subagents) or use it
+                directly in the chat panel. */}
+            <div
+              className="rounded-lg p-2.5 border border-purple-200 dark:border-purple-800/40"
+              style={{
+                backgroundColor: 'var(--color-panel-light)',
+                backgroundImage: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05), rgba(99, 102, 241, 0.05))',
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(168, 85, 247, 0.12)' }}>
+                  <Sparkles className="w-4 h-4" style={{ color: '#a855f7' }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                    {t('kb_graphindex_chat_title', 'graphindex_chat (Phase 9)')}
+                  </p>
+                  <p className="text-[10px] truncate" style={{ color: 'var(--color-text-muted)' }}>
+                    {t('kb_graphindex_chat_desc', 'LLM-semantic-routed chat with 4 GraphIndex tools. Click to add to agent builder.')}
+                  </p>
+                </div>
+                <button
+                  onClick={handleImportGraphindexChat}
+                  disabled={importingGraphindexChat}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all text-[10px] font-medium disabled:opacity-50"
+                  style={{
+                    backgroundColor: importedGraphindexChatId ? 'rgba(34, 197, 94, 0.15)' : 'rgba(168, 85, 247, 0.15)',
+                    color: importedGraphindexChatId ? '#16a34a' : '#a855f7',
+                  }}
+                  title={
+                    importedGraphindexChatId
+                      ? `Imported (id=${importedGraphindexChatId}) — open Agent Builder to edit`
+                      : 'Import the graphindex_chat agent template into your DeepAgent library'
+                  }
+                >
+                  {importingGraphindexChat ? (
+                    <Loader className="w-3 h-3 animate-spin" />
+                  ) : importedGraphindexChatId ? (
+                    <Check className="w-3 h-3" />
+                  ) : (
+                    <Sparkles className="w-3 h-3" />
+                  )}
+                  <span>
+                    {importingGraphindexChat
+                      ? t('kb_importing', 'Importing…')
+                      : importedGraphindexChatId
+                        ? t('kb_imported', 'In library')
+                        : t('kb_use_in_builder', 'Use in agent builder')}
+                  </span>
+                </button>
               </div>
             </div>
 

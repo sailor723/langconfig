@@ -1596,6 +1596,118 @@ phase9/
 └── query_deep.py                ← Legacy deepagent CLI — UNCHANGED
 ```
 
+## 🎯 Step L — `graphindex_chat` as a langconfig agent template (DONE)
+
+The langconfig UI is an **agent IDE**: users build, edit, and run agents
+via `src/features/agents/ui/DeepAgentBuilder.tsx` and the
+`src/features/deepagent-studio/` canvas. The agent builder has full
+CRUD via `POST /api/deepagents/` + `POST /api/deepagents/import`
+(`.langconfig` JSON format).
+
+This step makes `graphindex_chat` available as a first-class agent
+template so users can:
+
+1. Click a button on the Knowledge panel to import it.
+2. Open it in the agent builder, edit anything (model, prompt, tools,
+   add subagents).
+3. Run it from the chat panel.
+
+### L0 — Template payload (`phase9/graphindex_chat_template.py`)
+
+A new Python file generates the exact `.langconfig` JSON that
+`POST /api/deepagents/import` accepts. It mirrors the same
+configuration as `phase9/build_graphindex_chat_agent.py`:
+
+- 4 tools: `graphindex_list_docs`, `graphindex_search`,
+  `graphindex_load`, `graphindex_multi_doc_load`
+- Model: `minimax-m3` (deepseek-chat, per step 4)
+- Category: `research`
+- 0 subagents (single agent, like the Python reference)
+- Middleware: `todo_list` + `filesystem` (deepagent defaults)
+- Backend: `state` (LangGraph in-memory)
+
+CLI modes:
+
+```bash
+# Print the template JSON
+python phase9/graphindex_chat_template.py --print
+
+# Save to file (for re-import or sharing)
+python phase9/graphindex_chat_template.py --save /tmp/graphindex_chat.langconfig
+
+# POST to /api/deepagents/import (CLI live test)
+python phase9/graphindex_chat_template.py --import --server http://localhost:8765
+
+# Custom name/model
+python phase9/graphindex_chat_template.py --import --name "My Research Agent" --model minimax-m3
+```
+
+### L1 — Knowledge panel import button
+
+`src/features/knowledge/ui/KnowledgeBaseView.tsx` got a new purple
+"Phase 9" banner card right under the upload zone:
+
+```
+┌──────────────────────────────────────────────────┐
+│ ✨ graphindex_chat (Phase 9)                      │
+│ LLM-semantic-routed chat with 4 GraphIndex tools. │
+│ Click to add to agent builder.                   │
+│                              [✨ Use in builder] │
+└──────────────────────────────────────────────────┘
+```
+
+Behaviour:
+
+- Click → `POST /api/deepagents/import` with the embedded template JSON
+- Button shows loader spinner → success checkmark with "In library"
+- Hover tooltip shows the imported agent's id
+- If import fails (e.g. already exists), the error is logged and the
+  UI shows a graceful failure (no crash)
+- The exact same template is also bundled inline in the FE
+  (`GRAPHINDEX_CHAT_TEMPLATE_PAYLOAD` constant) so the button works
+  without an extra fetch round-trip
+
+`src/lib/api-client.ts` got a new `importDeepAgent(langconfigContent)`
+helper that wraps the POST.
+
+### Test results
+
+```
+$ python phase9/graphindex_chat_template.py --import --server http://localhost:8765
+✓ Imported graphindex_chat agent (id=91, name='graphindex_chat')
+  View in agent library: GET http://localhost:8765/api/deepagents/91
+
+$ curl -s "http://localhost:8765/api/deepagents/91" | python3 -c ...
+ID: 91
+Name: graphindex_chat
+Category: research
+Model: minimax-m3
+Tools: ['graphindex_list_docs', 'graphindex_search', 'graphindex_load', 'graphindex_multi_doc_load']
+Subagents: []
+Description: LLM-semantic-routed chat with project documents (Phase 9). 4 native tools: list, search, load, multi_doc_load.
+```
+
+TypeScript typecheck: clean (only the pre-existing
+`SkillLibrary.tsx` error remains, unrelated to this step).
+Vite build: clean.
+
+### Why this design
+
+The langconfig UI is already an agent IDE. The 4 graphindex_* tools
+were already in `/api/tools/registry` since Step E. This step just
+**bundles them into a first-class agent template** that users can
+import, edit, and run — no separate graphindex_chat chat interface
+needed. The same agent can be customized per-project (model swap,
+extra tools, etc.) without touching Phase 9 code.
+
+### Next
+
+- **L2** (chat panel): add `graphindex_chat` as a one-click option in
+  the chat panel's agent selector (so the user doesn't have to find
+  it in the library)
+- **L3** (tool library): surface the 4 graphindex_* tools in the tool
+  library with a "Phase 9" badge so users can mix them into any agent
+
 ---
 
 ## 🔗 Related Reading
