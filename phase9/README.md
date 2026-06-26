@@ -745,6 +745,114 @@ calls within the same project get **99.7% cache hit** because the
     could be merged but separating them makes the routing-call budget
     independent of the chat history.
 
+## 🎯 Step A — DeepAgent unified architecture (DONE)
+
+The legacy scripts (`dv_chat.py`, `route_semantic.py`, `eval_routing.py`)
+use raw `llm.invoke([messages])`. This step adds a parallel **deepagent-based**
+code path that matches the architecture used by the rest of the LangConfig
+project (`backend/services/deepagent_factory.py` etc.).
+
+### New files (legacy scripts untouched)
+
+```
+phase9/graphindex_tools.py   ← LangChain @tool wrappers
+phase9/query_agent.py        ← DeepAgent factory (router/loader/answerer)
+phase9/query_deep.py         ← CLI + REPL over the DeepAgent
+```
+
+### Architecture
+
+```
+            ┌─────────────────────────────────────────────┐
+            │ create_deep_agent(model, system_prompt,       │
+            │                  tools=[...],                  │
+            │                  subagents=[router,            │
+            │                            loader,             │
+            │                            answerer],         │
+            │                  checkpointer=MemorySaver)    │
+            └─────────────────────────────────────────────┘
+                                    │
+   ┌────────────────────────────────┼───────────────────────────────┐
+   │                                │                               │
+   ▼                                ▼                               ▼
+┌──────────────┐          ┌────────────────┐             ┌──────────────┐
+│ fetch_catalog│          │ read_doc_tool  │             │ load_multi   │
+│ _tool        │          │                │             │ _doc_tool    │
+└──────────────┘          └────────────────┘             └──────────────┘
+   Neo4j catalog              PyMuPDF read                   primary + supp
+
+  ┌──────────┐    ┌──────────┐    ┌────────────┐
+  │  router  │───▶│  loader  │───▶│  answerer  │
+  │ (catalog │    │ (multi-  │    │ (synthesize│
+  │  → JSON) │    │  doc ctx)│    │  answer)   │
+  └──────────┘    └──────────┘    └────────────┘
+       subagents share one LangGraph state graph
+```
+
+### Built-in middleware (from `deepagents`)
+
+| Middleware | Effect on Phase 9 |
+|---|---|
+| TodoListMiddleware | LLM auto-tracks "route → load → answer" tasks |
+| SubAgentMiddleware | router/loader/answerer can spawn into sub-state |
+| PatchToolCallsMiddleware | Tool-call patches flow correctly |
+| MemorySaver | Multi-turn REPL gets session continuity + cache hits |
+
+### Live test (DeepAgent, single `--answer`)
+
+```
+$ python phase9/query_deep.py --answer "苏格拉底思想"
+
+Query: '苏格拉底思想'
+
+🤖 根据文档目录检索，当前知识库中没有关于苏格拉底的专题文档。可用的相关资料是
+「6 人物库.pdf」，其中收录的哲学家为：亚里士多德、尼采、笛卡尔、维特根斯坦、海德
+格尔、孔子。苏格拉底并未在该人物库中...
+
+   ├─ tokens:   in= 17,044  out=  492
+   │            cache_read=16,896  (99.1% cached)
+   └─ latency:   53.4s
+```
+
+Note **99.1% cached** — the deepagent system prompt + tools + subagent
+descriptions are stable across queries, so MiniMax prompt cache hits hard.
+
+### Why deepagent over raw `llm.invoke`
+
+| Concern | llm.invoke (legacy) | create_deep_agent (new) |
+|---|---|---|
+| State graph | none, manual messages list | LangGraph state, can resume |
+| Multi-turn cache | manual append | automatic via checkpointer |
+| Subagent delegation | manual orchestration | built-in via SubAgentMiddleware |
+| Tool error retry | manual JSON fallback | PatchToolCallsMiddleware handles |
+| Skills (future) | none | deepagents-native `skills=[...]` |
+| HITL pause | none | built-in (just add middleware) |
+| Observability | none | Langfuse callback ready |
+
+### CLI
+
+```bash
+# Single answer (one-shot)
+python phase9/query_deep.py --answer "Nike revenue 2023"
+
+# Interactive REPL with multi-turn thread
+python phase9/query_deep.py --chat
+
+# Inspect the agent topology
+python phase9/query_deep.py --show-agent
+```
+
+### Caveats
+
+  - **Both code paths coexist**: legacy `dv_chat.py` / `route_semantic.py`
+    / `eval_routing.py` are still in use. DeepAgent path is for new
+    features (multi-agent collaboration, persistent state, skills).
+  - **DeepAgent latency is higher** (~50s per query vs 5-10s for raw
+    llm.invoke) because of state graph overhead. Cache hit rate is also
+    higher (99% vs 76%) so cost per query is similar.
+  - **Tools are stateless** — each tool call hits Neo4j / filesystem
+    fresh. No shared mutable state between subagent calls (intentional).
+
 ---
 
 ## 🔗 Related Reading
