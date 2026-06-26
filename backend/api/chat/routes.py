@@ -268,7 +268,7 @@ async def start_chat_session(
             agent_id=agent.id,
             agent_name=agent.name,
             is_active=session.is_active,
-            message_count=len(session.messages),
+            message_count=len(session.messages or []),
             created_at=session.created_at.isoformat(),
             updated_at=session.updated_at.isoformat()
         )
@@ -324,7 +324,7 @@ async def send_message(
         from datetime import datetime
         from sqlalchemy.orm.attributes import flag_modified
         user_message_timestamp = datetime.utcnow().isoformat()
-        user_message_index = len(session.messages)
+        user_message_index = len(session.messages or [])
         session.messages.append({
             "role": "user",
             "content": request.message,
@@ -437,7 +437,7 @@ async def send_message(
 
         # Add assistant message to history
         assistant_message_timestamp = datetime.utcnow().isoformat()
-        assistant_message_index = len(session.messages)
+        assistant_message_index = len(session.messages or [])
         session.messages.append({
             "role": "assistant",
             "content": response_text,
@@ -1151,7 +1151,7 @@ async def get_session_metrics(
         "tool_calls": session.tool_calls,
         "subagent_spawns": session.subagent_spawns,
         "context_operations": session.context_operations,
-        "message_count": len(session.messages),
+        "message_count": len(session.messages or []),
         "is_active": session.is_active,
         "duration_seconds": (session.updated_at - session.created_at).total_seconds()
     }
@@ -1249,7 +1249,10 @@ async def list_chat_sessions(
             "agent_id": session.agent_id,
             "agent_name": agent.name if agent else "Unknown Agent",
             "is_active": session.is_active,
-            "message_count": len(session.messages),
+            # BUG FIX: session.messages can be None for some sessions
+            # (e.g. freshly created with no messages yet, or migrated from
+            # a schema that didn't set the default). Use a safe accessor.
+            "message_count": len(session.messages or []),
             "last_message_preview": last_message_preview,
             "created_at": session.created_at.isoformat(),
             "updated_at": session.updated_at.isoformat()
