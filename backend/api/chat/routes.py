@@ -51,6 +51,18 @@ GET /api/chat/health - Returns session manager stats and validates consistency
 
 import logging
 import uuid
+import sys as _sys
+import os as _os
+# Phase 9 integration: ensure phase9/ is importable so chat uploads can use
+# the Phase 9 enrichment path via the chain
+#   _index_to_graphindex_for_chat -> index_document_background ->
+#   _try_sync_context_document_to_neo4j -> _phase9_get_or_generate_enrichment.
+_PHASE9_DIR = _os.path.abspath(
+    _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "phase9")
+)
+if _PHASE9_DIR not in _sys.path and _os.path.isdir(_PHASE9_DIR):
+    _sys.path.insert(0, _PHASE9_DIR)
+
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -1918,6 +1930,11 @@ async def _index_to_graphindex_for_chat(
         from models.core import ContextDocument, DocumentType, IndexingStatus
         from services.file_storage import file_storage
 
+        logger.info(
+            f"[phase9] chat upload starting: filename={filename!r}, "
+            f"project_id={project_id}, file_size={file_size} bytes"
+        )
+
         content_hash = hashlib.sha256(file_content).hexdigest()
 
         db = SessionLocal()
@@ -1974,11 +1991,18 @@ async def _index_to_graphindex_for_chat(
             db.commit()
             db.refresh(doc)
 
-            # Trigger full indexing (GraphIndex + vector)
+            # Trigger full indexing (GraphIndex + vector).
+            # The knowledge-panel path inside this will call
+            # _phase9_get_or_generate_enrichment and populate
+            # about / supports / out_of_scope / few_shot on the Neo4j node,
+            # so chat-uploaded docs become routable.
             from api.knowledge.rag import index_document_background
             await index_document_background(doc.id)
 
-            logger.info(f"GraphIndex indexing completed for chat-uploaded doc {doc.id}: {filename}")
+            logger.info(
+                f"[phase9] chat upload indexed: doc_id={doc.id}, "
+                f"filename={filename!r} (now routable in Neo4j)"
+            )
         finally:
             db.close()
     except Exception as e:

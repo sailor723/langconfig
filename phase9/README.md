@@ -918,6 +918,68 @@ backend/tests/test_neo4j_autosync.py::test_try_sync_context_document_to_neo4j_up
 1 passed, 4 warnings in 1.98s
 ```
 
+## 🎯 Step G — Chat upload now gets enrichment (DONE)
+
+`backend/api/chat/routes.py:_index_to_graphindex_for_chat` already
+called `index_document_background()` after saving the chat file. With
+Step F, that chain now ends in `_phase9_get_or_generate_enrichment`,
+so chat uploads automatically get the same Neo4j enrichment as
+knowledge-panel uploads.
+
+### Full chain (chat panel)
+
+```
+chat upload (POST /api/chat/{session_id}/upload)
+  → _process_single_chat_upload       (chat/routes.py)
+  → _index_to_graphindex_for_chat      (chat/routes.py, async)
+       ↓ dedup by SHA-256, then filename
+  → ContextDocument created
+  → index_document_background()       (knowledge/rag.py, async)
+       ↓ DocIndex + vector indexing
+  → _try_sync_context_document_to_neo4j (knowledge/rag.py)
+  → _phase9_get_or_generate_enrichment (knowledge/rag.py, NEW)
+       ↓ reuse if existing, else 1 LLM call
+  → Neo4j Document node with about / supports / out_of_scope
+```
+
+### End-to-end test
+
+```
+$ python /tmp/test_chat_upload.py
+Saved to: /Users/weiping/dev/Learn/langchain-ai/langconfig/data/documents/project_1/40d8bd1d_chat_upload_test.txt
+Created ContextDocument id=40
+Running index_document_background(40)...
+
+=== Neo4j node ===
+  about: 'A test document about reinforcement learning covering
+          Q-learning, DQN, policy gradient, and actor-critic methods, used to...'
+  supports (5):
+    - 'What is Q-learning?'
+    - 'What is DQN?'
+    - 'What are policy gradient methods?'
+  out_of_scope (19):
+    - 6 人物库.pdf
+    - 8284514.pdf
+    - C1M2.pdf
+
+  ✓ ENRICHMENT POPULATED (chat upload works!)
+
+Cleaned up test artifact
+```
+
+### Files changed
+
+- `backend/api/chat/routes.py`:
+  - Added `_PHASE9_DIR` path hook (top of file)
+  - Added `[phase9]` log markers in `_index_to_graphindex_for_chat`
+    (one at start, one after indexing completes) so the Phase 9 path
+    is visible in logs
+
+### What still needs work
+
+1. **chat_pdf.py KV store** — still exists but unused by the new tool
+   path. Future cleanup: remove `chat_pdf.py` + `.chat_pdf_kv/` directory.
+
 ---
 
 ## 🎯 Step A — DeepAgent unified architecture (DONE)
