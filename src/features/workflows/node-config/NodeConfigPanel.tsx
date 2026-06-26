@@ -549,14 +549,16 @@ const NodeConfigPanel = ({
 
       // Tool Node configuration (instance-specific to this node)
       if (selectedNode.agentType === 'TOOL_NODE') {
-        setSelectedToolType(selectedNode.tool_type || null);
-        setSelectedToolId(selectedNode.tool_id || null);
+        // BUG FIX: read from nodeConfig (selectedNode.config) — the tool_type
+        // and tool_id are stored inside data.config, not at the top level of data.
+        setSelectedToolType(nodeConfig.tool_type || null);
+        setSelectedToolId(nodeConfig.tool_id || null);
 
         // Also initialize config with tool_params if they exist
-        if (selectedNode.tool_params) {
+        if (nodeConfig.tool_params) {
           setConfig(prev => ({
             ...prev!,
-            tool_params: selectedNode.tool_params
+            tool_params: nodeConfig.tool_params
           }));
         }
       }
@@ -582,11 +584,14 @@ const NodeConfigPanel = ({
 
   // Load tool schema when both selectedNode and availableCustomTools are ready
   useEffect(() => {
+    // BUG FIX: read tool_type and tool_id from selectedNode.config (not directly
+    // on selectedNode — they're nested inside .config after save).
+    const cfg = (selectedNode as any)?.config;
     if (selectedNode?.agentType === 'TOOL_NODE' &&
-      selectedNode.tool_type &&
-      selectedNode.tool_id &&
+      cfg?.tool_type &&
+      cfg?.tool_id &&
       availableCustomTools.length > 0) {
-      loadToolSchema(selectedNode.tool_type, selectedNode.tool_id);
+      loadToolSchema(cfg.tool_type, cfg.tool_id);
     }
   }, [selectedNode?.tool_id, availableCustomTools.length]);
 

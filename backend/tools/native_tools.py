@@ -1726,6 +1726,11 @@ def _get_project_id() -> Optional[int]:
     return None
 
 
+# Note: print_hello has been moved to a custom tool (DB-backed, editable in UI).
+# See backend/create_print_hello_tool.py for how it was registered.
+# The native implementation was removed to keep a single source of truth.
+
+
 def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
     """
     Search project documents using GraphIndex with LLM semantic routing.
@@ -2061,7 +2066,67 @@ def graphindex_ingest(file_path: str, project_id: Optional[int] = None,
         return f"❌ Error ingesting {file_path}: {e}"
 
 
+def graphindex_rebuild_project(project_id: Optional[int] = None) -> str:
+    """
+    Rebuild the LLM enrichment metadata (about / supports / out_of_scope /
+    few_shot) for EVERY document in the project, then re-upsert to Neo4j.
+
+    Phase 9 wrapper around graphindex_build_python.py.
+
+    Args:
+        project_id: Optional project ID. If not provided, uses the current project.
+
+    Warning: this re-runs the LLM enrichment for all documents in the project.
+    For a project with N docs and ~15s per doc, this takes ~N*15 seconds.
+    """
+    if not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        project_id = 1
+
+    try:
+        from graphindex_build_python import cmd_rebuild_project as _clean_rebuild_project  # noqa: E402
+        rc = _clean_rebuild_project()
+        return (
+            f"## Rebuild project (project_id={project_id})\n"
+            f"return code: {rc}\n"
+            f"(see server logs for per-doc detail)"
+        )
+    except Exception as e:
+        return f"❌ Error rebuilding project {project_id}: {e}"
+
+
+def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
+    """
+    Show one document's metadata from Neo4j: about, supported_queries,
+    out_of_scope, content_sha256, file_path.
+
+    Phase 9 wrapper around graphindex_build_python.py.
+
+    Args:
+        name: Exact document name (use graphindex_list_docs to find names).
+        project_id: Optional project ID. If not provided, uses the current project.
+    """
+    if not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        project_id = 1
+
+    try:
+        from graphindex_build_python import cmd_show as _clean_show  # noqa: E402
+        rc = _clean_show(name)
+        return (
+            f"## Show: {name}\n"
+            f"project_id: {project_id}\n"
+            f"return code: {rc}\n"
+            f"(see server logs for full detail)"
+        )
+    except Exception as e:
+        return f"❌ Error showing {name}: {e}"
+
+
 # StructuredTool wrappers
+# Note: _print_hello_tool removed — print_hello is now a custom tool (DB-backed).
 _graphindex_search_tool = StructuredTool.from_function(
     func=graphindex_search,
     name="graphindex_search",
@@ -2091,6 +2156,16 @@ _graphindex_ingest_tool = StructuredTool.from_function(
     func=graphindex_ingest,
     name="graphindex_ingest",
     description="Ingest a new file: SHA-256 dedup, copy with hash prefix, LLM enrichment, upsert to Neo4j. (Phase 9 build)",
+)
+_graphindex_rebuild_project_tool = StructuredTool.from_function(
+    func=graphindex_rebuild_project,
+    name="graphindex_rebuild_project",
+    description="Re-enrich EVERY document in the project and re-upsert to Neo4j. Slow (1 LLM call per doc, ~15s each). Use sparingly. (Phase 9 build)",
+)
+_graphindex_show_tool = StructuredTool.from_function(
+    func=graphindex_show,
+    name="graphindex_show",
+    description="Show one document's metadata (about, supported_queries, out_of_scope, content_sha256, file_path). Read-only, no LLM call. (Phase 9 build)",
 )
 
 
@@ -2156,6 +2231,7 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "doc_index_list": _doc_index_list_tool,
         "doc_index_structure": _doc_index_structure_tool,
         "doc_index_pages": _doc_index_pages_tool,
+        # Note: print_hello is now a custom tool (DB-backed), not in native factory
         # GraphIndex tools (vectorless RAG for PDF Chat) — Phase 9 backed
         "graphindex_search": _graphindex_search_tool,
         "graphindex_load": _graphindex_load_tool,
@@ -2163,6 +2239,8 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "graphindex_multi_doc_load": _graphindex_multi_doc_load_tool,
         "graphindex_rebuild_one": _graphindex_rebuild_one_tool,
         "graphindex_ingest": _graphindex_ingest_tool,
+        "graphindex_rebuild_project": _graphindex_rebuild_project_tool,
+        "graphindex_show": _graphindex_show_tool,
         # Note: Playwright tools are loaded separately via get_playwright_tools()
         # because they require async initialization
     }
@@ -2233,6 +2311,7 @@ def get_available_tool_names() -> List[str]:
         "doc_index_list",
         "doc_index_structure",
         "doc_index_pages",
+        # Note: print_hello is now a custom tool (DB-backed), not in native available list
         # GraphIndex tools (vectorless RAG for PDF Chat) — Phase 9 backed
         "graphindex_search",
         "graphindex_load",
@@ -2240,6 +2319,8 @@ def get_available_tool_names() -> List[str]:
         "graphindex_multi_doc_load",
         "graphindex_rebuild_one",
         "graphindex_ingest",
+        "graphindex_rebuild_project",
+        "graphindex_show",
     ]
 
 # Registry of filesystem tools for DeepAgents harness
@@ -2417,6 +2498,8 @@ TOOL_REGISTRY = [
         "category": "retrieval",
         "requires_api_key": None,
     },
+    # Note: print_hello has been moved to a custom tool (DB-backed, editable in UI).
+    # See backend/create_print_hello_tool.py for the registration.
     # GraphIndex tools (vectorless RAG for PDF Chat) — Phase 9 backed
     {
         "id": "graphindex_search",
@@ -2457,6 +2540,20 @@ TOOL_REGISTRY = [
         "id": "graphindex_ingest",
         "name": "GraphIndex - Ingest File (Phase 9)",
         "description": "Ingest a new file: SHA-256 dedup, copy with hash prefix, LLM enrichment, upsert to Neo4j. Wraps phase9/graphindex_build_python.py.",
+        "category": "build",
+        "requires_api_key": None,
+    },
+    {
+        "id": "graphindex_rebuild_project",
+        "name": "GraphIndex - Rebuild Project (Phase 9)",
+        "description": "Re-enrich EVERY document in the project and re-upsert to Neo4j. Slow (1 LLM call per doc, ~15s each). Use sparingly. Wraps phase9/graphindex_build_python.py.",
+        "category": "build",
+        "requires_api_key": None,
+    },
+    {
+        "id": "graphindex_show",
+        "name": "GraphIndex - Show Document (Phase 9)",
+        "description": "Show one document's metadata (about, supported_queries, out_of_scope, content_sha256, file_path). Read-only, no LLM call. Wraps phase9/graphindex_build_python.py.",
         "category": "build",
         "requires_api_key": None,
     },

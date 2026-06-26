@@ -2123,12 +2123,17 @@ class ToolFactory:
                     arg_descriptions[arg_name] = arg_info.get("description", "")
                 else:
                     arg_type = arg_info
-                type_map = {
-                    "float": (float, ...), "int": (int, ...), "str": (str, ...),
-                    "bool": (bool, ...), "number": (float, ...), "integer": (int, ...),
-                    "string": (str, ...), "boolean": (bool, ...),
-                }
-                schema_fields[arg_name] = type_map.get(arg_type, (str, ...))
+                # BUG FIX: respect the `default` value from args_schema.
+                # Use ... (Ellipsis) only if no default is provided (field is required).
+                py_type = {
+                    "float": float, "int": int, "str": str,
+                    "bool": bool, "number": float, "integer": int,
+                    "string": str, "boolean": bool,
+                }.get(arg_type, str)
+                if isinstance(arg_info, dict) and "default" in arg_info:
+                    schema_fields[arg_name] = (py_type, arg_info["default"])
+                else:
+                    schema_fields[arg_name] = (py_type, ...)
             InputModel = create_model(f"{function_name}_input", **schema_fields)
         else:
             InputModel = None
