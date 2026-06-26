@@ -1,0 +1,7 @@
+TransactionID,Date,Region,Product_Category,Quantity,Unit_Price,Discount
+TXN_001,2023-12-01,US,Software,10,500.0,50.0
+TXN_002,2023-12-01,EMEA,Hardware,1,1200.0,0.0
+TXN_003,2023-12-02,US,Software,5,500.0,20.0
+TXN_004,2023-12-03,APAC,Services,2,2000.0,100.0
+TXN_005,2023-12-03,EMEA,Hardware,1,1200.0,0.0
+TXN_006,2023-12-04,APAC,Software,8,500.0,40.0

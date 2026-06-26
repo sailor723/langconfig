@@ -1,0 +1,4 @@
+region,gross_revenue,net_revenue,tax_amount,net_after_tax,tax_rate,flag_note,under_performing
+EMEA,2500.0,2490.0,373.5,2116.5,15.0%,,OK
+LATAM,2100.0,2050.0,0.0,2050.0,0.0%,FLAGGED_FOR_REVIEW (non-standard region),OK
+US,10000.0,9900.0,792.0,9108.0,8.0%,,OK

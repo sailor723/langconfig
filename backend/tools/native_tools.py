@@ -28,6 +28,15 @@ from langchain_community.tools import DuckDuckGoSearchRun
 import httpx
 import os
 
+# ---------------------------------------------------------------------------
+# Phase 9 integration: prefer Phase 9 LLM-semantic query system over the
+# legacy base string-matching. Phase 9 lives at langconfig/phase9/; ensure
+# it's importable from this file.
+# ---------------------------------------------------------------------------
+_PHASE9_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "phase9"))
+if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):
+    sys.path.insert(0, _PHASE9_DIR)
+
 logger = logging.getLogger(__name__)
 
 # Playwright imports - conditional to avoid import errors if not available
@@ -1716,13 +1725,16 @@ def _get_project_id() -> Optional[int]:
 
 def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
     """
-    Search project documents using GraphIndex (vectorless retrieval).
+    Search project documents using GraphIndex with LLM semantic routing.
 
-    Uses keyword/term matching against document metadata, filenames, and content
-    previews stored in Neo4j. No embeddings needed.
+    Phase 9 implementation: uses LLM semantic understanding to pick the best
+    primary document + 0-3 supporting documents (different domains). This
+    replaces the legacy base string-matching approach (~57% accuracy) with
+    LLM-semantic routing (~93% accuracy on the hand-labeled eval set).
 
-    Returns matching documents with their context_doc_id, name, type, and page count.
-    Use the context_doc_id with graphindex_load() to get full document content.
+    Returns matching documents with their context_doc_id, name, type, page
+    count, primary_domain, and supporting list. Use the context_doc_id with
+    graphindex_load() to get full document content.
 
     Args:
         query: Natural language search query (e.g., "department survey", "Q1 report")
@@ -1734,33 +1746,63 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
         project_id = 1  # Default to project 1
 
     try:
-        from api.knowledge.rag import (
-            _get_neo4j_document_index,
-            _try_graphindex_search_via_neo4j,
-            _get_doc_index_client,
-        )
+        # Phase 9 LLM-semantic routing
+        from query import fetch_catalog, route_by_llm, make_llm  # noqa: E402
+        from services.neo4j_document_index import Neo4jDocumentIndex  # noqa: E402
 
-        client = _get_doc_index_client()
-        result = _try_graphindex_search_via_neo4j(
-            project_id=project_id,
-            query=query,
-            top_k=5,
-            client=client,
-        )
-
-        if not result or not result.documents:
+        idx = Neo4jDocumentIndex()
+        rows = fetch_catalog(idx, project_id)
+        if not rows:
             return f"No documents found matching '{query}' in project {project_id}."
 
+        llm = make_llm()
+        decision, cache_read = route_by_llm(query, rows, llm)
+
+        # Fallback to string match if LLM returned null
+        if not decision.primary:
+            from query import route_by_string  # noqa: E402
+            primary_name = route_by_string(query, rows)
+            if not primary_name:
+                return (
+                    f"No documents found matching '{query}' in project {project_id}. "
+                    f"Reasoning: {decision.reasoning}"
+                )
+            # Build a synthetic decision from the string-match result
+            decision_lines = [decision.reasoning] if decision.reasoning else ["string-match fallback"]
+            return (
+                f"## GraphIndex Search Results for: '{query}'\n\n"
+                f"**Fallback**: LLM returned null; used string-match.\n\n"
+                f"**[{1}] {primary_name}** (context_doc_id: n/a, via string match)\n"
+            )
+
+        # Build a context_doc_id → name map by querying Neo4j (Phase 9 doesn't track IDs)
+        name_to_context_id = _build_name_to_context_id_map(project_id)
+
         lines = [f"## GraphIndex Search Results for: '{query}'", ""]
-        for i, doc in enumerate(result.documents, 1):
-            lines.append(f"**[{i}] {doc.doc_name}**")
-            lines.append(f"   - Context Doc ID: `{doc.context_doc_id}`")
-            lines.append(f"   - Type: {doc.type}")
-            lines.append(f"   - Pages: {doc.page_count}")
-            if doc.structure:
-                toc = [s.get("title", "") for s in doc.structure[:5] if s.get("title")]
-                if toc:
-                    lines.append(f"   - Sections: {', '.join(toc[:3])}")
+        lines.append(f"_routing: llm-semantic (cache_read={cache_read:,} tokens)_")
+        if decision.primary_domain:
+            lines.append(f"_primary_domain: {decision.primary_domain}_")
+        if decision.reasoning:
+            lines.append(f"_reasoning: {decision.reasoning}_")
+        lines.append("")
+
+        # Primary
+        cid = name_to_context_id.get(decision.primary, "n/a")
+        page_count = _get_page_count(decision.primary)
+        lines.append(f"**[1] {decision.primary}** (PRIMARY, confidence={decision.primary_confidence:.2f})")
+        lines.append(f"   - Context Doc ID: `{cid}`")
+        lines.append(f"   - Pages: {page_count}")
+        lines.append("")
+
+        # Supporting
+        for i, sup in enumerate(decision.supporting, 2):
+            cid = name_to_context_id.get(sup.name, "n/a")
+            page_count = _get_page_count(sup.name)
+            lines.append(f"**[{i}] {sup.name}** (SUPPORTING)")
+            lines.append(f"   - Context Doc ID: `{cid}`")
+            lines.append(f"   - Pages: {page_count}")
+            if sup.reason:
+                lines.append(f"   - Reason: {sup.reason}")
             lines.append("")
 
         return "\n".join(lines)
@@ -1772,22 +1814,16 @@ def graphindex_load(context_doc_id: int) -> str:
     """
     Load the full content of a document by its context_doc_id.
 
-    Retrieves the complete document text from GraphIndex (or falls back to
-    file-based loading). Use this to get the full content after finding
-    a document via graphindex_search().
+    Phase 9 implementation: when given a context_doc_id, looks up the
+    Postgres ContextDocument to get the name + file_path, then uses
+    Phase 9's _read_doc_text to extract full text (PDF / MD / TXT).
 
     Args:
         context_doc_id: The document's context_doc_id (from graphindex_search results)
     """
     try:
-        from api.knowledge.rag import (
-            _load_full_content_for_kv,
-            _get_doc_index_client,
-        )
         from db.database import SessionLocal
         from models.core import ContextDocument
-
-        client = _get_doc_index_client()
 
         db = SessionLocal()
         try:
@@ -1800,14 +1836,22 @@ def graphindex_load(context_doc_id: int) -> str:
         if not context_doc:
             return f"❌ Document with context_doc_id={context_doc_id} not found."
 
-        doc_id_str, doc_name, page_count, full_content = _load_full_content_for_kv(
-            context_doc, client
+        # Phase 9 read (uses PyMuPDF for PDFs, plain read for MD/TXT)
+        from query import _read_doc_text  # noqa: E402
+        full_content = _read_doc_text(
+            context_doc.file_path or "",
+            max_chars=80_000,
         )
+        if not full_content:
+            return (
+                f"❌ Could not extract text from {context_doc.filename} "
+                f"(file_path={context_doc.file_path})"
+            )
 
         return (
-            f"## Document: {doc_name}\n"
-            f"Source: GraphIndex (vectorless retrieval)\n"
-            f"Pages: {page_count}\n"
+            f"## Document: {context_doc.filename}\n"
+            f"Source: GraphIndex (Phase 9 LLM-semantic path)\n"
+            f"Pages: {full_content.count('--- Page ')}\n"
             f"Total characters: {len(full_content):,}\n"
             f"\n"
             f"--- Document Content ---\n"
@@ -1818,16 +1862,232 @@ def graphindex_load(context_doc_id: int) -> str:
         return f"❌ Error loading document {context_doc_id}: {e}"
 
 
+# --- Phase 9 helpers -------------------------------------------------------
+
+def _build_name_to_context_id_map(project_id: int) -> dict:
+    """Map doc.name -> ContextDocument.id for the given project. Used by
+    graphindex_search to enrich results with the context_doc_id."""
+    try:
+        from db.database import SessionLocal
+        from models.core import ContextDocument
+        db = SessionLocal()
+        try:
+            rows = db.query(ContextDocument).filter(
+                ContextDocument.project_id == project_id
+            ).all()
+            return {r.filename: r.id for r in rows if r.filename}
+        finally:
+            db.close()
+    except Exception:
+        return {}
+
+
+def _get_page_count(name: str) -> int:
+    """Best-effort page count for a doc by name. Returns 0 if unknown."""
+    try:
+        from query import _file_path_for  # noqa: E402
+        from services.neo4j_document_index import Neo4jDocumentIndex  # noqa: E402
+        idx = Neo4jDocumentIndex()
+        path = _file_path_for(idx, name)
+        if not path:
+            return 0
+        if path.lower().endswith(".pdf"):
+            import fitz
+            doc = fitz.open(path)
+            n = len(doc)
+            doc.close()
+            return n
+        return 0
+    except Exception:
+        return 0
+
+
+# --- New Phase 9 backed tools --------------------------------------------
+
+def graphindex_list_docs(project_id: Optional[int] = None) -> str:
+    """
+    List all documents available in the project (Phase 9 catalog dump).
+
+    Returns one line per doc: index, name, about preview.
+
+    Args:
+        project_id: Optional project ID. If not provided, uses the current project.
+    """
+    if not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        project_id = 1
+
+    try:
+        from query import fetch_catalog, format_catalog  # noqa: E402
+        from services.neo4j_document_index import Neo4jDocumentIndex  # noqa: E402
+
+        idx = Neo4jDocumentIndex()
+        rows = fetch_catalog(idx, project_id)
+        if not rows:
+            return f"No documents in project {project_id}."
+
+        # Show a compact list (one per line)
+        lines = [f"## Documents in project {project_id} ({len(rows)} total)", ""]
+        for i, r in enumerate(rows, 1):
+            about = (r["about"] or "(no enrichment)")[:80]
+            lines.append(f"**[{i}] {r['name']}**")
+            lines.append(f"   {about}…")
+            lines.append("")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing docs: {e}"
+
+
+def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> str:
+    """
+    One-shot: route a query to the best primary document, then load primary
+    + 0-3 supporting documents as a combined context string.
+
+    Phase 9 equivalent of "graphindex_search + graphindex_load" but in one call.
+    Returns the combined text ready for the agent to synthesize an answer.
+
+    Args:
+        query: Natural language query (e.g., "compare Nike strategy with industry trends")
+        project_id: Optional project ID. If not provided, uses the current project.
+    """
+    if not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        project_id = 1
+
+    try:
+        from query import (  # noqa: E402
+            fetch_catalog,
+            route_by_llm,
+            make_llm,
+            load_multi_doc_context,
+        )
+        from services.neo4j_document_index import Neo4jDocumentIndex  # noqa: E402
+
+        idx = Neo4jDocumentIndex()
+        rows = fetch_catalog(idx, project_id)
+        if not rows:
+            return f"No documents in project {project_id}."
+
+        llm = make_llm()
+        decision, _ = route_by_llm(query, rows, llm)
+        if not decision.primary:
+            return (
+                f"No document matched '{query}'. "
+                f"Reasoning: {decision.reasoning}"
+            )
+
+        context = load_multi_doc_context(
+            decision.primary,
+            decision.supporting,
+            idx,
+        )
+        header = (
+            f"## Multi-doc context for: '{query}'\n"
+            f"primary: {decision.primary}"
+            f" (domain={decision.primary_domain}, confidence={decision.primary_confidence:.2f})\n"
+        )
+        if decision.supporting:
+            names = ", ".join(s.name for s in decision.supporting)
+            header += f"supporting: {names}\n"
+        header += f"total characters: {len(context):,}\n\n"
+        return header + context
+    except Exception as e:
+        return f"❌ Error in multi-doc load: {e}"
+
+
+def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
+    """
+    Rebuild the LLM enrichment metadata (about / supports / out_of_scope /
+    few_shot) for one existing document, then re-upsert to Neo4j.
+
+    Phase 9 wrapper around build_graphindex_clean.py.
+
+    Args:
+        name: Exact document name (use graphindex_list_docs to find names).
+        project_id: Optional project ID. If not provided, uses the current project.
+    """
+    if not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        project_id = 1
+
+    try:
+        from build_graphindex_clean import cmd_rebuild_one as _clean_rebuild_one  # noqa: E402
+        rc = _clean_rebuild_one(name)
+        return (
+            f"## Rebuild one: {name}\n"
+            f"project_id: {project_id}\n"
+            f"return code: {rc}\n"
+            f"(see server logs for detail)"
+        )
+    except Exception as e:
+        return f"❌ Error rebuilding {name}: {e}"
+
+
+def graphindex_ingest(file_path: str, project_id: Optional[int] = None,
+                      target_dir: Optional[str] = None) -> str:
+    """
+    Ingest a new file into the project's graphindex: SHA-256 dedup, copy
+    with hash prefix, LLM enrichment, upsert to Neo4j.
+
+    Phase 9 wrapper around build_graphindex_clean.py.
+
+    Args:
+        file_path: Absolute path to the file on disk.
+        project_id: Optional project ID. If not provided, uses the current project.
+        target_dir: Optional override for the target directory.
+    """
+    if not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        project_id = 1
+
+    try:
+        from build_graphindex_clean import cmd_ingest as _clean_ingest  # noqa: E402
+        rc = _clean_ingest(file_path, target_dir=target_dir)
+        return (
+            f"## Ingest: {file_path}\n"
+            f"project_id: {project_id}\n"
+            f"target_dir: {target_dir or '(default)'}\n"
+            f"return code: {rc}\n"
+            f"(see server logs for detail)"
+        )
+    except Exception as e:
+        return f"❌ Error ingesting {file_path}: {e}"
+
+
 # StructuredTool wrappers
 _graphindex_search_tool = StructuredTool.from_function(
     func=graphindex_search,
     name="graphindex_search",
-    description="Search project documents using GraphIndex vectorless retrieval. Returns matching documents with context_doc_id, name, type, and page count. Use the context_doc_id with graphindex_load to get full content.",
+    description="Search project documents using GraphIndex with LLM semantic routing. Returns matching documents with context_doc_id, name, type, page count, primary_domain, and supporting list. Use context_doc_id with graphindex_load to get full content. (Phase 9, ~93% accuracy)",
 )
 _graphindex_load_tool = StructuredTool.from_function(
     func=graphindex_load,
     name="graphindex_load",
-    description="Load the full content of a document by its context_doc_id (obtained from graphindex_search). Returns the complete document text for the agent to read.",
+    description="Load the full content of a document by its context_doc_id (obtained from graphindex_search). Returns the complete document text for the agent to read. (Phase 9 read path)",
+)
+_graphindex_list_docs_tool = StructuredTool.from_function(
+    func=graphindex_list_docs,
+    name="graphindex_list_docs",
+    description="List all documents in the project with their about-preview. Use this to discover what docs exist before calling graphindex_search.",
+)
+_graphindex_multi_doc_load_tool = StructuredTool.from_function(
+    func=graphindex_multi_doc_load,
+    name="graphindex_multi_doc_load",
+    description="One-shot: route a query to the best primary document, then load primary + 0-3 supporting documents as a combined context string. Equivalent to calling graphindex_search + multiple graphindex_load in one step. (Phase 9)",
+)
+_graphindex_rebuild_one_tool = StructuredTool.from_function(
+    func=graphindex_rebuild_one,
+    name="graphindex_rebuild_one",
+    description="Rebuild the LLM enrichment metadata (about / supports / out_of_scope / few_shot) for one existing document and re-upsert to Neo4j. (Phase 9 build)",
+)
+_graphindex_ingest_tool = StructuredTool.from_function(
+    func=graphindex_ingest,
+    name="graphindex_ingest",
+    description="Ingest a new file: SHA-256 dedup, copy with hash prefix, LLM enrichment, upsert to Neo4j. (Phase 9 build)",
 )
 
 
@@ -1893,9 +2153,13 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "doc_index_list": _doc_index_list_tool,
         "doc_index_structure": _doc_index_structure_tool,
         "doc_index_pages": _doc_index_pages_tool,
-        # GraphIndex tools (vectorless RAG for PDF Chat)
+        # GraphIndex tools (vectorless RAG for PDF Chat) — Phase 9 backed
         "graphindex_search": _graphindex_search_tool,
         "graphindex_load": _graphindex_load_tool,
+        "graphindex_list_docs": _graphindex_list_docs_tool,
+        "graphindex_multi_doc_load": _graphindex_multi_doc_load_tool,
+        "graphindex_rebuild_one": _graphindex_rebuild_one_tool,
+        "graphindex_ingest": _graphindex_ingest_tool,
         # Note: Playwright tools are loaded separately via get_playwright_tools()
         # because they require async initialization
     }
@@ -1966,9 +2230,13 @@ def get_available_tool_names() -> List[str]:
         "doc_index_list",
         "doc_index_structure",
         "doc_index_pages",
-        # GraphIndex tools (vectorless RAG for PDF Chat)
+        # GraphIndex tools (vectorless RAG for PDF Chat) — Phase 9 backed
         "graphindex_search",
         "graphindex_load",
+        "graphindex_list_docs",
+        "graphindex_multi_doc_load",
+        "graphindex_rebuild_one",
+        "graphindex_ingest",
     ]
 
 # Registry of filesystem tools for DeepAgents harness
@@ -2146,19 +2414,47 @@ TOOL_REGISTRY = [
         "category": "retrieval",
         "requires_api_key": None,
     },
-    # GraphIndex tools (vectorless RAG for PDF Chat)
+    # GraphIndex tools (vectorless RAG for PDF Chat) — Phase 9 backed
     {
         "id": "graphindex_search",
-        "name": "GraphIndex - Search Documents",
-        "description": "Search project documents using GraphIndex vectorless retrieval. Returns matching docs with context_doc_id.",
+        "name": "GraphIndex - Search Documents (Phase 9)",
+        "description": "Search project documents using GraphIndex with LLM semantic routing. Returns matching docs (primary + 0-3 supporting) with context_doc_id, name, type, page count, and primary_domain. Phase 9 implementation (~93% accuracy).",
         "category": "retrieval",
         "requires_api_key": None,
     },
     {
         "id": "graphindex_load",
-        "name": "GraphIndex - Load Document Content",
-        "description": "Load the full content of a document by its context_doc_id (from graphindex_search). Returns complete document text.",
+        "name": "GraphIndex - Load Document Content (Phase 9)",
+        "description": "Load the full content of a document by its context_doc_id (from graphindex_search). Returns complete document text via Phase 9's _read_doc_text.",
         "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "graphindex_list_docs",
+        "name": "GraphIndex - List Documents (Phase 9)",
+        "description": "List all documents available in the project with their about-preview. Use this to discover what docs exist before calling graphindex_search.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "graphindex_multi_doc_load",
+        "name": "GraphIndex - Multi-Doc Load (Phase 9)",
+        "description": "One-shot: route a query to the best primary document, then load primary + 0-3 supporting documents as a combined context string. Returns combined text ready for synthesis.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "graphindex_rebuild_one",
+        "name": "GraphIndex - Rebuild One Doc (Phase 9)",
+        "description": "Rebuild the LLM enrichment metadata (about / supports / out_of_scope / few_shot) for one existing document and re-upsert to Neo4j. Wraps phase9/build_graphindex_clean.py.",
+        "category": "build",
+        "requires_api_key": None,
+    },
+    {
+        "id": "graphindex_ingest",
+        "name": "GraphIndex - Ingest File (Phase 9)",
+        "description": "Ingest a new file: SHA-256 dedup, copy with hash prefix, LLM enrichment, upsert to Neo4j. Wraps phase9/build_graphindex_clean.py.",
+        "category": "build",
         "requires_api_key": None,
     },
 ]

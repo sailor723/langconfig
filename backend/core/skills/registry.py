@@ -379,8 +379,11 @@ class SkillRegistry:
         Returns:
             The created Skill object
         """
+        from core.skills.sync import PERSONAL_SKILLS_ROOT
         async with AsyncSessionLocal() as session:
             # Create new skill record
+            # Personal skills get a real FS source_path so the library's
+            # FilesystemBackend can read SKILL.md directly (no per-run sync).
             skill = Skill(
                 skill_id=skill_id,
                 name=name,
@@ -388,7 +391,7 @@ class SkillRegistry:
                 version=version or "1.0.0",
                 author=author or "User",
                 source_type=SkillSourceType.PERSONAL,
-                source_path="",
+                source_path=str(PERSONAL_SKILLS_ROOT / skill_id),
                 tags=tags,
                 triggers=triggers,
                 allowed_tools=allowed_tools or [],
