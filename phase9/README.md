@@ -1086,9 +1086,9 @@ python phase9/build_graphindex_deep.py --show-agent
 ```
 phase9/
 ├── build_graphindex.py          ← Build (raw llm.invoke) — UNCHANGED
-├── buildindex_tools.py          🆕  Build tools (9 @tool wrappers)
-├── build_agent.py               🆕  Build DeepAgent factory
-├── build_graphindex_deep.py     🆕  Build CLI (deepagent path)
+├── buildindex_tools.py          ← Build tools (9 @tool wrappers)
+├── build_agent.py               ← Build DeepAgent factory
+├── build_graphindex_deep.py     ← Build CLI (deepagent path)
 │
 ├── graphindex_tools.py          ← Query tools (4 @tool wrappers)
 ├── query_agent.py               ← Query DeepAgent factory
@@ -1098,6 +1098,96 @@ phase9/
 ├── dv_chat.py                   ← Legacy REPL: raw llm.invoke — UNCHANGED
 ├── eval_routing.py              ← Legacy eval — UNCHANGED
 ├── eval_routing_deep.py         ← Legacy DeepAgent eval — UNCHANGED
+└── query_deep.py                ← Legacy deepagent CLI — UNCHANGED
+```
+
+## 🎯 Step D — Clean Python build (NEW, recommended, no deletions)
+
+`phase9/build_graphindex_clean.py` is the **recommended** way to ingest
+files into the graphindex. Pure Python function chain + **one** LLM
+call for enrichment. No state graph, no subagent overhead, no
+orchestration layer.
+
+### Why pure Python over deepagent for build?
+
+Build-side work is **deterministic**:
+
+```
+ingest:
+  1. sha256(file)               — pure Python
+  2. fs dedup                   — pure Python
+  3. neo4j dedup                — pure Python
+  4. copy with hash prefix      — pure Python
+  5. LLM extract metadata       — ONE call
+  6. upsert neo4j               — pure Python
+```
+
+There is no creative decision-making for an LLM to do. Adding a
+deepagent layer adds ~30s of state-graph overhead per ingest with no
+benefit. The query side is different — routing decisions are
+non-deterministic and benefit from subagent collaboration.
+
+### Three build-side scripts, three roles
+
+| Script | Style | When to use |
+|---|---|---|
+| `build_graphindex_clean.py` 🆕 | Pure Python + 1 LLM call | **Recommended** for normal ingestion |
+| `build_graphindex.py` | Same flow, but orchestration mixed into `main()` | Legacy; keep for reference |
+| `build_graphindex_deep.py` | DeepAgent with 3 subagents | Demo of deepagent architecture; useful if you want skills/HITL added to ingest later |
+
+### Speed comparison (live)
+
+```
+$ python phase9/build_graphindex_clean.py --ingest /tmp/test_clean.txt
+📥 Ingesting /tmp/test_clean.txt
+   hash: 726a1ba7…  (418 bytes)
+   copied: backend/data/documents/project_1/726a1ba7_test_clean.txt
+   enriching via LLM…     done (10.2s)
+      about: A test document covering cross-validation strategies …
+      supports: 5 queries
+      out_of_scope: 18 docs
+   neo4j: upserted as test_clean.txt
+✅ Done in 10.2s
+
+vs. deepagent path: ~60s for the same ingest (6× slower).
+```
+
+The LLM call is the same in both paths (~10s); what changes is the
+overhead:
+- Pure Python: 0s overhead (function calls + Neo4j round-trip)
+- DeepAgent: ~50s overhead (state graph + LLM orchestration of subagents)
+
+### CLI
+
+```bash
+# Recommended ingest
+python phase9/build_graphindex_clean.py --ingest /path/to/new.pdf
+python phase9/build_graphindex_clean.py --ingest new.pdf --ingest-target /path/
+
+# Show / rebuild
+python phase9/build_graphindex_clean.py --show "nke-10k-2023.pdf"
+python phase9/build_graphindex_clean.py --rebuild-one "nke-10k-2023.pdf"
+python phase9/build_graphindex_clean.py --rebuild-project
+```
+
+### Updated phase9 file layout
+
+```
+phase9/
+├── build_graphindex_clean.py    🆕 Build CLI — PURE PYTHON (recommended)
+├── build_graphindex_deep.py     ← Build CLI — DeepAgent (state-graph demo)
+├── build_graphindex.py          ← Build CLI — legacy (mixed into main)
+├── buildindex_tools.py          ← Tools for the deepagent path
+├── build_agent.py               ← DeepAgent factory for build
+│
+├── graphindex_tools.py          ← Tools for query
+├── query_agent.py               ← DeepAgent factory for query
+├── query.py                     ← Query CLI (aggregator)
+│
+├── route_semantic.py            ← Legacy query — UNCHANGED
+├── dv_chat.py                   ← Legacy REPL — UNCHANGED
+├── eval_routing.py              ← Legacy eval — UNCHANGED
+├── eval_routing_deep.py         ← Legacy deepagent eval — UNCHANGED
 └── query_deep.py                ← Legacy deepagent CLI — UNCHANGED
 ```
 
