@@ -653,6 +653,98 @@ python phase9/eval_routing.py --method string
 python phase9/eval_routing.py --method llm --output /tmp/eval.json
 ```
 
+## 🎯 Step 2.11 — Integrated DV chat with LLM routing (DONE)
+
+`phase9/dv_chat.py` now reads the **real Neo4j catalog** (no more SEED_DOCS)
+and routes every fresh query through `route_by_llm()`. The SEED_DOCS list
+was a hand-rolled 6-doc fake; the live REPL now sees all 18 project docs
+with their LLM-enriched `about` / `supported_queries` / `out_of_scope`.
+
+### New commands
+
+| Command | Effect |
+|---|---|
+| `/docs` | List all 18 docs with their `about` preview |
+| `/doc <name>` | Switch to a specific doc (manual override) |
+| `/route` | Show current routing method |
+| `/route llm` | Switch to LLM semantic routing (default) |
+| `/route string` | Switch to base's string-matching routing |
+| `/stats` | Show session totals |
+| `/quit` | Exit |
+
+### Per-turn output
+
+Every question prints:
+
+```
+🤖 <answer>
+   ├─ doc:      <primary> [+ supporting1, supporting2]
+   ├─ routed:   llm  (0.97 domain=financial_report, 40.0s routing)
+   ├─ tokens:   in=  7,360  out=  471  (standard)
+   │            cache_read=   114  (1.5% cached)
+   ├─ latency:   18.9s  (cum LLM:  18.9s, wall:  59.4s)
+   └─ cost:     $0.0055  (session: $0.0055 over 1 turn)
+```
+
+The footer shows routing method, confidence, domain, latency, cache hit
+rate, and cost per turn.
+
+### Live test (4 turns)
+
+```
+you> Nike revenue
+  → routed (llm, 0.97  domain=financial_report, 40.0s): nke-10k-2023.pdf
+🤖 ... Historical revenue by region (FY 2023: U.S. 43%, Non-U.S. 57%) ... (Document 1, p.51)
+
+you> 苏格拉底思想
+  (active doc kept: nke-10k-2023.pdf — LLM says "not in this doc")
+
+you> binary classification neural network
+  (active doc kept: same)
+
+you> /route string
+  → routing now: string  (active doc reset)
+
+you> Nike revenue
+  → routed (string, 1.00, 0.0s): nke-10k-2023.pdf
+🤖 ... (same answer, but routing was free)
+
+session: 4 turns, 76.7% cached, $0.022 total
+```
+
+The first routing call is slow (cold prompt cache, ~40s) but subsequent
+calls within the same project get **99.7% cache hit** because the
+40K-token catalog system message is stable.
+
+### Wiring summary
+
+```
+                    ┌─────────────────────────────────────┐
+                    │ phase9/route_semantic.py            │
+  user query ──────►│ fetch_catalog → format_catalog →     │
+                    │ route_by_llm → {primary, supporting}│
+                    └────────────────────┬────────────────┘
+                                         │
+                                         ▼
+                    ┌─────────────────────────────────────┐
+                    │ phase9/dv_chat.py                   │
+                    │ MultiDocSession(primary, supporting)│
+                    │   ↳ load_multi_doc_context()        │
+                    │   ↳ ask → LLM synthesize answer      │
+                    └─────────────────────────────────────┘
+```
+
+### Caveats
+
+  - **Active-doc persistence**: once a doc is routed, subsequent questions
+    in the same session continue in that doc (no re-route). This is by
+    design — same as Phase 9 Step 2. Use `/doc <name>` to switch.
+  - **First routing call is slow** (~30-40s cold cache); subsequent calls
+    are ~3-5s with cache hit.
+  - **Two LLM instances are created**: one for routing, one for chat. They
+    could be merged but separating them makes the routing-call budget
+    independent of the chat history.
+
 ---
 
 ## 🔗 Related Reading
