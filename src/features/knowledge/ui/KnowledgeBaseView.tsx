@@ -326,6 +326,7 @@ export default function KnowledgeBaseView() {
   const handleImportGraphindexChat = async () => {
     if (importingGraphindexChat) return;
     setImportingGraphindexChat(true);
+    console.log('[Phase 9 / L1] Starting graphindex_chat import...');
     try {
       const response = await apiClient.importDeepAgent(GRAPHINDEX_CHAT_TEMPLATE_PAYLOAD);
       const id = response?.data?.id;
@@ -335,17 +336,37 @@ export default function KnowledgeBaseView() {
         `View at: GET /api/deepagents/${id}`
       );
     } catch (error: any) {
-      console.error('Failed to import graphindex_chat agent:', error);
+      // Comprehensive error reporting — show the user what really happened.
+      const status = error?.response?.status;
+      const data = error?.response?.data;
+      const message = error?.message || 'unknown error';
+      console.error('[Phase 9 / L1] Import failed:', {
+        status,
+        data,
+        message,
+        // Log the full error object too for DevTools inspection
+        full: error,
+      });
       // 409 / "already exists" — silently treat as success; the user
       // can find the existing one in the agent library.
-      const detail = error?.response?.data?.detail || '';
-      if (String(detail).toLowerCase().includes('exists') || error?.response?.status === 409) {
+      const detail = data?.detail || '';
+      if (status === 409 || String(detail).toLowerCase().includes('exists')) {
         setImportedGraphindexChatId(-1);
         console.log('[Phase 9 / L1] graphindex_chat agent already exists in library.');
       } else {
-        alert(`Failed to import graphindex_chat agent: ${detail || 'unknown error'}`);
+        // Build a human-readable error message
+        let userMsg = `Failed to import graphindex_chat agent.`;
+        if (status) userMsg += `\n\nHTTP ${status}`;
+        if (data?.detail) {
+          userMsg += `: ${typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)}`;
+        } else if (message) {
+          userMsg += `: ${message}`;
+        }
+        alert(userMsg);
       }
     } finally {
+      // ALWAYS reset the loading state so the button doesn't get stuck
+      console.log('[Phase 9 / L1] Import flow complete, resetting state.');
       setImportingGraphindexChat(false);
     }
   };
