@@ -107,9 +107,13 @@ class SkillLoader:
         return str(Path(__file__).parent.parent.parent / "skills" / "builtin")
 
     def _default_personal_path(self) -> str:
-        """Get default path for personal skills."""
-        home = Path.home()
-        return str(home / ".langconfig" / "skills")
+        """Get default path for personal skills.
+
+        Personal skills live alongside builtin, in a sibling directory.
+        Both are relative to backend/skills/ so they can be git-tracked
+        and discovered together.
+        """
+        return str(Path(__file__).parent.parent.parent / "skills" / "personal")
 
     def discover_all(self) -> List[SkillDiscoveryResult]:
         """
@@ -197,9 +201,11 @@ class SkillLoader:
             file_stat = os.stat(skill_file)
             file_modified = datetime.fromtimestamp(file_stat.st_mtime).astimezone()
 
-            # Build human-readable name from skill_id if not provided
-            skill_id = frontmatter['name']
-            display_name = frontmatter.get('display_name') or skill_id.replace('-', ' ').title()
+            # skill_id must be kebab-case (DB enforces this).
+            # Use the directory name (always kebab-case) — NOT frontmatter['name']
+            # which is a human-readable title like "Unit Test Writer".
+            skill_id = os.path.basename(skill_dir)
+            display_name = frontmatter.get('name') or frontmatter.get('display_name') or skill_id.replace('-', ' ').title()
 
             return ParsedSkill(
                 skill_id=skill_id,
@@ -256,7 +262,9 @@ class SkillLoader:
         """
         Extract Instructions and Examples sections from body.
 
-        Looks for ## Instructions and ## Examples headers.
+        Only `## Instructions` and `## Examples` are top-level section
+        delimiters. Other `## X` headers are treated as subsections within
+        Instructions (use `### X` if you want visual subsections).
 
         Args:
             body: Markdown body after frontmatter
@@ -271,17 +279,15 @@ class SkillLoader:
         lines = body.split('\n')
 
         for line in lines:
-            # Check for section headers
+            # Check for top-level section headers (only these are delimiters)
             if line.startswith('## Instructions'):
                 current_section = 'instructions'
                 continue
             elif line.startswith('## Examples'):
                 current_section = 'examples'
                 continue
-            elif line.startswith('## '):
-                # Other section - stop capturing
-                current_section = None
-                continue
+            # Other `## X` headers are treated as subsections of current section
+            # (so they don't terminate the Instructions capture).
 
             # Capture content for current section
             if current_section == 'instructions':

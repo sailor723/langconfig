@@ -32,6 +32,14 @@ DEFAULT_BUILTIN_SKILLS_ROOT = Path(
         "/Users/weiping/dev/Learn/langchain-ai/langconfig/backend/skills/builtin",
     )
 )
+# Personal/user-created skills live alongside builtin, in a sibling directory.
+# The library's FilesystemBackend reads SKILL.md from these real FS paths.
+PERSONAL_SKILLS_ROOT = Path(
+    os.environ.get(
+        "PERSONAL_SKILLS_ROOT",
+        str(DEFAULT_BUILTIN_SKILLS_ROOT.parent / "personal"),
+    )
+)
 
 
 def parse_skill_md(text: str) -> Tuple[Dict[str, Any], str]:
@@ -127,6 +135,16 @@ def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
         fm["examples"] = skill_row.examples
 
     body = skill_row.instructions or ""
+
+    # Wrap body in ## Instructions section (required by loader's _parse_body_sections).
+    # Examples section is appended separately if present.
+    if skill_row.examples:
+        body = (
+            f"## Instructions\n\n{body}\n\n"
+            f"## Examples\n\n{skill_row.examples}"
+        )
+    else:
+        body = f"## Instructions\n\n{body}"
 
     content = serialize_skill_md(fm, body)
     skill_md.write_text(content, encoding="utf-8")

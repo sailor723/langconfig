@@ -1,0 +1,4 @@
+Region,Orders,Total_Gross,Total_Net,Total_Tax,Total_Net_After_Tax,Status
+EMEA,1,2500.0,2490.0,373.5,2116.5,OK
+LATAM,1,2100.0,2050.0,0.0,2050.0,OK
+US,1,10000.0,9900.0,792.0,9108.0,OK

@@ -745,6 +745,105 @@ calls within the same project get **99.7% cache hit** because the
     could be merged but separating them makes the routing-call budget
     independent of the chat history.
 
+## 🎯 Step E — Phase 9 integrated as native tools (DONE)
+
+`backend/tools/native_tools.py` now wraps the Phase 9 query/build system
+as native tools that agents can call. The function signatures are kept
+identical so existing agent configs work unchanged; only the
+implementation switches from base string matching to Phase 9 LLM semantic
+routing.
+
+### What changed
+
+| Tool | Before (base) | After (Phase 9) |
+|---|---|---|
+| `graphindex_search(query, project_id)` | `_try_graphindex_search_via_neo4j` (string match) | `phase9.query.route_by_llm` (LLM semantic) |
+| `graphindex_load(context_doc_id)` | `_load_full_content_for_kv` (KV store) | `phase9.query._read_doc_text` (PyMuPDF / file read) |
+
+### New tools added
+
+| Tool | Backed by | Use case |
+|---|---|---|
+| `graphindex_list_docs(project_id)` | `phase9.query.fetch_catalog` | Discover what docs exist before routing |
+| `graphindex_multi_doc_load(query)` | `phase9.query.load_multi_doc_context` | One-shot: route + load primary + supporting |
+| `graphindex_rebuild_one(name)` | `phase9.build_graphindex_clean.cmd_rebuild_one` | Knowledge curation |
+| `graphindex_ingest(file_path)` | `phase9.build_graphindex_clean.cmd_ingest` | Build-side ingest (richer than chat_pdf) |
+
+### How the integration works
+
+`backend/tools/native_tools.py` adds a one-time `sys.path` injection
+right after the imports so the module can `from query import ...`:
+
+```python
+_PHASE9_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "phase9"))
+if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):
+    sys.path.insert(0, _PHASE9_DIR)
+```
+
+Then each tool becomes a thin wrapper around Phase 9:
+
+```python
+def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
+    """..."""
+    from query import fetch_catalog, route_by_llm, make_llm  # Phase 9
+    from services.neo4j_document_index import Neo4jDocumentIndex
+
+    idx = Neo4jDocumentIndex()
+    rows = fetch_catalog(idx, project_id or 1)
+    decision, cache_read = route_by_llm(query, rows, make_llm())
+    return _format_decision(decision, cache_read)
+```
+
+### Live test (12/14 = 86% accuracy)
+
+```
+$ python /tmp/quick_eval.py
+  OK  Nike revenue 2023                             expected=nke-10k-2023.pdf               got=nke-10k-2023.pdf (4.2s)
+  OK  Nike 10-K annual report financial statements  expected=nke-10k-2023.pdf               got=nke-10k-2023.pdf (4.0s)
+  OK  苏格拉底思想                                        expected=6 人物库.pdf                      got=6 人物库.pdf (10.3s)
+  OK  孔子语录                                          expected=6 人物库.pdf                      got=6 人物库.pdf (5.4s)
+  OK  binary classification neural network          expected=C1M2.pdf                       got=C1M2.pdf (4.0s)
+  OK  reinforcement learning Q-learning Deep Q-Netw expected=lecture-notes-9.pdf            got=lecture-notes-9.pdf (4.3s)
+  OK  face recognition Siamese triplet loss         expected=C4M4.pdf                       got=C4M4.pdf (8.5s)
+  OK  word embedding Word2Vec GloVe                 expected=C5M2.pdf                       got=C5M2.pdf (3.4s)
+  OK  compare Nike strategy with industry trends    expected=nke-10k-2023.pdf               got=nke-10k-2023.pdf (10.5s)
+  FAIL apply entrepreneur thinking to AI strategy fr expected=Strategic Framework Presentati got=6 人物库.pdf (20.3s)
+  OK  what is the weather today in Tokyo            expected=None                           got=(null) (2.9s)
+  FAIL how do I bake a chocolate cake                expected=None                           got=test_doc.txt (5.4s)
+  OK  deep learning course logistics grading        expected=Week1_slides.pdf               got=Week1_slides.pdf (5.7s)
+  OK  machine learning project planning error analy expected=lecture-notes-6.pdf            got=lecture-notes-6.pdf (4.1s)
+=== TOTAL: 12/14 = 86% ===
+```
+
+The 2 failures are pre-existing Phase 9 limitations (LLM non-determinism
+on D_cross_domain + a leftover `test_doc.txt` in Neo4j). Phase 9
+preserves the same 86% accuracy via the new tool wrappers.
+
+### Tool registration sites updated
+
+| Line | Change |
+|---|---|
+| `_PHASE9_DIR = ...; sys.path.insert(0, _PHASE9_DIR)` | New path hook (line 30-39) |
+| `graphindex_search` function body | Switched to Phase 9 |
+| `graphindex_load` function body | Switched to Phase 9 |
+| `_graphindex_*_tool = StructuredTool.from_function(...)` | New wrappers for 4 additional tools |
+| `_TOOL_REGISTRY["graphindex_*"] = _graphindex_*_tool` | New entries in dispatch map |
+| `get_available_tool_names()` list | New tool names added |
+| `get_tool_registry()` (UI metadata) | New entries with `(Phase 9)` suffix |
+
+### What still needs work
+
+1. **chat_pdf.py KV store** — still exists but unused by the new tool
+   path. Future cleanup: remove `chat_pdf.py` + `.chat_pdf_kv/` directory.
+2. **`_try_sync_context_document_to_neo4j` enrichment bug** —
+   `knowledge/rag.py:444` still passes `enrichment=None` for
+   knowledge-base uploads. Fix: route through `graphindex_ingest`.
+3. **Chat upload integration** — chat-panel uploads still don't go to
+   Neo4j. Could call `graphindex_ingest` from
+   `chat/routes.py:_process_single_chat_upload` after a successful save.
+
+---
+
 ## 🎯 Step A — DeepAgent unified architecture (DONE)
 
 The legacy scripts (`dv_chat.py`, `route_semantic.py`, `eval_routing.py`)
