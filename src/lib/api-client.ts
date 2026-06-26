@@ -826,11 +826,37 @@ class APIClient {
    * inside a JSON object body; we serialize it here so axios sends
    * `Content-Type: application/json` (a raw string would be sent as
    * `text/plain` and rejected with 422).
+   *
+   * Robustness: if the direct baseURL call fails (CORS / network issue
+   * from a Tauri webview, etc.), fall back to a same-origin relative
+   * path which will be proxied by Vite dev server or served from the
+   * Tauri webview's own origin in production.
    */
   async importDeepAgent(langconfig: object) {
-    return this.client.post('/api/deepagents/import', {
-      langconfig_content: JSON.stringify(langconfig),
-    });
+    const body = { langconfig_content: JSON.stringify(langconfig) };
+    try {
+      return await this.client.post('/api/deepagents/import', body);
+    } catch (err: any) {
+      const isNetwork = !err?.response;
+      const baseUrlStr = String(this.baseURL || '');
+      const isDirectAbsolute = /^https?:\/\//i.test(baseUrlStr);
+      if (isNetwork && isDirectAbsolute) {
+        // Fallback: try same-origin (Vite proxy in dev, bundled Tauri in prod)
+        console.warn(
+          `[apiClient] direct ${baseUrlStr} failed (${err?.message || 'network'}); ` +
+          `retrying same-origin /api/deepagents/import via Vite proxy / Tauri webview.`
+        );
+        // Save and swap baseURL temporarily
+        const saved = this.baseURL;
+        this.baseURL = '';
+        try {
+          return await this.client.post('/api/deepagents/import', body);
+        } finally {
+          this.baseURL = saved;
+        }
+      }
+      throw err;
+    }
   }
 
   // Custom Tools
