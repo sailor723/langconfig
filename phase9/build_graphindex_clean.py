@@ -56,7 +56,7 @@ from services.neo4j_document_index import (  # noqa: E402
 )
 
 # Reuse pure-Python primitives from the legacy script (no LLM calls in them)
-from build_graphindex import (  # noqa: E402
+from legacy.build_graphindex import (  # noqa: E402
     DOCS_BASE,
     SUPPORTED_EXTS,
     extract_document_enrichment,

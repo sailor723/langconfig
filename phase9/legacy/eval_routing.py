@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 # Allow running as a script from anywhere
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "phase9"))
 sys.path.insert(0, str(REPO_ROOT / "backend"))
 
@@ -35,7 +35,7 @@ from services.neo4j_document_index import (  # noqa: E402
     choose_best_document_match,
     normalize_lookup_terms,
 )
-from route_semantic import (  # noqa: E402
+from legacy.route_semantic import (  # noqa: E402
     fetch_catalog,
     route_by_llm,
     route_by_string,

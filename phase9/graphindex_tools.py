@@ -30,7 +30,7 @@ from services.neo4j_document_index import Neo4jDocumentIndex  # noqa: E402
 
 # Reuse the catalog + file reader logic from route_semantic to keep
 # one source of truth for "how to read a doc" and "how to format catalog".
-from route_semantic import (  # noqa: E402
+from legacy.route_semantic import (  # noqa: E402
     fetch_catalog as _fetch_catalog,
     format_catalog as _format_catalog,
     _file_path_for as _file_path_for,

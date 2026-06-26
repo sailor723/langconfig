@@ -37,7 +37,7 @@ from services.neo4j_document_index import (  # noqa: E402
 import fitz  # noqa: E402
 
 # Reuse the original graphindex module (raw llm.invoke path)
-from build_graphindex import (  # noqa: E402
+from legacy.build_graphindex import (  # noqa: E402
     DOCS_BASE,
     SUPPORTED_EXTS,
     load_document_content,

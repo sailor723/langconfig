@@ -1057,6 +1057,96 @@ $ python -c "from tools.native_tools import graphindex_search; ..."
   - Preserves all original behaviour (single file → `/upload`,
     multiple → `/upload-multiple`)
 
+## 🎯 Step I — Move legacy scripts to `phase9/legacy/` (DONE)
+
+The 4 raw-`llm.invoke` CLIs were moved from `phase9/` to
+`phase9/legacy/` to keep the current Phase 9 directory focused on
+recommended and modern scripts. Their helper functions are still
+imported by the modern scripts (via `from legacy.xxx import ...`).
+
+### What moved
+
+| File | Old path | New path | Helper functions still imported by |
+|---|---|---|---|
+| `build_graphindex.py` | `phase9/` | `phase9/legacy/` | `build_graphindex_clean.py`, `buildindex_tools.py` |
+| `route_semantic.py` | `phase9/` | `phase9/legacy/` | `graphindex_tools.py`, `legacy/dv_chat.py` |
+| `dv_chat.py` | `phase9/` | `phase9/legacy/` | (self-contained REPL) |
+| `eval_routing.py` | `phase9/` | `phase9/legacy/` | `eval_routing_deep.py` |
+
+### What stayed in `phase9/`
+
+| File | Why |
+|---|---|
+| `build_graphindex_clean.py` | Recommended (Step D) — pure Python + 1 LLM call |
+| `build_graphindex_deep.py` | DeepAgent build (Step C) |
+| `build_agent.py` | Build-side DeepAgent factory |
+| `buildindex_tools.py` | 9 @tool wrappers for build-side DeepAgent |
+| `graphindex_tools.py` | 4 @tool wrappers for query-side DeepAgent |
+| `query.py` | Aggregator CLI |
+| `query_deep.py` | DeepAgent query CLI |
+| `query_agent.py` | Query-side DeepAgent factory |
+| `eval_routing_deep.py` | Comparison eval (string / llm / deep) |
+
+### Updated phase9 file layout
+
+```
+phase9/
+├── legacy/                       ← Step I
+│   ├── __init__.py               (docstrings)
+│   ├── README.md                 (explains what's in here + why)
+│   ├── build_graphindex.py        ← raw llm.invoke, helpers still imported
+│   ├── route_semantic.py          ← raw llm.invoke, helpers still imported
+│   ├── dv_chat.py                 ← raw llm.invoke REPL
+│   └── eval_routing.py            ← raw llm.invoke eval
+│
+├── build_graphindex_clean.py     ← Recommended (pure Python + 1 LLM call)
+├── build_graphindex_deep.py      ← DeepAgent build (3 subagents)
+├── build_agent.py                ← Build-side DeepAgent factory
+├── buildindex_tools.py           ← 9 @tool wrappers for build
+│
+├── graphindex_tools.py           ← 4 @tool wrappers for query
+├── query.py                      ← Aggregator CLI
+├── query_agent.py                ← Query-side DeepAgent factory
+├── query_deep.py                 ← DeepAgent query CLI
+│
+├── eval_routing_deep.py          ← Comparison eval
+└── README.md
+```
+
+### How the move was done
+
+1. `git mv` each script from `phase9/` to `phase9/legacy/` (preserves
+   git blame).
+2. Each script got a `REPO_ROOT = Path(__file__).resolve().parent.parent.parent`
+   (was `.parent.parent`) so the `.env` and `backend/` paths still
+   resolve from the new location.
+3. Each importer was updated:
+   ```python
+   # Before
+   from build_graphindex import (DOCS_BASE, ...)
+
+   # After
+   from legacy.build_graphindex import (DOCS_BASE, ...)
+   ```
+4. `phase9/legacy/__init__.py` was added (makes `legacy` a real
+   Python package — `phase9/` itself stays package-less).
+5. `phase9/legacy/README.md` was added explaining the move + how to
+   run the legacy CLIs.
+
+### Test results (after move)
+
+| Test | Result |
+|---|---|
+| All 9 scripts respond to `--help` | ✅ |
+| `legacy/route_semantic.py --query "Nike revenue 2023"` | ✅ → nke-10k-2023.pdf (0.99) |
+| `query.py --method llm route "binary classification"` | ✅ → C1M2.pdf (0.95) |
+| `build_graphindex_clean.py --show nke-10k-2023.pdf` | ✅ shows full node |
+| `eval_routing_deep.py --help` | ✅ imports from `legacy.eval_routing` |
+| `pytest backend/tests/test_neo4j_autosync.py` | ✅ PASSED |
+| `from main import app` (FastAPI) | ✅ loaded |
+| `graphindex_search` (Phase 9 native tool) | ✅ → nke-10k-2023.pdf |
+| `graphindex_list_docs` (Phase 9 native tool) | ✅ 15 docs |
+
 ### What still needs work
 
 1. **chat_pdf.py KV store** — still exists but unused by the new tool
