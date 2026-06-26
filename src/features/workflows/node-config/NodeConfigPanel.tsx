@@ -452,10 +452,12 @@ const NodeConfigPanel = ({
   useEffect(() => {
     if (selectedNode) {
       // Ensure arrays are initialized
-      // CRITICAL FIX: Check both top-level and nested config for tools
-      // WorkflowCanvas stores tools in node.data.config.native_tools
-      // But NodeConfigPanel expects them at node.data.native_tools
-      const nodeConfig = (selectedNode as any).config || {};
+      // CRITICAL FIX: Read from selectedNode.data.config (where React Flow
+      // actually stores the data) — not selectedNode.config (which is undefined).
+      // The workflow data shape is:
+      //   { id, type, data: { label, agentType, config: { tool_type, tool_id, ... } } }
+      const nodeData = (selectedNode as any).data || {};
+      const nodeConfig = nodeData.config || (selectedNode as any).config || {};
       let nativeToolsList =
         (selectedNode as any).native_tools ||
         (selectedNode as any).nativeTools ||
@@ -584,16 +586,17 @@ const NodeConfigPanel = ({
 
   // Load tool schema when both selectedNode and availableCustomTools are ready
   useEffect(() => {
-    // BUG FIX: read tool_type and tool_id from selectedNode.config (not directly
-    // on selectedNode — they're nested inside .config after save).
-    const cfg = (selectedNode as any)?.config;
+    // BUG FIX: read tool_type and tool_id from selectedNode.data.config
+    // (where React Flow actually stores the data) — not selectedNode.config.
+    const nodeData = (selectedNode as any)?.data;
+    const cfg = nodeData?.config || (selectedNode as any)?.config;
     if (selectedNode?.agentType === 'TOOL_NODE' &&
       cfg?.tool_type &&
       cfg?.tool_id &&
       availableCustomTools.length > 0) {
       loadToolSchema(cfg.tool_type, cfg.tool_id);
     }
-  }, [selectedNode?.tool_id, availableCustomTools.length]);
+  }, [(selectedNode as any)?.data?.config?.tool_id, availableCustomTools.length]);
 
   if (!selectedNode || !config) {
     return (
