@@ -21,6 +21,16 @@ from db.database import get_db
 from models.core import ContextDocument, DocumentType, IndexingStatus, SearchHistory
 from services.token_counter import get_token_counter
 
+# Phase 9 integration: ensure phase9/ is importable for build-graphindex-clean
+# helpers used by _phase9_get_or_generate_enrichment.
+import sys as _sys
+import os as _os
+_PHASE9_DIR = _os.path.abspath(
+    _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "phase9")
+)
+if _PHASE9_DIR not in _sys.path and _os.path.isdir(_PHASE9_DIR):
+    _sys.path.insert(0, _PHASE9_DIR)
+
 router = APIRouter(prefix="/api/rag", tags=["rag"])
 logger = logging.getLogger(__name__)
 
@@ -408,6 +418,64 @@ def _try_graphindex_search_via_neo4j(
     )
 
 
+def _phase9_get_or_generate_enrichment(
+    context_doc: "ContextDocument",
+    index,
+    graphindex_meta: dict,
+):
+    """Phase 9 enrichment provider for knowledge-panel uploads.
+
+    Strategy:
+      1. If a Neo4j Document node with this name already exists and has a
+         populated `what_this_document_is_about`, reuse its enrichment
+         (preserves Phase 9 build-side ingests and --rebuild-one results).
+      2. Otherwise, run a single LLM call via phase9/build_graphindex_clean
+         to generate about / supports / out_of_scope / few_shot.
+
+    Returns:
+        Neo4jDocumentEnrichment (possibly empty fields if LLM fails).
+    """
+    from services.neo4j_document_index import Neo4jDocumentEnrichment
+
+    existing = None
+    try:
+        existing = index.get_document(
+            project_id=context_doc.project_id, name=context_doc.filename
+        )
+    except Exception:
+        existing = None
+
+    if existing and existing.what_this_document_is_about:
+        logger.info(
+            f"[phase9] reusing existing enrichment for {context_doc.filename!r} "
+            f"(about={existing.what_this_document_is_about[:60]!r}...)"
+        )
+        return Neo4jDocumentEnrichment(
+            what_this_document_is_about=existing.what_this_document_is_about,
+            supported_queries=list(existing.supported_queries or []),
+            out_of_scope=list(existing.out_of_scope or []),
+            few_shot=[{"query": s.get("query", ""), "answer_hint": s.get("answer_hint", "")}
+                      for s in (existing.few_shot or []) if isinstance(s, dict)],
+        )
+
+    # No existing enrichment — generate via Phase 9 LLM call.
+    try:
+        from build_graphindex_clean import enrich_document, make_llm
+        llm = make_llm()
+        enrichment = enrich_document(index, llm, context_doc.file_path)
+        logger.info(
+            f"[phase9] generated fresh enrichment for {context_doc.filename!r}: "
+            f"about={enrichment.what_this_document_is_about[:60]!r}..."
+        )
+        return enrichment
+    except Exception as e:
+        logger.warning(
+            f"[phase9] enrichment generation failed for {context_doc.filename!r}: {e}. "
+            f"Falling back to empty enrichment."
+        )
+        return Neo4jDocumentEnrichment()
+
+
 def _try_sync_context_document_to_neo4j(context_doc: ContextDocument, client) -> None:
     if not context_doc.project_id:
         return
@@ -432,6 +500,17 @@ def _try_sync_context_document_to_neo4j(context_doc: ContextDocument, client) ->
     try:
         from services.neo4j_document_index import build_document_node_properties
 
+        # Phase 9 enrichment: if the Neo4j node already has fields populated
+        # (e.g. via phase9/build_graphindex_clean.py --ingest), preserve them.
+        # Otherwise generate fresh enrichment via LLM. This replaces the legacy
+        # `enrichment=None` which left Neo4j nodes with empty about / supports /
+        # out_of_scope and broke routing for knowledge-panel uploads.
+        enrichment_obj = _phase9_get_or_generate_enrichment(
+            context_doc=context_doc,
+            index=index,
+            graphindex_meta=graphindex_meta,
+        )
+
         properties = build_document_node_properties(
             project_id=context_doc.project_id,
             context_doc_id=context_doc.id,
@@ -441,7 +520,7 @@ def _try_sync_context_document_to_neo4j(context_doc: ContextDocument, client) ->
             description=context_doc.description or "",
             tags=list(context_doc.tags or []),
             graphindex_meta=graphindex_meta,
-            enrichment=None,
+            enrichment=enrichment_obj,
         )
         index.upsert_document(
             project_id=context_doc.project_id,
