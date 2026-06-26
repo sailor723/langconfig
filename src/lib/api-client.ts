@@ -827,34 +827,58 @@ class APIClient {
    * `Content-Type: application/json` (a raw string would be sent as
    * `text/plain` and rejected with 422).
    *
-   * Robustness: if the direct baseURL call fails (CORS / network issue
-   * from a Tauri webview, etc.), fall back to a same-origin relative
-   * path which will be proxied by Vite dev server or served from the
-   * Tauri webview's own origin in production.
+   * Robustness: try TWO paths:
+   *   1. Direct axios POST to VITE_API_BASE_URL/api/deepagents/import
+   *      (works if backend is reachable + CORS allows)
+   *   2. Native fetch POST to window.location.origin/api/deepagents/import
+   *      (same-origin; works through Vite dev proxy or Tauri webview
+   *      bundled origin, no CORS check)
+   *
+   * Path 2 is the one that ACTUALLY works in the Tauri webview, where
+   * cross-origin XHR is blocked. We use native fetch for path 2 because
+   * mutating axios's baseURL after construction has no effect on the
+   * already-created AxiosInstance.
    */
   async importDeepAgent(langconfig: object) {
     const body = { langconfig_content: JSON.stringify(langconfig) };
+    const directUrl = `${this.baseURL || ''}/api/deepagents/import`;
+    const fallbackUrl = `${window.location.origin}/api/deepagents/import`;
+
+    // Path 1: direct axios call
     try {
+      console.log(`[apiClient] POST ${directUrl}`);
       return await this.client.post('/api/deepagents/import', body);
     } catch (err: any) {
       const isNetwork = !err?.response;
-      const baseUrlStr = String(this.baseURL || '');
-      const isDirectAbsolute = /^https?:\/\//i.test(baseUrlStr);
-      if (isNetwork && isDirectAbsolute) {
-        // Fallback: try same-origin (Vite proxy in dev, bundled Tauri in prod)
-        console.warn(
-          `[apiClient] direct ${baseUrlStr} failed (${err?.message || 'network'}); ` +
-          `retrying same-origin /api/deepagents/import via Vite proxy / Tauri webview.`
-        );
-        // Save and swap baseURL temporarily
-        const saved = this.baseURL;
-        this.baseURL = '';
-        try {
-          return await this.client.post('/api/deepagents/import', body);
-        } finally {
-          this.baseURL = saved;
-        }
+      console.warn(
+        `[apiClient] direct ${directUrl} failed ` +
+        `(${err?.message || 'network'}${err?.response?.status ? ' HTTP ' + err.response.status : ''}); ` +
+        `retrying ${fallbackUrl}`
+      );
+      if (!isNetwork && err?.response?.status) {
+        // Server responded with a non-2xx — surface it, don't retry.
+        throw err;
       }
+    }
+
+    // Path 2: native fetch same-origin (bypasses axios & CORS)
+    try {
+      console.log(`[apiClient] POST ${fallbackUrl} (native fetch)`);
+      const res = await fetch(fallbackUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(
+          `HTTP ${res.status} from ${fallbackUrl}: ${text.slice(0, 300)}`
+        );
+      }
+      const data = await res.json();
+      return { data, status: res.status, statusText: res.statusText, headers: res.headers, config: {} as any };
+    } catch (err: any) {
+      console.error(`[apiClient] fallback to ${fallbackUrl} also failed:`, err);
       throw err;
     }
   }

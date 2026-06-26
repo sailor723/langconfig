@@ -336,7 +336,9 @@ export default function KnowledgeBaseView() {
         `View at: GET /api/deepagents/${id}`
       );
     } catch (error: any) {
-      // Comprehensive error reporting — show the user what really happened.
+      // Comprehensive error reporting — handle BOTH axios-style errors
+      // (have .response.status, .response.data.detail) and native
+      // fetch errors (just .message).
       const status = error?.response?.status;
       const data = error?.response?.data;
       const message = error?.message || 'unknown error';
@@ -344,23 +346,22 @@ export default function KnowledgeBaseView() {
         status,
         data,
         message,
-        // Log the full error object too for DevTools inspection
         full: error,
       });
-      // 409 / "already exists" — silently treat as success; the user
-      // can find the existing one in the agent library.
       const detail = data?.detail || '';
       if (status === 409 || String(detail).toLowerCase().includes('exists')) {
         setImportedGraphindexChatId(-1);
         console.log('[Phase 9 / L1] graphindex_chat agent already exists in library.');
       } else {
-        // Build a human-readable error message
+        // Build a human-readable error message from whichever fields we have.
         let userMsg = `Failed to import graphindex_chat agent.`;
         if (status) userMsg += `\n\nHTTP ${status}`;
         if (data?.detail) {
           userMsg += `: ${typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)}`;
+        } else if (message && !message.includes('Network Error')) {
+          userMsg += `\n\n${message}`;
         } else if (message) {
-          userMsg += `: ${message}`;
+          userMsg += `\n\nNetwork error — please ensure the backend is running on port 8765.`;
         }
         alert(userMsg);
       }
