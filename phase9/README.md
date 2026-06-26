@@ -853,6 +853,76 @@ python phase9/query_deep.py --show-agent
   - **Tools are stateless** — each tool call hits Neo4j / filesystem
     fresh. No shared mutable state between subagent calls (intentional).
 
+## 🎯 Step A4 — Eval on DeepAgent vs raw llm.invoke (DONE)
+
+`phase9/eval_routing_deep.py` runs the same 14-query hand-labeled set as
+`eval_routing.py` against a routing-only DeepAgent (just
+`fetch_catalog_tool`, no loader / answerer subagents). Compares all three
+methods head-to-head.
+
+### 3-way live results (against localhost:7474, 18 docs)
+
+| Category | string | llm.invoke | deepagent |
+|---|---|---|---|
+| A. Simple EN literal | 100% | 100% | 100% |
+| B. Simple ZH | 0% | 50% | **100%** |
+| C. Conceptual | 75% | 100% | 100% |
+| D. Cross-domain | 50% | 100% | 50% |
+| E. Irrelevant | 50% | 100% | 100% |
+| F. Ambiguous | 50% | 100% | 100% |
+| **OVERALL** | **57%** | **93%** | **93%** |
+| Latency mean | 1 ms | 11.2 s | 22.1 s |
+| Cache % | — | — | 34.8% |
+
+### Key findings
+
+1. **DeepAgent (93%) ties llm.invoke (93%)** — both crush string matching
+   (57%). DeepAgent is competitive with raw `llm.invoke` for routing-only.
+
+2. **Latency regression**: DeepAgent is 2× slower (22s vs 11s) due to
+   LangGraph state graph overhead per `invoke()`. Cache % is lower (34.8%
+   vs ~99%) because each thread_id in the eval is fresh, so the system
+   prompt isn't shared across queries. (In REPL with a single thread_id,
+   cache % climbs back to ~99%.)
+
+3. **B (simple ZH) DeepAgent 100% vs llm.invoke 50%** — DeepAgent's
+   prompt "prefer partial match over null" is more decisive on Chinese
+   queries where tokenization is unclear.
+
+4. **D (cross-domain) DeepAgent 50%** — still misses "apply entrepreneur
+   thinking to AI strategy framework" (returns null instead of
+   Strategic Framework Presentation). LLM.invoke is more lenient.
+
+5. **Architecture benefit**: DeepAgent can later gain skills, HITL
+   pause, multi-agent collaboration — none of which `llm.invoke` can do.
+   For *this* routing-only benchmark, the architectural overhead isn't
+   yet paying off.
+
+### Prompt refinement made the difference
+
+```diff
+- If NONE of the documents are relevant, reply: {"primary": null, ...}
++ Prefer a PARTIAL match with low confidence over returning null — if any
++ document's about or supports is even loosely related, pick it (this is
++ better for the user than saying "nothing matches")
++ Only return null if EVERY document is clearly unrelated
+```
+
+This bumped DeepAgent from 86% → 93% (matched llm.invoke).
+
+### Usage
+
+```bash
+# All three methods (default)
+python phase9/eval_routing_deep.py
+
+# Just DeepAgent
+python phase9/eval_routing_deep.py --method deep
+
+# Save JSON
+python phase9/eval_routing_deep.py --output /tmp/eval3way.json
+```
+
 ---
 
 ## 🔗 Related Reading
