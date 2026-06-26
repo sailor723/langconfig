@@ -221,6 +221,13 @@ class OutputFormatter:
                     return str(messages)
                 return str(formatted)
 
+            # BUG FIX: also handle tool_result (TOOL_NODE output) and last_tool_output
+            # — these are the fields populated by TOOL_NODE in nodes.py.
+            if "tool_result" in raw_output and raw_output["tool_result"] is not None:
+                return str(raw_output["tool_result"])
+            if "last_tool_output" in raw_output and raw_output["last_tool_output"]:
+                return str(raw_output["last_tool_output"])
+
             # Check for messages field
             if "messages" in raw_output:
                 messages = raw_output["messages"]

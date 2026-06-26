@@ -647,12 +647,12 @@ class DeepAgentFactory:
         if config.custom_tools:
             try:
                 logger.info(f"Custom tools requested: {config.custom_tools}")
-                custom_tools = await AgentFactory._load_custom_tools(config.custom_tools, project_id)
+                from core.agents.tool_loader import ToolLoader
+                custom_tools = await ToolLoader().load_custom(config.custom_tools, project_id)
                 tools.extend(custom_tools)
                 logger.info(f"Loaded {len(custom_tools)} custom tools: {[t.name for t in custom_tools]}")
             except Exception as e:
                 logger.error(f"Failed to load custom tools: {e}")
-                logger.exception("Custom tool loading stack trace:")
 
         return tools
 
