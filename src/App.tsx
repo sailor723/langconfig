@@ -257,7 +257,12 @@ function AppContent() {
   }, []);
 
   const handleSave = () => {
-    setWorkflowStatus('saved');
+    // BUG FIX: call the actual saveWorkflow on the canvas ref. The previous
+    // implementation was a no-op that only updated local React state without
+    // ever calling the API, so the top Save button didn't persist anything.
+    if (workflowCanvasRef.current) {
+      workflowCanvasRef.current.saveWorkflow(false);  // not silent: show success message
+    }
   };
 
   const handleWorkflowNameChange = (name: string) => {
