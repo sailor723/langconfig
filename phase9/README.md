@@ -835,12 +835,88 @@ preserves the same 86% accuracy via the new tool wrappers.
 
 1. **chat_pdf.py KV store** — still exists but unused by the new tool
    path. Future cleanup: remove `chat_pdf.py` + `.chat_pdf_kv/` directory.
-2. **`_try_sync_context_document_to_neo4j` enrichment bug** —
-   `knowledge/rag.py:444` still passes `enrichment=None` for
-   knowledge-base uploads. Fix: route through `graphindex_ingest`.
+2. **`_try_sync_context_document_to_neo4j` enrichment bug** — DONE (see
+   Step F below). Knowledge-panel uploads now get real enrichment.
 3. **Chat upload integration** — chat-panel uploads still don't go to
    Neo4j. Could call `graphindex_ingest` from
    `chat/routes.py:_process_single_chat_upload` after a successful save.
+
+## 🎯 Step F — Knowledge-panel upload gets real enrichment (DONE)
+
+`backend/api/knowledge/rag.py:_try_sync_context_document_to_neo4j` was
+passing `enrichment=None` for every knowledge-panel upload. Result:
+the Neo4j Document node had empty `about / supports / out_of_scope /
+few_shot`, which made routing for new docs effectively impossible.
+
+### Fix
+
+Added a new helper `_phase9_get_or_generate_enrichment` that:
+
+1. Reads the existing Neo4j node (if any). If it already has a populated
+   `what_this_document_is_about`, **reuse that enrichment** (avoids
+   duplicate LLM calls for already-indexed docs).
+2. Otherwise, calls `phase9.build_graphindex_clean.enrich_document` to
+   run a single LLM call and return a `Neo4jDocumentEnrichment` with
+   `about / supported_queries / out_of_scope / few_shot`.
+
+The main `_try_sync_context_document_to_neo4j` now passes the result
+to `build_document_node_properties(..., enrichment=...)` instead of
+`enrichment=None`.
+
+### Behaviour
+
+| Scenario | Cost | Result |
+|---|---|---|
+| Doc already has enrichment in Neo4j | 0.01s (Neo4j read) | Reuse, no LLM call |
+| Doc has no Neo4j entry (fresh upload) | ~10s (1 LLM call) | Generate enrichment, upsert |
+| LLM call fails | 0s (catch) | Empty enrichment, doc still gets upserted |
+
+### End-to-end test (knowledge-panel upload simulation)
+
+```
+$ python /tmp/test_e2e_enrich.py
+File: backend/data/documents/project_1/bf25d4ce_e2e_test_doc.txt
+Created ContextDocument id=37
+Running _try_sync_context_document_to_neo4j...
+    (structured output failed, retrying plain: 1 validation error for
+     DocumentEnrichmentOutput Invalid JSON ...)
+
+=== Neo4j node ===
+  about: 'Graph neural networks (GNNs) applied to social network analysis,
+          covering node classification, link prediction, and community...'
+  supports (5):
+    - 'graph neural networks overview'
+    - 'GNN node classification'
+    - 'link prediction with GNNs'
+  out_of_scope (18):
+    - 6 人物库.pdf
+    - 8284514.pdf
+    - C1M2.pdf
+
+  ✓ ENRICHMENT POPULATED
+```
+
+### Files changed
+
+- `backend/api/knowledge/rag.py`:
+  - Added `_PHASE9_DIR` path hook (top of file)
+  - Added `_phase9_get_or_generate_enrichment()` helper (~50 lines)
+  - Modified `_try_sync_context_document_to_neo4j` body: pass
+    `enrichment=enrichment_obj` instead of `enrichment=None`
+
+### Existing tests
+
+`backend/tests/test_neo4j_autosync.py` still passes — the test uses
+a `DummyNeo4jIndex` without `get_document()`. The new code catches
+the `AttributeError` and falls through to the LLM branch, which also
+fails (no LLM in test), returning an empty enrichment. Test asserts
+on `payload["content"]` is not in payload, which still holds.
+
+```
+$ pytest backend/tests/test_neo4j_autosync.py -v
+backend/tests/test_neo4j_autosync.py::test_try_sync_context_document_to_neo4j_upserts_pointer_metadata PASSED [100%]
+1 passed, 4 warnings in 1.98s
+```
 
 ---
 
