@@ -25,8 +25,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 # Allow running as a script from anywhere
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(REPO_ROOT / "phase9"))
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "learning" / "phase9"))
 sys.path.insert(0, str(REPO_ROOT / "backend"))
 
 from services.neo4j_document_index import (  # noqa: E402

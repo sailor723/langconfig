@@ -39,7 +39,7 @@ from dotenv import load_dotenv
 
 # .env resolution (works as script AND in REPL)
 try:
-    _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+    _env_path = Path(__file__).resolve().parent.parent.parent.parent / ".env"
 except NameError:
     _env_path = Path(os.getcwd()) / ".env"
 if not _env_path.exists():
@@ -48,7 +48,7 @@ if not _env_path.exists():
         _env_path = _alt
 load_dotenv(_env_path)
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "backend"))
 from services.neo4j_document_index import (  # noqa: E402
     Neo4jDocumentIndex,
