@@ -63,6 +63,20 @@ interface NodeConfig {
   temperature: number;
   tools: string[];
   native_tools: string[];
+  // TOOL_NODE fields (added to support graphindex_* custom tools)
+  // Keep these in sync with the canonical NodeConfig in
+  // src/features/workflows/node-config/NodeConfigPanel.tsx
+  data?: any;  // BUG FIX: full data blob so panel can read selectedNode.data.config
+  custom_tools?: string[];
+  middleware?: any[];
+  subagents?: any[];
+  use_deepagents?: boolean;
+  condition?: string;
+  max_iterations?: number;
+  exit_condition?: string;
+  tool_type?: string;
+  tool_id?: string;
+  tool_params?: Record<string, any>;
 }
 
 interface SelectedNodeData {
@@ -487,6 +501,16 @@ function AppContent() {
               condition: selectedNodeData.condition || selectedNodeData.config?.condition,
               max_iterations: selectedNodeData.max_iterations || selectedNodeData.config?.max_iterations,
               exit_condition: selectedNodeData.exit_condition || selectedNodeData.config?.exit_condition,
+              // BUG FIX: pass the full data blob so the panel can read
+              // selectedNode.data.config (e.g. tool_type, tool_id) and the
+              // complete config. Without this, the dropdowns showed empty
+              // even when the DB had the values saved.
+              data: selectedNodeData,
+              // Tool node specific fields (TOOL_NODE) — pass at top level too
+              // for backward compatibility with code that reads selectedNode.tool_type.
+              tool_type: (selectedNodeData as any).tool_type || selectedNodeData.config?.tool_type,
+              tool_id: (selectedNodeData as any).tool_id || selectedNodeData.config?.tool_id,
+              tool_params: (selectedNodeData as any).tool_params || selectedNodeData.config?.tool_params,
               // DeepAgent subagents
               subagents: (selectedNodeData as any).subagents || selectedNodeData.config?.subagents || [],
               use_deepagents: (selectedNodeData as any).use_deepagents || selectedNodeData.config?.use_deepagents || false
