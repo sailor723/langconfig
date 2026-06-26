@@ -31,9 +31,10 @@ import time
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-# Phase 9 path hook (matches backend/api/knowledge/rag.py:30-39)
+# Phase 9 path hook — phase9/ now lives at langconfig/learning/phase9/
+# (was langconfig/phase9/ before the 2026-06-26 refactor)
 _PHASE9_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "phase9")
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "learning", "phase9")
 )
 if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):
     sys.path.insert(0, _PHASE9_DIR)

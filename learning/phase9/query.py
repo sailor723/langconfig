@@ -36,11 +36,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 # Repo + backend path resolution
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(REPO_ROOT / "backend") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "backend"))
-if str(REPO_ROOT / "phase9") not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT / "phase9"))
+if str(REPO_ROOT / "learning" / "phase9") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "learning" / "phase9"))
 
 from dotenv import load_dotenv  # noqa: E402
 

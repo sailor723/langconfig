@@ -72,11 +72,11 @@ from typing import Dict, Any
 
 # Repo + backend path resolution (so the same file works as a script
 # and can be imported from other phase9 files).
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(REPO_ROOT / "backend") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "backend"))
-if str(REPO_ROOT / "phase9") not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT / "phase9"))
+if str(REPO_ROOT / "learning" / "phase9") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "learning" / "phase9"))
 
 
 # Reuse the same system prompt as build_graphindex_chat_agent.py, but

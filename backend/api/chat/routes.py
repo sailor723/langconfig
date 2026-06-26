@@ -53,12 +53,13 @@ import logging
 import uuid
 import sys as _sys
 import os as _os
-# Phase 9 integration: ensure phase9/ is importable so chat uploads can use
-# the Phase 9 enrichment path via the chain
+# Phase 9 integration: ensure learning/phase9/ is importable so chat uploads
+# can use the Phase 9 enrichment path via the chain
 #   _index_to_graphindex_for_chat -> index_document_background ->
 #   _try_sync_context_document_to_neo4j -> _phase9_get_or_generate_enrichment.
+# (phase9/ moved from langconfig/phase9/ to langconfig/learning/phase9/ on 2026-06-26)
 _PHASE9_DIR = _os.path.abspath(
-    _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "phase9")
+    _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "learning", "phase9")
 )
 if _PHASE9_DIR not in _sys.path and _os.path.isdir(_PHASE9_DIR):
     _sys.path.insert(0, _PHASE9_DIR)

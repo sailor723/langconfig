@@ -48,11 +48,11 @@ from functools import lru_cache
 from pathlib import Path
 
 # Repo + backend path resolution
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(REPO_ROOT / "backend") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "backend"))
-if str(REPO_ROOT / "phase9") not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT / "phase9"))
+if str(REPO_ROOT / "learning" / "phase9") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "learning" / "phase9"))
 
 from langgraph.checkpoint.memory import MemorySaver  # noqa: E402
 
