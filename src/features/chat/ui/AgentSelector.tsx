@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Loader, Search, Clock } from 'lucide-react';
+import { ChevronDown, Loader, Search, Clock, Sparkles } from 'lucide-react';
 import type { DeepAgent } from '../types/chat';
 import apiClient from '../../../lib/api-client';
 
@@ -201,6 +201,67 @@ export default function AgentSelector({
                 </div>
               ) : (
                 <>
+                  {/* Phase 9 / Step L2 — Quick Pick for graphindex_chat.
+                      If a graphindex_chat agent exists in the library, show
+                      a one-click banner at the top of the dropdown so users
+                      don't have to scroll to find it. (Knowledge panel
+                      "Use in builder" button creates this agent; if not
+                      yet imported, this section is hidden.) */}
+                  {!searchQuery && !selectedCategory && (() => {
+                    const graphindex = agents.find(
+                      a => a.name === 'graphindex_chat' || a.name === 'graphindex_chat (Phase 9)'
+                    );
+                    if (!graphindex) return null;
+                    return (
+                      <>
+                        <div
+                          className="px-4 py-2 text-xs font-semibold flex items-center gap-2"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          <Sparkles className="w-3 h-3" style={{ color: '#a855f7' }} />
+                          Phase 9 Quick Pick
+                        </div>
+                        <button
+                          onClick={() => handleSelectAgent(graphindex.id)}
+                          className="w-full px-4 py-2.5 text-left transition-colors flex items-start gap-2"
+                          style={{
+                            backgroundColor: 'rgba(168, 85, 247, 0.06)',
+                            borderLeft: '3px solid #a855f7',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'rgba(168, 85, 247, 0.12)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'rgba(168, 85, 247, 0.06)';
+                          }}
+                        >
+                          <Sparkles
+                            className="w-4 h-4 mt-0.5 flex-shrink-0"
+                            style={{ color: '#a855f7' }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                              {graphindex.name}
+                              <span
+                                className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                                style={{ backgroundColor: 'rgba(168, 85, 247, 0.2)', color: '#a855f7' }}
+                              >
+                                Phase 9
+                              </span>
+                            </div>
+                            <div className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                              LLM-semantic-routed chat with 4 GraphIndex tools
+                            </div>
+                          </div>
+                        </button>
+                        <div
+                          className="my-2 border-t"
+                          style={{ borderColor: 'var(--color-border-dark)' }}
+                        />
+                      </>
+                    );
+                  })()}
+
                   {/* Recent Agents */}
                   {!searchQuery && !selectedCategory && recentAgentsList.length > 0 && (
                     <>
