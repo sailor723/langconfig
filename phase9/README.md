@@ -923,6 +923,62 @@ python phase9/eval_routing_deep.py --method deep
 python phase9/eval_routing_deep.py --output /tmp/eval3way.json
 ```
 
+## 🎯 Step B — Unified query CLI (NEW, no deletions)
+
+`phase9/query.py` is a single CLI that consolidates the 5 separate
+query-side scripts (`route_semantic.py`, `dv_chat.py`, `eval_routing.py`,
+`eval_routing_deep.py`, `query_deep.py`) **without deleting them** —
+all original scripts remain functional for backward compatibility.
+
+### Subcommands
+
+```bash
+python phase9/query.py --method <string|llm|deep> <subcommand> [args]
+
+# Single-shot routing decision
+python phase9/query.py --method deep route "Nike revenue 2023"
+
+# Single-shot answer (route + load + synthesize)
+python phase9/query.py --method deep answer "compare Nike strategy with industry trends"
+
+# Interactive REPL with multi-turn thread + /docs /method /doc
+python phase9/query.py --method deep chat
+
+# Run eval suite (single method or all)
+python phase9/query.py eval --method all
+python phase9/query.py eval --method deep
+
+# Print catalog (debug)
+python phase9/query.py catalog --limit 1000
+
+# Print LLM prompt (debug)
+python phase9/query.py prompt "binary classification neural network"
+```
+
+### Three routing methods
+
+| Method | Backed by | Accuracy | Latency | Use case |
+|---|---|---|---|---|
+| `string` | `choose_best_document_match` (base) | 57% | 1 ms | baseline, cheap |
+| `llm`    | raw `llm.invoke` on catalog prompt | 93% | ~10 s | fast LLM semantic |
+| `deep`   | `create_deep_agent` with router/loader/answerer subagents | 93% | ~20 s | multi-doc + future skills/HITL |
+
+### What's consolidated inside `query.py`
+
+| Original script | Now mode in `query.py` |
+|---|---|
+| `route_semantic.py --query` | `route` |
+| `route_semantic.py --query-answer` | `answer` |
+| `route_semantic.py --show-catalog` | `catalog` |
+| `route_semantic.py --show-prompt` | `prompt` |
+| `dv_chat.py` | `chat` |
+| `eval_routing.py` | `eval --method string\|llm` |
+| `eval_routing_deep.py` | `eval --method deep` |
+| `query_deep.py` | `query.py --method deep <subcommand>` |
+
+All ~2,000 lines of legacy code is preserved on disk. `query.py` is a
+**convenience aggregator** that ships the same logic through one CLI.
+
 ---
 
 ## 🔗 Related Reading
