@@ -130,33 +130,51 @@ export default function DocChatPanel({ projectId, onDocSelected }: DocChatPanelP
   }, [projectId, agentId, currentSessionId, startSession, showToast]);
 
   // Tool-event handler: detect when the LLM picks a doc and notify
-  // the parent. The two tool calls that reveal a doc are:
-  //   - graphindex_multi_doc_load → output_preview starts with
+  // the parent. The chat agent can call either the langconfig native
+  // tools (graphindex_*) OR the Phase 9 path tools (route_query_tool,
+  // load_multi_doc_tool) — we handle both. Each reveals a doc name
+  // differently:
+  //   - graphindex_multi_doc_load / load_multi_doc_tool →
+  //     output_preview starts with
   //     "=== Document 1 (PRIMARY): <doc_name> ==="
   //   - graphindex_search → output_preview is a JSON with "results"
   //     and each result has "name"
+  //   - route_query_tool → output_preview is JSON with "primary" and
+  //     "supporting" fields, each with a "name"
   const handleToolEvent = (ev: ChatStreamEvent) => {
     if (!onDocSelected) return;
     if (ev.type !== 'tool_end') return;
     const toolName = (ev as any).tool_name;
     const preview: string = (ev as any).data?.output_preview || '';
-    // 1) graphindex_multi_doc_load: parse === Document N (PRIMARY): name ===
-    if (toolName === 'graphindex_multi_doc_load') {
+    // 1) Both flavors of the multi-doc-load tool: parse the header
+    //    "=== Document N (PRIMARY): name ===" from the preview.
+    if (toolName === 'graphindex_multi_doc_load' || toolName === 'load_multi_doc_tool') {
       const m = preview.match(/=== Document \d+ \(PRIMARY\): (.+?) ===/);
       if (m && m[1]) {
         onDocSelected(m[1].trim());
+        return;
       }
     }
-    // 2) graphindex_search: parse JSON "results": [{ "name": ... }]
+    // 2) graphindex_search (langconfig): parse JSON "results"/"primary".
     if (toolName === 'graphindex_search') {
       try {
-        // The preview may be the raw text or a JSON string. Try both.
         const txt = preview.trim();
         const obj = JSON.parse(txt);
         const first = obj?.results?.[0]?.name || obj?.primary?.name;
         if (first) onDocSelected(String(first));
       } catch {
         // ignore — preview may not be JSON
+      }
+    }
+    // 3) route_query_tool (Phase 9): same JSON shape — primary.name.
+    if (toolName === 'route_query_tool') {
+      try {
+        const txt = preview.trim();
+        const obj = JSON.parse(txt);
+        const first = obj?.primary?.name;
+        if (first) onDocSelected(String(first));
+      } catch {
+        // ignore
       }
     }
   };
