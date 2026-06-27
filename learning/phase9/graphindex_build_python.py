@@ -207,14 +207,17 @@ def cmd_ingest(file_path: str,
     """Ingest a new file: hash → dedup → copy → enrich (1 LLM call) → upsert."""
     src = Path(file_path)
     if not src.exists():
-        print(f"  ✗ file not found: {file_path}")
+        print(f"❌ file not found: {file_path}")
         return 1
     if src.suffix.lower() not in SUPPORTED_EXTS:
-        print(f"  ✗ unsupported extension: {src.suffix}")
+        print(f"❌ unsupported extension: {src.suffix}")
         return 1
 
-    print(f"📥 Ingesting {file_path}")
-    print(f"   target: {target_dir or str(DOCS_BASE / 'project_1')}")
+    print("═" * 60)
+    print(f"📥 INGEST: {src.name}")
+    print("─" * 60)
+    print(f"  source:    {file_path}")
+    print(f"  target:    {target_dir or str(DOCS_BASE / 'project_1')}")
 
     idx = Neo4jDocumentIndex()
     target_dir = target_dir or str(DOCS_BASE / "project_1")
@@ -222,42 +225,75 @@ def cmd_ingest(file_path: str,
     # 1. Hash
     content_hash = sha256_of_file(str(src))
     short_hash = content_hash[:8]
-    print(f"   hash: {short_hash}…  ({src.stat().st_size:,} bytes)")
+    size_mb = src.stat().st_size / (1024 * 1024)
+    print(f"  size:      {src.stat().st_size:,} bytes ({size_mb:.2f} MB)")
+    print(f"  sha-256:   {content_hash}")
+    print(f"  short:     {short_hash}")
 
     # 2. Filesystem dedup
+    print()
+    print("─── Step 1/4: Filesystem dedup ───")
     fs_match = is_filesystem_duplicate(content_hash, str(src))
     if fs_match:
-        print(f"   ✗ fs dupe: {fs_match}")
+        print(f"  ⏭  ALREADY EXISTS: {fs_match}")
+        print("═" * 60)
         return 0
+    print(f"  ✓ no match (proceeding)")
 
     # 3. Neo4j dedup
+    print()
+    print("─── Step 2/4: Neo4j dedup ───")
     neo_match = is_neo4j_duplicate(idx, content_hash)
     if neo_match:
-        print(f"   ✗ neo4j dupe: {neo_match}")
+        print(f"  ⏭  ALREADY INDEXED: {neo_match}")
+        print("═" * 60)
         return 0
+    print(f"  ✓ no match (proceeding)")
 
     # 4. Copy
+    print()
+    print("─── Step 3/4: Copy file ───")
     target_path = copy_with_hash_prefix(str(src), target_dir, short_hash)
-    print(f"   copied: {target_path}")
+    print(f"  ✓ copied to: {target_path}")
 
     # 5. Enrich (one LLM call)
-    print(f"   enriching via LLM…", end=" ", flush=True)
+    print()
+    print("─── Step 4/4: LLM enrichment + Neo4j upsert ───")
+    print(f"  ⏳ calling LLM for {src.name}…")
     t0 = time.time()
     if llm is None:
         llm = make_llm()
     enrichment = enrich_document(idx, llm, target_path)
     enrich_time = time.time() - t0
-    print(f"done ({enrich_time:.1f}s)")
-    print(f"      about: {enrichment.what_this_document_is_about[:100]}…")
-    print(f"      supports: {len(enrichment.supported_queries)} queries")
-    print(f"      out_of_scope: {len(enrichment.out_of_scope)} docs")
+    print(f"  ✓ enrichment done in {enrich_time:.1f}s")
+    print(f"     about:        {enrichment.what_this_document_is_about}")
+    print(f"     supports:     {len(enrichment.supported_queries)} queries")
+    for i, q in enumerate(enrichment.supported_queries[:5], 1):
+        print(f"       {i}. {q}")
+    if len(enrichment.supported_queries) > 5:
+        print(f"       … and {len(enrichment.supported_queries) - 5} more")
+    print(f"     out_of_scope: {len(enrichment.out_of_scope)} docs")
+    for i, n in enumerate(enrichment.out_of_scope[:5], 1):
+        print(f"       {i}. {n}")
+    if len(enrichment.out_of_scope) > 5:
+        print(f"       … and {len(enrichment.out_of_scope) - 5} more")
 
     # 6. Upsert Neo4j
+    print()
+    print("─── Neo4j upsert ───")
     upsert_to_neo4j(idx, name=src.name, file_path=target_path,
                     enrichment=enrichment)
-    print(f"   neo4j: upserted as {src.name}")
+    print(f"  ✓ upserted Document node: name={src.name}")
 
-    print(f"\n✅ Done in {enrich_time:.1f}s")
+    print()
+    print("═" * 60)
+    print(f"✅ DONE: {src.name} ingested in {enrich_time:.1f}s")
+    print(f"   name:         {src.name}")
+    print(f"   file_path:    {target_path}")
+    print(f"   content_sha:  {content_hash[:16]}…")
+    print(f"   supports:     {len(enrichment.supported_queries)}")
+    print(f"   out_of_scope: {len(enrichment.out_of_scope)}")
+    print("═" * 60)
     return 0
 
 
