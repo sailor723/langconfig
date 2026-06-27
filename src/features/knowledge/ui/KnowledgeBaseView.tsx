@@ -15,6 +15,7 @@ import SearchMetricsDisplay from './SearchMetricsDisplay';
 import SearchHistoryLog from './SearchHistoryLog';
 import StorageMetrics from '../../../components/ui/StorageMetrics';
 import DocumentViewer from './DocumentViewer';
+import DocChatPanel from './DocChatPanel';
 
 interface Document {
   id: number;
@@ -443,14 +444,18 @@ export default function KnowledgeBaseView() {
       system_prompt:
         "You are **graphindex_chat** — a conversational research assistant for the user's project documents. (Phase 9 / LLM semantic routing)\n\n" +
         "You have 4 native tools (from langconfig's GraphIndex toolset, Phase 9):\n\n" +
-        "  - graphindex_list_docs(project_id)         — list available doc names\n" +
+        "  - graphindex_list_docs(project_id)         — list available doc names (cheap)\n" +
         "  - graphindex_search(query, project_id)     — find the best primary + 0-3 supporting docs\n" +
-        "  - graphindex_load(context_doc_id)          — read a single doc's full text\n" +
+        "  - graphindex_load(context_doc_id)          — read a single doc's full text (no char cap by default)\n" +
         "  - graphindex_multi_doc_load(query, project_id)  — one-shot: route + load primary + supporting\n\n" +
+        "CRITICAL — project_id:\n" +
+        "  - Current project_id is an INTEGER (e.g. 1). ALWAYS pass it as a number, never as a string like \"default\".\n" +
+        "  - graphindex_load and graphindex_search return context_doc_id values you can pass to graphindex_load.\n\n" +
         "Workflow:\n" +
-        "  1. If unsure what docs exist, call graphindex_list_docs first (cheap).\n" +
-        "  2. To answer a question, prefer graphindex_multi_doc_load — it does routing + loading in one call.\n" +
-        "  3. Synthesize the final answer from the loaded context. Cite the document name and page when relevant.\n\n" +
+        "  1. If unsure what docs exist, call graphindex_list_docs(project_id=1) first (cheap).\n" +
+        "  2. To answer a question, prefer graphindex_multi_doc_load(query=<q>, project_id=1) — it does routing + loading in one call.\n" +
+        "  3. For long docs, you can call graphindex_load(context_doc_id) WITHOUT taking the first-turn default cap — the backend now returns the FULL document (up to 10M chars safety cap, effectively no limit for normal docs).\n" +
+        "  4. Synthesize the final answer from the loaded context. Cite the document name and page when relevant.\n\n" +
         "If the user asks something unrelated to the project documents, say so politely.\n" +
         "Don't make up document names — always check the catalog. Output language matches the query.",
       tools: [
@@ -697,7 +702,7 @@ export default function KnowledgeBaseView() {
     <div className="flex-1 flex flex-col overflow-hidden bg-background-light dark:bg-background-dark">
       {/* Header */}
       <div className="bg-white dark:bg-panel-dark border-b border-gray-200 dark:border-border-dark p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--color-text-primary)' }}>
               {t('kb_title')}
@@ -706,10 +711,91 @@ export default function KnowledgeBaseView() {
               {t('kb_title_desc')}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          {/* Right-side: overall knowledge metrics overview */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <MetricPill
+              icon={<FileText className="w-3.5 h-3.5" />}
+              label="Docs"
+              value={totalDocuments}
+              color="#3b82f6"
+            />
+            <MetricPill
+              icon={<Check className="w-3.5 h-3.5" />}
+              label="Indexed"
+              value={`${readyCount}/${totalDocuments}`}
+              color="#f59e0b"
+            />
+            <MetricPill
+              icon={<Database className="w-3.5 h-3.5" />}
+              label="Chunks"
+              value={totalChunks}
+              color="#8b5cf6"
+            />
+            <MetricPill
+              icon={<Filter className="w-3.5 h-3.5" />}
+              label="Storage"
+              value={formatFileSize(totalSize)}
+              color="#10b981"
+            />
+            {/* Upload buttons — moved from right column to title bar
+                to free up vertical space for the chat column. */}
+            <label
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary text-white transition-all text-[11px] font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90 cursor-pointer'}`}
+              title={t('kb_upload_browse')}
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>{t('kb_browse')}</span>
+              <input type="file" multiple accept={SUPPORTED_FILES}
+                onChange={(e) => { handleFileSelect(e.target.files); }}
+                className="hidden" disabled={uploading} />
+            </label>
+            <label
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-600 text-white transition-all text-[11px] font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90 cursor-pointer'}`}
+              title={t('kb_upload_folder')}
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>{t('kb_select_folder')}</span>
+              <input type="file" // @ts-ignore - webkitdirectory is not in TS types
+                webkitdirectory="" directory="" multiple
+                onChange={(e) => { handleFileSelect(e.target.files); }}
+                className="hidden" disabled={uploading} />
+            </label>
+            <button
+              onClick={() => loadDocuments()}
+              className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-all ml-1"
+              style={{ color: 'var(--color-text-primary)' }}
+              title={t('kb_refresh')}
+            >
+              <RefreshCw className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Upload progress — slim banner under the title bar, visible only
+          during uploading/indexing/error phases. Does not steal space from
+          the chat column. */}
+      {uploadProgress.phase !== 'idle' && (
+        <UploadProgressBanner
+          phase={uploadProgress.phase}
+          fileName={uploadProgress.fileName}
+          fileCount={uploadProgress.fileCount}
+          percent={uploadProgress.percent}
+          pendingDocIds={uploadProgress.pendingDocIds}
+          documents={documents}
+          onClear={() => {
+            setUploadProgress({
+              phase: 'idle',
+              fileName: '',
+              fileCount: 0,
+              percent: 0,
+              pendingDocIds: [],
+            });
+            setUploading(false);
+            loadDocuments();
+          }}
+        />
+      )}
 
       <div className="flex-1 overflow-hidden p-4">
         <div className="flex h-full gap-4">
@@ -1112,307 +1198,136 @@ export default function KnowledgeBaseView() {
             </div>
           </div>
 
-          <div className="w-72 flex-shrink-0 overflow-y-auto space-y-3">
-            {/* Upload Zone */}
-            <div
-              className={`border-2 border-dashed rounded-lg p-2.5 transition-all ${isDragging
-                ? 'border-primary bg-primary/5'
-                : uploadProgress.phase !== 'idle'
-                  ? 'border-primary/40 bg-primary/5'
-                  : 'border-gray-300 dark:border-border-dark bg-white dark:bg-panel-dark'
-                }`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              {/* Row 1 — icon + drop hint + buttons. The progress info
-                  moves to its own row below so the buttons always have
-                  room to render on one line. */}
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  {uploadProgress.phase === 'uploading' || uploadProgress.phase === 'indexing' ? (
-                    <Loader className="w-4 h-4 text-primary animate-spin" />
-                  ) : uploadProgress.phase === 'done' ? (
-                    <Check className="w-4 h-4 text-green-600" />
-                  ) : uploadProgress.phase === 'error' ? (
-                    <X className="w-4 h-4 text-red-600" />
-                  ) : (
-                    <Upload className="w-4 h-4 text-primary" />
-                  )}
-                </div>
-                <p
-                  className="flex-1 text-[11px] truncate"
-                  style={{ color: 'var(--color-text-muted)' }}
-                >
-                  {t('kb_upload_drop')}
-                </p>
-                <div className="flex items-center gap-1">
-                  <label className={`flex items-center gap-1 px-2 py-1 bg-primary text-white rounded-lg transition-all text-[10px] font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90 cursor-pointer'}`}>
-                    <Upload className="w-3 h-3" />
-                    <span>{t('kb_browse')}</span>
-                    <input type="file" multiple accept={SUPPORTED_FILES}
-                      onChange={(e) => { handleFileSelect(e.target.files); }}
-                      className="hidden" disabled={uploading} />
-                  </label>
-                  <label className={`flex items-center gap-1 px-2 py-1 bg-purple-600 text-white rounded-lg transition-all text-[10px] font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90 cursor-pointer'}`}>
-                    <Database className="w-3 h-3" />
-                    <span>{t('kb_select_folder')}</span>
-                    <input type="file" // @ts-ignore - webkitdirectory is not in TS types
-                      webkitdirectory="" directory="" multiple
-                      onChange={(e) => { handleFileSelect(e.target.files); }}
-                      className="hidden" disabled={uploading} />
-                  </label>
-                </div>
-              </div>
-              {/* Row 2 — filename + percent + progress bar. Only rendered
-                  when an upload is in progress so the panel stays clean
-                  at rest. */}
-              {uploadProgress.phase !== 'idle' && (
-                <div className="mt-2 pt-2 border-t border-primary/20">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <p
-                      className="text-[11px] font-medium truncate flex-1 min-w-0"
-                      style={{ color: 'var(--color-text-primary)' }}
-                      title={uploadProgress.fileName}
-                    >
-                      {uploadProgress.fileName}
-                    </p>
-                    {uploadProgress.phase === 'uploading' && (
-                      <span className="text-[11px] font-semibold tabular-nums text-primary">
-                        {uploadProgress.percent}%
-                      </span>
-                    )}
-                    {uploadProgress.phase === 'indexing' && uploadProgress.pendingDocIds.length > 0 && (() => {
-                      const readyCount = uploadProgress.pendingDocIds.filter(id => {
-                        const doc = documents.find(d => d.id === id);
-                        return doc && doc.indexing_status === 'ready';
-                      }).length;
-                      const failedCount = uploadProgress.pendingDocIds.filter(id => {
-                        const doc = documents.find(d => d.id === id);
-                        return doc && doc.indexing_status === 'failed';
-                      }).length;
-                      const total = uploadProgress.pendingDocIds.length;
-                      const completed = readyCount + failedCount;
-                      return (
-                        <span className="text-[11px] font-semibold tabular-nums text-blue-600">
-                          {completed}/{total} ready
-                        </span>
-                      );
-                    })()}
-                    {uploadProgress.phase === 'done' && (
-                      <span className="text-[11px] font-semibold text-green-600">✓ done</span>
-                    )}
-                    {uploadProgress.phase === 'error' && (
-                      <span className="text-[11px] font-semibold text-red-600">✗ failed</span>
-                    )}
-                  </div>
-                  {/* Progress bar — real-time during upload, segment-based
-                      during indexing. */}
-                  {uploadProgress.phase === 'uploading' && (
-                    <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary transition-all duration-200 rounded-full"
-                        style={{ width: `${uploadProgress.percent}%` }}
-                      />
-                    </div>
-                  )}
-                  {uploadProgress.phase === 'indexing' && (
-                    <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      {(() => {
-                        const total = uploadProgress.pendingDocIds.length;
-                        if (total === 0) {
-                          return <div className="h-full bg-blue-500 animate-pulse" style={{ width: '60%' }} />;
-                        }
-                        const readyCount = uploadProgress.pendingDocIds.filter(id => {
-                          const doc = documents.find(d => d.id === id);
-                          return doc && doc.indexing_status === 'ready';
-                        }).length;
-                        const failedCount = uploadProgress.pendingDocIds.filter(id => {
-                          const doc = documents.find(d => d.id === id);
-                          return doc && doc.indexing_status === 'failed';
-                        }).length;
-                        const completed = readyCount + failedCount;
-                        const pct = Math.round((completed / total) * 100);
-                        return (
-                          <div
-                            className="h-full bg-blue-500 transition-all duration-300 rounded-full"
-                            style={{ width: `${pct}%` }}
-                          />
-                        );
-                      })()}
-                    </div>
-                  )}
-                  {(uploadProgress.phase === 'done' || uploadProgress.phase === 'error') && (
-                    <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${uploadProgress.phase === 'done' ? 'bg-green-500' : 'bg-red-500'}`}
-                        style={{ width: '100%' }}
-                      />
-                    </div>
-                  )}
-                  {/* Helper line */}
-                  <div className="flex items-center justify-between mt-1">
-                    <p className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
-                      {uploadProgress.phase === 'uploading' && `${uploadProgress.fileCount} file(s) — keep this tab open`}
-                      {uploadProgress.phase === 'indexing' && 'Indexing in background — you can keep working'}
-                      {uploadProgress.phase === 'done' && 'Ready in sidebar'}
-                      {uploadProgress.phase === 'error' && 'Click below to retry'}
-                    </p>
-                    {(uploadProgress.phase === 'uploading' || uploadProgress.phase === 'indexing') && (
-                      <button
-                        onClick={() => {
-                          setUploadProgress({
-                            phase: 'idle',
-                            fileName: '',
-                            fileCount: 0,
-                            percent: 0,
-                            pendingDocIds: [],
-                          });
-                          setUploading(false);
-                          loadDocuments();
-                        }}
-                        className="text-[9px] underline hover:opacity-70"
-                        style={{ color: 'var(--color-text-muted)' }}
-                        title="If the upload appears stuck, click to clear and refresh"
-                      >
-                        clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Phase 9 / Step L1 — one-click import of the `graphindex_chat`
-                agent template into the langconfig DeepAgent library.
-                Once imported, the user can edit it like any other agent
-                (swap model, change prompt, add subagents) or use it
-                directly in the chat panel. */}
-            <div
-              className="rounded-lg p-2.5 border border-purple-200 dark:border-purple-800/40"
-              style={{
-                backgroundColor: 'var(--color-panel-light)',
-                backgroundImage: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05), rgba(99, 102, 241, 0.05))',
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(168, 85, 247, 0.12)' }}>
-                  <Sparkles className="w-4 h-4" style={{ color: '#a855f7' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                    {t('kb_graphindex_chat_title', 'graphindex_chat (Phase 9)')}
-                  </p>
-                  <p className="text-[10px] truncate" style={{ color: 'var(--color-text-muted)' }}>
-                    {t('kb_graphindex_chat_desc', 'LLM-semantic-routed chat with 4 GraphIndex tools. Click to add to agent builder.')}
-                  </p>
-                </div>
-                <button
-                  onClick={handleImportGraphindexChat}
-                  disabled={importingGraphindexChat}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all text-[10px] font-medium disabled:opacity-50"
-                  style={{
-                    backgroundColor: importedGraphindexChatId ? 'rgba(34, 197, 94, 0.15)' : 'rgba(168, 85, 247, 0.15)',
-                    color: importedGraphindexChatId ? '#16a34a' : '#a855f7',
-                  }}
-                  title={
-                    importedGraphindexChatId
-                      ? `Imported (id=${importedGraphindexChatId}) — open Agent Builder to edit`
-                      : 'Import the graphindex_chat agent template into your DeepAgent library'
-                  }
-                >
-                  {importingGraphindexChat ? (
-                    <Loader className="w-3 h-3 animate-spin" />
-                  ) : importedGraphindexChatId ? (
-                    <Check className="w-3 h-3" />
-                  ) : (
-                    <Sparkles className="w-3 h-3" />
-                  )}
-                  <span>
-                    {importingGraphindexChat
-                      ? t('kb_importing', 'Importing…')
-                      : importedGraphindexChatId
-                        ? t('kb_imported', 'In library')
-                        : t('kb_use_in_builder', 'Use in agent builder')}
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-2.5">
-              <div className="flex items-center gap-3 text-[10px]">
-                <div className="flex items-center gap-1">
-                  <FileText className="w-2.5 h-2.5" style={{ color: 'var(--color-primary)' }} />
-                  <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_documents')}:</span>
-                  <span className="font-semibold text-[11px]" style={{ color: 'var(--color-text-primary)' }}>{totalDocuments}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Filter className="w-2.5 h-2.5" style={{ color: 'var(--color-text-muted)' }} />
-                  <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_indexed')}:</span>
-                  <span className="font-semibold text-[11px]" style={{ color: 'var(--color-text-primary)' }}>{readyCount}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Database className="w-2.5 h-2.5" style={{ color: 'var(--color-text-muted)' }} />
-                  <span style={{ color: 'var(--color-text-muted)' }}>{t('kb_total_chunks')}:</span>
-                  <span className="font-semibold text-[11px]" style={{ color: 'var(--color-text-primary)' }}>{totalChunks}</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-100 dark:border-border-dark">
-                <div className="flex items-center gap-1 text-[10px]">
-                  <Database className="w-2.5 h-2.5" style={{ color: 'var(--color-text-muted)' }} />
-                  <span style={{ color: 'var(--color-text-muted)' }}>Storage:</span>
-                  <span className="font-semibold text-[11px]" style={{ color: 'var(--color-text-primary)' }}>{formatFileSize(totalSize)}</span>
-                </div>
-                <button onClick={() => loadDocuments()} className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-[10px]" style={{ color: 'var(--color-text-primary)' }}>
-                  <RefreshCw className="w-2.5 h-2.5" style={{ color: 'var(--color-primary)' }} />
-                  {t('kb_refresh')}
-                </button>
-              </div>
-            </div>
-
-            {activeProjectId && (
-              <StorageMetrics
-                projectId={activeProjectId}
-                onRefresh={loadDocuments}
-                compact
-                labels={{
-                  storageMetrics: t('kb_storage_metrics'),
-                  totalStorage: t('kb_total_storage'),
-                  indexedChunks: t('kb_indexed_chunks'),
-                  status: t('kb_status'),
-                  storageBreakdown: t('kb_storage_breakdown'),
-                  data: t('kb_data'),
-                  index: t('kb_label_index'),
-                  chunkSize: t('kb_chunk_size'),
-                  overlap: t('kb_overlap'),
-                  embedding: t('kb_embedding'),
-                  refresh: t('kb_refresh'),
-                  loading: t('kb_loading'),
-                  noData: t('kb_no_data'),
-                  noDataDesc: t('kb_no_data_desc'),
-                }}
-              />
-            )}
-
-            {showSearchResults && searchMetrics && (
-              <SearchMetricsDisplay
-                metrics={searchMetrics}
-                comparisonMetrics={comparisonMetrics || undefined}
-              />
-            )}
-
-            {showSearchResults && activeProjectId && (
-              <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3">
-                <SearchHistoryLog
-                  projectId={activeProjectId}
-                  onRerun={handleRerunFromHistory}
-                />
-              </div>
-            )}
+          {/* Right column: chat panel powered by graphindex_chat agent */}
+          <div className="w-[28rem] flex-shrink-0 overflow-hidden flex flex-col">
+            <DocChatPanel projectId={activeProjectId} />
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Compact metric pill used in the title-bar overview.
+ * Shows: [icon] [label] [value] with a color-coded accent.
+ */
+function MetricPill({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number | string;
+  color: string;
+}) {
+  return (
+    <div
+      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-white dark:bg-panel-dark"
+      style={{ borderColor: 'var(--color-border-dark, #e5e7eb)' }}
+      title={`${label}: ${value}`}
+    >
+      <span style={{ color }}>{icon}</span>
+      <div className="flex flex-col leading-tight">
+        <span className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+          {label}
+        </span>
+        <span className="text-[12px] font-semibold tabular-nums" style={{ color: 'var(--color-text-primary)' }}>
+          {value}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Slim upload-progress banner shown under the title bar. Designed to
+ * take minimal vertical space (single line + thin progress bar) so the
+ * chat column gets the full height of the panel.
+ */
+function UploadProgressBanner({
+  phase,
+  fileName,
+  fileCount,
+  percent,
+  pendingDocIds,
+  documents,
+  onClear,
+}: {
+  phase: 'idle' | 'uploading' | 'indexing' | 'done' | 'error';
+  fileName: string;
+  fileCount: number;
+  percent: number;
+  pendingDocIds: number[];
+  documents: Array<{ id: number; indexing_status?: string }>;
+  onClear: () => void;
+}) {
+  const readyCount = pendingDocIds.filter(id => {
+    const doc = documents.find(d => d.id === id);
+    return doc && doc.indexing_status === 'ready';
+  }).length;
+  const failedCount = pendingDocIds.filter(id => {
+    const doc = documents.find(d => d.id === id);
+    return doc && doc.indexing_status === 'failed';
+  }).length;
+  const total = pendingDocIds.length;
+  const completed = readyCount + failedCount;
+  const segmentPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  let barColor = 'bg-primary';
+  let iconColor = 'text-primary';
+  if (phase === 'indexing') {
+    barColor = 'bg-blue-500';
+    iconColor = 'text-blue-500';
+  } else if (phase === 'done') {
+    barColor = 'bg-green-500';
+    iconColor = 'text-green-500';
+  } else if (phase === 'error') {
+    barColor = 'bg-red-500';
+    iconColor = 'text-red-500';
+  }
+
+  return (
+    <div
+      className="flex items-center gap-3 px-6 py-2 border-b border-gray-200 dark:border-border-dark"
+      style={{
+        backgroundColor:
+          phase === 'error' ? 'rgba(239, 68, 68, 0.04)'
+          : phase === 'done' ? 'rgba(34, 197, 94, 0.04)'
+          : 'rgba(59, 130, 246, 0.04)',
+      }}
+    >
+      <Loader className={`w-3.5 h-3.5 ${iconColor} ${phase === 'uploading' || phase === 'indexing' ? 'animate-spin' : ''}`} />
+      <p className="text-[11px] truncate flex-1 min-w-0" style={{ color: 'var(--color-text-primary)' }}>
+        {fileName}
+      </p>
+      <span className="text-[10px] font-semibold tabular-nums" style={{ color: 'var(--color-text-muted)' }}>
+        {phase === 'uploading' && `${percent}%`}
+        {phase === 'indexing' && (total > 0 ? `${completed}/${total} ready` : 'indexing…')}
+        {phase === 'done' && '✓ done'}
+        {phase === 'error' && '✗ failed'}
+      </span>
+      <div className="w-32 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex-shrink-0">
+        <div
+          className={`h-full ${barColor} transition-all duration-200 rounded-full`}
+          style={{
+            width:
+              phase === 'uploading' ? `${percent}%`
+              : phase === 'indexing' && total > 0 ? `${segmentPct}%`
+              : '100%',
+          }}
+        />
+      </div>
+      <button
+        onClick={onClear}
+        className="text-[10px] underline hover:opacity-70"
+        style={{ color: 'var(--color-text-muted)' }}
+        title="Clear the progress banner"
+      >
+        clear
+      </button>
     </div>
   );
 }
