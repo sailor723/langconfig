@@ -87,6 +87,10 @@ class SearchRequest(BaseModel):
     top_k: int = 5
     use_hyde: bool = False
     search_mode: str = "vector"  # "vector" (embedding RAG) or "graphindex" (vectorless progressive disclosure)
+    # Optional list of ContextDocument ids to scope the search to. When
+    # provided (and non-empty), only chunks belonging to these docs are
+    # considered. Used by the Knowledge panel sidebar's per-doc checkboxes.
+    document_ids: Optional[List[int]] = None
 
 
 class SearchResult(BaseModel):
@@ -534,6 +538,34 @@ def _try_sync_context_document_to_neo4j(context_doc: ContextDocument, client) ->
         return
 
 
+SUPPORTED_GRAPHINDEX_EXTS: set[str] = {
+    ".pdf", ".txt", ".md", ".html", ".csv", ".json",
+    ".xml", ".yaml", ".yml", ".py", ".js", ".ts",
+    ".java", ".cpp", ".hpp", ".c", ".h", ".rb", ".go",
+    ".rs", ".swift", ".kt", ".scala",
+}
+
+
+def _is_graphindexable(filename: str) -> bool:
+    """Check if a filename has a graphindexable extension."""
+    ext = Path(filename).suffix.lower()
+    return ext in SUPPORTED_GRAPHINDEX_EXTS
+
+
+def _queue_graphindex_ingest(file_path: str) -> None:
+    """Run cmd_ingest on the uploaded file to create a Neo4j Document node.
+
+    This is called as a background task after a file has been uploaded and
+    saved to disk. It runs the same Phase 9 ingestion pipeline as the CLI:
+    hash → dedup (FS + Neo4j) → copy → LLM enrichment → upsert to Neo4j.
+    """
+    try:
+        from graphindex_build_python import cmd_ingest
+        cmd_ingest(file_path)
+    except Exception as e:
+        logger.error(f"graphindex ingest failed for {file_path}: {e}")
+
+
 async def index_document_background(document_id: int):
     """Background task to index a document for both vector RAG and GraphIndex."""
     from db.database import SessionLocal
@@ -759,6 +791,13 @@ async def upload_document(
 
     # Queue document for embedding generation and indexing
     background_tasks.add_task(index_document_background, doc.id)
+    # NEW: also queue a graphindex ingest so the doc shows up in Neo4j
+    # (used by the Knowledge panel's progressive-disclosure search and
+    # by the /api/rag/documents/{id}/file endpoint that resolves
+    # file_path from Neo4j). Skip for non-graphindexable types
+    # (images, archives) to avoid wasted LLM calls.
+    if _is_graphindexable(file.filename):
+        background_tasks.add_task(_queue_graphindex_ingest, str(file_path))
 
     return DocumentUploadResponse(
         id=doc.id,
@@ -866,6 +905,11 @@ async def _process_single_file_for_bulk(
 
     # Queue for indexing
     background_tasks.add_task(index_document_background, doc.id)
+    # NEW: also queue a graphindex ingest (Neo4j) so the doc shows up
+    # in the Knowledge panel's progressive-disclosure search. Skips
+    # non-graphindexable types (images, archives).
+    if _is_graphindexable(file.filename):
+        background_tasks.add_task(_queue_graphindex_ingest, str(file_path))
 
     return DocumentUploadResponse(
         id=doc.id,
@@ -1064,18 +1108,38 @@ async def get_document_file(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # 2. Neo4j — get the canonical file_path by (project_id, name)
-    from services.neo4j_document_index import Neo4jDocumentIndex
-    neo = Neo4jDocumentIndex()
-    neo_doc = neo.get_document(project_id=doc.project_id, name=doc.original_filename or doc.filename)
-    if not neo_doc or not neo_doc.file_path:
+    # 2. Resolve canonical file_path. Prefer Neo4j (authoritative source for
+    #    the on-disk path) but fall back to Postgres.file_path if Neo4j
+    #    doesn't have the doc yet. Previously we returned 404 in this case,
+    #    which pdfjs-dist 6.x mis-reports as "Unexpected server response
+    #    (406)" because the response body is JSON, not the expected PDF
+    #    binary. Falling back keeps the viewer functional even before the
+    #    graphindex ingest has completed.
+    file_path_str: Optional[str] = None
+    try:
+        from services.neo4j_document_index import Neo4jDocumentIndex
+        neo = Neo4jDocumentIndex()
+        neo_doc = neo.get_document(
+            project_id=doc.project_id,
+            name=doc.original_filename or doc.filename,
+        )
+        if neo_doc and neo_doc.file_path:
+            file_path_str = neo_doc.file_path
+    except Exception:
+        # Neo4j unavailable — fall back silently to Postgres
+        file_path_str = None
+
+    if not file_path_str:
+        file_path_str = doc.file_path
+
+    if not file_path_str:
         raise HTTPException(
             status_code=404,
-            detail=f"Document not indexed in GraphIndex (Neo4j). "
-                   f"Ingest it via the Studio or run cmd_ingest in phase9.",
+            detail=f"Document has no resolvable file_path "
+                   f"(Postgres + Neo4j both empty).",
         )
 
-    file_path = Path(neo_doc.file_path)
+    file_path = Path(file_path_str)
     if not file_path.exists():
         raise HTTPException(
             status_code=404,
@@ -1091,6 +1155,250 @@ async def get_document_file(
         filename=doc.original_filename or doc.filename,
         content_disposition_type="inline",
     )
+
+
+class DocumentContentResponse(BaseModel):
+    """Extracted text content for inline rendering in the Knowledge panel.
+
+    Used by the frontend's DocumentViewer to render MD / TXT / JSON / YAML /
+    CSV / DOCX / PPTX / XLSX inline instead of triggering a download.
+
+    The `kind` field tells the frontend which renderer to use:
+      - 'markdown'    — render with a Markdown component
+      - 'csv'         — render as a table (rows is list of list of strings)
+      - 'html'        — render raw HTML (sanitization done client-side)
+      - 'code'        — render in a <pre><code> with syntax highlighting
+      - 'plain'       — render in a <pre> with no formatting
+    """
+    kind: str
+    content: str
+    rows: Optional[List[List[str]]] = None
+    sheet_names: Optional[List[str]] = None
+    sheet_rows: Optional[List[List[List[str]]]] = None  # rows per sheet
+    truncated: bool = False
+
+
+def _extract_text_for_viewer(file_path: Path, ext: str, max_chars: int = 500_000) -> DocumentContentResponse:
+    """Extract the text/markdown/csv/structured content for inline viewing.
+
+    Mirrors the extraction logic in `_load_full_content_for_kv` so the
+    Knowledge panel viewer shows the same content that search/answer uses.
+    """
+    ext = ext.lower()
+
+    # Markdown
+    if ext == ".md" or ext == ".markdown":
+        text = file_path.read_text(encoding="utf-8", errors="ignore")
+        truncated = len(text) > max_chars
+        return DocumentContentResponse(
+            kind="markdown",
+            content=text[:max_chars],
+            truncated=truncated,
+        )
+
+    # CSV — render as a 2D table
+    if ext == ".csv":
+        import csv as _csv
+        rows: List[List[str]] = []
+        with file_path.open("r", encoding="utf-8", errors="ignore", newline="") as f:
+            reader = _csv.reader(f)
+            for i, row in enumerate(reader):
+                if i >= 5000:  # cap rows to keep payload reasonable
+                    break
+                rows.append(row)
+        return DocumentContentResponse(
+            kind="csv",
+            content="",
+            rows=rows,
+            truncated=len(rows) >= 5000,
+        )
+
+    # HTML — wrap in a sandboxed iframe on the client
+    if ext in (".html", ".htm"):
+        text = file_path.read_text(encoding="utf-8", errors="ignore")
+        truncated = len(text) > max_chars
+        return DocumentContentResponse(
+            kind="html",
+            content=text[:max_chars],
+            truncated=truncated,
+        )
+
+    # JSON
+    if ext == ".json":
+        try:
+            import json as _json
+            data = _json.loads(file_path.read_text(encoding="utf-8", errors="ignore"))
+            formatted = _json.dumps(data, indent=2, ensure_ascii=False)
+        except Exception:
+            formatted = file_path.read_text(encoding="utf-8", errors="ignore")
+        truncated = len(formatted) > max_chars
+        return DocumentContentResponse(
+            kind="code",
+            content=formatted[:max_chars],
+            truncated=truncated,
+        )
+
+    # YAML — treat as plain code (no parser dependency)
+    if ext in (".yaml", ".yml"):
+        text = file_path.read_text(encoding="utf-8", errors="ignore")
+        truncated = len(text) > max_chars
+        return DocumentContentResponse(
+            kind="code",
+            content=text[:max_chars],
+            truncated=truncated,
+        )
+
+    # DOCX (Word)
+    if ext == ".docx":
+        try:
+            from docx import Document as DocxDocument
+            doc = DocxDocument(str(file_path))
+            parts: list[str] = []
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    parts.append(para.text)
+            # Also pull table cells
+            for table in doc.tables:
+                for row in table.rows:
+                    cells = [c.text.strip() for c in row.cells]
+                    parts.append(" | ".join(cells))
+            text = "\n\n".join(parts)
+        except Exception as e:
+            logger.warning(f"docx parse failed for {file_path}: {e}")
+            text = f"[Failed to parse .docx: {e}]"
+        truncated = len(text) > max_chars
+        return DocumentContentResponse(
+            kind="markdown",
+            content=text[:max_chars],
+            truncated=truncated,
+        )
+
+    # PPTX (PowerPoint)
+    if ext == ".pptx":
+        try:
+            from pptx import Presentation
+            prs = Presentation(str(file_path))
+            parts: list[str] = []
+            for slide_idx, slide in enumerate(prs.slides, start=1):
+                parts.append(f"## Slide {slide_idx}")
+                for shape in slide.shapes:
+                    if shape.has_text_frame:
+                        for para in shape.text_frame.paragraphs:
+                            text = "".join(run.text for run in para.runs).strip()
+                            if text:
+                                parts.append(text)
+                parts.append("")
+            text = "\n\n".join(parts).strip()
+        except Exception as e:
+            logger.warning(f"pptx parse failed for {file_path}: {e}")
+            text = f"[Failed to parse .pptx: {e}]"
+        truncated = len(text) > max_chars
+        return DocumentContentResponse(
+            kind="markdown",
+            content=text[:max_chars],
+            truncated=truncated,
+        )
+
+    # XLSX (Excel) — return all sheets as rows
+    if ext == ".xlsx":
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(str(file_path), data_only=True, read_only=True)
+            sheet_names = wb.sheetnames
+            all_rows: list[list[list[str]]] = []
+            for sheet_name in sheet_names:
+                ws = wb[sheet_name]
+                rows: list[list[str]] = []
+                for i, row in enumerate(ws.iter_rows(values_only=True)):
+                    if i >= 5000:
+                        break
+                    rows.append(["" if v is None else str(v) for v in row])
+                all_rows.append(rows)
+            # Also build a flat markdown view of the first sheet
+            text = ""
+            if sheet_names:
+                text = f"# {sheet_names[0]}\n\n"
+                if all_rows and all_rows[0]:
+                    header = all_rows[0][0]
+                    text += "| " + " | ".join(header) + " |\n"
+                    text += "| " + " | ".join(["---"] * len(header)) + " |\n"
+                    for row in all_rows[0][1:50]:
+                        text += "| " + " | ".join(row) + " |\n"
+            return DocumentContentResponse(
+                kind="csv",  # frontend uses 'csv' to render as a table; sheet_names makes it multi-sheet
+                content=text,
+                rows=all_rows[0] if all_rows else [],
+                sheet_names=sheet_names,
+                sheet_rows=all_rows,
+                truncated=any(len(r) >= 5000 for r in all_rows),
+            )
+        except Exception as e:
+            logger.warning(f"xlsx parse failed for {file_path}: {e}")
+            return DocumentContentResponse(
+                kind="plain",
+                content=f"[Failed to parse .xlsx: {e}]",
+                truncated=False,
+            )
+
+    # Plain text + code files
+    if ext in (".txt", ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".cpp",
+               ".c", ".h", ".hpp", ".rb", ".go", ".rs", ".swift", ".kt",
+               ".scala", ".sh", ".bash", ".sql", ".xml", ".log"):
+        text = file_path.read_text(encoding="utf-8", errors="ignore")
+        truncated = len(text) > max_chars
+        return DocumentContentResponse(
+            kind="code",
+            content=text[:max_chars],
+            truncated=truncated,
+        )
+
+    # Fallback — try to decode as UTF-8 text, else surface a hint
+    try:
+        text = file_path.read_text(encoding="utf-8")
+        return DocumentContentResponse(kind="plain", content=text, truncated=False)
+    except Exception:
+        return DocumentContentResponse(
+            kind="plain",
+            content=f"[Binary file: {file_path.name} — open in new tab to download]",
+            truncated=False,
+        )
+
+
+@router.get("/documents/{document_id}/content", response_model=DocumentContentResponse)
+async def get_document_content(
+    document_id: int,
+    db: Session = Depends(get_db)
+):
+    """Return extracted text/structured content for inline rendering.
+
+    Supports MD, TXT, JSON, YAML, CSV, HTML, XML, code files (kind='code'),
+    DOCX, PPTX (kind='markdown'), XLSX (kind='csv' with multiple sheets).
+
+    Resolves `file_path` from Neo4j (same as /file endpoint) so the file
+    on disk is the one we read from.
+    """
+    doc = db.query(ContextDocument).filter(ContextDocument.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Resolve canonical file_path from Neo4j (same logic as /file)
+    try:
+        from services.neo4j_document_index import Neo4jDocumentIndex
+        neo = Neo4jDocumentIndex()
+        neo_doc = neo.get_document(project_id=doc.project_id, name=doc.original_filename or doc.filename)
+        file_path_str = neo_doc.file_path if neo_doc and neo_doc.file_path else doc.file_path
+    except Exception:
+        file_path_str = doc.file_path
+
+    if not file_path_str:
+        raise HTTPException(status_code=404, detail="Document has no file_path")
+
+    file_path = Path(file_path_str)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"File not found on disk: {file_path}")
+
+    ext = file_path.suffix.lower()
+    return _extract_text_for_viewer(file_path, ext)
 
 
 @router.delete("/documents/{document_id}", status_code=204)
@@ -1289,7 +1597,8 @@ async def search_documents(
         search_result = await search_context_documents(
             query=request.query,
             project_id=request.project_id,
-            top_k=request.top_k
+            top_k=request.top_k,
+            document_ids=request.document_ids,
         )
         
         # END TIMING MEASUREMENT

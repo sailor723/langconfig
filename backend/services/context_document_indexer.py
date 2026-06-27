@@ -52,13 +52,18 @@ logger = logging.getLogger(__name__)
 CONTEXT_DOCS_TABLE_NAME = "context_documents_embeddings"
 
 
-async def search_context_documents(query: str, project_id: Optional[int] = None, top_k: int = 5) -> Dict[str, Any]:
+async def search_context_documents(query: str, project_id: Optional[int] = None, top_k: int = 5, document_ids: Optional[List[int]] = None) -> Dict[str, Any]:
     """
     Search uploaded context documents using semantic similarity.
 
     Args:
         query: Search query
+        project_id: Restrict to a single project (None = all)
         top_k: Number of top results to return
+        document_ids: Optional whitelist of ContextDocument ids. When
+            provided (non-empty), only chunks whose `document_id`
+            metadata is in this list are returned. Used by the
+            Knowledge panel sidebar's per-doc checkboxes.
 
     Returns:
         Dictionary with search results and metadata
@@ -95,23 +100,36 @@ async def search_context_documents(query: str, project_id: Optional[int] = None,
         # Create index and retriever
         index = VectorStoreIndex.from_vector_store(vector_store)
         
-        # Add project filter if needed
-        if project_id:
-            from llama_index.core.vector_stores import MetadataFilter, MetadataFilters
-            filters = MetadataFilters(
-                filters=[
-                    MetadataFilter(key="project_id", value=project_id)
-                ]
+        # Add project + document-id filters if needed
+        from llama_index.core.vector_stores import MetadataFilter, MetadataFilters, FilterCondition
+        meta_filters: list = []
+        if project_id is not None:
+            meta_filters.append(MetadataFilter(key="project_id", value=project_id))
+        if document_ids:
+            # Whitelist: only chunks whose document_id is in this list.
+            # We use FilterOperator.IN when available; otherwise we emit
+            # one OR-clause per id (PGVectorStore supports `in` on
+            # metadata values via `MetadataFilter(key, value, operator="in")`
+            # in llama-index ≥ 0.10).
+            meta_filters.append(
+                MetadataFilter(
+                    key="document_id",
+                    value=document_ids,
+                    operator="in",
+                )
             )
+
+        if meta_filters:
+            filters = MetadataFilters(filters=meta_filters)
             retriever = VectorIndexRetriever(
                 index=index,
                 similarity_top_k=top_k,
-                filters=filters
+                filters=filters,
             )
         else:
             retriever = VectorIndexRetriever(
                 index=index,
-                similarity_top_k=top_k
+                similarity_top_k=top_k,
             )
 
         # Perform search

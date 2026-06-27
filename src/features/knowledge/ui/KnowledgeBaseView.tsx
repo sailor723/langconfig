@@ -7,13 +7,14 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Upload, FileText, Trash2, Search, Database, Filter, Loader, RefreshCw, Sparkles, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, FileText, Trash2, Search, Database, Filter, Loader, RefreshCw, Sparkles, Check, ChevronDown, ChevronUp, X } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 import { useProject } from "../../../contexts/ProjectContext";
+import { useToast } from '../../../hooks/useToast';
 import SearchMetricsDisplay from './SearchMetricsDisplay';
 import SearchHistoryLog from './SearchHistoryLog';
 import StorageMetrics from '../../../components/ui/StorageMetrics';
-import TwoPagePdfViewer from './TwoPagePdfViewer';
+import DocumentViewer from './DocumentViewer';
 
 interface Document {
   id: number;
@@ -102,15 +103,25 @@ export default function KnowledgeBaseView() {
     total_chars: number;
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
-  const [uploadName, setUploadName] = useState('');
-  const [uploadDescription, setUploadDescription] = useState('');
-  const [uploadTags, setUploadTags] = useState('');
-  const [extractArchives, setExtractArchives] = useState(true);
-  const [isFolderUpload, setIsFolderUpload] = useState(false);
+  // Upload progress state — drives the progress bar in the upload zone
+  // and (after completion) the background-indexing indicator that
+  // auto-clears once all uploaded docs reach `ready` status.
+  const [uploadProgress, setUploadProgress] = useState<{
+    phase: 'idle' | 'uploading' | 'indexing' | 'done' | 'error';
+    fileName: string;
+    fileCount: number;
+    percent: number; // 0-100, only meaningful in 'uploading' phase
+    pendingDocIds: number[]; // doc ids still in 'not_indexed' / 'indexing'
+  }>({
+    phase: 'idle',
+    fileName: '',
+    fileCount: 0,
+    percent: 0,
+    pendingDocIds: [],
+  });
 
   const { activeProjectId } = useProject();
+  const { showToast } = useToast();
   // Expanded file type support - includes code files, documents, images, and archives
   const SUPPORTED_FILES = '.txt,.md,.pdf,.json,.py,.js,.ts,.tsx,.jsx,.java,.c,.cpp,.h,.hpp,.cs,.rb,.go,.rs,.php,.swift,.kt,.scala,.r,.sql,.sh,.bash,.doc,.docx,.html,.htm,.xml,.csv,.yaml,.yml,.zip,.tar,.gz,.tgz,.rar,.7z,.rtf,.odt,.epub,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.bmp,.tiff,.webp';
 
@@ -207,74 +218,204 @@ export default function KnowledgeBaseView() {
     });
   };
 
-  const handleFileSelect = (files: FileList | null) => {
+  const handleFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     if (!activeProjectId) {
       alert('Please select a project first');
       return;
     }
-    setUploadFiles(files);
-    // Set default name from first file if only one file
-    if (files.length === 1) {
-      setUploadName(files[0].name);
-    } else {
-      setUploadName('');
-    }
-    setShowUploadModal(true);
-  };
-
-  const handleFileUpload = async () => {
-    if (!uploadFiles || !activeProjectId) return;
 
     setUploading(true);
-    setShowUploadModal(false);
+
+    const fileArray = Array.from(files);
+    const label =
+      files.length === 1 ? files[0].name : `${files.length} files`;
+
+    // Phase 1 — uploading (with real progress from axios)
+    setUploadProgress({
+      phase: 'uploading',
+      fileName: label,
+      fileCount: files.length,
+      percent: 0,
+      pendingDocIds: [],
+    });
+
     try {
-      const fileArray = Array.from(uploadFiles);
+      const extractArchives = true;
       const hasArchives = fileArray.some(f => {
         const ext = f.name.split('.').pop()?.toLowerCase();
         return ['zip', 'tar', 'gz', 'tgz', 'rar', '7z'].includes(ext || '');
       });
 
-      // Use bulk upload if multiple files or archives with extraction enabled
-      if (fileArray.length > 1 || (hasArchives && extractArchives)) {
-        const metadata: any = {};
-        if (uploadName) metadata.name = uploadName;
-        if (uploadDescription) metadata.description = uploadDescription;
-        if (uploadTags) metadata.tags = uploadTags.split(',').map(t => t.trim());
+      const onProgress = (pct: number) => {
+        setUploadProgress((cur) =>
+          cur.phase === 'uploading' ? { ...cur, percent: pct } : cur
+        );
+      };
 
+      // Use bulk upload if multiple files or archives with extraction enabled
+      if (fileArray.length > 1 || hasArchives) {
         await apiClient.uploadDocumentsBulk(
           activeProjectId,
           fileArray,
           extractArchives,
-          Object.keys(metadata).length > 0 ? metadata : undefined
+          undefined,
+          onProgress
         );
       } else {
         // Single file upload
-        for (let i = 0; i < uploadFiles.length; i++) {
-          const file = uploadFiles[i];
-          const metadata: any = {};
-          if (uploadName) metadata.name = uploadName;
-          if (uploadDescription) metadata.description = uploadDescription;
-          if (uploadTags) metadata.tags = uploadTags.split(',').map(t => t.trim());
-          await apiClient.uploadDocument(activeProjectId, file, Object.keys(metadata).length > 0 ? metadata : undefined);
-        }
+        await apiClient.uploadDocument(activeProjectId, files[0], undefined, onProgress);
       }
 
+      // Phase 2 — server saved files, refresh list to get new doc ids,
+      // then switch to 'indexing' phase (background tasks running).
+      // We fetch the doc list directly (instead of relying on the stale
+      // `documents` closure variable) so we can capture the actual new
+      // doc ids immediately.
+      setUploadProgress((cur) => ({
+        ...cur,
+        phase: 'indexing',
+        percent: 100,
+        fileName: 'Saved. Indexing in background…',
+      }));
       setSelectedStatus('all');
-      await loadDocuments(undefined, 'all');
-      setUploadName('');
-      setUploadDescription('');
-      setUploadTags('');
-      setUploadFiles(null);
-      setExtractArchives(true);
-      setIsFolderUpload(false);
-    } catch (error) {
+
+      // Fetch the fresh doc list right now (bypass the cache)
+      let newDocs: Document[] = [];
+      try {
+        const fresh = await apiClient.listDocuments({
+          project_id: activeProjectId,
+        });
+        const uploadedNames = new Set(fileArray.map((f) => f.name));
+        newDocs = (fresh.data as Document[]).filter((d) => uploadedNames.has(d.name));
+        // Also update the sidebar state
+        setDocuments(fresh.data);
+      } catch (e) {
+        console.warn('Could not refresh doc list after upload:', e);
+      }
+
+      const newDocIds = newDocs.map((d) => d.id);
+
+      setUploadProgress((cur) => ({
+        ...cur,
+        fileName:
+          newDocIds.length === 0
+            ? 'Indexing in background…'
+            : `Indexing ${newDocIds.length} doc(s)…`,
+        pendingDocIds: newDocIds,
+      }));
+
+      // Auto-select the first newly uploaded doc so the user sees it
+      if (newDocs.length > 0) {
+        setSelectedDocId(newDocs[0].id);
+      }
+
+      // Toast on upload-completion (the indexing phase continues in
+      // background; the progress card stays until all are 'ready').
+      showToast(
+        files.length === 1
+          ? `Uploaded "${files[0].name}"`
+          : `Uploaded ${files.length} files`,
+        'success',
+        3000
+      );
+
+      // Once all pending docs reach 'ready' (or one fails), clear the
+      // progress card. The polling effect below will detect this.
+    } catch (error: any) {
       console.error('Failed to upload files:', error);
-      alert('Failed to upload some files. Check console for details.');
+      setUploadProgress((cur) => ({ ...cur, phase: 'error' }));
+      showToast(
+        error?.response?.data?.detail
+          ? `Upload failed: ${error.response.data.detail}`
+          : 'Upload failed',
+        'error',
+        5000
+      );
+      setTimeout(() => {
+        setUploadProgress({
+          phase: 'idle',
+          fileName: '',
+          fileCount: 0,
+          percent: 0,
+          pendingDocIds: [],
+        });
+      }, 5000);
     } finally {
       setUploading(false);
     }
   };
+
+  // Watch the documents list and clear the progress card once all
+  // pending uploads have finished indexing (or one fails). This pairs
+  // with the polling effect above.
+  useEffect(() => {
+    if (uploadProgress.phase !== 'indexing') return;
+    if (uploadProgress.pendingDocIds.length === 0) return;
+
+    const stillPending = uploadProgress.pendingDocIds.filter((id) => {
+      const doc = documents.find((d) => d.id === id);
+      return doc && doc.indexing_status !== 'ready' && doc.indexing_status !== 'failed';
+    });
+    const failed = uploadProgress.pendingDocIds.filter((id) => {
+      const doc = documents.find((d) => d.id === id);
+      return doc && doc.indexing_status === 'failed';
+    });
+
+    if (stillPending.length === 0) {
+      const failedCount = failed.length;
+      const successCount = uploadProgress.pendingDocIds.length - failedCount;
+      setUploadProgress((cur) => ({
+        ...cur,
+        phase: 'done',
+        fileName:
+          failedCount === 0
+            ? `✓ ${successCount} doc(s) ready`
+            : `${successCount} ready, ${failedCount} failed`,
+      }));
+      if (failedCount > 0) {
+        showToast(`${failedCount} doc(s) failed to index`, 'error', 5000);
+      } else {
+        showToast(`All ${successCount} doc(s) indexed and ready`, 'success', 3000);
+      }
+      setTimeout(() => {
+        setUploadProgress({
+          phase: 'idle',
+          fileName: '',
+          fileCount: 0,
+          percent: 0,
+          pendingDocIds: [],
+        });
+      }, 4000);
+    }
+  }, [documents, uploadProgress.phase, uploadProgress.pendingDocIds, showToast]);
+
+  // Failsafe: if the upload phase is still going after 60s, force-clear
+  // and re-fetch the doc list. This handles edge cases where:
+  //   - the network dropped after the server already saved the file
+  //   - the backend hung and never responded
+  //   - the watcher missed a state transition
+  useEffect(() => {
+    if (uploadProgress.phase !== 'uploading') return;
+    const t = setTimeout(() => {
+      console.warn('Upload phase exceeded 60s, force-clearing progress UI');
+      setUploadProgress((cur) =>
+        cur.phase === 'uploading'
+          ? {
+              phase: 'idle',
+              fileName: '',
+              fileCount: 0,
+              percent: 0,
+              pendingDocIds: [],
+            }
+          : cur
+      );
+      setUploading(false);
+      loadDocuments();
+      showToast('Upload timed out — refreshing doc list', 'warning', 4000);
+    }, 60_000);
+    return () => clearTimeout(t);
+  }, [uploadProgress.phase, showToast]);
 
   // Phase 9 / Step L1 — import the `graphindex_chat` agent template
   // into the langconfig DeepAgent library. One click creates a new
@@ -554,113 +695,6 @@ export default function KnowledgeBaseView() {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-background-light dark:bg-background-dark">
-      {/* Upload Metadata Modal */}
-      {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowUploadModal(false)}>
-          <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-6 max-w-md w-full m-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
-              Upload {uploadFiles?.length} Document{uploadFiles?.length !== 1 ? 's' : ''}
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
-                  Document Name
-                </label>
-                <input
-                  type="text"
-                  value={uploadName}
-                  onChange={(e) => setUploadName(e.target.value)}
-                  placeholder="Enter document name..."
-                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  style={{
-                    backgroundColor: 'var(--color-input-background)',
-                    color: 'var(--color-text-primary)'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
-                  Description (Optional)
-                </label>
-                <textarea
-                  value={uploadDescription}
-                  onChange={(e) => setUploadDescription(e.target.value)}
-                  placeholder="Brief description of this document..."
-                  rows={3}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                  style={{
-                    backgroundColor: 'var(--color-input-background)',
-                    color: 'var(--color-text-primary)'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--color-text-primary)' }}>
-                  Tags (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={uploadTags}
-                  onChange={(e) => setUploadTags(e.target.value)}
-                  placeholder="tag1, tag2, tag3"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-border-dark rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  style={{
-                    backgroundColor: 'var(--color-input-background)',
-                    color: 'var(--color-text-primary)'
-                  }}
-                />
-                <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                  Separate tags with commas
-                </p>
-              </div>
-
-              {/* Archive Extraction Option */}
-              {uploadFiles && Array.from(uploadFiles).some(f => {
-                const ext = f.name.split('.').pop()?.toLowerCase();
-                return ['zip', 'tar', 'gz', 'tgz', 'rar', '7z'].includes(ext || '');
-              }) && (
-                <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg border border-blue-200 dark:border-blue-500/30">
-                  <input
-                    type="checkbox"
-                    id="extract-archives"
-                    checked={extractArchives}
-                    onChange={(e) => setExtractArchives(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 dark:border-border-dark text-primary focus:ring-primary"
-                  />
-                  <label htmlFor="extract-archives" className="text-sm cursor-pointer" style={{ color: 'var(--color-text-primary)' }}>
-                    Extract and index files from archives
-                  </label>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowUploadModal(false);
-                  setUploadFiles(null);
-                  setUploadName('');
-                  setUploadDescription('');
-                  setUploadTags('');
-                }}
-                className="flex-1 px-4 py-2 text-sm font-medium border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleFileUpload}
-                className="flex-1 px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:opacity-90 transition-opacity"
-              >
-                Upload
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Header */}
       <div className="bg-white dark:bg-panel-dark border-b border-gray-200 dark:border-border-dark p-6">
         <div className="flex items-center justify-between">
@@ -843,56 +877,17 @@ export default function KnowledgeBaseView() {
                       </div>
                     </div>
                     {(() => {
-                      // Pick the renderer based on the doc's file extension /
-                      // document_type. We derive the type from selectedDoc
-                      // (the documents list, not previewData — which we
-                      // no longer fetch to avoid stale-file_path 404s).
-                      const name = selectedDoc.name || '';
-                      const ext = name.split('.').pop()?.toLowerCase() || '';
-                      const isPdf = ext === 'pdf' || selectedDoc.document_type === 'pdf';
-                      const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext);
-                      if (isPdf) {
-                        // Render the PDF via pdfjs-dist so we get a true
-                        // 2-page side-by-side view that works in ALL
-                        // browsers (Safari's built-in viewer doesn't
-                        // honor view=TwoPageView). The viewer fetches
-                        // the file from the same backend endpoint, with
-                        // Content-Disposition: inline.
-                        return (
-                          <TwoPagePdfViewer
-                            key={selectedDocId}
-                            url={`/api/rag/documents/${selectedDocId}/file`}
-                            title={selectedDoc.name}
-                          />
-                        );
-                      }
-                      if (isImage) {
-                        return (
-                          <div className="w-full flex-1 overflow-auto flex items-center justify-center bg-gray-50 dark:bg-black/20 p-4">
-                            <img
-                              src={`/api/rag/documents/${selectedDocId}/file`}
-                              alt={selectedDoc.name}
-                              className="max-w-full max-h-full object-contain"
-                            />
-                          </div>
-                        );
-                      }
-                      // Text/markdown/code: show a simple "preview not available"
-                      // placeholder. Use the Open link to see the full file.
+                      // Delegate all rendering decisions to DocumentViewer.
+                      // It picks PDF / image / MD / CSV / DOCX / PPTX / XLSX /
+                      // code based on extension, fetches extracted text from
+                      // /api/rag/documents/{id}/content when needed.
                       return (
-                        <div className="w-full h-full flex items-center justify-center text-xs p-4 text-center" style={{ color: 'var(--color-text-muted)' }}>
-                          <div>
-                            <p>Inline preview not available for {ext || 'this file type'}.</p>
-                            <a
-                              href={`/api/rag/documents/${selectedDocId}/file`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-primary underline mt-2 inline-block"
-                            >
-                              Open {selectedDoc.name} in new tab →
-                            </a>
-                          </div>
-                        </div>
+                        <DocumentViewer
+                          key={selectedDocId}
+                          documentId={selectedDocId}
+                          documentName={selectedDoc.name}
+                          documentType={selectedDoc.document_type}
+                        />
                       );
                     })()}
                   </>
@@ -1122,43 +1117,170 @@ export default function KnowledgeBaseView() {
             <div
               className={`border-2 border-dashed rounded-lg p-2.5 transition-all ${isDragging
                 ? 'border-primary bg-primary/5'
-                : 'border-gray-300 dark:border-border-dark bg-white dark:bg-panel-dark'
+                : uploadProgress.phase !== 'idle'
+                  ? 'border-primary/40 bg-primary/5'
+                  : 'border-gray-300 dark:border-border-dark bg-white dark:bg-panel-dark'
                 }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
+              {/* Row 1 — icon + drop hint + buttons. The progress info
+                  moves to its own row below so the buttons always have
+                  room to render on one line. */}
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  {uploading ? (
+                  {uploadProgress.phase === 'uploading' || uploadProgress.phase === 'indexing' ? (
                     <Loader className="w-4 h-4 text-primary animate-spin" />
+                  ) : uploadProgress.phase === 'done' ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : uploadProgress.phase === 'error' ? (
+                    <X className="w-4 h-4 text-red-600" />
                   ) : (
                     <Upload className="w-4 h-4 text-primary" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] truncate" style={{ color: 'var(--color-text-muted)' }}>
-                    {uploading ? t('kb_uploading') : t('kb_upload_drop')}
-                  </p>
-                </div>
+                <p
+                  className="flex-1 text-[11px] truncate"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  {t('kb_upload_drop')}
+                </p>
                 <div className="flex items-center gap-1">
-                  <label className="flex items-center gap-1 px-2 py-1 bg-primary text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-[10px] font-medium">
+                  <label className={`flex items-center gap-1 px-2 py-1 bg-primary text-white rounded-lg transition-all text-[10px] font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90 cursor-pointer'}`}>
                     <Upload className="w-3 h-3" />
                     <span>{t('kb_browse')}</span>
                     <input type="file" multiple accept={SUPPORTED_FILES}
-                      onChange={(e) => { setIsFolderUpload(false); handleFileSelect(e.target.files); }}
+                      onChange={(e) => { handleFileSelect(e.target.files); }}
                       className="hidden" disabled={uploading} />
                   </label>
-                  <label className="flex items-center gap-1 px-2 py-1 bg-purple-600 text-white rounded-lg hover:opacity-90 transition-all cursor-pointer text-[10px] font-medium">
+                  <label className={`flex items-center gap-1 px-2 py-1 bg-purple-600 text-white rounded-lg transition-all text-[10px] font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90 cursor-pointer'}`}>
                     <Database className="w-3 h-3" />
                     <span>{t('kb_select_folder')}</span>
                     <input type="file" // @ts-ignore - webkitdirectory is not in TS types
                       webkitdirectory="" directory="" multiple
-                      onChange={(e) => { setIsFolderUpload(true); handleFileSelect(e.target.files); }}
+                      onChange={(e) => { handleFileSelect(e.target.files); }}
                       className="hidden" disabled={uploading} />
                   </label>
                 </div>
               </div>
+              {/* Row 2 — filename + percent + progress bar. Only rendered
+                  when an upload is in progress so the panel stays clean
+                  at rest. */}
+              {uploadProgress.phase !== 'idle' && (
+                <div className="mt-2 pt-2 border-t border-primary/20">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p
+                      className="text-[11px] font-medium truncate flex-1 min-w-0"
+                      style={{ color: 'var(--color-text-primary)' }}
+                      title={uploadProgress.fileName}
+                    >
+                      {uploadProgress.fileName}
+                    </p>
+                    {uploadProgress.phase === 'uploading' && (
+                      <span className="text-[11px] font-semibold tabular-nums text-primary">
+                        {uploadProgress.percent}%
+                      </span>
+                    )}
+                    {uploadProgress.phase === 'indexing' && uploadProgress.pendingDocIds.length > 0 && (() => {
+                      const readyCount = uploadProgress.pendingDocIds.filter(id => {
+                        const doc = documents.find(d => d.id === id);
+                        return doc && doc.indexing_status === 'ready';
+                      }).length;
+                      const failedCount = uploadProgress.pendingDocIds.filter(id => {
+                        const doc = documents.find(d => d.id === id);
+                        return doc && doc.indexing_status === 'failed';
+                      }).length;
+                      const total = uploadProgress.pendingDocIds.length;
+                      const completed = readyCount + failedCount;
+                      return (
+                        <span className="text-[11px] font-semibold tabular-nums text-blue-600">
+                          {completed}/{total} ready
+                        </span>
+                      );
+                    })()}
+                    {uploadProgress.phase === 'done' && (
+                      <span className="text-[11px] font-semibold text-green-600">✓ done</span>
+                    )}
+                    {uploadProgress.phase === 'error' && (
+                      <span className="text-[11px] font-semibold text-red-600">✗ failed</span>
+                    )}
+                  </div>
+                  {/* Progress bar — real-time during upload, segment-based
+                      during indexing. */}
+                  {uploadProgress.phase === 'uploading' && (
+                    <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all duration-200 rounded-full"
+                        style={{ width: `${uploadProgress.percent}%` }}
+                      />
+                    </div>
+                  )}
+                  {uploadProgress.phase === 'indexing' && (
+                    <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      {(() => {
+                        const total = uploadProgress.pendingDocIds.length;
+                        if (total === 0) {
+                          return <div className="h-full bg-blue-500 animate-pulse" style={{ width: '60%' }} />;
+                        }
+                        const readyCount = uploadProgress.pendingDocIds.filter(id => {
+                          const doc = documents.find(d => d.id === id);
+                          return doc && doc.indexing_status === 'ready';
+                        }).length;
+                        const failedCount = uploadProgress.pendingDocIds.filter(id => {
+                          const doc = documents.find(d => d.id === id);
+                          return doc && doc.indexing_status === 'failed';
+                        }).length;
+                        const completed = readyCount + failedCount;
+                        const pct = Math.round((completed / total) * 100);
+                        return (
+                          <div
+                            className="h-full bg-blue-500 transition-all duration-300 rounded-full"
+                            style={{ width: `${pct}%` }}
+                          />
+                        );
+                      })()}
+                    </div>
+                  )}
+                  {(uploadProgress.phase === 'done' || uploadProgress.phase === 'error') && (
+                    <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${uploadProgress.phase === 'done' ? 'bg-green-500' : 'bg-red-500'}`}
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  )}
+                  {/* Helper line */}
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
+                      {uploadProgress.phase === 'uploading' && `${uploadProgress.fileCount} file(s) — keep this tab open`}
+                      {uploadProgress.phase === 'indexing' && 'Indexing in background — you can keep working'}
+                      {uploadProgress.phase === 'done' && 'Ready in sidebar'}
+                      {uploadProgress.phase === 'error' && 'Click below to retry'}
+                    </p>
+                    {(uploadProgress.phase === 'uploading' || uploadProgress.phase === 'indexing') && (
+                      <button
+                        onClick={() => {
+                          setUploadProgress({
+                            phase: 'idle',
+                            fileName: '',
+                            fileCount: 0,
+                            percent: 0,
+                            pendingDocIds: [],
+                          });
+                          setUploading(false);
+                          loadDocuments();
+                        }}
+                        className="text-[9px] underline hover:opacity-70"
+                        style={{ color: 'var(--color-text-muted)' }}
+                        title="If the upload appears stuck, click to clear and refresh"
+                      >
+                        clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Phase 9 / Step L1 — one-click import of the `graphindex_chat`
