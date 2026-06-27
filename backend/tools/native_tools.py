@@ -2005,6 +2005,23 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
         return f"❌ Error in multi-doc load: {e}"
 
 
+def _run_capturing_stdout(fn, *args, **kwargs):
+    """Run a print-heavy cmd_* function and return its captured stdout.
+
+    The graphindex_build_python.cmd_* functions print their full
+    reports to stdout and return a small int exit code. The Studio
+    workflow tool wants the full report in its return value (so it
+    shows in the Results panel), so we redirect stdout into a buffer
+    and return that.
+    """
+    import io
+    import contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = fn(*args, **kwargs)
+    return rc, buf.getvalue().rstrip()
+
+
 def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
     """
     Rebuild the LLM enrichment metadata (about / supports / out_of_scope /
@@ -2023,12 +2040,14 @@ def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
 
     try:
         from graphindex_build_python import cmd_rebuild_one as _clean_rebuild_one  # noqa: E402
-        rc = _clean_rebuild_one(name)
+        rc, captured = _run_capturing_stdout(_clean_rebuild_one, name)
+        if rc == 0 and captured:
+            return captured
         return (
             f"## Rebuild one: {name}\n"
             f"project_id: {project_id}\n"
             f"return code: {rc}\n"
-            f"(see server logs for detail)"
+            f"(no output)"
         )
     except Exception as e:
         return f"❌ Error rebuilding {name}: {e}"
@@ -2054,13 +2073,15 @@ def graphindex_ingest(file_path: str, project_id: Optional[int] = None,
 
     try:
         from graphindex_build_python import cmd_ingest as _clean_ingest  # noqa: E402
-        rc = _clean_ingest(file_path, target_dir=target_dir)
+        rc, captured = _run_capturing_stdout(_clean_ingest, file_path, target_dir=target_dir)
+        if rc == 0 and captured:
+            return captured
         return (
             f"## Ingest: {file_path}\n"
             f"project_id: {project_id}\n"
             f"target_dir: {target_dir or '(default)'}\n"
             f"return code: {rc}\n"
-            f"(see server logs for detail)"
+            f"(no output)"
         )
     except Exception as e:
         return f"❌ Error ingesting {file_path}: {e}"
@@ -2086,11 +2107,13 @@ def graphindex_rebuild_project(project_id: Optional[int] = None) -> str:
 
     try:
         from graphindex_build_python import cmd_rebuild_project as _clean_rebuild_project  # noqa: E402
-        rc = _clean_rebuild_project()
+        rc, captured = _run_capturing_stdout(_clean_rebuild_project)
+        if rc == 0 and captured:
+            return captured
         return (
             f"## Rebuild project (project_id={project_id})\n"
             f"return code: {rc}\n"
-            f"(see server logs for per-doc detail)"
+            f"(no output)"
         )
     except Exception as e:
         return f"❌ Error rebuilding project {project_id}: {e}"
@@ -2114,11 +2137,15 @@ def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
 
     try:
         from graphindex_build_python import cmd_show as _clean_show  # noqa: E402
-        # BUG FIX: cmd_show now returns the formatted metadata string
-        # (it used to return an int exit code). Just return that string
-        # directly so the Studio Results panel shows the full doc
-        # metadata, not a one-line "see server logs" header.
-        return _clean_show(name)
+        rc, captured = _run_capturing_stdout(_clean_show, name)
+        if rc == 0 and captured:
+            return captured
+        return (
+            f"## Show: {name}\n"
+            f"project_id: {project_id}\n"
+            f"return code: {rc}\n"
+            f"(no output)"
+        )
     except Exception as e:
         return f"❌ Error showing {name}: {e}"
 
