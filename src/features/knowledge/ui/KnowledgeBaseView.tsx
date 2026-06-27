@@ -13,6 +13,7 @@ import { useProject } from "../../../contexts/ProjectContext";
 import SearchMetricsDisplay from './SearchMetricsDisplay';
 import SearchHistoryLog from './SearchHistoryLog';
 import StorageMetrics from '../../../components/ui/StorageMetrics';
+import TwoPagePdfViewer from './TwoPagePdfViewer';
 
 interface Document {
   id: number;
@@ -842,17 +843,16 @@ export default function KnowledgeBaseView() {
                       const isPdf = ext === 'pdf' || previewData.type === 'pdf';
                       const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext);
                       if (isPdf) {
+                        // Render the PDF via pdfjs-dist so we get a true
+                        // 2-page side-by-side view that works in ALL
+                        // browsers (Safari's built-in viewer doesn't
+                        // honor view=TwoPageView). The viewer fetches
+                        // the file from the same backend endpoint, with
+                        // Content-Disposition: inline.
                         return (
-                          <iframe
+                          <TwoPagePdfViewer
                             key={selectedDocId}
-                            // Use Chrome PDF viewer's URL parameters:
-                            //   view=TwoPageView → 2 pages side-by-side
-                            //   zoom=Fit         → fit each page in the viewport
-                            //   toolbar=1        → keep toolbar visible
-                            // Firefox ignores unknown params; PDF.js still
-                            // renders, just with single-page view.
-                            src={`/api/rag/documents/${selectedDocId}/file#toolbar=1&navpanes=0&scrollbar=1&view=TwoPageView&zoom=Fit`}
-                            className="w-full flex-1 border-0 bg-white"
+                            url={`/api/rag/documents/${selectedDocId}/file`}
                             title={previewData.doc_name}
                           />
                         );
