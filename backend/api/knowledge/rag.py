@@ -1059,10 +1059,15 @@ async def get_document_file(
     # Use stored mime_type if available, else infer from extension
     media_type = doc.mime_type or mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
 
+    # BUG FIX: FileResponse defaults to "attachment; filename=..." which
+    # forces the browser to download instead of rendering inline. For PDF
+    # and image previews we want "inline" so the browser's built-in
+    # viewer can render it inside the <iframe>.
     return FileResponse(
         path=str(file_path),
         media_type=media_type,
         filename=doc.original_filename or doc.filename,
+        content_disposition_type="inline",
     )
 
 
