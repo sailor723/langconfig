@@ -1039,30 +1039,52 @@ async def get_document_file(
 ):
     """Serve the raw document file (PDF, text, etc.) so the Studio's
     Knowledge panel can render it in an <iframe> using the browser's
-    built-in PDF viewer.
+    built-in PDF viewer (or pdfjs-dist for Safari).
 
-    Looks up the doc's file_path in PostgreSQL and streams the bytes
-    with the correct Content-Type.
+    ARCHITECTURE (per Phase 9 / L0):
+      - Postgres ContextDocument is the sidebar index (doc id, name, etc.)
+      - Neo4j Document is the file_path index (the source of truth for
+        where the file actually lives on disk).
+      - FS holds the actual bytes.
+
+    So we:
+      1. Look up the doc's `name` and `project_id` in Postgres by id
+         (this is what the sidebar uses).
+      2. Look up `file_path` in Neo4j by (project_id, name) — the
+         authoritative source for the on-disk path.
+      3. Stream the file from FS.
+
+    This avoids stale `file_path` issues if Postgres and Neo4j get
+    out of sync (which can happen if a doc is re-ingested via the
+    CLI but the Postgres record isn't updated).
     """
     from fastapi.responses import FileResponse
+    # 1. Postgres — get the doc's name + project_id by id
     doc = db.query(ContextDocument).filter(ContextDocument.id == document_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    file_path = Path(doc.file_path)
+    # 2. Neo4j — get the canonical file_path by (project_id, name)
+    from services.neo4j_document_index import Neo4jDocumentIndex
+    neo = Neo4jDocumentIndex()
+    neo_doc = neo.get_document(project_id=doc.project_id, name=doc.original_filename or doc.filename)
+    if not neo_doc or not neo_doc.file_path:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Document not indexed in GraphIndex (Neo4j). "
+                   f"Ingest it via the Studio or run cmd_ingest in phase9.",
+        )
+
+    file_path = Path(neo_doc.file_path)
     if not file_path.exists():
         raise HTTPException(
             status_code=404,
             detail=f"Document file not found on disk: {file_path}",
         )
 
-    # Use stored mime_type if available, else infer from extension
+    # 3. Stream the file with the right Content-Type
     media_type = doc.mime_type or mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
 
-    # BUG FIX: FileResponse defaults to "attachment; filename=..." which
-    # forces the browser to download instead of rendering inline. For PDF
-    # and image previews we want "inline" so the browser's built-in
-    # viewer can render it inside the <iframe>.
     return FileResponse(
         path=str(file_path),
         media_type=media_type,
