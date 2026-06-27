@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Upload, FileText, Trash2, Search, Database, Filter, Loader, RefreshCw, Sparkles, Check } from 'lucide-react';
+import { Upload, FileText, Trash2, Search, Database, Filter, Loader, RefreshCw, Sparkles, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 import { useProject } from "../../../contexts/ProjectContext";
 import SearchMetricsDisplay from './SearchMetricsDisplay';
@@ -79,6 +79,9 @@ export default function KnowledgeBaseView() {
   const [comparisonResults, setComparisonResults] = useState<SearchResult[]>([]);
   const [expandedChunks, setExpandedChunks] = useState<Set<number>>(new Set());
   const [pageIndexDocs, setGraphIndexDocs] = useState<any[]>([]);
+  // NEW: collapsible state for the GraphIndex search panel below the
+  // doc viewer. Default = expanded. Click the chevron to collapse.
+  const [searchPanelOpen, setSearchPanelOpen] = useState(true);
   const [answerLoading, setAnswerLoading] = useState(false);
   const [answerResult, setAnswerResult] = useState<{
     doc_id: string;
@@ -146,18 +149,21 @@ export default function KnowledgeBaseView() {
     setSelectedDocId(firstReadyDoc?.id ?? documents[0].id);
   }, [documents, selectedDocId]);
 
-  // Load preview when a document is selected
+  // Load preview when a document is selected.
+  // BUG FIX: the old /api/rag/documents/{id}/preview endpoint read from
+  // Postgres.file_path and 404'd for docs whose Postgres record is stale
+  // (e.g. re-ingested via CLI). The doc header is now derived from the
+  // already-loaded `documents` list (selectedDoc is declared further
+  // down at line ~542). The PDF viewer (TwoPagePdfViewer) gets the file
+  // from /file (which uses Neo4j).
   useEffect(() => {
     if (!selectedDocId || !activeProjectId) {
       setPreviewData(null);
       return;
     }
-    setPreviewLoading(true);
+    // Stub: keep the state empty. The JSX uses selectedDoc for the header
+    // and TwoPagePdfViewer for the actual rendering.
     setPreviewData(null);
-    apiClient.previewDocument(selectedDocId, 2000)
-      .then(data => setPreviewData(data))
-      .catch(() => setPreviewData(null))
-      .finally(() => setPreviewLoading(false));
   }, [selectedDocId, activeProjectId]);
 
   const loadDocuments = async (signal?: AbortSignal, overrideStatus?: string) => {
@@ -808,21 +814,21 @@ export default function KnowledgeBaseView() {
                     <Loader className="w-3 h-3 animate-spin" />
                     Loading preview...
                   </div>
-                ) : previewData ? (
+                ) : selectedDoc ? (
                   <>
                     <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-border-dark flex-shrink-0">
                       <div className="flex items-center gap-2">
                         <FileText className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
                         <span className="text-xs font-semibold truncate max-w-[300px]" style={{ color: 'var(--color-text-primary)' }}>
-                          {previewData.doc_name}
+                          {selectedDoc.name}
                         </span>
                         <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/10" style={{ color: 'var(--color-text-muted)' }}>
-                          {previewData.type} · {previewData.page_count} pages
+                          {selectedDoc.document_type || 'pdf'} · {selectedDoc.chunk_count ?? 0} chunks
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
-                          {previewData.total_chars.toLocaleString()} chars
+                          {(selectedDoc.size ?? 0).toLocaleString()} bytes
                         </span>
                         <a
                           href={`/api/rag/documents/${selectedDocId}/file`}
@@ -837,10 +843,13 @@ export default function KnowledgeBaseView() {
                       </div>
                     </div>
                     {(() => {
-                      // Render PDF via <iframe> using the browser's built-in
-                      // PDF viewer. For text/markdown, fall back to a <pre>.
-                      const ext = (previewData.doc_name || '').split('.').pop()?.toLowerCase() || '';
-                      const isPdf = ext === 'pdf' || previewData.type === 'pdf';
+                      // Pick the renderer based on the doc's file extension /
+                      // document_type. We derive the type from selectedDoc
+                      // (the documents list, not previewData — which we
+                      // no longer fetch to avoid stale-file_path 404s).
+                      const name = selectedDoc.name || '';
+                      const ext = name.split('.').pop()?.toLowerCase() || '';
+                      const isPdf = ext === 'pdf' || selectedDoc.document_type === 'pdf';
                       const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext);
                       if (isPdf) {
                         // Render the PDF via pdfjs-dist so we get a true
@@ -853,7 +862,7 @@ export default function KnowledgeBaseView() {
                           <TwoPagePdfViewer
                             key={selectedDocId}
                             url={`/api/rag/documents/${selectedDocId}/file`}
-                            title={previewData.doc_name}
+                            title={selectedDoc.name}
                           />
                         );
                       }
@@ -862,21 +871,27 @@ export default function KnowledgeBaseView() {
                           <div className="w-full flex-1 overflow-auto flex items-center justify-center bg-gray-50 dark:bg-black/20 p-4">
                             <img
                               src={`/api/rag/documents/${selectedDocId}/file`}
-                              alt={previewData.doc_name}
+                              alt={selectedDoc.name}
                               className="max-w-full max-h-full object-contain"
                             />
                           </div>
                         );
                       }
-                      // Text/markdown/code: show the content preview
+                      // Text/markdown/code: show a simple "preview not available"
+                      // placeholder. Use the Open link to see the full file.
                       return (
-                        <div className="text-[10px] leading-relaxed whitespace-pre-wrap overflow-y-auto p-3" style={{ color: 'var(--color-text-secondary)' }}>
-                          {previewData.content_preview}
-                          {previewData.has_more && (
-                            <p className="text-[9px] mt-1 italic" style={{ color: 'var(--color-text-muted)' }}>
-                              ... (preview truncated, {previewData.total_chars.toLocaleString()} total chars)
-                            </p>
-                          )}
+                        <div className="w-full h-full flex items-center justify-center text-xs p-4 text-center" style={{ color: 'var(--color-text-muted)' }}>
+                          <div>
+                            <p>Inline preview not available for {ext || 'this file type'}.</p>
+                            <a
+                              href={`/api/rag/documents/${selectedDocId}/file`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-primary underline mt-2 inline-block"
+                            >
+                              Open {selectedDoc.name} in new tab →
+                            </a>
+                          </div>
                         </div>
                       );
                     })()}
@@ -885,33 +900,51 @@ export default function KnowledgeBaseView() {
               </div>
             )}
 
-            {/* Search Box */}
-            <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3 flex-shrink-0">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  GraphIndex {t('kb_title')}
-                </h3>
-              </div>
-
-              <div className="space-y-2">
-                {/* REMOVED: GraphIndex / Vector RAG toggle — we now use
-                    GraphIndex exclusively, so the toggle is no longer needed.
-                    Kept the searchMode state and useState('graphindex') so any
-                    downstream code that still branches on it stays safe. */}
-
-                <div className="rounded-lg border border-gray-200 dark:border-border-dark px-2.5 py-2" style={{ backgroundColor: 'var(--color-input-background)' }}>
-                  <div className="text-[10px] mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                    {searchMode === 'graphindex' ? t('kb_search_scope') : t('kb_selected_doc')}
-                  </div>
-                  <div className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {searchMode === 'graphindex'
-                      ? t('kb_all_docs')
-                      : selectedDoc
-                        ? selectedDoc.name
-                        : t('kb_choose_doc')}
-                  </div>
+            {/* Search Box — collapsible. The header row stays visible so the
+                user can toggle the panel without scrolling. */}
+            <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg flex-shrink-0 overflow-hidden">
+              <div
+                className="flex items-center justify-between gap-1.5 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
+                onClick={() => setSearchPanelOpen((o) => !o)}
+                role="button"
+                aria-expanded={searchPanelOpen}
+                title={searchPanelOpen ? 'Collapse search' : 'Expand search'}
+              >
+                <div className="flex items-center gap-1.5">
+                  <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                    GraphIndex {t('kb_title')}
+                  </h3>
                 </div>
+                <button
+                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/10"
+                  onClick={(e) => { e.stopPropagation(); setSearchPanelOpen((o) => !o); }}
+                  aria-label={searchPanelOpen ? 'Collapse' : 'Expand'}
+                >
+                  {searchPanelOpen
+                    ? <ChevronUp className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+                    : <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />}
+                </button>
+              </div>
+              {searchPanelOpen && (
+                <div className="px-3 pb-3 space-y-2">
+                  {/* REMOVED: GraphIndex / Vector RAG toggle — we now use
+                      GraphIndex exclusively, so the toggle is no longer needed.
+                      Kept the searchMode state and useState('graphindex') so any
+                      downstream code that still branches on it stays safe. */}
+
+                  <div className="rounded-lg border border-gray-200 dark:border-border-dark px-2.5 py-2" style={{ backgroundColor: 'var(--color-input-background)' }}>
+                    <div className="text-[10px] mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                      {searchMode === 'graphindex' ? t('kb_search_scope') : t('kb_selected_doc')}
+                    </div>
+                    <div className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                      {searchMode === 'graphindex'
+                        ? t('kb_all_docs')
+                        : selectedDoc
+                          ? selectedDoc.name
+                          : t('kb_choose_doc')}
+                    </div>
+                  </div>
 
                 <div className="flex gap-1.5">
                   <div className="relative flex-1">
@@ -958,7 +991,8 @@ export default function KnowledgeBaseView() {
                     </button>
                   )}
                 </div>
-              </div>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3 overflow-y-auto">
