@@ -204,6 +204,15 @@ class DeepAgentConfig(BaseModel):
         default=True,
         description="Whether to use DeepAgents framework"
     )
+    use_phase9_graphindex: bool = Field(
+        default=False,
+        description=(
+            "When True, the chat stream endpoint routes this agent through "
+            "phase9.graphindex_chat_agent (the proven 5-tool + progressive-"
+            "disclosure deepagent) instead of building a generic langconfig "
+            "agent. Use this for any agent template that wraps graphindex_* tools."
+        )
+    )
     enable_compiled_subagents: bool = Field(
         default=True,
         description="Enable CompiledSubAgent support (workflow-based subagents). Set to False to disable."
