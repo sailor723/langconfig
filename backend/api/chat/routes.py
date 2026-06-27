@@ -611,6 +611,91 @@ async def send_message(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _generate_stream_phase9(
+    session_id: str,
+    project_id: int,
+    message: str,
+):
+    """Phase 9 fast-path generator. Yields SSE-formatted chunks that
+    match the langconfig chat SSE schema:
+
+        data: {"type": "tool_start", "tool_name": "...", ...}
+        data: {"type": "tool_end",   "tool_name": "...", ...}
+        data: {"type": "chunk",      "content": "..."}
+        data: {"type": "done",       "session_id": "..."}
+
+    Used when the chat agent has `use_phase9_graphindex: true` in its
+    config. The agent itself lives in
+    `phase9.graphindex_chat_agent.stream_graphindex_chat_events` and
+    already has the 5 graphindex tools + the progressive-disclosure
+    system_prompt (with `Current project_id: 1` injected).
+
+    This is a *thin* wrapper — the heavy lifting (LLM call, tool
+    routing, document loading, synthesis) is all done by the Phase 9
+    deepagent. We just translate LangGraph state updates into SSE.
+    """
+    import json
+    full_response = ""
+
+    try:
+        # Lazy import — phase9/ lives outside the backend package
+        from phase9.graphindex_chat_agent import stream_graphindex_chat_events
+
+        logger.info(
+            f"Phase 9 path: session={session_id} project={project_id}"
+        )
+        last_messages: list = []
+        async for state in stream_graphindex_chat_events(
+            project_id=project_id,
+            query=message,
+            thread_id=session_id,
+        ):
+            # state is the full graph state after each node runs.
+            # We diff it against the previous state to detect new
+            # tool calls and assistant tokens.
+            messages = state.get("messages", [])
+            new_messages = messages[len(last_messages):]
+            last_messages = list(messages)
+
+            for msg in new_messages:
+                msg_type = getattr(msg, "type", "?")
+                # Tool call from an AI message
+                if hasattr(msg, "tool_calls") and msg.tool_calls:
+                    for tc in msg.tool_calls:
+                        tool_name = tc.get("name", "unknown")
+                        tool_input = tc.get("args", {})
+                        yield f"data: {json.dumps({'type': 'tool_start', 'tool_name': tool_name, 'data': {'input': tool_input}})}\n\n"
+
+                # Tool result message
+                if msg_type == "tool":
+                    content = getattr(msg, "content", "")
+                    tool_name = getattr(msg, "name", "unknown")
+                    yield f"data: {json.dumps({'type': 'tool_end', 'tool_name': tool_name, 'data': {'output_preview': (content or '')[:200]}})}\n\n"
+
+                # Final assistant message — stream its content
+                if msg_type == "ai" and not getattr(msg, "tool_calls", None):
+                    text = msg.content if isinstance(msg.content, str) else str(msg.content)
+                    # Strip <think>...</think> blocks (we don't stream thinking)
+                    if "<think>" in text and "</think>" in text:
+                        text = text.split("</think>", 1)[1].strip()
+                    # If the whole final message differs from what
+                    # we've sent, emit the new portion as a chunk
+                    if text and not text.startswith(full_response):
+                        new_portion = text[len(full_response):]
+                        if new_portion:
+                            full_response = text
+                            yield f"data: {json.dumps({'type': 'chunk', 'content': new_portion})}\n\n"
+                    elif text and text != full_response:
+                        full_response = text
+                        yield f"data: {json.dumps({'type': 'chunk', 'content': text})}\n\n"
+
+        # Done
+        yield f"data: {json.dumps({'type': 'done', 'session_id': session_id, 'message': full_response})}\n\n"
+    except Exception as e:
+        logger.error(f"Phase 9 path error: {e}")
+        yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+
 @router.post("/message/stream")
 async def send_message_stream(
     request: SendMessageRequest,
@@ -651,6 +736,25 @@ async def send_message_stream(
             full_response = ""
             all_context = ""
             rag_tokens_used = 0
+
+            # Phase 9 fast-path: if the agent template has the
+            # `use_phase9_graphindex` flag, dispatch to the proven
+            # Phase 9 single-agent deepagent (5 graphindex tools +
+            # progressive-disclosure system_prompt). We skip:
+            #   - RAG context injection (graphindex_chat has its own
+            #     catalog + filesystem read)
+            #   - DeepAgentFactory (the Phase 9 agent is already
+            #     built and cached in `phase9.graphindex_chat_agent`)
+            #   - LangGraph's RAG middleware (the LLM gets exactly
+            #     the 5 tools + project_id-injected system_prompt)
+            if agent_config.get("use_phase9_graphindex"):
+                async for chunk in _generate_stream_phase9(
+                    session_id=session_id,
+                    project_id=agent_project_id or 1,
+                    message=request.message,
+                ):
+                    yield chunk
+                return
 
             try:
                 # Re-query session inside generator to avoid detached object issues

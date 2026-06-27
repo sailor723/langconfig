@@ -182,6 +182,67 @@ def get_graphindex_chat_agent(project_id: int = 1):
     return create_graphindex_chat_agent(project_id=project_id)
 
 
+def stream_graphindex_chat(
+    project_id: int,
+    query: str,
+    thread_id: str,
+) -> str:
+    """Run the graphindex_chat agent (single shot) and return the final
+    assistant text. Used by the langconfig backend at
+    `POST /api/chat/message/stream` when the agent is a graphindex_chat
+    template — we swap out the generic langconfig flow for the proven
+    Phase 9 single-agent deepagent that already has the 5 graphindex
+    tools + progressive-disclosure system_prompt.
+
+    Args:
+        project_id: Project to scope catalog/doc reads to.
+        query: User's question.
+        thread_id: LangGraph checkpointer thread id (for multi-turn).
+
+    Returns:
+        The final assistant text (after <think> stripping). Yields nothing —
+        the LLM run is synchronous; if you need streaming, use the agent
+        directly via `agent.stream(...)`.
+    """
+    agent = get_graphindex_chat_agent(project_id=project_id)
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": query}]},
+        config={"configurable": {"thread_id": thread_id}},
+    )
+    # Last message is the assistant's final response
+    last = result["messages"][-1]
+    text = last.content if isinstance(last.content, str) else str(last.content)
+    # Strip <think>...</think> blocks if present
+    if "<think>" in text and "</think>" in text:
+        text = text.split("</think>", 1)[1].strip()
+    return text
+
+
+def stream_graphindex_chat_events(
+    project_id: int,
+    query: str,
+    thread_id: str,
+):
+    """Streaming variant: yields LangGraph events from
+    `agent.stream(..., stream_mode="values")`. Each event is the state
+    dict after each node runs, so the caller can:
+      - yield "on_chat_model_stream" chunks as they arrive (token-by-token)
+      - yield "on_tool_start" / "on_tool_end" events for tool-call tracking
+      - skip <think>...</think> blocks in the assistant's final text
+
+    The langconfig backend's `POST /api/chat/message/stream` wraps this
+    generator and re-emits SSE events that match the existing
+    `{type: chunk|tool_start|tool_end|done, ...}` schema.
+    """
+    agent = get_graphindex_chat_agent(project_id=project_id)
+    for event in agent.stream(
+        {"messages": [{"role": "user", "content": query}]},
+        config={"configurable": {"thread_id": thread_id}},
+        stream_mode="values",
+    ):
+        yield event
+
+
 # --- CLI plumbing (matches query_deep.py style) ---------------------------
 
 HELP_TEXT = """\
