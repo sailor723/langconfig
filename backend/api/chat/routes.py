@@ -706,7 +706,15 @@ async def _generate_stream_phase9(
                 if msg_type == "tool":
                     content = getattr(msg, "content", "")
                     tool_name = getattr(msg, "name", "unknown")
-                    yield f"data: {json.dumps({'type': 'tool_end', 'tool_name': tool_name, 'data': {'output_preview': (content or '')[:200]}})}\n\n"
+                    # Bumped from 200 → 2000 chars. The frontend uses
+                    # this preview to detect which doc the LLM picked
+                    # (via regex on the tool output). 200 chars was
+                    # too tight — for `load_multi_doc_tool` the
+                    # header `=== Document 1 (PRIMARY): <name> ===`
+                    # could be cut off in unusual cases, and for
+                    # `route_query_tool` (Phase 9) we need the
+                    # full JSON to extract `primary.name`.
+                    yield f"data: {json.dumps({'type': 'tool_end', 'tool_name': tool_name, 'data': {'output_preview': (content or '')[:2000]}})}\n\n"
 
                 # Final assistant message — stream its content
                 if msg_type == "ai" and not getattr(msg, "tool_calls", None):
