@@ -91,6 +91,27 @@ class GraphIndexChatResponse(BaseModel):
     agent: str = "graphindex_chat"
 
 
+class Neo4jDocumentItem(BaseModel):
+    """A single document as it appears in the Neo4j graphindex catalog.
+    Mirrors the structure the UI uses for the left sidebar so it can
+    merge with /api/rag/documents (Postgres context_documents)."""
+    name: str
+    file_path: Optional[str] = None
+    about: Optional[str] = None
+    has_enrichment: bool = False
+    chunk_count: Optional[int] = None
+    page_count: Optional[int] = None
+    context_doc_id: Optional[int] = None
+    doc_index_id: Optional[str] = None
+    project_id: int
+
+
+class Neo4jDocumentsResponse(BaseModel):
+    project_id: int
+    total: int
+    documents: List[Neo4jDocumentItem]
+
+
 # --- Agent factory --------------------------------------------------------
 
 _agent_cache: Dict[int, Any] = {}
@@ -274,6 +295,164 @@ async def show_graphindex_chat_agent(project_id: int = 1):
         ],
         "checkpointer": "MemorySaver",
     }
+
+
+@router.get("/neo4j-documents", response_model=Neo4jDocumentsResponse)
+async def list_neo4j_documents(project_id: int = 1):
+    """List documents from the Neo4j graphindex catalog for a project.
+
+    This is the **chat's view** of the project's docs — what
+    `graphindex_chat` actually sees when it routes a query. It
+    complements the Postgres `context_documents` table that the UI's
+    left sidebar normally shows.
+
+    Why we need this: docs can exist in Neo4j without a matching
+    `context_documents` row (e.g. if the file was indexed via a
+    different path, or the Postgres row was deleted). The chat can
+    find them, but the UI's sidebar doesn't. To keep the chat and
+    the sidebar in sync, the UI merges this list with its Postgres
+    list (Neo4j wins on the `name` field — same identity as chat).
+
+    Each item returns:
+      - name: the doc's name (matches what the chat passes to its tools)
+      - file_path: where the file lives on disk (for the viewer)
+      - about: 1-2 sentence summary (for tooltips)
+      - indexed_at: when the LLM enrichment was last updated
+      - has_enrichment: True if `what_this_document_is_about` is non-empty
+      - chunk_count: number of chunks in pgvector (if any)
+      - page_count: number of pages in the source doc (PDF only)
+    """
+    try:
+        # Add the phase9/ dir to sys.path so we can import the helpers
+        import sys
+        from pathlib import Path
+        _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+        _PHASE9_DIR = _REPO_ROOT / "learning" / "phase9"
+        if str(_PHASE9_DIR) not in sys.path:
+            sys.path.insert(0, str(_PHASE9_DIR))
+        import importlib.util
+        # Neo4jDocumentIndex lives in services/ — already on path
+        from services.neo4j_document_index import Neo4jDocumentIndex
+
+        idx = Neo4jDocumentIndex()
+        # Use the existing HTTP-based list_documents API. Returns
+        # full Neo4jDocumentRecord objects with all metadata fields
+        # (name, file_path, about, page_count, context_doc_id, etc.)
+        rows = idx.list_documents(project_id)
+        items = []
+        for r in rows:
+            about = r.what_this_document_is_about or ""
+            items.append(Neo4jDocumentItem(
+                name=r.name,
+                file_path=r.file_path,
+                about=about,
+                has_enrichment=len(about) > 10,
+                chunk_count=None,  # chunks live in pgvector, not Neo4j
+                page_count=int(r.page_count) if r.page_count is not None else None,
+                context_doc_id=int(r.context_doc_id) if r.context_doc_id is not None else None,
+                doc_index_id=r.doc_index_id,
+                project_id=project_id,
+            ))
+        return Neo4jDocumentsResponse(
+            project_id=project_id,
+            total=len(items),
+            documents=items,
+        )
+    except Exception as e:
+        logger.exception(f"list_neo4j_documents failed: {e}")
+        raise HTTPException(status_code=500, detail=f"neo4j list failed: {e}")
+
+
+@router.get("/file")
+async def serve_neo4j_file(project_id: int, name: str):
+    """Stream a project's document file by name (Neo4j lookup).
+
+    This is the file-by-name equivalent of
+    `GET /api/rag/documents/{id}/file` — used by the UI's
+    DocumentViewer when the user clicks a doc that exists in
+    Neo4j but isn't in the Postgres context_documents table
+    (so the `id`-based endpoint would 404).
+
+    Returns the file with the appropriate Content-Type for the
+    extension, similar to the id-based endpoint.
+    """
+    import mimetypes
+    from fastapi.responses import FileResponse
+    try:
+        from services.neo4j_document_index import Neo4jDocumentIndex
+        idx = Neo4jDocumentIndex()
+        doc = idx.get_document(project_id, name)
+        if not doc:
+            raise HTTPException(status_code=404, detail=f"doc not found: {name}")
+        if not doc.file_path:
+            raise HTTPException(status_code=404, detail=f"doc has no file_path: {name}")
+        fp = doc.file_path
+        if not Path(fp).exists():
+            raise HTTPException(status_code=404, detail=f"file missing on disk: {fp}")
+        mime, _ = mimetypes.guess_type(fp)
+        return FileResponse(
+            path=fp,
+            media_type=mime or "application/octet-stream",
+            filename=name,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"serve_neo4j_file failed: {e}")
+        raise HTTPException(status_code=500, detail=f"file serve failed: {e}")
+
+
+@router.get("/content")
+async def serve_neo4j_content(project_id: int, name: str, max_chars: int = 100_000):
+    """Return the text content of a project document by name.
+
+    Mirrors `GET /api/rag/documents/{id}/content` but takes
+    project_id + name so it works for Neo4j-only docs that
+    have no Postgres `context_documents` row.
+
+    Uses phase9's `_read_doc_text` to extract text (PDF via
+    PyMuPDF, MD/TXT directly), capped at `max_chars` (default
+    100K) so the response stays small.
+    """
+    try:
+        import sys
+        from pathlib import Path
+        _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+        _PHASE9_DIR = _REPO_ROOT / "learning" / "phase9"
+        if str(_PHASE9_DIR) not in sys.path:
+            sys.path.insert(0, str(_PHASE9_DIR))
+        import importlib.util
+        from services.neo4j_document_index import Neo4jDocumentIndex
+
+        idx = Neo4jDocumentIndex()
+        doc = idx.get_document(project_id, name)
+        if not doc:
+            raise HTTPException(status_code=404, detail=f"doc not found: {name}")
+        if not doc.file_path or not Path(doc.file_path).exists():
+            raise HTTPException(status_code=404, detail=f"file missing on disk: {doc.file_path}")
+
+        # Load _read_doc_text from phase9
+        _spec = importlib.util.spec_from_file_location(
+            "query",
+            _PHASE9_DIR / "query.py",
+        )
+        _qmod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_qmod)
+        text = _qmod._read_doc_text(doc.file_path, max_chars)
+
+        return {
+            "doc_id": 0,  # no Postgres id
+            "doc_name": name,
+            "content": text,
+            "char_count": len(text),
+            "source": "neo4j",
+            "file_path": doc.file_path,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"serve_neo4j_content failed: {e}")
+        raise HTTPException(status_code=500, detail=f"content serve failed: {e}")
 
 
 # --- helpers --------------------------------------------------------------

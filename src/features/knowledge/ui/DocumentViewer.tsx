@@ -27,6 +27,12 @@ interface DocumentViewerProps {
   documentId: number;
   documentName: string;
   documentType: string;
+  /** When set, the viewer routes file/content fetches through the
+      Neo4j-backed endpoints at /api/graphindex/{file,content} instead
+      of the id-based /api/rag/documents/{id}/* endpoints. Used for
+      docs that exist in Neo4j but not in Postgres context_documents
+      (so the id-based endpoints would 404). */
+  projectId?: number | null;
 }
 
 /**
@@ -48,6 +54,7 @@ export default function DocumentViewer({
   documentId,
   documentName,
   documentType,
+  projectId,
 }: DocumentViewerProps) {
   // Derive the file extension once (memoized)
   const ext = useMemo(() => {
@@ -74,10 +81,34 @@ export default function DocumentViewer({
     setContent(null);
     setActiveSheet(0);
 
-    apiClient
-      .getDocumentContent(documentId)
-      .then((data) => {
+    // Pick the right fetch path: Neo4j-by-name for orphan docs,
+    // id-based for normal docs. The two endpoints return slightly
+    // different shapes — we normalize the Neo4j response to match
+    // the id-based DocumentContent shape.
+    const fetcher = projectId
+      ? apiClient.getNeo4jDocumentContent({ project_id: projectId, name: documentName })
+      : apiClient.getDocumentContent(documentId);
+    fetcher
+      .then((raw: any) => {
         if (cancelled) return;
+        // Normalize: id-based returns DocumentContent; Neo4j returns
+        // { doc_name, content, char_count, source, file_path }.
+        let data: DocumentContent;
+        if (raw && 'kind' in raw) {
+          data = raw as DocumentContent;
+        } else if (raw && 'content' in raw) {
+          // The Neo4j response — infer `kind` from the extension.
+          const ext = (documentName || '').split('.').pop()?.toLowerCase() || '';
+          const kind: DocKind =
+            ext === 'md'   ? 'markdown' :
+            ext === 'html' ? 'html'     :
+            ext === 'csv'  ? 'csv'      :
+            ext === 'json' || ext === 'yaml' || ext === 'yml' || ext === 'txt' || ext === 'xml' ? 'plain' :
+            'code';  // any other text-like doc
+          data = { kind, content: raw.content, truncated: raw.char_count >= 100_000 };
+        } else {
+          data = { kind: 'plain', content: String(raw ?? ''), truncated: false };
+        }
         setContent(data);
       })
       .catch((err: any) => {
@@ -96,14 +127,21 @@ export default function DocumentViewer({
     return () => {
       cancelled = true;
     };
-  }, [documentId, needsFetch]);
+  }, [documentId, projectId, documentName, needsFetch]);
+
+  // ----- URL helpers -----
+  // For Neo4j-only docs, the file lives behind /api/graphindex/file.
+  // For everything else, the standard /api/rag/documents/{id}/file.
+  const fileUrl = projectId
+    ? `/api/graphindex/file?project_id=${projectId}&name=${encodeURIComponent(documentName)}`
+    : `/api/rag/documents/${documentId}/file`;
 
   // ----- PDF -----
   if (isPdf) {
     return (
       <TwoPagePdfViewer
         key={documentId}
-        url={`/api/rag/documents/${documentId}/file`}
+        url={fileUrl}
         title={documentName}
       />
     );
@@ -114,7 +152,7 @@ export default function DocumentViewer({
     return (
       <div className="w-full flex-1 overflow-auto flex items-center justify-center bg-gray-50 dark:bg-black/20 p-4">
         <img
-          src={`/api/rag/documents/${documentId}/file`}
+          src={fileUrl}
           alt={documentName}
           className="max-w-full max-h-full object-contain"
         />
@@ -139,7 +177,7 @@ export default function DocumentViewer({
         <div>
           <p className="text-red-500 mb-2">{error}</p>
           <a
-            href={`/api/rag/documents/${documentId}/file`}
+            href={fileUrl}
             target="_blank"
             rel="noreferrer"
             className="text-primary underline"
