@@ -56,12 +56,13 @@ if str(REPO_ROOT / "learning" / "phase9") not in sys.path:
 
 from langgraph.checkpoint.memory import MemorySaver  # noqa: E402
 
-# Reuse the 4 graphindex @tool wrappers
+# Reuse the 5 graphindex @tool wrappers (4 old + 1 new: route_query_tool)
 from graphindex_tools import (  # noqa: E402
     fetch_catalog_tool,
     list_docs_tool,
     load_multi_doc_tool,
     read_doc_tool,
+    route_query_tool,
 )
 
 MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
@@ -74,25 +75,39 @@ DEFAULT_MODEL = "minimax-m3"
 SYSTEM_PROMPT = """You are **graphindex_chat** — a conversational research
 assistant for the user's project documents.
 
-You have 4 tools:
+You have 5 tools:
 
-  - list_docs_tool(project_id)             — list available doc names
+  - list_docs_tool(project_id)             — list available doc names (cheap)
   - fetch_catalog_tool(project_id)         — full catalog (name + about)
+  - route_query_tool(query, project_id)    — pick top 1-3 matching docs
+                                             for a query (LLM semantic routing;
+                                             returns JSON with primary +
+                                             supporting[0-3] + reasoning)
   - read_doc_tool(name, project_id)        — read a single doc's full text
   - load_multi_doc_tool(primary, supporting, project_id)
                                             — one-shot: load primary + supporting
 
-Workflow:
+WORKFLOW (progressive disclosure — MUST follow this order):
 
-  1. If unsure what docs exist, call list_docs_tool first (cheap).
-  2. To answer a question, call load_multi_doc_tool with a primary doc
-     name and 0-3 supporting doc names (different domains). This returns
-     the combined context.
-  3. Synthesize the final answer from the loaded context. Cite the
+  1. ALWAYS call route_query_tool(query=..., project_id=1) FIRST for
+     every user question. This is the LLM-semantic routing step that
+     picks the best primary doc + 0-3 cross-domain supporting docs.
+     It returns JSON like:
+       {"primary": "<name>", "supporting": [{"name": "<name>",
+         "reason": "..."}, ...], "primary_confidence": 0.0-1.0, ...}
+  2. PASS those exact names to load_multi_doc_tool(primary=<primary>,
+     supporting=[<names from route_query_tool.supporting>]).
+  3. SYNTHESIZE the final answer from the loaded context. Cite the
      document name and page when relevant.
 
+  - Use list_docs_tool / fetch_catalog_tool only for casual browse
+    (e.g. "what docs do I have?"), not for answering a question.
+  - Use read_doc_tool only as a fallback when route_query_tool isn't
+    available or you need to re-read a specific doc.
+
 If the user asks something unrelated to the project documents, say so
-politely. Don't make up document names — always check the catalog.
+politely. Don't make up document names — route_query_tool is the
+source of truth for "which docs match this query".
 
 Keep replies concise but cite your sources. Output language matches the
 query.
@@ -143,6 +158,7 @@ def create_graphindex_chat_agent(
         tools=[
             list_docs_tool,
             fetch_catalog_tool,
+            route_query_tool,
             read_doc_tool,
             load_multi_doc_tool,
         ],
@@ -226,8 +242,25 @@ def cmd_answer(query: str, project_id: int = 1) -> int:
     answer = _strip_think(result["messages"][-1].content)
     in_tok, out_tok, cache_read = _extract_usage(result)
 
+    # Tool-call trace — shows which tools the LLM chose to use, in order.
+    # This verifies the progressive-disclosure workflow: route_query_tool
+    # should come first, then load_multi_doc_tool.
     print(f"\nQuery: {query!r}  (project_id={project_id})")
-    print(f"\n🤖 {answer}")
+    print("\n── Tool calls (in order) ──")
+    for i, msg in enumerate(result["messages"]):
+        msg_type = getattr(msg, "type", "?")
+        name = getattr(msg, "name", None) or getattr(msg, "tool_call_id", None)
+        # AI messages may have tool_calls
+        if hasattr(msg, "tool_calls") and msg.tool_calls:
+            for tc in msg.tool_calls:
+                args_str = str(tc.get("args", {}))
+                if len(args_str) > 200:
+                    args_str = args_str[:200] + "…"
+                print(f"  [{i}] {tc.get('name')}({args_str})")
+        elif msg_type == "tool":
+            content = getattr(msg, "content", "")
+            print(f"  [{i}]   → {len(content):,} chars returned")
+    print("\n🤖 " + answer)
     _print_turn_footer(elapsed, in_tok, out_tok, cache_read)
     return 0
 
@@ -240,9 +273,10 @@ def cmd_show_agent(project_id: int = 1) -> int:
             print(f"  - {node}")
     except Exception as e:
         print(f"  (could not introspect: {e})")
-    print(f"\nTool inventory: 4 tools")
+    print(f"\nTool inventory: 5 tools")
     print(f"  - list_docs_tool")
     print(f"  - fetch_catalog_tool")
+    print(f"  - route_query_tool       (progressive disclosure — Step M)")
     print(f"  - read_doc_tool")
     print(f"  - load_multi_doc_tool")
     print(f"Subagents: 0 (single agent, no subagent delegation)")
