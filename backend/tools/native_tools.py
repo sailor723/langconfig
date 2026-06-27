@@ -2114,13 +2114,11 @@ def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
 
     try:
         from graphindex_build_python import cmd_show as _clean_show  # noqa: E402
-        rc = _clean_show(name)
-        return (
-            f"## Show: {name}\n"
-            f"project_id: {project_id}\n"
-            f"return code: {rc}\n"
-            f"(see server logs for full detail)"
-        )
+        # BUG FIX: cmd_show now returns the formatted metadata string
+        # (it used to return an int exit code). Just return that string
+        # directly so the Studio Results panel shows the full doc
+        # metadata, not a one-line "see server logs" header.
+        return _clean_show(name)
     except Exception as e:
         return f"❌ Error showing {name}: {e}"
 

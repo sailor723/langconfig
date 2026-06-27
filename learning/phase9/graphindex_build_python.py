@@ -316,30 +316,42 @@ def cmd_rebuild_project(llm: BaseChatModel = None) -> int:
     return 0
 
 
-def cmd_show(name: str) -> int:
-    """Print one Document node's key fields."""
+def cmd_show(name: str):
+    """Print AND return one Document node's key fields as a formatted string.
+
+    The string is returned so callers (e.g. the Studio workflow tool
+    wrapper) can display the metadata in the UI. We keep the prints
+    for the CLI use case. The return type is:
+      - str: formatted metadata (success), or "  ✗ ..." for not-found
+    main() translates the string to a process exit code.
+    """
     idx = Neo4jDocumentIndex()
     node = idx.get_document(project_id=PROJECT_ID, name=name)
     if not node:
-        print(f"  ✗ no doc named {name!r}")
-        return 1
-    print(f"📄 {node.name}")
-    print(f"   file_path: {node.file_path}")
-    print(f"   about: {node.what_this_document_is_about or '(none)'}")
-    print(f"   supports ({len(node.supported_queries)}):")
+        msg = f"  ✗ no doc named {name!r}"
+        print(msg)
+        return msg  # so the Studio also sees the error
+    # Collect lines so we can return them
+    lines: list[str] = []
+    lines.append(f"📄 {node.name}")
+    lines.append(f"   file_path: {node.file_path}")
+    lines.append(f"   about: {node.what_this_document_is_about or '(none)'}")
+    lines.append(f"   supports ({len(node.supported_queries)}):")
     for q in node.supported_queries[:5]:
-        print(f"     - {q}")
-    print(f"   out_of_scope ({len(node.out_of_scope)}):")
+        lines.append(f"     - {q}")
+    lines.append(f"   out_of_scope ({len(node.out_of_scope)}):")
     for n in node.out_of_scope[:5]:
-        print(f"     - {n}")
+        lines.append(f"     - {n}")
     rows = idx._run_cypher(
         "MATCH (d:Document {project_id: $pid, name: $name}) "
         "RETURN d.content_sha256 AS h",
         {"pid": PROJECT_ID, "name": name},
     )
     if rows and rows[0].get("h"):
-        print(f"   content_sha256: {rows[0]['h'][:16]}…")
-    return 0
+        lines.append(f"   content_sha256: {rows[0]['h'][:16]}…")
+    result = "\n".join(lines)
+    print(result)
+    return result
 
 
 # --- Main -----------------------------------------------------------------
@@ -372,7 +384,10 @@ def main() -> int:
     if args.rebuild_project:
         return cmd_rebuild_project()
     if args.show:
-        return cmd_show(args.show)
+        # cmd_show now returns a string (the formatted metadata).
+        # The CLI just needs an exit code: 0 for success, 1 for not-found.
+        result = cmd_show(args.show)
+        return 1 if isinstance(result, str) and result.startswith("  ✗") else 0
     return 0
 
 
