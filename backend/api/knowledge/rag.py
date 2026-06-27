@@ -12,6 +12,7 @@ import logging
 import time
 import re
 import hashlib
+import mimetypes
 import zipfile
 import tarfile
 import tempfile
@@ -1029,6 +1030,40 @@ async def get_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     return DocumentResponse.from_orm_model(doc)
+
+
+@router.get("/documents/{document_id}/file")
+async def get_document_file(
+    document_id: int,
+    db: Session = Depends(get_db)
+):
+    """Serve the raw document file (PDF, text, etc.) so the Studio's
+    Knowledge panel can render it in an <iframe> using the browser's
+    built-in PDF viewer.
+
+    Looks up the doc's file_path in PostgreSQL and streams the bytes
+    with the correct Content-Type.
+    """
+    from fastapi.responses import FileResponse
+    doc = db.query(ContextDocument).filter(ContextDocument.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    file_path = Path(doc.file_path)
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Document file not found on disk: {file_path}",
+        )
+
+    # Use stored mime_type if available, else infer from extension
+    media_type = doc.mime_type or mimetypes.guess_type(str(file_path))[0] or "application/octet-stream"
+
+    return FileResponse(
+        path=str(file_path),
+        media_type=media_type,
+        filename=doc.original_filename or doc.filename,
+    )
 
 
 @router.delete("/documents/{document_id}", status_code=204)
