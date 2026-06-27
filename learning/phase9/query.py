@@ -67,8 +67,13 @@ MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
 MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
 MODEL = "minimax-m3"
 PROJECT_ID = 1
-PRIMARY_MAX_CHARS = 30_000
-SUPPORTING_MAX_CHARS = 15_000
+# Char caps per doc. MiniMax M3 supports 1M-token context, so we can
+# afford a lot more than the legacy 30K/15K defaults. 10M chars is
+# effectively no cap for normal documents (10-K, contracts, reports)
+# — just a safety net to prevent OOM on truly gigantic files. The LLM
+# will see the full document in one call.
+PRIMARY_MAX_CHARS = 10_000_000
+SUPPORTING_MAX_CHARS = 10_000_000
 PRICING = {"standard": {"input": 0.60, "output": 2.40},
            "long_ctx": {"input": 1.20, "output": 4.80}}
 TIER_THRESHOLD = 512_000

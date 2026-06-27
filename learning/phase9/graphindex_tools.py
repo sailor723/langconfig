@@ -12,6 +12,7 @@ state. Safe to call from multiple subagents concurrently.
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -37,6 +38,8 @@ from legacy.route_semantic import (  # noqa: E402
     _read_doc_text as _read_doc_text,
     SUPPORTING_MAX_CHARS,
     PRIMARY_MAX_CHARS,
+    route_by_llm as _route_by_llm,
+    make_llm as _make_routing_llm,
 )
 
 # --- Module-level singletons (lazy init, reused across subagent calls) ---
@@ -85,15 +88,17 @@ def fetch_catalog_tool(project_id: int = 1,
 # --- Tool 2: read_doc_tool ------------------------------------------------
 
 @tool
-def read_doc_tool(name: str, max_chars: int = 30_000) -> str:
+def read_doc_tool(name: str, max_chars: int = 10_000_000) -> str:
     """Read a single document's content from filesystem (PDF / MD / TXT).
 
-    Use max_chars=30000 for primary docs and max_chars=15000 for supporting
-    docs to control context size.
+    The default max_chars=10_000_000 is effectively no cap for normal
+    documents (10-K, contracts, reports) — the LLM will see the full
+    document in one call. MiniMax M3 supports 1M-token context. Use
+    a smaller value if you want to limit context size manually.
 
     Args:
         name: Exact document name (e.g. "nke-10k-2023.pdf").
-        max_chars: Hard cap on returned characters.
+        max_chars: Hard cap on returned characters (default 10M).
 
     Returns:
         The document text with --- Page N --- markers, or an error string
@@ -134,8 +139,10 @@ def load_multi_doc_tool(primary: str,
     """Load primary + supporting documents into a single context string.
 
     Use this when you need to combine several documents before asking the
-    LLM to synthesize an answer. Caps: primary=30K chars, each
-    supporting=15K chars.
+    LLM to synthesize an answer. By default both primary and supporting
+    docs are read in FULL (no effective cap, just a 10M-char safety
+    net). MiniMax M3 supports 1M-token context, so even a 500-page
+    primary + 3 supporting docs will fit in one call.
 
     Args:
         primary: Exact name of the main document.
@@ -165,6 +172,64 @@ def load_multi_doc_tool(primary: str,
     return "\n\n".join(parts)
 
 
+# --- Tool 5: route_query_tool --------------------------------------------
+
+@tool
+def route_query_tool(query: str, project_id: int = 1) -> str:
+    """Find the top 1-3 documents that best match a user query (progressive
+    disclosure: the small "what exists" step before loading full text).
+
+    This tool performs **LLM semantic routing**: it loads the project's
+    catalog (name + about + supported_queries + excludes) and asks an LLM
+    to pick the best primary doc plus 0-3 cross-domain supporting docs.
+
+    Call this FIRST when answering a user question, then pass the
+    returned names to load_multi_doc_tool.
+
+    Args:
+        query: The user's natural-language question.
+        project_id: Neo4j project id (default 1).
+
+    Returns:
+        JSON string with shape:
+          {
+            "primary": "<exact doc name>",
+            "primary_domain": "<short tag>",
+            "primary_confidence": 0.0-1.0,
+            "supporting": [{"name": "<exact doc name>", "reason": "..."}],
+            "reasoning": "<one short sentence>",
+            "cache_read_tokens": <int>
+          }
+        or
+          {
+            "primary": null,
+            "reasoning": "<why no doc matches>",
+            "cache_read_tokens": <int>
+          }
+    """
+    idx = _idx()
+    rows = _fetch_catalog(idx, project_id)
+    if not rows:
+        return json.dumps({
+            "primary": None,
+            "reasoning": "NO_DOCS",
+            "cache_read_tokens": 0,
+        })
+    # Use the same routing LLM as the legacy route_semantic.py path
+    routing_llm = _make_routing_llm()
+    decision, cache_read = _route_by_llm(query, rows, routing_llm)
+    return json.dumps({
+        "primary": decision.primary,
+        "primary_domain": decision.primary_domain,
+        "primary_confidence": decision.primary_confidence,
+        "supporting": [
+            {"name": s.name, "reason": s.reason} for s in decision.supporting
+        ],
+        "reasoning": decision.reasoning,
+        "cache_read_tokens": cache_read,
+    }, ensure_ascii=False)
+
+
 # --- Tool registry (convenience for agent construction) ------------------
 
 ALL_TOOLS = [
@@ -172,6 +237,7 @@ ALL_TOOLS = [
     read_doc_tool,
     list_docs_tool,
     load_multi_doc_tool,
+    route_query_tool,
 ]
 
 

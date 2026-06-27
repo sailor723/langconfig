@@ -345,8 +345,14 @@ def print_catalog(rows: List[Dict[str, Any]]) -> None:
 
 # Per-doc char limits. Primary gets more because it's the main source;
 # supporting docs are reference material so we cap them tighter.
-PRIMARY_MAX_CHARS = 30_000
-SUPPORTING_MAX_CHARS = 15_000
+# Bumped from 30K/15K → 200K/80K → 10M/10M (effectively no cap).
+# MiniMax M3 supports 1M-token context, so the old caps forced the
+# LLM to take a second turn to read the rest of long docs. The 10M
+# here is just a safety net to prevent OOM on truly gigantic files
+# (a 5000-page manual would still hit this). For normal documents
+# (10-K, contracts, reports) the full text is loaded in one call.
+PRIMARY_MAX_CHARS = 10_000_000
+SUPPORTING_MAX_CHARS = 10_000_000
 
 # Cache file_path lookups so we don't hit Neo4j per doc
 _FILE_PATH_CACHE: Dict[str, str] = {}

@@ -1710,6 +1710,157 @@ extra tools, etc.) without touching Phase 9 code.
 
 ---
 
+## 🎯 Step M — Progressive disclosure for `graphindex_chat` (DONE)
+
+This step makes the modern `graphindex_chat` deepagent structurally
+identical to the legacy 2-LLM-call flow from `legacy/route_semantic.py`.
+
+### The problem we fixed
+
+The legacy `route_semantic.py --query-answer` was clearly
+**progressive disclosure**:
+
+```
+Step 1: LLM sees catalog (small)        → picks primary + supporting
+Step 2: Filesystem read                 → loads full text of those docs
+Step 3: LLM sees loaded context (big)   → synthesizes answer
+```
+
+The modern `graphindex_chat_agent.py` (the deepagent) was **not**
+strictly progressive disclosure — the LLM was free to skip the catalog
+lookup, guess doc names, or call only `read_doc_tool`. This worked
+**most** of the time, but in the LangSmith trace for `"Nike financial
+metrics"` the LLM called `graphindex_list_docs(project_id="default")`
+twice without ever calling `graphindex_multi_doc_load`, producing a
+weak answer.
+
+### The fix: add `route_query_tool` as the 5th tool
+
+A new tool was added to `phase9/graphindex_tools.py`:
+
+```python
+@tool
+def route_query_tool(query: str, project_id: int = 1) -> str:
+    """Find the top 1-3 documents that best match a user query
+    (progressive disclosure: the small 'what exists' step before
+    loading full text). Returns JSON: {primary, supporting: [...],
+    primary_confidence, reasoning, cache_read_tokens}."""
+```
+
+This is a thin wrapper around the existing `route_by_llm()` from
+`legacy/route_semantic.py`. The LLM (routing) is a separate one
+from the main agent's LLM (synthesis) — keeps the call structure
+identical to the legacy flow.
+
+### New SYSTEM_PROMPT enforces the 3-step workflow
+
+```text
+WORKFLOW (progressive disclosure — MUST follow this order):
+  1. ALWAYS call route_query_tool(query=..., project_id=1) FIRST
+     for every user question. This is the LLM-semantic routing step
+     that picks the best primary doc + 0-3 cross-domain supporting docs.
+  2. PASS those exact names to load_multi_doc_tool(primary=...,
+     supporting=[...]).
+  3. SYNTHESIZE the final answer from the loaded context.
+```
+
+`graphindex_chat_agent.py` was updated to:
+- Import `route_query_tool` (line 68)
+- Add it to the agent's `tools=[...]` list (line 165)
+- Replace the 4-tool SYSTEM_PROMPT with a 5-tool version that
+  enforces the workflow above (lines 73–112)
+
+### Verified: the LLM follows the new workflow
+
+Live test of the same query that failed before:
+
+```bash
+$ python phase9/graphindex_chat_agent.py --answer "Nike financial metrics" --project-id 1
+
+Query: 'Nike financial metrics'  (project_id=1)
+
+── Tool calls (in order) ──
+  [1] route_query_tool({'query': 'Nike financial metrics', 'project_id': 1})
+  [2]   → 294 chars returned
+  [3] load_multi_doc_tool({'primary': 'nke-10k-2023.pdf'})
+  [4]   → 1,116 chars returned
+  [5] grep(...) + grep(...)    ← deepagent's filesystem middleware
+  [6-16] read_file / grep       ← LLM navigates the large doc
+  [17] → final answer
+
+🤖 Here are Nike's (NIKE, Inc.) key financial metrics for fiscal year 2023...
+```
+
+The LLM now does **step 1 (routing) → step 2 (load) → step 3
+(synthesis)** exactly as the legacy 2-LLM-call flow.
+
+### Per-doc char caps: no effective cap (just a 10M safety net)
+
+MiniMax M3 supports **1M-token context**, so the legacy 30K/15K char
+caps from `query.py` and `route_semantic.py` were causing the LLM to
+take a second turn to read the rest of long docs. The caps were
+bumped:
+
+| Cap | Original (legacy) | Bumped | Effective for 10-K |
+|---|---|---|---|
+| `PRIMARY_MAX_CHARS` | 30,000 | 10,000,000 | ~380K chars loaded (full 10-K, all 107 pages) |
+| `SUPPORTING_MAX_CHARS` | 15,000 | 10,000,000 | Same |
+
+10M chars is a safety net to prevent OOM on truly gigantic files
+(5,000+ page manuals). For all normal documents (10-K, contracts,
+reports), the full text is loaded in one tool call.
+
+The same bump was applied in 3 files for consistency:
+- `learning/phase9/legacy/route_semantic.py` (line 354)
+- `learning/phase9/query.py` (line 73)
+- `learning/phase9/graphindex_tools.py` (line 88, `read_doc_tool` default)
+
+### Context-window analysis (live measurement)
+
+| Component | Chars | Tokens (~4ch/t) | % of 1M context |
+|---|---:|---:|---:|
+| Step 1 — catalog (48 docs + their excludes) | 709,355 | 177,338 | 17.7% |
+| Step 2 — full 10-K | 380,098 | 95,024 | 9.5% |
+| Worst case — 4 huge docs | 1,520,392 | 380,098 | 38% (still fits) |
+
+**Synthesis call total input** (catalog NOT included): 95,162 tokens
+= 9.5% of context. **The LLM has 90% of its context free for its
+own reasoning and output.**
+
+### Answer quality comparison (same query, different caps)
+
+| Cap | Chars loaded | Pages of 10-K | Coverage |
+|---|---:|---:|---|
+| 30K (legacy) | 35,096 | ~9/107 | Part I only — "MD&A and financial statements not in provided pages" |
+| 200K | 202,949 | ~50/107 | Part I + MD&A |
+| **10M (current)** | **380,098** | **107/107** | **Full 10-K including audited financial statements** |
+
+### Files changed
+
+```
+learning/phase9/graphindex_tools.py        + import json, + route_query_tool, + cap docs
+learning/phase9/graphindex_chat_agent.py   + import route_query_tool, + 5th tool, + tool-call trace
+learning/phase9/query.py                   PRIMARY/SUPPORTING_MAX_CHARS → 10M
+learning/phase9/legacy/route_semantic.py   PRIMARY/SUPPORTING_MAX_CHARS → 10M
+```
+
+### UI agent template (Step L) also updated
+
+The langconfig UI's `graphindex_chat` template (id=91, in
+`GRAPHINDEX_CHAT_TEMPLATE_PAYLOAD` of
+`src/features/knowledge/ui/KnowledgeBaseView.tsx`) was updated to
+make the system_prompt explicit about:
+
+- The **project_id is an INTEGER** (the LLM was passing `"default"`
+  string before — that was the LangSmith trace regression)
+- The 4 native tools (`graphindex_list_docs`, `graphindex_search`,
+  `graphindex_load`, `graphindex_multi_doc_load`)
+- The workflow: `graphindex_list_docs` first if unsure, then prefer
+  `graphindex_multi_doc_load` for the actual answer (it does the
+  routing + loading in one call)
+
+---
+
 ## 🔗 Related Reading
 
 - VectifyAI / GraphIndex (inspiration): <https://github.com/VectifyAI/GraphIndex>
