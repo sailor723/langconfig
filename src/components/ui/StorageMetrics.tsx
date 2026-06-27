@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Database, HardDrive, RefreshCw, Info } from 'lucide-react';
+import { Database, HardDrive, RefreshCw, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 
 interface StorageMetricsProps {
@@ -78,6 +78,10 @@ export default function StorageMetrics({ projectId, onRefresh, compact = false, 
   };
   const [stats, setStats] = useState<StorageStats | null>(null);
   const [loading, setLoading] = useState(true);
+  // NEW: collapsible state for compact mode. When collapsed, only the
+  // header row is visible — the Search History panel below can take
+  // the freed vertical space. Default = expanded.
+  const [collapsed, setCollapsed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadStats = async (signal?: AbortSignal) => {
@@ -187,79 +191,99 @@ export default function StorageMetrics({ projectId, onRefresh, compact = false, 
   // Compact mode: smaller fonts, tighter layout
   if (compact) {
     return (
-      <div className="bg-white dark:bg-panel-dark rounded-lg border border-gray-200 dark:border-border-dark p-2.5">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-2">
+      <div className="bg-white dark:bg-panel-dark rounded-lg border border-gray-200 dark:border-border-dark overflow-hidden">
+        {/* Header — clickable to toggle collapse */}
+        <div
+          className="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+          onClick={() => setCollapsed(c => !c)}
+          role="button"
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Expand storage metrics' : 'Collapse storage metrics'}
+        >
           <div className="flex items-center gap-1.5">
             <HardDrive className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
             <span className="text-[11px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>{L.storageMetrics}</span>
           </div>
-          <button onClick={handleRefresh} className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-            <RefreshCw className="w-3 h-3" />
-            {L.refresh}
-          </button>
-        </div>
-
-        {/* Main Stats - 3 column grid */}
-        <div className="grid grid-cols-3 gap-2 mb-2">
-          <div className="bg-gray-50 dark:bg-white/5 rounded p-1.5">
-            <p className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{L.totalStorage}</p>
-            <p className="text-xs font-bold" style={{ color: 'var(--color-text-primary)' }}>
-              {actual_storage.total_gb.toFixed(3)} GB
-            </p>
-          </div>
-          <div className="bg-gray-50 dark:bg-white/5 rounded p-1.5">
-            <p className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{L.indexedChunks}</p>
-            <p className="text-xs font-bold" style={{ color: 'var(--color-text-primary)' }}>
-              {configuration.indexed_nodes_count.toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-gray-50 dark:bg-white/5 rounded p-1.5">
-            <p className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{L.status}</p>
-            <p className={`text-xs font-bold ${getStatusColor(stats.indexing_status)}`}>
-              {getStatusLabel(stats.indexing_status)}
-            </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleRefresh(); }}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-all text-[10px]"
+              style={{ color: 'var(--color-text-muted)' }}
+              title={L.refresh}
+            >
+              <RefreshCw className="w-3 h-3" />
+            </button>
+            {collapsed
+              ? <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+              : <ChevronUp   className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />}
           </div>
         </div>
 
-        {/* Storage Breakdown Bar */}
-        <div className="mb-1">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{L.storageBreakdown}</span>
-          </div>
-          <div className="w-full h-2 rounded-full overflow-hidden flex" style={{ backgroundColor: 'var(--color-background-dark)' }}>
-            <div className="bg-blue-500 transition-all duration-300" style={{ width: `${dataPercent}%` }} />
-            <div className="bg-purple-500 transition-all duration-300" style={{ width: `${vectorStorePercent}%` }} />
-          </div>
-          <div className="flex gap-2 mt-1 text-[9px]">
-            <span style={{ color: 'var(--color-text-muted)' }}>{L.data}: {formatBytes(actual_storage.table_bytes)}</span>
-            <span style={{ color: 'var(--color-text-muted)' }}>{L.index}: {formatBytes(actual_storage.index_bytes)}</span>
-          </div>
-        </div>
-
-        {/* Configuration - compact */}
-        <div className="pt-1.5 border-t border-gray-100 dark:border-border-dark">
-          <div className="grid grid-cols-3 gap-2 text-[9px]">
-            <div>
-              <span style={{ color: 'var(--color-text-muted)' }}>{L.chunkSize}: </span>
-              <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{configuration.chunk_size}</span>
+        {/* Body — hidden when collapsed so the Search History panel below can use the space */}
+        {!collapsed && (
+          <div className="px-2.5 pb-2.5">
+            {/* Main Stats - 3 column grid */}
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              <div className="bg-gray-50 dark:bg-white/5 rounded p-1.5">
+                <p className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{L.totalStorage}</p>
+                <p className="text-xs font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                  {actual_storage.total_gb.toFixed(3)} GB
+                </p>
+              </div>
+              <div className="bg-gray-50 dark:bg-white/5 rounded p-1.5">
+                <p className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{L.indexedChunks}</p>
+                <p className="text-xs font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                  {configuration.indexed_nodes_count.toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-gray-50 dark:bg-white/5 rounded p-1.5">
+                <p className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{L.status}</p>
+                <p className={`text-xs font-bold ${getStatusColor(stats.indexing_status)}`}>
+                  {getStatusLabel(stats.indexing_status)}
+                </p>
+              </div>
             </div>
-            <div>
-              <span style={{ color: 'var(--color-text-muted)' }}>{L.overlap}: </span>
-              <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{configuration.chunk_overlap}</span>
+
+            {/* Storage Breakdown Bar */}
+            <div className="mb-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>{L.storageBreakdown}</span>
+              </div>
+              <div className="w-full h-2 rounded-full overflow-hidden flex" style={{ backgroundColor: 'var(--color-background-dark)' }}>
+                <div className="bg-blue-500 transition-all duration-300" style={{ width: `${dataPercent}%` }} />
+                <div className="bg-purple-500 transition-all duration-300" style={{ width: `${vectorStorePercent}%` }} />
+              </div>
+              <div className="flex gap-2 mt-1 text-[9px]">
+                <span style={{ color: 'var(--color-text-muted)' }}>{L.data}: {formatBytes(actual_storage.table_bytes)}</span>
+                <span style={{ color: 'var(--color-text-muted)' }}>{L.index}: {formatBytes(actual_storage.index_bytes)}</span>
+              </div>
             </div>
-            <div>
-              <span style={{ color: 'var(--color-text-muted)' }}>{L.embedding}: </span>
-              <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{configuration.embedding_dimensions}D</span>
+
+            {/* Configuration - compact */}
+            <div className="pt-1.5 border-t border-gray-100 dark:border-border-dark">
+              <div className="grid grid-cols-3 gap-2 text-[9px]">
+                <div>
+                  <span style={{ color: 'var(--color-text-muted)' }}>{L.chunkSize}: </span>
+                  <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{configuration.chunk_size}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--color-text-muted)' }}>{L.overlap}: </span>
+                  <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{configuration.chunk_overlap}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--color-text-muted)' }}>{L.embedding}: </span>
+                  <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>{configuration.embedding_dimensions}D</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Info */}
+            <div className="flex items-start gap-1 mt-1.5 text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
+              <Info className="w-3 h-3 flex-shrink-0 mt-0.5" />
+              <p>{stats.message}</p>
             </div>
           </div>
-        </div>
-
-        {/* Info */}
-        <div className="flex items-start gap-1 mt-1.5 text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
-          <Info className="w-3 h-3 flex-shrink-0 mt-0.5" />
-          <p>{stats.message}</p>
-        </div>
+        )}
       </div>
     );
   }
