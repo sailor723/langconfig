@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Upload, FileText, Trash2, Search, Database, Filter, Loader, RefreshCw, Sparkles, Check, ChevronDown, ChevronUp, X } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
@@ -64,10 +64,68 @@ export default function KnowledgeBaseView() {
   const { t } = useTranslation('chat');
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ----- Resizable column widths (px) -----
+  // Left = doc cards list, Right = chat panel. Center is flex-1.
+  // Drag the divider between columns to resize. Persists to localStorage
+  // so the user's preferred width is remembered across visits.
+  const [leftWidth, setLeftWidth] = useState<number>(() => {
+    const v = typeof window !== 'undefined' ? localStorage.getItem('kb.leftWidth') : null;
+    return v ? Math.max(180, Math.min(600, parseInt(v, 10) || 288)) : 288;
+  });
+  const [rightWidth, setRightWidth] = useState<number>(() => {
+    const v = typeof window !== 'undefined' ? localStorage.getItem('kb.rightWidth') : null;
+    return v ? Math.max(280, Math.min(800, parseInt(v, 10) || 448)) : 448;
+  });
+  // Track which column is being dragged (for cursor + style)
+  const draggingRef = useRef<'left' | 'right' | null>(null);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!draggingRef.current) return;
+      // The layout container is at .kb-cols — we measure its left/right
+      // edge to compute widths in pixels.
+      const container = document.querySelector('.kb-cols') as HTMLElement | null;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      if (draggingRef.current === 'left') {
+        const w = Math.max(180, Math.min(600, e.clientX - rect.left));
+        setLeftWidth(w);
+      } else {
+        const w = Math.max(280, Math.min(800, rect.right - e.clientX));
+        setRightWidth(w);
+      }
+    };
+    const onUp = () => {
+      if (draggingRef.current === 'left') {
+        localStorage.setItem('kb.leftWidth', String(leftWidth));
+      } else if (draggingRef.current === 'right') {
+        localStorage.setItem('kb.rightWidth', String(rightWidth));
+      }
+      draggingRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [leftWidth, rightWidth]);
+
+  const startDrag = (side: 'left' | 'right') => (e: React.MouseEvent) => {
+    e.preventDefault();
+    draggingRef.current = side;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
+  // Doc that was just selected by the chat (auto-clears after 2.5s)
+  const [highlightedDocId, setHighlightedDocId] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -804,8 +862,11 @@ export default function KnowledgeBaseView() {
       )}
 
       <div className="flex-1 overflow-hidden p-4">
-        <div className="flex h-full gap-4">
-          <div className="w-72 flex-shrink-0 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3 overflow-hidden flex flex-col">
+        <div className="flex h-full gap-0 kb-cols">
+          <div
+            className="flex-shrink-0 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3 overflow-hidden flex flex-col"
+            style={{ width: leftWidth }}
+          >
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>{t('kb_documents')}</h3>
@@ -841,11 +902,16 @@ export default function KnowledgeBaseView() {
                   {readyDocuments.map(doc => (
                     <button
                       key={doc.id}
+                      data-doc-card-id={doc.id}
                       onClick={() => setSelectedDocId(doc.id)}
                       className={`w-full text-left rounded-lg border px-2.5 py-2 transition-all ${
                         selectedDocId === doc.id
                           ? 'border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10'
                           : 'border-gray-200 dark:border-border-dark hover:bg-gray-50 dark:hover:bg-white/5'
+                      } ${
+                        highlightedDocId === doc.id
+                          ? 'ring-2 ring-purple-500 shadow-lg shadow-purple-500/30'
+                          : ''
                       }`}
                     >
                       <div className="flex items-start gap-2">
@@ -925,6 +991,13 @@ export default function KnowledgeBaseView() {
               </div>
             </div>
           </div>
+
+          {/* Left divider — drag to resize the doc cards column */}
+          <div
+            onMouseDown={startDrag('left')}
+            className="w-1.5 flex-shrink-0 cursor-col-resize hover:bg-purple-200/40 dark:hover:bg-purple-500/20 transition-colors"
+            title="Drag to resize"
+          />
 
           <div className="min-w-0 flex-1 flex flex-col gap-3 overflow-hidden">
             {/* Document Preview Panel — shows the actual file (PDF rendered by
@@ -1204,9 +1277,39 @@ export default function KnowledgeBaseView() {
             </div>
           </div>
 
+          {/* Right divider — drag to resize the chat panel */}
+          <div
+            onMouseDown={startDrag('right')}
+            className="w-1.5 flex-shrink-0 cursor-col-resize hover:bg-purple-200/40 dark:hover:bg-purple-500/20 transition-colors"
+            title="Drag to resize"
+          />
+
           {/* Right column: chat panel powered by graphindex_chat agent */}
-          <div className="w-[28rem] flex-shrink-0 overflow-hidden flex flex-col">
-            <DocChatPanel projectId={activeProjectId} />
+          <div
+            className="flex-shrink-0 overflow-hidden flex flex-col"
+            style={{ width: rightWidth }}
+          >
+            <DocChatPanel
+              projectId={activeProjectId}
+              onDocSelected={(docName) => {
+                // When the chat picks a doc, find it in our list and
+                // select + scroll-to + flash-highlight it. This is the
+                // "auto-focus" UX — the user's eyes are on the chat
+                // and we want the viewer to follow the LLM.
+                const match = documents.find(d => d.name === docName);
+                if (match) {
+                  setSelectedDocId(match.id);
+                  setHighlightedDocId(match.id);
+                  // Scroll the card into view (it's a button in the left column)
+                  setTimeout(() => {
+                    const el = document.querySelector(`[data-doc-card-id="${match.id}"]`);
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 50);
+                  // Clear highlight after 2.5s
+                  setTimeout(() => setHighlightedDocId(null), 2500);
+                }
+              }}
+            />
           </div>
         </div>
       </div>
