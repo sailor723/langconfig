@@ -611,6 +611,17 @@ async def send_message(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _aiter_sync(gen):
+    """Wrap a sync generator as an async generator. Each iteration
+    yields the next value with a tiny sleep to let the event loop
+    breathe (so a long-running sync generator doesn't block other
+    asyncio tasks)."""
+    import asyncio
+    for item in gen:
+        await asyncio.sleep(0)  # yield to event loop
+        yield item
+
+
 async def _generate_stream_phase9(
     session_id: str,
     project_id: int,
@@ -639,17 +650,42 @@ async def _generate_stream_phase9(
 
     try:
         # Lazy import — phase9/ lives outside the backend package
-        from phase9.graphindex_chat_agent import stream_graphindex_chat_events
+        # AND doesn't have __init__.py, so we can't do
+        # `from phase9.graphindex_chat_agent import ...`. Instead, add
+        # the phase9/ dir to sys.path and import the file directly.
+        import sys
+        import importlib.util
+        from pathlib import Path
+        _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+        _PHASE9_DIR = _REPO_ROOT / "learning" / "phase9"
+        if str(_PHASE9_DIR) not in sys.path:
+            sys.path.insert(0, str(_PHASE9_DIR))
+        # Use importlib because there's no phase9/__init__.py
+        _spec = importlib.util.spec_from_file_location(
+            "graphindex_chat_agent",
+            _PHASE9_DIR / "graphindex_chat_agent.py",
+        )
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        stream_graphindex_chat_events = _mod.stream_graphindex_chat_events
 
         logger.info(
             f"Phase 9 path: session={session_id} project={project_id}"
         )
         last_messages: list = []
-        async for state in stream_graphindex_chat_events(
-            project_id=project_id,
-            query=message,
-            thread_id=session_id,
-        ):
+        # The Phase 9 generator is sync, but the route's response
+        # streaming is async (StreamingResponse with async gen). Wrap
+        # the sync generator with an async generator that yields each
+        # state after a small sleep to avoid blocking the event loop.
+        import asyncio
+        def _state_gen():
+            for state in stream_graphindex_chat_events(
+                project_id=project_id,
+                query=message,
+                thread_id=session_id,
+            ):
+                yield state
+        async for state in _aiter_sync(_state_gen()):
             # state is the full graph state after each node runs.
             # We diff it against the previous state to detect new
             # tool calls and assistant tokens.
