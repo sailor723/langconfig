@@ -1259,7 +1259,69 @@ const NodeConfigPanel = ({
                   )}
                 </div>
 
-                {/* Tool Parameters - Show for MCP/CLI tools (Custom uses modal) */}
+                {/* Tool Parameters - Dynamic form fields (ALL tool types, including custom) */}
+                {selectedToolId && toolInputSchema && toolInputSchema.properties && Object.keys(toolInputSchema.properties).length > 0 && (
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                      Tool Parameters
+                    </label>
+                    {Object.entries(toolInputSchema.properties).map(([propName, propSchema]: [string, any]) => {
+                      const isRequired = (toolInputSchema.required || []).includes(propName);
+                      const currentValue = config.tool_params?.[propName] ?? propSchema.default ?? '';
+                      const inputType = propSchema.type === 'integer' || propSchema.type === 'number' ? 'number' :
+                                        propSchema.type === 'boolean' ? 'checkbox' : 'text';
+                      return (
+                        <div key={propName}>
+                          <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                            {propName}{isRequired && <span style={{ color: '#ef4444' }}> *</span>}
+                          </label>
+                          {inputType === 'checkbox' ? (
+                            <input
+                              type="checkbox"
+                              checked={Boolean(currentValue)}
+                              onChange={(e) => {
+                                setConfig({
+                                  ...config,
+                                  tool_params: { ...(config.tool_params || {}), [propName]: e.target.checked }
+                                });
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onWheel={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <input
+                              type={inputType}
+                              value={currentValue}
+                              placeholder={propSchema.description || propSchema.examples?.[0] || ''}
+                              onChange={(e) => {
+                                const val = inputType === 'number' ? Number(e.target.value) : e.target.value;
+                                setConfig({
+                                  ...config,
+                                  tool_params: { ...(config.tool_params || {}), [propName]: val }
+                                });
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onWheel={(e) => e.stopPropagation()}
+                              className="w-full px-3 py-2 border rounded-lg text-sm"
+                              style={{
+                                backgroundColor: 'var(--color-input-background)',
+                                borderColor: 'var(--color-border-dark)',
+                                color: 'var(--color-text-primary)'
+                              }}
+                            />
+                          )}
+                          {propSchema.description && (
+                            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                              {propSchema.description}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Tool Parameters - JSON textarea (fallback for MCP/CLI) */}
                 {selectedToolId && selectedToolType !== 'custom' && (
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
