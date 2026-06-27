@@ -798,7 +798,10 @@ export default function KnowledgeBaseView() {
                 the browser's built-in PDF viewer, text/markdown/code in a
                 <pre>). Backed by GET /api/rag/documents/{id}/file. */}
             {selectedDocId && (
-              <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg overflow-hidden flex flex-col" style={{ minHeight: '320px', height: '40vh' }}>
+              // Enlarged by 20% (was 320px / 40vh → now 384px / 48vh).
+              // PDF uses TwoPageView + Fit zoom (see iframe src below) for
+              // a horizontal 2-page layout that fills the window.
+              <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg overflow-hidden flex flex-col mb-3" style={{ minHeight: '384px', height: '48vh' }}>
                 {previewLoading ? (
                   <div className="flex items-center justify-center gap-2 text-xs p-4" style={{ color: 'var(--color-text-muted)' }}>
                     <Loader className="w-3 h-3 animate-spin" />
@@ -842,7 +845,13 @@ export default function KnowledgeBaseView() {
                         return (
                           <iframe
                             key={selectedDocId}
-                            src={`/api/rag/documents/${selectedDocId}/file#toolbar=1&navpanes=0&scrollbar=1`}
+                            // Use Chrome PDF viewer's URL parameters:
+                            //   view=TwoPageView → 2 pages side-by-side
+                            //   zoom=Fit         → fit each page in the viewport
+                            //   toolbar=1        → keep toolbar visible
+                            // Firefox ignores unknown params; PDF.js still
+                            // renders, just with single-page view.
+                            src={`/api/rag/documents/${selectedDocId}/file#toolbar=1&navpanes=0&scrollbar=1&view=TwoPageView&zoom=Fit`}
                             className="w-full flex-1 border-0 bg-white"
                             title={previewData.doc_name}
                           />
@@ -881,23 +890,15 @@ export default function KnowledgeBaseView() {
               <div className="flex items-center gap-1.5 mb-2">
                 <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  {searchMode === 'graphindex' ? 'GraphIndex' : 'Vector RAG'} {t('kb_title')}
+                  GraphIndex {t('kb_title')}
                 </h3>
               </div>
 
               <div className="space-y-2">
-                <div className="flex gap-0.5 p-0.5 bg-gray-100 dark:bg-white/5 rounded-lg">
-                  <button onClick={() => { setSearchMode('graphindex'); setShowSearchResults(false); setGraphIndexDocs([]); }}
-                    className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${searchMode === 'graphindex' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'}`}
-                    style={{ color: 'var(--color-text-primary)' }}>
-                    {t('kb_graph_index')}
-                  </button>
-                  <button onClick={() => { setSearchMode('vector'); setShowSearchResults(false); setGraphIndexDocs([]); }}
-                    className={`flex-1 px-2 py-1 text-[11px] font-medium rounded-md transition-all ${searchMode === 'vector' ? 'bg-white dark:bg-white/10 shadow-sm' : 'hover:bg-white/50 dark:hover:bg-white/5'}`}
-                    style={{ color: 'var(--color-text-primary)' }}>
-                    {t('kb_vector_rag')}
-                  </button>
-                </div>
+                {/* REMOVED: GraphIndex / Vector RAG toggle — we now use
+                    GraphIndex exclusively, so the toggle is no longer needed.
+                    Kept the searchMode state and useState('graphindex') so any
+                    downstream code that still branches on it stays safe. */}
 
                 <div className="rounded-lg border border-gray-200 dark:border-border-dark px-2.5 py-2" style={{ backgroundColor: 'var(--color-input-background)' }}>
                   <div className="text-[10px] mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
