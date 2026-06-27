@@ -496,8 +496,28 @@ class APIClient {
     return this.client.get('/api/rag/documents', { params, signal });
   }
 
+  /**
+   * List documents from the Neo4j graphindex catalog (the chat's view
+   * of the project's docs). Complements /api/rag/documents (Postgres
+   * context_documents) — the UI merges the two so the sidebar stays
+   * in sync with what the chat can actually find. See Step M of the
+   * Phase 9 README.
+   */
+  async listNeo4jDocuments(config: { project_id: number; signal?: AbortSignal }) {
+    return this.client.get('/api/graphindex/neo4j-documents', { params: config, signal: config.signal });
+  }
+
   async getDocument(id: number) {
     return this.client.get(`/api/rag/documents/${id}`);
+  }
+
+  /**
+   * Fetch the text content of a doc by Neo4j catalog name (not
+   * by Postgres id). For docs that exist in Neo4j but not in the
+   * context_documents table. See Phase 9 / Step M.
+   */
+  async getNeo4jDocumentContent(config: { project_id: number; name: string; max_chars?: number }) {
+    return this.client.get('/api/graphindex/content', { params: config });
   }
 
   async deleteDocument(id: number) {

@@ -28,6 +28,13 @@ interface Document {
   created_at: string;
   indexed_at?: string;
   metadata?: any;
+  /** True if the doc came from the Neo4j catalog but isn't in the
+      Postgres context_documents table (i.e. the chat can see it but
+      the upload pipeline skipped the Postgres step). The card still
+      renders normally; opening it uses file_path + context_doc_id. */
+  neo4j_only?: boolean;
+  file_path?: string;
+  context_doc_id?: number;
 }
 
 interface SearchResult {
@@ -246,8 +253,53 @@ export default function KnowledgeBaseView() {
       if (effectiveStatus !== 'all') {
         params.status = effectiveStatus;
       }
-      const response = await apiClient.listDocuments({ ...params, signal });
-      setDocuments(response.data);
+      // Fetch BOTH lists in parallel. The Postgres list is the
+      // "official" one (with all the upload pipeline metadata), but
+      // the Neo4j list is what the chat actually uses. Merging by
+      // `name` keeps the sidebar in sync with the chat.
+      const [pgRes, neo4jRes] = await Promise.all([
+        apiClient.listDocuments({ ...params, signal }).catch((e) => {
+          if (signal?.aborted) throw e;
+          console.warn('Postgres doc list failed:', e);
+          return { data: [] as any[] };
+        }),
+        apiClient.listNeo4jDocuments({ project_id: activeProjectId, signal }).catch((e) => {
+          if (signal?.aborted) throw e;
+          console.warn('Neo4j doc list failed:', e);
+          return { data: { documents: [] as any[] } } as any;
+        }),
+      ]);
+      const pgDocs: Document[] = pgRes.data || [];
+      const neo4jDocs: any[] = neo4jRes.data?.documents || [];
+      // Index Postgres docs by name so we can quickly detect
+      // overlap. Neo4j-only docs (not in Postgres) become
+      // "virtual" cards with negative IDs.
+      const pgByName = new Map<string, Document>();
+      for (const d of pgDocs) pgByName.set(d.name, d);
+      // Start with the Postgres list (has all the upload metadata)
+      const merged: Document[] = [...pgDocs];
+      // For each Neo4j doc not in Postgres, append a virtual card
+      let virtualId = -1;
+      for (const n of neo4jDocs) {
+        if (!pgByName.has(n.name)) {
+          merged.push({
+            id: virtualId--,
+            project_id: activeProjectId,
+            name: n.name,
+            document_type: (n.name.split('.').pop() || 'unknown'),
+            size: 0,  // unknown — file is on disk but Postgres didn't index it
+            chunk_count: n.chunk_count ?? undefined,
+            indexing_status: 'ready',  // it's in Neo4j, so it's been enriched
+            created_at: n.indexed_at || new Date().toISOString(),
+            indexed_at: n.indexed_at || undefined,
+            metadata: { about: n.about, page_count: n.page_count, doc_index_id: n.doc_index_id },
+            neo4j_only: true,
+            file_path: n.file_path,
+            context_doc_id: n.context_doc_id,
+          });
+        }
+      }
+      setDocuments(merged);
     } catch (error) {
       // Ignore abort errors
       if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
@@ -915,26 +967,32 @@ export default function KnowledgeBaseView() {
                       }`}
                     >
                       <div className="flex items-start gap-2">
-                        <div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 flex-shrink-0" />
+                        <div className={`mt-0.5 h-2.5 w-2.5 rounded-full flex-shrink-0 ${
+                          doc.neo4j_only ? 'bg-purple-500' : 'bg-amber-500'
+                        }`} title={doc.neo4j_only ? 'Indexed in Neo4j only (no Postgres context_documents row)' : 'Indexed in Postgres context_documents'} />
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
                             {doc.name}
                           </div>
                           <div className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                            {formatFileSize(doc.size)} · {doc.chunk_count || 0} chunks
+                            {doc.neo4j_only
+                              ? `Neo4j-only · ${doc.chunk_count || 0} chunks`
+                              : `${formatFileSize(doc.size)} · ${doc.chunk_count || 0} chunks`}
                           </div>
                         </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(doc.id);
-                          }}
-                          className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10"
-                          style={{ color: 'var(--color-text-muted)' }}
-                          title={t('kb_delete')}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                        {!doc.neo4j_only && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(doc.id);
+                            }}
+                            className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-500/10"
+                            style={{ color: 'var(--color-text-muted)' }}
+                            title={t('kb_delete')}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -1046,12 +1104,16 @@ export default function KnowledgeBaseView() {
                       // It picks PDF / image / MD / CSV / DOCX / PPTX / XLSX /
                       // code based on extension, fetches extracted text from
                       // /api/rag/documents/{id}/content when needed.
+                      // For Neo4j-only docs (id < 0), use the file-by-name
+                      // endpoint at /api/graphindex/file instead.
+                      const isNeo4jOnly = !!selectedDoc?.neo4j_only;
                       return (
                         <DocumentViewer
                           key={selectedDocId}
                           documentId={selectedDocId}
                           documentName={selectedDoc.name}
                           documentType={selectedDoc.document_type}
+                          projectId={isNeo4jOnly ? activeProjectId : undefined}
                         />
                       );
                     })()}
