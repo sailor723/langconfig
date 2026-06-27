@@ -397,6 +397,75 @@ def cmd_chat(project_id: int = 1) -> int:
 
 # --- CLI entry point ------------------------------------------------------
 
+def cmd_stream_sync(query: str, project_id: int = 1) -> int:
+    """Test the single-shot `stream_graphindex_chat()` wrapper."""
+    print(f"\nQuery: {query!r}  (project_id={project_id})")
+    print("Calling stream_graphindex_chat()...")
+    t0 = time.time()
+    try:
+        text = stream_graphindex_chat(
+            project_id=project_id,
+            query=query,
+            thread_id=f"stream-sync-test-p{project_id}",
+        )
+        elapsed = time.time() - t0
+        print(f"\n🤖 {text}")
+        print(f"\n  ({elapsed:.1f}s, returned {len(text):,} chars)")
+        return 0
+    except Exception as e:
+        print(f"  ✗ error: {e}")
+        return 1
+
+
+def cmd_stream_events(query: str, project_id: int = 1) -> int:
+    """Test the streaming `stream_graphindex_chat_events()` wrapper.
+
+    Diffs LangGraph state updates and prints:
+      - tool_start / tool_end events
+      - chunk deltas (assistant text being added)
+      - final state
+    """
+    print(f"\nQuery: {query!r}  (project_id={project_id})")
+    print("Calling stream_graphindex_chat_events()...")
+    t0 = time.time()
+    last_text = ""
+    try:
+        for state in stream_graphindex_chat_events(
+            project_id=project_id,
+            query=query,
+            thread_id=f"stream-events-test-p{project_id}",
+        ):
+            messages = state.get("messages", [])
+            # Show only the most recent message of each interesting type
+            if messages:
+                last_msg = messages[-1]
+                msg_type = getattr(last_msg, "type", "?")
+                if msg_type == "ai":
+                    if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
+                        for tc in last_msg.tool_calls:
+                            print(f"  → tool call: {tc.get('name')}({list(tc.get('args', {}).keys())})")
+                    else:
+                        text = last_msg.content if isinstance(last_msg.content, str) else str(last_msg.content)
+                        # Strip <think> blocks for the display
+                        if "<think>" in text and "</think>" in text:
+                            text = text.split("</think>", 1)[1].strip()
+                        if text and text != last_text:
+                            delta = text[len(last_text):]
+                            last_text = text
+                            if delta.strip():
+                                print(f"  + chunk ({len(delta):,} chars): {delta[:80]!r}...")
+                elif msg_type == "tool":
+                    tool_name = getattr(last_msg, "name", "unknown")
+                    content = getattr(last_msg, "content", "")
+                    print(f"  ← tool result: {tool_name} returned {len(content or ''):,} chars")
+        elapsed = time.time() - t0
+        print(f"\n  ({elapsed:.1f}s, final answer: {len(last_text):,} chars)")
+        return 0
+    except Exception as e:
+        print(f"  ✗ error: {e}")
+        return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="graphindex_chat agent — Phase 9 / Step J",
@@ -407,6 +476,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--chat", action="store_true", help="interactive REPL")
     parser.add_argument("--show-agent", action="store_true",
                         help="print the agent's tool inventory and exit")
+    parser.add_argument("--stream-sync", metavar="TEXT",
+                        help="test stream_graphindex_chat() (single-shot wrapper)")
+    parser.add_argument("--stream-events", metavar="TEXT",
+                        help="test stream_graphindex_chat_events() (streaming wrapper)")
     parser.add_argument("--project-id", type=int, default=1,
                         help="project ID to scope doc reads (default 1)")
     args = parser.parse_args(argv)
@@ -417,6 +490,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_answer(args.answer, project_id=args.project_id)
     if args.chat:
         return cmd_chat(project_id=args.project_id)
+    if args.stream_sync:
+        return cmd_stream_sync(args.stream_sync, project_id=args.project_id)
+    if args.stream_events:
+        return cmd_stream_events(args.stream_events, project_id=args.project_id)
 
     parser.print_help()
     return 0
