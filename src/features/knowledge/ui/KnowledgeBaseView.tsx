@@ -794,39 +794,84 @@ export default function KnowledgeBaseView() {
           </div>
 
           <div className="min-w-0 flex-1 flex flex-col gap-3 overflow-hidden">
-            {/* Document Preview Panel */}
+            {/* Document Preview Panel — shows the actual file (PDF rendered by
+                the browser's built-in PDF viewer, text/markdown/code in a
+                <pre>). Backed by GET /api/rag/documents/{id}/file. */}
             {selectedDocId && (
-              <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3 overflow-y-auto max-h-48">
+              <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg overflow-hidden flex flex-col" style={{ minHeight: '320px', height: '40vh' }}>
                 {previewLoading ? (
-                  <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                  <div className="flex items-center justify-center gap-2 text-xs p-4" style={{ color: 'var(--color-text-muted)' }}>
                     <Loader className="w-3 h-3 animate-spin" />
                     Loading preview...
                   </div>
                 ) : previewData ? (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
+                  <>
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-border-dark flex-shrink-0">
                       <div className="flex items-center gap-2">
                         <FileText className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
-                        <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                        <span className="text-xs font-semibold truncate max-w-[300px]" style={{ color: 'var(--color-text-primary)' }}>
                           {previewData.doc_name}
                         </span>
                         <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-white/10" style={{ color: 'var(--color-text-muted)' }}>
                           {previewData.type} · {previewData.page_count} pages
                         </span>
                       </div>
-                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
-                        {previewData.total_chars.toLocaleString()} chars
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
+                          {previewData.total_chars.toLocaleString()} chars
+                        </span>
+                        <a
+                          href={`/api/rag/documents/${selectedDocId}/file`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 hover:opacity-80"
+                          style={{ color: 'var(--color-text-primary)' }}
+                          title="Open in new tab"
+                        >
+                          Open ↗
+                        </a>
+                      </div>
                     </div>
-                    <div className="text-[10px] leading-relaxed whitespace-pre-wrap max-h-28 overflow-y-auto" style={{ color: 'var(--color-text-secondary)' }}>
-                      {previewData.content_preview}
-                    </div>
-                    {previewData.has_more && (
-                      <p className="text-[9px] mt-1 italic" style={{ color: 'var(--color-text-muted)' }}>
-                        ... (preview truncated, {previewData.total_chars.toLocaleString()} total chars)
-                      </p>
-                    )}
-                  </div>
+                    {(() => {
+                      // Render PDF via <iframe> using the browser's built-in
+                      // PDF viewer. For text/markdown, fall back to a <pre>.
+                      const ext = (previewData.doc_name || '').split('.').pop()?.toLowerCase() || '';
+                      const isPdf = ext === 'pdf' || previewData.type === 'pdf';
+                      const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext);
+                      if (isPdf) {
+                        return (
+                          <iframe
+                            key={selectedDocId}
+                            src={`/api/rag/documents/${selectedDocId}/file#toolbar=1&navpanes=0&scrollbar=1`}
+                            className="w-full flex-1 border-0 bg-white"
+                            title={previewData.doc_name}
+                          />
+                        );
+                      }
+                      if (isImage) {
+                        return (
+                          <div className="w-full flex-1 overflow-auto flex items-center justify-center bg-gray-50 dark:bg-black/20 p-4">
+                            <img
+                              src={`/api/rag/documents/${selectedDocId}/file`}
+                              alt={previewData.doc_name}
+                              className="max-w-full max-h-full object-contain"
+                            />
+                          </div>
+                        );
+                      }
+                      // Text/markdown/code: show the content preview
+                      return (
+                        <div className="text-[10px] leading-relaxed whitespace-pre-wrap overflow-y-auto p-3" style={{ color: 'var(--color-text-secondary)' }}>
+                          {previewData.content_preview}
+                          {previewData.has_more && (
+                            <p className="text-[9px] mt-1 italic" style={{ color: 'var(--color-text-muted)' }}>
+                              ... (preview truncated, {previewData.total_chars.toLocaleString()} total chars)
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </>
                 ) : null}
               </div>
             )}
