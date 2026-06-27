@@ -2042,7 +2042,7 @@ def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
         from graphindex_build_python import cmd_rebuild_one as _clean_rebuild_one  # noqa: E402
         rc, captured = _run_capturing_stdout(_clean_rebuild_one, name)
         if rc == 0 and captured:
-            return f"```\n{captured}\n```"
+            return captured
         return (
             f"## Rebuild one: {name}\n"
             f"project_id: {project_id}\n"
@@ -2075,9 +2075,7 @@ def graphindex_ingest(file_path: str, project_id: Optional[int] = None,
         from graphindex_build_python import cmd_ingest as _clean_ingest  # noqa: E402
         rc, captured = _run_capturing_stdout(_clean_ingest, file_path, target_dir=target_dir)
         if rc == 0 and captured:
-            # Wrap in a fenced code block so the Studio's React Markdown
-            # renderer preserves newlines + monospace alignment.
-            return f"```\n{captured}\n```"
+            return captured
         return (
             f"## Ingest: {file_path}\n"
             f"project_id: {project_id}\n"
@@ -2111,7 +2109,7 @@ def graphindex_rebuild_project(project_id: Optional[int] = None) -> str:
         from graphindex_build_python import cmd_rebuild_project as _clean_rebuild_project  # noqa: E402
         rc, captured = _run_capturing_stdout(_clean_rebuild_project)
         if rc == 0 and captured:
-            return f"```\n{captured}\n```"
+            return captured
         return (
             f"## Rebuild project (project_id={project_id})\n"
             f"return code: {rc}\n"
@@ -2141,9 +2139,7 @@ def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
         from graphindex_build_python import cmd_show as _clean_show  # noqa: E402
         rc, captured = _run_capturing_stdout(_clean_show, name)
         if rc == 0 and captured:
-            # Wrap in a fenced code block so the Studio's React Markdown
-            # renderer preserves newlines + monospace alignment.
-            return f"```\n{captured}\n```"
+            return captured
         return (
             f"## Show: {name}\n"
             f"project_id: {project_id}\n"

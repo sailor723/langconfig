@@ -426,7 +426,12 @@ class APIClient {
   }
 
   // RAG / Documents
-  async uploadDocument(projectId: number, file: File, metadata?: { description?: string; tags?: string[] }) {
+  async uploadDocument(
+    projectId: number,
+    file: File,
+    metadata?: { description?: string; tags?: string[] },
+    onUploadProgress?: (percent: number) => void
+  ) {
     const formData = new FormData();
     formData.append('file', file);
     if (metadata) {
@@ -435,6 +440,14 @@ class APIClient {
 
     return this.client.post('/api/rag/upload', formData, {
       params: { project_id: projectId },
+      onUploadProgress: onUploadProgress
+        ? (event: any) => {
+            // axios progress event for multipart uploads
+            if (event.total) {
+              onUploadProgress(Math.round((event.loaded * 100) / event.total));
+            }
+          }
+        : undefined,
     });
   }
 
@@ -442,7 +455,8 @@ class APIClient {
     projectId: number,
     files: File[],
     extractArchives: boolean = true,
-    metadata?: { description?: string; tags?: string[]; name?: string }
+    metadata?: { description?: string; tags?: string[]; name?: string },
+    onUploadProgress?: (percent: number) => void
   ) {
     const formData = new FormData();
 
@@ -460,7 +474,15 @@ class APIClient {
       formData.append('metadata', JSON.stringify(metadata));
     }
 
-    return this.client.post('/api/rag/upload-bulk', formData);
+    return this.client.post('/api/rag/upload-bulk', formData, {
+      onUploadProgress: onUploadProgress
+        ? (event: any) => {
+            if (event.total) {
+              onUploadProgress(Math.round((event.loaded * 100) / event.total));
+            }
+          }
+        : undefined,
+    });
   }
 
   async listDocuments(config: {
@@ -525,6 +547,22 @@ class APIClient {
     const params = maxChars ? { max_chars: maxChars } : {};
     const response = await this.client.get(`/api/rag/documents/${contextDocId}/preview`, { params });
     return response.data;
+  }
+
+  // Get extracted text/structured content for inline rendering in the
+  // Knowledge panel. Supports MD, TXT, CSV, JSON, YAML, HTML, XML, code,
+  // DOCX, PPTX, XLSX. Returns `{ kind, content, rows?, sheet_names?,
+  // sheet_rows?, truncated }`.
+  async getDocumentContent(documentId: number) {
+    const response = await this.client.get(`/api/rag/documents/${documentId}/content`);
+    return response.data as {
+      kind: 'markdown' | 'csv' | 'html' | 'code' | 'plain';
+      content: string;
+      rows?: string[][];
+      sheet_names?: string[];
+      sheet_rows?: string[][][];
+      truncated: boolean;
+    };
   }
 
   // Settings
