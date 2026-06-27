@@ -1818,7 +1818,7 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
         return f"❌ Error searching GraphIndex: {e}"
 
 
-def graphindex_load(context_doc_id: int) -> str:
+def graphindex_load(context_doc_id: int, max_chars: int = 10_000_000) -> str:
     """
     Load the full content of a document by its context_doc_id.
 
@@ -1826,8 +1826,14 @@ def graphindex_load(context_doc_id: int) -> str:
     Postgres ContextDocument to get the name + file_path, then uses
     Phase 9's _read_doc_text to extract full text (PDF / MD / TXT).
 
+    The default max_chars=10_000_000 is effectively no cap — the LLM
+    will see the full document in one call. MiniMax M3 supports 1M-token
+    context, so the old 80K cap forced a 2nd turn to read the rest of
+    long docs. Pass a smaller value if you want to limit context manually.
+
     Args:
         context_doc_id: The document's context_doc_id (from graphindex_search results)
+        max_chars: Hard cap on returned characters (default 10M = no cap).
     """
     try:
         from db.database import SessionLocal
@@ -1848,7 +1854,7 @@ def graphindex_load(context_doc_id: int) -> str:
         from query import _read_doc_text  # noqa: E402
         full_content = _read_doc_text(
             context_doc.file_path or "",
-            max_chars=80_000,
+            max_chars=max_chars,
         )
         if not full_content:
             return (
@@ -2163,7 +2169,7 @@ _graphindex_search_tool = StructuredTool.from_function(
 _graphindex_load_tool = StructuredTool.from_function(
     func=graphindex_load,
     name="graphindex_load",
-    description="Load the full content of a document by its context_doc_id (obtained from graphindex_search). Returns the complete document text for the agent to read. (Phase 9 read path)",
+    description="Load the full content of a document by its context_doc_id (obtained from graphindex_search). Returns the complete document text for the agent to read. Default is 10M chars (effectively no cap — full doc in one call). Pass max_chars to limit. (Phase 9 read path)",
 )
 _graphindex_list_docs_tool = StructuredTool.from_function(
     func=graphindex_list_docs,
@@ -2521,7 +2527,7 @@ TOOL_REGISTRY = [
     {
         "id": "graphindex_load",
         "name": "GraphIndex - Load Document Content (Phase 9)",
-        "description": "Load the full content of a document by its context_doc_id (from graphindex_search). Returns complete document text via Phase 9's _read_doc_text.",
+        "description": "Load the full content of a document by its context_doc_id (from graphindex_search). Returns complete document text via Phase 9's _read_doc_text. Default 10M chars (full doc in one call).",
         "category": "retrieval",
         "requires_api_key": None,
     },
