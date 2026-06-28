@@ -20,6 +20,9 @@ interface UseChatStreamingResult {
     onInterrupt?: (event: ChatStreamEvent) => void,
     /** Called with thinking content (pre-tool-call text) during streaming */
     onThinkingUpdate?: (content: string) => void,
+    /** Optional doc scope — when provided (and non-empty), the backend
+        chat agent will only consider / read these docs (by name). */
+    scope?: string[] | null,
   ) => Promise<void>;
   isStreaming: boolean;
   error: string | null;
@@ -53,6 +56,7 @@ export function useChatStreaming(
       onCustomEvent?: (event: ChatStreamEvent) => void,
       onInterrupt?: (event: ChatStreamEvent) => void,
       onThinkingUpdate?: (content: string) => void,
+      scope?: string[] | null,
     ) => {
       if (!sessionId || isStreaming) return;
 
@@ -77,15 +81,23 @@ export function useChatStreaming(
       onMessageAdd(userMessage);
 
       try {
-        // Call streaming endpoint
+        // Call streaming endpoint. Only include `scope` when the caller
+        // passed a non-empty list — sending `scope: []` or `scope: null`
+        // would be ambiguous (does empty mean "no filter" or "filter
+        // to nothing"?). We treat both as "no filter" by omitting.
+        const requestBody: Record<string, unknown> = {
+          session_id: sessionId,
+          message: message,
+          enable_hitl: hitlEnabled,
+        };
+        if (scope && scope.length > 0) {
+          requestBody.scope = scope;
+        }
+
         const response = await fetch(`${apiClient.baseURL}/api/chat/message/stream`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            session_id: sessionId,
-            message: message,
-            enable_hitl: hitlEnabled,
-          }),
+          body: JSON.stringify(requestBody),
           signal: abortControllerRef.current.signal,
         });
 

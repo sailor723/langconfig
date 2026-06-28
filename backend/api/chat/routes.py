@@ -68,7 +68,7 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Backgro
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm.attributes import flag_modified
 from datetime import datetime
 import asyncio
@@ -132,6 +132,16 @@ class SendMessageRequest(BaseModel):
     """Request to send a message in a chat session."""
     session_id: str
     message: str
+    scope: Optional[List[str]] = Field(
+        None,
+        description=(
+            "Optional doc scope. None / 'all' / [] → agent considers all docs. "
+            "[doc1, doc2, ...] → only these docs (by exact name). "
+            "When set, the chat agent is given a `scope` field that the "
+            "graphindex_chat tools will enforce (out-of-scope reads return "
+            "SCOPE_ERROR; in-scope docs are the only ones visible)."
+        ),
+    )
 
 
 class ChatResponse(BaseModel):
@@ -626,6 +636,7 @@ async def _generate_stream_phase9(
     session_id: str,
     project_id: int,
     message: str,
+    scope=None,
 ):
     """Phase 9 fast-path generator. Yields SSE-formatted chunks that
     match the langconfig chat SSE schema:
@@ -640,6 +651,9 @@ async def _generate_stream_phase9(
     `phase9.graphindex_chat_agent.stream_graphindex_chat_events` and
     already has the 5 graphindex tools + the progressive-disclosure
     system_prompt (with `Current project_id: 1` injected).
+
+    `scope` is the optional doc filter (list of doc names). When non-None
+    and non-empty, the agent's tools will only see / read these docs.
 
     This is a *thin* wrapper — the heavy lifting (LLM call, tool
     routing, document loading, synthesis) is all done by the Phase 9
@@ -683,6 +697,7 @@ async def _generate_stream_phase9(
                 project_id=project_id,
                 query=message,
                 thread_id=session_id,
+                scope=scope,  # forward the doc scope (may be None)
             ):
                 yield state
         async for state in _aiter_sync(_state_gen()):
@@ -769,6 +784,13 @@ async def send_message_stream(
         # Store session_id and agent config before entering generator
         # to avoid detached session issues
         session_id = session.session_id
+        # Resolve the doc scope from the request. None / "all" / [] = no filter.
+        # We treat any of these as None (no filter) to keep the tool layer simple.
+        scope = request.scope
+        if scope is not None and (
+            scope == "all" or (isinstance(scope, (list, tuple)) and len(scope) == 0)
+        ):
+            scope = None
         agent_config = agent.config.copy() if agent.config else {}
         # Merge guardrails_config separately — it's a separate DB column
         if agent.guardrails_config:
@@ -796,6 +818,7 @@ async def send_message_stream(
                     session_id=session_id,
                     project_id=agent_project_id or 1,
                     message=request.message,
+                    scope=scope,  # forward the doc scope (may be None)
                 ):
                     yield chunk
                 return

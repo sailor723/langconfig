@@ -20,6 +20,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import List, Optional
 
 # Repo + backend path resolution
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -31,6 +32,10 @@ if str(REPO_ROOT / "learning" / "phase9") not in sys.path:
 from langchain_core.messages import HumanMessage  # noqa: E402
 
 from query_agent import get_query_agent  # noqa: E402
+from graphindex_tools import (  # noqa: E402
+    set_active_doc_scope,
+    reset_active_doc_scope,
+)
 
 HELP_TEXT = """\
 Phase 9 / Step A3 — DeepAgent-based query CLI.
@@ -40,9 +45,21 @@ Modes:
   --chat          interactive REPL with multi-turn thread_id
   --show-agent    print the agent's subagent + tool inventory and exit
 
+Scope filter (optional, applies to --answer and the REPL):
+  --scope "doc1.pdf,doc2.pdf"   restrict doc matching to these docs
+                                 (omit = all docs; use "all" to clear)
+
+REPL commands (in --chat mode):
+  /help             show this help
+  /quit             exit
+  /agent            print agent topology
+  /scope <spec>     set scope: comma-separated doc names, or "all" to clear
+  /scope            show current scope
+
 Examples:
   python phase9/query_deep.py --answer "Nike revenue 2023"
   python phase9/query_deep.py --answer "苏格拉底思想"
+  python phase9/query_deep.py --answer "compare" --scope "nke-10k.pdf,industry.pdf"
   python phase9/query_deep.py --chat
 
 The REPL keeps the same thread_id across turns, so MemorySaver gives us
@@ -81,18 +98,31 @@ def _strip_think(answer: str) -> str:
     return answer
 
 
-def cmd_answer(query: str) -> int:
+def cmd_answer(query: str, scope: Optional[List[str]] = None) -> int:
+    """One-shot answer with optional doc scope.
+
+    `scope` is carried into the agent's tool calls via a ContextVar, so
+    the agent only sees / reads docs in the scope (if provided).
+      None / "all" / []  → all docs visible (default)
+      [doc1, doc2, ...]  → only these docs
+    """
     agent = get_query_agent()
     t0 = time.time()
-    result = agent.invoke(
-        {"messages": [{"role": "user", "content": query}]},
-        config={"configurable": {"thread_id": "phase9-answer"}},
-    )
+    scope_token = set_active_doc_scope(scope)
+    try:
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": query}]},
+            config={"configurable": {"thread_id": "phase9-answer"}},
+        )
+    finally:
+        reset_active_doc_scope(scope_token)
     elapsed = time.time() - t0
     answer = _strip_think(result["messages"][-1].content)
     in_tok, out_tok, cache_read = _extract_usage(result)
 
     print(f"\nQuery: {query!r}")
+    if scope:
+        print(f"   scope: {scope}")
     print(f"\n🤖 {answer}")
     _print_turn_footer(elapsed, in_tok, out_tok, cache_read)
     return 0
@@ -112,7 +142,7 @@ def cmd_show_agent() -> int:
     return 0
 
 
-def cmd_chat() -> int:
+def cmd_chat(initial_scope: Optional[List[str]] = None) -> int:
     agent = get_query_agent()
     thread_id = "phase9-chat"
     cfg = {"configurable": {"thread_id": thread_id}}
@@ -120,6 +150,9 @@ def cmd_chat() -> int:
     print(f"\n{'='*60}")
     print(f"Phase 9 / DeepAgent REPL — thread_id={thread_id}")
     print(f"Type /quit to exit, /help for commands.\n")
+
+    # Active scope persists across REPL turns. The /scope command mutates it.
+    active_scope: Optional[List[str]] = initial_scope
 
     turn = 0
     while True:
@@ -142,24 +175,40 @@ def cmd_chat() -> int:
         if low in ("/agent", "/show-agent"):
             cmd_show_agent()
             continue
+        if low == "/scope":
+            # Show current scope
+            print(f"  current scope: {active_scope or 'all'}")
+            continue
+        if low.startswith("/scope "):
+            spec = raw[len("/scope "):].strip()
+            if spec in ("", "all", "none", "clear"):
+                active_scope = None
+                print("  → scope cleared (all docs visible)")
+            else:
+                # Comma-separated list
+                active_scope = [s.strip() for s in spec.split(",") if s.strip()]
+                print(f"  → scope = {active_scope}")
+            continue
 
         turn += 1
         t0 = time.time()
+        # Set the active scope for this turn (if any). Always reset in finally.
+        scope_token = set_active_doc_scope(active_scope)
         try:
             result = agent.invoke(
                 {"messages": [{"role": "user", "content": raw}]},
                 config=cfg,
             )
+            elapsed = time.time() - t0
+            answer = _strip_think(result["messages"][-1].content)
+            in_tok, out_tok, cache_read = _extract_usage(result)
+            print(f"\n🤖 {answer}")
+            _print_turn_footer(elapsed, in_tok, out_tok, cache_read)
         except Exception as e:
             print(f"  ✗ error: {e}")
-            continue
-        elapsed = time.time() - t0
-
-        answer = _strip_think(result["messages"][-1].content)
-        in_tok, out_tok, cache_read = _extract_usage(result)
-
-        print(f"\n🤖 {answer}")
-        _print_turn_footer(elapsed, in_tok, out_tok, cache_read)
+        finally:
+            # Always reset, even if the agent raised mid-flight.
+            reset_active_doc_scope(scope_token)
 
 
 def main() -> int:
@@ -173,16 +222,28 @@ def main() -> int:
     group.add_argument("--chat", action="store_true", help="interactive REPL")
     group.add_argument("--show-agent", action="store_true",
                        help="print agent topology and exit")
+    parser.add_argument(
+        "--scope", metavar="NAMES", default=None,
+        help=(
+            "Comma-separated doc names to scope the agent to "
+            '(e.g. "doc1.pdf,doc2.pdf"). Omit for all docs. Use "all" to clear.'
+        ),
+    )
     args = parser.parse_args()
 
     if not os.getenv("MINIMAX_API_KEY"):
         sys.stderr.write("FATAL: MINIMAX_API_KEY not set in .env\n")
         return 1
 
+    # Parse --scope: comma-separated names. None / "all" / "" → no filter.
+    scope: Optional[List[str]] = None
+    if args.scope is not None and args.scope.strip().lower() not in ("", "all", "none"):
+        scope = [s.strip() for s in args.scope.split(",") if s.strip()]
+
     if args.answer:
-        return cmd_answer(args.answer)
+        return cmd_answer(args.answer, scope=scope)
     if args.chat:
-        return cmd_chat()
+        return cmd_chat(initial_scope=scope)
     if args.show_agent:
         return cmd_show_agent()
     return 0
