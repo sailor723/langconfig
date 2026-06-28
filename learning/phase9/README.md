@@ -2545,6 +2545,109 @@ Tree view (UI): Folder structure renders correctly:
 
 ---
 
+## 🎯 Step P — Project & doc deletion fixes (DONE)
+
+Discovered while cleaning up after Step O's test uploads: the existing
+`DELETE /api/projects/{id}` endpoint and `Neo4jDocumentIndex.delete_document()`
+were both incomplete, leaving orphan rows/files/Neo4j nodes behind.
+
+### P.1 — `Neo4jDocumentIndex.delete_document()` lookup bug
+
+The single-doc `delete_document(project_id, name)` method looked up Neo4j
+nodes by `name`, but the Neo4j `:Document.name` field was the
+**post-rename** name (`<8-char-content-hash>_<original>`) while the
+Postgres `ContextDocument.filename` was the **pre-rename** name
+(without the hash prefix). The lookup almost always missed.
+
+For project 1, this left **98 orphan `:Document` nodes** after a
+Postgres cleanup pass that deleted the corresponding rows.
+
+**Fix** in [`api/knowledge/rag.py`](../../backend/api/knowledge/rag.py#L1761):
+the DELETE handler now tries four lookup paths in order:
+1. `doc.original_filename`
+2. `doc.filename`
+3. `Path(doc.file_path).name` (the post-rename basename — matches Neo4j)
+4. **Fallback by `content_sha256`** — always unique and set at ingest time:
+   ```cypher
+   MATCH (d:Document {project_id: $pid, content_sha256: $h})
+     DETACH DELETE d
+   ```
+
+`delete_document()` docstring in
+[`services/neo4j_document_index.py`](../../backend/services/neo4j_document_index.py#L329-L362)
+now documents the gotcha.
+
+### P.2 — `DELETE /api/projects/{id}` is incomplete
+
+The endpoint handled the workflow chain (workflows → versions →
+executions → tasks → execution_events → vector table) but **missed**:
+
+| Table / source | FK rule | Handled? |
+|---|---|---|
+| `context_documents` | `ON DELETE NO ACTION` | ❌ |
+| `directives` | `ON DELETE NO ACTION` | ❌ |
+| `custom_tools` | `ON DELETE NO ACTION` | ❌ |
+| `skills` | `ON DELETE NO ACTION` | ❌ |
+| `workspace_files` | `ON DELETE NO ACTION` | ❌ |
+| `agent_memories` | `ON DELETE CASCADE` | ✅ |
+| `search_history` | `ON DELETE NO ACTION` | ❌ |
+| `tasks` (direct `project_id` FK, not via workflow) | `ON DELETE NO ACTION` | ❌ |
+| Neo4j `:Document` nodes | n/a | ❌ |
+| `data/documents/project_<id>/` on disk | n/a | ❌ |
+
+Calling the existing endpoint on a project with direct-FK `tasks` rows
+fails with `ForeignKeyViolation` (just hit this on project 3 — 32 tasks
++ 2580 `execution_events` blocked the delete).
+
+**P.2 fix (TODO)**: extend the existing endpoint to also delete:
+- All `context_documents` rows
+- All `directives` / `custom_tools` / `skills` / `workspace_files` /
+  `search_history` rows
+- Tasks filtered by `project_id` directly (not just via
+  `workflow_profile_id`)
+- All Neo4j `:Document` nodes (`MATCH (d:Document {project_id: $pid})
+  DETACH DELETE d`) plus `:Industry` / `:Player` / `:Tag` orphans
+- The on-disk folder `data/documents/project_<id>/`
+
+The same script (run via `psql` + `curl` for Neo4j + `shutil.rmtree`
+for disk) is in [`/tmp/delete_p3_v3.py`](../../scripts/wipe_project.py)
+and proved the pattern works. Recommend promoting that into a proper
+helper module and wiring it into the endpoint.
+
+### P.3 — UI has no project-delete button
+
+The HomePage (Studio) lists "Recent Projects" with **no delete
+action** — only "Open Project". The frontend API client has
+`apiClient.deleteProject(id)` at
+[`api-client.ts#L377`](../../src/lib/api-client.ts#L377) but no UI
+calls it.
+
+**P.3 fix (TODO)**: add a trash icon next to each row in the Recent
+Projects list, with a confirm dialog ("This will delete the project
+and all its data permanently. Continue?"). On confirm, call
+`apiClient.deleteProject(id)` then refresh the list.
+
+### P.4 — Current state after Step P partial work
+
+Project 3 ("my deep agent project") was the test case. The
+comprehensive delete (`/tmp/delete_p3_v3.py`) removed:
+
+| Step | Count |
+|---|---|
+| `execution_events` | 2,580 |
+| `tasks` | 32 |
+| `workflow_profiles` | 0 |
+| Vector table `data_project_index_3` | 1 |
+| Neo4j `:Document` nodes | 315 |
+| On-disk files (`data/documents/3/` + `project_3/`) | 504 |
+| `projects` row (id=3) | 1 |
+
+**Remaining projects**: id 0 (Chat Sessions, system), 1 (My First
+Project), 2 (my-project), 6 (my demo project 1), 7 (mock_test_project),
+8 (electric_vehicle_industry). Total: 6.
+
+---
+
 ## 🔗 Related Reading
 
 - VectifyAI / GraphIndex (inspiration): <https://github.com/VectifyAI/GraphIndex>
