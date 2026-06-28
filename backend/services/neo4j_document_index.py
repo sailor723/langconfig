@@ -334,6 +334,17 @@ class Neo4jDocumentIndex:
         still appear in the chat agent's `list_docs` results and
         the user would hit "doc not found" errors.
 
+        Important: the Neo4j node's `name` field is the file's
+        POST-RENAME name (after `file_storage.save_file` prefixes
+        an 8-char content hash, e.g. `cfd711e3_01_tesla_q3_strategy.pdf`).
+        The Postgres `ContextDocument.filename` is the ORIGINAL name
+        (e.g. `01_tesla_q3_strategy.pdf`) and won't match. So callers
+        should pass either the `file_path` basename OR the rename-
+        prefixed name. The single-doc DELETE endpoint in rag.py tries
+        `original_filename` first, then `filename`; for orphan cleanup,
+        use `delete_project_documents()` (project-wide DETACH DELETE)
+        which is more reliable.
+
         Returns True if a node was deleted, False if no matching node
         existed (e.g. doc was never indexed into Neo4j).
         """
