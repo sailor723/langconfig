@@ -86,17 +86,6 @@ export function useChatStreaming(
       };
       onMessageAdd(userMessage);
 
-      // DEBUG: log the request details to browser console so the
-      // user can correlate with backend syslog ([CHAT-IN] lines).
-      // The browser console shows what the frontend is sending;
-      // the backend syslog shows what it received. If they
-      // differ, the bug is in the wire (CORS, request body
-      // mangling, etc).
-      // eslint-disable-next-line no-console
-      console.log(
-        `[CHAT-REQ] session_id=${sessionId} msg=${JSON.stringify(message)}`
-      );
-
       try {
         // Call streaming endpoint. Only include `scope` when the caller
         // passed a non-empty list — sending `scope: []` or `scope: null`
@@ -153,20 +142,6 @@ export function useChatStreaming(
             if (line.startsWith('data: ')) {
               try {
                 const data: ChatStreamEvent = JSON.parse(line.substring(6));
-
-                // DEBUG: log every event so we can see what the
-                // backend is sending for each turn. If the chunks
-                // for "what is my name" contain BYD content (or
-                // any content that doesn't match the question), the
-                // bug is in the backend/LLM — but if the chunks
-                // are correct, the bug is in how the frontend
-                // accumulates/displays them.
-                // eslint-disable-next-line no-console
-                console.log(
-                  `[CHAT-EVT] session_id=${sessionId} type=${data.type} ` +
-                  `tool=${data.tool_name || '-'} ` +
-                  `content_len=${(data.content || '').length}`
-                );
 
                 if (data.type === 'chunk') {
                   if (!toolPhaseSeenRef.current) {
