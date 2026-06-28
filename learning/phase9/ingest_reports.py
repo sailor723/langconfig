@@ -41,6 +41,7 @@ import json
 import logging
 import shutil
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -245,6 +246,93 @@ def ingest_file(
         return ("failed", None)
 
 
+def find_existing_doc(db, ContextDocument, project_id: int, src_path: Path):
+    """Step O.6: locate the existing ContextDocument row for a
+    duplicate file. Used by the --re-enrich-existing flag to look
+    up the row that was skipped (because its content_hash already
+    exists in the DB) so we can re-run the enrichment pipeline on
+    it.
+
+    Match strategy: first try content_hash (most reliable — same
+    file = same hash even if renamed); fall back to filename in
+    the same project. Returns the first match or None.
+    """
+    import hashlib
+    h = hashlib.sha256(src_path.read_bytes()).hexdigest()
+    row = db.query(ContextDocument).filter(
+        ContextDocument.project_id == project_id,
+        ContextDocument.content_hash == h,
+    ).first()
+    if row is not None:
+        return row
+    row = db.query(ContextDocument).filter(
+        ContextDocument.project_id == project_id,
+        ContextDocument.filename == src_path.name,
+    ).first()
+    return row
+
+
+def run_full_enrichment(
+    doc_id: int,
+    file_path: str,
+    project_id: int,
+) -> None:
+    """Step O.6: run the full enrichment pipeline for a freshly inserted doc.
+
+    This mirrors what the API endpoint's `index_document_background`
+    function does as a background task. Calling the same function
+    means the CLI gets the EXACT same behavior as the UI — same
+    DocIndex output, same chunking, same LLM enrichment, same Neo4j
+    sync. The only difference is timing: the CLI runs it
+    synchronously (waits for completion) instead of as a fire-and-
+    forget background task.
+
+    Pipeline (per doc):
+      1. DocIndex.index(file_path) → builds L1 _meta.json, L2 .json,
+         and L3 page content for the GraphIndex/PageIndex routing
+      2. context_document_indexer.index_document(doc_id, file_path)
+         → chunking + embedding into the project's vector table
+      3. _try_sync_context_document_to_neo4j(doc, client) → upserts
+         the :Document node + generates LLM enrichment (about /
+         supported_queries / out_of_scope / few_shot)
+
+    Args:
+        doc_id:      ID of the freshly inserted ContextDocument row
+        file_path:   Absolute path to the file (used by DocIndex)
+        project_id:  Project ID (used by Neo4j sync)
+    """
+    from services.context_document_indexer import context_document_indexer
+
+    logger.info(f"  ENRICH  doc_id={doc_id}  {file_path}")
+    enrich_start = time.time()
+
+    # 1+2. Run the same function the API endpoint calls. It does
+    # DocIndex + vector indexing + status update + Neo4j sync +
+    # LLM enrichment all in one call. By reusing the live API
+    # code, we guarantee the CLI behavior matches the UI behavior.
+    try:
+        import asyncio
+        from api.knowledge.rag import index_document_background
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        if loop.is_running():
+            # We're inside an existing event loop (e.g. under a test
+            # runner) — fall back to creating a new one in a thread.
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                pool.submit(lambda: asyncio.run(index_document_background(doc_id))).result()
+        else:
+            loop.run_until_complete(index_document_background(doc_id))
+        elapsed = time.time() - enrich_start
+        logger.info(f"    ENRICHED  doc_id={doc_id}  ({elapsed:.1f}s)")
+    except Exception as e:
+        elapsed = time.time() - enrich_start
+        logger.error(f"    ENRICH FAILED  doc_id={doc_id}  ({elapsed:.1f}s): {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Bulk-ingest reports_new/ into a project workspace, "
@@ -271,6 +359,33 @@ def main():
         help="Walk the source tree and print what would be ingested, "
              "but don't copy or create rows",
     )
+    parser.add_argument(
+        "--enrich", action="store_true",
+        help="After insert, run the FULL pipeline: DocIndex (L1/L2/L3) + "
+             "vector embedding (chunking) + LLM enrichment (about/queries) "
+             "+ Neo4j :Document sync. Same as the UI's full upload flow. "
+             "Slow (10-30s per file) — use --skip-enrich for fast ingest.",
+    )
+    parser.add_argument(
+        "--skip-enrich", action="store_true",
+        help="Insert rows but skip the full pipeline (default behavior — "
+             "docs are inserted as NOT_INDEXED, will be enriched on first "
+             "open in the UI or by a separate job).",
+    )
+    parser.add_argument(
+        "--enrich-concurrency", type=int, default=1,
+        help="Number of docs to enrich in parallel (default: 1, sequential). "
+             "Higher = faster but uses more API quota / risk rate limits.",
+    )
+    parser.add_argument(
+        "--re-enrich-existing", action="store_true",
+        help="In addition to newly-ingested docs, also re-enrich rows that "
+             "were SKIPPED because the file already exists (i.e. the doc "
+             "was inserted previously but may not have been fully indexed). "
+             "Use this to bring existing docs up to the current state of "
+             "the indexing pipeline (e.g. after a code change, or to "
+             "back-fill docs that were inserted without --enrich).",
+    )
     args = parser.parse_args()
 
     # Late-import DB models (needs sys.path tweak above)
@@ -285,12 +400,30 @@ def main():
         logger.error(f"Source directory not found: {args.source}")
         sys.exit(1)
 
-    docs_root = Path(file_storage._base_dir)
+    # Step O.7: Resolve the docs_root to an ABSOLUTE path anchored at
+    # the backend directory. The backend runs from `backend/` and uses
+    # `data/documents/` relative to its CWD; the CLI might be invoked
+    # from the project root or from `learning/phase9/`, so we anchor
+    # on the backend's absolute path to avoid the CWD mismatch that
+    # caused "File not found on disk" in the viewer (the CLI wrote to
+    # `<project>/data/documents/8/...` but the backend looked in
+    # `<project>/backend/data/documents/project_8/...`).
+    backend_dir = Path(__file__).resolve().parent.parent.parent / "backend"
+    backend_data_dir = backend_dir / "data" / "documents"
+    if backend_data_dir.exists():
+        docs_root = backend_data_dir
+    else:
+        # Fall back to the CWD-relative base_dir (the old behavior)
+        docs_root = Path(file_storage._base_dir)
     logger.info(f"Source:  {args.source}")
     logger.info(f"Target:  project_id={args.project_id}  workspace={docs_root}")
     logger.info(f"Filters: industry={args.industry or '*'}  player={args.player or '*'}")
     if args.dry_run:
         logger.info("DRY RUN — no files will be copied, no rows will be created")
+    if args.enrich:
+        logger.info("Enrichment: ON (will run DocIndex + vector embedding + LLM enrichment + Neo4j sync per doc)")
+    else:
+        logger.info("Enrichment: OFF (docs will be inserted as NOT_INDEXED; enrich via UI or re-run with --enrich)")
 
     # Walk
     counts = {"created": 0, "skipped": 0, "updated": 0, "failed": 0, "would_create": 0}
@@ -329,6 +462,37 @@ def main():
             )
             counts[status] += 1
 
+        # If the row was just created, optionally run the full enrichment
+        # pipeline (DocIndex + vector embedding + LLM enrichment +
+        # Neo4j sync). This is the same flow the API endpoint triggers
+        # as a background task. For 5 small files, it takes ~10-30s each.
+        if status == "created" and args.enrich and doc_id is not None:
+            run_full_enrichment(
+                doc_id=doc_id,
+                file_path=str(src_path),
+                project_id=args.project_id,
+            )
+
+        # If the row was SKIPPED (duplicate by content_hash) and
+        # --re-enrich-existing is set, look up the existing row and
+        # enrich it. Useful for back-filling docs that were inserted
+        # before --enrich was added, or for re-running after a code
+        # change in the indexing pipeline.
+        if status == "skipped" and args.re_enrich_existing and args.enrich:
+            with SessionLocal() as db2:
+                existing = find_existing_doc(
+                    db=db2,
+                    ContextDocument=ContextDocument,
+                    project_id=args.project_id,
+                    src_path=src_path,
+                )
+            if existing is not None:
+                run_full_enrichment(
+                    doc_id=existing.id,
+                    file_path=str(existing.file_path or src_path),
+                    project_id=args.project_id,
+                )
+
     logger.info("")
     logger.info(f"=== Done ===")
     logger.info(f"  Files seen:           {file_count}")
@@ -339,6 +503,8 @@ def main():
         logger.info(f"  Updated (metadata):   {counts['updated']}")
         logger.info(f"  Skipped (duplicate):  {counts['skipped']}")
         logger.info(f"  Failed:               {counts['failed']}")
+        if args.re_enrich_existing and counts["skipped"] > 0:
+            logger.info(f"  Re-enriched existing: {counts['skipped']}")
 
 
 if __name__ == "__main__":

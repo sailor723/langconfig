@@ -70,7 +70,7 @@ class GraphIndexChatRequest(BaseModel):
         None, description="Override LLM (defaults to deepseek-chat per step 4)"
     )
     temperature: float = Field(0.0, ge=0.0, le=2.0)
-    max_tokens: int = Field(8192, ge=1, le=32768)
+    max_tokens: int = Field(1_000_000, ge=1, le=1_000_000)
     scope: Optional[List[str]] = Field(
         None,
         description=(

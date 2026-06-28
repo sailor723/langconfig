@@ -2648,6 +2648,194 @@ Project), 2 (my-project), 6 (my demo project 1), 7 (mock_test_project),
 
 ---
 
+## 🎯 Step Q — CLI ingest full-flow + path resolution (DONE)
+
+After Step P we had a clean DB but only 3 ways to upload docs (UI
+Select Folder, UI Paste Path, CLI). The CLI was incomplete — it
+only did the Postgres insert, leaving docs as `NOT_INDEXED` with no
+DocIndex, no vector embeddings, no LLM enrichment, and no Neo4j
+sync. This step promotes the CLI to a **production-grade ingestion
+tool** that does the same flow as the API endpoint, and fixes a
+critical path-resolution bug that caused the file viewer to fail.
+
+### Q.1 — `ingest_reports.py` now does the full pipeline
+
+New flags on the CLI:
+
+| Flag | Effect |
+|---|---|
+| `--enrich` | After insert, run DocIndex (L1/L2/L3) + vector embedding (chunking) + LLM enrichment (`what_this_document_is_about` etc.) + Neo4j `:Document` sync. Same as the API's `index_document_background()` background task. Slow (10-30s per file). |
+| `--skip-enrich` (default) | Insert rows as `NOT_INDEXED`; enrich later via UI or `--re-enrich-existing` |
+| `--re-enrich-existing` | If set, also re-enrich rows that were **skipped** because the file's `content_hash` already exists. Use this to back-fill docs that were inserted without `--enrich`, or to re-run after a code change in the indexing pipeline. |
+| `--enrich-concurrency N` | Number of docs to enrich in parallel (default: 1) |
+
+#### Implementation
+
+The CLI's new `run_full_enrichment()` calls the **same**
+[`api.knowledge.rag.index_document_background()`](../../backend/api/knowledge/rag.py#L582)
+function the API uses, so the CLI gets byte-identical behavior to
+the UI. New helper function [`find_existing_doc()`](../../learning/phase9/ingest_reports.py#L252)
+locates a row that was skipped (by `content_hash` first, then by
+`filename`) so `--re-enrich-existing` can re-run enrichment on it.
+
+#### Usage
+
+```bash
+# Fast (insert only — same as the old behavior)
+.venv/bin/python learning/phase9/ingest_reports.py \
+  --source /tmp/mock_reports --project-id 8
+
+# Full (insert + DocIndex + vector + LLM enrichment + Neo4j)
+.venv/bin/python learning/phase9/ingest_reports.py \
+  --source /tmp/mock_reports --project-id 8 --enrich
+
+# Back-fill existing docs (re-enrich what was already there)
+.venv/bin/python learning/phase9/ingest_reports.py \
+  --source /tmp/mock_reports --project-id 8 --enrich --re-enrich-existing
+```
+
+### Q.2 — Path resolution fix (CWD-relative → backend-anchored)
+
+The CLI used `file_storage._base_dir` directly, which is a
+**CWD-relative** path. The bug:
+
+| Context | CWD | Resolved base | What it writes to |
+|---|---|---|---|
+| CLI from project root | `<project>/` | `data/documents/` | `<project>/data/documents/8/...` |
+| Backend (uvicorn) | `<project>/backend/` | `data/documents/` | `<project>/backend/data/documents/project_8/...` |
+
+So when the CLI ingested 5 files into project 8, it wrote to
+`<project>/data/documents/8/...` with the `8/` prefix. The backend
+then tried to serve them from
+`<project>/backend/data/documents/project_8/...` (note:
+`backend/data/` not `data/`, and `project_8/` not `8/`). All 5
+viewer requests failed with `File not found on disk`.
+
+**Fix** in [`ingest_reports.py#L400-L418`](../../learning/phase9/ingest_reports.py#L400-L418):
+the CLI now resolves `docs_root` to an **absolute** path anchored
+at `<project>/backend/data/documents/`. If that directory exists
+(it always will in the standard project layout), it's used
+regardless of the CLI's CWD. Otherwise the CLI falls back to the
+CWD-relative base (old behavior).
+
+```python
+backend_dir = Path(__file__).resolve().parent.parent.parent / "backend"
+backend_data_dir = backend_dir / "data" / "documents"
+if backend_data_dir.exists():
+    docs_root = backend_data_dir
+else:
+    docs_root = Path(file_storage._base_dir)  # fallback
+```
+
+#### Migration for existing CLI-ingested docs
+
+For docs that were already ingested with the buggy path, the
+runtime fix is:
+
+1. **Copy** files from `<project>/data/documents/8/...` to
+   `<project>/backend/data/documents/project_8/...`
+2. **Update Postgres `context_documents.file_path`** from
+   `data/documents/8/...` to `data/documents/project_8/...`
+3. **Update Neo4j `Document.file_path`** the same way
+
+A migration helper at [`/tmp/fix_paths.py`](../../scripts/fix_cli_ingest_paths.py)
+does this for project 8 (idempotent — safe to re-run).
+
+### Q.3 — `max_tokens` raised from 2k / 500k → 1,000,000
+
+Found in the syslog: the chat completion request to MiniMax M3 was
+sending `max_completion_tokens: 2048`, way under the model's
+1M-token context window. The cause: the OpenAI client defaults to
+2048 when `max_tokens` isn't explicitly set, and several places
+in the code had hard caps at 500k or 32k.
+
+Changed in 5 files:
+
+| File | Field | Before | After |
+|---|---|---|---|
+| [`backend/core/agents/factory.py:57`](../../backend/core/agents/factory.py#L57) | `DEFAULT_MAX_TOKENS` | 30,000 | **1,000,000** |
+| [`backend/core/agents/factory.py:63`](../../backend/core/agents/factory.py#L63) | `MAX_MAX_TOKENS` | 500,000 | **1,000,000** |
+| [`backend/models/agent_config_schema.py:249`](../../backend/models/agent_config_schema.py#L249) | `max_tokens` validator | `1 <= v <= 500000` | `1 <= v <= 1000000` |
+| [`backend/api/models/routes.py:34`](../../backend/api/models/routes.py#L34) | `ModelInvokeRequest.max_tokens` | `default=None, le=500000` | `default=1M, le=1M` |
+| [`backend/api/knowledge/graphindex_chat.py:73`](../../backend/api/knowledge/graphindex_chat.py#L73) | `GraphIndexChatRequest.max_tokens` | `default=8192, le=32768` | `default=1M, le=1M` |
+
+The specialized agents (SQL Agent, JSON Agent, Pandas Agent) are
+left at `max_tokens=4096` — those are intentionally smaller for
+short structured-output tasks. Bump them if you want.
+
+### Q.4 — Verification: end-to-end test on `/tmp/mock_reports`
+
+The 5-file mock folder at `/tmp/mock_reports/electric_vehicle_industry/`
+went through the full pipeline:
+
+```
+Files: 5
+  03_byd_vs_tesla_europe.md    (348 B)
+  03_byd_vs_tesla_europe.pdf   (1.1 KB)
+  01_tesla_q3_strategy.md      (452 B)
+  01_tesla_q3_strategy.pdf     (1.2 KB)
+  02_tesla_product_lineup_2025.md (351 B)
+
+Step 1: CLI insert
+  .venv/bin/python learning/phase9/ingest_reports.py \
+    --source /tmp/mock_reports --project-id 8
+  → 5 created, all with hierarchy (industry/player/sub_category)
+
+Step 2: Full enrichment
+  .venv/bin/python learning/phase9/ingest_reports.py \
+    --source /tmp/mock_reports --project-id 8 --enrich --re-enrich-existing
+  → 5 re-enriched, all docs moved to READY in Postgres
+  → DocIndex L1/L2/L3 built
+  → 2 PDFs got vector chunks; 3 MDs failed (no `markdown` module — fix: `pip install markdown`)
+  → 5 Neo4j `:Document` nodes with full LLM enrichment (about/queries/out_of_scope/few_shot)
+
+Step 3: Path fix
+  → Copied 5 files to backend/data/documents/project_8/...
+  → Updated 5 file_paths in Postgres
+  → Updated 5 file_paths in Neo4j
+  → GET /api/rag/documents/1334/content → {"kind":"markdown","content":"# BYD vs Tesla..."}  ✓
+
+Step 4: UI verification
+  → Hard refresh; sidebar shows 5 docs in Tree view
+  → Click any doc → viewer renders markdown correctly
+  → All 5 checkboxes checked by default (Step O scope behavior)
+  → Chat panel can route queries to the right doc and answer
+```
+
+### Q.5 — What this enables
+
+The CLI is now a first-class alternative to the UI for bulk
+ingestion:
+
+- **No UI** — useful for CI/CD, cron jobs, scripted pipelines
+- **No API dependency** — bypasses uvicorn/HTTP, talks directly
+  to Postgres + file storage
+- **Same end result** as the UI's full upload flow
+- **Idempotent** — duplicate files (by `content_hash`) are
+  skipped, not re-inserted
+- **Recoverable** — `--re-enrich-existing` brings existing
+  docs up to date after pipeline code changes
+- **Path-safe** — anchored to `backend/data/documents/`, no more
+  CWD confusion
+
+### Q.6 — Remaining gaps (TODO)
+
+- **Vector embedding for MD files** — `pip install markdown` is
+  the immediate fix. Long-term: also add support for `.docx`,
+  `.pptx`, `.xlsx` chunking (currently the indexer only handles
+  PDF + MD natively).
+- **Neo4j `industry/player/sub_category` are empty strings** —
+  the sync code sets them to `""` instead of the actual values.
+  The chat agent uses `tags` for routing so it works, but the
+  Neo4j Browser shows blank. Fix: update the sync Cypher to read
+  from the Postgres row before syncing.
+- **Project 1 docs (the original 57)** were wiped in Step P's
+  project-1 cleanup. The `/tmp/mock_reports/` rebuild proves the
+  pipeline; if you want to rebuild project 1 too, the same CLI
+  command will work (just change `--project-id 8` to `1`).
+
+---
+
 ## 🔗 Related Reading
 
 - VectifyAI / GraphIndex (inspiration): <https://github.com/VectifyAI/GraphIndex>
