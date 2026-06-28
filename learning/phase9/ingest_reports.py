@@ -340,7 +340,22 @@ def main():
     )
     parser.add_argument(
         "--source", type=Path, default=DEFAULT_SOURCE,
-        help=f"Source directory containing reports_new/ (default: {DEFAULT_SOURCE})",
+        help=f"Source directory containing reports_new/ (default: {DEFAULT_SOURCE}). "
+             "Used for folder/multi-file ingest. Use --file for single-file ingest.",
+    )
+    parser.add_argument(
+        "--file", dest="single_file", type=Path, default=None,
+        help="Single file to ingest (alternative to --source). Path can be "
+             "absolute or relative. Use --hierarchy to set industry/player/...",
+    )
+    parser.add_argument(
+        "--hierarchy", type=str, nargs="*", default=None,
+        help="Hierarchy segments for single-file upload. Each space-separated "
+             "value becomes one level: e.g. "
+             "`--hierarchy electric_vehicle_industry tesla analysis` puts the "
+             "file under industry=electric_vehicle_industry, player=tesla, "
+             "sub_category=analysis. If omitted, the file is treated as a "
+             "flat root-level doc (no industry/player/sub_category).",
     )
     parser.add_argument(
         "--project-id", type=int, default=DEFAULT_PROJECT_ID,
@@ -396,10 +411,6 @@ def main():
     # Run the idempotent column migrations before we touch the table.
     init_db()
 
-    if not args.source.is_dir():
-        logger.error(f"Source directory not found: {args.source}")
-        sys.exit(1)
-
     # Step O.7: Resolve the docs_root to an ABSOLUTE path anchored at
     # the backend directory. The backend runs from `backend/` and uses
     # `data/documents/` relative to its CWD; the CLI might be invoked
@@ -415,9 +426,14 @@ def main():
     else:
         # Fall back to the CWD-relative base_dir (the old behavior)
         docs_root = Path(file_storage._base_dir)
-    logger.info(f"Source:  {args.source}")
-    logger.info(f"Target:  project_id={args.project_id}  workspace={docs_root}")
-    logger.info(f"Filters: industry={args.industry or '*'}  player={args.player or '*'}")
+    if args.single_file:
+        logger.info(f"Mode:    single-file ({args.single_file})")
+        logger.info(f"Target:  project_id={args.project_id}  workspace={docs_root}")
+        logger.info(f"Hierarchy (from --hierarchy): {' / '.join(args.hierarchy) if args.hierarchy else '(none — flat root-level)'}")
+    else:
+        logger.info(f"Source:  {args.source}")
+        logger.info(f"Target:  project_id={args.project_id}  workspace={docs_root}")
+        logger.info(f"Filters: industry={args.industry or '*'}  player={args.player or '*'}")
     if args.dry_run:
         logger.info("DRY RUN — no files will be copied, no rows will be created")
     if args.enrich:
@@ -428,17 +444,43 @@ def main():
     # Walk
     counts = {"created": 0, "skipped": 0, "updated": 0, "failed": 0, "would_create": 0}
     file_count = 0
-    for src_path in sorted(args.source.rglob("*")):
+
+    # Resolve the file list to walk. Two modes:
+    #  (1) --file <path>         : single file ingest
+    #  (2) --source <dir>        : folder walk (default)
+    if args.single_file:
+        if not args.single_file.is_file():
+            logger.error(f"File not found: {args.single_file}")
+            sys.exit(1)
+        # Build a synthetic iterator that yields just this one file
+        # with a rel_path constructed from --hierarchy (so the rest of
+        # the loop's hierarchy-derivation logic works unchanged).
+        file_list = [args.single_file]
+        if args.hierarchy:
+            rel = Path(*args.hierarchy) / args.single_file.name
+        else:
+            rel = Path(args.single_file.name)
+    else:
+        if not args.source.is_dir():
+            logger.error(f"Source directory not found: {args.source}")
+            sys.exit(1)
+        file_list = list(sorted(args.source.rglob("*")))
+        rel = None  # will be computed per file
+
+    for src_path in file_list:
         if not src_path.is_file():
             continue
         if src_path.name in SKIP_NAMES:
             continue
         if src_path.suffix.lower() not in SUPPORTED_EXTS:
             continue
-        rel_path = src_path.relative_to(args.source)
+        if args.single_file and rel is not None:
+            rel_path = rel
+        else:
+            rel_path = src_path.relative_to(args.source)
 
-        # Apply filters
-        if args.industry and (len(rel_path.parts) < 2 or rel_path.parts[0] != args.industry):
+        # Apply filters (only in folder mode — single-file has its own hierarchy)
+        if not args.single_file and args.industry and (len(rel_path.parts) < 2 or rel_path.parts[0] != args.industry):
             continue
         if args.player and (len(rel_path.parts) < 3 or rel_path.parts[1] != args.player):
             continue
