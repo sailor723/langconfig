@@ -354,8 +354,13 @@ def print_catalog(rows: List[Dict[str, Any]]) -> None:
 PRIMARY_MAX_CHARS = 10_000_000
 SUPPORTING_MAX_CHARS = 10_000_000
 
-# Cache file_path lookups so we don't hit Neo4j per doc
-_FILE_PATH_CACHE: Dict[str, str] = {}
+# Cache file_path lookups so we don't hit Neo4j per doc.
+# Key is (project_id, name) so docs with the same name from
+# different projects don't collide. Without this, looking up
+# "foo.pdf" in project 1 (which doesn't have it) would cache
+# the empty path, and the same lookup in project 8 would
+# return the stale empty path instead of the real file_path.
+_FILE_PATH_CACHE: Dict[tuple, str] = {}
 
 
 def _read_doc_text(file_path: str, max_chars: int) -> str:
@@ -384,12 +389,15 @@ def _read_doc_text(file_path: str, max_chars: int) -> str:
 
 
 def _file_path_for(index: Neo4jDocumentIndex, project_id: int, name: str) -> str:
-    """Look up file_path from Neo4j, with in-memory cache."""
-    if name in _FILE_PATH_CACHE:
-        return _FILE_PATH_CACHE[name]
+    """Look up file_path from Neo4j, with in-memory cache.
+    Cache key is (project_id, name) so the same name from different
+    projects is cached separately (see _FILE_PATH_CACHE docstring)."""
+    key = (project_id, name)
+    if key in _FILE_PATH_CACHE:
+        return _FILE_PATH_CACHE[key]
     node = index.get_document(project_id=project_id, name=name)
     path = node.file_path if node else ""
-    _FILE_PATH_CACHE[name] = path
+    _FILE_PATH_CACHE[key] = path
     return path
 
 

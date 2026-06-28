@@ -1746,12 +1746,20 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
 
     Args:
         query: Natural language search query (e.g., "department survey", "Q1 report")
-        project_id: Optional project ID. If not provided, uses the current project.
+        project_id: Optional project ID. If not provided, uses the current
+            project (from GRAPHINDEX_PROJECT_ID env var). If neither is
+            set, returns an error rather than silently defaulting to
+            project 1 (the historical bug).
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        project_id = 1  # Default to project 1
+        return (
+            "ERROR: no project_id provided. Either pass project_id "
+            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to the "
+            "active project. The previous 'default to project 1' fallback "
+            "was the root cause of 'no documents in project X' bugs."
+        )
 
     try:
         # Phase 9 LLM-semantic routing
@@ -1925,12 +1933,18 @@ def graphindex_list_docs(project_id: Optional[int] = None) -> str:
     Returns one line per doc: index, name, about preview.
 
     Args:
-        project_id: Optional project ID. If not provided, uses the current project.
+        project_id: Optional project ID. If not provided, uses the
+            current project (from GRAPHINDEX_PROJECT_ID env var).
+            Returns an error if neither is set.
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        project_id = 1
+        return (
+            "ERROR: no project_id provided. Either pass project_id "
+            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
+            "the active project. No silent default to project 1."
+        )
 
     try:
         from query import fetch_catalog, format_catalog  # noqa: E402
@@ -1963,12 +1977,18 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
 
     Args:
         query: Natural language query (e.g., "compare Nike strategy with industry trends")
-        project_id: Optional project ID. If not provided, uses the current project.
+        project_id: Optional project ID. If not provided, uses the
+            current project (from GRAPHINDEX_PROJECT_ID env var).
+            Returns an error if neither is set.
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        project_id = 1
+        return (
+            "ERROR: no project_id provided. Either pass project_id "
+            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
+            "the active project. No silent default to project 1."
+        )
 
     try:
         from query import (  # noqa: E402
@@ -2037,12 +2057,18 @@ def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
 
     Args:
         name: Exact document name (use graphindex_list_docs to find names).
-        project_id: Optional project ID. If not provided, uses the current project.
+        project_id: Optional project ID. If not provided, uses the
+            current project (from GRAPHINDEX_PROJECT_ID env var).
+            Returns an error if neither is set.
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        project_id = 1
+        return (
+            "ERROR: no project_id provided. Either pass project_id "
+            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
+            "the active project. No silent default to project 1."
+        )
 
     try:
         from graphindex_build_python import cmd_rebuild_one as _clean_rebuild_one  # noqa: E402
@@ -2069,13 +2095,19 @@ def graphindex_ingest(file_path: str, project_id: Optional[int] = None,
 
     Args:
         file_path: Absolute path to the file on disk.
-        project_id: Optional project ID. If not provided, uses the current project.
+        project_id: Optional project ID. If not provided, uses the
+            current project (from GRAPHINDEX_PROJECT_ID env var).
+            Returns an error if neither is set.
         target_dir: Optional override for the target directory.
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        project_id = 1
+        return (
+            "ERROR: no project_id provided. Either pass project_id "
+            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
+            "the active project. No silent default to project 1."
+        )
 
     try:
         from graphindex_build_python import cmd_ingest as _clean_ingest  # noqa: E402
@@ -2101,7 +2133,9 @@ def graphindex_rebuild_project(project_id: Optional[int] = None) -> str:
     Phase 9 wrapper around graphindex_build_python.py.
 
     Args:
-        project_id: Optional project ID. If not provided, uses the current project.
+        project_id: Optional project ID. If not provided, uses the
+            current project (from GRAPHINDEX_PROJECT_ID env var).
+            Returns an error if neither is set.
 
     Warning: this re-runs the LLM enrichment for all documents in the project.
     For a project with N docs and ~15s per doc, this takes ~N*15 seconds.
@@ -2109,7 +2143,11 @@ def graphindex_rebuild_project(project_id: Optional[int] = None) -> str:
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        project_id = 1
+        return (
+            "ERROR: no project_id provided. Either pass project_id "
+            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
+            "the active project. No silent default to project 1."
+        )
 
     try:
         from graphindex_build_python import cmd_rebuild_project as _clean_rebuild_project  # noqa: E402
@@ -2134,12 +2172,18 @@ def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
 
     Args:
         name: Exact document name (use graphindex_list_docs to find names).
-        project_id: Optional project ID. If not provided, uses the current project.
+        project_id: Optional project ID. If not provided, uses the
+            current project (from GRAPHINDEX_PROJECT_ID env var).
+            Returns an error if neither is set.
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        project_id = 1
+        return (
+            "ERROR: no project_id provided. Either pass project_id "
+            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
+            "the active project. No silent default to project 1."
+        )
 
     try:
         from graphindex_build_python import cmd_show as _clean_show  # noqa: E402

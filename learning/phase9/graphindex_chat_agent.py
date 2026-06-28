@@ -92,10 +92,10 @@ You have 5 tools:
 
 WORKFLOW (progressive disclosure — MUST follow this order):
 
-  1. ALWAYS call route_query_tool(query=..., project_id=1) FIRST for
-     every user question. This is the LLM-semantic routing step that
-     picks the best primary doc + 0-3 cross-domain supporting docs.
-     It returns JSON like:
+  1. ALWAYS call route_query_tool(query=..., project_id=PROJECT_ID)
+     FIRST for every user question. This is the LLM-semantic routing
+     step that picks the best primary doc + 0-3 cross-domain
+     supporting docs. It returns JSON like:
        {"primary": "<name>", "supporting": [{"name": "<name>",
          "reason": "..."}, ...], "primary_confidence": 0.0-1.0, ...}
   2. PASS those exact names to load_multi_doc_tool(primary=<primary>,
@@ -234,6 +234,16 @@ def stream_graphindex_chat(
         directly via `agent.stream(...)`.
     """
     agent = get_graphindex_chat_agent(project_id=project_id)
+    # Set the active project_id so the tools (read_doc_tool,
+    # load_multi_doc_tool) look up docs in the right Neo4j project.
+    # Without this, they fall back to the hardcoded `_PROJECT_ID = 1`
+    # and return "no file_path in Neo4j" whenever the user is on a
+    # different project. Cleared in the try/finally below.
+    from graphindex_tools import (
+        set_active_project_id,
+        reset_active_project_id,
+    )
+    set_active_project_id(project_id)
     scope_token = set_active_doc_scope(scope)
     try:
         result = agent.invoke(
@@ -274,6 +284,16 @@ def stream_graphindex_chat_events(
       [doc1, doc2, ...]   → only these docs (by exact name)
     """
     agent = get_graphindex_chat_agent(project_id=project_id)
+    # Set the active project_id so the tools (read_doc_tool,
+    # load_multi_doc_tool) look up docs in the right Neo4j project.
+    # Without this, they fall back to the hardcoded `_PROJECT_ID = 1`
+    # and return "no file_path in Neo4j" whenever the user is on a
+    # different project. Cleared in the try/finally below.
+    from graphindex_tools import (
+        set_active_project_id,
+        reset_active_project_id,
+    )
+    set_active_project_id(project_id)
     scope_token = set_active_doc_scope(scope)
     try:
         for event in agent.stream(
@@ -283,8 +303,11 @@ def stream_graphindex_chat_events(
         ):
             yield event
     finally:
-        # Always restore the previous scope, even if the agent raised.
+        # Always restore the previous scope and project_id, even if
+        # the agent raised. Without this, the ContextVar would leak
+        # into the next request in the same worker thread.
         reset_active_doc_scope(scope_token)
+        reset_active_project_id()
 
 
 # --- CLI plumbing (matches query_deep.py style) ---------------------------

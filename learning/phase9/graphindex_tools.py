@@ -47,6 +47,36 @@ from legacy.route_semantic import (  # noqa: E402
 
 _IDX: Optional[Neo4jDocumentIndex] = None
 _PROJECT_ID = 1
+# Active project for the running chat. Carried via ContextVar so the
+# tool-facing signatures don't have to expose a `project_id` argument
+# (keeps the agent's prompt cache hot). Set by
+# `stream_graphindex_chat(project_id=...)` at the start of each
+# request and cleared on exit (in a try/finally). When this is None
+# (no chat in flight, e.g. CLI), the tools fall back to the
+# module-level `_PROJECT_ID = 1` default.
+_active_project_id: ContextVar[Optional[int]] = ContextVar(
+    "_active_project_id", default=None
+)
+
+
+def set_active_project_id(project_id: Optional[int]):
+    """Set the project_id for the current chat (called by
+    `stream_graphindex_chat(project_id=...)`). Tools read this via
+    `_get_active_project_id()` and look up docs in Neo4j for the
+    ACTIVE project (not the hardcoded default of 1)."""
+    _active_project_id.set(project_id)
+
+
+def get_active_project_id() -> Optional[int]:
+    """Read the project_id set by the current chat. Returns None if
+    no chat is in flight (CLI default), in which case tools fall
+    back to `_PROJECT_ID = 1`."""
+    return _active_project_id.get()
+
+
+def reset_active_project_id():
+    """Clear the project_id (called at end of chat in try/finally)."""
+    _active_project_id.set(None)
 
 
 def _idx() -> Neo4jDocumentIndex:
@@ -108,7 +138,7 @@ def _filter_rows_by_scope(rows: list, scope: Optional[set]) -> list:
 # --- Tool 1: fetch_catalog_tool -------------------------------------------
 
 @tool
-def fetch_catalog_tool(project_id: int = 1,
+def fetch_catalog_tool(project_id: Optional[int] = None,
                        limit_chars: int = 200_000) -> str:
     """Fetch the document catalog (names + about + supported_queries +
     out_of_scope + nested exclude metadata) for a project, formatted as
@@ -118,7 +148,16 @@ def fetch_catalog_tool(project_id: int = 1,
     `set_active_doc_scope`), only the in-scope docs are returned.
 
     Args:
-        project_id: Neo4j project id (default 1).
+        project_id: Neo4j project id. When omitted (None), the tool
+            uses the active project (set by
+            `stream_graphindex_chat(project_id=...)` via
+            `set_active_project_id`). When that's also not set,
+            falls back to `_PROJECT_ID = 1` (CLI default). The
+            `Optional[int] = None` default avoids the LLM-facing
+            signature change (so the prompt cache stays hot) while
+            preventing the previous bug where the hardcoded 1
+            caused "no documents" whenever the user was on a
+            different project.
         limit_chars: Truncate the formatted catalog at this many chars.
 
     Returns:
@@ -126,6 +165,7 @@ def fetch_catalog_tool(project_id: int = 1,
         (or none match the active scope).
     """
     idx = _idx()
+    project_id = project_id if project_id is not None else (get_active_project_id() or _PROJECT_ID)
     rows = _fetch_catalog(idx, project_id)
     rows = _filter_rows_by_scope(rows, get_active_doc_scope())
     if not rows:
@@ -165,9 +205,16 @@ def read_doc_tool(name: str, max_chars: int = 10_000_000) -> str:
             f"Active scope contains {len(scope)} doc(s)."
         )
     idx = _idx()
-    path = _file_path_for(idx, _PROJECT_ID, name)
+    # Use the active project's Neo4j catalog (set by
+    # `stream_graphindex_chat(project_id=...)`), not the hardcoded
+    # `_PROJECT_ID = 1` default. Without this, the tool would
+    # silently look up the doc in project 1 and return
+    # "no file_path in Neo4j" whenever the user is on a different
+    # project.
+    project_id = get_active_project_id() or _PROJECT_ID
+    path = _file_path_for(idx, project_id, name)
     if not path:
-        return f"ERROR: doc {name!r} has no file_path in Neo4j"
+        return f"ERROR: doc {name!r} has no file_path in Neo4j (project_id={project_id})"
     text = _read_doc_text(path, max_chars)
     if not text:
         return f"ERROR: no extractable text from {name!r}"
@@ -177,19 +224,25 @@ def read_doc_tool(name: str, max_chars: int = 10_000_000) -> str:
 # --- Tool 3: list_docs_tool ----------------------------------------------
 
 @tool
-def list_docs_tool(project_id: int = 1) -> List[str]:
+def list_docs_tool(project_id: Optional[int] = None) -> List[str]:
     """List all document names in a project. Cheap to call.
 
     If the caller has set an active doc scope, only in-scope names
     are returned.
 
     Args:
-        project_id: Neo4j project id (default 1).
+        project_id: Neo4j project id. When omitted, uses the active
+            project (see fetch_catalog_tool for the full pattern).
 
     Returns:
         List of document names.
     """
     idx = _idx()
+    # Resolve project_id via the active-project pattern (see
+    # fetch_catalog_tool). When the LLM doesn't pass project_id
+    # (and the active project's ContextVar is also unset), falls
+    # back to the legacy `_PROJECT_ID = 1` default.
+    project_id = project_id if project_id is not None else (get_active_project_id() or _PROJECT_ID)
     rows = _fetch_catalog(idx, project_id)
     rows = _filter_rows_by_scope(rows, get_active_doc_scope())
     return [r["name"] for r in rows]
@@ -221,6 +274,11 @@ def load_multi_doc_tool(primary: str,
     idx = _idx()
     scope = get_active_doc_scope()
     parts: List[str] = []
+    # Use the active project's Neo4j catalog (set by
+    # `stream_graphindex_chat(project_id=...)`), not the hardcoded
+    # `_PROJECT_ID = 1` default. See read_doc_tool for the same
+    # reasoning.
+    project_id = get_active_project_id() or _PROJECT_ID
 
     if scope is not None and primary not in scope:
         parts.append(
@@ -228,7 +286,7 @@ def load_multi_doc_tool(primary: str,
             f"SCOPE_ERROR: doc {primary!r} is not in the active scope."
         )
     else:
-        primary_path = _file_path_for(idx, _PROJECT_ID, primary)
+        primary_path = _file_path_for(idx, project_id, primary)
         primary_text = _read_doc_text(primary_path, PRIMARY_MAX_CHARS)
         if primary_text:
             parts.append(f"=== Document 1 (PRIMARY): {primary} ===\n{primary_text}")
@@ -242,7 +300,7 @@ def load_multi_doc_tool(primary: str,
                 f"SCOPE_ERROR: doc {name!r} is not in the active scope."
             )
             continue
-        path = _file_path_for(idx, _PROJECT_ID, name)
+        path = _file_path_for(idx, project_id, name)
         text = _read_doc_text(path, SUPPORTING_MAX_CHARS)
         if text:
             parts.append(f"=== Document {i} (SUPPORTING): {name} ===\n{text}")
@@ -255,7 +313,7 @@ def load_multi_doc_tool(primary: str,
 # --- Tool 5: route_query_tool --------------------------------------------
 
 @tool
-def route_query_tool(query: str, project_id: int = 1) -> str:
+def route_query_tool(query: str, project_id: Optional[int] = None) -> str:
     """Find the top 1-3 documents that best match a user query (progressive
     disclosure: the small "what exists" step before loading full text).
 
@@ -272,7 +330,11 @@ def route_query_tool(query: str, project_id: int = 1) -> str:
 
     Args:
         query: The user's natural-language question.
-        project_id: Neo4j project id (default 1).
+        project_id: Neo4j project id. When omitted, uses the active
+            project (set by `stream_graphindex_chat(project_id=...)`
+            via `set_active_project_id`). The previous `= 1` hardcode
+            caused "no documents in project X" whenever the user was
+            on a different project.
 
     Returns:
         JSON string with shape:
@@ -292,6 +354,10 @@ def route_query_tool(query: str, project_id: int = 1) -> str:
           }
     """
     idx = _idx()
+    # Resolve project_id via the active-project pattern (see
+    # fetch_catalog_tool). This is the same fix as the other tools
+    # — never silently fall back to project 1.
+    project_id = project_id if project_id is not None else (get_active_project_id() or _PROJECT_ID)
     rows = _fetch_catalog(idx, project_id)
     rows = _filter_rows_by_scope(rows, get_active_doc_scope())
     if not rows:
