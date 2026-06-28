@@ -2836,6 +2836,131 @@ ingestion:
 
 ---
 
+## 🎯 Step R — Active project_id flows from UI to chat (DONE)
+
+Step Q verified the CLI ingest pipeline. The next regression was
+discovered when the user uploaded 5 docs via the UI to project 8
+(`electric_vehicle_industry`) and asked the chat about them — the
+LLM replied *"There are no documents in project 8"*. The catalog
+query (`fetch_catalog`) worked, but the chat's project context was
+broken: the LLM was silently querying project 1 (a different
+project), seeing 0 docs, and hallucinating the user's project name
+in its response.
+
+### R.1 — Root cause
+
+`backend/api/chat/routes.py:819` had:
+
+```python
+project_id=agent_project_id or 1,
+```
+
+`agent_project_id = getattr(agent, 'project_id', None)`. The
+`deep_agent_templates` table has no `project_id` column (verified
+via `information_schema.columns`), so `agent_project_id` was
+**always None** and the chat **always queried project 1**.
+
+This wasn't caught earlier because the working end-to-end test
+in `c58fc91` ran on project 1, where the Nike docs lived — the
+hardcoded fallback to 1 was correct in that test, but wrong in
+every other context.
+
+### R.2 — The fix (4 changes, 1 commit `68131d7`)
+
+1. **`SendMessageRequest`** (backend) — added
+   `project_id: Optional[int] = None`. The UI tells the backend
+   which project the user is currently viewing.
+
+2. **`_generate_stream` Phase 9 dispatch** (backend) — replaced
+   `project_id=agent_project_id or 1` with
+   `request.project_id if request.project_id is not None else agent_project_id`.
+   **No more `or 1` hardcode.** If neither is set, logs a warning
+   and passes `None` to the agent.
+
+3. **`graphindex_chat_agent.py`** (Phase 9) — changed all four
+   `project_id: int` signatures to `project_id: Optional[int]` and
+   added a system-prompt branch: when `project_id is None`, the
+   prompt says *"No project is currently selected. The tools may
+   return empty results. If you can't find a relevant document,
+   reply honestly: 'No matched document found in the current scope.
+   Please select a project or upload docs.'"* This is the correct,
+   non-misleading behavior.
+
+4. **`useChatStreaming` + `DocChatPanel`** (frontend) — added
+   `projectId?: number | null` to the `sendMessage` signature and
+   the POST body. `DocChatPanel` was already in scope of the active
+   `projectId` (from `KnowledgeBaseView`); it now forwards it.
+
+### R.3 — Before / after
+
+**Before**:
+```
+User on project 8 (5 docs)
+Chat → POST /api/chat/message/stream { session_id, message, scope }   ← no project_id
+Backend → project_id = agent_project_id or 1 = 1  (silent fallback)
+LLM → list_docs_tool(project_id=1) → 0 docs
+LLM → "There are no documents in project 8"  (hallucinated)
+```
+
+**After**:
+```
+User on project 8 (5 docs)
+Chat → POST /api/chat/message/stream { session_id, message, scope, project_id: 8 }
+Backend → project_id = 8 (from request)
+LLM → list_docs_tool(project_id=8) → 5 docs
+LLM → route_query_tool(query, project_id=8) → Tesla doc
+LLM → load_multi_doc_tool(primary=Tesla doc) → doc content
+LLM → answer based on the actual doc, highlights it in sidebar/viewer
+```
+
+**Edge case** (no project_id from UI, e.g. test scripts):
+```
+project_id = None
+System prompt: "No project is currently selected. Reply honestly: ..."
+LLM → list_docs_tool() → 0 docs (tools default to project 1 which is empty)
+LLM → "No matched document found in the current scope."
+```
+
+### R.4 — Files changed
+
+| File | Change |
+|---|---|
+| [`backend/api/chat/routes.py`](../../backend/api/chat/routes.py) | `SendMessageRequest` got `project_id` field; `_generate_stream` Phase 9 dispatch uses request.project_id (no `or 1`) |
+| [`learning/phase9/graphindex_chat_agent.py`](../../learning/phase9/graphindex_chat_agent.py) | All `project_id: int` → `Optional[int]`; system-prompt branch for None |
+| [`src/features/chat/hooks/useChatStreaming.ts`](../../src/features/chat/hooks/useChatStreaming.ts) | `sendMessage` got `projectId` parameter; POST body includes `project_id` |
+| [`src/features/knowledge/ui/DocChatPanel.tsx`](../../src/features/knowledge/ui/DocChatPanel.tsx) | Forwards `projectId` to `sendMessage` |
+
+### R.5 — Verification (pending)
+
+User needs to:
+1. **Restart the backend** (`./start.sh` — picks up the new dispatch)
+2. **Hard refresh** the browser (Cmd+Shift+R)
+3. Go to KB → project 8 (electric_vehicle_industry)
+4. Click a doc → chat panel
+5. Ask: *"Tell me Tesla's Q3 strategy"*
+6. Expected: LLM routes to the right doc, loads it, answers based
+   on actual content, highlights the doc in the sidebar
+
+### R.6 — Why this was easy to miss
+
+Three separate code paths in the Phase 9 chat stack were each
+"correct in isolation" but compounded into a silent fallback:
+
+| Layer | What it does | What was wrong |
+|---|---|---|
+| `deep_agent_templates` table | Stores agent config | No `project_id` column |
+| `routes.py` Phase 9 dispatch | Calls chat agent | `or 1` hardcode |
+| `graphindex_tools.py` tools | Read Neo4j catalog | Tool default = 1 |
+
+The fix only touches the dispatch layer (routes.py) and the LLM
+prompt (graphindex_chat_agent.py). The tool defaults and the
+agent template schema are unchanged. If you later add a
+`project_id` column to `deep_agent_templates`, the dispatch's
+fallback chain (`request.project_id → agent.project_id`) will
+pick it up automatically.
+
+---
+
 ## 🔗 Related Reading
 
 - VectifyAI / GraphIndex (inspiration): <https://github.com/VectifyAI/GraphIndex>
