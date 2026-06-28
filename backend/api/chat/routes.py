@@ -783,7 +783,14 @@ async def _generate_stream_phase9(
                         full_response = text
                         yield f"data: {json.dumps({'type': 'chunk', 'content': text})}\n\n"
 
-        # Done
+        # Send BOTH `complete` (legacy/frontend expected) and `done`
+        # (Phase 9). The frontend's `complete` handler is what
+        # creates the assistant message for "no-tool" responses
+        # (e.g. "Hi Weiping!") — without it, the assistant bubble
+        # never appears and the user sees the previous turn's
+        # content. `done` is kept for backwards-compat with any
+        # client that watches for it.
+        yield f"data: {json.dumps({'type': 'complete', 'content': full_response})}\n\n"
         yield f"data: {json.dumps({'type': 'done', 'session_id': session_id, 'message': full_response})}\n\n"
     except Exception as e:
         logger.error(f"Phase 9 path error: {e}")
