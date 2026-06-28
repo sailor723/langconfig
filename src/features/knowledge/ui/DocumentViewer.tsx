@@ -62,6 +62,22 @@ export default function DocumentViewer({
     return name.split('.').pop()?.toLowerCase() || '';
   }, [documentName]);
 
+  // The on-disk `documentName` is prefixed with the content hash
+  // (e.g. "ffedf1e_02_tesla_product_lineup_2025.md"). The Neo4j
+  // node's `name` is the ORIGINAL filename (no hash prefix). The
+  // content API queries Neo4j by name, so we need to strip the
+  // hash here. Pattern: 8 hex chars + "_" + original_name.
+  //
+  // Without this, the content API returns
+  //   {"detail":"doc not found: ffedf1e_02_tesla_product_lineup_2025.md"}
+  // and the viewer shows "content size failed: 'foreign' object has
+  // no attribute '__call__'" (the error gets passed to a non-callable
+  // by the response-normalization code).
+  const neo4jName = useMemo(() => {
+    const m = (documentName || '').match(/^[0-9a-f]{8}_(.+)$/);
+    return m ? m[1] : documentName;
+  }, [documentName]);
+
   // For binary/Office formats we lazy-load content
   const [content, setContent] = useState<DocumentContent | null>(null);
   const [loading, setLoading] = useState(false);
@@ -85,8 +101,15 @@ export default function DocumentViewer({
     // id-based for normal docs. The two endpoints return slightly
     // different shapes — we normalize the Neo4j response to match
     // the id-based DocumentContent shape.
+    //
+    // NOTE: the Neo4j node's `name` is the ORIGINAL filename
+    // (no hash prefix), so we use `neo4jName` (the hash-stripped
+    // version of documentName) for the content API. The file
+    // endpoint (line 136) keeps the original `documentName`
+    // because it serves the actual on-disk file (which has the
+    // hash prefix).
     const fetcher = projectId
-      ? apiClient.getNeo4jDocumentContent({ project_id: projectId, name: documentName })
+      ? apiClient.getNeo4jDocumentContent({ project_id: projectId, name: neo4jName })
       : apiClient.getDocumentContent(documentId);
     fetcher
       .then((raw: any) => {
@@ -98,7 +121,7 @@ export default function DocumentViewer({
           data = raw as DocumentContent;
         } else if (raw && 'content' in raw) {
           // The Neo4j response — infer `kind` from the extension.
-          const ext = (documentName || '').split('.').pop()?.toLowerCase() || '';
+          const ext = (neo4jName || '').split('.').pop()?.toLowerCase() || '';
           const kind: DocKind =
             ext === 'md'   ? 'markdown' :
             ext === 'html' ? 'html'     :
@@ -127,7 +150,7 @@ export default function DocumentViewer({
     return () => {
       cancelled = true;
     };
-  }, [documentId, projectId, documentName, needsFetch]);
+  }, [documentId, projectId, neo4jName, needsFetch]);
 
   // ----- URL helpers -----
   // For Neo4j-only docs, the file lives behind /api/graphindex/file.
