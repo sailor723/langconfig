@@ -54,13 +54,13 @@ logger = logging.getLogger(__name__)
 # Default Configuration Constants
 DEFAULT_MODEL = "claude-haiku-4-5-20251015"
 DEFAULT_TEMPERATURE = 0.5
-DEFAULT_MAX_TOKENS = 30000
+DEFAULT_MAX_TOKENS = 1_000_000
 
 # Validation Bounds Constants
 MIN_TEMPERATURE = 0.0
 MAX_TEMPERATURE = 2.0
 MIN_MAX_TOKENS = 1
-MAX_MAX_TOKENS = 500000
+MAX_MAX_TOKENS = 1_000_000
 
 # Node Names Constants
 REASONING_NODE = "agent"
