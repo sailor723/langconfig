@@ -85,11 +85,13 @@ export default function MessagesPanel({
               >
                 ✦
               </div>
-              <p className="text-lg font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+              <p className="text-base font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
                 Start a conversation
               </p>
-              <p className="text-sm leading-relaxed">
-                Ask anything — I can help with research, analysis, coding, and more.
+              <p className="text-xs leading-relaxed">
+                Ask anything about your documents — graphindex routes your
+                query to the right ones, loads them, and answers from their
+                content.
               </p>
             </div>
           </div>
@@ -125,7 +127,7 @@ export default function MessagesPanel({
                 <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-6xl'}`}>
                   {message.role === 'system' ? (
                     <div
-                      className="text-sm px-4 py-2 rounded-lg inline-block"
+                      className="text-xs px-3 py-1.5 rounded-lg inline-block"
                       style={{
                         color: 'var(--color-text-muted)',
                         backgroundColor: '#e5e7eb',
@@ -137,7 +139,7 @@ export default function MessagesPanel({
                     <>
                       {/* Message Bubble */}
                       <div
-                        className={`rounded-2xl px-4 py-2.5 ${
+                        className={`rounded-2xl px-3.5 py-2 ${
                           message.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'
                         }`}
                         style={{
@@ -151,8 +153,8 @@ export default function MessagesPanel({
                           className="prose prose-xs max-w-none"
                           style={{
                             color: message.role === 'user' ? 'white' : 'inherit',
-                            lineHeight: '1.65',
-                            fontSize: '0.81rem',
+                            lineHeight: '1.55',
+                            fontSize: '0.75rem',
                           }}
                         >
                           <ReactMarkdown
@@ -161,15 +163,15 @@ export default function MessagesPanel({
                               code({ node, inline, className, children, ...props }: any) {
                                 const match = /language-(\w+)/.exec(className || '');
                                 return !inline && match ? (
-                                  <div className="relative group my-3">
+                                  <div className="relative group my-2">
                                     <SyntaxHighlighter
                                       style={vscDarkPlus}
                                       language={match[1]}
                                       PreTag="div"
                                       customStyle={{
                                         margin: 0,
-                                        borderRadius: '0.5rem',
-                                        fontSize: '0.875rem',
+                                        borderRadius: '0.375rem',
+                                        fontSize: '0.7rem',
                                       }}
                                       {...props}
                                     >
@@ -178,7 +180,7 @@ export default function MessagesPanel({
                                   </div>
                                 ) : (
                                   <code
-                                    className={`${className} px-1.5 py-0.5 rounded text-sm`}
+                                    className={`${className} px-1 py-0.5 rounded text-[0.7rem]`}
                                     style={{
                                       backgroundColor: message.role === 'user' ? 'rgba(255,255,255,0.2)' : '#f3f4f6',
                                       color: message.role === 'user' ? 'white' : '#1f2937',
@@ -191,34 +193,34 @@ export default function MessagesPanel({
                                 );
                               },
                               p({ children }) {
-                                return <p style={{ marginBottom: '0.75rem', marginTop: '0.75rem' }}>{children}</p>;
+                                return <p style={{ marginBottom: '0.5rem', marginTop: '0.5rem' }}>{children}</p>;
                               },
                               ul({ children }) {
-                                return <ul style={{ marginLeft: '1.25rem', marginBottom: '0.75rem' }}>{children}</ul>;
+                                return <ul style={{ marginLeft: '1.1rem', marginBottom: '0.5rem' }}>{children}</ul>;
                               },
                               ol({ children }) {
-                                return <ol style={{ marginLeft: '1.25rem', marginBottom: '0.75rem' }}>{children}</ol>;
+                                return <ol style={{ marginLeft: '1.1rem', marginBottom: '0.5rem' }}>{children}</ol>;
                               },
                               h1({ children }) {
-                                return <h1 style={{ fontSize: '1.5rem', fontWeight: '600', marginTop: '1rem', marginBottom: '0.5rem' }}>{children}</h1>;
+                                return <h1 style={{ fontSize: '0.95rem', fontWeight: '600', marginTop: '0.6rem', marginBottom: '0.3rem' }}>{children}</h1>;
                               },
                               h2({ children }) {
-                                return <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginTop: '0.875rem', marginBottom: '0.5rem' }}>{children}</h2>;
+                                return <h2 style={{ fontSize: '0.875rem', fontWeight: '600', marginTop: '0.55rem', marginBottom: '0.3rem' }}>{children}</h2>;
                               },
                               h3({ children }) {
-                                return <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginTop: '0.75rem', marginBottom: '0.5rem' }}>{children}</h3>;
+                                return <h3 style={{ fontSize: '0.8rem', fontWeight: '600', marginTop: '0.5rem', marginBottom: '0.3rem' }}>{children}</h3>;
                               },
                               // Table components for GFM tables
                               table({ children }) {
                                 return (
-                                  <div className="overflow-x-auto my-3">
+                                  <div className="overflow-x-auto my-2">
                                     <table
                                       style={{
                                         width: '100%',
                                         borderCollapse: 'collapse',
-                                        fontSize: '0.875rem',
+                                        fontSize: '0.7rem',
                                         border: '1px solid #e5e7eb',
-                                        borderRadius: '0.5rem',
+                                        borderRadius: '0.375rem',
                                         overflow: 'hidden',
                                       }}
                                     >
@@ -248,7 +250,7 @@ export default function MessagesPanel({
                                 return (
                                   <th
                                     style={{
-                                      padding: '0.75rem 1rem',
+                                      padding: '0.35rem 0.5rem',
                                       textAlign: 'left',
                                       fontWeight: '600',
                                       color: '#374151',
@@ -263,7 +265,7 @@ export default function MessagesPanel({
                                 return (
                                   <td
                                     style={{
-                                      padding: '0.75rem 1rem',
+                                      padding: '0.35rem 0.5rem',
                                       color: '#4b5563',
                                     }}
                                   >

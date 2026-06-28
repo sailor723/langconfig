@@ -7,7 +7,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Upload, FileText, Trash2, Search, Database, Filter, Loader, RefreshCw, Sparkles, Check, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Upload, FileText, Trash2, Search, Database, Filter, Loader, RefreshCw, Sparkles, Check, ChevronDown, ChevronUp, X, Plus } from 'lucide-react';
+import SearchModal from './SearchModal';
 import apiClient from "../../../lib/api-client";
 import { useProject } from "../../../contexts/ProjectContext";
 import { useToast } from '../../../hooks/useToast';
@@ -141,14 +142,21 @@ export default function KnowledgeBaseView() {
   const [useTOON, setUseTOON] = useState(false);
   const [searchMode, setSearchMode] = useState<'vector' | 'graphindex'>('graphindex');
   const [compareMode, setCompareMode] = useState(false);
+
+  // Whether the pop-out search modal is open. The full search UI lives
+  // in `SearchModal.tsx` and is triggered from a button in the title bar.
+  // When the modal is open, the doc viewer doesn't have to share its
+  // vertical space with a bottom-anchored search panel — it gets full size.
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [searchMetrics, setSearchMetrics] = useState<SearchMetrics | null>(null);
   const [comparisonMetrics, setComparisonMetrics] = useState<SearchMetrics | null>(null);
   const [comparisonResults, setComparisonResults] = useState<SearchResult[]>([]);
   const [expandedChunks, setExpandedChunks] = useState<Set<number>>(new Set());
   const [pageIndexDocs, setGraphIndexDocs] = useState<any[]>([]);
-  // NEW: collapsible state for the GraphIndex search panel below the
-  // doc viewer. Default = expanded. Click the chevron to collapse.
-  const [searchPanelOpen, setSearchPanelOpen] = useState(true);
+  // Note: the previous bottom-anchored "search panel" (with a chevron to
+  // collapse it) has been moved out into `SearchModal.tsx`. The state +
+  // handlers it used are still here because the modal re-uses them
+  // (searchQuery, searchResults, useHyDE, compareMode, etc.).
   const [answerLoading, setAnswerLoading] = useState(false);
   const [answerResult, setAnswerResult] = useState<{
     doc_id: string;
@@ -169,6 +177,41 @@ export default function KnowledgeBaseView() {
     total_chars: number;
   } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Active doc scope — when non-empty, the chat agent only considers / reads
+  // docs whose ID is in this set. Maps 1:1 to the backend's `scope` field
+  // (resolved to doc NAMES at chat-send time).
+  // - empty set  → no filter (all docs visible, current behavior)
+  // - some IDs   → only those docs are visible to the chat
+  // The user toggles membership via the checkbox on each doc card, or the
+  // "Select all" / "Clear" buttons above the ready-docs section.
+  const [scopeDocIds, setScopeDocIds] = useState<Set<number>>(new Set());
+
+  const toggleScopeDoc = (docId: number) => {
+    setScopeDocIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(docId)) next.delete(docId);
+      else next.add(docId);
+      return next;
+    });
+  };
+
+  const clearScope = () => setScopeDocIds(new Set());
+  const selectAllScope = () => {
+    // Only "ready" docs are selectable (indexed + has file_path).
+    setScopeDocIds(new Set(readyDocuments.map((d) => d.id)));
+  };
+
+  const inScopeCount = scopeDocIds.size;
+  const isScopeActive = inScopeCount > 0;
+
+  // Agent info for the right-column chat panel. The DocChatPanel looks
+  // up its agent by name ("graphindex_chat") on mount, then pushes the
+  // resolved name + description up to us via onAgentInfoChange. We show
+  // it as a pill in the Knowledge Base header (next to the kb_search
+  // button) so the user can see at a glance which agent the chat is
+  // wired to without needing to inspect the chat panel itself.
+  const [chatAgentInfo, setChatAgentInfo] = useState<{ name: string; description: string } | null>(null);
   // Upload progress state — drives the progress bar in the upload zone
   // and (after completion) the background-indexing indicator that
   // auto-clears once all uploaded docs reach `ready` status.
@@ -853,6 +896,51 @@ export default function KnowledgeBaseView() {
               value={formatFileSize(totalSize)}
               color="#10b981"
             />
+            {/* Chat-agent pill — shows which agent the right-column
+                chat panel is wired to. The pill is pushed up from
+                DocChatPanel via onAgentInfoChange. Sits next to the
+                search button so the user can see both KB-wide actions
+                (search + active chat agent) in the same group. Hidden
+                until the agent is resolved (null while loading). */}
+            {chatAgentInfo && (
+              <div
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-white dark:bg-panel-dark flex-shrink-0"
+                style={{ borderColor: 'var(--color-border-dark, #e5e7eb)' }}
+                title={chatAgentInfo.description || chatAgentInfo.name}
+                data-testid="kb-chat-agent-pill"
+              >
+                <Sparkles className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#a855f7' }} />
+                <div className="flex flex-col leading-tight min-w-0">
+                  <span
+                    className="text-[9px] uppercase tracking-wide"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    Chat Agent
+                  </span>
+                  <span
+                    className="text-[11px] font-semibold truncate max-w-[140px]"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    {chatAgentInfo.name}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Search button — opens the pop-out SearchModal.
+                Replaces the old bottom-anchored search panel so the
+                doc viewer can take the full height of the row. */}
+            <button
+              onClick={() => setSearchModalOpen(true)}
+              data-testid="kb-open-search-modal"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-border-dark hover:bg-gray-50 dark:hover:bg-white/5 transition-all text-[11px] font-medium"
+              style={{ color: 'var(--color-text-primary)' }}
+              title={t('kb_search_modal_title')}
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>{t('kb_search')}</span>
+            </button>
+
             {/* Upload buttons — moved from right column to title bar
                 to free up vertical space for the chat column. */}
             <label
@@ -945,13 +1033,46 @@ export default function KnowledgeBaseView() {
             <div className="flex-1 overflow-y-auto space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
-                    {t('kb_indexed')}
-                  </h4>
-                  <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{readyDocuments.length}</span>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+                      {t('kb_indexed')}
+                    </h4>
+                    {isScopeActive && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                        title={`${inScopeCount} of ${readyDocuments.length} docs are in scope for the chat`}
+                      >
+                        {inScopeCount} in scope
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {isScopeActive && (
+                      <button
+                        onClick={clearScope}
+                        className="text-[10px] px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-white/5"
+                        style={{ color: 'var(--color-text-muted)' }}
+                        title="Clear scope (chat will consider all docs)"
+                      >
+                        Clear
+                      </button>
+                    )}
+                    {readyDocuments.length > 0 && inScopeCount < readyDocuments.length && (
+                      <button
+                        onClick={selectAllScope}
+                        className="text-[10px] px-1.5 py-0.5 rounded hover:bg-gray-100 dark:hover:bg-white/5"
+                        style={{ color: 'var(--color-text-muted)' }}
+                        title="Add all ready docs to scope"
+                      >
+                        Select all
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-1.5">
-                  {readyDocuments.map(doc => (
+                  {readyDocuments.map(doc => {
+                    const inScope = scopeDocIds.has(doc.id);
+                    return (
                     <button
                       key={doc.id}
                       data-doc-card-id={doc.id}
@@ -959,7 +1080,9 @@ export default function KnowledgeBaseView() {
                       className={`w-full text-left rounded-lg border px-2.5 py-2 transition-all ${
                         selectedDocId === doc.id
                           ? 'border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10'
-                          : 'border-gray-200 dark:border-border-dark hover:bg-gray-50 dark:hover:bg-white/5'
+                          : inScope
+                            ? 'border-indigo-300 dark:border-indigo-500/40 bg-indigo-50/40 dark:bg-indigo-500/5'
+                            : 'border-gray-200 dark:border-border-dark hover:bg-gray-50 dark:hover:bg-white/5'
                       } ${
                         highlightedDocId === doc.id
                           ? 'ring-2 ring-purple-500 shadow-lg shadow-purple-500/30'
@@ -980,6 +1103,21 @@ export default function KnowledgeBaseView() {
                               : `${formatFileSize(doc.size)} · ${doc.chunk_count || 0} chunks`}
                           </div>
                         </div>
+                        {/* Scope checkbox — toggles chat scope membership.
+                            Stop propagation so clicking the checkbox doesn't also select the doc. */}
+                        <label
+                          className="flex items-center p-0.5 rounded hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+                          title={inScope ? 'Remove from chat scope' : 'Add to chat scope'}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={inScope}
+                            onChange={() => toggleScopeDoc(doc.id)}
+                            className="h-3.5 w-3.5 cursor-pointer accent-indigo-600"
+                            aria-label={`Toggle ${doc.name} in chat scope`}
+                          />
+                        </label>
                         {!doc.neo4j_only && (
                           <button
                             onClick={(e) => {
@@ -995,7 +1133,8 @@ export default function KnowledgeBaseView() {
                         )}
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                   {readyDocuments.length === 0 && (
                     <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{t('kb_no_ready_docs')}</p>
                   )}
@@ -1062,10 +1201,12 @@ export default function KnowledgeBaseView() {
                 the browser's built-in PDF viewer, text/markdown/code in a
                 <pre>). Backed by GET /api/rag/documents/{id}/file. */}
             {selectedDocId && (
-              // Enlarged by 20% (was 320px / 40vh → now 384px / 48vh).
-              // PDF uses TwoPageView + Fit zoom (see iframe src below) for
-              // a horizontal 2-page layout that fills the window.
-              <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg overflow-hidden flex flex-col mb-3" style={{ minHeight: '384px', height: '48vh' }}>
+              // Full-size: takes all remaining vertical space in the center
+              // column (`flex-1` + `min-h-0` lets it shrink/grow inside the
+              // parent flex column). No more fixed vh cap, so the doc viewer
+              // uses every available pixel between the title bar and the
+              // bottom of the column.
+              <div className="flex-1 min-h-0 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg overflow-hidden flex flex-col mb-3">
                 {previewLoading ? (
                   <div className="flex items-center justify-center gap-2 text-xs p-4" style={{ color: 'var(--color-text-muted)' }}>
                     <Loader className="w-3 h-3 animate-spin" />
@@ -1106,15 +1247,24 @@ export default function KnowledgeBaseView() {
                       // /api/rag/documents/{id}/content when needed.
                       // For Neo4j-only docs (id < 0), use the file-by-name
                       // endpoint at /api/graphindex/file instead.
+                      //
+                      // Wrapper div: `flex-1 min-h-0` lets the viewer fill
+                      // the remaining height below the file header, and
+                      // `overflow-hidden` clips the canvas overflow so the
+                      // viewer's own scroll container handles it. Without
+                      // `min-h-0` the child couldn't shrink below its
+                      // intrinsic canvas height and scroll wouldn't work.
                       const isNeo4jOnly = !!selectedDoc?.neo4j_only;
                       return (
-                        <DocumentViewer
-                          key={selectedDocId}
-                          documentId={selectedDocId}
-                          documentName={selectedDoc.name}
-                          documentType={selectedDoc.document_type}
-                          projectId={isNeo4jOnly ? activeProjectId : undefined}
-                        />
+                        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                          <DocumentViewer
+                            key={selectedDocId}
+                            documentId={selectedDocId}
+                            documentName={selectedDoc.name}
+                            documentType={selectedDoc.document_type}
+                            projectId={isNeo4jOnly ? activeProjectId : undefined}
+                          />
+                        </div>
                       );
                     })()}
                   </>
@@ -1122,221 +1272,12 @@ export default function KnowledgeBaseView() {
               </div>
             )}
 
-            {/* Search Box — collapsible. The header row stays visible so the
-                user can toggle the panel without scrolling. */}
-            <div className="bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg flex-shrink-0 overflow-hidden">
-              <div
-                className="flex items-center justify-between gap-1.5 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
-                onClick={() => setSearchPanelOpen((o) => !o)}
-                role="button"
-                aria-expanded={searchPanelOpen}
-                title={searchPanelOpen ? 'Collapse search' : 'Expand search'}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
-                  <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                    GraphIndex {t('kb_title')}
-                  </h3>
-                </div>
-                <button
-                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/10"
-                  onClick={(e) => { e.stopPropagation(); setSearchPanelOpen((o) => !o); }}
-                  aria-label={searchPanelOpen ? 'Collapse' : 'Expand'}
-                >
-                  {searchPanelOpen
-                    ? <ChevronUp className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
-                    : <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />}
-                </button>
-              </div>
-              {searchPanelOpen && (
-                <div className="px-3 pb-3 space-y-2">
-                  {/* REMOVED: GraphIndex / Vector RAG toggle — we now use
-                      GraphIndex exclusively, so the toggle is no longer needed.
-                      Kept the searchMode state and useState('graphindex') so any
-                      downstream code that still branches on it stays safe. */}
-
-                  <div className="rounded-lg border border-gray-200 dark:border-border-dark px-2.5 py-2" style={{ backgroundColor: 'var(--color-input-background)' }}>
-                    <div className="text-[10px] mb-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                      {searchMode === 'graphindex' ? t('kb_search_scope') : t('kb_selected_doc')}
-                    </div>
-                    <div className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                      {searchMode === 'graphindex'
-                        ? t('kb_all_docs')
-                        : selectedDoc
-                          ? selectedDoc.name
-                          : t('kb_choose_doc')}
-                    </div>
-                  </div>
-
-                <div className="flex gap-1.5">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
-                    <input type="text"
-                      placeholder={searchMode === 'graphindex' ? t('kb_search_graphindex_placeholder') : t('kb_search_placeholder')}
-                      value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                      className="w-full pl-7 pr-2 py-2 border border-gray-200 dark:border-border-dark rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                      style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
-                    />
-                  </div>
-                  <button onClick={handleSearch} disabled={searching || !searchQuery.trim()}
-                    className="px-3 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 text-xs font-medium">
-                    {searching ? <Loader className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2 text-[10px] flex-wrap">
-                  {searchMode === 'vector' && (
-                    <>
-                      <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
-                        <input type="checkbox" checked={useHyDE} onChange={(e) => setUseHyDE(e.target.checked)}
-                          className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-primary focus:ring-primary" />
-                        <span>{t('kb_hyde')}</span>
-                      </label>
-                      <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
-                        <input type="checkbox" checked={useTOON} onChange={(e) => setUseTOON(e.target.checked)}
-                          className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-purple-600 focus:ring-purple-600" />
-                        <span>{t('kb_toon')}</span>
-                      </label>
-                    </>
-                  )}
-                  <label className="flex items-center gap-1 cursor-pointer hover:opacity-70" style={{ color: 'var(--color-text-primary)' }}>
-                    <input type="checkbox" checked={compareMode} onChange={(e) => setCompareMode(e.target.checked)}
-                      className="w-3 h-3 rounded border-gray-300 dark:border-border-dark text-orange-600 focus:ring-orange-600" />
-                    <span>{t('kb_compare')}</span>
-                  </label>
-                  {showSearchResults && (
-                    <button onClick={clearSearch}
-                      className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 transition-all"
-                      style={{ color: 'var(--color-text-primary)' }}>
-                      {t('kb_clear_results')}
-                    </button>
-                  )}
-                </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex-1 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg p-3 overflow-y-auto">
-              {!showSearchResults ? (
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <Search className="w-8 h-8 mx-auto mb-2 opacity-50" style={{ color: 'var(--color-text-muted)' }} />
-                    <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                      {searchMode === 'graphindex' ? t('kb_search_hint_graph') : t('kb_search_hint_vector')}
-                    </p>
-                    <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                      {searchMode === 'graphindex'
-                        ? t('kb_search_desc_graph')
-                        : t('kb_search_desc_vector')}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <h3 className="text-[11px] font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    {pageIndexDocs.length > 0
-                      ? `${t('kb_search_results_graph')} (${pageIndexDocs.length})`
-                      : `${t('kb_search_results_vector')} (${searchResults.length})`
-                    }
-                  </h3>
-
-                  {pageIndexDocs.length > 0 && (
-                    <div className="space-y-1.5">
-                      {pageIndexDocs.map((doc: any) => (
-                        <div key={doc.doc_id} className="border border-gray-200 dark:border-border-dark rounded-lg p-2">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-primary)' }}>{doc.doc_name}</span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{doc.page_count} {t('kb_pages')}</span>
-                              <button
-                                onClick={() => handleGraphIndexAnswer(doc)}
-                                disabled={answerLoading}
-                                className="text-[10px] px-1.5 py-0.5 rounded bg-primary text-white hover:opacity-80 transition-all disabled:opacity-50"
-                              >
-                                {answerLoading ? '...' : t('kb_answer')}
-                              </button>
-                            </div>
-                          </div>
-                          {doc.structure && doc.structure.length > 0 && (
-                            <div className="ml-3 space-y-0.5">
-                              {doc.structure.slice(0, 4).map((node: any, idx: number) => (
-                                <div key={idx} className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                                  <span className="inline-block w-2">-</span>
-                                  {node.title}{node.page && <span className="ml-0.5 opacity-60">(p.{node.page})</span>}
-                                </div>
-                              ))}
-                              {doc.structure.length > 4 && (
-                                <div className="text-[10px] italic" style={{ color: 'var(--color-text-muted)' }}>
-                                  {t('kb_more_sections', { count: doc.structure.length - 4 })}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* GraphIndex Answer Result */}
-                  {answerResult && (
-                    <div className="mt-3 border border-primary/30 dark:border-primary/20 rounded-lg p-3 bg-primary/5 dark:bg-primary/10">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                            {t('kb_answer_from')} {answerResult.doc_name}
-                          </span>
-                          <span className="text-[9px] px-1 py-0.5 rounded bg-gray-200 dark:bg-white/10" style={{ color: 'var(--color-text-muted)' }}>
-                            {answerResult.model}
-                          </span>
-                        </div>
-                        <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>
-                            {t('kb_pages_loaded', { pages: answerResult.pages_loaded, chars: answerResult.content_chars })}
-                          </span>
-                      </div>
-                      <div className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--color-text-primary)' }}>
-                        {answerResult.answer}
-                      </div>
-                    </div>
-                  )}
-
-                  {searchResults.length > 0 && (
-                    <div className="space-y-1.5">
-                      {searchResults.map((result, index) => (
-                        <div key={index} className="bg-gray-50 dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg p-2">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-medium text-primary">{result.document_name}</span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                                {(result.similarity_score * 100).toFixed(0)}%
-                              </span>
-                              <button onClick={() => toggleChunkExpansion(index)}
-                                className="text-[10px] text-primary hover:underline font-medium">
-                                {expandedChunks.has(index) ? t('kb_hide') : t('kb_show')}
-                              </button>
-                            </div>
-                          </div>
-                          {expandedChunks.has(index) && result.chunk_id && (
-                            <div className="mb-1 pb-1 border-b border-gray-200 dark:border-border-dark text-[10px]">
-                              <span className="font-mono" style={{ color: 'var(--color-text-muted)' }}>#{result.chunk_id}</span>
-                              {result.chunk_token_count && <span className="ml-1" style={{ color: 'var(--color-text-muted)' }}>{result.chunk_token_count} {t('kb_tokens')}</span>}
-                            </div>
-                          )}
-                          <pre className="text-[10px] whitespace-pre-wrap font-mono p-1 rounded overflow-x-auto max-h-28 leading-snug"
-                            style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}>
-                            {result.chunk_text}
-                          </pre>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {searchResults.length === 0 && pageIndexDocs.length === 0 && (
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{t('kb_no_results_for')} "{searchQuery}"</p>
-                  )}
-                </>
-              )}
-            </div>
+            {/* Search Box REMOVED — moved to a pop-out modal triggered from
+                the title bar (top right). The bottom-anchored search panel
+                used to take ~15% of the doc viewer's vertical space; with
+                it gone, the doc viewer has full size. The state, handlers,
+                and translation keys are still in this file (re-used by the
+                SearchModal). */}
           </div>
 
           {/* Right divider — drag to resize the chat panel */}
@@ -1353,6 +1294,13 @@ export default function KnowledgeBaseView() {
           >
             <DocChatPanel
               projectId={activeProjectId}
+              scope={isScopeActive
+                ? documents
+                    .filter((d) => scopeDocIds.has(d.id))
+                    .map((d) => d.name)
+                : null}
+              onScopeChange={setScopeDocIds}
+              onAgentInfoChange={setChatAgentInfo}
               onDocSelected={(docName) => {
                 // When the chat picks a doc, find it in our list and
                 // select + scroll-to + flash-highlight it. This is the
@@ -1375,6 +1323,39 @@ export default function KnowledgeBaseView() {
           </div>
         </div>
       </div>
+
+      {/* Pop-out search modal. Triggered from the "Search" button in the
+          title bar (top right). Hosts the full search UI that used to be
+          anchored at the bottom of the doc viewer — moving it to a modal
+          gives the doc viewer full vertical real estate. The modal uses
+          `fixed` positioning so it overlays the page regardless of where
+          it sits in the tree. */}
+      <SearchModal
+        open={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        searching={searching}
+        onSearch={handleSearch}
+        searchMode={searchMode}
+        compareMode={compareMode}
+        onCompareModeChange={setCompareMode}
+        useHyDE={useHyDE}
+        onUseHyDEChange={setUseHyDE}
+        useTOON={useTOON}
+        onUseTOONChange={setUseTOON}
+        selectedDoc={selectedDoc}
+        showSearchResults={showSearchResults}
+        pageIndexDocs={pageIndexDocs}
+        searchResults={searchResults}
+        onClearSearch={clearSearch}
+        onGraphIndexAnswer={handleGraphIndexAnswer}
+        answerLoading={answerLoading}
+        answerResult={answerResult}
+        expandedChunks={expandedChunks}
+        onToggleChunkExpansion={toggleChunkExpansion}
+        t={t}
+      />
     </div>
   );
 }

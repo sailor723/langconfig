@@ -71,6 +71,13 @@ class GraphIndexChatRequest(BaseModel):
     )
     temperature: float = Field(0.0, ge=0.0, le=2.0)
     max_tokens: int = Field(8192, ge=1, le=32768)
+    scope: Optional[List[str]] = Field(
+        None,
+        description=(
+            "Optional doc filter. None / 'all' / [] → search all docs. "
+            "[doc1, doc2, ...] → only consider / read these docs (by exact name)."
+        ),
+    )
 
 
 class GraphIndexChatUsage(BaseModel):
@@ -89,6 +96,14 @@ class GraphIndexChatResponse(BaseModel):
     model: str
     usage: GraphIndexChatUsage
     agent: str = "graphindex_chat"
+    clarification: Optional[dict] = Field(
+        None,
+        description=(
+            "Set when the agent didn't actually answer — e.g. the user's scope "
+            "didn't match any documents. The UI should show the message and let "
+            "the user retry with a different scope (e.g. 'all docs')."
+        ),
+    )
 
 
 class Neo4jDocumentItem(BaseModel):
@@ -130,6 +145,69 @@ def _get_or_build_agent(project_id: int, model_name: Optional[str] = None):
     )
     _agent_cache[cache_key] = agent
     return agent
+
+
+def _set_scope(scope):
+    """Set the active doc scope via ContextVar. Returns a token for reset."""
+    # Imported lazily to avoid importing the whole graphindex_tools module
+    # (which pulls in langchain + neo4j client) on every request.
+    from graphindex_tools import set_active_doc_scope
+
+    return set_active_doc_scope(scope)
+
+
+def _reset_scope(token) -> None:
+    """Reset the active doc scope via ContextVar."""
+    from graphindex_tools import reset_active_doc_scope
+
+    reset_active_doc_scope(token)
+
+
+def _resolve_scope(project_id: int, scope):
+    """Resolve the user's scope against the project's catalog.
+
+    Returns a dict:
+        {
+            "valid":    [names in scope that match a doc in the project],
+            "invalid":  [names in scope that don't match any doc],
+            "all_doc_names":  [all doc names in the project, sorted]
+        }
+
+    Special cases:
+        - scope is None / "all" / []  → returns {"valid": None, "invalid": [], "all_doc_names": [...]}
+          (None for `valid` means "no filter" — not "all valid")
+        - scope has only invalid items  → all_doc_names is populated so the caller
+          can build a "did you mean..." message
+        - scope has some valid + some invalid  → caller can choose to warn or silently drop
+
+    Lazy imports to keep startup fast (this is only called when scope is set).
+    """
+    # Normalize: None / "all" / [] = no filter
+    if scope is None or scope == "all" or (isinstance(scope, (list, tuple)) and len(scope) == 0):
+        # Still fetch all doc names for the "available docs" suggestion
+        from graphindex_tools import _idx as _get_idx
+        from legacy.route_semantic import fetch_catalog
+        try:
+            rows = fetch_catalog(_get_idx(), project_id)
+            all_names = sorted({r["name"] for r in rows})
+        except Exception:
+            all_names = []
+        return {"valid": None, "invalid": [], "all_doc_names": all_names}
+
+    # Scope is a real list — resolve it against the catalog
+    from graphindex_tools import _idx as _get_idx
+    from legacy.route_semantic import fetch_catalog
+    try:
+        rows = fetch_catalog(_get_idx(), project_id)
+        all_names_set = {r["name"] for r in rows}
+        all_names = sorted(all_names_set)
+    except Exception:
+        # If Neo4j is down, treat as no resolution possible
+        return {"valid": [], "invalid": list(scope), "all_doc_names": []}
+
+    valid = [n for n in scope if n in all_names_set]
+    invalid = [n for n in scope if n not in all_names_set]
+    return {"valid": valid, "invalid": invalid, "all_doc_names": all_names}
 
 
 def _strip_think(text: str) -> str:
@@ -176,7 +254,44 @@ async def graphindex_chat(request: GraphIndexChatRequest) -> GraphIndexChatRespo
         messages.append({"role": m.role, "content": m.content})
     messages.append({"role": "user", "content": request.query})
 
+    # Validate the scope BEFORE running the agent. If the user passed
+    # a scope that matches no documents, return a clarification response
+    # asking if they want to search all docs instead.
     t0 = time.time()
+    resolution = _resolve_scope(request.project_id, request.scope)
+    if request.scope and resolution["valid"] is not None and len(resolution["valid"]) == 0:
+        elapsed = time.time() - t0
+        message = (
+            f"Your scope didn't match any documents in this project. "
+            f"Would you like to search all {len(resolution['all_doc_names'])} documents instead?"
+        )
+        return GraphIndexChatResponse(
+            query=request.query,
+            project_id=request.project_id,
+            thread_id=thread_id,
+            model=request.model or "minimax-m3",
+            answer=message,
+            usage={
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read": 0,
+                "cache_pct": 0.0,
+                "latency_s": elapsed,
+                "clarification": True,
+            },
+            clarification={
+                "code": "scope_not_found",
+                "scope_received": list(request.scope),
+                "scope_invalid": resolution["invalid"],
+                "available_docs": resolution["all_doc_names"][:20],
+                "available_count": len(resolution["all_doc_names"]),
+                "suggestion": "Remove the scope to search all documents.",
+            },
+        )
+
+    # Set the active doc scope for this request. The agent's tools will
+    # only see / read docs whose name is in `scope` (if provided).
+    scope_token = _set_scope(request.scope)
     try:
         result = await asyncio.to_thread(
             agent.invoke,
@@ -186,6 +301,9 @@ async def graphindex_chat(request: GraphIndexChatRequest) -> GraphIndexChatRespo
     except Exception as e:
         logger.exception(f"graphindex_chat agent error: {e}")
         raise HTTPException(status_code=500, detail=f"agent invoke failed: {e}")
+    finally:
+        # Always restore the previous scope, even if the agent raised.
+        _reset_scope(scope_token)
     elapsed = time.time() - t0
 
     answer = _strip_think(result["messages"][-1].content)
@@ -230,21 +348,102 @@ async def graphindex_chat_stream(request: GraphIndexChatRequest):
     messages.append({"role": "user", "content": request.query})
 
     async def event_generator() -> AsyncGenerator[str, None]:
-        # The graphindex_chat agent uses a single DeepAgent node; we
-        # stream the final answer (post-thinking) token-by-token using
-        # the streaming API. If streaming fails, fall back to a single
-        # chunk with the full answer.
+        # The graphindex_chat agent uses a single DeepAgent node. We use
+        # `agent.stream(..., stream_mode="values")` (NOT `agent.invoke()`)
+        # so we can emit SSE events for each tool call — that way the
+        # client can see what the agent is doing step by step.
         yield f"data: {dict_to_json({'type': 'start', 'thread_id': thread_id, 'query': request.query})}\n\n"
         t0 = time.time()
+
+        # Validate the scope BEFORE running the agent. If the user passed
+        # a scope that matches no documents, return a clarification event
+        # asking if they want to search all docs instead.
+        resolution = _resolve_scope(request.project_id, request.scope)
+        if request.scope and resolution["valid"] is not None and len(resolution["valid"]) == 0:
+            # All scope items are invalid — emit clarification, skip agent
+            clarification_payload = {
+                "type": "clarification",
+                "code": "scope_not_found",
+                "message": (
+                    f"Your scope didn't match any documents in this project. "
+                    f"Would you like to search all {len(resolution['all_doc_names'])} documents instead?"
+                ),
+                "scope_received": list(request.scope),
+                "scope_invalid": resolution["invalid"],
+                "available_docs": resolution["all_doc_names"][:20],  # cap the list
+                "available_count": len(resolution["all_doc_names"]),
+                "suggestion": "Remove the scope to search all documents.",
+            }
+            yield f"data: {dict_to_json(clarification_payload)}\n\n"
+            # Also emit a token event with the message so the UI's chat
+            # bubble shows it as if the LLM said it.
+            yield f"data: {dict_to_json({'type': 'token', 'content': clarification_payload['message']})}\n\n"
+            elapsed = time.time() - t0
+            done_payload = {
+                "type": "done",
+                "usage": {
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "cache_read": 0,
+                    "cache_pct": 0.0,
+                    "latency_s": elapsed,
+                    "tool_calls": 0,
+                    "clarification": True,
+                },
+            }
+            yield f"data: {dict_to_json(done_payload)}\n\n"
+            return
+
+        # Set the active doc scope for this request. The agent's tools
+        # will only see / read docs whose name is in `scope` (if provided).
+        scope_token = _set_scope(request.scope)
+
+        # Track what we've already emitted so we don't repeat events
+        # (stream_mode="values" emits the full state on each step).
+        emitted_tool_call_ids: set = set()
+        emitted_message_indices: set = set()
+        result = None
         try:
-            result = await asyncio.to_thread(
-                agent.invoke,
+            # Run the agent ONCE via stream(); capture the final state.
+            # (Earlier code re-ran via agent.invoke() to get the result —
+            # that doubled the wall clock for no benefit. We now use the
+            # last event's `messages` as the final state.)
+            last_event = None
+            prev_msg_count = 0
+            for event in agent.stream(
                 {"messages": messages},
-                {"configurable": {"thread_id": thread_id}},
-            )
+                config={"configurable": {"thread_id": thread_id}},
+                stream_mode="values",
+            ):
+                last_event = event
+                msgs = event.get("messages", [])
+                # Emit any new tool calls (assistant messages with tool_calls)
+                for i, m in enumerate(msgs):
+                    if i in emitted_message_indices:
+                        continue
+                    emitted_message_indices.add(i)
+                    # AIMessage with tool_calls
+                    tool_calls = getattr(m, "tool_calls", None) or []
+                    for tc in tool_calls:
+                        tc_id = tc.get("id") or f"{tc.get('name')}-{i}"
+                        if tc_id in emitted_tool_call_ids:
+                            continue
+                        emitted_tool_call_ids.add(tc_id)
+                        yield f"data: {dict_to_json({'type': 'tool_start', 'name': tc.get('name'), 'args': tc.get('args', {}), 'id': tc_id})}\n\n"
+                    # ToolMessage (the result of a tool call)
+                    if getattr(m, "type", "") == "tool":
+                        yield f"data: {dict_to_json({'type': 'tool_end', 'name': getattr(m, 'name', ''), 'id': getattr(m, 'tool_call_id', '')})}\n\n"
+                prev_msg_count = len(msgs)
+
+            # Use the final event's `messages` as the result
+            if last_event is not None:
+                result = {"messages": last_event.get("messages", [])}
         except Exception as e:
             yield f"data: {dict_to_json({'type': 'error', 'message': str(e)})}\n\n"
             return
+        finally:
+            # Always restore the previous scope, even if the agent raised.
+            _reset_scope(scope_token)
 
         answer = _strip_think(result["messages"][-1].content)
         # Stream word-by-word for low perceived latency (chunked for SSE).
@@ -256,13 +455,20 @@ async def graphindex_chat_stream(request: GraphIndexChatRequest):
 
         in_tok, out_tok, cache_read = _extract_usage(result)
         elapsed = time.time() - t0
-        yield f"data: {dict_to_json({'type': 'done', 'usage': {
-            'input_tokens': in_tok,
-            'output_tokens': out_tok,
-            'cache_read': cache_read,
-            'cache_pct': 100 * cache_read / in_tok if in_tok else 0.0,
-            'latency_s': elapsed,
-        }})}\n\n"
+        # Build the done event payload as a dict, then serialize.
+        # (Avoids a multi-line f-string with nested dict braces.)
+        done_payload = {
+            "type": "done",
+            "usage": {
+                "input_tokens": in_tok,
+                "output_tokens": out_tok,
+                "cache_read": cache_read,
+                "cache_pct": 100 * cache_read / in_tok if in_tok else 0.0,
+                "latency_s": elapsed,
+                "tool_calls": len(emitted_tool_call_ids),
+            },
+        }
+        yield f"data: {dict_to_json(done_payload)}\n\n"
 
     return StreamingResponse(
         event_generator(),

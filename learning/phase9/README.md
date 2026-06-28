@@ -18,6 +18,93 @@ This README is the **base for all three steps**. Read this first before editing 
 
 ---
 
+## 🌌 System at a Glance (one picture, full pipeline)
+
+> **Read this first.** Every other diagram in this file is a zoom-in on one part of this picture.
+
+```
+                              USER
+                               │
+                  "compare Nike strategy with
+                       industry trends"
+                               │
+                               ▼
+        ┌──────────────────────────────────────────┐
+        │  PHASE 9 ENTRY POINTS                    │
+        │  ┌────────────────┐  ┌────────────────┐  │
+        │  │  dv_chat.py    │  │ query.py       │  │
+        │  │  (single doc)  │  │ (multi-doc)    │  │
+        │  └────────────────┘  └────────────────┘  │
+        │  ┌────────────────┐  ┌────────────────┐  │
+        │  │  build_        │  │ eval_routing_  │  │
+        │  │  graphindex.py │  │ deep.py        │  │
+        │  │  (sync Neo4j)  │  │ (headline)     │  │
+        │  └────────────────┘  └────────────────┘  │
+        └──────────────────┬───────────────────────┘
+                           │
+        ╔══════════════════╧══════════════════╗    ◄── All paths funnel into
+        ║  STAGE 1 — ROUTE                   ║        one shared decision:
+        ║  (pick the right document(s))      ║        "which doc answers this?"
+        ║                                    ║
+        ║  ┌──────────────────────────────┐  ║        Three implementations,
+        ║  │ String  (1 ms, 57% accuracy) │  ║        same interface:
+        ║  │ LLM     (5 s,  100% accuracy)│  ║        ┌────────────────────┐
+        ║  │ Multi   (12 s, domain-aware) │──┼───────►│ route_semantic.py  │
+        ║  └──────────────────────────────┘  ║        │ route_by_llm()    │
+        ║           │                        ║        └────────────────────┘
+        ╚═══════════╪════════════════════════╝
+                    │   { primary: "nke-10k-2023.pdf",
+                    │      supporting: ["Strategic Framework...", ...] }
+                    ▼
+        ┌──────────────────────────────────────────┐
+        │  STAGE 2 — LOAD                          │
+        │  (read content, no LLM)                  │
+        │                                          │
+        │  DocIndexClient.get_full_content(doc_id) │
+        │    ├─ PDF: PyMuPDF get_toc() + pages     │
+        │    └─ MD/TXT: heading scan + lines       │
+        │                                          │
+        │  Char caps: primary 30K, supporting 15K  │
+        └──────────────────┬───────────────────────┘
+                           │   42,369 chars of doc text
+                           ▼
+        ┌──────────────────────────────────────────┐
+        │  STAGE 3 — SYNTHESIZE                    │
+        │  (LLM #2 — generate answer)              │
+        │                                          │
+        │  System: "treat doc as KV, cite pages"   │
+        │  User:   query + full doc text           │
+        │  Model:  MiniMax-M3 (cache: 100% hit)    │
+        └──────────────────┬───────────────────────┘
+                           │
+                           ▼
+        ┌──────────────────────────────────────────┐
+        │  ANSWER                                  │
+        │  "Nike's strategy organized around 7     │
+        │   pillars (consumer-led product, ...).   │
+        │   Industry trends Nike identifies: ...   │
+        │   [cites pages from Doc 1: pp.1-6]"      │
+        └──────────────────────────────────────────┘
+
+        ┌──────────────┐    ┌──────────────┐    ┌──────────────────┐
+        │  Neo4j       │    │  File system │    │  PostgreSQL      │
+        │  :Document   │    │  /data/docs/ │    │  ContextDoc      │
+        │  routing +   │    │  + L1/L2/L3  │    │  upload metadata │
+        │  enrichment  │    │  page index  │    │  (sync target)   │
+        └──────────────┘    └──────────────┘    └──────────────────┘
+              ▲                     ▲                     ▲
+              │  content_sha256     │  doc_id, page text  │  project_id
+              │  about / supports   │                     │
+              └─────── all three kept in sync by `_try_sync_context_document_to_neo4j`
+```
+
+**Key insight to hold in your head**: Stages 1 and 3 are the only LLM calls. Stage 2 is pure file I/O.
+The LLM in Stage 1 reads a stable catalog → prompt cache 100% hits → ~5s. The LLM in Stage 3
+reads the chosen doc → cache hits on system+doc prefix → ~20s for synthesis. Everything else is
+free.
+
+---
+
 ## 🏗️ Current Architecture (Base Map)
 
 The "doc chat" feature is already partially implemented in the repo. The pieces that matter for Phase 9:
@@ -108,6 +195,62 @@ The "doc chat" feature is already partially implemented in the repo. The pieces 
 
 ---
 
+## 🗺️ phase9/ File Map (how the 16 files relate)
+
+> **Why this map**: every phase9 file imports from or is imported by another. If you don't know the
+> dependency graph, you don't know which file is safe to edit in isolation.
+
+```
+phase9/
+│
+├── 📌 ENTRY POINTS (user-facing CLIs)
+│   ├── dv_chat.py              ──► legacy/dv_chat.py  (single-doc REPL)
+│   ├── query.py                ──► query_agent.py     (multi-doc unified CLI)
+│   ├── query_deep.py           ──► query_agent.py     (deep-agent variant)
+│   └── query_agent.py          ──► graphindex_tools.py  (3-subagent orchestrator)
+│
+├── 🛠️ CORE TOOLKIT (the 5 graphindex_* tools)
+│   └── graphindex_tools.py     ◄── imported by query_agent.py, graphindex_chat_agent.py
+│                                uses: legacy/build_graphindex.py (helpers)
+│
+├── 🏗️ BUILD / INDEX (offline, modifies Neo4j)
+│   ├── graphindex_build_python.py     ──► graphindex_tools.py
+│   ├── graphindex_build_deepagent.py  ──► graphindex_tools.py (uses DeepAgent)
+│   ├── graphindex_build_langgraph.py  ──► graphindex_tools.py (uses LangGraph)
+│   ├── graphindex_builder_template.py ──► template for new builders
+│   ├── buildindex_tools.py            ──► LLM enrichment primitives
+│   └── build_agent.py                 ──► same as buildindex_tools.py, agent variant
+│
+├── 💬 CHAT ORCHESTRATION
+│   ├── graphindex_chat_agent.py        ──► graphindex_tools.py  (single-agent chat)
+│   └── graphindex_chat_template.py     ──► template for new chat agents
+│
+├── 📊 EVALUATION
+│   ├── eval_routing.py          ──► legacy/eval_routing.py
+│   └── eval_routing_deep.py     ──► eval_routing.py  (deep variant)
+│
+├── legacy/                      ──► "no deletions" policy
+│   ├── build_graphindex.py      ──► exports DOCS_BASE, make_llm, helpers
+│   ├── route_semantic.py        ──► superseded by phase9/query.py
+│   ├── dv_chat.py               ──► superseded by phase9/dv_chat.py
+│   └── eval_routing.py          ──► exports EVAL_QUERIES
+│
+└── .dv_memory/
+    └── AGENTS.md                ──► agent context for this folder
+```
+
+**Import rules to remember** (so you don't break the graph):
+
+| Rule | Why |
+|---|---|
+| Entry points can import anything | They orchestrate, they don't get orchestrated |
+| `graphindex_tools.py` imports from `legacy/build_graphindex.py` | The 5 tools need `make_llm`, `extract_document_enrichment`, `load_document_content` |
+| `graphindex_*_agent.py` files import from `graphindex_tools.py` | They bind tools to a DeepAgent |
+| `eval_routing*.py` files import from `legacy/eval_routing.py` | They reuse `EVAL_QUERIES` + `run_*_eval` helpers |
+| **Never import from `phase9/` into `backend/`** | Phase 9 is scripts/notebooks, not platform code (per `learning_plan.md`) |
+
+---
+
 ## 🔁 The Full "Doc Chat" Flow Today
 
 1. **Upload** (`POST /api/rag/documents`)
@@ -142,6 +285,56 @@ The "doc chat" feature is already partially implemented in the repo. The pieces 
 4. **Drill-down** (`GET /api/rag/documents/{id}/graphindex/pages/{pages}`)
    - `pages` format: `5-7`, `3,8`, `12`
    - Returns per-page content for the UI to highlight
+
+### Sequence: a single user query end-to-end
+
+> **What this shows**: every actor in the system and what each one does. The "wall-clock" column on
+> the right is the typical latency you should expect in production.
+
+```
+ User         Frontend       FastAPI        Neo4j          DocIndex       LLM
+  │              │              │              │              │              │
+  │ click "Ask"  │              │              │              │              │
+  │─────────────►│              │              │              │              │
+  │              │ POST /graphindex/answer    │              │              │
+  │              │─────────────►│              │              │              │
+  │              │              │ find_best_document()       │              │  ~5 ms
+  │              │              │─────────────►│              │              │
+  │              │              │◄─────────────│  doc pointer │              │
+  │              │              │              │              │              │
+  │              │              │ get_full_content(doc_id)   │              │  ~200 ms
+  │              │              │─────────────────────────────►              │
+  │              │              │◄────────────────────────────│  page text  │
+  │              │              │              │              │              │
+  │              │              │ system: "treat as KV"      │              │
+  │              │              │ user:   query + doc text   │              │
+  │              │              │─────────────────────────────┼─────────────►│  ~20 s
+  │              │              │◄────────────────────────────┼─────────────│
+  │              │              │              │              │  answer     │
+  │              │ SSE chunks   │              │              │              │  streaming
+  │              │◄─────────────│              │              │              │
+  │ tokens      │              │              │              │              │
+  │◄─────────────│              │              │              │              │
+  │              │              │              │              │              │
+  ▼              ▼              ▼              ▼              ▼              ▼
+```
+
+**Where the time goes (typical, MiniMax-M3)**:
+| Step | Latency | Bottleneck? |
+|---|---|---|
+| Neo4j routing | 5 ms | No (or 5 s if LLM routing — see "Three Routing Modes" below) |
+| `get_full_content` | 200 ms | No (pure file I/O + PyMuPDF) |
+| LLM synthesize | 15-20 s | **Yes** (cache hit on system+doc prefix makes it cheap; miss makes it 40 s) |
+| Total | 15-25 s | LLM |
+
+### Where the cost goes (typical query)
+| Token bucket | Tokens | Notes |
+|---|---|---|
+| System prompt (catalog + KV instructions) | ~600 | Cache hit 100% after first call |
+| Doc text (primary 30K + supporting 3×15K) | ~18,000 | Cache hit on first 14K (system+prefix) |
+| User query | ~50 | Not cached |
+| LLM output | ~500 | Not cached |
+| **Per-query cost (after warm-up)** | **~$0.012** | MiniMax M3: $0.60/M in + $2.40/M out |
 
 ---
 
@@ -187,6 +380,55 @@ curl -X POST http://127.0.0.1:8765/api/rag/graphindex/answer \
 # 5. Smoke test
 cd backend && python scripts/test_graphindex_pdf_chat_flow.py
 ```
+
+---
+
+## 💸 Prompt Cache Mechanics (the secret weapon)
+
+> **Why this matters**: every Phase 9 cost argument depends on it. If you don't get prompt caching,
+> the LLM semantic router looks like a 5-second tax with no upside. With it, it's nearly free.
+
+```
+   Query #1                                Query #2, 3, 4, ...
+      │                                        │
+      ▼                                        ▼
+ ┌─────────┐                              ┌─────────┐
+ │ SYSTEM  │  catalog (~40K tokens)        │ SYSTEM  │  same catalog (~40K tokens)
+ │ prompt  │  ────────────────────────►   │ prompt  │  ──── cache HIT (100%) ────►
+ │         │  same prefix → cacheable      │         │  billed at cache_read rate
+ └─────────┘                              └─────────┘
+      │                                        │
+      ▼                                        ▼
+ ┌─────────┐                              ┌─────────┐
+ │ USER    │  "Nike revenue"  (~10 tok)    │ USER    │  "苏格拉底思想" (~10 tok)
+ │ query   │                              │ query   │  ← only this changes
+ └─────────┘                              └─────────┘
+      │                                        │
+      ▼                                        ▼
+   ~$0.024                                  ~$0.024
+   (cold, 40K fresh)                        but cache_read = 40,000 tokens
+                                            → only the user query + output is "new"
+                                            → effective cost ≈ $0.001
+```
+
+**Three rules that keep the cache hot** (violate any of them and you pay full price every query):
+
+1. **The system prompt must be byte-identical across queries.** Catalog is rendered deterministically:
+   same field order, same separator, same line endings.
+2. **The user message must come AFTER all the cached content.** Don't put the query in the system
+   prompt and the catalog in the user message — that flips the cache window.
+3. **The LLM provider must support prefix caching.** MiniMax M3 does (5-min TTL). OpenAI does
+   (more aggressive). Anthropic does (5-min TTL). Local Ollama does NOT (no cache benefit).
+
+**Measured benefit in Phase 9** (project 1, 18 docs, 14-query eval):
+| Query | First call (cold) | Subsequent (warm) |
+|---|---|---|
+| Catalog routing | ~10 s | ~3-5 s |
+| Doc synthesis | ~40 s | ~15-20 s |
+| `cache_read` tokens | 0 | 30,000-35,000 |
+
+**Implication**: don't reformat the catalog between queries. The single biggest performance bug
+you can introduce in Phase 9 is sorting docs by name in one query and by date in the next.
 
 ---
 
@@ -325,6 +567,67 @@ Verified end-to-end against localhost:7474:
 
 Robustness: structured output sometimes wraps answer in `<think>...</think>` (MiniMax M3
 quirk). The script auto-falls-back to a plain text call + manual JSON extraction.
+
+## 🎚️ Three Routing Modes (before Step 2.6)
+
+> **The single most important diagram in Phase 9.** Everything else (eval results, schema evolution,
+> multi-doc synthesis) is an elaboration on one of these three modes. Pick the wrong one for your
+> corpus and you'll either overspend or misroute.
+
+```
+                        USER QUERY
+                            │
+                            ▼
+              ┌─────────────────────────┐
+              │ Which routing mode?     │
+              └────────────┬────────────┘
+                           │
+        ┌──────────────────┼──────────────────┬──────────────────┐
+        │                  │                  │                  │
+        ▼                  ▼                  ▼                  ▼
+  ┌───────────┐      ┌───────────┐      ┌───────────┐      ┌───────────┐
+  │  STRING   │      │  LLM      │      │  LLM      │      │  HEURISTIC│
+  │  metadata │      │  semantic │      │  domain-  │      │  + manual │
+  │  scoring  │      │  single-  │      │  aware    │      │  override │
+  │           │      │  doc      │      │  multi-   │      │           │
+  │  ~1 ms    │      │           │      │  doc      │      │           │
+  │  57% acc  │      │  ~5 s     │      │  ~12 s    │      │  0 ms     │
+  │           │      │  100% acc │      │  100% acc │      │  100% acc │
+  └─────┬─────┘      └─────┬─────┘      └─────┬─────┘      └─────┬─────┘
+        │                  │                  │                  │
+        │  Step 2.5-       │  Step 2.6-       │  Step 2.9-      │  Step 2.1-
+        │  pre-rebuild     │  2.8             │  2.10            │  always
+        │                  │                  │                  │
+        │  use when:       │  use when:       │  use when:       │  use when:
+        │  • no enrich-    │  • 10-50 docs    │  • cross-domain  │  • user knows
+        │    ment yet      │  • ZH/multilin-  │    question      │    the doc
+        │  • <10 docs      │    gual queries  │  • need sources  │  • router wrong
+        │  • fast preview  │  • default mode  │    from N docs   │  • debug
+        │                  │                  │                  │
+        └──────────────────┴──────────────────┴──────────────────┘
+                                    │
+                                    ▼
+                          ┌──────────────────┐
+                          │  Chosen doc(s)   │
+                          │  → Stage 2 (Load)│
+                          │  → Stage 3 (LLM) │
+                          └──────────────────┘
+```
+
+**Decision rule of thumb** (memorize this):
+
+| If you have... | Use this mode |
+|---|---|
+| < 10 docs and no enrichment yet | String (1 ms) |
+| 10-50 docs, multilingual, default | LLM semantic (5 s, 100%) |
+| Cross-domain question ("compare X with Y") | LLM domain-aware multi-doc (12 s) |
+| User explicitly names a doc | `/doc <name>` override (bypass router) |
+
+**The 43-pp gap is real** — see [eval.md](./eval.md) for the per-category breakdown. String matching
+gets 0% on Chinese, LLM gets 100%. That's the single biggest reason Phase 9 keeps the LLM router
+as the default despite the 5-second cost.
+
+---
 
 ## 🎯 Step 2.6 — Semantic LLM routing (DONE)
 
@@ -1858,6 +2161,150 @@ make the system_prompt explicit about:
 - The workflow: `graphindex_list_docs` first if unsure, then prefer
   `graphindex_multi_doc_load` for the actual answer (it does the
   routing + loading in one call)
+
+---
+
+## 🎯 Step N — Doc scope + KB-view polish (DONE)
+
+This step adds **scope filtering** (tell the chat agent which docs to
+consider) and a batch of KB-view UI polish: full-size doc viewer,
+pop-out search modal, continuous-scroll PDF viewer, smaller chat text,
+and a chat-agent pill in the KB header.
+
+### N.1 — Doc scope (which docs the agent considers)
+
+**Backend — `phase9/graphindex_tools.py`**: a `ContextVar` propagates the
+active scope to the 5 tools without changing their signatures (which
+would invalidate the LLM prompt cache):
+
+```python
+_active_doc_scope: ContextVar[Optional[set]] = ContextVar("active_doc_scope", default=None)
+
+def set_active_doc_scope(scope) -> object: ...
+def reset_active_doc_scope(token) -> None: ...
+def get_active_doc_scope() -> Optional[set]: ...
+```
+
+All 5 tools (`fetch_catalog_tool`, `read_doc_tool`, `list_docs_tool`,
+`load_multi_doc_tool`, `route_query_tool`) now filter their output
+through `_filter_rows_by_scope()`. Out-of-scope reads return
+`SCOPE_ERROR: "Document X is not in the active scope. Try a different doc."`.
+
+**Backend — `phase9/graphindex_chat_agent.py`**: `stream_graphindex_chat()`
+and `stream_graphindex_chat_events()` accept `scope: Optional[List[str]]`.
+They call `set_active_doc_scope()` / `reset_active_doc_scope()` in a
+try/finally so the scope is always cleared even on errors.
+
+**Backend — `backend/api/knowledge/graphindex_chat.py`**: the
+`GraphIndexChatRequest` now has `scope: Optional[List[str]]`. A new
+`_resolve_scope()` helper validates the scope against the catalog
+and returns `{valid, invalid, all_doc_names}`. **If every item in
+`scope` is invalid**, the endpoint emits a `clarification` SSE event
+and returns — without invoking the agent — saving the 30s+ the agent
+would burn trying out-of-scope docs.
+
+**Backend — `backend/api/chat/routes.py`**: the standard chat endpoint
+also accepts `scope` and passes it through to `_generate_stream_phase9`.
+
+**CLI — `phase9/query.py` and `phase9/query_deep.py`**: added
+`--scope "doc1,doc2"` flag and a `/scope` REPL command for
+interactive scope setting.
+
+### N.2 — UI: doc-card checkboxes for in-scope selection
+
+In `KnowledgeBaseView.tsx`:
+- `scopeDocIds: Set<number>` state (the IDs of in-scope docs)
+- Each doc card has a checkbox — click to toggle in-scope
+- In-scope cards get an indigo border + checkbox fill
+- A pill above the INDEXED section shows `X in scope` + `Clear` /
+  `Select all` buttons
+- The scope is sent to the chat agent as `scope: [...]` on every
+  message; null/empty means "all docs"
+
+### N.3 — UI: pop-out search modal
+
+The graphindex search box used to live at the bottom of the doc
+viewer (~15% vertical space). Moved to a pop-out modal triggered by
+a `kb_search` button in the KB header (top right, between the metric
+pills and the Browse Files buttons).
+
+`src/features/knowledge/ui/SearchModal.tsx` is the new modal:
+- `fixed inset-0` overlay with backdrop blur
+- Centered card (`max-w-3xl`, `max-h-80vh`)
+- Auto-focuses the search input on open
+- `Escape` key + click-on-backdrop both close the modal
+- Re-uses the parent's existing search state + handlers (`searchQuery`,
+  `handleSearch`, `compareMode`, `useHyDE`, `useTOON`, `pageIndexDocs`,
+  `searchResults`, `handleGraphIndexAnswer`) — no duplication
+
+When the modal is closed, the doc viewer has full vertical space.
+
+### N.4 — UI: full-size doc viewer
+
+The doc viewer container was `style={{ minHeight: '384px', height: '48vh' }}`
+(capped at 48% of viewport). Now `flex-1 min-h-0` so it fills all
+remaining vertical space. `min-h-0` is critical — without it, flex
+children default to `min-height: auto` and the PDF's internal scroll
+container can't take over.
+
+The `<DocumentViewer>` is now wrapped with
+`<div className="flex-1 min-h-0 overflow-hidden flex flex-col">` so
+it properly fills the remaining height below the file header.
+
+### N.5 — UI: continuous-scroll PDF viewer
+
+`src/features/knowledge/ui/TwoPagePdfViewer.tsx` was rewritten end-to-end.
+Three iterations:
+
+1. **Drag-to-pan → scroll-to-read** (matches MD viewer). Each canvas
+   is now sized to the page's *natural* rendered size at the current
+   zoom. At zoom > 100%, the canvas is taller than the container and
+   the parent `overflow-auto` handles overflow → user scrolls with
+   the mouse wheel / trackpad.
+
+2. **Toolbar moved to top**. Page nav + 1P/2P/4P selector + zoom are
+   now at the top of the viewer (were at the bottom, often hidden).
+
+3. **Continuous scroll through the whole document** (final form). All
+   pages stacked vertically in a single column, scrollable top-to-bottom
+   just like MD. Replaces the 1P/2P/4P spread view entirely. Features:
+   - All pages rendered in parallel (cancelled on zoom change)
+   - Page indicator `N of M` updated by `IntersectionObserver` as user
+     scrolls
+   - Prev/Next buttons scroll by ~1 viewport (`scrollBy`)
+   - "Go to: #" input — type a page number and Enter to jump
+   - Default zoom 1.0 = fit-to-container-width
+
+### N.6 — UI: chat font sizes reduced to match doc cards
+
+In `src/features/chat/ui/MessagesPanel.tsx`:
+| Element | Before | After |
+|---|---|---|
+| Markdown body | 0.81rem (13px) | 0.75rem (12px = doc-card `text-xs`) |
+| Headings h1/h2/h3 | 24/20/18px | 15/14/13px |
+| Code block | 14px | 11px |
+| Inline code | 14px | 11px |
+| Table cell | 14px | 11px (with 0.35rem padding) |
+| System message | 14px | 12px |
+| Empty-state heading | 18px | 16px |
+| Line height | 1.65 | 1.55 |
+
+### N.7 — UI: chat-agent pill in KB header
+
+The agent's name + description (formerly the chat panel's header) now
+lives as a "🪄 Chat Agent" pill in the KB header, next to the search
+button. Lifted up from `<DocChatPanel>` via a new `onAgentInfoChange`
+callback prop. The chat panel header is reduced to a slim 1-line
+status bar (icon + description only).
+
+### N.8 — UI: self-intro empty state
+
+The empty-state subtitle was changed from the generic
+*"Ask anything — I can help with research, analysis, coding, and more."*
+to a proper self-intro that mentions graphindex:
+
+> Ask anything about your documents — graphindex routes your query to
+> the right ones, loads them, and answers from their content.
 
 ---
 

@@ -60,6 +60,10 @@ from services.neo4j_document_index import (  # noqa: E402
     Neo4jDocumentRecord,
     choose_best_document_match,
 )
+from graphindex_tools import (  # noqa: E402
+    set_active_doc_scope,
+    reset_active_doc_scope,
+)
 
 # --- Constants -------------------------------------------------------------
 
@@ -403,7 +407,7 @@ def _print_turn_footer(label: str, in_tok: int, out_tok: int,
 
 # --- Mode: route (single-shot) ------------------------------------------
 
-def cmd_route(query: str, method: str) -> int:
+def cmd_route(query: str, method: str, scope: Optional[List[str]] = None) -> int:
     idx = Neo4jDocumentIndex()
     rows = fetch_catalog(idx, PROJECT_ID)
 
@@ -431,16 +435,22 @@ def cmd_route(query: str, method: str) -> int:
         from query_agent import get_query_agent
         agent = get_query_agent()
         t0 = time.time()
-        result = agent.invoke(
-            {"messages": [{"role": "user", "content":
-                f"Route this query only — do NOT load any documents. Reply with JSON.\nQuery: {query}"}]},
-            config={"configurable": {"thread_id": "phase9-route"}},
-        )
+        scope_token = set_active_doc_scope(scope)
+        try:
+            result = agent.invoke(
+                {"messages": [{"role": "user", "content":
+                    f"Route this query only — do NOT load any documents. Reply with JSON.\nQuery: {query}"}]},
+                config={"configurable": {"thread_id": "phase9-route"}},
+            )
+        finally:
+            reset_active_doc_scope(scope_token)
         elapsed = time.time() - t0
         answer = _strip_think(result["messages"][-1].content)
         # Try to parse a primary out of the final answer
         primary = _quick_extract_primary(answer)
         print(f"Query: {query!r}")
+        if scope:
+            print(f"  scope: {scope}")
         print(f"  deep → {primary}")
         print(f"   ({elapsed:.2f}s)")
         if len(answer) < 400:
@@ -482,7 +492,7 @@ def _print_decision(label: str, decision: RouteDecision) -> None:
 
 # --- Mode: answer (route + load + synthesize) ----------------------------
 
-def cmd_answer(query: str, method: str) -> int:
+def cmd_answer(query: str, method: str, scope: Optional[List[str]] = None) -> int:
     idx = Neo4jDocumentIndex()
     rows = fetch_catalog(idx, PROJECT_ID)
 
@@ -502,14 +512,20 @@ def cmd_answer(query: str, method: str) -> int:
         from query_agent import get_query_agent
         agent = get_query_agent()
         t0 = time.time()
-        result = agent.invoke(
-            {"messages": [{"role": "user", "content": query}]},
-            config={"configurable": {"thread_id": "phase9-answer"}},
-        )
+        scope_token = set_active_doc_scope(scope)
+        try:
+            result = agent.invoke(
+                {"messages": [{"role": "user", "content": query}]},
+                config={"configurable": {"thread_id": "phase9-answer"}},
+            )
+        finally:
+            reset_active_doc_scope(scope_token)
         elapsed = time.time() - t0
         answer_text = _strip_think(result["messages"][-1].content)
         in_tok, out_tok, cache_read = _extract_usage(result["messages"][-1])
         print(f"\nQuery: {query!r}")
+        if scope:
+            print(f"   scope: {scope}")
         print(f"\n🤖 {answer_text}")
         _print_turn_footer("deep", in_tok, out_tok, cache_read, elapsed)
         return 0
@@ -547,20 +563,25 @@ HELP_TEXT = """\
 Phase 9 / query.py — interactive REPL (multi-turn, persistent thread).
 
 Commands:
-  /docs              List available documents
-  /doc <name>        Switch to a specific doc (manual override)
+  /docs              List available documents (scoped to current /scope)
+  /doc <name>        Switch to a specific doc (manual override, must be in scope)
   /method [s|l|d]    Show or switch routing method (string|llm|deep)
   /route             Re-route the last query (force fresh routing)
+  /scope [spec]      Show or set active doc scope.
+                     spec: comma-separated doc names, or "all" / "" to clear.
   /stats             Show session totals
   /help              Show this help
   /quit              Exit
 
 Type any other text to ask a question — the system routes it to the best
 document (default: deep, configurable via --method).
+
+Scope (also via --scope CLI flag on entry):
+  python phase9/query.py chat --scope "doc1.pdf,doc2.pdf"
 """
 
 
-def cmd_chat(method: str) -> int:
+def cmd_chat(method: str, scope: Optional[List[str]] = None) -> int:
     idx = Neo4jDocumentIndex()
     rows = fetch_catalog(idx, PROJECT_ID)
     llm = make_llm() if method in ("llm",) else None
@@ -577,6 +598,14 @@ def cmd_chat(method: str) -> int:
     active_supporting: List[SupportingDoc] = []
     turn_count = 0
     method_now = method
+    # Active scope persists across REPL turns. The /scope command mutates it.
+    active_scope: Optional[List[str]] = scope
+
+    def _scope_rows() -> list:
+        """Return the catalog rows filtered by the current active scope."""
+        if active_scope is None:
+            return rows
+        return [r for r in rows if r.get("name") in set(active_scope)]
 
     while True:
         try:
@@ -595,10 +624,26 @@ def cmd_chat(method: str) -> int:
             print(HELP_TEXT)
             continue
         if low == "/docs":
-            print(format_catalog(rows, limit_chars=2000))
+            print(format_catalog(_scope_rows(), limit_chars=2000))
             continue
         if low == "/stats":
-            print(f"  turns: {turn_count}  active_doc: {active_doc}")
+            print(f"  turns: {turn_count}  active_doc: {active_doc}  "
+                  f"scope: {active_scope or 'all'}")
+            continue
+        if low == "/scope":
+            print(f"  current scope: {active_scope or 'all'}")
+            continue
+        if low.startswith("/scope "):
+            spec = raw[len("/scope "):].strip()
+            if spec in ("", "all", "none", "clear"):
+                active_scope = None
+                print("  → scope cleared (all docs visible)")
+            else:
+                active_scope = [s.strip() for s in spec.split(",") if s.strip()]
+                print(f"  → scope = {active_scope}")
+            # Reset cached routing so the new scope takes effect next turn
+            active_doc = None
+            active_supporting = []
             continue
         if low == "/method":
             print(f"  current method: {method_now}")
@@ -624,9 +669,10 @@ def cmd_chat(method: str) -> int:
             continue
         if low.startswith("/doc "):
             name = raw[len("/doc "):].strip()
-            match = next((r for r in rows if r["name"] == name), None)
+            scoped = _scope_rows()
+            match = next((r for r in scoped if r["name"] == name), None)
             if match is None:
-                print(f"  ✗ no doc named {name!r}")
+                print(f"  ✗ no doc named {name!r} in scope")
                 continue
             active_doc = name
             active_supporting = []
@@ -641,8 +687,9 @@ def cmd_chat(method: str) -> int:
         # Normal question — route if needed
         turn_count += 1
         if active_doc is None:
+            scoped_rows = _scope_rows()
             if method_now == "string":
-                name = route_by_string(raw, rows)
+                name = route_by_string(raw, scoped_rows)
                 if name:
                     decision = RouteDecision(primary=name, primary_domain=None,
                                              primary_confidence=1.0, supporting=[],
@@ -652,14 +699,19 @@ def cmd_chat(method: str) -> int:
                                              primary_confidence=0.0, supporting=[],
                                              reasoning="no match")
             elif method_now == "llm":
-                decision, _ = route_by_llm(raw, rows, llm)
+                decision, _ = route_by_llm(raw, scoped_rows, llm)
             else:  # deep
                 from query_agent import get_query_agent
                 agent = deep_agent or get_query_agent()
-                result = agent.invoke(
-                    {"messages": [{"role": "user", "content": raw}]},
-                    config={"configurable": {"thread_id": "phase9-chat"}},
-                )
+                # Set the active scope for this turn (if any). Always reset.
+                scope_token = set_active_doc_scope(active_scope)
+                try:
+                    result = agent.invoke(
+                        {"messages": [{"role": "user", "content": raw}]},
+                        config={"configurable": {"thread_id": "phase9-chat"}},
+                    )
+                finally:
+                    reset_active_doc_scope(scope_token)
                 answer = _strip_think(result["messages"][-1].content)
                 in_tok, out_tok, cache_read = _extract_usage(result["messages"][-1])
                 elapsed = 0  # not measured
@@ -914,6 +966,14 @@ def main() -> int:
     parser.add_argument("--method", choices=["string", "llm", "deep"],
                         default="deep",
                         help="routing method (default: deep)")
+    parser.add_argument(
+        "--scope", metavar="NAMES", default=None,
+        help=(
+            "Comma-separated doc names to scope the agent to "
+            '(e.g. "doc1.pdf,doc2.pdf"). Omit for all docs. Use "all" to clear. '
+            "Applies to: route, answer, chat subcommands."
+        ),
+    )
     sub = parser.add_subparsers(dest="mode", required=True)
 
     p_route = sub.add_parser("route", help="single-shot routing decision")
@@ -941,12 +1001,17 @@ def main() -> int:
         sys.stderr.write("FATAL: MINIMAX_API_KEY not set in .env\n")
         return 1
 
+    # Parse --scope: comma-separated names. None / "all" / "" → no filter.
+    scope: Optional[List[str]] = None
+    if args.scope is not None and args.scope.strip().lower() not in ("", "all", "none"):
+        scope = [s.strip() for s in args.scope.split(",") if s.strip()]
+
     if args.mode == "route":
-        return cmd_route(args.query, args.method)
+        return cmd_route(args.query, args.method, scope=scope)
     if args.mode == "answer":
-        return cmd_answer(args.query, args.method)
+        return cmd_answer(args.query, args.method, scope=scope)
     if args.mode == "chat":
-        return cmd_chat(args.method)
+        return cmd_chat(args.method, scope=scope)
     if args.mode == "eval":
         return cmd_eval(args.method)
     if args.mode == "catalog":

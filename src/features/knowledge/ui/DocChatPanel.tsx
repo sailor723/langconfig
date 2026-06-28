@@ -21,6 +21,18 @@ interface DocChatPanelProps {
       graphindex_multi_doc_load with primary=...). The parent uses
       this to scroll/highlight/select the doc in the left column. */
   onDocSelected?: (docName: string) => void;
+  /** Optional doc scope. When non-null and non-empty, the chat agent
+      will only consider / read these docs (by name). null = no filter. */
+  scope?: string[] | null;
+  /** Called when the LLM asks the user to clear the scope (e.g. when
+      the scope is wrong and the user agreed to "search all docs").
+      Currently the scope is just passed through; the parent owns state. */
+  onScopeChange?: (next: Set<number>) => void;
+  /** Notifies the parent whenever the chat panel's underlying agent
+      info changes (name + description, or null while loading/erroring).
+      The parent shows this in the Knowledge Base header so the user
+      always knows which agent the right-column chat is wired to. */
+  onAgentInfoChange?: (info: { name: string; description: string } | null) => void;
 }
 
 /**
@@ -44,7 +56,13 @@ interface DocChatPanelProps {
  * automatically (we don't `openChat()` it). Each project gets its own
  * fresh session per panel-mount.
  */
-export default function DocChatPanel({ projectId, onDocSelected }: DocChatPanelProps) {
+export default function DocChatPanel({
+  projectId,
+  onDocSelected,
+  scope,
+  onScopeChange,
+  onAgentInfoChange,
+}: DocChatPanelProps) {
   const { startSession, currentSessionId } = useChat();
   const { showToast } = useToast();
 
@@ -129,6 +147,25 @@ export default function DocChatPanel({ projectId, onDocSelected }: DocChatPanelP
     });
   }, [projectId, agentId, currentSessionId, startSession, showToast]);
 
+  // Push agent info up to the parent so it can render the agent name +
+  // description in the Knowledge Base header (top right, next to the
+  // search button). Only push once we have a real agent id (not the
+  // placeholder "graphindex_chat" set during loading). Push null when
+  // lookup errors or when projectId changes so the header doesn't show
+  // stale info.
+  useEffect(() => {
+    if (!onAgentInfoChange) return;
+    if (!projectId) { onAgentInfoChange(null); return; }
+    if (agentId) {
+      onAgentInfoChange({ name: agentName, description: agentDescription });
+    } else if (lookupError) {
+      onAgentInfoChange(null);
+    }
+    // Reset to null on projectId change so we don't briefly show the
+    // previous project's agent name while the new one loads.
+    return () => { onAgentInfoChange(null); };
+  }, [agentId, agentName, agentDescription, projectId, lookupError, onAgentInfoChange]);
+
   // Tool-event handler: detect when the LLM picks a doc and notify
   // the parent. The chat agent can call either the langconfig native
   // tools (graphindex_*) OR the Phase 9 path tools (route_query_tool,
@@ -183,34 +220,32 @@ export default function DocChatPanel({ projectId, onDocSelected }: DocChatPanelP
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg overflow-hidden">
-      {/* Header — agent name + description */}
+      {/* Header — slim status bar.
+          The agent name + description used to live here, but the user
+          wanted them visible at the top of the Knowledge Base view, so
+          they've moved into the KB header pill (via onAgentInfoChange).
+          This row now just shows a small icon + the connection status
+          hint, keeping the chat panel visually distinct from the doc
+          viewer without duplicating the agent label. */}
       <div
-        className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-border-dark flex-shrink-0"
+        className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-200 dark:border-border-dark flex-shrink-0"
         style={{
           backgroundImage: 'linear-gradient(135deg, rgba(168, 85, 247, 0.06), rgba(99, 102, 241, 0.06))',
         }}
+        title={agentDescription || agentName}
       >
         <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+          className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: 'rgba(168, 85, 247, 0.15)' }}
         >
-          <Sparkles className="w-3.5 h-3.5" style={{ color: '#a855f7' }} />
+          <Sparkles className="w-3 h-3" style={{ color: '#a855f7' }} />
         </div>
-        <div className="flex-1 min-w-0">
-          <p
-            className="text-[11px] font-semibold truncate"
-            style={{ color: 'var(--color-text-primary)' }}
-            title={agentDescription || agentName}
-          >
-            {agentName}
-          </p>
-          <p
-            className="text-[9px] truncate"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            {agentDescription || 'Phase 9 / 4 GraphIndex tools'}
-          </p>
-        </div>
+        <span
+          className="text-[10px] truncate flex-1"
+          style={{ color: 'var(--color-text-muted)' }}
+        >
+          {agentDescription || `${agentName} · Phase 9 / 4 GraphIndex tools`}
+        </span>
       </div>
 
       {/* Body — depends on state */}
@@ -258,6 +293,10 @@ export default function DocChatPanel({ projectId, onDocSelected }: DocChatPanelP
                     // onComplete — streaming finished
                   },
                   handleToolEvent,  // <- detects when LLM picks a doc
+                  undefined,         // onCustomEvent
+                  undefined,         // onInterrupt
+                  undefined,         // onThinkingUpdate
+                  scope,             // pass the active doc scope (or null)
                 ).catch(() => {})
               }
               onClearError={() => {

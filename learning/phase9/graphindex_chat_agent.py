@@ -63,6 +63,8 @@ from graphindex_tools import (  # noqa: E402
     load_multi_doc_tool,
     read_doc_tool,
     route_query_tool,
+    set_active_doc_scope,
+    reset_active_doc_scope,
 )
 
 MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
@@ -186,6 +188,7 @@ def stream_graphindex_chat(
     project_id: int,
     query: str,
     thread_id: str,
+    scope=None,
 ) -> str:
     """Run the graphindex_chat agent (single shot) and return the final
     assistant text. Used by the langconfig backend at
@@ -194,10 +197,18 @@ def stream_graphindex_chat(
     Phase 9 single-agent deepagent that already has the 5 graphindex
     tools + progressive-disclosure system_prompt.
 
+    The optional `scope` argument restricts which docs the agent can see
+    and read. It is carried into the tool layer via a ContextVar, so the
+    LLM-facing tool signatures don't have to expose a `scope` argument
+    (keeps the agent's prompt cache hot).
+
     Args:
         project_id: Project to scope catalog/doc reads to.
         query: User's question.
         thread_id: LangGraph checkpointer thread id (for multi-turn).
+        scope: Optional doc filter.
+                - None / "all" / []  → no filter, all docs visible
+                - [doc1, doc2, ...]  → only these docs (by exact name)
 
     Returns:
         The final assistant text (after <think> stripping). Yields nothing —
@@ -205,10 +216,15 @@ def stream_graphindex_chat(
         directly via `agent.stream(...)`.
     """
     agent = get_graphindex_chat_agent(project_id=project_id)
-    result = agent.invoke(
-        {"messages": [{"role": "user", "content": query}]},
-        config={"configurable": {"thread_id": thread_id}},
-    )
+    scope_token = set_active_doc_scope(scope)
+    try:
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": query}]},
+            config={"configurable": {"thread_id": thread_id}},
+        )
+    finally:
+        # Always restore the previous scope, even if the agent raised.
+        reset_active_doc_scope(scope_token)
     # Last message is the assistant's final response
     last = result["messages"][-1]
     text = last.content if isinstance(last.content, str) else str(last.content)
@@ -222,6 +238,7 @@ def stream_graphindex_chat_events(
     project_id: int,
     query: str,
     thread_id: str,
+    scope=None,
 ):
     """Streaming variant: yields LangGraph events from
     `agent.stream(..., stream_mode="values")`. Each event is the state
@@ -233,14 +250,23 @@ def stream_graphindex_chat_events(
     The langconfig backend's `POST /api/chat/message/stream` wraps this
     generator and re-emits SSE events that match the existing
     `{type: chunk|tool_start|tool_end|done, ...}` schema.
+
+    `scope` works the same as in `stream_graphindex_chat`:
+      None / "all" / []   → all docs visible
+      [doc1, doc2, ...]   → only these docs (by exact name)
     """
     agent = get_graphindex_chat_agent(project_id=project_id)
-    for event in agent.stream(
-        {"messages": [{"role": "user", "content": query}]},
-        config={"configurable": {"thread_id": thread_id}},
-        stream_mode="values",
-    ):
-        yield event
+    scope_token = set_active_doc_scope(scope)
+    try:
+        for event in agent.stream(
+            {"messages": [{"role": "user", "content": query}]},
+            config={"configurable": {"thread_id": thread_id}},
+            stream_mode="values",
+        ):
+            yield event
+    finally:
+        # Always restore the previous scope, even if the agent raised.
+        reset_active_doc_scope(scope_token)
 
 
 # --- CLI plumbing (matches query_deep.py style) ---------------------------
