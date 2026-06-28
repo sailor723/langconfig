@@ -1767,12 +1767,41 @@ async def delete_document(
             try:
                 from services.neo4j_document_index import Neo4jDocumentIndex
                 idx = Neo4jDocumentIndex()
-                # Try original_filename first (the user's name), then
-                # filename (which may have a content-hash prefix).
-                for lookup_name in (doc.original_filename, doc.filename):
-                    if lookup_name and idx.delete_document(project_id, lookup_name):
+                # Build a set of candidate names to try, in priority order:
+                # 1. original_filename (the user's original name)
+                # 2. filename (Postgres ContextDocument.filename)
+                # 3. file_path basename (which is the post-rename name,
+                #    e.g. `cfd711e3_01_tesla_q3_strategy.pdf` — this is
+                #    what Neo4j's `name` field is, since file_storage
+                #    renames on save with an 8-char content-hash prefix)
+                candidates = []
+                if doc.original_filename:
+                    candidates.append(doc.original_filename)
+                if doc.filename and doc.filename not in candidates:
+                    candidates.append(doc.filename)
+                if doc.file_path:
+                    bp = Path(doc.file_path).name
+                    if bp and bp not in candidates:
+                        candidates.append(bp)
+                for lookup_name in candidates:
+                    if idx.delete_document(project_id, lookup_name):
                         logger.info(f"Deleted Neo4j Document node for {lookup_name}")
                         break
+                else:
+                    # None of the candidates matched — fall back to a
+                    # more thorough search by content_sha256 (set at
+                    # ingest time on the Neo4j node)
+                    if doc.content_hash:
+                        rows = idx._run_cypher(
+                            "MATCH (d:Document {project_id: $pid, content_sha256: $h}) "
+                            "DETACH DELETE d RETURN count(d) AS n",
+                            {"pid": project_id, "h": doc.content_hash},
+                        )
+                        if rows and rows[0].get("n", 0) > 0:
+                            logger.info(
+                                f"Deleted Neo4j Document node by content_sha256 "
+                                f"({rows[0]['n']} nodes)"
+                            )
             except Exception as e:
                 logger.warning(f"Failed to delete Neo4j Document node: {e}")
                 # Don't fail the whole delete — Neo4j is best-effort
