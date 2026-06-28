@@ -5,10 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Upload, FileText, Trash2, Search, Database, Filter, Loader, RefreshCw, Sparkles, Check, ChevronDown, ChevronUp, X, Plus } from 'lucide-react';
 import SearchModal from './SearchModal';
+import KbTreeView from './KbTreeView';
 import apiClient from "../../../lib/api-client";
 import { useProject } from "../../../contexts/ProjectContext";
 import { useToast } from '../../../hooks/useToast';
@@ -36,6 +37,110 @@ interface Document {
   neo4j_only?: boolean;
   file_path?: string;
   context_doc_id?: number;
+  /** Step N+1: hierarchy metadata (industry/player/sub_category/
+   *  sub_department). Populated by the bulk ingest of reports_new/
+   *  via learning/phase9/ingest_reports.py. Used by the sidebar's
+   *  Tree view to render collapsible industry > player >
+   *  sub_category > file structure. */
+  industry?: string | null;
+  player?: string | null;
+  sub_category?: string | null;
+  sub_department?: string | null;
+}
+
+/** One node in the sidebar Tree view. Either a folder (children[])
+ *  or a leaf document (no children, has `doc`). Built lazily from
+ *  the flat Document[] array via buildFolderTree(). */
+interface FolderNode {
+  name: string;
+  /** Full slash-joined path under the project root, used as React key.
+   *  e.g. "electric_vehicle_industry/tesla/marketing" */
+  path: string;
+  children: FolderNode[];
+  /** Set only on leaf nodes — the underlying Document. */
+  doc?: Document;
+}
+
+// Re-export the types so KbTreeView.tsx can import them.
+export type { Document, FolderNode };
+
+/** Build a folder tree from a flat Document[]. Each doc's hierarchy
+ *  metadata (industry > player > sub_category > sub_department) becomes
+ *  a path through the tree. Docs without hierarchy metadata are placed
+ *  under a synthetic "(ungrouped)" root so they don't disappear.
+ *
+ *  Used by the sidebar's Tree view. The returned tree's children are
+ *  sorted: folders first (alphabetical), then docs (alphabetical by
+ *  name). Each folder's `name` is a human-readable label (e.g. "Tesla"
+ *  with title-case), and its `path` is the stable React key.
+ */
+function buildFolderTree(docs: Document[]): FolderNode {
+  const root: FolderNode = { name: '', path: '', children: [] };
+
+  for (const doc of docs) {
+    const parts = [
+      doc.industry,
+      doc.player,
+      doc.sub_category,
+      doc.sub_department,
+    ].filter((p): p is string => !!p && p.length > 0);
+
+    if (parts.length === 0) {
+      // No hierarchy metadata — place under synthetic root folder.
+      let ungrouped = root.children.find((c) => c.name === '(ungrouped)');
+      if (!ungrouped) {
+        ungrouped = { name: '(ungrouped)', path: '__ungrouped__', children: [] };
+        root.children.push(ungrouped);
+      }
+      ungrouped.children.push({ name: doc.name, path: `__ungrouped__/${doc.id}`, children: [], doc });
+      continue;
+    }
+
+    // Walk the path, creating folders as needed.
+    let current = root;
+    let pathSoFar = '';
+    for (let i = 0; i < parts.length; i++) {
+      const segment = parts[i];
+      pathSoFar = pathSoFar ? `${pathSoFar}/${segment}` : segment;
+      // Display name: title-case + replace underscores. Compute it
+      // ONCE so the lookup and the stored name match — otherwise
+      // every file would create its own chain of parent folders
+      // because the first file's "Electric Vehicle Industry"
+      // wouldn't match the second file's lookup of the raw
+      // "electric_vehicle_industry" segment.
+      const displayName = segment.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      let child = current.children.find((c) => c.name === displayName && !c.doc);
+      if (!child) {
+        child = {
+          name: displayName,
+          path: pathSoFar,
+          children: [],
+        };
+        current.children.push(child);
+      }
+      current = child;
+    }
+
+    // Leaf node — holds the actual Document.
+    current.children.push({
+      name: doc.name,
+      path: `${pathSoFar}/${doc.id}`,
+      children: [],
+      doc,
+    });
+  }
+
+  // Sort each level: folders (no .doc) first by name, then leaves by name.
+  const sortNode = (node: FolderNode) => {
+    node.children.sort((a, b) => {
+      if (!!a.doc !== !!b.doc) return a.doc ? 1 : -1;
+      return a.name.localeCompare(b.name);
+    });
+    for (const c of node.children) sortNode(c);
+  };
+  sortNode(root);
+
+  return root;
 }
 
 interface SearchResult {
@@ -88,6 +193,23 @@ export default function KnowledgeBaseView() {
   // Track which column is being dragged (for cursor + style)
   const draggingRef = useRef<'left' | 'right' | null>(null);
 
+  // ----- Folder-input ref (for the "Select Folder" button) -----
+  // The hidden <input type="file"> needs the non-standard
+  // `webkitdirectory` attribute to make the browser open a FOLDER
+  // picker instead of a file picker. React's prop handling strips
+  // the lowercase attribute in some bundlers, so we set it
+  // imperatively via DOM API in a useEffect.
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const el = folderInputRef.current;
+    if (el) {
+      // Set both forms — webkitdirectory (Chrome, Edge, Safari) and
+      // directory (Firefox) — for cross-browser support.
+      el.setAttribute('webkitdirectory', '');
+      el.setAttribute('directory', '');
+    }
+  }, [folderInputRef]);
+
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!draggingRef.current) return;
@@ -127,6 +249,82 @@ export default function KnowledgeBaseView() {
     draggingRef.current = side;
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
+  };
+
+  // ----- Folder-path input (Safari / Firefox fallback for "Select
+  // Folder"). The native <input webkitdirectory> picker doesn't work
+  // reliably in Safari, so we let the user paste an absolute folder
+  // path and the server walks it.
+  const [folderPathInput, setFolderPathInput] = useState('');
+  const handleIngestFromPath = async () => {
+    if (!activeProjectId) {
+      alert('Please select a project first');
+      return;
+    }
+    const folder = folderPathInput.trim();
+    if (!folder) return;
+    setUploading(true);
+    setUploadProgress({
+      phase: 'uploading',
+      fileName: folder,
+      fileCount: 0,
+      percent: 0,
+      pendingDocIds: [],
+    });
+    try {
+      const resp = await apiClient.ingestFolderFromPath({
+        project_id: activeProjectId,
+        folder_path: folder,
+      });
+      const data = resp.data as any;
+      alert(
+        `Ingested ${data.files_ingested} files ` +
+        `(${data.created} new, ${data.updated} metadata-backfilled, ${data.failed} failed)`
+      );
+      setUploadProgress({
+        phase: 'indexing',
+        fileName: 'Indexing in background…',
+        fileCount: data.files_ingested,
+        percent: 100,
+        pendingDocIds: [],
+      });
+      // Refresh the doc list
+      try {
+        const fresh = await apiClient.listDocuments({ project_id: activeProjectId });
+        setDocuments(fresh.data);
+        // Re-populate scope with all current docs (newly ingested
+        // docs default to in-scope to match "all checked = all in scope").
+        setScopeDocIds(new Set(fresh.data.map((d: any) => d.id)));
+      } catch (e) {
+        console.warn('Could not refresh doc list after ingest:', e);
+      }
+      setFolderPathInput('');
+      setTimeout(() => {
+        setUploadProgress({
+          phase: 'idle',
+          fileName: '',
+          fileCount: 0,
+          percent: 0,
+          pendingDocIds: [],
+        });
+      }, 3000);
+    } catch (error: any) {
+      console.error('Ingest failed:', error);
+      const detail = error?.response?.data?.detail || error?.message || 'Ingest failed';
+      alert(`Ingest failed: ${detail}`);
+      setUploadProgress({ phase: 'error', fileName: detail, fileCount: 0, percent: 0, pendingDocIds: [] });
+      setTimeout(() => {
+        setUploadProgress({
+          phase: 'idle',
+          fileName: '',
+          fileCount: 0,
+          percent: 0,
+          pendingDocIds: [],
+        });
+      }, 5000);
+    } finally {
+      setUploading(false);
+    }
   };
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -183,8 +381,21 @@ export default function KnowledgeBaseView() {
   // (resolved to doc NAMES at chat-send time).
   // - empty set  → no filter (all docs visible, current behavior)
   // - some IDs   → only those docs are visible to the chat
+  // ----- Doc scope (per current project, simple Set) -----
   // The user toggles membership via the checkbox on each doc card, or the
   // "Select all" / "Clear" buttons above the ready-docs section.
+  //
+  // Behavior:
+  //  - `scopeDocIds: Set<number>` holds the IDs of in-scope docs.
+  //  - When the project switches, `documents` is reloaded for the new
+  //    project; stale IDs (from the old project) are silently ignored
+  //    (they don't match any current doc). loadDocuments() also prunes
+  //    them so the Set doesn't grow unbounded.
+  //  - "All" (empty Set) means all current-project docs.
+  //  - "Select all" sets the Set to all ready doc IDs in this project.
+  //  - We intentionally DON'T persist the Set across project switches
+  //    (no per-project map) — the doc sidebar re-renders for each
+  //    project, and the user usually wants a fresh start.
   const [scopeDocIds, setScopeDocIds] = useState<Set<number>>(new Set());
 
   const toggleScopeDoc = (docId: number) => {
@@ -198,12 +409,45 @@ export default function KnowledgeBaseView() {
 
   const clearScope = () => setScopeDocIds(new Set());
   const selectAllScope = () => {
-    // Only "ready" docs are selectable (indexed + has file_path).
+    // Only "ready" docs in the current project are selectable.
     setScopeDocIds(new Set(readyDocuments.map((d) => d.id)));
   };
 
   const inScopeCount = scopeDocIds.size;
   const isScopeActive = inScopeCount > 0;
+
+  // ----- Sidebar view mode (List vs Tree) -----
+  // List: existing flat alphabetized list (default for small corpora).
+  // Tree: collapsible industry > player > sub_category > sub_department
+  //       > file structure (used when docs come from reports_new-style
+  //       hierarchical ingest). The toggle sits in the sidebar header.
+  const [sidebarView, setSidebarView] = useState<'list' | 'tree'>(() => {
+    const v = typeof window !== 'undefined' ? localStorage.getItem('kb.sidebarView') : null;
+    return v === 'tree' ? 'tree' : 'list';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('kb.sidebarView', sidebarView); } catch {}
+  }, [sidebarView]);
+
+  // Track which folders are expanded in the Tree view. Persisted to
+  // localStorage so the user's expansion state survives reloads. We
+  // store paths as keys (e.g. "electric_vehicle_industry/tesla/marketing").
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => {
+    const v = typeof window !== 'undefined' ? localStorage.getItem('kb.expandedFolders') : null;
+    try { return new Set(v ? JSON.parse(v) : []); } catch { return new Set(); }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('kb.expandedFolders', JSON.stringify([...expandedFolders]));
+    } catch {}
+  }, [expandedFolders]);
+  const toggleFolder = (path: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      return next;
+    });
+  };
 
   // Agent info for the right-column chat panel. The DocChatPanel looks
   // up its agent by name ("graphindex_chat") on mount, then pushes the
@@ -343,6 +587,12 @@ export default function KnowledgeBaseView() {
         }
       }
       setDocuments(merged);
+      // Default scope behavior: all checkboxes checked = "all docs in scope".
+      // After loading docs, we re-populate scopeDocIds with the IDs of all
+      // CURRENT project docs. Stale IDs from a previous project are dropped.
+      // The user can then uncheck individual checkboxes to restrict scope,
+      // or click "Clear" to empty the set entirely.
+      setScopeDocIds(() => new Set(merged.map((d) => d.id)));
     } catch (error) {
       // Ignore abort errors
       if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
@@ -401,24 +651,75 @@ export default function KnowledgeBaseView() {
         return ['zip', 'tar', 'gz', 'tgz', 'rar', '7z'].includes(ext || '');
       });
 
+      // Step N+1: build per-file metadata from each file's
+      // webkitRelativePath. The browser's native folder picker
+      // (input[type=file][webkitdirectory]) sets `webkitRelativePath`
+      // to the path of the file within the selected folder, e.g.
+      // "electric_vehicle_industry/tesla/marketing/01-product.md".
+      // We parse this into industry / player / sub_category /
+      // sub_department and send one metadata dict per file. The
+      // backend applies them in order.
+      const fileMetadata = fileArray.map((f) => {
+        // @ts-ignore — webkitRelativePath is non-standard but supported
+        // by all major browsers (Chrome, Edge, Firefox, Safari 14+).
+        const relPath: string = f.webkitRelativePath || f.name;
+        const meta: {
+          name: string;
+          tags: string[];
+          industry?: string;
+          player?: string;
+          sub_category?: string;
+          sub_department?: string;
+        } = {
+          name: f.name,
+          tags: [],
+        };
+        // Split the relative path into segments. The folder picker
+        // always includes the chosen root folder as the first segment,
+        // so we treat that as the "industry" bucket.
+        const parts = relPath.split('/').filter(Boolean);
+        if (parts.length >= 2) meta.industry = parts[0];
+        if (parts.length >= 3) meta.player = parts[1];
+        if (parts.length >= 4) meta.sub_category = parts[2];
+        if (parts.length >= 5) meta.sub_department = parts[3];
+        if (meta.industry) meta.tags.push(meta.industry);
+        if (meta.player) meta.tags.push(meta.player);
+        if (meta.sub_category) meta.tags.push(meta.sub_category);
+        if (meta.sub_department) meta.tags.push(meta.sub_department);
+        return meta;
+      });
+
       const onProgress = (pct: number) => {
         setUploadProgress((cur) =>
           cur.phase === 'uploading' ? { ...cur, percent: pct } : cur
         );
       };
 
-      // Use bulk upload if multiple files or archives with extraction enabled
+      // Use bulk upload if multiple files or archives with extraction enabled.
+      // For folder uploads, pass the per-file metadata so each file gets
+      // its industry/player/sub_category.
       if (fileArray.length > 1 || hasArchives) {
         await apiClient.uploadDocumentsBulk(
           activeProjectId,
           fileArray,
           extractArchives,
           undefined,
-          onProgress
+          onProgress,
+          fileMetadata
         );
       } else {
-        // Single file upload
-        await apiClient.uploadDocument(activeProjectId, files[0], undefined, onProgress);
+        // Single file upload — use its single metadata entry if present
+        const singleMeta = fileMetadata[0];
+        await apiClient.uploadDocument(
+          activeProjectId,
+          files[0],
+          singleMeta
+            ? {
+                tags: singleMeta.tags,
+              }
+            : undefined,
+          onProgress
+        );
       }
 
       // Phase 2 — server saved files, refresh list to get new doc ids,
@@ -444,6 +745,9 @@ export default function KnowledgeBaseView() {
         newDocs = (fresh.data as Document[]).filter((d) => uploadedNames.has(d.name));
         // Also update the sidebar state
         setDocuments(fresh.data);
+        // Re-populate scope with all current docs (newly uploaded
+        // docs default to in-scope to match "all checked = all in scope").
+        setScopeDocIds(new Set((fresh.data as Document[]).map((d) => d.id)));
       } catch (e) {
         console.warn('Could not refresh doc list after upload:', e);
       }
@@ -847,6 +1151,14 @@ export default function KnowledgeBaseView() {
   const readyDocuments = documents.filter(doc => doc.indexing_status === 'ready');
   const notReadyDocuments = documents.filter(doc => doc.indexing_status !== 'ready');
 
+  // Build a folder tree from the ready docs. Memoized so the tree is
+  // only recomputed when the doc list changes. Used by the sidebar's
+  // Tree view to render the collapsible industry > player >
+  // sub_category > sub_department > file structure.
+  const folderTree = useMemo<FolderNode>(() => {
+    return buildFolderTree(readyDocuments);
+  }, [readyDocuments]);
+
   const getStatusDisplay = (status: string) => {
     switch (status) {
       case 'not_indexed': return 'pending';
@@ -959,11 +1271,56 @@ export default function KnowledgeBaseView() {
             >
               <Database className="w-3.5 h-3.5" />
               <span>{t('kb_select_folder')}</span>
-              <input type="file" // @ts-ignore - webkitdirectory is not in TS types
-                webkitdirectory="" directory="" multiple
+              <input
+                ref={folderInputRef}
+                type="file"
+                // webkitdirectory is non-standard but supported by
+                // Chromium, Firefox, and Safari 14+. We set it via
+                // useRef + useEffect (below) so React's JSX/prop
+                // handling can't strip it. The browser then opens
+                // a FOLDER picker (not a file picker).
+                multiple
                 onChange={(e) => { handleFileSelect(e.target.files); }}
-                className="hidden" disabled={uploading} />
+                style={{ display: 'none' }}
+                disabled={uploading}
+              />
             </label>
+
+            {/* Safari / Firefox fallback: paste an absolute folder path
+                and the server walks + ingests everything. This avoids
+                the unreliable `webkitdirectory` attribute on those
+                browsers. */}
+            <div className="flex items-center gap-1 ml-1">
+              <input
+                type="text"
+                value={folderPathInput}
+                onChange={(e) => setFolderPathInput(e.target.value)}
+                placeholder={t('kb_paste_folder_placeholder')}
+                disabled={uploading}
+                className="px-2 py-1 border border-gray-200 dark:border-border-dark rounded text-[10px] focus:outline-none focus:ring-1 focus:ring-primary w-48"
+                style={{ backgroundColor: 'var(--color-input-background)', color: 'var(--color-text-primary)' }}
+                data-testid="kb-folder-path-input"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && folderPathInput.trim() && !uploading) {
+                    handleIngestFromPath();
+                  }
+                }}
+              />
+              <button
+                onClick={handleIngestFromPath}
+                disabled={!folderPathInput.trim() || uploading}
+                className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                  !folderPathInput.trim() || uploading
+                    ? 'opacity-50 cursor-not-allowed bg-gray-200 dark:bg-white/10'
+                    : 'bg-indigo-600 text-white hover:opacity-90 cursor-pointer'
+                }`}
+                data-testid="kb-folder-path-submit"
+                title={t('kb_paste_folder_title')}
+              >
+                {uploading ? t('kb_uploading') : t('kb_paste_folder_button')}
+              </button>
+            </div>
+
             <button
               onClick={() => loadDocuments()}
               className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-all ml-1"
@@ -1015,6 +1372,38 @@ export default function KnowledgeBaseView() {
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
+                {/* View toggle — List vs Tree.
+                    The Tree view shows the industry > player >
+                    sub_category > sub_department > file structure
+                    (only useful when the docs have hierarchy metadata).
+                    Default to List for small corpora; user can switch
+                    to Tree for hierarchical corpora. */}
+                <div className="flex items-center rounded border border-gray-200 dark:border-border-dark overflow-hidden">
+                  <button
+                    onClick={() => setSidebarView('list')}
+                    className="px-1.5 py-0.5 text-[10px]"
+                    style={{
+                      backgroundColor: sidebarView === 'list' ? 'var(--color-primary)' : 'transparent',
+                      color: sidebarView === 'list' ? 'white' : 'var(--color-text-muted)',
+                    }}
+                    title="Flat list (alphabetical)"
+                    data-testid="kb-sidebar-view-list"
+                  >
+                    List
+                  </button>
+                  <button
+                    onClick={() => setSidebarView('tree')}
+                    className="px-1.5 py-0.5 text-[10px]"
+                    style={{
+                      backgroundColor: sidebarView === 'tree' ? 'var(--color-primary)' : 'transparent',
+                      color: sidebarView === 'tree' ? 'white' : 'var(--color-text-muted)',
+                    }}
+                    title="Tree (industry > player > sub_category)"
+                    data-testid="kb-sidebar-view-tree"
+                  >
+                    Tree
+                  </button>
+                </div>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/10" style={{ color: 'var(--color-text-muted)' }}>
                   {documents.length}
                 </span>
@@ -1069,7 +1458,28 @@ export default function KnowledgeBaseView() {
                     )}
                   </div>
                 </div>
+                {/* Either List view (flat alphabetized) or Tree view
+                    (industry > player > sub_category > file). Both
+                    render the same doc-card under the hood; only the
+                    grouping / ordering differs. */}
                 <div className="space-y-1.5">
+                  {sidebarView === 'tree' ? (
+                    <KbTreeView
+                      folderTree={folderTree}
+                      readyDocuments={readyDocuments}
+                      selectedDocId={selectedDocId}
+                      highlightedDocId={highlightedDocId}
+                      expandedFolders={expandedFolders}
+                      toggleFolder={toggleFolder}
+                      scopeDocIds={scopeDocIds}
+                      toggleScopeDoc={toggleScopeDoc}
+                      setSelectedDocId={setSelectedDocId}
+                      handleDelete={handleDelete}
+                      t={t}
+                      formatFileSize={formatFileSize}
+                    />
+                  ) : (
+                    <>
                   {readyDocuments.map(doc => {
                     const inScope = scopeDocIds.has(doc.id);
                     return (
@@ -1137,6 +1547,8 @@ export default function KnowledgeBaseView() {
                   })}
                   {readyDocuments.length === 0 && (
                     <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{t('kb_no_ready_docs')}</p>
+                  )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1294,11 +1706,16 @@ export default function KnowledgeBaseView() {
           >
             <DocChatPanel
               projectId={activeProjectId}
-              scope={isScopeActive
-                ? documents
-                    .filter((d) => scopeDocIds.has(d.id))
-                    .map((d) => d.name)
-                : null}
+              // Always pass the list of in-scope doc names — never null.
+              // The default (right after loadDocuments) is "all docs
+              // in scope" — all checkboxes visually checked, and the
+              // chat gets the full list. An empty list (after "Clear")
+              // means "user explicitly wants no scope" — the backend
+              // treats it as no filter, same as null. Sending [] is
+              // semantically equivalent to null but more explicit.
+              scope={documents
+                .filter((d) => scopeDocIds.has(d.id))
+                .map((d) => d.name)}
               onScopeChange={setScopeDocIds}
               onAgentInfoChange={setChatAgentInfo}
               onDocSelected={(docName) => {

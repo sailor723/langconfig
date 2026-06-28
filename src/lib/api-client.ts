@@ -456,7 +456,26 @@ class APIClient {
     files: File[],
     extractArchives: boolean = true,
     metadata?: { description?: string; tags?: string[]; name?: string },
-    onUploadProgress?: (percent: number) => void
+    onUploadProgress?: (percent: number) => void,
+    /**
+     * Step N+1: per-file metadata for folder uploads. When the user
+     * picks a folder via the browser-native file picker (webkitdirectory),
+     * each File has a `webkitRelativePath` like
+     * "electric_vehicle_industry/tesla/marketing/01-product-lineup.md".
+     * The frontend parses the path into industry/player/sub_category/
+     * sub_department and sends ONE metadata dict per file in this array.
+     * The backend applies them in order to the corresponding file.
+     * If omitted, all files share `metadata`.
+     */
+    fileMetadata?: Array<{
+      description?: string;
+      tags?: string[];
+      name?: string;
+      industry?: string;
+      player?: string;
+      sub_category?: string;
+      sub_department?: string;
+    }>
   ) {
     const formData = new FormData();
 
@@ -469,9 +488,15 @@ class APIClient {
     formData.append('project_id', projectId.toString());
     formData.append('extract_archives', extractArchives.toString());
 
-    // Add metadata if provided
+    // Add shared metadata if provided
     if (metadata) {
       formData.append('metadata', JSON.stringify(metadata));
+    }
+
+    // Add per-file metadata if provided (folder upload). JSON-encoded
+    // list, one entry per file index. Empty list = no per-file metadata.
+    if (fileMetadata && fileMetadata.length > 0) {
+      formData.append('file_metadata', JSON.stringify(fileMetadata));
     }
 
     return this.client.post('/api/rag/upload-bulk', formData, {
@@ -494,6 +519,21 @@ class APIClient {
   }) {
     const { signal, ...params } = config;
     return this.client.get('/api/rag/documents', { params, signal });
+  }
+
+  /**
+   * Step N+1: server-side folder ingest (Safari / Firefox fallback).
+   * The user pastes an absolute folder path; the server walks it
+   * and ingests every supported file, deriving industry/player/
+   * sub_category metadata from the path.
+   */
+  async ingestFolderFromPath(params: {
+    project_id: number;
+    folder_path: string;
+    industry?: string;
+    player?: string;
+  }) {
+    return this.client.post('/api/rag/ingest-folder', params);
   }
 
   /**
