@@ -46,6 +46,7 @@ import sys
 import time
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
 # Repo + backend path resolution
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -117,7 +118,7 @@ query.
 
 
 def create_graphindex_chat_agent(
-    project_id: int = 1,
+    project_id: Optional[int] = 1,
     model_name: str = DEFAULT_MODEL,
     checkpointer: bool = True,
 ):
@@ -146,13 +147,30 @@ def create_graphindex_chat_agent(
         max_tokens=8192,
     )
 
-    # Project-scoped system prompt
-    scoped_prompt = (
-        f"{SYSTEM_PROMPT}\n\n"
-        f"Current project_id: {project_id}. Always pass project_id={project_id} "
-        f"to the tools. To discover what's in the project, call "
-        f"list_docs_tool(project_id={project_id}) first."
-    )
+    # Project-scoped system prompt. When project_id is None (the
+    # active project couldn't be determined), we tell the LLM there
+    # is no project context — the LLM will then call the tools
+    # without a project filter, the tools will return 0 docs, and
+    # the LLM will naturally reply "no matched document found".
+    # This is preferred over silently falling back to a hardcoded
+    # project (e.g. project 1), which historically caused the
+    # misleading "no documents in project X" message when the user
+    # was actually on a different project.
+    if project_id is None:
+        scoped_prompt = (
+            f"{SYSTEM_PROMPT}\n\n"
+            f"No project is currently selected. The tools may return "
+            f"empty results. If you can't find a relevant document, "
+            f"reply honestly: 'No matched document found in the "
+            f"current scope. Please select a project or upload docs.'"
+        )
+    else:
+        scoped_prompt = (
+            f"{SYSTEM_PROMPT}\n\n"
+            f"Current project_id: {project_id}. Always pass project_id={project_id} "
+            f"to the tools. To discover what's in the project, call "
+            f"list_docs_tool(project_id={project_id}) first."
+        )
 
     kwargs = dict(
         model=model,
@@ -175,7 +193,7 @@ def create_graphindex_chat_agent(
 
 
 @lru_cache(maxsize=4)
-def get_graphindex_chat_agent(project_id: int = 1):
+def get_graphindex_chat_agent(project_id: Optional[int] = 1):
     """Module-level singleton — lazy init, reused across CLI invocations.
 
     Cache up to 4 agents keyed by project_id so a project switch doesn't
@@ -185,7 +203,7 @@ def get_graphindex_chat_agent(project_id: int = 1):
 
 
 def stream_graphindex_chat(
-    project_id: int,
+    project_id: Optional[int],
     query: str,
     thread_id: str,
     scope=None,
@@ -235,7 +253,7 @@ def stream_graphindex_chat(
 
 
 def stream_graphindex_chat_events(
-    project_id: int,
+    project_id: Optional[int],
     query: str,
     thread_id: str,
     scope=None,

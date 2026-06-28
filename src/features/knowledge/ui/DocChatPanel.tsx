@@ -297,6 +297,12 @@ export default function DocChatPanel({
                   undefined,         // onInterrupt
                   undefined,         // onThinkingUpdate
                   scope,             // pass the active doc scope (or null)
+                  projectId,         // pass the active project so the
+                                      // Phase 9 chat agent queries the
+                                      // right Neo4j catalog. Without
+                                      // this, the backend falls back
+                                      // to project 1 (often empty) and
+                                      // the LLM says "no documents".
                 ).catch(() => {})
               }
               onClearError={() => {

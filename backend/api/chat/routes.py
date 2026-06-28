@@ -132,6 +132,18 @@ class SendMessageRequest(BaseModel):
     """Request to send a message in a chat session."""
     session_id: str
     message: str
+    project_id: Optional[int] = Field(
+        None,
+        description=(
+            "The project this chat session is bound to. The Phase 9 chat "
+            "agent queries this project's Neo4j catalog. When omitted, the "
+            "backend falls back to the agent template's project_id, then "
+            "to 1 (system project) — which usually causes the agent to "
+            "see an empty catalog. KB chat panels (DocChatPanel) should "
+            "always set this to the active project so the chat uses the "
+            "right docs."
+        ),
+    )
     scope: Optional[List[str]] = Field(
         None,
         description=(
@@ -814,9 +826,34 @@ async def send_message_stream(
             #   - LangGraph's RAG middleware (the LLM gets exactly
             #     the 5 tools + project_id-injected system_prompt)
             if agent_config.get("use_phase9_graphindex"):
+                # Resolve the project_id. The chat is always bound to the
+                # ACTIVE project the user is viewing in the UI. There is
+                # NO fallback to a hardcoded project — if the active
+                # project can't be determined, the LLM will naturally
+                # see 0 docs in its catalog and reply "no matched
+                # document found". This is the correct, non-misleading
+                # behavior. The previous code fell back to project 1,
+                # which caused the "no documents in project X" bug
+                # whenever the user was on a different project.
+                if request.project_id is None:
+                    logger.warning(
+                        "Phase 9 chat called without project_id from "
+                        "frontend. LLM will see 0 docs and reply "
+                        "'no matched document found'."
+                    )
+                effective_project_id = (
+                    request.project_id
+                    if request.project_id is not None
+                    else agent_project_id  # may also be None — that's OK
+                )
+                logger.debug(
+                    f"Phase 9 chat: project_id={effective_project_id} "
+                    f"(from request={request.project_id}, "
+                    f"agent={agent_project_id})"
+                )
                 async for chunk in _generate_stream_phase9(
                     session_id=session_id,
-                    project_id=agent_project_id or 1,
+                    project_id=effective_project_id,
                     message=request.message,
                     scope=scope,  # forward the doc scope (may be None)
                 ):

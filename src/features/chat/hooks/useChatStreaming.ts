@@ -23,6 +23,11 @@ interface UseChatStreamingResult {
     /** Optional doc scope — when provided (and non-empty), the backend
         chat agent will only consider / read these docs (by name). */
     scope?: string[] | null,
+    /** Optional active project id — when provided, the Phase 9 chat
+        agent queries this project's Neo4j catalog instead of
+        falling back to the hardcoded project 1 (which is usually
+        empty and causes "no documents in project X"). */
+    projectId?: number | null,
   ) => Promise<void>;
   isStreaming: boolean;
   error: string | null;
@@ -57,6 +62,7 @@ export function useChatStreaming(
       onInterrupt?: (event: ChatStreamEvent) => void,
       onThinkingUpdate?: (content: string) => void,
       scope?: string[] | null,
+      projectId?: number | null,
     ) => {
       if (!sessionId || isStreaming) return;
 
@@ -92,6 +98,14 @@ export function useChatStreaming(
         };
         if (scope && scope.length > 0) {
           requestBody.scope = scope;
+        }
+        // Forward the active project so the Phase 9 chat agent queries
+        // the right Neo4j catalog. Without this, the backend falls
+        // back to the agent template's project_id (currently always
+        // None) and ultimately to project 1 — which is usually empty
+        // and the most common cause of "no documents in project X".
+        if (projectId != null) {
+          requestBody.project_id = projectId;
         }
 
         const response = await fetch(`${apiClient.baseURL}/api/chat/message/stream`, {
