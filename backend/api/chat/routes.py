@@ -796,6 +796,20 @@ async def send_message_stream(
     db: Session = Depends(get_db)
 ):
     """Send a message and stream the response."""
+    # ============================================================
+    # DEBUG: log every chat request so the user can see the
+    # session_id / project_id / message in the backend stdout.
+    # The session_id is what threads the conversation through
+    # MemorySaver; if the frontend sends a new session_id per
+    # turn, the agent has no memory of the previous turn and
+    # repeats the same BYD/Tesla answer.
+    # ============================================================
+    logger.info(
+        f"[CHAT-IN] session_id={request.session_id} "
+        f"project_id={request.project_id} "
+        f"scope={request.scope} "
+        f"msg={request.message!r}"
+    )
     try:
         # Get session
         session = db.query(ChatSession).filter(
@@ -868,6 +882,19 @@ async def send_message_stream(
                     request.project_id
                     if request.project_id is not None
                     else agent_project_id  # may also be None — that's OK
+                )
+                # ============================================================
+                # DEBUG: log every chat request so the user can see the
+                # session_id / project_id / message in the backend stdout.
+                # The session_id is what threads the conversation through
+                # MemorySaver; if the frontend sends a new session_id per
+                # turn, the agent has no memory of the previous turn and
+                # repeats the same BYD/Tesla answer.
+                # ============================================================
+                logger.info(
+                    f"[CHAT] session_id={session_id} "
+                    f"project_id={effective_project_id} "
+                    f"msg={request.message!r}"
                 )
                 logger.debug(
                     f"Phase 9 chat: project_id={effective_project_id} "
