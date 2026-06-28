@@ -83,6 +83,42 @@ from core.workflows.events.emitter import ExecutionEventCallbackHandler
 from langgraph.errors import GraphInterrupt
 from services.conversation_context import ConversationContextService
 
+
+# --- Phase 9 chat agent (module-level singleton) -----------------------
+# The Phase 9 chat agent lives at learning/phase9/graphindex_chat_agent.py
+# (no __init__.py, so we load it via importlib). The @lru_cache on
+# get_graphindex_chat_agent preserves both the agent AND its
+# MemorySaver checkpointer across requests — which is what gives the
+# chat multi-turn memory.
+#
+# IMPORTANT: the module must be loaded ONCE per process, not per
+# request. Loading per request was a bug: every request got a fresh
+# module, an empty @lru_cache, a fresh agent, and an empty
+# MemorySaver — so the agent had no memory of the previous turn.
+# This is why "what is my last question?" returned no answer in
+# the chat — the agent was rebuilt for each turn and forgot the
+# prior messages. Fix: cache the loaded module at process level.
+_PHASE9_AGENT_MODULE = None
+
+
+def _get_phase9_agent_module():
+    """Load (or return cached) `graphindex_chat_agent` module.
+    Cached so the @lru_cache + MemorySaver state survive across
+    requests, giving the chat multi-turn memory."""
+    global _PHASE9_AGENT_MODULE
+    if _PHASE9_AGENT_MODULE is not None:
+        return _PHASE9_AGENT_MODULE
+    import importlib.util
+    _spec = importlib.util.spec_from_file_location(
+        "graphindex_chat_agent",
+        _os.path.join(_PHASE9_DIR, "graphindex_chat_agent.py"),
+    )
+    _mod = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_mod)
+    _PHASE9_AGENT_MODULE = _mod
+    return _mod
+
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -675,24 +711,11 @@ async def _generate_stream_phase9(
     full_response = ""
 
     try:
-        # Lazy import — phase9/ lives outside the backend package
-        # AND doesn't have __init__.py, so we can't do
-        # `from phase9.graphindex_chat_agent import ...`. Instead, add
-        # the phase9/ dir to sys.path and import the file directly.
-        import sys
-        import importlib.util
-        from pathlib import Path
-        _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-        _PHASE9_DIR = _REPO_ROOT / "learning" / "phase9"
-        if str(_PHASE9_DIR) not in sys.path:
-            sys.path.insert(0, str(_PHASE9_DIR))
-        # Use importlib because there's no phase9/__init__.py
-        _spec = importlib.util.spec_from_file_location(
-            "graphindex_chat_agent",
-            _PHASE9_DIR / "graphindex_chat_agent.py",
-        )
-        _mod = importlib.util.module_from_spec(_spec)
-        _spec.loader.exec_module(_mod)
+        # Use the cached module — loading it on every request was a
+        # bug that wiped the @lru_cache and MemorySaver checkpointer,
+        # giving the agent no memory of the previous turn. See
+        # `_get_phase9_agent_module()` for the full reasoning.
+        _mod = _get_phase9_agent_module()
         stream_graphindex_chat_events = _mod.stream_graphindex_chat_events
 
         logger.info(
