@@ -2308,6 +2308,243 @@ to a proper self-intro that mentions graphindex:
 
 ---
 
+## 🎯 Step O — Hierarchical folder upload + Tree view (DONE)
+
+This step extends the KB sidebar with **folder-level hierarchy metadata**
+(`industry → player → sub_category → sub_department`), a **Tree view**
+that mirrors the source folder structure, and a **bulk ingest path**
+that preserves that hierarchy as metadata at upload time. It also
+flips the doc-scope default to "all in scope" (all checkboxes
+checked on first load).
+
+### O.1 — Hierarchy metadata (4 new columns on `ContextDocument`)
+
+| Column | Type | Example |
+|---|---|---|
+| `industry` | `str` (nullable) | `electric_vehicle_industry` |
+| `player` | `str` (nullable) | `tesla` |
+| `sub_category` | `str` (nullable) | `marketing`, `strategic_consensus` |
+| `sub_department` | `str` (nullable) | `finance` (under `strategic_consensus/`) |
+
+The columns are added via **idempotent `ADD COLUMN IF NOT EXISTS`** in
+`backend/db/database.py:async_init_db()` so existing databases are
+auto-upgraded on the next backend startup. No migration step needed.
+
+Source: `backend/models/core.py` (`ContextDocument` table).
+
+### O.2 — Folder-aware bulk upload (frontend + backend)
+
+**Frontend** ([`KnowledgeBaseView.tsx`](../../src/features/knowledge/ui/KnowledgeBaseView.tsx#L534-L563)):
+- The "Select Folder" button uses a `<input type="file" webkitdirectory>`
+  (with the attribute set via `useRef + useEffect` to bypass React's
+  prop stripping that breaks in some Safari builds)
+- Each file's `webkitRelativePath` is parsed to derive the 4 hierarchy
+  fields:
+  - `parts[0]` → `industry`
+  - `parts[1]` → `player`
+  - `parts[2]` → `sub_category`
+  - `parts[3]` → `sub_department`
+- The per-file metadata is sent as the new `file_metadata` form field
+  (JSON-encoded list, one entry per file in `files` order)
+
+**Backend** ([`api/knowledge/rag.py`](../../backend/api/knowledge/rag.py#L946)):
+- `POST /api/rag/upload-bulk` now accepts an optional `file_metadata`
+  Form field (JSON list of dicts, one per file index)
+- The loop picks `per_file_metadata[file_idx] or doc_metadata` and
+  passes the result to `_process_single_file_for_bulk`
+- `_process_single_file_for_bulk` was updated to read
+  `industry / player / sub_category / sub_department` from the metadata
+  and write them to the new columns (this was the key bug — bulk
+  uploads silently dropped hierarchy fields before this step)
+
+**Server-side fallback** ([`api/knowledge/rag.py`](../../backend/api/knowledge/rag.py#L1108)):
+- `POST /api/rag/ingest-folder` — accepts a JSON body
+  `{project_id, folder_path, industry?, player?}` and walks the folder
+  on the server's disk, ingesting every supported file with hierarchy
+  derived from the path. Useful for:
+  - Safari / Firefox (where `webkitdirectory` is unreliable)
+  - Bulk re-ingest from a known source folder without re-uploading
+- Has a small purple text-input + "Use Path" button in the KB header
+  for users who can't use the native folder picker
+
+**CLI tool** ([`learning/phase9/ingest_reports.py`](../../learning/phase9/ingest_reports.py)):
+- Idempotent bulk ingest from `reports_new/<industry>/<player>/.../`
+- Mirrors the source folder structure under `data/documents/<id>/...`
+- Sets all 4 hierarchy fields from the path
+- `--dry-run`, `--industry <name>`, `--player <name>` filters
+- Also back-fills `industry/player/sub_category/sub_department` on
+  existing rows that have NULL values (useful after upgrading from
+  a build that didn't capture hierarchy)
+
+### O.3 — Tree view (`KbTreeView` component)
+
+**New file** [`src/features/knowledge/ui/KbTreeView.tsx`](../../src/features/knowledge/ui/KbTreeView.tsx):
+- Recursive folder tree: industry → player → sub_category →
+  sub_department → file
+- Each folder row: chevron (expanded/collapsed) + folder icon + name +
+  doc count badge
+- Each file row: same doc-card mini variant as the List view
+  (selectable, scoped checkbox, delete button)
+- Expansion state is persisted to `localStorage` (`kb.expandedFolders`)
+- View mode (List vs Tree) is also persisted to `localStorage`
+  (`kb.sidebarView`)
+
+**Tree builder** ([`KnowledgeBaseView.tsx`](../../src/features/knowledge/ui/KnowledgeBaseView.tsx#L73)):
+- `buildFolderTree(docs: Document[]): FolderNode` converts the flat
+  `Document[]` array into a nested `FolderNode` tree
+- Title-cases each segment + replaces underscores for display
+- Memoized on `readyDocuments` so the tree only rebuilds when docs change
+- Docs without hierarchy metadata go under a synthetic
+  `(ungrouped)` root folder
+
+**Bug fix in tree builder**: the original implementation used the raw
+segment (`"tesla"`) for the lookup key but stored the title-cased
+display name (`"Tesla"`) — every file would create its own chain of
+parent folders because the second file's lookup of `"tesla"` wouldn't
+find the first file's `"Tesla"`. Fixed by computing the display name
+once and using it in BOTH the lookup and the storage.
+
+### O.4 — Doc scope default flipped to "all in scope"
+
+**Before Step O**: `scopeDocIds` defaulted to an empty `Set`, which
+the chat panel interpreted as `null` (no filter, all docs). The user
+had to actively tick a checkbox to enable any filter.
+
+**After Step O** ([`KnowledgeBaseView.tsx`](../../src/features/knowledge/ui/KnowledgeBaseView.tsx#L386-L398)):
+- `loadDocuments()` re-populates `scopeDocIds = new Set(all_doc_ids)`
+  on every doc load (initial load, project switch, post-upload refresh)
+- All checkboxes are visually checked by default
+- The "X in scope" pill shows by default
+- The chat panel always receives the doc-name list (never `null`)
+- An empty list (after "Clear") is treated the same as `null` by the
+  backend (no filter)
+
+**State changes**:
+
+| Trigger | New `scopeDocIds` |
+|---|---|
+| First load / project switch | All current project doc IDs |
+| Upload new doc | Re-populated with all doc IDs (newly uploaded is checked) |
+| User unchecks a checkbox | That ID removed (others remain) |
+| "Clear" button | Empty Set |
+| "Select all" button | All current project doc IDs |
+
+**No per-project persistence** (deliberate): switching projects resets
+the scope to the new project's docs. The doc sidebar is project-scoped
+(by `activeProjectId`), so the scope is naturally project-scoped too.
+A "fresh start on project switch" UX was preferred over restoring the
+old selection (which would feel stale and confusing).
+
+### O.5 — `Neo4jDocumentIndex.delete_document()`
+
+New method in [`backend/services/neo4j_document_index.py`](../../backend/services/neo4j_document_index.py#L330):
+
+```python
+def delete_document(self, project_id: int, name: str) -> bool:
+    """MATCH (d:Document {project_id, name}) DETACH DELETE d"""
+```
+
+Used by `DELETE /api/rag/documents/{id}` to also clean up the Neo4j
+graphindex catalog when a doc is removed. Without this, the chat
+agent's `list_docs` would still return the deleted file and the LLM
+would hit "doc not found" errors when trying to read it. The endpoint
+tries `original_filename` first, then `filename` (the hash-prefixed
+one), and falls back gracefully if neither exists in Neo4j.
+
+### O.6 — Neo4j hierarchy sync
+
+[`services/neo4j_document_index.py`](../../backend/services/neo4j_document_index.py#L107-L118)
+now syncs the 4 new fields to Neo4j `:Document` nodes:
+
+```cypher
+SET d.industry = $industry,
+    d.player = $player,
+    d.sub_category = $sub_category,
+    d.sub_department = $sub_department
+```
+
+This means the chat agent's `fetch_catalog` (in `phase9/query.py`)
+sees the hierarchy and can use it for routing — e.g. a query about
+"Tesla marketing" can now match a `:Document` whose
+`industry="electric_vehicle_industry" AND player="tesla" AND sub_category="marketing"`.
+
+### O.7 — i18n keys added
+
+Added the following keys (en + zh) to `src/i18n/index.ts` to silence
+the `i18next: missingKey` console warnings:
+
+| Key | EN | ZH |
+|---|---|---|
+| `kb_search` | `Search` | `搜索` |
+| `kb_search_modal_title` | `Search documents` | `搜索文档` |
+| `kb_search_modal_hint` | `Type a question or topic — graphindex finds…` | `输入问题或主题 — graphindex 会找到…` |
+| `kb_upload_browse` | `Upload one or more files to this project` | `上传一个或多个文件到该项目` |
+| `kb_upload_folder` | `Upload a whole folder (preserves hierarchy as metadata)` | `上传整个文件夹（保留目录结构作为元数据）` |
+| `kb_paste_folder_placeholder` | `/path/to/folder (Safari fallback)` | `/path/to/folder (Safari 备用)` |
+| `kb_paste_folder_button` | `Use Path` | `使用路径` |
+| `kb_paste_folder_title` | `Paste an absolute folder path…` | `粘贴绝对文件夹路径…` |
+
+### O.8 — Test verification (live, project 8 `electric_vehicle_industry`)
+
+```
+Backend:  .venv/bin/python learning/phase9/ingest_reports.py \
+            --project-id 8 --industry electric_vehicle_industry
+  → 5 docs created, all with industry/player/sub_category filled
+
+Bulk upload:  curl -X POST /api/rag/upload-bulk \
+               -F files=@mock.pdf -F file_metadata='[{industry, player, sub_category}, ...]'
+  → 3 docs created (ids 1217-1219), all with hierarchy metadata
+
+DB query:  SELECT id, industry, player, sub_category FROM context_documents WHERE project_id=8;
+  1217  electric_vehicle_industry  tesla    analysis
+  1218  electric_vehicle_industry  tesla    marketing
+  1219  electric_vehicle_industry  byd      comparison
+  + 5 from the CLI test
+
+Tree view (UI): Folder structure renders correctly:
+  📁 Electric Vehicle Industry
+    📁 Tesla (3)
+      📁 Analysis (2)  → 01_tesla_q3_strategy.md, 01_tesla_q3_strategy.pdf
+      📁 Marketing (1) → 02_tesla_product_lineup_2025.md
+    📁 Byd (2)
+      📁 Comparison (2) → 03_byd_vs_tesla_europe.{md,pdf}
+```
+
+### O.9 — Files changed
+
+**Backend**
+- `backend/models/core.py` — added 4 columns to `ContextDocument`
+- `backend/db/database.py` — `ADD COLUMN IF NOT EXISTS` migration
+- `backend/api/knowledge/rag.py`
+  - `DocumentResponse` (4 new fields in API contract)
+  - `upload-bulk` (per-file `file_metadata` form field)
+  - `_process_single_file_for_bulk` (reads industry/player/sub_category)
+  - new `POST /api/rag/ingest-folder` (server-side folder walk)
+  - `DELETE /api/rag/documents/{id}` (also cleans Neo4j)
+- `backend/services/neo4j_document_index.py`
+  - new `delete_document()`
+  - sync of 4 hierarchy fields to Neo4j `:Document` nodes
+
+**Frontend**
+- `src/features/knowledge/ui/KbTreeView.tsx` — new (Tree view component)
+- `src/features/knowledge/ui/KnowledgeBaseView.tsx`
+  - `buildFolderTree()` helper
+  - `sidebarView` state (List vs Tree, persisted)
+  - `expandedFolders` state (Tree view, persisted)
+  - Tree view toggle in sidebar header
+  - folder path input + "Use Path" button (Safari fallback)
+  - per-file metadata extraction in `handleFileSelect`
+  - doc-scope default flipped to "all in scope"
+- `src/lib/api-client.ts` — `ingestFolderFromPath()` and `fileMetadata`
+  param on `uploadDocumentsBulk()`
+- `src/i18n/index.ts` — 8 new keys (en + zh)
+
+**CLI**
+- `learning/phase9/ingest_reports.py` — new, idempotent bulk ingest
+  with hierarchy derivation + metadata back-fill
+
+---
+
 ## 🔗 Related Reading
 
 - VectifyAI / GraphIndex (inspiration): <https://github.com/VectifyAI/GraphIndex>

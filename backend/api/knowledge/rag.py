@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Form, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -16,10 +16,11 @@ import mimetypes
 import zipfile
 import tarfile
 import tempfile
+import shutil
 from pathlib import Path
 
 from db.database import get_db
-from models.core import ContextDocument, DocumentType, IndexingStatus, SearchHistory
+from models.core import ContextDocument, DocumentType, IndexingStatus, SearchHistory, Project
 from services.token_counter import get_token_counter
 
 # Phase 9 integration: ensure learning/phase9/ is importable for
@@ -60,6 +61,14 @@ class DocumentResponse(BaseModel):
     created_at: datetime
     indexed_at: Optional[datetime]
 
+    # Step N+1: hierarchy metadata (industry/player/sub_category/
+    # sub_department). Populated by bulk ingest from reports_new/.
+    # Used by the KB sidebar's Tree view and folder-scope filter.
+    industry: Optional[str] = None
+    player: Optional[str] = None
+    sub_category: Optional[str] = None
+    sub_department: Optional[str] = None
+
     class Config:
         from_attributes = True
 
@@ -78,6 +87,10 @@ class DocumentResponse(BaseModel):
             chunk_count=doc.indexed_chunks_count,
             created_at=doc.created_at,
             indexed_at=doc.indexed_at,
+            industry=getattr(doc, "industry", None),
+            player=getattr(doc, "player", None),
+            sub_category=getattr(doc, "sub_category", None),
+            sub_department=getattr(doc, "sub_department", None),
         )
 
 
@@ -756,6 +769,15 @@ async def upload_document(
     custom_name = doc_metadata.get("name") if isinstance(doc_metadata, dict) else None
     description = doc_metadata.get("description") if isinstance(doc_metadata, dict) else None
     tags = doc_metadata.get("tags") if isinstance(doc_metadata, dict) else None
+    # Step N+1: hierarchy metadata (industry/player/sub_category/
+    # sub_department). Optional for single uploads — most users won't
+    # set them, but the workspace-bulk-upload path can pass them
+    # through so the sidebar's Tree view shows the file in the
+    # right folder.
+    industry        = doc_metadata.get("industry") if isinstance(doc_metadata, dict) else None
+    player          = doc_metadata.get("player") if isinstance(doc_metadata, dict) else None
+    sub_category    = doc_metadata.get("sub_category") if isinstance(doc_metadata, dict) else None
+    sub_department  = doc_metadata.get("sub_department") if isinstance(doc_metadata, dict) else None
 
     # Check for duplicate: same filename + project_id (skip failed docs so they can be re-uploaded)
     existing = db.query(ContextDocument).filter(
@@ -770,7 +792,7 @@ async def upload_document(
             name=existing.filename,
             status=existing.indexing_status.value,
             message="Document already exists"
-        )
+    )
 
     doc = ContextDocument(
         project_id=project_id,
@@ -783,7 +805,11 @@ async def upload_document(
         indexing_status=IndexingStatus.NOT_INDEXED,
         content_hash=hashlib.sha256(content).hexdigest(),
         description=description,
-        tags=tags or []
+        tags=tags or [],
+        industry=industry,
+        player=player,
+        sub_category=sub_category,
+        sub_department=sub_department,
     )
     db.add(doc)
     db.commit()
@@ -884,6 +910,12 @@ async def _process_single_file_for_bulk(
     custom_name = metadata.get("name") if isinstance(metadata, dict) else None
     description = metadata.get("description") if isinstance(metadata, dict) else None
     tags = metadata.get("tags") if isinstance(metadata, dict) else None
+    # Step N+1: hierarchy metadata. Same as the single-upload path —
+    # folder uploads send these via the per-file `file_metadata` field.
+    industry        = metadata.get("industry") if isinstance(metadata, dict) else None
+    player          = metadata.get("player") if isinstance(metadata, dict) else None
+    sub_category    = metadata.get("sub_category") if isinstance(metadata, dict) else None
+    sub_department  = metadata.get("sub_department") if isinstance(metadata, dict) else None
 
     # Create document record
     doc = ContextDocument(
@@ -897,7 +929,11 @@ async def _process_single_file_for_bulk(
         indexing_status=IndexingStatus.NOT_INDEXED,
         content_hash=hashlib.sha256(content).hexdigest(),
         description=description,
-        tags=tags or []
+        tags=tags or [],
+        industry=industry,
+        player=player,
+        sub_category=sub_category,
+        sub_department=sub_department,
     )
     db.add(doc)
     db.commit()
@@ -928,6 +964,15 @@ async def upload_documents_bulk(
     project_id: int = Form(...),
     extract_archives: bool = Form(True),
     metadata: Optional[str] = Form(None),
+    # Step N+1: optional per-file metadata for folder uploads. When
+    # the user selects a folder in the browser, each File carries a
+    # `webkitRelativePath` like "electric_vehicle_industry/tesla/
+    # marketing/01-product-lineup.md". The frontend parses the path
+    # into industry/player/sub_category/sub_department and sends one
+    # metadata dict per file in this field (JSON-encoded list, index
+    # matches `files`). If omitted, all files share `metadata`
+    # (existing behavior).
+    file_metadata: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     """
@@ -936,7 +981,8 @@ async def upload_documents_bulk(
     Supports:
     - Multiple file uploads
     - Archive extraction (.zip, .tar, .tar.gz, .tgz)
-    - Folder structures (preserves paths as metadata)
+    - Folder structures (preserves paths as metadata — per-file via
+      `file_metadata`, or shared via `metadata`)
 
     Note: Files should be sent as multipart/form-data with field name 'files'
     """
@@ -949,13 +995,26 @@ async def upload_documents_bulk(
         if not files or len(files) == 0:
             raise HTTPException(status_code=400, detail="No files provided")
 
-        # Parse metadata if provided
+        # Parse shared metadata if provided
         doc_metadata = {}
         if metadata:
             try:
                 doc_metadata = json.loads(metadata)
             except json.JSONDecodeError:
                 logger.warning(f"Invalid metadata JSON: {metadata}")
+
+        # Parse per-file metadata if provided. Must be a list with one
+        # entry per file (or empty list = no per-file metadata).
+        per_file_metadata: list[dict] = []
+        if file_metadata:
+            try:
+                parsed = json.loads(file_metadata)
+                if isinstance(parsed, list):
+                    per_file_metadata = [m if isinstance(m, dict) else {} for m in parsed]
+                else:
+                    logger.warning(f"file_metadata is not a list: {type(parsed).__name__}")
+            except json.JSONDecodeError:
+                logger.warning(f"Invalid file_metadata JSON: {file_metadata}")
 
     except HTTPException:
         raise
@@ -965,10 +1024,22 @@ async def upload_documents_bulk(
 
     uploaded_docs = []
 
-    # Process each file
-    for file in files:
+    # Process each file. Use enumerate so we can look up the matching
+    # entry in `per_file_metadata` for folder uploads (Step N+1).
+    for file_idx, file in enumerate(files):
         try:
             logger.info(f"Processing file: {file.filename}")
+
+            # Pick the metadata for THIS file:
+            #  - per_file_metadata[file_idx] if the frontend supplied
+            #    per-file metadata (folder upload, webkitRelativePath
+            #    parsed into industry/player/sub_category), else
+            #  - the shared doc_metadata (existing behavior).
+            effective_metadata = (
+                per_file_metadata[file_idx]
+                if file_idx < len(per_file_metadata)
+                else doc_metadata
+            )
 
             # Check if it's an archive
             file_ext = file.filename.split('.')[-1].lower()
@@ -1016,8 +1087,12 @@ async def upload_documents_bulk(
                                         return self.content
 
                                 mock_file = MockUploadFile(extracted_file.name, file_content)
+                                # Use the parent archive's effective_metadata
+                                # for all extracted children (the user picked
+                                # the archive as a single upload, not the
+                                # internal structure).
                                 result = await _process_single_file_for_bulk(
-                                    background_tasks, project_id, mock_file, doc_metadata, db
+                                    background_tasks, project_id, mock_file, effective_metadata, db
                                 )
                                 uploaded_docs.append(result)
 
@@ -1026,13 +1101,13 @@ async def upload_documents_bulk(
                         # Upload archive as-is if extraction fails
                         await file.seek(0)
                         result = await _process_single_file_for_bulk(
-                            background_tasks, project_id, file, doc_metadata, db
+                            background_tasks, project_id, file, effective_metadata, db
                         )
                         uploaded_docs.append(result)
             else:
                 # Regular file upload (no extraction)
                 result = await _process_single_file_for_bulk(
-                    background_tasks, project_id, file, doc_metadata, db
+                    background_tasks, project_id, file, effective_metadata, db
                 )
                 uploaded_docs.append(result)
 
@@ -1043,6 +1118,224 @@ async def upload_documents_bulk(
 
     logger.info(f"Bulk upload completed: {len(uploaded_docs)} documents uploaded")
     return uploaded_docs
+
+
+# --- Server-side folder ingest (Safari / Firefox fallback) ---------
+# The browser-native <input type="file" webkitdirectory> doesn't work
+# reliably in all browsers (Safari has quirks, Firefox uses a different
+# API). For those cases, the user can paste an absolute folder path
+# here and the server reads it from disk, ingesting every supported
+# file with hierarchy metadata derived from the path.
+
+@router.post("/ingest-folder")
+async def ingest_folder_from_path(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Walk a folder on the server's disk and ingest every supported
+    file into the given project, deriving industry/player/sub_category
+    metadata from the path (Step N+1).
+
+    Body (JSON):
+      {
+        "project_id":   int,
+        "folder_path":  absolute path on the server,
+        "industry":     optional filter (default: derived from first path segment)
+        "player":       optional filter (default: derived from second segment)
+      }
+
+    Returns:
+      {
+        "created": int, "updated": int, "skipped": int, "failed": int,
+        "files_seen": int, "files_ingested": int, "files_filtered": int
+      }
+    """
+    import json as _json
+    try:
+        body = await request.body()
+        params = _json.loads(body or b"{}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON body: {e}")
+
+    project_id   = params.get("project_id")
+    folder_path  = params.get("folder_path")
+    industry     = params.get("industry")
+    player       = params.get("player")
+
+    if not project_id or not folder_path:
+        raise HTTPException(
+            status_code=400,
+            detail="Both 'project_id' and 'folder_path' are required"
+        )
+
+    # Validate project exists
+    proj = db.query(Project).filter(Project.id == project_id).first()
+    if not proj:
+        raise HTTPException(status_code=404, detail=f"project not found: {project_id}")
+
+    # Validate folder exists on disk
+    folder = Path(folder_path).expanduser().resolve()
+    if not folder.exists() or not folder.is_dir():
+        raise HTTPException(
+            status_code=400,
+            detail=f"folder not found on disk: {folder}"
+        )
+
+    # Defer to the same logic the CLI ingest script uses, so the
+    # behaviour matches exactly. We re-implement the loop here
+    # (rather than calling ingest_reports.py) so the path is short
+    # and avoids a sys.path dance.
+    import hashlib as _hashlib
+    from models.core import (
+        ContextDocument as _CD,
+        IndexingStatus as _IS,
+        DocumentType as _DT,
+    )
+    from services.file_storage import file_storage as _fs
+
+    supported_exts = {
+        ".md", ".markdown", ".txt",
+        ".pdf",
+        ".json",
+        ".csv", ".tsv",
+        ".py", ".js", ".ts", ".tsx", ".jsx",
+        ".html", ".htm",
+        ".docx", ".doc",
+        ".pptx", ".ppt",
+        ".xlsx", ".xls",
+        ".png", ".jpg", ".jpeg", ".gif", ".webp",
+    }
+    skip_names = {".placeholder", ".DS_Store", ".gitkeep"}
+
+    def _parse_path(rel: Path) -> dict:
+        parts = rel.parts
+        meta = {"industry": None, "player": None, "sub_category": None, "sub_department": None}
+        if len(parts) >= 2: meta["industry"] = parts[0]
+        if len(parts) >= 3: meta["player"] = parts[1]
+        if len(parts) >= 4: meta["sub_category"] = parts[2]
+        if len(parts) >= 5: meta["sub_department"] = parts[3]
+        return meta
+
+    counts = {"created": 0, "updated": 0, "skipped": 0, "failed": 0, "files_seen": 0, "files_filtered": 0}
+
+    for src in sorted(folder.rglob("*")):
+        if not src.is_file() or src.name in skip_names:
+            continue
+        ext = src.suffix.lower()
+        if ext not in supported_exts:
+            continue
+        rel = src.relative_to(folder)
+        if industry and (len(rel.parts) < 2 or rel.parts[0] != industry):
+            counts["files_filtered"] += 1
+            continue
+        if player and (len(rel.parts) < 3 or rel.parts[1] != player):
+            counts["files_filtered"] += 1
+            continue
+
+        counts["files_seen"] += 1
+        try:
+            content = src.read_bytes()
+            content_hash = _hashlib.sha256(content).hexdigest()
+
+            # Dedup by content_hash + project_id (and back-fill metadata
+            # on existing rows that have NULL industry/player/...)
+            existing = (
+                db.query(_CD)
+                .filter(
+                    _CD.project_id == project_id,
+                    _CD.content_hash == content_hash,
+                    _CD.indexing_status != _IS.FAILED,
+                )
+                .first()
+            )
+            meta = _parse_path(rel)
+            if existing:
+                updated_any = False
+                for field in ("industry", "player", "sub_category", "sub_department"):
+                    cur = getattr(existing, field)
+                    new = meta.get(field)
+                    if not cur and new:
+                        setattr(existing, field, new)
+                        updated_any = True
+                if updated_any:
+                    db.commit()
+                    counts["updated"] += 1
+                else:
+                    counts["skipped"] += 1
+                continue
+
+            # New doc — copy file + insert row
+            docs_root = Path(_fs._base_dir)
+            dst_dir = docs_root / f"project_{project_id}" / rel.parent
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            dst_filename = f"{content_hash[:8]}_{src.name}"
+            dst_path = dst_dir / dst_filename
+            if not dst_path.exists():
+                shutil.copy2(src, dst_path)
+
+            # Map ext to DocumentType
+            ext_to_type = {
+                "md": _DT.MARKDOWN, "markdown": _DT.MARKDOWN, "txt": _DT.TEXT,
+                "pdf": _DT.PDF, "json": _DT.JSON, "py": _DT.CODE, "js": _DT.CODE,
+                "ts": _DT.CODE, "tsx": _DT.CODE, "jsx": _DT.CODE,
+                "html": _DT.HTML, "htm": _DT.HTML, "csv": _DT.CSV, "tsv": _DT.CSV,
+                "docx": _DT.TEXT, "doc": _DT.TEXT, "pptx": _DT.TEXT, "ppt": _DT.TEXT,
+                "xlsx": _DT.CSV, "xls": _DT.CSV,
+                "png": _DT.IMAGE, "jpg": _DT.IMAGE, "jpeg": _DT.IMAGE,
+                "gif": _DT.IMAGE, "webp": _DT.IMAGE,
+            }
+            document_type = ext_to_type.get(ext.lstrip("."), _DT.TEXT)
+
+            doc = _CD(
+                project_id=project_id,
+                filename=src.name,
+                original_filename=src.name,
+                file_path=str(dst_path),
+                file_size=len(content),
+                mime_type=None,
+                document_type=document_type,
+                indexing_status=_IS.NOT_INDEXED,
+                content_hash=content_hash,
+                tags=[meta["industry"], meta["player"], meta["sub_category"]],
+                industry=meta["industry"],
+                player=meta["player"],
+                sub_category=meta["sub_category"],
+                sub_department=meta["sub_department"],
+            )
+            db.add(doc)
+            db.commit()
+            db.refresh(doc)
+            counts["created"] += 1
+            # Queue for indexing + graphindex. Note: we can't easily
+            # call FastAPI's background task from here since this
+            # endpoint doesn't receive one. So we just call the
+            # function directly — it'll run synchronously in the
+            # request thread, but the user can navigate away.
+            try:
+                await index_document_background(doc.id)
+            except Exception as e:
+                logger.warning(f"Inline index failed for {src.name}: {e}")
+            if _is_graphindexable(src.name):
+                try:
+                    _queue_graphindex_ingest(str(dst_path))
+                except Exception as e:
+                    logger.warning(f"Inline graphindex queue failed for {src.name}: {e}")
+        except Exception as e:
+            logger.error(f"Failed to ingest {rel}: {e}")
+            db.rollback()
+            counts["failed"] += 1
+
+    logger.info(
+        f"ingest-folder: project={project_id} folder={folder} "
+        f"created={counts['created']} updated={counts['updated']} "
+        f"skipped={counts['skipped']} failed={counts['failed']}"
+    )
+    return {
+        **counts,
+        "files_ingested": counts["created"] + counts["updated"],
+        "project_id": project_id,
+        "folder": str(folder),
+    }
 
 
 @router.get("/documents", response_model=List[DocumentResponse])
@@ -1464,6 +1757,25 @@ async def delete_document(
                 logger.warning(f"Failed to delete vector embeddings: {e}")
                 db.rollback()  # Rollback failed vector deletion to allow document deletion
                 # Continue with document deletion even if vector cleanup fails
+
+        # Step N+1: also delete the Neo4j Document node so the chat
+        # agent's graphindex catalog doesn't keep pointing to a file
+        # that's about to be removed. Without this, list_docs() would
+        # still return the doc and the user would hit "doc not found"
+        # errors when the LLM tries to read it.
+        if project_id:
+            try:
+                from services.neo4j_document_index import Neo4jDocumentIndex
+                idx = Neo4jDocumentIndex()
+                # Try original_filename first (the user's name), then
+                # filename (which may have a content-hash prefix).
+                for lookup_name in (doc.original_filename, doc.filename):
+                    if lookup_name and idx.delete_document(project_id, lookup_name):
+                        logger.info(f"Deleted Neo4j Document node for {lookup_name}")
+                        break
+            except Exception as e:
+                logger.warning(f"Failed to delete Neo4j Document node: {e}")
+                # Don't fail the whole delete — Neo4j is best-effort
 
         # Delete file from disk
         if file_path:
