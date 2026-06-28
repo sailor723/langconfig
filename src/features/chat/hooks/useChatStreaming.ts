@@ -144,46 +144,70 @@ export function useChatStreaming(
                 const data: ChatStreamEvent = JSON.parse(line.substring(6));
 
                 if (data.type === 'chunk') {
+                  // The LLM's content chunks go directly into the
+                  // assistant message. The backend already strips
+                  // <think>...</think> blocks before streaming
+                  // (see routes.py:778), so the chunks are the
+                  // LLM's final answer, not its private thinking.
+                  //
+                  // We previously buffered pre-tool chunks into a
+                  // separate "thinkingBufferRef" and only added the
+                  // assistant message after tool_start, relying on
+                  // a `complete` event for the no-tool case. The
+                  // Phase 9 backend only sends `done` (not
+                  // `complete`), so for greetings / identity
+                  // questions / small talk the assistant message
+                  // was never created and the user saw the previous
+                  // turn's content. The fix: use the LLM's chunks
+                  // directly and add the message on the first chunk,
+                  // matching the pre-64b638c behavior.
+                  //
+                  // We also keep `thinkingBufferRef` populated so
+                  // the "Show thinking" toggle in the UI still has
+                  // content to display. For the no-tool case, the
+                  // thinking equals the answer (which is fine — the
+                  // toggle is just a no-op visual element).
+                  accumulatedContent += data.content;
                   if (!toolPhaseSeenRef.current) {
-                    // Before any tool call → this is thinking content only
                     thinkingBufferRef.current += data.content;
-                    accumulatedContent += data.content;  // keep for fallback
                     if (onThinkingUpdate) {
                       onThinkingUpdate(thinkingBufferRef.current);
                     }
-                  } else {
-                    // After tool phase → this is answer content (accumulatedContent was reset)
-                    accumulatedContent += data.content;
-                    if (!assistantMessageAdded) {
-                      const assistantMessage: ChatMessage = {
-                        role: 'assistant',
-                        content: accumulatedContent,
-                        timestamp: new Date().toISOString(),
-                      };
-                      onMessageAdd(assistantMessage);
-                      assistantMessageAdded = true;
-                    } else {
-                      onMessageUpdate(accumulatedContent);
-                    }
                   }
-                } else if (data.type === 'complete') {
-                  // If never created assistant msg (no-tool path), create it now
                   if (!assistantMessageAdded) {
-                    const finalContent = data.content || thinkingBufferRef.current || accumulatedContent;
                     const assistantMessage: ChatMessage = {
                       role: 'assistant',
-                      content: finalContent,
+                      content: accumulatedContent,
                       timestamp: new Date().toISOString(),
                     };
                     onMessageAdd(assistantMessage);
+                    assistantMessageAdded = true;
+                  } else {
+                    onMessageUpdate(accumulatedContent);
+                  }
+                } else if (data.type === 'complete') {
+                  // If the backend DOES send `complete` (legacy
+                  // path, or future Phase 9 path), use it as the
+                  // authoritative final content. The Phase 9 path
+                  // doesn't currently send `complete`, so this is
+                  // a no-op for that path — but it keeps the
+                  // handler robust if the backend adds it later.
+                  if (data.content && data.content !== accumulatedContent) {
+                    accumulatedContent = data.content;
+                    onMessageUpdate(accumulatedContent);
                   }
                 } else if (data.type === 'error') {
                   setError(data.message || 'An error occurred during streaming');
                 } else if (data.type === 'tool_start') {
-                  // First tool call marks the end of thinking phase
+                  // First tool call marks the end of thinking phase.
+                  // We do NOT reset accumulatedContent here — the
+                  // message is now the LLM's full response (pre-
+                  // + post-tool), and resetting would wipe it. The
+                  // tool-using case will keep streaming more
+                  // chunks after this, which will append to the
+                  // existing message.
                   if (!toolPhaseSeenRef.current) {
                     toolPhaseSeenRef.current = true;
-                    accumulatedContent = '';  // Reset for answer content
                   }
                   toolPhaseCountRef.current += 1;
                   toolPhaseActiveRef.current = true;
