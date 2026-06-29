@@ -134,7 +134,7 @@ _agent_cache: Dict[int, Any] = {}
 
 def _get_or_build_agent(project_id: int, model_name: Optional[str] = None):
     """Build a graphindex_chat agent, cached per (project_id, model_name)."""
-    from learning.phase9.graphindex.agent_chat import build_agent
+    from learning.phase9.graphindex.agent import build_agent
 
     cache_key = (project_id, model_name or "default")
     if cache_key in _agent_cache:
@@ -178,8 +178,8 @@ def _resolve_scope(project_id: int, scope):
     # Normalize: None / "all" / [] = no filter
     if scope is None or scope == "all" or (isinstance(scope, (list, tuple)) and len(scope) == 0):
         # Still fetch all doc names for the "available docs" suggestion
-        from learning.phase9.graphindex.build_graphindex import Neo4jDocumentIndex
-        from learning.phase9.graphindex.route_semantic import fetch_catalog
+        from learning.phase9.graphindex.build_index import Neo4jDocumentIndex
+        from learning.phase9.graphindex.route import fetch_catalog
         try:
             idx = Neo4jDocumentIndex(
                 base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
@@ -194,8 +194,8 @@ def _resolve_scope(project_id: int, scope):
         return {"valid": None, "invalid": [], "all_doc_names": all_names}
 
     # Scope is a real list — resolve it against the catalog
-    from learning.phase9.graphindex.build_graphindex import Neo4jDocumentIndex
-    from learning.phase9.graphindex.route_semantic import fetch_catalog
+    from learning.phase9.graphindex.build_index import Neo4jDocumentIndex
+    from learning.phase9.graphindex.route import fetch_catalog
     try:
         idx = Neo4jDocumentIndex(
             base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
