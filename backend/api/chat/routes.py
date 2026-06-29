@@ -776,9 +776,24 @@ async def _generate_stream_phase9(
                     # the content alongside `tool_calls=[...]`, which
                     # would leak the `<invoke name="...">` XML into
                     # the chat and confuse the Markdown renderer.
+                    #
+                    # The streaming chunks can split these blocks
+                    # mid-way: the opening <think> may be in one
+                    # chunk and the closing </think> in a later
+                    # chunk. The regex must handle BOTH a complete
+                    # block (`<think>...</think>`) AND an open block
+                    # (`<think>...$`, no closing tag yet). Same for
+                    # <tool_call>. Use `.*?(?:</tool_call>|$)` so
+                    # the open-block case also matches.
                     import re
-                    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
-                    text = re.sub(r"<tool_call>.*?</tool_call>", "", text, flags=re.DOTALL)
+                    text = re.sub(
+                        r"<think>.*?(?:</think>|$)",
+                        "", text, flags=re.DOTALL,
+                    )
+                    text = re.sub(
+                        r"<tool_call>.*?(?:</tool_call>|$)",
+                        "", text, flags=re.DOTALL,
+                    )
                     text = text.strip()
                     # If the whole final message differs from what
                     # we've sent, emit the new portion as a chunk
