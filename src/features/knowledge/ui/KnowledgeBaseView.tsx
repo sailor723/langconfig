@@ -351,19 +351,6 @@ export default function KnowledgeBaseView() {
   const [comparisonResults, setComparisonResults] = useState<SearchResult[]>([]);
   const [expandedChunks, setExpandedChunks] = useState<Set<number>>(new Set());
   const [pageIndexDocs, setGraphIndexDocs] = useState<any[]>([]);
-  // Note: the previous bottom-anchored "search panel" (with a chevron to
-  // collapse it) has been moved out into `SearchModal.tsx`. The state +
-  // handlers it used are still here because the modal re-uses them
-  // (searchQuery, searchResults, useHyDE, compareMode, etc.).
-  const [answerLoading, setAnswerLoading] = useState(false);
-  const [answerResult, setAnswerResult] = useState<{
-    doc_id: string;
-    doc_name: string;
-    answer: string;
-    pages_loaded: number;
-    content_chars: number;
-    model: string;
-  } | null>(null);
   const [previewData, setPreviewData] = useState<{
     doc_id: string;
     context_doc_id: number;
@@ -1093,25 +1080,6 @@ export default function KnowledgeBaseView() {
     }
   };
 
-  const handleGraphIndexAnswer = async (doc: any) => {
-    if (!activeProjectId || !searchQuery.trim()) return;
-    try {
-      setAnswerLoading(true);
-      setAnswerResult(null);
-      const result = await apiClient.pageIndexAnswer({
-        query: searchQuery,
-        project_id: activeProjectId,
-        context_doc_id: doc.context_doc_id,
-      });
-      setAnswerResult(result);
-    } catch (error) {
-      console.error('GraphIndex answer failed:', error);
-      alert('Failed to get answer from document.');
-    } finally {
-      setAnswerLoading(false);
-    }
-  };
-
   const handleRerunFromHistory = (query: string, hyde: boolean, toon: boolean) => {
     setSearchQuery(query);
     setUseHyDE(hyde);
@@ -1762,9 +1730,6 @@ export default function KnowledgeBaseView() {
         pageIndexDocs={pageIndexDocs}
         searchResults={searchResults}
         onClearSearch={clearSearch}
-        onGraphIndexAnswer={handleGraphIndexAnswer}
-        answerLoading={answerLoading}
-        answerResult={answerResult}
         expandedChunks={expandedChunks}
         onToggleChunkExpansion={toggleChunkExpansion}
         t={t}
