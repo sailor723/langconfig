@@ -907,6 +907,11 @@ export default function KnowledgeBaseView() {
         "CRITICAL — project_id:\n" +
         "  - Current project_id is an INTEGER (e.g. 1). ALWAYS pass it as a number, never as a string like \"default\".\n" +
         "  - graphindex_load and graphindex_search return context_doc_id values you can pass to graphindex_load.\n\n" +
+        "DOC SCOPE:\n" +
+        "  The user may have selected specific documents in the sidebar. In that case, the tools will\n" +
+        "  ONLY return results from the selected docs — this is enforced at the tool level, not by you.\n" +
+        "  When the user says \"this doc\" / \"this file\", the context section `# Active Document` tells\n" +
+        "  you which one they are viewing. Load and answer from it directly.\n\n" +
         "Workflow:\n" +
         "  1. If unsure what docs exist, call graphindex_list_docs(project_id=1) first (cheap).\n" +
         "  2. To answer a question, prefer graphindex_multi_doc_load(query=<q>, project_id=1) — it does routing + loading in one call.\n" +

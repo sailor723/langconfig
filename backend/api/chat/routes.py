@@ -792,6 +792,10 @@ async def send_message_stream(
         # When scope pinpoints a single doc, the user is viewing it.
         # Tell the agent so it understands "this doc" / "this file".
         active_doc_name = scope[0] if isinstance(scope, (list, tuple)) and len(scope) == 1 else None
+        # Set the doc scope on the native tools so graphindex_search / list / load
+        # filter to only the user-selected docs (deterministic, not LLM-dependent).
+        from tools.native_tools import set_graphindex_doc_scope
+        set_graphindex_doc_scope(scope)
         agent_config = agent.config.copy() if agent.config else {}
         # Merge guardrails_config separately — it's a separate DB column
         if agent.guardrails_config:
@@ -870,7 +874,9 @@ async def send_message_stream(
                             session_context = "\n\n".join([chunk.get('content', '') for chunk in session_chunks])
                         except Exception as e:
                             logger.warning(f"Failed to retrieve session context: {e}")
-                            session_contextall_context = ""
+                            session_context = ""
+
+                    all_context = ""
                     if active_doc_name:
                         all_context = (
                             f"# Active Document\n"
