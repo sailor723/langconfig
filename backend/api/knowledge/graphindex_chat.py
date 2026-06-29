@@ -31,11 +31,17 @@ import time
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-# Phase 9 path hook — phase9/ now lives at langconfig/learning/phase9/
-# (was langconfig/phase9/ before the 2026-06-26 refactor)
-_PHASE9_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "learning", "phase9")
+# Phase 9 path hook — add the repo root to sys.path so that
+#   from learning.phase9.graphindex.agent import build_agent
+# resolves correctly (was learning/phase9/ alone before the refactor).
+_REPO_ROOT = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..")
 )
+if _REPO_ROOT not in sys.path and os.path.isdir(_REPO_ROOT):
+    sys.path.insert(0, _REPO_ROOT)
+# Also keep phase9/ on the path for backward compat with any scripts
+# that still do `from graphindex_chat_agent import ...`.
+_PHASE9_DIR = os.path.join(_REPO_ROOT, "learning", "phase9")
 if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):
     sys.path.insert(0, _PHASE9_DIR)
 

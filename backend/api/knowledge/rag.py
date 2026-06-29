@@ -28,9 +28,10 @@ from services.token_counter import get_token_counter
 # (phase9/ moved from langconfig/phase9/ to langconfig/learning/phase9/ on 2026-06-26)
 import sys as _sys
 import os as _os
-_PHASE9_DIR = _os.path.abspath(
-    _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "learning", "phase9")
-)
+_REPO_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..", "..", ".."))
+if _REPO_ROOT not in _sys.path and _os.path.isdir(_REPO_ROOT):
+    _sys.path.insert(0, _REPO_ROOT)
+_PHASE9_DIR = _os.path.join(_REPO_ROOT, "learning", "phase9")
 if _PHASE9_DIR not in _sys.path and _os.path.isdir(_PHASE9_DIR):
     _sys.path.insert(0, _PHASE9_DIR)
 
