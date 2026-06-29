@@ -2081,12 +2081,12 @@ def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
 _graphindex_search_tool = StructuredTool.from_function(
     func=graphindex_search,
     name="graphindex_search",
-    description="Search project documents using GraphIndex with LLM semantic routing. Returns matching documents with context_doc_id, name, type, page count, primary_domain, and supporting list. Use context_doc_id with graphindex_load to get full content. (Phase 9, ~93% accuracy)",
+    description="Search project documents using GraphIndex with LLM semantic routing. Returns matching documents with context_doc_id, name, type, page count, primary_domain, and supporting list. Use context_doc_id with graphindex_load to get full content.",
 )
 _graphindex_load_tool = StructuredTool.from_function(
     func=graphindex_load,
     name="graphindex_load",
-    description="Load the full content of a document by its context_doc_id (obtained from graphindex_search). Returns the complete document text for the agent to read. Default is 10M chars (effectively no cap — full doc in one call). Pass max_chars to limit. (Phase 9 read path)",
+    description="Load the full content of a document by its context_doc_id (obtained from graphindex_search). Returns the complete document text for the agent to read. Default is 10M chars (effectively no cap — full doc in one call). Pass max_chars to limit.",
 )
 _graphindex_list_docs_tool = StructuredTool.from_function(
     func=graphindex_list_docs,
@@ -2096,7 +2096,7 @@ _graphindex_list_docs_tool = StructuredTool.from_function(
 _graphindex_multi_doc_load_tool = StructuredTool.from_function(
     func=graphindex_multi_doc_load,
     name="graphindex_multi_doc_load",
-    description="One-shot: route a query to the best primary document, then load primary + 0-3 supporting documents as a combined context string. Equivalent to calling graphindex_search + multiple graphindex_load in one step. (Phase 9)",
+    description="One-shot: route a query to the best primary document, then load primary + 0-3 supporting documents as a combined context string. Equivalent to calling graphindex_search + multiple graphindex_load in one step.",
 )
 
 # Note: _graphindex_rebuild_one_tool, _graphindex_ingest_tool,
@@ -2167,7 +2167,7 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "doc_index_structure": _doc_index_structure_tool,
         "doc_index_pages": _doc_index_pages_tool,
         # Note: print_hello is now a custom tool (DB-backed), not in native factory
-        # GraphIndex tools (vectorless RAG for PDF Chat) — Phase 9 backed
+        # GraphIndex tools (vectorless RAG for PDF Chat)
         "graphindex_search": _graphindex_search_tool,
         "graphindex_load": _graphindex_load_tool,
         "graphindex_list_docs": _graphindex_list_docs_tool,
@@ -2433,32 +2433,32 @@ TOOL_REGISTRY = [
     },
     # Note: print_hello has been moved to a custom tool (DB-backed, editable in UI).
     # See backend/create_print_hello_tool.py for the registration.
-    # GraphIndex tools (vectorless RAG for PDF Chat) — Phase 9 backed
+    # GraphIndex tools
     {
         "id": "graphindex_search",
-        "name": "GraphIndex - Search Documents (Phase 9)",
-        "description": "Search project documents using GraphIndex with LLM semantic routing. Returns matching docs (primary + 0-3 supporting) with context_doc_id, name, type, page count, and primary_domain. Phase 9 implementation (~93% accuracy).",
+        "name": "GraphIndex - Search Documents",
+        "description": "Search project documents using GraphIndex with LLM semantic routing. Returns matching docs (primary + 0-3 supporting).",
         "category": "retrieval",
         "requires_api_key": None,
     },
     {
         "id": "graphindex_load",
-        "name": "GraphIndex - Load Document Content (Phase 9)",
-        "description": "Load the full content of a document by its context_doc_id (from graphindex_search). Returns complete document text via Phase 9's _read_doc_text. Default 10M chars (full doc in one call).",
+        "name": "GraphIndex - Load Document Content",
+        "description": "Load the full content of a document by its context_doc_id (from graphindex_search). Returns complete document text.",
         "category": "retrieval",
         "requires_api_key": None,
     },
     {
         "id": "graphindex_list_docs",
-        "name": "GraphIndex - List Documents (Phase 9)",
+        "name": "GraphIndex - List Documents",
         "description": "List all documents available in the project with their about-preview. Use this to discover what docs exist before calling graphindex_search.",
         "category": "retrieval",
         "requires_api_key": None,
     },
     {
         "id": "graphindex_multi_doc_load",
-        "name": "GraphIndex - Multi-Doc Load (Phase 9)",
-        "description": "One-shot: route a query to the best primary document, then load primary + 0-3 supporting documents as a combined context string. Returns combined text ready for synthesis.",
+        "name": "GraphIndex - Multi-Doc Load",
+        "description": "One-shot: route a query to the best primary document, then load primary + 0-3 supporting documents as a combined context string.",
         "category": "retrieval",
         "requires_api_key": None,
     },

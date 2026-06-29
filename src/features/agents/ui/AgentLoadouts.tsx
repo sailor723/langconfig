@@ -679,35 +679,71 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     const customTools = config.custom_tools || [];
     const middleware = config.middleware || [];
 
+    // Pick model import based on the model name
+    const modelLower = (config.model || '').toLowerCase();
+    let modelImport = '';
+    let llmInit = '';
+    if (modelLower.includes('openai') || modelLower.includes('gpt')) {
+      modelImport = `from langchain_openai import ChatOpenAI`;
+      llmInit = `llm = ChatOpenAI(
+    model="${config.model || 'gpt-4o'}",
+    temperature=${config.temperature ?? 0.7},
+    max_tokens=${config.max_tokens || 4000}
+)`;
+    } else if (modelLower.includes('minimax')) {
+      modelImport = `from langchain_minimax import ChatMiniMax`;
+      llmInit = `llm = ChatMiniMax(
+    model="${config.model || 'minimax-m3'}",
+    temperature=${config.temperature ?? 0.7},
+    max_tokens=${config.max_tokens || 4000}
+)`;
+    } else if (modelLower.includes('gemini') || modelLower.includes('gemma')) {
+      modelImport = `from langchain_google_genai import ChatGoogleGenerativeAI`;
+      llmInit = `llm = ChatGoogleGenerativeAI(
+    model="${config.model || 'gemini-2.0-flash'}",
+    temperature=${config.temperature ?? 0.7},
+    max_tokens=${config.max_tokens || 4000}
+)`;
+    } else {
+      // Fallback: try a generic ChatOpenAI-compatible endpoint
+      modelImport = `from langchain_openai import ChatOpenAI`;
+      llmInit = `llm = ChatOpenAI(
+    model="${config.model || 'gpt-4o'}",
+    temperature=${config.temperature ?? 0.7},
+    max_tokens=${config.max_tokens || 4000}
+)`;
+    }
+
     let code = `"""
-LangChain Agent Configuration
+LangGraph Agent Configuration
 Agent: ${agentName}
 Generated from LangConfig
 """
 
-from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_openai_functions_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import SystemMessage
+import os
+
+${modelImport}
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.prebuilt import create_react_agent
 
-# Initialize LLM
-llm = ChatOpenAI(
-    model="${config.model || 'gpt-4o'}",
-    temperature=${config.temperature ?? 0.7},
-    max_tokens=${config.max_tokens || 4000}
-)
+# ---------------------------------------------------------------------------
+# 1. LLM
+# ---------------------------------------------------------------------------
+${llmInit}
 
-# System Prompt
+# ---------------------------------------------------------------------------
+# 2. System prompt
+# ---------------------------------------------------------------------------
 system_prompt = """${config.system_prompt || 'You are a helpful AI assistant.'}"""
 
-# Load Tools
+# ---------------------------------------------------------------------------
+# 3. Tools
+# ---------------------------------------------------------------------------
 tools = []
 `;
 
     if (tools.length > 0) {
-      code += `\n# Native Tools\n`;
+      code += `\n# Native tools (graphindex-backed document search)\n`;
       code += `from tools.native_tools import load_native_tools\n`;
       code += `tools.extend(load_native_tools([\n`;
       tools.forEach((tool: string) => {
@@ -717,7 +753,7 @@ tools = []
     }
 
     if (customTools.length > 0) {
-      code += `\n# Custom Tools\n`;
+      code += `\n# Custom tools (DB-backed, editable in Studio)\n`;
       code += `from orchestration.tool_factory import ToolFactory\n`;
       code += `tool_factory = ToolFactory()\n`;
       customTools.forEach((toolId: string) => {
@@ -726,7 +762,7 @@ tools = []
     }
 
     if (middleware.length > 0) {
-      code += `\n# Middleware Configuration\n`;
+      code += `\n# Middleware\n`;
       code += `middleware_config = [\n`;
       middleware.forEach((m: any) => {
         code += `    {"type": "${m.type}", "enabled": True, "config": {}},\n`;
@@ -735,33 +771,36 @@ tools = []
     }
 
     code += `
-# Create Agent
+# ---------------------------------------------------------------------------
+# 4. Build agent
+# ---------------------------------------------------------------------------
+# create_react_agent returns a CompiledStateGraph — no AgentExecutor needed.
 agent = create_react_agent(
     llm,
     tools,
-    state_modifier=system_prompt
+    state_modifier=system_prompt,
 )
 
-# PostgreSQL Checkpointer for memory
-checkpointer = PostgresSaver.from_conn_string(
-    "postgresql://user:pass@localhost/langconfig"
+# ---------------------------------------------------------------------------
+# 5. PostgreSQL checkpointer (conversation memory)
+# ---------------------------------------------------------------------------
+DB_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://user:pass@localhost:5432/langconfig",
 )
+checkpointer = PostgresSaver.from_conn_string(DB_URL)
 
-# Create Agent Executor with checkpointing
-agent_executor = AgentExecutor(
-    agent=agent,
-    tools=tools,
-    checkpointer=checkpointer,
-    verbose=True
-)
-
-# Run the agent
-result = agent_executor.invoke(
+# ---------------------------------------------------------------------------
+# 6. Run
+# ---------------------------------------------------------------------------
+result = agent.invoke(
     {"messages": [("user", "Your input here")]},
-    config={"configurable": {"thread_id": "unique-thread-id"}}
+    config={
+        "configurable": {"thread_id": "unique-thread-id"},
+        "recursion_limit": 500,
+    },
 )
-
-print(result)
+print(result["messages"][-1].content)
 `;
 
     return code;
