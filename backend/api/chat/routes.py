@@ -769,9 +769,17 @@ async def _generate_stream_phase9(
                 # Final assistant message — stream its content
                 if msg_type == "ai" and not getattr(msg, "tool_calls", None):
                     text = msg.content if isinstance(msg.content, str) else str(msg.content)
-                    # Strip <think>...</think> blocks (we don't stream thinking)
-                    if "<think>" in text and "</think>" in text:
-                        text = text.split("</think>", 1)[1].strip()
+                    # Strip <think>...</think> blocks (we don't stream
+                    # thinking) AND <tool_call>...</tool_call> blocks
+                    # (the LLM's tool calls in XML form). Minimax
+                    # sometimes emits the tool call as raw text in
+                    # the content alongside `tool_calls=[...]`, which
+                    # would leak the `<invoke name="...">` XML into
+                    # the chat and confuse the Markdown renderer.
+                    import re
+                    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+                    text = re.sub(r"<tool_call>.*?</tool_call>", "", text, flags=re.DOTALL)
+                    text = text.strip()
                     # If the whole final message differs from what
                     # we've sent, emit the new portion as a chunk
                     if text and not text.startswith(full_response):
