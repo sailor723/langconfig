@@ -29,7 +29,41 @@ from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
 from deepagents import create_deep_agent
 
+try:
+    from deepagents.middleware.memory import MemoryMiddleware
+    HAS_MEMORY = True
+except ImportError:
+    HAS_MEMORY = False
+
 from learning.phase9.legacy.tools import make_tools
+
+
+# ---------------------------------------------------------------------------
+# AGENTS.md path for MemoryMiddleware
+# ---------------------------------------------------------------------------
+
+def _agents_md_path(project_id: int) -> Path:
+    """Get or create the AGENTS.md file for a project.
+
+    This is a simplified version of ``agents_md_service`` without the
+    FastAPI/workspace dependency. The file lives at
+    ``backend/data/agents_md/project_{id}/AGENTS.md``.
+    """
+    md_dir = Path(__file__).resolve().parents[3] / "backend" / "data" / "agents_md" / f"project_{project_id}"
+    md_dir.mkdir(parents=True, exist_ok=True)
+    path = md_dir / "AGENTS.md"
+    if not path.exists():
+        path.write_text(
+            f"# Project {project_id} Conventions\n\n"
+            "<!-- This file is loaded into the DeepAgent's system prompt via MemoryMiddleware. -->\n"
+            "<!-- Edit it to share project-level context (build commands, style, etc.) -->\n"
+            "<!-- Agents can also update it at runtime via tools. -->\n\n"
+            "## Overview\n\n(Add a brief project overview here)\n\n"
+            "## Documents\n\n"
+            "Documents are managed through the query_docs / read_doc / answer tools.\n",
+            encoding="utf-8",
+        )
+    return path
 
 
 SYSTEM_PROMPT = """You are a research analyst assistant. Your workflow:
@@ -61,10 +95,25 @@ def build_agent(project_id: int):
         max_tokens=int(os.getenv("GRAPHINDEX_ANSWER_MAX_TOKENS", "8192")),
     )
 
+    # Persistent memory — loads/edits AGENTS.md per project
+    middleware = []
+    if HAS_MEMORY:
+        agents_md = _agents_md_path(project_id)
+        # Use a plain file backend rooted at the AGENTS.md directory
+        from deepagents.backends.filesystem import FilesystemBackend
+        mem_backend = FilesystemBackend(root_dir=str(agents_md.parent), virtual_mode=True)
+        mem_middleware = MemoryMiddleware(
+            backend=mem_backend,
+            sources=[agents_md.name],
+        )
+        middleware.append(mem_middleware)
+        print(f"📝 Memory: {agents_md}")
+
     agent = create_deep_agent(
         model=model,
         tools=make_tools(project_id),
         system_prompt=SYSTEM_PROMPT,
+        middleware=middleware if middleware else None,
     )
     return agent
 
