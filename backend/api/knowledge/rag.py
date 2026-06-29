@@ -479,9 +479,23 @@ def _phase9_get_or_generate_enrichment(
 
     # No existing enrichment — generate via Phase 9 LLM call.
     try:
-        from graphindex_build_python import enrich_document, make_llm
+        from learning.phase9.graphindex.build_graphindex import (
+            make_llm, extract_document_enrichment, load_document_content,
+            load_graphindex_metadata,
+        )
         llm = make_llm()
-        enrichment = enrich_document(index, llm, context_doc.file_path)
+        content = load_document_content(context_doc.file_path)
+        meta = load_graphindex_metadata(context_doc.file_path)
+        other_names = [d.name for d in index.list_documents(project_id=context_doc.project_id)]
+        enrichment = extract_document_enrichment(
+            llm=llm,
+            document_name=context_doc.filename,
+            description="",
+            tags=[],
+            graphindex_meta=meta,
+            content=content,
+            other_document_names=other_names,
+        )
         logger.info(
             f"[phase9] generated fresh enrichment for {context_doc.filename!r}: "
             f"about={enrichment.what_this_document_is_about[:60]!r}..."
@@ -573,8 +587,17 @@ def _queue_graphindex_ingest(file_path: str) -> None:
     hash → dedup (FS + Neo4j) → copy → LLM enrichment → upsert to Neo4j.
     """
     try:
-        from graphindex_build_python import cmd_ingest
-        cmd_ingest(file_path)
+        from learning.phase9.graphindex.build_graphindex import (
+            make_llm, cmd_ingest, Neo4jDocumentIndex,
+        )
+        index = Neo4jDocumentIndex(
+            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+            username=os.environ.get("NEO4J_USER", "neo4j"),
+            password=os.environ.get("NEO4J_PASSWORD", "password"),
+        )
+        index.ensure_constraints()
+        llm = make_llm()
+        cmd_ingest(index, llm, file_path)
     except Exception as e:
         logger.error(f"graphindex ingest failed for {file_path}: {e}")
 
@@ -835,6 +858,84 @@ async def upload_document(
     )
 
 
+def _parse_hierarchy_from_path(file_path: str) -> dict:
+    """Step N+1 safety-net: derive industry/player/sub_category/sub_department
+    from a saved file_path.
+
+    # Why this exists
+    -----------------
+    The Sidebar's Tree view buckets docs by `industry`. If a doc has
+    `industry IS NULL`, the tree view puts it in a synthetic
+    "(ungrouped)" folder. Once there, the user can't filter the chat
+    by industry, the agent can't route by hierarchy, and the visual
+    UI is cluttered.
+
+    # When is this called?
+    ---------------------
+    Called by `_process_single_file_for_bulk` (and any other place
+    that inserts a ContextDocument with a NULL hierarchy) as a
+    safety net. If the frontend's `file_metadata` form field didn't
+    arrive (e.g. older browser, live backend running pre-Step-O
+    bytecode, "Browse Files" used instead of "Select Folder"), the
+    form metadata is empty — but the file is already on disk at a
+    path that mirrors the source folder, so we can re-extract the
+    hierarchy from there.
+
+    # Path layouts supported
+    ------------------------
+    All three forms are handled. We anchor on the `data/documents/`
+    segment and then drop the project prefix to find the hierarchy:
+
+      1. <base>/data/documents/project_<id>/<industry>/<player>/<sub_category>/<sub_department>/<hash>_<name>
+         ^^^^^^^^^^^^^^^  live backend (file_storage.save_file, CWD-relative)
+      2. <base>/data/documents/<id>/<industry>/<player>/<sub_category>/<sub_department>/<hash>_<name>
+         ^^^^^^^^^^^^^^^  CLI ingest script (CWD-relative, no `project_` prefix)
+      3. Relative: `data/documents/project_<id>/...` (e.g. when the
+         backend reads a relative path from a config)
+
+    The path can be absolute OR relative — we don't depend on a
+    leading `/`. Windows-style backslashes are also handled.
+
+    # Returns
+    ---------
+    A dict with whatever levels were found. Missing levels are
+    `None`. Callers can check `if not industry or not player:` to
+    decide whether to fall back. If even the file_path doesn't have
+    a hierarchy (e.g. user uploaded a single file to project root
+    via "Browse Files"), the doc legitimately goes to (ungrouped).
+    """
+    if not file_path:
+        return {"industry": None, "player": None, "sub_category": None, "sub_department": None}
+    parts: list[str] = [p for p in file_path.replace("\\", "/").split("/") if p]
+    if not parts:
+        return {"industry": None, "player": None, "sub_category": None, "sub_department": None}
+    # Find the data/documents/ anchor and take what comes after it.
+    anchor_idx = -1
+    for i, p in enumerate(parts):
+        if p == "data" and i + 1 < len(parts) and parts[i + 1] == "documents":
+            anchor_idx = i + 1  # index of "documents"
+            break
+    if anchor_idx >= 0:
+        parts = parts[anchor_idx + 1:]
+    if not parts:
+        return {"industry": None, "player": None, "sub_category": None, "sub_department": None}
+    # Drop the project prefix: either `project_<id>` (live API)
+    # or bare `<id>` (CLI ingest). Anything that's all-digits is
+    # treated as a bare project id.
+    if parts[0].startswith("project_") or parts[0].isdigit():
+        parts = parts[1:]
+    out = {"industry": None, "player": None, "sub_category": None, "sub_department": None}
+    if len(parts) >= 2:
+        out["industry"] = parts[0]
+    if len(parts) >= 3:
+        out["player"] = parts[1]
+    if len(parts) >= 4:
+        out["sub_category"] = parts[2]
+    if len(parts) >= 5:
+        out["sub_department"] = parts[3]
+    return out
+
+
 async def _process_single_file_for_bulk(
     background_tasks: BackgroundTasks,
     project_id: int,
@@ -916,6 +1017,69 @@ async def _process_single_file_for_bulk(
     player          = metadata.get("player") if isinstance(metadata, dict) else None
     sub_category    = metadata.get("sub_category") if isinstance(metadata, dict) else None
     sub_department  = metadata.get("sub_department") if isinstance(metadata, dict) else None
+
+    # ============================================================
+    # FALLBACK: derive hierarchy from the saved file_path
+    # ============================================================
+    # Why this matters: the Sidebar's Tree view puts any doc with
+    # NULL `industry` into a synthetic "(ungrouped)" folder. If a
+    # doc lands in (ungrouped), the user can't filter by industry/
+    # player/sub_category, the chat agent can't route by hierarchy,
+    # and the visual UI is cluttered.
+    #
+    # When can `industry` be NULL despite the file having a proper
+    # path on disk?
+    #   1. The frontend "Select Folder" picker captures the
+    #      webkitRelativePath and sends it as `file_metadata`, but
+    #      the live backend is running pre-Step-O bytecode (we saw
+    #      this on project 1 — 57 docs all in (ungrouped) because
+    #      the running uvicorn hadn't been restarted since the fix
+    #      landed on disk).
+    #   2. The user uploaded via "Browse Files" (single file) so
+    #      there is no relativePath at all.
+    #   3. The form field was sent but the JSON was malformed.
+    #
+    # The file_storage layer ALWAYS writes the file to
+    # `data/documents/project_<id>/<industry>/<player>/<sub_category>/
+    # <sub_department>/<hash>_<name>` — either by honoring the
+    # caller's chosen subfolder (live API upload) or by walking
+    # a source folder (ingest-folder). So the hierarchy is
+    # always in the file_path, even if it never made it into
+    # the form field.
+    #
+    # This fallback re-extracts the hierarchy from the path
+    # BEFORE we insert the row, so the doc lands in the correct
+    # folder from the start — no (ungrouped) ever needed.
+    #
+    # For the existing 57 docs that already landed in (ungrouped),
+    # use `/tmp/backfill_hierarchy.py` to fix them in-place
+    # (idempotent — safe to run multiple times).
+    # ============================================================
+    if not industry or not player:
+        derived = _parse_hierarchy_from_path(file_path)
+        if not industry:
+            industry = derived.get("industry")
+        if not player:
+            player = derived.get("player")
+        if not sub_category:
+            sub_category = derived.get("sub_category")
+        if not sub_department:
+            sub_department = derived.get("sub_department")
+        if industry or player or sub_category:
+            logger.info(
+                f"[Step N+1 fallback] Derived hierarchy from file_path for "
+                f"{file.filename}: industry={industry!r} player={player!r} "
+                f"sub_category={sub_category!r} sub_department={sub_department!r}"
+            )
+        else:
+            # If even the path didn't have a hierarchy, this is a
+            # true "Browse Files" upload of a single file to a
+            # project root. The doc will land in (ungrouped) — this
+            # is the only legitimate path to that bucket.
+            logger.debug(
+                f"No hierarchy in form metadata or file_path for "
+                f"{file.filename} — doc will land in (ungrouped)"
+            )
 
     # Create document record
     doc = ContextDocument(
