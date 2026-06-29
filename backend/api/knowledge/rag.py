@@ -393,6 +393,8 @@ async def upload_document(
         return DocumentUploadResponse(
             id=existing.id,
             name=existing.filename,
+            document_type=existing.document_type,
+            size=existing.file_size or 0,
             status=existing.indexing_status.value,
             message="Document already exists"
     )
