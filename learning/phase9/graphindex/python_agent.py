@@ -52,17 +52,26 @@ from services.neo4j_document_index import (  # noqa: E402
     Neo4jDocumentRecord,
     choose_best_document_match,
 )
-from legacy.route_semantic import (  # noqa: E402
-    SUPPORTING_MAX_CHARS,
-    PRIMARY_MAX_CHARS,
-    SupportingDoc,
+from learning.phase9.graphindex.route import (  # noqa: E402
     _file_path_for,
     _read_doc_text,
     fetch_catalog,
-    make_llm as _make_routing_llm,
+    make_routing_llm as _make_routing_llm,
     route_by_llm,
     route_by_string,
 )
+
+# Simple data classes (moved inline — no longer in route.py)
+@dataclass
+class SupportingDoc:
+    name: str
+    about: str = ""
+    snippet: str = ""
+    confidence: float = 0.0
+
+# Max chars for reading doc content from disk (env-configured)
+PRIMARY_MAX_CHARS = int(os.environ.get("GRAPHINDEX_PRIMARY_MAX_CHARS", "10000000"))
+SUPPORTING_MAX_CHARS = int(os.environ.get("GRAPHINDEX_SUPPORTING_MAX_CHARS", "10000000"))
 
 from langchain.chat_models import init_chat_model  # noqa: E402
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage  # noqa: E402
