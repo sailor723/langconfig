@@ -199,9 +199,9 @@ def _queue_graphindex_ingest(file_path: str, project_id: int = 1) -> None:
             make_llm, cmd_ingest, Neo4jDocumentIndex,
         )
         index = Neo4jDocumentIndex(
-            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
-            username=os.environ.get("NEO4J_USER", "neo4j"),
-            password=os.environ.get("NEO4J_PASSWORD", "password"),
+            base_url=_os.environ.get("NEO4J_URL", "http://localhost:7474"),
+            username=_os.environ.get("NEO4J_USER", "neo4j"),
+            password=_os.environ.get("NEO4J_PASSWORD", "password"),
         )
         index.ensure_constraints()
         llm = make_llm()
