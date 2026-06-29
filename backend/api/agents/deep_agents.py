@@ -8,7 +8,9 @@ API endpoints for DeepAgent configuration and management.
 """
 
 import logging
+import json
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from starlette.responses import Response, FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import List, Optional
@@ -688,7 +690,7 @@ async def download_export(
     db: Session = Depends(get_db)
 ):
     """Download an exported DeepAgent."""
-    from fastapi.responses import FileResponse
+    from starlette.responses import FileResponse
 
     export = db.query(AgentExport).filter(AgentExport.id == export_id).first()
 
@@ -819,4 +821,199 @@ async def import_langconfig(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-import os
+@router.get("/{agent_id}/code")
+async def download_agent_code(agent_id: int, db: Session = Depends(get_db)):
+    """Download a runnable Python file for this agent.
+
+    The generated code mirrors the backend's actual agent creation exactly:
+    - sys.path setup with _REPO_ROOT + _PHASE9_DIR
+    - ChatOpenAI with proper env vars (MINIMAX_API_KEY, MINIMAX_API_BASE, etc.)
+    - load_native_tools() for tool loading
+    - create_deep_agent() for DeepAgents / create_react_agent for regular agents
+    - CLI entry point (python agent.py)
+    """
+    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    config = agent.config or {}
+    model = config.get("model", "gpt-4o")
+    temperature = config.get("temperature", 0.7)
+    max_tokens = config.get("max_tokens", 4000)
+    system_prompt = config.get("system_prompt", "You are a helpful AI assistant.")
+    native_tools = config.get("native_tools", [])
+    custom_tools = config.get("custom_tools", [])
+    middleware = config.get("middleware", [])
+
+    # Determine model provider for env vars
+    model_lower = model.lower()
+    if model_lower.startswith("minimax"):
+        model_import = "from langchain_openai import ChatOpenAI"
+        llm_init = f"""
+MODEL = os.environ.get("ACTUAL_MODEL", "{model}")
+API_KEY = os.environ.get("MINIMAX_API_KEY", "")
+BASE_URL = os.environ.get("MINIMAX_API_BASE", "https://api.minimaxi.com/v1")
+llm = ChatOpenAI(
+    model=MODEL,
+    base_url=BASE_URL,
+    api_key=API_KEY,
+    temperature={temperature},
+    max_tokens={max_tokens},
+)"""
+    elif model_lower.startswith("deepseek"):
+        model_import = "from langchain_openai import ChatOpenAI"
+        llm_init = f"""
+API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+BASE_URL = os.environ.get("DEEPSEEK_API_BASE", "https://api.deepseek.com/v1")
+llm = ChatOpenAI(
+    model="{model}",
+    base_url=BASE_URL,
+    api_key=API_KEY,
+    temperature={temperature},
+    max_tokens={max_tokens},
+)"""
+    elif model_lower.startswith("agnes"):
+        model_import = "from langchain_openai import ChatOpenAI"
+        llm_init = f"""
+API_KEY = os.environ.get("AGNES_API_KEY", "")
+BASE_URL = os.environ.get("AGNES_BASE_URL", "")
+llm = ChatOpenAI(
+    model="{model}",
+    base_url=BASE_URL,
+    api_key=API_KEY,
+    temperature={temperature},
+    max_tokens={max_tokens},
+)"""
+    else:
+        model_import = "from langchain_openai import ChatOpenAI"
+        llm_init = f"""
+API_KEY = os.environ.get("OPENAI_API_KEY", "")
+llm = ChatOpenAI(
+    model="{model}",
+    api_key=API_KEY,
+    temperature={temperature},
+    max_tokens={max_tokens},
+)"""
+
+    # Tool loading
+    native_tools_lines = ""
+    if native_tools:
+        native_tools_lines = f"""
+# Native tools (graphindex-backed document search)
+from tools.native_tools import load_native_tools
+tools.extend(load_native_tools({json.dumps(native_tools)}))
+"""
+
+    custom_tools_lines = ""
+    if custom_tools:
+        import_lines = "\n".join(
+            f'tools.append(tool_factory.load_custom_tool("{t}"))' for t in custom_tools
+        )
+        custom_tools_lines = f"""
+# Custom tools
+from orchestration.tool_factory import ToolFactory
+tool_factory = ToolFactory()
+{import_lines}
+"""
+
+    is_deep = config.get("use_deepagents", False)
+
+    if is_deep:
+        build_section = '''
+# Build DeepAgent
+from deepagents import create_deep_agent
+agent = create_deep_agent(
+    llm=llm,
+    system_prompt=system_prompt,
+    tools=tools,
+)
+'''
+    else:
+        build_section = '''
+# Build LangGraph agent
+from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.prebuilt import create_react_agent
+
+checkpointer = PostgresSaver.from_conn_string(
+    os.environ.get("DATABASE_URL", "postgresql://user:pass@localhost:5432/langconfig")
+)
+agent = create_react_agent(
+    llm,
+    tools,
+    state_modifier=system_prompt,
+    checkpointer=checkpointer,
+)
+'''
+
+    # Escape single-quotes in system prompt for the generated code
+    escaped_prompt = system_prompt.replace("\\", "\\\\").replace("'", "\\'")
+
+    source = (
+        '#!/usr/bin/env python3\n'
+        f'"""Runnable agent: {agent.name} (generated by LangConfig)\n'
+        '\n'
+        'Usage:\n'
+        '    pip install langchain-openai langgraph python-dotenv\n'
+        '    python agent.py\n'
+        '"""\n'
+        '\n'
+        'import os\n'
+        'import sys\n'
+        '\n'
+        '# ── Path setup (mirrors backend/api/chat/routes.py) ──────────────────────\n'
+        '_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))\n'
+        'if _REPO_ROOT not in sys.path:\n'
+        '    sys.path.insert(0, _REPO_ROOT)\n'
+        '_PHASE9_DIR = os.path.join(_REPO_ROOT, "learning", "phase9")\n'
+        'if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):\n'
+        '    sys.path.insert(0, _PHASE9_DIR)\n'
+        '\n'
+        '# ── Env ──────────────────────────────────────────────────────────────────\n'
+        'from dotenv import load_dotenv\n'
+        'load_dotenv()\n'
+        '\n'
+        f'{model_import}\n'
+        '\n'
+        '# ── 1. LLM ──────────────────────────────────────────────────────────────\n'
+        f'{llm_init}\n'
+        '\n'
+        '# ── 2. System prompt ────────────────────────────────────────────────────\n'
+        f"system_prompt = '''{escaped_prompt}'''\n"
+        '\n'
+        '# ── 3. Tools ────────────────────────────────────────────────────────────\n'
+        'tools = []\n'
+        f'{native_tools_lines}{custom_tools_lines}'
+        '\n'
+        '# ── 4. Build agent ──────────────────────────────────────────────────────\n'
+        f'{build_section}'
+        '\n'
+        '# ── 5. CLI entry point ─────────────────────────────────────────────────\n'
+        'def main():\n'
+        f'    print(f"=== {agent.name} ===")\n'
+        '    print("Type \'exit\' to quit.\\n")\n'
+        '    history = []\n'
+        '    while True:\n'
+        '        user_input = input("You: ").strip()\n'
+        '        if user_input.lower() in ("exit", "quit"):\n'
+        '            break\n'
+        '        history.append(("user", user_input))\n'
+        '        result = agent.invoke(\n'
+        '            {"messages": history},\n'
+        '            config={"configurable": {"thread_id": "cli"}, "recursion_limit": 500},\n'
+        '        )\n'
+        '        reply = result["messages"][-1].content if hasattr(result, "messages") else str(result)\n'
+        '        print(f"\\nAgent: {reply}\\n")\n'
+        '        history.append(("assistant", reply))\n'
+        '\n'
+        '\n'
+        'if __name__ == "__main__":\n'
+        '    main()\n'
+    )
+
+    return Response(
+        content=source,
+        media_type="text/x-python",
+        headers={
+            "Content-Disposition": f'attachment; filename="{agent.name.replace(" ", "_")}.py"',
+        },
+    )
