@@ -774,6 +774,7 @@ async def import_langconfig(
             "max_tokens": agent_data.get("max_tokens"),
             "system_prompt": agent_data["system_prompt"],
             "tools": agent_data.get("tools", []),
+            "native_tools": agent_data.get("tools", []),  # same list for factory loading
             "mcp_tools": agent_data.get("mcp_tools", []),
             "cli_tools": agent_data.get("cli_tools", []),
             "middleware": agent_data.get("middleware", []),
