@@ -1680,16 +1680,22 @@ export default function KnowledgeBaseView() {
           >
             <DocChatPanel
               projectId={activeProjectId}
-              // Always pass the list of in-scope doc names — never null.
-              // The default (right after loadDocuments) is "all docs
-              // in scope" — all checkboxes visually checked, and the
-              // chat gets the full list. An empty list (after "Clear")
-              // means "user explicitly wants no scope" — the backend
-              // treats it as no filter, same as null. Sending [] is
-              // semantically equivalent to null but more explicit.
-              scope={documents
-                .filter((d) => scopeDocIds.has(d.id))
-                .map((d) => d.name)}
+              // Always pass the list of in-scope doc names, but only
+              // when the user explicitly selected a subset. null = no
+              // filter (backend treats as "all docs"). The default
+              // (right after loadDocuments) is "all docs in scope" —
+              // all checkboxes visually checked. Only send a scope
+              // list once the user explicitly excludes some docs.
+              scope={(() => {
+                const selected = documents
+                  .filter((d) => scopeDocIds.has(d.id))
+                  .map((d) => d.name);
+                // All docs selected = no filter. Only send scope
+                // for a true subset (user explicit selection).
+                return selected.length === documents.length
+                  ? null
+                  : selected;
+              })()}
               onScopeChange={setScopeDocIds}
               onAgentInfoChange={setChatAgentInfo}
               onDocSelected={(docName) => {
