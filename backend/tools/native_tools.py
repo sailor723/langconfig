@@ -1758,7 +1758,10 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
 
     Returns matching documents with name, type, domain, and supporting list.
     """
-    if not project_id:
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
         project_id = _get_project_id()
     if not project_id:
         return ("ERROR: no project_id provided. Either pass project_id "
@@ -1960,7 +1963,10 @@ def graphindex_list_docs(project_id: Optional[int] = None) -> str:
             current project (from GRAPHINDEX_PROJECT_ID env var).
             Returns an error if neither is set.
     """
-    if not project_id:
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
         project_id = _get_project_id()
     if not project_id:
         return ("ERROR: no project_id provided. Either pass project_id "
@@ -2006,7 +2012,10 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
         query: Natural language query (e.g., "compare Nike strategy with industry trends")
         project_id: Optional project ID. Uses GRAPHINDEX_PROJECT_ID env var if not set.
     """
-    if not project_id:
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
         project_id = _get_project_id()
     if not project_id:
         return ("ERROR: no project_id provided. Either pass project_id "
@@ -2088,7 +2097,10 @@ def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
         name: Exact document filename (use graphindex_list_docs to find names).
         project_id: Optional project ID.
     """
-    if not project_id:
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
         project_id = _get_project_id()
     if not project_id:
         return ("ERROR: no project_id provided.")
@@ -2114,7 +2126,10 @@ def graphindex_ingest(file_path: str, project_id: Optional[int] = None,
         project_id: Optional project ID.
         target_dir: Optional override for the target directory.
     """
-    if not project_id:
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
         project_id = _get_project_id()
     if not project_id:
         return ("ERROR: no project_id provided.")
@@ -2139,7 +2154,10 @@ def graphindex_rebuild_project(project_id: Optional[int] = None) -> str:
     Args:
         project_id: Optional project ID.
     """
-    if not project_id:
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
         project_id = _get_project_id()
     if not project_id:
         return ("ERROR: no project_id provided.")
@@ -2163,7 +2181,10 @@ def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
         name: Exact document filename.
         project_id: Optional project ID.
     """
-    if not project_id:
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
         project_id = _get_project_id()
     if not project_id:
         return ("ERROR: no project_id provided.")

@@ -897,6 +897,7 @@ export default function KnowledgeBaseView() {
       model: "minimax-m3",
       temperature: 0.0,
       max_tokens: 8192,
+      use_phase9_graphindex: true,
       system_prompt:
         "You are **graphindex_chat** — a research assistant for the user's project documents.\n\n" +
         "Tools:\n" +
