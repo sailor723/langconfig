@@ -1783,8 +1783,7 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
         llm = make_llm()
         decision, cache_read = route_by_llm(query, rows, llm)
 
-        # Fallback to string match if LLM returned null
-        if not decision.primary:
+        if not decision.documents:
             primary_name = route_by_string(query, rows)
             if not primary_name:
                 return (f"No documents found matching '{query}' in project {project_id}. "
@@ -1795,22 +1794,20 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
 
         lines = [f"## GraphIndex Search Results for: '{query}'", ""]
         lines.append(f"_routing: llm-semantic (cache_read={cache_read:,} tokens)_")
-        if decision.primary_domain:
-            lines.append(f"_primary_domain: {decision.primary_domain}_")
         if decision.reasoning:
             lines.append(f"_reasoning: {decision.reasoning}_")
         lines.append("")
 
-        # Primary
-        lines.append(f"**[1] {decision.primary}** (PRIMARY, confidence={decision.primary_confidence:.2f})")
-        lines.append(f"   - Name: {decision.primary}")
+        # Primary (first doc = best match)
+        primary = decision.documents[0]
+        lines.append(f"**[1] {primary.name}** (PRIMARY, confidence={primary.confidence:.2f})")
         lines.append("")
 
-        # Supporting
-        for i, sup in enumerate(decision.supporting, 2):
-            lines.append(f"**[{i}] {sup.name}** (SUPPORTING)")
-            if sup.reason:
-                lines.append(f"   - Reason: {sup.reason}")
+        # Supporting (rest of the list)
+        for i, doc in enumerate(decision.documents[1:], 2):
+            lines.append(f"**[{i}] {doc.name}** (SUPPORTING, confidence={doc.confidence:.2f})")
+            if doc.reason:
+                lines.append(f"   - Reason: {doc.reason}")
             lines.append("")
 
         return "\n".join(lines)
@@ -2032,22 +2029,23 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
 
         llm = make_llm()
         decision, _ = route_by_llm(query, rows, llm)
-        if not decision.primary:
+        if not decision.documents:
             return (f"No document matched '{query}'. "
                     f"Reasoning: {decision.reasoning if decision.reasoning else 'N/A'}")
 
         # Use tool_query_docs to load the matched documents
-        doc_names = [decision.primary] + [s.name for s in decision.supporting]
+        doc_names = [d.name for d in decision.documents]
         context = "\n\n".join(
             tool_query_docs(doc_names, project_id) for _ in [1]
         )
+        primary = decision.documents[0]
         header = (
             f"## Multi-doc context for: '{query}'\n"
-            f"primary: {decision.primary}"
-            f" (domain={decision.primary_domain}, confidence={decision.primary_confidence:.2f})\n"
+            f"primary: {primary.name}"
+            f" (confidence={primary.confidence:.2f})\n"
         )
-        if decision.supporting:
-            names = ", ".join(s.name for s in decision.supporting)
+        if len(decision.documents) > 1:
+            names = ", ".join(d.name for d in decision.documents[1:])
             header += f"supporting: {names}\n"
         return header + context
     except Exception as e:
