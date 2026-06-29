@@ -691,29 +691,9 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     max_tokens=${config.max_tokens || 4000}
 )`;
     } else if (modelLower.includes('minimax')) {
-      modelImport = `from langchain_openai import ChatOpenAI`;
-      llmInit = `llm = ChatOpenAI(
+      modelImport = `from langchain_minimax import ChatMiniMax`;
+      llmInit = `llm = ChatMiniMax(
     model="${config.model || 'minimax-m3'}",
-    base_url=os.environ.get("MINIMAX_API_BASE", "https://api.minimaxi.com/v1"),
-    api_key=os.environ.get("MINIMAX_API_KEY", "your-api-key"),
-    temperature=${config.temperature ?? 0.7},
-    max_tokens=${config.max_tokens || 4000}
-)`;
-    } else if (modelLower.includes('deepseek')) {
-      modelImport = `from langchain_openai import ChatOpenAI`;
-      llmInit = `llm = ChatOpenAI(
-    model="${config.model || 'deepseek-chat'}",
-    base_url=os.environ.get("DEEPSEEK_API_BASE", "https://api.deepseek.com/v1"),
-    api_key=os.environ.get("DEEPSEEK_API_KEY", "your-api-key"),
-    temperature=${config.temperature ?? 0.7},
-    max_tokens=${config.max_tokens || 4000}
-)`;
-    } else if (modelLower.includes('agnes')) {
-      modelImport = `from langchain_openai import ChatOpenAI`;
-      llmInit = `llm = ChatOpenAI(
-    model="${config.model || 'agnes-3'}",
-    base_url=os.environ.get("AGNES_API_BASE", "https://api.agnes.chat/v1"),
-    api_key=os.environ.get("AGNES_API_KEY", "your-api-key"),
     temperature=${config.temperature ?? 0.7},
     max_tokens=${config.max_tokens || 4000}
 )`;
@@ -743,9 +723,8 @@ Generated from LangConfig
 import os
 
 ${modelImport}
-from deepagents import create_deep_agent
-from deepagents.backends.filesystem import FilesystemBackend
-from deepagents.middleware.memory import MemoryMiddleware
+from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.prebuilt import create_react_agent
 
 # ---------------------------------------------------------------------------
 # 1. LLM
@@ -795,23 +774,24 @@ tools = []
 # ---------------------------------------------------------------------------
 # 4. Build agent
 # ---------------------------------------------------------------------------
-# create_deep_agent returns a CompiledStateGraph with built-in conversation
-# memory via MemoryMiddleware and FilesystemBackend.
-config = {
-    "model": "${config.model || 'claude-sonnet-4-5-20250929'}",
-    "temperature": ${config.temperature ?? 0.7},
-    "system_prompt": system_prompt,
-    "tools": tools,
-}
-
-agent = create_deep_agent(
-    llm=llm,
-    system_prompt=system_prompt,
-    tools=tools,
+# create_react_agent returns a CompiledStateGraph — no AgentExecutor needed.
+agent = create_react_agent(
+    llm,
+    tools,
+    state_modifier=system_prompt,
 )
 
 # ---------------------------------------------------------------------------
-# 5. Run
+# 5. PostgreSQL checkpointer (conversation memory)
+# ---------------------------------------------------------------------------
+DB_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://user:pass@localhost:5432/langconfig",
+)
+checkpointer = PostgresSaver.from_conn_string(DB_URL)
+
+# ---------------------------------------------------------------------------
+# 6. Run
 # ---------------------------------------------------------------------------
 result = agent.invoke(
     {"messages": [("user", "Your input here")]},
