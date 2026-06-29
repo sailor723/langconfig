@@ -244,6 +244,11 @@ const NATIVE_TOOLS = [
   { id: 'tavily_search', name: 'Tavily Search', description: 'Professional web search with AI-optimized results. Supports general, news, and finance topics. Requires TAVILY_API_KEY.' },
   { id: 'web_fetch', name: 'Web Fetch', description: 'Fetch and extract text content from webpages using HTTP requests. Useful for reading articles, documentation, and web pages.' },
   { id: 'browser', name: 'Browser Automation', description: 'Advanced web interaction using Playwright. Navigate, click, extract text, take screenshots, and interact with JavaScript-rendered content.' },
+  // GraphIndex retrieval tools (vectorless RAG)
+  { id: 'graphindex_list_docs', name: 'GraphIndex - List Documents', description: 'List all documents in the project with about-preview. Use this first to discover what docs exist.' },
+  { id: 'graphindex_search', name: 'GraphIndex - Search Documents', description: 'Search project documents using LLM semantic routing. Returns best matching doc (primary + 0-3 supporting).' },
+  { id: 'graphindex_load', name: 'GraphIndex - Load Document Content', description: 'Load the full content of a document by its context_doc_id (from graphindex_search). Returns complete text.' },
+  { id: 'graphindex_multi_doc_load', name: 'GraphIndex - Multi-Doc Load', description: 'One-shot: route a query to the best primary document, then load primary + supporting docs in one step.' },
   // Memory tools
   { id: 'memory_store', name: 'Store Memory', description: 'Save information to agent memory for later recall. Uses PostgreSQL for persistence across sessions. Supports key-value storage with context categories.' },
   { id: 'memory_recall', name: 'Recall Memory', description: 'Retrieve previously stored information from memory by key. Access saved data across different conversation sessions.' },
