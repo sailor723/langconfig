@@ -930,12 +930,8 @@ export default function KnowledgeBaseView() {
       subagents: [],
       backend: { type: "state", config: {} },
       guardrails: {},
-      // Opt the chat into the Phase 9 single-agent path. When the
-      // backend sees this flag at /api/chat/message/stream, it
-      // routes through phase9.graphindex_chat_agent.stream_graphindex_chat_events
-      // (the proven 5-tool + progressive-disclosure deepagent) instead
-      // of building its own agent via DeepAgentFactory.
-      use_phase9_graphindex: true,
+      // The agent is built by DeepAgentFactory using the 4 native tools
+      // listed above. No special-casing needed.
     },
   };
 
