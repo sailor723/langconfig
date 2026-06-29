@@ -575,11 +575,18 @@ export default function KnowledgeBaseView() {
       }
       setDocuments(merged);
       // Default scope behavior: all checkboxes checked = "all docs in scope".
-      // After loading docs, we re-populate scopeDocIds with the IDs of all
-      // CURRENT project docs. Stale IDs from a previous project are dropped.
-      // The user can then uncheck individual checkboxes to restrict scope,
-      // or click "Clear" to empty the set entirely.
-      setScopeDocIds(() => new Set(merged.map((d) => d.id)));
+      // Preserve the user's scope selection across polling refreshes.
+      // Only populate all IDs on initial load (when scope is empty),
+      // otherwise just prune stale IDs that no longer exist.
+      setScopeDocIds((prev) => {
+        if (prev.size === 0) {
+          // Initial load — default to all docs in scope.
+          return new Set(merged.map((d) => d.id));
+        }
+        // Polling refresh — keep existing selection, drop deleted doc IDs.
+        const currentIds = new Set(merged.map((d) => d.id));
+        return new Set([...prev].filter((id) => currentIds.has(id)));
+      });
     } catch (error) {
       // Ignore abort errors
       if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
@@ -732,9 +739,14 @@ export default function KnowledgeBaseView() {
         newDocs = (fresh.data as Document[]).filter((d) => uploadedNames.has(d.name));
         // Also update the sidebar state
         setDocuments(fresh.data);
-        // Re-populate scope with all current docs (newly uploaded
-        // docs default to in-scope to match "all checked = all in scope").
-        setScopeDocIds(new Set((fresh.data as Document[]).map((d) => d.id)));
+        // Add newly uploaded docs to the current scope (preserve existing selection)
+        setScopeDocIds((prev) => {
+          const next = new Set(prev);
+          for (const doc of fresh.data as any[]) {
+            next.add(doc.id);
+          }
+          return next;
+        });
       } catch (e) {
         console.warn('Could not refresh doc list after upload:', e);
       }
