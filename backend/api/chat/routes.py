@@ -789,9 +789,6 @@ async def send_message_stream(
             scope == "all" or (isinstance(scope, (list, tuple)) and len(scope) == 0)
         ):
             scope = None
-        # When scope pinpoints a single doc, the user is viewing it.
-        # Tell the agent so it understands "this doc" / "this file".
-        active_doc_name = scope[0] if isinstance(scope, (list, tuple)) and len(scope) == 1 else None
         # Set the doc scope on the native tools so graphindex_search / list / load
         # filter to only the user-selected docs (deterministic, not LLM-dependent).
         from tools.native_tools import set_graphindex_doc_scope
@@ -877,11 +874,6 @@ async def send_message_stream(
                             session_context = ""
 
                     all_context = ""
-                    if active_doc_name:
-                        all_context = (
-                            f"# Active Document\n"
-                            f"The user is currently viewing document: {active_doc_name}\n"
-                        )
 
                     if project_context and session_context:
                         all_context += f"# Project Documents:\n{project_context}\n\n# Session Documents:\n{session_context}"
