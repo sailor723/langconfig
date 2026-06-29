@@ -1760,7 +1760,13 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
         )
         idx.ensure_constraints()
         rows = fetch_catalog(idx, project_id)
+
+        # PG fallback: if Neo4j is empty (indexing still in progress),
+        # try PostgreSQL ContextDocument table instead.
         if not rows:
+            pg_result = _search_pg_fallback(query, project_id)
+            if pg_result:
+                return pg_result
             return f"No documents found matching '{query}' in project {project_id}."
 
         llm = make_llm()
@@ -1846,12 +1852,96 @@ def graphindex_load(context_doc_id: int, max_chars: int = 10_000_000) -> str:
         return f"❌ Error loading document {context_doc_id}: {e}"
 
 
+# ---------------------------------------------------------------------------
+# PostgreSQL fallback — when Neo4j hasn't been enriched yet (upload still
+# indexing), query ContextDocument directly from Postgres + read from disk.
+# This lets the user chat about a just-uploaded doc while Neo4j indexing
+# runs in the background.
+# ---------------------------------------------------------------------------
+def _list_docs_from_pg(project_id: int) -> list:
+    """Query ContextDocument from PostgreSQL as a fallback catalog.
+
+    Returns list of dicts with keys: name, about, id, file_path, filename.
+    """
+    try:
+        from db.database import SessionLocal
+        from models.core import ContextDocument
+
+        db = SessionLocal()
+        try:
+            docs = db.query(ContextDocument).filter(
+                ContextDocument.project_id == project_id,
+            ).all()
+            return [
+                {
+                    "name": d.filename or f"doc_{d.id}",
+                    "about": d.description or "(no description yet — indexing in progress)",
+                    "id": d.id,
+                    "file_path": d.file_path or "",
+                    "filename": d.filename or f"doc_{d.id}",
+                }
+                for d in docs
+            ]
+        finally:
+            db.close()
+    except Exception:
+        return []
+
+
+def _search_pg_fallback(query: str, project_id: int) -> str:
+    """Fallback search: list ContextDocuments from PostgreSQL and match
+    by filename. Returns a formatted result string the agent can use."""
+    docs = _list_docs_from_pg(project_id)
+    if not docs:
+        return ""
+
+    # Simple match: find docs whose filename contains query keywords
+    keywords = query.lower().split()
+    matched = []
+    for d in docs:
+        name_lower = d["name"].lower()
+        score = sum(1 for kw in keywords if kw in name_lower)
+        if score > 0:
+            matched.append((score, d))
+
+    matched.sort(key=lambda x: -x[0])
+
+    # If nothing matched by keyword, return the first few docs as suggestions
+    if not matched:
+        lines = [
+            f"No exact match for '{query}' — showing {min(len(docs), 5)}"
+            f" most recently uploaded docs:",
+            "",
+        ]
+        for d in docs[:5]:
+            lines.append(f"**{d['name']}** (id={d['id']}, {d['about'][:60]})")
+        lines.append("")
+        lines.append("Use `graphindex_load` with the `id` to read a document.")
+        return "\n".join(lines)
+
+    lines = [
+        f"## GraphIndex Search Results for: '{query}' (PostgreSQL fallback — Neo4j enrichment may still be in progress)",
+        "",
+    ]
+    for i, (score, d) in enumerate(matched, 1):
+        label = "PRIMARY" if i == 1 else "SUPPORTING"
+        lines.append(f"**[{i}] {d['name']}** ({label})")
+        lines.append(f"   - Context Doc ID: {d['id']}")
+        lines.append(f"   - {d['about']}")
+        lines.append("")
+
+    lines.append("Use `graphindex_load(id)` to read the full content.")
+    return "\n".join(lines)
+
+
 # --- Phase 9 helpers -------------------------------------------------------
 
 def graphindex_list_docs(project_id: Optional[int] = None) -> str:
-    """List all documents available in the project (Phase 9 catalog dump).
+    """List all documents available in the project.
 
-    Uses ``learning.phase9.graphindex.route.fetch_catalog``.
+    First tries Neo4j (``learning.phase9.graphindex.route.fetch_catalog``).
+    If empty (indexing still in progress), falls back to PostgreSQL
+    ContextDocument table.
 
     Args:
         project_id: Optional project ID. If not provided, uses the
@@ -1875,12 +1965,17 @@ def graphindex_list_docs(project_id: Optional[int] = None) -> str:
         )
         idx.ensure_constraints()
         rows = fetch_catalog(idx, project_id)
+
         if not rows:
-            return f"No documents in project {project_id}."
+            # Fallback: PostgreSQL ContextDocuments (not yet Neo4j-indexed)
+            pg_docs = _list_docs_from_pg(project_id)
+            if not pg_docs:
+                return f"No documents in project {project_id}."
+            rows = pg_docs
 
         lines = [f"## Documents in project {project_id} ({len(rows)} total)", ""]
         for i, r in enumerate(rows, 1):
-            about = (r["about"] or "(no enrichment)")[:80]
+            about = (r.get("about") or r.get("description") or "(no enrichment)")[:80]
             lines.append(f"**[{i}] {r['name']}**")
             lines.append(f"   {about}…")
             lines.append("")
