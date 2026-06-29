@@ -583,19 +583,7 @@ class APIClient {
     return response.data;
   }
 
-  async pageIndexAnswer(data: {
-    query: string;
-    project_id: number;
-    context_doc_id?: number;
-    model?: string;
-    temperature?: number;
-    max_tokens?: number;
-  }) {
-    const response = await this.client.post('/api/rag/graphindex/answer', data);
-    return response.data;
-  }
-
-  // (indexDocument removed — unused)
+  // (pageIndexAnswer removed — unused)
 
   async getSearchHistory(params: {
     project_id: number;

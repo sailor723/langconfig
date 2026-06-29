@@ -44,9 +44,6 @@ interface SearchModalProps {
   onClearSearch: () => void;
 
   // Result interactions
-  onGraphIndexAnswer: (doc: any) => void;
-  answerLoading: boolean;
-  answerResult: any;
   expandedChunks: Set<number>;
   onToggleChunkExpansion: (index: number) => void;
 
@@ -73,9 +70,6 @@ export default function SearchModal({
   pageIndexDocs,
   searchResults,
   onClearSearch,
-  onGraphIndexAnswer,
-  answerLoading,
-  answerResult,
   expandedChunks,
   onToggleChunkExpansion,
   t,
@@ -270,21 +264,12 @@ export default function SearchModal({
                         >
                           {doc.doc_name}
                         </span>
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="text-[10px]"
-                            style={{ color: 'var(--color-text-muted)' }}
-                          >
-                            {doc.page_count} {t('kb_pages')}
-                          </span>
-                          <button
-                            onClick={() => onGraphIndexAnswer(doc)}
-                            disabled={answerLoading}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-primary text-white hover:opacity-80 transition-all disabled:opacity-50"
-                          >
-                            {answerLoading ? '...' : t('kb_answer')}
-                          </button>
-                        </div>
+                        <span
+                          className="text-[10px]"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          {doc.page_count} {t('kb_pages')}
+                        </span>
                       </div>
                       {doc.structure && doc.structure.length > 0 && (
                         <div className="ml-3 space-y-0.5">
@@ -313,43 +298,6 @@ export default function SearchModal({
                       )}
                     </div>
                   ))}
-                </div>
-              )}
-
-              {/* GraphIndex Answer Result */}
-              {answerResult && (
-                <div className="mt-3 border border-primary/30 dark:border-primary/20 rounded-lg p-3 bg-primary/5 dark:bg-primary/10">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="text-[11px] font-medium"
-                        style={{ color: 'var(--color-text-primary)' }}
-                      >
-                        {t('kb_answer_from')} {answerResult.doc_name}
-                      </span>
-                      <span
-                        className="text-[9px] px-1 py-0.5 rounded bg-gray-200 dark:bg-white/10"
-                        style={{ color: 'var(--color-text-muted)' }}
-                      >
-                        {answerResult.model}
-                      </span>
-                    </div>
-                    <span
-                      className="text-[9px]"
-                      style={{ color: 'var(--color-text-muted)' }}
-                    >
-                      {t('kb_pages_loaded', {
-                        pages: answerResult.pages_loaded,
-                        chars: answerResult.content_chars,
-                      })}
-                    </span>
-                  </div>
-                  <div
-                    className="text-xs leading-relaxed whitespace-pre-wrap"
-                    style={{ color: 'var(--color-text-primary)' }}
-                  >
-                    {answerResult.answer}
-                  </div>
                 </div>
               )}
 
