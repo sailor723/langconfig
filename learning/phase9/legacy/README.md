@@ -27,9 +27,17 @@ route_semantic.py     ── raw functions (route_by_llm, load_doc_context, etc.
     ├── dv_chat.py    ── calls raw functions directly
     │
     └── tools.py      ── wraps raw functions into StructuredTool for DeepAgent
+            │                          + ContextVar helpers for backend requests
             │
             └── agent_chat.py  ── uses tools.py + create_deep_agent
+                                      │
+                                      ▼
+                              backend/api/chat/routes.py  ── imports agent_chat.py directly
+                              backend/api/knowledge/graphindex_chat.py  ── imports agent_chat.py directly
+                              backend/api/knowledge/rag.py  ── imports build_graphindex.py directly
 ```
+
+No wrappers, no middlemen. The backend imports the legacy modules directly.
 
 ## Architecture
 
@@ -215,20 +223,24 @@ upsert Document node in Neo4j with content_sha256, enrichment, file_path
 └────────────────────────────────────────────────────────────────┘
 ```
 
+## Backend integration
+
+The legacy modules are imported **directly** by the LangConfig backend — no wrappers, no middlemen:
+
+| Backend file | Imports |
+|---|---|
+| `backend/api/chat/routes.py` | `legacy.agent_chat.build_agent()` |
+| `backend/api/knowledge/graphindex_chat.py` | `legacy.agent_chat.build_agent()` |
+| `backend/api/knowledge/rag.py` | `legacy.build_graphindex.cmd_ingest()`, `extract_document_enrichment()` |
+
 ## Files
 
 | File | What it is | Status |
 |---|---|---|
 | `build_graphindex.py` | Primary CLI — ingest, query, rebuild, remove, list. Exports helper functions reused by `route_semantic.py` and `dv_chat.py`. | **Active** |
 | `route_semantic.py` | Semantic router + answer pipeline. Uses `gemma4` (Ollama) for routing and `minimax-m3` (API) for synthesis. Supports doc scope. | **Active** |
-| `tools.py` | Tool wrappers for the DeepAgent: `list_docs`, `query_docs`, `read_doc`, `answer`. Exports `make_tools()`. | **Active** |
-| `agent_chat.py` | DeepAgent-powered chat REPL (or single query). Token streaming, conversation history, `!reset`. | **Active** |
+| `tools.py` | Tool wrappers for the DeepAgent: `list_docs`, `query_docs`, `read_doc`, `answer`. Also exports ContextVar helpers for backend request scoping. | **Active** |
+| `agent_chat.py` | DeepAgent-powered chat REPL (or single query). Token streaming, conversation history, `!reset`. The canonical chat agent used by the backend. | **Active** |
 | `dv_chat.py` | Legacy interactive chat REPL (route → load → answer per turn). Pricing tracker, multi-doc session, token cost logging. | **Legacy** |
 | `create_mock_data.py` | Creates 3 mock .md files for testing. | **Helper** |
 | `eval_routing.py` | Original eval suite (14 hand-labeled queries, string vs LLM). Exports `EVAL_QUERIES`. | **Utility + legacy eval** |
-
-## What's next — Phase 2
-
-Wrap the legacy chat flow (`dv_chat.py`) as a DeepAgent using `create_deep_agent`
-and the same 5 graphindex tools. The legacy code is the reference implementation —
-the DeepAgent version will use `astream_events` for token-level streaming.
