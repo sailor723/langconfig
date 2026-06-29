@@ -825,7 +825,9 @@ async def send_message_stream(
                 logger.info(f"✓ User message saved to DB: session={session_id}, total_messages={len(fresh_session.messages)}")
 
                 # Build agent via DeepAgentFactory (standard path)
-                project_id = agent_project_id
+                # Use the UI's active project if the agent doesn't have one
+                project_id = agent_project_id or request.project_id
+                agent_instance = None
 
                 if project_id:
                     from services.context_retrieval import context_retriever
@@ -920,6 +922,17 @@ async def send_message_stream(
                             agent_id=agent.id,
                             agent_version=agent_version,
                         )
+
+                # Fallback: if no project_id or agent couldn't be built, use graphindex agent
+                if agent_instance is None:
+                    try:
+                        from learning.phase9.graphindex.agent import build_agent as _build_graphindex_agent
+                        agent_instance = _build_graphindex_agent(project_id=project_id or 1)
+                        logger.info(f"Fallback: built graphindex agent for session={session_id}")
+                    except Exception as e:
+                        logger.error(f"Fallback agent build failed: {e}")
+                        yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to build agent'})}\n\n"
+                        return
 
                 # Create event handler for tracking tool calls and subagent activity
                 event_handler = ExecutionEventCallbackHandler(
