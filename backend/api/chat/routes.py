@@ -789,6 +789,9 @@ async def send_message_stream(
             scope == "all" or (isinstance(scope, (list, tuple)) and len(scope) == 0)
         ):
             scope = None
+        # When scope pinpoints a single doc, the user is viewing it.
+        # Tell the agent so it understands "this doc" / "this file".
+        active_doc_name = scope[0] if isinstance(scope, (list, tuple)) and len(scope) == 1 else None
         agent_config = agent.config.copy() if agent.config else {}
         # Merge guardrails_config separately — it's a separate DB column
         if agent.guardrails_config:
@@ -867,14 +870,19 @@ async def send_message_stream(
                             session_context = "\n\n".join([chunk.get('content', '') for chunk in session_chunks])
                         except Exception as e:
                             logger.warning(f"Failed to retrieve session context: {e}")
-                            session_context = ""
+                            session_contextall_context = ""
+                    if active_doc_name:
+                        all_context = (
+                            f"# Active Document\n"
+                            f"The user is currently viewing document: {active_doc_name}\n"
+                        )
 
                     if project_context and session_context:
-                        all_context = f"# Project Documents:\n{project_context}\n\n# Session Documents:\n{session_context}"
+                        all_context += f"# Project Documents:\n{project_context}\n\n# Session Documents:\n{session_context}"
                     elif project_context:
-                        all_context = f"# Project Documents:\n{project_context}"
+                        all_context += f"# Project Documents:\n{project_context}"
                     elif session_context:
-                        all_context = f"# Session Documents:\n{session_context}"
+                        all_context += f"# Session Documents:\n{session_context}"
 
                     if all_context:
                         rag_tokens_used = token_counter.count_tokens(all_context)
