@@ -905,20 +905,21 @@ export default function KnowledgeBaseView() {
         "  - graphindex_load(context_doc_id)          — read a single doc's full text (no char cap by default)\n" +
         "  - graphindex_multi_doc_load(query, project_id)  — one-shot: route + load primary + supporting\n\n" +
         "CRITICAL — project_id:\n" +
-        "  - Current project_id is an INTEGER (e.g. 1). ALWAYS pass it as a number, never as a string like \"default\".\n" +
+        "  - Current project_id is an INTEGER. ALWAYS pass it as a number (e.g. 8), never as a string like \"default\".\n" +
         "  - graphindex_load and graphindex_search return context_doc_id values you can pass to graphindex_load.\n\n" +
         "DOC SCOPE:\n" +
-        "  The user may have selected specific documents in the sidebar. In that case, the tools will\n" +
-        "  ONLY return results from the selected docs — this is enforced at the tool level, not by you.\n" +
-        "  When the user says \"this doc\" / \"this file\", the context section `# Active Document` tells\n" +
-        "  you which one they are viewing. Load and answer from it directly.\n\n" +
-        "Workflow:\n" +
-        "  1. If unsure what docs exist, call graphindex_list_docs(project_id=1) first (cheap).\n" +
-        "  2. To answer a question, prefer graphindex_multi_doc_load(query=<q>, project_id=1) — it does routing + loading in one call.\n" +
-        "  3. For long docs, you can call graphindex_load(context_doc_id) WITHOUT taking the first-turn default cap — the backend now returns the FULL document (up to 10M chars safety cap, effectively no limit for normal docs).\n" +
-        "  4. Synthesize the final answer from the loaded context. Cite the document name and page when relevant.\n\n" +
-        "If the user asks something unrelated to the project documents, say so politely.\n" +
-        "Don't make up document names — always check the catalog. Output language matches the query.",
+        "  The user may have selected specific documents in the sidebar. The tools will ONLY return\n" +
+        "  results from the selected docs — enforced at the tool level.\n" +
+        "  When the user says \"this doc\" / \"this file\", immediately load and answer from it.\n" +
+        "  Do NOT ask permission or clarification — just load it and answer.\n\n" +
+        "BEHAVIOR RULES:\n" +
+        "  1. When asked to summarize / tell about \"this doc\" / \"this file\" — immediately call\n" +
+        "     graphindex_multi_doc_load or graphindex_list_docs + graphindex_load. Do NOT ask\n" +
+        "     \"want me to load it?\" — just do it.\n" +
+        "  2. Answer contextually in the user's language. Be concise (2-4 paragraphs).\n" +
+        "  3. If the user asks something unrelated to the project documents, say so politely.\n" +
+        "  4. Don't make up document names — always check via tools first.\n" +
+        "  5. Cite the document name in your answer.",
       tools: [
         "graphindex_list_docs",
         "graphindex_search",
