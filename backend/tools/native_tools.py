@@ -1717,19 +1717,23 @@ _doc_index_pages_tool = StructuredTool.from_function(
 # GraphIndex Tools (vectorless RAG for PDF Chat)
 # =============================================================================
 
-# GraphIndex tools — doc scope filter.
+# GraphIndex tools — doc scope filter and default project_id.
 # Set by the chat route before calling the agent when the user has
 # selected specific docs. None = all docs visible.
 _GRAPHINDEX_DOC_SCOPE: Optional[List[str]] = None
+_GRAPHINDEX_PROJECT_ID: Optional[int] = None
 
-def set_graphindex_doc_scope(scope: Optional[List[str]]) -> None:
+def set_graphindex_doc_scope(scope: Optional[List[str]], project_id: Optional[int] = None) -> None:
     """Set the doc scope filter for graphindex tools. Pass None for 'all'."""
-    global _GRAPHINDEX_DOC_SCOPE
+    global _GRAPHINDEX_DOC_SCOPE, _GRAPHINDEX_PROJECT_ID
     _GRAPHINDEX_DOC_SCOPE = scope
+    _GRAPHINDEX_PROJECT_ID = project_id
 
 
 def _get_project_id() -> Optional[int]:
-    """Get the current project ID from environment (set during agent execution)."""
+    """Get the current project ID from module-level var (set during agent execution)."""
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        return _GRAPHINDEX_PROJECT_ID
     pid = os.environ.get("GRAPHINDEX_PROJECT_ID")
     if pid:
         try:

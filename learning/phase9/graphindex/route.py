@@ -97,7 +97,7 @@ ORDER BY d.name
     scope_list: List[str] = json.loads(doc_scope) if isinstance(doc_scope, str) else doc_scope
     # Build a CONTAINS filter for each scope name
     contains_filters = " OR ".join(f"d.name CONTAINS $s{i}" for i in range(len(scope_list)))
-    params = {"pid": project_id}
+    params = {"pid": project_id, "scope_list": scope_list}
     for i, name in enumerate(scope_list):
         params[f"s{i}"] = name
     cypher = f"""
