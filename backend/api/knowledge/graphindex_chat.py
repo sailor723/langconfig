@@ -178,7 +178,7 @@ def _resolve_scope(project_id: int, scope):
     # Normalize: None / "all" / [] = no filter
     if scope is None or scope == "all" or (isinstance(scope, (list, tuple)) and len(scope) == 0):
         # Still fetch all doc names for the "available docs" suggestion
-        from learning.phase9.graphindex.build_index import Neo4jDocumentIndex
+        from learning.phase9.graphindex.index_build import Neo4jDocumentIndex
         from learning.phase9.graphindex.route import fetch_catalog
         try:
             idx = Neo4jDocumentIndex(
