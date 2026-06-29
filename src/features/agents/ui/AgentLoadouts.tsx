@@ -678,6 +678,7 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     const tools = config.native_tools || [];
     const customTools = config.custom_tools || [];
     const middleware = config.middleware || [];
+    const isDeep = config.use_deepagents;
 
     // Pick model import based on the model name
     const modelLower = (config.model || '').toLowerCase();
@@ -691,9 +692,20 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     max_tokens=${config.max_tokens || 4000}
 )`;
     } else if (modelLower.includes('minimax')) {
-      modelImport = `from langchain_minimax import ChatMiniMax`;
-      llmInit = `llm = ChatMiniMax(
+      modelImport = `from langchain_openai import ChatOpenAI`;
+      llmInit = `llm = ChatOpenAI(
     model="${config.model || 'minimax-m3'}",
+    base_url=os.environ.get("MINIMAX_API_BASE", "https://api.minimaxi.com/v1"),
+    api_key=os.environ.get("MINIMAX_API_KEY", "your-api-key"),
+    temperature=${config.temperature ?? 0.7},
+    max_tokens=${config.max_tokens || 4000}
+)`;
+    } else if (modelLower.includes('deepseek')) {
+      modelImport = `from langchain_openai import ChatOpenAI`;
+      llmInit = `llm = ChatOpenAI(
+    model="${config.model || 'deepseek-chat'}",
+    base_url=os.environ.get("DEEPSEEK_API_BASE", "https://api.deepseek.com/v1"),
+    api_key=os.environ.get("DEEPSEEK_API_KEY", "your-api-key"),
     temperature=${config.temperature ?? 0.7},
     max_tokens=${config.max_tokens || 4000}
 )`;
@@ -714,18 +726,17 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
 )`;
     }
 
-    let code = `"""
-LangGraph Agent Configuration
+    const header = `"""
+${isDeep ? 'DeepAgent' : 'LangGraph'} Agent Configuration
 Agent: ${agentName}
 Generated from LangConfig
 """
 
 import os
 
-${modelImport}
-from langgraph.checkpoint.postgres import PostgresSaver
-from langgraph.prebuilt import create_react_agent
+${modelImport}`;
 
+    const systemSection = `
 # ---------------------------------------------------------------------------
 # 1. LLM
 # ---------------------------------------------------------------------------
@@ -735,7 +746,9 @@ ${llmInit}
 # 2. System prompt
 # ---------------------------------------------------------------------------
 system_prompt = """${config.system_prompt || 'You are a helpful AI assistant.'}"""
+`;
 
+    let toolsSection = `
 # ---------------------------------------------------------------------------
 # 3. Tools
 # ---------------------------------------------------------------------------
@@ -743,38 +756,58 @@ tools = []
 `;
 
     if (tools.length > 0) {
-      code += `\n# Native tools (graphindex-backed document search)\n`;
-      code += `from tools.native_tools import load_native_tools\n`;
-      code += `tools.extend(load_native_tools([\n`;
+      toolsSection += `\n# Native tools\n`;
+      toolsSection += `from tools.native_tools import load_native_tools\n`;
+      toolsSection += `tools.extend(load_native_tools([\n`;
       tools.forEach((tool: string) => {
-        code += `    "${tool}",\n`;
+        toolsSection += `    "${tool}",\n`;
       });
-      code += `]))\n`;
+      toolsSection += `]))\n`;
     }
 
     if (customTools.length > 0) {
-      code += `\n# Custom tools (DB-backed, editable in Studio)\n`;
-      code += `from orchestration.tool_factory import ToolFactory\n`;
-      code += `tool_factory = ToolFactory()\n`;
+      toolsSection += `\n# Custom tools\n`;
+      toolsSection += `from orchestration.tool_factory import ToolFactory\n`;
+      toolsSection += `tool_factory = ToolFactory()\n`;
       customTools.forEach((toolId: string) => {
-        code += `tools.append(tool_factory.load_custom_tool("${toolId}"))\n`;
+        toolsSection += `tools.append(tool_factory.load_custom_tool("${toolId}"))\n`;
       });
     }
 
-    if (middleware.length > 0) {
-      code += `\n# Middleware\n`;
-      code += `middleware_config = [\n`;
-      middleware.forEach((m: any) => {
-        code += `    {"type": "${m.type}", "enabled": True, "config": {}},\n`;
-      });
-      code += `]\n`;
-    }
+    let buildSection;
+    if (isDeep) {
+      buildSection = `
+# ---------------------------------------------------------------------------
+# 4. Build DeepAgent
+# ---------------------------------------------------------------------------
+from deepagents import create_deep_agent
 
-    code += `
+agent = create_deep_agent(
+    llm=llm,
+    system_prompt=system_prompt,
+    tools=tools,
+)
+
 # ---------------------------------------------------------------------------
-# 4. Build agent
+# 5. Run
 # ---------------------------------------------------------------------------
-# create_react_agent returns a CompiledStateGraph — no AgentExecutor needed.
+result = agent.invoke(
+    {"messages": [("user", "Your input here")]},
+    config={
+        "configurable": {"thread_id": "unique-thread-id"},
+        "recursion_limit": 500,
+    },
+)
+print(result["messages"][-1].content)
+`;
+    } else {
+      buildSection = `
+# ---------------------------------------------------------------------------
+# 4. Build LangGraph agent
+# ---------------------------------------------------------------------------
+from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.prebuilt import create_react_agent
+
 agent = create_react_agent(
     llm,
     tools,
@@ -782,7 +815,7 @@ agent = create_react_agent(
 )
 
 # ---------------------------------------------------------------------------
-# 5. PostgreSQL checkpointer (conversation memory)
+# 5. PostgreSQL checkpointer (memory)
 # ---------------------------------------------------------------------------
 DB_URL = os.environ.get(
     "DATABASE_URL",
@@ -802,8 +835,9 @@ result = agent.invoke(
 )
 print(result["messages"][-1].content)
 `;
+    }
 
-    return code;
+    return header + systemSection + toolsSection + buildSection;
   };
 
   const handleViewCode = () => {
