@@ -268,20 +268,14 @@ class Conversation:
         self.total_routing_latency += turn.routing_latency
 
     def _cost(self, in_tok: int, out_tok: int, cached: int) -> float:
-        _threshold = int(os.getenv("GRAPHINDEX_TIER_THRESHOLD", "512000"))
-        tier = "long_ctx" if in_tok > _threshold else "standard"
-        _pricing = {
-            "standard": {
-                "input": float(os.getenv("GRAPHINDEX_PRICING_STANDARD_INPUT", "0.60")),
-                "output": float(os.getenv("GRAPHINDEX_PRICING_STANDARD_OUTPUT", "2.40")),
-            },
-            "long_ctx": {
-                "input": float(os.getenv("GRAPHINDEX_PRICING_LONG_CTX_INPUT", "1.20")),
-                "output": float(os.getenv("GRAPHINDEX_PRICING_LONG_CTX_OUTPUT", "4.80")),
-            },
-        }
-        p = _pricing[tier]
-        return (in_tok / 1_000_000) * p["input"] + (out_tok / 1_000_000) * p["output"]
+        _tier = int(os.getenv("GRAPHINDEX_TIER_THRESHOLD", "512000"))
+        if in_tok > _tier:
+            input_price = float(os.getenv("GRAPHINDEX_PRICING_LONG_CTX_INPUT", "1.20"))
+            output_price = float(os.getenv("GRAPHINDEX_PRICING_LONG_CTX_OUTPUT", "4.80"))
+        else:
+            input_price = float(os.getenv("GRAPHINDEX_PRICING_STANDARD_INPUT", "0.60"))
+            output_price = float(os.getenv("GRAPHINDEX_PRICING_STANDARD_OUTPUT", "2.40"))
+        return (in_tok / 1_000_000) * input_price + (out_tok / 1_000_000) * output_price
 
     def turn_cost(self, turn: Turn) -> float:
         return self._cost(turn.in_tokens, turn.out_tokens, turn.cache_read)
