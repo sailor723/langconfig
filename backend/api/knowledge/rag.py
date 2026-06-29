@@ -187,7 +187,7 @@ def _is_graphindexable(filename: str) -> bool:
     return ext in SUPPORTED_GRAPHINDEX_EXTS
 
 
-def _queue_graphindex_ingest(file_path: str) -> None:
+def _queue_graphindex_ingest(file_path: str, project_id: int = 1) -> None:
     """Run cmd_ingest on the uploaded file to create a Neo4j Document node.
 
     This is called as a background task after a file has been uploaded and
@@ -205,7 +205,7 @@ def _queue_graphindex_ingest(file_path: str) -> None:
         )
         index.ensure_constraints()
         llm = make_llm()
-        cmd_ingest(index, llm, file_path)
+        cmd_ingest(index, llm, file_path, project_id=project_id)
     except Exception as e:
         logger.error(f"graphindex ingest failed for {file_path}: {e}")
 
@@ -426,7 +426,7 @@ async def upload_document(
     # file_path from Neo4j). Skip for non-graphindexable types
     # (images, archives) to avoid wasted LLM calls.
     if _is_graphindexable(file.filename):
-        background_tasks.add_task(_queue_graphindex_ingest, str(file_path))
+        background_tasks.add_task(_queue_graphindex_ingest, str(file_path), project_id)
 
     return DocumentUploadResponse(
         id=doc.id,
@@ -689,7 +689,7 @@ async def _process_single_file_for_bulk(
     # in the Knowledge panel's progressive-disclosure search. Skips
     # non-graphindexable types (images, archives).
     if _is_graphindexable(file.filename):
-        background_tasks.add_task(_queue_graphindex_ingest, str(file_path))
+        background_tasks.add_task(_queue_graphindex_ingest, str(file_path), project_id)
 
     return DocumentUploadResponse(
         id=doc.id,
@@ -1061,7 +1061,7 @@ async def ingest_folder_from_path(
                 logger.warning(f"Inline index failed for {src.name}: {e}")
             if _is_graphindexable(src.name):
                 try:
-                    _queue_graphindex_ingest(str(dst_path))
+                    _queue_graphindex_ingest(str(dst_path), project_id=project_id)
                 except Exception as e:
                     logger.warning(f"Inline graphindex queue failed for {src.name}: {e}")
         except Exception as e:
