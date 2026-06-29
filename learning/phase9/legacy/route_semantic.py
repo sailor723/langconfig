@@ -60,21 +60,19 @@ from langchain_core.messages import HumanMessage, SystemMessage  # noqa: E402
 from langchain_core.language_models.chat_models import BaseChatModel  # noqa: E402
 import fitz  # noqa: E402  (PyMuPDF for PDF text extraction)
 
-# --- Constants ---------------------------------------------------------------
-
-MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
-MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
-MODEL = "minimax-m3"
-NEO4J_URL = os.getenv("NEO4J_URL", "http://localhost:7474")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
-PROJECT_ID = 1
+# --- SESSION_START (runtime state — must stay in code, not .env) ------------
 SESSION_START = time.time()
 
 
-# --- Catalog fetch (1 Cypher → all docs + their out_of_scope neighbors) -----
+def fetch_catalog(idx: Neo4jDocumentIndex, project_id: int,
+                  doc_scope: str = "all") -> List[Dict[str, Any]]:
+    """Pull docs (all or scoped) + their out_of_scope neighbors' full metadata.
 
-CATALOG_CYPHER = """
+    If *doc_scope* is ``"all"`` (the default), returns ALL docs in the project.
+    Otherwise it's treated as a JSON array of doc names to scope to.
+    """
+    if doc_scope == "all":
+        cypher = """
 MATCH (d:Document {project_id: $pid})
 WITH d, coalesce(d.out_of_scope, []) AS ex_names
 UNWIND (CASE WHEN size(ex_names) = 0 THEN [null] ELSE ex_names END) AS ex_name
@@ -93,11 +91,32 @@ RETURN d.name AS name,
        excluded_full AS excludes
 ORDER BY d.name
 """
+        return idx._run_cypher(cypher, {"pid": project_id})
 
-
-def fetch_catalog(idx: Neo4jDocumentIndex, project_id: int) -> List[Dict[str, Any]]:
-    """Pull all docs + their out_of_scope neighbors' full metadata in one Cypher."""
-    return idx._run_cypher(CATALOG_CYPHER, {"pid": project_id})
+    # Scoped: filter by specific doc names
+    scope_list: List[str] = json.loads(doc_scope) if isinstance(doc_scope, str) else doc_scope
+    cypher = """
+MATCH (d:Document {project_id: $pid})
+WHERE d.name IN $scope_list
+WITH d, coalesce(d.out_of_scope, []) AS ex_names
+UNWIND (CASE WHEN size(ex_names) = 0 THEN [null] ELSE ex_names END) AS ex_name
+WITH d, ex_name
+OPTIONAL MATCH (other:Document {project_id: $pid, name: ex_name})
+WHERE other.name IN $scope_list OR other IS NULL
+WITH d, collect({
+    name: other.name,
+    about: COALESCE(other.what_this_document_is_about, other.content_preview, ''),
+    supports: COALESCE(other.supported_queries, other.search_terms, [])
+}) AS excluded_full
+RETURN d.name AS name,
+       d.context_doc_id AS cid,
+       d.file_path AS fp,
+       COALESCE(d.what_this_document_is_about, d.content_preview, '') AS about,
+       COALESCE(d.supported_queries, d.search_terms, []) AS supports,
+       excluded_full AS excludes
+ORDER BY d.name
+"""
+    return idx._run_cypher(cypher, {"pid": project_id, "scope_list": scope_list})
 
 
 # --- Catalog formatting for LLM --------------------------------------------
@@ -132,58 +151,42 @@ def format_catalog(rows: List[Dict[str, Any]]) -> str:
 
 # --- LLM routing ------------------------------------------------------------
 
-ROUTING_SYSTEM_TEMPLATE = """You are a routing agent. Pick the best document for the user query, and identify any cross-domain supporting documents.
+ROUTING_SYSTEM_TEMPLATE = """You are a routing agent. Analyze the available documents and select ALL documents that are relevant to the user's query.
+
+Think step by step:
+1. Understand what information the user needs
+2. Scan each document's about/supports/excludes to determine relevance
+3. Select 1-N documents that together best answer the query
+4. Order them by relevance (most relevant first)
 
 Use semantic understanding, not just keyword overlap. Consider:
 - What the document is about (about field)
 - What questions the document can answer (supports field)
-- What topics the document explicitly does NOT cover (excludes — note the about/supports of each excluded doc)
-
-Domain-awareness rules:
-- Group documents by semantic domain (e.g. "deep_learning_course", "philosophy_and_strategy",
-  "financial_report", "scanned_handbook", "test_placeholder")
-- Use lowercase_snake_case short tags for primary_domain (max ~30 chars)
-- If the query clearly spans multiple domains (e.g. "compare Nike strategy with industry
-  trends"), include 1-3 supporting documents from RELATED domains — each with a concrete
-  reason explaining what context it adds
-- If the query is single-domain, leave supporting as an empty array []
-- Do NOT pad the supporting list — only include documents that genuinely add context
-- Supporting documents should come from different domains than primary
+- What topics the document explicitly does NOT cover (excludes field)
 
 Available documents in this project:
 {catalog}
 
 Reply ONLY with a JSON object on a single line:
-{{"primary": "<exact doc name>", "primary_domain": "<short_domain_tag>", "primary_confidence": <0.0-1.0>, "supporting": [{{"name": "<exact doc name>", "reason": "<why it adds context>"}}], "reasoning": "<one short sentence>"}}
+{{"documents": [{{"name": "<exact doc name>", "confidence": <0.0-1.0>, "reason": "<why this doc fits the query>"}}], "reasoning": "<one short sentence explaining overall strategy>"}}
 
 If NONE of the documents are relevant, reply:
-{{"primary": null, "primary_domain": null, "primary_confidence": 0.0, "supporting": [], "reasoning": "<why>"}}
+{{"documents": [], "reasoning": "<why no documents match>"}}
 
 Do NOT include any <think> blocks, commentary, or extra text."""
 
 
 @dataclass
-class SupportingDoc:
+class MatchedDoc:
     name: str
+    confidence: float
     reason: str
 
 
 @dataclass
 class RouteDecision:
-    primary: Optional[str]                       # main doc (was `name` in v1)
-    primary_domain: Optional[str]                # e.g. "deep_learning_course"
-    primary_confidence: float
-    supporting: List[SupportingDoc]               # 0-3 cross-domain docs
+    documents: List[MatchedDoc]                 # ordered by relevance (best first)
     reasoning: str
-
-    # Backwards-compat alias
-    @property
-    def name(self) -> Optional[str]:
-        return self.primary
-
-    @property
-    def confidence(self) -> float:
-        return self.primary_confidence
 
 
 def _parse_decision(text: str) -> RouteDecision:
@@ -239,44 +242,83 @@ def _parse_decision(text: str) -> RouteDecision:
     else:
         data = json.loads(text[start:end + 1])
 
-    # v2 schema
-    primary = data.get("primary")
-    if primary is not None or "primary" in data:
-        supporting_raw = data.get("supporting", [])
-        supporting = [
-            SupportingDoc(name=s.get("name", ""), reason=s.get("reason", ""))
-            for s in supporting_raw
-            if s.get("name")
+    # v3 schema: {"documents": [{"name": ..., "confidence": ..., "reason": ...}], "reasoning": "..."}
+    if "documents" in data:
+        docs_raw = data.get("documents", [])
+        documents = [
+            MatchedDoc(
+                name=d.get("name", ""),
+                confidence=float(d.get("confidence", 0.0)),
+                reason=d.get("reason", ""),
+            )
+            for d in docs_raw
+            if d.get("name")
         ]
         return RouteDecision(
-            primary=primary if primary else None,
-            primary_domain=data.get("primary_domain"),
-            primary_confidence=float(data.get("primary_confidence", 0.0)),
-            supporting=supporting,
+            documents=documents,
             reasoning=data.get("reasoning", ""),
         )
 
-    # v1 fallback
-    return RouteDecision(
-        primary=data.get("name"),
-        primary_domain=None,
-        primary_confidence=float(data.get("confidence", 0.0)),
-        supporting=[],
-        reasoning=data.get("reasoning", ""),
+    # v2 schema: {"primary": ..., "primary_domain": ..., "primary_confidence": ..., "supporting": [...]}
+    if "primary" in data:
+        supporting_raw = data.get("supporting", [])
+        documents: List[MatchedDoc] = []
+        primary_name = data.get("primary")
+        if primary_name:
+            documents.append(MatchedDoc(
+                name=primary_name,
+                confidence=float(data.get("primary_confidence", 0.0)),
+                reason=data.get("reasoning", ""),
+            ))
+            for s in supporting_raw:
+                if s.get("name"):
+                    documents.append(MatchedDoc(
+                        name=s["name"],
+                        confidence=0.0,
+                        reason=s.get("reason", ""),
+                    ))
+        return RouteDecision(
+            documents=documents,
+            reasoning=data.get("reasoning", ""),
+        )
+
+    # v1 fallback: {"name": ..., "confidence": ..., "reasoning": "..."}
+    name = data.get("name")
+    if name:
+        return RouteDecision(
+            documents=[MatchedDoc(
+                name=name,
+                confidence=float(data.get("confidence", 0.0)),
+                reason=data.get("reasoning", ""),
+            )],
+            reasoning=data.get("reasoning", ""),
+        )
+
+    return RouteDecision(documents=[], reasoning=data.get("reasoning", ""))
+
+
+def make_routing_llm() -> BaseChatModel:
+    """Lightweight local model for doc matching (routing). Default: Ollama gemma4."""
+    return init_chat_model(
+        model=os.getenv("GRAPHINDEX_ROUTING_MODEL", "gemma4"),
+        model_provider="ollama",
+        temperature=0.0,
+        max_tokens=int(os.getenv("GRAPHINDEX_ROUTING_MAX_TOKENS", "2048")),
     )
 
 
-def make_llm() -> BaseChatModel:
-    if not MINIMAX_API_KEY:
+def make_answer_llm() -> BaseChatModel:
+    """Full-power model for synthesis answers. Default: Minimax M3."""
+    if not os.getenv("MINIMAX_API_KEY"):
         sys.stderr.write("FATAL: MINIMAX_API_KEY not set in .env\n")
         sys.exit(1)
     return init_chat_model(
-        model=MODEL,
+        model=os.getenv("GRAPHINDEX_MODEL", "minimax-m3"),
         model_provider="openai",
-        api_key=MINIMAX_API_KEY,
-        base_url=MINIMAX_BASE_URL,
+        api_key=os.getenv("MINIMAX_API_KEY"),
+        base_url=os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1"),
         temperature=0.0,
-        max_tokens=1024,    # need room for 3 supporting docs with reasons
+        max_tokens=int(os.getenv("GRAPHINDEX_ANSWER_MAX_TOKENS", "8192")),
     )
 
 
@@ -306,6 +348,7 @@ def route_by_llm(
 def route_by_string(
     query: str,
     rows: List[Dict[str, Any]],
+    project_id: int = int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1")),
 ) -> Optional[str]:
     """Use base's string-matching scoring (returns doc name or None)."""
     # Build Neo4jDocumentRecord-like objects from the catalog rows
@@ -316,7 +359,7 @@ def route_by_string(
         # (from OPTIONAL MATCH), but base expects a list of strings
         excluded_names = [ex["name"] for ex in (r["excludes"] or []) if ex.get("name")]
         docs.append(Neo4jDocumentRecord(
-            project_id=PROJECT_ID,
+            project_id=project_id,
             name=r["name"],
             file_path=r["fp"] or "",
             description="",  # not pulled in our catalog query
@@ -351,8 +394,8 @@ def print_catalog(rows: List[Dict[str, Any]]) -> None:
 # here is just a safety net to prevent OOM on truly gigantic files
 # (a 5000-page manual would still hit this). For normal documents
 # (10-K, contracts, reports) the full text is loaded in one call.
-PRIMARY_MAX_CHARS = 10_000_000
-SUPPORTING_MAX_CHARS = 10_000_000
+_PRIMARY_MAX_CHARS = int(os.getenv("GRAPHINDEX_PRIMARY_MAX_CHARS", "10000000"))
+_SUPPORTING_MAX_CHARS = int(os.getenv("GRAPHINDEX_SUPPORTING_MAX_CHARS", "10000000"))
 
 # Cache file_path lookups so we don't hit Neo4j per doc.
 # Key is (project_id, name) so docs with the same name from
@@ -401,30 +444,27 @@ def _file_path_for(index: Neo4jDocumentIndex, project_id: int, name: str) -> str
     return path
 
 
-def load_multi_doc_context(
+def load_doc_context(
     index: Neo4jDocumentIndex,
     project_id: int,
-    primary: Optional[str],
-    supporting: List[SupportingDoc],
+    documents: List[MatchedDoc],
 ) -> str:
-    """Concatenate primary + supporting docs into a single human-readable
-    string, with clear per-doc headers and character caps."""
+    """Concatenate matched docs into a single human-readable string.
+
+    Reads full text for each document, ordered by relevance (best first).
+    First doc is marked PRIMARY, rest are SUPPORTING with their reason.
+    """
     parts: List[str] = []
-    if primary:
-        path = _file_path_for(index, project_id, primary)
-        text = _read_doc_text(path, PRIMARY_MAX_CHARS)
+    for i, doc in enumerate(documents, start=1):
+        path = _file_path_for(index, project_id, doc.name)
+        max_chars = _PRIMARY_MAX_CHARS if i == 1 else _SUPPORTING_MAX_CHARS
+        text = _read_doc_text(path, max_chars)
+        label = "PRIMARY" if i == 1 else "SUPPORTING"
+        reason_line = f"\n[Reason: {doc.reason}]" if doc.reason else ""
         parts.append(
-            f"=== Document 1 (PRIMARY): {primary} ===\n{text}"
-            if text else f"=== Document 1 (PRIMARY): {primary} ===\n(no extractable text)"
-        )
-    for i, sup in enumerate(supporting, start=2):
-        path = _file_path_for(index, project_id, sup.name)
-        text = _read_doc_text(path, SUPPORTING_MAX_CHARS)
-        reason_line = f"\n[Reason included: {sup.reason}]" if sup.reason else ""
-        parts.append(
-            f"=== Document {i} (SUPPORTING): {sup.name} ==={reason_line}\n{text}"
+            f"=== Document {i} ({label}): {doc.name} ==={reason_line}\n{text}"
             if text else
-            f"=== Document {i} (SUPPORTING): {sup.name} ==={reason_line}\n(no extractable text)"
+            f"=== Document {i} ({label}): {doc.name} ==={reason_line}\n(no extractable text)"
         )
     return "\n\n".join(parts)
 
@@ -441,7 +481,7 @@ Rules:
 """
 
 
-def answer_multi_doc(
+def answer_from_docs(
     query: str,
     combined_context: str,
     llm: BaseChatModel,
@@ -463,16 +503,19 @@ def answer_multi_doc(
     return answer, cache_read
 
 
-def print_decision(label: str, name: Optional[str], reasoning: str = "",
-                   confidence: float = 0.0) -> None:
-    if name:
-        print(f"  {label:<10} → {name}  (confidence={confidence:.2f})")
+def print_decision(documents: List[MatchedDoc], reasoning: str = "") -> None:
+    if not documents:
+        print(f"  → (no match)")
         if reasoning:
-            print(f"              {reasoning}")
-    else:
-        print(f"  {label:<10} → (no match)")
-        if reasoning:
-            print(f"              {reasoning}")
+            print(f"     {reasoning}")
+        return
+    for i, doc in enumerate(documents):
+        label = "best" if i == 0 else f"   #{i+1}"
+        print(f"  {label:<6} → {doc.name}  (confidence={doc.confidence:.2f})")
+        if doc.reason:
+            print(f"          {doc.reason}")
+    if reasoning:
+        print(f"  strategy: {reasoning}")
 
 
 # --- Entry point -------------------------------------------------------------
@@ -494,22 +537,39 @@ def main() -> int:
     parser.add_argument("--query-answer", metavar="TEXT",
                         help="Full end-to-end: route query, load multi-doc context, "
                              "and run synthesis LLM call")
+    parser.add_argument("--project-id", type=int,
+                        default=int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1")),
+                        help="Neo4j project id (default: from .env)")
+    parser.add_argument("--doc-scope", metavar="NAMES", nargs="*", default=["all"],
+                        help="Doc names to scope to (space-separated), "
+                             "or \"all\" for all docs in project")
     args = parser.parse_args()
+    project_id = args.project_id
+    doc_scope: str = args.doc_scope
+    # nargs="*" returns a list. If it's ["all"], treat as the sentinel string "all".
+    # Otherwise join into a JSON array string for Cypher.
+    if isinstance(doc_scope, list):
+        if doc_scope == ["all"]:
+            doc_scope = "all"
+        else:
+            import json
+            doc_scope = json.dumps(doc_scope)  # → '["doc1", "doc2"]'
 
     if not any([args.query, args.show_catalog, args.query_answer]):
         parser.print_help()
         return 1
 
     # Connect to Neo4j
-    print(f"🔌 Neo4j: {NEO4J_URL}")
+    _neo4j_url = os.getenv("NEO4J_URL", "http://localhost:7474")
+    print(f"🔌 Neo4j: {_neo4j_url}")
     idx = Neo4jDocumentIndex(
-        base_url=NEO4J_URL,
-        username=NEO4J_USER,
-        password=NEO4J_PASSWORD,
+        base_url=_neo4j_url,
+        username=os.getenv("NEO4J_USER", "neo4j"),
+        password=os.getenv("NEO4J_PASSWORD", "password"),
     )
 
     # Fetch catalog
-    rows = fetch_catalog(idx, PROJECT_ID)
+    rows = fetch_catalog(idx, project_id, doc_scope=doc_scope)
     print(f"   {len(rows)} doc(s) found\n")
 
     if args.show_catalog:
@@ -544,73 +604,49 @@ def main() -> int:
         string_result = route_by_string(query, rows)
         string_time = time.time() - t0
         print(f"Query: {query!r}")
-        print_decision("string", string_result)
+        if string_result:
+            print(f"  string   → {string_result}")
+        else:
+            print(f"  string   → (no match)")
         print(f"   ({string_time*1000:.0f} ms)")
 
-    # LLM routing
+    # LLM routing (uses fast local model for doc matching)
     if not args.no_llm:
-        llm = make_llm()
+        routing_llm = make_routing_llm()
+        answer_llm = make_answer_llm()
         t0 = time.time()
-        decision, cache_read = route_by_llm(query, rows, llm)
+        decision, cache_read = route_by_llm(query, rows, routing_llm)
         llm_time = time.time() - t0
         if not args.compare:
             print(f"Query: {query!r}")
-        # Print primary
-        if decision.primary:
-            domain_str = f"  domain={decision.primary_domain}" if decision.primary_domain else ""
-            print(f"  llm        → {decision.primary}  "
-                  f"(confidence={decision.primary_confidence:.2f}){domain_str}")
-            if decision.reasoning:
-                print(f"              {decision.reasoning}")
-        else:
-            print(f"  llm        → (no match)")
-            if decision.reasoning:
-                print(f"              {decision.reasoning}")
-        # Print supporting docs (if any)
-        if decision.supporting:
-            print(f"  supporting ({len(decision.supporting)}):")
-            for sup in decision.supporting:
-                print(f"    - {sup.name}")
-                if sup.reason:
-                    print(f"      reason: {sup.reason}")
+        print_decision(decision.documents, decision.reasoning)
         print(f"   ({llm_time:.2f}s, cache_read={cache_read:,})")
 
-    # End-to-end: route + load multi-doc + synthesize answer
+    # End-to-end: route (Gemma4) + load docs + synthesize answer (Minimax M3)
     if args.query_answer:
-        llm = make_llm()
+        routing_llm = make_routing_llm()
+        answer_llm = make_answer_llm()
         t0 = time.time()
-        decision, route_cache = route_by_llm(args.query_answer, rows, llm)
+        decision, route_cache = route_by_llm(args.query_answer, rows, routing_llm)
         route_time = time.time() - t0
         print(f"\nQuery: {args.query_answer!r}")
-        if decision.primary:
-            domain_str = f"  domain={decision.primary_domain}" if decision.primary_domain else ""
-            print(f"  routed   → {decision.primary}  "
-                  f"(confidence={decision.primary_confidence:.2f}){domain_str}")
-        else:
-            print(f"  routed   → (no match: {decision.reasoning})")
-        if decision.supporting:
-            print(f"  supporting ({len(decision.supporting)}):")
-            for sup in decision.supporting:
-                print(f"    - {sup.name}")
-                if sup.reason:
-                    print(f"      reason: {sup.reason}")
+        print_decision(decision.documents, decision.reasoning)
         print(f"   (route: {route_time:.2f}s, cache_read={route_cache:,})")
 
-        if not decision.primary:
-            print("\n  ✗ no primary doc — cannot synthesize answer")
+        if not decision.documents:
+            print("\n  ✗ no relevant documents — cannot synthesize answer")
             return 1
 
-        # Load multi-doc context
+        # Load multi-doc context (all matched docs, ordered by relevance)
         t0 = time.time()
-        context = load_multi_doc_context(idx, PROJECT_ID, decision.primary,
-                                         decision.supporting)
+        context = load_doc_context(idx, project_id, decision.documents)
         load_time = time.time() - t0
         total_chars = len(context)
         print(f"\n  loaded {total_chars:,} chars  ({load_time:.1f}s)")
 
         # Synthesize answer
         t0 = time.time()
-        answer, ans_cache = answer_multi_doc(args.query_answer, context, llm)
+        answer, ans_cache = answer_from_docs(args.query_answer, context, answer_llm)
         ans_time = time.time() - t0
         print(f"  synthesized  ({ans_time:.1f}s, cache_read={ans_cache:,})")
 
