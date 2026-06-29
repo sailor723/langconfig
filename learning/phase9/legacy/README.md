@@ -1,23 +1,35 @@
 # Phase 9 / legacy scripts
 
-These are the **original** Phase 9 scripts that use raw `llm.invoke([messages])`
-calls directly. They are preserved and actively maintained as the **ground
-truth** — they work because the architecture is simple.
+These are the **Phase 9** scripts organized by complexity level.
+They are preserved and actively maintained as the **ground truth** —
+they work because the architecture is simple.
 
-## Pipeline
+## Layer overview
+
+| # | File | What it does | Agent? | LLM |
+|---|------|-------------|--------|-----|
+| **1** | `build_graphindex.py` | **Index builder** — hash → dedup → copy → enrich → Neo4j upsert. Pure Python + `llm.invoke()` for enrichment. | ❌ No | Minimax M3 |
+| **2** | `route_semantic.py` | **Doc matcher** — `route_by_llm()` scores docs by metadata, returns ordered list. Also has `load_doc_context()` + `answer_from_docs()` for end-to-end. | ❌ No | Gemma4 + Minimax M3 |
+| **3** | `dv_chat.py` | **Legacy REPL** — manual conversation loop, routing per turn, session caching, cost tracking. | ❌ No | Gemma4 + Minimax M3 |
+| **4** | `agent_chat.py` | **DeepAgent chat** — `create_deep_agent` with 4 tools, MemoryMiddleware (AGENTS.md), token streaming, REPL. | ✅ **Yes** | Minimax M3 (agent) + Gemma4 (via tools) |
+
+`tools.py` is the shared tool layer for **Layer 4**. It wraps raw functions from
+Layers 1-2 into ``StructuredTool`` objects required by ``create_deep_agent``.
+
+## Import chain
 
 ```
-build_graphindex.py     1. Build graph index (ingest, enrich, manage docs)
-       │
-       ▼
-route_semantic.py       2. Route query → matched docs (LLM routing)
-       │
-       ▼
-dv_chat.py              3. Chat REPL (route + load + synthesize)
+build_graphindex.py   ── raw functions (load_document_content, Neo4jDocumentIndex)
+    │
+    ▼
+route_semantic.py     ── raw functions (route_by_llm, load_doc_context, etc.)
+    │
+    ├── dv_chat.py    ── calls raw functions directly
+    │
+    └── tools.py      ── wraps raw functions into StructuredTool for DeepAgent
+            │
+            └── agent_chat.py  ── uses tools.py + create_deep_agent
 ```
-
-Each stage builds on the previous one. `route_semantic.py` and `dv_chat.py`
-import shared helpers from `build_graphindex.py`.
 
 ## Architecture
 
