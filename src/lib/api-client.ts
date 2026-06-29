@@ -587,9 +587,7 @@ class APIClient {
     return response.data;
   }
 
-  async indexDocument(id: number) {
-    return this.client.post(`/api/rag/index/${id}`);
-  }
+  // (indexDocument removed — unused)
 
   async getSearchHistory(params: {
     project_id: number;
@@ -603,11 +601,7 @@ class APIClient {
     return this.client.get(`/api/rag/projects/${projectId}/storage-stats`);
   }
 
-  async previewDocument(contextDocId: number, maxChars?: number) {
-    const params = maxChars ? { max_chars: maxChars } : {};
-    const response = await this.client.get(`/api/rag/documents/${contextDocId}/preview`, { params });
-    return response.data;
-  }
+  // (previewDocument removed — unused)
 
   // Get extracted text/structured content for inline rendering in the
   // Knowledge panel. Supports MD, TXT, CSV, JSON, YAML, HTML, XML, code,
