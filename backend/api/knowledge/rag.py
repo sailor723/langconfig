@@ -173,399 +173,6 @@ class GraphIndexSearchResponse(BaseModel):
     total_documents: int
 
 
-class GraphIndexPage(BaseModel):
-    page: int
-    content: str
-
-
-class GraphIndexFullDocumentResponse(BaseModel):
-    doc_id: str
-    doc_name: str
-    type: str
-    page_count: int
-    structure: list
-    pages: List[GraphIndexPage]
-
-
-class GraphIndexStructureResponse(BaseModel):
-    doc_id: str
-    doc_name: str
-    type: str
-    page_count: int
-    structure: list
-
-
-class GraphIndexAnswerRequest(BaseModel):
-    query: str
-    project_id: int
-    context_doc_id: Optional[int] = None
-    model: Optional[str] = None
-    temperature: float = 0.2
-    max_tokens: int = 4096
-
-
-class GraphIndexAnswerResponse(BaseModel):
-    query: str
-    search_mode: str = "graphindex"
-    context_doc_id: int
-    doc_id: str
-    doc_name: str
-    model: str
-    answer: str
-    pages_loaded: int
-    content_chars: int
-
-
-def _build_graphindex_query_terms(query: str) -> List[str]:
-    normalized = re.sub(r"\s+", " ", query.strip().lower())
-    if not normalized:
-        return []
-
-    terms: List[str] = [normalized]
-    terms.extend([token for token in normalized.split(" ") if token])
-
-    if " " not in normalized and len(normalized) > 1:
-        for i in range(len(normalized) - 1):
-            terms.append(normalized[i:i + 2])
-
-    return list(dict.fromkeys(terms))
-
-
-def _score_graphindex_document(query: str, meta: dict, context_doc: ContextDocument) -> float:
-    normalized_query = query.strip().lower()
-    query_terms = _build_graphindex_query_terms(query)
-    score = 0.0
-
-    searchable_terms = meta.get("search_terms", [])
-    content_preview = (meta.get("content_preview") or "").lower()
-    filename = (meta.get("doc_name") or "").lower()
-    description = (context_doc.description or "").lower()
-    tags = context_doc.tags or []
-
-    for token in query_terms:
-        if len(token) < 2:
-            continue
-        if len(normalized_query) > 8 and len(token) < 4:
-            continue
-
-        if token in filename:
-            score += 3.0
-        if description and token in description:
-            score += 2.0
-        if content_preview and token in content_preview:
-            score += 2.0
-        for tag in tags:
-            if token in str(tag).lower():
-                score += 2.5
-        for searchable in searchable_terms:
-            if token in searchable:
-                score += 1.0
-
-    return score
-
-
-def _resolve_graphindex_target_document(
-    request: "GraphIndexAnswerRequest",
-    db: Session,
-    client
-) -> tuple[ContextDocument, dict]:
-    """Find the target document for a GraphIndex answer request."""
-    if request.context_doc_id is not None:
-        context_doc = (
-            db.query(ContextDocument)
-            .filter(
-                ContextDocument.id == request.context_doc_id,
-                ContextDocument.project_id == request.project_id,
-            )
-            .first()
-        )
-        if not context_doc:
-            raise HTTPException(status_code=404, detail="Document not found in project")
-        meta: dict = {}
-        if context_doc.doc_index_id:
-            meta = client.get_document(context_doc.doc_index_id) or {}
-            if isinstance(meta, dict) and "error" in meta:
-                meta = {}
-        return context_doc, meta
-
-    neo4j_context_doc = _try_resolve_graphindex_target_document_via_neo4j(
-        project_id=request.project_id,
-        query=request.query,
-        db=db,
-        client=client,
-    )
-    if neo4j_context_doc is not None:
-        meta: dict = {}
-        if neo4j_context_doc.doc_index_id:
-            meta = client.get_document(neo4j_context_doc.doc_index_id) or {}
-            if isinstance(meta, dict) and "error" in meta:
-                meta = {}
-        return neo4j_context_doc, meta
-
-    project_docs = (
-        db.query(ContextDocument)
-        .filter(
-            ContextDocument.project_id == request.project_id,
-            ContextDocument.doc_index_id.isnot(None),
-        )
-        .all()
-    )
-    if not project_docs:
-        raise HTTPException(status_code=404, detail="No GraphIndex documents found for project")
-
-    project_doc_map = {doc.doc_index_id: doc for doc in project_docs}
-    best_match: Optional[tuple[float, ContextDocument, dict]] = None
-    for doc_id, meta in client.list_all().items():
-        context_doc = project_doc_map.get(doc_id)
-        if not context_doc:
-            continue
-        score = _score_graphindex_document(request.query, meta, context_doc)
-        if score <= 0:
-            continue
-        if best_match is None or score > best_match[0]:
-            best_match = (score, context_doc, meta)
-
-    if best_match is None:
-        raise HTTPException(status_code=404, detail="No matching GraphIndex document found")
-
-    return best_match[1], best_match[2]
-
-
-def _get_neo4j_document_index():
-    import os
-
-    from services.neo4j_document_index import Neo4jDocumentIndex
-
-    base_url = os.environ.get("NEO4J_URL", "http://localhost:7474")
-    username = os.environ.get("NEO4J_USER", "neo4j")
-    password = os.environ.get("NEO4J_PASSWORD", "password")
-    database = os.environ.get("NEO4J_DATABASE", "neo4j")
-    return Neo4jDocumentIndex(
-        base_url=base_url,
-        username=username,
-        password=password,
-        database=database,
-    )
-
-
-def _try_resolve_graphindex_target_document_via_neo4j(
-    project_id: int,
-    query: str,
-    db: Session,
-    client,
-) -> Optional[ContextDocument]:
-    try:
-        index = _get_neo4j_document_index()
-        index.ensure_constraints()
-        match = index.find_best_document(project_id=project_id, query=query)
-        if not match or not match.context_doc_id:
-            return None
-    except Exception:
-        return None
-
-    context_doc = (
-        db.query(ContextDocument)
-        .filter(
-            ContextDocument.project_id == project_id,
-            ContextDocument.id == match.context_doc_id,
-        )
-        .first()
-    )
-    if not context_doc:
-        return None
-
-    if match.doc_index_id and not context_doc.doc_index_id:
-        context_doc.doc_index_id = match.doc_index_id
-    if match.file_path and context_doc.file_path != match.file_path:
-        context_doc.file_path = match.file_path
-    return context_doc
-
-
-def _infer_graphindex_type_from_filename(filename: str) -> str:
-    lowered = (filename or "").lower().strip()
-    if lowered.endswith(".pdf"):
-        return "pdf"
-    if lowered.endswith(".md"):
-        return "md"
-    return "text"
-
-
-def _try_graphindex_search_via_neo4j(
-    project_id: int,
-    query: str,
-    top_k: int,
-    client,
-) -> Optional[GraphIndexSearchResponse]:
-    try:
-        index = _get_neo4j_document_index()
-        index.ensure_constraints()
-        match = index.find_best_document(project_id=project_id, query=query)
-        if not match:
-            return None
-    except Exception:
-        return None
-
-    structure = []
-    if match.doc_index_id:
-        try:
-            structure_value = client.get_document_structure(match.doc_index_id)
-            if isinstance(structure_value, list):
-                structure = structure_value[:20]
-        except Exception:
-            structure = []
-
-    doc_id = match.doc_index_id or f"context:{match.context_doc_id}"
-    doc_name = match.doc_name or match.name
-    doc_type = _infer_graphindex_type_from_filename(match.name)
-    page_count = int(match.page_count or 0)
-
-    logger.info(f"[PAGEINDEX_DEBUG] context_doc_id={match.context_doc_id!r}, type={type(match.context_doc_id).__name__}")
-
-    return GraphIndexSearchResponse(
-        query=query,
-        search_mode="graphindex",
-        documents=[
-            GraphIndexDocItem(
-                doc_id=doc_id,
-                doc_name=doc_name,
-                type=doc_type,
-                page_count=page_count,
-                structure=structure,
-                context_doc_id=match.context_doc_id,
-            )
-        ][: max(1, int(top_k or 1))],
-        total_documents=1,
-    )
-
-
-def _phase9_get_or_generate_enrichment(
-    context_doc: "ContextDocument",
-    index,
-    graphindex_meta: dict,
-):
-    """Phase 9 enrichment provider for knowledge-panel uploads.
-
-    Strategy:
-      1. If a Neo4j Document node with this name already exists and has a
-         populated `what_this_document_is_about`, reuse its enrichment
-         (preserves Phase 9 build-side ingests and --rebuild-one results).
-      2. Otherwise, run a single LLM call via phase9/graphindex_build_python
-         to generate about / supports / out_of_scope / few_shot.
-
-    Returns:
-        Neo4jDocumentEnrichment (possibly empty fields if LLM fails).
-    """
-    from services.neo4j_document_index import Neo4jDocumentEnrichment
-
-    existing = None
-    try:
-        existing = index.get_document(
-            project_id=context_doc.project_id, name=context_doc.filename
-        )
-    except Exception:
-        existing = None
-
-    if existing and existing.what_this_document_is_about:
-        logger.info(
-            f"[phase9] reusing existing enrichment for {context_doc.filename!r} "
-            f"(about={existing.what_this_document_is_about[:60]!r}...)"
-        )
-        return Neo4jDocumentEnrichment(
-            what_this_document_is_about=existing.what_this_document_is_about,
-            supported_queries=list(existing.supported_queries or []),
-            out_of_scope=list(existing.out_of_scope or []),
-            few_shot=[{"query": s.get("query", ""), "answer_hint": s.get("answer_hint", "")}
-                      for s in (existing.few_shot or []) if isinstance(s, dict)],
-        )
-
-    # No existing enrichment — generate via Phase 9 LLM call.
-    try:
-        from learning.phase9.graphindex.index_build import (
-            make_llm, extract_document_enrichment, load_document_content,
-            load_graphindex_metadata,
-        )
-        llm = make_llm()
-        content = load_document_content(context_doc.file_path)
-        meta = load_graphindex_metadata(context_doc.file_path)
-        other_names = [d.name for d in index.list_documents(project_id=context_doc.project_id)]
-        enrichment = extract_document_enrichment(
-            llm=llm,
-            document_name=context_doc.filename,
-            description="",
-            tags=[],
-            graphindex_meta=meta,
-            content=content,
-            other_document_names=other_names,
-        )
-        logger.info(
-            f"[phase9] generated fresh enrichment for {context_doc.filename!r}: "
-            f"about={enrichment.what_this_document_is_about[:60]!r}..."
-        )
-        return enrichment
-    except Exception as e:
-        logger.warning(
-            f"[phase9] enrichment generation failed for {context_doc.filename!r}: {e}. "
-            f"Falling back to empty enrichment."
-        )
-        return Neo4jDocumentEnrichment()
-
-
-def _try_sync_context_document_to_neo4j(context_doc: ContextDocument, client) -> None:
-    if not context_doc.project_id:
-        return
-    if not context_doc.file_path:
-        return
-
-    try:
-        index = _get_neo4j_document_index()
-        index.ensure_constraints()
-    except Exception:
-        return
-
-    graphindex_meta: dict = {}
-    if context_doc.doc_index_id:
-        try:
-            meta = client.get_document(context_doc.doc_index_id) or {}
-            if isinstance(meta, dict) and "error" not in meta:
-                graphindex_meta = meta
-        except Exception:
-            graphindex_meta = {}
-
-    try:
-        from services.neo4j_document_index import build_document_node_properties
-
-        # Phase 9 enrichment: if the Neo4j node already has fields populated
-        # (e.g. via phase9/graphindex_build_python.py --ingest), preserve them.
-        # Otherwise generate fresh enrichment via LLM. This replaces the legacy
-        # `enrichment=None` which left Neo4j nodes with empty about / supports /
-        # out_of_scope and broke routing for knowledge-panel uploads.
-        enrichment_obj = _phase9_get_or_generate_enrichment(
-            context_doc=context_doc,
-            index=index,
-            graphindex_meta=graphindex_meta,
-        )
-
-        properties = build_document_node_properties(
-            project_id=context_doc.project_id,
-            context_doc_id=context_doc.id,
-            doc_index_id=context_doc.doc_index_id,
-            name=context_doc.filename,
-            file_path=context_doc.file_path,
-            description=context_doc.description or "",
-            tags=list(context_doc.tags or []),
-            graphindex_meta=graphindex_meta,
-            enrichment=enrichment_obj,
-        )
-        index.upsert_document(
-            project_id=context_doc.project_id,
-            name=context_doc.filename,
-            file_path=context_doc.file_path,
-            properties=properties,
-        )
-    except Exception:
-        return
-
-
 SUPPORTED_GRAPHINDEX_EXTS: set[str] = {
     ".pdf", ".txt", ".md", ".html", ".csv", ".json",
     ".xml", ".yaml", ".yml", ".py", ".js", ".ts",
@@ -575,7 +182,7 @@ SUPPORTED_GRAPHINDEX_EXTS: set[str] = {
 
 
 def _is_graphindexable(filename: str) -> bool:
-    """Check if a filename has a graphindexable extension."""
+    from pathlib import Path
     ext = Path(filename).suffix.lower()
     return ext in SUPPORTED_GRAPHINDEX_EXTS
 
@@ -629,25 +236,8 @@ async def index_document_background(document_id: int):
 
         vector_result = None
         vector_error = None
-        doc_index_id = None
 
-        # Index to DocIndex (GraphIndex-style vectorless index) first so GraphIndex
-        # remains available even if vector embedding generation fails later.
-        try:
-            from services.doc_index_service import DocIndexClient
-            import os
-            doc_index_base = os.environ.get(
-                "DOC_INDEX_BASE",
-                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "outputs")
-            )
-            # Use default workspace
-            client = DocIndexClient(doc_index_base)
-            doc_index_id = client.index(file_path)
-            logger.info(f"Document {document_id} also indexed to DocIndex (GraphIndex mode) with doc_index_id {doc_index_id}")
-        except Exception as pi_e:
-            logger.warning(f"DocIndex indexing failed for {document_id}: {pi_e}")
-
-        # Index the document for vector RAG separately.
+        # Index the document for vector RAG.
         try:
             vector_result = await context_document_indexer.index_document(
                 document_id=document_id,
@@ -661,30 +251,19 @@ async def index_document_background(document_id: int):
         db = SessionLocal()
         doc = db.query(ContextDocument).filter(ContextDocument.id == document_id).first()
         if doc:
-            if doc_index_id:
-                doc.doc_index_id = doc_index_id
             if vector_result:
                 doc.indexed_chunks_count = vector_result.get("embeddings_stored", 0)
-            if doc_index_id or vector_result:
                 doc.indexing_status = IndexingStatus.READY
                 doc.indexed_at = datetime.utcnow()
             else:
                 doc.indexing_status = IndexingStatus.FAILED
             db.commit()
-            if doc.indexing_status == IndexingStatus.READY:
-                try:
-                    client = _get_doc_index_client()
-                    _try_sync_context_document_to_neo4j(doc, client)
-                except Exception:
-                    pass
         db.close()
 
-        if vector_error and doc_index_id:
-            logger.info(f"Document {document_id} indexed for GraphIndex; vector indexing failed but document remains usable.")
-        elif vector_result or doc_index_id:
+        if vector_result:
             logger.info(f"Document {document_id} indexed successfully")
         else:
-            raise RuntimeError("Both GraphIndex and vector indexing failed")
+            logger.warning(f"Vector indexing failed for {document_id} — document available via GraphIndex only.")
 
     except Exception as e:
         logger.error(f"Failed to index document {document_id}: {e}", exc_info=True)
@@ -2012,69 +1591,49 @@ async def search_documents(
     try:
         # ===== GraphIndex Mode =====
         if request.search_mode == "graphindex":
-            from services.doc_index_service import DocIndexClient
-            import os
+            from learning.phase9.graphindex.route import fetch_catalog
+            from learning.phase9.graphindex.index_build import Neo4jDocumentIndex, make_llm
+            from learning.phase9.graphindex.route import route_by_llm
+            import os as _os
 
-            # DEBUG: log the incoming request
-            logger.info(f"[DEBUG] GraphIndex search request: query={request.query!r}, project_id={request.project_id}, top_k={request.top_k}")
-
-            # Use the base outputs directory as DocIndex workspace
-            # (DocIndexClient appends /doc_index internally)
-            doc_index_base = os.environ.get(
-                "DOC_INDEX_BASE",
-                os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "outputs")
+            idx = Neo4jDocumentIndex(
+                base_url=_os.environ.get("NEO4J_URL", "http://localhost:7474"),
+                username=_os.environ.get("NEO4J_USER", "neo4j"),
+                password=_os.environ.get("NEO4J_PASSWORD", "password"),
             )
-            client = DocIndexClient(doc_index_base)
+            idx.ensure_constraints()
+            rows = fetch_catalog(idx, request.project_id)
+            if not rows:
+                return GraphIndexSearchResponse(
+                    query=request.query,
+                    search_mode="graphindex",
+                    documents=[],
+                    total_documents=0,
+                )
 
-            neo4j_result = _try_graphindex_search_via_neo4j(
-                project_id=request.project_id,
-                query=request.query,
-                top_k=request.top_k,
-                client=client,
-            )
-            if neo4j_result is not None:
-                return neo4j_result
-            
-            # Get all doc_index_ids for the current project (with description and tags)
-            project_docs = db.query(ContextDocument).filter(
-                ContextDocument.project_id == request.project_id,
-                ContextDocument.doc_index_id.isnot(None)
-            ).all()
-            # Create a map from doc_index_id to ContextDocument (for description and tags)
-            project_doc_map = {doc.doc_index_id: doc for doc in project_docs}
-            
-            scored_documents = []
-            for doc_id, meta in client.list_all().items():
-                # Only include documents from the current project
-                if doc_id not in project_doc_map:
-                    continue
-                    
-                structure = client.get_document_structure(doc_id)
-                context_doc = project_doc_map[doc_id]
-                score = _score_graphindex_document(request.query, meta, context_doc)
+            llm = make_llm()
+            decision_obj, _ = route_by_llm(request.query, rows, llm)
 
-                if score > 0:
-                    scored_documents.append((-score, doc_id, meta, structure))  # Negative for ascending sort
-            
-            # Sort by score descending and take top N
-            scored_documents.sort()
-            top_docs = []
-            for _, doc_id, meta, structure in scored_documents[:request.top_k]:
-                    context_doc = project_doc_map.get(doc_id)
-                    top_docs.append(GraphIndexDocItem(
-                    doc_id=doc_id,
-                    doc_name=meta.get("doc_name", "Unknown"),
-                    type=meta.get("type", "unknown"),
-                    page_count=meta.get("page_count", 0),
-                    structure=structure[:20] if isinstance(structure, list) else [],  # Limit structure output
+            docs = []
+            for matched in decision_obj.documents[:request.top_k]:
+                context_doc = db.query(ContextDocument).filter(
+                    ContextDocument.project_id == request.project_id,
+                    ContextDocument.filename == matched.name,
+                ).first()
+                docs.append(GraphIndexDocItem(
+                    doc_id=str(context_doc.id) if context_doc else matched.name,
+                    doc_name=matched.name,
+                    type="unknown",
+                    page_count=0,
+                    structure=None,
                     context_doc_id=context_doc.id if context_doc else None,
                 ))
 
             return GraphIndexSearchResponse(
                 query=request.query,
                 search_mode="graphindex",
-                documents=top_docs,
-                total_documents=len(top_docs),
+                documents=docs,
+                total_documents=len(docs),
             )
 
         # ===== Vector Mode (existing) =====
@@ -2277,284 +1836,6 @@ async def get_search_history(
 
 
 # GraphIndex Endpoints for Progressive Disclosure
-def _get_doc_index_client():
-    """Helper to get DocIndexClient instance"""
-    import os
-    from services.doc_index_service import DocIndexClient
-    doc_index_base = os.environ.get(
-        "DOC_INDEX_BASE",
-        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "outputs")
-    )
-    return DocIndexClient(doc_index_base)
-
-
-def _get_doc_index_id_from_context_id(context_doc_id: int, db: Session) -> str:
-    """Helper to get DocIndex ID from ContextDocument ID"""
-    doc = db.query(ContextDocument).filter(ContextDocument.id == context_doc_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-    if not doc.doc_index_id:
-        raise HTTPException(status_code=404, detail="Document not indexed in GraphIndex")
-    return doc.doc_index_id
-
-
-def _load_full_content_for_kv(context_doc: ContextDocument, client) -> tuple[str, str, int, str]:
-    from pathlib import Path
-
-    if context_doc.doc_index_id:
-        full_doc = client.get_full_content(context_doc.doc_index_id)
-        if isinstance(full_doc, dict) and "error" not in full_doc:
-            pages = full_doc.get("pages", [])
-            full_content = "\n\n".join(
-                f"[Page {page.get('page', '?')}]\n{page.get('content', '')}"
-                for page in pages
-                if page.get("content")
-            )
-            if full_content.strip():
-                doc_id = str(full_doc.get("id") or context_doc.doc_index_id)
-                doc_name = str(full_doc.get("doc_name") or context_doc.filename)
-                return doc_id, doc_name, len(pages), full_content
-
-    file_path = (context_doc.file_path or "").strip()
-    if not file_path:
-        raise HTTPException(status_code=400, detail="Document has no file_path and no GraphIndex content")
-
-    path = Path(file_path)
-    if not path.exists() or not path.is_file():
-        raise HTTPException(status_code=404, detail="Document file not found on disk")
-
-    suffix = path.suffix.lower()
-    if suffix in {".txt", ".md", ".json", ".yaml", ".yml", ".csv", ".html", ".xml"}:
-        full_content = path.read_text(encoding="utf-8", errors="ignore")
-        if not full_content.strip():
-            raise HTTPException(status_code=400, detail="Document file has no readable text content")
-        return f"context:{context_doc.id}", context_doc.filename, 0, full_content
-
-    if suffix == ".pdf":
-        from pypdf import PdfReader
-
-        reader = PdfReader(str(path))
-        page_texts: list[str] = []
-        for idx, page in enumerate(reader.pages, start=1):
-            text = page.extract_text() or ""
-            text = text.strip()
-            if text:
-                page_texts.append(f"[Page {idx}]\n{text}")
-        full_content = "\n\n".join(page_texts)
-        if not full_content.strip():
-            raise HTTPException(status_code=400, detail="PDF has no extractable text content")
-        return f"context:{context_doc.id}", context_doc.filename, len(reader.pages), full_content
-
-    data = path.read_bytes()
-    try:
-        full_content = data.decode("utf-8", errors="ignore")
-    except Exception:
-        full_content = ""
-    if not full_content.strip():
-        raise HTTPException(status_code=400, detail="Document file has no extractable text content")
-    return f"context:{context_doc.id}", context_doc.filename, 0, full_content
-
-
-@router.get("/documents/{context_doc_id}/graphindex/structure", response_model=GraphIndexStructureResponse)
-async def get_document_structure(
-    context_doc_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Get the Table of Contents structure of a document using ContextDocument ID.
-    Part of the progressive disclosure workflow.
-    """
-    doc_index_id = _get_doc_index_id_from_context_id(context_doc_id, db)
-    client = _get_doc_index_client()
-    
-    doc_info = client.get_document(doc_index_id)
-    structure = client.get_document_structure(doc_index_id)
-    
-    if "error" in doc_info:
-        raise HTTPException(status_code=404, detail=doc_info["error"])
-    
-    # Map 'id' to 'doc_id' for the schema
-    doc_info_copy = doc_info.copy()
-    doc_info_copy["doc_id"] = doc_info_copy.pop("id")
-    
-    return GraphIndexStructureResponse(
-        **doc_info_copy,
-        structure=structure
-    )
-
-
-@router.get("/documents/{context_doc_id}/graphindex/full", response_model=GraphIndexFullDocumentResponse)
-async def get_document_full_content(
-    context_doc_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Get the full content of a document (all pages) using ContextDocument ID.
-    Use this once the right document is selected via progressive disclosure.
-    """
-    doc_index_id = _get_doc_index_id_from_context_id(context_doc_id, db)
-    client = _get_doc_index_client()
-    
-    full_doc = client.get_full_content(doc_index_id)
-    if "error" in full_doc:
-        raise HTTPException(status_code=404, detail=full_doc["error"])
-    
-    # Map 'id' to 'doc_id' for the schema
-    full_doc_copy = full_doc.copy()
-    full_doc_copy["doc_id"] = full_doc_copy.pop("id")
-    
-    return GraphIndexFullDocumentResponse(**full_doc_copy)
-
-
-class DocumentPreviewResponse(BaseModel):
-    """Document preview data"""
-    doc_id: str
-    context_doc_id: int
-    doc_name: str
-    type: str
-    page_count: int
-    content_preview: str
-    has_more: bool
-    total_chars: int
-
-
-@router.get("/documents/{context_doc_id}/preview", response_model=DocumentPreviewResponse)
-async def preview_document(
-    context_doc_id: int,
-    max_chars: int = 2000,
-    db: Session = Depends(get_db)
-):
-    """
-    Get a preview of a document (first N chars of content + metadata).
-    """
-    from models.core import ContextDocument
-    doc = db.query(ContextDocument).filter(ContextDocument.id == context_doc_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    client = _get_doc_index_client()
-    doc_id_str, doc_name, page_count, full_content = _load_full_content_for_kv(doc, client)
-    preview = full_content[:max_chars]
-    has_more = len(full_content) > max_chars
-
-    return DocumentPreviewResponse(
-        doc_id=doc_id_str,
-        context_doc_id=context_doc_id,
-        doc_name=doc_name,
-        type=doc.document_type.value if hasattr(doc.document_type, 'value') else str(doc.document_type),
-        page_count=page_count,
-        content_preview=preview,
-        has_more=has_more,
-        total_chars=len(full_content),
-    )
-
-@router.post("/graphindex/answer", response_model=GraphIndexAnswerResponse)
-async def answer_with_graphindex(
-    request: GraphIndexAnswerRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Answer a query using the full content of a selected or auto-matched GraphIndex document.
-
-    This is the KV-style flow:
-    - key: selected/found document
-    - value: full document content
-    """
-    from api.models.routes import _create_llm_for_playground, _resolve_model_name
-
-    client = _get_doc_index_client()
-    context_doc, _ = _resolve_graphindex_target_document(request, db, client)
-    doc_id, doc_name, pages_loaded, full_content = _load_full_content_for_kv(context_doc, client)
-
-    # Read default and fallback models from PostgreSQL settings (no hardcoded model names)
-    from models.settings import Settings as SettingsModel
-    settings_row = db.query(SettingsModel).filter(SettingsModel.id == 1).first()
-    db_fallback_models: list = (settings_row.fallback_models or []) if settings_row else []
-    models_to_try = ([request.model] if request.model else [])
-    if not models_to_try:
-        # No explicit model requested: use DB default first, then DB fallbacks
-        default = _resolve_model_name(None, db)
-        models_to_try = [default] + db_fallback_models
-    else:
-        # Explicit model requested: try it, then DB fallbacks
-        models_to_try = models_to_try + db_fallback_models
-
-    model_name = None
-    llm = None
-    last_error = None
-    for mname in models_to_try:
-        try:
-            model_name = _resolve_model_name(mname, db)
-            llm = _create_llm_for_playground(
-                model_name=model_name,
-                temperature=request.temperature,
-                max_tokens=request.max_tokens,
-                db=db,
-            )
-            break
-        except Exception as e:
-            last_error = e
-            logger.warning(f"Model {mname} failed: {e}")
-            continue
-    if llm is None:
-        raise HTTPException(status_code=400, detail=str(last_error or "No working model available"))
-
-    from langchain_core.messages import HumanMessage, SystemMessage
-
-    system_prompt = (
-        "You answer questions using one selected document only.\n"
-        "Treat the document as a key-value source where the key is the document identity "
-        "and the value is the full document content loaded below.\n"
-        "Do not use outside knowledge. If the answer is not in the document, say so clearly."
-    )
-    user_prompt = (
-        f"Document key: {context_doc.filename}\n"
-        f"Document description: {context_doc.description or 'N/A'}\n"
-        f"User query: {request.query}\n\n"
-        f"Full document value:\n{full_content}"
-    )
-    response = llm.invoke([
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=user_prompt),
-    ])
-
-    return GraphIndexAnswerResponse(
-        query=request.query,
-        context_doc_id=context_doc.id,
-        doc_id=doc_id,
-        doc_name=doc_name,
-        model=model_name,
-        answer=response.content if isinstance(response.content, str) else str(response.content),
-        pages_loaded=pages_loaded,
-        content_chars=len(full_content),
-    )
-
-
-@router.get("/documents/{context_doc_id}/graphindex/pages/{pages}", response_model=List[GraphIndexPage])
-async def get_document_pages(
-    context_doc_id: int,
-    pages: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Get specific pages of a document using ContextDocument ID.
-    Pages format: '5-7', '3,8', or '12' (1-indexed).
-    """
-    doc_index_id = _get_doc_index_id_from_context_id(context_doc_id, db)
-    client = _get_doc_index_client()
-    
-    page_content = client.get_page_content(doc_index_id, pages)
-    if page_content and len(page_content) > 0 and "error" in page_content[0]:
-        raise HTTPException(status_code=404, detail=page_content[0]["error"])
-    
-    return page_content
-
-
-@router.get("/projects/{project_id}/storage-stats")
-async def get_project_storage_stats(
-    project_id: int,
-    db: Session = Depends(get_db)
-):
     """
     Get storage statistics for a project. RELOAD_MARKER_2025
 
