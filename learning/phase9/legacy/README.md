@@ -118,6 +118,14 @@ uv run python -m learning.phase9.legacy.route_semantic --query "ev market" --pro
 
 # Start interactive chat (Gemma4 routing + Minimax M3 per turn)
 uv run python -m learning.phase9.legacy.dv_chat --project-id 1
+
+# === agent_chat ===
+
+# Single query
+uv run python -m learning.phase9.legacy.agent_chat --query "tesla europe market share" --project-id 1
+
+# Interactive REPL (token streaming, conversation history)
+uv run python -m learning.phase9.legacy.agent_chat --project-id 1
 ```
 
 ## Configuration (`.env`)
@@ -175,25 +183,23 @@ upsert Document node in Neo4j with content_sha256, enrichment, file_path
     ▼
 ┌─ User query ───────────────────────────────────────────────────┐
 │                                                                │
-│  route_semantic.py --query "how many cars byd sold in europe"  │
+│  agent_chat.py --query "how many cars byd sold in europe"      │
 │    │                                                           │
 │    ▼                                                           │
-│  fetch_catalog(idx, pid)          — all/scoped docs from Neo4j │
+│  DeepAgent (create_deep_agent)                                 │
 │    │                                                           │
 │    ▼                                                           │
-│  route_by_llm(query, rows, gemma4) — LLM scores doc metadata   │
-│    │                                           (cheap, local)  │
-│    ▼                                                           │
-│  RouteDecision.documents            — ordered list of matches  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  tools.py (StructuredTool wrappers)                       │  │
+│  │                                                           │  │
+│  │  1. list_docs()  — list project catalog                   │  │
+│  │  2. query_docs() — route: Gemma4 scores metadata           │  │
+│  │  3. read_doc()   — load full text from disk               │  │
+│  │  4. answer()     — synthesize: Minimax M3 reads + answers  │  │
+│  └──────────────────────────────────────────────────────────┘  │
 │    │                                                           │
-│    ▼ (if --query-answer)                                       │
-│  load_doc_context(idx, pid, docs)   — read full text from disk │
-│    │                                                           │
 │    ▼                                                           │
-│  answer_from_docs(query, ctx, minimax)  — synthesize answer    │
-│                                               (expensive, API) │
-│    ▼                                                           │
-│  Final answer with citations                                   │
+│  Final answer with citations + streaming                      │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -203,7 +209,9 @@ upsert Document node in Neo4j with content_sha256, enrichment, file_path
 |---|---|---|
 | `build_graphindex.py` | Primary CLI — ingest, query, rebuild, remove, list. Exports helper functions reused by `route_semantic.py` and `dv_chat.py`. | **Active** |
 | `route_semantic.py` | Semantic router + answer pipeline. Uses `gemma4` (Ollama) for routing and `minimax-m3` (API) for synthesis. Supports doc scope. | **Active** |
-| `dv_chat.py` | Interactive chat REPL (route → load → answer per turn). Pricing tracker, multi-doc session, token cost logging. | **Active** |
+| `tools.py` | Tool wrappers for the DeepAgent: `list_docs`, `query_docs`, `read_doc`, `answer`. Exports `make_tools()`. | **Active** |
+| `agent_chat.py` | DeepAgent-powered chat REPL (or single query). Token streaming, conversation history, `!reset`. | **Active** |
+| `dv_chat.py` | Legacy interactive chat REPL (route → load → answer per turn). Pricing tracker, multi-doc session, token cost logging. | **Legacy** |
 | `create_mock_data.py` | Creates 3 mock .md files for testing. | **Helper** |
 | `eval_routing.py` | Original eval suite (14 hand-labeled queries, string vs LLM). Exports `EVAL_QUERIES`. | **Utility + legacy eval** |
 
