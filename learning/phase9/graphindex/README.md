@@ -8,10 +8,10 @@ they work because the architecture is simple.
 
 | # | File | What it does | Agent? | LLM |
 |---|------|-------------|--------|-----|
-| **1** | `build_graphindex.py` | **Index builder** — hash → dedup → copy → enrich → Neo4j upsert. Pure Python + `llm.invoke()` for enrichment. | ❌ No | Minimax M3 |
-| **2** | `route_semantic.py` | **Doc matcher** — `route_by_llm()` scores docs by metadata, returns ordered list. Also has `load_doc_context()` + `answer_from_docs()` for end-to-end. | ❌ No | Gemma4 + Minimax M3 |
-| **3** | `dv_chat.py` | **Legacy REPL** — manual conversation loop, routing per turn, session caching, cost tracking. | ❌ No | Gemma4 + Minimax M3 |
-| **4** | `agent_chat.py` | **DeepAgent chat** — `create_deep_agent` with 4 tools, MemoryMiddleware (AGENTS.md), token streaming, REPL. | ✅ **Yes** | Minimax M3 (agent) + Gemma4 (via tools) |
+| **1** | `build_index.py` | **Index builder** — hash → dedup → copy → enrich → Neo4j upsert. Pure Python + `llm.invoke()` for enrichment. | ❌ No | Minimax M3 |
+| **2** | `route.py` | **Doc matcher** — `route_by_llm()` scores docs by metadata, returns ordered list. Also has `load_doc_context()` + `answer_from_docs()` for end-to-end. | ❌ No | Gemma4 + Minimax M3 |
+| **3** | `python_agent.py` | **Legacy REPL** — manual conversation loop, routing per turn, session caching, cost tracking. | ❌ No | Gemma4 + Minimax M3 |
+| **4** | `agent.py` | **DeepAgent chat** — `create_deep_agent` with 4 tools, MemoryMiddleware (AGENTS.md), token streaming, REPL. | ✅ **Yes** | Minimax M3 (agent) + Gemma4 (via tools) |
 
 `tools.py` is the shared tool layer for **Layer 4**. It wraps raw functions from
 Layers 1-2 into ``StructuredTool`` objects required by ``create_deep_agent``.
@@ -19,22 +19,22 @@ Layers 1-2 into ``StructuredTool`` objects required by ``create_deep_agent``.
 ## Import chain
 
 ```
-build_graphindex.py   ── raw functions (load_document_content, Neo4jDocumentIndex)
+build_index.py   ── raw functions (load_document_content, Neo4jDocumentIndex)
     │
     ▼
-route_semantic.py     ── raw functions (route_by_llm, load_doc_context, etc.)
+route.py         ── raw functions (route_by_llm, load_doc_context, etc.)
     │
-    ├── dv_chat.py    ── calls raw functions directly
+    ├── python_agent.py    ── calls raw functions directly
     │
-    └── tools.py      ── wraps raw functions into StructuredTool for DeepAgent
-            │                          + ContextVar helpers for backend requests
+    └── tools.py           ── wraps raw functions into StructuredTool for DeepAgent
+            │                       + ContextVar helpers for backend requests
             │
-            └── agent_chat.py  ── uses tools.py + create_deep_agent
+            └── agent.py   ── uses tools.py + create_deep_agent
                                       │
                                       ▼
-                              backend/api/chat/routes.py  ── imports agent_chat.py directly
-                              backend/api/knowledge/graphindex_chat.py  ── imports agent_chat.py directly
-                              backend/api/knowledge/rag.py  ── imports build_graphindex.py directly
+                              backend/api/chat/routes.py  ── imports agent.py directly
+                              backend/api/knowledge/graphindex_chat.py  ── imports agent.py directly
+                              backend/api/knowledge/rag.py  ── imports build_index.py directly
 ```
 
 No wrappers, no middlemen. The backend imports the legacy modules directly.
@@ -44,7 +44,7 @@ No wrappers, no middlemen. The backend imports the legacy modules directly.
 ```
 .env (root)          → graphindex config (NEO4J_*, GRAPHINDEX_MODEL, etc.)
                           │
-legacy/build_graphindex.py  ← CLI + shared helpers
+graphindex/build_index.py  ← CLI + shared helpers
     ├── make_llm()                — init_chat_model (Minimax M3)
     ├── extract_document_enrichment()  — LLM structured output
     ├── load_document_content()    — PDF / MD / TXT reader
@@ -68,7 +68,7 @@ Both configurable via `.env`. See [Configuration](#configuration) below.
 
 ## CLI Commands
 
-### `build_graphindex.py` — Index management
+### `build_index.py` — Index management
 
 All commands accept `--project-id N`.
 
@@ -83,7 +83,7 @@ All commands accept `--project-id N`.
 | `--rebuild-project` | Rebuild enrichment for every doc in the project | **Yes** |
 | `--remove NAME` | Remove a doc from both Neo4j and filesystem | No |
 
-### `route_semantic.py` — Routing + answer
+### `route.py` — Routing + answer
 
 | Flag | What it does |
 |---|---|
@@ -109,43 +109,43 @@ All commands accept `--project-id N`.
 ### Examples
 
 ```bash
-# === build_graphindex ===
+# === build_index ===
 
 # List all files with index status
-uv run python -m learning.phase9.graphindex.build_graphindex --list --project-id 1
+uv run python -m learning.phase9.graphindex.build_index --list --project-id 1
 
 # Ingest a single file
-uv run python -m learning.phase9.graphindex.build_graphindex --ingest report.pdf --project-id 1
+uv run python -m learning.phase9.graphindex.build_index --ingest report.pdf --project-id 1
 
 # Ingest an entire folder (recursive)
-uv run python -m learning.phase9.graphindex.build_graphindex --ingest-folder /path/to/docs --project-id 1
+uv run python -m learning.phase9.graphindex.build_index --ingest-folder /path/to/docs --project-id 1
 
-# === route_semantic ===
+# === route ===
 
 # Route — find matched docs (Gemma4)
-uv run python -m learning.phase9.graphindex.route_semantic --query "tesla strategy" --project-id 1
+uv run python -m learning.phase9.graphindex.route --query "tesla strategy" --project-id 1
 
 # Route + answer (Gemma4 routing → Minimax M3 synthesis)
-uv run python -m learning.phase9.graphindex.route_semantic --query-answer "how many cars byd sold in europe 2024" --project-id 1
+uv run python -m learning.phase9.graphindex.route --query-answer "how many cars byd sold in europe 2024" --project-id 1
 
 # Show catalog
-uv run python -m learning.phase9.graphindex.route_semantic --show-catalog --project-id 1
+uv run python -m learning.phase9.graphindex.route --show-catalog --project-id 1
 
 # Scope to specific docs
-uv run python -m learning.phase9.graphindex.route_semantic --query "ev market" --project-id 1 --doc-scope "01_tesla_q3_strategy.pdf" "03_byd_vs_tesla_europe.md"
+uv run python -m learning.phase9.graphindex.route --query "ev market" --project-id 1 --doc-scope "01_tesla_q3_strategy.pdf" "03_byd_vs_tesla_europe.md"
 
-# === dv_chat ===
+# === python_agent ===
 
 # Start interactive chat (Gemma4 routing + Minimax M3 per turn)
-uv run python -m learning.phase9.graphindex.dv_chat --project-id 1
+uv run python -m learning.phase9.graphindex.python_agent --project-id 1
 
-# === agent_chat ===
+# === agent ===
 
 # Single query
-uv run python -m learning.phase9.graphindex.agent_chat --query "tesla europe market share" --project-id 1
+uv run python -m learning.phase9.graphindex.agent --query "tesla europe market share" --project-id 1
 
 # Interactive REPL (token streaming, conversation history)
-uv run python -m learning.phase9.graphindex.agent_chat --project-id 1
+uv run python -m learning.phase9.graphindex.agent --project-id 1
 ```
 
 ## Configuration (`.env`)
@@ -203,7 +203,7 @@ upsert Document node in Neo4j with content_sha256, enrichment, file_path
     ▼
 ┌─ User query ───────────────────────────────────────────────────┐
 │                                                                │
-│  agent_chat.py --query "how many cars byd sold in europe"      │
+│  agent.py --query "how many cars byd sold in europe"      │
 │    │                                                           │
 │    ▼                                                           │
 │  DeepAgent (create_deep_agent)                                 │
@@ -229,18 +229,18 @@ The legacy modules are imported **directly** by the LangConfig backend — no wr
 
 | Backend file | Imports |
 |---|---|
-| `backend/api/chat/routes.py` | `legacy.agent_chat.build_agent()` |
-| `backend/api/knowledge/graphindex_chat.py` | `legacy.agent_chat.build_agent()` |
-| `backend/api/knowledge/rag.py` | `legacy.build_graphindex.cmd_ingest()`, `extract_document_enrichment()` |
+| `backend/api/chat/routes.py` | `graphindex.agent.build_agent()` |
+| `backend/api/knowledge/graphindex_chat.py` | `graphindex.agent.build_agent()` |
+| `backend/api/knowledge/rag.py` | `graphindex.build_index.cmd_ingest()`, `extract_document_enrichment()` |
 
 ## Files
 
 | File | What it is | Status |
 |---|---|---|
-| `build_graphindex.py` | Primary CLI — ingest, query, rebuild, remove, list. Exports helper functions reused by `route_semantic.py` and `dv_chat.py`. | **Active** |
-| `route_semantic.py` | Semantic router + answer pipeline. Uses `gemma4` (Ollama) for routing and `minimax-m3` (API) for synthesis. Supports doc scope. | **Active** |
+| `build_index.py` | Primary CLI — ingest, query, rebuild, remove, list. Exports helper functions reused by `route.py` and `python_agent.py`. | **Active** |
+| `route.py` | Semantic router + answer pipeline. Uses `gemma4` (Ollama) for routing and `minimax-m3` (API) for synthesis. Supports doc scope. | **Active** |
 | `tools.py` | Tool wrappers for the DeepAgent: `list_docs`, `query_docs`, `read_doc`, `answer`. Also exports ContextVar helpers for backend request scoping. | **Active** |
-| `agent_chat.py` | DeepAgent-powered chat REPL (or single query). Token streaming, conversation history, `!reset`. The canonical chat agent used by the backend. | **Active** |
-| `dv_chat.py` | Legacy interactive chat REPL (route → load → answer per turn). Pricing tracker, multi-doc session, token cost logging. | **Legacy** |
+| `agent.py` | DeepAgent-powered chat REPL (or single query). Token streaming, conversation history, `!reset`. The canonical chat agent used by the backend. | **Active** |
+| `python_agent.py` | Legacy interactive chat REPL (route → load → answer per turn). Pricing tracker, multi-doc session, token cost logging. | **Legacy** |
 | `create_mock_data.py` | Creates 3 mock .md files for testing. | **Helper** |
 | `eval_routing.py` | Original eval suite (14 hand-labeled queries, string vs LLM). Exports `EVAL_QUERIES`. | **Utility + legacy eval** |

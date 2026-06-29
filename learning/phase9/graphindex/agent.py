@@ -10,8 +10,8 @@ The agent tools live in :mod:`tools`. This module wires them together
 into a DeepAgent REPL (or single-query mode).
 
 Usage:
-    uv run python -m learning.phase9.graphindex.agent_chat --project-id 1
-    uv run python -m learning.phase9.graphindex.agent_chat --query "tesla strategy" --project-id 1
+    uv run python -m learning.phase9.graphindex.agent --project-id 1
+    uv run python -m learning.phase9.graphindex.agent --query "tesla strategy" --project-id 1
 """
 
 from __future__ import annotations

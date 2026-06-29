@@ -479,7 +479,7 @@ def _phase9_get_or_generate_enrichment(
 
     # No existing enrichment — generate via Phase 9 LLM call.
     try:
-        from learning.phase9.graphindex.build_graphindex import (
+        from learning.phase9.graphindex.build_index import (
             make_llm, extract_document_enrichment, load_document_content,
             load_graphindex_metadata,
         )
@@ -587,7 +587,7 @@ def _queue_graphindex_ingest(file_path: str) -> None:
     hash → dedup (FS + Neo4j) → copy → LLM enrichment → upsert to Neo4j.
     """
     try:
-        from learning.phase9.graphindex.build_graphindex import (
+        from learning.phase9.graphindex.build_index import (
             make_llm, cmd_ingest, Neo4jDocumentIndex,
         )
         index = Neo4jDocumentIndex(
