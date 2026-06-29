@@ -9,8 +9,15 @@ API endpoints for DeepAgent configuration and management.
 
 import logging
 import json
+import os as _os
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from starlette.responses import Response, FileResponse
+
+# Repo root — used by the codegen endpoint so generated scripts know where
+# to find langconfig modules, even when run from a different directory.
+_CODEGEN_REPO_ROOT = _os.path.abspath(
+    _os.path.join(_os.path.dirname(__file__), "..", "..", "..")
+)
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import List, Optional
@@ -697,7 +704,7 @@ async def download_export(
     if not export:
         raise HTTPException(status_code=404, detail="Export not found")
 
-    if not export.file_path or not os.path.exists(export.file_path):
+    if not export.file_path or not _os.path.exists(export.file_path):
         raise HTTPException(status_code=404, detail="Export file not found")
 
     # Update download count
@@ -708,7 +715,7 @@ async def download_export(
 
     return FileResponse(
         export.file_path,
-        filename=os.path.basename(export.file_path),
+        filename=_os.path.basename(export.file_path),
         media_type="application/octet-stream"
     )
 
@@ -923,7 +930,7 @@ tool_factory = ToolFactory()
 # Build DeepAgent
 from deepagents import create_deep_agent
 agent = create_deep_agent(
-    llm=llm,
+    model=llm,
     system_prompt=system_prompt,
     tools=tools,
 )
@@ -961,9 +968,14 @@ agent = create_react_agent(
         'import sys\n'
         '\n'
         '# ── Path setup (mirrors backend/api/chat/routes.py) ──────────────────────\n'
-        '_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))\n'
+        '# You can override this by setting LANGCFG_ROOT or placing this script\n'
+        '# anywhere inside the repo (it walks up looking for backend/).\n'
+        f'_REPO_ROOT = r"{_CODEGEN_REPO_ROOT}"\n'
         'if _REPO_ROOT not in sys.path:\n'
         '    sys.path.insert(0, _REPO_ROOT)\n'
+        '_BACKEND_DIR = os.path.join(_REPO_ROOT, "backend")\n'
+        'if _BACKEND_DIR not in sys.path:\n'
+        '    sys.path.insert(0, _BACKEND_DIR)\n'
         '_PHASE9_DIR = os.path.join(_REPO_ROOT, "learning", "phase9")\n'
         'if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):\n'
         '    sys.path.insert(0, _PHASE9_DIR)\n'
