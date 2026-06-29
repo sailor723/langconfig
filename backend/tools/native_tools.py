@@ -1839,7 +1839,7 @@ def graphindex_load(context_doc_id: int, max_chars: int = 10_000_000) -> str:
             db.close()
 
         if not context_doc:
-            return f"❌ Document with context_doc_id={context_doc_id} not found."
+            return f"❌ Document with context_doc_id={context_doc_id} not found in either Postgres or Neo4j."
 
         from learning.phase9.graphindex.route import _read_doc_text  # noqa: E402
         full_content = _read_doc_text(
@@ -2015,7 +2015,6 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
         from learning.phase9.graphindex.index_build import (  # noqa: E402
             Neo4jDocumentIndex, make_llm,
         )
-        from learning.phase9.graphindex.tools import tool_query_docs  # noqa: E402
 
         idx = Neo4jDocumentIndex(
             base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
@@ -2033,11 +2032,9 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
             return (f"No document matched '{query}'. "
                     f"Reasoning: {decision.reasoning if decision.reasoning else 'N/A'}")
 
-        # Use tool_query_docs to load the matched documents
-        doc_names = [d.name for d in decision.documents]
-        context = "\n\n".join(
-            tool_query_docs(doc_names, project_id) for _ in [1]
-        )
+        # Use load_doc_context from graphindex lib to read matched docs
+        from learning.phase9.graphindex.route import load_doc_context  # noqa: E402
+        context = load_doc_context(idx, project_id, decision.documents)
         primary = decision.documents[0]
         header = (
             f"## Multi-doc context for: '{query}'\n"
