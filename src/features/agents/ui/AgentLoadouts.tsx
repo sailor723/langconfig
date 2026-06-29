@@ -840,10 +840,21 @@ print(result["messages"][-1].content)
     return header + systemSection + toolsSection + buildSection;
   };
 
-  const handleViewCode = () => {
-    const code = generateLangChainCode();
-    setGeneratedCode(code);
-    setShowCodeModal(true);
+  const handleViewCode = async () => {
+    try {
+      const resp = await fetch(`/api/deepagents/${agent.id}/code`);
+      if (resp.ok) {
+        const code = await resp.text();
+        setGeneratedCode(code);
+        setShowCodeModal(true);
+      } else {
+        setGeneratedCode(`# Error: failed to fetch code (${resp.status})\n`);
+        setShowCodeModal(true);
+      }
+    } catch (e: any) {
+      setGeneratedCode(`# Error: ${e.message}\n`);
+      setShowCodeModal(true);
+    }
   };
 
   return (
@@ -1977,6 +1988,23 @@ print(result["messages"][-1].content)
                   <Copy size={14} />
                   Copy
                 </button>
+                <a
+                  href={`/api/deepagents/${agent.id}/code`}
+                  download={`${agent.name.replace(/\s+/g, '_')}.py`}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    color: 'white',
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)',
+                    textDecoration: 'none',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                >
+                  <Download size={14} />
+                  Download
+                </a>
                 <button
                   onClick={() => setShowCodeModal(false)}
                   className="p-2 transition-all text-white/90 hover:text-white hover:bg-white/15 rounded-lg"
