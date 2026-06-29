@@ -134,32 +134,25 @@ _agent_cache: Dict[int, Any] = {}
 
 def _get_or_build_agent(project_id: int, model_name: Optional[str] = None):
     """Build a graphindex_chat agent, cached per (project_id, model_name)."""
-    from graphindex_chat_agent import create_graphindex_chat_agent
+    from learning.phase9.legacy.agent_chat import build_agent
 
     cache_key = (project_id, model_name or "default")
     if cache_key in _agent_cache:
         return _agent_cache[cache_key]
-    agent = create_graphindex_chat_agent(
-        project_id=project_id,
-        model_name=model_name or "minimax-m3",  # default LLM
-    )
+    agent = build_agent(project_id=project_id)
     _agent_cache[cache_key] = agent
     return agent
 
 
 def _set_scope(scope):
     """Set the active doc scope via ContextVar. Returns a token for reset."""
-    # Imported lazily to avoid importing the whole graphindex_tools module
-    # (which pulls in langchain + neo4j client) on every request.
-    from graphindex_tools import set_active_doc_scope
-
+    from learning.phase9.legacy.tools import set_active_doc_scope
     return set_active_doc_scope(scope)
 
 
 def _reset_scope(token) -> None:
     """Reset the active doc scope via ContextVar."""
-    from graphindex_tools import reset_active_doc_scope
-
+    from learning.phase9.legacy.tools import reset_active_doc_scope
     reset_active_doc_scope(token)
 
 
@@ -185,20 +178,32 @@ def _resolve_scope(project_id: int, scope):
     # Normalize: None / "all" / [] = no filter
     if scope is None or scope == "all" or (isinstance(scope, (list, tuple)) and len(scope) == 0):
         # Still fetch all doc names for the "available docs" suggestion
-        from graphindex_tools import _idx as _get_idx
-        from legacy.route_semantic import fetch_catalog
+        from learning.phase9.legacy.build_graphindex import Neo4jDocumentIndex
+        from learning.phase9.legacy.route_semantic import fetch_catalog
         try:
-            rows = fetch_catalog(_get_idx(), project_id)
+            idx = Neo4jDocumentIndex(
+                base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+                username=os.environ.get("NEO4J_USER", "neo4j"),
+                password=os.environ.get("NEO4J_PASSWORD", "password"),
+            )
+            idx.ensure_constraints()
+            rows = fetch_catalog(idx, project_id)
             all_names = sorted({r["name"] for r in rows})
         except Exception:
             all_names = []
         return {"valid": None, "invalid": [], "all_doc_names": all_names}
 
     # Scope is a real list — resolve it against the catalog
-    from graphindex_tools import _idx as _get_idx
-    from legacy.route_semantic import fetch_catalog
+    from learning.phase9.legacy.build_graphindex import Neo4jDocumentIndex
+    from learning.phase9.legacy.route_semantic import fetch_catalog
     try:
-        rows = fetch_catalog(_get_idx(), project_id)
+        idx = Neo4jDocumentIndex(
+            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+            username=os.environ.get("NEO4J_USER", "neo4j"),
+            password=os.environ.get("NEO4J_PASSWORD", "password"),
+        )
+        idx.ensure_constraints()
+        rows = fetch_catalog(idx, project_id)
         all_names_set = {r["name"] for r in rows}
         all_names = sorted(all_names_set)
     except Exception:

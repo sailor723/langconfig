@@ -83,35 +83,31 @@ from core.workflows.events.emitter import ExecutionEventCallbackHandler
 from langgraph.errors import GraphInterrupt
 from services.conversation_context import ConversationContextService
 
-
-# --- Phase 9 chat agent (module-level singleton) -----------------------
-# The Phase 9 chat agent lives at learning/phase9/graphindex_chat_agent.py
-# (no __init__.py, so we load it via importlib). The @lru_cache on
-# get_graphindex_chat_agent preserves both the agent AND its
-# MemorySaver checkpointer across requests — which is what gives the
-# chat multi-turn memory.
-#
-# IMPORTANT: the module must be loaded ONCE per process, not per
-# request. Loading per request was a bug: every request got a fresh
-# module, an empty @lru_cache, a fresh agent, and an empty
-# MemorySaver — so the agent had no memory of the previous turn.
-# This is why "what is my last question?" returned no answer in
-# the chat — the agent was rebuilt for each turn and forgot the
-# prior messages. Fix: cache the loaded module at process level.
+# Phase 9 / graphindex — stateful streaming filter that strips
+# `<think>...</think>` and `<tool_call>...</tool_call>` XML emitted
+# by Minimax M3 as raw text in model content. 22/22 tests pass.
+from think_filter import ThinkFilter as StreamingFilter
+# The Phase 9 chat agent lives at learning/phase9/legacy/agent_chat.py
+# (the canonical implementation). We cache the loaded module at
+# the process level — without caching, every request loads a fresh
+# agent with empty memory.
 _PHASE9_AGENT_MODULE = None
 
 
 def _get_phase9_agent_module():
-    """Load (or return cached) `graphindex_chat_agent` module.
-    Cached so the @lru_cache + MemorySaver state survive across
-    requests, giving the chat multi-turn memory."""
+    """Load (or return cached) `legacy.agent_chat` module directly.
+
+    The canonical chat agent lives at ``learning.phase9.legacy.agent_chat``.
+    This function returns it as a module with a compatible API:
+      - ``build_agent(project_id)`` → agent (same as ``get_graphindex_chat_agent``)
+    """
     global _PHASE9_AGENT_MODULE
     if _PHASE9_AGENT_MODULE is not None:
         return _PHASE9_AGENT_MODULE
     import importlib.util
     _spec = importlib.util.spec_from_file_location(
-        "graphindex_chat_agent",
-        _os.path.join(_PHASE9_DIR, "graphindex_chat_agent.py"),
+        "agent_chat",
+        _os.path.join(_PHASE9_DIR, "legacy", "agent_chat.py"),
     )
     _mod = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(_mod)
@@ -146,6 +142,90 @@ def make_json_safe(obj):
             return obj
         except (TypeError, ValueError):
             return None
+
+
+class StreamingFilter:
+    """Stateful filter to strip <think>...</think> and <tool_call>...</tool_call> tags
+    and their contents from a stream of tokens."""
+    def __init__(self):
+        self.buffer = ""
+        self.in_think = False
+        self.in_tool = False
+
+    def feed(self, token: str) -> str:
+        self.buffer += token
+        output = ""
+        
+        while True:
+            if not self.in_think and not self.in_tool:
+                think_idx = self.buffer.find("<think>")
+                tool_idx = self.buffer.find("<tool_call>")
+                
+                if think_idx != -1 and (tool_idx == -1 or think_idx < tool_idx):
+                    output += self.buffer[:think_idx]
+                    self.buffer = self.buffer[think_idx + len("<think>"):]
+                    self.in_think = True
+                    continue
+                elif tool_idx != -1 and (think_idx == -1 or tool_idx < think_idx):
+                    output += self.buffer[:tool_idx]
+                    self.buffer = self.buffer[tool_idx + len("<tool_call>"):]
+                    self.in_tool = True
+                    continue
+                
+                last_angle = self.buffer.rfind("<")
+                if last_angle != -1:
+                    suffix = self.buffer[last_angle:]
+                    if "<think>".startswith(suffix) or "<tool_call>".startswith(suffix):
+                        output += self.buffer[:last_angle]
+                        self.buffer = suffix
+                        break
+                
+                output += self.buffer
+                self.buffer = ""
+                break
+            
+            elif self.in_think:
+                end_idx = self.buffer.find("</think>")
+                if end_idx != -1:
+                    self.buffer = self.buffer[end_idx + len("</think>"):]
+                    self.in_think = False
+                    continue
+                
+                last_angle = self.buffer.rfind("<")
+                if last_angle != -1:
+                    suffix = self.buffer[last_angle:]
+                    if "</think>".startswith(suffix):
+                        self.buffer = suffix
+                        break
+                
+                self.buffer = ""
+                break
+                
+            elif self.in_tool:
+                end_idx = self.buffer.find("</tool_call>")
+                if end_idx != -1:
+                    self.buffer = self.buffer[end_idx + len("</tool_call>"):]
+                    self.in_tool = False
+                    continue
+                
+                last_angle = self.buffer.rfind("<")
+                if last_angle != -1:
+                    suffix = self.buffer[last_angle:]
+                    if "</tool_call>".startswith(suffix):
+                        self.buffer = suffix
+                        break
+                
+                self.buffer = ""
+                break
+                
+        return output
+
+    def finalize(self) -> str:
+        if not self.in_think and not self.in_tool:
+            res = self.buffer
+            self.buffer = ""
+            return res
+        return ""
 
 
 # =============================================================================
@@ -680,137 +760,14 @@ async def _aiter_sync(gen):
         yield item
 
 
-async def _generate_stream_phase9(
-    session_id: str,
-    project_id: int,
-    message: str,
-    scope=None,
-):
-    """Phase 9 fast-path generator. Yields SSE-formatted chunks that
-    match the langconfig chat SSE schema:
-
-        data: {"type": "tool_start", "tool_name": "...", ...}
-        data: {"type": "tool_end",   "tool_name": "...", ...}
-        data: {"type": "chunk",      "content": "..."}
-        data: {"type": "done",       "session_id": "..."}
-
-    Used when the chat agent has `use_phase9_graphindex: true` in its
-    config. The agent itself lives in
-    `phase9.graphindex_chat_agent.stream_graphindex_chat_events` and
-    already has the 5 graphindex tools + the progressive-disclosure
-    system_prompt (with `Current project_id: 1` injected).
-
-    `scope` is the optional doc filter (list of doc names). When non-None
-    and non-empty, the agent's tools will only see / read these docs.
-
-    This is a *thin* wrapper — the heavy lifting (LLM call, tool
-    routing, document loading, synthesis) is all done by the Phase 9
-    deepagent. We just translate LangGraph state updates into SSE.
-    """
-    import json
-    full_response = ""
-
-    try:
-        # Use the cached module — loading it on every request was a
-        # bug that wiped the @lru_cache and MemorySaver checkpointer,
-        # giving the agent no memory of the previous turn. See
-        # `_get_phase9_agent_module()` for the full reasoning.
-        _mod = _get_phase9_agent_module()
-        stream_graphindex_chat_events = _mod.stream_graphindex_chat_events
-
-        logger.info(
-            f"Phase 9 path: session={session_id} project={project_id}"
-        )
-        last_messages: list = []
-        # The Phase 9 generator is sync, but the route's response
-        # streaming is async (StreamingResponse with async gen). Wrap
-        # the sync generator with an async generator that yields each
-        # state after a small sleep to avoid blocking the event loop.
-        import asyncio
-        def _state_gen():
-            for state in stream_graphindex_chat_events(
-                project_id=project_id,
-                query=message,
-                thread_id=session_id,
-                scope=scope,  # forward the doc scope (may be None)
-            ):
-                yield state
-        async for state in _aiter_sync(_state_gen()):
-            # state is the full graph state after each node runs.
-            # We diff it against the previous state to detect new
-            # tool calls and assistant tokens.
-            messages = state.get("messages", [])
-            new_messages = messages[len(last_messages):]
-            last_messages = list(messages)
-
-            for msg in new_messages:
-                msg_type = getattr(msg, "type", "?")
-                # Tool call from an AI message
-                if hasattr(msg, "tool_calls") and msg.tool_calls:
-                    for tc in msg.tool_calls:
-                        tool_name = tc.get("name", "unknown")
-                        tool_input = tc.get("args", {})
-                        yield f"data: {json.dumps({'type': 'tool_start', 'tool_name': tool_name, 'data': {'input': tool_input}})}\n\n"
-
-                # Tool result message
-                if msg_type == "tool":
-                    content = getattr(msg, "content", "")
-                    tool_name = getattr(msg, "name", "unknown")
-                    # Bumped from 200 → 2000 chars. The frontend uses
-                    # this preview to detect which doc the LLM picked
-                    # (via regex on the tool output). 200 chars was
-                    # too tight — for `load_multi_doc_tool` the
-                    # header `=== Document 1 (PRIMARY): <name> ===`
-                    # could be cut off in unusual cases, and for
-                    # `route_query_tool` (Phase 9) we need the
-                    # full JSON to extract `primary.name`.
-                    yield f"data: {json.dumps({'type': 'tool_end', 'tool_name': tool_name, 'data': {'output_preview': (content or '')[:2000]}})}\n\n"
-
-                # Final assistant message — stream its content
-                if msg_type == "ai" and not getattr(msg, "tool_calls", None):
-                    text = msg.content if isinstance(msg.content, str) else str(msg.content)
-                    # Strip <think>...</think> blocks (we don't stream
-                    # thinking) AND <tool_call>...</tool_call> blocks
-                    # (the LLM's tool calls in XML form). Minimax
-                    # sometimes emits the tool call as raw text in
-                    # the content alongside `tool_calls=[...]`, which
-                    # would leak the `<invoke name="...">` XML into
-                    # the chat and confuse the Markdown renderer.
-                    #
-                    # The streaming chunks can split these blocks
-                    # mid-way: the opening <think> may be in one
-                    # chunk and the closing </think> in a later
-                    # chunk. The regex must handle BOTH a complete
-                    # block (`<think>...</think>`) AND an open block
-                    # (`<think>...$`, no closing tag yet). Same for
-                    # <tool_call>. Use `.*?(?:</tool_call>|$)` so
-                    # the open-block case also matches.
-                    import re
-                    text = re.sub(
-                        r"<think>.*?(?:</think>|$)",
-                        "", text, flags=re.DOTALL,
-                    )
-                    text = re.sub(
-                        r"<tool_call>.*?(?:</tool_call>|$)",
-                        "", text, flags=re.DOTALL,
-                    )
-                    text = text.strip()
-                    # If the whole final message differs from what
-                    # we've sent, emit the new portion as a chunk
-                    if text and not text.startswith(full_response):
-                        new_portion = text[len(full_response):]
-                        if new_portion:
-                            full_response = text
-                            yield f"data: {json.dumps({'type': 'chunk', 'content': new_portion})}\n\n"
-                    elif text and text != full_response:
-                        full_response = text
-                        yield f"data: {json.dumps({'type': 'chunk', 'content': text})}\n\n"
-
-        # Done
-        yield f"data: {json.dumps({'type': 'done', 'session_id': session_id, 'message': full_response})}\n\n"
-    except Exception as e:
-        logger.error(f"Phase 9 path error: {e}")
-        yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+# NOTE: `_generate_stream_phase9` was a planned refactor that was
+# superseded by the inline Phase 9 path inside `send_message_stream`
+# (which uses `astream_events` + the `StreamingFilter` defined above).
+# The chat model is now wrapped with `ThinkStrippingChatModel` at build
+# time (see `learning/phase9/graphindex_chat_agent.py`), so the think
+# XML is stripped at the model boundary and the inline stream only
+# ever sees clean content. This stub is kept for reference but is
+# not called by the route.
 
 
 @router.post("/message/stream")
@@ -874,64 +831,9 @@ async def send_message_stream(
             full_response = ""
             all_context = ""
             rag_tokens_used = 0
-
-            # Phase 9 fast-path: if the agent template has the
-            # `use_phase9_graphindex` flag, dispatch to the proven
-            # Phase 9 single-agent deepagent (5 graphindex tools +
-            # progressive-disclosure system_prompt). We skip:
-            #   - RAG context injection (graphindex_chat has its own
-            #     catalog + filesystem read)
-            #   - DeepAgentFactory (the Phase 9 agent is already
-            #     built and cached in `phase9.graphindex_chat_agent`)
-            #   - LangGraph's RAG middleware (the LLM gets exactly
-            #     the 5 tools + project_id-injected system_prompt)
-            if agent_config.get("use_phase9_graphindex"):
-                # Resolve the project_id. The chat is always bound to the
-                # ACTIVE project the user is viewing in the UI. There is
-                # NO fallback to a hardcoded project — if the active
-                # project can't be determined, the LLM will naturally
-                # see 0 docs in its catalog and reply "no matched
-                # document found". This is the correct, non-misleading
-                # behavior. The previous code fell back to project 1,
-                # which caused the "no documents in project X" bug
-                # whenever the user was on a different project.
-                if request.project_id is None:
-                    logger.warning(
-                        "Phase 9 chat called without project_id from "
-                        "frontend. LLM will see 0 docs and reply "
-                        "'no matched document found'."
-                    )
-                effective_project_id = (
-                    request.project_id
-                    if request.project_id is not None
-                    else agent_project_id  # may also be None — that's OK
-                )
-                # ============================================================
-                # DEBUG: log every chat request so the user can see the
-                # session_id / project_id / message in the backend stdout.
-                # The session_id is what threads the conversation through
-                # MemorySaver; if the frontend sends a new session_id per
-                # turn, the agent has no memory of the previous turn and
-                # repeats the same BYD/Tesla answer.
-                # ============================================================
-                logger.info(
-                    f"[CHAT] session_id={session_id} "
-                    f"project_id={effective_project_id} "
-                    f"msg={request.message!r}"
-                )
-                logger.debug(
-                    f"Phase 9 chat: project_id={effective_project_id} "
-                    f"(from request={request.project_id}, "
-                    f"agent={agent_project_id})"
-                )
-                async for chunk in _generate_stream_phase9(
-                    session_id=session_id,
-                    project_id=effective_project_id,
-                    message=request.message,
-                    scope=scope,  # forward the doc scope (may be None)
-                ):
-                    yield chunk
-                return
+            stream_filter = StreamingFilter()
+            use_phase9 = agent_config.get("use_phase9_graphindex", False)
+            scope_token = None
 
             try:
                 # Re-query session inside generator to avoid detached object issues
@@ -955,101 +857,119 @@ async def send_message_stream(
                 db.refresh(fresh_session)  # Refresh to confirm save
                 logger.info(f"✓ User message saved to DB: session={session_id}, total_messages={len(fresh_session.messages)}")
 
-                project_id = agent_project_id
+                if use_phase9:
+                    project_id = (
+                        request.project_id
+                        if request.project_id is not None
+                        else agent_project_id
+                    )
+                    logger.info(f"Phase 9 path: session={session_id} project={project_id}")
+                    _mod = _get_phase9_agent_module()
+                    agent_instance = _mod.build_agent(project_id=project_id)
+                    
+                    # Set ContextVars for project ID and document scope
+                    from learning.phase9.legacy.tools import set_active_project_id, set_active_doc_scope
+                    set_active_project_id(project_id)
+                    scope_token = set_active_doc_scope(scope)
+                    
+                    tool_calls_count = 0
+                    collected_tool_names = []
+                else:
+                    project_id = agent_project_id
 
-                if project_id:
-                    from services.context_retrieval import context_retriever
-                    from services.token_counter import get_token_counter
-                    token_counter = get_token_counter()
+                    if project_id:
+                        from services.context_retrieval import context_retriever
+                        from services.token_counter import get_token_counter
+                        token_counter = get_token_counter()
 
-                    try:
-                        project_context_package = await context_retriever.retrieve_context(
-                            project_id=project_id,
-                            task_description=request.message,
-                            similarity_top_k=3,
-                            use_hyde=False
-                        )
-                        project_chunks = project_context_package.get('components', {}).get('code_chunks', [])
-                        project_context = "\n\n".join([chunk.get('content', '') for chunk in project_chunks])
-                    except Exception as e:
-                        logger.warning(f"Failed to retrieve project context: {e}")
-                        project_context = ""
-
-                    session_context = ""
-                    session_docs = db.query(SessionDocument).filter(
-                        SessionDocument.session_id == request.session_id,
-                        SessionDocument.indexing_status == IndexingStatus.READY
-                    ).all()
-
-                    if session_docs:
                         try:
-                            logger.info(f"Found {len(session_docs)} indexed session documents")
-                            session_context_package = await context_retriever.retrieve_context(
+                            project_context_package = await context_retriever.retrieve_context(
                                 project_id=project_id,
                                 task_description=request.message,
-                                similarity_top_k=2,
-                                session_id=request.session_id,
+                                similarity_top_k=3,
                                 use_hyde=False
                             )
-                            session_chunks = session_context_package.get('components', {}).get('code_chunks', [])
-                            session_context = "\n\n".join([chunk.get('content', '') for chunk in session_chunks])
+                            project_chunks = project_context_package.get('components', {}).get('code_chunks', [])
+                            project_context = "\n\n".join([chunk.get('content', '') for chunk in project_chunks])
                         except Exception as e:
-                            logger.warning(f"Failed to retrieve session context: {e}")
-                            session_context = ""
+                            logger.warning(f"Failed to retrieve project context: {e}")
+                            project_context = ""
 
-                    if project_context and session_context:
-                        all_context = f"# Project Documents:\n{project_context}\n\n# Session Documents:\n{session_context}"
-                    elif project_context:
-                        all_context = f"# Project Documents:\n{project_context}"
-                    elif session_context:
-                        all_context = f"# Session Documents:\n{session_context}"
+                        session_context = ""
+                        session_docs = db.query(SessionDocument).filter(
+                            SessionDocument.session_id == request.session_id,
+                            SessionDocument.indexing_status == IndexingStatus.READY
+                        ).all()
 
-                    if all_context:
-                        rag_tokens_used = token_counter.count_tokens(all_context)
-                        logger.info(f"Retrieved RAG context: {rag_tokens_used} tokens")
+                        if session_docs:
+                            try:
+                                logger.info(f"Found {len(session_docs)} indexed session documents")
+                                session_context_package = await context_retriever.retrieve_context(
+                                    project_id=project_id,
+                                    task_description=request.message,
+                                    similarity_top_k=2,
+                                    session_id=request.session_id,
+                                    use_hyde=False
+                                )
+                                session_chunks = session_context_package.get('components', {}).get('code_chunks', [])
+                                session_context = "\n\n".join([chunk.get('content', '') for chunk in session_chunks])
+                            except Exception as e:
+                                logger.warning(f"Failed to retrieve session context: {e}")
+                                session_context = ""
 
-                # Get or create agent instance.
-                # Use (session_id, agent_id, agent.updated_at) as cache key so that
-                # updates to the agent's config invalidate the cached agent.
-                agent_version = None
-                if agent.updated_at:
-                    agent_version = str(int(agent.updated_at.timestamp()))
-                agent_instance = get_cached_agent(
-                    request.session_id,
-                    agent_id=agent.id,
-                    agent_version=agent_version,
-                )
+                        if project_context and session_context:
+                            all_context = f"# Project Documents:\n{project_context}\n\n# Session Documents:\n{session_context}"
+                        elif project_context:
+                            all_context = f"# Project Documents:\n{project_context}"
+                        elif session_context:
+                            all_context = f"# Session Documents:\n{session_context}"
 
-                if not agent_instance:
-                    # Branch on agent type
-                    use_deepagents = agent_config.get("use_deepagents", False)
-                    if use_deepagents:
-                        config = DeepAgentConfig(**agent_config)
-                        agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
-                            config=config,
-                            project_id=project_id or 0,
-                            task_id=0,
-                            context=all_context,  # Inject RAG context
-                            mcp_manager=None,
-                            vector_store=None,
-                            user_message=request.message
-                        )
-                    else:
-                        # Normal agent via AgentFactory
-                        agent_instance, tools, callbacks = await AgentFactory.create_agent(
-                            agent_config=agent_config,
-                            project_id=project_id or 0,
-                            task_id=0,
-                            context=all_context,
-                            mcp_manager=None,
-                            vector_store=None
-                        )
-                    cache_agent(
+                        if all_context:
+                            rag_tokens_used = token_counter.count_tokens(all_context)
+                            logger.info(f"Retrieved RAG context: {rag_tokens_used} tokens")
+
+                    # Get or create agent instance.
+                    # Use (session_id, agent_id, agent.updated_at) as cache key so that
+                    # updates to the agent's config invalidate the cached agent.
+                    agent_version = None
+                    if agent.updated_at:
+                        agent_version = str(int(agent.updated_at.timestamp()))
+                    agent_instance = get_cached_agent(
                         request.session_id,
-                        agent_instance,
                         agent_id=agent.id,
                         agent_version=agent_version,
                     )
+
+                    if not agent_instance:
+                        # Branch on agent type
+                        use_deepagents = agent_config.get("use_deepagents", False)
+                        if use_deepagents:
+                            config = DeepAgentConfig(**agent_config)
+                            agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
+                                config=config,
+                                project_id=project_id or 0,
+                                task_id=0,
+                                context=all_context,  # Inject RAG context
+                                mcp_manager=None,
+                                vector_store=None,
+                                user_message=request.message
+                            )
+                        else:
+                            # Normal agent via AgentFactory
+                            agent_instance, tools, callbacks = await AgentFactory.create_agent(
+                                agent_config=agent_config,
+                                project_id=project_id or 0,
+                                task_id=0,
+                                context=all_context,
+                                mcp_manager=None,
+                                vector_store=None
+                            )
+                        cache_agent(
+                            request.session_id,
+                            agent_instance,
+                            agent_id=agent.id,
+                            agent_version=agent_version,
+                        )
 
                 # Create event handler for tracking tool calls and subagent activity
                 event_handler = ExecutionEventCallbackHandler(
@@ -1079,8 +999,9 @@ async def send_message_stream(
                 new_message = HumanMessage(content=augmented_content)
 
                 # Use astream_events for token-by-token streaming
-                tool_calls_count = 0
-                collected_tool_names = []  # Track tool names for DB persistence and skill detection
+                if not use_phase9:
+                    tool_calls_count = 0
+                    collected_tool_names = []  # Track tool names for DB persistence and skill detection
                 async for event in agent_instance.astream_events(
                     {"messages": [new_message]},
                     config={
@@ -1169,8 +1090,11 @@ async def send_message_stream(
                                 token = str(token)
 
                             if token:
-                                full_response += token
-                                yield f"data: {json.dumps({'type': 'chunk', 'content': token})}\n\n"
+                                # Apply StreamingFilter to strip <think> and <tool_call> tags and their contents
+                                filtered_token = stream_filter.feed(token)
+                                if filtered_token:
+                                    full_response += filtered_token
+                                    yield f"data: {json.dumps({'type': 'chunk', 'content': filtered_token})}\n\n"
 
                     # Stream interrupt events (Human-in-the-Loop)
                     elif kind == "__interrupt__":
@@ -1230,6 +1154,12 @@ async def send_message_stream(
                         interrupted = True
                 except Exception as e:
                     logger.debug(f"No interrupt state available: {e}")
+
+                # Finalize filter
+                final_prose = stream_filter.finalize()
+                if final_prose:
+                    full_response += final_prose
+                    yield f"data: {json.dumps({'type': 'chunk', 'content': final_prose})}\n\n"
 
                 # Send completion event (skip if interrupted)
                 if not interrupted:

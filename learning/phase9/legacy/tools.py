@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -34,6 +35,44 @@ from learning.phase9.legacy.route_semantic import (
     _file_path_for,
     _read_doc_text,
 )
+
+
+# ---------------------------------------------------------------------------
+# Request-scoped ContextVars (set per-request by the backend)
+# ---------------------------------------------------------------------------
+
+_active_project_id: ContextVar[Optional[int]] = ContextVar(
+    "_active_project_id", default=None
+)
+_active_doc_scope: ContextVar[Optional[set]] = ContextVar(
+    "active_doc_scope", default=None
+)
+
+
+def set_active_project_id(project_id: Optional[int]):
+    _active_project_id.set(project_id)
+
+
+def get_active_project_id() -> Optional[int]:
+    return _active_project_id.get()
+
+
+def reset_active_project_id():
+    _active_project_id.set(None)
+
+
+def set_active_doc_scope(scope) -> object:
+    if scope is None or scope == "all" or (isinstance(scope, (list, tuple, set)) and len(scope) == 0):
+        return _active_doc_scope.set(None)
+    return _active_doc_scope.set(set(scope))
+
+
+def reset_active_doc_scope(token) -> None:
+    _active_doc_scope.reset(token)
+
+
+def get_active_doc_scope() -> Optional[set]:
+    return _active_doc_scope.get()
 
 
 # ---------------------------------------------------------------------------
