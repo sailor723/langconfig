@@ -87,7 +87,7 @@ from services.conversation_context import ConversationContextService
 # `<think>...</think>` and `<tool_call>...</tool_call>` XML emitted
 # by Minimax M3 as raw text in model content. 22/22 tests pass.
 from think_filter import ThinkFilter as StreamingFilter
-# The Phase 9 chat agent lives at learning/phase9/legacy/agent_chat.py
+# The Phase 9 chat agent lives at learning/phase9/graphindex/agent_chat.py
 # (the canonical implementation). We cache the loaded module at
 # the process level — without caching, every request loads a fresh
 # agent with empty memory.
@@ -95,9 +95,9 @@ _PHASE9_AGENT_MODULE = None
 
 
 def _get_phase9_agent_module():
-    """Load (or return cached) `legacy.agent_chat` module directly.
+    """Load (or return cached) `graphindex.agent_chat` module directly.
 
-    The canonical chat agent lives at ``learning.phase9.legacy.agent_chat``.
+    The canonical chat agent lives at ``learning.phase9.graphindex.agent_chat``.
     This function returns it as a module with a compatible API:
       - ``build_agent(project_id)`` → agent (same as ``get_graphindex_chat_agent``)
     """
@@ -107,7 +107,7 @@ def _get_phase9_agent_module():
     import importlib.util
     _spec = importlib.util.spec_from_file_location(
         "agent_chat",
-        _os.path.join(_PHASE9_DIR, "legacy", "agent_chat.py"),
+        _os.path.join(_PHASE9_DIR, "graphindex", "agent_chat.py"),
     )
     _mod = importlib.util.module_from_spec(_spec)
     _spec.loader.exec_module(_mod)
@@ -868,7 +868,7 @@ async def send_message_stream(
                     agent_instance = _mod.build_agent(project_id=project_id)
                     
                     # Set ContextVars for project ID and document scope
-                    from learning.phase9.legacy.tools import set_active_project_id, set_active_doc_scope
+                    from learning.phase9.graphindex.tools import set_active_project_id, set_active_doc_scope
                     set_active_project_id(project_id)
                     scope_token = set_active_doc_scope(scope)
                     

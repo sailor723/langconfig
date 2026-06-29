@@ -24,8 +24,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import StructuredTool
 
-from learning.phase9.legacy.build_graphindex import Neo4jDocumentIndex
-from learning.phase9.legacy.route_semantic import (
+from learning.phase9.graphindex.build_graphindex import Neo4jDocumentIndex
+from learning.phase9.graphindex.route_semantic import (
     fetch_catalog,
     load_doc_context,
     make_routing_llm,

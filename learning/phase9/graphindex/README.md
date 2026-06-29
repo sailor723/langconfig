@@ -1,4 +1,4 @@
-# Phase 9 / legacy scripts
+# Phase 9 / graphindex scripts
 
 These are the **Phase 9** scripts organized by complexity level.
 They are preserved and actively maintained as the **ground truth** —
@@ -112,40 +112,40 @@ All commands accept `--project-id N`.
 # === build_graphindex ===
 
 # List all files with index status
-uv run python -m learning.phase9.legacy.build_graphindex --list --project-id 1
+uv run python -m learning.phase9.graphindex.build_graphindex --list --project-id 1
 
 # Ingest a single file
-uv run python -m learning.phase9.legacy.build_graphindex --ingest report.pdf --project-id 1
+uv run python -m learning.phase9.graphindex.build_graphindex --ingest report.pdf --project-id 1
 
 # Ingest an entire folder (recursive)
-uv run python -m learning.phase9.legacy.build_graphindex --ingest-folder /path/to/docs --project-id 1
+uv run python -m learning.phase9.graphindex.build_graphindex --ingest-folder /path/to/docs --project-id 1
 
 # === route_semantic ===
 
 # Route — find matched docs (Gemma4)
-uv run python -m learning.phase9.legacy.route_semantic --query "tesla strategy" --project-id 1
+uv run python -m learning.phase9.graphindex.route_semantic --query "tesla strategy" --project-id 1
 
 # Route + answer (Gemma4 routing → Minimax M3 synthesis)
-uv run python -m learning.phase9.legacy.route_semantic --query-answer "how many cars byd sold in europe 2024" --project-id 1
+uv run python -m learning.phase9.graphindex.route_semantic --query-answer "how many cars byd sold in europe 2024" --project-id 1
 
 # Show catalog
-uv run python -m learning.phase9.legacy.route_semantic --show-catalog --project-id 1
+uv run python -m learning.phase9.graphindex.route_semantic --show-catalog --project-id 1
 
 # Scope to specific docs
-uv run python -m learning.phase9.legacy.route_semantic --query "ev market" --project-id 1 --doc-scope "01_tesla_q3_strategy.pdf" "03_byd_vs_tesla_europe.md"
+uv run python -m learning.phase9.graphindex.route_semantic --query "ev market" --project-id 1 --doc-scope "01_tesla_q3_strategy.pdf" "03_byd_vs_tesla_europe.md"
 
 # === dv_chat ===
 
 # Start interactive chat (Gemma4 routing + Minimax M3 per turn)
-uv run python -m learning.phase9.legacy.dv_chat --project-id 1
+uv run python -m learning.phase9.graphindex.dv_chat --project-id 1
 
 # === agent_chat ===
 
 # Single query
-uv run python -m learning.phase9.legacy.agent_chat --query "tesla europe market share" --project-id 1
+uv run python -m learning.phase9.graphindex.agent_chat --query "tesla europe market share" --project-id 1
 
 # Interactive REPL (token streaming, conversation history)
-uv run python -m learning.phase9.legacy.agent_chat --project-id 1
+uv run python -m learning.phase9.graphindex.agent_chat --project-id 1
 ```
 
 ## Configuration (`.env`)
