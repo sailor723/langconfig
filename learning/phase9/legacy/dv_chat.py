@@ -68,21 +68,7 @@ from langchain.chat_models import init_chat_model  # noqa: E402
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage  # noqa: E402
 from langchain_core.language_models.chat_models import BaseChatModel  # noqa: E402
 
-# --- Constants ---------------------------------------------------------------
-
-MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
-MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
-MODEL = "minimax-m3"
-PROJECT_ID = 1
-NEO4J_URL = os.getenv("NEO4J_URL", "http://localhost:7474")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
-DOCS_BASE = REPO_ROOT / "backend/data/documents"
-PRICING = {
-    "standard": {"input": 0.60, "output": 2.40},
-    "long_ctx": {"input": 1.20, "output": 4.80},
-}
-TIER_THRESHOLD = 512_000
+# --- SESSION_START (runtime state — must stay in code, not .env) ------------
 SESSION_START = time.time()
 
 
@@ -110,8 +96,11 @@ class DocEntry:
         )
 
 
-def load_real_catalog(idx: Neo4jDocumentIndex) -> List[DocEntry]:
-    rows = fetch_catalog(idx, PROJECT_ID)
+def load_real_catalog(idx: Neo4jDocumentIndex,
+                      project_id: int = None) -> List[DocEntry]:
+    if project_id is None:
+        project_id = int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1"))
+    rows = fetch_catalog(idx, project_id)
     return [DocEntry.from_neo4j_row(r) for r in rows]
 
 
@@ -131,7 +120,8 @@ class RouteResult:
 
 def route_query(query: str, entries: List[DocEntry],
                 rows: List[dict], llm: BaseChatModel,
-                method: str) -> RouteResult:
+                method: str,
+                project_id: int = int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1"))) -> RouteResult:
     """Run either LLM semantic or string-matching routing on `query`."""
     t0 = time.time()
     if method == "llm":
@@ -148,7 +138,7 @@ def route_query(query: str, entries: List[DocEntry],
             cache_read=cache_read,
         )
     # string fallback
-    records = [_entry_to_record(e) for e in entries]
+    records = [_entry_to_record(e, project_id=project_id) for e in entries]
     best = choose_best_document_match(query, records)
     latency = time.time() - t0
     if best is None:
@@ -164,10 +154,10 @@ def route_query(query: str, entries: List[DocEntry],
     )
 
 
-def _entry_to_record(e: DocEntry) -> Neo4jDocumentRecord:
+def _entry_to_record(e: DocEntry, project_id: int = int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1"))) -> Neo4jDocumentRecord:
     """Convert a DocEntry into a Neo4jDocumentRecord for base's string scoring."""
     return Neo4jDocumentRecord(
-        project_id=PROJECT_ID,
+        project_id=project_id,
         name=e.name,
         file_path=e.file_path,
         description="",
@@ -188,10 +178,11 @@ def load_multi_doc_context(
     primary_name: str,
     supporting: List[SupportingDoc],
     idx: Neo4jDocumentIndex,
+    project_id: int = int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1")),
 ) -> str:
     """Concatenate primary + supporting docs into a single context string."""
     parts: List[str] = []
-    primary_path = _file_path_for(idx, PROJECT_ID, primary_name)
+    primary_path = _file_path_for(idx, project_id, primary_name)
     primary_text = _read_doc_text(primary_path, PRIMARY_MAX_CHARS)
     parts.append(
         f"=== Document 1 (PRIMARY): {primary_name} ===\n{primary_text}"
@@ -199,7 +190,7 @@ def load_multi_doc_context(
         f"=== Document 1 (PRIMARY): {primary_name} ===\n(no extractable text)"
     )
     for i, sup in enumerate(supporting, start=2):
-        sup_path = _file_path_for(idx, PROJECT_ID, sup.name)
+        sup_path = _file_path_for(idx, project_id, sup.name)
         sup_text = _read_doc_text(sup_path, SUPPORTING_MAX_CHARS)
         reason_line = f"\n[Reason: {sup.reason}]" if sup.reason else ""
         parts.append(
@@ -213,14 +204,14 @@ def load_multi_doc_context(
 # --- LLM -------------------------------------------------------------------
 
 def _make_llm() -> BaseChatModel:
-    if not MINIMAX_API_KEY:
+    if not os.getenv("MINIMAX_API_KEY"):
         sys.stderr.write("FATAL: MINIMAX_API_KEY not set in .env\n")
         sys.exit(1)
     return init_chat_model(
-        model=MODEL,
+        model=os.getenv("GRAPHINDEX_MODEL", "minimax-m3"),
         model_provider="openai",
-        api_key=MINIMAX_API_KEY,
-        base_url=MINIMAX_BASE_URL,
+        api_key=os.getenv("MINIMAX_API_KEY"),
+        base_url=os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1"),
         temperature=0.2,
         max_tokens=8192,
     )
@@ -277,8 +268,19 @@ class Conversation:
         self.total_routing_latency += turn.routing_latency
 
     def _cost(self, in_tok: int, out_tok: int, cached: int) -> float:
-        tier = "long_ctx" if in_tok > TIER_THRESHOLD else "standard"
-        p = PRICING[tier]
+        _threshold = int(os.getenv("GRAPHINDEX_TIER_THRESHOLD", "512000"))
+        tier = "long_ctx" if in_tok > _threshold else "standard"
+        _pricing = {
+            "standard": {
+                "input": float(os.getenv("GRAPHINDEX_PRICING_STANDARD_INPUT", "0.60")),
+                "output": float(os.getenv("GRAPHINDEX_PRICING_STANDARD_OUTPUT", "2.40")),
+            },
+            "long_ctx": {
+                "input": float(os.getenv("GRAPHINDEX_PRICING_LONG_CTX_INPUT", "1.20")),
+                "output": float(os.getenv("GRAPHINDEX_PRICING_LONG_CTX_OUTPUT", "4.80")),
+            },
+        }
+        p = _pricing[tier]
         return (in_tok / 1_000_000) * p["input"] + (out_tok / 1_000_000) * p["output"]
 
     def turn_cost(self, turn: Turn) -> float:
@@ -289,7 +291,8 @@ class Conversation:
 
 
 def _format_session_footer(turn: Turn, conv: Conversation) -> str:
-    tier = "long-ctx" if turn.in_tokens > TIER_THRESHOLD else "standard"
+    _threshold = int(os.getenv("GRAPHINDEX_TIER_THRESHOLD", "512000"))
+    tier = "long-ctx" if turn.in_tokens > _threshold else "standard"
     cum_cost = conv.cumulative_cost()
     wall = time.time() - SESSION_START
     cache_pct = 100 * turn.cache_read / turn.in_tokens if turn.in_tokens else 0
@@ -334,11 +337,13 @@ class MultiDocSession:
     but identity is the primary's name)."""
 
     def __init__(self, primary_name: str, supporting: List[SupportingDoc],
-                 system_message: SystemMessage, idx: Neo4jDocumentIndex):
+                 system_message: SystemMessage, idx: Neo4jDocumentIndex,
+                 project_id: int = int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1"))):
         self.primary_name = primary_name
         self.supporting = list(supporting)
         # Stable doc header so cache hits across turns within same primary
-        ctx = load_multi_doc_context(primary_name, supporting, idx)
+        ctx = load_multi_doc_context(primary_name, supporting, idx,
+                                     project_id=project_id)
         self.doc_message = HumanMessage(content=(
             f"=== Documents in this conversation ===\n{ctx}"
         ))
@@ -395,6 +400,7 @@ def _repl(
     system_message: SystemMessage,
     conv: Conversation,
     default_method: str,
+    project_id: int = int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1")),
 ) -> None:
     print(f"\n{'='*60}")
     print(f"Multi-doc chat (live Neo4j) — {len(entries)} docs available")
@@ -462,7 +468,8 @@ def _repl(
         # --- Normal question — route to a doc ---
         if active_doc is None:
             try:
-                rr = route_query(raw, entries, rows, routing_llm, method)
+                rr = route_query(raw, entries, rows, routing_llm, method,
+                                 project_id=project_id)
             except Exception as e:
                 print(f"  ✗ routing error: {e}")
                 continue
@@ -495,7 +502,8 @@ def _repl(
         session_key = active_doc + "::" + ",".join(s.name for s in active_supporting)
         if session_key not in sessions:
             sessions[session_key] = MultiDocSession(
-                active_doc, active_supporting, system_message, idx
+                active_doc, active_supporting, system_message, idx,
+                project_id=project_id,
             )
         session = sessions[session_key]
 
@@ -534,29 +542,37 @@ def main() -> int:
     )
     parser.add_argument("--route", choices=["llm", "string"], default="llm",
                         help="Routing method (default: llm)")
+    parser.add_argument("--project-id", type=int,
+                        default=int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1")),
+                        help="Neo4j project id (default: from .env GRAPHINDEX_DEFAULT_PROJECT_ID)")
     args = parser.parse_args()
+    project_id = args.project_id
 
-    print(f"🔌 Neo4j: {NEO4J_URL}")
+    neo4j_url = os.getenv("NEO4J_URL", "http://localhost:7474")
+    print(f"🔌 Neo4j: {neo4j_url}")
     idx = Neo4jDocumentIndex(
-        base_url=NEO4J_URL, username=NEO4J_USER, password=NEO4J_PASSWORD,
+        base_url=neo4j_url,
+        username=os.getenv("NEO4J_USER", "neo4j"),
+        password=os.getenv("NEO4J_PASSWORD", "password"),
     )
     idx.ensure_constraints()
 
     # Load catalog from Neo4j (used for both display and LLM routing)
-    rows = fetch_catalog(idx, PROJECT_ID)
-    entries = load_real_catalog(idx)
-    print(f"📚 {len(entries)} documents loaded from project {PROJECT_ID}")
+    rows = fetch_catalog(idx, project_id)
+    entries = load_real_catalog(idx, project_id=project_id)
+    print(f"📚 {len(entries)} documents loaded from project {project_id}")
 
     # Build LLMs (one for routing, one for chat — could be same)
     routing_llm = _make_routing_llm()
     chat_llm = _make_llm()
-    print(f"🤖 LLM: {MODEL}")
+    model_name = os.getenv("GRAPHINDEX_MODEL", "minimax-m3")
+    print(f"🤖 LLM: {model_name}")
 
     system_message = SystemMessage(content=_build_system_prompt())
 
     conv = Conversation()
     _repl(chat_llm, routing_llm, idx, rows, entries, system_message, conv,
-          default_method=args.route)
+          default_method=args.route, project_id=project_id)
     return 0
 
 
