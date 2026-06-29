@@ -93,21 +93,26 @@ ORDER BY d.name
 """
         return idx._run_cypher(cypher, {"pid": project_id})
 
-    # Scoped: filter by specific doc names
+    # Scoped: filter by doc names (use CONTAINS to handle invisible Unicode chars)
     scope_list: List[str] = json.loads(doc_scope) if isinstance(doc_scope, str) else doc_scope
-    cypher = """
-MATCH (d:Document {project_id: $pid})
-WHERE d.name IN $scope_list
+    # Build a CONTAINS filter for each scope name
+    contains_filters = " OR ".join(f"d.name CONTAINS $s{i}" for i in range(len(scope_list)))
+    params = {"pid": project_id}
+    for i, name in enumerate(scope_list):
+        params[f"s{i}"] = name
+    cypher = f"""
+MATCH (d:Document {{project_id: $pid}})
+WHERE {contains_filters}
 WITH d, coalesce(d.out_of_scope, []) AS ex_names
 UNWIND (CASE WHEN size(ex_names) = 0 THEN [null] ELSE ex_names END) AS ex_name
 WITH d, ex_name
-OPTIONAL MATCH (other:Document {project_id: $pid, name: ex_name})
+OPTIONAL MATCH (other:Document {{project_id: $pid, name: ex_name}})
 WHERE other.name IN $scope_list OR other IS NULL
-WITH d, collect({
+WITH d, collect({{
     name: other.name,
     about: COALESCE(other.what_this_document_is_about, other.content_preview, ''),
     supports: COALESCE(other.supported_queries, other.search_terms, [])
-}) AS excluded_full
+}}) AS excluded_full
 RETURN d.name AS name,
        d.context_doc_id AS cid,
        d.file_path AS fp,
@@ -116,7 +121,7 @@ RETURN d.name AS name,
        excluded_full AS excludes
 ORDER BY d.name
 """
-    return idx._run_cypher(cypher, {"pid": project_id, "scope_list": scope_list})
+    return idx._run_cypher(cypher, params)
 
 
 # --- Catalog formatting for LLM --------------------------------------------

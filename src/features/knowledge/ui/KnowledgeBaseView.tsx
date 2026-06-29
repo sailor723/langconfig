@@ -904,13 +904,12 @@ export default function KnowledgeBaseView() {
         "  - graphindex_search(query, project_id) — semantic search to find relevant docs\n" +
         "  - graphindex_load(context_doc_id) — read full doc text\n" +
         "  - graphindex_multi_doc_load(query, project_id) — PREFERRED: semantic search + load in one call\n\n" +
-        "IMPORTANT RULES:\n" +
+        "RULES:\n" +
         "  1. ALWAYS prefer graphindex_multi_doc_load over individual tools.\n" +
-        "  2. When user says \"this doc\" / \"this file\" / \"summarize\" — immediately call\n" +
-        "     graphindex_multi_doc_load and answer. Do NOT list docs first.\n" +
-        "  3. project_id is an INTEGER (e.g. 8). Always pass as number.\n" +
-        "  4. Never include raw JSON or tool output in your response — use results internally.\n" +
-        "  5. Answer in the user's language. Concise (2-4 paragraphs). Cite the doc name.",
+        "  2. When user says \"this doc\" / \"this file\" / \"summarize\" — immediately\n" +
+        "     call graphindex_multi_doc_load and answer. Do NOT list docs first.\n" +
+        "  3. Never include raw JSON or tool output in your response — use results internally.\n" +
+        "  4. Answer in the user's language. Concise (2-4 paragraphs). Cite the doc name.",
       tools: [
         "graphindex_list_docs",
         "graphindex_search",

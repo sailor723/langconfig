@@ -793,6 +793,12 @@ async def send_message_stream(
         # filter to only the user-selected docs (deterministic, not LLM-dependent).
         from tools.native_tools import set_graphindex_doc_scope
         set_graphindex_doc_scope(scope)
+        # Also set the default project_id env so tools without explicit arg work.
+        if project_id:
+            import os
+            os.environ["GRAPHINDEX_PROJECT_ID"] = str(project_id)
+        elif "GRAPHINDEX_PROJECT_ID" in os.environ:
+            del os.environ["GRAPHINDEX_PROJECT_ID"]
         agent_config = agent.config.copy() if agent.config else {}
         # Merge guardrails_config separately — it's a separate DB column
         if agent.guardrails_config:
