@@ -61,17 +61,10 @@ from langchain_core.messages import HumanMessage, SystemMessage  # noqa: E402
 from langchain_core.language_models.chat_models import BaseChatModel  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
-# --- Constants ---------------------------------------------------------------
-
-MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
-MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1")
-MODEL = "minimax-m3"
-NEO4J_URL = os.getenv("NEO4J_URL", "http://localhost:7474")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
-DOCS_BASE = REPO_ROOT / "backend/data/documents"
-SESSION_START = time.time()
-SUPPORTED_EXTS = {".pdf", ".md", ".markdown", ".txt"}
+# --- Local defaults (domain logic, not configuration) ----------------------
+_DOCS_BASE = REPO_ROOT / "backend/data/documents"
+_SUPPORTED_EXTS = {".pdf", ".md", ".markdown", ".txt"}
+_PROJECT_ID = int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1"))
 
 
 # --- Document loading (lifted from scripts/test_neo4j_document_kv_roundtrip.py) -
@@ -140,14 +133,14 @@ class DocumentEnrichmentOutput(BaseModel):
 # --- LLM + enrichment (lifted from scripts/test_neo4j_document_kv_roundtrip.py) --
 
 def make_llm() -> BaseChatModel:
-    if not MINIMAX_API_KEY:
+    if not os.getenv("MINIMAX_API_KEY"):
         sys.stderr.write("FATAL: MINIMAX_API_KEY not set in .env\n")
         sys.exit(1)
     return init_chat_model(
-        model=MODEL,
+        model=os.getenv("GRAPHINDEX_MODEL", "minimax-m3"),
         model_provider="openai",
-        api_key=MINIMAX_API_KEY,
-        base_url=MINIMAX_BASE_URL,
+        api_key=os.getenv("MINIMAX_API_KEY"),
+        base_url=os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1"),
         temperature=0.2,
         max_tokens=2048,
     )
@@ -289,7 +282,7 @@ def build_properties(
     description: str = "",
     tags: Optional[List[str]] = None,
     context_doc_id: int = 0,
-    project_id: int = 1,
+    project_id: int = _PROJECT_ID,
 ) -> Dict[str, Any]:
     """Build a flat Neo4j property map for one document node."""
     return build_document_node_properties(
@@ -307,9 +300,9 @@ def build_properties(
 
 # --- Commands ----------------------------------------------------------------
 
-def cmd_show(index: Neo4jDocumentIndex, name: str) -> int:
+def cmd_show(index: Neo4jDocumentIndex, name: str, project_id: int = _PROJECT_ID) -> int:
     """Show one node's full content."""
-    node = index.get_document(project_id=1, name=name)
+    node = index.get_document(project_id=project_id, name=name)
     if node is None:
         print(f"  ✗ no Document node with name={name!r}")
         return 1
@@ -348,7 +341,7 @@ def sha256_of_file(file_path: str) -> str:
 
 
 def scan_filesystem_for_dupe(file_path: str, content_hash: str,
-                              docs_base: Path = DOCS_BASE) -> List[Path]:
+                              docs_base: Path = _DOCS_BASE) -> List[Path]:
     """Find any file under docs_base whose name ends with the same hash prefix
     or whose full sha256 matches the candidate. Returns existing files."""
     matches: List[Path] = []
@@ -357,11 +350,13 @@ def scan_filesystem_for_dupe(file_path: str, content_hash: str,
     for p in docs_base.rglob("*"):
         if not p.is_file() or p.resolve() == Path(file_path).resolve():
             continue
-        # Skip chat-session copies — they are private workspace clones, not
-        # project source docs. Only check actual project_* dirs.
+        # Skip chat-session copies and files outside the scan root.
         rel = p.relative_to(docs_base)
         top = rel.parts[0] if rel.parts else ""
-        if not top.startswith("project_") or top == "project_chat_sessions":
+        # When scanning from _DOCS_BASE (full root), skip non-project dirs.
+        # When scanning from a project folder, all files are in-scope.
+        if docs_base == _DOCS_BASE and (not top.startswith("project_")
+                                         or top == "project_chat_sessions"):
             continue
         if sha256_of_file(str(p)) == content_hash:
             matches.append(p)
@@ -369,7 +364,7 @@ def scan_filesystem_for_dupe(file_path: str, content_hash: str,
 
 
 def scan_neo4j_for_dupe(index: Neo4jDocumentIndex, content_hash: str,
-                         project_id: int = 1) -> List[str]:
+                         project_id: int = _PROJECT_ID) -> List[str]:
     """Find any Document node whose content_sha256 matches. Returns names."""
     rows = index._run_cypher(
         "MATCH (d:Document {project_id: $pid, content_sha256: $h}) "
@@ -384,50 +379,87 @@ def cmd_ingest(
     llm: BaseChatModel,
     source_path: str,
     target_project_dir: str = None,
+    project_id: int = _PROJECT_ID,
 ) -> int:
     """Ingest a new file: hash it, dedup against fs + Neo4j, copy if new,
     then run rebuild-one to add the graphindex node."""
     src = Path(source_path).expanduser().resolve()
     if not src.exists():
-        print(f"  ✗ source not found: {src}")
-        return 1
-    if src.suffix.lower() not in SUPPORTED_EXTS:
+        # Search project docs folder by filename
+        candidates = list(_DOCS_BASE.rglob(src.name))
+        if candidates:
+            src = candidates[0]
+            print(f"  → found: {src}")
+        else:
+            print(f"  ✗ source not found: {src}")
+            return 1
+    if src.suffix.lower() not in _SUPPORTED_EXTS:
         print(f"  ✗ unsupported extension: {src.suffix}")
         return 1
 
     # 1. Hash source
     content_hash = sha256_of_file(str(src))
-    short_hash = content_hash[:8]
-    print(f"  hash:  {short_hash}…  ({src.stat().st_size:,} bytes)")
+    print(f"  hash:  {content_hash[:8]}…  ({src.stat().st_size:,} bytes)")
 
-    # 2. Dedup against filesystem
-    target_dir = Path(target_project_dir) if target_project_dir else DOCS_BASE
-    fs_dupes = scan_filesystem_for_dupe(str(src), content_hash)
-    if fs_dupes:
-        print(f"  ✗ already in fs ({len(fs_dupes)} match): {fs_dupes[0].name}")
-        return 0
-
-    # 3. Dedup against Neo4j
+    # 2. Dedup against Neo4j (primary — content hash is source of truth)
     neo_dupes = scan_neo4j_for_dupe(index, content_hash)
     if neo_dupes:
-        print(f"  ✗ already in Neo4j: {neo_dupes}")
+        print(f"  ✗ already indexed (Neo4j): {neo_dupes[0]}")
         return 0
 
-    # 4. Copy file with hash prefix into target dir
+    # 3. Check target folder for same-name collision
+    target_dir = (Path(target_project_dir) if target_project_dir
+                  else _DOCS_BASE / f"project_{project_id}")
     target_dir.mkdir(parents=True, exist_ok=True)
-    new_name = f"{short_hash}_{src.name}"
-    target_path = target_dir / new_name
-    if target_path.exists():
-        # Already at the target path (same content but different path)
-        print(f"  → file already at target: {target_path}")
+    target_path = target_dir / src.name
+    if target_path.resolve() == src.resolve():
+        # Already at the target path — skip copy, just re-index.
+        print(f"  → already at target path: {target_path}")
+    elif target_path.exists():
+        old_hash = sha256_of_file(str(target_path))
+        if old_hash == content_hash:
+            print(f"  → already on disk: {target_path.name}")
+        else:
+            print(f"  ✗ file exists with different content: {target_path.name}")
+            return 1
     else:
         shutil.copy2(src, target_path)
         print(f"  ✓ copied: {target_path}")
 
-    # 5. Add Neo4j node via rebuild-one (which also sets content_sha256)
-    docs = index.list_documents(project_id=1)
+    # 4. Add Neo4j node via rebuild-one (which also sets content_sha256)
+    docs = index.list_documents(project_id=project_id)
     all_names = [d.name for d in docs]
-    return cmd_rebuild_one(index, llm, new_name, all_names)
+    return cmd_rebuild_one(index, llm, src.name, all_names, project_id=project_id)
+
+
+def cmd_ingest_folder(
+    index: Neo4jDocumentIndex,
+    llm: BaseChatModel,
+    folder_path: str,
+    project_id: int = _PROJECT_ID,
+) -> int:
+    """Ingest all supported files in a directory."""
+    folder = Path(folder_path).expanduser().resolve()
+    if not folder.is_dir():
+        print(f"  ✗ folder not found: {folder}")
+        return 1
+    files = sorted([
+        p for p in folder.rglob("*")
+        if p.suffix.lower() in _SUPPORTED_EXTS
+    ])
+    if not files:
+        print(f"  ✗ no supported files in {folder}")
+        return 1
+    print(f"\nIngesting {len(files)} file(s) from {folder}...\n")
+    failed = 0
+    for f in files:
+        print(f"── {f.name} ──")
+        ok = cmd_ingest(index, llm, str(f), project_id=project_id)
+        if ok != 0:
+            failed += 1
+        print()
+    print(f"Done: {len(files) - failed}/{len(files)} ingested")
+    return 0 if failed == 0 else 1
 
 
 def cmd_rebuild_one(
@@ -435,13 +467,14 @@ def cmd_rebuild_one(
     llm: BaseChatModel,
     name: str,
     all_names: List[str],
+    project_id: int = _PROJECT_ID,
 ) -> int:
     """Rebuild enrichment for one doc and upsert it.
 
     If the node doesn't exist yet (e.g. after a delete), we locate the file
     under backend/data/documents/ and create a fresh node.
     """
-    node = index.get_document(project_id=1, name=name)
+    node = index.get_document(project_id=project_id, name=name)
     file_path: Optional[str] = None
     context_doc_id = 0
     description = ""
@@ -457,14 +490,14 @@ def cmd_rebuild_one(
         # Filenames often have a hash prefix (e.g. "31042021_nke-10k-2023.pdf")
         # but the node name is just the suffix. Strip .pdf and search.
         base = name[:-4] if name.lower().endswith(".pdf") else name
-        candidates = [p for p in DOCS_BASE.rglob("*.pdf")
+        candidates = [p for p in _DOCS_BASE.rglob("*.pdf")
                       if p.stem.endswith(base) or base in p.stem]
         if not candidates:
             # Fall back to exact-name match (for non-PDF files)
-            candidates = list(DOCS_BASE.rglob(name))
+            candidates = list(_DOCS_BASE.rglob(name))
         if not candidates:
             print(f"  ✗ no Document node with name={name!r} "
-                  f"and no matching file under {DOCS_BASE}")
+                  f"and no matching file under {_DOCS_BASE}")
             return 1
         file_path = str(candidates[0].resolve())
         print(f"  → node missing; will recreate from file {file_path}")
@@ -498,17 +531,17 @@ def cmd_rebuild_one(
         description=description,
         tags=tags,
         context_doc_id=context_doc_id,
-        project_id=1,
+        project_id=project_id,
     )
-    index.upsert_document(project_id=1, name=name, file_path=file_path,
-                          properties=properties)
+    index.upsert_document(project_id=project_id, name=name,
+                          file_path=file_path, properties=properties)
 
     # Also set content_sha256 (not in base properties builder)
     content_hash = sha256_of_file(file_path)
     index._run_cypher(
         "MATCH (d:Document {project_id: $pid, name: $name}) "
         "SET d.content_sha256 = $h",
-        {"pid": 1, "name": name, "h": content_hash},
+        {"pid": project_id, "name": name, "h": content_hash},
     )
 
     print(f"  ✓ upserted in {elapsed:.1f}s")
@@ -520,17 +553,85 @@ def cmd_rebuild_one(
     return 0
 
 
+def cmd_list(
+    index: Neo4jDocumentIndex,
+    project_id: int = _PROJECT_ID,
+) -> int:
+    """Scan files on disk and cross-check against Neo4j index."""
+    project_folder = _DOCS_BASE / f"project_{project_id}"
+    indexed = {d.name for d in index.list_documents(project_id=project_id)}
+    print(f"\nFiles on disk — {project_folder}\n")
+    files = sorted([
+        p for p in project_folder.rglob("*")
+        if p.suffix.lower() in _SUPPORTED_EXTS
+    ])
+    if not files:
+        print("  (no supported files found)")
+        return 0
+    indexed_count = 0
+    for i, f in enumerate(files, 1):
+        name = f.name
+        in_neo4j = any(name.endswith(d) or d.endswith(name)
+                       for d in indexed)
+        status = "✓" if in_neo4j else "✗ NOT INDEXED"
+        if in_neo4j:
+            indexed_count += 1
+        size = f.stat().st_size
+        print(f"  {i}. [{status}] {name}  ({size:,} bytes)")
+    print(f"\n  {indexed_count}/{len(files)} indexed")
+    return 0
+
+
+def cmd_remove(
+    index: Neo4jDocumentIndex,
+    name: str,
+    project_id: int = _PROJECT_ID,
+) -> int:
+    """Remove a doc from Neo4j and delete the file from disk."""
+    # Check if it exists in Neo4j
+    doc = index.get_document(project_id=project_id, name=name)
+    if doc:
+        file_path = doc.file_path
+        index._run_cypher(
+            "MATCH (d:Document {project_id: $pid, name: $name}) DELETE d",
+            {"pid": project_id, "name": name},
+        )
+        print(f"  ✓ removed from Neo4j: {name}")
+    else:
+        print(f"  ✗ not found in Neo4j (project {project_id}): {name}")
+        file_path = None
+
+    # Try to find and delete the file on disk
+    project_folder = _DOCS_BASE / f"project_{project_id}"
+    candidates = list(project_folder.rglob(name))
+    if not candidates:
+        # Try matching by suffix (e.g. name="a34de781_01..." → file="2c406458_a34de781_01...")
+        candidates = [p for p in project_folder.rglob(name.split("_", 1)[-1])
+                      if p.stem.endswith(name)]
+    if not candidates and file_path:
+        candidates = [Path(file_path)]
+    if candidates:
+        for p in candidates:
+            p.unlink()
+            print(f"  ✓ removed from disk: {p.name}")
+    else:
+        print(f"  (no matching file found on disk)")
+    return 0
+
+
 def cmd_rebuild_project(
     index: Neo4jDocumentIndex,
     llm: BaseChatModel,
+    project_id: int = _PROJECT_ID,
 ) -> int:
-    """Rebuild enrichment for every Document node in project 1."""
-    docs = index.list_documents(project_id=1)
+    """Rebuild enrichment for every Document node in the project."""
+    docs = index.list_documents(project_id=project_id)
     all_names = [d.name for d in docs]
-    print(f"\n{'='*70}\nRebuilding enrichment for {len(docs)} doc(s)\n{'='*70}\n")
+    print(f"\n{'='*70}\nRebuilding enrichment for {len(docs)} doc(s) "
+          f"(project {project_id})\n{'='*70}\n")
     failed = 0
     for d in docs:
-        ok = cmd_rebuild_one(index, llm, d.name, all_names)
+        ok = cmd_rebuild_one(index, llm, d.name, all_names, project_id=project_id)
         if ok != 0:
             failed += 1
         print()
@@ -538,17 +639,15 @@ def cmd_rebuild_project(
     return 0 if failed == 0 else 1
 
 
-def cmd_query(index: Neo4jDocumentIndex, query_text: str) -> int:
+def cmd_query(index: Neo4jDocumentIndex, query_text: str,
+              project_id: int = _PROJECT_ID) -> int:
     """Route a query using the current enrichment state and print top candidates."""
-    docs = index.list_documents(project_id=1)
-    print(f"\nQuery: {query_text!r}\n")
+    docs = index.list_documents(project_id=project_id)
+    print(f"\nQuery ({query_text!r}) — project {project_id}\n")
     if not docs:
-        print("  ✗ no documents in project 1")
+        print(f"  ✗ no documents in project {project_id}")
         return 1
-    # Re-derive scores by calling the same function and printing the breakdown
-    # (we don't have access to the internal scoring detail, so we just show
-    # the winning doc)
-    best = index.find_best_document(project_id=1, query=query_text)
+    best = index.find_best_document(project_id=project_id, query=query_text)
     if best is None:
         print("  ✗ no match")
         return 1
@@ -564,51 +663,72 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Phase 9 — complete GraphIndex builder.",
     )
+    parser.add_argument("--project-id", type=int, default=_PROJECT_ID,
+                        help=f"Neo4j project id (default: {_PROJECT_ID}, "
+                             "from GRAPHINDEX_DEFAULT_PROJECT_ID env var)")
+    parser.add_argument("--list", action="store_true",
+                        help="List files on disk, cross-checked against Neo4j")
     parser.add_argument("--show", metavar="NAME", help="Show a document node")
+    parser.add_argument("--remove", metavar="NAME",
+                        help="Remove a doc from Neo4j and delete file from disk")
     parser.add_argument("--rebuild-one", metavar="NAME",
                         help="Rebuild enrichment for one doc")
     parser.add_argument("--rebuild-project", action="store_true",
-                        help="Rebuild enrichment for every doc in project 1")
+                        help="Rebuild enrichment for every doc in the project")
     parser.add_argument("--query", metavar="TEXT",
                         help="Route a query and print best match")
     parser.add_argument("--ingest", metavar="FILE",
-                        help="Ingest a new file: hash, dedup, copy, build graphindex")
+                        help="Ingest a single file: hash, dedup, copy, build graphindex")
+    parser.add_argument("--ingest-folder", metavar="DIR",
+                        help="Ingest all supported files in a directory")
     parser.add_argument("--ingest-target", metavar="DIR", default=None,
                         help="Target directory for the ingested file "
-                             "(default: backend/data/documents/project_1)")
+                             "(default: backend/data/documents/project_{ID})")
     args = parser.parse_args()
+    project_id = args.project_id
 
-    if not any([args.show, args.rebuild_one, args.rebuild_project, args.query, args.ingest]):
+    if not any([args.list, args.show, args.remove, args.rebuild_one, args.rebuild_project,
+                args.query, args.ingest, args.ingest_folder]):
         parser.print_help()
         return 1
 
     # Connect to Neo4j
-    print(f"🔌 Neo4j: {NEO4J_URL}")
+    _neo4j_url = os.getenv("NEO4J_URL", "http://localhost:7474")
+    print(f"🔌 Neo4j: {_neo4j_url}")
     index = Neo4jDocumentIndex(
-        base_url=NEO4J_URL,
-        username=NEO4J_USER,
-        password=NEO4J_PASSWORD,
+        base_url=_neo4j_url,
+        username=os.getenv("NEO4J_USER", "neo4j"),
+        password=os.getenv("NEO4J_PASSWORD", "password"),
     )
     index.ensure_constraints()
     print(f"   constraints ensured")
 
     # Build LLM (lazy — only when we need enrichment)
     llm: Optional[BaseChatModel] = None
-    if args.rebuild_one or args.rebuild_project or args.ingest:
+    if args.rebuild_one or args.rebuild_project or args.ingest or args.ingest_folder:
         llm = make_llm()
-        print(f"🔌 LLM: {MODEL}\n")
+        print(f"🔌 LLM: {os.getenv('GRAPHINDEX_MODEL', 'minimax-m3')}\n")
 
+    if args.list:
+        return cmd_list(index, project_id=project_id)
     if args.show:
-        return cmd_show(index, args.show)
+        return cmd_show(index, args.show, project_id=project_id)
+    if args.remove:
+        return cmd_remove(index, args.remove, project_id=project_id)
     if args.rebuild_one:
-        all_names = [d.name for d in index.list_documents(project_id=1)]
-        return cmd_rebuild_one(index, llm, args.rebuild_one, all_names)
+        all_names = [d.name for d in index.list_documents(project_id=project_id)]
+        return cmd_rebuild_one(index, llm, args.rebuild_one, all_names,
+                               project_id=project_id)
     if args.rebuild_project:
-        return cmd_rebuild_project(index, llm)
+        return cmd_rebuild_project(index, llm, project_id=project_id)
     if args.query:
-        return cmd_query(index, args.query)
+        return cmd_query(index, args.query, project_id=project_id)
     if args.ingest:
-        return cmd_ingest(index, llm, args.ingest, args.ingest_target)
+        return cmd_ingest(index, llm, args.ingest, args.ingest_target,
+                          project_id=project_id)
+    if args.ingest_folder:
+        return cmd_ingest_folder(index, llm, args.ingest_folder,
+                                 project_id=project_id)
 
     return 0
 

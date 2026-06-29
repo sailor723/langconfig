@@ -1,87 +1,115 @@
 # Phase 9 / legacy scripts
 
 These are the **original** Phase 9 scripts that use raw `llm.invoke([messages])`
-calls directly. They are preserved for:
+calls directly. They are preserved and actively maintained as the **ground
+truth** — they work because the architecture is simple.
 
-1. **Reference** — shows the evolution from raw-LLM to DeepAgent to
-   native-tool architecture.
-2. **Helper functions** — many helper functions (e.g. `make_llm`,
-   `extract_document_enrichment`, `load_document_content`) are reused
-   by the current scripts in `phase9/`.
+## Architecture
+
+```
+.env (root)          → graphindex config (NEO4J_*, GRAPHINDEX_MODEL, etc.)
+                          │
+legacy/build_graphindex.py  ← CLI + shared helpers
+    ├── make_llm()                — init_chat_model (Minimax M3)
+    ├── extract_document_enrichment()  — LLM structured output
+    ├── load_document_content()    — PDF / MD / TXT reader
+    ├── load_graphindex_metadata() — placeholder (DocIndex client TBD)
+    └── Neo4jDocumentIndex        — from backend/services
+              │
+              ├── neo4j_document_index.py  — Cypher CRUD
+              └── backend/data/documents/project_{id}/  — file storage
+```
+
+## CLI Commands
+
+All commands accept `--project-id N` (default: 1, from `.env` `GRAPHINDEX_DEFAULT_PROJECT_ID`).
+
+| Command | What it does | LLM needed? |
+|---|---|---|
+| `--list` | Scan files on disk, cross-check against Neo4j index | No |
+| `--show NAME` | Show a document's full enrichment (about, queries, tags) | No |
+| `--query TEXT` | LLM scores all docs → returns best match | **Yes** |
+| `--ingest FILE` | Hash → dedup (Neo4j) → copy → enrich → index | **Yes** |
+| `--ingest-folder DIR` | Recursively ingest all supported files in a directory | **Yes** |
+| `--rebuild-one NAME` | Rebuild enrichment for one doc and upsert | **Yes** |
+| `--rebuild-project` | Rebuild enrichment for every doc in the project | **Yes** |
+| `--remove NAME` | Remove a doc from both Neo4j and filesystem | No |
+
+### Examples
+
+```bash
+# List all files with index status
+uv run python -m learning.phase9.legacy.build_graphindex --list --project-id 1
+
+# Ingest a single file
+uv run python -m learning.phase9.legacy.build_graphindex --ingest report.pdf --project-id 1
+
+# Ingest an entire folder (recursive)
+uv run python -m learning.phase9.legacy.build_graphindex --ingest-folder /path/to/docs --project-id 1
+
+# Query — find best-matching doc for a question
+uv run python -m learning.phase9.legacy.build_graphindex --query "tesla strategy" --project-id 1
+
+# Show a doc's full enrichment
+uv run python -m learning.phase9.legacy.build_graphindex --show 01_tesla_q3_strategy.pdf --project-id 1
+
+# Remove a doc
+uv run python -m learning.phase9.legacy.build_graphindex --remove 01_tesla_q3_strategy.pdf --project-id 1
+
+# Rebuild single
+uv run python -m learning.phase9.legacy.build_graphindex --rebuild-one 01_tesla_q3_strategy.pdf --project-id 1
+
+# Rebuild all
+uv run python -m learning.phase9.legacy.build_graphindex --rebuild-project --project-id 1
+```
+
+## Configuration (`.env`)
+
+```env
+# MiniMax
+MINIMAX_API_KEY=sk-...
+MINIMAX_BASE_URL=https://api.minimax.chat/v1
+
+# Neo4j
+NEO4J_URL=http://localhost:7474
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password
+
+# GraphIndex
+GRAPHINDEX_MODEL=minimax-m3
+GRAPHINDEX_DEFAULT_PROJECT_ID=1
+```
+
+## Data flow — Ingest
+
+```
+source file
+    │
+    ▼
+sha256(content)  ──►  scan Neo4j for content_sha256  ──►  skip if exists
+    │
+    ▼
+copy to backend/data/documents/project_{id}/{original_name}
+    │
+    ▼
+extract_document_enrichment()  ──►  LLM structured output (about, queries, tags)
+    │
+    ▼
+upsert Document node in Neo4j with content_sha256, enrichment, file_path
+```
 
 ## Files
 
 | File | What it is | Status |
 |---|---|---|
-| `build_graphindex.py` | Original GraphIndex builder CLI (`--ingest`, `--rebuild-one`, `--rebuild-project`). **Also exports helper functions** (DOCS_BASE, make_llm, extract_document_enrichment, load_document_content, load_graphindex_metadata, SUPPORTED_EXTS) reused by the modern scripts. | **Utility module** — kept here but the helper functions are still used. |
-| `route_semantic.py` | Original LLM semantic router (`--query`, `--show-catalog`, `--compare`). | **Legacy CLI** — superseded by `phase9/query.py`. |
-| `dv_chat.py` | Original DV chat REPL (read one PDF, then chat). | **Legacy CLI** — superseded by Phase 9 native tools. |
-| `eval_routing.py` | Original eval suite (14 hand-labeled queries, string vs LLM). **Also exports** `EVAL_QUERIES` reused by `eval_routing_deep.py`. | **Utility + legacy eval**. |
+| `build_graphindex.py` | Primary CLI — ingest, query, rebuild, remove, list. Exports helper functions (`make_llm`, `extract_document_enrichment`, etc.) reused by `phase9/graphindex_*.py`. | **Active** |
+| `create_mock_data.py` | Creates 3 mock .md files for testing. | **Helper** |
+| `route_semantic.py` | Original semantic router (`--query`, `--show-catalog`). | **Legacy CLI** |
+| `dv_chat.py` | Original DV chat REPL (route + load + answer). | **Legacy CLI** — Phase 2 migration target |
+| `eval_routing.py` | Original eval suite (14 hand-labeled queries, string vs LLM). Exports `EVAL_QUERIES`. | **Utility + legacy eval** |
 
-## How current scripts use these
+## What's next — Phase 2
 
-```python
-# phase9/graphindex_build_python.py
-from legacy.build_graphindex import (
-    DOCS_BASE,
-    SUPPORTED_EXTS,
-    extract_document_enrichment,
-    load_document_content,
-    load_graphindex_metadata,
-    make_llm,
-)
-
-# phase9/buildindex_tools.py
-from legacy.build_graphindex import (
-    DOCS_BASE,
-    SUPPORTED_EXTS,
-    make_llm,
-    extract_document_enrichment,
-    load_document_content,
-)
-
-# phase9/eval_routing_deep.py
-from legacy.eval_routing import (
-    EVAL_QUERIES,
-    run_string_eval,
-    run_llm_eval,
-    summarize as summarize_results,
-    render_report as render_legacy_report,
-    Neo4jDocumentIndex,
-    fetch_catalog,
-)
-```
-
-## Running legacy CLIs
-
-They are still runnable from the new location:
-
-```bash
-# All paths must be from project root so the `from legacy.xxx` import works
-cd /Users/weiping/dev/Learn/langchain-ai/langconfig
-
-# Original build CLI (deprecated — use graphindex_build_python.py instead)
-python phase9/legacy/build_graphindex.py --show nke-10k-2023.pdf
-
-# Original semantic router (deprecated — use query.py instead)
-python phase9/legacy/route_semantic.py --query "Nike revenue 2023"
-
-# Original eval (deprecated — use eval_routing_deep.py instead)
-python phase9/legacy/eval_routing.py
-
-# Original chat REPL (deprecated — use query.py chat instead)
-python phase9/legacy/dv_chat.py
-```
-
-## Why are these still here?
-
-We promised "no deletions" — these scripts have been the foundation of
-Phase 9 development, and their helper functions are still imported.
-Moving them to `legacy/` keeps `phase9/` clean while preserving the
-historical record.
-
-## When to delete
-
-Once `phase9/graphindex_build_python.py` and friends have fully replaced
-the `legacy/` functions, the legacy scripts can be deleted. For now,
-they're the source of helpers we don't want to duplicate.
+Wrap `dv_chat.py` as a DeepAgent using `create_deep_agent` and the same
+5 graphindex tools. The legacy code is the reference implementation —
+the DeepAgent version will use `astream_events` for token-level streaming.
