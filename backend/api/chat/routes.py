@@ -53,16 +53,12 @@ import logging
 import uuid
 import sys as _sys
 import os as _os
-# Phase 9 integration: ensure learning/phase9/ is importable so chat uploads
-# can use the Phase 9 enrichment path via the chain
-#   _index_to_graphindex_for_chat -> index_document_background ->
-#   _try_sync_context_document_to_neo4j -> _phase9_get_or_generate_enrichment.
-# (phase9/ moved from langconfig/phase9/ to langconfig/learning/phase9/ on 2026-06-26)
-_PHASE9_DIR = _os.path.abspath(
-    _os.path.join(_os.path.dirname(__file__), "..", "..", "..", "learning", "phase9")
-)
-if _PHASE9_DIR not in _sys.path and _os.path.isdir(_PHASE9_DIR):
-    _sys.path.insert(0, _PHASE9_DIR)
+# Phase 9 integration: ensure learning/ is on sys.path so that
+# ``from learning.phase9.graphindex...`` imports resolve correctly
+# for downstream modules.
+_REPO_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..", "..", ".."))
+if _REPO_ROOT not in _sys.path and _os.path.isdir(_REPO_ROOT):
+    _sys.path.insert(0, _REPO_ROOT)
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
@@ -87,33 +83,6 @@ from services.conversation_context import ConversationContextService
 # `<think>...</think>` and `<tool_call>...</tool_call>` XML emitted
 # by Minimax M3 as raw text in model content. 22/22 tests pass.
 from think_filter import ThinkFilter as StreamingFilter
-# The Phase 9 chat agent lives at learning/phase9/graphindex/agent.py
-# (the canonical implementation). We cache the loaded module at
-# the process level — without caching, every request loads a fresh
-# agent with empty memory.
-_PHASE9_AGENT_MODULE = None
-
-
-def _get_phase9_agent_module():
-    """Load (or return cached) `graphindex.agent` module directly.
-
-    The canonical chat agent lives at ``learning.phase9.graphindex.agent``.
-    This function returns it as a module with a compatible API:
-      - ``build_agent(project_id)`` → agent (same as ``get_graphindex_chat_agent``)
-    """
-    global _PHASE9_AGENT_MODULE
-    if _PHASE9_AGENT_MODULE is not None:
-        return _PHASE9_AGENT_MODULE
-    import importlib.util
-    _spec = importlib.util.spec_from_file_location(
-        "agent",
-        _os.path.join(_PHASE9_DIR, "graphindex", "agent.py"),
-    )
-    _mod = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(_mod)
-    _PHASE9_AGENT_MODULE = _mod
-    return _mod
-
 
 logger = logging.getLogger(__name__)
 
@@ -832,8 +801,6 @@ async def send_message_stream(
             all_context = ""
             rag_tokens_used = 0
             stream_filter = StreamingFilter()
-            use_phase9 = agent_config.get("use_phase9_graphindex", False)
-            scope_token = None
 
             try:
                 # Re-query session inside generator to avoid detached object issues
@@ -857,76 +824,59 @@ async def send_message_stream(
                 db.refresh(fresh_session)  # Refresh to confirm save
                 logger.info(f"✓ User message saved to DB: session={session_id}, total_messages={len(fresh_session.messages)}")
 
-                if use_phase9:
-                    project_id = (
-                        request.project_id
-                        if request.project_id is not None
-                        else agent_project_id
-                    )
-                    logger.info(f"Phase 9 path: session={session_id} project={project_id}")
-                    _mod = _get_phase9_agent_module()
-                    agent_instance = _mod.build_agent(project_id=project_id)
-                    
-                    # Set ContextVars for project ID and document scope
-                    from learning.phase9.graphindex.tools import set_active_project_id, set_active_doc_scope
-                    set_active_project_id(project_id)
-                    scope_token = set_active_doc_scope(scope)
-                    
-                    tool_calls_count = 0
-                    collected_tool_names = []
-                else:
-                    project_id = agent_project_id
+                # Build agent via DeepAgentFactory (standard path)
+                project_id = agent_project_id
 
-                    if project_id:
-                        from services.context_retrieval import context_retriever
-                        from services.token_counter import get_token_counter
-                        token_counter = get_token_counter()
+                if project_id:
+                    from services.context_retrieval import context_retriever
+                    from services.token_counter import get_token_counter
+                    token_counter = get_token_counter()
 
+                    try:
+                        project_context_package = await context_retriever.retrieve_context(
+                            project_id=project_id,
+                            task_description=request.message,
+                            similarity_top_k=3,
+                            use_hyde=False
+                        )
+                        project_chunks = project_context_package.get('components', {}).get('code_chunks', [])
+                        project_context = "\n\n".join([chunk.get('content', '') for chunk in project_chunks])
+                    except Exception as e:
+                        logger.warning(f"Failed to retrieve project context: {e}")
+                        project_context = ""
+
+                    session_context = ""
+                    session_docs = db.query(SessionDocument).filter(
+                        SessionDocument.session_id == request.session_id,
+                        SessionDocument.indexing_status == IndexingStatus.READY
+                    ).all()
+
+                    if session_docs:
                         try:
-                            project_context_package = await context_retriever.retrieve_context(
+                            logger.info(f"Found {len(session_docs)} indexed session documents")
+                            session_context_package = await context_retriever.retrieve_context(
                                 project_id=project_id,
                                 task_description=request.message,
-                                similarity_top_k=3,
+                                similarity_top_k=2,
+                                session_id=request.session_id,
                                 use_hyde=False
                             )
-                            project_chunks = project_context_package.get('components', {}).get('code_chunks', [])
-                            project_context = "\n\n".join([chunk.get('content', '') for chunk in project_chunks])
+                            session_chunks = session_context_package.get('components', {}).get('code_chunks', [])
+                            session_context = "\n\n".join([chunk.get('content', '') for chunk in session_chunks])
                         except Exception as e:
-                            logger.warning(f"Failed to retrieve project context: {e}")
-                            project_context = ""
+                            logger.warning(f"Failed to retrieve session context: {e}")
+                            session_context = ""
 
-                        session_context = ""
-                        session_docs = db.query(SessionDocument).filter(
-                            SessionDocument.session_id == request.session_id,
-                            SessionDocument.indexing_status == IndexingStatus.READY
-                        ).all()
+                    if project_context and session_context:
+                        all_context = f"# Project Documents:\n{project_context}\n\n# Session Documents:\n{session_context}"
+                    elif project_context:
+                        all_context = f"# Project Documents:\n{project_context}"
+                    elif session_context:
+                        all_context = f"# Session Documents:\n{session_context}"
 
-                        if session_docs:
-                            try:
-                                logger.info(f"Found {len(session_docs)} indexed session documents")
-                                session_context_package = await context_retriever.retrieve_context(
-                                    project_id=project_id,
-                                    task_description=request.message,
-                                    similarity_top_k=2,
-                                    session_id=request.session_id,
-                                    use_hyde=False
-                                )
-                                session_chunks = session_context_package.get('components', {}).get('code_chunks', [])
-                                session_context = "\n\n".join([chunk.get('content', '') for chunk in session_chunks])
-                            except Exception as e:
-                                logger.warning(f"Failed to retrieve session context: {e}")
-                                session_context = ""
-
-                        if project_context and session_context:
-                            all_context = f"# Project Documents:\n{project_context}\n\n# Session Documents:\n{session_context}"
-                        elif project_context:
-                            all_context = f"# Project Documents:\n{project_context}"
-                        elif session_context:
-                            all_context = f"# Session Documents:\n{session_context}"
-
-                        if all_context:
-                            rag_tokens_used = token_counter.count_tokens(all_context)
-                            logger.info(f"Retrieved RAG context: {rag_tokens_used} tokens")
+                    if all_context:
+                        rag_tokens_used = token_counter.count_tokens(all_context)
+                        logger.info(f"Retrieved RAG context: {rag_tokens_used} tokens")
 
                     # Get or create agent instance.
                     # Use (session_id, agent_id, agent.updated_at) as cache key so that
@@ -999,9 +949,8 @@ async def send_message_stream(
                 new_message = HumanMessage(content=augmented_content)
 
                 # Use astream_events for token-by-token streaming
-                if not use_phase9:
-                    tool_calls_count = 0
-                    collected_tool_names = []  # Track tool names for DB persistence and skill detection
+                tool_calls_count = 0
+                collected_tool_names = []  # Track tool names for DB persistence and skill detection
                 async for event in agent_instance.astream_events(
                     {"messages": [new_message]},
                     config={

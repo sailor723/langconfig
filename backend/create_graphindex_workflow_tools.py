@@ -3,8 +3,8 @@ Register 4 graphindex build actions as custom tools (so they get pencil
 icons in the Studio UI and can be dragged into workflows).
 
 Each tool is a thin wrapper that calls the corresponding function in
-`backend/tools/native_tools.py` (which in turn calls `cmd_*` from
-`learning/phase9/graphindex_build_python.py`).
+``tools.native_tools``, which in turn calls ``cmd_*`` from
+``learning.phase9.graphindex.index_build``.
 
 Tools registered:
   1. studio_ingest            (calls graphindex_ingest)

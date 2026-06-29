@@ -31,11 +31,13 @@ import os
 # ---------------------------------------------------------------------------
 # Phase 9 integration: prefer Phase 9 LLM-semantic query system over the
 # legacy base string-matching. Phase 9 lives at langconfig/learning/phase9/;
-# ensure it's importable from this file.
-# (phase9/ moved from langconfig/phase9/ to langconfig/learning/phase9/ on 2026-06-26)
+# ensure it's importable from this file along with the backend root.
 # ---------------------------------------------------------------------------
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _REPO_ROOT not in sys.path and os.path.isdir(_REPO_ROOT):
+    sys.path.insert(0, _REPO_ROOT)
 _PHASE9_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "learning", "phase9")
+    os.path.join(_REPO_ROOT, "learning", "phase9")
 )
 if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):
     sys.path.insert(0, _PHASE9_DIR)
@@ -1732,41 +1734,31 @@ def _get_project_id() -> Optional[int]:
 
 
 def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
-    """
-    Search project documents using GraphIndex with LLM semantic routing.
+    """Search project documents using GraphIndex with LLM semantic routing.
 
-    Phase 9 implementation: uses LLM semantic understanding to pick the best
-    primary document + 0-3 supporting documents (different domains). This
-    replaces the legacy base string-matching approach (~57% accuracy) with
-    LLM-semantic routing (~93% accuracy on the hand-labeled eval set).
+    Uses the canonical Phase 9 graphindex modules (learning.phase9.graphindex):
+      - route.fetch_catalog to list all docs
+      - route.route_by_llm for LLM-based routing
+      - index_build.make_llm for the routing LLM
 
-    Returns matching documents with their context_doc_id, name, type, page
-    count, primary_domain, and supporting list. Use the context_doc_id with
-    graphindex_load() to get full document content.
-
-    Args:
-        query: Natural language search query (e.g., "department survey", "Q1 report")
-        project_id: Optional project ID. If not provided, uses the current
-            project (from GRAPHINDEX_PROJECT_ID env var). If neither is
-            set, returns an error rather than silently defaulting to
-            project 1 (the historical bug).
+    Returns matching documents with name, type, domain, and supporting list.
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        return (
-            "ERROR: no project_id provided. Either pass project_id "
-            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to the "
-            "active project. The previous 'default to project 1' fallback "
-            "was the root cause of 'no documents in project X' bugs."
-        )
+        return ("ERROR: no project_id provided. Either pass project_id "
+                "explicitly or set the GRAPHINDEX_PROJECT_ID env var.")
 
     try:
-        # Phase 9 LLM-semantic routing
-        from query import fetch_catalog, route_by_llm, make_llm  # noqa: E402
-        from services.neo4j_document_index import Neo4jDocumentIndex  # noqa: E402
+        from learning.phase9.graphindex.route import fetch_catalog, route_by_llm, route_by_string  # noqa: E402
+        from learning.phase9.graphindex.index_build import Neo4jDocumentIndex, make_llm  # noqa: E402
 
-        idx = Neo4jDocumentIndex()
+        idx = Neo4jDocumentIndex(
+            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+            username=os.environ.get("NEO4J_USER", "neo4j"),
+            password=os.environ.get("NEO4J_PASSWORD", "password"),
+        )
+        idx.ensure_constraints()
         rows = fetch_catalog(idx, project_id)
         if not rows:
             return f"No documents found matching '{query}' in project {project_id}."
@@ -1776,23 +1768,13 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
 
         # Fallback to string match if LLM returned null
         if not decision.primary:
-            from query import route_by_string  # noqa: E402
             primary_name = route_by_string(query, rows)
             if not primary_name:
-                return (
-                    f"No documents found matching '{query}' in project {project_id}. "
-                    f"Reasoning: {decision.reasoning}"
-                )
-            # Build a synthetic decision from the string-match result
-            decision_lines = [decision.reasoning] if decision.reasoning else ["string-match fallback"]
-            return (
-                f"## GraphIndex Search Results for: '{query}'\n\n"
-                f"**Fallback**: LLM returned null; used string-match.\n\n"
-                f"**[{1}] {primary_name}** (context_doc_id: n/a, via string match)\n"
-            )
-
-        # Build a context_doc_id → name map by querying Neo4j (Phase 9 doesn't track IDs)
-        name_to_context_id = _build_name_to_context_id_map(project_id)
+                return (f"No documents found matching '{query}' in project {project_id}. "
+                        f"Reasoning: {decision.reasoning if decision.reasoning else 'N/A'}")
+            return (f"## GraphIndex Search Results for: '{query}'\n\n"
+                    f"**Fallback**: LLM returned null; used string-match.\n\n"
+                    f"**[{1}] {primary_name}**\n")
 
         lines = [f"## GraphIndex Search Results for: '{query}'", ""]
         lines.append(f"_routing: llm-semantic (cache_read={cache_read:,} tokens)_")
@@ -1803,20 +1785,13 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
         lines.append("")
 
         # Primary
-        cid = name_to_context_id.get(decision.primary, "n/a")
-        page_count = _get_page_count(decision.primary)
         lines.append(f"**[1] {decision.primary}** (PRIMARY, confidence={decision.primary_confidence:.2f})")
-        lines.append(f"   - Context Doc ID: `{cid}`")
-        lines.append(f"   - Pages: {page_count}")
+        lines.append(f"   - Name: {decision.primary}")
         lines.append("")
 
         # Supporting
         for i, sup in enumerate(decision.supporting, 2):
-            cid = name_to_context_id.get(sup.name, "n/a")
-            page_count = _get_page_count(sup.name)
             lines.append(f"**[{i}] {sup.name}** (SUPPORTING)")
-            lines.append(f"   - Context Doc ID: `{cid}`")
-            lines.append(f"   - Pages: {page_count}")
             if sup.reason:
                 lines.append(f"   - Reason: {sup.reason}")
             lines.append("")
@@ -1827,20 +1802,14 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
 
 
 def graphindex_load(context_doc_id: int, max_chars: int = 10_000_000) -> str:
-    """
-    Load the full content of a document by its context_doc_id.
+    """Load the full content of a document by its context_doc_id.
 
-    Phase 9 implementation: when given a context_doc_id, looks up the
-    Postgres ContextDocument to get the name + file_path, then uses
-    Phase 9's _read_doc_text to extract full text (PDF / MD / TXT).
-
-    The default max_chars=10_000_000 is effectively no cap — the LLM
-    will see the full document in one call. MiniMax M3 supports 1M-token
-    context, so the old 80K cap forced a 2nd turn to read the rest of
-    long docs. Pass a smaller value if you want to limit context manually.
+    Uses the canonical Phase 9 graphindex modules:
+      1. Lookup ContextDocument from DB by context_doc_id
+      2. Read full text via route._read_doc_text
 
     Args:
-        context_doc_id: The document's context_doc_id (from graphindex_search results)
+        context_doc_id: The document's context_doc_id (from graphindex_search results).
         max_chars: Hard cap on returned characters (default 10M = no cap).
     """
     try:
@@ -1858,79 +1827,31 @@ def graphindex_load(context_doc_id: int, max_chars: int = 10_000_000) -> str:
         if not context_doc:
             return f"❌ Document with context_doc_id={context_doc_id} not found."
 
-        # Phase 9 read (uses PyMuPDF for PDFs, plain read for MD/TXT)
-        from query import _read_doc_text  # noqa: E402
+        from learning.phase9.graphindex.route import _read_doc_text  # noqa: E402
         full_content = _read_doc_text(
             context_doc.file_path or "",
             max_chars=max_chars,
         )
         if not full_content:
-            return (
-                f"❌ Could not extract text from {context_doc.filename} "
-                f"(file_path={context_doc.file_path})"
-            )
+            return (f"❌ Could not extract text from {context_doc.filename} "
+                    f"(file_path={context_doc.file_path})")
 
-        return (
-            f"## Document: {context_doc.filename}\n"
-            f"Source: GraphIndex (Phase 9 LLM-semantic path)\n"
-            f"Pages: {full_content.count('--- Page ')}\n"
-            f"Total characters: {len(full_content):,}\n"
-            f"\n"
-            f"--- Document Content ---\n"
-            f"{full_content}\n"
-            f"--- End of Document ---\n"
-        )
+        return (f"## Document: {context_doc.filename}\n"
+                f"Source: GraphIndex (Phase 9 read path)\n"
+                f"Pages: {full_content.count('--- Page ')}\n"
+                f"Total characters: {len(full_content):,}\n\n"
+                f"--- Document Content ---\n"
+                f"{full_content}\n--- End of Document ---\n")
     except Exception as e:
         return f"❌ Error loading document {context_doc_id}: {e}"
 
 
 # --- Phase 9 helpers -------------------------------------------------------
 
-def _build_name_to_context_id_map(project_id: int) -> dict:
-    """Map doc.name -> ContextDocument.id for the given project. Used by
-    graphindex_search to enrich results with the context_doc_id."""
-    try:
-        from db.database import SessionLocal
-        from models.core import ContextDocument
-        db = SessionLocal()
-        try:
-            rows = db.query(ContextDocument).filter(
-                ContextDocument.project_id == project_id
-            ).all()
-            return {r.filename: r.id for r in rows if r.filename}
-        finally:
-            db.close()
-    except Exception:
-        return {}
-
-
-def _get_page_count(name: str) -> int:
-    """Best-effort page count for a doc by name. Returns 0 if unknown."""
-    try:
-        from query import _file_path_for  # noqa: E402
-        from services.neo4j_document_index import Neo4jDocumentIndex  # noqa: E402
-        idx = Neo4jDocumentIndex()
-        path = _file_path_for(idx, name)
-        if not path:
-            return 0
-        if path.lower().endswith(".pdf"):
-            import fitz
-            doc = fitz.open(path)
-            n = len(doc)
-            doc.close()
-            return n
-        return 0
-    except Exception:
-        return 0
-
-
-# --- New Phase 9 backed tools --------------------------------------------
-
 def graphindex_list_docs(project_id: Optional[int] = None) -> str:
-    """
-    List all documents available in the project (Phase 9 catalog dump).
+    """List all documents available in the project (Phase 9 catalog dump).
 
-    Returns one line per doc: index, name, about preview.
+    Uses ``learning.phase9.graphindex.route.fetch_catalog``.
 
     Args:
         project_id: Optional project ID. If not provided, uses the
@@ -1940,22 +1861,23 @@ def graphindex_list_docs(project_id: Optional[int] = None) -> str:
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        return (
-            "ERROR: no project_id provided. Either pass project_id "
-            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
-            "the active project. No silent default to project 1."
-        )
+        return ("ERROR: no project_id provided. Either pass project_id "
+                "explicitly or set the GRAPHINDEX_PROJECT_ID env var.")
 
     try:
-        from query import fetch_catalog, format_catalog  # noqa: E402
-        from services.neo4j_document_index import Neo4jDocumentIndex  # noqa: E402
+        from learning.phase9.graphindex.route import fetch_catalog  # noqa: E402
+        from learning.phase9.graphindex.index_build import Neo4jDocumentIndex  # noqa: E402
 
-        idx = Neo4jDocumentIndex()
+        idx = Neo4jDocumentIndex(
+            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+            username=os.environ.get("NEO4J_USER", "neo4j"),
+            password=os.environ.get("NEO4J_PASSWORD", "password"),
+        )
+        idx.ensure_constraints()
         rows = fetch_catalog(idx, project_id)
         if not rows:
             return f"No documents in project {project_id}."
 
-        # Show a compact list (one per line)
         lines = [f"## Documents in project {project_id} ({len(rows)} total)", ""]
         for i, r in enumerate(rows, 1):
             about = (r["about"] or "(no enrichment)")[:80]
@@ -1968,38 +1890,36 @@ def graphindex_list_docs(project_id: Optional[int] = None) -> str:
 
 
 def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> str:
-    """
-    One-shot: route a query to the best primary document, then load primary
+    """One-shot: route a query to the best primary document, then load primary
     + 0-3 supporting documents as a combined context string.
 
-    Phase 9 equivalent of "graphindex_search + graphindex_load" but in one call.
-    Returns the combined text ready for the agent to synthesize an answer.
+    Uses ``learning.phase9.graphindex.route`` (route_by_llm + load_doc_context).
 
     Args:
         query: Natural language query (e.g., "compare Nike strategy with industry trends")
-        project_id: Optional project ID. If not provided, uses the
-            current project (from GRAPHINDEX_PROJECT_ID env var).
-            Returns an error if neither is set.
+        project_id: Optional project ID. Uses GRAPHINDEX_PROJECT_ID env var if not set.
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        return (
-            "ERROR: no project_id provided. Either pass project_id "
-            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
-            "the active project. No silent default to project 1."
-        )
+        return ("ERROR: no project_id provided. Either pass project_id "
+                "explicitly or set the GRAPHINDEX_PROJECT_ID env var.")
 
     try:
-        from query import (  # noqa: E402
-            fetch_catalog,
-            route_by_llm,
-            make_llm,
-            load_multi_doc_context,
+        from learning.phase9.graphindex.route import (  # noqa: E402
+            fetch_catalog, route_by_llm, load_doc_context,
         )
-        from services.neo4j_document_index import Neo4jDocumentIndex  # noqa: E402
+        from learning.phase9.graphindex.index_build import (  # noqa: E402
+            Neo4jDocumentIndex, make_llm,
+        )
+        from learning.phase9.graphindex.tools import tool_query_docs  # noqa: E402
 
-        idx = Neo4jDocumentIndex()
+        idx = Neo4jDocumentIndex(
+            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+            username=os.environ.get("NEO4J_USER", "neo4j"),
+            password=os.environ.get("NEO4J_PASSWORD", "password"),
+        )
+        idx.ensure_constraints()
         rows = fetch_catalog(idx, project_id)
         if not rows:
             return f"No documents in project {project_id}."
@@ -2007,15 +1927,13 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
         llm = make_llm()
         decision, _ = route_by_llm(query, rows, llm)
         if not decision.primary:
-            return (
-                f"No document matched '{query}'. "
-                f"Reasoning: {decision.reasoning}"
-            )
+            return (f"No document matched '{query}'. "
+                    f"Reasoning: {decision.reasoning if decision.reasoning else 'N/A'}")
 
-        context = load_multi_doc_context(
-            decision.primary,
-            decision.supporting,
-            idx,
+        # Use tool_query_docs to load the matched documents
+        doc_names = [decision.primary] + [s.name for s in decision.supporting]
+        context = "\n\n".join(
+            tool_query_docs(doc_names, project_id) for _ in [1]
         )
         header = (
             f"## Multi-doc context for: '{query}'\n"
@@ -2025,20 +1943,16 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
         if decision.supporting:
             names = ", ".join(s.name for s in decision.supporting)
             header += f"supporting: {names}\n"
-        header += f"total characters: {len(context):,}\n\n"
         return header + context
     except Exception as e:
         return f"❌ Error in multi-doc load: {e}"
 
 
 def _run_capturing_stdout(fn, *args, **kwargs):
-    """Run a print-heavy cmd_* function and return its captured stdout.
+    """Run a function and capture its stdout.
 
-    The graphindex_build_python.cmd_* functions print their full
-    reports to stdout and return a small int exit code. The Studio
-    workflow tool wants the full report in its return value (so it
-    shows in the Results panel), so we redirect stdout into a buffer
-    and return that.
+    Some cmd_* functions print reports to stdout. We redirect stdout
+    into a buffer so the result shows in the agent's tool output.
     """
     import io
     import contextlib
@@ -2048,154 +1962,113 @@ def _run_capturing_stdout(fn, *args, **kwargs):
     return rc, buf.getvalue().rstrip()
 
 
-def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
-    """
-    Rebuild the LLM enrichment metadata (about / supports / out_of_scope /
-    few_shot) for one existing document, then re-upsert to Neo4j.
+def _make_neo4j_index():
+    """Create a Neo4jDocumentIndex from env vars."""
+    from learning.phase9.graphindex.index_build import Neo4jDocumentIndex
+    idx = Neo4jDocumentIndex(
+        base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+        username=os.environ.get("NEO4J_USER", "neo4j"),
+        password=os.environ.get("NEO4J_PASSWORD", "password"),
+    )
+    idx.ensure_constraints()
+    return idx
 
-    Phase 9 wrapper around graphindex_build_python.py.
+
+def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
+    """Re-enrich ONE existing document in the graphindex.
+
+    Uses ``learning.phase9.graphindex.index_build.cmd_rebuild_one``.
 
     Args:
-        name: Exact document name (use graphindex_list_docs to find names).
-        project_id: Optional project ID. If not provided, uses the
-            current project (from GRAPHINDEX_PROJECT_ID env var).
-            Returns an error if neither is set.
+        name: Exact document filename (use graphindex_list_docs to find names).
+        project_id: Optional project ID.
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        return (
-            "ERROR: no project_id provided. Either pass project_id "
-            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
-            "the active project. No silent default to project 1."
-        )
+        return ("ERROR: no project_id provided.")
 
     try:
-        from graphindex_build_python import cmd_rebuild_one as _clean_rebuild_one  # noqa: E402
-        rc, captured = _run_capturing_stdout(_clean_rebuild_one, name)
-        if rc == 0 and captured:
-            return captured
-        return (
-            f"## Rebuild one: {name}\n"
-            f"project_id: {project_id}\n"
-            f"return code: {rc}\n"
-            f"(no output)"
-        )
+        from learning.phase9.graphindex.index_build import cmd_rebuild_one, make_llm
+        idx = _make_neo4j_index()
+        llm = make_llm()
+        rc, captured = _run_capturing_stdout(cmd_rebuild_one, idx, llm, name, project_id=project_id)
+        return captured or f"## Rebuild one: {name}\nreturn code: {rc}"
     except Exception as e:
         return f"❌ Error rebuilding {name}: {e}"
 
 
 def graphindex_ingest(file_path: str, project_id: Optional[int] = None,
                       target_dir: Optional[str] = None) -> str:
-    """
-    Ingest a new file into the project's graphindex: SHA-256 dedup, copy
-    with hash prefix, LLM enrichment, upsert to Neo4j.
+    """Ingest a file into the graphindex: hash → dedup → enrich → upsert.
 
-    Phase 9 wrapper around graphindex_build_python.py.
+    Uses ``learning.phase9.graphindex.index_build.cmd_ingest``.
 
     Args:
         file_path: Absolute path to the file on disk.
-        project_id: Optional project ID. If not provided, uses the
-            current project (from GRAPHINDEX_PROJECT_ID env var).
-            Returns an error if neither is set.
+        project_id: Optional project ID.
         target_dir: Optional override for the target directory.
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        return (
-            "ERROR: no project_id provided. Either pass project_id "
-            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
-            "the active project. No silent default to project 1."
-        )
+        return ("ERROR: no project_id provided.")
 
     try:
-        from graphindex_build_python import cmd_ingest as _clean_ingest  # noqa: E402
-        rc, captured = _run_capturing_stdout(_clean_ingest, file_path, target_dir=target_dir)
-        if rc == 0 and captured:
-            return captured
-        return (
-            f"## Ingest: {file_path}\n"
-            f"project_id: {project_id}\n"
-            f"target_dir: {target_dir or '(default)'}\n"
-            f"return code: {rc}\n"
-            f"(no output)"
-        )
+        from learning.phase9.graphindex.index_build import cmd_ingest, make_llm
+        idx = _make_neo4j_index()
+        llm = make_llm()
+        rc, captured = _run_capturing_stdout(cmd_ingest, idx, llm, file_path,
+                                              target_dir=target_dir, project_id=project_id)
+        return captured or f"## Ingest: {file_path}\nreturn code: {rc}"
     except Exception as e:
         return f"❌ Error ingesting {file_path}: {e}"
 
 
 def graphindex_rebuild_project(project_id: Optional[int] = None) -> str:
-    """
-    Rebuild the LLM enrichment metadata (about / supports / out_of_scope /
-    few_shot) for EVERY document in the project, then re-upsert to Neo4j.
+    """Re-enrich EVERY document in the project.
 
-    Phase 9 wrapper around graphindex_build_python.py.
+    Uses ``learning.phase9.graphindex.index_build.cmd_rebuild_project``.
+    WARNING: slow! ~15s per document.
 
     Args:
-        project_id: Optional project ID. If not provided, uses the
-            current project (from GRAPHINDEX_PROJECT_ID env var).
-            Returns an error if neither is set.
-
-    Warning: this re-runs the LLM enrichment for all documents in the project.
-    For a project with N docs and ~15s per doc, this takes ~N*15 seconds.
+        project_id: Optional project ID.
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        return (
-            "ERROR: no project_id provided. Either pass project_id "
-            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
-            "the active project. No silent default to project 1."
-        )
+        return ("ERROR: no project_id provided.")
 
     try:
-        from graphindex_build_python import cmd_rebuild_project as _clean_rebuild_project  # noqa: E402
-        rc, captured = _run_capturing_stdout(_clean_rebuild_project)
-        if rc == 0 and captured:
-            return captured
-        return (
-            f"## Rebuild project (project_id={project_id})\n"
-            f"return code: {rc}\n"
-            f"(no output)"
-        )
+        from learning.phase9.graphindex.index_build import cmd_rebuild_project, make_llm
+        idx = _make_neo4j_index()
+        llm = make_llm()
+        rc, captured = _run_capturing_stdout(cmd_rebuild_project, idx, llm, project_id=project_id)
+        return captured or f"## Rebuild project (project_id={project_id})\nreturn code: {rc}"
     except Exception as e:
         return f"❌ Error rebuilding project {project_id}: {e}"
 
 
 def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
-    """
-    Show one document's metadata from Neo4j: about, supported_queries,
-    out_of_scope, content_sha256, file_path.
+    """Show one document's metadata from Neo4j.
 
-    Phase 9 wrapper around graphindex_build_python.py.
+    Uses ``learning.phase9.graphindex.index_build.cmd_show``.
 
     Args:
-        name: Exact document name (use graphindex_list_docs to find names).
-        project_id: Optional project ID. If not provided, uses the
-            current project (from GRAPHINDEX_PROJECT_ID env var).
-            Returns an error if neither is set.
+        name: Exact document filename.
+        project_id: Optional project ID.
     """
     if not project_id:
         project_id = _get_project_id()
     if not project_id:
-        return (
-            "ERROR: no project_id provided. Either pass project_id "
-            "explicitly or set the GRAPHINDEX_PROJECT_ID env var to "
-            "the active project. No silent default to project 1."
-        )
+        return ("ERROR: no project_id provided.")
 
     try:
-        from graphindex_build_python import cmd_show as _clean_show  # noqa: E402
-        rc, captured = _run_capturing_stdout(_clean_show, name)
-        if rc == 0 and captured:
-            return captured
-        return (
-            f"## Show: {name}\n"
-            f"project_id: {project_id}\n"
-            f"return code: {rc}\n"
-            f"(no output)"
-        )
+        from learning.phase9.graphindex.index_build import cmd_show
+        idx = _make_neo4j_index()
+        rc, captured = _run_capturing_stdout(cmd_show, idx, name, project_id=project_id)
+        # cmd_show returns () → but it's used for its print output
+        return captured or f"## Show: {name}\nreturn code: {rc}"
     except Exception as e:
         return f"❌ Error showing {name}: {e}"
 
