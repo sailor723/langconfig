@@ -557,7 +557,15 @@ class APIClient {
    * context_documents table. See Phase 9 / Step M.
    */
   async getNeo4jDocumentContent(config: { project_id: number; name: string; max_chars?: number }) {
-    return this.client.get('/api/graphindex/content', { params: config });
+    const response = await this.client.get('/api/graphindex/content', { params: config });
+    return response.data as {
+      doc_id: number;
+      doc_name: string;
+      content: string;
+      char_count: number;
+      source: string;
+      file_path: string;
+    };
   }
 
   async deleteDocument(id: number) {
