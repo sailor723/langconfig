@@ -1717,6 +1717,17 @@ _doc_index_pages_tool = StructuredTool.from_function(
 # GraphIndex Tools (vectorless RAG for PDF Chat)
 # =============================================================================
 
+# GraphIndex tools — doc scope filter.
+# Set by the chat route before calling the agent when the user has
+# selected specific docs. None = all docs visible.
+_GRAPHINDEX_DOC_SCOPE: Optional[List[str]] = None
+
+def set_graphindex_doc_scope(scope: Optional[List[str]]) -> None:
+    """Set the doc scope filter for graphindex tools. Pass None for 'all'."""
+    global _GRAPHINDEX_DOC_SCOPE
+    _GRAPHINDEX_DOC_SCOPE = scope
+
+
 def _get_project_id() -> Optional[int]:
     """Get the current project ID from environment (set during agent execution)."""
     pid = os.environ.get("GRAPHINDEX_PROJECT_ID")
@@ -1759,7 +1770,7 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
             password=os.environ.get("NEO4J_PASSWORD", "password"),
         )
         idx.ensure_constraints()
-        rows = fetch_catalog(idx, project_id)
+        rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE or "all")
 
         # PG fallback: if Neo4j is empty (indexing still in progress),
         # try PostgreSQL ContextDocument table instead.
@@ -1964,7 +1975,7 @@ def graphindex_list_docs(project_id: Optional[int] = None) -> str:
             password=os.environ.get("NEO4J_PASSWORD", "password"),
         )
         idx.ensure_constraints()
-        rows = fetch_catalog(idx, project_id)
+        rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE or "all")
 
         if not rows:
             # Fallback: PostgreSQL ContextDocuments (not yet Neo4j-indexed)
@@ -2015,7 +2026,7 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
             password=os.environ.get("NEO4J_PASSWORD", "password"),
         )
         idx.ensure_constraints()
-        rows = fetch_catalog(idx, project_id)
+        rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE or "all")
         if not rows:
             return f"No documents in project {project_id}."
 
