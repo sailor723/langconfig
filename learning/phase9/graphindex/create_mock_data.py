@@ -8,13 +8,13 @@ Run once to set up test data for all 5 CLI commands.
 Usage:
     python create_mock_data.py
     # Then test:
-    python -m learning.phase9.graphindex.build_index --list --project-id 1
-    python -m learning.phase9.graphindex.build_index --show "mock_01_tesla_model3.md" --project-id 1
-    python -m learning.phase9.graphindex.build_index --query "best selling ev" --project-id 1
+    python -m learning.phase9.graphindex.index_build --list --project-id 1
+    python -m learning.phase9.graphindex.index_build --show "mock_01_tesla_model3.md" --project-id 1
+    python -m learning.phase9.graphindex.index_build --query "best selling ev" --project-id 1
 """
 import sys
 sys.path.insert(0, '/Users/weiping/dev/Learn/langchain-ai/langconfig')
-from learning.phase9.graphindex.build_index import _DOCS_BASE
+from learning.phase9.graphindex.index_build import _DOCS_BASE
 from pathlib import Path
 
 PROJECT_DIR = _DOCS_BASE / "project_1"
@@ -64,8 +64,8 @@ def create_mock_data():
         print(f"  ✓ created: {path.name}  ({len(content)} chars)")
 
     print("\nDone. Now run rebuild to index in Neo4j:")
-    print(f"  python -m learning.phase9.graphindex.build_index --rebuild-project --project-id 1")
-    print(f"  python -m learning.phase9.graphindex.build_index --list --project-id 1")
+    print(f"  python -m learning.phase9.graphindex.index_build --rebuild-project --project-id 1")
+    print(f"  python -m learning.phase9.graphindex.index_build --list --project-id 1")
 
 if __name__ == "__main__":
     create_mock_data()

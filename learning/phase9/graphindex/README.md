@@ -8,7 +8,7 @@ they work because the architecture is simple.
 
 | # | File | What it does | Agent? | LLM |
 |---|------|-------------|--------|-----|
-| **1** | `build_index.py` | **Index builder** — hash → dedup → copy → enrich → Neo4j upsert. Pure Python + `llm.invoke()` for enrichment. | ❌ No | Minimax M3 |
+| **1** | `index_build.py` | **Index builder** — hash → dedup → copy → enrich → Neo4j upsert. Pure Python + `llm.invoke()` for enrichment. | ❌ No | Minimax M3 |
 | **2** | `route.py` | **Doc matcher** — `route_by_llm()` scores docs by metadata, returns ordered list. Also has `load_doc_context()` + `answer_from_docs()` for end-to-end. | ❌ No | Gemma4 + Minimax M3 |
 | **3** | `python_agent.py` | **Legacy REPL** — manual conversation loop, routing per turn, session caching, cost tracking. | ❌ No | Gemma4 + Minimax M3 |
 | **4** | `agent.py` | **DeepAgent chat** — `create_deep_agent` with 4 tools, MemoryMiddleware (AGENTS.md), token streaming, REPL. | ✅ **Yes** | Minimax M3 (agent) + Gemma4 (via tools) |
@@ -19,7 +19,7 @@ Layers 1-2 into ``StructuredTool`` objects required by ``create_deep_agent``.
 ## Import chain
 
 ```
-build_index.py   ── raw functions (load_document_content, Neo4jDocumentIndex)
+index_build.py   ── raw functions (load_document_content, Neo4jDocumentIndex)
     │
     ▼
 route.py         ── raw functions (route_by_llm, load_doc_context, etc.)
@@ -34,7 +34,7 @@ route.py         ── raw functions (route_by_llm, load_doc_context, etc.)
                                       ▼
                               backend/api/chat/routes.py  ── imports agent.py directly
                               backend/api/knowledge/graphindex_chat.py  ── imports agent.py directly
-                              backend/api/knowledge/rag.py  ── imports build_index.py directly
+                              backend/api/knowledge/rag.py  ── imports index_build.py directly
 ```
 
 No wrappers, no middlemen. The backend imports the legacy modules directly.
@@ -44,7 +44,7 @@ No wrappers, no middlemen. The backend imports the legacy modules directly.
 ```
 .env (root)          → graphindex config (NEO4J_*, GRAPHINDEX_MODEL, etc.)
                           │
-graphindex/build_index.py  ← CLI + shared helpers
+graphindex/index_build.py  ← CLI + shared helpers
     ├── make_llm()                — init_chat_model (Minimax M3)
     ├── extract_document_enrichment()  — LLM structured output
     ├── load_document_content()    — PDF / MD / TXT reader
@@ -68,7 +68,7 @@ Both configurable via `.env`. See [Configuration](#configuration) below.
 
 ## CLI Commands
 
-### `build_index.py` — Index management
+### `index_build.py` — Index management
 
 All commands accept `--project-id N`.
 
@@ -109,16 +109,16 @@ All commands accept `--project-id N`.
 ### Examples
 
 ```bash
-# === build_index ===
+# === index_build ===
 
 # List all files with index status
-uv run python -m learning.phase9.graphindex.build_index --list --project-id 1
+uv run python -m learning.phase9.graphindex.index_build --list --project-id 1
 
 # Ingest a single file
-uv run python -m learning.phase9.graphindex.build_index --ingest report.pdf --project-id 1
+uv run python -m learning.phase9.graphindex.index_build --ingest report.pdf --project-id 1
 
 # Ingest an entire folder (recursive)
-uv run python -m learning.phase9.graphindex.build_index --ingest-folder /path/to/docs --project-id 1
+uv run python -m learning.phase9.graphindex.index_build --ingest-folder /path/to/docs --project-id 1
 
 # === route ===
 
@@ -231,13 +231,13 @@ The legacy modules are imported **directly** by the LangConfig backend — no wr
 |---|---|
 | `backend/api/chat/routes.py` | `graphindex.agent.build_agent()` |
 | `backend/api/knowledge/graphindex_chat.py` | `graphindex.agent.build_agent()` |
-| `backend/api/knowledge/rag.py` | `graphindex.build_index.cmd_ingest()`, `extract_document_enrichment()` |
+| `backend/api/knowledge/rag.py` | `graphindex.index_build.cmd_ingest()`, `extract_document_enrichment()` |
 
 ## Files
 
 | File | What it is | Status |
 |---|---|---|
-| `build_index.py` | Primary CLI — ingest, query, rebuild, remove, list. Exports helper functions reused by `route.py` and `python_agent.py`. | **Active** |
+| `index_build.py` | Primary CLI — ingest, query, rebuild, remove, list. Exports helper functions reused by `route.py` and `python_agent.py`. | **Active** |
 | `route.py` | Semantic router + answer pipeline. Uses `gemma4` (Ollama) for routing and `minimax-m3` (API) for synthesis. Supports doc scope. | **Active** |
 | `tools.py` | Tool wrappers for the DeepAgent: `list_docs`, `query_docs`, `read_doc`, `answer`. Also exports ContextVar helpers for backend request scoping. | **Active** |
 | `agent.py` | DeepAgent-powered chat REPL (or single query). Token streaming, conversation history, `!reset`. The canonical chat agent used by the backend. | **Active** |
