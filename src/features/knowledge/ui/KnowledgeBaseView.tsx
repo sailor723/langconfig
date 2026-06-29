@@ -910,7 +910,8 @@ export default function KnowledgeBaseView() {
         "     graphindex_multi_doc_load and answer. No listing, no asking permission.\n" +
         "  3. Tools ONLY return user-selected docs (enforced at tool level).\n" +
         "  4. project_id is an INTEGER (e.g. 8). Always pass as number.\n" +
-        "  5. Answer in the user's language. Concise (2-4 paragraphs). Cite the doc name.",
+        "  5. CRITICAL: Never include raw JSON, dicts, or tool output in your response. Use tool results internally only.\n" +
+        "  6. Answer in the user's language. Concise (2-4 paragraphs). Cite the doc name.",
       tools: [
         "graphindex_list_docs",
         "graphindex_search",
