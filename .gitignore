@@ -8,7 +8,11 @@ __pycache__/
 .env.local
 .env.*.local
 backend/.env
-backend/.env.local
+
+# Uploaded documents (user data, not source code)
+backend/data/documents/**
+!backend/data/documents/.gitkeep
+
 *.log
 
 # Build artifacts
