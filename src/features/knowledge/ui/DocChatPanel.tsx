@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader, MessageCircle, Sparkles } from 'lucide-react';
 import apiClient from '../../../lib/api-client';
 import { useChat } from '../../chat/state/ChatContext';
@@ -90,6 +90,10 @@ export default function DocChatPanel({
     clearError: clearStreamingError,
   } = useChatStreaming(currentSessionId, false);
 
+  // Track which agentId this panel started a session for, so we can
+  // detect stale sessions (e.g. after backend agent deletion/rebuild).
+  const sessionAgentRef = useRef<number | null>(null);
+
   // Resolve the graphindex_chat agent id (and start a session) when
   // projectId becomes available. We look it up by name in the user's
   // deepagent library.
@@ -134,10 +138,17 @@ export default function DocChatPanel({
   }, [projectId]);
 
   // Once we know the agent id, start a fresh session for this project.
-  // We avoid auto-restarting if a session is already active for this agent.
+  // If a session is already active but was created for a different agent
+  // (e.g. after backend agent deletion/rebuild), clear it first.
   useEffect(() => {
     if (!projectId || !agentId) return;
-    if (currentSessionId) return; // already have one
+    // If we already have a session for THIS agent, keep it.
+    if (currentSessionId && sessionAgentRef.current === agentId) return;
+    // Stale session — clear and start fresh.
+    if (currentSessionId) {
+      clearHistory();
+    }
+    sessionAgentRef.current = agentId;
     startSession(agentId).catch((err: any) => {
       showToast(
         err?.response?.data?.detail || 'Failed to start chat session',
@@ -145,7 +156,7 @@ export default function DocChatPanel({
         4000
       );
     });
-  }, [projectId, agentId, currentSessionId, startSession, showToast]);
+  }, [projectId, agentId, currentSessionId, startSession, showToast, clearHistory]);
 
   // Push agent info up to the parent so it can render the agent name +
   // description in the Knowledge Base header (top right, next to the
