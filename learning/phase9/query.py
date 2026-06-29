@@ -60,7 +60,7 @@ from services.neo4j_document_index import (  # noqa: E402
     Neo4jDocumentRecord,
     choose_best_document_match,
 )
-from graphindex_tools import (  # noqa: E402
+from graphindex.tools import (  # noqa: E402
     set_active_doc_scope,
     reset_active_doc_scope,
 )
