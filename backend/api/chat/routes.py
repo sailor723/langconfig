@@ -74,7 +74,6 @@ from db.database import get_db
 from models.deep_agent import DeepAgentTemplate, ChatSession, DeepAgentConfig, SessionDocument
 from models.core import DocumentType, IndexingStatus
 from services.deepagent_factory import DeepAgentFactory
-from core.agents.factory import AgentFactory
 from core.workflows.events.emitter import ExecutionEventCallbackHandler
 from langgraph.errors import GraphInterrupt
 from services.conversation_context import ConversationContextService
@@ -461,38 +460,20 @@ async def send_message(
             except Exception:
                 pass  # fallback to no language instruction
 
-            # Create agent instance — branch based on agent type.
-            # Apply _ensure_deep_agent_config to fix incorrectly stored
-            # use_deepagents=False in the DB (see commit 3efc2bf).
-            from api.agents.deep_agents import _ensure_deep_agent_config
-            _fixed_config = _ensure_deep_agent_config(agent.config, db=db)
-            use_deepagents = _fixed_config.get("use_deepagents", False)
-            if use_deepagents:
-                config = DeepAgentConfig(**agent.config)
-                if lang_instruction:
-                    config.system_prompt = (config.system_prompt or "") + lang_instruction
-                agent_instance, _tools, _callbacks = await DeepAgentFactory.create_deep_agent(
-                    config=config,
-                    project_id=0,
-                    task_id=0,
-                    context="",
-                    mcp_manager=None,
-                    vector_store=None,
-                    user_message=request.message
-                )
-            else:
-                # Normal agent via AgentFactory — context gets appended to system prompt
-                context = ""
-                if lang_instruction:
-                    context = lang_instruction.strip()
-                agent_instance, _tools, _callbacks = await AgentFactory.create_agent(
-                    agent_config=agent.config,
-                    project_id=0,
-                    task_id=0,
-                    context=context,
-                    mcp_manager=None,
-                    vector_store=None
-                )
+            # Create agent instance via DeepAgentFactory (original pattern).
+            # DeepAgentFactory internally falls back to AgentFactory when needed.
+            config = DeepAgentConfig(**agent.config)
+            if lang_instruction:
+                config.system_prompt = (config.system_prompt or "") + lang_instruction
+            agent_instance, _tools, _callbacks = await DeepAgentFactory.create_deep_agent(
+                config=config,
+                project_id=0,
+                task_id=0,
+                context="",
+                mcp_manager=None,
+                vector_store=None,
+                user_message=request.message
+            )
             cache_agent(request.session_id, agent_instance)
 
         # Create new user message (checkpointer will load previous messages automatically)
@@ -903,32 +884,18 @@ async def send_message_stream(
                 )
 
                 if not agent_instance:
-                    # Branch on agent type — apply _ensure_deep_agent_config
-                    # to fix incorrectly stored use_deepagents=False in the DB
-                    from api.agents.deep_agents import _ensure_deep_agent_config
-                    _fixed_config = _ensure_deep_agent_config(agent_config, db=db)
-                    use_deepagents = _fixed_config.get("use_deepagents", False)
-                    if use_deepagents:
-                        config = DeepAgentConfig(**agent_config)
-                        agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
-                            config=config,
-                            project_id=project_id or 0,
-                            task_id=0,
-                            context=all_context,  # Inject RAG context
-                            mcp_manager=None,
-                            vector_store=None,
-                            user_message=request.message
-                        )
-                    else:
-                        # Normal agent via AgentFactory
-                        agent_instance, tools, callbacks = await AgentFactory.create_agent(
-                            agent_config=agent_config,
-                            project_id=project_id or 0,
-                            task_id=0,
-                            context=all_context,
-                            mcp_manager=None,
-                            vector_store=None
-                        )
+                    # Create agent instance via DeepAgentFactory (original pattern).
+                    # DeepAgentFactory internally falls back to AgentFactory when needed.
+                    config = DeepAgentConfig(**agent_config)
+                    agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
+                        config=config,
+                        project_id=project_id or 0,
+                        task_id=0,
+                        context=all_context,  # Inject RAG context
+                        mcp_manager=None,
+                        vector_store=None,
+                        user_message=request.message
+                    )
                     cache_agent(
                         request.session_id,
                         agent_instance,
@@ -1652,40 +1619,16 @@ async def resume_chat(
     try:
         from langgraph.types import Command
 
-        # Detect agent type from DB config
-        is_deep_agent = True  # default for backwards compatibility
-        if session.agent_id:
-            agent_config = db.query(DeepAgentTemplate).filter(
-                DeepAgentTemplate.id == session.agent_id
-            ).first()
-            if agent_config:
-                # Apply _ensure_deep_agent_config to fix DB corruption
-                from api.agents.deep_agents import _ensure_deep_agent_config
-                _fixed_config = _ensure_deep_agent_config(agent_config.config, db=db)
-                if not _fixed_config.get("use_deepagents", True):
-                    is_deep_agent = False
-
-        if is_deep_agent:
-            # Deep agents: HumanInTheLoopMiddleware expects {"decisions": [...]}
-            action = resume_data.get("action", "approve")
-            if isinstance(action, str):
-                decisions = [{"type": action}]
-            elif isinstance(action, list):
-                decisions = action
-            else:
-                decisions = [{"type": "approve"}]
-            resume_value = {"decisions": decisions}
+        # Use DeepAgentFactory's HumanInTheLoopMiddleware pattern (always).
+        # DeepAgent handles resume via {"decisions": [...]} format.
+        action = resume_data.get("action", "approve")
+        if isinstance(action, str):
+            decisions = [{"type": action}]
+        elif isinstance(action, list):
+            decisions = action
         else:
-            # Normal agents: interrupt_before pauses execution — resume to continue
-            # The resume value is passed to the tools node as input
-            action = resume_data.get("action", "approve")
-            if action == "approve":
-                resume_value = resume_data.get("approved", True)
-            elif action == "reject":
-                # For reject, we can either skip or resurface with empty resume
-                resume_value = None
-            else:
-                resume_value = resume_data.get("value", "continue")
+            decisions = [{"type": "approve"}]
+        resume_value = {"decisions": decisions}
         result = await agent_instance.ainvoke(
             Command(resume=resume_value),
             config={"configurable": {"thread_id": session_id}}
