@@ -530,44 +530,48 @@ class DeepAgentFactory:
                         agent_kwargs["interrupt_on"] = interrupt_on
                         logger.info(f"  HITL interrupt_on configured for {len(interrupt_on)} tools: {list(interrupt_on.keys())}")
 
-                # Register a harness profile to exclude built-in tools we don't want.
-                # This makes tools truly configurable — only the ones passed via
-                # agent_kwargs["tools"] will be available to the agent.
-                try:
-                    from deepagents import (
-                        HarnessProfile, register_harness_profile,
-                    )
-                    _model_key = (
-                        f"{_model_str}" if ":" in _model_str
-                        else f"minimax:{_model_str}"
-                    )
-                    # Exclude all library-default tools. User-selected tools in
-                    # agent_kwargs["tools"] are the ONLY ones that remain.
-                    register_harness_profile(
-                        _model_key,
-                        HarnessProfile(
-                            excluded_tools=frozenset({
-                                "write_todos", "update_todo_status", "get_todos",
-                                "ls", "read_file", "write_file", "edit_file",
-                                "glob", "grep", "execute", "task",
-                            }),
-                        ),
-                    )
-                    logger.info(
-                        f"Registered harness profile for {_model_key} "
-                        f"with built-in tools excluded"
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to register harness profile: {e}")
+                    # Register a harness profile to exclude built-in tools we don't want.
+                    try:
+                        from deepagents import (
+                            HarnessProfile, register_harness_profile,
+                        )
+                        # The model is a ChatOpenAI instance, which the library
+                        # resolves with provider="openai". The key must match
+                        # what _harness_profile_for_model generates.
+                        _profile_key = f"openai:{_model_str}"
+                        register_harness_profile(
+                            _profile_key,
+                            HarnessProfile(
+                                excluded_tools=frozenset({
+                                    "write_todos", "update_todo_status", "get_todos",
+                                    "ls", "glob", "grep", "execute",
+                                    "task",
+                                }),
+                                excluded_middleware=[
+                                    "TodoListMiddleware",
+                                    "SkillsMiddleware",
+                                ],
+                            ),
+                        )
+                        logger.info(
+                            f"Registered harness profile for {_profile_key} "
+                            f"with built-in tools excluded"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to register harness profile: {e}")
 
                 agent = create_deep_agent(**agent_kwargs, guardrails=guardrails_config)
-                logger.info("Guardrails configuration applied")
+                logger.info(f"Guardrails configuration applied")
             except TypeError as e:
                 if "guardrails" in str(e):
                     logger.warning("Guardrails parameter not supported, creating without it")
                     agent = create_deep_agent(**agent_kwargs)
                 else:
                     raise
+
+            # Log tools available to the agent for debugging
+            tool_names = [getattr(t, "name", str(t)) for t in all_tools] if all_tools else []
+            logger.info(f"=== Agent created with {len(tool_names)} tools: {tool_names} ===")
 
             logger.info(f"DeepAgent created for task {task_id}")
             logger.info(f"  Persistence: {'enabled' if checkpointer else 'disabled'}")

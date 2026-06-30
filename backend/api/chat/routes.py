@@ -461,8 +461,12 @@ async def send_message(
             except Exception:
                 pass  # fallback to no language instruction
 
-            # Create agent instance — branch based on agent type
-            use_deepagents = agent.config.get("use_deepagents", False)
+            # Create agent instance — branch based on agent type.
+            # Apply _ensure_deep_agent_config to fix incorrectly stored
+            # use_deepagents=False in the DB (see commit 3efc2bf).
+            from api.agents.deep_agents import _ensure_deep_agent_config
+            _fixed_config = _ensure_deep_agent_config(agent.config, db=db)
+            use_deepagents = _fixed_config.get("use_deepagents", False)
             if use_deepagents:
                 config = DeepAgentConfig(**agent.config)
                 if lang_instruction:
@@ -833,6 +837,7 @@ async def send_message_stream(
                 # Use the UI's active project if the agent doesn't have one
                 project_id = agent_project_id or request.project_id
                 agent_instance = None
+                all_context = ""
 
                 if project_id:
                     from services.context_retrieval import context_retriever
@@ -874,8 +879,6 @@ async def send_message_stream(
                             logger.warning(f"Failed to retrieve session context: {e}")
                             session_context = ""
 
-                    all_context = ""
-
                     if project_context and session_context:
                         all_context += f"# Project Documents:\n{project_context}\n\n# Session Documents:\n{session_context}"
                     elif project_context:
@@ -887,48 +890,51 @@ async def send_message_stream(
                         rag_tokens_used = token_counter.count_tokens(all_context)
                         logger.info(f"Retrieved RAG context: {rag_tokens_used} tokens")
 
-                    # Get or create agent instance.
-                    # Use (session_id, agent_id, agent.updated_at) as cache key so that
-                    # updates to the agent's config invalidate the cached agent.
-                    agent_version = None
-                    if agent.updated_at:
-                        agent_version = str(int(agent.updated_at.timestamp()))
-                    agent_instance = get_cached_agent(
+                # Get or create agent instance (always, regardless of project_id).
+                # Use (session_id, agent_id, agent.updated_at) as cache key so that
+                # updates to the agent's config invalidate the cached agent.
+                agent_version = None
+                if agent.updated_at:
+                    agent_version = str(int(agent.updated_at.timestamp()))
+                agent_instance = get_cached_agent(
+                    request.session_id,
+                    agent_id=agent.id,
+                    agent_version=agent_version,
+                )
+
+                if not agent_instance:
+                    # Branch on agent type — apply _ensure_deep_agent_config
+                    # to fix incorrectly stored use_deepagents=False in the DB
+                    from api.agents.deep_agents import _ensure_deep_agent_config
+                    _fixed_config = _ensure_deep_agent_config(agent_config, db=db)
+                    use_deepagents = _fixed_config.get("use_deepagents", False)
+                    if use_deepagents:
+                        config = DeepAgentConfig(**agent_config)
+                        agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
+                            config=config,
+                            project_id=project_id or 0,
+                            task_id=0,
+                            context=all_context,  # Inject RAG context
+                            mcp_manager=None,
+                            vector_store=None,
+                            user_message=request.message
+                        )
+                    else:
+                        # Normal agent via AgentFactory
+                        agent_instance, tools, callbacks = await AgentFactory.create_agent(
+                            agent_config=agent_config,
+                            project_id=project_id or 0,
+                            task_id=0,
+                            context=all_context,
+                            mcp_manager=None,
+                            vector_store=None
+                        )
+                    cache_agent(
                         request.session_id,
+                        agent_instance,
                         agent_id=agent.id,
                         agent_version=agent_version,
                     )
-
-                    if not agent_instance:
-                        # Branch on agent type
-                        use_deepagents = agent_config.get("use_deepagents", False)
-                        if use_deepagents:
-                            config = DeepAgentConfig(**agent_config)
-                            agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
-                                config=config,
-                                project_id=project_id or 0,
-                                task_id=0,
-                                context=all_context,  # Inject RAG context
-                                mcp_manager=None,
-                                vector_store=None,
-                                user_message=request.message
-                            )
-                        else:
-                            # Normal agent via AgentFactory
-                            agent_instance, tools, callbacks = await AgentFactory.create_agent(
-                                agent_config=agent_config,
-                                project_id=project_id or 0,
-                                task_id=0,
-                                context=all_context,
-                                mcp_manager=None,
-                                vector_store=None
-                            )
-                        cache_agent(
-                            request.session_id,
-                            agent_instance,
-                            agent_id=agent.id,
-                            agent_version=agent_version,
-                        )
 
                 # Fallback: if no project_id or agent couldn't be built, use graphindex agent
                 if agent_instance is None:
@@ -1652,8 +1658,12 @@ async def resume_chat(
             agent_config = db.query(DeepAgentTemplate).filter(
                 DeepAgentTemplate.id == session.agent_id
             ).first()
-            if agent_config and not agent_config.config.get("use_deepagents", False):
-                is_deep_agent = False
+            if agent_config:
+                # Apply _ensure_deep_agent_config to fix DB corruption
+                from api.agents.deep_agents import _ensure_deep_agent_config
+                _fixed_config = _ensure_deep_agent_config(agent_config.config, db=db)
+                if not _fixed_config.get("use_deepagents", True):
+                    is_deep_agent = False
 
         if is_deep_agent:
             # Deep agents: HumanInTheLoopMiddleware expects {"decisions": [...]}
