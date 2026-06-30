@@ -930,12 +930,18 @@ tool_factory = ToolFactory()
 
     if is_deep:
         build_section = '''
-# Build DeepAgent
+# Build DeepAgent with PostgreSQL checkpointer for conversation persistence
+from langgraph.checkpoint.postgres import PostgresSaver
 from deepagents import create_deep_agent
+
+checkpointer = PostgresSaver.from_conn_string(
+    os.environ.get("DATABASE_URL", "postgresql://user:pass@localhost:5432/langconfig")
+)
 agent = create_deep_agent(
     model=llm,
     system_prompt=system_prompt,
     tools=tools,
+    checkpointer=checkpointer,
 )
 '''
     else:
@@ -1014,12 +1020,13 @@ agent = create_react_agent(
         'def main():\n'
         f'    print(f"=== {agent.name} ===")\n'
         '    print("Type \'exit\' to quit.\\n")\n'
+        '    from langchain_core.messages import HumanMessage, AIMessage\n'
         '    history = []\n'
         '    while True:\n'
         '        user_input = input("You: ").strip()\n'
         '        if user_input.lower() in ("exit", "quit"):\n'
         '            break\n'
-        '        history.append(("user", user_input))\n'
+        '        history.append(HumanMessage(content=user_input))\n'
         '        result = agent.invoke(\n'
         '            {"messages": history},\n'
         '            config={"configurable": {"thread_id": "cli"}, "recursion_limit": 500},\n'
@@ -1033,7 +1040,7 @@ agent = create_react_agent(
         '        if not reply:\n'
         '            reply = str(result)\n'
         '        print(f"\\nAgent: {reply}\\n")\n'
-        '        history.append(("assistant", reply))\n'
+        '        history.append(AIMessage(content=reply))\n'
         '\n'
         '\n'
         'if __name__ == "__main__":\n'
