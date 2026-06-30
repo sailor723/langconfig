@@ -530,6 +530,36 @@ class DeepAgentFactory:
                         agent_kwargs["interrupt_on"] = interrupt_on
                         logger.info(f"  HITL interrupt_on configured for {len(interrupt_on)} tools: {list(interrupt_on.keys())}")
 
+                # Register a harness profile to exclude built-in tools we don't want.
+                # This makes tools truly configurable — only the ones passed via
+                # agent_kwargs["tools"] will be available to the agent.
+                try:
+                    from deepagents import (
+                        HarnessProfile, register_harness_profile,
+                    )
+                    _model_key = (
+                        f"{_model_str}" if ":" in _model_str
+                        else f"minimax:{_model_str}"
+                    )
+                    # Exclude all library-default tools. User-selected tools in
+                    # agent_kwargs["tools"] are the ONLY ones that remain.
+                    register_harness_profile(
+                        _model_key,
+                        HarnessProfile(
+                            excluded_tools=frozenset({
+                                "write_todos", "update_todo_status", "get_todos",
+                                "ls", "read_file", "write_file", "edit_file",
+                                "glob", "grep", "execute", "task",
+                            }),
+                        ),
+                    )
+                    logger.info(
+                        f"Registered harness profile for {_model_key} "
+                        f"with built-in tools excluded"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to register harness profile: {e}")
+
                 agent = create_deep_agent(**agent_kwargs, guardrails=guardrails_config)
                 logger.info("Guardrails configuration applied")
             except TypeError as e:
