@@ -161,3 +161,37 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
+
+
+def get_api_key_from_db(key_name: str) -> Optional[str]:
+    """Read an API key from settings (reads from .env).
+
+    This exists as a convenience for tools that query it by name,
+    e.g. get_api_key_from_db("tavily_api_key") → settings.TAVILY_API_KEY.
+    Falls back to the db settings table if not found in .env.
+    """
+    # Try .env first via settings
+    try:
+        val = getattr(settings, key_name, None) or getattr(settings, key_name.upper(), None)
+        if val:
+            return val
+    except Exception:
+        pass
+
+    # Fallback: try the database settings.api_keys JSONB column
+    try:
+        from db.database import SessionLocal
+        from models.core import Setting
+        db = SessionLocal()
+        try:
+            rec = db.query(Setting).filter(Setting.key == "api_keys").first()
+            if rec and rec.value:
+                import json
+                keys = json.loads(rec.value) if isinstance(rec.value, str) else rec.value
+                return keys.get(key_name)
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    return None
