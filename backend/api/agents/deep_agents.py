@@ -89,16 +89,18 @@ def _ensure_deep_agent_config(config: dict, db: Session = None) -> dict:
     DeepAgents in the deep_agent_templates table should ALWAYS have
     use_deepagents=True, even if stored incorrectly in the database.
     This fixes frontend compatibility issues.
-    
+
     For regular (non-deep) agents, use_deepagents is explicitly set to False
     and should be respected.
-    
+
     If db is provided, also injects dynamic skill subagents into config.subagents.
     """
     config = dict(config)  # Make a copy to avoid mutating
-    # Respect explicitly set use_deepagents=False (regular agents)
-    if not config.get("use_deepagents", True):
-        return config
+    # BUGFIX: Previously this respected config.use_deepagents=False, but for deep
+    # agents in deep_agent_templates table, the flag is sometimes incorrectly
+    # saved as False in the DB. ALWAYS force True here to match the original
+    # upstream fix from commit 3efc2bf — this is what enables native_tools
+    # (web_search, tavily_search, web_fetch) to be loaded.
     config["use_deepagents"] = True
     # Inject merged skill subagents into config.subagents so frontend builder can see them
     if db is not None:
