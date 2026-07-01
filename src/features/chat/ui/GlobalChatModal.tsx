@@ -138,6 +138,24 @@ export default function GlobalChatModal() {
   const handleStartSession = async (agentId: number) => {
     try {
       await startSession(agentId);
+      // Fetch agent details and add welcome message
+      try {
+        const res = await apiClient.listDeepAgents({ public_only: false });
+        const agents = (res as any).data ?? [];
+        const agent = agents.find((a: any) => a.id === agentId);
+        const name = agent?.name || `Agent #${agentId}`;
+        const desc = agent?.description || '';
+        const welcome = desc
+          ? `👋 你好！我是 **${name}**。\n\n${desc}\n\n有什么我可以帮助你的吗？`
+          : `👋 你好！我是 **${name}**。有什么我可以帮助你的吗？`;
+        addMessage({
+          role: 'assistant',
+          content: welcome,
+          timestamp: new Date().toISOString(),
+        });
+      } catch {
+        // Silently fail — welcome message is optional
+      }
     } catch (error) {
       console.error('Failed to start session:', error);
       setSessionError('Failed to start chat session');
