@@ -396,18 +396,32 @@ export default function GlobalChatModal() {
                       {saving ? 'Saving...' : '💾 Save Agent'}
                     </button>
                   ) : (
-                    <button
-                      onClick={handleTestNewAgent}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                      style={{
-                        background: 'linear-gradient(135deg, #006DDD 0%, #7FC8FF 100%)',
-                        color: '#FFFFFF',
-                        boxShadow: '0 0 8px rgba(0, 109, 221, 0.3)',
-                      }}
-                      title="Test with the newly created agent"
-                    >
-                      🧪 Test New Agent
-                    </button>
+                    <>
+                      <button
+                        onClick={handleTestNewAgent}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        style={{
+                          background: 'linear-gradient(135deg, #006DDD 0%, #7FC8FF 100%)',
+                          color: '#FFFFFF',
+                          boxShadow: '0 0 8px rgba(0, 109, 221, 0.3)',
+                        }}
+                        title="Test with the newly created agent"
+                      >
+                        🧪 Test New Agent
+                      </button>
+                      <button
+                        onClick={() => handleStartSession(112)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        style={{
+                          background: 'rgba(99, 102, 241, 0.12)',
+                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                          color: '#818CF8',
+                        }}
+                        title="Go back to Agent Creator for tuning"
+                      >
+                        🔧 Tune
+                      </button>
+                    </>
                   )}
                 </>
               )}
