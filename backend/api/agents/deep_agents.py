@@ -31,7 +31,10 @@ from models.deep_agent import (
     SubAgentConfig,
     MiddlewareConfig,
     BackendConfig,
-    GuardrailsConfig
+    GuardrailsConfig,
+    create_default_middleware_config,
+    create_default_backend_config,
+    create_default_guardrails_config,
 )
 from services.export_service import ExportService
 from core.versioning import check_version_conflict, format_lock_version_error
@@ -446,6 +449,90 @@ async def delete_deepagent(
     logger.info(f"Deleted DeepAgent: {agent.name} (id={agent_id})")
 
     return {"status": "success", "message": f"DeepAgent {agent_id} deleted"}
+
+
+# =============================================================================
+# Agent Creator workflow support
+# =============================================================================
+
+CREATOR_OUTPUT_PATH = "/tmp/agent_creator_output.json"
+
+class CreatorOutput(BaseModel):
+    """Agent Creator saved config format (simplified)."""
+    name: str
+    category: Optional[str] = "Custom"
+    description: Optional[str] = ""
+    config: dict
+
+@router.post("/from-creator")
+async def create_from_agent_creator(
+    db: Session = Depends(get_db)
+):
+    """
+    Create a DeepAgent from the Agent Creator's saved output file.
+    Reads /tmp/agent_creator_output.json and creates the agent.
+    """
+    try:
+        if not _os.path.exists(CREATOR_OUTPUT_PATH):
+            raise HTTPException(status_code=404, detail="No Agent Creator output found. Run Agent Creator first.")
+
+        with open(CREATOR_OUTPUT_PATH, "r") as f:
+            raw = json.load(f)
+
+        data = CreatorOutput(**raw)
+
+        # Build full config with defaults
+        cfg = data.config
+        full_config = DeepAgentConfig(
+            model=cfg.get("model", "minimax-m3"),
+            system_prompt=cfg.get("system_prompt", ""),
+            native_tools=cfg.get("native_tools", ["web_search", "web_fetch"]),
+            skills=cfg.get("skills", []),
+            tools=cfg.get("tools", []),
+            cli_tools=cfg.get("cli_tools", []),
+            custom_tools=cfg.get("custom_tools", []),
+            temperature=cfg.get("temperature", 0.7),
+            use_deepagents=True,
+            middleware=create_default_middleware_config(),
+            subagents=[],
+            backend=create_default_backend_config(),
+            guardrails=create_default_guardrails_config(),
+        )
+
+        agent = DeepAgentTemplate(
+            name=data.name,
+            description=data.description,
+            category=data.category or "Custom",
+            config=full_config.dict(),
+            middleware_config=[m.dict() for m in full_config.middleware],
+            subagents_config=[],
+            backend_config=full_config.backend.dict(),
+            guardrails_config=full_config.guardrails.dict(),
+        )
+
+        db.add(agent)
+        db.commit()
+        db.refresh(agent)
+
+        # Remove the temp file
+        _os.remove(CREATOR_OUTPUT_PATH)
+
+        logger.info(f"Agent Creator created DeepAgent: {agent.name} (id={agent.id})")
+
+        return {
+            "status": "success",
+            "message": f"Agent '{data.name}' created successfully (id={agent.id})",
+            "agent_id": agent.id,
+            "name": agent.name,
+            "description": agent.description,
+            "category": agent.category,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create from Agent Creator: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # =============================================================================
