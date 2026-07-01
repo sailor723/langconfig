@@ -250,6 +250,18 @@ select {
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* Thick scrollbar for agent detail panel */
+.thick-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+/* Scrollbar for system prompt modals */
+.xwide-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
 /* React Flow overrides */
 /* .react-flow__node removed to avoid empty ruleset lint warning */
 

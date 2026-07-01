@@ -204,11 +204,19 @@ export default function GlobalChatModal() {
           }]);
           tracesRef.current = [...tracesRef.current, { type: 'tool_start', tool_name: event.tool_name, data: event.data }];
         } else if (event.type === 'tool_end' && event.tool_name) {
+          const result = event.data?.output || '';
           setActiveToolCalls(prev => prev.map(t =>
             t.tool_name === event.tool_name && t.status === 'running'
-              ? { ...t, status: 'completed', result: event.data?.output || '' }
+              ? { ...t, status: 'completed', result }
               : t
           ));
+          // Detect create_deepagent tool result → extract agent_id for Test/Tune buttons
+          if (event.tool_name === 'create_deepagent') {
+            const idMatch = result.match(/id=(\d+)/);
+            if (idMatch) {
+              setSavedAgentId(parseInt(idMatch[1], 10));
+            }
+          }
           tracesRef.current = [...tracesRef.current, { type: 'tool_end', tool_name: event.tool_name, data: event.data }];
         }
       },
@@ -297,21 +305,12 @@ export default function GlobalChatModal() {
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await fetch('/api/deepagents/from-creator', { method: 'POST' });
-      const data = await res.json();
-      if (data.status === 'success') {
-        setSavedAgentId(data.agent_id);
-        addMessage({
-          role: 'assistant',
-          content: `✅ Agent **${data.name}** (id=${data.agent_id}) 已成功创建！你可以点击"测试"按钮开始使用。`,
-          timestamp: new Date().toISOString(),
-        });
-      } else {
-        setSaveError(data.detail || 'Save failed');
-      }
+      // Tell the Agent Creator to save the current design using create_deepagent tool
+      await handleSendMessage('请保存当前设计的 agent，使用 create_deepagent 工具写入数据库');
+      // The tool_end handler will detect the agent_id automatically
+      setSaving(false);
     } catch (err: any) {
-      setSaveError(err?.message || 'Network error');
-    } finally {
+      setSaveError(err?.message || 'Failed to send save request');
       setSaving(false);
     }
   };

@@ -120,6 +120,26 @@ TOOL_NAME_MAP = {
     "create_skill": "create_skill",
     "update_skill": "update_skill",
     "delete_skill": "delete_skill",
+    # Agent management tools
+    "create_deepagent": "create_deepagent",
+    # PostgreSQL schema tools
+    "pg_list_tables": "pg_list_tables",
+    "pg_describe_table": "pg_describe_table",
+    "pg_query": "pg_query",
+    "pg_execute": "pg_execute",
+    # PostgreSQL domain tools
+    "pg_list_agents": "pg_list_agents",
+    "pg_get_agent": "pg_get_agent",
+    "pg_list_skills": "pg_list_skills",
+    "pg_list_projects": "pg_list_projects",
+    "pg_list_documents": "pg_list_documents",
+    "pg_list_custom_tools": "pg_list_custom_tools",
+    # Neo4j tools
+    "neo4j_list_docs": "neo4j_list_docs",
+    "neo4j_get_doc": "neo4j_get_doc",
+    "neo4j_query": "neo4j_query",
+    "neo4j_upsert_doc": "neo4j_upsert_doc",
+    "neo4j_delete_doc": "neo4j_delete_doc",
 }
 
 
@@ -1555,6 +1575,802 @@ def delete_skill(skill_id: str) -> str:
 
 
 # =============================================================================
+# Agent Management Tools (direct PostgreSQL write)
+# =============================================================================
+
+@tool
+def create_deepagent(name: str,
+                     system_prompt: str,
+                     native_tools: list[str],
+                     skills: list[str] | None = None,
+                     description: str | None = None,
+                     category: str | None = None,
+                     model: str | None = None,
+                     temperature: float | None = None) -> str:
+    """Create a new DeepAgent in the database. The agent will immediately appear in the DeepAgent Studio.
+
+    Use this tool when the user wants to SAVE a designed agent configuration permanently.
+
+    Args:
+        name: Agent name (e.g. '市场研究助手')
+        system_prompt: The COMPLETE system prompt defining the agent's behavior
+        native_tools: List of tool names the agent should have (e.g. ['web_search', 'web_fetch', 'reasoning_chain'])
+        skills: List of skill IDs (e.g. ['web-search', 'text-summarizer'])
+        description: Short 1-2 sentence description of what the agent does
+        category: Agent category (e.g. 'Research', 'Coding', 'Custom')
+        model: Model name (default: 'minimax-m3')
+        temperature: Model temperature 0.0-1.0 (default: 0.7)
+    """
+    from db.database import SessionLocal
+    from models.deep_agent import (
+        DeepAgentTemplate,
+        DeepAgentConfig,
+        create_default_middleware_config,
+        create_default_backend_config,
+        create_default_guardrails_config,
+    )
+    import json
+
+    db = SessionLocal()
+    try:
+        cfg = DeepAgentConfig(
+            model=model or "minimax-m3",
+            system_prompt=system_prompt.strip(),
+            native_tools=native_tools or [],
+            skills=skills or [],
+            tools=[],
+            cli_tools=[],
+            custom_tools=[],
+            temperature=temperature if temperature is not None else 0.7,
+            use_deepagents=True,
+            middleware=create_default_middleware_config(),
+            subagents=[],
+            backend=create_default_backend_config(),
+            guardrails=create_default_guardrails_config(),
+        )
+
+        agent = DeepAgentTemplate(
+            name=name.strip(),
+            description=(description or "").strip(),
+            category=category or "Custom",
+            config=cfg.dict(),
+            middleware_config=[m.dict() for m in cfg.middleware],
+            subagents_config=[],
+            backend_config=cfg.backend.dict(),
+            guardrails_config=cfg.guardrails.dict(),
+        )
+
+        db.add(agent)
+        db.commit()
+        db.refresh(agent)
+
+        return (
+            f"✅ Agent '{name}' (id={agent.id}) created successfully!\n\n"
+            f"Agent is now available in the DeepAgent Studio. The user can:\n"
+            f"1. Select it from the agent dropdown to see its topology\n"
+            f"2. Click 'Test' to start a conversation with it\n"
+            f"3. Click 'Edit' to modify its configuration"
+        )
+    except Exception as e:
+        db.rollback()
+        return f"❌ Failed to create agent: {e}"
+    finally:
+        db.close()
+
+
+# =============================================================================
+# PostgreSQL Tools (direct DB read/write)
+# =============================================================================
+
+def _get_pg_session():
+    """Get a sync PostgreSQL session via SessionLocal."""
+    from db.database import SessionLocal
+    return SessionLocal()
+
+
+@tool
+def pg_list_tables(schema: str = "public") -> str:
+    """
+    List all tables and views in a PostgreSQL schema with row counts.
+
+    Use this to discover what tables exist in the database before querying.
+
+    Args:
+        schema: Schema name to list (default: 'public')
+
+    Returns:
+        Formatted table list with type (table/view) and estimated row count
+
+    Example:
+        >>> pg_list_tables()
+        >>> pg_list_tables(schema="public")
+    """
+    import sqlalchemy as sa
+    db = _get_pg_session()
+    try:
+        conn = db.connection()
+        # pg_stat_user_tables uses relname; fall back to information_schema for reliability
+        result = conn.execute(sa.text(
+            """
+            SELECT
+                relname AS name,
+                'table' AS type,
+                n_live_tup AS estimated_rows
+            FROM pg_catalog.pg_stat_user_tables
+            WHERE schemaname = :schema
+            UNION ALL
+            SELECT
+                viewname AS name,
+                'view' AS type,
+                0 AS estimated_rows
+            FROM pg_catalog.pg_views
+            WHERE schemaname = :schema
+            ORDER BY name
+            """
+        ), {"schema": schema})
+        rows = result.fetchall()
+        if not rows:
+            return f"No tables found in schema '{schema}'."
+        lines = [f"## Tables in schema '{schema}'", ""]
+        for r in rows:
+            lines.append(f"- **{r.name}** ({r.type}, ~{r.estimated_rows} rows)")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing tables: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_describe_table(table_name: str, schema: str = "public") -> str:
+    """
+    Show column details for a PostgreSQL table: name, type, nullable, default, constraints.
+
+    Use this to understand a table's schema before querying or inserting data.
+
+    Args:
+        table_name: Name of the table to describe
+        schema: Schema name (default: 'public')
+
+    Returns:
+        Formatted column list with type, nullable, default, and constraint info
+
+    Example:
+        >>> pg_describe_table("deep_agent_templates")
+        >>> pg_describe_table("skills", schema="public")
+    """
+    import sqlalchemy as sa
+    db = _get_pg_session()
+    try:
+        conn = db.connection()
+        result = conn.execute(sa.text(
+            """
+            SELECT
+                c.column_name AS name,
+                c.data_type || COALESCE('(' || c.character_maximum_length::text || ')', '') AS data_type,
+                c.is_nullable,
+                c.column_default AS default_value,
+                CASE WHEN pk.column_name IS NOT NULL THEN 'PRIMARY KEY' ELSE '' END AS constraint_type
+            FROM information_schema.columns c
+            LEFT JOIN (
+                SELECT ku.column_name
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.key_column_usage ku
+                    ON tc.constraint_name = ku.constraint_name
+                    AND tc.table_schema = ku.table_schema
+                WHERE tc.constraint_type = 'PRIMARY KEY'
+                    AND tc.table_name = :table_name
+                    AND tc.table_schema = :schema
+            ) pk ON pk.column_name = c.column_name
+            WHERE c.table_name = :table_name AND c.table_schema = :schema
+            ORDER BY c.ordinal_position
+            """
+        ), {"table_name": table_name, "schema": schema})
+        rows = result.fetchall()
+        if not rows:
+            return f"Table '{schema}.{table_name}' not found."
+        lines = [f"## Columns of '{schema}.{table_name}'", ""]
+        for r in rows:
+            nullable = "NULL" if r.is_nullable == "YES" else "NOT NULL"
+            default = f" default={r.default_value}" if r.default_value else ""
+            pk = " 🔑" if r.constraint_type == "PRIMARY KEY" else ""
+            lines.append(f"- **{r.name}**  `{r.data_type}`  {nullable}{default}{pk}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error describing table: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_query(sql: str) -> str:
+    """
+    Run a read-only SQL SELECT query against PostgreSQL and return results as a table.
+
+    SAFETY: Only SELECT statements are allowed. INSERT/UPDATE/DELETE are rejected.
+    Use pg_execute for write operations.
+
+    Args:
+        sql: The SELECT SQL query to run (e.g. 'SELECT * FROM deep_agent_templates LIMIT 5')
+
+    Returns:
+        Query results formatted as a markdown table
+
+    Example:
+        >>> pg_query("SELECT id, name, category FROM deep_agent_templates ORDER BY created_at DESC LIMIT 10")
+        >>> pg_query("SELECT count(*) AS total FROM skills")
+    """
+    import sqlalchemy as sa
+    sql_stripped = sql.strip().lower()
+    if not sql_stripped.startswith("select"):
+        return "❌ Only SELECT queries are allowed. Use pg_execute for write operations."
+
+    db = _get_pg_session()
+    try:
+        conn = db.connection()
+        result = conn.execute(sa.text(sql))
+        rows = result.fetchall()
+        if not rows:
+            return "Query returned no rows."
+        col_names = result.keys()
+        lines = ["| " + " | ".join(col_names) + " |"]
+        lines.append("| " + " | ".join("---" for _ in col_names) + " |")
+        for row in rows:
+            vals = []
+            for v in row:
+                s = str(v) if v is not None else "NULL"
+                if len(s) > 200:
+                    s = s[:200] + "…"
+                vals.append(s)
+            lines.append("| " + " | ".join(vals) + " |")
+        lines.append(f"\n*{len(rows)} row(s) returned*")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Query error: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_execute(sql: str) -> str:
+    """
+    Execute a write SQL statement (INSERT, UPDATE, DELETE) against PostgreSQL.
+
+    WARNING: This modifies database data. Use with caution.
+
+    Args:
+        sql: The SQL statement to execute (e.g. "UPDATE deep_agent_templates SET name='New Name' WHERE id=1")
+
+    Returns:
+        Confirmation message with number of rows affected
+
+    Example:
+        >>> pg_execute("UPDATE deep_agent_templates SET is_public=false WHERE id=1")
+        >>> pg_execute("DELETE FROM chat_sessions WHERE is_active=false")
+    """
+    import sqlalchemy as sa
+    sql_stripped = sql.strip().lower()
+    allowed_keywords = ("insert", "update", "delete", "create", "alter", "drop", "truncate")
+    if not any(sql_stripped.startswith(kw) for kw in allowed_keywords):
+        return "❌ Only write statements are allowed (INSERT, UPDATE, DELETE, etc.). Use pg_query for SELECT."
+
+    db = _get_pg_session()
+    try:
+        conn = db.connection()
+        result = conn.execute(sa.text(sql))
+        db.commit()
+        return f"✅ Statement executed successfully. {result.rowcount} row(s) affected."
+    except Exception as e:
+        db.rollback()
+        return f"❌ Execute error: {e}"
+    finally:
+        db.close()
+
+
+# =============================================================================
+# PostgreSQL Domain-Specific Tools (read entity configs)
+# These provide structured access to application entities rather than raw SQL.
+# =============================================================================
+
+@tool
+def pg_list_agents(category: str | None = None) -> str:
+    """
+    List all DeepAgent templates from the database with name, category, and config summary.
+
+    Use this to browse available agent configurations before selecting one.
+
+    Args:
+        category: Optional category filter (e.g. 'Research', 'Coding', 'Custom')
+
+    Returns:
+        Formatted list of agents with id, name, category, model, and tool count
+
+    Example:
+        >>> pg_list_agents()
+        >>> pg_list_agents(category="Research")
+    """
+    from models.deep_agent import DeepAgentTemplate
+    db = _get_pg_session()
+    try:
+        query = db.query(DeepAgentTemplate).order_by(DeepAgentTemplate.updated_at.desc())
+        if category:
+            query = query.filter(DeepAgentTemplate.category == category)
+        agents = query.all()
+        if not agents:
+            return "No agents found." if not category else f"No agents found in category '{category}'."
+        lines = [f"## DeepAgent Templates ({len(agents)} total)", ""]
+        for a in agents:
+            cfg = a.config or {}
+            tools = cfg.get("native_tools", [])
+            skills = cfg.get("skills", [])
+            model = cfg.get("model", "not set")
+            lines.append(
+                f"- **{a.name}** (id={a.id})  "
+                f"`{a.category}`  model=`{model}`  "
+                f"tools={len(tools)}  skills={len(skills)}"
+            )
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing agents: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_get_agent(agent_id: int) -> str:
+    """
+    Get the full configuration of a DeepAgent by its ID.
+
+    Returns system prompt, tools, skills, model, temperature, subagents, and middleware config.
+
+    Args:
+        agent_id: The numeric ID of the agent (use pg_list_agents to find IDs)
+
+    Returns:
+        Complete agent configuration in a readable format
+
+    Example:
+        >>> pg_get_agent(agent_id=1)
+    """
+    from models.deep_agent import DeepAgentTemplate
+    db = _get_pg_session()
+    try:
+        agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
+        if not agent:
+            return f"❌ Agent with id={agent_id} not found."
+        cfg = agent.config or {}
+        lines = [
+            f"## Agent: {agent.name} (id={agent.id})",
+            f"**Description**: {agent.description or '(no description)'}",
+            f"**Category**: {agent.category}",
+            f"**Model**: {cfg.get('model', 'not set')}",
+            f"**Temperature**: {cfg.get('temperature', 0.7)}",
+            f"**Use DeepAgents**: {cfg.get('use_deepagents', True)}",
+            "",
+            "### System Prompt",
+            "```",
+            cfg.get("system_prompt", "(empty)")[:2000],
+            "```" if len(cfg.get("system_prompt", "")) <= 2000 else "```\n*...truncated*",
+            "",
+            "### Tools",
+            f"- Native tools: {cfg.get('native_tools', [])}",
+            f"- Skills: {cfg.get('skills', [])}",
+            f"- Custom tools: {cfg.get('custom_tools', [])}",
+            "",
+            "### Subagents",
+        ]
+        subagents = cfg.get("subagents", []) or agent.subagents_config or []
+        if subagents:
+            for s in subagents:
+                name = s.get("name") if isinstance(s, dict) else getattr(s, "name", "?")
+                desc = s.get("description") if isinstance(s, dict) else getattr(s, "description", "")
+                lines.append(f"- **{name}**: {desc}")
+        else:
+            lines.append("(none)")
+        lines.append("")
+        lines.append(f"**Version**: {agent.version} | **Public**: {agent.is_public} | **Usage**: {agent.usage_count}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error getting agent: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_list_skills() -> str:
+    """
+    List all skills in the database with their IDs, descriptions, tags, and usage counts.
+
+    Skills define reusable capabilities that agents can auto-discover and invoke.
+
+    Returns:
+        Formatted list of available skills
+
+    Example:
+        >>> pg_list_skills()
+    """
+    from models.skill import Skill
+    db = _get_pg_session()
+    try:
+        skills = db.query(Skill).order_by(Skill.usage_count.desc()).all()
+        if not skills:
+            return "No skills found in the database."
+        lines = [f"## Skills ({len(skills)} total)", ""]
+        for s in skills:
+            tags = ", ".join(s.tags or []) if s.tags else ""
+            tag_str = f"  tags=[{tags}]" if tags else ""
+            lines.append(
+                f"- **{s.name}** (`{s.skill_id}`){tag_str}\n"
+                f"  {s.description[:120]}{'…' if len(s.description) > 120 else ''}\n"
+                f"  used {s.usage_count}x | source={s.source_type.value}"
+            )
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing skills: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_list_projects() -> str:
+    """
+    List all projects with their IDs, names, document count, and indexing status.
+
+    Projects group documents and workflows together.
+
+    Returns:
+        Formatted list of projects
+
+    Example:
+        >>> pg_list_projects()
+    """
+    from models.core import Project, ContextDocument
+    from sqlalchemy import func
+    db = _get_pg_session()
+    try:
+        projects = db.query(
+            Project,
+            func.count(ContextDocument.id).label("doc_count")
+        ).outerjoin(
+            ContextDocument, ContextDocument.project_id == Project.id
+        ).group_by(Project.id).order_by(Project.updated_at.desc()).all()
+        if not projects:
+            return "No projects found."
+        lines = ["## Projects", ""]
+        for proj, doc_count in projects:
+            lines.append(
+                f"- **{proj.name}** (id={proj.id})  "
+                f"status=`{proj.status.value}`  "
+                f"docs={doc_count}  "
+                f"index={proj.indexing_status.value}"
+            )
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing projects: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_list_documents(project_id: int | None = None) -> str:
+    """
+    List all context documents (uploaded files) with their metadata.
+
+    Documents are the source files uploaded for RAG/GraphIndex processing.
+    Each document has a file_path on disk and may be indexed in Neo4j.
+
+    Args:
+        project_id: Optional project ID to filter by
+
+    Returns:
+        Formatted list of documents with metadata
+
+    Example:
+        >>> pg_list_documents()
+        >>> pg_list_documents(project_id=1)
+    """
+    from models.core import ContextDocument
+    db = _get_pg_session()
+    try:
+        query = db.query(ContextDocument).order_by(ContextDocument.updated_at.desc())
+        if project_id is not None:
+            query = query.filter(ContextDocument.project_id == project_id)
+        docs = query.all()
+        if not docs:
+            return "No documents found." if project_id is None else f"No documents found for project_id={project_id}."
+        lines = [f"## Documents ({len(docs)} total)", ""]
+        for d in docs:
+            lines.append(
+                f"- **{d.filename}** (id={d.id})  "
+                f"type={d.document_type.value}  "
+                f"size={d.file_size}B  "
+                f"index={d.indexing_status.value}  "
+                f"project={d.project_id}"
+            )
+            if d.description:
+                lines.append(f"  {d.description[:150]}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing documents: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_list_custom_tools(tool_type: str | None = None) -> str:
+    """
+    List all custom (user-created) tools with their type, description, and usage stats.
+
+    Custom tools extend agent capabilities with API integrations, database connectors,
+    image generators, and custom Python functions.
+
+    Args:
+        tool_type: Optional filter by type (api, notification, image_video, database, data_transform, python_function)
+
+    Returns:
+        Formatted list of custom tools
+
+    Example:
+        >>> pg_list_custom_tools()
+        >>> pg_list_custom_tools(tool_type="database")
+    """
+    from models.custom_tool import CustomTool
+    db = _get_pg_session()
+    try:
+        query = db.query(CustomTool).order_by(CustomTool.usage_count.desc())
+        if tool_type:
+            query = query.filter(CustomTool.tool_type == tool_type)
+        tools = query.all()
+        if not tools:
+            return "No custom tools found." if not tool_type else f"No custom tools of type '{tool_type}' found."
+        lines = [f"## Custom Tools ({len(tools)} total)", ""]
+        for t in tools:
+            lines.append(
+                f"- **{t.name}** (`{t.tool_id}`)  "
+                f"type={t.tool_type.value}  "
+                f"template={t.template_type.value if t.template_type else 'custom'}  "
+                f"used={t.usage_count}x"
+            )
+            if t.description:
+                lines.append(f"  {t.description[:150]}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing custom tools: {e}"
+    finally:
+        db.close()
+
+
+# =============================================================================
+# Neo4j Tools (Document Index metadata)
+# =============================================================================
+
+def _get_neo4j_idx():
+    """Create a Neo4jDocumentIndex from environment variables."""
+    from services.neo4j_document_index import Neo4jDocumentIndex
+    idx = Neo4jDocumentIndex(
+        base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+        username=os.environ.get("NEO4J_USER", "neo4j"),
+        password=os.environ.get("NEO4J_PASSWORD", "password"),
+    )
+    idx.ensure_constraints()
+    return idx
+
+
+@tool
+def neo4j_list_docs(project_id: int) -> str:
+    """
+    List all Document nodes in Neo4j for a project with their metadata.
+
+    Neo4j stores document routing metadata (summary, supported queries, tags, file path).
+    Use this to discover what documents are indexed before searching.
+
+    Args:
+        project_id: Project ID to list documents for
+
+    Returns:
+        Formatted list of documents with enriched metadata
+
+    Example:
+        >>> neo4j_list_docs(project_id=1)
+    """
+    try:
+        idx = _get_neo4j_idx()
+        docs = idx.list_documents(project_id)
+        if not docs:
+            return f"No documents indexed in Neo4j for project_id={project_id}."
+        lines = [f"## Neo4j Documents (project {project_id}, {len(docs)} total)", ""]
+        for d in docs:
+            q_count = len(d.supported_queries or [])
+            lines.append(
+                f"- **{d.doc_name}** (`{d.name}`)  "
+                f"pages={d.page_count}  "
+                f"queries={q_count}"
+            )
+            about = d.what_this_document_is_about or d.description or ""
+            if about:
+                lines.append(f"  {about[:200]}")
+            if d.file_path:
+                lines.append(f"  path: `{d.file_path}`")
+            lines.append("")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing Neo4j documents: {e}"
+
+
+@tool
+def neo4j_get_doc(project_id: int, name: str) -> str:
+    """
+    Get full metadata for one Document node from Neo4j by project_id and name.
+
+    Returns enriched metadata: description, supported queries, file path, tags, etc.
+    Use the returned file_path with read_file to get the actual document content.
+
+    Args:
+        project_id: Project ID
+        name: Document name in Neo4j (use neo4j_list_docs to find names)
+
+    Returns:
+        Complete document metadata
+
+    Example:
+        >>> neo4j_get_doc(project_id=1, name="cfd711e3_report.pdf")
+    """
+    try:
+        idx = _get_neo4j_idx()
+        doc = idx.get_document(project_id, name)
+        if not doc:
+            return f"❌ Document '{name}' not found in Neo4j for project_id={project_id}."
+        lines = [
+            f"## Document: {doc.doc_name}",
+            f"**Name**: `{doc.name}`",
+            f"**File Path**: `{doc.file_path}`",
+            f"**Context Doc ID**: {doc.context_doc_id}",
+            f"**Doc Index ID**: {doc.doc_index_id or '(not set)'}",
+            f"**Page Count**: {doc.page_count}",
+            f"**Description**: {doc.description or '(none)'}",
+            "",
+            "### What this document is about",
+            doc.what_this_document_is_about or "(no enrichment)",
+            "",
+            "### Supported Queries",
+        ]
+        if doc.supported_queries:
+            for q in doc.supported_queries:
+                lines.append(f"- {q}")
+        else:
+            lines.append("(none)")
+        lines.append("")
+        lines.append("### Tags")
+        lines.append(f"{', '.join(doc.tags) if doc.tags else '(none)'}")
+        lines.append("")
+        lines.append("### File Path (for read_file)")
+        lines.append(f"`{doc.file_path}`")
+        lines.append("")
+        lines.append("*Use `read_file` with the file path above to get the full document content.*")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error getting Neo4j document: {e}"
+
+
+@tool
+def neo4j_query(cypher: str, parameters: dict | None = None) -> str:
+    """
+    Run an arbitrary Cypher query against Neo4j and return results.
+
+    Use this for custom graph queries beyond the built-in document tools.
+    The query runs against the document index Neo4j database.
+
+    Args:
+        cypher: The Cypher query string (e.g. 'MATCH (d:Document {project_id: $pid}) RETURN d.name, d.page_count')
+        parameters: Optional dict of query parameters (e.g. {"pid": 1})
+
+    Returns:
+        Query results as formatted text
+
+    Example:
+        >>> neo4j_query("MATCH (d:Document {project_id: $pid}) RETURN d.name, d.page_count ORDER BY d.page_count DESC LIMIT 5", {"pid": 1})
+    """
+    try:
+        idx = _get_neo4j_idx()
+        rows = idx._run_cypher(cypher, parameters or {})
+        if not rows:
+            return "Query returned no results."
+        col_names = list(rows[0].keys())
+        lines = ["## Cypher Results", ""]
+        lines.append("| " + " | ".join(col_names) + " |")
+        lines.append("| " + " | ".join("---" for _ in col_names) + " |")
+        for row in rows:
+            vals = []
+            for c in col_names:
+                v = row.get(c)
+                s = str(v) if v is not None else "NULL"
+                if len(s) > 200:
+                    s = s[:200] + "…"
+                vals.append(s)
+            lines.append("| " + " | ".join(vals) + " |")
+        lines.append(f"\n*{len(rows)} row(s) returned*")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Cypher error: {e}"
+
+
+@tool
+def neo4j_upsert_doc(project_id: int, name: str, file_path: str,
+                     description: str = "",
+                     tags: list[str] | None = None,
+                     doc_name: str | None = None) -> str:
+    """
+    Create or update a Document node in Neo4j.
+
+    Registers a document in the graph index so it becomes discoverable
+    via graphindex_search / neo4j_list_docs. The actual file content
+    should already exist on disk at file_path.
+
+    Args:
+        project_id: Project ID this document belongs to
+        name: Unique document name (e.g. hash-prefixed filename)
+        file_path: Absolute path to the document on disk
+        description: Short description of what this document is
+        tags: List of categorization tags
+        doc_name: Optional display name (defaults to name)
+
+    Returns:
+        Confirmation message
+
+    Example:
+        >>> neo4j_upsert_doc(project_id=1, name="my_report.pdf", file_path="/data/my_report.pdf", description="Q3 financial analysis", tags=["finance", "quarterly"])
+    """
+    try:
+        idx = _get_neo4j_idx()
+        from services.neo4j_document_index import build_document_node_properties
+        props = build_document_node_properties(
+            project_id=project_id,
+            context_doc_id=0,
+            doc_index_id=None,
+            name=name,
+            file_path=file_path,
+            description=description,
+            tags=tags or [],
+        )
+        if doc_name:
+            props["doc_name"] = doc_name
+        idx.upsert_document(project_id, name, file_path, properties=props)
+        display = doc_name or name
+        return f"✅ Document '{display}' upserted in Neo4j for project {project_id}."
+    except Exception as e:
+        return f"❌ Error upserting document: {e}"
+
+
+@tool
+def neo4j_delete_doc(project_id: int, name: str) -> str:
+    """
+    Delete a Document node from Neo4j by project_id and name.
+
+    Removes the document from the graph index so it no longer appears
+    in search results. The actual file on disk is NOT deleted.
+
+    Args:
+        project_id: Project ID
+        name: Document name in Neo4j
+
+    Returns:
+        Confirmation message
+
+    Example:
+        >>> neo4j_delete_doc(project_id=1, name="cfd711e3_report.pdf")
+    """
+    try:
+        idx = _get_neo4j_idx()
+        deleted = idx.delete_document(project_id, name)
+        if deleted:
+            return f"✅ Document '{name}' deleted from Neo4j (project {project_id})."
+        else:
+            return f"❌ Document '{name}' not found in Neo4j (project {project_id})."
+    except Exception as e:
+        return f"❌ Error deleting document: {e}"
+
+
+# =============================================================================
 # DocIndex Tools (Vectorless RAG)
 # =============================================================================
 
@@ -2288,6 +3104,26 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "create_skill": create_skill,
         "update_skill": update_skill,
         "delete_skill": delete_skill,
+        # Agent management tools
+        "create_deepagent": create_deepagent,
+        # PostgreSQL schema tools
+        "pg_list_tables": pg_list_tables,
+        "pg_describe_table": pg_describe_table,
+        "pg_query": pg_query,
+        "pg_execute": pg_execute,
+        # PostgreSQL domain tools
+        "pg_list_agents": pg_list_agents,
+        "pg_get_agent": pg_get_agent,
+        "pg_list_skills": pg_list_skills,
+        "pg_list_projects": pg_list_projects,
+        "pg_list_documents": pg_list_documents,
+        "pg_list_custom_tools": pg_list_custom_tools,
+        # Neo4j tools
+        "neo4j_list_docs": neo4j_list_docs,
+        "neo4j_get_doc": neo4j_get_doc,
+        "neo4j_query": neo4j_query,
+        "neo4j_upsert_doc": neo4j_upsert_doc,
+        "neo4j_delete_doc": neo4j_delete_doc,
         # DocIndex tools
         "doc_index_list": _doc_index_list_tool,
         "doc_index_structure": _doc_index_structure_tool,
@@ -2380,6 +3216,26 @@ def get_available_tool_names() -> List[str]:
         "graphindex_multi_doc_load",
         # Note: graphindex_rebuild_one / graphindex_ingest / graphindex_rebuild_project
         # / graphindex_show have been moved to custom tools (DB-backed, editable in UI)
+        # Agent management tools
+        "create_deepagent",
+        # PostgreSQL schema tools
+        "pg_list_tables",
+        "pg_describe_table",
+        "pg_query",
+        "pg_execute",
+        # PostgreSQL domain tools
+        "pg_list_agents",
+        "pg_get_agent",
+        "pg_list_skills",
+        "pg_list_projects",
+        "pg_list_documents",
+        "pg_list_custom_tools",
+        # Neo4j tools
+        "neo4j_list_docs",
+        "neo4j_get_doc",
+        "neo4j_query",
+        "neo4j_upsert_doc",
+        "neo4j_delete_doc",
     ]
 
 # Registry of filesystem tools for DeepAgents harness
@@ -2533,6 +3389,122 @@ TOOL_REGISTRY = [
         "name": "Delete Skill",
         "description": "Delete a skill from the database by its skill_id.",
         "category": "skills",
+        "requires_api_key": None,
+    },
+    # Agent management tools
+    {
+        "id": "create_deepagent",
+        "name": "Create DeepAgent",
+        "description": "Create a new DeepAgent in the database. Writes agent config (name, system prompt, tools, skills) directly to PostgreSQL.",
+        "category": "agent_management",
+        "requires_api_key": None,
+    },
+    # PostgreSQL schema tools
+    {
+        "id": "pg_list_tables",
+        "name": "PG - List Tables",
+        "description": "List all tables and views in a PostgreSQL schema with estimated row counts.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_describe_table",
+        "name": "PG - Describe Table",
+        "description": "Show column details for a PostgreSQL table: name, type, nullable, defaults, constraints.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_query",
+        "name": "PG - Query (SELECT)",
+        "description": "Run a read-only SELECT query against PostgreSQL. Returns results as a markdown table.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_execute",
+        "name": "PG - Execute (INSERT/UPDATE/DELETE)",
+        "description": "Execute write SQL statements (INSERT, UPDATE, DELETE) against PostgreSQL. Use with caution.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    # PostgreSQL domain tools
+    {
+        "id": "pg_list_agents",
+        "name": "PG - List Agents",
+        "description": "List all DeepAgent templates with name, category, model, tool/skill counts.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_get_agent",
+        "name": "PG - Get Agent Config",
+        "description": "Get the full configuration of a DeepAgent by ID: system prompt, tools, skills, subagents, model.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_list_skills",
+        "name": "PG - List Skills",
+        "description": "List all skills in the database with descriptions, tags, and usage counts.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_list_projects",
+        "name": "PG - List Projects",
+        "description": "List all projects with names, document counts, and indexing status.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_list_documents",
+        "name": "PG - List Documents",
+        "description": "List all context documents (uploaded files) with metadata: type, size, indexing status.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_list_custom_tools",
+        "name": "PG - List Custom Tools",
+        "description": "List all custom/user-created tools with type, description, and usage stats.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    # Neo4j tools
+    {
+        "id": "neo4j_list_docs",
+        "name": "Neo4j - List Documents",
+        "description": "List all Document nodes in Neo4j for a project with enriched metadata (summary, queries, tags).",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "neo4j_get_doc",
+        "name": "Neo4j - Get Document Metadata",
+        "description": "Get full metadata for one Document node: description, supported queries, file path, tags. Use the file_path with read_file for content.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "neo4j_query",
+        "name": "Neo4j - Cypher Query",
+        "description": "Run an arbitrary Cypher query against Neo4j and return results as a table.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "neo4j_upsert_doc",
+        "name": "Neo4j - Upsert Document",
+        "description": "Create or update a Document node in Neo4j. Registers a doc for discovery via graphindex_search.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "neo4j_delete_doc",
+        "name": "Neo4j - Delete Document",
+        "description": "Delete a Document node from Neo4j by project_id and name. Does NOT delete the file on disk.",
+        "category": "retrieval",
         "requires_api_key": None,
     },
     # Document Index tools (vectorless RAG)

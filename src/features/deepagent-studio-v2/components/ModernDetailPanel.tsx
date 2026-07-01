@@ -14,7 +14,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
   if (!structure) {
     return (
       <div
-        className="w-72 p-4 text-xs"
+        className="w-[432px] h-full p-4 text-xs overflow-y-auto thick-scrollbar"
         style={{
           background: '#0D1322',
           color: '#99D3FF',
@@ -36,7 +36,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
   if (!selectedNode) {
     return (
       <div
-        className="w-72 p-4 overflow-y-auto"
+        className="w-[432px] h-full p-4 overflow-y-auto thick-scrollbar"
         style={{
           background: '#0D1322',
           borderLeft: '1px solid rgba(0, 109, 221, 0.3)',
@@ -48,7 +48,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
           <h3 className="text-sm font-semibold">{structure.name}</h3>
         </div>
         {structure.description && (
-          <p className="text-[13px] mb-3" style={{ color: '#99D3FF' }}>
+          <p className="text-[15px] mb-3" style={{ color: '#99D3FF' }}>
             {structure.description}
           </p>
         )}
@@ -77,15 +77,15 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
             <SectionTitle>System Prompt</SectionTitle>
             <div
               className="text-[15px] p-2 rounded-lg"
-            style={{
-              background: 'rgba(0, 109, 221, 0.08)',
-              color: '#99D3FF',
-              maxHeight: 120,
-              overflowY: 'auto',
-            }}
-          >
-            {structure.system_prompt.slice(0, 300)}
-            {structure.system_prompt.length > 300 && '…'}
+              style={{
+                background: 'rgba(0, 109, 221, 0.08)',
+                color: '#99D3FF',
+                minHeight: 345,
+                maxHeight: 690,
+                overflowY: 'auto',
+              }}
+            >
+              {structure.system_prompt}
             </div>
           </>
         )}
@@ -95,7 +95,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
 
   return (
     <div
-      className="w-72 p-4 overflow-y-auto"
+      className="w-[432px] h-full p-4 overflow-y-auto"
       style={{
         background: '#0D1322',
         borderLeft: '1px solid rgba(0, 109, 221, 0.3)',
@@ -117,21 +117,23 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
       )}
 
       {data.value && (
-        <>
-          <SectionTitle>{data.label}</SectionTitle>
-          <div
-            className="text-[15px] p-2 rounded-lg"
-            style={{
-              background: 'rgba(0, 109, 221, 0.08)',
-              color: '#99D3FF',
-              maxHeight: 200,
-              overflowY: 'auto',
-            }}
-          >
-            {data.value}
-          </div>
-        </>
-      )}
+          <>
+            <SectionTitle>{data.label}</SectionTitle>
+            <div
+              className="text-[15px] p-2 rounded-lg"
+              style={{
+                background: 'rgba(0, 109, 221, 0.08)',
+                color: '#99D3FF',
+                minHeight: 345,
+                maxHeight: 690,
+                overflowY: 'auto',
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {data.value}
+            </div>
+          </>
+        )}
 
       {data.skill_type && (
         <>

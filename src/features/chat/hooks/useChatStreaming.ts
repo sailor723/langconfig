@@ -196,6 +196,14 @@ export function useChatStreaming(
                     accumulatedContent = data.content;
                     onMessageUpdate(accumulatedContent);
                   }
+                } else if (data.type === 'thinking') {
+                  // Backend emits this for <think>...</think> blocks
+                  // (e.g., Minimax M3's reasoning) — separate from
+                  // the final answer text.
+                  thinkingBufferRef.current += data.content;
+                  if (onThinkingUpdate) {
+                    onThinkingUpdate(thinkingBufferRef.current);
+                  }
                 } else if (data.type === 'error') {
                   setError(data.message || 'An error occurred during streaming');
                 } else if (data.type === 'tool_start') {

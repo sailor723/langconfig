@@ -35,6 +35,29 @@ const SubAgentNode = memo(({ data }: NodeProps<Data>) => {
     return () => window.removeEventListener('keydown', handler);
   }, [showPrompt]);
 
+  // Lock body scroll when prompt modal is open — also block wheel from reaching ReactFlow
+  const wheelBlockerRef = useRef<((e: WheelEvent) => void) | null>(null);
+  useEffect(() => {
+    if (showPrompt) {
+      document.body.style.overflow = 'hidden';
+      const blocker = (e: WheelEvent) => {
+        const modal = document.querySelector('[data-modal="skill-prompt"]');
+        if (modal && !modal.contains(e.target as Node)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      };
+      wheelBlockerRef.current = blocker;
+      window.addEventListener('wheel', blocker, { passive: false, capture: true });
+    }
+    return () => {
+      document.body.style.overflow = '';
+      if (wheelBlockerRef.current) {
+        window.removeEventListener('wheel', wheelBlockerRef.current, { capture: true } as EventListenerOptions);
+      }
+    };
+  }, [showPrompt]);
+
   return (
     <div
       className="relative"
@@ -138,34 +161,45 @@ const SubAgentNode = memo(({ data }: NodeProps<Data>) => {
             className="fixed inset-0 z-50"
             style={{ background: 'rgba(0, 0, 0, 0.6)' }}
             onClick={() => setShowPrompt(false)}
+            onWheel={(e) => e.stopPropagation()}
           />
           <div
-            className="fixed z-50 p-4 rounded-xl shadow-2xl max-w-lg max-h-[60vh] overflow-y-auto"
+            data-modal="skill-prompt"
+            className="fixed z-50 rounded-xl shadow-2xl xwide-scrollbar"
             style={{
               background: '#0D1322',
               border: '1px solid rgba(0, 109, 221, 0.5)',
               color: '#F2FAFF',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              minWidth: 300,
+              top: '15%',
+              left: '15%',
+              right: '15%',
+              bottom: '15%',
+              minWidth: 360,
+              minHeight: 600,
+              resize: 'both',
+              overflow: 'auto',
             }}
             onClick={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-semibold" style={{ color: '#7FC8FF' }}>
-                {data.label} Prompt
+            <div className="p-4 pb-0">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-semibold" style={{ color: '#7FC8FF' }}>
+                  {data.label} Prompt
+                </div>
+                <button
+                  onClick={() => setShowPrompt(false)}
+                  className="p-1 rounded hover:bg-white/10"
+                  style={{ color: '#99D3FF' }}
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                onClick={() => setShowPrompt(false)}
-                className="p-1 rounded hover:bg-white/10"
-                style={{ color: '#99D3FF' }}
-              >
-                ✕
-              </button>
             </div>
-            <div className="text-[12px] whitespace-pre-wrap leading-relaxed" style={{ color: '#F2FAFF' }}>
-              {data.prompt}
+            <div className="px-4 pb-4">
+              <div className="text-[15px] whitespace-pre-wrap leading-relaxed" style={{ color: '#F2FAFF' }}>
+                {data.prompt}
+              </div>
             </div>
           </div>
         </>
