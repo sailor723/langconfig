@@ -136,6 +136,7 @@ export default function GlobalChatModal() {
 
   // Handle starting a new session
   const handleStartSession = async (agentId: number) => {
+    if (agentId !== 112) setSavedAgentId(null);
     try {
       await startSession(agentId);
       // Fetch agent details and add welcome message
@@ -286,6 +287,41 @@ export default function GlobalChatModal() {
     clearStreamingError();
   };
 
+  // ── Agent Creator workflow: Save / Test / Tune ─────────────
+  const isAgentCreator = currentSession?.agent_id === 112;
+  const [savedAgentId, setSavedAgentId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSaveFromCreator = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch('/api/deepagents/from-creator', { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setSavedAgentId(data.agent_id);
+        addMessage({
+          role: 'assistant',
+          content: `✅ Agent **${data.name}** (id=${data.agent_id}) 已成功创建！你可以点击"测试"按钮开始使用。`,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        setSaveError(data.detail || 'Save failed');
+      }
+    } catch (err: any) {
+      setSaveError(err?.message || 'Network error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTestNewAgent = () => {
+    if (savedAgentId) {
+      handleStartSession(savedAgentId);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -339,6 +375,42 @@ export default function GlobalChatModal() {
               )}
             </div>
             <div className="flex items-center gap-1">
+              {/* Agent Creator workflow buttons */}
+              {isAgentCreator && currentSessionId && (
+                <>
+                  {!savedAgentId ? (
+                    <button
+                      onClick={handleSaveFromCreator}
+                      disabled={saving}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={{
+                        background: saving
+                          ? 'rgba(0, 109, 221, 0.5)'
+                          : 'linear-gradient(135deg, #006DDD 0%, #7FC8FF 100%)',
+                        color: '#FFFFFF',
+                        boxShadow: saving ? 'none' : '0 0 8px rgba(0, 109, 221, 0.3)',
+                        opacity: saving ? 0.7 : 1,
+                      }}
+                      title={saveError || 'Save designed agent to library'}
+                    >
+                      {saving ? 'Saving...' : '💾 Save Agent'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleTestNewAgent}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={{
+                        background: 'linear-gradient(135deg, #006DDD 0%, #7FC8FF 100%)',
+                        color: '#FFFFFF',
+                        boxShadow: '0 0 8px rgba(0, 109, 221, 0.3)',
+                      }}
+                      title="Test with the newly created agent"
+                    >
+                      🧪 Test New Agent
+                    </button>
+                  )}
+                </>
+              )}
               <button
                 onClick={closeChat}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
