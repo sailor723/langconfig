@@ -3,6 +3,7 @@ export interface SubAgent {
   name: string;
   description?: string;
   skill_type?: string;
+  prompt?: string;
 }
 
 export interface AgentStructure {

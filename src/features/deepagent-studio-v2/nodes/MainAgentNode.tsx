@@ -3,19 +3,33 @@
  * Pulses with a soft blue glow. Electric gradient ring.
  */
 
-import { memo } from 'react';
+import { memo, useState, useRef } from 'react';
 import { Handle, Position, NodeProps, NodeResizer } from 'reactflow';
 
 interface Data {
   label: string;
   model: string;
   description?: string;
+  system_prompt?: string;
 }
 
 const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const handleMouseEnter = () => {
+    tooltipTimer.current = setTimeout(() => setShowTooltip(true), 600);
+  };
+  const handleMouseLeave = () => {
+    clearTimeout(tooltipTimer.current);
+    setShowTooltip(false);
+  };
+
   return (
     <div
       className="rounded-2xl px-3 py-3 relative flex flex-col items-center justify-center text-center"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       style={{
         background: 'linear-gradient(135deg, #161F34 0%, #0D1322 100%)',
         border: `2px solid ${selected ? '#7FC8FF' : '#006DDD'}`,
@@ -51,21 +65,21 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
       <span
         className="inline-flex items-center justify-center rounded-lg text-base flex-shrink-0 mb-1.5"
         style={{
-          width: 36,
-          height: 36,
+          width: 42,
+          height: 42,
           background: 'linear-gradient(135deg, #006DDD 0%, #7FC8FF 100%)',
           color: '#FFFFFF',
-          fontSize: 20,
+          fontSize: 24,
         }}
       >
         🧠
       </span>
 
       {/* Name + Main badge */}
-      <div className="flex items-center gap-1 mb-0.5">
-        <div className="text-[14px] font-semibold truncate" style={{ color: '#F2FAFF' }}>{data.label}</div>
+      <div className="flex items-center gap-1.5 mb-0.5">
+        <div className="text-[17px] font-semibold truncate" style={{ color: '#F2FAFF' }}>{data.label}</div>
         <span
-          className="text-[9px] px-1.5 py-px rounded font-bold uppercase tracking-wider"
+          className="text-[11px] px-2 py-0.5 rounded font-bold uppercase tracking-wider"
           style={{
             background: 'linear-gradient(90deg, #006DDD, #7FC8FF)',
             color: '#F2FAFF',
@@ -76,7 +90,7 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
       </div>
 
       <div
-        className="text-[11px] font-mono mt-0.5 px-1.5 py-0.5 rounded"
+        className="text-[14px] font-mono mt-0.5 px-2 py-1 rounded"
         style={{
           color: '#99D3FF',
           backgroundColor: 'rgba(0, 109, 221, 0.15)',
@@ -87,7 +101,7 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
 
       {data.description && (
         <div
-          className="text-[10px] mt-1.5 px-1.5 text-center leading-tight"
+          className="text-[13px] mt-1.5 px-1.5 text-center leading-tight"
           style={{
             color: '#99D3FF',
             maxHeight: 36,
@@ -99,6 +113,33 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
           title={data.description}
         >
           {data.description}
+        </div>
+      )}
+
+      {/* Hover tooltip — shows description and system prompt */}
+      {showTooltip && (data.description || data.system_prompt) && (
+        <div
+          className="absolute z-50 px-3 py-2 rounded-lg text-xs shadow-2xl"
+          style={{
+            background: '#0D1322',
+            border: '1px solid rgba(0, 109, 221, 0.5)',
+            color: '#F2FAFF',
+            top: '100%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            marginTop: 8,
+            minWidth: 200,
+            maxWidth: 300,
+            pointerEvents: 'none',
+          }}
+        >
+          {data.description && <div className="mb-1">{data.description}</div>}
+          {data.system_prompt && (
+            <div className="text-[10px] leading-tight" style={{ color: '#99D3FF' }}>
+              {data.system_prompt.slice(0, 200)}
+              {data.system_prompt.length > 200 ? '…' : ''}
+            </div>
+          )}
         </div>
       )}
     </div>

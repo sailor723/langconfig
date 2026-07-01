@@ -69,14 +69,14 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
             <Pill key={i}>{s.name}</Pill>
           ))}
           {(structure.subagents?.length ?? 0) === 0 && (
-            <span className="text-[12px]" style={{ color: '#99D3FF' }}>None</span>
+            <span className="text-[15px]" style={{ color: '#99D3FF' }}>None</span>
           )}
         </div>
         {structure.system_prompt && (
           <>
             <SectionTitle>System Prompt</SectionTitle>
             <div
-              className="text-[12px] p-2 rounded-lg"
+              className="text-[15px] p-2 rounded-lg"
             style={{
               background: 'rgba(0, 109, 221, 0.08)',
               color: '#99D3FF',
@@ -120,7 +120,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
         <>
           <SectionTitle>{data.label}</SectionTitle>
           <div
-            className="text-[12px] p-2 rounded-lg"
+            className="text-[15px] p-2 rounded-lg"
             style={{
               background: 'rgba(0, 109, 221, 0.08)',
               color: '#99D3FF',
@@ -136,7 +136,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
       {data.skill_type && (
         <>
           <SectionTitle>Type</SectionTitle>
-          <Pill small>{data.skill_type}</Pill>
+          <Pill>{data.skill_type}</Pill>
         </>
       )}
 
@@ -148,7 +148,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
       )}
 
       <SectionTitle>Node Info</SectionTitle>
-      <div className="text-[12px] space-y-1" style={{ color: '#99D3FF' }}>
+      <div className="text-[15px] space-y-1" style={{ color: '#99D3FF' }}>
         <div>ID: <span style={{ color: '#F2FAFF' }}>{selectedNode.id}</span></div>
         <div>Position: <span style={{ color: '#F2FAFF' }}>{Math.round(selectedNode.position.x)}, {Math.round(selectedNode.position.y)}</span></div>
         <div>Type: <span style={{ color: '#F2FAFF' }}>{selectedNode.type}</span></div>
@@ -160,7 +160,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="text-[11px] uppercase tracking-wider mt-4 mb-1.5 font-bold"
+      className="text-[14px] uppercase tracking-wider mt-4 mb-1.5 font-bold"
       style={{ color: '#7FC8FF' }}
     >
       {children}
@@ -171,7 +171,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function Pill({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="inline-block px-3 py-1 text-[11px] rounded-full font-medium"
+      className="inline-block px-3 py-1 text-[14px] rounded-full font-medium"
       style={{
         background: 'linear-gradient(135deg, rgba(0, 109, 221, 0.25), rgba(127, 200, 255, 0.1))',
         border: '1px solid rgba(0, 109, 221, 0.5)',

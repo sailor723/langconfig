@@ -51,7 +51,7 @@ export default function ModernCapabilityBar({ structure }: Props) {
       }}
     >
       <span
-        className="text-[12px] uppercase tracking-wider font-bold flex-shrink-0"
+        className="text-[15px] uppercase tracking-wider font-bold flex-shrink-0"
         style={{ color: '#7FC8FF' }}
       >
         Capabilities
@@ -59,7 +59,7 @@ export default function ModernCapabilityBar({ structure }: Props) {
       {tools.map((t, i) => (
         <span
           key={i}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-medium flex-shrink-0"
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[15px] font-medium flex-shrink-0"
           style={{
             background: 'linear-gradient(135deg, rgba(0, 109, 221, 0.25), rgba(127, 200, 255, 0.1))',
             border: '1px solid rgba(0, 109, 221, 0.5)',
