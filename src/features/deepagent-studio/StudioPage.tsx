@@ -15,29 +15,53 @@ import DetailPanel from './components/DetailPanel';
 import SubAgentDetailModal from './components/SubAgentDetailModal';
 import DeepAgentCanvas from './DeepAgentCanvas';
 import { useAgentStructure } from './hooks/useAgentStructure';
+import DeepAgentBuilder from '@/features/agents/ui/DeepAgentBuilder';
+import { useChat } from '@/features/chat/state/ChatContext';
+import apiClient from '@/lib/api-client';
 
 export default function DeepAgentStudioPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [showBuilder, setShowBuilder] = useState(false);
+  const [editingConfig, setEditingConfig] = useState<any>(null);
 
   const { structure, loading, error } = useAgentStructure(selectedId);
+  const { openChat } = useChat();
 
   const handleNodeSelect = useCallback((nodeId: string | null, _data: any) => {
     setSelectedNodeId(nodeId);
   }, []);
 
-  const handleEdit = (id: number) => {
-    // Day 2 will implement DeepAgentStudioBuilder side panel.
-    // For now just alert so the user knows the click works.
-    alert(
-      `Edit panel for agent ${id} — DeepAgentStudioBuilder will open here in Day 2.\n` +
-      `(Isolated from existing DeepAgentBuilder modal)`
-    );
+  const handleEdit = async (id: number) => {
+    // Fetch full agent config and open DeepAgentBuilder modal
+    try {
+      const res = await apiClient.getDeepAgent(id);
+      const agent = (res as any).data ?? res;
+      setEditingConfig({ ...agent.config, _agent: agent });
+      setShowBuilder(true);
+    } catch {
+      alert('Failed to load agent config for editing.');
+    }
   };
 
-  const handleTest = (_id: number) => {
-    // Day 2: hook up real-time execution + Skill Router highlight
-    alert('▶ Test will trigger Skill Router in Day 2.\nWatch the picked sub-agent highlight in real-time!');
+  const handleSaveConfig = async (config: any) => {
+    try {
+      const agent = editingConfig?._agent;
+      const payload = {
+        config,
+        lock_version: agent?.lock_version ?? 0,
+      };
+      await apiClient.updateDeepAgent(selectedId!, payload);
+      setShowBuilder(false);
+      setEditingConfig(null);
+    } catch {
+      alert('Failed to save agent.');
+    }
+  };
+
+  const handleTest = (id: number) => {
+    // Open global chat modal with the selected agent
+    openChat(id);
   };
 
   return (
@@ -104,6 +128,28 @@ export default function DeepAgentStudioPage() {
 
       {/* Sub-agent detail modal (triggered by clicking a sub-agent node) */}
       <SubAgentDetailModal />
+
+      {/* DeepAgentBuilder modal — opened via Edit button */}
+      {showBuilder && editingConfig && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+        >
+          <div
+            className="border border-gray-200 dark:border-border-dark rounded-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto shadow-2xl"
+            style={{ backgroundColor: 'var(--color-panel-dark)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DeepAgentBuilder
+              initialConfig={editingConfig}
+              agentType="deep"
+              onSave={handleSaveConfig}
+              onClose={() => { setShowBuilder(false); setEditingConfig(null); }}
+              onBack={() => { setShowBuilder(false); setEditingConfig(null); }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

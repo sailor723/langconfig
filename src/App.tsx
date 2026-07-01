@@ -15,7 +15,7 @@ import WorkflowLibraryView from './features/workflows/library/WorkflowLibraryVie
 import NodeConfigPanel from './features/workflows/node-config/NodeConfigPanel';
 import SettingsView from './pages/SettingsPage';
 import PlaygroundPage from './pages/PlaygroundPage';
-import DeepAgentStudioPage from './features/deepagent-studio/StudioPage';
+import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
 import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
 import AgentLoadouts from './features/agents/ui/AgentLoadouts';
 import ToolLibrary from './features/tools/ToolLibrary';
