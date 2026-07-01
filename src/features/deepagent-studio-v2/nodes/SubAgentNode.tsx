@@ -34,20 +34,20 @@ const SubAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
 
       {/* Skill-type tag */}
       <div
-        className="text-[7px] uppercase tracking-wider mb-1 font-bold"
+        className="text-[9px] uppercase tracking-wider mb-1 font-bold"
         style={{ color: '#7FC8FF' }}
       >
         {data.skill_type || 'Skill'}
       </div>
 
       {/* Name */}
-      <div className="text-[11px] font-semibold truncate" style={{ color: '#F2FAFF' }}>
+      <div className="text-[13px] font-semibold truncate" style={{ color: '#F2FAFF' }}>
         {data.label}
       </div>
 
       {data.description && (
         <div
-          className="text-[8px] mt-1 leading-tight"
+          className="text-[10px] mt-1 leading-tight"
           style={{
             color: '#99D3FF',
             maxWidth: 130,

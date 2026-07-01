@@ -48,44 +48,44 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
           <h3 className="text-sm font-semibold">{structure.name}</h3>
         </div>
         {structure.description && (
-          <p className="text-[11px] mb-3" style={{ color: '#99D3FF' }}>
+          <p className="text-[13px] mb-3" style={{ color: '#99D3FF' }}>
             {structure.description}
           </p>
         )}
         <SectionTitle>Model</SectionTitle>
         <Pill>{structure.model}</Pill>
         <SectionTitle>Tools</SectionTitle>
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {(structure.native_tools ?? []).slice(0, 8).map((t, i) => (
-            <Pill key={i} small>{t}</Pill>
+            <Pill key={i}>{t}</Pill>
           ))}
           {(structure.native_tools?.length ?? 0) > 8 && (
-            <Pill small>+{(structure.native_tools?.length ?? 0) - 8} more</Pill>
+            <Pill>+{(structure.native_tools?.length ?? 0) - 8} more</Pill>
           )}
         </div>
         <SectionTitle>Sub-agents</SectionTitle>
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {(structure.subagents ?? []).slice(0, 6).map((s, i) => (
-            <Pill key={i} small>{s.name}</Pill>
+            <Pill key={i}>{s.name}</Pill>
           ))}
           {(structure.subagents?.length ?? 0) === 0 && (
-            <span className="text-[10px]" style={{ color: '#99D3FF' }}>None</span>
+            <span className="text-[12px]" style={{ color: '#99D3FF' }}>None</span>
           )}
         </div>
         {structure.system_prompt && (
           <>
             <SectionTitle>System Prompt</SectionTitle>
             <div
-              className="text-[10px] p-2 rounded-lg"
-              style={{
-                background: 'rgba(0, 109, 221, 0.08)',
-                color: '#99D3FF',
-                maxHeight: 120,
-                overflowY: 'auto',
-              }}
-            >
-              {structure.system_prompt.slice(0, 300)}
-              {structure.system_prompt.length > 300 && '…'}
+              className="text-[12px] p-2 rounded-lg"
+            style={{
+              background: 'rgba(0, 109, 221, 0.08)',
+              color: '#99D3FF',
+              maxHeight: 120,
+              overflowY: 'auto',
+            }}
+          >
+            {structure.system_prompt.slice(0, 300)}
+            {structure.system_prompt.length > 300 && '…'}
             </div>
           </>
         )}
@@ -120,7 +120,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
         <>
           <SectionTitle>{data.label}</SectionTitle>
           <div
-            className="text-[10px] p-2 rounded-lg"
+            className="text-[12px] p-2 rounded-lg"
             style={{
               background: 'rgba(0, 109, 221, 0.08)',
               color: '#99D3FF',
@@ -143,12 +143,12 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
       {data.description && !data.value && (
         <>
           <SectionTitle>Description</SectionTitle>
-          <div className="text-[10px]" style={{ color: '#99D3FF' }}>{data.description}</div>
+          <div className="text-[11px]" style={{ color: '#99D3FF' }}>{data.description}</div>
         </>
       )}
 
       <SectionTitle>Node Info</SectionTitle>
-      <div className="text-[10px] space-y-1" style={{ color: '#99D3FF' }}>
+      <div className="text-[12px] space-y-1" style={{ color: '#99D3FF' }}>
         <div>ID: <span style={{ color: '#F2FAFF' }}>{selectedNode.id}</span></div>
         <div>Position: <span style={{ color: '#F2FAFF' }}>{Math.round(selectedNode.position.x)}, {Math.round(selectedNode.position.y)}</span></div>
         <div>Type: <span style={{ color: '#F2FAFF' }}>{selectedNode.type}</span></div>
@@ -160,7 +160,7 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="text-[9px] uppercase tracking-wider mt-3 mb-1 font-bold"
+      className="text-[11px] uppercase tracking-wider mt-4 mb-1.5 font-bold"
       style={{ color: '#7FC8FF' }}
     >
       {children}
@@ -168,10 +168,10 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Pill({ children, small }: { children: React.ReactNode; small?: boolean }) {
+function Pill({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className={`inline-block ${small ? 'px-2 py-0.5 text-[9px]' : 'px-2.5 py-1 text-[10px]'} rounded-full font-medium`}
+      className="inline-block px-3 py-1 text-[11px] rounded-full font-medium"
       style={{
         background: 'linear-gradient(135deg, rgba(0, 109, 221, 0.25), rgba(127, 200, 255, 0.1))',
         border: '1px solid rgba(0, 109, 221, 0.5)',

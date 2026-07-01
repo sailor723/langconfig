@@ -63,9 +63,9 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
 
       {/* Name + Main badge */}
       <div className="flex items-center gap-1 mb-0.5">
-        <div className="text-[12px] font-semibold truncate" style={{ color: '#F2FAFF' }}>{data.label}</div>
+        <div className="text-[14px] font-semibold truncate" style={{ color: '#F2FAFF' }}>{data.label}</div>
         <span
-          className="text-[7px] px-1.5 py-px rounded font-bold uppercase tracking-wider"
+          className="text-[9px] px-1.5 py-px rounded font-bold uppercase tracking-wider"
           style={{
             background: 'linear-gradient(90deg, #006DDD, #7FC8FF)',
             color: '#F2FAFF',
@@ -76,7 +76,7 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
       </div>
 
       <div
-        className="text-[9px] font-mono mt-0.5 px-1.5 py-0.5 rounded"
+        className="text-[11px] font-mono mt-0.5 px-1.5 py-0.5 rounded"
         style={{
           color: '#99D3FF',
           backgroundColor: 'rgba(0, 109, 221, 0.15)',
@@ -87,7 +87,7 @@ const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
 
       {data.description && (
         <div
-          className="text-[8px] mt-1.5 px-1.5 text-center leading-tight"
+          className="text-[10px] mt-1.5 px-1.5 text-center leading-tight"
           style={{
             color: '#99D3FF',
             maxHeight: 36,

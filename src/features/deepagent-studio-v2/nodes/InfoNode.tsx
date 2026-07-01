@@ -39,14 +39,14 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
 
       <div className="px-2.5 py-1.5">
         <div
-          className="text-[8px] uppercase tracking-wider mb-0.5 font-bold flex items-center gap-1"
+          className="text-[10px] uppercase tracking-wider mb-0.5 font-bold flex items-center gap-1"
           style={{ color: '#7FC8FF' }}
         >
           {data.icon && <span>{data.icon}</span>}
           <span>{data.label}</span>
         </div>
         <div
-          className="text-[10px] font-medium"
+          className="text-[12px] font-medium"
           style={{ color: '#F2FAFF', whiteSpace: expanded ? 'pre-wrap' : 'nowrap', overflow: 'hidden', textOverflow: expanded ? 'clip' : 'ellipsis' }}
           title={data.value}
         >
@@ -57,7 +57,7 @@ const InfoNode = memo(({ data, selected }: NodeProps<Data>) => {
       {isLong && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="block w-full text-center text-[8px] py-0.5 transition-colors"
+          className="block w-full text-center text-[10px] py-0.5 transition-colors"
           style={{
             color: '#7FC8FF',
             background: 'rgba(0, 109, 221, 0.1)',
