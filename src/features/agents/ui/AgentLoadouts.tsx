@@ -5,10 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Trash2, Edit, Download, Copy, Upload, Sparkles, Code, Database, Terminal, X, Save, BookOpen, Tag, Clock, TrendingUp, Settings, Play } from 'lucide-react';
+import { Search, Plus, Trash2, Edit, Download, Copy, Upload, Sparkles, Code, Database, Terminal, X, Save, BookOpen, Tag, Clock, TrendingUp, Settings, Play, Maximize2, Minimize2, Brain } from 'lucide-react';
 import DeepAgentBuilder from './DeepAgentBuilder';
 import SkillBuilderModal from './SkillBuilderModal';
 import CustomToolBuilder from '../../tools/ui/CustomToolBuilder';
@@ -424,6 +424,7 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     });
   };
   const [showCodeModal, setShowCodeModal] = useState(false);
+  const [showPromptModal, setShowPromptModal] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [subagents, setSubagents] = useState(agent.config?.subagents || []);
   const [expandedSubagents, setExpandedSubagents] = useState<Set<number>>(new Set());
@@ -1128,14 +1129,23 @@ print(result["messages"][-1].content)
             </div>
             {expandedSections.has('system_prompt') && (
               <>
-                <textarea
-                  value={config.system_prompt || ''}
-                  onChange={(e) => setConfig({ ...config, system_prompt: e.target.value })}
-                  rows={6}
-                  className="w-full px-3 py-2 border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary resize-y"
-                  placeholder="Enter system prompt..."
-                  style={{ color: 'var(--color-text-primary)' }}
-                />
+                <div className="relative">
+                  <textarea
+                    value={config.system_prompt || ''}
+                    onChange={(e) => setConfig({ ...config, system_prompt: e.target.value })}
+                    rows={12}
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+                    placeholder="Enter system prompt..."
+                    style={{ color: 'var(--color-text-primary)' }}
+                  />
+                  <button
+                    onClick={() => setShowPromptModal(true)}
+                    className="absolute top-2 right-2 p-1.5 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+                    title="Edit in full screen"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
                 <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                   {(config.system_prompt || '').length} characters
                 </p>
@@ -2034,6 +2044,66 @@ print(result["messages"][-1].content)
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                 This code represents the LangChain/LangGraph configuration for this agent. Copy and use it in your Python projects.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen Prompt Modal */}
+      {showPromptModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowPromptModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-panel-dark rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ borderColor: 'var(--color-border-dark)' }}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b shrink-0" style={{
+              backgroundColor: 'var(--color-primary)',
+              borderBottomColor: 'var(--color-border-dark)'
+            }}>
+              <div className="flex items-center gap-2">
+                <Brain size={20} className="text-white" />
+                <h3 className="text-lg font-semibold text-white">
+                  System Prompt
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowPromptModal(false)}
+                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body — full-height textarea */}
+            <div className="flex-1 p-6 min-h-0">
+              <textarea
+                value={config.system_prompt || ''}
+                onChange={(e) => setConfig({ ...config, system_prompt: e.target.value })}
+                className="w-full h-full px-4 py-3 border border-gray-200 dark:border-border-dark bg-white dark:bg-background-dark rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                style={{ color: 'var(--color-text-primary)', minHeight: '400px' }}
+                placeholder="Enter system prompt..."
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t shrink-0 flex items-center justify-between" style={{ borderTopColor: 'var(--color-border-dark)' }}>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                {(config.system_prompt || '').length} characters
+              </p>
+              <button
+                onClick={() => setShowPromptModal(false)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

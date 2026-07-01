@@ -1,0 +1,184 @@
+/**
+ * ModernDetailPanel — shows detail of selected node.
+ */
+
+import type { Node } from 'reactflow';
+import type { AgentStructure } from '../types';
+
+interface Props {
+  structure: AgentStructure | null;
+  selectedNode: Node | null;
+}
+
+export default function ModernDetailPanel({ structure, selectedNode }: Props) {
+  if (!structure) {
+    return (
+      <div
+        className="w-72 p-4 text-xs"
+        style={{
+          background: '#0D1322',
+          color: '#99D3FF',
+          borderLeft: '1px solid rgba(0, 109, 221, 0.3)',
+        }}
+      >
+        Select an agent to view details.
+      </div>
+    );
+  }
+
+  const data = (selectedNode?.data ?? {}) as Record<string, any>;
+  const isMain = selectedNode?.id === 'main';
+  const isSkill = selectedNode?.type === 'subAgent';
+  const isTool = selectedNode?.type === 'tool';
+  const isInfo = selectedNode?.type === 'info';
+
+  // No selection: show agent overview
+  if (!selectedNode) {
+    return (
+      <div
+        className="w-72 p-4 overflow-y-auto"
+        style={{
+          background: '#0D1322',
+          borderLeft: '1px solid rgba(0, 109, 221, 0.3)',
+          color: '#F2FAFF',
+        }}
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <span style={{ fontSize: 18 }}>🧠</span>
+          <h3 className="text-sm font-semibold">{structure.name}</h3>
+        </div>
+        {structure.description && (
+          <p className="text-[11px] mb-3" style={{ color: '#99D3FF' }}>
+            {structure.description}
+          </p>
+        )}
+        <SectionTitle>Model</SectionTitle>
+        <Pill>{structure.model}</Pill>
+        <SectionTitle>Tools</SectionTitle>
+        <div className="flex flex-wrap gap-1">
+          {(structure.native_tools ?? []).slice(0, 8).map((t, i) => (
+            <Pill key={i} small>{t}</Pill>
+          ))}
+          {(structure.native_tools?.length ?? 0) > 8 && (
+            <Pill small>+{(structure.native_tools?.length ?? 0) - 8} more</Pill>
+          )}
+        </div>
+        <SectionTitle>Sub-agents</SectionTitle>
+        <div className="flex flex-wrap gap-1">
+          {(structure.subagents ?? []).slice(0, 6).map((s, i) => (
+            <Pill key={i} small>{s.name}</Pill>
+          ))}
+          {(structure.subagents?.length ?? 0) === 0 && (
+            <span className="text-[10px]" style={{ color: '#99D3FF' }}>None</span>
+          )}
+        </div>
+        {structure.system_prompt && (
+          <>
+            <SectionTitle>System Prompt</SectionTitle>
+            <div
+              className="text-[10px] p-2 rounded-lg"
+              style={{
+                background: 'rgba(0, 109, 221, 0.08)',
+                color: '#99D3FF',
+                maxHeight: 120,
+                overflowY: 'auto',
+              }}
+            >
+              {structure.system_prompt.slice(0, 300)}
+              {structure.system_prompt.length > 300 && '…'}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="w-72 p-4 overflow-y-auto"
+      style={{
+        background: '#0D1322',
+        borderLeft: '1px solid rgba(0, 109, 221, 0.3)',
+        color: '#F2FAFF',
+      }}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <span style={{ fontSize: 18 }}>
+          {isMain ? '🧠' : isSkill ? '📡' : isTool ? '⚙️' : isInfo ? 'ℹ️' : '📦'}
+        </span>
+        <h3 className="text-sm font-semibold">{data.label ?? selectedNode.id}</h3>
+      </div>
+
+      {data.model && (
+        <>
+          <SectionTitle>Model</SectionTitle>
+          <Pill>{data.model}</Pill>
+        </>
+      )}
+
+      {data.value && (
+        <>
+          <SectionTitle>{data.label}</SectionTitle>
+          <div
+            className="text-[10px] p-2 rounded-lg"
+            style={{
+              background: 'rgba(0, 109, 221, 0.08)',
+              color: '#99D3FF',
+              maxHeight: 200,
+              overflowY: 'auto',
+            }}
+          >
+            {data.value}
+          </div>
+        </>
+      )}
+
+      {data.skill_type && (
+        <>
+          <SectionTitle>Type</SectionTitle>
+          <Pill small>{data.skill_type}</Pill>
+        </>
+      )}
+
+      {data.description && !data.value && (
+        <>
+          <SectionTitle>Description</SectionTitle>
+          <div className="text-[10px]" style={{ color: '#99D3FF' }}>{data.description}</div>
+        </>
+      )}
+
+      <SectionTitle>Node Info</SectionTitle>
+      <div className="text-[10px] space-y-1" style={{ color: '#99D3FF' }}>
+        <div>ID: <span style={{ color: '#F2FAFF' }}>{selectedNode.id}</span></div>
+        <div>Position: <span style={{ color: '#F2FAFF' }}>{Math.round(selectedNode.position.x)}, {Math.round(selectedNode.position.y)}</span></div>
+        <div>Type: <span style={{ color: '#F2FAFF' }}>{selectedNode.type}</span></div>
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="text-[9px] uppercase tracking-wider mt-3 mb-1 font-bold"
+      style={{ color: '#7FC8FF' }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Pill({ children, small }: { children: React.ReactNode; small?: boolean }) {
+  return (
+    <span
+      className={`inline-block ${small ? 'px-2 py-0.5 text-[9px]' : 'px-2.5 py-1 text-[10px]'} rounded-full font-medium`}
+      style={{
+        background: 'linear-gradient(135deg, rgba(0, 109, 221, 0.25), rgba(127, 200, 255, 0.1))',
+        border: '1px solid rgba(0, 109, 221, 0.5)',
+        color: '#F2FAFF',
+      }}
+    >
+      {children}
+    </span>
+  );
+}

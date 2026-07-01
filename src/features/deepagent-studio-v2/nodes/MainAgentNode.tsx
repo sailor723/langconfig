@@ -1,0 +1,109 @@
+/**
+ * MainAgentNode — central glowing core (LangChain aesthetic).
+ * Pulses with a soft blue glow. Electric gradient ring.
+ */
+
+import { memo } from 'react';
+import { Handle, Position, NodeProps, NodeResizer } from 'reactflow';
+
+interface Data {
+  label: string;
+  model: string;
+  description?: string;
+}
+
+const MainAgentNode = memo(({ data, selected }: NodeProps<Data>) => {
+  return (
+    <div
+      className="rounded-2xl px-3 py-3 relative flex flex-col items-center justify-center text-center"
+      style={{
+        background: 'linear-gradient(135deg, #161F34 0%, #0D1322 100%)',
+        border: `2px solid ${selected ? '#7FC8FF' : '#006DDD'}`,
+        width: 200,
+        height: 140,
+        minWidth: 180,
+        minHeight: 120,
+        color: '#F2FAFF',
+        pointerEvents: 'all',
+        cursor: 'grab',
+        boxShadow: selected
+          ? '0 0 24px rgba(127, 200, 255, 0.6), inset 0 0 12px rgba(127, 200, 255, 0.15)'
+          : '0 0 16px rgba(0, 109, 221, 0.4), inset 0 0 8px rgba(127, 200, 255, 0.1)',
+        animation: 'pulse-glow 3s ease-in-out infinite',
+      }}
+    >
+      <NodeResizer
+        color="#7FC8FF"
+        isVisible={selected}
+        minWidth={180}
+        minHeight={120}
+        lineStyle={{ borderWidth: 1, opacity: 0.5 }}
+        handleStyle={{ width: 6, height: 6, borderRadius: 2, backgroundColor: '#7FC8FF' }}
+      />
+
+      {/* Handles — invisible but functional */}
+      <Handle type="source" position={Position.Left} id="llm-out" style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Right} id="prompt-out" style={{ opacity: 0 }} />
+      <Handle type="source" position={Position.Bottom} id="tools-out" style={{ opacity: 0 }} />
+      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
+
+      {/* Brain icon with gradient bg */}
+      <span
+        className="inline-flex items-center justify-center rounded-lg text-base flex-shrink-0 mb-1.5"
+        style={{
+          width: 36,
+          height: 36,
+          background: 'linear-gradient(135deg, #006DDD 0%, #7FC8FF 100%)',
+          color: '#FFFFFF',
+          fontSize: 20,
+        }}
+      >
+        🧠
+      </span>
+
+      {/* Name + Main badge */}
+      <div className="flex items-center gap-1 mb-0.5">
+        <div className="text-[12px] font-semibold truncate" style={{ color: '#F2FAFF' }}>{data.label}</div>
+        <span
+          className="text-[7px] px-1.5 py-px rounded font-bold uppercase tracking-wider"
+          style={{
+            background: 'linear-gradient(90deg, #006DDD, #7FC8FF)',
+            color: '#F2FAFF',
+          }}
+        >
+          Main
+        </span>
+      </div>
+
+      <div
+        className="text-[9px] font-mono mt-0.5 px-1.5 py-0.5 rounded"
+        style={{
+          color: '#99D3FF',
+          backgroundColor: 'rgba(0, 109, 221, 0.15)',
+        }}
+      >
+        {data.model}
+      </div>
+
+      {data.description && (
+        <div
+          className="text-[8px] mt-1.5 px-1.5 text-center leading-tight"
+          style={{
+            color: '#99D3FF',
+            maxHeight: 36,
+            overflow: 'hidden',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+          }}
+          title={data.description}
+        >
+          {data.description}
+        </div>
+      )}
+    </div>
+  );
+});
+
+MainAgentNode.displayName = 'MainAgentNode';
+export default MainAgentNode;
