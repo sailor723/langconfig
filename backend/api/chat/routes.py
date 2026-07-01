@@ -114,11 +114,13 @@ def make_json_safe(obj):
 
 class StreamingFilter:
     """Stateful filter to strip <think>...</think> and <tool_call>...</tool_call> tags
-    and their contents from a stream of tokens."""
+    and their contents from a stream of tokens.
+    Also captures stripped think content for frontend streaming."""
     def __init__(self):
         self.buffer = ""
         self.in_think = False
         self.in_tool = False
+        self.think_buffer = ""  # Captures stripped think content for streaming
 
     def feed(self, token: str) -> str:
         self.buffer += token
@@ -133,6 +135,7 @@ class StreamingFilter:
                     output += self.buffer[:think_idx]
                     self.buffer = self.buffer[think_idx + len("<think>"):]
                     self.in_think = True
+                    self.think_buffer = ""  # Reset think buffer on enter
                     continue
                 elif tool_idx != -1 and (think_idx == -1 or tool_idx < think_idx):
                     output += self.buffer[:tool_idx]
@@ -155,6 +158,7 @@ class StreamingFilter:
             elif self.in_think:
                 end_idx = self.buffer.find("</think>")
                 if end_idx != -1:
+                    self.think_buffer += self.buffer[:end_idx]
                     self.buffer = self.buffer[end_idx + len("</think>"):]
                     self.in_think = False
                     continue
@@ -163,9 +167,11 @@ class StreamingFilter:
                 if last_angle != -1:
                     suffix = self.buffer[last_angle:]
                     if "</think>".startswith(suffix):
+                        self.think_buffer += self.buffer[:last_angle]
                         self.buffer = suffix
                         break
                 
+                self.think_buffer += self.buffer
                 self.buffer = ""
                 break
                 
@@ -1033,7 +1039,16 @@ async def send_message_stream(
 
                             if token:
                                 # Apply StreamingFilter to strip <think> and <tool_call> tags and their contents
+                                # The filter captures stripped think content in think_buffer
                                 filtered_token = stream_filter.feed(token)
+                                
+                                # Emit think content that was captured since last feed
+                                think_content = stream_filter.think_buffer
+                                if think_content and not stream_filter.in_think:
+                                    # Think block just closed — emit all captured content
+                                    yield f"data: {json.dumps({'type': 'thinking', 'content': think_content})}\n\n"
+                                    stream_filter.think_buffer = ""  # Reset after emit
+                                
                                 if filtered_token:
                                     full_response += filtered_token
                                     yield f"data: {json.dumps({'type': 'chunk', 'content': filtered_token})}\n\n"

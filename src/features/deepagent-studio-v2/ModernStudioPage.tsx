@@ -67,6 +67,28 @@ export default function ModernStudioPage() {
             setSelectedId(id);
             setSelectedNode(null);
           }} />
+
+          <div
+            className="h-6 w-px"
+            style={{ backgroundColor: 'rgba(0, 109, 221, 0.4)' }}
+          />
+
+          {/* Agent Creator button — select agent_id=112 to show in studio canvas */}
+          <button
+            onClick={() => {
+              setSelectedId(112);
+              setSelectedNode(null);
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+            style={{
+              background: 'linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)',
+              color: '#FFFFFF',
+              boxShadow: '0 0 16px rgba(124, 58, 237, 0.4)',
+            }}
+          >
+            <span style={{ fontSize: 14 }}>✨</span>
+            <span>Generate with AI</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-2">

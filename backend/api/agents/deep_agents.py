@@ -21,7 +21,7 @@ _CODEGEN_REPO_ROOT = _os.path.abspath(
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from db.database import get_db
 from models.deep_agent import (
@@ -156,6 +156,22 @@ class DeepAgentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_validator("middleware_config", mode="before")
+    @classmethod
+    def ensure_middleware_config_is_list(cls, v):
+        """Handle DB records where middleware_config is stored as {} instead of []."""
+        if isinstance(v, dict):
+            return []
+        return v or []
+
+    @field_validator("subagents_config", mode="before")
+    @classmethod
+    def ensure_subagents_config_is_list(cls, v):
+        """Handle DB records where subagents_config is stored as {} instead of []."""
+        if isinstance(v, dict):
+            return []
+        return v or []
 
 
 class ExportRequest(BaseModel):
@@ -532,6 +548,71 @@ async def create_from_agent_creator(
         raise
     except Exception as e:
         logger.error(f"Failed to create from Agent Creator: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class QuickCreateRequest(BaseModel):
+    """Quick-create a DeepAgent from the UI (fallback for Agent Creator workflow)."""
+    name: str
+    system_prompt: str
+    native_tools: list[str] = []
+    skills: list[str] = []
+    description: str = ""
+    category: str = "Custom"
+    model: str = "minimax-m3"
+    temperature: float = 0.7
+
+
+@router.post("/quick-create")
+async def quick_create_agent(
+    request: QuickCreateRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Quick-create a DeepAgent from the UI (backup for Agent Creator workflow).
+
+    Replaces the legacy file-based /from-creator endpoint.
+    Accepts agent config directly and writes to PostgreSQL.
+    """
+    try:
+        cfg = DeepAgentConfig(
+            model=request.model,
+            system_prompt=request.system_prompt.strip(),
+            native_tools=request.native_tools or [],
+            skills=request.skills or [],
+            tools=[],
+            cli_tools=[],
+            custom_tools=[],
+            temperature=request.temperature,
+            use_deepagents=True,
+            middleware=create_default_middleware_config(),
+            subagents=[],
+            backend=create_default_backend_config(),
+            guardrails=create_default_guardrails_config(),
+        )
+        agent = DeepAgentTemplate(
+            name=request.name.strip(),
+            description=request.description.strip(),
+            category=request.category,
+            config=cfg.dict(),
+            middleware_config=[m.dict() for m in cfg.middleware],
+            subagents_config=[],
+            backend_config=cfg.backend.dict(),
+            guardrails_config=cfg.guardrails.dict(),
+        )
+        db.add(agent)
+        db.commit()
+        db.refresh(agent)
+        logger.info(f"Quick-create DeepAgent: {agent.name} (id={agent.id})")
+        return {
+            "status": "success",
+            "message": f"Agent '{agent.name}' created successfully (id={agent.id})",
+            "agent_id": agent.id,
+            "name": agent.name,
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Quick-create failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

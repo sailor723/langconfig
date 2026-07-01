@@ -727,7 +727,7 @@ export default function DeepAgentBuilder({
         model: result.config.model,
         temperature: result.config.temperature,
         system_prompt: result.config.system_prompt,
-        native_tools: result.config.native_tools || result.config.mcp_tools || []
+        native_tools: result.config.native_tools || []
       }));
 
       // Show success with reasoning
