@@ -30,8 +30,8 @@ const ToolNode = memo(({ data, selected }: NodeProps<Data>) => {
       }}
     >
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
-      <span style={{ fontSize: 11 }}>{icon}</span>
-      <span className="text-[10px] font-medium">{data.label}</span>
+      <span style={{ fontSize: 13 }}>{icon}</span>
+      <span className="text-[12px] font-medium">{data.label}</span>
     </div>
   );
 });
