@@ -11,12 +11,10 @@ import type { AgentStructure } from '../types';
 const MAIN_X = 400;
 const MAIN_Y = 300;
 
-const SUB_FAN_TOP = 80;        // sub-agents fan upward from center
 const SUB_FAN_RADIUS_X = 320;
 const SUB_FAN_RADIUS_Y = 220;
 
-const TOOL_BASE_Y = 520;       // tools array below center
-const TOOL_SPACING_X = 110;
+const TOOL_BASE_Y = 520;       // first row of tools below center
 
 const INFO_OFFSET_X = 240;
 const INFO_Y = 300;
@@ -50,6 +48,7 @@ export function autoLayout(structure: AgentStructure): { nodes: Node[]; edges: E
       label: 'Model',
       value: structure.model || '—',
       icon: '🧠',
+      description: 'The language model powering this agent',
     },
     draggable: true,
   });
@@ -69,6 +68,7 @@ export function autoLayout(structure: AgentStructure): { nodes: Node[]; edges: E
       label: 'System Prompt',
       value: structure.system_prompt || '(empty — click to add one)',
       icon: '📜',
+      description: 'Defines the agent\'s behavior, workflow, and guidelines',
     },
     draggable: true,
   });
@@ -82,6 +82,28 @@ export function autoLayout(structure: AgentStructure): { nodes: Node[]; edges: E
 
   // 3) Sub-agents — fan layout upward
   const subs = structure.subagents || [];
+
+  // Common tool descriptions for better UX
+  const toolDescMap: Record<string, string> = {
+    web_search: 'Search the web via DuckDuckGo',
+    tavily_search: 'AI-powered web search',
+    web_fetch: 'Fetch and read webpage content',
+    ls: 'List files in a directory',
+    read_file: 'Read file contents',
+    write_file: 'Write content to a file',
+    edit_file: 'Edit an existing file',
+    glob: 'Find files by name pattern',
+    grep: 'Search file contents by pattern',
+    reasoning_chain: 'Multi-step reasoning and analysis',
+    task: 'Delegate work to sub-agents',
+    memory_store: 'Store data in long-term memory',
+    memory_recall: 'Recall data from long-term memory',
+    graphindex_search: 'Search project documents (RAG)',
+    graphindex_load: 'Load document into graph index',
+    graphindex_list_docs: 'List indexed documents',
+    graphindex_multi_doc_load: 'Load multiple documents',
+  };
+
   if (subs.length > 0) {
     const angleStep = Math.PI / Math.max(subs.length + 1, 4);
     const startAngle = Math.PI / 2; // start at top
@@ -99,6 +121,7 @@ export function autoLayout(structure: AgentStructure): { nodes: Node[]; edges: E
           label: sub.name || `Sub-agent ${i + 1}`,
           description: sub.description,
           skill_type: sub.skill_type || 'Skill',
+          prompt: sub.prompt || structure.system_prompt || '',
         },
         draggable: true,
       });
@@ -113,20 +136,31 @@ export function autoLayout(structure: AgentStructure): { nodes: Node[]; edges: E
     });
   }
 
-  // 4) Tools — horizontal row below
+  // 4) Tools — arrange in 2 rows below center
   const tools = [...(structure.native_tools || []), ...(structure.tools || [])];
   if (tools.length > 0) {
-    const totalWidth = tools.length * TOOL_SPACING_X;
-    const startX = MAIN_X - totalWidth / 2;
+    const perRow = Math.ceil(tools.length / 2);
+    const toolSpacingX = 120;
+    const toolSpacingY = 60;
+    const row1Width = Math.min(perRow, tools.length) * toolSpacingX;
+    const row2Width = (tools.length - perRow) * toolSpacingX;
+    const startX1 = MAIN_X - row1Width / 2;
+    const startX2 = MAIN_X - row2Width / 2;
     tools.forEach((tool, i) => {
+      const row = i < perRow ? 0 : 1;
+      const idxInRow = row === 0 ? i : i - perRow;
+      const startX = row === 0 ? startX1 : startX2;
+      const x = startX + idxInRow * toolSpacingX;
+      const y = TOOL_BASE_Y + row * toolSpacingY;
       const id = `tool-${i}`;
       nodes.push({
         id,
         type: 'tool',
-        position: { x: startX + i * TOOL_SPACING_X, y: TOOL_BASE_Y },
+        position: { x, y },
         data: {
           label: tool,
           tool_type: 'native',
+          description: toolDescMap[tool as keyof typeof toolDescMap] || undefined,
         },
         draggable: true,
       });
