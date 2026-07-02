@@ -13,8 +13,8 @@ import { useChat } from '../../features/chat/state/ChatContext';
 import AgentsMdEditor from '../../features/projects/AgentsMdEditor';
 
 interface ModernHeaderProps {
-  currentView: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
-  onViewChange: (view: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio') => void;
+  currentView: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
+  onViewChange: (view: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio') => void;
 }
 
 export default function ModernHeader({
@@ -194,19 +194,19 @@ export default function ModernHeader({
           </span>
         </button>
         <button
-          onClick={() => onViewChange('community')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'community'
+          onClick={() => onViewChange('analysis')}
+          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'analysis'
             ? 'bg-white/30 text-white font-semibold border-white/40'
             : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
             }`}
           style={{
-            textShadow: currentView === 'community' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'community' ? 'blur(8px)' : 'none'
+            textShadow: currentView === 'analysis' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
+            backdropFilter: currentView === 'analysis' ? 'blur(8px)' : 'none'
           }}
         >
           <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">groups</span>
-            {t('nav_community')}
+            <span className="material-symbols-outlined text-base">monitoring</span>
+            Analysis
           </span>
         </button>
         <button

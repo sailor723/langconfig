@@ -22,7 +22,7 @@ import ToolLibrary from './features/tools/ToolLibrary';
 import PromptAssemblyPage from './pages/PromptAssemblyPage';
 import { SkillLibrary } from './features/skills';
 import HomePage from './pages/HomePage';
-import CommunityPage from './pages/CommunityPage';
+import AnalysisPage from './pages/AnalysisPage';
 import { initializeTheme } from './lib/themes';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { ToastProvider, ToastContainer } from './hooks/useToast';
@@ -30,7 +30,7 @@ import { ChatProvider } from './features/chat/state/ChatContext';
 import GlobalChatModal from './features/chat/ui/GlobalChatModal';
 import apiClient from './lib/api-client';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
+type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -204,7 +204,7 @@ function AppContent() {
     if (path === '/skills') return 'skills';
     if (path === '/tools') return 'tools';
     if (path === '/prompt') return 'prompt';
-    if (path === '/community') return 'community';
+    if (path === '/analysis') return 'analysis';
     if (path === '/settings') return 'settings';
     if (path === '/playground') return 'playground';
     if (path === '/deepagent-studio') return 'deepagent-studio';
@@ -255,7 +255,7 @@ function AppContent() {
       agents: '/agents',
       skills: '/skills',
       knowledge: '/knowledge',
-      community: '/community',
+      analysis: '/analysis',
       settings: '/settings',
       playground: '/playground',
       tools: '/tools',
@@ -475,7 +475,7 @@ function AppContent() {
           {currentView === 'tools' && <ToolLibrary />}
           {currentView === 'prompt' && <PromptAssemblyPage />}
           {currentView === 'knowledge' && <KnowledgeBaseView />}
-          {currentView === 'community' && <CommunityPage />}
+          {currentView === 'analysis' && <AnalysisPage />}
           {currentView === 'settings' && <SettingsView />}
           {currentView === 'playground' && <PlaygroundPage />}
           {currentView === 'deepagent-studio' && <DeepAgentStudioPage />}
