@@ -6,12 +6,12 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
-import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot, Brain, ChevronDown, ChevronRight, Wrench, BarChart3 } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot, Brain, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { ChatMessage, SessionDocument, CustomEventPayload, ToolCall } from '../types/chat';
+import type { ChatMessage, CustomEventPayload, ToolCall } from '../types/chat';
 import MessageInput from './MessageInput';
 import SessionDocumentsPanel from './SessionDocumentsPanel';
 import ThinkingBlock from './ThinkingBlock';
@@ -54,9 +54,11 @@ export default function MessagesPanel({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
   const [showThinking, setShowThinking] = useState(false);
-  // Analysis panel state
-  const [lastCsvPath, setLastCsvPath] = useState<string | null>(null);
+  // Analysis panel state — dashboard auto-generated after CSV upload
+  const [dashboardUrl, setDashboardUrl] = useState('');
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisMeta, setAnalysisMeta] = useState<{rowCount: number; colCount: number} | null>(null);
+  const [csvUploading, setCsvUploading] = useState(false);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -568,25 +570,36 @@ export default function MessagesPanel({
       {/* Session Documents Panel */}
       <SessionDocumentsPanel sessionId={sessionId} refreshKey={documentsRefreshKey} />
 
-      {/* Data Analysis Button — appears after CSV upload */}
-      {lastCsvPath && (
+      {/* Data Analysis Button — generate interactive dashboard via current agent */}
+      {typeof onSendMessage === 'function' && (
         <div className="px-4 pb-2">
-          {showAnalysis ? (
+          {csvUploading && (
+            <div className="flex items-center justify-center gap-2 py-3 text-sm text-gray-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Processing CSV &amp; generating dashboard...
+            </div>
+          )}
+          {showAnalysis && dashboardUrl !== '' && (
             <AnalysisPanel
               sessionId={sessionId}
-              csvPath={lastCsvPath as string}
+              dashboardUrl={dashboardUrl}
+              rowCount={analysisMeta?.rowCount}
+              colCount={analysisMeta?.colCount}
               onClose={() => setShowAnalysis(false)}
             />
-          ) : (
+          )}
+          {showAnalysis && dashboardUrl === '' && !csvUploading && (
             <button
-              onClick={() => setShowAnalysis(true)}
+              onClick={() => {
+                setShowAnalysis(false);
+                setTimeout(() => setShowAnalysis(true), 100);
+              }}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 
-                         bg-gradient-to-r from-blue-500 to-blue-600 text-white 
-                         rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 
-                         transition-all shadow-sm hover:shadow-md"
+                         bg-blue-50 border border-blue-200 text-blue-700 
+                         rounded-lg text-sm font-medium hover:bg-blue-100 transition-all"
             >
               <BarChart3 className="w-4 h-4" />
-              Dashboard
+              Dashboard (regenerate)
             </button>
           )}
         </div>
@@ -617,18 +630,48 @@ export default function MessagesPanel({
               }, 500);
             }
             // Auto-trigger data analysis after CSV upload
-            if (docExt === 'csv' && onSendMessage) {
-              // Track for dashboard button — files are copied to sandbox at outputs/default/
-              const csvFullPath = `outputs/default/${file.filename}`;
-              setLastCsvPath(csvFullPath);
+            if (docExt === 'csv') {
               setShowAnalysis(false); // reset if previously open
-              setTimeout(() => {
-                onSendMessage(
-                  `I loaded ${file.filename}. ` +
-                  `Here's a quick overview: what columns and data types does it have? ` +
-                  `Then summarize the key metrics.`
-                );
-              }, 500);
+              setCsvUploading(true);
+              // File was saved to sandbox by FileUploadButton
+              // Call /api/analysis/init to convert + auto-generate dashboard
+              const csvPath = `outputs/default/${file.filename}`;
+              fetch('/api/analysis/init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  session_id: sessionId,
+                  csv_path: csvPath,
+                  table_name: file.filename.replace(/\.csv$/i, '').replace(/[^a-zA-Z0-9_]/g, '_'),
+                }),
+              })
+                .then(res => res.json())
+                .then(data => {
+                  setDashboardUrl(data.dashboard_file || '');
+                  setAnalysisMeta({ rowCount: data.row_count, colCount: data.col_count });
+                  setShowAnalysis(true);
+                  setCsvUploading(false);
+                  // Send a message to the chat agent for schema overview
+                  if (onSendMessage) {
+                    onSendMessage(
+                      `I loaded ${file.filename} (${data.row_count} rows, ${data.col_count} columns). ` +
+                      `Here's a quick overview: what columns and data types does it have? ` +
+                      `Then summarize the key metrics.`
+                    );
+                  }
+                })
+                .catch(err => {
+                  console.error('Analysis init failed:', err);
+                  setCsvUploading(false);
+                  // Fall back — agent analyzes from sandbox
+                  if (onSendMessage) {
+                    onSendMessage(
+                      `I loaded ${file.filename}. ` +
+                      `Here's a quick overview: what columns and data types does it have? ` +
+                      `Then summarize the key metrics.`
+                    );
+                  }
+                });
             }
           }}
         />
