@@ -122,6 +122,11 @@ export function autoLayout(structure: AgentStructure): { nodes: Node[]; edges: E
           description: sub.description,
           skill_type: sub.skill_type || 'Skill',
           prompt: sub.prompt || structure.system_prompt || '',
+          tags: sub.tags,
+          triggers: sub.triggers,
+          allowed_tools: sub.allowed_tools,
+          version: sub.version,
+          author: sub.author,
         },
         draggable: true,
       });

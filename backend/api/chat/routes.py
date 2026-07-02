@@ -468,7 +468,14 @@ async def send_message(
 
             # Create agent instance via DeepAgentFactory (original pattern).
             # DeepAgentFactory internally falls back to AgentFactory when needed.
-            config = DeepAgentConfig(**agent.config)
+            # Fix: ensure list fields are never None to avoid "NoneType has no len()"
+            _safe_config = dict(agent.config or {})
+            for _list_key in ['middleware', 'subagents', 'skills', 'native_tools']:
+                if _safe_config.get(_list_key) is None:
+                    _safe_config[_list_key] = []
+            if _safe_config.get('guardrails') is None:
+                _safe_config['guardrails'] = {"input": [], "output": []}
+            config = DeepAgentConfig(**_safe_config)
             if lang_instruction:
                 config.system_prompt = (config.system_prompt or "") + lang_instruction
             agent_instance, _tools, _callbacks = await DeepAgentFactory.create_deep_agent(
@@ -705,7 +712,8 @@ async def send_message(
         )
 
     except Exception as e:
-        logger.error(f"Error sending message: {e}")
+        import traceback
+        logger.error(f"Error sending message: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

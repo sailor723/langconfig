@@ -1,27 +1,17 @@
 ---
 name: data-analysis
-description: Analyze CSV files and SQL databases. Returns data profile, aggregations, correlations, and charts. Use when user wants to analyze data, query PostgreSQL, or generate visualizations.
-version: 3.0.0
-author: LangConfig
-tags:
-  - data-analysis
-  - csv
-  - sql
-  - postgresql
-  - pandas
-  - matplotlib
-  - visualization
-  - analytics
+description: >-
+  Analyze CSV files and SQL databases. Returns data profile, aggregations, correlations, and charts. Use when user wants to analyze data, query PostgreSQL, or generate visualizations.
+tags: [data-analysis, csv, sql, postgresql, pandas, matplotlib, visualization, analytics]
 triggers:
-  - when user uploads a CSV file
-  - when user asks to analyze data
-  - when user asks about database or SQL
-  - when user wants to query the database
-  - when user mentions PostgreSQL
-  - when user wants data visualization or charts
-allowed_tools:
-  - execute
-  - filesystem
+  - "when user uploads a CSV file"
+  - "when user asks to analyze data"
+  - "when user asks about database or SQL"
+  - "when user wants to query the database"
+  - "when user mentions PostgreSQL"
+  - "when user wants data visualization or charts"
+allowed-tools: [execute, filesystem]
+author: LangConfig
 ---
 
 # Data Analysis Skill

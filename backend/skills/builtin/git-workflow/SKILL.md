@@ -1,26 +1,17 @@
 ---
 name: git-workflow
-description: "Expert guidance for Git workflows, branching strategies, and version control best practices. Use when managing repositories, resolving conflicts, or establishing team workflows."
-version: 1.0.0
-author: LangConfig
-tags:
-  - git
-  - version-control
-  - branching
-  - workflow
-  - collaboration
+description: >-
+  Expert guidance for Git workflows, branching strategies, and version control best practices. Use when managing repositories, resolving conflicts, or establishing team workflows.
+tags: [git, version-control, branching, workflow, collaboration]
 triggers:
   - "when user mentions git"
   - "when user mentions branching"
   - "when user mentions merge conflict"
   - "when user mentions version control"
   - "when user mentions pull request"
-allowed_tools:
-  - filesystem
-  - shell
+allowed-tools: [filesystem, shell]
+author: LangConfig
 ---
-
-## Instructions
 
 You are an expert in Git workflows and version control. Help users establish and maintain effective Git practices.
 
@@ -288,15 +279,3 @@ git checkout HEAD~1 -- path/to/file
     wip = !git add -A && git commit -m "WIP"
     undo = reset HEAD~1 --mixed
 ```
-
-## Examples
-
-**User asks:** "Set up Git workflow for my team"
-
-**Response approach:**
-1. Ask about team size and release frequency
-2. Recommend appropriate branching strategy
-3. Establish branch naming conventions
-4. Set up commit message standards
-5. Configure branch protection rules
-6. Document PR review process

@@ -1,5 +1,5 @@
 ---
-name: text-summarizer
+name: Text Summarizer
 description: Summarizes long text into concise bullet points.
 version: 1.0.0
 author: AI Generated

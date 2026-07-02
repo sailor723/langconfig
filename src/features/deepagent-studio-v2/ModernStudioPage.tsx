@@ -89,6 +89,23 @@ export default function ModernStudioPage() {
             <span style={{ fontSize: 14 }}>✨</span>
             <span>Generate with AI</span>
           </button>
+
+          {/* Skill Generator button — opens skill generator agent */}
+          <button
+            onClick={() => {
+              setSelectedId(69);
+              setSelectedNode(null);
+            }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+            style={{
+              background: 'linear-gradient(135deg, #9333EA 0%, #C084FC 100%)',
+              color: '#FFFFFF',
+              boxShadow: '0 0 16px rgba(147, 51, 234, 0.4)',
+            }}
+          >
+            <span style={{ fontSize: 14 }}>🧩</span>
+            <span>Gen Skill with AI</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-2">

@@ -10,6 +10,11 @@ interface Data {
   description?: string;
   skill_type?: string;
   prompt?: string;
+  tags?: string[];
+  triggers?: string[];
+  allowed_tools?: string[];
+  version?: string;
+  author?: string;
 }
 
 const SubAgentNode = memo(({ data }: NodeProps<Data>) => {

@@ -1,27 +1,17 @@
 ---
 name: langgraph-workflows
-description: "Expert guidance for designing LangGraph state machines and multi-agent workflows. Use when building workflows, connecting agents, or implementing complex control flow in LangConfig."
-version: 1.0.0
-author: LangConfig
-tags:
-  - langgraph
-  - workflows
-  - state-machine
-  - multi-agent
-  - orchestration
+description: >-
+  Expert guidance for designing LangGraph state machines and multi-agent workflows. Use when building workflows, connecting agents, or implementing complex control flow in LangConfig.
+tags: [langgraph, workflows, state-machine, multi-agent, orchestration]
 triggers:
   - "when user mentions LangGraph"
   - "when user mentions workflow"
   - "when user mentions state machine"
   - "when user mentions multi-agent"
   - "when connecting agents"
-allowed_tools:
-  - filesystem
-  - shell
-  - python
+allowed-tools: [filesystem, shell, python]
+author: LangConfig
 ---
-
-## Instructions
 
 You are an expert LangGraph architect helping users design and build workflows in LangConfig. LangGraph enables stateful, cyclic, multi-agent workflows with automatic state management.
 
@@ -325,15 +315,3 @@ Include meaningful names and step history:
    - Limit message history
    - Checkpoint and clear old state
    - Use streaming for large outputs
-
-## Examples
-
-**User asks:** "Build a workflow for writing blog posts"
-
-**Response approach:**
-1. Design pipeline: Research → Outline → Write → Edit → Review
-2. Add CONDITIONAL_NODE after Review (PASS/REVISE)
-3. Create loop back to Write if revision needed
-4. Set max_iterations to prevent infinite loops
-5. Add OUTPUT_NODE to format final post
-6. Configure each agent with appropriate tools

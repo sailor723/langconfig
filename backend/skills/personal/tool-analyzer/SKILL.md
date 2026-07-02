@@ -16,10 +16,6 @@ triggers:
 - when asked to document tools
 ---
 
-# Tool Analyzer Skill
-
-You are analyzing a Python tools module to produce structured documentation.
-
 ## Instructions
 
 1. Read the target Python file(s) from the tools directory.
