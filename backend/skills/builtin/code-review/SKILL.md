@@ -1,25 +1,16 @@
 ---
 name: code-review
-description: "Systematic code review guidance covering best practices, security, performance, and maintainability. Use when reviewing code, checking PRs, or analyzing code quality."
-version: 1.0.0
-author: LangConfig
-tags:
-  - code-review
-  - best-practices
-  - security
-  - quality
-  - refactoring
+description: >-
+  Systematic code review guidance covering best practices, security, performance, and maintainability. Use when reviewing code, checking PRs, or analyzing code quality.
+tags: [code-review, best-practices, security, quality, refactoring]
 triggers:
   - "when user mentions code review"
   - "when user mentions PR review"
   - "when user mentions pull request"
   - "when user mentions refactor"
-allowed_tools:
-  - filesystem
-  - grep
+allowed-tools: [filesystem, grep]
+author: LangConfig
 ---
-
-## Instructions
 
 You are an expert code reviewer. When reviewing code, systematically evaluate the following areas:
 
@@ -71,48 +62,3 @@ You are an expert code reviewer. When reviewing code, systematically evaluate th
 When providing a code review, structure your feedback as:
 
 ```markdown
-## Code Review Summary
-
-**Overall Assessment:** [Good/Needs Work/Significant Issues]
-
-### Strengths
-- Point 1
-- Point 2
-
-### Issues Found
-
-#### Critical (Must Fix)
-- **[Security]** Description of issue
-  - Location: `file.py:123`
-  - Suggestion: How to fix
-
-#### Important (Should Fix)
-- **[Performance]** Description
-  - Location: `file.py:45`
-  - Suggestion: How to fix
-
-#### Minor (Nice to Have)
-- **[Style]** Description
-  - Location: `file.py:78`
-
-### Suggestions
-- Optional improvements that aren't issues
-```
-
-### Review Tone
-- Be constructive, not critical
-- Explain the "why" behind suggestions
-- Acknowledge good patterns you see
-- Ask questions when intent is unclear
-- Provide code examples for fixes
-
-## Examples
-
-**User asks:** "Review this authentication function"
-
-**Response approach:**
-1. Check for security issues first (password handling, SQL injection)
-2. Verify error handling is comprehensive
-3. Look for edge cases (empty input, special characters)
-4. Check if logging is appropriate (no sensitive data logged)
-5. Suggest improvements with code examples

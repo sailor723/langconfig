@@ -149,6 +149,67 @@ export default function ModernDetailPanel({ structure, selectedNode }: Props) {
         </>
       )}
 
+      {/* Skill detail sections */}
+      {isSkill && data.tags && data.tags.length > 0 && (
+        <>
+          <SectionTitle>Tags</SectionTitle>
+          <div className="flex flex-wrap gap-1.5">
+            {(data.tags as string[]).map((t: string, i: number) => (
+              <Pill key={i}>{t}</Pill>
+            ))}
+          </div>
+        </>
+      )}
+
+      {isSkill && data.triggers && data.triggers.length > 0 && (
+        <>
+          <SectionTitle>Triggers</SectionTitle>
+          <div className="flex flex-wrap gap-1.5">
+            {(data.triggers as string[]).map((t: string, i: number) => (
+              <Pill key={i}>{t}</Pill>
+            ))}
+          </div>
+        </>
+      )}
+
+      {isSkill && data.allowed_tools && data.allowed_tools.length > 0 && (
+        <>
+          <SectionTitle>Allowed Tools</SectionTitle>
+          <div className="flex flex-wrap gap-1.5">
+            {(data.allowed_tools as string[]).map((t: string, i: number) => (
+              <Pill key={i}>{t}</Pill>
+            ))}
+          </div>
+        </>
+      )}
+
+      {isSkill && data.prompt && (
+        <>
+          <SectionTitle>SKILL.md Instructions</SectionTitle>
+          <div
+            className="text-[13px] p-2 rounded-lg"
+            style={{
+              background: 'rgba(0, 109, 221, 0.08)',
+              color: '#99D3FF',
+              minHeight: 200,
+              maxHeight: 600,
+              overflowY: 'auto',
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {data.prompt}
+          </div>
+        </>
+      )}
+
+      {isSkill && (data.version || data.author) && (
+        <div className="text-[11px] mt-2" style={{ color: '#6B8DB5' }}>
+          {data.version && <span>v{data.version}</span>}
+          {data.version && data.author && <span> · </span>}
+          {data.author && <span>by {data.author}</span>}
+        </div>
+      )}
+
       <SectionTitle>Node Info</SectionTitle>
       <div className="text-[15px] space-y-1" style={{ color: '#99D3FF' }}>
         <div>ID: <span style={{ color: '#F2FAFF' }}>{selectedNode.id}</span></div>

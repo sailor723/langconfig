@@ -1,24 +1,16 @@
 ---
 name: data-analysis-llm
-description: "Flexible data analysis where the agent writes Python code based on the user's question. Use when the user's analysis request is custom or novel and doesn't fit a predefined pattern. Slower but more flexible than data-analysis."
-version: 1.0.0
-author: LangConfig
-tags:
-  - data-analysis
-  - csv
-  - sql
-  - python
-  - flexible
-  - custom-analysis
+description: >-
+  Flexible data analysis where the agent writes Python code based on the user's question. Use when the user's analysis request is custom or novel and doesn't fit a predefined pattern. Slower but more fl
+tags: [data-analysis, csv, sql, python, flexible, custom-analysis]
 triggers:
   - "when user asks a custom or novel data question"
   - "when user asks for an analysis not covered by data-analysis"
   - "when user wants custom visualization"
   - "when user wants exploratory data analysis"
   - "when the analysis question is open-ended"
-allowed_tools:
-  - execute
-  - filesystem
+allowed-tools: [execute, filesystem]
+author: LangConfig
 ---
 
 # Data Analysis (LLM-Driven) Skill

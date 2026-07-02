@@ -740,11 +740,13 @@ class DeepAgentFactory:
                 # IMPORTANT: Load actual tool objects, not just tool names
                 # The deepagents library expects tools as BaseTool/Callable/dict objects,
                 # not string names. We need to resolve tool names to actual tools.
-                subagent_tools = []
+                # NOTE: If sub_config.tools is empty/None, DO NOT set "tools" key at all,
+                # so the subagent inherits the main agent's tools by default.
+                # Setting tools=[] would override inheritance with zero tools.
+                subagent_tools = None
                 if sub_config.tools:
                     try:
                         from tools.native_tools import load_native_tools
-                        # Load native tools by name
                         subagent_tools = load_native_tools(sub_config.tools)
                         logger.info(f"Loaded {len(subagent_tools)} tools for subagent '{sub_config.name}': {sub_config.tools}")
                     except Exception as e:
@@ -754,8 +756,11 @@ class DeepAgentFactory:
                     "name": sub_config.name,
                     "description": sub_config.description,
                     "system_prompt": sub_config.system_prompt or "",
-                    "tools": subagent_tools,  # Actual tool objects, not string names
                 }
+
+                # Only add tools key if tools were explicitly provided (inherits otherwise)
+                if subagent_tools:
+                    subagent["tools"] = subagent_tools
 
                 if sub_config.model:
                     subagent["model"] = sub_config.model
@@ -781,7 +786,7 @@ class DeepAgentFactory:
                     subagent["response_format"] = sub_config.response_format
 
                 subagents.append(subagent)
-                logger.info(f"Dictionary subagent prepared: {sub_config.name} with {len(subagent_tools)} tools")
+                logger.info(f"Dictionary subagent prepared: {sub_config.name} with {len(subagent_tools or [])} tools")
 
             # Workflow-based CompiledSubAgent
             elif sub_config.type == SubAgentType.COMPILED:

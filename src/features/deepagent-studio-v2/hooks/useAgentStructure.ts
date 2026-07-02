@@ -33,11 +33,27 @@ export function useAgentStructure(agentId: number | null) {
           native_tools: cfg.native_tools || [],
           custom_tools: cfg.custom_tools || [],
           tools: cfg.tools || cfg.cli_tools || [],
-          subagents: (cfg.skills || []).map((name: string, i: number) => ({
-            id: `skill-${i}`,
-            name,
-            skill_type: 'Skill',
-            description: cfg.skill_descriptions?.[name],
+          subagents: await Promise.all((cfg.skills || []).map(async (name: string, i: number) => {
+            // Fetch full skill detail from API
+            let skillDetail: any = {};
+            try {
+              const res = await fetch(`/api/skills/${name}`);
+              if (res.ok) {
+                skillDetail = await res.json();
+              }
+            } catch {}
+            return {
+              id: `skill-${i}`,
+              name,
+              skill_type: 'Skill',
+              description: cfg.skill_descriptions?.[name] || skillDetail.description,
+              prompt: skillDetail.instructions,  // Full SKILL.md instructions
+              tags: skillDetail.tags,
+              triggers: skillDetail.triggers,
+              allowed_tools: skillDetail.allowed_tools,
+              version: skillDetail.version,
+              author: skillDetail.author,
+            };
           })),
           skills: cfg.skills || [],
         };

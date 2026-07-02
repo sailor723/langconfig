@@ -4,6 +4,11 @@ export interface SubAgent {
   description?: string;
   skill_type?: string;
   prompt?: string;
+  tags?: string[];
+  triggers?: string[];
+  allowed_tools?: string[];
+  version?: string;
+  author?: string;
 }
 
 export interface AgentStructure {

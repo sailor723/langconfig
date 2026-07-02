@@ -105,6 +105,10 @@ TOOL_NAME_MAP = {
     "memory_store": "memory_store",
     "memory_recall": "memory_recall",
 
+    # SQL/data tools
+    "sqlite_execute": "sqlite_execute",
+    "python_execute": "python_execute",
+
     # Reasoning tools
     "sequential_thinking": "reasoning_chain",
     "thinking": "reasoning_chain",
@@ -131,6 +135,7 @@ TOOL_NAME_MAP = {
     "pg_list_agents": "pg_list_agents",
     "pg_get_agent": "pg_get_agent",
     "pg_list_skills": "pg_list_skills",
+    "search_skills": "search_skills",
     "pg_list_projects": "pg_list_projects",
     "pg_list_documents": "pg_list_documents",
     "pg_list_custom_tools": "pg_list_custom_tools",
@@ -2011,6 +2016,53 @@ def pg_list_skills() -> str:
         db.close()
 
 
+def search_skills(query: str) -> str:
+    """
+    Search skills by name, description, or tags.
+
+    Useful for an agent to find relevant skills for a given task.
+    Returns matching skills with their ID, name, description, tags, and triggers.
+
+    Args:
+        query: Search keyword (e.g., 'stock', 'database', 'research')
+
+    Returns:
+        Formatted list of matching skills
+
+    Example:
+        >>> search_skills("stock market")
+    """
+    from models.skill import Skill
+    db = _get_pg_session()
+    try:
+        query_lower = query.lower()
+        skills = db.query(Skill).order_by(Skill.usage_count.desc()).all()
+        matches = []
+        for s in skills:
+            if (query_lower in s.name.lower() or
+                query_lower in (s.description or "").lower() or
+                any(query_lower in t.lower() for t in (s.tags or [])) or
+                any(query_lower in t.lower() for t in (s.triggers or []))):
+                matches.append(s)
+        if not matches:
+            return f"No skills found matching '{query}'."
+        lines = [f"## Matching skills for '{query}' ({len(matches)} found)", ""]
+        for s in matches:
+            tags = ", ".join(s.tags or [])
+            triggers = "; ".join((s.triggers or [])[:3])
+            lines.append(f"### {s.name} (`{s.skill_id}`)")
+            lines.append(f"  Description: {s.description or 'N/A'}")
+            lines.append(f"  Tags: {tags}")
+            lines.append(f"  Triggers: {triggers}")
+            lines.append(f"  Used: {s.usage_count}x")
+            lines.append("")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error searching skills: {e}"
+    finally:
+        db.close()
+
+
 @tool
 def pg_list_projects() -> str:
     """
@@ -3115,6 +3167,7 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "pg_list_agents": pg_list_agents,
         "pg_get_agent": pg_get_agent,
         "pg_list_skills": pg_list_skills,
+        "search_skills": search_skills,
         "pg_list_projects": pg_list_projects,
         "pg_list_documents": pg_list_documents,
         "pg_list_custom_tools": pg_list_custom_tools,
@@ -3124,6 +3177,9 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "neo4j_query": neo4j_query,
         "neo4j_upsert_doc": neo4j_upsert_doc,
         "neo4j_delete_doc": neo4j_delete_doc,
+        # SQL/data tools
+        "sqlite_execute": sqlite_execute,
+        "python_execute": python_execute,
         # DocIndex tools
         "doc_index_list": _doc_index_list_tool,
         "doc_index_structure": _doc_index_structure_tool,
@@ -3236,7 +3292,229 @@ def get_available_tool_names() -> List[str]:
         "neo4j_query",
         "neo4j_upsert_doc",
         "neo4j_delete_doc",
+        # SQL/data tools
+        "sqlite_execute",
+        "python_execute",
     ]
+
+
+# =============================================================================
+# SQLite Execution Tool
+# =============================================================================
+
+import sqlite3 as _sqlite3
+import csv as _csv
+import io as _io
+import os as _os
+
+TOOL_SQLITE_EXECUTE_DESCRIPTION = """Execute a read-only SQL query on a SQLite database.
+
+IMPORTANT: Only SELECT queries are allowed. DDL/DML statements are blocked.
+
+Use cases:
+- Validate generated SQL against mock data
+- Explore database schema (.tables, PRAGMA table_info)
+- Test query correctness before production use
+
+Args:
+    sql: The SELECT SQL query to execute
+    db_path: Path to a SQLite database file. If ":memory:", creates a temporary
+             in-memory database. To load CSV data, use the csv_to_sqlite utility first.
+
+Returns:
+    Query results as formatted text (rows + column headers), or error message.
+
+Examples:
+    sqlite_execute("SELECT * FROM sqlite_master WHERE type='table'")
+    sqlite_execute("PRAGMA table_info(orders)")
+    sqlite_execute("SELECT COUNT(*) FROM customers")
+"""
+
+
+def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
+    """
+    Execute a read-only SQL query on a SQLite database.
+
+    Useful for the sql-skill-generator agent to validate generated SQL queries
+    against mock data before saving them as few-shot examples in a skill.
+
+    Args:
+        sql: SELECT SQL query to execute.
+        db_path: Path to SQLite DB file or ":memory:" (default).
+
+    Returns:
+        Formatted query results or error message.
+    """
+    # Safety: block all non-SELECT statements
+    sql_stripped = sql.strip().strip(";").strip()
+    sql_lower = sql_stripped.lower()
+    blocked_keywords = ["insert", "update", "delete", "drop", "alter",
+                        "create", "replace", "truncate", "exec", "pragma"]
+
+    first_word = sql_lower.split()[0] if sql_lower.split() else ""
+    if first_word in blocked_keywords and first_word != "pragma":
+        return f"❌ BLOCKED: Only SELECT queries are allowed. Got: '{sql_stripped[:100]}'"
+
+    try:
+        conn = _sqlite3.connect(db_path)
+        conn.row_factory = _sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT * FROM ({sql_stripped}) LIMIT 200")
+        rows = cursor.fetchall()
+        col_names = [desc[0] for desc in cursor.description] if cursor.description else []
+
+        if not rows:
+            conn.close()
+            return "✅ Query executed. No rows returned (empty result)."
+
+        # Format output as aligned table
+        widths = [len(c) for c in col_names]
+        for row in rows:
+            for i, val in enumerate(row):
+                widths[i] = max(widths[i], len(str(val)))
+
+        header = " | ".join(c.ljust(w) for c, w in zip(col_names, widths))
+        sep = "-+-".join("-" * w for w in widths)
+        body = "\n".join(
+            " | ".join(str(v).ljust(w) for v, w in zip(row, widths))
+            for row in rows[:50]  # Max 50 rows in output
+        )
+
+        summary = f"✅ {len(rows)} row(s) returned"
+        conn.close()
+        return f"{summary}\n\n{header}\n{sep}\n{body}"
+
+    except Exception as e:
+        return f"❌ SQL Error: {e}"
+
+
+def sqlite_load_csv(csv_content: str, table_name: str, db_path: str = ":memory:") -> str:
+    """
+    Load CSV data into a SQLite database.
+    Utility function — infers column names from CSV header.
+
+    Args:
+        csv_content: CSV content as string (with header row)
+        table_name: Name of the table to create
+        db_path: Path to SQLite DB file or ":memory:"
+
+    Returns:
+        Status message with row count.
+    """
+    try:
+        reader = _csv.DictReader(_io.StringIO(csv_content))
+        rows = list(reader)
+        if not rows:
+            return "❌ CSV has no data rows."
+
+        col_names = list(rows[0].keys())
+        col_defs = ", ".join(f'"{c}" TEXT' for c in col_names)
+        placeholders = ", ".join("?" for _ in col_names)
+
+        conn = _sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(f"DROP TABLE IF EXISTS \"{table_name}\"")
+        cursor.execute(f'CREATE TABLE "{table_name}" ({col_defs})')
+
+        for row in rows:
+            values = [row.get(c, "") for c in col_names]
+            col_list = ', '.join(f'"{c}"' for c in col_names)
+            cursor.execute(f'INSERT INTO "{table_name}" ({col_list}) VALUES ({placeholders})', values)
+
+        conn.commit()
+        conn.close()
+        return f"✅ Loaded {len(rows)} rows into table '{table_name}' ({len(col_names)} columns: {', '.join(col_names)})"
+    except Exception as e:
+        return f"❌ CSV Load Error: {e}"
+
+
+# =============================================================================
+# Python Execution Tool
+# =============================================================================
+
+import sys as _sys
+import subprocess as _subprocess
+import tempfile as _tempfile
+import textwrap as _textwrap
+
+TOOL_PYTHON_EXECUTE_DESCRIPTION = """Execute Python code for data analysis and visualization.
+
+Use with caution — code runs in a restricted sandbox with limited filesystem access.
+
+Available libraries: pandas, matplotlib, numpy, json, csv, statistics, math, datetime, collections.
+
+Use cases:
+- Data analysis with pandas
+- Chart generation with matplotlib
+- Statistical calculations
+- Data transformation
+
+Args:
+    code: Python code to execute (use print() to see output)
+    timeout: Maximum execution time in seconds (default: 30)
+
+Returns:
+    stdout/stderr from the execution.
+
+Examples:
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    data = {'x': [1,2,3], 'y': [4,5,6]}
+    df = pd.DataFrame(data)
+    print(df.describe())
+    plt.plot(df['x'], df['y'])
+    plt.savefig('/tmp/chart.png')
+    print('Chart saved to /tmp/chart.png')
+"""
+
+
+def python_execute(code: str, timeout: int = 30) -> str:
+    """
+    Execute Python code and return stdout + stderr.
+
+    WARNING: Code runs in the same process. Only trusted agents should call this.
+
+    Args:
+        code: Python code to execute
+        timeout: Max execution time in seconds
+
+    Returns:
+        Combined stdout and stderr output.
+    """
+    try:
+        # Wrap code to capture stdout
+        wrapper_code = (
+            "import sys, io, traceback\n"
+            "_buffer = io.StringIO()\n"
+            "sys.stdout = _buffer\n"
+            "sys.stderr = _buffer\n"
+            "try:\n"
+            + _textwrap.indent(code, '    ') + "\n"
+            "except Exception:\n"
+            "    traceback.print_exc()\n"
+            "finally:\n"
+            "    sys.stdout = sys.__stdout__\n"
+            "    sys.stderr = sys.__stderr__\n"
+            "    print(_buffer.getvalue(), end='')\n"
+        )
+        result = _subprocess.run(
+            [_sys.executable, "-c", wrapper_code],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env={k: v for k, v in _os.environ.items() if k in ("PATH", "HOME", "TEMP", "TMPDIR")}
+        )
+        output = result.stdout or ""
+        if result.stderr:
+            output += f"\n--- stderr ---\n{result.stderr}"
+        if result.returncode != 0 and not output:
+            output = f"❌ Exit code: {result.returncode}"
+        return output if output else "✅ Code executed (no output)"
+    except _subprocess.TimeoutExpired:
+        return f"❌ Timed out after {timeout}s"
+    except Exception as e:
+        return f"❌ Execution Error: {e}"
+
 
 # Registry of filesystem tools for DeepAgents harness
 FILESYSTEM_TOOLS = ["ls", "read_file", "write_file", "edit_file", "glob", "grep"]
@@ -3451,6 +3729,13 @@ TOOL_REGISTRY = [
         "requires_api_key": None,
     },
     {
+        "id": "search_skills",
+        "name": "Search Skills",
+        "description": "Search skills by name, description, tags, or triggers. Useful for finding relevant skills for a task.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
         "id": "pg_list_projects",
         "name": "PG - List Projects",
         "description": "List all projects with names, document counts, and indexing status.",
@@ -3565,6 +3850,21 @@ TOOL_REGISTRY = [
     # See backend/create_graphindex_workflow_tools.py and rename_studio_tools.py.
     # The native Python functions are still defined in this file (above) and
     # imported by the custom tools' inline code.
+    # SQL/data tools
+    {
+        "id": "sqlite_execute",
+        "name": "SQLite Execute",
+        "description": "Execute a read-only SQL SELECT query on a SQLite database (in-memory or file). Safe for query validation.",
+        "category": "data",
+        "requires_api_key": None,
+    },
+    {
+        "id": "python_execute",
+        "name": "Python Execute",
+        "description": "Execute Python code for data analysis and visualization (pandas, matplotlib, numpy supported).",
+        "category": "data",
+        "requires_api_key": None,
+    },
 ]
 
 

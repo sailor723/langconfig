@@ -76,21 +76,27 @@ export default function GlobalChatModal() {
 
   // Get current session details
   const currentSession = sessions.find((s: ChatSession) => s.session_id === currentSessionId);
-  const agentName = currentSession?.agent_name || 'Agent';
-  const [agentDescription, setAgentDescription] = useState('');
 
-  // Fetch agent description when session/agent changes
+  // Use selected agent name as fallback when session hasn't caught up yet
+  const [fallbackAgentName, setFallbackAgentName] = useState('');
   useEffect(() => {
-    if (currentSession?.agent_id) {
+    if (selectedAgentId) {
       apiClient.listDeepAgents({ public_only: false }).then(res => {
         const agents = res.data || [];
-        const agent = agents.find((a: any) => a.id === currentSession.agent_id);
-        setAgentDescription(agent?.description || '');
-      }).catch(() => setAgentDescription(''));
-    } else {
-      setAgentDescription('');
+        const agent = agents.find((a: any) => a.id === selectedAgentId);
+        if (agent) {
+          setFallbackAgentName(agent.name);
+          setAgentDescription(agent.description || '');
+        }
+      }).catch(() => {});
     }
-  }, [currentSession?.agent_id]);
+  }, [selectedAgentId]);
+
+  const sessionMatchesSelected = currentSession && selectedAgentId && currentSession.agent_id === selectedAgentId;
+  const agentName = sessionMatchesSelected
+    ? (currentSession?.agent_name || fallbackAgentName || 'Agent')
+    : (fallbackAgentName || currentSession?.agent_name || 'Agent');
+  const [agentDescription, setAgentDescription] = useState('');
 
   // Handle ESC key
   useEffect(() => {
