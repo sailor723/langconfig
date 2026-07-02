@@ -456,6 +456,7 @@ export default function GlobalChatModal() {
               customEvents={customEvents}
               thinkingTraces={thinkingTraces}
               thinkingBuffer={thinkingBuffer}
+              agentName={agentName}
             />
 
             {/* Metrics Panel - Right Sidebar */}
