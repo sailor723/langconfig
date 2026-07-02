@@ -35,6 +35,7 @@ class AnalysisInitResponse(BaseModel):
     row_count: int
     col_count: int
     columns: list[str]
+    dashboard_file: Optional[str] = None  # path to generated HTML dashboard
 
 
 class AnalysisChatRequest(BaseModel):
@@ -79,6 +80,49 @@ async def list_dashboards():
     ]
 
 
+# ── Dashboard auto-generation helper ─────────────────────────────
+
+async def _auto_generate_dashboard(db_path: str) -> Optional[str]:
+    """Run the analysis agent to generate an interactive HTML dashboard, return file URL."""
+    import asyncio
+    import re
+
+    session_id = f"auto-dash-{Path(db_path).stem}"
+    dashboard_file = None
+    try:
+        dash_msg = (
+            'Generate an interactive HTML dashboard using Plotly for the data at '
+            f'{db_path}. MUST INCLUDE: 1) Control bar with filters for each categorical '
+            'column + Reset button, 2) KPI cards for key metrics, 3) 2-3 charts '
+            '(bar + pie + optional line), 4) Key insights section at bottom with '
+            '<ul id="insightList"> that updates dynamically. '
+            'Put ALL data rows in the JS array. '
+            'Save the HTML file in the analysis_dbs directory with python_execute. '
+            'Reply with just the filename that was saved.'
+        )
+        dash_result = await asyncio.wait_for(
+            _run_analysis_agent(
+                db_path=db_path,
+                message=dash_msg,
+                session_id=session_id,
+            ),
+            timeout=180,
+        )
+        full_text = dash_result.message or ""
+        fname_match = re.search(r'analysis_dbs/([\w.-]+\.html)', full_text)
+        if fname_match:
+            dashboard_file = f"/api/files/{fname_match.group(1)}"
+        else:
+            html_files = sorted(ANALYSIS_DBS_DIR.glob("*.html"), key=lambda f: f.stat().st_mtime, reverse=True)
+            if html_files:
+                dashboard_file = f"/api/files/{html_files[0].name}"
+    except asyncio.TimeoutError:
+        logger.warning(f"Dashboard generation timed out for {db_path}")
+    except Exception as e:
+        logger.error(f"Dashboard generation failed: {e}")
+    return dashboard_file
+
+
 # ── Upload: CSV file → SQLite ───────────────────────────────────────
 
 @router.post("/upload", response_model=AnalysisInitResponse)
@@ -86,7 +130,7 @@ async def analysis_upload(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    """Upload a CSV file, convert to SQLite, and return schema info."""
+    """Upload a CSV file, convert to SQLite, auto-generate dashboard, return schema."""
     import sqlite3
     from services.csv_to_sqlite import csv_to_sqlite_from_bytes
 
@@ -111,20 +155,24 @@ async def analysis_upload(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read schema: {e}")
 
+    # Auto-generate dashboard
+    dashboard_file = await _auto_generate_dashboard(db_path)
+
     return AnalysisInitResponse(
         db_path=db_path,
         table_name=table_name,
         row_count=row_count,
         col_count=len(cols),
         columns=cols,
+        dashboard_file=dashboard_file,
     )
 
 
-# ── Init: CSV → SQLite ──────────────────────────────────────────────
+# ── Init: CSV → SQLite (by path from sandbox) ────────────────────────
 
 @router.post("/init", response_model=AnalysisInitResponse)
 async def analysis_init(request: AnalysisInitRequest, db: Session = Depends(get_db)):
-    """Convert CSV by path to SQLite and return schema info."""
+    """Convert CSV by path to SQLite, auto-generate dashboard, return schema."""
     import sqlite3
     from services.csv_to_sqlite import csv_to_sqlite_from_bytes
 
@@ -138,7 +186,6 @@ async def analysis_init(request: AnalysisInitRequest, db: Session = Depends(get_
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to convert CSV: {e}")
 
-    # Get schema info
     try:
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
@@ -150,16 +197,20 @@ async def analysis_init(request: AnalysisInitRequest, db: Session = Depends(get_
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read schema: {e}")
 
+    # Auto-generate dashboard
+    dashboard_file = await _auto_generate_dashboard(db_path)
+
     return AnalysisInitResponse(
         db_path=db_path,
         table_name=request.table_name,
         row_count=row_count,
         col_count=len(cols),
         columns=cols,
+        dashboard_file=dashboard_file,
     )
 
 
-# ── Chat: Ask questions about the data ──────────────────────────────
+# ── Chat: Ask questions about the data
 
 @router.post("/chat", response_model=AnalysisChatResponse)
 async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_db)):
