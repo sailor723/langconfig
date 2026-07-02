@@ -6,7 +6,7 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
-import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot, Brain, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot, Brain, ChevronDown, ChevronRight, Wrench, BarChart3 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -15,6 +15,7 @@ import type { ChatMessage, SessionDocument, CustomEventPayload, ToolCall } from 
 import MessageInput from './MessageInput';
 import SessionDocumentsPanel from './SessionDocumentsPanel';
 import ThinkingBlock from './ThinkingBlock';
+import AnalysisPanel from './AnalysisPanel';
 import type { ThinkingStep } from './ThinkingBlock';
 import { ContentBlockRenderer } from '@/components/common/ContentBlockRenderer';
 import { ProgressCard, StatusBadge, FileOperationCard } from '@/features/workflows/execution/CustomEventCards';
@@ -53,6 +54,9 @@ export default function MessagesPanel({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
   const [showThinking, setShowThinking] = useState(false);
+  // Analysis panel state
+  const [lastCsvPath, setLastCsvPath] = useState<string | null>(null);
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -564,6 +568,30 @@ export default function MessagesPanel({
       {/* Session Documents Panel */}
       <SessionDocumentsPanel sessionId={sessionId} refreshKey={documentsRefreshKey} />
 
+      {/* Data Analysis Button — appears after CSV upload */}
+      {lastCsvPath && (
+        <div className="px-4 pb-2">
+          {showAnalysis ? (
+            <AnalysisPanel
+              sessionId={sessionId}
+              csvPath={lastCsvPath as string}
+              onClose={() => setShowAnalysis(false)}
+            />
+          ) : (
+            <button
+              onClick={() => setShowAnalysis(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 
+                         bg-gradient-to-r from-blue-500 to-blue-600 text-white 
+                         rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 
+                         transition-all shadow-sm hover:shadow-md"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Dashboard
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Input Area */}
       <div
         className="p-4"
@@ -590,14 +618,15 @@ export default function MessagesPanel({
             }
             // Auto-trigger data analysis after CSV upload
             if (docExt === 'csv' && onSendMessage) {
+              // Track for dashboard button — files are copied to sandbox at outputs/default/
+              const csvFullPath = `outputs/default/${file.filename}`;
+              setLastCsvPath(csvFullPath);
+              setShowAnalysis(false); // reset if previously open
               setTimeout(() => {
                 onSendMessage(
-                  `I just uploaded ${file.filename}. Please run the auto-analysis workflow: ` +
-                  `1) read the CSV to understand columns and data, ` +
-                  `2) generate 10 key metrics overview, ` +
-                  `3) identify top 3 findings, ` +
-                  `4) provide detailed analysis with charts, ` +
-                  `5) save results.`
+                  `I loaded ${file.filename}. ` +
+                  `Here's a quick overview: what columns and data types does it have? ` +
+                  `Then summarize the key metrics.`
                 );
               }, 500);
             }
