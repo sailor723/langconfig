@@ -40,7 +40,6 @@ export default function MessageInput({
     onSendMessage(message);
     setInputValue('');
 
-    // Focus back on input after sending
     setTimeout(() => {
       inputRef.current?.focus();
     }, 100);

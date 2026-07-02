@@ -13,6 +13,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { ChatMessage, CustomEventPayload, ToolCall } from '../types/chat';
 import MessageInput from './MessageInput';
+import CodexMessageInput from './CodexMessageInput';
 import SessionDocumentsPanel from './SessionDocumentsPanel';
 import ThinkingBlock from './ThinkingBlock';
 import AnalysisPanel from './AnalysisPanel';
@@ -34,6 +35,8 @@ interface MessagesPanelProps {
   customEvents?: Map<string, CustomEventPayload>;
   thinkingTraces?: ThinkingStep[][];
   thinkingBuffer?: string;
+  /** Optional agent name shown in composer footer (Codex style) */
+  agentName?: string;
 }
 
 export default function MessagesPanel({
@@ -49,6 +52,7 @@ export default function MessagesPanel({
   customEvents = new Map(),
   thinkingTraces = [],
   thinkingBuffer = '',
+  agentName,
 }: MessagesPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -59,6 +63,9 @@ export default function MessagesPanel({
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [analysisMeta, setAnalysisMeta] = useState<{rowCount: number; colCount: number} | null>(null);
   const [csvUploading, setCsvUploading] = useState(false);
+
+  // Derive project name for Codex empty state heading
+  const projectName = agentName || 'my workspace';
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -71,11 +78,84 @@ export default function MessagesPanel({
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  // ── CSV upload handler — calls /api/analysis/init + shows dashboard ─
+  const handleCsvUpload = (filename: string) => {
+    setShowAnalysis(false);
+    setCsvUploading(true);
+    const csvPath = `outputs/default/${filename}`;
+    fetch('/api/analysis/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        csv_path: csvPath,
+        table_name: filename.replace(/\.csv$/i, '').replace(/[^a-zA-Z0-9_]/g, '_'),
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setDashboardUrl(data.dashboard_file || '');
+        setAnalysisMeta({ rowCount: data.row_count, colCount: data.col_count });
+        setShowAnalysis(true);
+        setCsvUploading(false);
+        if (onSendMessage) {
+          onSendMessage(
+            `I loaded ${filename} (${data.row_count} rows, ${data.col_count} columns). ` +
+              `Here's a quick overview: what columns and data types does it have? ` +
+              `Then summarize the key metrics.`
+          );
+        }
+      })
+      .catch((err) => {
+        console.error('Analysis init failed:', err);
+        setCsvUploading(false);
+        if (onSendMessage) {
+          onSendMessage(
+            `I loaded ${filename}. ` +
+              `Here's a quick overview: what columns and data types does it have? ` +
+              `Then summarize the key metrics.`
+          );
+        }
+      });
+  };
+
+  // ── Empty state ───────────────────────────────────────────────
+  // Toggle Codex-style layout — true by default for new sessions
+  const useCodexLayout = true; // messages.length === 0;
+
   return (
     <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: 'var(--color-background-light)' }}>
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
-        {messages.length === 0 && !disabled ? (
+        {messages.length === 0 && !disabled && useCodexLayout ? (
+          // Codex-style empty state: centered heading + composer
+          <div className="flex flex-col items-center justify-center h-full min-h-full px-6">
+            <div className="w-full max-w-xl">
+              <h1 className="text-2xl font-semibold mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>
+                What should we build in <span className="font-bold">{projectName}</span>?
+              </h1>
+              <p className="text-sm mb-6 text-center" style={{ color: 'var(--color-text-muted)' }}>
+                Ask anything — code, data analysis, document Q&A, or just chat
+              </p>
+              <CodexMessageInput
+                onSendMessage={onSendMessage}
+                disabled={disabled}
+                isStreaming={isStreaming}
+                placeholder={disabled ? "Select an agent first..." : "Do anything"}
+                sessionId={sessionId}
+                projectId={projectId}
+                onFileUploaded={(file) => {
+                  handleCsvUpload(file.filename);
+                  onSendMessage(
+                    `A new document "${file.filename}" has been uploaded. Please read it and provide a briefing.`
+                  );
+                }}
+                agentName={agentName}
+              />
+            </div>
+          </div>
+        ) : messages.length === 0 && !disabled ? (
+          // Original empty state
           <div
             className="flex items-center justify-center h-full min-h-full"
             style={{ color: 'var(--color-text-muted)' }}
@@ -581,7 +661,7 @@ export default function MessagesPanel({
           )}
           {showAnalysis && dashboardUrl !== '' && (
             <AnalysisPanel
-              sessionId={sessionId}
+              sessionId={sessionId || ''}
               dashboardUrl={dashboardUrl}
               rowCount={analysisMeta?.rowCount}
               colCount={analysisMeta?.colCount}
@@ -605,17 +685,16 @@ export default function MessagesPanel({
         </div>
       )}
 
-      {/* Input Area */}
-      <div
-        className="p-4"
-      >
-        <MessageInput
+      {/* Input Area — Codex-style composer */}
+      <div className="px-4 pb-4">
+        <CodexMessageInput
           onSendMessage={onSendMessage}
           disabled={disabled}
           isStreaming={isStreaming}
-          placeholder={disabled ? "Select an agent first..." : "Type your message..."}
+          placeholder={disabled ? "Select an agent first..." : "Do anything"}
           sessionId={sessionId}
           projectId={projectId}
+          agentName={agentName}
           onFileUploaded={(file) => {
             console.log('File uploaded:', file);
             setDocumentsRefreshKey(k => k + 1);
