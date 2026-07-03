@@ -81,19 +81,6 @@ export default function ModernHeader({
 
       {/* Center: Navigation Tabs */}
       <nav className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
-        {/* Chat Button */}
-        <button
-          onClick={() => openChat()}
-          className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-all border bg-white/20 text-white font-semibold border-white/30 hover:bg-white/30"
-          title={t('nav_chat')}
-          style={{
-            textShadow: '0 1px 2px rgba(0, 0, 0, 0.25)',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <MessageSquare className="w-4 h-4" />
-          <span>Chat</span>
-        </button>
         <button
           onClick={() => onViewChange('studio')}
           className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'studio'
@@ -243,6 +230,16 @@ export default function ModernHeader({
 
       {/* Right: Project Selector & Action Buttons */}
       <div className="flex items-center gap-2">
+        {/* Chat Button */}
+        <button
+          onClick={() => openChat()}
+          className="flex items-center gap-2 px-3 h-10 rounded-lg transition-all bg-white/15 text-white font-semibold hover:bg-white/25 border border-white/20"
+          title={t('nav_chat')}
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span className="text-sm">Chat</span>
+        </button>
+
         {/* AGENTS.md Editor (project-level context for DeepAgent MemoryMiddleware) */}
         {activeProject && (
           <button
