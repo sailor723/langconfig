@@ -405,6 +405,45 @@ export default function MessagesPanel({
                                   <div style={{ color: 'var(--color-text-muted)' }} className="text-[11px] leading-relaxed">{thinkingBuffer}</div>
                                 </div>
                               )}
+                              {/* Todo steps from planning */}
+                              {(() => {
+                                const steps = Array.from(customEvents.entries())
+                                  .filter(([_, ev]) => ev.event_type === 'progress' || ev.event_type === 'status')
+                                  .map(([id, ev]) => ({
+                                    id,
+                                    label: ev.payload.label || ev.event_type,
+                                    status: ev.event_type === 'progress'
+                                      ? (ev.payload.status || 'running')
+                                      : (ev.payload.status || 'pending'),
+                                    message: ev.payload.message || '',
+                                  }));
+                                if (steps.length === 0) return null;
+                                const runningCount = steps.filter(s => s.status === 'running').length;
+                                const doneCount = steps.filter(s => s.status === 'success' || s.status === 'completed').length;
+                                return (
+                                  <div className="space-y-0.5 mb-1">
+                                    <div className="text-[10px] font-medium mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                                      Plan ({doneCount}/{steps.length})
+                                    </div>
+                                    {steps.map((step) => (
+                                      <div key={step.id} className="flex items-center gap-1.5 text-[11px]">
+                                        <span className="flex-shrink-0">
+                                          {step.status === 'success' || step.status === 'completed' ? '✅' :
+                                           step.status === 'running' ? '🔄' :
+                                           step.status === 'error' ? '❌' : '⏳'}
+                                        </span>
+                                        <span style={{ color: 'var(--color-text-primary)' }}>{step.label}</span>
+                                        {step.status === 'running' && (
+                                          <span className="text-blue-500 text-[10px] animate-pulse">in progress...</span>
+                                        )}
+                                        {step.message && step.status !== 'running' && (
+                                          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{step.message}</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                               {/* Tool calls (action steps) */}
                               {activeToolCalls.map((tc, i) => (
                                 <div key={i} className="flex items-start gap-1.5">
