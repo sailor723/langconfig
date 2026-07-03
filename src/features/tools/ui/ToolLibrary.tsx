@@ -12,9 +12,11 @@ import apiClient from '../../../lib/api-client';
 import CustomToolBuilder from './CustomToolBuilder';
 import type { CustomTool } from '@/types/customTools';
 import type { ChangeEvent } from 'react';
+import { useTheme } from '../../../lib/themes';
 
 const ToolLibrary = () => {
   const { t } = useTranslation('chat');
+  const { theme: activeTheme } = useTheme();
   const [tools, setTools] = useState<CustomTool[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -331,12 +333,14 @@ const ToolLibrary = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTools.map((tool) => (
+            {filteredTools.map((tool) => {
+              const cardBg = activeTheme?.colors?.panelDark || '#ffffff';
+              return (
               <div
                 key={tool.id}
                 className="rounded-lg border transition-colors p-5 relative"
                 style={{
-                  backgroundColor: 'var(--color-panel-dark)',
+                  backgroundColor: cardBg,
                   borderColor: 'var(--color-border-dark)',
                   borderLeft: `3px solid ${categories.find(c => c.id === tool.category)?.color || '#6b7280'}`
                 }}
@@ -472,7 +476,7 @@ const ToolLibrary = () => {
                   </button>
                 </div>
               </div>
-            ))}
+            );})}
           </div>
         )}
       </div>

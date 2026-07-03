@@ -8,7 +8,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../lib/api-client';
-import { themes, applyTheme, loadTheme, type ThemeName } from '../lib/themes';
+import { themes, useTheme, type ThemeName } from '../lib/themes';
 import LanguageSwitcher from '../i18n/LanguageSwitcher';
 import SettingsLayout, { SettingsCategory } from "../features/settings/ui/SettingsLayout";
 import LocalWorkspaceSettings from "../features/settings/ui/LocalWorkspaceSettings";
@@ -20,12 +20,12 @@ import SettingsSection, { SettingsInput } from '../features/settings/ui/Settings
 
 export default function SettingsView() {
   const { t } = useTranslation('chat');
+  const { theme: activeTheme, setTheme } = useTheme();
   const [currentCategory, setCurrentCategory] = useState<SettingsCategory>('general');
   const [isLoading, setIsLoading] = useState(true);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Theme state
-  const [currentTheme, setCurrentTheme] = useState<ThemeName>('dark');
 
   // Type definitions for settings
   interface LocalModelsSettings {
@@ -105,8 +105,6 @@ export default function SettingsView() {
     const abortController = new AbortController();
 
     loadSettings();
-    const theme = loadTheme();
-    setCurrentTheme(theme.name);
 
     return () => {
       abortController.abort();
@@ -134,9 +132,7 @@ export default function SettingsView() {
         // Load theme from backend (overrides localStorage)
         if (generalData.theme && themes[generalData.theme as ThemeName]) {
           const themeName = generalData.theme as ThemeName;
-          const theme = themes[themeName];
-          applyTheme(theme);
-          setCurrentTheme(themeName);
+          setTheme(themeName);
         }
       } catch (error) {
       }
@@ -291,9 +287,7 @@ export default function SettingsView() {
   }, [generalSettings, ragSettings, localModelsSettings, workspaceSettings, modelDefaultsSettings]);
 
   const handleThemeChange = (themeName: ThemeName) => {
-    const theme = themes[themeName];
-    applyTheme(theme);
-    setCurrentTheme(themeName);
+    setTheme(themeName);
     // Save to backend DB
     try {
       apiClient.updateGeneralSettings({ theme: themeName });
@@ -533,10 +527,10 @@ export default function SettingsView() {
                     onClick={() => handleThemeChange(theme.name)}
                     className="p-4 rounded-lg border-2 transition-all text-left hover:border-primary/50"
                     style={{
-                      borderColor: currentTheme === theme.name
+                      borderColor: activeTheme.name === theme.name
                         ? 'var(--color-primary)'
                         : 'var(--color-border-dark)',
-                      backgroundColor: currentTheme === theme.name
+                      backgroundColor: activeTheme.name === theme.name
                         ? 'var(--color-primary)' + '10'
                         : 'transparent'
                     }}

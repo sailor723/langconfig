@@ -4,6 +4,18 @@
 
 @import "tailwindcss";
 
+/* Use `.dark` class on <html> for dark mode (controlled by themes.ts).
+ * Without this, Tailwind v4 defaults to prefers-color-scheme media query,
+ * which breaks runtime theme switching.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Default theme tokens (LangConfig signature). Runtime themes.ts
+ * overrides these on document.documentElement at app startup and when
+ * the user switches themes. Tailwind utilities like `bg-primary` read
+ * the resolved value of `--color-primary`, so updating it at runtime
+ * automatically updates `bg-primary`, `text-primary`, etc.
+ */
 @theme {
   --color-primary: #2E5C8A;
   --color-background-light: #F5F9FC;
@@ -17,10 +29,65 @@
   --font-family-sans: Manrope, system-ui, -apple-system, sans-serif;
 }
 
+/* ── Dynamic theme classes ──────────────────────────────────────
+ * Applied by themes.ts → applyTheme() via classList on <html>.
+ * These override Tailwind's @theme :root defaults because class
+ * selectors have higher specificity.
+ */
+.theme-langconfig {
+  --color-primary: #2E5C8A;
+  --color-background-light: #F5F9FC;
+  --color-background-dark: #D8EDF5;
+  --color-panel-dark: #E3F0F5;
+  --color-border-dark: #2E5C8A;
+  --color-text-muted: #4A6B8A;
+  --color-text-primary: #1a2332;
+  --color-input-background: #FFFFFF;
+  --color-logo-background: #FFFFFF;
+  --color-node-background: #6B9E7E;
+  --color-node-background-light: #8AB5A0;
+  --color-category-background: #C5E0E5;
+  --color-header-background: #5B9BD5;
+  --color-header-text: #FFFFFF;
+}
+
+.theme-claude {
+  --color-primary: #D97706;
+  --color-background-light: #FAF8F5;
+  --color-background-dark: #F0EBE3;
+  --color-panel-dark: #F5F0E8;
+  --color-border-dark: #E0D6C8;
+  --color-text-muted: #8B7D6B;
+  --color-text-primary: #2D2416;
+  --color-input-background: #FFFFFF;
+  --color-logo-background: #FFFFFF;
+  --color-node-background: #F0EBE3;
+  --color-node-background-light: #E0D6C8;
+  --color-category-background: #E0D6C8;
+  --color-header-background: #D97706;
+  --color-header-text: #FFFFFF;
+}
+
+.theme-dark {
+  --color-primary: #5e5e5e;
+  --color-background-light: #0e0e0e;
+  --color-background-dark: #080808;
+  --color-panel-dark: #161616;
+  --color-border-dark: #242424;
+  --color-text-muted: #7a7a7a;
+  --color-text-primary: #d0d0d0;
+  --color-input-background: #1a1a1a;
+  --color-logo-background: #161616;
+  --color-node-background: #1a1a1a;
+  --color-node-background-light: #242424;
+  --color-category-background: #1a1a1a;
+  --color-header-background: #0e0e0e;
+  --color-header-text: #d0d0d0;
+}
+
 /* ── Codex Dark Gray Theme ───────────────────────────────────────
- * Apply class "theme-codex-dark" to any container (e.g. <html>, <body>,
- * or the chat modal) to activate Codex-style dark gray coloring.
- * Components that use var(--color-*) will pick up these values automatically.
+ * Apply class "theme-codex-dark" to any container to activate
+ * Codex-style dark gray coloring. Kept for legacy / modal use.
  ────────────────────────────────────────────────────────────────── */
 .theme-codex-dark {
   --color-primary: #4a9eff;
@@ -60,6 +127,32 @@
 }
 .theme-codex-dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Dark theme overrides ────────────────────────────────────────
+ * Target the top header nav buttons (text-white/90, bg-white/30)
+ * and force them to use theme header text color.
+ */
+[data-theme="dark"] button.text-white\/90,
+[data-theme="dark"] button.text-white\/90 * {
+  color: var(--color-header-text) !important;
+}
+
+[data-theme="dark"] button.bg-white\/30 {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-theme="dark"] button.hover\:bg-white\/15:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* LangConfig Logo image — needs to be inverted to white in dark mode.
+ * In light mode, brightness(0) invert(1) gives white which is hard to
+ * see on white sidebar. Hide the issue by checking theme. */
+[data-theme="dark"] img[src="/langconfignewlogo.png"] {
+  filter: brightness(0) invert(1);
+  opacity: 0.85;
 }
 
 /* ── Global resets ─────────────────────────────────────────────── */
@@ -781,6 +874,139 @@ select {
 /* ModernHeader nav buttons - dark text on warm amber bg */
 [data-theme="claude"] header button:not([style*="background-color"]),
 [data-theme="claude"] header .text-white\/90,
+[data-theme="claude"] header button .material-symbols-outlined {
+  color: #4A3F35 !important;
+  text-shadow: none !important;
+}
+
+/* ── Dark theme overrides ─────────────────────────────────────────
+ * Force backgrounds, text colors, cards, and inputs to the Codex
+ * dark palette.  These use !important to override inline styles and
+ * any Tailwind-generated rules that cached CSS may still reference.
+ ──────────────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  background-color: #0e0e0e;
+  color: #d0d0d0;
+}
+
+[data-theme="dark"] body {
+  background-color: #0e0e0e;
+}
+
+/* Cards, panels, and bordered containers */
+[data-theme="dark"] [style*="background-color: var(--color-panel-dark)"] {
+  background-color: #161616 !important;
+}
+
+[data-theme="dark"] [style*="background-color: var(--color-background-light)"] {
+  background-color: #0e0e0e !important;
+}
+
+[data-theme="dark"] [style*="background-color: var(--color-background-dark)"] {
+  background-color: #080808 !important;
+}
+
+[data-theme="dark"] [style*="background-color: var(--color-input-background)"] {
+  background-color: #1a1a1a !important;
+}
+
+[data-theme="dark"] .bg-white {
+  background-color: #161616 !important;
+}
+
+[data-theme="dark"] div[style*="box-shadow: 0 1px 2px rgba(0,0,0,0.05)"] {
+  background-color: #161616 !important;
+}
+
+[data-theme="dark"] .rounded-xl,
+[data-theme="dark"] .rounded-lg {
+  background-color: #161616;
+}
+
+/* Text colors */
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] p,
+[data-theme="dark"] span,
+[data-theme="dark"] .text-lg,
+[data-theme="dark"] .text-base,
+[data-theme="dark"] .text-sm,
+[data-theme="dark"] .text-xs {
+  color: #d0d0d0;
+}
+
+[data-theme="dark"] [style*="color: var(--color-text-muted)"] {
+  color: #7a7a7a !important;
+}
+
+[data-theme="dark"] [style*="color: var(--color-text-primary)"] {
+  color: #d0d0d0 !important;
+}
+
+/* Header / top bar */
+[data-theme="dark"] header {
+  background-color: #0e0e0e !important;
+  border-bottom: 1px solid #242424;
+}
+
+[data-theme="dark"] header button {
+  color: #d0d0d0 !important;
+}
+
+[data-theme="dark"] header .bg-white\/30 {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-theme="dark"] header button:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Inputs & textareas */
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background-color: #1a1a1a !important;
+  border-color: #242424 !important;
+  color: #d0d0d0 !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #7a7a7a !important;
+}
+
+/* Borders */
+[data-theme="dark"] [style*="border-bottom"],
+[data-theme="dark"] [style*="border-top"],
+[data-theme="dark"] [class*="border-b"],
+[data-theme="dark"] [class*="border-t"],
+[data-theme="dark"] [class*="border-r"],
+[data-theme="dark"] [class*="border-l"],
+[data-theme="dark"] hr,
+[data-theme="dark"] .divide-y > * {
+  border-color: #242424 !important;
+}
+
+/* Scrollbars */
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #333 !important;
+  border-radius: 8px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #0e0e0e;
+}
+
+/* Logo image in dark mode */
+[data-theme="dark"] img[alt="LangConfig Logo"],
+[data-theme="dark"] img[src*="langconfignewlogo"] {
+  filter: brightness(0) invert(1) !important;
+  opacity: 0.85 !important;
+}
+
 [data-theme="claude"] header button .material-symbols-outlined {
   color: #4A3F35 !important;
   text-shadow: none !important;

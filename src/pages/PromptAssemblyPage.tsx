@@ -160,7 +160,7 @@ export default function PromptAssemblyPage() {
         </div>
 
         {/* Agent Selector */}
-        <div className="mb-6 p-4 rounded-lg border bg-white" style={{ borderColor: '#e5e7eb' }}>
+        <div className="mb-6 p-4 rounded-lg border bg-white dark:bg-panel-dark" style={{ borderColor: '#e5e7eb' }}>
           <label className="block text-xs font-medium mb-1.5 uppercase" style={{ color: '#6b7280' }}>
             {t('prompt_select_label')}
           </label>
@@ -273,7 +273,7 @@ export default function PromptAssemblyPage() {
               {subagents.map((sa: SubAgentData, i: number) => (
                 activeTab === sa.name && (
                   <div key={sa.name}>
-                    <div className="mb-4 p-3 rounded-lg border bg-white" style={{ borderColor: '#e5e7eb' }}>
+                    <div className="mb-4 p-3 rounded-lg border bg-white dark:bg-panel-dark" style={{ borderColor: '#e5e7eb' }}>
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="text-sm font-semibold" style={{ color: '#111827' }}>{sa.name}</span>
@@ -296,7 +296,7 @@ export default function PromptAssemblyPage() {
             </div>
 
             {/* Bottom save bar */}
-            <div className="mt-6 flex items-center justify-between p-4 rounded-lg border bg-white" style={{ borderColor: '#e5e7eb' }}>
+            <div className="mt-6 flex items-center justify-between p-4 rounded-lg border bg-white dark:bg-panel-dark" style={{ borderColor: '#e5e7eb' }}>
               <span className="text-xs" style={{ color: '#6b7280' }}>
                 {t('prompt_editing')} <strong>{agent.name}</strong>
                 {subagents.length > 0 && ` · ${t('prompt_subagent_count', { count: subagents.length })}`}

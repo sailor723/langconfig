@@ -1,5 +1,5 @@
 ---
-name: SQL Data Analyst
+name: sql-analyst
 description: Analyzes SQLite/CSV data. Understands user's data, business context,
   and chart preferences - writes SQL, runs queries, generates charts or interactive
   dashboards.
