@@ -6,7 +6,7 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
-import { Activity, Copy, CheckCircle, AlertCircle, X, Brain, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2 } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, Brain, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -89,6 +89,16 @@ export default function MessagesPanel({
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
+  };
+  const downloadAsFile = (text: string, filename: string) => {
+    navigator.clipboard.writeText(text);
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // ── CSV upload handler — calls /api/analysis/init + shows dashboard ─
@@ -419,7 +429,7 @@ export default function MessagesPanel({
                                   }));
                                 if (steps.length === 0) return null;
                                 const runningCount = steps.filter(s => s.status === 'running').length;
-                                const doneCount = steps.filter(s => s.status === 'success' || s.status === 'completed').length;
+                                const doneCount = steps.filter(s => s.status === 'success').length;
                                 return (
                                   <div className="space-y-0.5 mb-1">
                                     <div className="text-[10px] font-medium mb-1" style={{ color: 'var(--color-text-muted)' }}>
@@ -428,7 +438,7 @@ export default function MessagesPanel({
                                     {steps.map((step) => (
                                       <div key={step.id} className="flex items-center gap-1.5 text-[11px]">
                                         <span className="flex-shrink-0">
-                                          {step.status === 'success' || step.status === 'completed' ? '✅' :
+                                          {step.status === 'success' ? '✅' :
                                            step.status === 'running' ? '🔄' :
                                            step.status === 'error' ? '❌' : '⏳'}
                                         </span>
@@ -498,6 +508,14 @@ export default function MessagesPanel({
                           ) : (
                             <Copy className="w-3 h-3" />
                           )}
+                        </button>
+                        <button
+                          onClick={() => downloadAsFile(message.content, `${message.role === 'assistant' ? 'answer' : 'question'}-${index}.md`)}
+                          className="p-1 hover:bg-gray-200 rounded transition-colors"
+                          title="Download as file"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          <Download className="w-3 h-3" />
                         </button>
                       </div>
                     </>
