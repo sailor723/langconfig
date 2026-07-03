@@ -164,11 +164,14 @@ settings = Settings()
 
 
 def get_api_key_from_db(key_name: str) -> Optional[str]:
-    """Read an API key from settings (reads from .env).
+    """Read an API key from .env (pydantic-settings), falling back to the DB.
 
-    This exists as a convenience for tools that query it by name,
-    e.g. get_api_key_from_db("tavily_api_key") → settings.TAVILY_API_KEY.
-    Falls back to the db settings table if not found in .env.
+    Resolution order:
+    1. .env file (via pydantic-settings) — canonical source of truth
+    2. DB settings.api_keys JSONB column — set via Settings UI at runtime
+
+    The DB fallback allows API keys to be configured through the Settings UI
+    when .env is not available or incomplete. .env always takes precedence.
     """
     # Try .env first via settings
     try:
