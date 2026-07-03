@@ -6,13 +6,12 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
-import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot, Brain, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2 } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, Brain, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { ChatMessage, CustomEventPayload, ToolCall } from '../types/chat';
-import MessageInput from './MessageInput';
 import CodexMessageInput from './CodexMessageInput';
 import SessionDocumentsPanel from './SessionDocumentsPanel';
 import ThinkingBlock from './ThinkingBlock';
@@ -134,14 +133,11 @@ export default function MessagesPanel({
               <h1 className="text-2xl font-semibold mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>
                 What should we build in <span className="font-bold">{projectName}</span>?
               </h1>
-              <p className="text-sm mb-6 text-center" style={{ color: 'var(--color-text-muted)' }}>
-                Ask anything — code, data analysis, document Q&A, or just chat
-              </p>
               <CodexMessageInput
                 onSendMessage={onSendMessage}
                 disabled={disabled}
                 isStreaming={isStreaming}
-                placeholder={disabled ? "Select an agent first..." : "Do anything"}
+                placeholder={disabled ? "No agent selected" : "Do anything"}
                 sessionId={sessionId}
                 projectId={projectId}
                 onFileUploaded={(file) => {
@@ -187,29 +183,12 @@ export default function MessagesPanel({
           {messages.map((message, index) => (
             <div
               key={index}
-              className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+              className="mb-3"
             >
-              {/* Avatar */}
-              {message.role !== 'system' && (
-                <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
-                  style={{
-                    backgroundColor: message.role === 'user' ? 'var(--color-primary)' : '#e5e7eb',
-                    color: message.role === 'user' ? 'white' : '#6b7280',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                  }}
-                >
-                  {message.role === 'user' ? (
-                    <User className="w-4 h-4" />
-                  ) : (
-                    <Bot className="w-4 h-4" style={{ color: '#6b7280' }} />
-                  )}
-                </div>
-              )}
+
 
               {/* Message Content */}
-              <div className={`flex-1 ${message.role === 'user' ? 'flex justify-end' : ''}`}>
+              <div className="w-full">
                 <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-6xl'}`}>
                   {message.role === 'system' ? (
                     <div
@@ -223,16 +202,13 @@ export default function MessagesPanel({
                     </div>
                   ) : (
                     <>
-                      {/* Message Bubble */}
+                      {/* Message Content */}
                       <div
-                        className={`rounded-2xl px-3.5 py-2 ${
-                          message.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'
-                        }`}
                         style={{
-                          backgroundColor: message.role === 'user' ? 'var(--color-primary)' : 'white',
-                          color: message.role === 'user' ? 'white' : 'var(--color-text-primary)',
-                          boxShadow: message.role === 'assistant' ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
-                          lineHeight: '1.5',
+                          padding: '4px 0',
+                          marginLeft: message.role === 'user' ? '0' : '0',
+                          borderLeft: message.role === 'user' ? '2px solid var(--color-primary)' : '2px solid transparent',
+                          paddingLeft: '12px',
                         }}
                       >
                         <div
@@ -417,24 +393,23 @@ export default function MessagesPanel({
                       )}
 
                       {/* Message Footer */}
-                      <div className={`flex items-center gap-2 mt-2 px-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className="flex items-center gap-3 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <span
-                          className="text-xs"
+                          className="text-[11px]"
                           style={{ color: 'var(--color-text-muted)' }}
                         >
-                          {new Date(message.timestamp).toLocaleTimeString()}
+                          {message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Assistant' : 'System'} · {new Date(message.timestamp).toLocaleTimeString()}
                         </span>
-
                         <button
                           onClick={() => copyToClipboard(message.content, index)}
-                          className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+                          className="p-1 hover:bg-gray-200 rounded transition-colors"
                           title="Copy message"
                           style={{ color: 'var(--color-text-muted)' }}
                         >
                           {copiedIndex === index ? (
-                            <CheckCircle className="w-3.5 h-3.5" style={{ color: '#10b981' }} />
+                            <CheckCircle className="w-3 h-3" style={{ color: '#10b981' }} />
                           ) : (
-                            <Copy className="w-3.5 h-3.5" />
+                            <Copy className="w-3 h-3" />
                           )}
                         </button>
                       </div>
@@ -445,16 +420,9 @@ export default function MessagesPanel({
             </div>
           ))}
 
-          {/* Streaming Indicator — minimal during tool phase */}
+          {/* Streaming Indicator */}
           {isStreaming && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
-            <div className="flex gap-4">
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
-                style={{ backgroundColor: '#e5e7eb', color: '#6b7280' }}
-              >
-                <Bot className="w-4 h-4 animate-pulse" />
-              </div>
-              <div className="flex-1 min-w-0 pt-1.5">
+            <div className="flex-1 min-w-0 ml-1">
                 {/* Compact toggle — no big bubble */}
                 <button
                   onClick={() => setShowThinking(v => !v)}
@@ -525,27 +493,18 @@ export default function MessagesPanel({
                   </div>
                 )}
               </div>
-            </div>
           )}
 
           {/* Custom Events (LangGraph-style progress, status, file operations) */}
           {customEvents.size > 0 && (
-            <div className="flex gap-4">
+            <div className="flex-1">
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}
+                className="px-3 py-2 space-y-2"
+                style={{
+                  borderLeft: '2px solid var(--color-primary)',
+                  paddingLeft: '12px',
+                }}
               >
-                <Activity className="w-4 h-4" />
-              </div>
-              <div className="flex-1">
-                <div
-                  className="rounded-2xl rounded-tl-sm px-5 py-3 space-y-2"
-                  style={{
-                    backgroundColor: 'white',
-                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-                    borderLeft: '3px solid var(--color-primary)'
-                  }}
-                >
                   {Array.from(customEvents.values()).map((event, idx) => {
                     const eventId = event.event_id || `custom-${idx}`;
 
@@ -616,7 +575,6 @@ export default function MessagesPanel({
                   })}
                 </div>
               </div>
-            </div>
           )}
 
           <div ref={messagesEndRef} />
@@ -691,7 +649,7 @@ export default function MessagesPanel({
           onSendMessage={onSendMessage}
           disabled={disabled}
           isStreaming={isStreaming}
-          placeholder={disabled ? "Select an agent first..." : "Do anything"}
+          placeholder={disabled ? "No agent selected" : "Do anything"}
           sessionId={sessionId}
           projectId={projectId}
           agentName={agentName}

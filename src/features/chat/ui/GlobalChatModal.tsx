@@ -5,9 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { X, GripVertical, BarChart3 } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
+import HitlInterruptModal from './HitlInterruptModal';
 import { useChatSession } from '../hooks/useChatSession';
 import { useChatStreaming } from '../hooks/useChatStreaming';
 import { useChatMetrics } from '../hooks/useChatMetrics';
@@ -44,6 +45,43 @@ export default function GlobalChatModal() {
   // HITL interrupt state
   const [pendingInterrupt, setPendingInterrupt] = useState<InterruptData | null>(null);
   const [isResuming, setIsResuming] = useState(false);
+  // Metrics panel visibility
+  const [showMetrics, setShowMetrics] = useState(false);
+
+  // Sidebar resize state
+  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartX = useRef(0);
+  const resizeStartWidth = useRef(260);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartX.current = e.clientX;
+    resizeStartWidth.current = sidebarWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    if (!isResizing) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizeStartX.current;
+      const newWidth = Math.max(180, Math.min(420, resizeStartWidth.current + delta));
+      setSidebarWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   // Session management hook
   const {
@@ -342,44 +380,41 @@ export default function GlobalChatModal() {
           border: '1px solid var(--color-border-dark)',
         }}
       >
-        {/* Left Sidebar - Conversation History (ChatGPT-style) */}
-        <ChatHistorySidebar onNewSession={handleNewSession} />
-
-        {/* Center + Right: Chat + Metrics */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Simple Header */}
+        {/* Left Sidebar + Resize Handle */}
+        <div className="flex flex-shrink-0" style={{ width: sidebarWidth }}>
+          <ChatHistorySidebar onNewSession={handleNewSession} />
+          {/* Resize Handle */}
           <div
-            className="flex items-center justify-between px-5 py-3"
+            onMouseDown={handleResizeStart}
+            className="w-2 cursor-col-resize flex items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors flex-shrink-0"
+            style={{
+              backgroundColor: isResizing ? 'var(--color-primary)' : 'transparent',
+            }}
           >
-            <div className="flex items-center gap-3">
-              {currentSessionId ? (
-                <div className="flex items-center gap-3">
-                  <AgentSelector
-                    selectedAgentId={selectedAgentId}
-                    onSelectAgent={handleStartSession}
-                    displayName={agentName}
-                  />
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <AgentSelector
-                    selectedAgentId={selectedAgentId}
-                    onSelectAgent={handleStartSession}
-                    displayName={agentName}
-                  />
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full"
-                    style={{
-                      backgroundColor: 'rgba(99,102,241,0.1)',
-                      color: 'var(--color-primary)',
-                    }}
-                  >
-                    Select an agent
-                  </span>
-                </div>
-              )}
-            </div>
+            <GripVertical className="w-3 h-3 opacity-30 hover:opacity-60 transition-opacity" />
+          </div>
+        </div>
+
+        {/* Center area: Chat */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Slim Header */}
+          <div className="flex items-center justify-between px-5 py-2 border-b" style={{ borderColor: 'var(--color-border-dark)' }}>
+            <AgentSelector
+              selectedAgentId={selectedAgentId}
+              onSelectAgent={handleStartSession}
+              displayName={agentName}
+            />
             <div className="flex items-center gap-1">
+              {/* Metrics toggle */}
+              {currentSessionId && (
+                <button
+                  onClick={() => setShowMetrics(v => !v)}
+                  className={`p-2 rounded-lg transition-colors ${showMetrics ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  title={showMetrics ? 'Hide metrics' : 'Show metrics'}
+                >
+                  <BarChart3 className="w-4 h-4" style={{ color: showMetrics ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
+                </button>
+              )}
               {/* Agent Creator workflow buttons */}
               {isAgentCreator && currentSessionId && (
                 <>
@@ -398,7 +433,7 @@ export default function GlobalChatModal() {
                       }}
                       title={saveError || 'Save designed agent to library'}
                     >
-                      {saving ? 'Saving...' : '💾 Save Agent'}
+                      {saving ? 'Saving...' : 'Save Agent'}
                     </button>
                   ) : (
                     <>
@@ -412,7 +447,7 @@ export default function GlobalChatModal() {
                         }}
                         title="Test with the newly created agent"
                       >
-                        🧪 Test New Agent
+                        Test New Agent
                       </button>
                       <button
                         onClick={() => handleStartSession(112)}
@@ -424,7 +459,7 @@ export default function GlobalChatModal() {
                         }}
                         title="Go back to Agent Creator for tuning"
                       >
-                        🔧 Tune
+                        Tune
                       </button>
                     </>
                   )}
@@ -440,9 +475,8 @@ export default function GlobalChatModal() {
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="flex flex-1 overflow-hidden">
-            {/* Messages Panel - Center */}
+          {/* Main Content - full width */}
+          <div className="flex-1 relative">
             <MessagesPanel
               messages={messages}
               isStreaming={isStreaming}
@@ -458,142 +492,34 @@ export default function GlobalChatModal() {
               thinkingBuffer={thinkingBuffer}
               agentName={agentName}
             />
-
-            {/* Metrics Panel - Right Sidebar */}
-            <MetricsPanel
-              metrics={metrics}
-              toolCalls={toolCalls}
-              activeToolCalls={activeToolCalls}
-              subagentActivity={subagentActivity}
-              isLoading={isLoadingMetrics}
-              agentName={agentName}
-              agentDescription={agentDescription}
-              sessionId={currentSessionId}
-            />
           </div>
-        </div>
-      </div>
 
-      {/* HITL Interrupt Modal */}
-      {pendingInterrupt && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]"
-          onClick={() => {}}  // Don't close on backdrop click
-        >
-          <div
-            className="bg-white dark:bg-panel-dark rounded-xl w-full max-w-lg shadow-2xl border"
-            style={{ borderColor: 'var(--color-border-dark)' }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="px-5 py-3 rounded-t-xl" style={{ backgroundColor: '#f59e0b' }}>
-              <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                ⏸️ Human Approval Required
-              </h3>
-              <p className="text-xs text-white/80 mt-0.5">
-                An agent action needs your approval before proceeding
-              </p>
-            </div>
-
-            {/* Body */}
-            <div className="p-5 space-y-4">
-              {pendingInterrupt.action_requests?.map((req, i) => (
-                <div key={i} className="p-3 rounded-lg border" style={{
-                  borderColor: 'var(--color-border-dark)',
-                  backgroundColor: 'var(--color-background-light)'
-                }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                      {req.name}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-                      Tool Call
-                    </span>
-                  </div>
-                  <div className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    {req.description && (
-                      <p className="italic">{req.description}</p>
-                    )}
-                    {req.args && Object.keys(req.args).length > 0 && (
-                      <pre className="mt-1 p-2 rounded text-xs font-mono overflow-x-auto" style={{
-                        backgroundColor: 'var(--color-background)',
-                        color: 'var(--color-text-primary)',
-                        maxHeight: '120px'
-                      }}>
-                        {JSON.stringify(req.args, null, 2)}
-                      </pre>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {(!pendingInterrupt.action_requests || pendingInterrupt.action_requests.length === 0) && (
-                <div className="p-3 rounded-lg border" style={{
-                  borderColor: 'var(--color-border-dark)',
-                  backgroundColor: 'var(--color-background-light)'
-                }}>
-                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Agent paused before executing actions.
-                  </p>
-                  {pendingInterrupt.tool_calls && pendingInterrupt.tool_calls.length > 0 && (
-                    <pre className="mt-2 p-2 rounded text-xs font-mono overflow-x-auto" style={{
-                      backgroundColor: 'var(--color-background)',
-                      color: 'var(--color-text-primary)',
-                      maxHeight: '120px'
-                    }}>
-                      {JSON.stringify(pendingInterrupt.tool_calls, null, 2)}
-                    </pre>
-                  )}
-                  {pendingInterrupt.next_nodes && (
-                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                      Next nodes: {pendingInterrupt.next_nodes.join(', ')}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="px-5 py-3 border-t flex items-center justify-end gap-2" style={{
-              borderColor: 'var(--color-border-dark)'
+          {/* Metrics Panel - Slide-out bottom drawer */}
+          {currentSessionId && showMetrics && (
+            <div className="border-t overflow-y-auto" style={{
+              borderColor: 'var(--color-border-dark)',
+              maxHeight: '33vh',
             }}>
-              <button
-                onClick={() => handleResume('reject')}
-                disabled={isResuming}
-                className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
-                style={{
-                  borderColor: 'var(--color-border-dark)',
-                  color: 'var(--color-text-primary)',
-                  backgroundColor: 'var(--color-background-light)'
-                }}
-              >
-                Reject
-              </button>
-              {pendingInterrupt.review_configs?.[0]?.allowed_decisions?.includes('edit') && (
-                <button
-                  onClick={() => handleResume('edit')}
-                  disabled={isResuming}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
-                  style={{
-                    borderColor: 'var(--color-border-dark)',
-                    color: 'var(--color-text-primary)',
-                    backgroundColor: 'var(--color-background-light)'
-                  }}
-                >
-                  Edit
-                </button>
-              )}
-              <button
-                onClick={() => handleResume('approve')}
-                disabled={isResuming}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: '#16a34a' }}
-              >
-                {isResuming ? 'Resuming...' : 'Approve'}
-              </button>
+              <MetricsPanel
+                metrics={metrics}
+                toolCalls={toolCalls}
+                activeToolCalls={activeToolCalls}
+                subagentActivity={subagentActivity}
+                isLoading={isLoadingMetrics}
+                agentName={agentName}
+                agentDescription={agentDescription}
+                sessionId={currentSessionId}
+              />
             </div>
-          </div>
+          )}
         </div>
+      </div>      {/* HITL Interrupt Modal */}
+      {pendingInterrupt && (
+        <HitlInterruptModal
+          pendingInterrupt={pendingInterrupt}
+          isResuming={isResuming}
+          onResume={handleResume}
+        />
       )}
     </div>
   );
