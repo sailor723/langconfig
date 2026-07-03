@@ -329,7 +329,7 @@ function AgentItem({ agent, isSelected, onClick }: AgentItemProps) {
       className="w-full px-4 py-3 text-left transition-colors border-b"
       style={{
         borderColor: 'var(--color-border-dark)',
-        backgroundColor: isHovered ? 'var(--color-primary)' : 'transparent',
+        backgroundColor: isHovered ? 'rgba(99,102,241,0.06)' : 'transparent',
       }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -337,7 +337,7 @@ function AgentItem({ agent, isSelected, onClick }: AgentItemProps) {
           <div
             className="text-sm font-medium truncate flex items-center gap-2"
             style={{
-              color: isHovered ? 'white' : isSelected ? 'var(--color-primary)' : 'var(--color-text-primary)',
+              color: isHovered ? 'var(--color-primary)' : isSelected ? 'var(--color-primary)' : 'var(--color-text-primary)',
             }}
           >
             {agent.name}
@@ -345,7 +345,7 @@ function AgentItem({ agent, isSelected, onClick }: AgentItemProps) {
           {agent.description && (
             <div
               className="text-xs mt-1 line-clamp-2"
-              style={{ color: isHovered ? 'white' : 'var(--color-text-muted)' }}
+              style={{ color: isHovered ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}
             >
               {agent.description}
             </div>
@@ -354,8 +354,8 @@ function AgentItem({ agent, isSelected, onClick }: AgentItemProps) {
             <div
               className="text-xs mt-1 px-2 py-0.5 rounded inline-block"
               style={{
-                backgroundColor: isHovered ? 'rgba(255, 255, 255, 0.2)' : 'var(--color-category-background)',
-                color: isHovered ? 'white' : 'var(--color-text-muted)',
+                backgroundColor: isHovered ? 'rgba(99,102,241,0.1)' : 'var(--color-category-background)',
+                color: isHovered ? 'var(--color-primary)' : 'var(--color-text-muted)',
               }}
             >
               {agent.category}
@@ -363,7 +363,7 @@ function AgentItem({ agent, isSelected, onClick }: AgentItemProps) {
           )}
         </div>
         {isSelected && (
-          <span className="material-symbols-outlined text-base" style={{ color: isHovered ? 'white' : 'var(--color-primary)' }}>
+          <span className="material-symbols-outlined text-base" style={{ color: 'var(--color-primary)' }}>
             check
           </span>
         )}

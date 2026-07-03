@@ -12,7 +12,7 @@
  *   └──────────────────────────────────────────┘
  */
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
-import { Send, ChevronDown } from 'lucide-react';
+import { Send } from 'lucide-react';
 import FileUploadButton from './FileUploadButton';
 import type { SessionDocument } from '../types/chat';
 
@@ -103,18 +103,6 @@ export default function CodexMessageInput({
             onFileUploaded={onFileUploaded}
             disabled={disabled || isStreaming}
           />
-
-          <button
-            type="button"
-            disabled={disabled || isStreaming}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
-                       hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            style={{ color: 'var(--color-text-primary)' }}
-            title="Choose approval mode"
-          >
-            <span>Ask for approval</span>
-            <ChevronDown className="w-3 h-3 opacity-60" />
-          </button>
         </div>
 
         {/* Round send button */}

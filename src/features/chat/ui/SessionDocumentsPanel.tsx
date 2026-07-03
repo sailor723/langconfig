@@ -20,6 +20,7 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
   const { t } = useTranslation('chat');
   const [documents, setDocuments] = useState<SessionDocument[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   useEffect(() => {
     if (sessionId) {
@@ -44,14 +45,13 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
   };
 
   const handleDelete = async (docId: number) => {
-    if (!window.confirm('Delete this document?')) return;
-
     try {
       await apiClient.delete(`/api/chat/${sessionId}/documents/${docId}`);
       setDocuments(docs => docs.filter(d => d.id !== docId));
+      setDeleteConfirmId(null);
     } catch (error) {
       console.error('Failed to delete document:', error);
-      alert('Failed to delete document');
+      setDeleteConfirmId(null);
     }
   };
 
@@ -101,24 +101,45 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
       ) : (
         <div className="flex flex-wrap justify-center gap-1.5 max-h-24 overflow-y-auto">
           {documents.map(doc => (
-            <div
-              key={doc.id}
-              className="flex flex-col items-center gap-0.5 p-2 rounded-lg border relative"
-              style={{
-                backgroundColor: 'white',
-                borderColor: 'var(--color-border-dark)',
+          <div
+            key={doc.id}
+            className="flex flex-col items-center gap-0.5 p-2 rounded-lg border relative group"
+            style={{
+              backgroundColor: 'white',
+              borderColor: 'var(--color-border-dark)',
                 width: 'fit-content',
                 minWidth: '90px'
               }}
             >
               <button
-                onClick={() => handleDelete(doc.id)}
+                onClick={() => setDeleteConfirmId(doc.id)}
                 className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full transition-colors hover:bg-red-50"
                 title={t('delete_document')}
                 style={{ color: '#ef4444', backgroundColor: 'white', border: '1px solid var(--color-border-dark)' }}
               >
                 <Trash2 className="w-2.5 h-2.5" />
               </button>
+              {deleteConfirmId === doc.id && (
+                <div className="absolute inset-0 rounded-lg flex items-center justify-center gap-1 z-10" style={{
+                  backgroundColor: 'rgba(255,255,255,0.95)',
+                }}>
+                  <span className="text-[10px] font-medium" style={{ color: 'var(--color-text-primary)' }}>Delete?</span>
+                  <button
+                    onClick={() => handleDelete(doc.id)}
+                    className="text-[10px] px-1.5 py-0.5 rounded font-medium text-white"
+                    style={{ backgroundColor: '#ef4444' }}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirmId(null)}
+                    className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                    style={{ backgroundColor: '#e5e7eb', color: 'var(--color-text-primary)' }}
+                  >
+                    No
+                  </button>
+                </div>
+              )}
               <div className="flex items-center justify-center gap-1 min-w-0">
                 <File className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
                 <span
