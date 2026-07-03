@@ -102,9 +102,7 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
     <div
       className="flex flex-col transition-all duration-200 border-r"
       style={{
-        width: '260px',
-        minWidth: '260px',
-        backgroundColor: 'var(--color-panel, #f9fafb)',
+        backgroundColor: 'var(--color-panel-dark, var(--color-panel, #f9fafb))',
         borderColor: 'var(--color-border-dark)',
       }}
     >

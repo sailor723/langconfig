@@ -105,7 +105,7 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
             key={doc.id}
             className="flex flex-col items-center gap-0.5 p-2 rounded-lg border relative group"
             style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--color-background-light)',
               borderColor: 'var(--color-border-dark)',
                 width: 'fit-content',
                 minWidth: '90px'
@@ -115,7 +115,7 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
                 onClick={() => setDeleteConfirmId(doc.id)}
                 className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full transition-colors hover:bg-red-50"
                 title={t('delete_document')}
-                style={{ color: '#ef4444', backgroundColor: 'white', border: '1px solid var(--color-border-dark)' }}
+                style={{ color: '#ef4444', backgroundColor: 'var(--color-background-light)', border: '1px solid var(--color-border-dark)' }}
               >
                 <Trash2 className="w-2.5 h-2.5" />
               </button>

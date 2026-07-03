@@ -92,7 +92,7 @@ export default function ChatSettingsMenu({
           <div
             className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg border z-50"
             style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--color-background-light)',
               borderColor: 'var(--color-border-dark)',
             }}
           >

@@ -376,7 +376,7 @@ export default function GlobalChatModal() {
         ref={modalRef}
         className="rounded-xl shadow-2xl w-full max-w-[95vw] h-[90vh] flex overflow-hidden"
         style={{
-          backgroundColor: 'white',
+          backgroundColor: 'var(--color-background-light)',
           border: '1px solid var(--color-border-dark)',
         }}
       >

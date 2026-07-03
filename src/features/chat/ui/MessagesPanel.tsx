@@ -643,7 +643,7 @@ export default function MessagesPanel({
         </div>
       )}
 
-      {/* Input Area — Codex-style composer */}
+      {(messages.length > 0 || disabled) && (
       <div className="px-4 pb-4">
         <CodexMessageInput
           onSendMessage={onSendMessage}
@@ -713,6 +713,7 @@ export default function MessagesPanel({
           }}
         />
       </div>
+      )}
     </div>
   );
 }
