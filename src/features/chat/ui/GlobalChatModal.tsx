@@ -6,9 +6,10 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { X, GripVertical, BarChart3 } from 'lucide-react';
+import { X, GripVertical, BarChart3, FileText } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
 import HitlInterruptModal from './HitlInterruptModal';
+import ContextPanel from './ContextPanel';
 import { useChatSession } from '../hooks/useChatSession';
 import { useChatStreaming } from '../hooks/useChatStreaming';
 import { useChatMetrics } from '../hooks/useChatMetrics';
@@ -47,6 +48,7 @@ export default function GlobalChatModal() {
   const [isResuming, setIsResuming] = useState(false);
   // Metrics panel visibility
   const [showMetrics, setShowMetrics] = useState(false);
+  const [showContext, setShowContext] = useState(false);
 
   // Sidebar resize state
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -405,15 +407,24 @@ export default function GlobalChatModal() {
               displayName={agentName}
             />
             <div className="flex items-center gap-1">
-              {/* Metrics toggle */}
+              {/* Side panel toggles */}
               {currentSessionId && (
+                <>
                 <button
-                  onClick={() => setShowMetrics(v => !v)}
+                  onClick={() => { setShowMetrics(v => !v); if (!showMetrics) setShowContext(false); }}
                   className={`p-2 rounded-lg transition-colors ${showMetrics ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                   title={showMetrics ? 'Hide metrics' : 'Show metrics'}
                 >
                   <BarChart3 className="w-4 h-4" style={{ color: showMetrics ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                 </button>
+                <button
+                  onClick={() => { setShowContext(v => !v); if (!showContext) setShowMetrics(false); }}
+                  className={`p-2 rounded-lg transition-colors ${showContext ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                  title={showContext ? 'Hide context' : 'Show context'}
+                >
+                  <FileText className="w-4 h-4" style={{ color: showContext ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
+                </button>
+                </>
               )}
               {/* Agent Creator workflow buttons */}
               {isAgentCreator && currentSessionId && (
@@ -502,6 +513,14 @@ export default function GlobalChatModal() {
                   isLoading={isLoadingMetrics}
                   agentName={agentName}
                   agentDescription={agentDescription}
+                  sessionId={currentSessionId}
+                />
+              </div>
+            )}
+            {currentSessionId && showContext && (
+              <div className="border-l w-56 overflow-y-auto flex-shrink-0" style={{ borderColor: 'var(--color-border-dark)' }}>
+                <ContextPanel
+                  selectedAgentId={selectedAgentId}
                   sessionId={currentSessionId}
                 />
               </div>
