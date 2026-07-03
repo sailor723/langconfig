@@ -54,7 +54,7 @@ export default function SessionSelector({ onNewSession }: SessionSelectorProps) 
         className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors hover:bg-gray-50"
         style={{
           borderColor: 'var(--color-border-dark)',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--color-background-light)',
           color: 'var(--color-text-primary)',
         }}
         title="View conversation history"
@@ -73,7 +73,7 @@ export default function SessionSelector({ onNewSession }: SessionSelectorProps) 
           <div
             className="absolute right-0 mt-2 w-80 rounded-lg shadow-lg border z-50 max-h-96 overflow-hidden flex flex-col"
             style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--color-background-light)',
               borderColor: 'var(--color-border-dark)',
             }}
           >

@@ -127,7 +127,7 @@ export default function AgentSelector({
           <div
             className="absolute left-0 mt-2 w-96 rounded-lg shadow-lg border z-50 max-h-[32rem] overflow-hidden flex flex-col"
             style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--color-background-light)',
               borderColor: 'var(--color-border-dark)',
             }}
           >
