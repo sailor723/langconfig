@@ -130,7 +130,7 @@ export default function MessagesPanel({
           // Codex-style empty state: centered heading + composer
           <div className="flex flex-col items-center justify-center h-full min-h-full px-6">
             <div className="w-full max-w-xl">
-              <h1 className="text-2xl font-semibold mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>
+              <h1 className="text-xl font-semibold mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>
                 What should we build in <span className="font-bold">{projectName}</span>?
               </h1>
               <CodexMessageInput
@@ -162,7 +162,7 @@ export default function MessagesPanel({
                 style={{
                   backgroundColor: 'var(--color-primary)',
                   color: 'white',
-                  fontSize: '1.25rem',
+                  fontSize: '1rem',
                 }}
               >
                 ✦
@@ -212,7 +212,7 @@ export default function MessagesPanel({
                         }}
                       >
                         <div
-                          className="prose prose-xs max-w-none"
+                          className="prose prose-sm max-w-none"
                           style={{
                             color: message.role === 'user' ? 'white' : 'inherit',
                             lineHeight: '1.55',
@@ -242,7 +242,7 @@ export default function MessagesPanel({
                                   </div>
                                 ) : (
                                   <code
-                                    className={`${className} px-1 py-0.5 rounded text-[0.7rem]`}
+                                    className={`${className} px-1 py-0.5 rounded text-[0.75rem]`}
                                     style={{
                                       backgroundColor: message.role === 'user' ? 'rgba(255,255,255,0.2)' : '#f3f4f6',
                                       color: message.role === 'user' ? 'white' : '#1f2937',
@@ -264,7 +264,7 @@ export default function MessagesPanel({
                                 return <ol style={{ marginLeft: '1.1rem', marginBottom: '0.5rem' }}>{children}</ol>;
                               },
                               h1({ children }) {
-                                return <h1 style={{ fontSize: '0.95rem', fontWeight: '600', marginTop: '0.6rem', marginBottom: '0.3rem' }}>{children}</h1>;
+                                return <h1 style={{ fontSize: '1rem', fontWeight: '600', marginTop: '0.6rem', marginBottom: '0.3rem' }}>{children}</h1>;
                               },
                               h2({ children }) {
                                 return <h2 style={{ fontSize: '0.875rem', fontWeight: '600', marginTop: '0.55rem', marginBottom: '0.3rem' }}>{children}</h2>;
@@ -280,7 +280,7 @@ export default function MessagesPanel({
                                       style={{
                                         width: '100%',
                                         borderCollapse: 'collapse',
-                                        fontSize: '0.7rem',
+                                        fontSize: '0.75rem',
                                         border: '1px solid #e5e7eb',
                                         borderRadius: '0.375rem',
                                         overflow: 'hidden',
