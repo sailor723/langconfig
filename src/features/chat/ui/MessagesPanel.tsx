@@ -14,10 +14,9 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { ChatMessage, CustomEventPayload, ToolCall } from '../types/chat';
 import CodexMessageInput from './CodexMessageInput';
 import SessionDocumentsPanel from './SessionDocumentsPanel';
-import ThinkingBlock from './ThinkingBlock';
 import AnalysisPanel from './AnalysisPanel';
-import type { ThinkingStep } from './ThinkingBlock';
 import { ContentBlockRenderer } from '@/components/common/ContentBlockRenderer';
+import type { ThinkingStep } from './ThinkingBlock';
 import { ProgressCard, StatusBadge, FileOperationCard } from '@/features/workflows/execution/CustomEventCards';
 import type { ProgressEvent, StatusEvent, FileStatusEvent } from '@/hooks/useCustomEvents';
 
@@ -57,6 +56,8 @@ export default function MessagesPanel({
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
   const [showThinking, setShowThinking] = useState(false);
+  const streamingStartRef = useRef<number>(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
   // Analysis panel state — dashboard auto-generated after CSV upload
   const [dashboardUrl, setDashboardUrl] = useState('');
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -65,6 +66,19 @@ export default function MessagesPanel({
 
   // Derive project name for Codex empty state heading
   const projectName = agentName || 'my workspace';
+
+  // Live timer for streaming thinking duration
+  useEffect(() => {
+    if (!isStreaming) {
+      setElapsedMs(0);
+      return;
+    }
+    if (streamingStartRef.current === 0) streamingStartRef.current = Date.now();
+    const interval = setInterval(() => {
+      setElapsedMs(Date.now() - streamingStartRef.current);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [isStreaming]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -357,38 +371,56 @@ export default function MessagesPanel({
                         )}
                       </div>
 
-                      {/* Thinking Block — show tool calls for this assistant message */}
-                      {message.role === 'assistant' && (() => {
-                        const aiIdx = messages.slice(0, index + 1).filter(m => m.role === 'assistant').length - 1;
-                        const trace = thinkingTraces[aiIdx] || [];
-                        return <ThinkingBlock steps={trace} />;
-                      })()}
-
-                      {/* During streaming: thinking toggle inside the last assistant message */}
-                      {isStreaming && message.role === 'assistant' && index === messages.length - 1 && (activeToolCalls.length > 0 || thinkingBuffer) && (
-                        <div className="mt-1 px-2">
-                          <button
-                            onClick={() => setShowThinking(v => !v)}
-                            className="flex items-center gap-1 text-xs transition-colors rounded px-1.5 py-0.5 hover:bg-black/5"
-                            style={{ color: 'var(--color-text-muted)' }}
+                      {/* Thinking & Tool Calls inline */}
+                      {message.role === 'assistant' && isStreaming && index === messages.length - 1 && (activeToolCalls.length > 0 || thinkingBuffer) && (
+                        <div className="mt-2 space-y-1">
+                          {/* Inline thinking block */}
+                          <div
+                            className="rounded-lg border-l-2 p-2.5 text-xs space-y-1.5"
+                            style={{
+                              borderLeftColor: 'var(--color-primary)',
+                              borderColor: 'var(--color-border-dark, #e5e7eb)',
+                              backgroundColor: 'var(--color-input-background, #f9fafb)',
+                            }}
                           >
-                            {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                            <Brain className="w-3 h-3" />
-                            <span>{showThinking ? 'Hide thinking' : `Show thinking (${activeToolCalls.length} active)`}</span>
-                          </button>
-                          {/* Expanded: show thinking text */}
-                          {showThinking && thinkingBuffer && (
-                            <div
-                              className="mt-1 rounded-lg border p-3 text-xs whitespace-pre-wrap"
-                              style={{
-                                backgroundColor: 'rgba(99,102,241,0.04)',
-                                borderColor: 'var(--color-border-dark, #e5e7eb)',
-                                color: 'var(--color-text-muted)',
-                              }}
-                            >
-                              {thinkingBuffer}
+                            {/* Thinking buffer (current work) */}
+                            {thinkingBuffer && (
+                              <div className="flex items-start gap-1.5">
+                                <span className="text-muted flex-shrink-0 mt-0.5">💡</span>
+                                <div style={{ color: 'var(--color-text-muted)' }} className="text-[11px] leading-relaxed">{thinkingBuffer}</div>
+                              </div>
+                            )}
+                            {/* Tool calls (action steps) */}
+                            {activeToolCalls.map((tc, i) => (
+                              <div key={i} className="flex items-start gap-1.5">
+                                <span className="flex-shrink-0 mt-0.5">{tc.status === 'running' ? '🔧' : '✅'}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-medium text-xs" style={{ color: 'var(--color-text-primary)' }}>
+                                      {tc.tool_name}
+                                    </span>
+                                    {tc.status === 'running' ? (
+                                      <span className="text-blue-500 text-[10px] animate-pulse">running...</span>
+                                    ) : (
+                                      <span style={{ color: '#10b981' }} className="text-[10px]">done</span>
+                                    )}
+                                    <span className="text-[10px] ml-auto" style={{ color: 'var(--color-text-muted)' }}>
+                                      {tc.timestamp ? ((Date.now() - new Date(tc.timestamp).getTime()) / 1000).toFixed(1) + 's' : ''}
+                                    </span>
+                                  </div>
+                                  {tc.arguments && Object.keys(tc.arguments).length > 0 && Object.values(tc.arguments).some(v => v) && (
+                                    <div className="text-[10px] truncate mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                                      {JSON.stringify(tc.arguments).slice(0, 120)}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            {/* Total elapsed */}
+                            <div className="text-[10px] pt-1 border-t" style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-border-dark)' }}>
+                              Total: {(elapsedMs / 1000).toFixed(1)}s
                             </div>
-                          )}
+                          </div>
                         </div>
                       )}
 
@@ -419,82 +451,6 @@ export default function MessagesPanel({
               </div>
             </div>
           ))}
-
-          {/* Streaming Indicator */}
-          {isStreaming && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
-            <div className="flex-1 min-w-0 ml-1">
-                {/* Compact toggle — no big bubble */}
-                <button
-                  onClick={() => setShowThinking(v => !v)}
-                  className="flex items-center gap-1.5 text-xs transition-colors rounded-md px-2 py-1 hover:bg-black/5"
-                  style={{ color: 'var(--color-text-muted)' }}
-                >
-                  {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                  <Brain className="w-3 h-3" />
-                  <span>{showThinking ? 'Hide thinking' : `Show thinking (${activeToolCalls.length} active)`}</span>
-                  {!showThinking && activeToolCalls.length > 0 && <span className="ml-1 text-xs opacity-60 animate-pulse">Thinking...</span>}
-                  {!showThinking && activeToolCalls.length === 0 && <span className="ml-1 text-xs opacity-60 animate-pulse">Processing...</span>}
-                </button>
-
-                {/* Expanded: show thinking text + active tool calls */}
-                {showThinking && (
-                  <div className="mt-2">
-                    {thinkingBuffer && (
-                      <div
-                        className="rounded-lg border p-3 text-xs whitespace-pre-wrap mb-2"
-                        style={{
-                          backgroundColor: 'rgba(99,102,241,0.04)',
-                          borderColor: 'var(--color-border-dark, #e5e7eb)',
-                          color: 'var(--color-text-muted)',
-                        }}
-                      >
-                        {thinkingBuffer}
-                      </div>
-                    )}
-                    {activeToolCalls.length === 0 ? (
-                      !thinkingBuffer && (
-                        <div className="text-xs italic px-2" style={{ color: 'var(--color-text-muted)' }}>
-                          Waiting for tool calls...
-                        </div>
-                      )
-                    ) : (
-                      <div
-                        className="rounded-lg border text-xs font-mono overflow-hidden"
-                        style={{
-                          backgroundColor: 'var(--color-background-dark, #f9fafb)',
-                          borderColor: 'var(--color-border-dark, #e5e7eb)',
-                        }}
-                      >
-                        <div className="max-h-72 overflow-y-auto p-3 space-y-2">
-                          {activeToolCalls.map((tc, i) => (
-                            <div key={i} className="flex items-start gap-2">
-                              <Wrench className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                                  🔧 {tc.tool_name} <span className="text-xs opacity-60">{tc.status === 'running' ? '...' : '✓'}</span>
-                                </div>
-                                {tc.arguments && (
-                                  <pre className="mt-0.5 p-1.5 rounded text-[11px] whitespace-pre-wrap overflow-x-auto" style={{ backgroundColor: 'rgba(0,0,0,0.03)', color: 'var(--color-text-muted)' }}>
-                                    {JSON.stringify(tc.arguments, null, 2).slice(0, 200)}
-                                  </pre>
-                                )}
-                                {tc.result && (
-                                  <div className="mt-0.5 p-1.5 rounded text-[11px]" style={{ backgroundColor: 'rgba(16,185,129,0.06)', color: 'var(--color-text-muted)' }}>
-                                    {tc.result.slice(0, 200)}
-                                    {tc.result.length > 200 && '...'}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-          )}
-
           {/* Custom Events (LangGraph-style progress, status, file operations) */}
           {customEvents.size > 0 && (
             <div className="flex-1">
