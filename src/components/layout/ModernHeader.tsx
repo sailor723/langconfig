@@ -28,7 +28,7 @@ export default function ModernHeader({
   const { t } = useTranslation('chat');
 
   return (
-    <header className="flex items-center justify-between whitespace-nowrap border-b px-4 py-4 z-20 shrink-0 h-20" style={{ backgroundColor: 'var(--color-primary)', borderBottomColor: 'var(--color-border-dark)' }}>
+    <header className="flex items-center justify-between whitespace-nowrap border-b px-4 py-4 z-20 shrink-0 h-20" style={{ backgroundColor: 'var(--color-header-background)', borderBottomColor: 'var(--color-border-dark)' }}>
       {/* Left: Logo - centered over agent library sidebar */}
       <div className="flex items-center h-full justify-center" style={{ width: '320px', marginLeft: '-16px' }}>
 
@@ -81,6 +81,19 @@ export default function ModernHeader({
 
       {/* Center: Navigation Tabs */}
       <nav className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
+        {/* Chat Button */}
+        <button
+          onClick={() => openChat()}
+          className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-all border bg-white/20 text-white font-semibold border-white/30 hover:bg-white/30"
+          title={t('nav_chat')}
+          style={{
+            textShadow: '0 1px 2px rgba(0, 0, 0, 0.25)',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Chat</span>
+        </button>
         <button
           onClick={() => onViewChange('studio')}
           className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'studio'
@@ -230,18 +243,6 @@ export default function ModernHeader({
 
       {/* Right: Project Selector & Action Buttons */}
       <div className="flex items-center gap-2">
-        {/* Chat Button */}
-        <button
-          onClick={() => openChat()}
-          className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-white/15 transition-all text-white/90 hover:text-white border border-transparent hover:border-white/20"
-          title={t('nav_chat')}
-          style={{
-            textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)'
-          }}
-        >
-          <MessageSquare className="w-5 h-5" />
-        </button>
-
         {/* AGENTS.md Editor (project-level context for DeepAgent MemoryMiddleware) */}
         {activeProject && (
           <button
