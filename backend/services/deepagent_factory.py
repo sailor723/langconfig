@@ -27,7 +27,7 @@ from models.deep_agent import (
 from models.enums import SubAgentType, MiddlewareType, BackendType
 from core.middleware.deep import DeepAgentsMiddlewareFactory
 from core.agents.factory import AgentFactory
-from services.agent_utils import load_agent_tools
+from services.agent_utils import load_agent_tools, resolve_model, DEFAULT_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -434,38 +434,13 @@ class DeepAgentFactory:
 
         # Create DeepAgent with all components
         try:
-            # Build a BaseChatModel instance from config.model so the deepagents
-            # library doesn't try to call init_chat_model("minimax-m3") for
-            # SummarizationMiddleware (which always fails for non-standard names).
-            from langchain_openai import ChatOpenAI
-            from config import settings as _settings_obj
-            _model_str = config.model
-            for prefix in ("deepseek:", "agnes:", "minimax:", "anthropic:", "openai:"):
-                if _model_str.startswith(prefix):
-                    _model_str = _model_str[len(prefix):]
-                    break
-            # Use the SAME API key resolution as the main AgentFactory:
-            # - minimax → settings.MINIMAX_API_KEY (from .env)
-            # - agnes   → settings.AGNES_API_KEY
-            # - deepseek → settings.DEEPSEEK_API_KEY
-            # - default → settings.OPENAI_API_KEY
-            if config.model.startswith("minimax"):
-                _api_key = _settings_obj.MINIMAX_API_KEY
-                _base_url = _settings_obj.MINIMAX_API_BASE
-            elif config.model.startswith("agnes"):
-                _api_key = _settings_obj.AGNES_API_KEY
-                _base_url = _settings_obj.AGNES_BASE_URL
-            elif config.model.startswith("deepseek"):
-                _api_key = _settings_obj.DEEPSEEK_API_KEY
-                _base_url = _settings_obj.DEEPSEEK_API_BASE or "https://api.deepseek.com/v1"
-            else:
-                _api_key = _settings_obj.OPENAI_API_KEY
-                _base_url = None
-            main_chat_model = ChatOpenAI(
-                model=_model_str,
-                base_url=_base_url,
-                api_key=_api_key,
-            )
+            # Build a BaseChatModel instance from config.model using shared resolve_model
+            main_chat_model = await resolve_model(
+                config.model,
+                config.temperature,
+                config.max_tokens or 4096,
+                {"streaming": True}
+            ) if config.model else await resolve_model(DEFAULT_MODEL, config.temperature, config.max_tokens or 4096, {"streaming": True})
             agent_kwargs = {
                 "model": main_chat_model,  # Pass BaseChatModel, not string
                 "tools": all_tools,
