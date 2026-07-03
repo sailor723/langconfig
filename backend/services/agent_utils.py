@@ -19,7 +19,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.tools import BaseTool
 from langchain_core.language_models import BaseLanguageModel, BaseChatModel
 from langchain.chat_models import init_chat_model
-from config import settings
+from config import settings, get_api_key_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +218,7 @@ async def resolve_model(
 
     # --- DeepSeek Models ---
     if db_provider == "deepseek" or model_name.startswith("deepseek"):
-        if not settings.DEEPSEEK_API_KEY:
+        if not get_api_key_from_db("deepseek_api_key"):
             raise ValueError(f"DEEPSEEK_API_KEY is required for model {model_name}")
 
         return init_chat_model(
@@ -226,7 +226,7 @@ async def resolve_model(
             model_provider="deepseek",
             temperature=temperature,
             max_tokens=max_tokens,
-            api_key=settings.DEEPSEEK_API_KEY,
+            api_key=get_api_key_from_db("deepseek_api_key"),
             streaming=streaming,
         )
 
@@ -255,40 +255,40 @@ async def resolve_model(
     # --- Standard Providers via init_chat_model ---
     if db_provider == "openai" or model_name.startswith("gpt"):
         provider = "openai"
-        api_key = settings.OPENAI_API_KEY
+        api_key = get_api_key_from_db("openai_api_key")
         base_url = getattr(settings, 'OPENAI_API_BASE', None)
     elif db_provider == "anthropic" or model_name.startswith("claude"):
         provider = "anthropic"
-        api_key = settings.ANTHROPIC_API_KEY
+        api_key = get_api_key_from_db("anthropic_api_key")
         base_url = None
     elif db_provider == "google" or model_name.startswith("gemini"):
         provider = "google_genai"
-        api_key = settings.GOOGLE_API_KEY or settings.GEMINI_API_KEY
+        api_key = get_api_key_from_db("google_api_key") or get_api_key_from_db("gemini_api_key")
         base_url = None
     elif db_provider == "agnes" or model_name.startswith("agnes"):
         provider = "openai"
-        api_key = settings.AGNES_API_KEY
+        api_key = get_api_key_from_db("agnes_api_key")
         base_url = settings.AGNES_BASE_URL
     elif db_provider == "minimax" or model_name.startswith("minimax"):
         provider = "openai"
-        api_key = settings.MINIMAX_API_KEY
+        api_key = get_api_key_from_db("minimax_api_key")
         base_url = settings.MINIMAX_API_BASE
     elif db_provider == "kimi" or model_name.startswith("kimi"):
         provider = "openai"
-        api_key = getattr(settings, 'KIMI_API_KEY', None) or settings.MINIMAX_API_KEY
+        api_key = get_api_key_from_db("kimi_api_key") or get_api_key_from_db("minimax_api_key")
         base_url = getattr(settings, 'KIMI_API_BASE', None) or "https://api.moonshot.cn/v1"
     elif db_provider == "qwen" or model_name.startswith("qwen"):
         provider = "openai"
-        api_key = getattr(settings, 'QWEN_API_KEY', None)
+        api_key = get_api_key_from_db("qwen_api_key")
         base_url = getattr(settings, 'QWEN_API_BASE', None) or "https://dashscope.aliyuncs.com/compatible-mode/v1"
     elif db_provider == "glm" or model_name.startswith("glm"):
         provider = "openai"
-        api_key = getattr(settings, 'GLM_API_KEY', None)
+        api_key = get_api_key_from_db("glm_api_key")
         base_url = getattr(settings, 'GLM_API_BASE', None) or "https://open.bigmodel.cn/api/paas/v4"
     else:
         logger.warning(f"Unknown model '{model_name}', defaulting to OpenAI-compatible.")
         provider = "openai"
-        api_key = settings.OPENAI_API_KEY
+        api_key = get_api_key_from_db("openai_api_key")
         base_url = getattr(settings, 'OPENAI_API_BASE', None)
 
     if not api_key:
