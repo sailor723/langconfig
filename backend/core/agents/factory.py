@@ -22,80 +22,13 @@ This replaces the disconnected flow where agents were created without their conf
 import logging
 from typing import Dict, Any, List, Optional, Tuple, Sequence
 from datetime import datetime
-from langchain_openai import ChatOpenAI
 from langchain_core.tools import BaseTool, StructuredTool
 from langchain_core.language_models import BaseLanguageModel, BaseChatModel
 # IMPORTANT: LangChain v1.0 - Using unified create_agent from langchain.agents
 from langchain.agents import create_agent
-from langchain.chat_models import init_chat_model
 from langgraph.graph.state import CompiledStateGraph
-# IMPORTANT: Added structured prompt components
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-
-# Assuming these modules exist in your project structure
-# MIGRATED: Using native Python tools instead of MCP subprocess servers
-from tools.native_tools import load_native_tools
-from core.agents.memory import get_or_create_memory
 from config import settings
-
-try:
-    from langfuse.callback import CallbackHandler
-    LANGFUSE_AVAILABLE = True
-except ImportError:
-    LANGFUSE_AVAILABLE = False
-    CallbackHandler = None
-
 logger = logging.getLogger(__name__)
-
-# =============================================================================
-# REASONING FRAMEWORK INJECTION (Enhances reliability)
-# =============================================================================
-
-# Default Configuration Constants
-DEFAULT_MODEL = "claude-haiku-4-5-20251015"
-DEFAULT_TEMPERATURE = 0.5
-DEFAULT_MAX_TOKENS = 1_000_000
-
-# Validation Bounds Constants
-MIN_TEMPERATURE = 0.0
-MAX_TEMPERATURE = 2.0
-MIN_MAX_TOKENS = 1
-MAX_MAX_TOKENS = 1_000_000
-
-# Node Names Constants
-REASONING_NODE = "agent"
-TOOLS_NODE = "tools"
-
-# Supported Models Registry (for validation) - loaded from DB models table
-# Fallback kept for bootstrapping if DB is not available
-_SUPPORTED_MODELS_FALLBACK = {
-    "gpt-5.1", "gpt-4o", "gpt-4o-mini",
-    "deepseek-chat", "deepseek-reasoner",
-    "claude-opus-4-5", "claude-opus-4-5-20250514",
-    "claude-sonnet-4-5", "claude-sonnet-4-5-20250514", "claude-sonnet-4-5-20250929",
-    "claude-haiku-4-5", "claude-haiku-4-5-20251015",
-    "gemini-3-pro-preview", "gemini-2.5-flash",
-}
-
-
-def get_supported_models() -> set:
-    """Load supported model IDs from the `models` DB table. Falls back to hardcoded set."""
-    try:
-        from db.database import SessionLocal
-        from models.model import Model
-        db = SessionLocal()
-        try:
-            models = db.query(Model.model_id).filter(Model.is_active == True).all()
-            if models:
-                return {m[0] for m in models}
-        finally:
-            db.close()
-    except Exception:
-        pass
-    return _SUPPORTED_MODELS_FALLBACK
-
-
-SUPPORTED_MODELS = _SUPPORTED_MODELS_FALLBACK  # Module-level for backward-compatible imports
 
 # =============================================================================
 # AGENT GUARDRAILS FRAMEWORK
@@ -139,94 +72,8 @@ class AgentFactory:
 
     @staticmethod
     def _validate_agent_config(agent_config: Dict[str, Any]) -> List[str]:
-        """
-        Comprehensive validation of agent configuration.
-
-        Validates:
-        - Required fields
-        - Parameter bounds (temperature, tokens)
-        - Model compatibility
-        - Tool configurations
-        - Middleware compatibility
-        - Mutual exclusions
-
-        Returns:
-            List of error/warning messages
-        """
-        errors = []
-
-        # 1. Check required fields
-        if not agent_config.get("model"):
-            errors.append("model is required")
-
-        # 2. Validate temperature bounds
-        temperature = agent_config.get("temperature", DEFAULT_TEMPERATURE)
-        if not isinstance(temperature, (int, float)):
-            errors.append(f"temperature must be a number, got {type(temperature).__name__}")
-        elif not (MIN_TEMPERATURE <= temperature <= MAX_TEMPERATURE):
-            errors.append(f"temperature must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE}, got {temperature}")
-
-        # 3. Validate max_tokens bounds
-        max_tokens = agent_config.get("max_tokens", DEFAULT_MAX_TOKENS)
-        if not isinstance(max_tokens, int):
-            errors.append(f"max_tokens must be an integer, got {type(max_tokens).__name__}")
-        elif not (MIN_MAX_TOKENS <= max_tokens <= MAX_MAX_TOKENS):
-            errors.append(f"max_tokens must be between {MIN_MAX_TOKENS} and {MAX_MAX_TOKENS}, got {max_tokens}")
-
-        # 4. Validate model name (warn if not in registry, don't fail)
-        model_name = agent_config.get("model", DEFAULT_MODEL)
-        if model_name and model_name not in SUPPORTED_MODELS:
-            logger.warning(f"Model '{model_name}' not in supported registry. Supported: {sorted(SUPPORTED_MODELS)}")
-
-        # 5. Check mutual exclusivity: structured output + tools
-        # NOTE: Structured output and tools are mutually exclusive in most models.
-        # When tools are bound, the model chooses between tool calls OR structured output,
-        # creating unpredictable behavior. We disable structured output in favor of tools.
-        has_tools = (
-            agent_config.get("native_tools") or
-            agent_config.get("mcp_tools") or
-            agent_config.get("cli_tools") or
-            agent_config.get("custom_tools")
-        )
-        if agent_config.get("enable_structured_output") and has_tools:
-            errors.append("Cannot use structured output with tools (mutually exclusive)")
-
-        # 6. Validate tool configurations (if tool IDs are strings)
-        for tool_field in ["native_tools", "cli_tools", "custom_tools", "mcp_tools"]:
-            tools_list = agent_config.get(tool_field, [])
-            if tools_list and not isinstance(tools_list, list):
-                errors.append(f"{tool_field} must be a list, got {type(tools_list).__name__}")
-            elif tools_list:
-                for tool in tools_list:
-                    if not isinstance(tool, str):
-                        errors.append(f"{tool_field} must contain strings, found {type(tool).__name__}")
-                        break
-
-        # 7. Validate interrupt node names (if provided as lists)
-        for interrupt_field in ["interrupt_before", "interrupt_after"]:
-            interrupt_val = agent_config.get(interrupt_field)
-            if interrupt_val and isinstance(interrupt_val, list):
-                valid_nodes = {REASONING_NODE, TOOLS_NODE}
-                for node in interrupt_val:
-                    if node not in valid_nodes:
-                        logger.warning(f"{interrupt_field} contains unknown node '{node}'. Valid nodes: {valid_nodes}")
-
-        # 8. Validate middleware configuration
-        middleware = agent_config.get("middleware", [])
-        if middleware and not isinstance(middleware, list):
-            errors.append(f"middleware must be a list, got {type(middleware).__name__}")
-
-        # 9. Validate fallback models
-        fallback_models = agent_config.get("fallback_models", [])
-        if fallback_models and not isinstance(fallback_models, list):
-            errors.append(f"fallback_models must be a list, got {type(fallback_models).__name__}")
-        elif fallback_models:
-            for fallback in fallback_models:
-                if not isinstance(fallback, str):
-                    errors.append(f"fallback_models must contain strings, found {type(fallback).__name__}")
-                    break
-
-        return errors
+        """Delegate to shared validate_agent_config from services.agent_utils."""
+        return validate_agent_config(agent_config)
 
     @staticmethod
     async def create_agent(
@@ -360,51 +207,6 @@ class AgentFactory:
             f"structured_output={enable_structured_output}, streaming={enable_streaming}, "
             f"multimodal={enable_multimodal_input}, attachments={len(multimodal_attachments)})"
         )
-
-        # 1b. Dynamic Model Routing (OPT-IN ONLY)
-        # NOTE: Dynamic model routing requires middleware-based model selection.
-        # Only activated when explicitly enabled in agent_config.
-        enable_model_routing = agent_config.get("enable_model_routing", False)
-        if enable_model_routing:
-            try:
-                from core.middleware.routing import ModelRouter
-
-                router = ModelRouter()
-                routing_strategy = agent_config.get("routing_strategy", "balanced")
-
-                # Count tools that will be loaded
-                tool_count = (
-                    len(native_tool_names) +
-                    len(agent_config.get("cli_tools", [])) +
-                    len(agent_config.get("custom_tools", []))
-                )
-
-                # Build routing requirements
-                routing_requirements = {
-                    "streaming": enable_streaming,
-                    "tools": tool_count > 0,
-                    "structured_output": enable_structured_output,
-                    "prompt_length": len(base_system_prompt),
-                }
-
-                # Route to best model
-                original_model = model_name
-                model_name = router.route(
-                    original_model=original_model,
-                    context_length=len(context),
-                    tool_count=tool_count,
-                    strategy=routing_strategy,
-                    requirements=routing_requirements
-                )
-
-                if model_name != original_model:
-                    logger.info(
-                        f"🔀 Dynamic routing: {original_model} → {model_name} "
-                        f"(strategy: {routing_strategy}, tools: {tool_count})"
-                    )
-            except Exception as e:
-                logger.warning(f"Model routing failed, using original model: {e}")
-                # Fall back to original model on error
 
         # 2. Create LLM with Fallbacks (Resilience)
         try:
@@ -553,10 +355,7 @@ class AgentFactory:
         # 4b. Check if dynamic model routing is enabled (NEW: LangChain v1-alpha feature)
         # NOTE: Dynamic model routing requires middleware-based model selection
         # Not yet supported in create_agent v1.0. Plan to implement via custom middleware.
-        enable_model_routing = False
-        # enable_model_routing = agent_config.get("enable_model_routing", False)
 
-        if enable_model_routing:
             # Use dynamic model selection (60-80% cost savings!)
             from core.models.selector import ModelSelector
 
@@ -753,8 +552,6 @@ class AgentFactory:
 
             # Log feature status
             features = []
-            if enable_model_routing:
-                features.append("dynamic routing")
             if enable_structured_output:
                 features.append(f"structured output ({output_schema.__name__})")
             if enable_streaming:
@@ -951,12 +748,14 @@ You have been equipped with the following tools: {', '.join(tool_names)}
         return "\n".join(parts)
 
     @staticmethod
-    def _construct_prompt_template(base_prompt: str, context: str, enable_memory: bool, long_term_memory: bool = False) -> ChatPromptTemplate:
+    @staticmethod
+    def _construct_prompt_template(base_prompt: str, context: str, enable_memory: bool, long_term_memory: bool = False):
         """
         DEPRECATED: Use _construct_system_prompt_string for v1.0 agents.
 
         Kept for backward compatibility with legacy code that needs ChatPromptTemplate.
         """
+        from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
         system_message_content = AgentFactory._construct_system_prompt_string(base_prompt, context, enable_memory, long_term_memory)
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", system_message_content),
@@ -1091,6 +890,7 @@ You have been equipped with the following tools: {', '.join(tool_names)}
             return context
 
     @staticmethod
+    @staticmethod
     async def _create_llm_with_fallbacks(
         primary_model: str,
         fallback_models: Sequence[str],
@@ -1098,89 +898,10 @@ You have been equipped with the following tools: {', '.join(tool_names)}
         max_tokens: Optional[int],
         config: Dict[str, Any]
     ) -> BaseLanguageModel:
-        """
-        Creates the primary LLM and configures fallbacks if provided.
+        """Delegate to shared create_llm_with_fallbacks from services.agent_utils."""
+        return await create_llm_with_fallbacks(primary_model, fallback_models, temperature, max_tokens, config)
 
-        FIX: Enhanced error handling to ensure at least one model succeeds.
-
-        Args:
-            primary_model: Primary model identifier
-            fallback_models: List of fallback model identifiers
-            temperature: Generation temperature
-            max_tokens: Maximum tokens to generate
-            config: Full agent configuration
-
-        Returns:
-            Configured LLM instance with fallbacks
-
-        Raises:
-            ValueError: If primary and all fallback models fail to initialize
-        """
-        attempted_models = []
-        errors = []
-
-        # Try primary model
-        try:
-            logger.info(f"Attempting to create primary model: {primary_model}")
-            primary_llm = await AgentFactory._create_llm(primary_model, temperature, max_tokens, config)
-            attempted_models.append(primary_model)
-            logger.info(f"✓ Primary model '{primary_model}' initialized successfully")
-        except Exception as e:
-            error_msg = f"Primary model '{primary_model}' failed: {str(e)}"
-            logger.error(error_msg)
-            errors.append(error_msg)
-            primary_llm = None
-
-        # If no fallback models provided, fail if primary failed
-        if not fallback_models:
-            if primary_llm is None:
-                raise ValueError(
-                    f"Failed to initialize primary model '{primary_model}'. "
-                    f"Error: {errors[0]}"
-                )
-            return primary_llm
-
-        # Try fallback models
-        fallbacks = []
-        for fb_model in fallback_models:
-            try:
-                logger.info(f"Attempting fallback model: {fb_model}")
-                fb_llm = await AgentFactory._create_llm(fb_model, temperature, max_tokens, config)
-                fallbacks.append(fb_llm)
-                attempted_models.append(fb_model)
-                logger.info(f"✓ Fallback model '{fb_model}' initialized successfully")
-            except Exception as e:
-                error_msg = f"Fallback model '{fb_model}' failed: {str(e)}"
-                logger.warning(error_msg)
-                errors.append(error_msg)
-
-        # If primary succeeded, apply fallbacks and return
-        if primary_llm is not None:
-            if fallbacks:
-                logger.info(f"✓ Configured {len(fallbacks)} fallback(s) for primary model '{primary_model}'")
-                return primary_llm.with_fallbacks(fallbacks)
-            else:
-                logger.warning(f"Primary model succeeded but no fallbacks available")
-                return primary_llm
-
-        # Primary failed - try to use first successful fallback as primary
-        if fallbacks:
-            logger.warning(
-                f"Primary model '{primary_model}' failed, using first successful fallback '{fallback_models[0]}' as primary"
-            )
-            # Use first fallback as primary, rest as additional fallbacks
-            primary_llm = fallbacks[0]
-            additional_fallbacks = fallbacks[1:]
-            if additional_fallbacks:
-                return primary_llm.with_fallbacks(additional_fallbacks)
-            return primary_llm
-
-        # All models failed - raise comprehensive error
-        raise ValueError(
-            f"Failed to initialize any LLM. Attempted models: {attempted_models}. "
-            f"Errors: {'; '.join(errors)}"
-        )
-
+    @staticmethod
     @staticmethod
     async def _create_llm(
         model_name: str,
@@ -1188,147 +909,8 @@ You have been equipped with the following tools: {', '.join(tool_names)}
         max_tokens: Optional[int],
         config: Dict[str, Any]
     ) -> BaseChatModel:
-        """
-        Create an LLM instance based on model name using init_chat_model.
-
-        Supports:
-        - OpenAI (GPT-5, GPT-4.5, o1, etc.)
-        - Anthropic (Claude 4.x, Claude 3.7, etc.)
-        - Google (Gemini 2.0, Gemini 3, etc.)
-        - DeepSeek (OpenAI-compatible via ChatOpenAI)
-        - Local models (Ollama, LM Studio, vLLM, etc.) via LiteLLM proxy
-
-        Args:
-            model_name: Model identifier (e.g., "gpt-5-turbo", "claude-4-sonnet", "deepseek-chat")
-            temperature: Temperature for generation (0.0-2.0)
-            max_tokens: Maximum tokens to generate
-            config: Full agent config (for provider-specific params)
-
-        Returns:
-            LangChain LLM instance
-        """
-        logger.debug(f"Initializing LLM instance for model: {model_name}")
-        streaming = config.get("streaming", True)
-
-        # --- Look up provider from models DB table (single source of truth) ---
-        db_provider = None
-        try:
-            from db.database import SessionLocal
-            from models.model import Model
-            db = SessionLocal()
-            try:
-                model_row = db.query(Model).filter(
-                    Model.model_id == model_name,
-                    Model.is_active == True
-                ).first()
-                if model_row and model_row.source == 'cloud':
-                    db_provider = model_row.provider
-            finally:
-                db.close()
-        except Exception:
-            pass
-
-        # --- DeepSeek Models ---
-        if db_provider == "deepseek" or model_name.startswith("deepseek"):
-            if not settings.DEEPSEEK_API_KEY:
-                raise ValueError(f"DEEPSEEK_API_KEY is required for model {model_name}")
-
-            return init_chat_model(
-                model=model_name,
-                model_provider="deepseek",
-                temperature=temperature,
-                max_tokens=max_tokens,
-                api_key=settings.DEEPSEEK_API_KEY,
-                streaming=streaming,
-            )
-
-        # --- Local Models (Ollama, LM Studio, vLLM, etc.) ---
-        if model_name.startswith("local-") or any(model_name.startswith(f"{p}-") for p in ["ollama", "lmstudio", "vllm", "litellm"]):
-            from services.local_model_service import LocalModelService
-
-            local_config = LocalModelService.get_local_model_config(model_name)
-
-            if not local_config:
-                raise ValueError(
-                    f"Local model '{model_name}' not found or not validated. "
-                    "Configure it in Settings > Local Models and test the connection."
-                )
-
-            logger.info(f"✓ Creating local model: {local_config.model_name} via {local_config.provider} at {local_config.base_url}")
-
-            return ChatOpenAI(
-                model=local_config.model_name,
-                base_url=local_config.base_url,
-                api_key=local_config.api_key or "not-needed",
-                temperature=temperature,
-                max_tokens=max_tokens,
-                streaming=streaming,
-                timeout=local_config.timeout
-            )
-
-        # --- Standard Providers via init_chat_model (use DB lookup, fallback to startswith) ---
-        # Determine provider and API key based on model name
-        if db_provider == "openai" or model_name.startswith("gpt"):
-            provider = "openai"
-            api_key = settings.OPENAI_API_KEY
-            base_url = getattr(settings, 'OPENAI_API_BASE', None)
-        elif db_provider == "anthropic" or model_name.startswith("claude"):
-            provider = "anthropic"
-            api_key = settings.ANTHROPIC_API_KEY
-            base_url = None
-        elif db_provider == "google" or model_name.startswith("gemini"):
-            provider = "google_genai"
-            api_key = settings.GOOGLE_API_KEY or settings.GEMINI_API_KEY
-            base_url = None
-        elif db_provider == "agnes" or model_name.startswith("agnes"):
-            provider = "openai"  # OpenAI-compatible API
-            api_key = settings.AGNES_API_KEY
-            base_url = settings.AGNES_BASE_URL
-        elif db_provider == "minimax" or model_name.startswith("minimax"):
-            provider = "openai"  # MiniMax is OpenAI-compatible
-            api_key = settings.MINIMAX_API_KEY
-            base_url = settings.MINIMAX_API_BASE
-        elif db_provider == "kimi" or model_name.startswith("kimi"):
-            provider = "openai"  # Kimi is OpenAI-compatible
-            api_key = getattr(settings, 'KIMI_API_KEY', None) or settings.MINIMAX_API_KEY  # fallback to minimax key
-            base_url = getattr(settings, 'KIMI_API_BASE', None) or "https://api.moonshot.cn/v1"
-        elif db_provider == "qwen" or model_name.startswith("qwen"):
-            provider = "openai"  # Qwen is OpenAI-compatible
-            api_key = getattr(settings, 'QWEN_API_KEY', None)
-            base_url = getattr(settings, 'QWEN_API_BASE', None) or "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        elif db_provider == "glm" or model_name.startswith("glm"):
-            provider = "openai"  # GLM is OpenAI-compatible
-            api_key = getattr(settings, 'GLM_API_KEY', None)
-            base_url = getattr(settings, 'GLM_API_BASE', None) or "https://open.bigmodel.cn/api/paas/v4"
-        else:
-            logger.warning(f"Unknown model '{model_name}', defaulting to OpenAI-compatible.")
-            provider = "openai"
-            api_key = settings.OPENAI_API_KEY
-            base_url = getattr(settings, 'OPENAI_API_BASE', None)
-
-        if not api_key:
-            raise ValueError(f"API key is required for model {model_name} (provider: {provider})")
-
-        # Use init_chat_model for unified model creation
-        # Special handling: Google Gemini needs convert_system_message_to_human
-        init_kwargs = {
-            "model": model_name,
-            "model_provider": provider,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "api_key": api_key,
-            "streaming": streaming,
-        }
-        if base_url:
-            init_kwargs["base_url"] = base_url
-
-        # Google Gemini needs system message conversion for tool compatibility
-        if provider == "google_genai":
-            init_kwargs["convert_system_message_to_human"] = True
-
-        logger.debug(f"init_chat_model kwargs: model={model_name}, provider={provider}, ...")
-        return init_chat_model(**init_kwargs)
-
+        """Delegate to shared resolve_model from services.agent_utils."""
+        return await resolve_model(model_name, temperature, max_tokens, config)
 
     async def _setup_middleware(
         middleware_list: List[Any],
@@ -1666,3 +1248,13 @@ async def create_agent_from_template(
         mcp_manager=mcp_manager,
         vector_store=vector_store
     )
+from services.agent_utils import (
+    validate_agent_config,
+    resolve_model,
+    create_llm_with_fallbacks,
+    load_agent_tools,
+    DEFAULT_MODEL,
+    DEFAULT_TEMPERATURE,
+    DEFAULT_MAX_TOKENS,
+    SUPPORTED_MODELS,
+)

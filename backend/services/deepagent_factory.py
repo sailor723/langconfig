@@ -27,6 +27,7 @@ from models.deep_agent import (
 from models.enums import SubAgentType, MiddlewareType, BackendType
 from core.middleware.deep import DeepAgentsMiddlewareFactory
 from core.agents.factory import AgentFactory
+from services.agent_utils import load_agent_tools
 
 logger = logging.getLogger(__name__)
 
@@ -598,97 +599,21 @@ class DeepAgentFactory:
         workflow_id: Optional[int] = None,
         custom_output_path: Optional[str] = None
     ) -> List[BaseTool]:
-        """Load base tools from configuration (native, CLI, and custom tools).
-
-        Args:
-            config: DeepAgent configuration
-            mcp_manager: MCP manager for tool loading
-            vector_store: Vector store for RAG
-            project_id: Project ID for context
-            task_id: Task ID for context
-            workflow_id: Workflow ID for file organization
-            custom_output_path: Custom output directory for file writes (overrides default)
-        """
-        tools = []
-
-        # DEBUG: Log incoming config
-        logger.info(f"[_load_base_tools] Config received:")
-        logger.info(f"  - config.native_tools: {config.native_tools}")
-        logger.info(f"  - config.cli_tools: {config.cli_tools}")
-        logger.info(f"  - config.custom_tools: {config.custom_tools}")
-        logger.info(f"  - custom_output_path: {custom_output_path}")
-
-        # Build workspace context for file-writing tools (enables custom_output_path)
+        """Load tools from configuration using shared agent_utils."""
         workspace_context = {
             "project_id": project_id,
             "task_id": task_id,
             "workflow_id": workflow_id,
             "custom_output_path": custom_output_path,
-        }
-
-        # Load native tools (file operations, web search, etc.)
-        MEMORY_NATIVE_TOOLS = {"memory_store", "memory_recall", "enable_memory"}
-        native_tool_names = config.native_tools or []
-        requested_memory_native = [t for t in native_tool_names if t in MEMORY_NATIVE_TOOLS]
-        if requested_memory_native:
-            logger.info(
-                f"Detected memory tools in native_tools: {requested_memory_native}. "
-                f"Routing to SimpleMemory (PostgreSQL-backed)."
-            )
-            # Remove stubs/config flags from native tool loading
-            native_tool_names = [t for t in native_tool_names if t not in MEMORY_NATIVE_TOOLS]
-
-        if native_tool_names:
-            try:
-                from tools.native_tools import load_native_tools
-                native_tools = load_native_tools(native_tool_names)
-                tools.extend(native_tools)
-                logger.info(f"Loaded {len(native_tools)} native tools: {native_tool_names}")
-            except Exception as e:
-                logger.error(f"Failed to load native tools: {e}")
-
-        # Load real memory tools if requested (PostgreSQL-backed SimpleMemory)
-        if requested_memory_native:
-            try:
-                from db.database import AsyncSessionLocal
-                from core.agents.memory import get_or_create_memory
-
-                db_session = AsyncSessionLocal()
-                memory_system = get_or_create_memory(
-                    project_id=project_id,
-                    agent_id=f"task_{task_id}",
-                    db_session=db_session,
-                )
-                memory_tools = memory_system.create_memory_tools()
-                tools.extend(memory_tools)
-                logger.info(
-                    f"✓ Loaded {len(memory_tools)} memory tools "
-                    f"(PG-backed, {memory_system.memory_count} cached)"
-                )
-            except Exception as e:
-                logger.error(f"Failed to add memory tools: {e}. Proceeding without them.")
-
-        # Load CLI tools (command-line integrations)
-        if config.cli_tools:
-            try:
-                cli_tools = await AgentFactory._load_cli_tools(config.cli_tools)
-                tools.extend(cli_tools)
-                logger.info(f"Loaded {len(cli_tools)} CLI tools")
-            except Exception as e:
-                logger.error(f"Failed to load CLI tools: {e}")
-
-        # Load custom tools (user-defined tools from database)
-        if config.custom_tools:
-            try:
-                logger.info(f"Custom tools requested: {config.custom_tools}")
-                from core.agents.tool_loader import ToolLoader
-                custom_tools = await ToolLoader().load_custom(config.custom_tools, project_id)
-                tools.extend(custom_tools)
-                logger.info(f"Loaded {len(custom_tools)} custom tools: {[t.name for t in custom_tools]}")
-            except Exception as e:
-                logger.error(f"Failed to load custom tools: {e}")
-
-        return tools
+        } if (custom_output_path or workflow_id) else None
+        return await load_agent_tools(
+            native_tool_names=config.native_tools or [],
+            cli_tool_names=config.cli_tools or [],
+            custom_tool_ids=config.custom_tools or [],
+            workspace_context=workspace_context,
+            project_id=project_id,
+            task_id=task_id,
+        )
 
     @staticmethod
     async def _prepare_subagents(
