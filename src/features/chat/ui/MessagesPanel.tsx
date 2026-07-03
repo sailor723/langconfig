@@ -381,43 +381,109 @@ export default function MessagesPanel({
                         )}
                       </div>
 
-                      {/* Work in progress — visible during streaming */}
-                      {message.role === 'assistant' && index === messages.length - 1 && isStreaming && (activeToolCalls.length > 0 || thinkingBuffer) && (
-                        <div className="mt-3 space-y-2.5">
-                          {/* ── Timing with line ── */}
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--color-border-dark)' }} />
-                            <span className="text-[10px] font-medium tabular-nums" style={{ color: 'var(--color-text-muted)' }}>
-                              {(elapsedMs / 1000).toFixed(1)}s
-                            </span>
-                          </div>
+                      {/* Thinking & Tool Calls toggle */}
+                      {message.role === 'assistant' && index === messages.length - 1 && (isStreaming && (activeToolCalls.length > 0 || thinkingBuffer)) && (
+                        <div className="mt-2">
+                          {/* Toggle button */}
+                          <button
+                            onClick={() => setShowThinking(v => !v)}
+                            className="flex items-center gap-1.5 text-[11px] font-medium transition-colors rounded-md px-2 py-1 hover:bg-black/5"
+                            style={{ color: 'var(--color-text-muted)' }}
+                          >
+                            {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                            <Brain className="w-3 h-3" />
+                            <span>Thinking ({activeToolCalls.length} step{activeToolCalls.length !== 1 ? 's' : ''})</span>
+                            <span className="text-[10px] ml-0.5">{(elapsedMs / 1000).toFixed(1)}s</span>
+                            {!showThinking && activeToolCalls.some(t => t.status === 'running') && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse ml-1" />
+                            )}
+                          </button>
 
-                          {/* ── Explore: actions ── */}
-                          {activeToolCalls.length > 0 && (
-                            <div className="space-y-1">
-                              <div className="text-[10px] font-medium" style={{ color: 'var(--color-text-muted)' }}>Explore</div>
+                          {/* Expanded content */}
+                          {showThinking && (
+                            <div className="mt-1.5 rounded-lg border-l-2 p-2.5 text-xs space-y-1.5"
+                              style={{
+                                borderLeftColor: 'var(--color-primary)',
+                                borderColor: 'var(--color-border-dark, #e5e7eb)',
+                                backgroundColor: 'var(--color-input-background, #f9fafb)',
+                              }}
+                            >
+                              {/* Thinking buffer (current work) */}
+                              {thinkingBuffer && (
+                                <div className="flex items-start gap-1.5">
+                                  <span className="text-muted flex-shrink-0 mt-0.5">💡</span>
+                                  <div style={{ color: 'var(--color-text-muted)' }} className="text-[11px] leading-relaxed">{thinkingBuffer}</div>
+                                </div>
+                              )}
+                              {/* Todo steps from planning */}
+                              {(() => {
+                                const steps = Array.from(customEvents.entries())
+                                  .filter(([_, ev]) => ev.event_type === 'progress' || ev.event_type === 'status')
+                                  .map(([id, ev]) => ({
+                                    id,
+                                    label: ev.payload.label || ev.event_type,
+                                    status: ev.event_type === 'progress'
+                                      ? (ev.payload.status || 'running')
+                                      : (ev.payload.status || 'pending'),
+                                    message: ev.payload.message || '',
+                                  }));
+                                if (steps.length === 0) return null;
+                                const runningCount = steps.filter(s => s.status === 'running').length;
+                                const doneCount = steps.filter(s => s.status === 'success').length;
+                                return (
+                                  <div className="space-y-0.5 mb-1">
+                                    <div className="text-[10px] font-medium mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                                      Plan ({doneCount}/{steps.length})
+                                    </div>
+                                    {steps.map((step) => (
+                                      <div key={step.id} className="flex items-center gap-1.5 text-[11px]">
+                                        <span className="flex-shrink-0">
+                                          {step.status === 'success' ? '✅' :
+                                           step.status === 'running' ? '🔄' :
+                                           step.status === 'error' ? '❌' : '⏳'}
+                                        </span>
+                                        <span style={{ color: 'var(--color-text-primary)' }}>{step.label}</span>
+                                        {step.status === 'running' && (
+                                          <span className="text-blue-500 text-[10px] animate-pulse">in progress...</span>
+                                        )}
+                                        {step.message && step.status !== 'running' && (
+                                          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{step.message}</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
+                              {/* Tool calls (action steps) */}
                               {activeToolCalls.map((tc, i) => (
-                                <div key={i} className="flex items-center gap-1.5 text-[11px]">
-                                  <span className="flex-shrink-0">{tc.status === 'running' ? '🔧' : '✅'}</span>
-                                  <span className="font-mono" style={{ color: 'var(--color-text-primary)' }}>{tc.tool_name}</span>
-                                  <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-                                    {tc.timestamp ? ((Date.now() - new Date(tc.timestamp).getTime()) / 1000).toFixed(1) + 's' : ''}
-                                  </span>
-                                  {tc.status === 'running' ? (
-                                    <span className="text-blue-500 text-[10px] animate-pulse">...</span>
-                                  ) : (
-                                    <span style={{ color: '#10b981' }} className="text-[10px]">✓</span>
-                                  )}
+                                <div key={i} className="flex items-start gap-1.5">
+                                  <span className="flex-shrink-0 mt-0.5">{tc.status === 'running' ? '🔧' : '✅'}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono font-medium text-xs" style={{ color: 'var(--color-text-primary)' }}>
+                                        {tc.tool_name}
+                                      </span>
+                                      {tc.status === 'running' ? (
+                                        <span className="text-blue-500 text-[10px] animate-pulse">running...</span>
+                                      ) : (
+                                        <span style={{ color: '#10b981' }} className="text-[10px]">done</span>
+                                      )}
+                                      <span className="text-[10px] ml-auto" style={{ color: 'var(--color-text-muted)' }}>
+                                        {tc.timestamp ? ((Date.now() - new Date(tc.timestamp).getTime()) / 1000).toFixed(1) + 's' : ''}
+                                      </span>
+                                    </div>
+                                    {tc.arguments && Object.keys(tc.arguments).length > 0 && Object.values(tc.arguments).some(v => v) && (
+                                      <div className="text-[10px] truncate mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                                        {JSON.stringify(tc.arguments).slice(0, 120)}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               ))}
-                            </div>
-                          )}
-
-                          {/* ── Thinking ── */}
-                          {thinkingBuffer && (
-                            <div className="flex items-start gap-1.5 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                              <span className="flex-shrink-0">💡</span>
-                              <span className="leading-relaxed">{thinkingBuffer}</span>
+                              {/* Total elapsed */}
+                              <div className="text-[10px] pt-1 border-t" style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-border-dark)' }}>
+                                Total: {(elapsedMs / 1000).toFixed(1)}s
+                              </div>
                             </div>
                           )}
                         </div>
