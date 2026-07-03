@@ -23,7 +23,7 @@ import PromptAssemblyPage from './pages/PromptAssemblyPage';
 import { SkillLibrary } from './features/skills';
 import HomePage from './pages/HomePage';
 import AnalysisPage from './pages/AnalysisPage';
-import { initializeTheme } from './lib/themes';
+import { ThemeProvider } from './lib/themes';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { ToastProvider, ToastContainer } from './hooks/useToast';
 import { ChatProvider } from './features/chat/state/ChatContext';
@@ -264,11 +264,6 @@ function AppContent() {
     };
     navigate(routes[view]);
   };
-
-  // Initialize theme on app load
-  useEffect(() => {
-    initializeTheme();
-  }, []);
 
   const handleSave = () => {
     // BUG FIX: call the actual saveWorkflow on the canvas ref. The previous
@@ -531,17 +526,19 @@ function AppContent() {
 
 function App() {
   return (
-    <ToastProvider>
-      <HashRouter>
-        <ProjectProvider>
-          <ChatProvider>
-            <AppContent />
-            <GlobalChatModal />
-          </ChatProvider>
-        </ProjectProvider>
-      </HashRouter>
-      <ToastContainer />
-    </ToastProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <HashRouter>
+          <ProjectProvider>
+            <ChatProvider>
+              <AppContent />
+              <GlobalChatModal />
+            </ChatProvider>
+          </ProjectProvider>
+        </HashRouter>
+        <ToastContainer />
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 

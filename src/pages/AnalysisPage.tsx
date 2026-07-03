@@ -74,7 +74,7 @@ export default function AnalysisPage() {
   if (activeDashboard && htmlContent) {
     return (
       <div className="flex-1 flex flex-col h-full">
-        <div className="flex items-center justify-between px-6 py-3 border-b bg-white flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-3 border-b bg-white dark:bg-panel-dark flex-shrink-0">
           <div className="flex items-center gap-3">
             <Monitor className="w-5 h-5 text-blue-600" />
             <span className="font-semibold text-sm">{activeDashboard.filename}</span>
@@ -103,7 +103,7 @@ export default function AnalysisPage() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-white flex-shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b bg-white dark:bg-panel-dark flex-shrink-0">
         <div className="flex items-center gap-3">
           <Monitor className="w-5 h-5 text-blue-600" />
           <h1 className="text-lg font-semibold">Dashboards</h1>
@@ -142,7 +142,7 @@ export default function AnalysisPage() {
               <button
                 key={d.filename}
                 onClick={() => openDashboard(d)}
-                className="flex flex-col items-center gap-3 p-6 bg-white border rounded-xl hover:shadow-md hover:border-blue-300 transition-all text-left"
+                className="flex flex-col items-center gap-3 p-6 bg-white dark:bg-panel-dark border rounded-xl hover:shadow-md hover:border-blue-300 transition-all text-left"
               >
                 <FileText className="w-10 h-10 text-blue-500" />
                 <div className="text-center">

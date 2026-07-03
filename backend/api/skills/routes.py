@@ -391,6 +391,38 @@ async def get_skills_summary():
     }
 
 
+@router.get("/{skill_id}/agents")
+async def list_agents_using_skill(skill_id: str):
+    """List all deep agents that have this skill attached.
+
+    Returns a list of agent summaries (id, name, category, model) for
+    any agent whose `config.skills` array includes this skill_id.
+    """
+    from db.database import SessionLocal
+    from models.deep_agent import DeepAgentTemplate
+
+    db = SessionLocal()
+    try:
+        agents = (
+            db.query(DeepAgentTemplate)
+            .filter(DeepAgentTemplate.config["skills"].contains([skill_id]))
+            .all()
+        )
+    finally:
+        db.close()
+
+    return [
+        {
+            "id": a.id,
+            "name": a.name,
+            "category": a.category,
+            "model": (a.config or {}).get("model"),
+            "agent_type": (a.config or {}).get("agent_type"),
+        }
+        for a in agents
+    ]
+
+
 @router.get("/{skill_id}")
 async def get_skill(skill_id: str):
     """Get detailed information for a specific skill."""

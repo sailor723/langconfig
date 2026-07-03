@@ -235,7 +235,7 @@ export default function MessagesPanel({
                           borderLeft: message.role === 'user' ? '2px solid var(--color-primary)' : '2px solid transparent',
                           paddingLeft: message.role === 'user' ? '12px' : '12px',
                           borderRadius: message.role === 'user' ? '8px' : '0',
-                          backgroundColor: message.role === 'user' ? 'rgba(99,102,241,0.12)' : 'transparent',
+                          backgroundColor: message.role === 'user' ? 'transparent' : 'transparent',
                         }}
                       >
                         <div

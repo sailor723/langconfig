@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+    <meta charset="UTF-8" />
+    <title>Sample Sales Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f4f6fb; color: #1f2937; }
+      header { background: linear-gradient(135deg,#4f46e5,#06b6d4); color: #fff; padding: 18px 28px; }
+      header h1 { margin: 0; font-size: 22px; letter-spacing: 0.5px; }
+      header p { margin: 4px 0 0; font-size: 13px; opacity: 0.9; }
+      .container { padding: 20px 28px 40px; }
+      .panel { background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.05); padding: 16px 18px; margin-bottom: 18px; }
+      .panel h3 { margin: 0 0 12px; font-size: 15px; color: #374151; }
+      .control-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+      .control-bar .field { display: flex; flex-direction: column; min-width: 140px; }
+      .control-bar label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+      .control-bar select { padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; font-size: 13px; }
+      .control-bar button { padding: 8px 16px; border: 0; border-radius: 8px; background: #ef4444; color: #fff; font-weight: 600; cursor: pointer; }
+      .control-bar button:hover { background: #dc2626; }
+      .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+      .kpi { background: #fff; border-radius: 12px; padding: 16px 18px; box-shadow: 0 4px 16px rgba(0,0,0,0.05); border-left: 5px solid var(--c, #4f46e5); }
+      .kpi .label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.6px; }
+      .kpi .value { font-size: 22px; font-weight: 700; margin-top: 6px; color: #111827; }
+      .kpi .sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+      .charts { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+      .chart-card { background: #fff; border-radius: 12px; padding: 14px 14px 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
+      .chart-card h3 { margin: 0 0 6px; font-size: 14px; color: #374151; }
+      .insights ul { padding-left: 20px; margin: 6px 0 0; }
+      .insights li { margin: 6px 0; line-height: 1.55; font-size: 14px; color: #374151; }
+      .insights li b { color: #4f46e5; }
+      @media (max-width: 900px) { .charts { grid-template-columns: 1fr; } }
+    </style>
+    </head>
+    <body>
+    <header>
+      <h1>📊 Sample Sales Dashboard</h1>
+      <p>Interactive analytics powered by Plotly.js · 25 orders, Jan–Jul 2025</p>
+    </header>
+    <div class="container">
+
+      <!-- Control bar -->
+      <div class="panel">
+        <h3>🔎 Filters</h3>
+        <div class="control-bar" id="controlBar">
+    
+          <button id="resetBtn">↺ Reset</button>
+        </div>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="kpis" id="kpiBar">
+        <div class="kpi" style="--c:#4f46e5"><div class="label">Total Orders</div><div class="value" id="kpiOrders">0</div><div class="sub" id="kpiOrdersSub">—</div></div>
+        <div class="kpi" style="--c:#10b981"><div class="label">Total Revenue ($)</div><div class="value" id="kpiRevenue">0</div><div class="sub" id="kpiRevenueSub">—</div></div>
+        <div class="kpi" style="--c:#f59e0b"><div class="label">Avg Order Value ($)</div><div class="value" id="kpiAOV">0</div><div class="sub" id="kpiAOVSub">—</div></div>
+        <div class="kpi" style="--c:#ef4444"><div class="label">Completion Rate</div><div class="value" id="kpiComplete">0%</div><div class="sub" id="kpiCompleteSub">—</div></div>
+        <div class="kpi" style="--c:#06b6d4"><div class="label">Unique Customers</div><div class="value" id="kpiCustomers">0</div><div class="sub" id="kpiCustomersSub">—</div></div>
+      </div>
+
+      <!-- Charts -->
+      <div class="charts" style="margin-top:18px;">
+        <div class="chart-card"><h3>📈 Revenue by Category</h3><div id="chartBar" style="height:360px;"></div></div>
+        <div class="chart-card"><h3>🥧 Order Share by Region</h3><div id="chartPie" style="height:360px;"></div></div>
+      </div>
+      <div class="chart-card" style="margin-top:18px;">
+        <h3>📉 Monthly Revenue Trend</h3>
+        <div id="chartLine" style="height:320px;"></div>
+      </div>
+
+      <!-- Insights -->
+      <div class="panel insights">
+        <h3>💡 Key Insights</h3>
+        <ul id="insightList"></ul>
+      </div>
+
+    </div>
+
+    <script>
+    const RAW = [{"order_id": 1.0, "customer_name": "Alice Wang", "customer_tier": "gold", "customer_country": "China", "product_name": "AI-Powered Analytics Pro", "category": "Software", "order_date": "2025-01-05", "status": "completed", "quantity": 2.0, "total_amount": 599.98, "sales_region": "east"}, {"order_id": 2.0, "customer_name": "Alice Wang", "customer_tier": "gold", "customer_country": "China", "product_name": "Smart Dashboard Lite", "category": "Software", "order_date": "2025-01-05", "status": "completed", "quantity": 1.0, "total_amount": 99.99, "sales_region": "east"}, {"order_id": 3.0, "customer_name": "Bob Smith", "customer_tier": "silver", "customer_country": "Japan", "product_name": "Cloud Data Pipeline", "category": "Software", "order_date": "2025-02-10", "status": "completed", "quantity": 1.0, "total_amount": 199.99, "sales_region": "west"}, {"order_id": 4.0, "customer_name": "Carol Li", "customer_tier": "platinum", "customer_country": "China", "product_name": "Neural Network Starter Kit", "category": "Hardware", "order_date": "2025-03-15", "status": "completed", "quantity": 1.0, "total_amount": 499.99, "sales_region": "north"}, {"order_id": 5.0, "customer_name": "Carol Li", "customer_tier": "platinum", "customer_country": "China", "product_name": "Enterprise Security Suite", "category": "Software", "order_date": "2025-03-15", "status": "completed", "quantity": 1.0, "total_amount": 1499.99, "sales_region": "north"}, {"order_id": 6.0, "customer_name": "Eve Zhang", "customer_tier": "gold", "customer_country": "China", "product_name": "AI-Powered Analytics Pro", "category": "Software", "order_date": "2025-03-20", "status": "completed", "quantity": 1.0, "total_amount": 299.99, "sales_region": "east"}, {"order_id": 7.0, "customer_name": "Eve Zhang", "customer_tier": "gold", "customer_country": "China", "product_name": "Automated ML Pipeline", "category": "Software", "order_date": "2025-03-20", "status": "completed", "quantity": 2.0, "total_amount": 799.98, "sales_region": "east"}, {"order_id": 8.0, "customer_name": "Frank Liu", "customer_tier": "silver", "customer_country": "China", "product_name": "IoT Sensor Array", "category": "Hardware", "order_date": "2025-04-01", "status": "completed", "quantity": 5.0, "total_amount": 1249.95, "sales_region": "south"}, {"order_id": 9.0, "customer_name": "Henry Kim", "customer_tier": "gold", "customer_country": "Korea", "product_name": "GPU Computing Cluster", "category": "Hardware", "order_date": "2025-04-15", "status": "completed", "quantity": 1.0, "total_amount": 4999.99, "sales_region": "west"}, {"order_id": 10.0, "customer_name": "Alice Wang", "customer_tier": "gold", "customer_country": "China", "product_name": "Neural Network Starter Kit", "category": "Hardware", "order_date": "2025-04-20", "status": "completed", "quantity": 1.0, "total_amount": 499.99, "sales_region": "east"}, {"order_id": 11.0, "customer_name": "Ivy Tanaka", "customer_tier": "silver", "customer_country": "Japan", "product_name": "Cloud Data Pipeline", "category": "Software", "order_date": "2025-05-01", "status": "completed", "quantity": 1.0, "total_amount": 199.99, "sales_region": "west"}, {"order_id": 12.0, "customer_name": "Ivy Tanaka", "customer_tier": "silver", "customer_country": "Japan", "product_name": "Smart Dashboard Lite", "category": "Software", "order_date": "2025-05-01", "status": "completed", "quantity": 3.0, "total_amount": 299.97, "sales_region": "west"}, {"order_id": 13.0, "customer_name": "Jack Park", "customer_tier": "bronze", "customer_country": "Korea", "product_name": "Data Lake Storage 1TB", "category": "Infrastructure", "order_date": "2025-05-10", "status": "completed", "quantity": 10.0, "total_amount": 599.9, "sales_region": "south"}, {"order_id": 14.0, "customer_name": "Bob Smith", "customer_tier": "silver", "customer_country": "Japan", "product_name": "Enterprise Security Suite", "category": "Software", "order_date": "2025-05-15", "status": "completed", "quantity": 1.0, "total_amount": 1499.99, "sales_region": "west"}, {"order_id": 15.0, "customer_name": "Carol Li", "customer_tier": "platinum", "customer_country": "China", "product_name": "AI-Powered Analytics Pro", "category": "Software", "order_date": "2025-06-01", "status": "completed", "quantity": 3.0, "total_amount": 899.97, "sales_region": "north"}, {"order_id": 16.0, "customer_name": "Eve Zhang", "customer_tier": "gold", "customer_country": "China", "product_name": "IoT Sensor Array", "category": "Hardware", "order_date": "2025-06-10", "status": "completed", "quantity": 2.0, "total_amount": 499.98, "sales_region": "east"}, {"order_id": 17.0, "customer_name": "Frank Liu", "customer_tier": "silver", "customer_country": "China", "product_name": "Automated ML Pipeline", "category": "Software", "order_date": "2025-06-15", "status": "pending", "quantity": 1.0, "total_amount": 399.99, "sales_region": "south"}, {"order_id": 18.0, "customer_name": "Alice Wang", "customer_tier": "gold", "customer_country": "China", "product_name": "Data Lake Storage 1TB", "category": "Infrastructure", "order_date": "2025-06-20", "status": "pending", "quantity": 5.0, "total_amount": 299.95, "sales_region": "east"}, {"order_id": 19.0, "customer_name": "David Chen", "customer_tier": "bronze", "customer_country": "Korea", "product_name": "AI-Powered Analytics Pro", "category": "Software", "order_date": "2025-06-25", "status": "completed", "quantity": 1.0, "total_amount": 299.99, "sales_region": "north"}, {"order_id": 20.0, "customer_name": "Henry Kim", "customer_tier": "gold", "customer_country": "Korea", "product_name": "Neural Network Starter Kit", "category": "Hardware", "order_date": "2025-07-01", "status": "completed", "quantity": 2.0, "total_amount": 999.98, "sales_region": "west"}, {"order_id": 21.0, "customer_name": "Jack Park", "customer_tier": "bronze", "customer_country": "Korea", "product_name": "Cloud Data Pipeline", "category": "Software", "order_date": "2025-07-05", "status": "completed", "quantity": 1.0, "total_amount": 199.99, "sales_region": "south"}, {"order_id": 22.0, "customer_name": "Alice Wang", "customer_tier": "gold", "customer_country": "China", "product_name": "Enterprise Security Suite", "category": "Software", "order_date": "2025-07-10", "status": "cancelled", "quantity": 1.0, "total_amount": 1499.99, "sales_region": "east"}, {"order_id": 23.0, "customer_name": "Carol Li", "customer_tier": "platinum", "customer_country": "China", "product_name": "Automated ML Pipeline", "category": "Software", "order_date": "2025-07-15", "status": "completed", "quantity": 1.0, "total_amount": 399.99, "sales_region": "north"}, {"order_id": 24.0, "customer_name": "Eve Zhang", "customer_tier": "gold", "customer_country": "China", "product_name": "Quantum Computing Simulator", "category": "Software", "order_date": "2025-07-20", "status": "completed", "quantity": 1.0, "total_amount": 999.99, "sales_region": "east"}, {"order_id": 25.0, "customer_name": "Ivy Tanaka", "customer_tier": "silver", "customer_country": "Japan", "product_name": "IoT Sensor Array", "category": "Hardware", "order_date": "2025-07-25", "status": "pending", "quantity": 3.0, "total_amount": 749.97, "sales_region": "west"}];
+    const CAT_COLS = ["customer_tier", "customer_country", "category", "status", "sales_region"];
+    const CAT_VALUES = {"customer_tier": ["bronze", "gold", "platinum", "silver"], "customer_country": ["China", "Japan", "Korea"], "category": ["Hardware", "Infrastructure", "Software"], "status": ["cancelled", "completed", "pending"], "sales_region": ["east", "north", "south", "west"]};
+
+    // ---------- Filter state ----------
+    const filters = {};
+    CAT_COLS.forEach(c => filters[c] = "All");
+
+    function buildFilters() {
+      const bar = document.getElementById("controlBar");
+      CAT_COLS.forEach(col => {
+        const f = document.createElement("div");
+        f.className = "field";
+        const lab = document.createElement("label");
+        lab.textContent = col.replace(/_/g," ");
+        const sel = document.createElement("select");
+        sel.id = "flt_" + col;
+        const optAll = document.createElement("option");
+        optAll.value = "All"; optAll.textContent = "All";
+        sel.appendChild(optAll);
+        CAT_VALUES[col].forEach(v => {
+          const o = document.createElement("option");
+          o.value = v; o.textContent = v;
+          sel.appendChild(o);
+        });
+        sel.addEventListener("change", e => { filters[col] = e.target.value; refresh(); });
+        f.appendChild(lab); f.appendChild(sel);
+        bar.insertBefore(f, document.getElementById("resetBtn"));
+      });
+      document.getElementById("resetBtn").addEventListener("click", () => {
+        CAT_COLS.forEach(c => {
+          filters[c] = "All";
+          document.getElementById("flt_" + c).value = "All";
+        });
+        refresh();
+      });
+    }
+
+    function getFiltered() {
+      return RAW.filter(r => CAT_COLS.every(c => filters[c] === "All" || String(r[c]) === filters[c]));
+    }
+
+    const fmt$ = v => "$" + Number(v).toLocaleString(undefined,{maximumFractionDigits:2});
+
+    function renderKPIs(d) {
+      const orders = d.length;
+      const revenue = d.reduce((s,r) => s + (Number(r.total_amount)||0), 0);
+      const aov = orders ? revenue/orders : 0;
+      const completed = d.filter(r => r.status === "completed").length;
+      const rate = orders ? completed/orders : 0;
+      const customers = new Set(d.map(r => r.customer_name)).size;
+      document.getElementById("kpiOrders").textContent = orders.toLocaleString();
+      document.getElementById("kpiOrdersSub").textContent = "of " + RAW.length + " total";
+      document.getElementById("kpiRevenue").textContent = fmt$(revenue);
+      document.getElementById("kpiRevenueSub").textContent = "Σ total_amount";
+      document.getElementById("kpiAOV").textContent = fmt$(aov);
+      document.getElementById("kpiAOVSub").textContent = "revenue / orders";
+      document.getElementById("kpiComplete").textContent = (rate*100).toFixed(1) + "%";
+      document.getElementById("kpiCompleteSub").textContent = completed + " completed";
+      document.getElementById("kpiCustomers").textContent = customers.toLocaleString();
+      document.getElementById("kpiCustomersSub").textContent = "distinct buyers";
+    }
+
+    function agg(map, key, val) { map[key] = (map[key]||0) + val; }
+
+    function renderBar(d) {
+      const m = {};
+      d.forEach(r => agg(m, r.category, Number(r.total_amount)||0));
+      const labels = Object.keys(m), values = labels.map(k => m[k]);
+      Plotly.newPlot("chartBar", [{
+        type: "bar",
+        x: labels, y: values,
+        text: values.map(v => fmt$(v)),
+        textposition: "outside",
+        marker: { color: ["#4f46e5","#10b981","#f59e0b","#ef4444","#06b6d4"] }
+      }], {
+        margin: {t:20,l:60,r:20,b:50},
+        yaxis: { title: "Revenue (USD)", tickformat: ",.0f" },
+        xaxis: { title: "Category" },
+        plot_bgcolor:"#fff", paper_bgcolor:"#fff"
+      }, {displayModeBar:false, responsive:true});
+    }
+
+    function renderPie(d) {
+      const m = {};
+      d.forEach(r => agg(m, r.sales_region, 1));
+      Plotly.newPlot("chartPie", [{
+        type: "pie",
+        labels: Object.keys(m),
+        values: Object.values(m),
+        hole: 0.45,
+        textinfo: "label+percent",
+        marker: { colors: ["#4f46e5","#06b6d4","#10b981","#f59e0b","#ef4444"] }
+      }], {
+        margin: {t:10,l:10,r:10,b:10},
+        showlegend: true,
+        paper_bgcolor:"#fff"
+      }, {displayModeBar:false, responsive:true});
+    }
+
+    function renderLine(d) {
+      const m = {};
+      d.forEach(r => {
+        const ym = String(r.order_date).substring(0,7);
+        agg(m, ym, Number(r.total_amount)||0);
+      });
+      const keys = Object.keys(m).sort();
+      const xs = keys, ys = keys.map(k => m[k]);
+      Plotly.newPlot("chartLine", [{
+        type: "scatter", mode: "lines+markers",
+        x: xs, y: ys,
+        line: { color:"#06b6d4", width:3, shape:"spline" },
+        marker: { size:8, color:"#4f46e5" },
+        fill: "tozeroy", fillcolor: "rgba(79,70,229,0.10)"
+      }], {
+        margin: {t:20,l:70,r:20,b:50},
+        xaxis: { title: "Month" },
+        yaxis: { title: "Revenue (USD)", tickformat: ",.0f" },
+        plot_bgcolor:"#fff", paper_bgcolor:"#fff"
+      }, {displayModeBar:false, responsive:true});
+    }
+
+    function renderInsights(d) {
+      const ul = document.getElementById("insightList");
+      ul.innerHTML = "";
+      const total = d.length;
+      if (!total) {
+        ul.innerHTML = "<li>No data matches the current filters.</li>";
+        return;
+      }
+      // Revenue by category
+      const byCat = {};
+      d.forEach(r => agg(byCat, r.category, Number(r.total_amount)||0));
+      const catSorted = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+      const topCat = catSorted[0];
+
+      // Revenue by region
+      const byReg = {};
+      d.forEach(r => agg(byReg, r.sales_region, Number(r.total_amount)||0));
+      const regSorted = Object.entries(byReg).sort((a,b)=>b[1]-a[1]);
+      const topReg = regSorted[0];
+
+      // Top customer
+      const byCust = {};
+      d.forEach(r => agg(byCust, r.customer_name, Number(r.total_amount)||0));
+      const custSorted = Object.entries(byCust).sort((a,b)=>b[1]-a[1]);
+      const topCust = custSorted[0];
+
+      // Status distribution
+      const statusCounts = {};
+      d.forEach(r => statusCounts[r.status] = (statusCounts[r.status]||0)+1);
+      const completedRatio = (statusCounts.completed||0)/total;
+
+      // Tier mix
+      const tierCounts = {};
+      d.forEach(r => tierCounts[r.customer_tier] = (tierCounts[r.customer_tier]||0)+1);
+
+      // Monthly trend direction
+      const byMonth = {};
+      d.forEach(r => { const ym = String(r.order_date).substring(0,7); agg(byMonth, ym, Number(r.total_amount)||0); });
+      const monthKeys = Object.keys(byMonth).sort();
+      const trend = monthKeys.length >= 2 ?
+        (byMonth[monthKeys[monthKeys.length-1]] >= byMonth[monthKeys[monthKeys.length-2]] ? "上升 📈" : "下降 📉") : "稳定";
+
+      const add = (html) => { const li=document.createElement("li"); li.innerHTML=html; ul.appendChild(li); };
+
+      add(`<b>${total}</b> 笔订单在筛选条件下贡献了 <b>${fmt$(d.reduce((s,r)=>s+Number(r.total_amount),0))}</b> 总收入。`);
+      add(`收入最高的品类是 <b>${topCat[0]}</b>，合计 <b>${fmt$(topCat[1])}</b>（占品类总收入 ${(topCat[1]/catSorted.reduce((s,[,v])=>s+v,0)*100).toFixed(1)}%）。`);
+      add(`销售区域 <b>${topReg[0]}</b> 领跑，营收 <b>${fmt$(topReg[1])}</b>，是当前筛选中的核心市场。`);
+      add(`头部客户 <b>${topCust[0]}</b> 累计消费 <b>${fmt$(topCust[1])}</b>，建议作为重点维护对象。`);
+      add(`订单完成率 <b>${(completedRatio*100).toFixed(1)}%</b>（已完成 ${statusCounts.completed||0} / ${total}），待处理 ${statusCounts.pending||0}，已取消 ${statusCounts.cancelled||0}。`);
+      add(`客群等级分布：${Object.entries(tierCounts).map(([k,v])=>`<b>${k}</b> ${v}`).join("，")}。`);
+      if (monthKeys.length >= 2) add(`最近一个月（<b>${monthKeys[monthKeys.length-1]}</b>）收入趋势相对上月为 <b>${trend}</b>。`);
+      add(`筛选面板支持按 <b>${CAT_COLS.length}</b> 个分类维度联动，所有图表、KPI 与洞察均会实时更新。`);
+    }
+
+    function refresh() {
+      const d = getFiltered();
+      renderKPIs(d);
+      renderBar(d);
+      renderPie(d);
+      renderLine(d);
+      renderInsights(d);
+    }
+
+    buildFilters();
+    refresh();
+    </script>
+    </body>
+    </html>
