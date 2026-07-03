@@ -212,7 +212,7 @@ export default function MessagesPanel({
 
 
               {/* Message Content */}
-              <div className="w-full">
+              <div className={`${message.role === 'user' ? 'max-w-[80%] ml-auto' : 'w-full'}`}>
                 <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-6xl'}`}>
                   {message.role === 'system' ? (
                     <div
