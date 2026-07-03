@@ -475,8 +475,8 @@ export default function GlobalChatModal() {
             </div>
           </div>
 
-          {/* Main Content - full width */}
-          <div className="flex-1 relative">
+          {/* Main Content */}
+          <div className="flex flex-1 overflow-hidden">
             <MessagesPanel
               messages={messages}
               isStreaming={isStreaming}
@@ -492,26 +492,21 @@ export default function GlobalChatModal() {
               thinkingBuffer={thinkingBuffer}
               agentName={agentName}
             />
+            {currentSessionId && showMetrics && (
+              <div className="border-l w-56 overflow-y-auto flex-shrink-0" style={{ borderColor: 'var(--color-border-dark)' }}>
+                <MetricsPanel
+                  metrics={metrics}
+                  toolCalls={toolCalls}
+                  activeToolCalls={activeToolCalls}
+                  subagentActivity={subagentActivity}
+                  isLoading={isLoadingMetrics}
+                  agentName={agentName}
+                  agentDescription={agentDescription}
+                  sessionId={currentSessionId}
+                />
+              </div>
+            )}
           </div>
-
-          {/* Metrics Panel - Slide-out bottom drawer */}
-          {currentSessionId && showMetrics && (
-            <div className="border-t overflow-y-auto" style={{
-              borderColor: 'var(--color-border-dark)',
-              maxHeight: '33vh',
-            }}>
-              <MetricsPanel
-                metrics={metrics}
-                toolCalls={toolCalls}
-                activeToolCalls={activeToolCalls}
-                subagentActivity={subagentActivity}
-                isLoading={isLoadingMetrics}
-                agentName={agentName}
-                agentDescription={agentDescription}
-                sessionId={currentSessionId}
-              />
-            </div>
-          )}
         </div>
       </div>      {/* HITL Interrupt Modal */}
       {pendingInterrupt && (
