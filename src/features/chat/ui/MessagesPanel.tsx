@@ -82,6 +82,7 @@ export default function MessagesPanel({
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
+    if (isStreaming) return;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming]);
 
@@ -212,7 +213,7 @@ export default function MessagesPanel({
 
 
               {/* Message Content */}
-              <div className={`${message.role === 'user' ? 'max-w-[60%] ml-auto' : 'w-full'}`}>
+              <div className={`${message.role === 'user' ? 'max-w-[60%] ml-auto' : 'max-w-[80%]'}`}>
                 <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-6xl'}`}>
                   {message.role === 'system' ? (
                     <div
@@ -231,10 +232,10 @@ export default function MessagesPanel({
                         style={{
                           padding: message.role === 'user' ? '8px 12px' : '4px 0',
                           marginLeft: message.role === 'user' ? '0' : '0',
-                          borderLeft: message.role === 'user' ? 'none' : '2px solid transparent',
+                          borderLeft: message.role === 'user' ? '2px solid var(--color-primary)' : '2px solid transparent',
                           paddingLeft: message.role === 'user' ? '12px' : '12px',
                           borderRadius: message.role === 'user' ? '8px' : '0',
-                          backgroundColor: message.role === 'user' ? 'var(--color-input-background, #f5f5f5)' : 'transparent',
+                          backgroundColor: message.role === 'user' ? 'rgba(99,102,241,0.12)' : 'transparent',
                         }}
                       >
                         <div
