@@ -371,56 +371,72 @@ export default function MessagesPanel({
                         )}
                       </div>
 
-                      {/* Thinking & Tool Calls inline */}
-                      {message.role === 'assistant' && isStreaming && index === messages.length - 1 && (activeToolCalls.length > 0 || thinkingBuffer) && (
-                        <div className="mt-2 space-y-1">
-                          {/* Inline thinking block */}
-                          <div
-                            className="rounded-lg border-l-2 p-2.5 text-xs space-y-1.5"
-                            style={{
-                              borderLeftColor: 'var(--color-primary)',
-                              borderColor: 'var(--color-border-dark, #e5e7eb)',
-                              backgroundColor: 'var(--color-input-background, #f9fafb)',
-                            }}
+                      {/* Thinking & Tool Calls toggle */}
+                      {message.role === 'assistant' && index === messages.length - 1 && (isStreaming && (activeToolCalls.length > 0 || thinkingBuffer)) && (
+                        <div className="mt-2">
+                          {/* Toggle button */}
+                          <button
+                            onClick={() => setShowThinking(v => !v)}
+                            className="flex items-center gap-1.5 text-[11px] font-medium transition-colors rounded-md px-2 py-1 hover:bg-black/5"
+                            style={{ color: 'var(--color-text-muted)' }}
                           >
-                            {/* Thinking buffer (current work) */}
-                            {thinkingBuffer && (
-                              <div className="flex items-start gap-1.5">
-                                <span className="text-muted flex-shrink-0 mt-0.5">💡</span>
-                                <div style={{ color: 'var(--color-text-muted)' }} className="text-[11px] leading-relaxed">{thinkingBuffer}</div>
-                              </div>
+                            {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                            <Brain className="w-3 h-3" />
+                            <span>Thinking ({activeToolCalls.length} step{activeToolCalls.length !== 1 ? 's' : ''})</span>
+                            <span className="text-[10px] ml-0.5">{(elapsedMs / 1000).toFixed(1)}s</span>
+                            {!showThinking && activeToolCalls.some(t => t.status === 'running') && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse ml-1" />
                             )}
-                            {/* Tool calls (action steps) */}
-                            {activeToolCalls.map((tc, i) => (
-                              <div key={i} className="flex items-start gap-1.5">
-                                <span className="flex-shrink-0 mt-0.5">{tc.status === 'running' ? '🔧' : '✅'}</span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-mono font-medium text-xs" style={{ color: 'var(--color-text-primary)' }}>
-                                      {tc.tool_name}
-                                    </span>
-                                    {tc.status === 'running' ? (
-                                      <span className="text-blue-500 text-[10px] animate-pulse">running...</span>
-                                    ) : (
-                                      <span style={{ color: '#10b981' }} className="text-[10px]">done</span>
-                                    )}
-                                    <span className="text-[10px] ml-auto" style={{ color: 'var(--color-text-muted)' }}>
-                                      {tc.timestamp ? ((Date.now() - new Date(tc.timestamp).getTime()) / 1000).toFixed(1) + 's' : ''}
-                                    </span>
-                                  </div>
-                                  {tc.arguments && Object.keys(tc.arguments).length > 0 && Object.values(tc.arguments).some(v => v) && (
-                                    <div className="text-[10px] truncate mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                                      {JSON.stringify(tc.arguments).slice(0, 120)}
-                                    </div>
-                                  )}
+                          </button>
+
+                          {/* Expanded content */}
+                          {showThinking && (
+                            <div className="mt-1.5 rounded-lg border-l-2 p-2.5 text-xs space-y-1.5"
+                              style={{
+                                borderLeftColor: 'var(--color-primary)',
+                                borderColor: 'var(--color-border-dark, #e5e7eb)',
+                                backgroundColor: 'var(--color-input-background, #f9fafb)',
+                              }}
+                            >
+                              {/* Thinking buffer (current work) */}
+                              {thinkingBuffer && (
+                                <div className="flex items-start gap-1.5">
+                                  <span className="text-muted flex-shrink-0 mt-0.5">💡</span>
+                                  <div style={{ color: 'var(--color-text-muted)' }} className="text-[11px] leading-relaxed">{thinkingBuffer}</div>
                                 </div>
+                              )}
+                              {/* Tool calls (action steps) */}
+                              {activeToolCalls.map((tc, i) => (
+                                <div key={i} className="flex items-start gap-1.5">
+                                  <span className="flex-shrink-0 mt-0.5">{tc.status === 'running' ? '🔧' : '✅'}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono font-medium text-xs" style={{ color: 'var(--color-text-primary)' }}>
+                                        {tc.tool_name}
+                                      </span>
+                                      {tc.status === 'running' ? (
+                                        <span className="text-blue-500 text-[10px] animate-pulse">running...</span>
+                                      ) : (
+                                        <span style={{ color: '#10b981' }} className="text-[10px]">done</span>
+                                      )}
+                                      <span className="text-[10px] ml-auto" style={{ color: 'var(--color-text-muted)' }}>
+                                        {tc.timestamp ? ((Date.now() - new Date(tc.timestamp).getTime()) / 1000).toFixed(1) + 's' : ''}
+                                      </span>
+                                    </div>
+                                    {tc.arguments && Object.keys(tc.arguments).length > 0 && Object.values(tc.arguments).some(v => v) && (
+                                      <div className="text-[10px] truncate mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                                        {JSON.stringify(tc.arguments).slice(0, 120)}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                              {/* Total elapsed */}
+                              <div className="text-[10px] pt-1 border-t" style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-border-dark)' }}>
+                                Total: {(elapsedMs / 1000).toFixed(1)}s
                               </div>
-                            ))}
-                            {/* Total elapsed */}
-                            <div className="text-[10px] pt-1 border-t" style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-border-dark)' }}>
-                              Total: {(elapsedMs / 1000).toFixed(1)}s
                             </div>
-                          </div>
+                          )}
                         </div>
                       )}
 
