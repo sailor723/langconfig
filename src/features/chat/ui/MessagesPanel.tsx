@@ -207,7 +207,7 @@ export default function MessagesPanel({
           {messages.map((message, index) => (
             <div
               key={index}
-              className="mb-3"
+              className="mb-3 group"
             >
 
 
