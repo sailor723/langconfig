@@ -2617,12 +2617,10 @@ def _get_project_id() -> Optional[int]:
 
 
 def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
-    """Search project documents using GraphIndex with LLM semantic routing.
+    """Search project documents using GraphIndex vector matching.
 
     Uses the canonical Phase 9 graphindex modules (learning.phase9.graphindex):
-      - route.fetch_catalog to list all docs
-      - route.route_by_llm for LLM-based routing
-      - index_build.make_llm for the routing LLM
+      - Neo4jDocumentIndex.find_best_document for vector-based document matching
 
     Returns matching documents with name, type, domain, and supporting list.
     """
@@ -2636,8 +2634,7 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
                 "explicitly or set the GRAPHINDEX_PROJECT_ID env var.")
 
     try:
-        from learning.phase9.graphindex.route import fetch_catalog, route_by_llm, route_by_string  # noqa: E402
-        from learning.phase9.graphindex.index_build import Neo4jDocumentIndex, make_llm  # noqa: E402
+        from learning.phase9.graphindex.index_build import Neo4jDocumentIndex  # noqa: E402
 
         idx = Neo4jDocumentIndex(
             base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
@@ -2645,46 +2642,33 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
             password=os.environ.get("NEO4J_PASSWORD", "password"),
         )
         idx.ensure_constraints()
-        rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE or "all")
 
-        # PG fallback: if Neo4j is empty (indexing still in progress),
-        # try PostgreSQL ContextDocument table instead.
-        if not rows:
+        # Check if documents exist
+        docs = idx.list_documents(project_id=project_id)
+        if not docs:
             pg_result = _search_pg_fallback(query, project_id)
             if pg_result:
                 return pg_result
             return f"No documents found matching '{query}' in project {project_id}."
 
-        llm = make_llm()
-        decision, cache_read = route_by_llm(query, rows, llm)
+        best = idx.find_best_document(
+            project_id=project_id,
+            query=query,
+            scope=_GRAPHINDEX_DOC_SCOPE,
+        )
+        if best is None:
+            return (f"No documents found matching '{query}' in project {project_id}.")
 
-        if not decision.documents:
-            primary_name = route_by_string(query, rows)
-            if not primary_name:
-                return (f"No documents found matching '{query}' in project {project_id}. "
-                        f"Reasoning: {decision.reasoning if decision.reasoning else 'N/A'}")
-            return (f"## GraphIndex Search Results for: '{query}'\n\n"
-                    f"**Fallback**: LLM returned null; used string-match.\n\n"
-                    f"**[{1}] {primary_name}**\n")
-
-        lines = [f"## GraphIndex Search Results for: '{query}'", ""]
-        lines.append(f"_routing: llm-semantic (cache_read={cache_read:,} tokens)_")
-        if decision.reasoning:
-            lines.append(f"_reasoning: {decision.reasoning}_")
-        lines.append("")
-
-        # Primary (first doc = best match)
-        primary = decision.documents[0]
-        lines.append(f"**[1] {primary.name}** (PRIMARY, confidence={primary.confidence:.2f})")
-        lines.append("")
-
-        # Supporting (rest of the list)
-        for i, doc in enumerate(decision.documents[1:], 2):
-            lines.append(f"**[{i}] {doc.name}** (SUPPORTING, confidence={doc.confidence:.2f})")
-            if doc.reason:
-                lines.append(f"   - Reason: {doc.reason}")
-            lines.append("")
-
+        lines = [
+            f"## GraphIndex Search Results for: '{query}'",
+            "",
+            f"_matching: vector (enrichment metadata)_",
+            "",
+            f"**[1] {best.name}** (BEST MATCH)",
+            f"    about: {best.what_this_document_is_about[:200] if best.what_this_document_is_about else '(none)'}",
+            f"    supports: {(best.supported_queries or [])[:5]}",
+            "",
+        ]
         return "\n".join(lines)
     except Exception as e:
         return f"❌ Error searching GraphIndex: {e}"
@@ -2716,11 +2700,17 @@ def graphindex_load(context_doc_id: int, max_chars: int = 10_000_000) -> str:
         if not context_doc:
             return f"❌ Document with context_doc_id={context_doc_id} not found in either Postgres or Neo4j."
 
-        from learning.phase9.graphindex.route import _read_doc_text  # noqa: E402
-        full_content = _read_doc_text(
-            context_doc.file_path or "",
-            max_chars=max_chars,
-        )
+        # Deterministic scope enforcement — refuse to load docs outside scope.
+        if _GRAPHINDEX_DOC_SCOPE is not None:
+            if context_doc.filename not in _GRAPHINDEX_DOC_SCOPE:
+                return (f"SCOPE_ERROR: Document '{context_doc.filename}' is not in the "
+                        f"current chat scope. Only the following docs are visible to "
+                        f"this chat: {', '.join(_GRAPHINDEX_DOC_SCOPE)}. "
+                        f"Search again within the selected scope, or ask the user to "
+                        f"clear the scope filter.")
+
+        from learning.phase9.graphindex.index_build import load_document_content  # noqa: E402
+        full_content = load_document_content(context_doc.file_path or "")
         if not full_content:
             return (f"❌ Could not extract text from {context_doc.filename} "
                     f"(file_path={context_doc.file_path})")
@@ -2871,10 +2861,9 @@ def graphindex_list_docs(project_id: Optional[int] = None) -> str:
 
 
 def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> str:
-    """One-shot: route a query to the best primary document, then load primary
-    + 0-3 supporting documents as a combined context string.
+    """One-shot: route a query to the best document, then load its full text.
 
-    Uses ``learning.phase9.graphindex.route`` (route_by_llm + load_doc_context).
+    Uses GraphIndex vector matching (find_best_document) + load_doc_context.
 
     Args:
         query: Natural language query (e.g., "compare Nike strategy with industry trends")
@@ -2890,12 +2879,8 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
                 "explicitly or set the GRAPHINDEX_PROJECT_ID env var.")
 
     try:
-        from learning.phase9.graphindex.route import (  # noqa: E402
-            fetch_catalog, route_by_llm, load_doc_context,
-        )
-        from learning.phase9.graphindex.index_build import (  # noqa: E402
-            Neo4jDocumentIndex, make_llm,
-        )
+        from learning.phase9.graphindex.index_build import load_doc_context  # noqa: E402
+        from learning.phase9.graphindex.index_build import Neo4jDocumentIndex  # noqa: E402
 
         idx = Neo4jDocumentIndex(
             base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
@@ -2903,28 +2888,23 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
             password=os.environ.get("NEO4J_PASSWORD", "password"),
         )
         idx.ensure_constraints()
-        rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE or "all")
-        if not rows:
+        docs = idx.list_documents(project_id=project_id)
+        if not docs:
             return f"No documents in project {project_id}."
 
-        llm = make_llm()
-        decision, _ = route_by_llm(query, rows, llm)
-        if not decision.documents:
-            return (f"No document matched '{query}'. "
-                    f"Reasoning: {decision.reasoning if decision.reasoning else 'N/A'}")
+        best = idx.find_best_document(
+            project_id=project_id,
+            query=query,
+            scope=_GRAPHINDEX_DOC_SCOPE,
+        )
+        if best is None:
+            return f"No document matched '{query}'."
 
-        # Use load_doc_context from graphindex lib to read matched docs
-        from learning.phase9.graphindex.route import load_doc_context  # noqa: E402
-        context = load_doc_context(idx, project_id, decision.documents)
-        primary = decision.documents[0]
+        context = load_doc_context(idx, project_id, [best.name])
         header = (
             f"## Multi-doc context for: '{query}'\n"
-            f"primary: {primary.name}"
-            f" (confidence={primary.confidence:.2f})\n"
+            f"primary: {best.name}\n"
         )
-        if len(decision.documents) > 1:
-            names = ", ".join(d.name for d in decision.documents[1:])
-            header += f"supporting: {names}\n"
         return header + context
     except Exception as e:
         return f"❌ Error in multi-doc load: {e}"
@@ -3075,12 +3055,12 @@ def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
 _graphindex_search_tool = StructuredTool.from_function(
     func=graphindex_search,
     name="graphindex_search",
-    description="Search project documents using GraphIndex with LLM semantic routing. Returns matching documents with context_doc_id, name, type, page count, primary_domain, and supporting list. Use context_doc_id with graphindex_load to get full content.",
+    description="Search project documents using GraphIndex vector matching. When a scope is active (user selected docs in sidebar), only in-scope documents are searchable and loadable. Returns matching documents with context_doc_id, name, type, page count, and supporting list. Use context_doc_id with graphindex_load to get full content.",
 )
 _graphindex_load_tool = StructuredTool.from_function(
     func=graphindex_load,
     name="graphindex_load",
-    description="Load the full content of a document by its context_doc_id (obtained from graphindex_search). Returns the complete document text for the agent to read. Default is 10M chars (effectively no cap — full doc in one call). Pass max_chars to limit.",
+    description="Load the full content of a document by its context_doc_id (obtained from graphindex_search). Returns the complete document text for the agent to read. Respects scope — refuses to load docs outside the current chat scope.",
 )
 _graphindex_list_docs_tool = StructuredTool.from_function(
     func=graphindex_list_docs,

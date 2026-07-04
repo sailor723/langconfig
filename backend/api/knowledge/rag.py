@@ -879,8 +879,8 @@ async def ingest_folder_from_path(
     db: Session = Depends(get_db),
 ):
     """Walk a folder on the server's disk and ingest every supported
-    file into the given project, deriving industry/player/sub_category
-    metadata from the path (Step N+1).
+    file into the given project, using the same code path as the CLI
+    (index_build.cmd_ingest_folder) so PostgreSQL + Neo4j stay in sync.
 
     Body (JSON):
       {
@@ -905,8 +905,6 @@ async def ingest_folder_from_path(
 
     project_id   = params.get("project_id")
     folder_path  = params.get("folder_path")
-    industry     = params.get("industry")
-    player       = params.get("player")
 
     if not project_id or not folder_path:
         raise HTTPException(
@@ -927,160 +925,29 @@ async def ingest_folder_from_path(
             detail=f"folder not found on disk: {folder}"
         )
 
-    # Defer to the same logic the CLI ingest script uses, so the
-    # behaviour matches exactly. We re-implement the loop here
-    # (rather than calling ingest_reports.py) so the path is short
-    # and avoids a sys.path dance.
-    import hashlib as _hashlib
-    from models.core import (
-        ContextDocument as _CD,
-        IndexingStatus as _IS,
-        DocumentType as _DT,
+    # Delegate to CLI code path — guarantees consistent naming
+    # across PostgreSQL, Neo4j, and disk files (no duplicates).
+    from learning.phase9.graphindex.index_build import (
+        Neo4jDocumentIndex,
+        cmd_ingest_folder,
+        make_llm,
     )
-    from services.file_storage import file_storage as _fs
 
-    supported_exts = {
-        ".md", ".markdown", ".txt",
-        ".pdf",
-        ".json",
-        ".csv", ".tsv",
-        ".py", ".js", ".ts", ".tsx", ".jsx",
-        ".html", ".htm",
-        ".docx", ".doc",
-        ".pptx", ".ppt",
-        ".xlsx", ".xls",
-        ".png", ".jpg", ".jpeg", ".gif", ".webp",
-    }
-    skip_names = {".placeholder", ".DS_Store", ".gitkeep"}
-
-    def _parse_path(rel: Path) -> dict:
-        parts = rel.parts
-        meta = {"industry": None, "player": None, "sub_category": None, "sub_department": None}
-        if len(parts) >= 2: meta["industry"] = parts[0]
-        if len(parts) >= 3: meta["player"] = parts[1]
-        if len(parts) >= 4: meta["sub_category"] = parts[2]
-        if len(parts) >= 5: meta["sub_department"] = parts[3]
-        return meta
-
-    counts = {"created": 0, "updated": 0, "skipped": 0, "failed": 0, "files_seen": 0, "files_filtered": 0}
-
-    for src in sorted(folder.rglob("*")):
-        if not src.is_file() or src.name in skip_names:
-            continue
-        ext = src.suffix.lower()
-        if ext not in supported_exts:
-            continue
-        rel = src.relative_to(folder)
-        if industry and (len(rel.parts) < 2 or rel.parts[0] != industry):
-            counts["files_filtered"] += 1
-            continue
-        if player and (len(rel.parts) < 3 or rel.parts[1] != player):
-            counts["files_filtered"] += 1
-            continue
-
-        counts["files_seen"] += 1
-        try:
-            content = src.read_bytes()
-            content_hash = _hashlib.sha256(content).hexdigest()
-
-            # Dedup by content_hash + project_id (and back-fill metadata
-            # on existing rows that have NULL industry/player/...)
-            existing = (
-                db.query(_CD)
-                .filter(
-                    _CD.project_id == project_id,
-                    _CD.content_hash == content_hash,
-                    _CD.indexing_status != _IS.FAILED,
-                )
-                .first()
-            )
-            meta = _parse_path(rel)
-            if existing:
-                updated_any = False
-                for field in ("industry", "player", "sub_category", "sub_department"):
-                    cur = getattr(existing, field)
-                    new = meta.get(field)
-                    if not cur and new:
-                        setattr(existing, field, new)
-                        updated_any = True
-                if updated_any:
-                    db.commit()
-                    counts["updated"] += 1
-                else:
-                    counts["skipped"] += 1
-                continue
-
-            # New doc — copy file + insert row
-            docs_root = Path(_fs._base_dir)
-            dst_dir = docs_root / f"project_{project_id}" / rel.parent
-            dst_dir.mkdir(parents=True, exist_ok=True)
-            dst_filename = f"{content_hash[:8]}_{src.name}"
-            dst_path = dst_dir / dst_filename
-            if not dst_path.exists():
-                shutil.copy2(src, dst_path)
-
-            # Map ext to DocumentType
-            ext_to_type = {
-                "md": _DT.MARKDOWN, "markdown": _DT.MARKDOWN, "txt": _DT.TEXT,
-                "pdf": _DT.PDF, "json": _DT.JSON, "py": _DT.CODE, "js": _DT.CODE,
-                "ts": _DT.CODE, "tsx": _DT.CODE, "jsx": _DT.CODE,
-                "html": _DT.HTML, "htm": _DT.HTML, "csv": _DT.CSV, "tsv": _DT.CSV,
-                "docx": _DT.TEXT, "doc": _DT.TEXT, "pptx": _DT.TEXT, "ppt": _DT.TEXT,
-                "xlsx": _DT.CSV, "xls": _DT.CSV,
-                "png": _DT.IMAGE, "jpg": _DT.IMAGE, "jpeg": _DT.IMAGE,
-                "gif": _DT.IMAGE, "webp": _DT.IMAGE,
-            }
-            document_type = ext_to_type.get(ext.lstrip("."), _DT.TEXT)
-
-            doc = _CD(
-                project_id=project_id,
-                filename=src.name,
-                original_filename=src.name,
-                file_path=str(dst_path),
-                file_size=len(content),
-                mime_type=None,
-                document_type=document_type,
-                indexing_status=_IS.NOT_INDEXED,
-                content_hash=content_hash,
-                tags=[meta["industry"], meta["player"], meta["sub_category"]],
-                industry=meta["industry"],
-                player=meta["player"],
-                sub_category=meta["sub_category"],
-                sub_department=meta["sub_department"],
-            )
-            db.add(doc)
-            db.commit()
-            db.refresh(doc)
-            counts["created"] += 1
-            # Queue for indexing + graphindex. Note: we can't easily
-            # call FastAPI's background task from here since this
-            # endpoint doesn't receive one. So we just call the
-            # function directly — it'll run synchronously in the
-            # request thread, but the user can navigate away.
-            try:
-                await index_document_background(doc.id)
-            except Exception as e:
-                logger.warning(f"Inline index failed for {src.name}: {e}")
-            if _is_graphindexable(src.name):
-                try:
-                    _queue_graphindex_ingest(str(dst_path), project_id=project_id)
-                except Exception as e:
-                    logger.warning(f"Inline graphindex queue failed for {src.name}: {e}")
-        except Exception as e:
-            logger.error(f"Failed to ingest {rel}: {e}")
-            db.rollback()
-            counts["failed"] += 1
-
-    logger.info(
-        f"ingest-folder: project={project_id} folder={folder} "
-        f"created={counts['created']} updated={counts['updated']} "
-        f"skipped={counts['skipped']} failed={counts['failed']}"
+    idx = Neo4jDocumentIndex(
+        base_url=_os.environ.get("NEO4J_URL", "http://localhost:7474"),
+        username=_os.environ.get("NEO4J_USER", "neo4j"),
+        password=_os.environ.get("NEO4J_PASSWORD", "password"),
     )
+    idx.ensure_constraints()
+    llm = make_llm()
+    ok = cmd_ingest_folder(idx, llm, str(folder), project_id=project_id)
+    success = ok == 0
+
     return {
-        **counts,
-        "files_ingested": counts["created"] + counts["updated"],
+        "success": success,
         "project_id": project_id,
         "folder": str(folder),
+        "message": "Folder ingested successfully." if success else "Folder ingested with errors.",
     }
 
 
@@ -1593,9 +1460,7 @@ async def search_documents(
     try:
         # ===== GraphIndex Mode =====
         if request.search_mode == "graphindex":
-            from learning.phase9.graphindex.route import fetch_catalog
-            from learning.phase9.graphindex.index_build import Neo4jDocumentIndex, make_llm
-            from learning.phase9.graphindex.route import route_by_llm
+            from learning.phase9.graphindex.index_build import Neo4jDocumentIndex
             import os as _os
 
             idx = Neo4jDocumentIndex(
@@ -1604,27 +1469,18 @@ async def search_documents(
                 password=_os.environ.get("NEO4J_PASSWORD", "password"),
             )
             idx.ensure_constraints()
-            rows = fetch_catalog(idx, request.project_id)
-            if not rows:
-                return GraphIndexSearchResponse(
-                    query=request.query,
-                    search_mode="graphindex",
-                    documents=[],
-                    total_documents=0,
-                )
 
-            llm = make_llm()
-            decision_obj, _ = route_by_llm(request.query, rows, llm)
+            best = idx.find_best_document(project_id=request.project_id, query=request.query)
 
             docs = []
-            for matched in decision_obj.documents[:request.top_k]:
+            if best:
                 context_doc = db.query(ContextDocument).filter(
                     ContextDocument.project_id == request.project_id,
-                    ContextDocument.filename == matched.name,
+                    ContextDocument.filename == best.name,
                 ).first()
                 docs.append(GraphIndexDocItem(
-                    doc_id=str(context_doc.id) if context_doc else matched.name,
-                    doc_name=matched.name,
+                    doc_id=str(context_doc.id) if context_doc else best.name,
+                    doc_name=best.name,
                     type="unknown",
                     page_count=0,
                     structure=None,

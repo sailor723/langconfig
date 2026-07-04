@@ -72,34 +72,44 @@ _PROJECT_ID = int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1"))
 
 # --- Document loading (lifted from scripts/test_neo4j_document_kv_roundtrip.py) -
 
-def _read_pdf_text(file_path: Path) -> str:
-    """Read a PDF with PyMuPDF (preferred; already used by dv_chat.py)."""
+def _read_pdf_text(file_path: Path, max_chars: int = 0) -> str:
+    """Read a PDF with PyMuPDF. Truncates at max_chars if > 0."""
     import fitz
     doc = fitz.open(str(file_path))
     parts: List[str] = []
+    total = 0
     for i in range(len(doc)):
+        if 0 < max_chars <= total:
+            parts.append(f"\n... [truncated after page {i+1}/{len(doc)}]")
+            break
         text = doc[i].get_text("text").strip()
         if text:
-            parts.append(f"--- Page {i+1}/{len(doc)} ---\n{text}")
+            chunk = f"--- Page {i+1}/{len(doc)} ---\n{text}"
+            parts.append(chunk)
+            total += len(chunk)
     doc.close()
     return "\n\n".join(parts)
 
 
-def _read_text_file(file_path: Path) -> str:
-    return file_path.read_text(encoding="utf-8", errors="ignore")
+def _read_text_file(file_path: Path, max_chars: int = 0) -> str:
+    text = file_path.read_text(encoding="utf-8", errors="ignore")
+    return text[:max_chars] if max_chars > 0 else text
 
 
-def load_document_content(file_path: str) -> str:
-    """Read the full text of a document based on its file extension."""
+def load_document_content(file_path: str, max_chars: int = 0) -> str:
+    """Read the full text of a document based on its file extension.
+    
+    If max_chars > 0, truncates output to approximately that many characters.
+    """
     p = Path(file_path)
     if not p.exists():
         return ""
     ext = p.suffix.lower()
     if ext == ".pdf":
-        return _read_pdf_text(p)
+        return _read_pdf_text(p, max_chars=max_chars)
     if ext in {".md", ".markdown", ".txt", ".json", ".yaml", ".yml"}:
-        return _read_text_file(p)
-    return _read_text_file(p)
+        return _read_text_file(p, max_chars=max_chars)
+    return _read_text_file(p, max_chars=max_chars)
 
 
 def load_graphindex_metadata(file_path: str) -> dict:
@@ -107,6 +117,52 @@ def load_graphindex_metadata(file_path: str) -> dict:
     enough for the LLM to derive everything it needs. Returned as {} for
     compatibility with the build_document_node_properties signature."""
     return {}
+
+
+# Per-doc char limits. Primary gets more; supporting is tighter.
+_PRIMARY_MAX_CHARS = int(os.getenv("GRAPHINDEX_PRIMARY_MAX_CHARS", "10000000"))
+_SUPPORTING_MAX_CHARS = int(os.getenv("GRAPHINDEX_SUPPORTING_MAX_CHARS", "10000000"))
+
+# Cache file_path lookups so we don't hit Neo4j per doc load.
+_FILE_PATH_CACHE: Dict[tuple, str] = {}
+
+
+def _file_path_for(index: Neo4jDocumentIndex, project_id: int, name: str) -> str:
+    """Look up file_path from Neo4j, with in-memory cache."""
+    key = (project_id, name)
+    if key in _FILE_PATH_CACHE:
+        return _FILE_PATH_CACHE[key]
+    node = index.get_document(project_id=project_id, name=name)
+    path = node.file_path if node else ""
+    _FILE_PATH_CACHE[key] = path
+    return path
+
+
+def load_doc_context(
+    index: Neo4jDocumentIndex,
+    project_id: int,
+    doc_names: List[str],
+    reasons: Optional[Dict[str, str]] = None,
+) -> str:
+    """Concatenate matched docs into a single human-readable string.
+
+    Reads full text for each document, ordered by relevance (best first).
+    First doc is marked PRIMARY, rest are SUPPORTING with their reason.
+    """
+    parts: List[str] = []
+    for i, name in enumerate(doc_names, start=1):
+        path = _file_path_for(index, project_id, name)
+        max_chars = _PRIMARY_MAX_CHARS if i == 1 else _SUPPORTING_MAX_CHARS
+        text = load_document_content(path, max_chars=max_chars)
+        label = "PRIMARY" if i == 1 else "SUPPORTING"
+        reason = (reasons or {}).get(name, "")
+        reason_line = f"\n[Reason: {reason}]" if reason else ""
+        parts.append(
+            f"=== Document {i} ({label}): {name} ==={reason_line}\n{text}"
+            if text else
+            f"=== Document {i} ({label}): {name} ==={reason_line}\n(no extractable text)"
+        )
+    return "\n\n".join(parts)
 
 
 # --- Enrichment schema (lifted from scripts/test_neo4j_document_kv_roundtrip.py) ---

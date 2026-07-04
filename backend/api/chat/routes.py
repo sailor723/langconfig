@@ -1066,11 +1066,12 @@ async def send_message_stream(
                         interrupt_data = event.get("data", {})
                         safe_data = make_json_safe(interrupt_data)
                         logger.info(f"Agent interrupted for session {session_id}: {str(safe_data)[:300]}")
-                        yield f"data: {json.dumps({
+                        payload = json.dumps({
                             'type': 'interrupt',
                             'session_id': session_id,
                             'data': safe_data,
-                        })}\n\n"
+                        })
+                        yield f"data: {payload}\n\n"
 
                 # After stream completes, check for pending interrupts
                 interrupted = False
@@ -1086,11 +1087,12 @@ async def send_message_stream(
                         else:
                             safe_data = make_json_safe(str(interrupt_data))
                         logger.info(f"Agent interrupted (post-stream check) for session {session_id}: {str(safe_data)[:300]}")
-                        yield f"data: {json.dumps({
+                        payload = json.dumps({
                             'type': 'interrupt',
                             'session_id': session_id,
                             'data': safe_data,
-                        })}\n\n"
+                        })
+                        yield f"data: {payload}\n\n"
                         interrupted = True
                     elif state_snapshot and hasattr(state_snapshot, 'next') and state_snapshot.next:
                         # Normal agent interrupts (interrupt_before=["tools"])
@@ -1111,11 +1113,8 @@ async def send_message_stream(
                             "next_nodes": next_nodes,
                             "tool_calls": tool_calls_data,
                         })
-                        yield f"data: {json.dumps({
-                            'type': 'interrupt',
-                            'session_id': session_id,
-                            'data': safe_data,
-                        })}\n\n"
+                        safe_data_for_interrupt = {'type': 'interrupt', 'session_id': session_id, 'data': safe_data}
+                        yield f"data: {json.dumps(safe_data_for_interrupt)}\n\n"
                         interrupted = True
                 except Exception as e:
                     logger.debug(f"No interrupt state available: {e}")
@@ -1140,11 +1139,8 @@ async def send_message_stream(
                     interrupt_data = first.value if hasattr(first, 'value') else str(first)
                 safe_data = make_json_safe(interrupt_data) if interrupt_data else {}
                 logger.info(f"Agent interrupted for session {session_id}: {str(safe_data)[:300]}")
-                yield f"data: {json.dumps({
-                    'type': 'interrupt',
-                    'session_id': session_id,
-                    'data': safe_data,
-                })}\n\n"
+                payload = {'type': 'interrupt', 'session_id': session_id, 'data': safe_data}
+                yield f"data: {json.dumps(payload)}\n\n"
                 # Clear response — interrupt means no completion happened
                 full_response = ""
 
