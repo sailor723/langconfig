@@ -785,20 +785,71 @@ def cmd_rebuild_project(
 
 
 def cmd_query(index: Neo4jDocumentIndex, query_text: str,
-              project_id: int = _PROJECT_ID) -> int:
+              project_id: int = _PROJECT_ID,
+              scope: Optional[list[str]] = None) -> int:
     """Route a query using the current enrichment state and print top candidates."""
     docs = index.list_documents(project_id=project_id)
     print(f"\nQuery ({query_text!r}) — project {project_id}\n")
     if not docs:
         print(f"  ✗ no documents in project {project_id}")
         return 1
-    best = index.find_best_document(project_id=project_id, query=query_text)
+    best = index.find_best_document(project_id=project_id, query=query_text, scope=scope)
     if best is None:
         print("  ✗ no match")
         return 1
     print(f"  ✓ best match: {best.name}  (context_doc_id={best.context_doc_id})")
     print(f"    about: {best.what_this_document_is_about[:200]}")
     print(f"    file: {best.file_path}")
+    return 0
+
+
+def cmd_qa(
+    index: Neo4jDocumentIndex,
+    llm: BaseChatModel,
+    query_text: str,
+    project_id: int = _PROJECT_ID,
+    scope: Optional[list[str]] = None,
+) -> int:
+    """GraphIndex find_best_document → load full text → LLM answer synthesis."""
+    docs = index.list_documents(project_id=project_id)
+    if not docs:
+        print(f"  ✗ no documents in project {project_id}")
+        return 1
+
+    best = index.find_best_document(project_id=project_id, query=query_text, scope=scope)
+    if best is None:
+        print("  ✗ no match found")
+        return 1
+
+    print(f"  ✓ matched: {best.name}")
+    print(f"    about: {best.what_this_document_is_about[:200]}")
+    print(f"    loading full text...")
+
+    content = load_document_content(best.file_path) if best.file_path else ""
+    if not content:
+        print(f"  ✗ empty content at {best.file_path}")
+        return 1
+
+    print(f"    {len(content)} chars loaded\n")
+    print(f"{'='*70}")
+    resp = llm.invoke([
+        SystemMessage(content=(
+            "You are a precise Q&A assistant. Answer the user's question "
+            "based solely on the provided document content. "
+            "If the document doesn't contain enough information, say so. "
+            "Be concise and cite relevant parts."
+        )),
+        HumanMessage(content=(
+            f"Question: {query_text}\n\n"
+            f"--- Document: {best.name} ---\n\n{content[:8000]}"
+        )),
+    ])
+    answer = resp.content if isinstance(resp.content, str) else str(resp.content)
+    # Strip <think>...</think> reasoning blocks (MiniMax often returns them)
+    if "<think>" in answer:
+        answer = answer.split("</think>", 1)[1].strip() if "</think>" in answer else answer.split("<think>", 1)[0].strip()
+    print(f"Answer:\n{answer.strip()}")
+    print(f"{'='*70}")
     return 0
 
 
@@ -841,6 +892,10 @@ def main() -> int:
                         help="Rebuild enrichment for every doc in the project")
     parser.add_argument("--query", metavar="TEXT",
                         help="Route a query and print best match")
+    parser.add_argument("--qa", metavar="TEXT",
+                        help="Full QA: GraphIndex find_best_document → LLM answer synthesis")
+    parser.add_argument("--doc-scope", metavar="NAMES", nargs="*", default=None,
+                        help="Scope search to specific doc names (space-separated)")
     parser.add_argument("--ingest", metavar="FILE",
                         help="Ingest a single file: hash, dedup, copy, build graphindex")
     parser.add_argument("--ingest-folder", metavar="DIR",
@@ -854,7 +909,7 @@ def main() -> int:
 
     if not any([args.list, args.show, args.remove, args.remove_folder, args.show_agent, args.purge,
                 args.rebuild_one, args.rebuild_project,
-                args.query, args.ingest, args.ingest_folder]):
+                args.query, args.qa, args.ingest, args.ingest_folder]):
         parser.print_help()
         return 1
 
@@ -869,9 +924,9 @@ def main() -> int:
     index.ensure_constraints()
     print(f"   constraints ensured")
 
-    # Build LLM (lazy — only when we need enrichment)
+    # Build LLM (lazy — only when we need enrichment or QA)
     llm: Optional[BaseChatModel] = None
-    if args.rebuild_one or args.rebuild_project or args.ingest or args.ingest_folder:
+    if args.rebuild_one or args.rebuild_project or args.ingest or args.ingest_folder or args.qa:
         llm = make_llm()
         print(f"🔌 LLM: {os.getenv('GRAPHINDEX_MODEL', 'minimax-m3')}\n")
 
@@ -892,7 +947,9 @@ def main() -> int:
     if args.rebuild_project:
         return cmd_rebuild_project(index, llm, project_id=project_id)
     if args.query:
-        return cmd_query(index, args.query, project_id=project_id)
+        return cmd_query(index, args.query, project_id=project_id, scope=args.doc_scope)
+    if args.qa:
+        return cmd_qa(index, llm, args.qa, project_id=project_id, scope=args.doc_scope)
     if args.ingest:
         return cmd_ingest(index, llm, args.ingest, args.ingest_target,
                           project_id=project_id)

@@ -3,7 +3,7 @@ name = "langconfig-backend"
 version = "0.1.0"
 description = "LangConfig - Open-source visual platform for building, testing, and deploying LangChain agents and LangGraph workflows"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     # Core Framework
     "fastapi==0.115.0",

@@ -429,7 +429,18 @@ class Neo4jDocumentIndex:
             for row in rows
         ]
 
-    def find_best_document(self, project_id: int, query: str) -> Optional[Neo4jDocumentRecord]:
-        """Find the best document using enriched node metadata first."""
+    def find_best_document(self, project_id: int, query: str,
+                           scope: Optional[list[str]] = None) -> Optional[Neo4jDocumentRecord]:
+        """Find the best document using enriched node metadata first.
+
+        Args:
+            project_id: Neo4j project id.
+            query: Natural-language query to match against document metadata.
+            scope: Optional list of document names to restrict search to.
+                   If None or empty, searches all documents in the project.
+        """
         documents = self.list_documents(project_id)
+        if scope:
+            scope_set = set(scope)
+            documents = [d for d in documents if d.name in scope_set]
         return choose_best_document_match(query, documents)
