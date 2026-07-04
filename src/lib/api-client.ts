@@ -429,7 +429,14 @@ class APIClient {
   async uploadDocument(
     projectId: number,
     file: File,
-    metadata?: { description?: string; tags?: string[] },
+    metadata?: {
+    description?: string;
+    tags?: string[];
+    industry?: string;
+    player?: string;
+    sub_category?: string;
+    sub_department?: string;
+  },
     onUploadProgress?: (percent: number) => void
   ) {
     const formData = new FormData();

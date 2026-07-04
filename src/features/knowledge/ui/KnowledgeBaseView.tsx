@@ -330,6 +330,7 @@ export default function KnowledgeBaseView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDocId, setSelectedDocId] = useState<number | null>(null);
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
   // Doc that was just selected by the chat (auto-clears after 2.5s)
   const [highlightedDocId, setHighlightedDocId] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -702,16 +703,29 @@ export default function KnowledgeBaseView() {
           fileMetadata
         );
       } else {
-        // Single file upload — use its single metadata entry if present
+        // Single file upload — use its single metadata entry if present.
+        // If the user has selected a folder in the tree, inject the
+        // folder's hierarchy path as metadata so the doc appears in
+        // the correct tree location rather than (ungrouped).
         const singleMeta = fileMetadata[0];
+        const uploadMeta: any = singleMeta
+          ? { tags: singleMeta.tags }
+          : undefined;
+
+        // If the file has no webkitRelativePath (single file, not folder),
+        // use the selected tree folder path to determine hierarchy.
+        if (singleMeta && !singleMeta.industry && selectedFolderPath) {
+          const parts = selectedFolderPath.split('/').filter(Boolean);
+          if (parts.length >= 1) uploadMeta.industry = parts[0];
+          if (parts.length >= 2) uploadMeta.player = parts[1];
+          if (parts.length >= 3) uploadMeta.sub_category = parts[2];
+          if (parts.length >= 4) uploadMeta.sub_department = parts[3];
+        }
+
         await apiClient.uploadDocument(
           activeProjectId,
           files[0],
-          singleMeta
-            ? {
-                tags: singleMeta.tags,
-              }
-            : undefined,
+          uploadMeta,
           onProgress
         );
       }
@@ -1228,6 +1242,33 @@ export default function KnowledgeBaseView() {
 
             {/* Upload buttons — moved from right column to title bar
                 to free up vertical space for the chat column. */}
+
+            {/* Selected folder indicator — shows which tree folder new uploads will land in */}
+            {selectedFolderPath && (
+              <div
+                className="flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] transition-all"
+                style={{
+                  borderColor: 'var(--color-primary)',
+                  backgroundColor: 'var(--color-primary-alpha)',
+                  color: 'var(--color-primary)',
+                }}
+              >
+                <span className="material-symbols-outlined text-xs">folder</span>
+                <span className="truncate max-w-[120px]">
+                  {selectedFolderPath
+                    .split('/')
+                    .map(s => s.replace(/_/g, ' ').replace(/\w/g, c => c.toUpperCase()))
+                    .join(' › ')}
+                </span>
+                <button
+                  onClick={() => setSelectedFolderPath(null)}
+                  className="ml-0.5 hover:bg-white/20 rounded p-0.5"
+                >
+                  <span className="material-symbols-outlined text-xs">close</span>
+                </button>
+              </div>
+            )}
+
             <label
               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary text-white transition-all text-[11px] font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90 cursor-pointer'}`}
               title={t('kb_upload_browse')}
@@ -1447,6 +1488,7 @@ export default function KnowledgeBaseView() {
                       scopeDocIds={scopeDocIds}
                       toggleScopeDoc={toggleScopeDoc}
                       setSelectedDocId={setSelectedDocId}
+                      onFolderSelect={setSelectedFolderPath}
                       handleDelete={handleDelete}
                       t={t}
                       formatFileSize={formatFileSize}

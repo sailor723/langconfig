@@ -25,6 +25,7 @@ export interface KbTreeViewProps {
   scopeDocIds: Set<number>;
   toggleScopeDoc: (id: number) => void;
   setSelectedDocId: (id: number) => void;
+  onFolderSelect?: (path: string | null) => void;
   handleDelete: (id: number) => Promise<void>;
   t: (key: string) => string;
   formatFileSize: (bytes: number) => string;
@@ -165,6 +166,7 @@ function renderNode(
   scopeDocIds: Set<number>,
   toggleScopeDoc: (id: number) => void,
   setSelectedDocId: (id: number) => void,
+  onFolderSelect: ((path: string | null) => void) | undefined,
   handleDelete: (id: number) => Promise<void>,
   t: (key: string) => string,
   formatFileSize: (bytes: number) => string,
@@ -198,7 +200,10 @@ function renderNode(
       node={node}
       depth={depth}
       isExpanded={isExpanded}
-      onToggle={() => toggleFolder(node.path)}
+      onToggle={() => {
+        toggleFolder(node.path);
+        onFolderSelect?.(node.path);
+      }}
       childCount={childCount}
       docCount={docCount}
     />,
@@ -211,7 +216,7 @@ function renderNode(
           selectedDocId, highlightedDocId,
           expandedFolders, toggleFolder,
           scopeDocIds, toggleScopeDoc,
-          setSelectedDocId, handleDelete,
+          setSelectedDocId, onFolderSelect, handleDelete,
           t, formatFileSize,
         ),
       );
@@ -230,6 +235,7 @@ export default function KbTreeView(props: KbTreeViewProps) {
     scopeDocIds,
     toggleScopeDoc,
     setSelectedDocId,
+    onFolderSelect,
     handleDelete,
     t,
     formatFileSize,
@@ -253,7 +259,7 @@ export default function KbTreeView(props: KbTreeViewProps) {
           selectedDocId, highlightedDocId,
           expandedFolders, toggleFolder,
           scopeDocIds, toggleScopeDoc,
-          setSelectedDocId, handleDelete,
+          setSelectedDocId, onFolderSelect, handleDelete,
           t, formatFileSize,
         ),
       )}
