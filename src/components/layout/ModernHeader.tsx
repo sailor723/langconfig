@@ -13,19 +13,52 @@ import { useChat } from '../../features/chat/state/ChatContext';
 import AgentsMdEditor from '../../features/projects/AgentsMdEditor';
 
 interface ModernHeaderProps {
-  currentView: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
-  onViewChange: (view: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio') => void;
+  currentView: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'community';
+  onViewChange: (view: 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'community') => void;
+  mode: 'langgraph' | 'langchain' | 'deepagent';
+  onModeChange: (mode: 'langgraph' | 'langchain' | 'deepagent') => void;
 }
 
 export default function ModernHeader({
   currentView,
-  onViewChange
+  onViewChange,
+  mode,
+  onModeChange
 }: ModernHeaderProps) {
   const { activeProject, projects, setActiveProjectId, loading } = useProject();
   const { openChat } = useChat();
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [showAgentsMdEditor, setShowAgentsMdEditor] = useState(false);
   const { t } = useTranslation('chat');
+
+  const modeNavItems = (() => {
+    switch (mode) {
+      case 'langgraph':
+        return [
+          { view: 'studio' as const, icon: 'account_tree', label: t('nav_studio') },
+          { view: 'library' as const, icon: 'folder', label: t('nav_library') },
+        ];
+      case 'langchain':
+        return [
+          { view: 'agents' as const, icon: 'psychology', label: t('nav_agents') },
+          { view: 'skills' as const, icon: 'auto_awesome', label: t('nav_skills') },
+          { view: 'tools' as const, icon: 'build', label: t('nav_tools') },
+          { view: 'prompt' as const, icon: 'layers', label: t('nav_prompt') },
+        ];
+      case 'deepagent':
+        return [
+          { view: 'agents' as const, icon: 'psychology', label: t('nav_agents') },
+          { view: 'skills' as const, icon: 'auto_awesome', label: t('nav_skills') },
+          { view: 'tools' as const, icon: 'build', label: t('nav_tools') },
+          { view: 'prompt' as const, icon: 'layers', label: t('nav_prompt') },
+          { view: 'knowledge' as const, icon: 'database', label: t('nav_knowledge') },
+          { view: 'analysis' as const, icon: 'monitoring', label: 'Analysis' },
+          { view: 'studio' as const, icon: 'account_tree', label: t('nav_studio') },
+          { view: 'library' as const, icon: 'folder', label: t('nav_library') },
+        ];
+    }
+  })();
+
 
   return (
     <header className="flex items-center justify-between whitespace-nowrap border-b px-4 py-4 z-20 shrink-0 h-20" style={{ backgroundColor: 'var(--color-header-background)', borderBottomColor: 'var(--color-border-dark)' }}>
@@ -80,152 +113,30 @@ export default function ModernHeader({
       </div>
 
       {/* Center: Navigation Tabs */}
-      <nav className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
-        <button
-          onClick={() => onViewChange('studio')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'studio'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            } `}
-          style={{
-            textShadow: currentView === 'studio' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'studio' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">account_tree</span>
-            {t('nav_studio')}
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('agents')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'agents'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            } `}
-          style={{
-            textShadow: currentView === 'agents' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'agents' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">psychology</span>
-            {t('nav_agents')}
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('library')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'library'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            } `}
-          style={{
-            textShadow: currentView === 'library' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'library' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">folder</span>
-            {t('nav_library')}
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('knowledge')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'knowledge'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            }`}
-          style={{
-            textShadow: currentView === 'knowledge' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'knowledge' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">database</span>
-            {t('nav_knowledge')}
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('tools')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'tools'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            }`}
-          style={{
-            textShadow: currentView === 'tools' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'tools' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">build</span>
-            {t('nav_tools')}
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('prompt')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'prompt'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            } `}
-          style={{
-            textShadow: currentView === 'prompt' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'prompt' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">layers</span>
-            {t('nav_prompt')}
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('skills')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'skills'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            } `}
-          style={{
-            textShadow: currentView === 'skills' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'skills' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">auto_awesome</span>
-            {t('nav_skills')}
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('analysis')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'analysis'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            }`}
-          style={{
-            textShadow: currentView === 'analysis' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'analysis' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">monitoring</span>
-            Analysis
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('deepagent-studio')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'deepagent-studio'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            }`}
-          style={{
-            textShadow: currentView === 'deepagent-studio' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'deepagent-studio' ? 'blur(8px)' : 'none'
-          }}
-          title="DeepAgent Studio — visualize any DeepAgent's structure"
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">hub</span>
-            DeepAgent Studio
-          </span>
-        </button>
+            <nav className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
+        {modeNavItems.map(item => (
+          <button
+            key={item.view}
+            onClick={() => onViewChange(item.view)}
+            className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === item.view
+              ? 'bg-white/30 text-white font-semibold border-white/40'
+              : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
+              } `}
+            style={{
+              textShadow: currentView === item.view ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
+              backdropFilter: currentView === item.view ? 'blur(8px)' : 'none'
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-base">{item.icon}</span>
+              {item.label}
+            </span>
+          </button>
+        ))}
+        <div className="px-3 py-1 ml-2 text-[10px] uppercase tracking-wider rounded-full border border-white/20 text-white/60 bg-white/10"
+          style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)' }}>
+          {mode}
+        </div>
       </nav>
 
       {/* Right: Project Selector & Action Buttons */}
