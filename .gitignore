@@ -123,3 +123,6 @@ langconfig/
 # Private/unreleased features (uncomment before pushing to public)
 # backend/core/codegen/generators/streamlit_configurable.py
 langconfig/
+
+# Backend data (large files, PDFs, chat attachments)
+backend/data/**
