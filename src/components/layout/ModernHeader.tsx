@@ -25,6 +25,7 @@ export default function ModernHeader({
   const { openChat } = useChat();
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [showAgentsMdEditor, setShowAgentsMdEditor] = useState(false);
+  const [showBuildDropdown, setShowBuildDropdown] = useState(false);
   const { t } = useTranslation('chat');
 
   return (
@@ -145,55 +146,53 @@ export default function ModernHeader({
             {t('nav_knowledge')}
           </span>
         </button>
-        <button
-          onClick={() => onViewChange('tools')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'tools'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
+                {/* Build dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setShowBuildDropdown(!showBuildDropdown)}
+            className={`px-4 py-2 text-sm rounded-lg transition-all border flex items-center gap-2 ${
+              ['tools', 'prompt', 'skills'].includes(currentView)
+                ? 'bg-white/30 text-white font-semibold border-white/40'
+                : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
             }`}
-          style={{
-            textShadow: currentView === 'tools' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'tools' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">build</span>
-            {t('nav_tools')}
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('prompt')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'prompt'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            } `}
-          style={{
-            textShadow: currentView === 'prompt' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'prompt' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">layers</span>
-            {t('nav_prompt')}
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('skills')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'skills'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            } `}
-          style={{
-            textShadow: currentView === 'skills' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'skills' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">auto_awesome</span>
-            {t('nav_skills')}
-          </span>
-        </button>
-        <button
+            style={{
+              textShadow: ['tools', 'prompt', 'skills'].includes(currentView) ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
+              backdropFilter: ['tools', 'prompt', 'skills'].includes(currentView) ? 'blur(8px)' : 'none'
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-base">build</span>
+              Build
+              <span className="material-symbols-outlined text-sm ml-1">{showBuildDropdown ? 'expand_less' : 'expand_more'}</span>
+            </span>
+          </button>
+          {showBuildDropdown && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowBuildDropdown(false)} />
+              <div className="absolute left-0 mt-2 w-40 rounded-lg shadow-lg border z-40 overflow-hidden"
+                style={{ backgroundColor: 'var(--color-panel-dark)', borderColor: 'var(--color-border-dark)' }}>
+                {[
+                  { view: 'skills' as const, icon: 'auto_awesome', label: t('nav_skills') },
+                  { view: 'tools' as const, icon: 'build', label: t('nav_tools') },
+                  { view: 'prompt' as const, icon: 'layers', label: t('nav_prompt') },
+                ].map(item => (
+                  <button
+                    key={item.view}
+                    onClick={() => { onViewChange(item.view); setShowBuildDropdown(false); }}
+                    className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-all ${
+                      currentView === item.view
+                        ? 'bg-white/15 text-white font-semibold'
+                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">{item.icon}</span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div><button
           onClick={() => onViewChange('analysis')}
           className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'analysis'
             ? 'bg-white/30 text-white font-semibold border-white/40'
