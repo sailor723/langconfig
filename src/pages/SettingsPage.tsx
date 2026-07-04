@@ -18,7 +18,13 @@ import EmbeddingSettings from '../features/settings/ui/EmbeddingSettings';
 import SearchProvidersSettings from '../features/settings/ui/SearchProvidersSettings';
 import SettingsSection, { SettingsInput } from '../features/settings/ui/SettingsSection';
 
-export default function SettingsView() {
+export default function SettingsView({ 
+  mode, 
+  onModeChange 
+}: { 
+  mode?: string; 
+  onModeChange?: (mode: 'langgraph' | 'langchain' | 'deepagent') => void; 
+} = {}) {
   const { t } = useTranslation('chat');
   const { theme: activeTheme, setTheme } = useTheme();
   const [currentCategory, setCurrentCategory] = useState<SettingsCategory>('general');
@@ -448,6 +454,33 @@ export default function SettingsView() {
                     {t('settings_language_label')}
                   </span>
                     <LanguageSwitcher />
+                  </div>
+                </div>
+
+                {/* Workflow Mode */}
+                <div className="p-4 border-b" style={{ borderColor: 'var(--color-border-dark)' }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Workflow Mode</div>
+                      <div className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                        Choose which tools and views to show in the header
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5 bg-white/5 rounded-lg p-1">
+                      {(['langgraph', 'langchain', 'deepagent'] as const).map(m => (
+                        <button
+                          key={m}
+                          onClick={() => onModeChange?.(m)}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                            mode === m
+                              ? 'bg-primary text-white shadow-sm'
+                              : 'text-white/70 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          {m === 'langgraph' ? 'LangGraph' : m === 'langchain' ? 'LangChain' : 'DeepAgent'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
