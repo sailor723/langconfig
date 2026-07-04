@@ -26,6 +26,7 @@ export default function ModernHeader({
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [showAgentsMdEditor, setShowAgentsMdEditor] = useState(false);
   const [showBuildDropdown, setShowBuildDropdown] = useState(false);
+  const [showStudioDropdown, setShowStudioDropdown] = useState(false);
   const { t } = useTranslation('chat');
 
   return (
@@ -82,22 +83,51 @@ export default function ModernHeader({
 
       {/* Center: Navigation Tabs */}
       <nav className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
-        <button
-          onClick={() => onViewChange('studio')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'studio'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            } `}
-          style={{
-            textShadow: currentView === 'studio' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'studio' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">account_tree</span>
-            {t('nav_studio')}
-          </span>
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setShowStudioDropdown(!showStudioDropdown)}
+            className={`px-4 py-2 text-sm rounded-lg transition-all border flex items-center gap-2 ${
+              ['studio', 'deepagent-studio'].includes(currentView)
+                ? 'bg-white/30 text-white font-semibold border-white/40'
+                : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
+            }`}
+            style={{
+              textShadow: ['studio', 'deepagent-studio'].includes(currentView) ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
+              backdropFilter: ['studio', 'deepagent-studio'].includes(currentView) ? 'blur(8px)' : 'none'
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-base">account_tree</span>
+              Studio
+              <span className="material-symbols-outlined text-sm ml-1">{showStudioDropdown ? 'expand_less' : 'expand_more'}</span>
+            </span>
+          </button>
+          {showStudioDropdown && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowStudioDropdown(false)} />
+              <div className="absolute left-0 mt-2 w-44 rounded-lg shadow-lg border z-40 overflow-hidden"
+                style={{ backgroundColor: 'var(--color-panel-dark)', borderColor: 'var(--color-border-dark)' }}>
+                {[
+                  { view: 'studio' as const, icon: 'account_tree', label: 'LangGraph' },
+                  { view: 'deepagent-studio' as const, icon: 'hub', label: 'DeepAgent' },
+                ].map(item => (
+                  <button
+                    key={item.view}
+                    onClick={() => { onViewChange(item.view); setShowStudioDropdown(false); }}
+                    className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-all ${
+                      currentView === item.view
+                        ? 'bg-white/15 text-white font-semibold'
+                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">{item.icon}</span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         <button
           onClick={() => onViewChange('agents')}
           className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'agents'
@@ -208,23 +238,7 @@ export default function ModernHeader({
             Analysis
           </span>
         </button>
-        <button
-          onClick={() => onViewChange('deepagent-studio')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'deepagent-studio'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            }`}
-          style={{
-            textShadow: currentView === 'deepagent-studio' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'deepagent-studio' ? 'blur(8px)' : 'none'
-          }}
-          title="DeepAgent Studio — visualize any DeepAgent's structure"
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">hub</span>
-            DeepAgent Studio
-          </span>
-        </button>
+        
       </nav>
 
       {/* Right: Project Selector & Action Buttons */}
