@@ -659,6 +659,21 @@ def cmd_query(index: Neo4jDocumentIndex, query_text: str,
 
 # --- Entry point -------------------------------------------------------------
 
+def cmd_show_agent() -> int:
+    """Print agent topology for the build-side DeepAgent (if available)."""
+    try:
+        from learning.phase9.build_agent import get_build_agent
+        agent = get_build_agent()
+        print("Build-side DeepAgent topology:")
+        for node in agent.get_graph().nodes:
+            print("  -", node)
+    except ImportError:
+        print("Build agent not available (build_agent module not found)")
+    except Exception as e:
+        print("  (could not introspect: {})".format(e))
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Phase 9 — complete GraphIndex builder.",
@@ -681,6 +696,7 @@ def main() -> int:
                         help="Ingest a single file: hash, dedup, copy, build graphindex")
     parser.add_argument("--ingest-folder", metavar="DIR",
                         help="Ingest all supported files in a directory")
+    parser.add_argument("--show-agent", action="store_true", help="Print agent topology")
     parser.add_argument("--ingest-target", metavar="DIR", default=None,
                         help="Target directory for the ingested file "
                              "(default: backend/data/documents/project_{ID})")
@@ -726,6 +742,8 @@ def main() -> int:
     if args.ingest:
         return cmd_ingest(index, llm, args.ingest, args.ingest_target,
                           project_id=project_id)
+    if args.show_agent:
+        return cmd_show_agent()
     if args.ingest_folder:
         return cmd_ingest_folder(index, llm, args.ingest_folder,
                                  project_id=project_id)

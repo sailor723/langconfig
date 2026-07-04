@@ -214,9 +214,7 @@ phase9/
 │                                uses: legacy/build_graphindex.py (helpers)
 │
 ├── 🏗️ BUILD / INDEX (offline, modifies Neo4j)
-│   ├── graphindex_build_python.py     ──► graphindex_tools.py
-│   ├── graphindex_build_deepagent.py  ──► graphindex_tools.py (uses DeepAgent)
-│   ├── graphindex_build_langgraph.py  ──► graphindex_tools.py (uses LangGraph)
+│   └── graphindex/index_build.py         ──► CLI + API (recommended, full features)
 │   ├── graphindex_builder_template.py ──► template for new builders
 │   ├── buildindex_tools.py            ──► LLM enrichment primitives
 │   └── build_agent.py                 ──► same as buildindex_tools.py, agent variant
@@ -1069,8 +1067,8 @@ routing.
 |---|---|---|
 | `graphindex_list_docs(project_id)` | `phase9.query.fetch_catalog` | Discover what docs exist before routing |
 | `graphindex_multi_doc_load(query)` | `phase9.query.load_multi_doc_context` | One-shot: route + load primary + supporting |
-| `graphindex_rebuild_one(name)` | `phase9.graphindex_build_python.cmd_rebuild_one` | Knowledge curation |
-| `graphindex_ingest(file_path)` | `phase9.graphindex_build_python.cmd_ingest` | Build-side ingest (richer than chat_pdf) |
+| `graphindex_rebuild_one(name)` | `phase9.graphindex.index_build.cmd_rebuild_one` | Knowledge curation |
+| `graphindex_ingest(file_path)` | `phase9.graphindex.index_build.cmd_ingest` | Build-side ingest (richer than chat_pdf) |
 
 ### How the integration works
 
@@ -1158,7 +1156,7 @@ Added a new helper `_phase9_get_or_generate_enrichment` that:
 1. Reads the existing Neo4j node (if any). If it already has a populated
    `what_this_document_is_about`, **reuse that enrichment** (avoids
    duplicate LLM calls for already-indexed docs).
-2. Otherwise, calls `phase9.graphindex_build_python.enrich_document` to
+2. Otherwise, calls `phase9.graphindex.index_build.extract_document_enrichment` to
    run a single LLM call and return a `Neo4jDocumentEnrichment` with
    `about / supported_queries / out_of_scope / few_shot`.
 
@@ -1371,7 +1369,7 @@ imported by the modern scripts (via `from legacy.xxx import ...`).
 
 | File | Old path | New path | Helper functions still imported by |
 |---|---|---|---|
-| `build_graphindex.py` | `phase9/` | `phase9/legacy/` | `graphindex_build_python.py`, `buildindex_tools.py` |
+| `build_graphindex.py` | `phase9/` | `phase9/legacy/` | `graphindex/index_build.py` |
 | `route_semantic.py` | `phase9/` | `phase9/legacy/` | `graphindex_tools.py`, `legacy/dv_chat.py` |
 | `dv_chat.py` | `phase9/` | `phase9/legacy/` | (self-contained REPL) |
 | `eval_routing.py` | `phase9/` | `phase9/legacy/` | `eval_routing_deep.py` |
@@ -1380,8 +1378,7 @@ imported by the modern scripts (via `from legacy.xxx import ...`).
 
 | File | Why |
 |---|---|
-| `graphindex_build_python.py` | Recommended (Step D) — pure Python + 1 LLM call |
-| `graphindex_build_deepagent.py` | DeepAgent build (Step C) |
+| `graphindex/index_build.py` | Recommended — full CLI + API module |
 | `build_agent.py` | Build-side DeepAgent factory |
 | `buildindex_tools.py` | 9 @tool wrappers for build-side DeepAgent |
 | `graphindex_tools.py` | 4 @tool wrappers for query-side DeepAgent |
@@ -1402,8 +1399,7 @@ phase9/
 │   ├── dv_chat.py                 ← raw llm.invoke REPL
 │   └── eval_routing.py            ← raw llm.invoke eval
 │
-├── graphindex_build_python.py     ← Recommended (pure Python + 1 LLM call)
-├── graphindex_build_deepagent.py      ← DeepAgent build (3 subagents)
+├── graphindex/index_build.py         ← Recommended (full CLI + API module)
 ├── build_agent.py                ← Build-side DeepAgent factory
 ├── buildindex_tools.py           ← 9 @tool wrappers for build
 │
@@ -1443,7 +1439,7 @@ phase9/
 | All 9 scripts respond to `--help` | ✅ |
 | `legacy/route_semantic.py --query "Nike revenue 2023"` | ✅ → nke-10k-2023.pdf (0.99) |
 | `query.py --method llm route "binary classification"` | ✅ → C1M2.pdf (0.95) |
-| `graphindex_build_python.py --show nke-10k-2023.pdf` | ✅ shows full node |
+| `graphindex.index_build --show "nke-10k-2023.pdf"` | ✅ shows full node |
 | `eval_routing_deep.py --help` | ✅ imports from `legacy.eval_routing` |
 | `pytest backend/tests/test_neo4j_autosync.py` | ✅ PASSED |
 | `from main import app` (FastAPI) | ✅ loaded |
@@ -1697,7 +1693,7 @@ deepagent-based path. Legacy script remains intact.
 ```
 phase9/buildindex_tools.py    ← LangChain @tool wrappers (9 tools)
 phase9/build_agent.py         ← DeepAgent factory + 3 subagents
-phase9/graphindex_build_deepagent.py ← CLI entry (--ingest, --rebuild-one, ...)
+phase9/graphindex/index_build.py ← Recommended CLI entry (--ingest, --remove, ...)
 ```
 
 ### Architecture
@@ -1733,7 +1729,7 @@ phase9/graphindex_build_deepagent.py ← CLI entry (--ingest, --rebuild-one, ...
 ### Live test (--ingest)
 
 ```
-$ python phase9/graphindex_build_deepagent.py --ingest /tmp/test_doc_deep.txt
+$ python -m learning.phase9.graphindex.index_build --ingest /tmp/test_doc.txt
 
 🤖 Ingestion complete.
   - Verdict: new (no dupes)
@@ -1748,7 +1744,7 @@ $ python phase9/graphindex_build_deepagent.py --ingest /tmp/test_doc_deep.txt
 
 Verify:
 ```
-$ python phase9/graphindex_build_deepagent.py --show test_doc_deep.txt
+$ python -m learning.phase9.graphindex.index_build --show "test_doc_deep.txt"
 📄 test_doc_deep.txt
    about: A short test document covering machine learning evaluation
           metrics, including accuracy, precision, recall, F1 score, ...
@@ -1771,22 +1767,22 @@ DeepAgent test exposed them via runtime error messages.
 
 ```bash
 # Ingest a new file (hash + dedup + copy + enrich + upsert)
-python phase9/graphindex_build_deepagent.py --ingest /path/to/new.pdf
+python -m learning.phase9.graphindex.index_build --ingest /path/to/new.pdf
 
 # Custom target directory
-python phase9/graphindex_build_deepagent.py --ingest new.pdf --ingest-target /path/
+python -m learning.phase9.graphindex.index_build --ingest new.pdf --ingest-target /path/
 
 # Rebuild enrichment for one doc
-python phase9/graphindex_build_deepagent.py --rebuild-one "nke-10k-2023.pdf"
+python -m learning.phase9.graphindex.index_build --rebuild-one "nke-10k-2023.pdf"
 
 # Rebuild for entire project (18 docs, ~15 min)
-python phase9/graphindex_build_deepagent.py --rebuild-project
+python -m learning.phase9.graphindex.index_build --rebuild-project --project-id 1
 
 # Show a node
-python phase9/graphindex_build_deepagent.py --show "nke-10k-2023.pdf"
+python -m learning.phase9.graphindex.index_build --show "nke-10k-2023.pdf"
 
 # Print agent topology
-python phase9/graphindex_build_deepagent.py --show-agent
+python -m learning.phase9.graphindex.index_build --show-agent
 ```
 
 ### Phase 9 file layout (current)
@@ -1796,7 +1792,7 @@ phase9/
 ├── build_graphindex.py          ← Build (raw llm.invoke) — UNCHANGED
 ├── buildindex_tools.py          ← Build tools (9 @tool wrappers)
 ├── build_agent.py               ← Build DeepAgent factory
-├── graphindex_build_deepagent.py     ← Build CLI (deepagent path)
+├── graphindex/index_build.py         ← Build CLI (recommended)
 │
 ├── graphindex_tools.py          ← Query tools (4 @tool wrappers)
 ├── query_agent.py               ← Query DeepAgent factory
@@ -1811,7 +1807,7 @@ phase9/
 
 ## 🎯 Step D — Clean Python build (NEW, recommended, no deletions)
 
-`phase9/graphindex_build_python.py` is the **recommended** way to ingest
+`phase9/graphindex/index_build.py` is the **recommended** way to ingest
 files into the graphindex. Pure Python function chain + **one** LLM
 call for enrichment. No state graph, no subagent overhead, no
 orchestration layer.
@@ -1839,14 +1835,14 @@ non-deterministic and benefit from subagent collaboration.
 
 | Script | Style | When to use |
 |---|---|---|
-| `graphindex_build_python.py` 🆕 | Pure Python + 1 LLM call | **Recommended** for normal ingestion |
+| `graphindex/index_build.py` | Full CLI + API module | **Recommended** for normal ingestion |
 | `build_graphindex.py` | Same flow, but orchestration mixed into `main()` | Legacy; keep for reference |
-| `graphindex_build_deepagent.py` | DeepAgent with 3 subagents | Demo of deepagent architecture; useful if you want skills/HITL added to ingest later |
+| *(removed — consolidated into index_build.py)* | |
 
 ### Speed comparison (live)
 
 ```
-$ python phase9/graphindex_build_python.py --ingest /tmp/test_clean.txt
+$ python -m learning.phase9.graphindex.index_build --ingest /tmp/test_clean.txt
 📥 Ingesting /tmp/test_clean.txt
    hash: 726a1ba7…  (418 bytes)
    copied: backend/data/documents/project_1/726a1ba7_test_clean.txt
@@ -1869,21 +1865,21 @@ overhead:
 
 ```bash
 # Recommended ingest
-python phase9/graphindex_build_python.py --ingest /path/to/new.pdf
-python phase9/graphindex_build_python.py --ingest new.pdf --ingest-target /path/
+python -m learning.phase9.graphindex.index_build --ingest /path/to/new.pdf
+python -m learning.phase9.graphindex.index_build --ingest new.pdf --ingest-target /path/
 
 # Show / rebuild
-python phase9/graphindex_build_python.py --show "nke-10k-2023.pdf"
-python phase9/graphindex_build_python.py --rebuild-one "nke-10k-2023.pdf"
-python phase9/graphindex_build_python.py --rebuild-project
+python -m learning.phase9.graphindex.index_build --show "nke-10k-2023.pdf"
+python -m learning.phase9.graphindex.index_build --rebuild-one "nke-10k-2023.pdf"
+python -m learning.phase9.graphindex.index_build --rebuild-project --project-id 1
 ```
 
 ### Updated phase9 file layout
 
 ```
 phase9/
-├── graphindex_build_python.py    🆕 Build CLI — PURE PYTHON (recommended)
-├── graphindex_build_deepagent.py     ← Build CLI — DeepAgent (state-graph demo)
+├── graphindex/index_build.py     Build CLI — PURE PYTHON (recommended)
+├── *(removed — consolidated into index_build.py)*
 ├── build_graphindex.py          ← Build CLI — legacy (mixed into main)
 ├── buildindex_tools.py          ← Tools for the deepagent path
 ├── build_agent.py               ← DeepAgent factory for build
