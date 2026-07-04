@@ -56,6 +56,9 @@ from services.neo4j_document_index import (  # noqa: E402
     choose_best_document_match,
 )
 
+from db.database import SessionLocal
+from models.core import ContextDocument, DocumentType, IndexingStatus
+
 from langchain.chat_models import init_chat_model  # noqa: E402
 from langchain_core.messages import HumanMessage, SystemMessage  # noqa: E402
 from langchain_core.language_models.chat_models import BaseChatModel  # noqa: E402
@@ -283,6 +286,7 @@ def build_properties(
     tags: Optional[List[str]] = None,
     context_doc_id: int = 0,
     project_id: int = _PROJECT_ID,
+    hierarchy: dict = None,
 ) -> Dict[str, Any]:
     """Build a flat Neo4j property map for one document node."""
     return build_document_node_properties(
@@ -379,7 +383,8 @@ def cmd_ingest(
     llm: BaseChatModel,
     source_path: str,
     target_project_dir: str = None,
-    project_id: int = _PROJECT_ID,
+   project_id: int = _PROJECT_ID,
+    hierarchy: dict = None,
 ) -> int:
     """Ingest a new file: hash it, dedup against fs + Neo4j, copy if new,
     then run rebuild-one to add the graphindex node."""
@@ -429,6 +434,42 @@ def cmd_ingest(
     # 4. Add Neo4j node via rebuild-one (which also sets content_sha256)
     docs = index.list_documents(project_id=project_id)
     all_names = [d.name for d in docs]
+
+    # 5. Insert into PostgreSQL context_documents so the file appears
+    #    in the Knowledge panel tree view with the correct folder.
+    try:
+        db = SessionLocal()
+        try:
+            existing = db.query(ContextDocument).filter(
+                ContextDocument.project_id == project_id,
+                ContextDocument.original_filename == src.name,
+            ).first()
+            if not existing:
+                target_filename = target_path.name if target_path.exists() else src.name
+                doc_type = DocumentType.PDF if src.suffix.lower() == ".pdf" else (
+                    DocumentType.DOCX if src.suffix.lower() in (".docx", ".doc") else DocumentType.TEXT
+                )
+                doc = ContextDocument(
+                    project_id=project_id,
+                    filename=target_filename,
+                    original_filename=src.name,
+                    document_type=doc_type,
+                    file_size=src.stat().st_size,
+                    file_path=str(target_path),
+                    indexing_status=IndexingStatus.READY,
+                    industry=(hierarchy or {}).get("industry"),
+                    player=(hierarchy or {}).get("player"),
+                    sub_category=(hierarchy or {}).get("sub_category"),
+                    sub_department=(hierarchy or {}).get("sub_department"),
+                )
+                db.add(doc)
+                db.commit()
+                print(f"  ✓ added to PostgreSQL context_documents")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"  ⚠️ PostgreSQL insert skipped: {e}")
+
     return cmd_rebuild_one(index, llm, src.name, all_names, project_id=project_id)
 
 
@@ -454,7 +495,14 @@ def cmd_ingest_folder(
     failed = 0
     for f in files:
         print(f"── {f.name} ──")
-        ok = cmd_ingest(index, llm, str(f), project_id=project_id)
+        parts = str(f.relative_to(folder)).split("/")
+        hierarchy = {
+            "industry": str(folder.name),
+            "player": parts[0] if len(parts) >= 2 else None,
+            "sub_category": parts[1] if len(parts) >= 3 else None,
+            "sub_department": parts[2] if len(parts) >= 4 else None,
+        }
+        ok = cmd_ingest(index, llm, str(f), hierarchy=hierarchy, project_id=project_id)
         if ok != 0:
             failed += 1
         print()
@@ -601,6 +649,22 @@ def cmd_remove(
         print(f"  ✗ not found in Neo4j (project {project_id}): {name}")
         file_path = None
 
+    # Also delete from PostgreSQL context_documents
+    try:
+        db = SessionLocal()
+        try:
+            deleted = db.query(ContextDocument).filter(
+                ContextDocument.project_id == project_id,
+                ContextDocument.original_filename == name,
+            ).delete()
+            db.commit()
+            if deleted:
+                print(f"  ✓ deleted from PostgreSQL: {name}")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"  ⚠️ PostgreSQL delete skipped: {e}")
+
     # Try to find and delete the file on disk
     project_folder = _DOCS_BASE / f"project_{project_id}"
     candidates = list(project_folder.rglob(name))
@@ -616,6 +680,42 @@ def cmd_remove(
             print(f"  ✓ removed from disk: {p.name}")
     else:
         print(f"  (no matching file found on disk)")
+    return 0
+
+
+def cmd_purge(
+    index: Neo4jDocumentIndex,
+    project_id: int = _PROJECT_ID,
+) -> int:
+    """Remove ALL documents in a project from Neo4j and disk."""
+    docs = index.list_documents(project_id=project_id)
+    if not docs:
+        print(f"  No documents in project {project_id}")
+        return 0
+    print(f"  Purging {len(docs)} document(s) from project {project_id}...")
+    for d in docs:
+        index._run_cypher(
+            "MATCH (d:Document {project_id: $pid, name: $name}) DETACH DELETE d",
+            {"pid": project_id, "name": d.name},
+        )
+        fp = Path(d.file_path) if d.file_path else None
+        if fp and fp.exists():
+            fp.unlink()
+    # Also delete from PostgreSQL context_documents
+    try:
+        db = SessionLocal()
+        try:
+            deleted = db.query(ContextDocument).filter(
+                ContextDocument.project_id == project_id
+            ).delete()
+            db.commit()
+            print(f"  ✓ deleted {deleted} record(s) from PostgreSQL")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"  ⚠️ PostgreSQL delete skipped: {e}")
+
+    print(f"  Done — {len(docs)} document(s) purged")
     return 0
 
 
@@ -642,6 +742,23 @@ def cmd_remove_folder(
         fp = Path(d.file_path) if d.file_path else None
         if fp and fp.exists():
             fp.unlink()
+            print(f"  ✓ removed from disk: {fp.name}")
+        # Also delete from PostgreSQL
+        try:
+            db = SessionLocal()
+            try:
+                q = db.query(ContextDocument).filter(
+                    ContextDocument.project_id == project_id,
+                    ContextDocument.original_filename == d.name,
+                )
+                cnt = q.delete()
+                db.commit()
+                if cnt:
+                    print(f"  ✓ deleted from PostgreSQL: {d.name}")
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"  ⚠️ PostgreSQL delete skipped: {e}")
             print(f"  ✓ removed from disk: {fp.name}")
     print(f"  Done — {len(matching)} document(s) removed")
     return 0
@@ -709,6 +826,8 @@ def main() -> int:
     parser.add_argument("--project-id", type=int, default=_PROJECT_ID,
                         help=f"Neo4j project id (default: {_PROJECT_ID}, "
                              "from GRAPHINDEX_DEFAULT_PROJECT_ID env var)")
+    parser.add_argument("--purge", action="store_true",
+                        help="Remove ALL documents in the project from Neo4j and disk")
     parser.add_argument("--list", action="store_true",
                         help="List files on disk, cross-checked against Neo4j")
     parser.add_argument("--show", metavar="NAME", help="Show a document node")
@@ -733,7 +852,7 @@ def main() -> int:
     args = parser.parse_args()
     project_id = args.project_id
 
-    if not any([args.list, args.show, args.remove, args.remove_folder, args.show_agent,
+    if not any([args.list, args.show, args.remove, args.remove_folder, args.show_agent, args.purge,
                 args.rebuild_one, args.rebuild_project,
                 args.query, args.ingest, args.ingest_folder]):
         parser.print_help()
@@ -760,6 +879,8 @@ def main() -> int:
         return cmd_list(index, project_id=project_id)
     if args.show:
         return cmd_show(index, args.show, project_id=project_id)
+    if args.purge:
+        return cmd_purge(index, project_id=project_id)
     if args.remove_folder:
         return cmd_remove_folder(index, args.remove_folder, project_id=project_id)
     if args.remove:
