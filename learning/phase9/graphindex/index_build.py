@@ -619,6 +619,34 @@ def cmd_remove(
     return 0
 
 
+def cmd_remove_folder(
+    index: Neo4jDocumentIndex,
+    folder: str,
+    project_id: int = _PROJECT_ID,
+) -> int:
+    """Remove ALL documents in a folder (by file_path prefix) from Neo4j and disk."""
+    docs = index.list_documents(project_id=project_id)
+    matching = [d for d in docs if folder.replace("/", "") in d.file_path.replace("\\", "/")]
+    if not matching:
+        print(f"  ✗ no documents matching folder '{folder}' in project {project_id}")
+        return 1
+
+    print(f"  Found {len(matching)} document(s) matching folder '{folder}'")
+    for d in matching:
+        index._run_cypher(
+            "MATCH (d:Document {project_id: $pid, name: $name}) DETACH DELETE d",
+            {"pid": project_id, "name": d.name},
+        )
+        print(f"  ✓ removed from Neo4j: {d.name}")
+        # Try to delete file from disk
+        fp = Path(d.file_path) if d.file_path else None
+        if fp and fp.exists():
+            fp.unlink()
+            print(f"  ✓ removed from disk: {fp.name}")
+    print(f"  Done — {len(matching)} document(s) removed")
+    return 0
+
+
 def cmd_rebuild_project(
     index: Neo4jDocumentIndex,
     llm: BaseChatModel,
@@ -684,6 +712,8 @@ def main() -> int:
     parser.add_argument("--list", action="store_true",
                         help="List files on disk, cross-checked against Neo4j")
     parser.add_argument("--show", metavar="NAME", help="Show a document node")
+    parser.add_argument("--remove-folder", metavar="FOLDER",
+                        help="Remove ALL docs in a folder (by file_path match)")
     parser.add_argument("--remove", metavar="NAME",
                         help="Remove a doc from Neo4j and delete file from disk")
     parser.add_argument("--rebuild-one", metavar="NAME",
@@ -703,7 +733,8 @@ def main() -> int:
     args = parser.parse_args()
     project_id = args.project_id
 
-    if not any([args.list, args.show, args.remove, args.rebuild_one, args.rebuild_project,
+    if not any([args.list, args.show, args.remove, args.remove_folder, args.show_agent,
+                args.rebuild_one, args.rebuild_project,
                 args.query, args.ingest, args.ingest_folder]):
         parser.print_help()
         return 1
@@ -729,6 +760,8 @@ def main() -> int:
         return cmd_list(index, project_id=project_id)
     if args.show:
         return cmd_show(index, args.show, project_id=project_id)
+    if args.remove_folder:
+        return cmd_remove_folder(index, args.remove_folder, project_id=project_id)
     if args.remove:
         return cmd_remove(index, args.remove, project_id=project_id)
     if args.rebuild_one:
