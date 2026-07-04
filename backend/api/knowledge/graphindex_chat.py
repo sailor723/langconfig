@@ -648,9 +648,9 @@ async def serve_neo4j_content(project_id: int, name: str, max_chars: int = 100_0
         if not doc.file_path or not Path(doc.file_path).exists():
             raise HTTPException(status_code=404, detail=f"file missing on disk: {doc.file_path}")
 
-        # Load _read_doc_text from phase9/graphindex/route.py
-        from learning.phase9.graphindex.route import _read_doc_text
-        text = _read_doc_text(str(doc.file_path), max_chars)
+        # Load from phase9/graphindex/index_build.py
+        from learning.phase9.graphindex.index_build import load_document_content
+        text = load_document_content(str(doc.file_path), max_chars=max_chars)
 
         return {
             "doc_id": 0,  # no Postgres id
