@@ -14,7 +14,6 @@ import { TaskHistoryEntry } from './features/workflows/canvas/types';
 import WorkflowLibraryView from './features/workflows/library/WorkflowLibraryView';
 import NodeConfigPanel from './features/workflows/node-config/NodeConfigPanel';
 import SettingsView from './pages/SettingsPage';
-import CommunityPage from './pages/CommunityPage';
 import PlaygroundPage from './pages/PlaygroundPage';
 import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
 import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
@@ -31,9 +30,7 @@ import { ChatProvider } from './features/chat/state/ChatContext';
 import GlobalChatModal from './features/chat/ui/GlobalChatModal';
 import apiClient from './lib/api-client';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'community';
-
-type WorkflowMode = 'langgraph' | 'langchain' | 'deepagent';
+type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -141,13 +138,6 @@ function AppContent() {
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>('draft');
   const [executing, setExecuting] = useState(false);
-  const [mode, setMode] = useState<WorkflowMode>(() => {
-    return (localStorage.getItem('workflowMode') as WorkflowMode) || 'deepagent';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('workflowMode', mode);
-  }, [mode]);
   const [workflowTab, setWorkflowTab] = useState<'studio' | 'results'>('studio');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeData, setSelectedNodeData] = useState<SelectedNodeData | null>(null);
@@ -207,7 +197,6 @@ function AppContent() {
   const currentView: View = (() => {
     const path = location.pathname;
     if (path === '/' || path === '/home') return 'home';
-    if (path === '/community') return 'community';
     if (path === '/studio' || path === '/results') return 'studio';
     if (path === '/library') return 'library';
     if (path === '/agents' || path === '/deepagents') return 'agents';
@@ -269,7 +258,6 @@ function AppContent() {
       analysis: '/analysis',
       settings: '/settings',
       playground: '/playground',
-      community: '/community',
       tools: '/tools',
       prompt: '/prompt',
       'deepagent-studio': '/deepagent-studio'
@@ -416,8 +404,6 @@ function AppContent() {
       <ModernHeader
         currentView={currentView}
         onViewChange={handleViewChange}
-        mode={mode}
-        onModeChange={setMode}
       />
 
       {/* Main Content */}
@@ -485,10 +471,9 @@ function AppContent() {
           {currentView === 'prompt' && <PromptAssemblyPage />}
           {currentView === 'knowledge' && <KnowledgeBaseView />}
           {currentView === 'analysis' && <AnalysisPage />}
-          {currentView === 'settings' && <SettingsView mode={mode} onModeChange={setMode} />}
+          {currentView === 'settings' && <SettingsView />}
           {currentView === 'playground' && <PlaygroundPage />}
           {currentView === 'deepagent-studio' && <DeepAgentStudioPage />}
-          {currentView === 'community' && <CommunityPage />}
         </div>
 
         {/* Right Panel - Node Config (only in studio view on studio tab with selected node) */}
