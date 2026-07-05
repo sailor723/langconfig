@@ -1523,6 +1523,61 @@ domain, not just its statistical shape.
 | **User-provided companion** | User can write their own `.skill.md` from scratch -- generator skips. |
 | **SQL sources** | Same pattern applies: a `.skill.md` can describe tables and sample queries. |
 
+#### 5l. Dashboard Generator Module
+
+The companion skill system needs an HTML dashboard renderer. The **`dashboard_generator`**
+module at [`backend/services/dashboard_generator.py`](../../backend/services/dashboard_generator.py)
+is the single source of truth, reused by both CLI and API.
+
+**Architecture:**
+
+```
+backend/services/dashboard_generator.py   ← 7.9 KB, single source of truth
+  ├─ generate_dashboard()     ← async, caching, LLM agent, JS fixes
+  ├─ _build_biz_context()     ← companion skill → business context
+  └─ _fix_html()              ← fix fmt$ bug, move script to </body>
+
+backend/scripts/gen_dashboard.py          ← 1.3 KB, thin CLI wrapper
+  └─ parse args → read files → call generate_dashboard()
+
+backend/analysis_server.py                ← 4.6 KB, thin API wrapper
+  └─ parse upload → CSV→SQLite metadata → call generate_dashboard()
+```
+
+**Content-hash caching:**
+
+```
+Content hash = sha256(csv_bytes + skill_bytes)[:16]
+Cache path   = data/analysis_dbs/dashboard_{hash}.html
+```
+
+Same CSV + skill → same hash → same dashboard → instant cache hit (0.5s vs 45s).
+Different CSV or skill → different hash → new LLM generation.
+
+**Usage:**
+
+```bash
+# CLI
+.venv/bin/python3 backend/scripts/gen_dashboard.py \
+  --csv learning/phase5/examples/sample_sales_data.csv \
+  --skill learning/phase5/examples/sample_sales_data.skill.md
+
+# API server (no PostgreSQL needed)
+.venv/bin/python3 backend/analysis_server.py
+curl -X POST http://localhost:8765/api/analysis/upload \
+  -F "file=@data.csv" -F "skill_file=@data.skill.md"
+```
+
+#### Key Learnings
+
+| Lesson | Detail |
+|---|---|
+| **Content-hash caching** | SHA256 of CSV+skill prevents duplicate LLM calls. 2nd run: 0.5s vs 45s. |
+| **JS is the weak link** | LLMs produce invalid JS (`fmt$(2,n)` syntax error, script in `<head>`). `_fix_html()` patches these. |
+| **Module refactor** | Extracting `dashboard_generator.py` eliminated ~300 lines of duplication between CLI and API. |
+| **Standalone server** | `analysis_server.py` serves the analysis API without PostgreSQL — useful when Docker/CICD is unavailable. |
+
+
 
 ---
 
