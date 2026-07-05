@@ -8,36 +8,33 @@ they work because the architecture is simple.
 
 | # | File | What it does | Agent? | LLM |
 |---|------|-------------|--------|-----|
-| **1** | `index_build.py` | **Index builder** — hash → dedup → copy → enrich → Neo4j upsert. Pure Python + `llm.invoke()` for enrichment. | ❌ No | Minimax M3 |
-| **2** | `route.py` | **Doc matcher** — `route_by_llm()` scores docs by metadata, returns ordered list. Also has `load_doc_context()` + `answer_from_docs()` for end-to-end. | ❌ No | Gemma4 + Minimax M3 |
+| **1** | `index_build.py` | **Index builder + CLI** — hash → dedup → copy → enrich → Neo4j upsert. Also central hub for `load_doc_context`, `load_document_content`, `--qa`, `--purge`. | ❌ No | Minimax M3 |
+| **2** | `route.py` | **Legacy doc matcher** — kept for `fetch_catalog()` used by the UI and `python_agent.py`. | ❌ No | Gemma4 + Minimax M3 |
 | **3** | `python_agent.py` | **Legacy REPL** — manual conversation loop, routing per turn, session caching, cost tracking. | ❌ No | Gemma4 + Minimax M3 |
 | **4** | `agent.py` | **DeepAgent chat** — `create_deep_agent` with 4 tools, MemoryMiddleware (AGENTS.md), token streaming, REPL. | ✅ **Yes** | Minimax M3 (agent) + Gemma4 (via tools) |
 
 `tools.py` is the shared tool layer for **Layer 4**. It wraps raw functions from
-Layers 1-2 into ``StructuredTool`` objects required by ``create_deep_agent``.
+Layer 1 into ``StructuredTool`` objects required by ``create_deep_agent``.
 
 ## Import chain
 
 ```
-index_build.py   ── raw functions (load_document_content, Neo4jDocumentIndex)
+index_build.py   ── raw functions (load_document_content, load_doc_context,
+    │                Neo4jDocumentIndex, find_best_document, cmd_ingest_folder)
     │
-    ▼
-route.py         ── raw functions (route_by_llm, load_doc_context, etc.)
+    ├── route.py              ── legacy fetch_catalog()
     │
-    ├── python_agent.py    ── calls raw functions directly
+    ├── tools.py              ── wraps index_build functions into StructuredTool
+    │       │                       + ContextVar helpers for backend requests
+    │       │
+    │       └── agent.py      ── uses tools.py + create_deep_agent
     │
-    └── tools.py           ── wraps raw functions into StructuredTool for DeepAgent
-            │                       + ContextVar helpers for backend requests
-            │
-            └── agent.py   ── uses tools.py + create_deep_agent
-                                      │
-                                      ▼
-                              backend/api/chat/routes.py  ── imports agent.py directly
-                              backend/api/knowledge/graphindex_chat.py  ── imports agent.py directly
-                              backend/api/knowledge/rag.py  ── imports index_build.py directly
+    ├── backend/tools/native_tools.py   ── imports index_build directly (graphindex_search, etc.)
+    │
+    └── backend/api/knowledge/rag.py    ── imports index_build.cmd_ingest_folder directly
 ```
 
-No wrappers, no middlemen. The backend imports the legacy modules directly.
+No wrappers, no middlemen. The backend imports the modules directly.
 
 ## Architecture
 
@@ -47,8 +44,11 @@ No wrappers, no middlemen. The backend imports the legacy modules directly.
 graphindex/index_build.py  ← CLI + shared helpers
     ├── make_llm()                — init_chat_model (Minimax M3)
     ├── extract_document_enrichment()  — LLM structured output
-    ├── load_document_content()    — PDF / MD / TXT reader
-    ├── load_graphindex_metadata() — placeholder (DocIndex client TBD)
+    ├── load_document_content(max_chars)  — PDF / MD / TXT reader with optional truncation
+    ├── load_doc_context()         — concatenate matched docs for agent
+    ├── find_best_document()       — Neo4j vector match with scope support
+    ├── _file_path_for()           — cached Neo4j file-path lookup
+    ├── cmd_ingest() / cmd_ingest_folder() / cmd_qa() / cmd_purge()
     └── Neo4jDocumentIndex        — from backend/services
               │
               ├── neo4j_document_index.py  — Cypher CRUD
@@ -61,8 +61,8 @@ Two separate LLMs, each with a different role:
 
 | Step | Function | Default model | Provider | Role |
 |---|---|---|---|---|
-| **Doc matching** | `route_by_llm()` | `gemma4` | Ollama (local) | Fast routing — scores docs from metadata |
-| **Synthesis** | `answer_from_docs()` | `minimax-m3` | MiniMax API | Full-power answer from loaded doc text |
+| **Doc matching** | `find_best_document()` | `minimax-m3` | MiniMax API | Vector routing — scores docs from embeddings |
+| **Synthesis** | `cmd_qa()` | `minimax-m3` | MiniMax API | Full-power answer from loaded doc text |
 
 Both configurable via `.env`. See [Configuration](#configuration) below.
 
@@ -76,28 +76,25 @@ All commands accept `--project-id N`.
 |---|---|---|
 | `--list` | Scan files on disk, cross-check against Neo4j index | No |
 | `--show NAME` | Show a document's full enrichment (about, queries, tags) | No |
-| `--query TEXT` | (Legacy) LLM scores all docs → returns best match | **Yes** |
 | `--ingest FILE` | Hash → dedup (Neo4j) → copy → enrich → index | **Yes** |
 | `--ingest-folder DIR` | Recursively ingest all supported files in a directory | **Yes** |
 | `--rebuild-one NAME` | Rebuild enrichment for one doc and upsert | **Yes** |
 | `--rebuild-project` | Rebuild enrichment for every doc in the project | **Yes** |
 | `--remove NAME` | Remove a doc from both Neo4j and filesystem | No |
+| `--qa TEXT` | Route → load docs → synthesize answer (replaces old `route.py --query-answer`) | **Yes** |
+| `--doc-scope NAME [NAME ...]` | Scope routing to specific docs (used with `--qa`) | No |
+| `--purge` | Remove ALL docs for a project from Neo4j + PostgreSQL + Disk | No |
 
-### `route.py` — Routing + answer
+### `route.py` — Legacy routing (still provides `fetch_catalog`)
 
 | Flag | What it does |
 |---|---|
 | `--query TEXT` | Route: find matched docs (Gemma4 routing) |
 | `--query-answer TEXT` | Full pipeline: route → load doc text → synthesize answer (Minimax M3) |
 | `--show-catalog` | Pretty-print all docs + their supports/excludes |
-| `--compare` | Run both string + LLM routing side-by-side |
-| `--no-llm` | Skip LLM routing (only show catalog or string) |
-| `--doc-scope NAME [NAME ...]` | Scope routing to specific docs (default: all) |
 | `--project-id N` | Project ID (default: from `.env`) |
 
-**Supported output formats:**
-- `--query` returns **all matched docs** ordered by relevance, each with a confidence score and reason
-- `--query-answer` returns a synthesized answer with document citations
+**Note:** `--qa`, `--doc-scope`, `--purge`, `--ingest`, `--ingest-folder` are now handled by `index_build.py`.
 
 ### `dv_chat.py` — Interactive REPL
 
@@ -120,33 +117,130 @@ uv run python -m learning.phase9.graphindex.index_build --ingest report.pdf --pr
 # Ingest an entire folder (recursive)
 uv run python -m learning.phase9.graphindex.index_build --ingest-folder /path/to/docs --project-id 1
 
-# === route ===
+# QA — route + load + synthesize answer
+uv run python index_build.py --qa "Blade Battery specs" --project-id 2 --doc-scope blade-battery-analysis.md
 
-# Route — find matched docs (Gemma4)
-uv run python -m learning.phase9.graphindex.route --query "tesla strategy" --project-id 1
-
-# Route + answer (Gemma4 routing → Minimax M3 synthesis)
-uv run python -m learning.phase9.graphindex.route --query-answer "how many cars byd sold in europe 2024" --project-id 1
-
-# Show catalog
-uv run python -m learning.phase9.graphindex.route --show-catalog --project-id 1
-
-# Scope to specific docs
-uv run python -m learning.phase9.graphindex.route --query "ev market" --project-id 1 --doc-scope "01_tesla_q3_strategy.pdf" "03_byd_vs_tesla_europe.md"
-
-# === python_agent ===
-
-# Start interactive chat (Gemma4 routing + Minimax M3 per turn)
-uv run python -m learning.phase9.graphindex.python_agent --project-id 1
-
-# === agent ===
-
-# Single query
-uv run python -m learning.phase9.graphindex.agent --query "tesla europe market share" --project-id 1
-
-# Interactive REPL (token streaming, conversation history)
-uv run python -m learning.phase9.graphindex.agent --project-id 1
+# Purge entire project
+uv run python index_build.py --purge --project-id 2
 ```
+
+## Data flow — 3 Workflows
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                        LANG CONFIG — 3 Workflows                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ╔══════════════════════════════════════════════════════════════════════╗  │
+│  ║  1. CLI  — index_build.py (terminal, no backend needed)             ║  │
+│  ╚══════════════════════════════════════════════════════════════════════╝  │
+│                                                                            │
+│   ┌──────────────────────────┐                                            
+│   │  index_build.py --ingest  │── sha256 ──► Neo4j dedup check             
+│   │  --ingest-folder         │── copy   ──► Disk (backend/data/)           
+│   │  --purge / --list        │── INSERT ──► PostgreSQL (context_doc)       
+│   │  --qa / --doc-scope      │── enrich ──► Neo4j (LLM enrichment)         
+│   └──────────────────────────┘                                            
+│         ▲                               ┌──────────┐                       
+│         │   consistent naming           │ index    │     ┌──────────┐       
+│         │   across PG + Neo4j + Disk    │ build.py │     │ route.py │       
+│         └───────────────────────────────│ = CLI    │     │= legacy  │       
+│                                         └──────────┘     └──────────┘       
+│                                                                            │
+│  ╔══════════════════════════════════════════════════════════════════════╗  │
+│  ║  2. CHAT  — User talks to AI about documents                        ║  │
+│  ║     (Frontend → API → DeepAgent → Tools → LLM → Answer)             ║  │
+│  ╚══════════════════════════════════════════════════════════════════════╝  │
+│                                                                            │
+│   User types message                                                       
+│      ↓                                                                     
+│   POST /api/chat/message/stream                                             
+│      ↓                                                                     
+│   create_deep_agent() — binds GraphIndex tools                             
+│      ↓              ┌─────────────────────────────────────┐                
+│   Agent decides ──► │ graphindex_search(query, pid)       │                
+│   which tool to     │  → choose_best_document_match (Neo4j)               
+│   call              │  → returns best match doc names    │                
+│                     ├─────────────────────────────────────┤                
+│                     │ graphindex_load(name, pid, scope)   │                
+│                     │  → load_document_content (disk)     │                
+│                     │  → scope check enforced            │                
+│                     ├─────────────────────────────────────┤                
+│                     │ graphindex_list_docs(pid, scope)    │                
+│                     │  → list_documents (Neo4j)           │                
+│                     └─────────────────────────────────────┘                
+│      ↓                                                                     
+│   LLM assembles answer from tool results                                   
+│      ↓                                                                     
+│   SSE stream back to frontend                                              
+│                                                                            │
+│  ╔══════════════════════════════════════════════════════════════════════╗  │
+│  ║  3. KNOWLEDGE  — Upload & manage docs in Knowledge Panel            ║  │
+│  ║     (Frontend → API → Same CLI code path → All stores)              ║  │
+│  ╚══════════════════════════════════════════════════════════════════════╝  │
+│                                                                            │
+│   User uploads file / folder in UI                                          
+│      ↓                                                                     
+│   POST /api/rag/ingest-folder  (or /upload /upload-bulk)                    
+│      ↓                                                                     
+│   ┌─► NEW PATH (fixed):                                                    
+│   │   calls index_build.cmd_ingest_folder()  ←── SAME CODE AS CLI          
+│   │      ├── sha256 → Neo4j dedup                                          
+│   │      ├── copy → Disk (original name)                                   
+│   │      ├── INSERT → PostgreSQL (same name)                               
+│   │      └── LLM enrich → Neo4j Document node (same name)                 
+│   │    Result: PG=4 docs, Neo4j=4 docs, Disk=4 files (all same name)       
+│   │                                                                        
+│   └─► OLD broken path (removed):                                           
+│       rag.py wrote PG with original name (blade.md)                        
+│       _queue_graphindex_ingest wrote Neo4j with hash name (a3c8_blade.md)  
+│       ──→ PG=9 + Neo4j=4 = DUPLICATE IN UI                                
+│                                                                            │
+│   FE refreshes → GET /api/rag/documents → tree view shows 4 docs ✅         
+│                                                                            │
+│  ═════════════════════════════════════════════════════════════════════════  │
+│                     STORAGE LAYER (shared)                                 │
+│                                                                            │
+│   ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────────┐  │
+│   │   PostgreSQL      │   │   Neo4j           │   │   Disk                │
+│   │   context_docs    │   │   Document nodes  │   │   backend/data/       │
+│   ├──────────────────┤   ├──────────────────┤   ├──────────────────────┤  │
+│   │   id              │   │   name           │   │   project_2/           │
+│   │   project_id      │   │   content_hash   │   │     byd/               │
+│   │   filename        │   │   file_path      │   │       blade.md         │
+│   │   indexing_status │   │   industry/player│   │     tesla/             │
+│   │   industry/player │   │   embedding      │   │       ads.md           │
+│   │   content_hash    │   │   relationships  │   │       specs.md         │
+│   └──────────────────┘   └──────────────────┘   └──────────────────────┘  │
+│                                                                            │
+│   Core principle: Every write (CLI / API upload) goes through              │
+│   index_build.cmd_ingest_folder → same naming → zero duplicates.           │
+│                                                                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Backend integration
+
+The legacy modules are imported **directly** by the LangConfig backend — no wrappers, no middlemen:
+
+| Backend file | Imports |
+|---|---|
+| `backend/api/chat/routes.py` | `graphindex.agent.build_agent()` |
+| `backend/api/knowledge/graphindex_chat.py` | `graphindex.agent.build_agent()` |
+| `backend/api/knowledge/rag.py` | `graphindex.index_build.cmd_ingest_folder()` (ingest-folder endpoint) |
+| `backend/tools/native_tools.py` | `graphindex.index_build.*` (graphindex_search, graphindex_load, etc.) |
+
+## Files
+
+| File | What it is | Status |
+|---|---|---|
+| `index_build.py` | Primary CLI + shared library — ingest, query, rebuild, remove, list, QA, purge. Exports `load_doc_context`, `load_document_content`, `find_best_document`, `cmd_ingest_folder` etc. | **Active** |
+| `route.py` | Legacy routing. Only `fetch_catalog()` still used by UI and `tools.py`. | **Legacy** |
+| `tools.py` | Tool wrappers for the DeepAgent: `list_docs`, `query_docs`, `read_doc`, `answer`. Also exports ContextVar helpers for backend request scoping. | **Active** |
+| `agent.py` | DeepAgent-powered chat REPL (or single query). Token streaming, conversation history, `!reset`. The canonical chat agent used by the backend. | **Active** |
+| `python_agent.py` | Legacy interactive chat REPL (route → load → answer per turn). Pricing tracker, multi-doc session, token cost logging. | **Legacy** |
+| `create_mock_data.py` | Creates 3 mock .md files for testing. | **Helper** |
+| `eval_routing.py` | Original eval suite (14 hand-labeled queries, string vs LLM). Exports `EVAL_QUERIES`. | **Utility + legacy eval** |
 
 ## Configuration (`.env`)
 
@@ -182,65 +276,3 @@ GRAPHINDEX_TIER_THRESHOLD=512000
 GRAPHINDEX_PRIMARY_MAX_CHARS=10000000
 GRAPHINDEX_SUPPORTING_MAX_CHARS=10000000
 ```
-
-## Data flow — Ingest → Route → Answer
-
-```
-source file
-    │
-    ▼
-sha256(content)  ──►  scan Neo4j for content_sha256  ──►  skip if exists
-    │
-    ▼
-copy to backend/data/documents/project_{id}/{original_name}
-    │
-    ▼
-extract_document_enrichment()  ──►  LLM structured output (about, queries, tags)
-    │
-    ▼
-upsert Document node in Neo4j with content_sha256, enrichment, file_path
-    │
-    ▼
-┌─ User query ───────────────────────────────────────────────────┐
-│                                                                │
-│  agent.py --query "how many cars byd sold in europe"      │
-│    │                                                           │
-│    ▼                                                           │
-│  DeepAgent (create_deep_agent)                                 │
-│    │                                                           │
-│    ▼                                                           │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  tools.py (StructuredTool wrappers)                       │  │
-│  │                                                           │  │
-│  │  1. list_docs()  — list project catalog                   │  │
-│  │  2. query_docs() — route: Gemma4 scores metadata           │  │
-│  │  3. read_doc()   — load full text from disk               │  │
-│  │  4. answer()     — synthesize: Minimax M3 reads + answers  │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│    │                                                           │
-│    ▼                                                           │
-│  Final answer with citations + streaming                      │
-└────────────────────────────────────────────────────────────────┘
-```
-
-## Backend integration
-
-The legacy modules are imported **directly** by the LangConfig backend — no wrappers, no middlemen:
-
-| Backend file | Imports |
-|---|---|
-| `backend/api/chat/routes.py` | `graphindex.agent.build_agent()` |
-| `backend/api/knowledge/graphindex_chat.py` | `graphindex.agent.build_agent()` |
-| `backend/api/knowledge/rag.py` | `graphindex.index_build.cmd_ingest()`, `extract_document_enrichment()` |
-
-## Files
-
-| File | What it is | Status |
-|---|---|---|
-| `index_build.py` | Primary CLI — ingest, query, rebuild, remove, list. Exports helper functions reused by `route.py` and `python_agent.py`. | **Active** |
-| `route.py` | Semantic router + answer pipeline. Uses `gemma4` (Ollama) for routing and `minimax-m3` (API) for synthesis. Supports doc scope. | **Active** |
-| `tools.py` | Tool wrappers for the DeepAgent: `list_docs`, `query_docs`, `read_doc`, `answer`. Also exports ContextVar helpers for backend request scoping. | **Active** |
-| `agent.py` | DeepAgent-powered chat REPL (or single query). Token streaming, conversation history, `!reset`. The canonical chat agent used by the backend. | **Active** |
-| `python_agent.py` | Legacy interactive chat REPL (route → load → answer per turn). Pricing tracker, multi-doc session, token cost logging. | **Legacy** |
-| `create_mock_data.py` | Creates 3 mock .md files for testing. | **Helper** |
-| `eval_routing.py` | Original eval suite (14 hand-labeled queries, string vs LLM). Exports `EVAL_QUERIES`. | **Utility + legacy eval** |
