@@ -85,6 +85,20 @@ GROUP BY Category
 ORDER BY avg_revenue DESC;
 ```
 
+
+
+## Chart Configuration
+
+| Section | Type | Dimension | Metric |
+|---|---|---|---|
+| Revenue by Product | bar | Product | Revenue |
+| Revenue by Region | donut | Region | Revenue |
+| Daily Revenue Trend | line | Date | Revenue |
+| Sales Rep Performance | horizontal_bar | Sales Rep | Revenue |
+| Avg Order Value by Category | bar | Category | Revenue |
+| Price vs Volume | scatter | Unit Price | Units Sold |
+
+
 ## Edge Cases
 
 - Column names with spaces (`Units Sold`, `Unit Price`, `Sales Rep`) must be quoted in SQL.
