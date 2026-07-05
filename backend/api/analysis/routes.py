@@ -49,6 +49,7 @@ class AnalysisChatRequest(BaseModel):
     session_id: str
     db_path: str
     message: str
+    skill_content: Optional[str] = None
 
 
 class AnalysisChatResponse(BaseModel):
@@ -301,6 +302,7 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
                 db_path=request.db_path,
                 message=request.message,
                 session_id=request.session_id,
+                skill_content=request.skill_content,
             ),
             timeout=120,  # 2 minute timeout
         )
@@ -316,6 +318,7 @@ async def _run_analysis_agent(
     db_path: str,
     message: str,
     session_id: str,
+    skill_content: Optional[str] = None,
 ) -> AnalysisChatResponse:
     """Run the sql-analyst deep agent with the given message."""
     import sqlite3
@@ -415,7 +418,7 @@ async def _run_analysis_agent(
             f"  {db_path}\n\n"
             f"Use sqlite_execute to query it. Discover the schema first, then answer questions.\n"
             "Use python_execute for charts and dashboards.\n"
-            "Read the SKILL.md for guidance. Reply in Chinese."
+            "Read the SKILL.md for guidance. Reply in Chinese.\n{f'\\n=== COMPANION SKILL ===\\n{skill_content}\\n=== END COMPANION SKILL ===\\n' if skill_content else ''}"
         ),
         backend=backend,
         skills=["sql-analyst"],
