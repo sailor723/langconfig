@@ -884,6 +884,30 @@ async def send_message_stream(
                     if all_context:
                         rag_tokens_used = token_counter.count_tokens(all_context)
                         logger.info(f"Retrieved RAG context: {rag_tokens_used} tokens")
+                    # Inject companion .skill.md content if available.
+                    if session_docs:
+                        try:
+                            _ws_mgr = get_workspace_manager()
+                            _sandbox_dir = _ws_mgr.base_dir / "default"
+                            for _doc in session_docs:
+                                if _doc.filename.lower().endswith('.csv'):
+                                    _stem = _doc.filename.rsplit('.', 1)[0]
+                                    _skill_path = _sandbox_dir / f"{_stem}.skill.md"
+                                    if _skill_path.exists():
+                                        _text = _skill_path.read_text(encoding='utf-8')
+                                        if _text.strip():
+                                            all_context += (
+                                                f"\n## User Data Context -- {_doc.filename}\n\n"
+                                                f"The user has provided a data context / "
+                                                f"interpretation guide. Use it to understand "
+                                                f"column semantics, business logic, and "
+                                                f"common queries:\n\n{_text}"
+                                            )
+                                            logger.info(
+                                                f"Injected companion .skill.md for CSV: {_doc.filename}"
+                                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to inject companion .skill.md: {e}")
 
                 # Get or create agent instance (always, regardless of project_id).
                 # Use (session_id, agent_id, agent.updated_at) as cache key so that
@@ -2233,6 +2257,17 @@ async def _process_single_chat_upload(
             sandbox_path.parent.mkdir(parents=True, exist_ok=True)
             sandbox_path.write_bytes(content)
             logger.info(f"File copied to sandbox workspace: {sandbox_path}")
+            # If uploaded CSV, auto-generate companion .skill.md from the data.
+            if file.filename.lower().endswith('.csv'):
+                try:
+                    from services.data_skill_generator import generate_data_skill
+                    _skill_path = generate_data_skill(
+                        str(sandbox_path), str(sandbox_path.parent)
+                    )
+                    if _skill_path:
+                        logger.info(f"Generated companion .skill.md: {_skill_path}")
+                except Exception as _gen_e:
+                    logger.warning(f"Failed to generate data skill: {_gen_e}")
         except Exception as e:
             logger.warning(f"Failed to copy {file.filename} to sandbox: {e}")
 

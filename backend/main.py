@@ -356,6 +356,7 @@ from api.models import routes as model_routes
 from api.workflows import execution as orchestration, checkpoints
 from api.agents import deep_agents as deepagents, routes as agents, generator as agent_generator
 from api.chat import routes as chat
+from api.chat import skill_review as chat_skill_review
 from api.analysis import routes as analysis
 from api.hitl import routes as hitl
 from api.tools import routes as custom_tools
@@ -402,6 +403,7 @@ app.include_router(skills.router)  # Skills system - modular, context-aware capa
 app.include_router(images.router)  # Image storage and serving (for AI-generated images)
 app.include_router(deepagents.router)  # DeepAgents configuration and export
 app.include_router(chat.router)  # DeepAgents chat testing
+app.include_router(chat_skill_review.router)  # Data skill review/approve
 app.include_router(analysis.router)  # Data analysis: CSV→SQLite→Agent charts
 app.include_router(agent_generator.router)  # AI-powered agent generation
 app.include_router(debug.router)  # Debug endpoints for development
