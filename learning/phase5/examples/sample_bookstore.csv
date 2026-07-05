@@ -1,0 +1,31 @@
+Date,Book,Genre,Author,Copies Sold,Unit Price,Revenue,Store,Manager
+2025-02-03,The Midnight Library,Fiction,Matt Haig,12,18.99,227.88,Downtown,Emma Wilson
+2025-02-03,Atomic Habits,Self-Help,James Clear,20,22.50,450.00,Downtown,Emma Wilson
+2025-02-03,Dune,Science Fiction,Frank Herbert,8,14.99,119.92,Eastside,James Park
+2025-02-04,The Alchemist,Fiction,Paulo Coelho,15,16.99,254.85,Downtown,Emma Wilson
+2025-02-04,Sapiens,Non-Fiction,Yuval Noah Harari,10,19.99,199.90,Eastside,James Park
+2025-02-04,Project Hail Mary,Science Fiction,Andy Weir,7,17.99,125.93,Westside,Lisa Chen
+2025-02-05,The Subtle Art of Not Giving a F,Self-Help,Mark Manson,18,14.99,269.82,Downtown,Emma Wilson
+2025-02-05,1984,Fiction,George Orwell,6,13.99,83.94,Westside,Lisa Chen
+2025-02-05,Thinking Fast and Slow,Non-Fiction,Daniel Kahneman,9,16.99,152.91,Eastside,James Park
+2025-02-06,The Midnight Library,Fiction,Matt Haig,14,18.99,265.86,Eastside,James Park
+2025-02-06,Atomic Habits,Self-Help,James Clear,22,22.50,495.00,Westside,Lisa Chen
+2025-02-06,The Hobbit,Fiction,J.R.R. Tolkien,11,15.99,175.89,Downtown,Emma Wilson
+2025-02-07,Dune,Science Fiction,Frank Herbert,9,14.99,134.91,Westside,Lisa Chen
+2025-02-07,The Alchemist,Fiction,Paulo Coelho,16,16.99,271.84,Eastside,James Park
+2025-02-07,Project Hail Mary,Science Fiction,Andy Weir,10,17.99,179.90,Downtown,Emma Wilson
+2025-02-10,Thinking Fast and Slow,Non-Fiction,Daniel Kahneman,7,16.99,118.93,Westside,Lisa Chen
+2025-02-10,The Midnight Library,Fiction,Matt Haig,18,18.99,341.82,Westside,Lisa Chen
+2025-02-10,Sapiens,Non-Fiction,Yuval Noah Harari,12,19.99,239.88,Downtown,Emma Wilson
+2025-02-11,Atomic Habits,Self-Help,James Clear,25,22.50,562.50,Eastside,James Park
+2025-02-11,1984,Fiction,George Orwell,8,13.99,111.92,Eastside,James Park
+2025-02-11,The Subtle Art of Not Giving a F,Self-Help,Mark Manson,14,14.99,209.86,Westside,Lisa Chen
+2025-02-12,The Hobbit,Fiction,J.R.R. Tolkien,13,15.99,207.87,Downtown,Emma Wilson
+2025-02-12,Dune,Science Fiction,Frank Herbert,11,14.99,164.89,Westside,Lisa Chen
+2025-02-12,The Alchemist,Fiction,Paulo Coelho,20,16.99,339.80,Eastside,James Park
+2025-02-13,Sapiens,Non-Fiction,Yuval Noah Harari,15,19.99,299.85,Westside,Lisa Chen
+2025-02-13,Project Hail Mary,Science Fiction,Andy Weir,12,17.99,215.88,Eastside,James Park
+2025-02-13,Atomic Habits,Self-Help,James Clear,18,22.50,405.00,Downtown,Emma Wilson
+2025-02-14,The Midnight Library,Fiction,Matt Haig,20,18.99,379.80,Eastside,James Park
+2025-02-14,The Alchemist,Fiction,Paulo Coelho,25,16.99,424.75,Westside,Lisa Chen
+2025-02-14,1984,Fiction,George Orwell,10,13.99,139.90,Downtown,Emma Wilson

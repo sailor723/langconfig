@@ -318,7 +318,63 @@ async def serve_output_file(filename: str):
     if analysis_dir.exists():
         analysis_match = list(analysis_dir.rglob(filename))
         if analysis_match:
-            return FileResponse(str(analysis_match[0]))
+            fp = analysis_match[0]
+            if fp.suffix == ".html":
+                import re, json as _json
+                html = fp.read_text(encoding="utf-8")
+                # Inject refresh bar if companion meta.json exists
+                stem = fp.stem
+                meta_p = fp.parent / f"{stem}.meta.json"
+                if meta_p.exists() and 'Refresh from source' not in html:
+                    meta = _json.loads(meta_p.read_text(encoding="utf-8"))
+                    hash_id = stem.replace("dashboard_", "") if stem.startswith("dashboard_") else stem
+                    refresh_style = '''<style>
+#dashRefreshBar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:#1e3a8a;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px}
+#dashRefreshBar button{background:#3b82f6;color:#fff;border:none;padding:5px 14px;border-radius:5px;cursor:pointer;font-size:13px}
+#dashRefreshBar button:hover{background:#2563eb}
+#dashRefreshBar button:disabled{opacity:.6;cursor:wait}
+#dashRefreshBar .spacer{flex:1}
+</style>
+<div id="dashRefreshBar">
+<span>Data: ''' + str(len(meta.get('columns', []))) + ''' cols</span>
+<div class="spacer"></div>
+<button id="dashRefreshBtn" onclick="dashRefresh()">Refresh from source</button>
+<span id="dashRefreshStatus"></span>
+</div>
+<script>
+
+// -- Dynamic: load fresh data on page load --
+const _DATA_URL = 'http://127.0.0.1:8765/api/analysis/data/''' + hash_id + '''';
+fetch(_DATA_URL).then(r=>r.json()).then(function(d){
+  if(typeof salesData!=='undefined'){ salesData = d; if(typeof renderAll==='function') renderAll(salesData); }
+}).catch(function(){});
+
+async function dashRefresh(){
+  const btn=document.getElementById('dashRefreshBtn');
+  const st=document.getElementById('dashRefreshStatus');
+  btn.disabled=true; st.textContent='Loading...';
+  try{
+    const r=await fetch(_DATA_URL);
+    const data=await r.json();
+    var _cols=''' + str(meta.get('columns', [])) + ''';
+function _fmtRow(row){var obj={};_cols.forEach(function(c,i){obj[c.replace(/\s+/g,'')]=row[i];var k=c.charAt(0).toLowerCase()+c.slice(1).replace(/\s+/g,'');obj[k]=row[i];obj[k.toLowerCase()]=row[i]});return obj}
+function _tryCall(fn,arg){if(typeof window[fn]==='function')window[fn](arg)}
+if(typeof rawData!=='undefined'){rawData=data.map(_fmtRow);_tryCall('renderKPIs',rawData);_tryCall('renderTrend',rawData);_tryCall('renderProduct',rawData);_tryCall('renderRegion',rawData);}
+else if(typeof salesData!=='undefined'){salesData=data;_tryCall('renderAll',salesData);_tryCall('refreshAll',undefined);_tryCall('applyFilters',undefined);}
+else if(typeof RAW!=='undefined'){RAW=data;_tryCall('renderAll',RAW);_tryCall('refreshAll',undefined);_tryCall('applyFilters',undefined);}
+else location.reload();
+    st.textContent='Updated '+new Date().toLocaleTimeString();
+  }catch(e){st.textContent='Error: '+e.message}
+  finally{btn.disabled=false}
+}
+</script>'''
+                    html = html.replace("<body>", "<body>\n" + refresh_style, 1)
+                    html = html.replace("const salesData", "var salesData")
+                    html = html.replace("const RAW", "var RAW")
+                    html = html.replace("const rawData", "var rawData")
+                from fastapi.responses import HTMLResponse
+                return HTMLResponse(html)
+            return FileResponse(str(fp))
 
     workspace_mgr = get_workspace_manager()
 

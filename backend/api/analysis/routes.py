@@ -212,6 +212,20 @@ async def analysis_upload(
     # Auto-generate dashboard
     dashboard_file = await _auto_generate_dashboard(db_path, skill_path=skill_path)
 
+    # Save metadata for refresh capability (creates {stem}.meta.json)
+    if dashboard_file:
+        try:
+            _stem = Path(dashboard_file).stem
+            _meta_path = Path(__file__).resolve().parent.parent.parent.parent / "data" / "analysis_dbs" / f"{_stem}.meta.json"
+            if not _meta_path.exists():
+                import json as _json
+                _meta_path.write_text(
+                    _json.dumps({"db_path": db_path, "table_name": table_name, "columns": cols}, ensure_ascii=False),
+                    encoding="utf-8"
+                )
+        except Exception:
+            pass
+
     return AnalysisInitResponse(
         db_path=db_path,
         table_name=table_name,
@@ -435,3 +449,53 @@ async def _run_analysis_agent(
         tool_calls=tool_call_count,
         total_tokens=len(full_response.split()),
     )
+
+
+@router.get("/data/{hash_id}")
+async def get_analysis_data(hash_id: str):
+    """Return live data from the SQLite source for a dashboard."""
+    meta = _load_dashboard_meta(hash_id)
+    if not meta:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Dashboard not found")
+    try:
+        import sqlite3
+        conn = sqlite3.connect(meta["db_path"])
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute(f'SELECT * FROM "{meta["table_name"]}"')
+        rows = cur.fetchall()
+                # Return as objects with clean keys (no spaces)
+        cols = [d[0] for d in cur.description] if cur.description else []
+        clean_cols = [c.replace(" ", "") for c in cols]
+        result = [{clean_cols[i]: v if v is not None else "" for i, v in enumerate(row)} for row in rows]
+        conn.close()
+        return result
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(500, str(e))
+
+
+@router.get("/meta/{hash_id}")
+async def get_analysis_meta(hash_id: str):
+    """Return column metadata for a dashboard."""
+    meta = _load_dashboard_meta(hash_id)
+    if not meta:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Dashboard not found")
+    return meta
+
+
+def _load_dashboard_meta(hash_id: str) -> dict:
+    """Load dashboard metadata from data/analysis_dbs/."""
+    import json
+    from pathlib import Path
+    dbs_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "analysis_dbs"
+    # Try dashboard_{hash}.meta.json (hash-based naming)
+    meta_path = dbs_dir / f"dashboard_{hash_id}.meta.json"
+    if meta_path.exists():
+        return json.loads(meta_path.read_text(encoding="utf-8"))
+    # Try {stem}.meta.json (stem-based naming, e.g. sample_sales_data_dashboard)
+    meta_path = dbs_dir / f"{hash_id}.meta.json"
+    if meta_path.exists():
+        return json.loads(meta_path.read_text(encoding="utf-8"))
+    return None
