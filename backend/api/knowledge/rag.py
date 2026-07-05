@@ -399,44 +399,54 @@ async def upload_document(
             message="Document already exists"
     )
 
-    doc = ContextDocument(
-        project_id=project_id,
-        filename=custom_name or file.filename,
-        original_filename=file.filename,
-        file_path=file_path,
-        file_size=file_size,
-        mime_type=file.content_type,
-        document_type=document_type,
-        indexing_status=IndexingStatus.NOT_INDEXED,
-        content_hash=hashlib.sha256(content).hexdigest(),
-        description=description,
-        tags=tags or [],
-        industry=industry,
-        player=player,
-        sub_category=sub_category,
-        sub_department=sub_department,
+    # Delegate to cmd_ingest — single code path for PG + Neo4j + disk,
+    # guaranteed consistent naming (no duplicates).
+    # Save to a temp directory with the original filename so cmd_ingest
+    # sees src.name == the real display name.
+    import tempfile as _tf
+    from learning.phase9.graphindex.index_build import (
+        Neo4jDocumentIndex,
+        cmd_ingest,
+        make_llm,
     )
-    db.add(doc)
-    db.commit()
-    db.refresh(doc)
 
-    # Queue document for embedding generation and indexing
-    background_tasks.add_task(index_document_background, doc.id)
-    # NEW: also queue a graphindex ingest so the doc shows up in Neo4j
-    # (used by the Knowledge panel's progressive-disclosure search and
-    # by the /api/rag/documents/{id}/file endpoint that resolves
-    # file_path from Neo4j). Skip for non-graphindexable types
-    # (images, archives) to avoid wasted LLM calls.
-    if _is_graphindexable(file.filename):
-        background_tasks.add_task(_queue_graphindex_ingest, str(file_path), project_id)
+    _tmp_dir = _tf.mkdtemp()
+    _tmp_path = Path(_tmp_dir) / file.filename
+    _tmp_path.write_bytes(content)
+
+    try:
+        idx = Neo4jDocumentIndex(
+            base_url=_os.environ.get("NEO4J_URL", "http://localhost:7474"),
+            username=_os.environ.get("NEO4J_USER", "neo4j"),
+            password=_os.environ.get("NEO4J_PASSWORD", "password"),
+        )
+        idx.ensure_constraints()
+        llm = make_llm()
+        rc = cmd_ingest(idx, llm, str(_tmp_path), project_id=project_id)
+        if rc != 0:
+            raise HTTPException(status_code=500, detail="ingest failed")
+    finally:
+        try:
+            import shutil as _shutil
+            _shutil.rmtree(_tmp_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+    # Find the PG record that cmd_ingest just created so we can return its id.
+    doc = db.query(ContextDocument).filter(
+        ContextDocument.project_id == project_id,
+        ContextDocument.original_filename == file.filename,
+    ).order_by(ContextDocument.id.desc()).first()
+    if not doc:
+        raise HTTPException(status_code=500, detail="document not found after ingest")
 
     return DocumentUploadResponse(
         id=doc.id,
         name=doc.filename,
         document_type=doc.document_type,
-        size=doc.file_size,
+        size=doc.file_size or 0,
         status=doc.indexing_status,
-        message="Document uploaded successfully. Indexing queued."
+        message="Document uploaded and indexed."
     )
 
 
@@ -663,43 +673,53 @@ async def _process_single_file_for_bulk(
                 f"{file.filename} — doc will land in (ungrouped)"
             )
 
-    # Create document record
-    doc = ContextDocument(
-        project_id=project_id,
-        filename=custom_name or file.filename,
-        original_filename=file.filename,
-        file_path=file_path,
-        file_size=file_size,
-        mime_type=file.content_type,
-        document_type=document_type,
-        indexing_status=IndexingStatus.NOT_INDEXED,
-        content_hash=hashlib.sha256(content).hexdigest(),
-        description=description,
-        tags=tags or [],
-        industry=industry,
-        player=player,
-        sub_category=sub_category,
-        sub_department=sub_department,
+    # Delegate to cmd_ingest — single code path for PG + Neo4j + disk.
+    # Save to a temp directory with the original filename so cmd_ingest
+    # sees src.name == the real display name.
+    import tempfile as _tf
+    from learning.phase9.graphindex.index_build import (
+        Neo4jDocumentIndex,
+        cmd_ingest,
+        make_llm,
     )
-    db.add(doc)
-    db.commit()
-    db.refresh(doc)
 
-    # Queue for indexing
-    background_tasks.add_task(index_document_background, doc.id)
-    # NEW: also queue a graphindex ingest (Neo4j) so the doc shows up
-    # in the Knowledge panel's progressive-disclosure search. Skips
-    # non-graphindexable types (images, archives).
-    if _is_graphindexable(file.filename):
-        background_tasks.add_task(_queue_graphindex_ingest, str(file_path), project_id)
+    _tmp_dir = _tf.mkdtemp()
+    _tmp_path = Path(_tmp_dir) / file.filename
+    _tmp_path.write_bytes(content)
+
+    try:
+        idx = Neo4jDocumentIndex(
+            base_url=_os.environ.get("NEO4J_URL", "http://localhost:7474"),
+            username=_os.environ.get("NEO4J_USER", "neo4j"),
+            password=_os.environ.get("NEO4J_PASSWORD", "password"),
+        )
+        idx.ensure_constraints()
+        llm = make_llm()
+        rc = cmd_ingest(idx, llm, str(_tmp_path), project_id=project_id)
+        if rc != 0:
+            raise Exception("cmd_ingest failed")
+    finally:
+        try:
+            import shutil as _shutil
+            _shutil.rmtree(_tmp_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+    # Find the PG record that cmd_ingest just created.
+    doc = db.query(ContextDocument).filter(
+        ContextDocument.project_id == project_id,
+        ContextDocument.original_filename == file.filename,
+    ).order_by(ContextDocument.id.desc()).first()
+    if not doc:
+        raise Exception("document not found after ingest")
 
     return DocumentUploadResponse(
         id=doc.id,
         name=doc.filename,
         document_type=doc.document_type,
-        size=doc.file_size,
+        size=doc.file_size or 0,
         status=doc.indexing_status,
-        message="Document uploaded successfully. Indexing queued."
+        message="Document uploaded and indexed."
     )
 
 
