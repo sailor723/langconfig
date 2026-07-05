@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+    <meta charset="UTF-8">
+    <title>Sample Sales Business Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+      body { font-family: -apple-system, "Segoe UI", Arial, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; background: #f4f6fa; color: #222; }
+      header { background: linear-gradient(90deg,#1e3a8a,#3b82f6); color:#fff; padding: 18px 28px; }
+      header h1 { margin: 0; font-size: 22px; }
+      header p { margin: 4px 0 0; font-size: 13px; opacity: 0.9; }
+      .container { padding: 20px; }
+      .control-bar { background:#fff; padding:14px 18px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.06); margin-bottom:18px; display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
+      .control-bar label { font-size:12px; font-weight:600; color:#475569; display:flex; flex-direction:column; }
+      .control-bar select { min-width: 150px; padding: 6px 8px; border:1px solid #cbd5e1; border-radius:6px; background:#fff; font-size:13px; }
+      .control-bar button { padding:8px 16px; border:none; border-radius:6px; background:#ef4444; color:#fff; font-weight:600; cursor:pointer; }
+      .control-bar button:hover { background:#dc2626; }
+      .kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-bottom:18px; }
+      .kpi { background:#fff; border-radius:10px; padding:16px; box-shadow:0 2px 6px rgba(0,0,0,0.06); border-left:5px solid #3b82f6; }
+      .kpi .label { font-size:12px; color:#64748b; text-transform:uppercase; letter-spacing:0.5px; }
+      .kpi .value { font-size:22px; font-weight:700; margin-top:6px; color:#0f172a; }
+      .kpi .sub { font-size:11px; color:#94a3b8; margin-top:4px; }
+      .kpi.revenue { border-left-color:#10b981; }
+      .kpi.units { border-left-color:#f59e0b; }
+      .kpi.aov { border-left-color:#8b5cf6; }
+      .kpi.top { border-left-color:#ec4899; }
+      .charts { display:grid; grid-template-columns: 2fr 1fr; gap:14px; margin-bottom:18px; }
+      .chart-card { background:#fff; border-radius:10px; padding:14px; box-shadow:0 2px 6px rgba(0,0,0,0.06); }
+      .chart-card h3 { margin:0 0 8px; font-size:14px; color:#334155; }
+      .insights { background:#fff; border-radius:10px; padding:18px 22px; box-shadow:0 2px 6px rgba(0,0,0,0.06); }
+      .insights h3 { margin:0 0 10px; font-size:15px; color:#1e3a8a; }
+      .insights ul { margin:0; padding-left:20px; font-size:13px; line-height:1.7; color:#334155; }
+      .insights li::marker { color:#3b82f6; }
+      @media (max-width: 900px) { .charts { grid-template-columns:1fr; } }
+    </style>
+    </head>
+    <body>
+    <header>
+      <h1>📊 Apple Products Sales Dashboard</h1>
+      <p>Jan 6 – 24, 2025 · 30 transactions · Interactive analysis</p>
+    </header>
+    <div class="container">
+
+      <!-- Control bar -->
+      <div class="control-bar" id="controlBar">
+        <label>Category
+          <select id="fCategory" multiple size="3"></select>
+        </label>
+        <label>Product
+          <select id="fProduct" multiple size="3"></select>
+        </label>
+        <label>Region
+          <select id="fRegion" multiple size="3"></select>
+        </label>
+        <label>Sales Rep
+          <select id="fRep" multiple size="3"></select>
+        </label>
+        <label>Date
+          <select id="fDate" multiple size="3"></select>
+        </label>
+        <button id="resetBtn">↺ Reset</button>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="kpis" id="kpiRow"></div>
+
+      <!-- Charts -->
+      <div class="charts">
+        <div class="chart-card"><h3>📈 Daily Revenue Trend</h3><div id="chartTrend" style="height:340px;"></div></div>
+        <div class="chart-card"><h3>🏆 Top Products by Revenue</h3><div id="chartProduct" style="height:340px;"></div></div>
+        <div class="chart-card"><h3>🗺️ Revenue by Region</h3><div id="chartRegion" style="height:320px;"></div></div>
+        <div class="chart-card"><h3>👤 Sales Rep Performance</h3><div id="chartRep" style="height:320px;"></div></div>
+      </div>
+
+      <div class="charts" style="grid-template-columns: 1fr 1fr;">
+        <div class="chart-card"><h3>💰 Avg Order Value by Category</h3><div id="chartCatAOV" style="height:300px;"></div></div>
+        <div class="chart-card"><h3>🔗 Unit Price vs Units Sold (Correlation)</h3><div id="chartScatter" style="height:300px;"></div></div>
+      </div>
+
+      <!-- Insights -->
+      <div class="insights">
+        <h3>💡 Key Insights (auto-updated)</h3>
+        <ul id="insightList"></ul>
+      </div>
+
+    </div>
+
+    <script>
+    // ============ DATA ============
+    const RAW = [["2025-01-06", "MacBook Pro 16", "Mobile", 3.0, 2499.0, 7497.0, "North", "Alice Chen"], ["2025-01-06", "AirPods Pro", "Audio", 15.0, 249.0, 3735.0, "South", "Bob Smith"], ["2025-01-07", "iPhone 16 Pro", "Mobile", 8.0, 1199.0, 9592.0, "East", "Diana Park"], ["2025-01-07", "MacBook Air", "Mobile", 5.0, 1299.0, 6495.0, "West", "John Davis"], ["2025-01-08", "iPad Air", "Tablets", 12.0, 699.0, 8388.0, "North", "Alice Chen"], ["2025-01-08", "AirPods Max", "Audio", 4.0, 549.0, 2196.0, "South", "Bob Smith"], ["2025-01-09", "iPhone 16", "Mobile", 10.0, 899.0, 8990.0, "East", "Diana Park"], ["2025-01-09", "MacBook Pro 14", "Mobile", 2.0, 1999.0, 3998.0, "West", "John Davis"], ["2025-01-10", "Apple Watch Ultra", "Wearables", 6.0, 799.0, 4794.0, "North", "Alice Chen"], ["2025-01-10", "iPad Pro", "Tablets", 4.0, 1099.0, 4396.0, "South", "Bob Smith"], ["2025-01-13", "iPhone 16 Pro Max", "Mobile", 7.0, 1499.0, 10493.0, "East", "Diana Park"], ["2025-01-13", "AirPods Pro", "Audio", 20.0, 249.0, 4980.0, "West", "John Davis"], ["2025-01-14", "MacBook Air", "Mobile", 6.0, 1299.0, 7794.0, "North", "Alice Chen"], ["2025-01-14", "iPad mini", "Tablets", 9.0, 599.0, 5391.0, "South", "Bob Smith"], ["2025-01-15", "Apple Vision Pro", "Wearables", 1.0, 3499.0, 3499.0, "East", "Diana Park"], ["2025-01-15", "iPhone 16 Pro", "Mobile", 12.0, 1199.0, 14388.0, "West", "John Davis"], ["2025-01-16", "AirPods Max", "Audio", 3.0, 549.0, 1647.0, "North", "Alice Chen"], ["2025-01-16", "MacBook Pro 16", "Mobile", 4.0, 2499.0, 9996.0, "South", "Bob Smith"], ["2025-01-17", "iPad Air", "Tablets", 15.0, 699.0, 10485.0, "East", "Diana Park"], ["2025-01-17", "Apple Watch SE", "Wearables", 10.0, 249.0, 2490.0, "West", "John Davis"], ["2025-01-20", "iPhone 16", "Mobile", 8.0, 899.0, 7192.0, "North", "Alice Chen"], ["2025-01-20", "MacBook Pro 14", "Mobile", 3.0, 1999.0, 5997.0, "South", "Bob Smith"], ["2025-01-21", "AirPods Pro", "Audio", 25.0, 249.0, 6225.0, "East", "Diana Park"], ["2025-01-21", "iPad Pro", "Tablets", 5.0, 1099.0, 5495.0, "West", "John Davis"], ["2025-01-22", "Apple Watch Ultra", "Wearables", 4.0, 799.0, 3196.0, "North", "Alice Chen"], ["2025-01-22", "iPhone 16 Pro Max", "Mobile", 6.0, 1499.0, 8994.0, "South", "Bob Smith"], ["2025-01-23", "MacBook Air", "Mobile", 7.0, 1299.0, 9093.0, "East", "Diana Park"], ["2025-01-23", "AirPods Max", "Audio", 2.0, 549.0, 1098.0, "West", "John Davis"], ["2025-01-24", "iPad mini", "Tablets", 11.0, 599.0, 6589.0, "North", "Alice Chen"], ["2025-01-24", "Apple Vision Pro", "Wearables", 2.0, 3499.0, 6998.0, "South", "Bob Smith"]];
+
+    const STATE = {
+      Category: new Set(),
+      Product: new Set(),
+      Region: new Set(),
+      Rep: new Set(),
+      Date: new Set()
+    };
+
+    const COLS = ["Category","Product","Region","Rep","Date"];
+    const COL_MAP = { Category:0, Product:1, Region:6, Rep:7, Date:0 };
+    const ID_MAP  = { Category:"fCategory", Product:"fProduct", Region:"fRegion", Rep:"fRep", Date:"fDate" };
+
+    // ============ HELPERS ============
+    function uniq(arr){ return [...new Set(arr)].sort(); }
+    function fmt$(n){ return "$" + Number(n).toLocaleString(undefined,{maximumFractionDigits:0}); }
+    function fmt$(2,n){ return "$" + Number(n).toLocaleString(undefined,{maximumFractionDigits:2}); }
+    function mean(a){ return a.length ? a.reduce((s,x)=>s+x,0)/a.length : 0; }
+    function pearson(x,y){
+      if (x.length<2) return 0;
+      const mx=mean(x), my=mean(y);
+      let num=0,dx=0,dy=0;
+      for(let i=0;i<x.length;i++){ num+=(x[i]-mx)*(y[i]-my); dx+=(x[i]-mx)**2; dy+=(y[i]-my)**2; }
+      return num/Math.sqrt(dx*dy);
+    }
+
+    function getRows(){
+      return RAW.filter(r=>{
+        for (const k of COLS){
+          if (STATE[k].size>0 && !STATE[k].has(r[COL_MAP[k]])) return false;
+        }
+        return true;
+      });
+    }
+
+    // ============ INITIAL POPULATE ============
+    function populateFilters(){
+      COLS.forEach(k=>{
+        const sel = document.getElementById(ID_MAP[k]);
+        const items = uniq(RAW.map(r=>r[COL_MAP[k]]));
+        sel.innerHTML = items.map(v=>`<option value="${v}">${v}</option>`).join("");
+        sel.addEventListener("change", ()=>{
+          STATE[k] = new Set(Array.from(sel.selectedOptions).map(o=>o.value));
+          refreshAll();
+        });
+      });
+    }
+    document.getElementById("resetBtn").addEventListener("click", ()=>{
+      COLS.forEach(k=>{
+        STATE[k]=new Set();
+        const sel=document.getElementById(ID_MAP[k]);
+        Array.from(sel.options).forEach(o=>o.selected=false);
+      });
+      refreshAll();
+    });
+
+    // ============ RENDER: KPIs ============
+    function renderKPIs(rows){
+      const totalRev = rows.reduce((s,r)=>s+r[5],0);
+      const totalUnits = rows.reduce((s,r)=>s+r[3],0);
+      const aov = rows.length? totalRev/rows.length : 0;
+
+      // Top product (by revenue)
+      const prodRev = {};
+      rows.forEach(r=> prodRev[r[1]] = (prodRev[r[1]]||0)+r[5]);
+      const topProduct = Object.entries(prodRev).sort((a,b)=>b[1]-a[1])[0];
+
+      // Top region
+      const regRev = {};
+      rows.forEach(r=> regRev[r[6]] = (regRev[r[6]]||0)+r[5]);
+      const topRegion = Object.entries(regRev).sort((a,b)=>b[1]-a[1])[0];
+
+      // Top rep
+      const repRev = {};
+      rows.forEach(r=> repRev[r[7]] = (repRev[r[7]]||0)+r[5]);
+      const topRep = Object.entries(repRev).sort((a,b)=>b[1]-a[1])[0];
+
+      const kpis = [
+        {cls:"revenue", label:"Total Revenue", value: fmt$(totalRev), sub:`${rows.length} transactions`},
+        {cls:"units",   label:"Total Units Sold", value: totalUnits.toLocaleString(), sub:`across ${prodRev?Object.keys(prodRev).length:0} products`},
+        {cls:"aov",     label:"Avg Order Value", value: fmt$(2,aov), sub:`per transaction`},
+        {cls:"top",     label:"Top Product", value: topProduct? topProduct[0]:"—", sub: topProduct? fmt$(topProduct[1]) : ""},
+        {cls:"top",     label:"Top Region", value: topRegion? topRegion[0]:"—", sub: topRegion? fmt$(topRegion[1]) : ""},
+        {cls:"top",     label:"Top Sales Rep", value: topRep? topRep[0]:"—", sub: topRep? fmt$(topRep[1]) : ""},
+      ];
+      document.getElementById("kpiRow").innerHTML =
+        kpis.map(k=>`<div class="kpi ${k.cls}"><div class="label">${k.label}</div><div class="value">${k.value}</div><div class="sub">${k.sub}</div></div>`).join("");
+    }
+
+    // ============ RENDER: Daily Trend ============
+    function renderTrend(rows){
+      const byDate = {};
+      rows.forEach(r=> byDate[r[0]] = (byDate[r[0]]||0)+r[5]);
+      const dates = Object.keys(byDate).sort();
+      const vals  = dates.map(d=>byDate[d]);
+      const trace = {
+        x: dates, y: vals, type:"scatter", mode:"lines+markers",
+        line:{color:"#3b82f6", width:3, shape:"spline", smoothing:0.6},
+        marker:{size:8, color:"#1e3a8a"},
+        fill:"tozeroy", fillcolor:"rgba(59,130,246,0.15)",
+        hovertemplate:"<b>%{x}</b><br>Revenue: %{y:$,.0f}<extra></extra>"
+      };
+      Plotly.newPlot("chartTrend",[trace],{
+        margin:{t:10,l:60,r:20,b:50},
+        xaxis:{title:"Date", tickangle:-30},
+        yaxis:{title:"Revenue (USD)", tickformat:"$,.0f"},
+        plot_bgcolor:"#fafbff", paper_bgcolor:"#fff"
+      },{responsive:true, displayModeBar:false});
+    }
+
+    // ============ RENDER: Top Products ============
+    function renderProduct(rows){
+      const m = {};
+      rows.forEach(r=> m[r[1]] = (m[r[1]]||0)+r[5]);
+      const sorted = Object.entries(m).sort((a,b)=>b[1]-a[1]);
+      const trace = {
+        x: sorted.map(s=>s[1]), y: sorted.map(s=>s[0]),
+        type:"bar", orientation:"h",
+        marker:{color: sorted.map((_,i)=> i===0?"#10b981":"#3b82f6")},
+        text: sorted.map(s=>fmt$(s[1])),
+        textposition:"outside",
+        hovertemplate:"<b>%{y}</b><br>Revenue: %{x:$,.0f}<extra></extra>"
+      };
+      Plotly.newPlot("chartProduct",[trace],{
+        margin:{t:10,l:140,r:30,b:50},
+        xaxis:{title:"Revenue (USD)", tickformat:"$,.0f"},
+        yaxis:{automargin:true},
+        plot_bgcolor:"#fafbff", paper_bgcolor:"#fff"
+      },{responsive:true, displayModeBar:false});
+    }
+
+    // ============ RENDER: Region (Pie) ============
+    function renderRegion(rows){
+      const m = {};
+      rows.forEach(r=> m[r[6]] = (m[r[6]]||0)+r[5]);
+      const labels = Object.keys(m);
+      const values = labels.map(l=>m[l]);
+      Plotly.newPlot("chartRegion",[{
+        labels, values, type:"pie", hole:0.45,
+        textinfo:"label+percent",
+        marker:{colors:["#3b82f6","#10b981","#f59e0b","#ec4899"]}
+      }],{
+        margin:{t:10,l:10,r:10,b:10},
+        paper_bgcolor:"#fff",
+        showlegend:true
+      },{responsive:true, displayModeBar:false});
+    }
+
+    // ============ RENDER: Sales Rep (Bar) ============
+    function renderRep(rows){
+      const m = {};
+      rows.forEach(r=> m[r[7]] = (m[r[7]]||0)+r[5]);
+      const sorted = Object.entries(m).sort((a,b)=>b[1]-a[1]);
+      Plotly.newPlot("chartRep",[{
+        x: sorted.map(s=>s[0]), y: sorted.map(s=>s[1]),
+        type:"bar",
+        marker:{color:["#1e3a8a","#3b82f6","#60a5fa","#93c5fd"]},
+        text: sorted.map(s=>fmt$(s[1])),
+        textposition:"outside",
+        hovertemplate:"<b>%{x}</b><br>Revenue: %{y:$,.0f}<extra></extra>"
+      }],{
+        margin:{t:10,l:60,r:20,b:50},
+        xaxis:{title:"Sales Rep"},
+        yaxis:{title:"Revenue (USD)", tickformat:"$,.0f"},
+        plot_bgcolor:"#fafbff", paper_bgcolor:"#fff"
+      },{responsive:true, displayModeBar:false});
+    }
+
+    // ============ RENDER: AOV by Category ============
+    function renderCatAOV(rows){
+      const m = {}; const cnt = {};
+      rows.forEach(r=>{ m[r[2]]=(m[r[2]]||0)+r[5]; cnt[r[2]]=(cnt[r[2]]||0)+1; });
+      const cats = Object.keys(m).sort((a,b)=> (m[b]/cnt[b])-(m[a]/cnt[a]));
+      const aov = cats.map(c=> m[c]/cnt[c]);
+      Plotly.newPlot("chartCatAOV",[{
+        x: cats, y: aov, type:"bar",
+        marker:{color: cats.map((_,i)=>["#8b5cf6","#3b82f6","#10b981","#f59e0b"][i%4])},
+        text: aov.map(v=>fmt$(v)), textposition:"outside",
+        hovertemplate:"<b>%{x}</b><br>Avg Order: %{y:$,.0f}<extra></extra>"
+      }],{
+        margin:{t:10,l:60,r:20,b:50},
+        xaxis:{title:"Category"},
+        yaxis:{title:"Avg Order Value (USD)", tickformat:"$,.0f"},
+        plot_bgcolor:"#fafbff", paper_bgcolor:"#fff"
+      },{responsive:true, displayModeBar:false});
+    }
+
+    // ============ RENDER: Scatter (Price vs Units) ============
+    function renderScatter(rows){
+      const xs = rows.map(r=>r[4]); const ys = rows.map(r=>r[3]);
+      const txt = rows.map(r=>`${r[1]}<br>${r[0]}`);
+      const corr = pearson(xs,ys);
+      Plotly.newPlot("chartScatter",[{
+        x: xs, y: ys, mode:"markers",
+        type:"scatter",
+        text: txt, hoverinfo:"text+x+y",
+        marker:{size: rows.map(r=>Math.max(6, r[3]*1.2)),
+                color: rows.map(r=>r[5]),
+                colorscale:"Viridis", showscale:true,
+                colorbar:{title:"Revenue", tickformat:"$,.0f"},
+                line:{color:"#fff", width:1}}
+      }],{
+        margin:{t:10,l:60,r:20,b:50},
+        xaxis:{title:"Unit Price (USD)", tickformat:"$,.0f"},
+        yaxis:{title:"Units Sold"},
+        annotations:[{ xref:"paper", yref:"paper", x:0.02, y:0.98,
+          text:`Pearson r = ${corr.toFixed(2)}`, showarrow:false,
+          bgcolor:"rgba(255,255,255,0.85)", bordercolor:"#94a3b8", borderwidth:1, font:{size:12} }],
+        plot_bgcolor:"#fafbff", paper_bgcolor:"#fff"
+      },{responsive:true, displayModeBar:false});
+    }
+
+    // ============ RENDER: Insights ============
+    function renderInsights(rows){
+      const out = document.getElementById("insightList");
+      if (rows.length===0){
+        out.innerHTML = "<li>No data matches the current filter selection.</li>";
+        return;
+      }
+      const ins = [];
+
+      // 1. Top product
+      const prodRev = {}; rows.forEach(r=> prodRev[r[1]] = (prodRev[r[1]]||0)+r[5]);
+      const topProd = Object.entries(prodRev).sort((a,b)=>b[1]-a[1])[0];
+      const totalRev = rows.reduce((s,r)=>s+r[5],0);
+      if (topProd){
+        const share = (topProd[1]/totalRev*100).toFixed(1);
+        ins.push(`<b>Top revenue product:</b> <b>${topProd[0]}</b> contributed ${fmt$(topProd[1])} (${share}% of selected revenue).`);
+      }
+
+      // 2. Top region
+      const regRev = {}; rows.forEach(r=> regRev[r[6]] = (regRev[r[6]]||0)+r[5]);
+      const topReg = Object.entries(regRev).sort((a,b)=>b[1]-a[1])[0];
+      if (topReg) ins.push(`<b>Leading region:</b> <b>${topReg[0]}</b> is the strongest territory with ${fmt$(topReg[1])} in revenue.`);
+
+      // 3. Top rep
+      const repRev = {}; rows.forEach(r=> repRev[r[7]] = (repRev[r[7]]||0)+r[5]);
+      const topRep = Object.entries(repRev).sort((a,b)=>b[1]-a[1])[0];
+      if (topRep) ins.push(`<b>Best sales rep:</b> <b>${topRep[0]}</b> closed ${fmt$(topRep[1])} in deals.`);
+
+      // 4. Daily trend direction
+      const byDate = {};
+      rows.forEach(r=> byDate[r[0]] = (byDate[r[0]]||0)+r[5]);
+      const dates = Object.keys(byDate).sort();
+      if (dates.length>=2){
+        const first = byDate[dates[0]];
+        const last  = byDate[dates[dates.length-1]];
+        const diffPct = ((last-first)/Math.max(first,1)*100).toFixed(1);
+        ins.push(`<b>Trend:</b> Daily revenue went from ${fmt$(first)} (${dates[0]}) to ${fmt$(last)} (${dates[dates.length-1]}), a change of <b style="color:${diffPct>=0?'#10b981':'#ef4444'}">${diffPct>=0?"+":""}${diffPct}%</b>.`);
+        const peak = dates.reduce((p,d)=> byDate[d]>byDate[p]?d:p, dates[0]);
+        ins.push(`<b>Peak day:</b> Highest revenue was on <b>${peak}</b> at ${fmt$(byDate[peak])}.`);
+      }
+
+      // 5. Avg order by category
+      const m={}, cnt={};
+      rows.forEach(r=>{ m[r[2]]=(m[r[2]]||0)+r[5]; cnt[r[2]]=(cnt[r[2]]||0)+1; });
+      const catAOV = Object.keys(m).map(c=>({c, v:m[c]/cnt[c]})).sort((a,b)=>b.v-a.v);
+      if (catAOV.length){
+        ins.push(`<b>Avg order value:</b> Highest in <b>${catAOV[0].c}</b> at ${fmt$(catAOV[0].v)}; lowest in <b>${catAOV[catAOV.length-1].c}</b> at ${fmt$(catAOV[catAOV.length-1].v)}.`);
+      }
+
+      // 6. Correlation between unit price and units sold
+      const xs = rows.map(r=>r[4]); const ys = rows.map(r=>r[3]);
+      const corr = pearson(xs,ys);
+      const corrTxt = corr<-0.3 ? "a strong <b style='color:#ef4444'>negative</b> correlation"
+                      : corr<-0.1 ? "a moderate <b style='color:#f59e0b'>negative</b> correlation"
+                      : corr< 0.1 ? "essentially <b>no linear correlation</b>"
+                      : corr< 0.3 ? "a moderate <b style='color:#10b981'>positive</b> correlation"
+                      : "a strong <b style='color:#10b981'>positive</b> correlation";
+      ins.push(`<b>Price vs volume:</b> Unit Price and Units Sold show ${corrTxt} (Pearson r = <b>${corr.toFixed(2)}</b>) — high-price items tend to move in low quantities.`);
+      out.innerHTML = ins.map(s=>`<li>${s}</li>`).join("");
+    }
+
+    // ============ MASTER REFRESH ============
+    function refreshAll(){
+      const rows = getRows();
+      renderKPIs(rows);
+      renderTrend(rows);
+      renderProduct(rows);
+      renderRegion(rows);
+      renderRep(rows);
+      renderCatAOV(rows);
+      renderScatter(rows);
+      renderInsights(rows);
+    }
+
+    populateFilters();
+    refreshAll();
+    </script>
+    </body>
+    </html>
+    
