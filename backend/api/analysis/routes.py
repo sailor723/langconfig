@@ -35,6 +35,13 @@ class AnalysisInitResponse(BaseModel):
     row_count: int
     col_count: int
     columns: list[str]
+    dashboard_file: Optional[str] = None
+    skill_status: str = "none"
+    db_path: str
+    table_name: str
+    row_count: int
+    col_count: int
+    columns: list[str]
     dashboard_file: Optional[str] = None  # path to generated HTML dashboard
 
 
@@ -151,6 +158,7 @@ async def _auto_generate_dashboard(db_path: str, skill_path: Optional[str] = Non
 @router.post("/upload", response_model=AnalysisInitResponse)
 async def analysis_upload(
     file: UploadFile = File(...),
+    skill_file: UploadFile = File(None),
     db: Session = Depends(get_db),
 ):
     """Upload a CSV file, convert to SQLite, auto-generate dashboard, return schema."""
@@ -178,8 +186,31 @@ async def analysis_upload(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to read schema: {e}")
 
+    # Handle companion skill file
+    skill_path = None
+    skill_status = "none"
+    if skill_file and skill_file.filename:
+        skill_bytes = await skill_file.read()
+        skill_path = str(ANALYSIS_DBS_DIR / skill_file.filename)
+        Path(skill_path).write_bytes(skill_bytes)
+        skill_status = "active"
+    elif file.filename:
+        # Auto-generate companion from CSV metadata
+        csv_stem = Path(file.filename).stem.replace('-', '_').replace(' ', '_')
+        _skill_path = ANALYSIS_DBS_DIR / f"{csv_stem}.skill.md"
+        if not _skill_path.exists():
+            try:
+                from services.data_skill_generator import generate_data_skill
+                _result = generate_data_skill(db_path.replace('.db', '.csv'), str(ANALYSIS_DBS_DIR))
+                if _result:
+                    skill_path = _result
+                    skill_status = "pending"
+                    logger.info(f"Auto-generated companion skill: {_result}")
+            except Exception as e:
+                logger.warning(f"Failed to auto-generate companion: {e}")
+
     # Auto-generate dashboard
-    dashboard_file = await _auto_generate_dashboard(db_path)
+    dashboard_file = await _auto_generate_dashboard(db_path, skill_path=skill_path)
 
     return AnalysisInitResponse(
         db_path=db_path,
@@ -188,6 +219,7 @@ async def analysis_upload(
         col_count=len(cols),
         columns=cols,
         dashboard_file=dashboard_file,
+        skill_status=skill_status,
     )
 
 
@@ -221,7 +253,7 @@ async def analysis_init(request: AnalysisInitRequest, db: Session = Depends(get_
         raise HTTPException(status_code=500, detail=f"Failed to read schema: {e}")
 
     # Auto-generate dashboard
-    dashboard_file = await _auto_generate_dashboard(db_path)
+    dashboard_file = await _auto_generate_dashboard(db_path, skill_path=request.skill_path)
 
     return AnalysisInitResponse(
         db_path=db_path,
