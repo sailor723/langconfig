@@ -1581,6 +1581,44 @@ curl -X POST http://localhost:8765/api/analysis/upload \
 
 ---
 
+
+
+#### 5m. Analysis Page UI (Chat, Data, Skill, Theme)
+
+The dashboard detail view adds four panels accessible from the header bar:
+
+| Button | Panel | Description |
+|---|---|---|
+| **Data** | Scrollable table | Raw data rows fetched from `/api/analysis/data/{hash}` |
+| **Skill** | Markdown viewer | Companion skill content from `{hash}.meta.json` |
+| **Chat** | AI chat | Ask questions via the sql-analyst deep agent with companion context |
+
+**Chat panel features:**
+- Per-message Copy and Download buttons (icon-only, with green checkmark feedback)
+- Resizable split layout (drag divider between chat and dashboard, 45%-55% range)
+- Companion skill context injected into the agent's system prompt
+- Agent uses `sqlite_execute` to query live data (not the embedded dashboard snapshot)
+
+**Dark mode:**
+- Dashboard HTML is post-processed to inject dark-theme CSS overrides
+- Detects `document.documentElement.classList.contains('dark')`
+- Also overrides Plotly chart backgrounds (`plot_bgcolor`, `paper_bgcolor`, `gridcolor`)
+- Re-applies on theme switch
+
+**Key files:**
+
+| File | Role |
+|---|---|
+| `src/pages/AnalysisPage.tsx` | All panels + resize + theme injection in single component |
+| `backend/api/analysis/routes.py` | Chat endpoint with `skill_content` context injection |
+
+#### Key Learnings
+
+| Lesson | Detail |
+|---|---|
+| **Side panel layout** | Flex split with minWidth on iframe is better than overlay for keeping dashboard visible |
+| **CSS can't change Plotly** | Plotly SVG uses inline styles -- must use regex replacement on layout `plot_bgcolor` etc. |
+| **iframe theme isolation** | iframe is a separate document -- CSS must be injected into HTML content directly |
 ## Drift Log (since Phase 5)
 
 **Refreshed 2026-06-24.** This log tracks what changed in the Skills section
