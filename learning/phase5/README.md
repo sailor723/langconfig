@@ -1426,6 +1426,104 @@ Agent (research agent with skill-generator skill)
 | **Dependencies** | `pandas` and `matplotlib` must be added to `backend/pyproject.toml` for analysis scripts. |
 | **Untracked files** | Generated sandbox dirs (`_data_analysis_sandbox/`, `_analysis_output/`) should be gitignored. |
 
+#### 5k. Data Skill Companion System
+
+The earlier data analysis design had a problem: the system `data-analysis` SKILL.md
+was hardcoded with Titanic-specific examples (`/uploads/titanic.csv`, `Age`, `Fare`).
+When a user uploaded any arbitrary CSV, the agent had to fight those priors to produce
+correct analysis. More importantly, the agent had no way to understand what the columns
+*meant* — only their statistical properties.
+
+The **Data Skill Companion System** solves this with a two-layer architecture:
+
+| Layer | Who writes | What it covers | Example |
+|---|---|---|---|
+| **System skill** (`data-analysis` SKILL.md) | Developer | Content-independent mechanics | Chart types, tool invocation, edge cases |
+| **Companion skill** (`<dataset>.skill.md`) | User (or auto-generated) | Dataset-specific semantics | Column meanings, business logic, sample SQL |
+
+#### Flow
+
+```
+User uploads sales_data.csv
+  |
+  +-- CSV saved to sandbox
+  +-- Generator reads CSV schema (nrows=50)
+  |     +-- produces sales_data.skill.md.pending
+  |
+  v
+User reviews via API:
+  GET  /api/chat/{session_id}/skill-pending/sales_data
+  POST /api/chat/{session_id}/skill-pending/sales_data
+       {"action": "approve"}           -> activated
+       {"action": "edit", "content"}   -> user revision + activated
+       {"action": "reject"}            -> discarded
+  |
+  v
+Agent context:
+  1. System data-analysis SKILL.md      (mechanics)
+  2. sales_data.skill.md                (semantics)
+```
+
+#### Auto-Generated Companion
+
+The service at [`backend/services/data_skill_generator.py`](../../backend/services/data_skill_generator.py)
+reads the first 50 rows of the uploaded CSV and produces a structured `.skill.md.pending` file with:
+
+- **Column definitions table** -- name, detected type, sample values, null %
+- **Basic data profile** -- row count, numeric vs categorical columns, null density
+- **Sample SQL queries** -- auto-generated SELECT, COUNT, GROUP BY from detected column types
+- **Edge cases** -- null columns, spaced column names, unparsed date strings
+
+The generator respects existing companions: if a `.skill.md.pending` already exists
+(e.g. the user uploaded their own), it is never overwritten.
+
+#### Review & Approval API
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/chat/{session_id}/skill-pending/{csv_stem}` | Returns pending content for review |
+| `POST` | `/api/chat/{session_id}/skill-pending/{csv_stem}` | Approve, edit, or reject |
+
+POST body:
+```json
+{"action": "approve"}                          // rename to .skill.md (activated)
+{"action": "edit", "content": "new markdown..."} // save as .skill.md (activated)
+{"action": "reject"}                           // delete pending file (discarded)
+```
+
+#### Key Files
+
+| File | Purpose |
+|---|---|
+| `backend/services/data_skill_generator.py` | Reads CSV schema + generates `.skill.md.pending` |
+| `backend/api/chat/skill_review.py` | GET/POST endpoints for review/approve/reject |
+| `backend/api/chat/routes.py` | Upload handler calls generator; context builder injects companion |
+| `backend/skills/builtin/data-analysis/SKILL.md` | Now content-independent (mechanics only, no dataset-specific examples) |
+| `learning/phase5/examples/sample_sales_data.skill.md` | Example user-written companion for Apple product sales data |
+
+#### Context Injection
+
+At chat time, the context builder in [`backend/api/chat/routes.py`](../../backend/api/chat/routes.py)
+scans session documents for CSV files, checks the sandbox for companion `.skill.md`
+files (NOT `.skill.md.pending` -- only approved ones), and injects their content
+into the agent's `all_context` under a `## User Data Context` header.
+
+The system `data-analysis` skill covers chart types, tool invocation, and edge
+cases. The companion skill covers column semantics, business logic, and common
+queries. The agent reads both and produces analysis that understands the data
+domain, not just its statistical shape.
+
+#### Key Learnings
+
+| Lesson | Detail |
+|---|---|
+| **Two-layer separation** | System skill = mechanics; companion = semantics. Keeps both focused. |
+| **Pending -> approved** | Auto-generated companions stay invisible until the user approves them. |
+| **No overwrite** | Generator never overwrites an existing companion (user-provided or approved). |
+| **User-provided companion** | User can write their own `.skill.md` from scratch -- generator skips. |
+| **SQL sources** | Same pattern applies: a `.skill.md` can describe tables and sample queries. |
+
+
 ---
 
 ## Drift Log (since Phase 5)

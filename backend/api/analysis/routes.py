@@ -82,7 +82,7 @@ async def list_dashboards():
 
 # ── Dashboard auto-generation helper ─────────────────────────────
 
-async def _auto_generate_dashboard(db_path: str) -> Optional[str]:
+async def _auto_generate_dashboard(db_path: str, skill_path: Optional[str] = None) -> Optional[str]:
     """Run the analysis agent to generate an interactive HTML dashboard, return file URL."""
     import asyncio
     import re
@@ -90,16 +90,39 @@ async def _auto_generate_dashboard(db_path: str) -> Optional[str]:
     session_id = f"auto-dash-{Path(db_path).stem}"
     dashboard_file = None
     try:
+        biz_context = ""
+        if skill_path:
+            try:
+                from services.data_dashboard import parse_skill
+                _sk = parse_skill(skill_path)
+                _sec = _sk.get("sections", {})
+                parts = ["\n\n=== BUSINESS CONTEXT (from companion skill) ===\n"]
+                if "Column Definitions" in _sec:
+                    parts.append("COLUMN DEFINITIONS:\n" + _sec["Column Definitions"])
+                if "Business Logic" in _sec:
+                    parts.append("BUSINESS RULES:\n" + _sec["Business Logic"])
+                if "Common Analysis Questions" in _sec:
+                    parts.append("KEY QUESTIONS TO ANSWER:\n" + _sec["Common Analysis Questions"])
+                if "Sample SQL" in _sec:
+                    parts.append("REFERENCE SQL:\n" + _sec["Sample SQL"])
+                parts.append("=== END BUSINESS CONTEXT ===\n")
+                biz_context = "\n\n".join(parts)
+                logger.info(f"Companion skill injected: {skill_path}")
+            except Exception as e:
+                logger.warning(f"Skill parse failed: {e}")
+
         dash_msg = (
-            'Generate an interactive HTML dashboard using Plotly for the data at '
-            f'{db_path}. MUST INCLUDE: 1) Control bar with filters for each categorical '
-            'column + Reset button, 2) KPI cards for key metrics, 3) 2-3 charts '
-            '(bar + pie + optional line), 4) Key insights section at bottom with '
+            'Generate an interactive BUSINESS dashboard using Plotly for the data at '
+            f'{db_path}. Read the business context below. '
+            'MUST INCLUDE: 1) Control bar with filters for each categorical '
+            'column + Reset button, 2) KPI cards for key business metrics, '
+            '3) 2-3 charts that answer the key business questions from the companion skill, '
+            '4) Key insights section at bottom with '
             '<ul id="insightList"> that updates dynamically. '
             'Put ALL data rows in the JS array. '
             'Save the HTML file in the analysis_dbs directory with python_execute. '
             'Reply with just the filename that was saved.'
-        )
+        ) + biz_context
         dash_result = await asyncio.wait_for(
             _run_analysis_agent(
                 db_path=db_path,
