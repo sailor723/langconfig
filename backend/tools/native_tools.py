@@ -2865,6 +2865,11 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
 
     Uses GraphIndex vector matching (find_best_document) + load_doc_context.
 
+    The LLM is expected to call this tool with a fresh query for each
+    user turn. If the loaded doc's content doesn't actually answer the
+    question, the LLM should call `graphindex_search` again to re-route
+    to a different in-scope document before answering.
+
     Args:
         query: Natural language query (e.g., "compare Nike strategy with industry trends")
         project_id: Optional project ID. Uses GRAPHINDEX_PROJECT_ID env var if not set.

@@ -35,7 +35,9 @@ WORKSPACE_ROOT = Path(
 ).resolve()
 
 # Default content for a new AGENTS.md
-DEFAULT_AGENTS_MD = """# Project Conventions
+DEFAULT_AGENTS_MD = """# Project {project_id} Conventions
+
+**Project ID: {project_id}**
 
 <!-- This file is loaded into every DeepAgent's system prompt via MemoryMiddleware. -->
 <!-- Edit it to share project-level context (build commands, code style, architecture, etc.) -->
@@ -71,7 +73,10 @@ def ensure_agents_md_exists(project_id: int) -> Path:
     path = get_agents_md_path(project_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
-        path.write_text(DEFAULT_AGENTS_MD, encoding="utf-8")
+        # Include project_id so the DeepAgent knows which project it's
+        # working on without having to infer it from context.
+        content = DEFAULT_AGENTS_MD.replace("{project_id}", str(project_id))
+        path.write_text(content, encoding="utf-8")
         logger.info(f"Created default AGENTS.md for project {project_id} at {path}")
     return path
 

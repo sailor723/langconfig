@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { MessageSquare } from 'lucide-react';
 import { useProject } from "../../contexts/ProjectContext";
@@ -351,22 +352,26 @@ export default function ModernHeader({
         </button>
       </div>
 
-      {/* AGENTS.md Editor Modal (DeepAgent MemoryMiddleware) */}
-      {showAgentsMdEditor && activeProject && (
+      {/* AGENTS.md Editor Modal (DeepAgent MemoryMiddleware)
+          Rendered via portal to escape the <header> parent's text-white
+          inheritance — keeps modal text truly dark. */}
+      {showAgentsMdEditor && activeProject && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
           onClick={() => setShowAgentsMdEditor(false)}
         >
           <div
-            className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl w-[800px] max-w-[95vw] h-[700px] max-h-[90vh] flex flex-col overflow-hidden"
+            className="rounded-lg shadow-2xl w-[900px] max-w-[95vw] h-[720px] max-h-[90vh] flex flex-col overflow-hidden border border-gray-300"
             onClick={(e) => e.stopPropagation()}
+            style={{ backgroundColor: '#ffffff', color: '#1f2937' }}
           >
             <AgentsMdEditor
               projectId={activeProject.id}
               onClose={() => setShowAgentsMdEditor(false)}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );
