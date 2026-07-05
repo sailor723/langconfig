@@ -6,7 +6,7 @@
  * Dashboard button in the chat panel (after CSV upload).
  */
 import { useState, useEffect, useRef } from 'react';
-import { Monitor, Loader2, FileText, ExternalLink } from 'lucide-react';
+import { Monitor, Loader2, FileText, ExternalLink, Upload } from 'lucide-react';
 import apiClient from '../lib/api-client';
 
 interface DashboardFile {
@@ -22,6 +22,10 @@ export default function AnalysisPage() {
   const [activeDashboard, setActiveDashboard] = useState<DashboardFile | null>(null);
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [loadingContent, setLoadingContent] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [skillFile, setSkillFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // ── Load dashboard list ─────────────────────────────────────────
@@ -62,6 +66,27 @@ export default function AnalysisPage() {
     setHtmlContent(null);
   };
 
+  // ── Upload CSV + companion skill ─────────────────────────────
+  const handleUpload = async () => {
+    if (!csvFile) return;
+    setUploading(true);
+    setUploadStatus('Uploading and generating dashboard...');
+    try {
+      const form = new FormData();
+      form.append('file', csvFile);
+      if (skillFile) form.append('skill_file', skillFile);
+      const resp = await apiClient.post('/api/analysis/upload', form);
+      await loadDashboards();
+      setUploadStatus('Done!');
+      setCsvFile(null);
+      setSkillFile(null);
+    } catch (e: any) {
+      setUploadStatus('Error: ' + (e?.response?.data?.detail || e.message));
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // ── Format size ─────────────────────────────────────────────────
 
   const formatSize = (bytes: number) => {
@@ -74,7 +99,34 @@ export default function AnalysisPage() {
   if (activeDashboard && htmlContent) {
     return (
       <div className="flex-1 flex flex-col h-full">
-        <div className="flex items-center justify-between px-6 py-3 border-b bg-white dark:bg-panel-dark flex-shrink-0">
+        {/* Upload Section */}
+      <div className="px-6 pt-4 pb-2 border-b bg-white dark:bg-panel-dark flex-shrink-0">
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg cursor-pointer hover:bg-blue-100">
+            <Upload className="w-4 h-4" />
+            {csvFile ? csvFile.name : 'Select CSV...'}
+            <input type="file" accept=".csv" className="hidden" onChange={e => setCsvFile(e.target.files?.[0] || null)} />
+          </label>
+          <label className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-50 text-gray-600 rounded-lg cursor-pointer hover:bg-gray-100">
+            {skillFile ? skillFile.name : '+ Skill .md'}
+            <input type="file" accept=".md" className="hidden" onChange={e => setSkillFile(e.target.files?.[0] || null)} />
+          </label>
+          <button
+            onClick={handleUpload}
+            disabled={!csvFile || uploading}
+            className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {uploading ? 'Generating...' : 'Generate Dashboard'}
+          </button>
+          {uploadStatus && (
+            <span className={"text-sm " + (uploadStatus.includes('Error') ? 'text-red-500' : 'text-gray-500')}>
+              {uploadStatus}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between px-6 py-3 border-b bg-white dark:bg-panel-dark flex-shrink-0">
           <div className="flex items-center gap-3">
             <Monitor className="w-5 h-5 text-blue-600" />
             <span className="font-semibold text-sm">{activeDashboard.filename}</span>
