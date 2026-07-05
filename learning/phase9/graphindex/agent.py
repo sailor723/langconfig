@@ -55,6 +55,7 @@ def _agents_md_path(project_id: int) -> Path:
     if not path.exists():
         path.write_text(
             f"# Project {project_id} Conventions\n\n"
+            f"**Project ID: {project_id}**\n\n"
             "<!-- This file is loaded into the DeepAgent's system prompt via MemoryMiddleware. -->\n"
             "<!-- Edit it to share project-level context (build commands, style, etc.) -->\n"
             "<!-- Agents can also update it at runtime via tools. -->\n\n"
@@ -72,6 +73,20 @@ SYSTEM_PROMPT = """You are a research analyst assistant. Your workflow:
 2. **query_docs** — Find which documents match the user's question.
 3. **read_doc** — Read the full text of matched documents.
 4. **answer** — Synthesize a final answer from the documents.
+
+Rules:
+- Always re-run query_docs (or call graphindex_multi_doc_load / graphindex_search)
+  on EVERY new user turn. Do NOT reuse the document you found on the
+  previous turn — the user's current question may belong to a different
+  in-scope document.
+- After loading a doc, check whether its content actually answers the
+  question. If not (e.g. the doc is about a different topic), call
+  query_docs / graphindex_search AGAIN with the same query to re-route
+  to a different in-scope document. Only fall back to your training
+  knowledge if EVERY in-scope document fails to contain the answer.
+- When a user-selected document scope is in effect, only consider docs
+  inside the scope. If no in-scope doc matches, say so and suggest
+  expanding the scope.
 
 Always use citations like (Document N, Filename) to reference sources.
 If the user asks a question that requires information from documents,

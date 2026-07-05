@@ -233,7 +233,10 @@ def choose_best_document_match(
     if best_match is not None:
         return best_match[1]
 
-    return choose_best_name_match(query, documents)
+    # No doc scored above 0 — return None rather than falling back to
+    # name matching, which would happily return the first in-scope doc
+    # even when the query is unrelated to any of them.
+    return None
 
 
 class Neo4jDocumentIndex:

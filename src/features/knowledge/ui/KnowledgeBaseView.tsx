@@ -1501,7 +1501,13 @@ export default function KnowledgeBaseView() {
                     <button
                       key={doc.id}
                       data-doc-card-id={doc.id}
-                      onClick={() => setSelectedDocId(doc.id)}
+                      onClick={() => {
+                        // Clicking a doc selects it for preview only.
+                        // Scope is controlled by the explicit checkbox
+                        // — this keeps click behavior predictable and
+                        // avoids surprising the user.
+                        setSelectedDocId(doc.id);
+                      }}
                       className={`w-full text-left rounded-lg border px-2.5 py-2 transition-all ${
                         selectedDocId === doc.id
                           ? 'border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10'
