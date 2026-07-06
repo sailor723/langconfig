@@ -230,12 +230,15 @@ export default function MessagesPanel({
                       {/* Message Content */}
                       <div
                         style={{
-                          padding: message.role === 'user' ? '8px 12px' : '4px 0',
+                          padding: message.role === 'user' ? '6px 10px' : '4px 0',
                           marginLeft: message.role === 'user' ? '0' : '0',
-                          borderLeft: message.role === 'user' ? '2px solid var(--color-primary)' : '2px solid transparent',
-                          paddingLeft: message.role === 'user' ? '12px' : '12px',
-                          borderRadius: message.role === 'user' ? '8px' : '0',
+                          // User messages: just a thin border + light
+                          // text — no shaded background bubble. The
+                          // user asked for a cleaner, less tinted look.
                           backgroundColor: message.role === 'user' ? 'transparent' : 'transparent',
+                          border: message.role === 'user' ? '1px solid #cbd5e1' : 'none',
+                          paddingLeft: message.role === 'user' ? '10px' : '12px',
+                          borderRadius: message.role === 'user' ? '6px' : '0',
                         }}
                       >
                         <div
@@ -271,8 +274,8 @@ export default function MessagesPanel({
                                   <code
                                     className={`${className} px-1 py-0.5 rounded text-[0.75rem]`}
                                     style={{
-                                      backgroundColor: message.role === 'user' ? 'rgba(255,255,255,0.2)' : '#f3f4f6',
-                                      color: message.role === 'user' ? 'white' : '#1f2937',
+                                      backgroundColor: message.role === 'user' ? '#f1f5f9' : '#f3f4f6',
+                                      color: message.role === 'user' ? '#334155' : '#1f2937',
                                       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                                     }}
                                     {...props}

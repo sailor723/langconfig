@@ -196,7 +196,7 @@ const ToolLibrary = () => {
               <span className="material-symbols-outlined text-3xl">construction</span>
               Custom Tools
             </h1>
-            <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
+            <p className="text-sm mt-1 text-gray-700 dark:text-gray-300">
               Create and manage reusable tools for your workflows
             </p>
           </div>
@@ -234,11 +234,11 @@ const ToolLibrary = () => {
         {/* Stats Row */}
         <div className="mt-4 flex gap-4">
           <div className="rounded-lg px-4 py-2 border" style={{ backgroundColor: 'var(--color-background-dark)', borderColor: 'var(--color-border-dark)' }}>
-            <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Total Tools</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Total Tools</div>
             <div className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{stats.total}</div>
           </div>
           <div className="rounded-lg px-4 py-2 border" style={{ backgroundColor: 'var(--color-background-dark)', borderColor: 'var(--color-border-dark)' }}>
-            <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Total Usage</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Total Usage</div>
             <div className="text-2xl font-bold" style={{ color: 'var(--color-text-primary)' }}>{stats.totalUsage}</div>
           </div>
           {stats.byCategory.map((cat) => (
@@ -386,7 +386,7 @@ const ToolLibrary = () => {
                 </div>
 
                 {/* Description */}
-                <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--color-text-muted)' }}>
+                <p className="text-sm mb-3 line-clamp-2 text-gray-700 dark:text-gray-300">
                   {tool.description}
                 </p>
 

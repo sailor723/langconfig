@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { MessageSquare } from 'lucide-react';
@@ -28,7 +28,29 @@ export default function ModernHeader({
   const [showAgentsMdEditor, setShowAgentsMdEditor] = useState(false);
   const [showBuildDropdown, setShowBuildDropdown] = useState(false);
   const [showStudioDropdown, setShowStudioDropdown] = useState(false);
+  const buildBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [buildBtnPos, setBuildBtnPos] = useState<{ left: number; top: number } | null>(null);
+  const studioBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [studioBtnPos, setStudioBtnPos] = useState<{ left: number; top: number } | null>(null);
   const { t } = useTranslation('chat');
+
+  // Capture Build button's screen position when dropdown opens, so the
+  // portal'd dropdown can anchor exactly under the button regardless of
+  // header layout / theme.
+  useLayoutEffect(() => {
+    if (showBuildDropdown && buildBtnRef.current) {
+      const r = buildBtnRef.current.getBoundingClientRect();
+      setBuildBtnPos({ left: r.left, top: r.bottom + 4 });
+    } else if (!showBuildDropdown) {
+      setBuildBtnPos(null);
+    }
+    if (showStudioDropdown && studioBtnRef.current) {
+      const r = studioBtnRef.current.getBoundingClientRect();
+      setStudioBtnPos({ left: r.left, top: r.bottom + 4 });
+    } else if (!showStudioDropdown) {
+      setStudioBtnPos(null);
+    }
+  }, [showBuildDropdown, showStudioDropdown]);
 
   return (
     <header className="flex items-center justify-between whitespace-nowrap border-b px-4 py-4 z-20 shrink-0 h-20" style={{ backgroundColor: 'var(--color-header-background)', borderBottomColor: 'var(--color-border-dark)' }}>
@@ -86,6 +108,7 @@ export default function ModernHeader({
       <nav className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
         <div className="relative">
           <button
+            ref={studioBtnRef}
             onClick={() => setShowStudioDropdown(!showStudioDropdown)}
             className={`px-4 py-2 text-sm rounded-lg transition-all border flex items-center gap-2 ${
               ['studio', 'deepagent-studio'].includes(currentView)
@@ -103,11 +126,15 @@ export default function ModernHeader({
               <span className="material-symbols-outlined text-sm ml-1">{showStudioDropdown ? 'expand_less' : 'expand_more'}</span>
             </span>
           </button>
-          {showStudioDropdown && (
+          {showStudioDropdown && createPortal(
             <>
               <div className="fixed inset-0 z-30" onClick={() => setShowStudioDropdown(false)} />
-              <div className="absolute left-0 mt-2 w-44 rounded-lg shadow-lg border z-40 overflow-hidden"
-                style={{ backgroundColor: 'var(--color-panel-dark)', borderColor: 'var(--color-border-dark)' }}>
+              <div
+                className="fixed w-44 rounded-lg shadow-lg border z-[60] overflow-hidden bg-white border-gray-200"
+                style={studioBtnPos
+                  ? { left: studioBtnPos.left, top: studioBtnPos.top }
+                  : { left: 9999, top: 9999 }}
+              >
                 {[
                   { view: 'studio' as const, icon: 'account_tree', label: 'LangGraph' },
                   { view: 'deepagent-studio' as const, icon: 'hub', label: 'DeepAgent' },
@@ -115,10 +142,10 @@ export default function ModernHeader({
                   <button
                     key={item.view}
                     onClick={() => { onViewChange(item.view); setShowStudioDropdown(false); }}
-                    className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-all ${
+                    className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-all font-medium text-gray-900 ${
                       currentView === item.view
-                        ? 'bg-white/15 text-white font-semibold'
-                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                        ? 'bg-blue-50'
+                        : 'hover:bg-gray-100'
                     }`}
                   >
                     <span className="material-symbols-outlined text-base">{item.icon}</span>
@@ -126,7 +153,8 @@ export default function ModernHeader({
                   </button>
                 ))}
               </div>
-            </>
+            </>,
+            document.body
           )}
         </div>
         <button
@@ -180,6 +208,7 @@ export default function ModernHeader({
                 {/* Build dropdown */}
         <div className="relative">
           <button
+            ref={buildBtnRef}
             onClick={() => setShowBuildDropdown(!showBuildDropdown)}
             className={`px-4 py-2 text-sm rounded-lg transition-all border flex items-center gap-2 ${
               ['tools', 'prompt', 'skills'].includes(currentView)
@@ -197,11 +226,15 @@ export default function ModernHeader({
               <span className="material-symbols-outlined text-sm ml-1">{showBuildDropdown ? 'expand_less' : 'expand_more'}</span>
             </span>
           </button>
-          {showBuildDropdown && (
+          {showBuildDropdown && createPortal(
             <>
               <div className="fixed inset-0 z-30" onClick={() => setShowBuildDropdown(false)} />
-              <div className="absolute left-0 mt-2 w-40 rounded-lg shadow-lg border z-40 overflow-hidden"
-                style={{ backgroundColor: 'var(--color-panel-dark)', borderColor: 'var(--color-border-dark)' }}>
+              <div
+                className="fixed w-40 rounded-lg shadow-lg border z-[60] overflow-hidden bg-white border-gray-200"
+                style={buildBtnPos
+                  ? { left: buildBtnPos.left, top: buildBtnPos.top }
+                  : { left: 9999, top: 9999 } /* off-screen until measured */}
+              >
                 {[
                   { view: 'skills' as const, icon: 'auto_awesome', label: t('nav_skills') },
                   { view: 'tools' as const, icon: 'build', label: t('nav_tools') },
@@ -210,10 +243,10 @@ export default function ModernHeader({
                   <button
                     key={item.view}
                     onClick={() => { onViewChange(item.view); setShowBuildDropdown(false); }}
-                    className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-all ${
+                    className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-all font-medium text-gray-900 ${
                       currentView === item.view
-                        ? 'bg-white/15 text-white font-semibold'
-                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                        ? 'bg-blue-50'
+                        : 'hover:bg-gray-100'
                     }`}
                   >
                     <span className="material-symbols-outlined text-base">{item.icon}</span>
@@ -221,7 +254,8 @@ export default function ModernHeader({
                   </button>
                 ))}
               </div>
-            </>
+            </>,
+            document.body
           )}
         </div><button
           onClick={() => onViewChange('analysis')}

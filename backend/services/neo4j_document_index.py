@@ -68,9 +68,42 @@ class Neo4jDocumentEnrichment:
     few_shot: list[dict[str, str]] = field(default_factory=list)
 
 
-def build_project_scope_names(current_name: str, all_document_names: list[str]) -> list[str]:
-    """Return other project document names for reflection-style prompts."""
-    return sorted(name for name in all_document_names if name != current_name)
+def build_project_scope_names(
+    current_name: str,
+    all_document_names: list[str],
+    max_n: int = 30,
+) -> list[str]:
+    """Return other project document names for reflection-style prompts.
+
+    Capped at ``max_n`` to keep the enrichment prompt bounded
+    regardless of project size. Without this cap the LLM prompt
+    grows O(N) per file: a 1000-doc project sends a 50 KB
+    "other documents" header on every enrichment call, which is
+    both costly (high token spend across N calls) and risky
+    (LLM API may hang on very large payloads).
+
+    The cap is set high enough (30) that the LLM still has a
+    useful sample of peer doc names for ``out_of_scope`` routing;
+    if a project genuinely has more than 30 docs the routing
+    signal is diluted enough that ``out_of_scope`` exact-name
+    matching is already not the dominant factor — instead the
+    stronger ``about`` / ``supported_queries`` fields (read from
+    the current doc only) carry the load.
+    """
+    others = sorted(name for name in all_document_names if name != current_name)
+    if len(others) <= max_n:
+        return others
+    # Cap to max_n. We keep the prefix because in alphabetical
+    # order the LLM gets a stable, predictable slice — the LLM
+    # doesn't need every name, just *some* peer names for
+    # `out_of_scope` cross-referencing.
+    truncated = others[:max_n]
+    overflow = len(others) - max_n
+    # Add a synthetic marker so the LLM knows there are more
+    # than it sees, but cannot use the marker as an out_of_scope
+    # target (it won't exist as a real doc).
+    truncated.append(f"…and {overflow} more project documents not shown")
+    return truncated
 
 
 def build_document_node_properties(
@@ -396,8 +429,39 @@ class Neo4jDocumentIndex:
             few_shot=json.loads(row.get("few_shot_json") or "[]"),
         )
 
-    def list_documents(self, project_id: int) -> list[Neo4jDocumentRecord]:
-        """List all indexed documents for a project."""
+    def list_documents(
+        self,
+        project_id: int,
+        name_only: bool = False,
+    ) -> list[Neo4jDocumentRecord]:
+        """List all indexed documents for a project.
+
+        Args:
+            project_id: Project identifier.
+            name_only: When True, only the document names are
+                returned (via `RETURN d.name`); the other fields
+                on each record are left at their defaults. Use
+                this when callers only need the name list (e.g.
+                `build_project_scope_names` to assemble the
+                "other documents" prompt header) — it avoids
+                pulling 13 fields × N rows over the Neo4j HTTP
+                API, which becomes painful at 1000+ docs.
+        """
+        if name_only:
+            rows = self._run_cypher(
+                "MATCH (d:Document {project_id: $project_id}) "
+                "RETURN d.name AS name, d.project_id AS project_id "
+                "ORDER BY d.name",
+                {"project_id": project_id},
+            )
+            return [
+                Neo4jDocumentRecord(
+                    project_id=int(row["project_id"]),
+                    name=str(row["name"]),
+                    file_path="",
+                )
+                for row in rows
+            ]
         rows = self._run_cypher(
             (
                 "MATCH (d:Document {project_id: $project_id}) "
@@ -420,7 +484,7 @@ class Neo4jDocumentIndex:
                 file_path=str(row.get("file_path") or ""),
                 description=str(row.get("description") or ""),
                 tags=list(row.get("tags") or []),
-                doc_name=str(row.get("doc_name") or row["name"]),
+                doc_name=str(row.get("doc_name") or ""),
                 page_count=int(row.get("page_count") or 0),
                 content_preview=str(row.get("content_preview") or ""),
                 search_terms=list(row.get("search_terms") or []),

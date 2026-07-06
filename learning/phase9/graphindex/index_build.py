@@ -66,7 +66,7 @@ from pydantic import BaseModel, Field  # noqa: E402
 
 # --- Local defaults (domain logic, not configuration) ----------------------
 _DOCS_BASE = REPO_ROOT / "backend/data/documents"
-_SUPPORTED_EXTS = {".pdf", ".md", ".markdown", ".txt"}
+_SUPPORTED_EXTS = {".pdf", ".md", ".markdown", ".txt", ".json"}
 _PROJECT_ID = int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1"))
 
 
@@ -98,8 +98,16 @@ def _read_text_file(file_path: Path, max_chars: int = 0) -> str:
 
 def load_document_content(file_path: str, max_chars: int = 0) -> str:
     """Read the full text of a document based on its file extension.
-    
+
     If max_chars > 0, truncates output to approximately that many characters.
+
+    JSON note: a raw JSON file is technically readable as text but
+    looks like a single dense blob to the LLM (no newlines between
+    keys, deeply nested escapes, etc.). We re-emit it via
+    `json.dumps(..., indent=2, ensure_ascii=False)` so the LLM gets
+    a pretty-printed tree it can actually reason over. If parsing
+    fails for any reason, we fall back to the raw text — never
+    silently drop the file.
     """
     p = Path(file_path)
     if not p.exists():
@@ -107,7 +115,17 @@ def load_document_content(file_path: str, max_chars: int = 0) -> str:
     ext = p.suffix.lower()
     if ext == ".pdf":
         return _read_pdf_text(p, max_chars=max_chars)
-    if ext in {".md", ".markdown", ".txt", ".json", ".yaml", ".yml"}:
+    if ext == ".json":
+        try:
+            raw = p.read_text(encoding="utf-8", errors="ignore")
+            parsed = json.loads(raw) if raw.strip() else {}
+            pretty = json.dumps(parsed, indent=2, ensure_ascii=False)
+        except Exception:
+            pretty = p.read_text(encoding="utf-8", errors="ignore")
+        if max_chars and len(pretty) > max_chars:
+            pretty = pretty[:max_chars] + "\n…[truncated]"
+        return pretty
+    if ext in {".md", ".markdown", ".txt", ".yaml", ".yml"}:
         return _read_text_file(p, max_chars=max_chars)
     return _read_text_file(p, max_chars=max_chars)
 
@@ -202,6 +220,14 @@ def make_llm() -> BaseChatModel:
         base_url=os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1"),
         temperature=0.2,
         max_tokens=2048,
+        # Per-call timeout. Without this a hung API can leave the
+        # backend blocked forever — which is exactly what we saw
+        # when MiniMax API stopped responding mid-batch and the
+        # uvicorn event loop stalled waiting on a single LLM call.
+        # 90s is generous (a single enrichment round-trip is
+        # typically 5-20s) but tight enough that a stuck call
+        # surfaces within ~2 minutes instead of indefinitely.
+        timeout=90,
     )
 
 
@@ -221,17 +247,27 @@ def extract_document_enrichment(
     """
     structured_llm = llm.with_structured_output(DocumentEnrichmentOutput)
     content_excerpt = content[:6000]  # keep prompt bounded
+    # Cap caller-supplied metadata fields so the enrichment prompt
+    # stays bounded regardless of how much was stored on the
+    # source node. Without these caps a single 1000-doc project
+    # could grow each prompt by 50+ KB from a fat `description` or
+    # a `tags` list with hundreds of entries — same scaling pain
+    # as `other_document_names` above.
+    description_capped = (description or "")[:500]
+    tags_capped = (tags or [])[:30]
+    content_preview_capped = graphindex_meta.get("content_preview", "")[:1000]
+    search_terms_capped = (graphindex_meta.get("search_terms") or [])[:20]
     message = (
         "Create compact routing metadata for one document.\n"
         "We use this metadata only to choose the best document before "
         "loading full content.\n\n"
         f"Document name: {document_name}\n"
-        f"Description: {description or 'N/A'}\n"
-        f"Tags: {tags or []}\n"
+        f"Description: {description_capped or 'N/A'}\n"
+        f"Tags: {tags_capped}\n"
         f"GraphIndex doc_name: {graphindex_meta.get('doc_name', '')}\n"
         f"GraphIndex page_count: {graphindex_meta.get('page_count', 0)}\n"
-        f"GraphIndex content_preview: {graphindex_meta.get('content_preview', '')}\n"
-        f"GraphIndex search_terms: {graphindex_meta.get('search_terms', [])[:20]}\n"
+        f"GraphIndex content_preview: {content_preview_capped}\n"
+        f"GraphIndex search_terms: {search_terms_capped}\n"
         f"Other documents in same project: {other_document_names}\n\n"
         "Return:\n"
         "1. what_this_document_is_about\n"
@@ -481,14 +517,28 @@ def cmd_ingest(
         if old_hash == content_hash:
             print(f"  → already on disk: {target_path.name}")
         else:
-            print(f"  ✗ file exists with different content: {target_path.name}")
-            return 1
+            # The source has changed since the last ingest (or a
+            # previous run wrote a stale copy). Overwrite with the
+            # current source bytes — the Neo4j content_hash check
+            # above is the real source of truth and it has already
+            # passed. Returning 1 here used to abort the entire
+            # folder ingest, which is what made a single hash
+            # mismatch silently stop ~100 other files from
+            # indexing. We log a warning instead.
+            print(
+                f"  ! file exists with different content: {target_path.name} — "
+                f"overwriting (Neo4j hash check passed)"
+            )
+            shutil.copy2(src, target_path)
     else:
         shutil.copy2(src, target_path)
         print(f"  ✓ copied: {target_path}")
 
     # 4. Add Neo4j node via rebuild-one (which also sets content_sha256)
-    docs = index.list_documents(project_id=project_id)
+    # Only the names are needed for the "other documents" prompt
+    # header — skip pulling all 13 fields × N rows over the Neo4j
+    # HTTP API when we just want a name list.
+    docs = index.list_documents(project_id=project_id, name_only=True)
     all_names = [d.name for d in docs]
 
     # 5. Insert into PostgreSQL context_documents so the file appears
@@ -502,8 +552,12 @@ def cmd_ingest(
             ).first()
             if not existing:
                 target_filename = target_path.name if target_path.exists() else src.name
-                doc_type = DocumentType.PDF if src.suffix.lower() == ".pdf" else (
-                    DocumentType.DOCX if src.suffix.lower() in (".docx", ".doc") else DocumentType.TEXT
+                doc_type = (
+                    DocumentType.PDF if src.suffix.lower() == ".pdf"
+                    else DocumentType.DOCX if src.suffix.lower() in (".docx", ".doc")
+                    else DocumentType.JSON if src.suffix.lower() == ".json"
+                    else DocumentType.MARKDOWN if src.suffix.lower() in (".md", ".markdown")
+                    else DocumentType.TEXT
                 )
                 doc = ContextDocument(
                     project_id=project_id,
@@ -540,9 +594,18 @@ def cmd_ingest_folder(
     if not folder.is_dir():
         print(f"  ✗ folder not found: {folder}")
         return 1
+    # Walk the folder for files we know how to index. Two filters
+    # are applied:
+    #   1. Skip hidden entries (`.placeholder`, `.DS_Store`, etc.) —
+    #      any path component that starts with a dot. We don't want
+    #      these in the doc corpus even if their extension happens
+    #      to be `.md` or similar.
+    #   2. Match against `_SUPPORTED_EXTS` (pdf/md/txt/json).
     files = sorted([
         p for p in folder.rglob("*")
-        if p.suffix.lower() in _SUPPORTED_EXTS
+        if p.is_file()
+        and p.suffix.lower() in _SUPPORTED_EXTS
+        and not any(part.startswith(".") for part in p.relative_to(folder).parts)
     ])
     if not files:
         print(f"  ✗ no supported files in {folder}")
@@ -826,8 +889,16 @@ def cmd_rebuild_project(
     project_id: int = _PROJECT_ID,
 ) -> int:
     """Rebuild enrichment for every Document node in the project."""
+    # Two queries: one for full records (rebuild_one reads
+    # file_path / description / tags from each node) and one
+    # name-only for the prompt-header companion list. At 1000
+    # docs the second query is ~10x cheaper than reusing the
+    # first one's records.
     docs = index.list_documents(project_id=project_id)
-    all_names = [d.name for d in docs]
+    all_names = [
+        d.name
+        for d in index.list_documents(project_id=project_id, name_only=True)
+    ]
     print(f"\n{'='*70}\nRebuilding enrichment for {len(docs)} doc(s) "
           f"(project {project_id})\n{'='*70}\n")
     failed = 0
@@ -997,7 +1068,11 @@ def main() -> int:
     if args.remove:
         return cmd_remove(index, args.remove, project_id=project_id)
     if args.rebuild_one:
-        all_names = [d.name for d in index.list_documents(project_id=project_id)]
+        # Only the names are needed for the prompt header.
+        all_names = [
+            d.name
+            for d in index.list_documents(project_id=project_id, name_only=True)
+        ]
         return cmd_rebuild_one(index, llm, args.rebuild_one, all_names,
                                project_id=project_id)
     if args.rebuild_project:

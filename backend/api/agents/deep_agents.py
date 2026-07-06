@@ -938,13 +938,19 @@ async def import_langconfig(
         agent_data = langconfig["agent"]
 
         # Create agent
+        # .langconfig exports BOTH `tools` and `native_tools` as separate
+        # fields (see services/export_service.py::export_langconfig). We
+        # therefore read each from its own field — the previous version
+        # mistakenly loaded `.langconfig.tools` into DB `native_tools`,
+        # which made `native_tools == tools` and surfaced as 8 chips in
+        # Studio for any imported agent.
         config_dict = {
             "model": agent_data["model"],
             "temperature": agent_data["temperature"],
             "max_tokens": agent_data.get("max_tokens"),
             "system_prompt": agent_data["system_prompt"],
             "tools": agent_data.get("tools", []),
-            "native_tools": agent_data.get("tools", []),  # same list for factory loading
+            "native_tools": agent_data.get("native_tools", []),
             "mcp_tools": agent_data.get("mcp_tools", []),
             "cli_tools": agent_data.get("cli_tools", []),
             "middleware": agent_data.get("middleware", []),
