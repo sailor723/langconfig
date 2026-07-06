@@ -642,13 +642,18 @@ export default function AgentChatTester({
 
                     <div
                       className={`flex-1 rounded-lg p-3 shadow-sm ${message.role === 'user'
-                        ? 'border-2 border-blue-400 font-medium'
+                        ? 'border border-slate-300 font-medium'
                         : message.role === 'assistant'
                           ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700'
                           : 'bg-gray-700 text-gray-300'
                         }`}
                       style={message.role === 'user'
-                        ? { color: '#ffffff', backgroundColor: '#3b82f6' }
+                        // Plain text box — no shaded background. Just
+                        // normal text color with a thin neutral border
+                        // so the user can tell their own messages apart
+                        // from the assistant's without the dark blue
+                        // bubble pulling focus.
+                        ? { color: 'var(--color-text-primary, #1a2332)', backgroundColor: 'transparent' }
                         : message.role === 'assistant'
                           ? { color: '#1f2937' }
                           : {}}

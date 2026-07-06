@@ -200,6 +200,10 @@ export default function KnowledgeBaseView() {
   // the lowercase attribute in some bundlers, so we set it
   // imperatively via DOM API in a useEffect.
   const folderInputRef = useRef<HTMLInputElement | null>(null);
+  // Ref for the absolute-path fallback input. The "Select Folder"
+  // button now focuses this field instead of opening the native
+  // folder picker — see onClick handler below for the rationale.
+  const pathInputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     const el = folderInputRef.current;
     if (el) {
@@ -1279,26 +1283,32 @@ export default function KnowledgeBaseView() {
                 onChange={(e) => { handleFileSelect(e.target.files); }}
                 className="hidden" disabled={uploading} />
             </label>
-            <label
+            <button
+              type="button"
               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-600 text-white transition-all text-[11px] font-medium ${uploading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90 cursor-pointer'}`}
               title={t('kb_upload_folder')}
+              disabled={uploading}
+              onClick={() => {
+                // Don't open the native folder picker — it sends
+                // files through /api/rag/upload-bulk which (a)
+                // includes hidden files like `.placeholder` and
+                // (b) hands the browser-supplied relative paths
+                // straight to file_storage.save_file, where a `/`
+                // in the filename creates a directory instead of
+                // a file and the whole batch fails silently.
+                //
+                // Instead, focus the path-input fallback that uses
+                // /api/rag/ingest-folder → cmd_ingest_folder (the
+                // CLI's battle-tested folder walker). That code path
+                // already skips hidden files, pretty-prints JSON,
+                // and derives the hierarchy from the path segments.
+                pathInputRef.current?.focus();
+                pathInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
             >
               <Database className="w-3.5 h-3.5" />
               <span>{t('kb_select_folder')}</span>
-              <input
-                ref={folderInputRef}
-                type="file"
-                // webkitdirectory is non-standard but supported by
-                // Chromium, Firefox, and Safari 14+. We set it via
-                // useRef + useEffect (below) so React's JSX/prop
-                // handling can't strip it. The browser then opens
-                // a FOLDER picker (not a file picker).
-                multiple
-                onChange={(e) => { handleFileSelect(e.target.files); }}
-                style={{ display: 'none' }}
-                disabled={uploading}
-              />
-            </label>
+            </button>
 
             {/* Safari / Firefox fallback: paste an absolute folder path
                 and the server walks + ingests everything. This avoids
@@ -1306,6 +1316,7 @@ export default function KnowledgeBaseView() {
                 browsers. */}
             <div className="flex items-center gap-1 ml-1">
               <input
+                ref={pathInputRef}
                 type="text"
                 value={folderPathInput}
                 onChange={(e) => setFolderPathInput(e.target.value)}
@@ -1857,6 +1868,7 @@ function UploadProgressBanner({
   documents: Array<{ id: number; indexing_status?: string }>;
   onClear: () => void;
 }) {
+  // Per-doc ready/failed counts (used by the single-file path).
   const readyCount = pendingDocIds.filter(id => {
     const doc = documents.find(d => d.id === id);
     return doc && doc.indexing_status === 'ready';
@@ -1865,8 +1877,20 @@ function UploadProgressBanner({
     const doc = documents.find(d => d.id === id);
     return doc && doc.indexing_status === 'failed';
   }).length;
-  const total = pendingDocIds.length;
-  const completed = readyCount + failedCount;
+  // Total reflects what the user knows about. When individual pending
+  // doc ids are tracked (single-file upload), use that count.
+  // For folder uploads we only have an aggregate `fileCount`, so fall
+  // back to that and count currently-ready/failed docs in the project
+  // (not just pendingDocIds) so the bar advances in real time.
+  const projectReady = documents.filter(d => d.indexing_status === 'ready').length;
+  const projectFailed = documents.filter(d => d.indexing_status === 'failed').length;
+  const projectIndexed = projectReady + projectFailed;
+  const total = pendingDocIds.length > 0
+    ? pendingDocIds.length
+    : Math.max(fileCount, projectIndexed);
+  const completed = pendingDocIds.length > 0
+    ? (readyCount + failedCount)
+    : projectIndexed;
   const segmentPct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   let barColor = 'bg-primary';
@@ -1898,7 +1922,9 @@ function UploadProgressBanner({
       </p>
       <span className="text-[10px] font-semibold tabular-nums" style={{ color: 'var(--color-text-muted)' }}>
         {phase === 'uploading' && `${percent}%`}
-        {phase === 'indexing' && (total > 0 ? `${completed}/${total} ready` : 'indexing…')}
+        {phase === 'indexing' && total > 0
+          ? `${completed}/${total}${pendingDocIds.length === 0 ? ' ready' : ' ready'}`
+          : phase === 'indexing' && 'indexing…'}
         {phase === 'done' && '✓ done'}
         {phase === 'error' && '✗ failed'}
       </span>

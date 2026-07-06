@@ -310,8 +310,23 @@ async def upload_document(
         except json.JSONDecodeError:
             logger.warning(f"Invalid metadata JSON: {metadata}")
 
-    # Save file to disk
-    file_path = file_storage.save_file(project_id, file.filename, content)
+    # Save file to disk. Pass the resolved hierarchy (industry /
+    # player / sub_category / sub_department) so file_storage writes
+    # the file under a nested folder path that mirrors the source
+    # folder, instead of flattening everything into project_<id>/.
+    # Without this, a browser folder-picker upload that includes a
+    # relative path (e.g. "analysis/company_report.md") would be
+    # written to `<project_dir>/<uuid>_analysis/company_report.md`
+    # which pathlib treats as a directory and crashes the write.
+    file_path = file_storage.save_file(
+        project_id, file.filename, content,
+        hierarchy={
+            "industry": industry,
+            "player": player,
+            "sub_category": sub_category,
+            "sub_department": sub_department,
+        },
+    )
 
     # Determine document type from file extension (expanded support)
     file_ext = file.filename.split('.')[-1].lower()
@@ -366,6 +381,23 @@ async def upload_document(
         'webp': DocumentType.IMAGE,
     }
     document_type = doc_type_map.get(file_ext, DocumentType.TEXT)
+
+    # Save file to disk. Pass the resolved hierarchy so file_storage
+    # writes the file under a nested folder path mirroring the
+    # source folder (industry/player/sub_category/sub_department/).
+    # Without this, a browser folder-picker upload that includes a
+    # relative path (e.g. "analysis/company_report.md") would be
+    # written to `<project_dir>/<uuid>_analysis/company_report.md`
+    # which pathlib treats as a directory and crashes the write.
+    file_path = file_storage.save_file(
+        project_id, file.filename, content,
+        hierarchy={
+            "industry": industry,
+            "player": player,
+            "sub_category": sub_category,
+            "sub_department": sub_department,
+        },
+    )
 
     # Create document record with correct schema
     # Build name, tags and description from metadata
@@ -542,11 +574,30 @@ async def _process_single_file_for_bulk(
     content = await file.read()
     file_size = len(content)
 
-    # Save file to disk
-    file_path = file_storage.save_file(project_id, file.filename, content)
-
-    # Determine document type from file extension (expanded support)
+    # Determine document type from file extension (expanded support) — done
+    # BEFORE save_file so we can early-out on hidden files like
+    # `.placeholder` (no extension → map defaults to TEXT but the
+    # actual upload would 400 with `Refusing to save hidden file`
+    # from file_storage. We catch it here and skip cleanly so the
+    # remaining 4 valid files in a folder upload still ingest.)
     file_ext = file.filename.split('.')[-1].lower()
+    base_filename = Path(file.filename).name
+    if base_filename.startswith("."):
+        logger.warning(
+            f"Skipping hidden file in folder upload: {file.filename!r}"
+        )
+        # Mimic the DocumentUploadResponse shape so the bulk loop
+        # keeps going for the other files. Use a sentinel id of 0 —
+        # the bulk caller filters out negative-or-zero ids anyway.
+        from datetime import datetime as _dt
+        return DocumentUploadResponse(
+            id=0,
+            name=file.filename,
+            document_type=DocumentType.TEXT,
+            size=file_size,
+            status=IndexingStatus.SKIPPED,
+            message=f"Skipped hidden file (no extension): {file.filename}",
+        )
     doc_type_map = {
         'txt': DocumentType.TEXT,
         'md': DocumentType.MARKDOWN,
@@ -695,7 +746,20 @@ async def _process_single_file_for_bulk(
         )
         idx.ensure_constraints()
         llm = make_llm()
-        rc = cmd_ingest(idx, llm, str(_tmp_path), project_id=project_id)
+        # Pass the caller-supplied hierarchy (industry / player /
+        # sub_category / sub_department) into cmd_ingest so the
+        # ContextDocument row carries the correct folder bucket
+        # instead of landing in (ungrouped). Without this, both
+        # `effective_metadata` (read above for the legacy
+        # `_parse_hierarchy_from_path` fallback) and the disk-side
+        # hierarchy were computed but never persisted.
+        hierarchy = {
+            "industry": industry,
+            "player": player,
+            "sub_category": sub_category,
+            "sub_department": sub_department,
+        }
+        rc = cmd_ingest(idx, llm, str(_tmp_path), project_id=project_id, hierarchy=hierarchy)
         if rc != 0:
             raise Exception("cmd_ingest failed")
     finally:
@@ -960,13 +1024,40 @@ async def ingest_folder_from_path(
     )
     idx.ensure_constraints()
     llm = make_llm()
+    # Count files up front so the frontend can show "ingested X
+    # files" even when cmd_ingest_folder only returns a 0/1 exit
+    # code (the CLI's return type). The CLI module is the single
+    # source of truth for what counts as "indexable" — it already
+    # filters hidden files and unsupported extensions. Re-using the
+    # same constants here keeps the two paths in lockstep.
+    from learning.phase9.graphindex.index_build import _SUPPORTED_EXTS
+    files_seen = sum(
+        1 for p in folder.rglob("*")
+        if p.is_file()
+        and p.suffix.lower() in _SUPPORTED_EXTS
+        and not any(part.startswith(".") for part in p.relative_to(folder).parts)
+    )
     ok = cmd_ingest_folder(idx, llm, str(folder), project_id=project_id)
     success = ok == 0
+    # When the CLI succeeds we assume every file got created.
+    # Failure cases are unusual (LLM parse error, Neo4j write
+    # error) and the print log already surfaces them — the
+    # frontend's alert is best-effort UX feedback.
+    files_ingested = files_seen if success else 0
+    files_failed = 0 if success else files_seen
+    files_filtered = 0  # cmd_ingest_folder filters in-place; nothing drops here
 
     return {
         "success": success,
         "project_id": project_id,
         "folder": str(folder),
+        "files_seen": files_seen,
+        "files_ingested": files_ingested,
+        "files_filtered": files_filtered,
+        "created": files_ingested,
+        "updated": 0,
+        "skipped": 0,
+        "failed": files_failed,
         "message": "Folder ingested successfully." if success else "Folder ingested with errors.",
     }
 
