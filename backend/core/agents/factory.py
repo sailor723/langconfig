@@ -27,6 +27,7 @@ from langchain_core.language_models import BaseLanguageModel, BaseChatModel
 # IMPORTANT: LangChain v1.0 - Using unified create_agent from langchain.agents
 from langchain.agents import create_agent
 from langgraph.graph.state import CompiledStateGraph
+from core.state import DeepAgentState
 from config import settings
 logger = logging.getLogger(__name__)
 
@@ -481,6 +482,7 @@ class AgentFactory:
                 "model": llm_or_model,  # Unbound model (or selector callable)
                 "tools": tools or [],   # create_agent handles binding
                 "system_prompt": system_prompt_str,  # v1.0: Pass string, messages handled automatically
+                "state_schema": DeepAgentState,  # Extends AgentState with todos + files for VFS/todo tools
                 # Note: callbacks are passed when invoking the agent, not when creating it
                 # Note: streaming is configured on the model object itself, not here
                 # "enable_parallel_tools": enable_parallel_tools # If supported by create_agent
@@ -1164,7 +1166,8 @@ Begin by using execute_python to inspect the context.
         agent = create_agent(
             model=llm,  # Pass unbound model
             tools=tools,
-            system_prompt=rlm_prompt  # v1.0: use system_prompt, not state_modifier
+            system_prompt=rlm_prompt,  # v1.0: use system_prompt, not state_modifier
+            state_schema=DeepAgentState,
         )
 
         logger.info(f"✓ RLM agent created at depth {depth} with {len(tools)} tools")
