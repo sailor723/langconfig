@@ -3192,6 +3192,117 @@ def read_todos(
 
 
 # =============================================================================
+# Virtual File System (VFS) Tools — vendored from notebook 2.2_files.ipynb
+# =============================================================================
+
+LS_DESCRIPTION = """List all files in the virtual filesystem stored in agent state.
+
+Shows what files currently exist in agent memory. Use this to orient yourself before other file operations and maintain awareness of your file organization.
+
+No parameters required - simply call ls() to see all available files."""
+
+READ_FILE_DESCRIPTION = """Read content from a file in the virtual filesystem with optional pagination.
+
+This tool returns file content with line numbers (like `cat -n`) and supports reading large files in chunks to avoid context overflow.
+
+Parameters:
+- file_path (required): Path to the file you want to read. **CRITICAL: The parameter name MUST be "file_path", NOT "file".**
+- offset (optional, default=0): Line number to start reading from
+- limit (optional, default=2000): Maximum number of lines to read
+
+**IMPORTANT**: When calling this tool, use the parameter name "file_path" exactly as shown. Do NOT use "file" or any other variation.
+
+Essential before making any edits to understand existing content. Always read a file before editing it."""
+
+WRITE_FILE_DESCRIPTION = """Create a new file or completely overwrite an existing file in the virtual filesystem.
+
+This tool creates new files or replaces entire file contents. Use for initial file creation or complete rewrites. Files are stored persistently in agent state.
+
+Parameters:
+- file_path (required): Path where the file should be created/overwritten
+- content (required): The complete content to write to the file
+
+Important: This replaces the entire file content."""
+
+
+@tool(description=LS_DESCRIPTION)
+def vfs_ls(state: Annotated[dict, InjectedState]) -> list[str]:
+    """List all files in the virtual filesystem."""
+    return list(state.get("files", {}).keys())
+
+
+@tool(description=READ_FILE_DESCRIPTION, parse_docstring=True)
+def vfs_read_file(
+    file_path: str,
+    state: Annotated[dict, InjectedState],
+    offset: int = 0,
+    limit: int = 2000,
+) -> str:
+    """Read file content from virtual filesystem with optional offset and limit.
+
+    Args:
+        file_path: Path to the file to read
+        state: Agent state containing virtual filesystem (injected in tool node)
+        offset: Line number to start reading from (default: 0)
+        limit: Maximum number of lines to read (default: 2000)
+
+    Returns:
+        Formatted file content with line numbers, or error message if file not found
+    """
+    files = state.get("files", {})
+    if file_path not in files:
+        return f"Error: File '{file_path}' not found"
+
+    content = files[file_path]
+    if not content:
+        return "System reminder: File exists but has empty contents"
+
+    lines = content.splitlines()
+    start_idx = offset
+    end_idx = min(start_idx + limit, len(lines))
+
+    if start_idx >= len(lines):
+        return f"Error: Line offset {offset} exceeds file length ({len(lines)} lines)"
+
+    result_lines = []
+    for i in range(start_idx, end_idx):
+        line_content = lines[i][:2000]
+        result_lines.append(f"{i + 1:6d}\t{line_content}")
+
+    return "\n".join(result_lines)
+
+
+@tool(description=WRITE_FILE_DESCRIPTION, parse_docstring=True)
+def vfs_write_file(
+    file_path: str,
+    content: str,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> Command:
+    """Write content to a file in the virtual filesystem.
+
+    Args:
+        file_path: Path where the file should be created/updated
+        content: Content to write to the file
+        state: Agent state containing virtual filesystem (injected in tool node)
+        tool_call_id: Tool call identifier for message response (injected in tool node)
+
+    Returns:
+        Command to update agent state with new file content
+    """
+    files = state.get("files", {})
+    files[file_path] = content
+    return Command(
+        update={
+            "files": files,
+            "messages": [
+                ToolMessage(f"Updated file {file_path}", tool_call_id=tool_call_id)
+            ],
+        }
+    )
+
+
+# =============================================================================
 # Tool Loading Functions
 # =============================================================================
 
@@ -3291,6 +3402,10 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         # wrappers are no longer registered in the factory dict.
         # Note: Playwright tools are loaded separately via get_playwright_tools()
         # because they require async initialization
+        # VFS (Virtual File System) tools — notebook 2.2_files.ipynb parity
+        "vfs_ls": vfs_ls,
+        "vfs_read_file": vfs_read_file,
+        "vfs_write_file": vfs_write_file,
     }
 
     tools = []
@@ -3400,6 +3515,10 @@ def get_available_tool_names() -> List[str]:
         # TODO management tools
         "write_todos",
         "read_todos",
+        # VFS (Virtual File System) tools — notebook 2.2_files.ipynb parity
+        "vfs_ls",
+        "vfs_read_file",
+        "vfs_write_file",
     ]
 
 
@@ -3976,6 +4095,28 @@ TOOL_REGISTRY = [
         "name": "Read TODOs",
         "description": "Read the current TODO list from agent state. Pairs with write_todos for full notebook-2.1 parity (works in both Regular and Deep Agent types).",
         "category": "todo",
+        "requires_api_key": None,
+    },
+    # VFS (Virtual File System) tools — notebook 2.2_files.ipynb parity
+    {
+        "id": "vfs_ls",
+        "name": "VFS - List Files",
+        "description": "List all files in the virtual filesystem stored in agent state. Notebook 2.2 parity — context offloading via state-based file management.",
+        "category": "filesystem",
+        "requires_api_key": None,
+    },
+    {
+        "id": "vfs_read_file",
+        "name": "VFS - Read File",
+        "description": "Read content from a file in the virtual filesystem with line numbers and pagination. Notebook 2.2 parity.",
+        "category": "filesystem",
+        "requires_api_key": None,
+    },
+    {
+        "id": "vfs_write_file",
+        "name": "VFS - Write File",
+        "description": "Create or overwrite a file in the virtual filesystem. Files are stored persistently in agent state. Notebook 2.2 parity.",
+        "category": "filesystem",
         "requires_api_key": None,
     },
 ]

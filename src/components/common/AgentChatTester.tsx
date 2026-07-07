@@ -12,6 +12,7 @@ import {
   Trash2,
   Download,
   Activity,
+  Brain,
   CheckCircle,
   Circle,
   Zap,
@@ -21,6 +22,7 @@ import {
   Loader,
   Bookmark,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   FileText,
   Wrench
@@ -75,6 +77,8 @@ export default function AgentChatTester({
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [thinkingBuffer, setThinkingBuffer] = useState('');
+  const [showThinking, setShowThinking] = useState(true); // Expanded by default
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [subagentActivity, setSubagentActivity] = useState<SubAgentActivity[]>([]);
   const [metrics, setMetrics] = useState<SessionMetrics>({
@@ -179,6 +183,8 @@ export default function AgentChatTester({
     setInputValue('');
     setIsLoading(true);
     setError(null);
+    setThinkingBuffer(''); // Clear thinking from previous turn
+    setShowThinking(true); // Re-expand for new turn
 
     // Add user message immediately
     const newUserMessage: ChatMessage = {
@@ -242,6 +248,9 @@ export default function AgentChatTester({
                   }
                   return newMessages;
                 });
+              } else if (data.type === 'thinking') {
+                // Backend emits this for <think> blocks stripped from the stream
+                setThinkingBuffer(prev => prev + (data.content || ''));
               } else if (data.type === 'tool_start') {
                 // Show tool call in sidebar in real-time
                 const toolName = data.tool_name || 'unknown';
@@ -687,7 +696,34 @@ export default function AgentChatTester({
                 </div>
               ))}
 
-              {isStreaming && (
+              {isStreaming && thinkingBuffer && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-800/80 rounded-lg p-2 max-w-[80%]">
+                    {/* Toggle button */}
+                    <button
+                      onClick={() => setShowThinking(v => !v)}
+                      className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-300 transition-colors w-full"
+                    >
+                      {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                      <Brain className="w-3 h-3 text-blue-400" />
+                      <span>Thinking</span>
+                      {!showThinking && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse ml-1" />
+                      )}
+                    </button>
+                    {/* Expanded content */}
+                    {showThinking && (
+                      <div className="mt-1.5 ml-1 border-l-2 border-blue-400/50 pl-2.5 pr-1">
+                        <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-wrap break-words">
+                          {thinkingBuffer}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {isStreaming && !thinkingBuffer && (
                 <div className="flex justify-start">
                   <div className="bg-gray-800 rounded-lg p-3">
                     <div className="flex items-center gap-2 text-gray-400">
