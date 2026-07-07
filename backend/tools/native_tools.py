@@ -25,11 +25,14 @@ import sys
 
 from typing_extensions import TypedDict
 
-from langchain_core.messages import ToolMessage
+from pydantic import BaseModel, Field
+
+from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.tools import InjectedToolCallId, StructuredTool, tool
 from langchain_community.tools import DuckDuckGoSearchRun
 from langgraph.prebuilt import InjectedState
 from langgraph.types import Command
+from core.state import DeepAgentState
 import httpx
 import os
 
@@ -448,6 +451,240 @@ async def tavily_search(query: str, max_results: int = 5) -> str:
     except Exception as e:
         logger.error(f"Tavily search failed: {e}")
         return f"Tavily search error: {str(e)}"
+
+
+# =============================================================================
+# think_tool — Strategic reflection (notebook 2.4_full_agent parity)
+# =============================================================================
+
+@tool(parse_docstring=True)
+def think_tool(reflection: str) -> str:
+    """Tool for strategic reflection on research progress and decision-making.
+
+    Use this tool after each search to analyze results and plan next steps systematically.
+    This creates a deliberate pause in the research workflow for quality decision-making.
+
+    When to use:
+    - After receiving search results: What key information did I find?
+    - Before deciding next steps: Do I have enough to answer comprehensively?
+    - When assessing research gaps: What specific information am I still missing?
+    - Before concluding research: Can I provide a complete answer now?
+    - How complex is the question: Have I reached the search limits?
+
+    Reflection should address:
+    1. Analysis of current findings - What concrete information have I gathered?
+    2. Gap assessment - What crucial information is still missing?
+    3. Quality evaluation - Do I have sufficient evidence/examples for a good answer?
+    4. Strategic decision - Should I continue searching or provide my answer?
+
+    Args:
+        reflection: Your detailed reflection on research progress, findings, gaps, and next steps
+
+    Returns:
+        Confirmation that reflection was recorded for decision-making
+    """
+    return f"Reflection recorded: {reflection}"
+
+
+# =============================================================================
+# tavily_summary — Tavily + summarization + file offloading (notebook 2.4)
+# =============================================================================
+# Unlike the basic tavily_search, this tool:
+# 1. Fetches full webpage content via HTTP
+# 2. Converts HTML to markdown
+# 3. Summarizes content using a lightweight LLM (or falls back to truncation)
+# 4. Saves full content to files (context offloading)
+# 5. Returns only a minimal summary via ToolMessage + Command
+#
+# This prevents context bloat in long-running research trajectories.
+
+import base64
+import uuid
+from markdownify import markdownify as md_convert
+
+# Lazily-initialized summarization model
+_summarization_model = None
+
+
+def _get_summarization_model():
+    """Lazy-init a lightweight model for webpage summarization."""
+    global _summarization_model
+    if _summarization_model is None:
+        try:
+            from langchain.chat_models import init_chat_model
+            # Use configurable model; defaults to a lightweight model for cost efficiency
+            model_name = os.getenv("SUMMARIZATION_MODEL", "gpt-4o-mini")
+            _summarization_model = init_chat_model(model=model_name, temperature=0.0)
+            logger.info(f"Summarization model initialized: {model_name}")
+        except Exception as e:
+            logger.warning(f"Failed to init summarization model: {e}. Will use truncation fallback.")
+            _summarization_model = False  # Sentinel to avoid retry
+    return _summarization_model if _summarization_model is not False else None
+
+
+def _get_today_str() -> str:
+    """Get current date in a human-readable format."""
+    from datetime import datetime
+    return datetime.now().strftime("%a %b %d, %Y")
+
+
+class _SearchSummary(BaseModel):
+    """Schema for webpage content summarization."""
+    filename: str = Field(description="Name of the file to store.")
+    summary: str = Field(description="Key learnings from the webpage.")
+
+
+def _summarize_content(content: str) -> _SearchSummary:
+    """Summarize webpage content using the configured summarization model.
+
+    Falls back to simple truncation if model is unavailable.
+    """
+    model = _get_summarization_model()
+    if model is None:
+        return _SearchSummary(
+            filename="search_result.md",
+            summary=content[:1000] + "..." if len(content) > 1000 else content,
+        )
+
+    try:
+        structured_model = model.with_structured_output(_SearchSummary)
+        result = structured_model.invoke([
+            HumanMessage(content=(
+                f"Summarize the following webpage content. Generate a descriptive "
+                f"filename (ending in .md) and a concise summary of key learnings.\n\n"
+                f"Date: {_get_today_str()}\n\n"
+                f"Content:\n{content[:8000]}"  # Truncate input to save tokens
+            ))
+        ])
+        return result
+    except Exception as e:
+        logger.warning(f"Summarization failed: {e}. Using fallback.")
+        return _SearchSummary(
+            filename="search_result.md",
+            summary=content[:1000] + "..." if len(content) > 1000 else content,
+        )
+
+
+async def _fetch_and_convert_url(url: str) -> str:
+    """Fetch URL content and convert HTML to markdown."""
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url)
+            if response.status_code == 200:
+                return md_convert(response.text)
+    except Exception as e:
+        logger.warning(f"Failed to fetch {url}: {e}")
+    return ""
+
+
+@tool(parse_docstring=True)
+async def tavily_summary(
+    query: str,
+    state: Annotated[DeepAgentState, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    max_results: int = 3,
+    topic: Literal["general", "news", "finance"] = "general",
+) -> Command:
+    """Deep research search with content summarization and file offloading.
+
+    Searches the web via Tavily, fetches full page content, summarizes each result,
+    and saves complete content to files. Returns only minimal summary to the agent
+    to prevent context window bloat.
+
+    This is designed for long-running research trajectories — raw content is
+    stored in files (accessible via read_file) while the agent gets only the
+    essential information needed to decide next steps.
+
+    Args:
+        query: Search query to execute
+        state: Injected agent state for file storage
+        tool_call_id: Injected tool call identifier
+        max_results: Maximum number of results (default: 3)
+        topic: Topic filter - 'general', 'news', or 'finance' (default: 'general')
+
+    Returns:
+        Command that saves full results to files and provides minimal summary
+    """
+    try:
+        from config import get_api_key_from_db
+        from tavily import TavilyClient
+
+        api_key = get_api_key_from_db("tavily_api_key")
+        if not api_key:
+            return Command(update={
+                "messages": [ToolMessage(
+                    "Tavily API key not configured. Set TAVILY_API_KEY in Settings > API Keys.",
+                    tool_call_id=tool_call_id,
+                )]
+            })
+
+        tavily_client = TavilyClient(api_key=api_key)
+        search_results = tavily_client.search(
+            query,
+            max_results=max_results,
+            include_raw_content=True,
+            topic=topic,
+        )
+
+        files = state.get("files", {})
+        saved_files = []
+        summaries = []
+
+        for result in search_results.get("results", []):
+            url = result.get("url", "")
+            title = result.get("title", "Untitled")
+
+            # Fetch full content and summarize
+            raw_content = await _fetch_and_convert_url(url)
+            if not raw_content:
+                raw_content = result.get("raw_content", result.get("content", ""))
+
+            summary_obj = _summarize_content(raw_content)
+
+            # Uniquify filename
+            uid = base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b"=").decode("ascii")[:8]
+            name, ext = os.path.splitext(summary_obj.filename)
+            filename = f"{name}_{uid}{ext}"
+
+            # Save full content to file
+            file_content = (
+                f"# Search Result: {title}\n\n"
+                f"**URL:** {url}\n"
+                f"**Query:** {query}\n"
+                f"**Date:** {_get_today_str()}\n\n"
+                f"## Summary\n{summary_obj.summary}\n\n"
+                f"## Raw Content\n{raw_content}\n"
+            )
+            files[filename] = file_content
+            saved_files.append(filename)
+            summaries.append(f"- {filename}: {summary_obj.summary[:200]}...")
+
+        summary_text = (
+            f"Found {len(saved_files)} result(s) for '{query}':\n\n"
+            f"{chr(10).join(summaries)}\n\n"
+            f"Files: {', '.join(saved_files)}\n"
+            f"Use read_file() to access full details."
+        )
+
+        return Command(update={
+            "files": files,
+            "messages": [ToolMessage(summary_text, tool_call_id=tool_call_id)],
+        })
+
+    except ImportError:
+        return Command(update={
+            "messages": [ToolMessage(
+                "Tavily package not installed. Install with: pip install tavily-python",
+                tool_call_id=tool_call_id,
+            )]
+        })
+    except Exception as e:
+        return Command(update={
+            "messages": [ToolMessage(
+                f"Research search error: {str(e)}",
+                tool_call_id=tool_call_id,
+            )]
+        })
 
 
 # =============================================================================
@@ -3356,6 +3593,9 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "web_search": web_search,
         "web_fetch": web_fetch,
         "tavily_search": tavily_search,
+        # Research tools (notebook 2.4 — deep search with summarization)
+        "think_tool": think_tool,
+        "tavily_summary": tavily_summary,
         # Filesystem tools (DeepAgents standard)
         "ls": ls,
         "read_file": read_file,
@@ -3790,6 +4030,13 @@ TOOL_REGISTRY = [
         "requires_api_key": "TAVILY_API_KEY",
     },
     {
+        "id": "tavily_summary",
+        "name": "Tavily Summary",
+        "description": "Deep Tavily search with content summarization and file offloading. Fetches full pages, summarizes via LLM, saves to files (requires TAVILY_API_KEY)",
+        "category": "web",
+        "requires_api_key": "TAVILY_API_KEY",
+    },
+    {
         "id": "web_fetch",
         "name": "Web Fetch",
         "description": "Fetch the content of a webpage and convert to markdown",
@@ -3862,6 +4109,13 @@ TOOL_REGISTRY = [
         "requires_api_key": None,
     },
     # Reasoning tools
+    {
+        "id": "think_tool",
+        "name": "Think Tool",
+        "description": "Strategic reflection for research progress. Analyze findings, assess gaps, and plan next steps",
+        "category": "reasoning",
+        "requires_api_key": None,
+    },
     {
         "id": "reasoning_chain",
         "name": "Reasoning Chain",
