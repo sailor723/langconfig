@@ -185,6 +185,7 @@ export default function AgentChatTester({
     setError(null);
     setThinkingBuffer(''); // Clear thinking from previous turn
     setShowThinking(true); // Re-expand for new turn
+    setToolCalls([]); // Clear tool calls from previous turn
 
     // Add user message immediately
     const newUserMessage: ChatMessage = {
@@ -305,10 +306,11 @@ export default function AgentChatTester({
 
       setIsStreaming(false);
 
-      // Fetch updated metrics (if session still valid)
+      // Fetch updated metrics after streaming completes
+      // skipToolCalls=true: SSE already captured them in real-time, prevent overwrite
       if (sessionId) {
         try {
-          await fetchMetrics();
+          await fetchMetrics(true);
         } catch (e) {
           console.error('Metrics fetch failed (non-fatal):', e);
         }
@@ -325,7 +327,7 @@ export default function AgentChatTester({
     }
   };
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = async (skipToolCalls = false) => {
     if (!sessionId) return;
 
     try {
@@ -339,7 +341,10 @@ export default function AgentChatTester({
         context_operations: 0,
         ...(data?.metrics || {})
       });
-      setToolCalls(data?.tool_calls || []);
+      // Only set tool calls from API when not streaming (SSE captures them in real-time)
+      if (!skipToolCalls) {
+        setToolCalls(data?.tool_calls || []);
+      }
       setSubagentActivity(data?.subagent_spawns || []);
     } catch (err) {
       console.error('Failed to fetch metrics:', err);
@@ -696,7 +701,7 @@ export default function AgentChatTester({
                 </div>
               ))}
 
-              {isStreaming && thinkingBuffer && (
+              {thinkingBuffer && (
                 <div className="flex justify-start">
                   <div className="bg-gray-800/80 rounded-lg p-2 max-w-[80%]">
                     {/* Toggle button */}
