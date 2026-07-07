@@ -22,6 +22,7 @@ import {
   X,
   Copy,
   Check,
+  ListTodo,
 } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 import CustomToolBuilder from './ui/CustomToolBuilder';
@@ -40,6 +41,17 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   memory: <HardDrive className="w-5 h-5" />,
   reasoning: <Brain className="w-5 h-5" />,
   delegation: <Share2 className="w-5 h-5" />,
+  todo: <ListTodo className="w-5 h-5" />,
+};
+
+// Small avatar-sized versions of category icons
+const CATEGORY_AVATAR_ICONS: Record<string, React.ReactNode> = {
+  web: <Globe className="w-4 h-4" />,
+  filesystem: <FolderOpen className="w-4 h-4" />,
+  memory: <HardDrive className="w-4 h-4" />,
+  reasoning: <Brain className="w-4 h-4" />,
+  delegation: <Share2 className="w-4 h-4" />,
+  todo: <ListTodo className="w-4 h-4" />,
 };
 
 export default function ToolLibrary() {
@@ -51,6 +63,7 @@ export default function ToolLibrary() {
     memory: t('tool_library_cat_memory'),
     reasoning: t('tool_library_cat_reasoning'),
     delegation: t('tool_library_cat_delegation'),
+    todo: t('tool_library_cat_todo', 'TODO Management'),
   };
 
   const [tools, setTools] = useState<ToolItem[]>([]);
@@ -142,7 +155,7 @@ export default function ToolLibrary() {
   return (
     <div className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: 'var(--color-background-light, #f8f9fa)' }}>
       {/* Header */}
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <Wrench className="w-8 h-8 text-primary" />
@@ -199,46 +212,53 @@ export default function ToolLibrary() {
                 {t('tool_library_create_tool')}
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {customTools.map((tool: any) => (
                 <div
                   key={tool.tool_id || tool.id}
-                  className="p-4 rounded-lg border transition-shadow hover:shadow-md group"
+                  className="p-3 rounded-lg border transition-shadow hover:shadow-md group"
                   style={{
                     backgroundColor: 'var(--color-panel-light, #fff)',
                     borderColor: 'var(--color-border-dark, #e5e7eb)',
                   }}
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                      {tool.name}
-                    </h3>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--color-primary-light, rgba(37, 99, 235, 0.1))', color: 'var(--color-primary)' }}>
+                      <Code className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-xs truncate" style={{ color: 'var(--color-text-primary)' }}>
+                        {tool.name}
+                      </h3>
+                    </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => {
                           setEditingTool(tool.tool_id || tool.id);
                           setShowBuilder(true);
                         }}
-                        className="p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-200 dark:hover:bg-gray-600"
+                        className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-200 dark:hover:bg-gray-600"
                         title={t('tool_library_edit_tool')}
                       >
-                        <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+                        <Pencil className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
                       </button>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap ml-1">
-                        {tool.tool_type || t('tool_library_type_custom')}
-                      </span>
                     </div>
                   </div>
-                  <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                  <p className="text-xs mb-2 line-clamp-2" style={{ color: 'var(--color-text-muted)' }}>
                     {tool.description}
                   </p>
-                  <code className="text-xs px-1.5 py-0.5 rounded" style={{
-                    backgroundColor: 'var(--color-background-dark, #f3f4f6)',
-                    color: 'var(--color-text-secondary, #6b7280)',
-                    fontFamily: 'monospace',
-                  }}>
-                    {tool.tool_id || tool.id}
-                  </code>
+                  <div className="flex items-center gap-1.5">
+                    <code className="text-xs px-1.5 py-0.5 rounded truncate" style={{
+                      backgroundColor: 'var(--color-background-dark, #f3f4f6)',
+                      color: 'var(--color-text-secondary, #6b7280)',
+                      fontFamily: 'monospace',
+                    }}>
+                      {tool.tool_id || tool.id}
+                    </code>
+                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap shrink-0 ml-auto">
+                      {tool.tool_type || t('tool_library_type_custom')}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -267,40 +287,45 @@ export default function ToolLibrary() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {items.map(tool => (
                   <div
                     key={tool.id}
-                    className="p-4 rounded-lg border transition-shadow hover:shadow-md group"
+                    className="p-3 rounded-lg border transition-shadow hover:shadow-md group"
                     style={{
                       backgroundColor: 'var(--color-panel-light, #fff)',
                       borderColor: 'var(--color-border-dark, #e5e7eb)',
                     }}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                        {tool.name}
-                      </h3>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--color-primary-light, rgba(37, 99, 235, 0.1))', color: 'var(--color-primary)' }}>
+                        {CATEGORY_AVATAR_ICONS[category] || <Wrench className="w-4 h-4" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-xs truncate" style={{ color: 'var(--color-text-primary)' }}>
+                          {tool.name}
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
                         {tool.requires_api_key && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium whitespace-nowrap">
-                            {t('tool_library_api_key')}
+                          <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium whitespace-nowrap">
+                            API
                           </span>
                         )}
                         <button
                           onClick={() => openDetails(tool.id)}
-                          className="p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                          className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-100 dark:hover:bg-blue-900/30"
                           title="View full LLM-facing prompt and argument schema"
                         >
-                          <Eye className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
+                          <Eye className="w-3 h-3" style={{ color: 'var(--color-primary)' }} />
                         </button>
                       </div>
                     </div>
-                    <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                    <p className="text-xs mb-2 line-clamp-2" style={{ color: 'var(--color-text-muted)' }}>
                       {tool.description}
                     </p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <code className="text-xs px-1.5 py-0.5 rounded" style={{
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <code className="text-xs px-1.5 py-0.5 rounded truncate" style={{
                         backgroundColor: 'var(--color-background-dark, #f3f4f6)',
                         color: 'var(--color-text-secondary, #6b7280)',
                         fontFamily: 'monospace',
@@ -308,7 +333,7 @@ export default function ToolLibrary() {
                         {tool.id}
                       </code>
                       {tool.requires_api_key && (
-                        <code className="text-xs px-1.5 py-0.5 rounded" style={{
+                        <code className="text-xs px-1.5 py-0.5 rounded truncate shrink-0" style={{
                           backgroundColor: 'var(--color-background-dark, #f3f4f6)',
                           color: 'var(--color-text-secondary, #6b7280)',
                           fontFamily: 'monospace',
