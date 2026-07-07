@@ -87,24 +87,20 @@ def _merge_skill_subagents(config: dict, db: Session) -> list:
 
 def _ensure_deep_agent_config(config: dict, db: Session = None) -> dict:
     """
-    Ensure config has use_deepagents=true for DeepAgents.
+    Normalize the config returned to the frontend.
 
-    DeepAgents in the deep_agent_templates table should ALWAYS have
-    use_deepagents=True, even if stored incorrectly in the database.
-    This fixes frontend compatibility issues.
+    Respects config.use_deepagents as the source of truth — if the user
+    has explicitly set it to False (Regular Agent), preserve that.
+    If the key is missing (legacy data), default to True for backward
+    compatibility with pre-framework-toggle agents.
 
-    For regular (non-deep) agents, use_deepagents is explicitly set to False
-    and should be respected.
-
-    If db is provided, also injects dynamic skill subagents into config.subagents.
+    Also injects dynamic skill subagents into config.subagents when db is provided.
     """
     config = dict(config)  # Make a copy to avoid mutating
-    # BUGFIX: Previously this respected config.use_deepagents=False, but for deep
-    # agents in deep_agent_templates table, the flag is sometimes incorrectly
-    # saved as False in the DB. ALWAYS force True here to match the original
-    # upstream fix from commit 3efc2bf — this is what enables native_tools
-    # (web_search, tavily_search, web_fetch) to be loaded.
-    config["use_deepagents"] = True
+    # Respect the stored value if set; default to True only when absent
+    # (backward compat with agents created before the framework toggle existed).
+    if "use_deepagents" not in config:
+        config["use_deepagents"] = True
     # Inject merged skill subagents into config.subagents so frontend builder can see them
     if db is not None:
         merged = _merge_skill_subagents(config, db)

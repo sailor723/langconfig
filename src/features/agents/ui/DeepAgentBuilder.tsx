@@ -259,6 +259,47 @@ const NATIVE_TOOLS = [
   { id: 'task', name: 'Task Delegation', description: 'Delegate work to specialized subagents. Enables parallel processing and specialization for complex workflows.' },
   // Data analysis tools
   { id: 'save_analysis_result', name: 'Save Analysis Result', description: 'Save analysis report and optionally copy an attached file (e.g. a plot) to the output directory.' },
+  // TODO management tools (notebook 2.1 parity)
+  { id: 'write_todos', name: 'Write TODOs', description: 'Create or update the agent\'s TODO list for task planning and tracking. Notebook 2.1 parity — bound as a native tool, bypasses TodoListMiddleware.' },
+  { id: 'read_todos', name: 'Read TODOs', description: 'Read the current TODO list from agent state. Pairs with write_todos for full notebook-2.1 parity (works in both Regular and Deep Agent types).' },
+  // Filesystem aliases
+  { id: 'file_read', name: 'File Read (alias)', description: 'Alias for read_file — read file contents with line numbers. (Prefer read_file.)' },
+  { id: 'file_write', name: 'File Write (alias)', description: 'Alias for write_file — create new files with content. (Prefer write_file.)' },
+  { id: 'file_list', name: 'File List (alias)', description: 'Alias for ls — list directory contents with metadata. (Prefer ls.)' },
+  // Subagent delegation alias
+  { id: 'delegate', name: 'Delegate (alias)', description: 'Alias for task — delegate work to specialized subagents. (Prefer task.)' },
+  // Skill management
+  { id: 'create_skill', name: 'Create Skill', description: 'Create a new skill in the project\'s skill library with name, description, and content.' },
+  { id: 'update_skill', name: 'Update Skill', description: 'Update an existing skill\'s content, description, or metadata.' },
+  { id: 'delete_skill', name: 'Delete Skill', description: 'Remove a skill from the project\'s skill library (soft delete).' },
+  // Agent creation
+  { id: 'create_deepagent', name: 'Create Deep Agent', description: 'Create a new deep agent from a spec and persist it to the project. Used for dynamic agent composition.' },
+  // PostgreSQL / database tools
+  { id: 'pg_list_tables', name: 'PG - List Tables', description: 'List all tables in the connected PostgreSQL database with row counts and metadata.' },
+  { id: 'pg_describe_table', name: 'PG - Describe Table', description: 'Get column names, types, indexes, and constraints for a PostgreSQL table.' },
+  { id: 'pg_query', name: 'PG - Query (read-only)', description: 'Run a read-only SQL query against the connected PostgreSQL database. Returns rows.' },
+  { id: 'pg_execute', name: 'PG - Execute (write)', description: 'Run a write SQL statement (INSERT/UPDATE/DELETE/CREATE). Use with caution.' },
+  // Database introspection
+  { id: 'pg_list_agents', name: 'PG - List Agents', description: 'List all deep agent templates in the database with metadata and config summaries.' },
+  { id: 'pg_get_agent', name: 'PG - Get Agent', description: 'Fetch a single deep agent template by id, including its full config and middleware setup.' },
+  { id: 'pg_list_skills', name: 'PG - List Skills', description: 'List all skills registered in the project\'s skill library.' },
+  { id: 'search_skills', name: 'Search Skills', description: 'Search the skill library by name, description, or content keywords.' },
+  { id: 'pg_list_projects', name: 'PG - List Projects', description: 'List all projects in the workspace with metadata.' },
+  { id: 'pg_list_documents', name: 'PG - List Documents', description: 'List all documents registered in the project, with about-previews.' },
+  { id: 'pg_list_custom_tools', name: 'PG - List Custom Tools', description: 'List all custom tools (DB-backed, editable in Studio UI) for the project.' },
+  // Neo4j tools
+  { id: 'neo4j_list_docs', name: 'Neo4j - List Documents', description: 'List documents indexed in Neo4j (vectorless graph retrieval).' },
+  { id: 'neo4j_get_doc', name: 'Neo4j - Get Document', description: 'Fetch a single Neo4j-indexed document by id.' },
+  { id: 'neo4j_query', name: 'Neo4j - Query (Cypher)', description: 'Run a read-only Cypher query against the Neo4j instance.' },
+  { id: 'neo4j_upsert_doc', name: 'Neo4j - Upsert Document', description: 'Insert or update a document in Neo4j.' },
+  { id: 'neo4j_delete_doc', name: 'Neo4j - Delete Document', description: 'Delete a document from Neo4j by id.' },
+  // Code execution tools
+  { id: 'sqlite_execute', name: 'SQLite - Execute', description: 'Execute a SQL statement against a local SQLite database. Use for ad-hoc local data analysis.' },
+  { id: 'python_execute', name: 'Python - Execute', description: 'Execute Python code in a sandboxed subprocess. Useful for ad-hoc data processing.' },
+  // Document indexing tools
+  { id: 'doc_index_list', name: 'Doc Index - List', description: 'List all indexed documents with metadata.' },
+  { id: 'doc_index_structure', name: 'Doc Index - Structure', description: 'Show the structure of a single document (sections, hierarchy).' },
+  { id: 'doc_index_pages', name: 'Doc Index - Pages', description: 'Fetch specific pages or page ranges of an indexed document.' },
 ];
 
 const BACKEND_TYPES = [
@@ -609,12 +650,14 @@ export default function DeepAgentBuilder({
 
     if (onSave) {
       // Include custom tools in config
+      // CRITICAL: respect use_deepagents from existing config if loaded, else fall back to agentType prop.
+      // Otherwise, editing an existing agent (or saving after a framework switch) silently
+      // overrides the framework type on every save.
+      const useDeepagents = config.use_deepagents ?? (agentType === 'deep');
       const configWithCustomTools = {
         ...config,
         custom_tools: selectedCustomTools,
-        // CRITICAL: Force use_deepagents based on agentType prop
-        // This ensures the flag is always correct regardless of initialConfig
-        use_deepagents: agentType === 'deep',
+        use_deepagents: useDeepagents,
         // Generate skill subagents locally from skills list so they appear immediately
         subagents: generateSkillSubagents(config.skills),
       };
