@@ -989,6 +989,11 @@ class APIClient {
     return this.client.get('/api/tools/registry', config);
   }
 
+  // Native tool details — returns full LLM-facing description and args schema
+  async getToolDetails(toolId: string, config?: { signal?: AbortSignal }) {
+    return this.client.get(`/api/tools/registry/${toolId}/details`, config);
+  }
+
   async getCustomTool(toolId: string, config?: { signal?: AbortSignal }) {
     return this.client.get(`/api/custom-tools/${toolId}`, config);
   }

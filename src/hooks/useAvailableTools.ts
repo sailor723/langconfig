@@ -88,4 +88,5 @@ export const TOOL_CATEGORY_LABELS: Record<string, string> = {
   memory: 'Memory',
   reasoning: 'Reasoning',
   delegation: 'Subagent Delegation',
+  todo: 'TODO Management',
 };

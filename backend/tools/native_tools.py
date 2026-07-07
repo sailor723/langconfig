@@ -18,13 +18,18 @@ Replaces:
 """
 
 import logging
-from typing import List, Optional, Dict, Any
+from typing import Annotated, List, Literal, NotRequired, Optional, Dict, Any
 from pathlib import Path
 import asyncio
 import sys
 
-from langchain_core.tools import StructuredTool, tool
+from typing_extensions import TypedDict
+
+from langchain_core.messages import ToolMessage
+from langchain_core.tools import InjectedToolCallId, StructuredTool, tool
 from langchain_community.tools import DuckDuckGoSearchRun
+from langgraph.prebuilt import InjectedState
+from langgraph.types import Command
 import httpx
 import os
 
@@ -3084,6 +3089,109 @@ _graphindex_multi_doc_load_tool = StructuredTool.from_function(
 
 
 # =============================================================================
+# TODO management tools — vendored from notebook 2.1_todo.ipynb cells 5 + 13
+# =============================================================================
+# Two tools that mirror the notebook's ``write_todos`` / ``read_todos`` pair
+# from ``deep_agent_0530/src/deep_agents_from_scratch/todo_tools.py``. Bound as
+# native tools (not via langchain's TodoListMiddleware) so the agent gets
+# BOTH tools — the library's TodoListMiddleware only ships write_todos.
+
+class _Todo(TypedDict):
+    """Single TODO item — matches notebook DeepAgentState.Todo definition."""
+    content: str
+    status: Literal["pending", "in_progress", "completed"]
+
+
+class _TodoState(TypedDict, total=False):
+    """Minimal state slice that ``read_todos`` needs (InjectedState)."""
+    todos: NotRequired[list[_Todo]]
+
+
+WRITE_TODOS_DESCRIPTION = """Create and manage structured task lists for tracking progress through complex workflows.
+
+## When to Use
+- Multi-step or non-trivial tasks requiring coordination
+- When user provides multiple tasks or explicitly requests todo list  
+- Avoid for single, trivial actions unless directed otherwise
+
+## Structure
+- Maintain one list containing multiple todo objects (content, status, id)
+- Use clear, actionable content descriptions
+- Status must be: pending, in_progress, or completed
+
+## Best Practices  
+- Only one in_progress task at a time
+- Mark completed immediately when task is fully done
+- Always send the full updated list when making changes
+- Prune irrelevant items to keep list focused
+
+## Progress Updates
+- Call TodoWrite again to change task status or edit content
+- Reflect real-time progress; don't batch completions  
+- If blocked, keep in_progress and add new task describing blocker
+
+## Parameters
+- todos: List of TODO items with content and status fields
+
+## Returns
+Updates agent state with new todo list."""
+
+
+@tool(description=WRITE_TODOS_DESCRIPTION, parse_docstring=True)
+def write_todos(
+    todos: list[_Todo],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> Command:
+    """Create or update the agent's TODO list for task planning and tracking.
+
+    Args:
+        todos: List of Todo items with content and status
+        tool_call_id: Tool call identifier for message response
+
+    Returns:
+        Command to update agent state with new TODO list
+    """
+    return Command(
+        update={
+            "todos": todos,
+            "messages": [
+                ToolMessage(f"Updated todo list to {todos}", tool_call_id=tool_call_id),
+            ],
+        }
+    )
+
+
+@tool(parse_docstring=True)
+def read_todos(
+    state: Annotated[_TodoState, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+) -> str:
+    """Read the current TODO list from the agent state.
+
+    This tool allows the agent to retrieve and review the current TODO list
+    to stay focused on remaining tasks and track progress through complex workflows.
+
+    Args:
+        state: Injected agent state containing the current TODO list
+        tool_call_id: Injected tool call identifier for message tracking
+
+    Returns:
+        Formatted string representation of the current TODO list
+    """
+    todos = state.get("todos", [])
+    if not todos:
+        return "No todos currently in the list."
+
+    result = "Current TODO List:\n"
+    for i, todo in enumerate(todos, 1):
+        status_emoji = {"pending": "⏳", "in_progress": "🔄", "completed": "✅"}
+        emoji = status_emoji.get(todo["status"], "❓")
+        result += f"{i}. {emoji} {todo['content']} ({todo['status']})\n"
+
+    return result.strip()
+
+
+# =============================================================================
 # Tool Loading Functions
 # =============================================================================
 
@@ -3141,6 +3249,9 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "create_skill": create_skill,
         "update_skill": update_skill,
         "delete_skill": delete_skill,
+        # TODO management tools (notebook 2.1 parity — bypasses TodoListMiddleware)
+        "write_todos": write_todos,
+        "read_todos": read_todos,
         # Agent management tools
         "create_deepagent": create_deepagent,
         # PostgreSQL schema tools
@@ -3848,6 +3959,21 @@ TOOL_REGISTRY = [
         "name": "Python Execute",
         "description": "Execute Python code for data analysis and visualization (pandas, matplotlib, numpy supported).",
         "category": "data",
+        "requires_api_key": None,
+    },
+    # TODO management tools (notebook 2.1 parity)
+    {
+        "id": "write_todos",
+        "name": "Write TODOs",
+        "description": "Create or update the agent's TODO list for task planning and tracking. Notebook 2.1 parity — bound as a native tool, bypasses TodoListMiddleware.",
+        "category": "todo",
+        "requires_api_key": None,
+    },
+    {
+        "id": "read_todos",
+        "name": "Read TODOs",
+        "description": "Read the current TODO list from agent state. Pairs with write_todos for full notebook-2.1 parity (works in both Regular and Deep Agent types).",
+        "category": "todo",
         "requires_api_key": None,
     },
 ]

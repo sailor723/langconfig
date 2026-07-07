@@ -18,6 +18,10 @@ import {
   Plus,
   Code,
   Pencil,
+  Eye,
+  X,
+  Copy,
+  Check,
 } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 import CustomToolBuilder from './ui/CustomToolBuilder';
@@ -55,6 +59,11 @@ export default function ToolLibrary() {
   const [customTools, setCustomTools] = useState<any[]>([]);
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingTool, setEditingTool] = useState<string | null>(null);
+  // View-prompt modal state
+  const [detailsToolId, setDetailsToolId] = useState<string | null>(null);
+  const [detailsTool, setDetailsTool] = useState<any | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsCopied, setDetailsCopied] = useState(false);
 
   useEffect(() => {
     apiClient.listToolRegistry()
@@ -67,6 +76,40 @@ export default function ToolLibrary() {
       .then((res: any) => setCustomTools(Array.isArray(res) ? res : res.data || []))
       .catch(console.error);
   }, []);
+
+  // Fetch LLM-facing prompt + args schema when the user opens the View-Prompt modal
+  useEffect(() => {
+    if (!detailsToolId) {
+      setDetailsTool(null);
+      return;
+    }
+    setDetailsLoading(true);
+    setDetailsTool(null);
+    setDetailsCopied(false);
+    apiClient.getToolDetails(detailsToolId)
+      .then((res: any) => setDetailsTool(res?.data || res))
+      .catch((err) => {
+        console.error('Failed to load tool details:', err);
+        setDetailsTool({ error: err?.response?.data?.detail || err?.message || 'Failed to load' });
+      })
+      .finally(() => setDetailsLoading(false));
+  }, [detailsToolId]);
+
+  const openDetails = (toolId: string) => setDetailsToolId(toolId);
+  const closeDetails = () => {
+    setDetailsToolId(null);
+    setDetailsCopied(false);
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setDetailsCopied(true);
+      setTimeout(() => setDetailsCopied(false), 1500);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  };
 
   // Group by category
   const grouped = tools.reduce<Record<string, ToolItem[]>>((acc, tool) => {
@@ -228,7 +271,7 @@ export default function ToolLibrary() {
                 {items.map(tool => (
                   <div
                     key={tool.id}
-                    className="p-4 rounded-lg border transition-shadow hover:shadow-md"
+                    className="p-4 rounded-lg border transition-shadow hover:shadow-md group"
                     style={{
                       backgroundColor: 'var(--color-panel-light, #fff)',
                       borderColor: 'var(--color-border-dark, #e5e7eb)',
@@ -238,16 +281,25 @@ export default function ToolLibrary() {
                       <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>
                         {tool.name}
                       </h3>
-                      {tool.requires_api_key && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium whitespace-nowrap ml-2">
-                          {t('tool_library_api_key')}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {tool.requires_api_key && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium whitespace-nowrap">
+                            {t('tool_library_api_key')}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => openDetails(tool.id)}
+                          className="p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                          title="View full LLM-facing prompt and argument schema"
+                        >
+                          <Eye className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
+                        </button>
+                      </div>
                     </div>
                     <p className="text-xs mb-2" style={{ color: 'var(--color-text-muted)' }}>
                       {tool.description}
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <code className="text-xs px-1.5 py-0.5 rounded" style={{
                         backgroundColor: 'var(--color-background-dark, #f3f4f6)',
                         color: 'var(--color-text-secondary, #6b7280)',
@@ -272,6 +324,146 @@ export default function ToolLibrary() {
           ))
         )}
       </div>
+
+      {/* View-Prompt Modal: shows the full LLM-facing description + args schema */}
+      {detailsToolId && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center pt-10 pb-10 overflow-y-auto"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={closeDetails}
+        >
+          <div
+            className="relative w-full max-w-4xl mx-4 rounded-xl overflow-hidden shadow-2xl"
+            style={{ backgroundColor: 'var(--color-background-light, #fff)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div
+              className="flex items-center justify-between p-4 border-b"
+              style={{ borderColor: 'var(--color-border-dark, #e5e7eb)' }}
+            >
+              <div className="flex items-center gap-3">
+                <Eye className="w-5 h-5" style={{ color: 'var(--color-primary)' }} />
+                <div>
+                  <h2 className="text-base font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                    {detailsTool?.name || detailsToolId}
+                  </h2>
+                  <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                    Full LLM-facing prompt · Tool id:{' '}
+                    <code style={{ fontFamily: 'monospace' }}>{detailsToolId}</code>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeDetails}
+                className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                title="Close"
+              >
+                <X className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="p-5 max-h-[70vh] overflow-y-auto">
+              {detailsLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                </div>
+              )}
+
+              {detailsTool?.error && (
+                <div className="text-sm p-3 rounded" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#dc2626' }}>
+                  {detailsTool.error}
+                </div>
+              )}
+
+              {detailsTool && !detailsTool.error && (
+                <>
+                  {/* UI description (short) */}
+                  <div className="mb-5">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                      UI description (human-facing)
+                    </h3>
+                    <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                      {detailsTool.ui_description}
+                    </p>
+                  </div>
+
+                  {/* LLM description (long) */}
+                  <div className="mb-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-muted)' }}>
+                        LLM description (sent to model at runtime)
+                      </h3>
+                      <button
+                        onClick={() => copyToClipboard(detailsTool.llm_description || '')}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                        title="Copy to clipboard"
+                      >
+                        {detailsCopied ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-emerald-600">Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+                            <span style={{ color: 'var(--color-text-muted)' }}>Copy</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {detailsTool.llm_description ? (
+                      <pre
+                        className="text-xs whitespace-pre-wrap p-3 rounded"
+                        style={{
+                          backgroundColor: 'var(--color-background-dark, #f3f4f6)',
+                          color: 'var(--color-text-primary)',
+                          fontFamily: 'monospace',
+                          lineHeight: '1.55',
+                        }}
+                      >
+                        {detailsTool.llm_description}
+                      </pre>
+                    ) : (
+                      <p className="text-xs italic" style={{ color: 'var(--color-text-muted)' }}>
+                        (no description — derived from docstring only)
+                      </p>
+                    )}
+                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                      Length: {detailsTool.llm_description?.length || 0} characters
+                    </p>
+                  </div>
+
+                  {/* Args schema (JSON Schema) */}
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-muted)' }}>
+                      Argument schema (what the LLM must produce)
+                    </h3>
+                    {detailsTool.args_schema && Object.keys(detailsTool.args_schema).length > 0 ? (
+                      <pre
+                        className="text-xs whitespace-pre-wrap p-3 rounded"
+                        style={{
+                          backgroundColor: 'var(--color-background-dark, #f3f4f6)',
+                          color: 'var(--color-text-primary)',
+                          fontFamily: 'monospace',
+                          lineHeight: '1.55',
+                        }}
+                      >
+                        {JSON.stringify(detailsTool.args_schema, null, 2)}
+                      </pre>
+                    ) : (
+                      <p className="text-xs italic" style={{ color: 'var(--color-text-muted)' }}>
+                        (no arguments — LLM invokes the tool with no payload)
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Custom Tool Builder Modal */}
       {showBuilder && (

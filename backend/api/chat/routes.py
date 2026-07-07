@@ -1215,6 +1215,28 @@ async def send_message_stream(
                             db.commit()
                             db.refresh(final_session)  # Refresh to confirm save
                             logger.info(f"✓ Assistant message saved to DB: session={session_id}, total_messages={len(final_session.messages)}, rag_tokens={rag_tokens_used}")
+
+                            # Archive conversation turn (mirrors non-streaming path at line 619)
+                            try:
+                                from models.conversation_archive import ConversationArchive
+                                import re
+                                _session_msgs_json = json.dumps(final_session.messages or [])
+                                _turn_matches = re.findall(r'role["\']:\s*["\']user["\']', _session_msgs_json)
+                                _turn_number = len(_turn_matches)
+                                _archive = ConversationArchive(
+                                    session_id=final_session.session_id,
+                                    user_id=final_session.user_id,
+                                    turn_number=_turn_number,
+                                    user_message=request.message,
+                                    agent_response=full_response,
+                                    tool_calls=collected_tool_names or [],
+                                )
+                                db.add(_archive)
+                                db.commit()
+                                logger.info(f"✓ Turn archived: session={session_id}, turn={_turn_number}")
+                            except Exception as _archive_err:
+                                logger.warning(f"⚠ Failed to archive turn (non-fatal): {_archive_err}")
+                                db.rollback()
                         else:
                             logger.error(f"❌ Session {session_id} not found when saving assistant message")
                     except Exception as save_error:
