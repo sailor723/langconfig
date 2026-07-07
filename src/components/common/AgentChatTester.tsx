@@ -798,7 +798,7 @@ export default function AgentChatTester({
                 <MetricItem
                   icon={<Zap className="w-4 h-4" />}
                   label="Tool Calls"
-                  value={String(metrics.tool_calls ?? 0)}
+                  value={String(isStreaming ? toolCalls.length : (metrics.tool_calls ?? 0))}
                 />
                 <MetricItem
                   icon={<Users className="w-4 h-4" />}
@@ -836,12 +836,20 @@ export default function AgentChatTester({
               </div>
             )}
 
-            {/* Tool Calls */}
+            {/* Tool Calls — real-time from SSE, updates during streaming */}
             {toolCalls.length > 0 && (
               <div className="p-4 border-b border-gray-800">
-                <h3 className="text-sm font-semibold text-gray-400 mb-3">TOOL CALLS</h3>
-                <div className="space-y-2">
-                  {toolCalls.slice(-5).reverse().map((call, index) => (
+                <h3 className="text-sm font-semibold text-gray-400 mb-3">
+                  TOOL CALLS ({toolCalls.length})
+                  {isStreaming && (
+                    <span className="ml-1.5 inline-flex items-center gap-1 text-blue-400 text-[10px] font-normal">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                      live
+                    </span>
+                  )}
+                </h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {[...toolCalls].reverse().map((call, index) => (
                     <div key={index} className={`p-2 rounded text-xs ${
                       call.status === 'running'
                         ? 'bg-blue-600/10 border border-blue-600/30'

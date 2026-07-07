@@ -3096,15 +3096,7 @@ _graphindex_multi_doc_load_tool = StructuredTool.from_function(
 # native tools (not via langchain's TodoListMiddleware) so the agent gets
 # BOTH tools — the library's TodoListMiddleware only ships write_todos.
 
-class _Todo(TypedDict):
-    """Single TODO item — matches notebook DeepAgentState.Todo definition."""
-    content: str
-    status: Literal["pending", "in_progress", "completed"]
-
-
-class _TodoState(TypedDict, total=False):
-    """Minimal state slice that ``read_todos`` needs (InjectedState)."""
-    todos: NotRequired[list[_Todo]]
+from core.state import Todo, DeepAgentState
 
 
 WRITE_TODOS_DESCRIPTION = """Create and manage structured task lists for tracking progress through complex workflows.
@@ -3139,7 +3131,7 @@ Updates agent state with new todo list."""
 
 @tool(description=WRITE_TODOS_DESCRIPTION, parse_docstring=True)
 def write_todos(
-    todos: list[_Todo],
+    todos: list[Todo],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> Command:
     """Create or update the agent's TODO list for task planning and tracking.
@@ -3163,7 +3155,7 @@ def write_todos(
 
 @tool(parse_docstring=True)
 def read_todos(
-    state: Annotated[_TodoState, InjectedState],
+    state: Annotated[DeepAgentState, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> str:
     """Read the current TODO list from the agent state.
