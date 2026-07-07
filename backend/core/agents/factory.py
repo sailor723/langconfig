@@ -361,13 +361,28 @@ class AgentFactory:
                 else:
                     sa_llm = llm
 
-                # Load sub-agent tools by name from parent's tool set
-                sa_tools = [tools_by_name[n] for n in sa_tool_names if n in tools_by_name]
-                if not sa_tools:
-                    sa_tools = list(tools)  # Default to all parent tools
-                    logger.info(f"Sub-agent '{sa_name}': using all parent tools ({len(sa_tools)})")
-                else:
-                    logger.info(f"Sub-agent '{sa_name}': {len(sa_tools)} tools — {sa_tool_names}")
+                # Sub-agent inherits parent tools + gets its own specific tools
+                # Build from parent's tool set first (inheritance), then add sub-agent-specific tools
+                sa_tools = list(tools)  # Inherit all parent tools
+                parent_tool_names = {t.name for t in sa_tools if hasattr(t, 'name')}
+                # Load additional tools that sub-agent needs but parent doesn't have
+                extra_tool_names = [n for n in sa_tool_names if n not in parent_tool_names]
+                if extra_tool_names:
+                    try:
+                        from core.agents.tool_loader import ToolLoader
+                        extra_tools = await ToolLoader.load_native(
+                            extra_tool_names,
+                            workspace_context=workspace_context,
+                            agent_context=agent_context
+                        )
+                        # Deduplicate by name (extra tools override parent tools of same name)
+                        existing_names = {t.name for t in sa_tools if hasattr(t, 'name')}
+                        for t in extra_tools:
+                            if hasattr(t, 'name') and t.name not in existing_names:
+                                sa_tools.append(t)
+                    except Exception as e:
+                        logger.warning(f"Failed to load extra tools for sub-agent '{sa_name}': {e}")
+                logger.info(f"Sub-agent '{sa_name}': {len(sa_tools)} tools (inherited {len(tools)} parent + {len(extra_tool_names)} extra)")
 
                 sub_agents[sa_name] = create_agent(
                     sa_llm,
