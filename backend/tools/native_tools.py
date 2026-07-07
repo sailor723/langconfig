@@ -3242,7 +3242,6 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "reasoning_chain": reasoning_chain,
         # Subagent delegation tools
         "task": task,
-        "delegate": task,  # Alias for task
         # Data analysis tools
         "save_analysis_result": save_analysis_result,
         # Skill management tools
@@ -3391,6 +3390,16 @@ def get_available_tool_names() -> List[str]:
         # SQL/data tools
         "sqlite_execute",
         "python_execute",
+        # Data analysis tools
+        "save_analysis_result",
+        # Skill management tools
+        "create_skill",
+        "update_skill",
+        "delete_skill",
+        "search_skills",
+        # TODO management tools
+        "write_todos",
+        "read_todos",
     ]
 
 
@@ -3725,13 +3734,6 @@ TOOL_REGISTRY = [
         "id": "task",
         "name": "Task (Subagent)",
         "description": "Delegate a task to a subagent",
-        "category": "delegation",
-        "requires_api_key": None,
-    },
-    {
-        "id": "delegate",
-        "name": "Delegate",
-        "description": "Alias for task (subagent delegation)",
         "category": "delegation",
         "requires_api_key": None,
     },
