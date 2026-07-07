@@ -3217,8 +3217,37 @@ Parameters:
 Important: This replaces the entire file content."""
 
 
+# =============================================================================
+# File Usage Instructions — from notebook 2.2_files.ipynb
+# =============================================================================
+# Guides the model to use VFS tools in a specific workflow:
+# 1. write_file("user_request.txt") — save user request
+# 2. ls() — orient
+# 3. web_search — research
+# 4. read_file — review sources
+# 5. write_file("final_answer.txt") — save final answer
+
+FILE_USAGE_INSTRUCTIONS = """You have access to a virtual file system to help you retain and save context.
+
+## Workflow Process (FOLLOW IN ORDER):
+
+1. **FIRST ACTION REQUIRED**: Before doing anything else, you MUST call the vfs_write_file tool with file_path="user_request.txt" and content=<the user's exact request>. This is MANDATORY - do not proceed without calling vfs_write_file first.
+
+2. **Orient**: Use the vfs_ls tool to see existing files
+
+3. **Research**: Make a single call to the web_search tool and use the result provided by the tool to answer the user's question.
+
+4. **Read**: Once you are satisfied with the collected sources, read the saved file using the vfs_read_file tool and use it to ensure that you directly answer the user's question.
+
+5. **FINAL ACTION REQUIRED**: After formulating your complete answer, you MUST call the vfs_write_file tool with file_path="final_answer.txt" and content=<your complete answer>. This is MANDATORY - do not finish without calling vfs_write_file for the final answer.
+
+CRITICAL: 
+- Your FIRST tool call MUST be vfs_write_file with file_path="user_request.txt". Do not call any other tools until you have called vfs_write_file. Do not skip this step.
+- Your LAST tool call (before responding to the user) MUST be vfs_write_file with file_path="final_answer.txt" to save your final answer. Do not skip this step."""
+
+
 @tool(description=LS_DESCRIPTION)
-def vfs_ls(state: Annotated[dict, InjectedState]) -> list[str]:
+def vfs_ls(state: Annotated[DeepAgentState, InjectedState]) -> list[str]:
     """List all files in the virtual filesystem."""
     return list(state.get("files", {}).keys())
 
@@ -3226,7 +3255,7 @@ def vfs_ls(state: Annotated[dict, InjectedState]) -> list[str]:
 @tool(description=READ_FILE_DESCRIPTION, parse_docstring=True)
 def vfs_read_file(
     file_path: str,
-    state: Annotated[dict, InjectedState],
+    state: Annotated[DeepAgentState, InjectedState],
     offset: int = 0,
     limit: int = 2000,
 ) -> str:
@@ -3268,7 +3297,7 @@ def vfs_read_file(
 def vfs_write_file(
     file_path: str,
     content: str,
-    state: Annotated[dict, InjectedState],
+    state: Annotated[DeepAgentState, InjectedState],
     tool_call_id: Annotated[str, InjectedToolCallId],
 ) -> Command:
     """Write content to a file in the virtual filesystem.

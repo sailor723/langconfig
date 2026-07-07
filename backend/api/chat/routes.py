@@ -466,8 +466,9 @@ async def send_message(
             except Exception:
                 pass  # fallback to no language instruction
 
-            # Create agent instance via DeepAgentFactory (original pattern).
-            # DeepAgentFactory internally falls back to AgentFactory when needed.
+            # Create agent instance via the appropriate factory.
+            # Regular agents (use_deepagents=False) use AgentFactory with _create_task_tool pattern.
+            # Deep agents use DeepAgentFactory with SubAgentMiddleware.
             # Fix: ensure list fields are never None to avoid "NoneType has no len()"
             _safe_config = dict(agent.config or {})
             for _list_key in ['middleware', 'subagents', 'skills', 'native_tools']:
@@ -478,15 +479,28 @@ async def send_message(
             config = DeepAgentConfig(**_safe_config)
             if lang_instruction:
                 config.system_prompt = (config.system_prompt or "") + lang_instruction
-            agent_instance, _tools, _callbacks = await DeepAgentFactory.create_deep_agent(
-                config=config,
-                project_id=0,
-                task_id=0,
-                context="",
-                mcp_manager=None,
-                vector_store=None,
-                user_message=request.message
-            )
+
+            use_deepagents = _safe_config.get("use_deepagents", True)
+            if not use_deepagents:
+                from core.agents.factory import AgentFactory
+                agent_instance, _tools, _callbacks = await AgentFactory.create_agent(
+                    agent_config=_safe_config,
+                    project_id=0,
+                    task_id=0,
+                    context="",
+                    mcp_manager=None,
+                    vector_store=None,
+                )
+            else:
+                agent_instance, _tools, _callbacks = await DeepAgentFactory.create_deep_agent(
+                    config=config,
+                    project_id=0,
+                    task_id=0,
+                    context="",
+                    mcp_manager=None,
+                    vector_store=None,
+                    user_message=request.message
+                )
             cache_agent(request.session_id, agent_instance)
 
         # Create new user message (checkpointer will load previous messages automatically)
@@ -922,18 +936,31 @@ async def send_message_stream(
                 )
 
                 if not agent_instance:
-                    # Create agent instance via DeepAgentFactory (original pattern).
-                    # DeepAgentFactory internally falls back to AgentFactory when needed.
-                    config = DeepAgentConfig(**agent_config)
-                    agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
-                        config=config,
-                        project_id=project_id or 0,
-                        task_id=0,
-                        context=all_context,  # Inject RAG context
-                        mcp_manager=None,
-                        vector_store=None,
-                        user_message=request.message
-                    )
+                    # Create agent via appropriate factory.
+                    # Regular agents (use_deepagents=False) → AgentFactory with _create_task_tool
+                    # Deep agents → DeepAgentFactory with SubAgentMiddleware
+                    use_deepagents = agent_config.get("use_deepagents", True)
+                    if not use_deepagents:
+                        from core.agents.factory import AgentFactory
+                        agent_instance, tools, callbacks = await AgentFactory.create_agent(
+                            agent_config=agent_config,
+                            project_id=project_id or 0,
+                            task_id=0,
+                            context=all_context,
+                            mcp_manager=None,
+                            vector_store=None,
+                        )
+                    else:
+                        config = DeepAgentConfig(**agent_config)
+                        agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
+                            config=config,
+                            project_id=project_id or 0,
+                            task_id=0,
+                            context=all_context,
+                            mcp_manager=None,
+                            vector_store=None,
+                            user_message=request.message
+                        )
                     cache_agent(
                         request.session_id,
                         agent_instance,
