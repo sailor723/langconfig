@@ -306,8 +306,6 @@ export default function AgentChatTester({
       setIsStreaming(false);
 
       // Fetch updated metrics (if session still valid)
-      // Only update metrics, NOT toolCalls — SSE already captured them in real-time.
-      // Overwriting would cause flickering/duplication.
       if (sessionId) {
         try {
           await fetchMetrics();
@@ -341,7 +339,7 @@ export default function AgentChatTester({
         context_operations: 0,
         ...(data?.metrics || {})
       });
-      // Only set subagent activity from metrics endpoint (not captured by SSE)
+      setToolCalls(data?.tool_calls || []);
       setSubagentActivity(data?.subagent_spawns || []);
     } catch (err) {
       console.error('Failed to fetch metrics:', err);
@@ -698,7 +696,7 @@ export default function AgentChatTester({
                 </div>
               ))}
 
-              {thinkingBuffer && (
+              {isStreaming && thinkingBuffer && (
                 <div className="flex justify-start">
                   <div className="bg-gray-800/80 rounded-lg p-2 max-w-[80%]">
                     {/* Toggle button */}
