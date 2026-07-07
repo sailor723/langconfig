@@ -412,7 +412,7 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
   // Section-level expand/collapse (default: all expanded)
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['system_prompt', 'agent_tools', 'custom_tools', 'middleware', 'skills',
+    new Set(['system_prompt', 'agent_tools', 'custom_tools', 'middleware', 'skills', 'subagents',
              'cat_filesystem', 'cat_web', 'cat_memory', 'cat_retrieval', 'cat_skills',
              'cat_reasoning', 'cat_delegation', 'cat_data_analysis', 'capabilities'])
   );
@@ -913,7 +913,6 @@ print(result["messages"][-1].content)
                         setConfig({
                           ...config,
                           use_deepagents: isDeep,
-                          subagents: isDeep ? (config.subagents || []) : [],
                           middleware: isDeep ? (config.middleware || []) : []
                         });
                       }}
@@ -1587,9 +1586,8 @@ print(result["messages"][-1].content)
             </div>
           )}
 
-          {/* Subagents Section - Only for Deep Agents */}
-          {config.use_deepagents && (
-            <div className="mt-6">
+          {/* Subagents Section */}
+          <div className="mt-6">
               <div className="px-3 py-1.5 rounded-lg mb-2 flex items-center justify-between" style={{ backgroundColor: 'var(--color-primary)' }}>
                 <h3 className="text-sm font-semibold" style={{ color: 'white' }}>
                   Subagents
@@ -1893,7 +1891,6 @@ print(result["messages"][-1].content)
                 </div>
               )}
             </div>
-          )}
         </div>
       </div>
 

@@ -22,11 +22,16 @@ This replaces the disconnected flow where agents were created without their conf
 import logging
 from typing import Dict, Any, List, Optional, Tuple, Sequence
 from datetime import datetime
-from langchain_core.tools import BaseTool, StructuredTool
+from langchain_core.tools import BaseTool, StructuredTool, tool as tool_decorator
 from langchain_core.language_models import BaseLanguageModel, BaseChatModel
 # IMPORTANT: LangChain v1.0 - Using unified create_agent from langchain.agents
 from langchain.agents import create_agent
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.prebuilt import InjectedState
+from langgraph.types import Command
+from langchain_core.tools import InjectedToolCallId
+from langchain_core.messages import ToolMessage
+from typing_extensions import Annotated
 from core.state import DeepAgentState
 from config import settings
 logger = logging.getLogger(__name__)
@@ -312,6 +317,102 @@ class AgentFactory:
         except Exception as e:
             logger.warning(f"Failed to wrap tools with constraints: {e}. Tools will run without constraint enforcement.")
             # Continue without constraint wrapping - tools still work, just without safety enforcement
+
+        # 3c. Sub-agent support for regular agents (notebook 2.4_full_agent pattern)
+        # Replaces the generic 'task' tool with one that embeds sub-agents via _create_task_tool
+        subagents_config = agent_config.get("subagents", [])
+        if subagents_config and isinstance(subagents_config, list) and len(subagents_config) > 0:
+
+            # Find and remove the generic task tool
+            task_tool_idx = None
+            for i, t in enumerate(tools):
+                if hasattr(t, 'name') and t.name == 'task':
+                    task_tool_idx = i
+                    break
+
+            if task_tool_idx is not None:
+                tools.pop(task_tool_idx)
+                logger.info("Removed generic 'task' tool — replacing with sub-agent-embedding task tool")
+
+            # Build tool name → tool mapping for sub-agent tool assignment
+            tools_by_name = {t.name: t for t in tools if hasattr(t, 'name')}
+
+            # Create sub-agents with isolated contexts (notebook pattern)
+            sub_agents = {}
+            for sa_config in subagents_config:
+                sa_name = sa_config.get("name", "subagent")
+                sa_prompt = sa_config.get("system_prompt", "") or sa_config.get("prompt", "")
+                sa_tool_names = sa_config.get("tools", [])
+                sa_model_name = sa_config.get("model")
+
+                # Resolve sub-agent model (inherit parent if not specified)
+                if sa_model_name:
+                    try:
+                        sa_llm = await AgentFactory._create_llm_with_fallbacks(
+                            primary_model=sa_model_name,
+                            fallback_models=[],
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            config=agent_config
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to create LLM for sub-agent '{sa_name}': {e}. Inheriting parent.")
+                        sa_llm = llm
+                else:
+                    sa_llm = llm
+
+                # Load sub-agent tools by name from parent's tool set
+                sa_tools = [tools_by_name[n] for n in sa_tool_names if n in tools_by_name]
+                if not sa_tools:
+                    sa_tools = list(tools)  # Default to all parent tools
+                    logger.info(f"Sub-agent '{sa_name}': using all parent tools ({len(sa_tools)})")
+                else:
+                    logger.info(f"Sub-agent '{sa_name}': {len(sa_tools)} tools — {sa_tool_names}")
+
+                sub_agents[sa_name] = create_agent(
+                    sa_llm,
+                    system_prompt=sa_prompt,
+                    tools=sa_tools,
+                    state_schema=DeepAgentState,
+                )
+
+            # Build description of available sub-agents for the tool description
+            task_description = "Delegate a task to a specialized sub-agent with isolated context. Available agents for delegation are:\n" + "\n".join(
+                f"- {sa['name']}: {sa.get('description', 'No description')}"
+                for sa in subagents_config
+            )
+
+            @tool_decorator(description=task_description)
+            async def task(
+                description: str,
+                subagent_type: str,
+                state: Annotated[dict, InjectedState],
+                tool_call_id: Annotated[str, InjectedToolCallId],
+            ):
+                """Delegate a task to a specialized sub-agent with isolated context."""
+                if subagent_type not in sub_agents:
+                    allowed = [f"`{k}`" for k in sub_agents.keys()]
+                    return f"Error: unknown subagent type '{subagent_type}'. Allowed: {allowed}"
+
+                sub_agent = sub_agents[subagent_type]
+                # Isolated context with only the task description
+                state["messages"] = [{"role": "user", "content": description}]
+                result = await sub_agent.ainvoke(state)
+
+                # Return results to parent agent via Command state update
+                return Command(
+                    update={
+                        "files": result.get("files", {}),
+                        "messages": [
+                            ToolMessage(
+                                result["messages"][-1].content, tool_call_id=tool_call_id
+                            )
+                        ],
+                    }
+                )
+
+            tools.append(task)
+            logger.info(f"Created custom task tool with {len(sub_agents)} sub-agents: {list(sub_agents.keys())}")
 
         # 4. Check if structured output is enabled (v1.1: Support ProviderStrategy)
         structured_output_strategy = None
