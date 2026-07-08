@@ -306,89 +306,118 @@ app.add_middleware(
 
 from fastapi.responses import FileResponse
 
+# Sentinel marker used to make the refresh-bar injection idempotent.
+# Once injected we don't inject a second time on re-renders.
+_REFRESH_BAR_MARKER = "Refresh from source"
+
+
+def _inject_dashboard_refresh_bar(html: str, meta: dict, hash_id: str) -> str:
+    """Inject a 'Refresh from source' bar + loader script into a dashboard HTML.
+
+    This is appended once after <body>, and the page's own top-level
+    `const` globals are downgraded to `var` so the loader can reassign them.
+    """
+    refresh_style = (
+        '<style>\n'
+        '#dashRefreshBar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:#1e3a8a;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px}\n'
+        '#dashRefreshBar button{background:#3b82f6;color:#fff;border:none;padding:5px 14px;border-radius:5px;cursor:pointer;font-size:13px}\n'
+        '#dashRefreshBar button:hover{background:#2563eb}\n'
+        '#dashRefreshBar button:disabled{opacity:.6;cursor:wait}\n'
+        '#dashRefreshBar .spacer{flex:1}\n'
+        '</style>\n'
+        '<div id="dashRefreshBar">\n'
+        f'<span>Data: {len(meta.get("columns", []))} cols</span>\n'
+        '<div class="spacer"></div>\n'
+        '<button id="dashRefreshBtn" onclick="dashRefresh()">Refresh from source</button>\n'
+        '<span id="dashRefreshStatus"></span>\n'
+        '</div>\n'
+        '<script>\n'
+        '\n'
+        '// -- Dynamic: load fresh data on page load --\n'
+        f"const _DATA_URL = 'http://127.0.0.1:8765/api/analysis/data/{hash_id}';\n"
+        'fetch(_DATA_URL).then(r=>r.json()).then(function(d){\n'
+        '  if(typeof salesData!==\'undefined\'){ salesData = d; if(typeof renderAll===\'function\') renderAll(salesData); }\n'
+        '}).catch(function(){});\n'
+        '\n'
+        'async function dashRefresh(){\n'
+        '  const btn=document.getElementById(\'dashRefreshBtn\');\n'
+        '  const st=document.getElementById(\'dashRefreshStatus\');\n'
+        '  btn.disabled=true; st.textContent=\'Loading...\';\n'
+        '  try{\n'
+        '    const r=await fetch(_DATA_URL);\n'
+        '    const data=await r.json();\n'
+        f'    var _cols={list(meta.get("columns", []))};\n'
+        'function _fmtRow(row){var obj={};_cols.forEach(function(c,i){obj[c.replace(/\\s+/g,\'\')]=row[i];var k=c.charAt(0).toLowerCase()+c.slice(1).replace(/\\s+/g,\'\');obj[k]=row[i];obj[k.toLowerCase()]=row[i]});return obj}\n'
+        'function _tryCall(fn,arg){if(typeof window[fn]===\'function\')window[fn](arg)}\n'
+        'if(typeof rawData!==\'undefined\'){rawData=data.map(_fmtRow);_tryCall(\'renderKPIs\',rawData);_tryCall(\'renderTrend\',rawData);_tryCall(\'renderProduct\',rawData);_tryCall(\'renderRegion\',rawData);}\n'
+        'else if(typeof salesData!==\'undefined\'){salesData=data;_tryCall(\'renderAll\',salesData);_tryCall(\'refreshAll\',undefined);_tryCall(\'applyFilters\',undefined);}\n'
+        'else if(typeof RAW!==\'undefined\'){RAW=data;_tryCall(\'renderAll\',RAW);_tryCall(\'refreshAll\',undefined);_tryCall(\'applyFilters\',undefined);}\n'
+        'else location.reload();\n'
+        '    st.textContent=\'Updated \'+new Date().toLocaleTimeString();\n'
+        '  }catch(e){st.textContent=\'Error: \'+e.message}\n'
+        '  finally{btn.disabled=false}\n'
+        '}\n'
+        '</script>'
+    )
+    html = html.replace("<body>", "<body>\n" + refresh_style, 1)
+    # Downgrade top-level `const` to `var` so the loader can reassign globals.
+    html = html.replace("const salesData", "var salesData")
+    html = html.replace("const RAW", "var RAW")
+    html = html.replace("const rawData", "var rawData")
+    return html
+
+
+def _maybe_inject_dashboard_refresh_bar(html: str, html_path: "Path") -> str:
+    """Inject the refresh bar into `html` if a companion `*.meta.json` exists.
+
+    No-op when:
+      - no companion meta.json, or
+      - the bar has already been injected (marker present in HTML).
+    """
+    import json as _json
+
+    meta_p = html_path.parent / f"{html_path.stem}.meta.json"
+    if not meta_p.exists() or _REFRESH_BAR_MARKER in html:
+        return html
+
+    meta = _json.loads(meta_p.read_text(encoding="utf-8"))
+    stem = html_path.stem
+    hash_id = stem.replace("dashboard_", "") if stem.startswith("dashboard_") else stem
+    return _inject_dashboard_refresh_bar(html, meta, hash_id)
+
+
 @app.get("/api/files/{filename:path}")
 async def serve_output_file(filename: str):
     """Serve generated files (charts, reports, dashboards) from outputs/ and data/ dirs."""
     from pathlib import Path
+    from fastapi.responses import HTMLResponse, JSONResponse
     from services.workspace_manager import get_workspace_manager
 
-    # First, check if it's in data/analysis_dbs/ (for analysis dashboards)
-    # Use absolute path from repo root since python_execute saves there
+    # 1. Analysis dashboards: data/analysis_dbs/<...>/<filename> (uses absolute repo path
+    #    because python_execute saves there).
     analysis_dir = Path(__file__).resolve().parent.parent / "data" / "analysis_dbs"
     if analysis_dir.exists():
         analysis_match = list(analysis_dir.rglob(filename))
         if analysis_match:
             fp = analysis_match[0]
             if fp.suffix == ".html":
-                import re, json as _json
-                html = fp.read_text(encoding="utf-8")
-                # Inject refresh bar if companion meta.json exists
-                stem = fp.stem
-                meta_p = fp.parent / f"{stem}.meta.json"
-                if meta_p.exists() and 'Refresh from source' not in html:
-                    meta = _json.loads(meta_p.read_text(encoding="utf-8"))
-                    hash_id = stem.replace("dashboard_", "") if stem.startswith("dashboard_") else stem
-                    refresh_style = '''<style>
-#dashRefreshBar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:#1e3a8a;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px}
-#dashRefreshBar button{background:#3b82f6;color:#fff;border:none;padding:5px 14px;border-radius:5px;cursor:pointer;font-size:13px}
-#dashRefreshBar button:hover{background:#2563eb}
-#dashRefreshBar button:disabled{opacity:.6;cursor:wait}
-#dashRefreshBar .spacer{flex:1}
-</style>
-<div id="dashRefreshBar">
-<span>Data: ''' + str(len(meta.get('columns', []))) + ''' cols</span>
-<div class="spacer"></div>
-<button id="dashRefreshBtn" onclick="dashRefresh()">Refresh from source</button>
-<span id="dashRefreshStatus"></span>
-</div>
-<script>
-
-// -- Dynamic: load fresh data on page load --
-const _DATA_URL = 'http://127.0.0.1:8765/api/analysis/data/''' + hash_id + '''';
-fetch(_DATA_URL).then(r=>r.json()).then(function(d){
-  if(typeof salesData!=='undefined'){ salesData = d; if(typeof renderAll==='function') renderAll(salesData); }
-}).catch(function(){});
-
-async function dashRefresh(){
-  const btn=document.getElementById('dashRefreshBtn');
-  const st=document.getElementById('dashRefreshStatus');
-  btn.disabled=true; st.textContent='Loading...';
-  try{
-    const r=await fetch(_DATA_URL);
-    const data=await r.json();
-    var _cols=''' + str(meta.get('columns', [])) + ''';
-function _fmtRow(row){var obj={};_cols.forEach(function(c,i){obj[c.replace(/\s+/g,'')]=row[i];var k=c.charAt(0).toLowerCase()+c.slice(1).replace(/\s+/g,'');obj[k]=row[i];obj[k.toLowerCase()]=row[i]});return obj}
-function _tryCall(fn,arg){if(typeof window[fn]==='function')window[fn](arg)}
-if(typeof rawData!=='undefined'){rawData=data.map(_fmtRow);_tryCall('renderKPIs',rawData);_tryCall('renderTrend',rawData);_tryCall('renderProduct',rawData);_tryCall('renderRegion',rawData);}
-else if(typeof salesData!=='undefined'){salesData=data;_tryCall('renderAll',salesData);_tryCall('refreshAll',undefined);_tryCall('applyFilters',undefined);}
-else if(typeof RAW!=='undefined'){RAW=data;_tryCall('renderAll',RAW);_tryCall('refreshAll',undefined);_tryCall('applyFilters',undefined);}
-else location.reload();
-    st.textContent='Updated '+new Date().toLocaleTimeString();
-  }catch(e){st.textContent='Error: '+e.message}
-  finally{btn.disabled=false}
-}
-</script>'''
-                    html = html.replace("<body>", "<body>\n" + refresh_style, 1)
-                    html = html.replace("const salesData", "var salesData")
-                    html = html.replace("const RAW", "var RAW")
-                    html = html.replace("const rawData", "var rawData")
-                from fastapi.responses import HTMLResponse
+                html = _maybe_inject_dashboard_refresh_bar(
+                    fp.read_text(encoding="utf-8"), fp
+                )
                 return HTMLResponse(html)
             return FileResponse(str(fp))
 
+    # 2. Default chat-session output directory.
     workspace_mgr = get_workspace_manager()
-
-    # Try default dir first (chat sessions)
     file_path = workspace_mgr.base_dir / "default" / filename
     if file_path.exists() and file_path.is_file():
         return FileResponse(str(file_path))
 
-    # Fallback: search all output directories
+    # 3. Fallback: search all output directories.
     found = list(workspace_mgr.base_dir.rglob(filename))
     if found:
         return FileResponse(str(found[0]))
 
-    from fastapi.responses import JSONResponse
     return JSONResponse(status_code=404, content={"error": f"File not found: {filename}"})
 
 @app.get("/")
