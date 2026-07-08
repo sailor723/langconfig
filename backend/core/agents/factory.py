@@ -21,7 +21,6 @@ This replaces the disconnected flow where agents were created without their conf
 
 import logging
 from typing import Dict, Any, List, Optional, Tuple, Sequence
-from datetime import datetime
 from langchain_core.tools import BaseTool, StructuredTool, tool as tool_decorator
 from langchain_core.language_models import BaseLanguageModel, BaseChatModel
 # IMPORTANT: LangChain v1.0 - Using unified create_agent from langchain.agents
@@ -322,112 +321,16 @@ class AgentFactory:
         # Replaces the generic 'task' tool with one that embeds sub-agents via _create_task_tool
         subagents_config = agent_config.get("subagents", [])
         if subagents_config and isinstance(subagents_config, list) and len(subagents_config) > 0:
-
-            # Find and remove the generic task tool
-            task_tool_idx = None
-            for i, t in enumerate(tools):
-                if hasattr(t, 'name') and t.name == 'task':
-                    task_tool_idx = i
-                    break
-
-            if task_tool_idx is not None:
-                tools.pop(task_tool_idx)
-                logger.info("Removed generic 'task' tool — replacing with sub-agent-embedding task tool")
-
-            # Build tool name → tool mapping for sub-agent tool assignment
-            tools_by_name = {t.name: t for t in tools if hasattr(t, 'name')}
-
-            # Create sub-agents with isolated contexts (notebook pattern)
-            sub_agents = {}
-            for sa_config in subagents_config:
-                sa_name = sa_config.get("name", "subagent")
-                sa_prompt = sa_config.get("system_prompt", "") or sa_config.get("prompt", "")
-                sa_tool_names = sa_config.get("tools", [])
-                sa_model_name = sa_config.get("model")
-
-                # Resolve sub-agent model (inherit parent if not specified)
-                if sa_model_name:
-                    try:
-                        sa_llm = await AgentFactory._create_llm_with_fallbacks(
-                            primary_model=sa_model_name,
-                            fallback_models=[],
-                            temperature=temperature,
-                            max_tokens=max_tokens,
-                            config=agent_config
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to create LLM for sub-agent '{sa_name}': {e}. Inheriting parent.")
-                        sa_llm = llm
-                else:
-                    sa_llm = llm
-
-                # Sub-agent inherits parent tools + gets its own specific tools
-                # Build from parent's tool set first (inheritance), then add sub-agent-specific tools
-                sa_tools = list(tools)  # Inherit all parent tools
-                parent_tool_names = {t.name for t in sa_tools if hasattr(t, 'name')}
-                # Load additional tools that sub-agent needs but parent doesn't have
-                extra_tool_names = [n for n in sa_tool_names if n not in parent_tool_names]
-                if extra_tool_names:
-                    try:
-                        from core.agents.tool_loader import ToolLoader
-                        extra_tools = await ToolLoader.load_native(
-                            extra_tool_names,
-                            workspace_context=workspace_context,
-                            agent_context=agent_context
-                        )
-                        # Deduplicate by name (extra tools override parent tools of same name)
-                        existing_names = {t.name for t in sa_tools if hasattr(t, 'name')}
-                        for t in extra_tools:
-                            if hasattr(t, 'name') and t.name not in existing_names:
-                                sa_tools.append(t)
-                    except Exception as e:
-                        logger.warning(f"Failed to load extra tools for sub-agent '{sa_name}': {e}")
-                logger.info(f"Sub-agent '{sa_name}': {len(sa_tools)} tools (inherited {len(tools)} parent + {len(extra_tool_names)} extra)")
-
-                sub_agents[sa_name] = create_agent(
-                    sa_llm,
-                    system_prompt=sa_prompt,
-                    tools=sa_tools,
-                    state_schema=DeepAgentState,
-                )
-
-            # Build description of available sub-agents for the tool description
-            task_description = "Delegate a task to a specialized sub-agent with isolated context. Available agents for delegation are:\n" + "\n".join(
-                f"- {sa['name']}: {sa.get('description', 'No description')}"
-                for sa in subagents_config
+            await AgentFactory._build_subagent_task_tool(
+                tools=tools,
+                subagents_config=subagents_config,
+                agent_config=agent_config,
+                parent_llm=llm,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                workspace_context=workspace_context,
+                agent_context=agent_context,
             )
-
-            @tool_decorator(description=task_description)
-            async def task(
-                description: str,
-                subagent_type: str,
-                state: Annotated[dict, InjectedState],
-                tool_call_id: Annotated[str, InjectedToolCallId],
-            ):
-                """Delegate a task to a specialized sub-agent with isolated context."""
-                if subagent_type not in sub_agents:
-                    allowed = [f"`{k}`" for k in sub_agents.keys()]
-                    return f"Error: unknown subagent type '{subagent_type}'. Allowed: {allowed}"
-
-                sub_agent = sub_agents[subagent_type]
-                # Isolated context with only the task description
-                state["messages"] = [{"role": "user", "content": description}]
-                result = await sub_agent.ainvoke(state)
-
-                # Return results to parent agent via Command state update
-                return Command(
-                    update={
-                        "files": result.get("files", {}),
-                        "messages": [
-                            ToolMessage(
-                                result["messages"][-1].content, tool_call_id=tool_call_id
-                            )
-                        ],
-                    }
-                )
-
-            tools.append(task)
-            logger.info(f"Created custom task tool with {len(sub_agents)} sub-agents: {list(sub_agents.keys())}")
 
         # 4. Check if structured output is enabled (v1.1: Support ProviderStrategy)
         structured_output_strategy = None
@@ -469,114 +372,27 @@ class AgentFactory:
                     agent_config["_output_schema"] = output_schema
                     agent_config["_structured_output_strategy"] = structured_output_strategy
 
-        # 4b. Check if dynamic model routing is enabled (NEW: LangChain v1-alpha feature)
-        # NOTE: Dynamic model routing requires middleware-based model selection
-        # Not yet supported in create_agent v1.0. Plan to implement via custom middleware.
+        # NOTE: We do NOT bind tools here manually anymore.
+        # create_agent handles tool binding internally, supporting parallel execution
+        # based on the 'tools' argument passed to it.
+        llm_or_model = llm
 
-            # Use dynamic model selection (60-80% cost savings!)
-            from core.models.selector import ModelSelector
-
-            logger.info(f"🚀 Dynamic model routing ENABLED for task {task_id} - optimizing for cost/quality")
-
-            model_selector_instance = ModelSelector(
-                primary_model=model_name,
-                temperature=temperature,
-                enable_routing=True,
-                agent_config=agent_config,
-                use_model_router_config=True  # Integrate with existing ModelRouter
-            )
-
-            # Create selector function that returns model with bound tools
-            model_fn = model_selector_instance.create_selector(tools)
-
-            # Store selector instance for stats tracking
-            agent_config["_model_selector"] = model_selector_instance
-
-            llm_or_model = model_fn  # This will be a Callable, not a BaseChatModel
-
-        else:
-            # Traditional static model
-            llm_or_model = llm
-
-            # NOTE: We do NOT bind tools here manually anymore.
-            # create_agent handles tool binding internally, supporting parallel execution
-            # based on the 'tools' argument passed to it.
-
-        # 5. Augment Context with Pattern Recommendations (Learning Integration)
-        augmented_context = await AgentFactory._augment_context_with_patterns(
+        # 5+6+6a+6b. Build the system prompt and wire up middleware/hooks.
+        system_prompt_str, middleware, hook_manager = await AgentFactory._build_prompt_and_middleware(
             context=context,
+            base_system_prompt=base_system_prompt,
+            enable_memory=enable_memory,
+            long_term_memory=long_term_memory,
+            tools=tools,
             agent_config=agent_config,
+            agent_context=agent_context,
+            middleware_list=middleware_list,
+            enable_default_middleware=enable_default_middleware,
+            model_hooks=model_hooks,
+            enable_default_hooks=enable_default_hooks,
             project_id=project_id,
-            task_id=task_id
+            task_id=task_id,
         )
-
-        # 6. Create Optimized Prompt (Context Engineering)
-        # v1.0: create_agent accepts string for system_prompt, handles messages automatically
-        system_prompt_str = AgentFactory._construct_system_prompt_string(
-            base_system_prompt,
-            augmented_context,
-            enable_memory,
-            long_term_memory,
-            tools,
-            custom_guardrails=agent_config.get("guardrails")  # Per-agent customization
-        )
-
-        # 6a. Inject Skills (if enabled)
-        enable_skills = agent_config.get("enable_skills", False)
-        if enable_skills:
-            explicit_skills = agent_config.get("skills", [])
-            enable_skill_auto_detection = agent_config.get("enable_skill_auto_detection", True)
-
-            # Build context for skill matching
-            skill_context = {
-                "query": context,  # Original user query/context
-                "project_type": agent_config.get("project_type"),
-                "tags": agent_config.get("skill_tags", []),
-            }
-
-            # Add file path from agent_context if available
-            if agent_context:
-                skill_context["file_path"] = agent_context.get("file_path")
-                skill_context["file_content"] = agent_context.get("file_content")
-
-            system_prompt_str = await AgentFactory._inject_skills(
-                system_prompt=system_prompt_str,
-                context=skill_context,
-                explicit_skills=explicit_skills,
-                enable_auto_detection=enable_skill_auto_detection,
-                max_skills=agent_config.get("max_skills", 3)
-            )
-
-        # 6b. Setup Middleware (v1.0) or Hooks (legacy)
-        middleware = None
-        hook_manager = None
-
-        # v1.0: Prefer middleware over hooks
-        if middleware_list or enable_default_middleware:
-            middleware = await AgentFactory._setup_middleware(
-                middleware_list=middleware_list,
-                enable_default_middleware=enable_default_middleware,
-                project_id=project_id,
-                task_id=task_id
-            )
-
-            # Store middleware in config
-            if middleware:
-                agent_config["_middleware"] = middleware
-
-        # Backward compatibility: Support legacy hooks if no middleware
-        elif model_hooks or enable_default_hooks:
-            logger.info("Using legacy hooks (consider migrating to middleware)")
-            hook_manager = await AgentFactory._setup_model_hooks(
-                model_hooks=model_hooks,
-                enable_default_hooks=enable_default_hooks,
-                project_id=project_id,
-                task_id=task_id
-            )
-
-            # Store hook manager in config for later access
-            if hook_manager:
-                agent_config["_hook_manager"] = hook_manager
 
         # 6c. Setup Callbacks (e.g., LangFuse Tracing, Token Tracking)
         callbacks = AgentFactory._configure_callbacks(
@@ -762,6 +578,101 @@ You have been equipped with the following tools: {', '.join(tool_names)}
         return system_message_content
 
     @staticmethod
+    async def _build_prompt_and_middleware(
+        context: str,
+        base_system_prompt: str,
+        enable_memory: bool,
+        long_term_memory: bool,
+        tools: List[BaseTool],
+        agent_config: Dict[str, Any],
+        agent_context: Optional[Dict[str, Any]],
+        middleware_list: List[Any],
+        enable_default_middleware: bool,
+        model_hooks: List[Any],
+        enable_default_hooks: bool,
+        project_id: int,
+        task_id: int,
+    ) -> Tuple[str, Optional[List], Optional[Any]]:
+        """
+        Compose the final system prompt and resolve middleware (or legacy hooks).
+
+        Steps performed (matches the original inline order in ``create_agent``):
+          1. Augment context with learned pattern recommendations.
+          2. Build the system prompt string (guardrails + role + context).
+          3. Optionally inject skills into the system prompt.
+          4. Set up middleware (v1.0) or fall back to legacy hooks.
+
+        Mutates ``agent_config`` to stash ``_middleware`` or ``_hook_manager``
+        for downstream consumers.
+        """
+        # 1. Augment context with pattern recommendations.
+        augmented_context = await AgentFactory._augment_context_with_patterns(
+            context=context,
+            agent_config=agent_config,
+            project_id=project_id,
+            task_id=task_id,
+        )
+
+        # 2. Build the base system prompt (guardrails + role + context).
+        system_prompt_str = AgentFactory._construct_system_prompt_string(
+            base_system_prompt,
+            augmented_context,
+            enable_memory,
+            long_term_memory,
+            tools,
+            custom_guardrails=agent_config.get("guardrails"),
+        )
+
+        # 3. Optionally inject skills.
+        if agent_config.get("enable_skills", False):
+            explicit_skills = agent_config.get("skills", [])
+            enable_skill_auto_detection = agent_config.get(
+                "enable_skill_auto_detection", True
+            )
+            skill_context = {
+                "query": context,
+                "project_type": agent_config.get("project_type"),
+                "tags": agent_config.get("skill_tags", []),
+            }
+            if agent_context:
+                skill_context["file_path"] = agent_context.get("file_path")
+                skill_context["file_content"] = agent_context.get("file_content")
+
+            system_prompt_str = await AgentFactory._inject_skills(
+                system_prompt=system_prompt_str,
+                context=skill_context,
+                explicit_skills=explicit_skills,
+                enable_auto_detection=enable_skill_auto_detection,
+                max_skills=agent_config.get("max_skills", 3),
+            )
+
+        # 4. Set up middleware (v1.0) or fall back to legacy hooks.
+        middleware: Optional[List] = None
+        hook_manager: Optional[Any] = None
+
+        if middleware_list or enable_default_middleware:
+            middleware = await AgentFactory._setup_middleware(
+                middleware_list=middleware_list,
+                enable_default_middleware=enable_default_middleware,
+                project_id=project_id,
+                task_id=task_id,
+            )
+            if middleware:
+                agent_config["_middleware"] = middleware
+        elif model_hooks or enable_default_hooks:
+            logger.info("Using legacy hooks (consider migrating to middleware)")
+            hook_manager = await AgentFactory._setup_model_hooks(
+                model_hooks=model_hooks,
+                enable_default_hooks=enable_default_hooks,
+                project_id=project_id,
+                task_id=task_id,
+            )
+            if hook_manager:
+                agent_config["_hook_manager"] = hook_manager
+
+        return system_prompt_str, middleware, hook_manager
+
+    @staticmethod
     async def _inject_skills(
         system_prompt: str,
         context: Dict[str, Any],
@@ -866,20 +777,136 @@ You have been equipped with the following tools: {', '.join(tool_names)}
         return "\n".join(parts)
 
     @staticmethod
-    @staticmethod
-    def _construct_prompt_template(base_prompt: str, context: str, enable_memory: bool, long_term_memory: bool = False):
+    async def _build_subagent_task_tool(
+        tools: List[BaseTool],
+        subagents_config: List[Dict[str, Any]],
+        agent_config: Dict[str, Any],
+        parent_llm: BaseChatModel,
+        temperature: float,
+        max_tokens: Optional[int],
+        workspace_context: Dict[str, Any],
+        agent_context: Optional[Dict[str, Any]],
+    ) -> None:
         """
-        DEPRECATED: Use _construct_system_prompt_string for v1.0 agents.
+        Build a sub-agent-embedding 'task' tool and append it to ``tools``.
 
-        Kept for backward compatibility with legacy code that needs ChatPromptTemplate.
+        Each sub-agent in ``subagents_config`` gets its own isolated context,
+        inheriting the parent's tools and (optionally) loading additional
+        tools by name. The returned 'task' tool delegates to the matching
+        sub-agent and propagates its output back to the parent via Command.
+
+        Mutates ``tools`` in place: removes any existing generic 'task' tool
+        and appends the new delegation tool.
         """
-        from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-        system_message_content = AgentFactory._construct_system_prompt_string(base_prompt, context, enable_memory, long_term_memory)
-        prompt_template = ChatPromptTemplate.from_messages([
-            ("system", system_message_content),
-            MessagesPlaceholder(variable_name="messages"),
-        ])
-        return prompt_template
+        # Remove the generic 'task' tool from the parent's toolset so it can
+        # be replaced with our sub-agent-embedding version.
+        for i, t in enumerate(tools):
+            if hasattr(t, 'name') and t.name == 'task':
+                tools.pop(i)
+                logger.info("Removed generic 'task' tool — replacing with sub-agent-embedding task tool")
+                break
+
+        # Build sub-agents with isolated contexts (notebook 2.4_full_agent pattern).
+        sub_agents: Dict[str, CompiledStateGraph] = {}
+        for sa_config in subagents_config:
+            sa_name = sa_config.get("name", "subagent")
+            sa_prompt = sa_config.get("system_prompt", "") or sa_config.get("prompt", "")
+            sa_tool_names = sa_config.get("tools", [])
+            sa_model_name = sa_config.get("model")
+
+            # Sub-agent inherits the parent's LLM unless it specifies its own.
+            if sa_model_name:
+                try:
+                    sa_llm = await AgentFactory._create_llm_with_fallbacks(
+                        primary_model=sa_model_name,
+                        fallback_models=[],
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        config=agent_config
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to create LLM for sub-agent '{sa_name}': {e}. Inheriting parent."
+                    )
+                    sa_llm = parent_llm
+            else:
+                sa_llm = parent_llm
+
+            # Sub-agent inherits the parent's tool set, then loads any extra
+            # tools it needs but the parent doesn't have.
+            sa_tools = list(tools)
+            parent_tool_names = {t.name for t in sa_tools if hasattr(t, 'name')}
+            extra_tool_names = [n for n in sa_tool_names if n not in parent_tool_names]
+            if extra_tool_names:
+                try:
+                    from core.agents.tool_loader import ToolLoader
+                    extra_tools = await ToolLoader.load_native(
+                        extra_tool_names,
+                        workspace_context=workspace_context,
+                        agent_context=agent_context
+                    )
+                    existing_names = {t.name for t in sa_tools if hasattr(t, 'name')}
+                    for t in extra_tools:
+                        if hasattr(t, 'name') and t.name not in existing_names:
+                            sa_tools.append(t)
+                except Exception as e:
+                    logger.warning(f"Failed to load extra tools for sub-agent '{sa_name}': {e}")
+            logger.info(
+                f"Sub-agent '{sa_name}': {len(sa_tools)} tools "
+                f"(inherited {len(tools)} parent + {len(extra_tool_names)} extra)"
+            )
+
+            sub_agents[sa_name] = create_agent(
+                sa_llm,
+                system_prompt=sa_prompt,
+                tools=sa_tools,
+                state_schema=DeepAgentState,
+            )
+
+        # Build the 'task' tool description listing all available sub-agents.
+        task_description = (
+            "Delegate a task to a specialized sub-agent with isolated context. "
+            "Available agents for delegation are:\n"
+            + "\n".join(
+                f"- {sa['name']}: {sa.get('description', 'No description')}"
+                for sa in subagents_config
+            )
+        )
+
+        @tool_decorator(description=task_description)
+        async def task(
+            description: str,
+            subagent_type: str,
+            state: Annotated[dict, InjectedState],
+            tool_call_id: Annotated[str, InjectedToolCallId],
+        ):
+            """Delegate a task to a specialized sub-agent with isolated context."""
+            if subagent_type not in sub_agents:
+                allowed = [f"`{k}`" for k in sub_agents.keys()]
+                return f"Error: unknown subagent type '{subagent_type}'. Allowed: {allowed}"
+
+            sub_agent = sub_agents[subagent_type]
+            # Isolated context with only the task description.
+            state["messages"] = [{"role": "user", "content": description}]
+            result = await sub_agent.ainvoke(state)
+
+            # Return results to parent agent via Command state update.
+            return Command(
+                update={
+                    "files": result.get("files", {}),
+                    "messages": [
+                        ToolMessage(
+                            result["messages"][-1].content, tool_call_id=tool_call_id
+                        )
+                    ],
+                }
+            )
+
+        tools.append(task)
+        logger.info(
+            f"Created custom task tool with {len(sub_agents)} sub-agents: "
+            f"{list(sub_agents.keys())}"
+        )
 
     @staticmethod
     async def _augment_context_with_patterns(
@@ -1008,7 +1035,6 @@ You have been equipped with the following tools: {', '.join(tool_names)}
             return context
 
     @staticmethod
-    @staticmethod
     async def _create_llm_with_fallbacks(
         primary_model: str,
         fallback_models: Sequence[str],
@@ -1019,7 +1045,6 @@ You have been equipped with the following tools: {', '.join(tool_names)}
         """Delegate to shared create_llm_with_fallbacks from services.agent_utils."""
         return await create_llm_with_fallbacks(primary_model, fallback_models, temperature, max_tokens, config)
 
-    @staticmethod
     @staticmethod
     async def _create_llm(
         model_name: str,

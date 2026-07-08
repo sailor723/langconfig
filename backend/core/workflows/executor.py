@@ -37,22 +37,6 @@ try:
 except ImportError:
     INTERRUPT_AVAILABLE = False
 
-# Task 3: Node-level caching support
-from core.workflows.cache_config import build_cache_policy, get_cache_backend
-
-# Task 10: Official multi-agent pattern wrappers
-from core.workflows.official_patterns import (
-    build_supervisor_graph, build_swarm_graph,
-    SUPERVISOR_AVAILABLE, SWARM_AVAILABLE,
-)
-
-# Task 14: interrupt()-based HITL for APPROVAL_NODE
-try:
-    from langgraph.types import interrupt, Command
-    INTERRUPT_AVAILABLE = True
-except ImportError:
-    INTERRUPT_AVAILABLE = False
-
 from models.workflow import WorkflowProfile
 from core.workflows.events.emitter import create_execution_callback_handler
 from core.workflows.events.progress import clear_execution_context
