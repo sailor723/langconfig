@@ -269,11 +269,49 @@ async def main():
             if hasattr(chunk, "content") and chunk.content:
                 print(chunk.content, end="", flush=True)
 
+    # Post-process: ensure the dashboard HTML has a LangConfig Dashboard Meta
+    # comment block. The Analysis panel's chat panel uses this block to
+    # discover the source DB and the skills the agent should load for chat.
+    # If the LLM followed SKILL.md, the block is already there; if not, we
+    # inject it now so the meta-driven chat works.
+    import re as _re_meta
+    html_path = Path(HTML_FILE)
+    if html_path.exists():
+        txt = html_path.read_text(encoding="utf-8")
+        if "LangConfig Dashboard Meta" not in txt:
+            from datetime import datetime as _dt_meta
+            meta_block = (
+                "<!--\n"
+                f"  Generated: {_dt_meta.now().strftime('%Y-%m-%d')} "
+                "| Source: erp_data.db | Mode: static-embed\n"
+                "  LangConfig Dashboard Meta\n"
+                f"  db: {DB_PATH}\n"
+                "  skills: sql-analyst,erp-analyst\n"
+                "-->"
+            )
+            # Insert right after the existing `<!-- Generated: ... -->` line
+            # or right after <head> if none exists.
+            patched = _re_meta.sub(
+                r"(<!--\s*[Gg]enerated:[^\n]*-->)",
+                lambda m: m.group(1) + "\n" + meta_block,
+                txt,
+                count=1,
+            )
+            if patched == txt:
+                patched = _re_meta.sub(
+                    r"(<head>\s*\n)",
+                    r"\1" + meta_block + "\n",
+                    txt,
+                    count=1,
+                )
+            if patched != txt:
+                html_path.write_text(patched, encoding="utf-8")
+                print(f"📝 Injected LangConfig Dashboard Meta block")
+
     # Verify outputs. Mode B embeds everything into one HTML file under
     # data/analysis_dbs, so Chart is optional and no separate erp_data.json
     # is expected (data is inlined into the HTML).
     png_path = Path(CHART_FILE)
-    html_path = Path(HTML_FILE)
     if html_path.exists():
         print(f"\n\n✅ Dashboard created: {html_path} ({html_path.stat().st_size} bytes)")
         print(f"   👉 Open in the LangConfig Analysis panel → charts render.")

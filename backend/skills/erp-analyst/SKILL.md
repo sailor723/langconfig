@@ -856,6 +856,57 @@ SELECT MIN(arr), MAX(arr), AVG(arr), SUM(arr) FROM customers;
 | ❌ 跳过时间范围检查 | 不知道 latest_period 就会写过期 SQL |
 | ❌ 不看维度表就开始分析产品/客户 | 不知道数据量会画失败的图 |
 
+### 1.7.1 ⛔ 硬规则（不遵守 = 必然崩，必须强制在写代码前过一遍）
+
+> **写 HTML/JS 前重读一遍这几条。打破任意一条 → 必现 TypeError。**
+
+1. **字段名一律用 snake_case**，且**完全覆盖下表**。camelCase 看着习惯但业务逻辑用的是 `gross_margin / current_ratio / debt_to_equity / revenue_yoy_pct / ebitda_margin / net_margin / ocf_to_rev / ocf / fcf / icf / ccc / dio / dso / dpo` 等。**JSON 字段名 ↔ 代码读取**必须**字符对字符一致**。
+   - 错误示范：`{"grossMargin":60.0}` + `latest.gross_margin.toFixed(1)` → TypeError
+   - 正确示范：`{"gross_margin":60.0}` + `latest.gross_margin.toFixed(1)`
+   - 想省事可以两条都嵌（`gross_margin` + `gross_margin_alias` 等），但**主名必须是 snake_case**。
+2. **任何 `latest.X.toFixed(...)`、`first.X.toFixed(...)`、`r.X.toFixed(...)`，X 的可能取值必须全部用 `?.toFixed(N) ?? "-"` 包一层**：
+   - 错误：`latest.current_ratio.toFixed(2)` → 当 current_ratio 缺失时崩
+   - 正确：`(latest.current_ratio ?? 0).toFixed(2)` 或 `latest.current_ratio?.toFixed(2) ?? "-"`
+   - `renderChartInsights` / `renderKpis` / `renderOverallInsight` / `renderTabs` / `setStatusNow` 里**所有** `.toFixed(...)` 调用都必须满足这一条。
+3. **删 fetch() 时必须把 `.then(...).catch(...)` 整段删干净**。常见错误：
+   - 留 `function fetchAndRender() { /* Mode B removed */ } .then(...).catch(...)` — .then 成了全局语句 → SyntaxError。
+   - 留 `bootstrap() { /* old */ } fetch(...) .then(...)` — fetch 成为野语句 → `ReferenceError: fetch is not defined`。
+   - **删 fetch 后必须用 `grep -E '\.then\(|\.catch\(|^\s*fetch\('` 验收一遍**，确认零残留。
+4. **数据嵌入只能走 `var EMBEDDED_DATA = {...}`**，**不要重复声明** `var salesData = []`、`var products = []` 等占位空数组。每个变量只能在最外层声明一次。
+5. **写完 HTML 后必须跑一遍下方 §3.2 的端到端验收脚本**（`python3 << 'EOF' … `）。验收脚本现在会强制检查：
+   - `EMBEDDED_DATA` 存在且为合法 JSON
+   - **§3.2 step-4 schema-shape 检查**（snake_case 主导 + 不孤立 camelCase + 不锁具体字段名）
+   - **不含 `fetch(DATA_API`**（现在是禁止的）
+   - **不含 `latest.X.toFixed(` 这种裸调用**（必须配 `?.`）
+   - **不含 `.then(` 或 `.catch(` 残留**
+   写脚本前若不确信 → 不要写 HTML。先在 §3.2 把验收脚本跑通（拿上次的失败案例试），再开始写。
+
+#### 1.7.2 📋 salesData 字段示例（**仅供参考，不是白名单**）
+
+下面这些字段是 *本 skill（ERP 财务）会用到的* 字段名集合。**不同 skill、不同数据集会换字段**——所以下面只是**示例**，**不是必填清单**。
+
+**字段命名规范（唯一硬性约束）**：
+1. **snake_case** 永远优先（`gross_margin` ✅ 而不是 `grossMargin` ❌）。
+2. 如果图省事可以 snake + camel 双轨（`{"gross_margin": 60, "grossMargin": 60}`），但**主名必须是 snake_case**。
+3. 业务逻辑里**怎么读，JSON 里就必须有同名字段**。自己读 `latest.current_ratio.toFixed(2)` 又给 JSON 写 `currentRatio` —— 必崩。
+
+**字段示例**（仅供 ERP 财务场景参考）：
+
+| 字段（示例） | 类型 | 出现位置 |
+|---|---|---|
+| `period` | string `"YYYY-Q#"` | 图表 x 轴 |
+| `revenue`, `gross_profit`, `ebitda`, `net_income` | number | c1 趋势 / KPI 卡 |
+| `gross_margin`, `ebitda_margin`, `net_margin` | number % | c2 趋势 / KPI |
+| `roe`, `roa` | number % | c3 |
+| `current_ratio`, `debt_to_equity`, `quick_ratio` | number | KPI 卡 |
+| `ocf`, `fcf`, `icf`, `ocf_to_rev` | number | ins6 |
+| `dio`, `dso`, `dpo`, `ccc` | number days | ins5 |
+| `cash`, `ar`, `inventory`, `opex`, `cogs` | number | 占比分析 |
+| `short_term_debt`, `long_term_debt`, `total_assets`, `total_liabilities`, `working_capital`, `eps` | number | D/E 计算 |
+| `interest_coverage`, `yoy_revenue_pct` | number | KPI / ins1 |
+
+> ⚠️ 这些字段是**示例，不是验收清单**。**schema 形状（snake_case 主名 + 业务引用与 JSON 字段名一致 + 不出现 undefined）在 §3.2 的自动化验收脚本中检查**。如果你写的是另一个 skill（比如 `sales-analyst` 的 `leadsData`），字段名完全不同——只要满足「snake_case + 同名引用」即可。
+
 ### 1.8 完整 checklist
 
 进入第二步之前确认：
@@ -991,7 +1042,34 @@ SELECT MIN(arr), MAX(arr), AVG(arr), SUM(arr) FROM customers;
    assert 'bootstrap()' in html, "❌ 缺 bootstrap() 调用"
    assert 'selectedPeriod' in html, "❌ 缺 cross-filter 状态"
    assert 'plotly_click' in html or 'attachClickFilter' in html, "❌ 缺图表 click 监听"
-   # Mode B 不应该用 fetch：
+
+   # ─────── ⛔ 硬规则（1.7.1）的自动化验收 ───────
+   # (a) 裸 .toFixed( 调用（没有任何 null 防护）：一行崩三行黑屏
+   bare_tofixed = re.findall(
+       r'(?<![\?\.\(])\b\w+\.([a-z_]+)\.toFixed\(',
+       html,
+   )
+   # 任何非空匹配都报错（因为允许 ?./??  包裹）
+   for m in re.finditer(r'(?P<expr>[a-zA-Z_][\w\.]*)\.toFixed\(\s*\d+\s*\)', html):
+       # 允许 ?.toFixed 或 (… ?? …).toFixed；这里只抓「紧贴在某个字段访问后的 .toFixed」
+       # 简单启发：如果整行只有「xxx.toFixed(2)」而前面没有 ?. / ?? 视为裸调用
+       line = html[max(0, m.start()-80):m.start()]
+       if '?.' not in line and '??' not in line and '==' not in line and '||' not in line and '+' not in line:
+           raise SystemExit(f"❌ 疑似裸 .toFixed: `{m.group('expr')}.toFixed(...)` — 请用 `?.toFixed(N) ?? \"-\"` 或 `(x ?? 0).toFixed(N)` 保护")
+
+   # (b) .then / .catch / 独立 fetch( 残留（删 fetch() 时容易留尾巴）
+   if re.search(r'\bfetch\([^D]', html):
+       raise SystemExit("❌ 检测到裸 fetch() 调用——Mode B 不允许。如需动态数据请改用 EMBEDDED_DATA。")
+   if re.search(r'\.then\(', html) or re.search(r'\.catch\(', html):
+       # 允许 Promise 链式调用其他场景，但此处只有 fetch 会用到，保守起见禁用
+       if 'fetch(' in html:
+           raise SystemExit("❌ 检测到 .then(/.catch( 残留——删 fetch() 时一并删掉它们。")
+   # (c) 重复声明占位空数组
+   decl = re.findall(r'var\s+(salesData|products|tiers|regions|company)\s*=\s*\[\s*\]', html)
+   if len(decl) > 1:
+       raise SystemExit(f"❌ 重复声明占位空数组 {decl}——只能在 EMBEDDED_DATA 那里赋值一次。")
+   # ────────────────────────────────────────────
+
    assert 'fetch(DATA_API' not in html, "❌ Mode B 不应包含 fetch(DATA_API)（使用 Mode A 才允许）"
    # 数据 JSON 合法（嵌入的 EMBEDDED_DATA 段）
    m = re.search(r'var EMBEDDED_DATA\s*=\s*(\{[^\n]+\})\s*;', html)
@@ -1002,27 +1080,50 @@ SELECT MIN(arr), MAX(arr), AVG(arr), SUM(arr) FROM customers;
            print('✅ EMBEDDED_DATA 合法 JSON, fields:', sorted(d.keys()))
        except Exception as e:
            raise SystemExit(f'❌ EMBEDDED_DATA 不是合法 JSON: {e}')
-   print("✅ HTML 关键元素齐全")
+   print("✅ HTML 关键元素齐全 + 1.7.1 硬规则全部通过")
    EOF
    ```
 
-4. **数据契约字段对齐**
+4. **数据契约 schema-shape 自检（**不锁定具体字段名，只检查命名规范**）**
    ```bash
    python3 << 'EOF'
-   import json
+   import json, re, sys
    d = json.load(open('erp_data.json'))
-   # 必须包含这些键
-   required = ['company', 'salesData', 'products', 'tiers', 'regions', 'overall']
-   for k in required:
-       assert k in d, f"❌ JSON 缺字段: {k}"
-   # salesData 每条记录必须有这些字段
-   required_fields = ['period', 'revenue', 'grossProfit', 'ebitda', 'netIncome',
-                      'grossMargin', 'ebitdaMargin', 'roe', 'currentRatio', 'debtToEquity']
-   for f in required_fields:
-       assert f in d['salesData'][0], f"❌ salesData 缺字段: {f}"
-   print(f"✅ JSON 契约完整 ({len(d['salesData'])} 季度 × {len(d['salesData'][0])} 字段)")
+   # 顶层必须有这几个标准桶（其它按需）
+   for k in ('company', 'salesData', 'products'):
+       assert k in d, f"❌ JSON 缺顶层字段: {k}"
+
+   if not d.get('salesData'):
+       sys.exit("❌ salesData 为空")
+
+   sample = d['salesData'][0]
+   keys = list(sample.keys())
+   n = len(keys)
+
+   # (a) 至少 N 个有数据字段——避免「只塞个 period」的瘦 JSON（heuristic，N 调小可放宽）
+   if n < 6:
+       sys.exit(f"❌ salesData 字段过少 ({n})：业务逻辑通常需要至少 6 个数值字段")
+
+   # (b) 命名规范检查：camelCase 不能单独出现
+   only_camel = []
+   for k in keys:
+       if re.match(r'^[a-z]+(?:[A-Z][a-z]+)+$', k):           # camelCase 形状
+           snake = re.sub(r'([A-Z])', r'_\1', k).lower()        # grossMargin → gross_margin
+           if snake not in sample:
+               only_camel.append(f"{k} (对应的 {snake} 不存在)")
+   if only_camel:
+       sys.exit(f"❌ 发现只有 camelCase 拼写: {only_camel}。业务逻辑读 snake_case，camelCase 不被识别。")
+
+   # (c) 命名规范检查：snake_case 字段数应 ≥ camelCase 字段数（强制 snake 为主名）
+   snake_count = sum(1 for k in keys if re.match(r'^[a-z][a-z0-9_]+$', k))
+   if snake_count < n / 2:
+       sys.exit(f"❌ snake_case 字段 < 半数 ({snake_count}/{n})，请用 snake_case 作主名")
+
+   print(f"✅ JSON 契约 schema-shape 通过 ({len(d['salesData'])} 季度 × {n} 字段, snake {snake_count}/{n})")
    EOF
    ```
+
+   > 这一步只查**schema 形状**（snake_case 主导 + 不出现孤立 camelCase + 字段数量合理），**不锁定具体字段名**。其它 skill（`sales-analyst` 的 leadsData、`marketing-analyst` 的 campaigns 等）只要满足命名规范就能通过。
 
 5. **JS 语法检查**（最容易藏 bug 的地方）
    ```bash
@@ -1245,9 +1346,10 @@ bootstrap();
   "company":  {"id": 1, "name": "AcmeCloud Inc.", "currency": "USD", "tax_rate": 0.21},
   "salesData":[
     {"period":"2025-Q4","year":2025,"quarter":"Q4","revenue":24000000,
-     "ebitda":6300000,"netIncome":4431900,"roe":20.5,"grossMargin":60.0,
-     "ebitdaMargin":26.3,"netMargin":18.5,"currentRatio":3.95,
-     "debtToEquity":0.39,"ocf":4900000,"equity":22850000,"liabilities":8950000,
+     "ebitda":6300000,"net_income":4431900,"roe":20.5,"gross_profit":14400000,
+     "gross_margin":60.0,"ebitda_margin":26.3,"net_margin":18.5,
+     "current_ratio":3.95,"debt_to_equity":0.39,"ocf":4900000,
+     "equity":22850000,"liabilities":8950000,
      "cash":12500000,"totalAssets":31800000,"accountsReceivable":8400000,
      "inventory":1800000,"accountsPayable":4400000,"shortTermDebt":1350000,
      "longTermDebt":3100000,"retainedEarnings":9300000,"workingCapital":16950000,
@@ -1284,10 +1386,17 @@ bootstrap();
    </script>
    ```
    同时删除 `fetch(DATA_API)`，让 `bootstrap()` 直接 `renderAll(salesData)`。
-4. **必须**在文件顶部加一行注释说明生成时间与 Mode：
+4. **必须**在文件顶部加 LangConfig Dashboard Meta 注释块（**这是 Analysis 面板用来加载对应 Skill 与 DB 的元数据，缺它会导致 Chat 面板不可用**）：
    ```html
-   <!-- Generated: <ISO date> | Source: erp_data.db | Mode: static-embed -->
+   <!--
+     Generated: <ISO date> | Source: erp_data.db | Mode: static-embed
+     LangConfig Dashboard Meta
+     db: /abs/path/to/erp_data.db
+     skills: sql-analyst,erp-analyst
+   -->
    ```
+   - `db:` 必须是 SQLite 数据库的**绝对路径**（同目录下的 `erp_data.db`）。
+   - `skills:` 是逗号分隔的 deepagent skill 名列表，必须与本次生成用到的 skill 一致（一般即 `sql-analyst,erp-analyst`）。
 5. **可选**：把同一份 JSON 也写入 `erp_data.json` 供后端参考（不是必需的）。
 
 并在 HTML 标题后加横幅：
