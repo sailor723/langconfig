@@ -134,7 +134,9 @@ async def main():
     backend = FilesystemBackend(root_dir=str(skills_root))
     checkpointer = MemorySaver()
 
-    # Load BOTH skills: generic sql-analyst + ERP-specific erp-analyst
+    # Load ONLY the erp-analyst skill. Its SKILL.md already covers the
+    # ERP schema, 10-chart structure, KPI definitions, business logic,
+    # and UI conventions — that is the single source of truth.
     agent = create_deep_agent(
         model=model,
         tools=[sqlite_execute, python_execute],
@@ -151,7 +153,7 @@ async def main():
             "Reply in Chinese."
         ),
         backend=backend,
-        skills=["sql-analyst", "erp-analyst"],
+        skills=["erp-analyst"],
         checkpointer=checkpointer,
     )
 
@@ -269,7 +271,8 @@ async def main():
             if hasattr(chunk, "content") and chunk.content:
                 print(chunk.content, end="", flush=True)
 
-    # Post-process: ensure the dashboard HTML has a LangConfig Dashboard Meta
+    # 
+    # -process: ensure the dashboard HTML has a LangConfig Dashboard Meta
     # comment block. The Analysis panel's chat panel uses this block to
     # discover the source DB and the skills the agent should load for chat.
     # If the LLM followed SKILL.md, the block is already there; if not, we
@@ -286,7 +289,7 @@ async def main():
                 "| Source: erp_data.db | Mode: static-embed\n"
                 "  LangConfig Dashboard Meta\n"
                 f"  db: {DB_PATH}\n"
-                "  skills: sql-analyst,erp-analyst\n"
+                "  skills: erp-analyst\n"
                 "-->"
             )
             # Insert right after the existing `<!-- Generated: ... -->` line
