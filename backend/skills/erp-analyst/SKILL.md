@@ -979,17 +979,29 @@ SELECT MIN(arr), MAX(arr), AVG(arr), SUM(arr) FROM customers;
    ```
    必须看到 JSON 内容（`{"company": ...`）
 
-3. **HTML 里 fetch 能拿到正确数据**（用 node 或 python 模拟浏览器解析 JS）
+3. **HTML 关键 JS 元素齐全**（用 python 模拟浏览器解析 JS）
    ```bash
    python3 << 'EOF'
    import re, json
    html = open('erp_dashboard.html').read()
-   # 检查关键 JS 元素是否存在
-   assert 'fetch(DATA_API' in html, "❌ 没有 fetch() 调用"
-   assert 'function refreshData' in html, "❌ 缺刷新按钮函数"
+   # Mode B（默认）：数据嵌入 + var EMBEDDED_DATA + 直接渲染
+   assert 'EMBEDDED_DATA' in html, "❌ Mode B 必须含 var EMBEDDED_DATA = {...}"
+   assert 'function renderC1' in html or 'renderC1(' in html, "❌ 缺 renderC1 渲染函数"
+   assert 'function renderAll' in html or 'renderAll(' in html, "❌ 缺 renderAll 函数"
+   assert 'bootstrap()' in html, "❌ 缺 bootstrap() 调用"
    assert 'selectedPeriod' in html, "❌ 缺 cross-filter 状态"
-   assert 'overall-insight' in html or 'overallInsight' in html, "❌ 缺总体洞察区块"
-   assert 'attachClickFilter' in html or 'plotly_click' in html, "❌ 缺图表 click 监听"
+   assert 'plotly_click' in html or 'attachClickFilter' in html, "❌ 缺图表 click 监听"
+   # Mode B 不应该用 fetch：
+   assert 'fetch(DATA_API' not in html, "❌ Mode B 不应包含 fetch(DATA_API)（使用 Mode A 才允许）"
+   # 数据 JSON 合法（嵌入的 EMBEDDED_DATA 段）
+   m = re.search(r'var EMBEDDED_DATA\s*=\s*(\{[^\n]+\})\s*;', html)
+   if m:
+       try:
+           d = json.loads(m.group(1))
+           assert 'salesData' in d and 'products' in d, "❌ EMBEDDED_DATA 缺关键字段"
+           print('✅ EMBEDDED_DATA 合法 JSON, fields:', sorted(d.keys()))
+       except Exception as e:
+           raise SystemExit(f'❌ EMBEDDED_DATA 不是合法 JSON: {e}')
    print("✅ HTML 关键元素齐全")
    EOF
    ```
@@ -1078,16 +1090,15 @@ SELECT MIN(arr), MAX(arr), AVG(arr), SUM(arr) FROM customers;
 
 **agent 必做清单（不能跳）：**
 
-- [ ] erp_data.json 存在且 `python3 -c "json.load"` 通过
-- [ ] HTML 用 `fetch(DATA_API)` 加载数据（不是静态嵌入）
-- [ ] HTML 含 `refreshData()` 函数 + 按钮 `onclick="refreshData()"`
+- [ ] HTML 含 `var EMBEDDED_DATA = {salesData, products, tiers, regions, annual, ebitdaBridge, overall};`（数据嵌入）
+- [ ] HTML 含 `bootstrap()` 调用 + `renderAll(salesData)` 直调（**不**应该用 `fetch(DATA_API)`）
+- [ ] HTML 不应包含 `function refreshData`（Mode B 无刷新按钮概念；想刷新就重新跑 agent）
 - [ ] HTML 含 `selectedPeriod` 全局变量 + c1–c6 注册 `plotly_click` 监听
 - [ ] HTML 含 `overall-insight` 区块（顶部）
 - [ ] `node --check` 通过所有 `<script>` 块的语法
 - [ ] 10 个 `Plotly.react/newPlot` 调用
-- [ ] HTML 不含 `var salesData = [...]` 字面量（静态嵌入的反模式）
 - [ ] **布局**：图表在上、洞察在下；每行 2 个图表（共 5 行），不是左右并排
-- [ ] **刷新按钮**：refreshData 内部含 fetch + loading/成功/失败三态 + 清空 selectedPeriod
+- [ ] Plotly 通过 `<script src="http://localhost:8765/static/plotly.min.js">` 引用（项目后端自带 4.8MB 完整包），不要引外部 CDN
 
 **为什么必须做：**
 
@@ -1192,14 +1203,14 @@ JSON 数据契约里追加一个 `overall` 字段（agent 算好后写入 JSON�
 
 HTML 必须从运行时数据源读取，**禁止把数据快照硬编码进文件**。两个模式选一个：
 
-- **模式 A — Live Fetch（默认）**：通过 `fetch()` 调后端 API。数据更新后刷新即看到最新，但需后端服务可用。
-- **模式 B — Static Embed（仅作回退）**：把 JSON 内嵌到 `<script>`。生成单文件即可独立打开，但打开时数据已是旧快照。
+- **模式 B — Static Embed（默认）**：把 JSON 数据直接内嵌到 `<script>`，单文件打开即可渲染，不依赖后端服务或外网 CDN（详见「模式 B 模式说明」）。LangConfig 项目内嵌了完整的 plotly.min.js，可直接通过 `http://localhost:8765/static/plotly.min.js` 引用。
+- **模式 A — Live Fetch（仅用于需要实时刷新 DB 数据的场景）**：通过 `fetch()` 调后端 API。优点：DB 更新后刷新即看到最新；缺点：依赖后端服务可用。
 
-DB 内的数据可被多次重新加载时选 A；只想交付一个独立 HTML 文件时选 B。
+默认用 B；只有当用户明确要求「数据要在 DB 更新后即时刷新」或「模式 A」时才用 A。
 
-#### 模式 A：Live Fetch（默认 / 必选）
+#### 模式 B：Static Embed（默认 / 推荐）
 
-在 HTML 中使用 `fetch()` 调用后端 API，加载完成后再渲染。优点：DB 任何更新打开页面就看到最新；缺点：依赖后端服务可用。
+直接把 JSON 数据用 `var EMBEDDED_DATA = {salesData:…, products:…, tiers:…, regions:…, annual:…, ebitdaBridge:…, overall:…};` 嵌入到 HTML 的 `<script>` 块中。生成一个 HTML 文件即可独立打开和分发，无需后端服务、无需 CDN。
 
 ```html
 <script>
@@ -1211,21 +1222,17 @@ var regions = [];
 var company = {};
 
 function bootstrap() {
-  fetch(DATA_API)
-    .then(function(r){ return r.json(); })
-    .then(function(payload){
-      company   = payload.company;
-      salesData = payload.salesData;     // 12 季度
-      products  = payload.products;
-      tiers     = payload.tiers;
-      regions   = payload.regions;
-      renderAll(salesData);
-    })
-    .catch(function(err){
-      document.body.insertAdjacentHTML("afterbegin",
-        '<div class="err-banner">⚠ 数据加载失败：'+err.message+
-        '（确认后端服务 '+DATA_API+' 可用）</div>');
-    });
+  try {
+    company   = EMBEDDED_DATA.company   || {};
+    salesData = EMBEDDED_DATA.salesData || [];
+    products  = EMBEDDED_DATA.products  || [];
+    tiers     = EMBEDDED_DATA.tiers     || [];
+    regions   = EMBEDDED_DATA.regions   || [];
+    renderAll(salesData);
+  } catch (err) {
+    document.body.insertAdjacentHTML("afterbegin",
+      '<div class="err-banner">⚠ 数据加载失败：'+err.message+'</div>');
+  }
 }
 bootstrap();
 </script>
@@ -1255,33 +1262,33 @@ bootstrap();
 }
 ```
 
-**生成方式（agent 该怎么做）：**
+#### 模式 A：Live Fetch — Agent 生成步骤（仅在用户明确要求 Mode A 时使用）
+
+> 默认走模式 B。只有当用户**明确**说"我要 Mode A"、"实时刷新数据库"、或"数据要从后端 API 拉"时才用。
 
 1. `sqlite_execute` 跑一次 `UNION` / `JOIN` 查询把 IS + BS + CF 三个表的所有度量一次性拉出来（见下方 Few-shot 中的「预聚合查询」）。
 2. 用 `python_execute` 算 ROE/ROA/EBITDA/D/E 等派生指标并拼成完整 JSON。
 3. **不要把这个 JSON 嵌入 HTML 文件**。把 JSON 写入 `erp_data.json`（同目录下），让后端在 `/api/erp/dashboard-data` 路径返回。
-4. HTML 文件只引用 `DATA_API` 常量。
+4. HTML 文件只引用 `DATA_API` 常量，并在 `bootstrap()` 里 `fetch(DATA_API)`。
 
-#### 模式 B：Static Embed（仅作回退 / 不推荐）
+#### 模式 B：Static Embed — Agent 生成步骤（默认模式）
 
-⚠️ **仅当后端服务不可用、或用户明确要求"独立 HTML 文件"时才使用此模式**。默认必须用模式 A。
+完整的「Agent 该如何生成 Mode B 仪表盘」步骤：
 
-直接把 JSON 内嵌进 `<script>`，删除 fetch 调用：
-
-```html
-<script>
-var company = {...};
-var salesData = [...];
-// ... 同上，但 bootstrap() 函数替换为：
-renderAll(salesData);
-</script>
-```
-
-**必须**在文件顶部加一行注释说明生成时间：
-
-```html
-<!-- Generated: 2026-07-08 | Source: erp_data.db | Mode: static-embed -->
-```
+1. `sqlite_execute` 跑一次 `UNION` / `JOIN` 查询把 IS + BS + CF 三个表的所有度量一次性拉出来（见下方 Few-shot 中的「预聚合查询」）。
+2. 用 `python_execute` 算 ROE/ROA/EBITDA/D/E 等派生指标并拼成完整 JSON（结构对照上面的契约）。
+3. **把这份 JSON 嵌入 HTML** 作为：
+   ```html
+   <script>
+   var EMBEDDED_DATA = {"company": ..., "salesData": [...], "products": [...], ...};
+   </script>
+   ```
+   同时删除 `fetch(DATA_API)`，让 `bootstrap()` 直接 `renderAll(salesData)`。
+4. **必须**在文件顶部加一行注释说明生成时间与 Mode：
+   ```html
+   <!-- Generated: <ISO date> | Source: erp_data.db | Mode: static-embed -->
+   ```
+5. **可选**：把同一份 JSON 也写入 `erp_data.json` 供后端参考（不是必需的）。
 
 并在 HTML 标题后加横幅：
 
@@ -1479,10 +1486,11 @@ Python 端再加 `year`/`quarter` 拆分后输出 JSON。
 <head>
   <meta charset="utf-8">
   <title>█ 仪表盘标题 █</title>
+  <!-- Mode B (Static Embed) 默认：使用本机 LangConfig 后端托管的 Plotly。
+       FastAPI 在 backend/main.py 把 backend/static 挂到 /static，并已附完整 4.8MB plotly.min.js。
+       当通过 LangConfig Analysis 面板访问时 iframe 直接走 :8765，<script src=> 同源解析、可工作。
+       直接 file:// 打开时这条 <script> 会加载不到（跨源 file→http），此时需要把整段 Plotly 源内联到 <script>...</script>（见本 SKILL.md 「模式 B」章节）。 -->
   <script src="http://localhost:8765/static/plotly.min.js"></script>
-  <!-- LangConfig 自托管 Plotly。FastAPI 在 main.py 把 backend/static 挂到 /static。
-       直接使用相对路径 /static/plotly.min.js 也可，但用绝对 URL 更明确、对外分享时也更稳。
-       离线 / file:// 场景请改用「模式 B：内嵌数据 + Plotly 内联脚本」（见本 SKILL.md「模式 B」章节）。 -->
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; padding: 24px; font-family: Arial, sans-serif; background: #f5f7fa; }
@@ -1523,14 +1531,15 @@ Python 端再加 `year`/`quarter` 拆分后输出 JSON。
   <div class="insight-box"><h3>关键洞察</h3><ul id="insightList"></ul></div>
 
   <script>
-    // === 模式 A: Live Fetch（推荐）===
-    var DATA_API = "/api/erp/dashboard-data";
-    var salesData = [];   // 季度时间序列
-    var allData   = [];   // 同 salesData 别名，保留以兼容旧代码
-    var products  = [];
-    var tiers     = [];
-    var regions   = [];
-    var company   = {};
+    // === 模式 B: Static Embed（默认 / 推荐）===
+    // 数据已经直接嵌入到下方的 var EMBEDDED_DATA = {...}。勿使用 fetch。
+    var DATA_API = null;
+    var salesData = EMBEDDED_DATA.salesData || [];   // 季度时间序列
+    var allData   = salesData;                       // 别名，兼容旧代码
+    var products  = EMBEDDED_DATA.products  || [];
+    var tiers     = EMBEDDED_DATA.tiers     || [];
+    var regions   = EMBEDDED_DATA.regions   || [];
+    var company   = EMBEDDED_DATA.company   || {};
 
     function getFiltered() {
       var f = document.getElementById("filterPeriod").value;
@@ -1627,8 +1636,8 @@ Python 端再加 `year`/`quarter` 拆分后输出 JSON。
 **重要提示**：HTML 模板中的 █ 标记是让你替换的。你需要：
 - 根据实际数据决定筛选栏有几个下拉框
 - 根据数据维度决定图表数量和类型
-- **不要把数据嵌入 HTML**（除非走模式 B Static Embed 回退）。让 HTML 在 `bootstrap()` 里 `fetch(DATA_API)` 拿最新数据。
-- 把 JSON 写到 `erp_data.json`，后端在 `/api/erp/dashboard-data` 路径返回。
+- **Mode B（默认）必须把数据嵌入到 HTML**（`var EMBEDDED_DATA = {...}` + `bootstrap()` 直接读取）。
+- Mode A 时才写 `erp_data.json` 与 `fetch(DATA_API)` 后端调用。
 - 每次筛选变化时用 `Plotly.react()` 重新渲染图表
 - 时间序列图表（c1–c6）必须注册点击 + 双击监听器做交叉筛选
 
