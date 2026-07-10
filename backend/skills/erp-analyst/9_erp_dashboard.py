@@ -28,15 +28,17 @@ from langchain_core.tools import tool
 
 DB_PATH = str(_THIS_DIR / "erp_data.db")
 CHART_FILE = str(_THIS_DIR / "erp_best_insight.png")
-SKILL_PATH = str(_THIS_DIR / "SKILL.md")
-# Persist outputs in the project-wide dashboard directory so they live next to
-# other analysis artifacts and can be served from LangConfig's Analysis panel.
-# Use a timestamp suffix so re-runs don't clobber prior generations.
+# Persist the dashboard under data/analysis_dbs (timestamped) so the
+# LangConfig Analysis panel can serve it. Falls back to the skill folder if
+# the project-relative path can't be resolved (e.g. running outside the repo).
 from datetime import datetime as _dt
-_OUTPUT_DIR = _BACKEND.parent / "data" / "analysis_dbs"
-_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-_RUN_STAMP = _dt.now().strftime("%Y%m%d_%H%M%S")
-HTML_FILE = str(_OUTPUT_DIR / f"erp_dashboard_{_RUN_STAMP}.html")
+_PROJECT_ROOT = _BACKEND.parent
+_OUTPUT_DIR = _PROJECT_ROOT / "data" / "analysis_dbs"
+try:
+    _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    HTML_FILE = str(_OUTPUT_DIR / f"erp_dashboard_{_dt.now().strftime('%Y%m%d_%H%M%S')}.html")
+except OSError:
+    HTML_FILE = str(_THIS_DIR / "erp_dashboard.html")
 
 
 @tool
@@ -140,7 +142,7 @@ async def main():
             "You are a financial analyst expert. "
             "Use sqlite_execute to query the ERP database. "
             "Use python_execute to generate charts and visualizations. "
-            f"Read {SKILL_PATH}  for the full spec — "
+            "Read SKILL.md from the erp-analyst skill for the full spec — "
             "schema, business logic, filter rules, 10-chart structure, "
             "KPI_SPEC/CHART_SPEC, dynamic dashboard pipeline, cross-chart filter, "
             "and insight format. SKILL.md is the single source of truth — follow it exactly. "
@@ -155,10 +157,10 @@ async def main():
 
     # Query 1: LLM chooses best chart to show ERP insight
     query1 = (
-        f"ERP database is at {DB_PATH}. SKILL.MD is at {SKILL_PATH}. "
+        f"ERP database is at {DB_PATH}. "
         "Step 1: Read the erp-analyst SKILL.md and summarize your understanding of it "
         "(schema, metrics, 10-chart structure, dynamic pipeline, theme, insights). "
-        "Step 2: Then follow steps in skill.md to generate full dashbaord."
+
     )
     print(f"\n>>> User query 1 (LLM chooses chart type):\n    {query1}")
     print(f"\n{'='*65}")
@@ -189,20 +191,17 @@ async def main():
             if hasattr(chunk, "content") and chunk.content:
                 print(chunk.content, end="", flush=True)
 
-    # Query 2: Generate interactive HTML dashboard per SKILL.md.
-    # The absolute save path is handed to the LLM explicitly so the file lands
-    # in the LangConfig Analysis panel's expected directory
-    # (data/analysis_dbs/), not the skill folder.
+    # Query 2: Generate interactive HTML dashboard per SKILL.md
     query2 = (
         f"ERP database is at {DB_PATH}. "
         "Generate the interactive HTML financial dashboard per the erp-analyst SKILL.md. "
-        "Use **Mode B (Static Embed)** — inline the JSON data directly into the HTML as "
-        "`var EMBEDDED = {...}` and call `renderAll(salesData)` directly in bootstrap. "
-        "Do NOT use fetch(); do NOT create erp_data.json as a separate file. "
-        f"**Save the HTML file at exactly this absolute path** (create parent dir if "
-        f"needed, overwrite if it exists):\n`{HTML_FILE}`\n"
-        "After saving, print the absolute path you wrote to so the caller can verify. "
-        "The HTML must be self-contained and work when opened via file:// (no HTTP server)."
+        "Use **Mode B (Static Embed)** by default — inline the JSON data "
+        "directly into the HTML as `var EMBEDDED_DATA = {...}` and call "
+        "`renderAll(salesData)` directly in bootstrap. Do NOT use fetch(); "
+        "do NOT create erp_data.json as a separate file. "
+        f"Save the dashboard to exactly this absolute path (create parent dir if "
+        f"needed, overwrite if it exists): `{HTML_FILE}`. "
+        "After saving, print the absolute path you wrote to."
     )
 
     # Query 3: Simple follow-up question to verify the dashboard works
@@ -270,21 +269,18 @@ async def main():
             if hasattr(chunk, "content") and chunk.content:
                 print(chunk.content, end="", flush=True)
 
-    # Verify outputs. Mode B embeds everything into one HTML under
-    # data/analysis_dbs, so Chart is an optional side-product and there is no
-    # separate erp_data.json (data is inlined into the HTML).
+    # Verify outputs. Mode B embeds everything into one HTML file under
+    # data/analysis_dbs, so Chart is optional and no separate erp_data.json
+    # is expected (data is inlined into the HTML).
+    png_path = Path(CHART_FILE)
     html_path = Path(HTML_FILE)
-    print()
     if html_path.exists():
-        print(f"✅ Dashboard created: {html_path} ({html_path.stat().st_size} bytes)")
+        print(f"\n\n✅ Dashboard created: {html_path} ({html_path.stat().st_size} bytes)")
         print(f"   👉 Open in the LangConfig Analysis panel → charts render.")
     else:
-        print(f"❌ Dashboard not found at {html_path} (check agent output above)")
-
-    png_path = Path(CHART_FILE)
+        print(f"\n\n❌ Dashboard not found at {html_path} (check agent output above)")
     if png_path.exists():
         print(f"✅ Chart created: {png_path} ({png_path.stat().st_size} bytes)")
-
     print("\n✅ Step 9 complete!")
 
 
