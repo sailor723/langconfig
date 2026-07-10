@@ -1188,9 +1188,14 @@ JSON 数据契约里追加一个 `overall` 字段（agent 算好后写入 JSON�
 
 ---
 
-### 数据获取模式（必选其一）
+### 数据获取模式
 
-生成的 HTML 必须支持**实时拉取最新数据**，而不是把数据快照硬编码进文件。两个模式选一个，**默认用模式 A**（禁止只生成静态快照）。
+HTML 必须从运行时数据源读取，**禁止把数据快照硬编码进文件**。两个模式选一个：
+
+- **模式 A — Live Fetch（默认）**：通过 `fetch()` 调后端 API。数据更新后刷新即看到最新，但需后端服务可用。
+- **模式 B — Static Embed（仅作回退）**：把 JSON 内嵌到 `<script>`。生成单文件即可独立打开，但打开时数据已是旧快照。
+
+DB 内的数据可被多次重新加载时选 A；只想交付一个独立 HTML 文件时选 B。
 
 #### 模式 A：Live Fetch（默认 / 必选）
 
@@ -1474,7 +1479,10 @@ Python 端再加 `year`/`quarter` 拆分后输出 JSON。
 <head>
   <meta charset="utf-8">
   <title>█ 仪表盘标题 █</title>
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="http://localhost:8765/static/plotly.min.js"></script>
+  <!-- LangConfig 自托管 Plotly。FastAPI 在 main.py 把 backend/static 挂到 /static。
+       直接使用相对路径 /static/plotly.min.js 也可，但用绝对 URL 更明确、对外分享时也更稳。
+       离线 / file:// 场景请改用「模式 B：内嵌数据 + Plotly 内联脚本」（见本 SKILL.md「模式 B」章节）。 -->
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; padding: 24px; font-family: Arial, sans-serif; background: #f5f7fa; }

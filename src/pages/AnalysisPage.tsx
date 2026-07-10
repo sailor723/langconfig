@@ -4,19 +4,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Monitor, Loader2, FileText, ExternalLink, Upload, Table, FileCode, MessageSquare, Send, X, GripVertical, Copy, Download, Check } from 'lucide-react';
 import apiClient from '../lib/api-client';
-import { useTheme } from '../lib/themes';
+import { API_BASE_URL } from '../config/api';
 
 interface DashboardFile { filename: string; path: string; size_bytes: number; created: string; }
 interface ChatMessage { role: 'user' | 'assistant'; content: string; }
 
 export default function AnalysisPage() {
-  const { theme } = useTheme();
   const [dashboards, setDashboards] = useState<DashboardFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeDashboard, setActiveDashboard] = useState<DashboardFile | null>(null);
-  const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [loadingContent, setLoadingContent] = useState(false);
-  const rawHtmlRef = useRef<string | null>(null);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [skillFile, setSkillFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -45,46 +42,17 @@ export default function AnalysisPage() {
   };
   useEffect(() => { loadDashboards(); }, []);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
-  useEffect(() => {
-    if (rawHtmlRef.current) {
-      setHtmlContent(applyDashTheme(rawHtmlRef.current, theme.name));
-    }
-  }, [theme.name]);
 
   const openDashboard = async (d: DashboardFile) => {
     setActiveDashboard(d); setLoadingContent(true); setRawData(null); setActivePanel(null); setChatMessages([]); setDbPath('');
     chatSessId.current = Date.now();
     try {
-      const r = await apiClient.get(d.path, { responseType: 'text' }); setHtmlContent(r.data as string);
       const hash = d.filename.replace(/^dashboard_|\.html$/g, '');
       try { const dr = await apiClient.get(`/api/analysis/data/${hash}`); setRawData(dr.data || null); } catch { setRawData(null); }
       try { const mr = await apiClient.get(`/api/analysis/meta/${hash}`); const m = mr.data; setSkillContent(m?.skill_content || ''); setDbPath(m?.db_path || ''); } catch { setSkillContent(''); setDbPath(''); }
-    } catch { setHtmlContent(null); } finally { setLoadingContent(false); }
+    } finally { setLoadingContent(false); }
   };
-  const closeDashboard = () => { setActiveDashboard(null); setHtmlContent(null); setRawData(null); setActivePanel(null); setChatMessages([]); };
-  const applyDashTheme = (html: string, _themeName: string): string => {
-    // Inject a dark theme style block regardless of current theme
-    const darkCSS = `<style id="__dashTheme">
-*{transition: background-color 0.3s ease, color 0.3s ease!important}
-body{background:#1a1a1a!important;color:#d0d0d0!important}
-.header,.header *{background:#1e1e1e!important;color:#d0d0d0!important}
-.container{background:#1a1a1a!important}
-.section{background:#242424!important;box-shadow:none!important}
-.section-title{color:#e0e0e0!important}
-.section-desc,.kpi-label,.kpi-sub{color:#999!important}
-.kpi-card{background:#242424!important;border-left-color:#555!important}
-.kpi-value{color:#e0e0e0!important}
-.insights{background:#242424!important;border-left-color:#555!important}
-.insights li,.insights strong{color:#d0d0d0!important}
-</style>
-<div style="background:#ff0;color:#000;padding:2px 8px;font-size:11px;text-align:center">DARK MODE INJECTED</div>`;
-    html = html.replace('<body>', '<body>' + darkCSS);
-    // Regex replacements for Plotly
-    html = html.replace(/plot_bgcolor:\s*['"][^'"]*['"]/g, "plot_bgcolor:'#1a1a1a'");
-    html = html.replace(/paper_bgcolor:\s*['"][^'"]*['"]/g, "paper_bgcolor:'#242424'");
-    html = html.replace(/gridcolor:\s*['"][^'"]*['"]/g, "gridcolor:'#333'");
-    return html;
-  };
+  const closeDashboard = () => { setActiveDashboard(null); setRawData(null); setActivePanel(null); setChatMessages([]); };
 
 
   const handleUpload = async () => {
@@ -227,7 +195,14 @@ body{background:#1a1a1a!important;color:#d0d0d0!important}
   };
 
   // ── Detail view ──
-  if (activeDashboard && htmlContent) {
+  // Load dashboard via <iframe src=...> pointed directly at the FastAPI server
+  // (NOT through the Vite /api proxy). The Vite proxy only handles /api/*, so
+  // a proxied iframe would keep its document origin at :1420 and any relative
+  // asset (notably /static/plotly.min.js rewritten by main.py) would resolve
+  // against Vite and 404 / fall back to index.html. Pointing the iframe at
+  // :8765 instead makes the inner document origin :8765, so /static/... hits
+  // the real Plotly bundle.
+  if (activeDashboard) {
     return (
       <div className="flex-1 flex flex-col h-full">
         {uploadBar()}
@@ -246,7 +221,7 @@ body{background:#1a1a1a!important;color:#d0d0d0!important}
         </div>
         <div className="flex-1 flex overflow-hidden">
           <div className="flex-1 overflow-hidden" style={{ minWidth: '45%' }}>
-            <iframe ref={iframeRef} srcDoc={htmlContent} className="w-full h-full border-0" title={activeDashboard.filename} sandbox="allow-scripts allow-same-origin" />
+            <iframe ref={iframeRef} src={`${API_BASE_URL}${activeDashboard.path}`} className="w-full h-full border-0" title={activeDashboard.filename} sandbox="allow-scripts allow-same-origin" />
           </div>
           {activePanel && (
             <>
@@ -312,8 +287,8 @@ body{background:#1a1a1a!important;color:#d0d0d0!important}
       <div className="px-6 pt-3 pb-2 border-b bg-white shrink-0">
         <div className="flex items-center gap-3 flex-wrap text-sm">
           <label className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg cursor-pointer hover:bg-blue-100">
-            <Upload className="w-4 h-4" />{csvFile ? csvFile.name : 'Select CSV...'}
-            <input type="file" accept=".csv" className="hidden" onChange={e => setCsvFile(e.target.files?.[0] || null)} />
+            <Upload className="w-4 h-4" />{csvFile ? csvFile.name : 'Select CSV / SQLite...'}
+            <input type="file" accept=".csv,.db,.sqlite,.sqlite3" className="hidden" onChange={e => setCsvFile(e.target.files?.[0] || null)} />
           </label>
           <label className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg cursor-pointer hover:bg-gray-100">
             {skillFile ? skillFile.name : '+ Skill .md'}
