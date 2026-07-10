@@ -50,6 +50,10 @@ class AnalysisChatRequest(BaseModel):
     db_path: str
     message: str
     skill_content: Optional[str] = None
+    # The dashboard's skills list as parsed from the LangConfig Dashboard Meta
+    # block. The chat agent will load exactly these skills via deepagent.
+    # If omitted, falls back to ['sql-analyst'] for backward compatibility.
+    skills: list[str] = []
 
 
 class AnalysisChatResponse(BaseModel):
@@ -64,6 +68,12 @@ class DashboardFile(BaseModel):
     path: str
     size_bytes: int
     created: str
+    # ── Enriched from LangConfig Dashboard Meta block in the HTML ──
+    # (used by the Analysis panel's chat to know the source DB
+    # and the deepagent skills the agent should load).
+    db_path: Optional[str] = None
+    skills: list[str] = []
+    mode: Optional[str] = None   # 'static-embed' | 'live-fetch' | None
 
 
 ANALYSIS_DBS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "analysis_dbs"
@@ -73,19 +83,38 @@ ANALYSIS_DBS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data"
 
 @router.get("/dashboards", response_model=list[DashboardFile])
 async def list_dashboards():
-    """List generated dashboard HTML files."""
+    """List generated dashboard HTML files, enriched with meta from each HTML's
+    LangConfig Dashboard Meta comment block. The Analysis panel's chat
+    panel reads db_path and skills from this list to set up chat context.
+    """
+    import re
+    META_DB = re.compile(r"LangConfig Dashboard Meta\s*\n\s*db:\s*(\S+)")
+    META_SKILLS = re.compile(r"db:\s*\S+\s*\n\s*skills:\s*([^\n]+)")
+    META_MODE = re.compile(r"Mode:\s*(\S+)")
     if not ANALYSIS_DBS_DIR.exists():
         return []
     files = sorted(ANALYSIS_DBS_DIR.glob("*.html"), key=lambda f: f.stat().st_mtime, reverse=True)
-    return [
-        DashboardFile(
+    out = []
+    for f in files:
+        # Read only the first ~16KB to find the meta block (it's always in <head>)
+        try:
+            with open(f, "r", encoding="utf-8", errors="replace") as fh:
+                head = fh.read(16_384)
+        except Exception:
+            head = ""
+        db_m = META_DB.search(head)
+        sk_m = META_SKILLS.search(head)
+        mo_m = META_MODE.search(head)
+        out.append(DashboardFile(
             filename=f.name,
             path=f"/api/files/{f.name}",
             size_bytes=f.stat().st_size,
             created=str(f.stat().st_mtime),
-        )
-        for f in files
-    ]
+            db_path=db_m.group(1) if db_m else None,
+            skills=[s.strip() for s in sk_m.group(1).split(",")] if sk_m else [],
+            mode=mo_m.group(1) if mo_m else None,
+        ))
+    return out
 
 
 # ── Dashboard auto-generation helper ─────────────────────────────
@@ -303,6 +332,7 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
                 message=request.message,
                 session_id=request.session_id,
                 skill_content=request.skill_content,
+                skills=request.skills or ["sql-analyst"],
             ),
             timeout=120,  # 2 minute timeout
         )
@@ -319,8 +349,12 @@ async def _run_analysis_agent(
     message: str,
     session_id: str,
     skill_content: Optional[str] = None,
+    skills: list[str] = None,
 ) -> AnalysisChatResponse:
-    """Run the sql-analyst deep agent with the given message."""
+    """Run the deep agent with the given message and the dashboard's skills.
+    The `skills` list comes from the dashboard's LangConfig Dashboard Meta
+    block (parsed by the frontend from /api/analysis/dashboards). Falls back
+    to ['sql-analyst'] for backward compatibility when not provided."""
     import sqlite3
     from langchain_core.tools import tool
     from langchain_openai import ChatOpenAI
@@ -421,7 +455,7 @@ async def _run_analysis_agent(
             "Read the SKILL.md for guidance. Reply in Chinese.\n{f'\\n=== COMPANION SKILL ===\\n{skill_content}\\n=== END COMPANION SKILL ===\\n' if skill_content else ''}"
         ),
         backend=backend,
-        skills=["sql-analyst"],
+        skills=(skills if skills else ["sql-analyst"]),
         checkpointer=checkpointer,
     )
 
