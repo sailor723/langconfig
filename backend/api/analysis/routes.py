@@ -633,26 +633,130 @@ async def clear_chat_history(filename: str, db: Session = Depends(get_db)):
 
 @router.get("/data/{hash_id}")
 async def get_analysis_data(hash_id: str):
-    """Return live data from the SQLite source for a dashboard."""
+    """Return live data from the SQLite source for a dashboard.
+
+    Tries the SQLite source first; if the DB is unreachable, falls back
+    to the data embedded in the dashboard HTML (`var EMBEDDED_DATA = ...`).
+    The embedded data is what's actually rendered by the dashboard, so
+    showing it in the Data panel is still useful even when the DB
+    can't be re-queried.
+    """
+    from fastapi import HTTPException
     meta = _load_dashboard_meta(hash_id)
     if not meta:
-        from fastapi import HTTPException
         raise HTTPException(404, "Dashboard not found")
+
+    # (a) Try the live SQLite DB first
+    db_path = meta.get("db_path")
+    if db_path and meta.get("table_name"):
+        try:
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute(f'SELECT * FROM "{meta["table_name"]}"')
+            rows = cur.fetchall()
+            cols = [d[0] for d in cur.description] if cur.description else []
+            clean_cols = [c.replace(" ", "") for c in cols]
+            result = [{clean_cols[i]: v if v is not None else "" for i, v in enumerate(row)} for row in rows]
+            conn.close()
+            return result
+        except Exception as e:
+            logger.warning(f"SQLite read failed for {db_path}: {e}; falling back to embedded data")
+
+    # (b) Fall back to data embedded in the dashboard HTML
+    embedded = _extract_embedded_data_from_html(meta.get("filename") or hash_id)
+    if embedded:
+        # Pick the largest array — that's the row data the dashboard renders
+        best_key = max(
+            (k for k, v in embedded.items() if isinstance(v, list) and v and isinstance(v[0], dict)),
+            key=lambda k: len(embedded[k]),
+            default=None,
+        )
+        if best_key:
+            return embedded[best_key]
+
+    raise HTTPException(404, "No data found (no live DB, no embedded data)")
+
+
+def _extract_embedded_data_from_html(filename_or_hash: str) -> dict:
+    """Parse the `var EMBEDDED_DATA = {...}` block out of a dashboard HTML.
+
+    Used as a fallback for the Data panel when the source DB can't be
+    queried. Returns the parsed dict, or {} if not found.
+    """
+    import re
+    from pathlib import Path
+    dbs_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "analysis_dbs"
+    target = None
+    for f in dbs_dir.glob("*.html"):
+        if filename_or_hash and filename_or_hash in f.name:
+            target = f
+            break
+    if not target:
+        return {}
     try:
-        import sqlite3
-        conn = sqlite3.connect(meta["db_path"])
-        conn.row_factory = sqlite3.Row
-        cur = conn.execute(f'SELECT * FROM "{meta["table_name"]}"')
-        rows = cur.fetchall()
-                # Return as objects with clean keys (no spaces)
-        cols = [d[0] for d in cur.description] if cur.description else []
-        clean_cols = [c.replace(" ", "") for c in cols]
-        result = [{clean_cols[i]: v if v is not None else "" for i, v in enumerate(row)} for row in rows]
-        conn.close()
-        return result
-    except Exception as e:
-        from fastapi import HTTPException
-        raise HTTPException(500, str(e))
+        c = target.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return {}
+    m = re.search(r"var\s+EMBEDDED_DATA\s*=\s*(\{.*?\})\s*;", c, re.DOTALL)
+    if not m:
+        return {}
+    try:
+        import json
+        return json.loads(m.group(1))
+    except Exception:
+        return {}
+
+
+@router.get("/data-embedded/{filename}")
+async def get_embedded_data(filename: str):
+    """Return the `EMBEDDED_DATA` JSON object from a dashboard's HTML.
+
+    Used by the Data panel to show the actual rows the dashboard renders
+    (the most useful "data view" since it matches what the user sees in
+    the charts). Filename must be a basename, no path separators.
+    """
+    from fastapi import HTTPException
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(400, "Invalid filename")
+    data = _extract_embedded_data_from_html(filename)
+    if not data:
+        raise HTTPException(404, "No EMBEDDED_DATA in dashboard")
+    return data
+
+
+@router.get("/skill-content/{filename}")
+async def get_skill_content(filename: str):
+    """Return the SKILL.md content for the active dashboard.
+
+    Reads the dashboard's HTML meta block, finds the declared skills
+    (e.g. ['erp-analyst']), and concatenates each skill's SKILL.md.
+    Returns the concatenated markdown for the Skill panel.
+    """
+    from fastapi import HTTPException
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(400, "Invalid filename")
+    # Use _load_dashboard_meta's HTML-parse path by passing the filename
+    meta = _load_dashboard_meta(filename)
+    if not meta:
+        raise HTTPException(404, "Dashboard not found")
+    skills = meta.get("skills") or []
+    skills_root = Path(__file__).resolve().parent.parent.parent / "skills"
+    parts = []
+    for s in skills:
+        # Defend against traversal
+        if "/" in s or "\\" in s or ".." in s:
+            continue
+        skill_md = skills_root / s / "SKILL.md"
+        if skill_md.exists():
+            try:
+                txt = skill_md.read_text(encoding="utf-8")
+                parts.append(f"# Skill: {s}\n\n{txt}\n")
+            except Exception as e:
+                logger.warning(f"Failed to read {skill_md}: {e}")
+    if not parts:
+        raise HTTPException(404, "No skill content found")
+    return {"skills": skills, "content": "\n---\n\n".join(parts)}
 
 
 @router.get("/meta/{hash_id}")
@@ -666,16 +770,55 @@ async def get_analysis_meta(hash_id: str):
 
 
 def _load_dashboard_meta(hash_id: str) -> dict:
-    """Load dashboard metadata from data/analysis_dbs/."""
+    """Load dashboard metadata from data/analysis_dbs/.
+
+    Resolves a dashboard by either:
+      1. A sidecar .meta.json file (legacy: dashboard_{hash}.meta.json or
+         {hash}.meta.json), or
+      2. The dashboard HTML's `LangConfig Dashboard Meta` comment block
+         (self-describing — every dashboard we generate has one).
+    """
     import json
+    import re
     from pathlib import Path
     dbs_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "analysis_dbs"
-    # Try dashboard_{hash}.meta.json (hash-based naming)
-    meta_path = dbs_dir / f"dashboard_{hash_id}.meta.json"
-    if meta_path.exists():
-        return json.loads(meta_path.read_text(encoding="utf-8"))
-    # Try {stem}.meta.json (stem-based naming, e.g. sample_sales_data_dashboard)
-    meta_path = dbs_dir / f"{hash_id}.meta.json"
-    if meta_path.exists():
-        return json.loads(meta_path.read_text(encoding="utf-8"))
+
+    # (1) Try sidecar meta.json files
+    for stem in (f"dashboard_{hash_id}", hash_id):
+        meta_path = dbs_dir / f"{stem}.meta.json"
+        if meta_path.exists():
+            return json.loads(meta_path.read_text(encoding="utf-8"))
+
+    # (2) Parse the LangConfig Dashboard Meta block from the HTML itself.
+    #     Match the most recently-created dashboard whose filename contains
+    #     the hash_id as a substring, so it works for both legacy hash-based
+    #     URLs and the new filename-based URLs.
+    candidates = sorted(
+        dbs_dir.glob("*.html"),
+        key=lambda f: f.stat().st_mtime,
+        reverse=True,
+    )
+    for f in candidates:
+        if hash_id and hash_id not in f.name:
+            continue
+        try:
+            with open(f, "r", encoding="utf-8", errors="replace") as fh:
+                head = fh.read(8_192)
+        except Exception:
+            continue
+        if "LangConfig Dashboard Meta" not in head:
+            continue
+        db_m = re.search(r"LangConfig Dashboard Meta\s*\n\s*db:\s*(\S+)", head)
+        sk_m = re.search(r"db:\s*\S+\s*\n\s*skills:\s*([^\n]+)", head)
+        mo_m = re.search(r"Mode:\s*(\S+)", head)
+        if not db_m:
+            continue
+        return {
+            "filename": f.name,
+            "db_path": db_m.group(1),
+            "skills": [s.strip() for s in sk_m.group(1).split(",")] if sk_m else [],
+            "mode": mo_m.group(1) if mo_m else None,
+            "table_name": "",   # unknown without reading the embedded data
+            "source": "html_meta",
+        }
     return None
