@@ -45,6 +45,7 @@ from .presentation_job import PresentationJob, PresentationJobStatus, Presentati
 from .workflow_schedule import WorkflowSchedule, ScheduledRunLog, ScheduleRunStatus
 from .workflow_trigger import WorkflowTrigger, TriggerLog, TriggerType, TriggerStatus
 from .agent_memory import AgentMemory
+from .analysis_chat import AnalysisChatMessage
 
 __all__ = [
     "Project",
@@ -94,4 +95,5 @@ __all__ = [
     "TriggerType",
     "TriggerStatus",
     "AgentMemory",
+    "AnalysisChatMessage",
 ]

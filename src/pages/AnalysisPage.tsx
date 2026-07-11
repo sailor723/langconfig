@@ -3,11 +3,18 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Monitor, Loader2, FileText, ExternalLink, Upload, Table, FileCode, MessageSquare, Send, X, GripVertical, Copy, Download, Check } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import apiClient from '../lib/api-client';
 import { API_BASE_URL } from '../config/api';
 
 interface DashboardFile { filename: string; path: string; size_bytes: number; created: string; }
-interface ChatMessage { role: 'user' | 'assistant'; content: string; }
+interface ToolTraceStep { step: number; type: string; name: string; input?: string; output?: string; }
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  tool_trace?: ToolTraceStep[] | null;
+}
 
 export default function AnalysisPage() {
   const [dashboards, setDashboards] = useState<DashboardFile[]>([]);
@@ -27,6 +34,8 @@ export default function AnalysisPage() {
   const [chatLoading, setChatLoading] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState(-1);
   const [downloadedIdx, setDownloadedIdx] = useState(-1);
+  // Set of message indices whose tool-trace panel is expanded.
+  const [expandedTrace, setExpandedTrace] = useState<Set<number>>(new Set());
   const [panelWidth, setPanelWidth] = useState(() => Math.round(window.innerWidth * 0.5));
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -44,15 +53,39 @@ export default function AnalysisPage() {
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
 
   const openDashboard = async (d: DashboardFile) => {
-    setActiveDashboard(d); setLoadingContent(true); setRawData(null); setActivePanel(null); setChatMessages([]); setDbPath('');
+    setActiveDashboard(d); setLoadingContent(true); setRawData(null); setActivePanel(null); setChatMessages([]); setDbPath(''); setExpandedTrace(new Set());
     chatSessId.current = Date.now();
     try {
       const hash = d.filename.replace(/^dashboard_|\.html$/g, '');
       try { const dr = await apiClient.get(`/api/analysis/data/${hash}`); setRawData(dr.data || null); } catch { setRawData(null); }
       try { const mr = await apiClient.get(`/api/analysis/meta/${hash}`); const m = mr.data; setSkillContent(m?.skill_content || ''); setDbPath(m?.db_path || ''); } catch { setSkillContent(''); setDbPath(''); }
+      // Load prior chat history for this dashboard so reopening shows the
+      // full conversation. Failures are silent — empty chat is fine.
+      try {
+        const hr = await apiClient.get(`/api/analysis/chat-history/${encodeURIComponent(d.filename)}`);
+        const hist = (hr.data || []) as Array<{ role: string; content: string; tool_trace: ToolTraceStep[] | null }>;
+        setChatMessages(hist.map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          tool_trace: m.tool_trace,
+        })));
+      } catch { /* no history yet */ }
     } finally { setLoadingContent(false); }
   };
-  const closeDashboard = () => { setActiveDashboard(null); setRawData(null); setActivePanel(null); setChatMessages([]); };
+  const closeDashboard = () => { setActiveDashboard(null); setRawData(null); setActivePanel(null); setChatMessages([]); setExpandedTrace(new Set()); };
+
+  // Wipe chat history for the active dashboard (both server and UI).
+  const clearChatHistory = async () => {
+    if (!activeDashboard) return;
+    if (!confirm(`清除本仪表盘的全部聊天记录 (${activeDashboard.filename})？`)) return;
+    try {
+      await apiClient.delete(`/api/analysis/chat-history/${encodeURIComponent(activeDashboard.filename)}`);
+    } catch (e: any) {
+      // ignore; UI will clear anyway
+    }
+    setChatMessages([]);
+    setExpandedTrace(new Set());
+  };
 
 
   const handleUpload = async () => {
@@ -68,8 +101,20 @@ export default function AnalysisPage() {
     const msg = chatInput.trim(); setChatInput('');
     setChatMessages(p => [...p, { role: 'user', content: msg }]); setChatLoading(true);
     try {
-      const r = await apiClient.post('/api/analysis/chat', { session_id: `analysis-${chatSessId.current}`, db_path: dbPath, message: msg, skill_content: skillContent || undefined });
-      setChatMessages(p => [...p, { role: 'assistant', content: r.data.message || r.data.content || '(no response)' }]);
+      const r = await apiClient.post('/api/analysis/chat', {
+        session_id: `analysis-${chatSessId.current}`,
+        db_path: dbPath,
+        message: msg,
+        skill_content: skillContent || undefined,
+        // Pass the dashboard filename so the backend can persist this message
+        // and re-opening this dashboard will show the full conversation.
+        dashboard_filename: activeDashboard?.filename,
+      });
+      setChatMessages(p => [...p, {
+        role: 'assistant',
+        content: r.data.message || r.data.content || '(no response)',
+        tool_trace: r.data.tool_trace || null,
+      }]);
     } catch (e: any) { setChatMessages(p => [...p, { role: 'assistant', content: 'Error: ' + (e?.response?.data?.detail || e.message) }]); }
     finally { setChatLoading(false); }
   };
@@ -144,9 +189,74 @@ export default function AnalysisPage() {
           )}
           {chatMessages.map((m, i) => (
             <div key={i} className={"flex flex-col " + (m.role === 'user' ? 'items-end' : 'items-start')}>
-              <div className={"max-w-[85%] px-3 py-2 rounded-xl text-base " + (m.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800')}>
-                {m.content}
+              <div className={"max-w-[85%] px-3 py-2 rounded-xl text-base " + (m.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800 markdown-body')}>
+                {m.role === 'assistant' ? (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // Tighten spacing inside chat bubbles.
+                      p: ({node, ...props}) => <p className="my-1" {...props} />,
+                      h1: ({node, ...props}) => <h1 className="text-lg font-bold mt-2 mb-1" {...props} />,
+                      h2: ({node, ...props}) => <h2 className="text-base font-bold mt-2 mb-1" {...props} />,
+                      h3: ({node, ...props}) => <h3 className="text-sm font-bold mt-1 mb-0.5" {...props} />,
+                      ul: ({node, ...props}) => <ul className="list-disc pl-5 my-1" {...props} />,
+                      ol: ({node, ...props}) => <ol className="list-decimal pl-5 my-1" {...props} />,
+                      li: ({node, ...props}) => <li className="my-0.5" {...props} />,
+                      table: ({node, ...props}) => <table className="border-collapse border border-gray-300 my-1 text-xs" {...props} />,
+                      th: ({node, ...props}) => <th className="border border-gray-300 px-1.5 py-0.5 bg-gray-50" {...props} />,
+                      td: ({node, ...props}) => <td className="border border-gray-300 px-1.5 py-0.5" {...props} />,
+                      code: ({node, ...props}) => <code className="bg-gray-100 px-1 rounded text-[12px] font-mono" {...props} />,
+                      pre: ({node, ...props}) => <pre className="bg-gray-50 border rounded p-1.5 my-1 text-[12px] font-mono overflow-auto" {...props} />,
+                      hr: ({node, ...props}) => <hr className="my-2 border-gray-200" {...props} />,
+                      a: ({node, ...props}) => <a className="text-blue-600 underline" target="_blank" rel="noreferrer" {...props} />,
+                      strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                    }}
+                  >
+                    {m.content}
+                  </ReactMarkdown>
+                ) : (
+                  m.content
+                )}
               </div>
+              {/* Tool trace — only for assistant messages that have one. */}
+              {m.role === 'assistant' && m.tool_trace && m.tool_trace.length > 0 && (
+                <div className="max-w-[85%] mt-1">
+                  <button
+                    onClick={() => {
+                      setExpandedTrace(prev => {
+                        const next = new Set(prev);
+                        if (next.has(i)) next.delete(i); else next.add(i);
+                        return next;
+                      });
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                    title="Show / hide tool calls"
+                  >
+                    {expandedTrace.has(i) ? '▼' : '▶'} {m.tool_trace.length} 个工具调用
+                  </button>
+                  {expandedTrace.has(i) && (
+                    <div className="mt-1 border-l-2 border-gray-200 pl-2 space-y-1">
+                      {m.tool_trace.map((step, si) => (
+                        <div key={si} className="text-xs bg-gray-50 border rounded p-1.5">
+                          <div className="font-mono text-gray-700">
+                            <span className="text-blue-600">[{step.step}]</span> <span className="font-semibold">{step.name}</span>
+                          </div>
+                          {step.input && (
+                            <pre className="mt-0.5 text-[10px] text-gray-600 whitespace-pre-wrap break-all max-h-24 overflow-auto">
+                              in: {step.input}
+                            </pre>
+                          )}
+                          {step.output && (
+                            <pre className="mt-0.5 text-[10px] text-gray-600 whitespace-pre-wrap break-all max-h-24 overflow-auto">
+                              out: {step.output}
+                            </pre>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className={"flex gap-2 pl-2 pt-1 " + (m.role === 'user' ? 'justify-end pr-2' : 'justify-start')}>
                 <button
                   onClick={() => {
@@ -186,6 +296,11 @@ export default function AnalysisPage() {
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }}}
             placeholder="Ask about the data..." disabled={chatLoading || !dbPath}
             className="flex-1 px-3 py-2 text-base border rounded focus:outline-none focus:ring-2 focus:ring-blue-300" />
+          {chatMessages.length > 0 && (
+            <button onClick={clearChatHistory} disabled={chatLoading}
+              className="px-2 py-1 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+              title="Clear chat history for this dashboard">Clear</button>
+          )}
           <button onClick={sendChat} disabled={!chatInput.trim() || chatLoading || !dbPath}
             className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"><Send className="w-3 h-3" /></button>
         </div>
