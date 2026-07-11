@@ -70,11 +70,10 @@ cd backend && "C:\Users\Cade\AppData\Local\Programs\Python\Python312\python.exe"
 cd backend && "C:\Users\Cade\AppData\Local\Programs\Python\Python312\python.exe" -c "import module"
 ```
 
-**Environment files:** There are TWO `.env` files:
-- `/.env` - Root (used by frontend/docker)
-- `/backend/.env` - Backend specific (loaded by FastAPI)
+**Environment files:** There is ONE `.env` file:
+- `/.env` - Project root. Used by frontend, docker, AND backend (FastAPI loads it via `backend/config.py` → `load_dotenv(../../.env)` + pydantic-settings `env_file`).
 
-Backend Python loads from `backend/.env`, so backend-specific secrets must be there.
+All API keys and infrastructure config live in the root `.env`. The previous `backend/.env` has been removed — any secrets that used to live there must be moved to the root file.
 
 ## Detailed Docs
 
