@@ -75,6 +75,19 @@ class Settings(BaseSettings):
     execution_history_retention_days: int = 90
     auto_cleanup_execution_history: bool = True
 
+    # ── Analysis Agent ──
+    # Max recursion depth for the analysis deep agent (dashboard gen + chat).
+    # Read by api/analysis/routes.py and skills/sql-analyst/9_erp_dashboard.py.
+    analysis_recursion_limit: int = 1000
+
+    # Wall-clock timeout (seconds) for dashboard auto-generation.
+    # The agent may take 2-5 minutes on multi-table ERP DBs with full SKILL.md.
+    # Read by api/analysis/routes.py:_auto_generate_dashboard.
+    analysis_dashboard_timeout: int = 600
+
+    # Chat timeout (seconds) — shorter than dashboard gen.
+    analysis_chat_timeout: int = 120
+
     # ── RAG ──
     chunk_size: int = 1000
     chunk_overlap: int = 200

@@ -274,6 +274,14 @@ app = FastAPI(
     }
 )
 
+# Serve /static/ from backend/static/ — for self-hosted vendor assets
+# (Plotly etc.) so analysis dashboards work without external CDN.
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path as _Path
+_STATIC_DIR = _Path(__file__).resolve().parent / "static"
+_STATIC_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
 # Register standardized error handlers
 from core.error_handlers import register_error_handlers
 register_error_handlers(app)
@@ -306,84 +314,15 @@ app.add_middleware(
 
 from fastapi.responses import FileResponse
 
-# Sentinel marker used to make the refresh-bar injection idempotent.
-# Once injected we don't inject a second time on re-renders.
-_REFRESH_BAR_MARKER = "Refresh from source"
-
-
-def _inject_dashboard_refresh_bar(html: str, meta: dict, hash_id: str) -> str:
-    """Inject a 'Refresh from source' bar + loader script into a dashboard HTML.
-
-    This is appended once after <body>, and the page's own top-level
-    `const` globals are downgraded to `var` so the loader can reassign them.
-    """
-    refresh_style = (
-        '<style>\n'
-        '#dashRefreshBar{display:flex;align-items:center;gap:10px;padding:8px 16px;background:#1e3a8a;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px}\n'
-        '#dashRefreshBar button{background:#3b82f6;color:#fff;border:none;padding:5px 14px;border-radius:5px;cursor:pointer;font-size:13px}\n'
-        '#dashRefreshBar button:hover{background:#2563eb}\n'
-        '#dashRefreshBar button:disabled{opacity:.6;cursor:wait}\n'
-        '#dashRefreshBar .spacer{flex:1}\n'
-        '</style>\n'
-        '<div id="dashRefreshBar">\n'
-        f'<span>Data: {len(meta.get("columns", []))} cols</span>\n'
-        '<div class="spacer"></div>\n'
-        '<button id="dashRefreshBtn" onclick="dashRefresh()">Refresh from source</button>\n'
-        '<span id="dashRefreshStatus"></span>\n'
-        '</div>\n'
-        '<script>\n'
-        '\n'
-        '// -- Dynamic: load fresh data on page load --\n'
-        f"const _DATA_URL = 'http://127.0.0.1:8765/api/analysis/data/{hash_id}';\n"
-        'fetch(_DATA_URL).then(r=>r.json()).then(function(d){\n'
-        '  if(typeof salesData!==\'undefined\'){ salesData = d; if(typeof renderAll===\'function\') renderAll(salesData); }\n'
-        '}).catch(function(){});\n'
-        '\n'
-        'async function dashRefresh(){\n'
-        '  const btn=document.getElementById(\'dashRefreshBtn\');\n'
-        '  const st=document.getElementById(\'dashRefreshStatus\');\n'
-        '  btn.disabled=true; st.textContent=\'Loading...\';\n'
-        '  try{\n'
-        '    const r=await fetch(_DATA_URL);\n'
-        '    const data=await r.json();\n'
-        f'    var _cols={list(meta.get("columns", []))};\n'
-        'function _fmtRow(row){var obj={};_cols.forEach(function(c,i){obj[c.replace(/\\s+/g,\'\')]=row[i];var k=c.charAt(0).toLowerCase()+c.slice(1).replace(/\\s+/g,\'\');obj[k]=row[i];obj[k.toLowerCase()]=row[i]});return obj}\n'
-        'function _tryCall(fn,arg){if(typeof window[fn]===\'function\')window[fn](arg)}\n'
-        'if(typeof rawData!==\'undefined\'){rawData=data.map(_fmtRow);_tryCall(\'renderKPIs\',rawData);_tryCall(\'renderTrend\',rawData);_tryCall(\'renderProduct\',rawData);_tryCall(\'renderRegion\',rawData);}\n'
-        'else if(typeof salesData!==\'undefined\'){salesData=data;_tryCall(\'renderAll\',salesData);_tryCall(\'refreshAll\',undefined);_tryCall(\'applyFilters\',undefined);}\n'
-        'else if(typeof RAW!==\'undefined\'){RAW=data;_tryCall(\'renderAll\',RAW);_tryCall(\'refreshAll\',undefined);_tryCall(\'applyFilters\',undefined);}\n'
-        'else location.reload();\n'
-        '    st.textContent=\'Updated \'+new Date().toLocaleTimeString();\n'
-        '  }catch(e){st.textContent=\'Error: \'+e.message}\n'
-        '  finally{btn.disabled=false}\n'
-        '}\n'
-        '</script>'
+def _swap_plotly_cdn_to_local(html: str) -> str:
+    """Replace cdn.plot.ly with /static/plotly.min.js so the page works
+    without internet access (corporate proxy / sandboxed browser)."""
+    import re as _re
+    return _re.sub(
+        r'https?://cdn\.plot\.ly/plotly-[\d.]+\.min\.js',
+        '/static/plotly.min.js',
+        html,
     )
-    html = html.replace("<body>", "<body>\n" + refresh_style, 1)
-    # Downgrade top-level `const` to `var` so the loader can reassign globals.
-    html = html.replace("const salesData", "var salesData")
-    html = html.replace("const RAW", "var RAW")
-    html = html.replace("const rawData", "var rawData")
-    return html
-
-
-def _maybe_inject_dashboard_refresh_bar(html: str, html_path: "Path") -> str:
-    """Inject the refresh bar into `html` if a companion `*.meta.json` exists.
-
-    No-op when:
-      - no companion meta.json, or
-      - the bar has already been injected (marker present in HTML).
-    """
-    import json as _json
-
-    meta_p = html_path.parent / f"{html_path.stem}.meta.json"
-    if not meta_p.exists() or _REFRESH_BAR_MARKER in html:
-        return html
-
-    meta = _json.loads(meta_p.read_text(encoding="utf-8"))
-    stem = html_path.stem
-    hash_id = stem.replace("dashboard_", "") if stem.startswith("dashboard_") else stem
-    return _inject_dashboard_refresh_bar(html, meta, hash_id)
 
 
 @app.get("/api/files/{filename:path}")
@@ -393,6 +332,15 @@ async def serve_output_file(filename: str):
     from fastapi.responses import HTMLResponse, JSONResponse
     from services.workspace_manager import get_workspace_manager
 
+    # Cache-busting headers — analysis dashboards are regenerated often and the
+    # browser MUST NOT serve a stale copy of the HTML (cached HTML references
+    # data fields that may no longer exist in the new version).
+    no_cache_headers = {
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+
     # 1. Analysis dashboards: data/analysis_dbs/<...>/<filename> (uses absolute repo path
     #    because python_execute saves there).
     analysis_dir = Path(__file__).resolve().parent.parent / "data" / "analysis_dbs"
@@ -401,11 +349,12 @@ async def serve_output_file(filename: str):
         if analysis_match:
             fp = analysis_match[0]
             if fp.suffix == ".html":
-                html = _maybe_inject_dashboard_refresh_bar(
-                    fp.read_text(encoding="utf-8"), fp
-                )
-                return HTMLResponse(html)
-            return FileResponse(str(fp))
+                html = fp.read_text(encoding="utf-8")
+                # Swap CDN-hosted Plotly to local copy so the page works
+                # even when the browser has no internet (corporate proxy etc).
+                html = _swap_plotly_cdn_to_local(html)
+                return HTMLResponse(html, headers=no_cache_headers)
+            return FileResponse(str(fp), headers=no_cache_headers)
 
     # 2. Default chat-session output directory.
     workspace_mgr = get_workspace_manager()
