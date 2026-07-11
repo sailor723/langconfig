@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+      <meta charset="utf-8">
+      <title>AcmeCloud Inc. · 财务仪表盘</title>
+      <!--
+        Generated: 2026-07-11 | Source: erp_data.db | Mode: static-embed
+        LangConfig Dashboard Meta
+        db: /Users/weiping/dev/Learn/langchain-ai/langconfig/backend/skills/erp-analyst/erp_data.db
+        skills: erp-analyst
+      -->
+      <script src="http://localhost:8765/static/plotly.min.js"></script>
+      <style>
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+        body {
+          padding: 24px;
+          font-family: 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+          background: #f5f7fa;
+          color: #1f2937;
+        }
+        h1 {
+          margin: 0 0 18px 0;
+          font-size: 22px;
+          color: #1e3a8a;
+          font-weight: 700;
+        }
+        .snapshot-banner {
+          background: #fff8e6;
+          border-left: 4px solid #c8a96a;
+          padding: 8px 14px;
+          border-radius: 6px;
+          font-size: 12px;
+          color: #6b7280;
+          margin-bottom: 14px;
+        }
+        .control-bar {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+          background: #fff;
+          padding: 12px 18px;
+          border-radius: 10px;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+        }
+        .control-bar label {
+          display: flex; align-items: center; gap: 6px;
+          font-size: 13px; color: #4b5563;
+        }
+        .control-bar select, .control-bar button {
+          padding: 6px 12px;
+          border: 1px solid #dce4ec;
+          border-radius: 6px;
+          font-size: 13px;
+          cursor: pointer;
+          background: #fff;
+          color: #1f2937;
+          font-family: inherit;
+        }
+        .control-bar button.primary {
+          background: #1e3a8a;
+          color: #fff;
+          border-color: #1e3a8a;
+        }
+        .control-bar button.primary:hover { background: #2a4a9a; }
+        .focus-indicator {
+          margin-left: auto;
+          font-size: 13px;
+          color: #1e3a8a;
+          font-weight: 600;
+        }
+        .overall-insight {
+          background: #fff;
+          padding: 18px 22px;
+          border-radius: 10px;
+          border-left: 4px solid #c8a96a;
+          margin-bottom: 16px;
+        }
+        .overall-insight h2 {
+          margin: 0 0 10px 0;
+          font-size: 16px;
+          color: #1e3a8a;
+        }
+        .overall-insight .snapshot {
+          font-size: 13px;
+          color: #6b7280;
+          margin-bottom: 12px;
+        }
+        .overall-insight ul { margin: 0; padding: 0; list-style: none; }
+        .overall-insight li {
+          font-size: 13px;
+          line-height: 1.7;
+          color: #1f2937;
+        }
+        .overall-insight li b { color: #1e3a8a; }
+        .kpi-row {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+        .kpi {
+          background: #fff;
+          padding: 14px 16px;
+          border-radius: 10px;
+          border-left: 4px solid #1e3a8a;
+        }
+        .kpi.accent { border-left-color: #c8a96a; }
+        .kpi.warn   { border-left-color: #dc8a3a; }
+        .kpi .label {
+          font-size: 11px;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 6px;
+        }
+        .kpi .value {
+          font-size: 22px;
+          font-weight: 700;
+          color: #1e3a8a;
+          line-height: 1.2;
+        }
+        .kpi .sub {
+          font-size: 11px;
+          color: #6b7280;
+          margin-top: 4px;
+        }
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 16px;
+        }
+        .chart-card {
+          background: #fff;
+          padding: 14px 16px 12px 16px;
+          border-radius: 10px;
+        }
+        .chart-card h3 {
+          margin: 0 0 8px 0;
+          font-size: 14px;
+          color: #1e3a8a;
+          font-weight: 600;
+        }
+        .chart {
+          width: 100%;
+          height: 320px;
+        }
+        .insight-box {
+          background: #f5f7fa;
+          padding: 10px 14px;
+          border-radius: 6px;
+          border-left: 4px solid #1e3a8a;
+          margin-top: 8px;
+          font-size: 12px;
+          color: #1f2937;
+          line-height: 1.6;
+        }
+        .insight-box ul { margin: 4px 0 0 0; padding-left: 18px; }
+        .insight-box li { margin-bottom: 2px; }
+        .err-banner {
+          background: #fef3e2;
+          border: 1px solid #dc8a3a;
+          color: #92400e;
+          padding: 12px 18px;
+          border-radius: 8px;
+          margin-bottom: 16px;
+          font-size: 13px;
+        }
+        .footer-note {
+          text-align: center;
+          color: #9ca3af;
+          font-size: 11px;
+          margin-top: 24px;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>📊 AcmeCloud Inc. · 财务仪表盘（2023-Q1 → 2025-Q4）</h1>
+      <div class="snapshot-banner">
+        📅 静态快照 · 数据来源 erp_data.db · 共 12 个季度 · 基于 2025-Q4 最新季度数据
+      </div>
+
+      <!-- =========================================================
+           KPI 卡片行：8 张关键指标（最新季度快照）
+           ========================================================= -->
+      <div class="kpi-row" id="kpi-row"></div>
+
+      <!-- =========================================================
+           总体洞察区（顶部 · KPI 之下 · 图表之上）
+           ========================================================= -->
+      <div class="overall-insight" id="overall-insight"></div>
+
+      <!-- =========================================================
+           工具栏：时间窗口下拉 + 重置 + 当前聚焦
+           ========================================================= -->
+      <div class="control-bar">
+        <label>时间窗口
+          <select id="filterPeriod" onchange="applyFilters()">
+            <option value="all">全部（12 个季度）</option>
+            <option value="2023">2023 年</option>
+            <option value="2024">2024 年</option>
+            <option value="2025">2025 年</option>
+            <option value="last4">最近 4 个季度</option>
+            <option value="last8">最近 8 个季度</option>
+          </select>
+        </label>
+        <button onclick="resetFilters()">↺ 重置筛选</button>
+        <span class="focus-indicator" id="focus-indicator">▸ 当前未聚焦季度</span>
+      </div>
+
+      <!-- =========================================================
+           10 张标准图表（5 行 × 2 列）
+           ========================================================= -->
+      <div class="grid">
+        <div class="chart-card">
+          <h3>📈 c1 · 营收趋势（含同比 YoY）</h3>
+          <div id="c1" class="chart"></div>
+          <div class="insight-box" id="ins-c1"></div>
+        </div>
+        <div class="chart-card">
+          <h3>💰 c2 · 利润率趋势（毛利 / EBITDA / 净利）</h3>
+          <div id="c2" class="chart"></div>
+          <div class="insight-box" id="ins-c2"></div>
+        </div>
+        <div class="chart-card">
+          <h3>🎯 c3 · 回报能力（ROE / ROA / ROIC）</h3>
+          <div id="c3" class="chart"></div>
+          <div class="insight-box" id="ins-c3"></div>
+        </div>
+        <div class="chart-card">
+          <h3>🏛️ c4 · 资本结构（资产 / 负债 / 权益）</h3>
+          <div id="c4" class="chart"></div>
+          <div class="insight-box" id="ins-c4"></div>
+        </div>
+        <div class="chart-card">
+          <h3>💧 c5 · 流动性分析（Current / Quick）</h3>
+          <div id="c5" class="chart"></div>
+          <div class="insight-box" id="ins-c5"></div>
+        </div>
+        <div class="chart-card">
+          <h3>⚡ c6 · 现金流质量（OCF / OCF·Rev）</h3>
+          <div id="c6" class="chart"></div>
+          <div class="insight-box" id="ins-c6"></div>
+        </div>
+        <div class="chart-card">
+          <h3>🛒 c7 · 产品组合（按毛利降序）</h3>
+          <div id="c7" class="chart"></div>
+          <div class="insight-box" id="ins-c7"></div>
+        </div>
+        <div class="chart-card">
+          <h3>👥 c8 · 客户层级 ARR 分布</h3>
+          <div id="c8" class="chart"></div>
+          <div class="insight-box" id="ins-c8"></div>
+        </div>
+        <div class="chart-card">
+          <h3>🌍 c9 · 区域 ARR 分布</h3>
+          <div id="c9" class="chart"></div>
+          <div class="insight-box" id="ins-c9"></div>
+        </div>
+        <div class="chart-card">
+          <h3>🌉 c10 · 增长归因（年度 EBITDA 瀑布）</h3>
+          <div id="c10" class="chart"></div>
+          <div class="insight-box" id="ins-c10"></div>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        仪表盘模式：Static Embed（B） · 数据嵌入到 HTML · 由 sql-analyst + erp-analyst skill 生成
+      </div>
+
+      <script>
+      // ============================================================
+      // Mode B: 数据嵌入（无 fetch）
+      // ============================================================
+      var EMBEDDED_DATA = {"company":{"id":1,"name":"AcmeCloud Inc.","currency":"USD","tax_rate":0.21,"shares_outstanding":10000000,"industry":"Cloud Infrastructure","founded":"2018-01-15","fiscal_year_start":"01-01"},"salesData":[{"period":"2023-Q1","year":2023,"quarter":"Q1","revenue":8500000.0,"cogs":3400000.0,"opex":4200000.0,"da":320000.0,"interest":95000.0,"gross_profit":5100000.0,"ebitda":900000.0,"ebit":580000.0,"net_income":383150.0,"gross_margin":60.0,"ebitda_margin":10.59,"net_margin":4.51,"cash":2100000.0,"ar":2800000.0,"inventory":450000.0,"ppe":5800000.0,"total_assets":11200000.0,"accounts_payable":1500000.0,"short_term_debt":800000.0,"long_term_debt":2000000.0,"total_liabilities":4400000.0,"equity":6800000.0,"retained_earnings":900000.0,"current_assets":5350000.0,"current_liabilities":2300000.0,"current_ratio":2.33,"quick_ratio":2.13,"working_capital":3050000.0,"debt_to_equity":0.65,"debt_ratio":0.39,"interest_coverage":6.11,"ocf":1200000.0,"icf":-800000.0,"fcf":400000.0,"ocf_to_rev":14.12,"dio":48.3,"dso":120.2,"dpo":161.0,"ccc":7.5,"asset_turnover":0.76,"roic":4.77,"roe":5.63,"roa":3.42,"eps":0.0383,"yoy_revenue_pct":null,"qoq_revenue_pct":null},{"period":"2023-Q2","year":2023,"quarter":"Q2","revenue":9200000.0,"cogs":3680000.0,"opex":4400000.0,"da":340000.0,"interest":90000.0,"gross_profit":5520000.0,"ebitda":1120000.0,"ebit":780000.0,"net_income":545100.0,"gross_margin":60.0,"ebitda_margin":12.17,"net_margin":5.92,"cash":2400000.0,"ar":3200000.0,"inventory":520000.0,"ppe":6100000.0,"total_assets":12300000.0,"accounts_payable":1700000.0,"short_term_debt":850000.0,"long_term_debt":2100000.0,"total_liabilities":4750000.0,"equity":7550000.0,"retained_earnings":1200000.0,"current_assets":6120000.0,"current_liabilities":2550000.0,"current_ratio":2.4,"quick_ratio":2.2,"working_capital":3570000.0,"debt_to_equity":0.63,"debt_ratio":0.39,"interest_coverage":8.67,"ocf":1400000.0,"icf":-900000.0,"fcf":500000.0,"ocf_to_rev":15.22,"dio":51.6,"dso":127.0,"dpo":168.6,"ccc":9.9,"asset_turnover":0.75,"roic":5.87,"roe":7.6,"roa":4.64,"eps":0.0545,"yoy_revenue_pct":null,"qoq_revenue_pct":8.2},{"period":"2023-Q3","year":2023,"quarter":"Q3","revenue":10100000.0,"cogs":4040000.0,"opex":4700000.0,"da":360000.0,"interest":100000.0,"gross_profit":6060000.0,"ebitda":1360000.0,"ebit":1000000.0,"net_income":711000.0,"gross_margin":60.0,"ebitda_margin":13.47,"net_margin":7.04,"cash":2900000.0,"ar":3500000.0,"inventory":600000.0,"ppe":6400000.0,"total_assets":13500000.0,"accounts_payable":1900000.0,"short_term_debt":900000.0,"long_term_debt":2200000.0,"total_liabilities":5100000.0,"equity":8400000.0,"retained_earnings":1550000.0,"current_assets":7000000.0,"current_liabilities":2800000.0,"current_ratio":2.5,"quick_ratio":2.29,"working_capital":4200000.0,"debt_to_equity":0.61,"debt_ratio":0.38,"interest_coverage":10.0,"ocf":1600000.0,"icf":-1000000.0,"fcf":600000.0,"ocf_to_rev":15.84,"dio":54.2,"dso":126.5,"dpo":171.7,"ccc":9.0,"asset_turnover":0.75,"roic":6.87,"roe":8.92,"roa":5.51,"eps":0.0711,"yoy_revenue_pct":null,"qoq_revenue_pct":9.8},{"period":"2023-Q4","year":2023,"quarter":"Q4","revenue":11400000.0,"cogs":4560000.0,"opex":5100000.0,"da":380000.0,"interest":105000.0,"gross_profit":6840000.0,"ebitda":1740000.0,"ebit":1360000.0,"net_income":991450.0,"gross_margin":60.0,"ebitda_margin":15.26,"net_margin":8.7,"cash":3600000.0,"ar":3900000.0,"inventory":720000.0,"ppe":6700000.0,"total_assets":15000000.0,"accounts_payable":2200000.0,"short_term_debt":950000.0,"long_term_debt":2300000.0,"total_liabilities":5550000.0,"equity":9450000.0,"retained_earnings":2000000.0,"current_assets":8220000.0,"current_liabilities":3150000.0,"current_ratio":2.61,"quick_ratio":2.38,"working_capital":5070000.0,"debt_to_equity":0.59,"debt_ratio":0.37,"interest_coverage":12.95,"ocf":1900000.0,"icf":-1100000.0,"fcf":800000.0,"ocf_to_rev":16.67,"dio":57.6,"dso":124.9,"dpo":176.1,"ccc":6.4,"asset_turnover":0.76,"roic":8.46,"roe":11.11,"roa":6.96,"eps":0.0991,"yoy_revenue_pct":null,"qoq_revenue_pct":12.9},{"period":"2024-Q1","year":2024,"quarter":"Q1","revenue":12300000.0,"cogs":4920000.0,"opex":5300000.0,"da":400000.0,"interest":110000.0,"gross_profit":7380000.0,"ebitda":2080000.0,"ebit":1680000.0,"net_income":1240300.0,"gross_margin":60.0,"ebitda_margin":16.91,"net_margin":10.08,"cash":4200000.0,"ar":4400000.0,"inventory":820000.0,"ppe":7000000.0,"total_assets":16500000.0,"accounts_payable":2500000.0,"short_term_debt":1000000.0,"long_term_debt":2400000.0,"total_liabilities":6000000.0,"equity":10500000.0,"retained_earnings":2500000.0,"current_assets":9420000.0,"current_liabilities":3500000.0,"current_ratio":2.69,"quick_ratio":2.46,"working_capital":5920000.0,"debt_to_equity":0.57,"debt_ratio":0.36,"interest_coverage":15.27,"ocf":2200000.0,"icf":-1200000.0,"fcf":1000000.0,"ocf_to_rev":17.89,"dio":60.8,"dso":130.6,"dpo":185.5,"ccc":5.9,"asset_turnover":0.75,"roic":9.55,"roe":12.43,"roa":7.87,"eps":0.124,"yoy_revenue_pct":44.7,"qoq_revenue_pct":7.9},{"period":"2024-Q2","year":2024,"quarter":"Q2","revenue":13500000.0,"cogs":5400000.0,"opex":5600000.0,"da":420000.0,"interest":115000.0,"gross_profit":8100000.0,"ebitda":2500000.0,"ebit":2080000.0,"net_income":1552350.0,"gross_margin":60.0,"ebitda_margin":18.52,"net_margin":11.5,"cash":4900000.0,"ar":4800000.0,"inventory":920000.0,"ppe":7300000.0,"total_assets":18000000.0,"accounts_payable":2700000.0,"short_term_debt":1050000.0,"long_term_debt":2500000.0,"total_liabilities":6350000.0,"equity":11650000.0,"retained_earnings":3100000.0,"current_assets":10620000.0,"current_liabilities":3750000.0,"current_ratio":2.83,"quick_ratio":2.59,"working_capital":6870000.0,"debt_to_equity":0.55,"debt_ratio":0.35,"interest_coverage":18.09,"ocf":2500000.0,"icf":-1300000.0,"fcf":1200000.0,"ocf_to_rev":18.52,"dio":62.2,"dso":129.8,"dpo":182.5,"ccc":9.5,"asset_turnover":0.75,"roic":10.81,"roe":14.02,"roa":9.0,"eps":0.1552,"yoy_revenue_pct":46.7,"qoq_revenue_pct":9.8},{"period":"2024-Q3","year":2024,"quarter":"Q3","revenue":14800000.0,"cogs":5920000.0,"opex":5900000.0,"da":440000.0,"interest":120000.0,"gross_profit":8880000.0,"ebitda":2980000.0,"ebit":2540000.0,"net_income":1911800.0,"gross_margin":60.0,"ebitda_margin":20.14,"net_margin":12.92,"cash":5700000.0,"ar":5300000.0,"inventory":1050000.0,"ppe":7600000.0,"total_assets":19800000.0,"accounts_payable":2900000.0,"short_term_debt":1100000.0,"long_term_debt":2600000.0,"total_liabilities":6700000.0,"equity":13100000.0,"retained_earnings":3800000.0,"current_assets":12050000.0,"current_liabilities":4000000.0,"current_ratio":3.01,"quick_ratio":2.75,"working_capital":8050000.0,"debt_to_equity":0.51,"debt_ratio":0.34,"interest_coverage":21.17,"ocf":2800000.0,"icf":-1400000.0,"fcf":1400000.0,"ocf_to_rev":18.92,"dio":64.7,"dso":130.7,"dpo":178.8,"ccc":16.6,"asset_turnover":0.75,"roic":11.94,"roe":15.45,"roa":10.12,"eps":0.1912,"yoy_revenue_pct":46.5,"qoq_revenue_pct":9.6},{"period":"2024-Q4","year":2024,"quarter":"Q4","revenue":16500000.0,"cogs":6600000.0,"opex":6300000.0,"da":460000.0,"interest":125000.0,"gross_profit":9900000.0,"ebitda":3600000.0,"ebit":3140000.0,"net_income":2381850.0,"gross_margin":60.0,"ebitda_margin":21.82,"net_margin":14.44,"cash":6800000.0,"ar":5800000.0,"inventory":1200000.0,"ppe":7900000.0,"total_assets":21800000.0,"accounts_payable":3200000.0,"short_term_debt":1150000.0,"long_term_debt":2700000.0,"total_liabilities":7150000.0,"equity":14650000.0,"retained_earnings":4650000.0,"current_assets":13800000.0,"current_liabilities":4350000.0,"current_ratio":3.17,"quick_ratio":2.9,"working_capital":9450000.0,"debt_to_equity":0.49,"debt_ratio":0.33,"interest_coverage":25.12,"ocf":3200000.0,"icf":-1500000.0,"fcf":1700000.0,"ocf_to_rev":19.39,"dio":66.4,"dso":128.3,"dpo":177.0,"ccc":17.7,"asset_turnover":0.76,"roic":13.41,"roe":17.17,"roa":11.45,"eps":0.2382,"yoy_revenue_pct":44.7,"qoq_revenue_pct":11.5},{"period":"2025-Q1","year":2025,"quarter":"Q1","revenue":18200000.0,"cogs":7280000.0,"opex":6800000.0,"da":480000.0,"interest":130000.0,"gross_profit":10920000.0,"ebitda":4120000.0,"ebit":3640000.0,"net_income":2772900.0,"gross_margin":60.0,"ebitda_margin":22.64,"net_margin":15.24,"cash":7900000.0,"ar":6400000.0,"inventory":1350000.0,"ppe":8200000.0,"total_assets":24000000.0,"accounts_payable":3500000.0,"short_term_debt":1200000.0,"long_term_debt":2800000.0,"total_liabilities":7600000.0,"equity":16400000.0,"retained_earnings":5600000.0,"current_assets":15650000.0,"current_liabilities":4700000.0,"current_ratio":3.33,"quick_ratio":3.04,"working_capital":10950000.0,"debt_to_equity":0.46,"debt_ratio":0.32,"interest_coverage":28.0,"ocf":3600000.0,"icf":-1600000.0,"fcf":2000000.0,"ocf_to_rev":19.78,"dio":67.7,"dso":128.4,"dpo":175.5,"ccc":20.6,"asset_turnover":0.76,"roic":14.1,"roe":17.86,"roa":12.11,"eps":0.2773,"yoy_revenue_pct":48.0,"qoq_revenue_pct":10.3},{"period":"2025-Q2","year":2025,"quarter":"Q2","revenue":20000000.0,"cogs":8000000.0,"opex":7200000.0,"da":500000.0,"interest":135000.0,"gross_profit":12000000.0,"ebitda":4800000.0,"ebit":4300000.0,"net_income":3290350.0,"gross_margin":60.0,"ebitda_margin":24.0,"net_margin":16.45,"cash":9200000.0,"ar":7000000.0,"inventory":1500000.0,"ppe":8500000.0,"total_assets":26400000.0,"accounts_payable":3800000.0,"short_term_debt":1250000.0,"long_term_debt":2900000.0,"total_liabilities":8050000.0,"equity":18350000.0,"retained_earnings":6700000.0,"current_assets":17700000.0,"current_liabilities":5050000.0,"current_ratio":3.5,"quick_ratio":3.21,"working_capital":12650000.0,"debt_to_equity":0.44,"debt_ratio":0.3,"interest_coverage":31.85,"ocf":4000000.0,"icf":-1700000.0,"fcf":2300000.0,"ocf_to_rev":20.0,"dio":68.4,"dso":127.7,"dpo":173.4,"ccc":22.8,"asset_turnover":0.76,"roic":15.1,"roe":18.94,"roa":13.06,"eps":0.329,"yoy_revenue_pct":48.1,"qoq_revenue_pct":9.9},{"period":"2025-Q3","year":2025,"quarter":"Q3","revenue":21800000.0,"cogs":8720000.0,"opex":7600000.0,"da":520000.0,"interest":140000.0,"gross_profit":13080000.0,"ebitda":5480000.0,"ebit":4960000.0,"net_income":3807800.0,"gross_margin":60.0,"ebitda_margin":25.14,"net_margin":17.47,"cash":10700000.0,"ar":7700000.0,"inventory":1650000.0,"ppe":8800000.0,"total_assets":28900000.0,"accounts_payable":4100000.0,"short_term_debt":1300000.0,"long_term_debt":3000000.0,"total_liabilities":8500000.0,"equity":20400000.0,"retained_earnings":7900000.0,"current_assets":20050000.0,"current_liabilities":5400000.0,"current_ratio":3.71,"quick_ratio":3.41,"working_capital":14650000.0,"debt_to_equity":0.42,"debt_ratio":0.29,"interest_coverage":35.43,"ocf":4400000.0,"icf":-1800000.0,"fcf":2600000.0,"ocf_to_rev":20.18,"dio":69.1,"dso":128.9,"dpo":171.6,"ccc":26.4,"asset_turnover":0.75,"roic":15.86,"roe":19.65,"roa":13.77,"eps":0.3808,"yoy_revenue_pct":47.3,"qoq_revenue_pct":9.0},{"period":"2025-Q4","year":2025,"quarter":"Q4","revenue":24000000.0,"cogs":9600000.0,"opex":8100000.0,"da":540000.0,"interest":150000.0,"gross_profit":14400000.0,"ebitda":6300000.0,"ebit":5760000.0,"net_income":4431900.0,"gross_margin":60.0,"ebitda_margin":26.25,"net_margin":18.47,"cash":12500000.0,"ar":8400000.0,"inventory":1800000.0,"ppe":9100000.0,"total_assets":31800000.0,"accounts_payable":4400000.0,"short_term_debt":1350000.0,"long_term_debt":3100000.0,"total_liabilities":8950000.0,"equity":22850000.0,"retained_earnings":9300000.0,"current_assets":22700000.0,"current_liabilities":5750000.0,"current_ratio":3.95,"quick_ratio":3.63,"working_capital":16950000.0,"debt_to_equity":0.39,"debt_ratio":0.28,"interest_coverage":38.4,"ocf":4900000.0,"icf":-1900000.0,"fcf":3000000.0,"ocf_to_rev":20.42,"dio":68.4,"dso":127.7,"dpo":167.3,"ccc":28.9,"asset_turnover":0.75,"roic":16.67,"roe":20.49,"roa":14.6,"eps":0.4432,"yoy_revenue_pct":45.5,"qoq_revenue_pct":10.1}],"products":[{"id":7,"name":"CDN Bandwidth","category":"Networking","unit_price":0.08,"unit_cost":0.02,"units":90000000,"revenue":7200000.0,"gross_profit":5400000.0,"margin":75.0},{"id":4,"name":"Cloud VM XL","category":"IaaS","unit_price":899.0,"unit_cost":200.0,"units":6500,"revenue":5843500.0,"gross_profit":4543500.0,"margin":77.75},{"id":3,"name":"Cloud VM L","category":"IaaS","unit_price":399.0,"unit_cost":90.0,"units":14000,"revenue":5586000.0,"gross_profit":4326000.0,"margin":77.44},{"id":2,"name":"Cloud VM M","category":"IaaS","unit_price":149.0,"unit_cost":35.0,"units":28000,"revenue":4172000.0,"gross_profit":3192000.0,"margin":76.51},{"id":6,"name":"Block Storage","category":"Storage","unit_price":0.1,"unit_cost":0.025,"units":35000000,"revenue":3500000.0,"gross_profit":2625000.0,"margin":75.0},{"id":5,"name":"Object Storage","category":"Storage","unit_price":0.02,"unit_cost":0.005,"units":120000000,"revenue":2400000.0,"gross_profit":1800000.0,"margin":75.0},{"id":11,"name":"Kubernetes Engine","category":"PaaS","unit_price":299.0,"unit_cost":95.0,"units":8200,"revenue":2451800.0,"gross_profit":1672800.0,"margin":68.23},{"id":1,"name":"Cloud VM S","category":"IaaS","unit_price":49.0,"unit_cost":12.0,"units":45000,"revenue":2205000.0,"gross_profit":1665000.0,"margin":75.51},{"id":9,"name":"Managed Postgres","category":"PaaS","unit_price":199.0,"unit_cost":60.0,"units":9500,"revenue":1890500.0,"gross_profit":1320500.0,"margin":69.85},{"id":10,"name":"Managed Redis","category":"PaaS","unit_price":99.0,"unit_cost":30.0,"units":16000,"revenue":1584000.0,"gross_profit":1104000.0,"margin":69.7},{"id":8,"name":"Load Balancer","category":"Networking","unit_price":29.0,"unit_cost":8.0,"units":18000,"revenue":522000.0,"gross_profit":378000.0,"margin":72.41},{"id":12,"name":"AI Inference API","category":"AI Services","unit_price":0.001,"unit_cost":0.0003,"units":50000000,"revenue":50000.0,"gross_profit":35000.0,"margin":70.0}],"tiers":[{"tier":"enterprise","customer_count":5,"total_arr":15800000.0,"avg_arr":3160000.0},{"tier":"mid-market","customer_count":7,"total_arr":6950000.0,"avg_arr":992857.0},{"tier":"smb","customer_count":8,"total_arr":1860000.0,"avg_arr":232500.0}],"regions":[{"region":"NA","customer_count":10,"total_arr":15315000.0,"avg_arr":1531500.0},{"region":"EU","customer_count":6,"total_arr":7630000.0,"avg_arr":1271667.0},{"region":"APAC","customer_count":3,"total_arr":1485000.0,"avg_arr":495000.0},{"region":"LATAM","customer_count":1,"total_arr":180000.0,"avg_arr":180000.0}],"annual":[{"year":2023,"revenue":39200000.0,"cogs":15680000.0,"opex":18400000.0,"da":1400000.0,"interest":390000.0,"gross_profit":23520000.0,"ebitda":5120000.0,"ebit":3720000.0,"net_income":2630700.0,"gross_margin":60.0,"ebitda_margin":13.06,"net_margin":6.71,"ocf":6100000.0,"icf":-3800000.0,"fcf":2300000.0,"ocf_to_rev":15.56,"yoy_revenue_pct":null},{"year":2024,"revenue":57100000.0,"cogs":22840000.0,"opex":23100000.0,"da":1720000.0,"interest":470000.0,"gross_profit":34260000.0,"ebitda":11160000.0,"ebit":9440000.0,"net_income":7086300.0,"gross_margin":60.0,"ebitda_margin":19.54,"net_margin":12.41,"ocf":10700000.0,"icf":-5400000.0,"fcf":5300000.0,"ocf_to_rev":18.74,"yoy_revenue_pct":45.7},{"year":2025,"revenue":84000000.0,"cogs":33600000.0,"opex":29700000.0,"da":2040000.0,"interest":555000.0,"gross_profit":50400000.0,"ebitda":20700000.0,"ebit":18660000.0,"net_income":14302950.0,"gross_margin":60.0,"ebitda_margin":24.64,"net_margin":17.03,"ocf":16900000.0,"icf":-7000000.0,"fcf":9900000.0,"ocf_to_rev":20.12,"yoy_revenue_pct":47.1}],"ebitdaBridge":[{"year":2023,"revenue":39200000.0,"cogs":-15680000.0,"opex":-18400000.0,"da":-1400000.0,"interest":-390000.0,"tax":-699300.0,"net_income":2630700.0},{"year":2024,"revenue":57100000.0,"cogs":-22840000.0,"opex":-23100000.0,"da":-1720000.0,"interest":-470000.0,"tax":-1883700.0,"net_income":7086300.0},{"year":2025,"revenue":84000000.0,"cogs":-33600000.0,"opex":-29700000.0,"da":-2040000.0,"interest":-555000.0,"tax":-3802050.0,"net_income":14302950.0}],"overall":{"company_snapshot":"AcmeCloud Inc.（云基础设施，2018 年成立，税率 21%）","latest_period":"2025-Q4","health":{"label":"优秀","summary":"流动比率 3.95（远超 1.5 安全线），D/E 0.39（远低于 1.0 警戒线），利息覆盖 38.4x（>8x 投资级），财务弹性极强"},"growth":{"label":"强","summary":"营收 2 年 CAGR 46.4%，2025-Q4 营收 $24.0M（同比 +45.5%），EBITDA 利润率从 13.1% 扩张至 24.6%（+11.6pp），规模杠杆充分释放"},"highlights":["ROE 突破 20.5%（>20% 巴菲特阈值），ROIC 16.7%（远超 WACC ~8%）","OCF/Rev 达 20.4%，净利润 4.43M 完全转化为经营现金，利润质量极高","毛利率稳定在 60.0%，与上季持平，定价权和成本结构稳定"],"risks":["客户集中度：前 1 大客户 DataCorp Global 占 ARR 19.5%，前 3 大 44.3%","区域集中度：NA 区占 62.2%，APAC+LATAM 合计仅 6.8%，单一市场依赖度高"],"suggestions":["加大 APAC 渠道投入，目标 2 年内将 APAC+LATAM 占比从 6.8% 提升至 15%+","评估启动小额分红或股票回购（净现金 $3.5M，资本利用不充分）","对前 3 大客户启动账户经理深度绑定计划，签订 3 年长约锁定 ARR"]}};
+
+      // ---- 全局状态 ----
+      var company   = EMBEDDED_DATA.company   || {};
+      var salesData = EMBEDDED_DATA.salesData || [];
+      var products  = EMBEDDED_DATA.products  || [];
+      var tiers     = EMBEDDED_DATA.tiers     || [];
+      var regions   = EMBEDDED_DATA.regions   || [];
+      var annual    = EMBEDDED_DATA.annual    || [];
+      var bridge    = EMBEDDED_DATA.ebitdaBridge || [];
+      var overallStatic = EMBEDDED_DATA.overall || {};
+
+      // ---- 配色 ----
+      var NAVY = '#1e3a8a';
+      var GOLD = '#c8a96a';
+      var ORANGE = '#dc8a3a';
+      var DIM = '#d1d5db';
+      var BG = '#f5f7fa';
+      var TEXT = '#1f2937';
+      var SUB = '#6b7280';
+
+      // ---- 交叉筛选全局状态 ----
+      var selectedPeriod = null;
+      var clickableCharts = ['c1','c2','c3','c4','c5','c6'];
+
+      // ---- 筛选 / 取数据 ----
+      function getFiltered() {
+        var f = document.getElementById('filterPeriod').value;
+        if (f === 'all')   return salesData.slice();
+        if (f === 'last4') return salesData.slice(-4);
+        if (f === 'last8') return salesData.slice(-8);
+        var y = parseInt(f, 10);
+        if (!isNaN(y)) return salesData.filter(function(r){ return r.year === y; });
+        return salesData.slice();
+      }
+
+      function applyFilters() {
+        selectedPeriod = null;
+        updateFocusIndicator();
+        renderAll(getFiltered());
+      }
+
+      function resetFilters() {
+        selectedPeriod = null;
+        document.getElementById('filterPeriod').value = 'all';
+        updateFocusIndicator();
+        renderAll(salesData);
+      }
+
+      function updateFocusIndicator() {
+        var el = document.getElementById('focus-indicator');
+        el.textContent = selectedPeriod
+          ? '▸ 高亮聚焦：' + selectedPeriod + '（双击图表取消）'
+          : '▸ 当前未聚焦季度';
+      }
+
+      // ---- 通用格式化 ----
+      function fmtM(v) {
+        if (v === null || v === undefined || isNaN(v)) return '-';
+        return '$' + (v / 1e6).toFixed(1) + 'M';
+      }
+      function fmtK(v) {
+        if (v === null || v === undefined || isNaN(v)) return '-';
+        return '$' + (v / 1e3).toFixed(0) + 'K';
+      }
+      function fmtPct(v, n) {
+        if (v === null || v === undefined || isNaN(v)) return '-';
+        n = n || 1;
+        return v.toFixed(n) + '%';
+      }
+      function fmtNum(v, n) {
+        if (v === null || v === undefined || isNaN(v)) return '-';
+        n = n || 2;
+        return Number(v).toFixed(n);
+      }
+      function fmtInt(v) {
+        if (v === null || v === undefined || isNaN(v)) return '-';
+        return Math.round(v).toLocaleString();
+      }
+
+      // ---- 通用 Plotly 配置 ----
+      function baseLayout(title) {
+        return {
+          margin: { l: 50, r: 20, t: 10, b: 40 },
+          paper_bgcolor: '#fff',
+          plot_bgcolor: '#fff',
+          font: { family: "'PingFang SC','Microsoft YaHei',Arial,sans-serif", size: 11, color: TEXT },
+          showlegend: true,
+          legend: { orientation: 'h', y: -0.18, font: { size: 10 } },
+          xaxis: { gridcolor: '#eef2f6', zerolinecolor: '#eef2f6' },
+          yaxis: { gridcolor: '#eef2f6', zerolinecolor: '#eef2f6' }
+        };
+      }
+
+      // ---- 交叉筛选点击辅助 ----
+      function perPointColors(periods, baseColor) {
+        if (!selectedPeriod) return periods.map(function(){ return baseColor; });
+        return periods.map(function(p){ return p === selectedPeriod ? baseColor : DIM; });
+      }
+      function perPointOpacities(periods) {
+        if (!selectedPeriod) return periods.map(function(){ return 1.0; });
+        return periods.map(function(p){ return p === selectedPeriod ? 1.0 : 0.25; });
+      }
+      function perPointSizes(periods, base) {
+        if (!selectedPeriod) return periods.map(function(){ return base; });
+        return periods.map(function(p){ return p === selectedPeriod ? base + 4 : base; });
+      }
+
+      function attachClickFilter(divId) {
+        var el = document.getElementById(divId);
+        if (!el) return;
+        var pendingClick = null;
+        el.on('plotly_click', function(ev){
+          var pt = ev.points && ev.points[0];
+          if (!pt || pt.x === undefined || pt.x === null) return;
+          pendingClick = { period: String(pt.x), ts: Date.now() };
+          setTimeout(function(){
+            if (pendingClick && Date.now() - pendingClick.ts >= 250) {
+              var p = pendingClick.period;
+              selectedPeriod = (selectedPeriod === p) ? null : p;
+              updateFocusIndicator();
+              renderAll(getFiltered());
+              pendingClick = null;
+            }
+          }, 260);
+        });
+        el.on('plotly_doubleclick', function(){
+          pendingClick = null;
+          if (selectedPeriod !== null) {
+            selectedPeriod = null;
+            updateFocusIndicator();
+            renderAll(getFiltered());
+          }
+        });
+      }
+
+      // ============================================================
+      // KPI 渲染（8 张卡片）
+      // ============================================================
+      function renderKpis(d) {
+        var latest = d[d.length - 1];
+        var prev = d.length >= 2 ? d[d.length-2] : null;
+        var yoy = latest.yoy_revenue_pct;
+
+        var cards = [
+          { label: '营收 Revenue', value: fmtM(latest.revenue), sub: yoy != null ? ('同比 ' + (yoy >= 0 ? '▲ +' : '▼ ') + yoy + '%') : '首期无同比', cls: '' },
+          { label: 'EBITDA',      value: fmtM(latest.ebitda),  sub: '利润率 ' + fmtPct(latest.ebitda_margin, 1), cls: 'accent' },
+          { label: '净利润 NI',   value: fmtM(latest.net_income), sub: '净利率 ' + fmtPct(latest.net_margin, 1), cls: '' },
+          { label: 'EPS',         value: '$' + (latest.eps != null ? latest.eps.toFixed(3) : '-'), sub: '流通股 ' + (company.shares_outstanding/1e6).toFixed(0) + 'M', cls: '' },
+          { label: 'ROE',         value: fmtPct(latest.roe, 1), sub: latest.roe >= 20 ? '▲ 突破 20% 巴菲特阈值' : '低于 20%', cls: latest.roe >= 20 ? 'accent' : '' },
+          { label: 'Current Ratio', value: fmtNum(latest.current_ratio, 2), sub: latest.current_ratio >= 1.5 ? '▲ 高于 1.5 安全线' : '⚠ 低于 1.5', cls: latest.current_ratio >= 1.5 ? '' : 'warn' },
+          { label: 'D/E 资产负债率', value: fmtNum(latest.debt_to_equity, 2), sub: latest.debt_to_equity <= 0.5 ? '▲ 远低于 1.0 警戒线' : '稳健', cls: 'accent' },
+          { label: '自由现金流 FCF', value: fmtM(latest.fcf), sub: 'OCF/Rev ' + fmtPct(latest.ocf_to_rev, 1), cls: '' }
+        ];
+
+        var html = '';
+        for (var i = 0; i < cards.length; i++) {
+          var c = cards[i];
+          html += '<div class="kpi ' + (c.cls || '') + '">'
+                +   '<div class="label">' + c.label + '</div>'
+                +   '<div class="value">' + c.value + '</div>'
+                +   '<div class="sub">' + c.sub + '</div>'
+                + '</div>';
+        }
+        document.getElementById('kpi-row').innerHTML = html;
+      }
+
+      // ============================================================
+      // 总体洞察渲染（顶部 · KPI 之下）
+      // ============================================================
+      function renderOverall(d) {
+        var o = overallStatic;
+        var focus = selectedPeriod;
+        var html = '<h2>📋 总体洞察 · ' + (focus || o.latest_period || '2025-Q4') + '</h2>';
+        html += '<div class="snapshot">' + (o.company_snapshot || '') + '</div>';
+        html += '<ul>';
+        if (o.health)     html += '<li>📊 <b>健康度 · ' + o.health.label + '</b> — ' + o.health.summary + '</li>';
+        if (o.growth)     html += '<li>📈 <b>成长性 · ' + o.growth.label + '</b> — ' + o.growth.summary + '</li>';
+        if (o.highlights && o.highlights.length) {
+          html += '<li>🎯 <b>关键发现</b><ul>';
+          for (var i = 0; i < o.highlights.length; i++) {
+            html += '<li>' + o.highlights[i] + '</li>';
+          }
+          html += '</ul></li>';
+        }
+        if (o.risks && o.risks.length) {
+          html += '<li>⚠ <b>风险点</b><ul>';
+          for (var j = 0; j < o.risks.length; j++) {
+            html += '<li>' + o.risks[j] + '</li>';
+          }
+          html += '</ul></li>';
+        }
+        if (o.suggestions && o.suggestions.length) {
+          html += '<li>💡 <b>建议</b><ul>';
+          for (var k = 0; k < o.suggestions.length; k++) {
+            html += '<li>' + o.suggestions[k] + '</li>';
+          }
+          html += '</ul></li>';
+        }
+        html += '</ul>';
+        document.getElementById('overall-insight').innerHTML = html;
+      }
+
+      // ============================================================
+      // 单图洞察生成器（数据驱动）
+      // ============================================================
+      function genInsights(d) {
+        var latest = d[d.length - 1];
+        var first = d[0];
+        var rev_2023 = annual[0].revenue;
+        var rev_2025 = annual[annual.length-1].revenue;
+        var cagr = ((rev_2025 / rev_2023) ** (1/2) - 1) * 100;
+        var em_first = annual[0].ebitda_margin;
+        var em_last  = annual[annual.length-1].ebitda_margin;
+
+        return {
+          c1: [
+            '<b>📈 趋势</b>：12 季度营收从 $' + (first.revenue/1e6).toFixed(1) + 'M 增至 $' + (latest.revenue/1e6).toFixed(1) + 'M，年化 CAGR ' + cagr.toFixed(1) + '%',
+            '<b>🎯 最新季</b>：' + latest.period + ' 营收 $' + (latest.revenue/1e6).toFixed(1) + 'M，同比 +' + latest.yoy_revenue_pct + '%，环比 +' + (latest.qoq_revenue_pct || 0) + '%',
+            '<b>💡 业务</b>：连续 8 季度同比正增长，处于规模快速扩张期'
+          ],
+          c2: [
+            '<b>⚡ 质量</b>：毛利率稳定在 ' + latest.gross_margin + '%（云基础设施健康区间 60-75%），说明定价权稳定',
+            '<b>📈 经营杠杆</b>：EBITDA 利润率从 ' + em_first.toFixed(1) + '% 扩张至 ' + em_last.toFixed(1) + '%（+' + (em_last-em_first).toFixed(1) + 'pp），固定费用被摊薄',
+            '<b>💡 业务</b>：规模效应充分释放，从"高增长亏损"转入"高增长盈利"通道'
+          ],
+          c3: [
+            '<b>🎯 发现</b>：ROE ' + latest.roe + '%（>20% 巴菲特阈值），ROIC ' + latest.roic + '%（>WACC 8%）',
+            '<b>📊 杜邦</b>：ROE - ROA 差距 ' + (latest.roe - latest.roa).toFixed(1) + 'pp（杠杆贡献适中，非激进）',
+            '<b>💡 业务</b>：股东每投入 $1 每年净赚 $' + (latest.roe/100).toFixed(2) + '，资本配置效率优秀'
+          ],
+          c4: [
+            '<b>⚡ 质量</b>：D/E ' + latest.debt_to_equity + '（远低于 1.0 警戒线），Debt Ratio ' + latest.debt_ratio,
+            '<b>📈 趋势</b>：股东权益从 $' + (first.equity/1e6).toFixed(1) + 'M 增至 $' + (latest.equity/1e6).toFixed(1) + 'M，留存收益持续累积',
+            '<b>💡 业务</b>：财务杠杆保守，净现金 $' + ((latest.cash - latest.total_liabilities)/1e6).toFixed(1) + 'M'
+          ],
+          c5: [
+            '<b>📊 短期偿债</b>：Current Ratio ' + latest.current_ratio + '（>1.5 安全线），Quick Ratio ' + latest.quick_ratio + '（无存货积压风险）',
+            '<b>⚡ 趋势</b>：Current Ratio 从 ' + first.current_ratio + ' 上升至 ' + latest.current_ratio + '，流动性持续改善',
+            '<b>💡 业务</b>：应付账款 ' + fmtM(latest.accounts_payable) + ' / 短期债务 ' + fmtM(latest.short_term_debt) + '，短期偿债压力极小'
+          ],
+          c6: [
+            '<b>⚡ 质量</b>：OCF $' + (latest.ocf/1e6).toFixed(1) + 'M / OCF·Rev ' + latest.ocf_to_rev + '%（>15% 健康），FCF $' + (latest.fcf/1e6).toFixed(1) + 'M',
+            '<b>📈 资本开支</b>：ICF ' + fmtM(latest.icf) + '（投资强度稳定，持续 CapEx 支撑增长）',
+            '<b>💡 业务</b>：OCF/NI = ' + (latest.ocf/latest.net_income).toFixed(2) + 'x，净利润现金含量充足，利润质量高'
+          ],
+          c7: (function(){
+            var top3 = products.slice(0,3);
+            var names = top3.map(function(p){return p.name;}).join('、');
+            var rev3 = top3.reduce(function(s,p){return s+p.gross_profit;},0);
+            var total_gp = products.reduce(function(s,p){return s+p.gross_profit;},0);
+            var pct = (rev3 / total_gp * 100).toFixed(1);
+            return [
+              '<b>🎯 TOP 3</b>：' + names + '，合计毛利 $' + (rev3/1e6).toFixed(2) + 'M（占 ' + pct + '%）',
+              '<b>📈 毛利最高</b>：' + products[0].name + '（毛利率 ' + products[0].margin + '%，毛利 $' + (products[0].gross_profit/1e6).toFixed(2) + 'M）',
+              '<b>💡 业务</b>：产品组合相对集中，前 3 名贡献过半毛利，建议持续投入明星产品'
+            ];
+          })(),
+          c8: [
+            '<b>🎯 客户结构</b>：enterprise ' + fmtM(tiers[0].total_arr) + '（' + ((tiers[0].total_arr/d.reduce(function(s,r){return s+r.revenue},0))*0+Math.round(tiers[0].total_arr/(tiers[0].total_arr+tiers[1].total_arr+tiers[2].total_arr)*100)) + '%），mid-market / smb 依次递减',
+            '<b>📊 客户数</b>：enterprise ' + tiers[0].customer_count + ' 家、mid-market ' + tiers[1].customer_count + ' 家、smb ' + tiers[2].customer_count + ' 家',
+            '<b>💡 业务</b>：典型 SaaS 漏斗结构（大客户高 ARR、长尾拉新），需关注 enterprise 客户留存'
+          ],
+          c9: [
+            '<b>🎯 区域结构</b>：NA ' + fmtM(regions[0].total_arr) + '（' + ((regions[0].total_arr/total_arr)*100).toFixed(1) + '%）主导，EU ' + ((regions[1].total_arr/total_arr)*100).toFixed(1) + '%，APAC+LATAM 仅 ' + (((regions[2].total_arr+regions[3].total_arr)/total_arr)*100).toFixed(1) + '%',
+            '<b>📈 地理风险</b>：NA 单区依赖度高，需 APAC / LATAM 渠道扩张分散风险',
+            '<b>💡 业务</b>：新市场存在监管 / 本地化合规门槛，建议通过区域合作伙伴进入'
+          ],
+          c10: (function(){
+            var last = bridge[bridge.length-1];
+            var prev = bridge[bridge.length-2];
+            var ni_growth = ((last.net_income - prev.net_income) / prev.net_income * 100).toFixed(1);
+            var rev_growth = ((last.revenue - prev.revenue) / prev.revenue * 100).toFixed(1);
+            return [
+              '<b>📈 增长贡献</b>：' + last.year + ' 营收 $' + (last.revenue/1e6).toFixed(1) + 'M（YoY +' + rev_growth + '%），最终净利 $' + (last.net_income/1e6).toFixed(2) + 'M',
+              '<b>🎯 关键发现</b>：净利 YoY +' + ni_growth + '%，增长主要来自营收端（+$' + ((last.revenue-prev.revenue)/1e6).toFixed(1) + 'M），被 opex ' + (last.opex/1e6).toFixed(1) + 'M / cogs ' + (last.cogs/1e6).toFixed(1) + 'M 抵消',
+              '<b>💡 业务</b>：净利润增速 ' + ni_growth + '% 显著高于营收增速 ' + rev_growth + '%，经营杠杆已开始兑现'
+            ];
+          })()
+        };
+      }
+
+      function renderInsights(insights) {
+        function fill(id, arr) {
+          var html = '<ul>';
+          for (var i = 0; i < arr.length; i++) html += '<li>' + arr[i] + '</li>';
+          html += '</ul>';
+          document.getElementById(id).innerHTML = html;
+        }
+        fill('ins-c1', insights.c1);
+        fill('ins-c2', insights.c2);
+        fill('ins-c3', insights.c3);
+        fill('ins-c4', insights.c4);
+        fill('ins-c5', insights.c5);
+        fill('ins-c6', insights.c6);
+        fill('ins-c7', insights.c7);
+        fill('ins-c8', insights.c8);
+        fill('ins-c9', insights.c9);
+        fill('ins-c10', insights.c10);
+      }
+
+      // ============================================================
+      // 10 张图表渲染
+      // ============================================================
+      var total_arr = (tiers.reduce(function(s,t){return s+t.total_arr;},0));
+
+      function renderAll(d) {
+        renderKpis(d);
+        renderOverall(d);
+        renderInsights(genInsights(d));
+
+        var periods = d.map(function(r){ return r.period; });
+
+        // ============= c1: 营收趋势 =============
+        var revenueColors = perPointColors(periods, NAVY);
+        var revenueSizes  = perPointSizes(periods, 8);
+        var yoyTrace = {
+          x: periods, y: d.map(function(r){ return r.yoy_revenue_pct; }),
+          type: 'scatter', mode: 'lines+markers', name: '同比 YoY %',
+          yaxis: 'y2', line: { color: GOLD, width: 2 },
+          marker: { size: perPointSizes(periods, 7), color: perPointColors(periods, GOLD) },
+          hovertemplate: '%{x}: %{y:+.1f}%<extra></extra>',
+          connectgaps: false
+        };
+        var revTrace = {
+          x: periods, y: d.map(function(r){ return r.revenue / 1e6; }),
+          type: 'bar', name: '营收 ($M)',
+          marker: { color: revenueColors },
+          text: d.map(function(r){ return '$' + (r.revenue/1e6).toFixed(1) + 'M'; }),
+          textposition: 'outside',
+          hovertemplate: '%{x}: %{y:.2f}M<extra></extra>'
+        };
+        Plotly.react('c1', [revTrace, yoyTrace], Object.assign(baseLayout(), {
+          yaxis: { title: '营收 ($M)', gridcolor: '#eef2f6' },
+          yaxis2: { title: '同比 %', overlaying: 'y', side: 'right', gridcolor: '#eef2f6',
+                    range: [Math.min(0, (d[4] && d[4].yoy_revenue_pct || 0) - 10), (latestYoyMax(d)+10)],
+                    tickformat: '.0f' },
+          barmode: 'overlay'
+        }), { displayModeBar: false, responsive: true });
+
+        // ============= c2: 利润率趋势 =============
+        var traces2 = [
+          { x: periods, y: d.map(function(r){return r.gross_margin;}), name: '毛利率', mode: 'lines+markers',
+            line: { color: NAVY, width: 2 }, marker: { size: perPointSizes(periods, 7), color: perPointColors(periods, NAVY) } },
+          { x: periods, y: d.map(function(r){return r.ebitda_margin;}), name: 'EBITDA 利润率', mode: 'lines+markers',
+            line: { color: GOLD, width: 2 }, marker: { size: perPointSizes(periods, 7), color: perPointColors(periods, GOLD) } },
+          { x: periods, y: d.map(function(r){return r.net_margin;}), name: '净利率', mode: 'lines+markers',
+            line: { color: ORANGE, width: 2 }, marker: { size: perPointSizes(periods, 7), color: perPointColors(periods, ORANGE) } }
+        ];
+        Plotly.react('c2', traces2, Object.assign(baseLayout(), {
+          yaxis: { title: '利润率 %', gridcolor: '#eef2f6', ticksuffix: '%' },
+          shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 25, y1: 25,
+                     line: { color: '#d1d5db', width: 1, dash: 'dash' } }]
+        }), { displayModeBar: false, responsive: true });
+
+        // ============= c3: 回报能力 =============
+        var traces3 = [
+          { x: periods, y: d.map(function(r){return r.roe;}), name: 'ROE', mode: 'lines+markers',
+            line: { color: NAVY, width: 3 }, marker: { size: perPointSizes(periods, 8), color: perPointColors(periods, NAVY) } },
+          { x: periods, y: d.map(function(r){return r.roa;}), name: 'ROA', mode: 'lines+markers',
+            line: { color: GOLD, width: 2 }, marker: { size: perPointSizes(periods, 7), color: perPointColors(periods, GOLD) } },
+          { x: periods, y: d.map(function(r){return r.roic;}), name: 'ROIC', mode: 'lines+markers',
+            line: { color: ORANGE, width: 2, dash: 'dot' }, marker: { size: perPointSizes(periods, 7), color: perPointColors(periods, ORANGE) } }
+        ];
+        Plotly.react('c3', traces3, Object.assign(baseLayout(), {
+          yaxis: { title: '回报率 %', gridcolor: '#eef2f6', ticksuffix: '%' },
+          shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 15, y1: 15,
+                     line: { color: GOLD, width: 1, dash: 'dash' } }],
+          annotations: [{ xref: 'paper', x: 1, y: 15, yref: 'y', text: '15% 基准',
+                          showarrow: false, font: { size: 10, color: GOLD }, xanchor: 'right', yanchor: 'bottom' }]
+        }), { displayModeBar: false, responsive: true });
+
+        // ============= c4: 资本结构（堆叠柱 + D/E 线） =============
+        var stackTrace = [
+          { x: periods, y: d.map(function(r){return r.equity/1e6;}), name: '股东权益 ($M)', type: 'bar',
+            marker: { color: perPointColors(periods, NAVY) } },
+          { x: periods, y: d.map(function(r){return r.total_liabilities/1e6;}), name: '总负债 ($M)', type: 'bar',
+            marker: { color: perPointColors(periods, ORANGE) } }
+        ];
+        var deLine = {
+          x: periods, y: d.map(function(r){return r.debt_to_equity;}), name: 'D/E', type: 'scatter', mode: 'lines+markers',
+          yaxis: 'y2', line: { color: GOLD, width: 2.5 },
+          marker: { size: perPointSizes(periods, 8), color: perPointColors(periods, GOLD) }
+        };
+        Plotly.react('c4', stackTrace.concat([deLine]), Object.assign(baseLayout(), {
+          barmode: 'stack',
+          yaxis: { title: '金额 ($M)', gridcolor: '#eef2f6' },
+          yaxis2: { title: 'D/E', overlaying: 'y', side: 'right', gridcolor: '#eef2f6' },
+          shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 1, y1: 1, yref: 'y2',
+                     line: { color: '#dc8a3a', width: 1, dash: 'dash' } }]
+        }), { displayModeBar: false, responsive: true });
+
+        // ============= c5: 流动性 =============
+        var traces5 = [
+          { x: periods, y: d.map(function(r){return r.current_ratio;}), name: 'Current Ratio', mode: 'lines+markers',
+            line: { color: NAVY, width: 3 }, marker: { size: perPointSizes(periods, 8), color: perPointColors(periods, NAVY) } },
+          { x: periods, y: d.map(function(r){return r.quick_ratio;}), name: 'Quick Ratio', mode: 'lines+markers',
+            line: { color: GOLD, width: 2 }, marker: { size: perPointSizes(periods, 7), color: perPointColors(periods, GOLD) } }
+        ];
+        Plotly.react('c5', traces5, Object.assign(baseLayout(), {
+          yaxis: { title: '比率', gridcolor: '#eef2f6' },
+          shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 1.5, y1: 1.5,
+                     line: { color: GOLD, width: 1, dash: 'dash' } }],
+          annotations: [{ xref: 'paper', x: 1, y: 1.5, yref: 'y', text: '1.5 安全线',
+                          showarrow: false, font: { size: 10, color: GOLD }, xanchor: 'right', yanchor: 'bottom' }]
+        }), { displayModeBar: false, responsive: true });
+
+        // ============= c6: 现金流质量 =============
+        var traces6 = [
+          { x: periods, y: d.map(function(r){return r.ocf/1e6;}), name: 'OCF ($M)', type: 'bar',
+            marker: { color: perPointColors(periods, NAVY) },
+            text: d.map(function(r){return '$' + (r.ocf/1e6).toFixed(1) + 'M';}),
+            textposition: 'outside' },
+          { x: periods, y: d.map(function(r){return r.fcf/1e6;}), name: 'FCF ($M)', type: 'bar',
+            marker: { color: perPointColors(periods, GOLD) },
+            text: d.map(function(r){return '$' + (r.fcf/1e6).toFixed(1) + 'M';}),
+            textposition: 'outside' },
+          { x: periods, y: d.map(function(r){return r.ocf_to_rev;}), name: 'OCF/Rev %', yaxis: 'y2',
+            type: 'scatter', mode: 'lines+markers',
+            line: { color: ORANGE, width: 2 },
+            marker: { size: perPointSizes(periods, 8), color: perPointColors(periods, ORANGE) } }
+        ];
+        Plotly.react('c6', traces6, Object.assign(baseLayout(), {
+          barmode: 'group',
+          yaxis: { title: '现金流 ($M)', gridcolor: '#eef2f6' },
+          yaxis2: { title: 'OCF/Rev %', overlaying: 'y', side: 'right', gridcolor: '#eef2f6', ticksuffix: '%' }
+        }), { displayModeBar: false, responsive: true });
+
+        // ============= c7: 产品组合（按毛利降序，横向柱） =============
+        var pNames = products.map(function(p){return p.name;});
+        var pGP    = products.map(function(p){return p.gross_profit/1e6;});
+        var pRev   = products.map(function(p){return p.revenue/1e6;});
+        Plotly.react('c7', [
+          { x: pGP, y: pNames, type: 'bar', orientation: 'h', name: '毛利 ($M)',
+            marker: { color: NAVY },
+            text: pGP.map(function(v){return '$' + v.toFixed(2) + 'M';}),
+            textposition: 'outside',
+            hovertemplate: '%{y}: $%{x:.2f}M<extra></extra>' },
+          { x: pRev, y: pNames, type: 'bar', orientation: 'h', name: '营收 ($M)',
+            marker: { color: GOLD, opacity: 0.55 },
+            hovertemplate: '%{y}: $%{x:.2f}M<extra></extra>' }
+        ], Object.assign(baseLayout(), {
+          barmode: 'overlay',
+          xaxis: { title: '金额 ($M)', gridcolor: '#eef2f6' },
+          yaxis: { gridcolor: '#eef2f6', automargin: true },
+          margin: { l: 140, r: 20, t: 10, b: 50 }
+        }), { displayModeBar: false, responsive: true });
+
+        // ============= c8: 客户层级（环形 + 列表） =============
+        Plotly.react('c8', [{
+          labels: tiers.map(function(t){return t.tier + ' (' + t.customer_count + ')';}),
+          values: tiers.map(function(t){return t.total_arr;}),
+          type: 'pie', hole: 0.5,
+          marker: { colors: [NAVY, GOLD, ORANGE] },
+          textinfo: 'percent',
+          hovertemplate: '<b>%{label}</b><br>ARR: $%{value:,.0f}<extra></extra>'
+        }], {
+          margin: { l: 20, r: 20, t: 10, b: 60 },
+          paper_bgcolor: '#fff',
+          font: { family: "'PingFang SC','Microsoft YaHei',Arial,sans-serif", size: 11, color: TEXT },
+          showlegend: true,
+          legend: { orientation: 'h', y: -0.05, font: { size: 10 } },
+          annotations: [{
+            text: '<b>客户层级</b><br>总 ARR<br>$' + (total_arr/1e6).toFixed(1) + 'M',
+            showarrow: false, font: { size: 12, color: NAVY }
+          }]
+        }, { displayModeBar: false, responsive: true });
+
+        // ============= c9: 区域分布（环形） =============
+        Plotly.react('c9', [{
+          labels: regions.map(function(r){return r.region + ' (' + r.customer_count + ')';}),
+          values: regions.map(function(r){return r.total_arr;}),
+          type: 'pie', hole: 0.5,
+          marker: { colors: [NAVY, '#3b5cb8', GOLD, ORANGE] },
+          textinfo: 'percent',
+          hovertemplate: '<b>%{label}</b><br>ARR: $%{value:,.0f}<extra></extra>'
+        }], {
+          margin: { l: 20, r: 20, t: 10, b: 60 },
+          paper_bgcolor: '#fff',
+          font: { family: "'PingFang SC','Microsoft YaHei',Arial,sans-serif", size: 11, color: TEXT },
+          showlegend: true,
+          legend: { orientation: 'h', y: -0.05, font: { size: 10 } },
+          annotations: [{
+            text: '<b>区域 ARR</b><br>$' + (total_arr/1e6).toFixed(1) + 'M',
+            showarrow: false, font: { size: 12, color: NAVY }
+          }]
+        }, { displayModeBar: false, responsive: true });
+
+        // ============= c10: EBITDA 瀑布（年度 bridge） =============
+        var bYears = bridge.map(function(b){return String(b.year);});
+        // 瀑布：revenue → cogs → opex → da → interest → tax → net_income
+        var measures = ['absolute', 'relative', 'relative', 'relative', 'relative', 'relative', 'total'];
+        var xs = [], ys = [], texts = [];
+        var cum = 0;
+        for (var bi = 0; bi < bridge.length; bi++) {
+          var b = bridge[bi];
+          var rev = b.revenue, cogs = b.cogs, opex = b.opex, da = b.da, interest = b.interest, tax = b.tax, ni = b.net_income;
+          var segs = [
+            { label: '营收', v: rev, type: 'absolute' },
+            { label: 'COGS', v: cogs, type: 'relative' },
+            { label: 'OPEX', v: opex, type: 'relative' },
+            { label: 'D&A', v: da, type: 'relative' },
+            { label: '利息', v: interest, type: 'relative' },
+            { label: '税', v: tax, type: 'relative' },
+            { label: '净利', v: ni, type: 'total' }
+          ];
+          var running = 0;
+          for (var si = 0; si < segs.length; si++) {
+            var s = segs[si];
+            var val = s.v / 1e6;
+            var x = b.year + '·' + s.label;
+            xs.push(x);
+            if (s.type === 'absolute') { ys.push(val); texts.push('$' + val.toFixed(1) + 'M'); running = val; }
+            else if (s.type === 'total') { ys.push(val); texts.push('$' + val.toFixed(1) + 'M'); running = val; }
+            else {
+              var base = running;
+              running = running + val; // val 已是负值
+              ys.push([base, running]);
+              texts.push((val >= 0 ? '+' : '') + val.toFixed(1));
+            }
+          }
+        }
+        Plotly.react('c10', [{
+          x: xs, y: ys, type: 'waterfall',
+          measure: measures.reduce(function(acc, m, idx){
+            // 每个年份 7 段 → 重复 measures
+            for (var q = 0; q < bridge.length; q++) acc.push(m);
+            return acc;
+          }, []),
+          text: texts, textposition: 'outside',
+          connector: { line: { color: '#9ca3af' } },
+          increasing: { marker: { color: NAVY } },
+          decreasing: { marker: { color: ORANGE } },
+          totals:     { marker: { color: GOLD } },
+          hovertemplate: '%{x}: %{text}M<extra></extra>'
+        }], {
+          margin: { l: 50, r: 20, t: 10, b: 80 },
+          paper_bgcolor: '#fff',
+          plot_bgcolor: '#fff',
+          font: { family: "'PingFang SC','Microsoft YaHei',Arial,sans-serif", size: 10, color: TEXT },
+          showlegend: false,
+          xaxis: { gridcolor: '#eef2f6', tickangle: -45 },
+          yaxis: { title: '$M', gridcolor: '#eef2f6' }
+        }, { displayModeBar: false, responsive: true });
+
+        // 绑定 c1-c6 点击事件
+        for (var ci = 0; ci < clickableCharts.length; ci++) {
+          attachClickFilter(clickableCharts[ci]);
+        }
+      }
+
+      function latestYoyMax(d) {
+        var max = 0;
+        for (var i = 4; i < d.length; i++) {
+          if (d[i].yoy_revenue_pct != null && d[i].yoy_revenue_pct > max) max = d[i].yoy_revenue_pct;
+        }
+        return max;
+      }
+
+      // ============================================================
+      // Bootstrap：直接读 EMBEDDED_DATA 并渲染（Mode B · 无 fetch）
+      // ============================================================
+      function bootstrap() {
+        try {
+          renderAll(salesData);
+        } catch (err) {
+          document.body.insertAdjacentHTML('afterbegin',
+            '<div class="err-banner">⚠ 数据加载失败：' + err.message + '</div>');
+        }
+      }
+      bootstrap();
+      </script>
+    </body>
+    </html>
+    
