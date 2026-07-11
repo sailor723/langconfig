@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <title>AcmeCloud Inc. — Customer Business Dashboard</title>
+      <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+      <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; background: #f5f7fa; color: #2c3e50; }
+        h1 { margin: 0 0 6px 0; font-size: 24px; }
+        .subtitle { color: #7f8c8d; font-size: 13px; margin-bottom: 18px; }
+        .control-bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; background: #fff; padding: 14px 20px; border-radius: 10px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .control-bar label { display: flex; flex-direction: column; font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.5px; }
+        .control-bar select { padding: 7px 12px; border: 1px solid #dce4ec; border-radius: 6px; cursor: pointer; font-size: 13px; min-width: 140px; background: #fff; }
+        .control-bar button { padding: 8px 16px; border: none; background: #1f77b4; color: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .control-bar button:hover { background: #155a8a; }
+        .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+        .kpi { background: #fff; padding: 18px; border-radius: 10px; border-left: 4px solid #1f77b4; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .kpi.k1 { border-left-color: #1f77b4; }
+        .kpi.k2 { border-left-color: #2ca02c; }
+        .kpi.k3 { border-left-color: #ff7f0e; }
+        .kpi.k4 { border-left-color: #9467bd; }
+        .kpi .label { font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .kpi .value { font-size: 24px; font-weight: 700; line-height: 1.1; }
+        .kpi .delta { font-size: 11px; color: #7f8c8d; margin-top: 4px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .grid-full { display: grid; grid-template-columns: 1fr; gap: 18px; }
+        .card { background: #fff; padding: 16px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .chart { width: 100%; height: 380px; }
+        .insight-box { background: #fff; padding: 18px 20px; border-radius: 10px; border-left: 4px solid #2ca02c; margin-top: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+        .insight-box h3 { margin: 0 0 10px 0; font-size: 15px; }
+        .insight-box ul { margin: 0; padding-left: 20px; line-height: 1.7; font-size: 13px; }
+        .insight-box li { margin-bottom: 4px; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; background: #eef4fb; color: #1f77b4; font-size: 11px; margin-right: 6px; }
+      </style>
+    </head>
+    <body>
+      <h1>📊 AcmeCloud Inc. — Customer Business Dashboard</h1>
+      <div class="subtitle">Cloud Infrastructure • USD • 20 active customer accounts across 3 tiers and 4 regions</div>
+
+      <div class="control-bar">
+        <label>Tier
+          <select id="filterTier" onchange="applyFilters()">
+            <option value="all">All tiers</option>
+            <option value="enterprise">enterprise</option>
+        <option value="mid-market">mid-market</option>
+        <option value="smb">smb</option>
+          </select>
+        </label>
+        <label>Region
+          <select id="filterRegion" onchange="applyFilters()">
+            <option value="all">All regions</option>
+            <option value="APAC">APAC</option>
+        <option value="EU">EU</option>
+        <option value="LATAM">LATAM</option>
+        <option value="NA">NA</option>
+          </select>
+        </label>
+        <label>Country
+          <select id="filterCountry" onchange="applyFilters()">
+            <option value="all">All countries</option>
+            <option value="Brazil">Brazil</option>
+        <option value="Canada">Canada</option>
+        <option value="France">France</option>
+        <option value="Germany">Germany</option>
+        <option value="Italy">Italy</option>
+        <option value="Japan">Japan</option>
+        <option value="Korea">Korea</option>
+        <option value="Netherlands">Netherlands</option>
+        <option value="Singapore">Singapore</option>
+        <option value="Spain">Spain</option>
+        <option value="UK">UK</option>
+        <option value="USA">USA</option>
+          </select>
+        </label>
+        <button onclick="resetFilters()">↺ Reset Filters</button>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi k1"><div class="label">Total ARR</div><div class="value" id="kpiArr">$0</div><div class="delta" id="kpiArrDelta"></div></div>
+        <div class="kpi k2"><div class="label"># Customers</div><div class="value" id="kpiCount">0</div><div class="delta" id="kpiCountDelta"></div></div>
+        <div class="kpi k3"><div class="label">Avg ARR / Customer</div><div class="value" id="kpiAvg">$0</div><div class="delta" id="kpiAvgDelta"></div></div>
+        <div class="kpi k4"><div class="label">Total Credit Limit</div><div class="value" id="kpiCredit">$0</div><div class="delta" id="kpiCreditDelta"></div></div>
+      </div>
+
+      <div class="grid">
+        <div class="card"><h3 style="margin-top:0;font-size:14px;color:#34495e;">ARR by Customer Tier</h3><div id="chartTier" class="chart"></div></div>
+        <div class="card"><h3 style="margin-top:0;font-size:14px;color:#34495e;">ARR Distribution by Region</h3><div id="chartRegion" class="chart"></div></div>
+      </div>
+      <div class="grid-full" style="margin-top:18px;">
+        <div class="card"><h3 style="margin-top:0;font-size:14px;color:#34495e;">Top 10 Customers by ARR</h3><div id="chartTop" class="chart"></div></div>
+      </div>
+
+      <div class="insight-box">
+        <h3>💡 Key Business Insights</h3>
+        <ul id="insightList"></ul>
+      </div>
+
+      <script>
+        // All 20 customer rows: [id, name, tier, region, country, arr, credit_limit, signup_date]
+        var allData = [[1, "DataCorp Global", "enterprise", "NA", "USA", 4800000.0, 500000.0, "2018-03-15"], [2, "FinTech Solutions", "enterprise", "EU", "UK", 3200000.0, 350000.0, "2018-08-22"], [3, "MedTech Innovations", "enterprise", "NA", "Canada", 2900000.0, 300000.0, "2019-01-10"], [4, "EduPlatform Inc.", "mid-market", "NA", "USA", 1200000.0, 150000.0, "2019-06-30"], [5, "RetailNext", "mid-market", "NA", "USA", 950000.0, 120000.0, "2020-02-14"], [6, "LogiFlow Systems", "mid-market", "EU", "Germany", 1100000.0, 130000.0, "2020-04-18"], [7, "TravelTech Asia", "mid-market", "APAC", "Singapore", 880000.0, 100000.0, "2020-07-09"], [8, "MediaStream Co.", "mid-market", "NA", "USA", 1400000.0, 160000.0, "2020-09-25"], [9, "AgriTech Brasil", "smb", "LATAM", "Brazil", 180000.0, 25000.0, "2021-01-12"], [10, "DesignStudio Pro", "smb", "EU", "France", 240000.0, 30000.0, "2021-03-20"], [11, "HealthBook Network", "smb", "NA", "USA", 320000.0, 40000.0, "2021-05-08"], [12, "GamingVerse", "smb", "APAC", "Japan", 410000.0, 50000.0, "2021-08-14"], [13, "AutoDrive Labs", "mid-market", "NA", "USA", 780000.0, 90000.0, "2021-11-22"], [14, "SmartCity Solutions", "enterprise", "EU", "Netherlands", 2300000.0, 250000.0, "2022-02-03"], [15, "BioGen Research", "enterprise", "NA", "USA", 2600000.0, 280000.0, "2022-05-19"], [16, "CloudKitch", "smb", "EU", "Spain", 150000.0, 20000.0, "2022-08-07"], [17, "RealEstate Hub", "smb", "NA", "USA", 280000.0, 35000.0, "2022-11-11"], [18, "InsurTech Plus", "mid-market", "EU", "Italy", 640000.0, 75000.0, "2023-02-25"], [19, "CryptoLedger", "smb", "APAC", "Korea", 195000.0, 25000.0, "2023-06-30"], [20, "WeddingPlanner Co.", "smb", "NA", "USA", 85000.0, 15000.0, "2023-10-15"]];
+
+        var COLORS = ['#1f77b4', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#e377c2', '#17becf', '#bcbd22', '#d62728', '#7f7f7f'];
+
+        function fmtUSD(n) {
+          if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+          if (n >= 1e3) return '$' + (n/1e3).toFixed(0) + 'K';
+          return '$' + n.toFixed(0);
+        }
+
+        function getFiltered() {
+          var t = document.getElementById('filterTier').value;
+          var r = document.getElementById('filterRegion').value;
+          var c = document.getElementById('filterCountry').value;
+          return allData.filter(function(row) {
+            if (t !== 'all' && row[2] !== t) return false;
+            if (r !== 'all' && row[3] !== r) return false;
+            if (c !== 'all' && row[4] !== c) return false;
+            return true;
+          });
+        }
+
+        function aggByCol(colIdx, valIdx, data) {
+          var map = {};
+          data.forEach(function(r) {
+            var k = r[colIdx];
+            map[k] = (map[k] || 0) + r[valIdx];
+          });
+          var entries = Object.entries(map).sort(function(a, b) { return b[1] - a[1]; });
+          return { labels: entries.map(function(e) { return e[0]; }), values: entries.map(function(e) { return e[1]; }) };
+        }
+
+        function countByCol(colIdx, data) {
+          var map = {};
+          data.forEach(function(r) { var k = r[colIdx]; map[k] = (map[k] || 0) + 1; });
+          var entries = Object.entries(map).sort(function(a, b) { return b[1] - a[1]; });
+          return { labels: entries.map(function(e) { return e[0]; }), values: entries.map(function(e) { return e[1]; }) };
+        }
+
+        function applyFilters() {
+          var data = getFiltered();
+          var totalArr  = data.reduce(function(s, r) { return s + r[5]; }, 0);
+          var totalCred = data.reduce(function(s, r) { return s + r[6]; }, 0);
+          var count     = data.length;
+          var avgArr    = count > 0 ? totalArr / count : 0;
+          var grandTotal = allData.reduce(function(s, r) { return s + r[5]; }, 0);
+          var pct = grandTotal > 0 ? (totalArr / grandTotal * 100) : 0;
+
+          // KPI updates
+          document.getElementById('kpiArr').textContent = fmtUSD(totalArr);
+          document.getElementById('kpiArrDelta').innerHTML = '<span class="badge">' + pct.toFixed(1) + '% of total ARR</span>';
+          document.getElementById('kpiCount').textContent = count;
+          document.getElementById('kpiCountDelta').textContent = 'of ' + allData.length + ' total customers';
+          document.getElementById('kpiAvg').textContent = fmtUSD(avgArr);
+          document.getElementById('kpiAvgDelta').textContent = count > 0 ? 'across ' + count + ' account(s)' : '';
+          document.getElementById('kpiCredit').textContent = fmtUSD(totalCred);
+          document.getElementById('kpiCreditDelta').textContent = 'credit exposure';
+
+          // Chart 1: ARR by Tier
+          var byTier = aggByCol(2, 5, data);
+          Plotly.react('chartTier', [{
+            x: byTier.values,
+            y: byTier.labels,
+            type: 'bar',
+            orientation: 'h',
+            marker: { color: byTier.labels.map(function(_, i) { return COLORS[i % COLORS.length]; }) },
+            text: byTier.values.map(function(v) { return fmtUSD(v); }),
+            textposition: 'outside',
+            hovertemplate: '<b>%{y}</b><br>ARR: %{text}<extra></extra>'
+          }], {
+            margin: { l: 100, r: 30, t: 20, b: 40 },
+            xaxis: { title: 'Annual Recurring Revenue (USD)', tickformat: '$.2s' },
+            yaxis: { title: '', categoryorder: 'total ascending' },
+            showlegend: false,
+            paper_bgcolor: '#fff'
+          }, { displayModeBar: false, responsive: true });
+
+          // Chart 2: ARR by Region (donut)
+          var byRegion = aggByCol(3, 5, data);
+          Plotly.react('chartRegion', [{
+            labels: byRegion.labels,
+            values: byRegion.values,
+            type: 'pie',
+            hole: 0.55,
+            marker: { colors: byRegion.labels.map(function(_, i) { return COLORS[i % COLORS.length]; }) },
+            textinfo: 'label+percent',
+            textposition: 'outside',
+            hovertemplate: '<b>%{label}</b><br>ARR: ' + byRegion.values.map(fmtUSD).join('|').replace(/\|/g, '<br>') + '<extra></extra>'
+          }, {
+            labels: byRegion.labels,
+            values: byRegion.values,
+            type: 'pie',
+            hole: 0.55,
+            marker: { colors: byRegion.labels.map(function(_, i) { return COLORS[i % COLORS.length]; }) },
+            textinfo: 'percent',
+            textposition: 'inside',
+            showlegend: false,
+            hoverinfo: 'skip'
+          }], {
+            annotations: [{
+              text: '<b>' + fmtUSD(totalArr) + '</b><br><span style="font-size:11px;color:#7f8c8d">Total ARR</span>',
+              showarrow: false,
+              font: { size: 14 }
+            }],
+            margin: { l: 20, r: 20, t: 30, b: 20 },
+            showlegend: true,
+            legend: { orientation: 'h', y: -0.05 },
+            paper_bgcolor: '#fff'
+          }, { displayModeBar: false, responsive: true });
+
+          // Chart 3: Top 10 customers by ARR
+          var top = data.slice().sort(function(a, b) { return b[5] - a[5]; }).slice(0, 10);
+          Plotly.react('chartTop', [{
+            x: top.map(function(r) { return r[5]; }),
+            y: top.map(function(r) { return r[1]; }),
+            type: 'bar',
+            orientation: 'h',
+            marker: { color: top.map(function(r) { return r[2] === 'enterprise' ? '#1f77b4' : (r[2] === 'mid-market' ? '#2ca02c' : '#ff7f0e'); }) },
+            text: top.map(function(r) { return fmtUSD(r[5]); }),
+            textposition: 'outside',
+            customdata: top.map(function(r) { return [r[2], r[3], r[4]]; }),
+            hovertemplate: '<b>%{y}</b><br>Tier: %{customdata[0]}<br>Region: %{customdata[1]}<br>Country: %{customdata[2]}<br>ARR: %{text}<extra></extra>'
+          }], {
+            margin: { l: 160, r: 40, t: 20, b: 40 },
+            xaxis: { title: 'ARR (USD)', tickformat: '$.2s' },
+            yaxis: { categoryorder: 'total ascending' },
+            showlegend: false,
+            paper_bgcolor: '#fff'
+          }, { displayModeBar: false, responsive: true });
+
+          // Insights
+          updateInsights(data, totalArr, count, avgArr, byTier, byRegion);
+        }
+
+        function updateInsights(data, totalArr, count, avgArr, byTier, byRegion) {
+          var insights = [];
+          var totalAll = allData.length;
+
+          if (data.length === 0) {
+            insights.push('⚠️ No customers match the current filters. Try resetting to see the full portfolio.');
+          } else {
+            insights.push('📌 The current view covers <b>' + count + '</b> customer account(s), contributing <b>' + fmtUSD(totalArr) + '</b> in total ARR.');
+            if (data.length < totalAll) {
+              insights.push('📊 This filter selection represents <b>' + ((count/totalAll*100).toFixed(1)) + '%</b> of the entire customer base.');
+            } else {
+              insights.push('🌐 <b>Global overview:</b> the full portfolio spans 3 customer tiers, 4 regions, and 12 countries.');
+            }
+
+            if (byTier.labels.length > 0) {
+              var topTier = byTier.labels[0];
+              var topTierShare = totalArr > 0 ? (byTier.values[0] / totalArr * 100) : 0;
+              insights.push('🏆 <b>' + topTier + '</b> tier leads with <b>' + fmtUSD(byTier.values[0]) + '</b> ARR (' + topTierShare.toFixed(1) + '% of filtered ARR).');
+            }
+
+            if (byRegion.labels.length > 0) {
+              var topRegion = byRegion.labels[0];
+              var topRegShare = totalArr > 0 ? (byRegion.values[0] / totalArr * 100) : 0;
+              insights.push('🌍 <b>' + topRegion + '</b> region is the largest contributor at <b>' + fmtUSD(byRegion.values[0]) + '</b> (' + topRegShare.toFixed(1) + '% of filtered ARR).');
+            }
+
+            if (data.length > 1) {
+              var top = data.slice().sort(function(a, b) { return b[5] - a[5]; })[0];
+              insights.push('⭐ Top customer: <b>' + top[1] + '</b> with <b>' + fmtUSD(top[5]) + '</b> ARR (' + ((top[5]/totalArr*100).toFixed(1)) + '% of filtered ARR).');
+            }
+
+            // Concentration risk
+            if (data.length >= 3) {
+              var sorted = data.slice().sort(function(a, b) { return b[5] - a[5]; });
+              var top3 = sorted.slice(0, 3).reduce(function(s, r) { return s + r[5]; }, 0);
+              insights.push('⚖️ <b>Concentration:</b> top 3 accounts represent <b>' + ((top3/totalArr*100).toFixed(1)) + '%</b> of filtered ARR — meaningful customer concentration risk to monitor.');
+            }
+
+            if (avgArr > 0) {
+              var medianArr = (function() {
+                var sorted = data.slice().sort(function(a, b) { return a[5] - b[5]; });
+                var mid = Math.floor(sorted.length / 2);
+                return sorted.length % 2 ? sorted[mid][5] : (sorted[mid-1][5] + sorted[mid][5]) / 2;
+              })();
+              if (avgArr > medianArr * 1.3) {
+                insights.push('📈 Average ARR (' + fmtUSD(avgArr) + ') is well above the median (' + fmtUSD(medianArr) + '), indicating the portfolio is skewed by a few large enterprise accounts.');
+              }
+            }
+          }
+
+          document.getElementById('insightList').innerHTML = insights.map(function(s) { return '<li>' + s + '</li>'; }).join('');
+        }
+
+        function resetFilters() {
+          document.getElementById('filterTier').value = 'all';
+          document.getElementById('filterRegion').value = 'all';
+          document.getElementById('filterCountry').value = 'all';
+          applyFilters();
+        }
+
+        applyFilters();
+      </script>
+    </body>
+    </html>
+    
