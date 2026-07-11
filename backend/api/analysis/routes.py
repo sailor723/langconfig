@@ -54,13 +54,28 @@ class AnalysisChatRequest(BaseModel):
     # block. The chat agent will load exactly these skills via deepagent.
     # If omitted, falls back to ['sql-analyst'] for backward compatibility.
     skills: list[str] = []
+    # Optional: the dashboard's filename. When set, the user + assistant
+    # messages are persisted to `analysis_chat_messages` so re-opening the
+    # same dashboard shows the full chat history.
+    dashboard_filename: Optional[str] = None
 
 
 class AnalysisChatResponse(BaseModel):
-    message: str
-    content: str = ""
+    message: str          # the user-facing clean answer (<think> blocks stripped)
+    content: str = ""     # alias for message, kept for backward compat
+    # List of {step, type, name, input, output} dicts captured during the
+    # agent run. Surfaced in the UI as a collapsible "thinking" trace.
+    tool_trace: list[dict] = []
     tool_calls: int = 0
     total_tokens: int = 0
+
+
+class AnalysisChatHistoryItem(BaseModel):
+    id: int
+    role: str
+    content: str
+    tool_trace: Optional[list[dict]] = None
+    created_at: str
 
 
 class DashboardFile(BaseModel):
@@ -325,6 +340,14 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
     if not Path(db_path).exists():
         raise HTTPException(status_code=404, detail=f"Database not found: {db_path}")
 
+    # Persist the user message BEFORE running the agent so a 504/500 timeout
+    # still leaves a record of what was asked. Assistant message is appended
+    # only after the agent run succeeds.
+    from models.analysis_chat import AnalysisChatMessage
+    dashboard_filename = request.dashboard_filename
+    if dashboard_filename:
+        _persist_message(db, dashboard_filename, "user", request.message)
+
     try:
         result = await asyncio.wait_for(
             _run_analysis_agent(
@@ -336,12 +359,40 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
             ),
             timeout=120,  # 2 minute timeout
         )
-        return result
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="Analysis timed out")
     except Exception as e:
         logger.error(f"Analysis chat error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+    # Persist the assistant's reply (clean content + tool_trace separately).
+    if dashboard_filename:
+        _persist_message(
+            db, dashboard_filename, "assistant",
+            result.message, tool_trace=result.tool_trace,
+        )
+    return result
+
+
+def _persist_message(db, dashboard_filename: str, role: str, content: str,
+                     tool_trace: list[dict] | None = None) -> None:
+    """Insert a chat message row. No-op on any error (chat is best-effort)."""
+    from models.analysis_chat import AnalysisChatMessage
+    try:
+        row = AnalysisChatMessage(
+            dashboard_filename=dashboard_filename,
+            role=role,
+            content=content,
+            tool_trace=tool_trace,
+        )
+        db.add(row)
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to persist chat message: {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
 
 async def _run_analysis_agent(
@@ -452,7 +503,20 @@ async def _run_analysis_agent(
             f"  {db_path}\n\n"
             f"Use sqlite_execute to query it. Discover the schema first, then answer questions.\n"
             "Use python_execute for charts and dashboards.\n"
-            "Read the SKILL.md for guidance. Reply in Chinese.\n{f'\\n=== COMPANION SKILL ===\\n{skill_content}\\n=== END COMPANION SKILL ===\\n' if skill_content else ''}"
+            "Read the SKILL.md for guidance. Reply in Chinese.\n"
+            # ── Output formatting rules (markdown-aware, chat-friendly) ──
+            "## Output style\n"
+            "- All UI text in Chinese.\n"
+            "- Use **markdown headings** (`##`, `###`) to break up long answers; one heading per logical section.\n"
+            "- Use **bulleted lists** (`- item`) for multi-point answers; one fact per bullet.\n"
+            "- Use **pipe tables** for any 3+ row data dump (KPI snapshot, top-N, comparison).\n"
+            "- **Do NOT use `---` horizontal rules** in normal answers — they create visual noise.\n"
+            "- **Currency**: render ≥$1M as `$X.XM` (1 decimal), <$1M as `$X,XXX` (no decimals), currency table cells use the same rule. Always include thousand separators.\n"
+            "- **Period labels**: always `YYYY-Q#` (e.g. `2024-Q4`). Never write `Q4'24` or `Q1 23`.\n"
+            "- **End every answer with a one-line conclusion** in a quote block: `> **结论:** ...` — one sentence, not a paragraph.\n"
+            "- **Long answers**: if the answer is >8 lines, lead with a 2-3 line summary, then detail.\n"
+            "- **Numbers**: when comparing two values, always show the % delta next to the absolute (e.g. `$10.1M → $11.4M (+12.9%)`).\n"
+            + f"{'\\n=== COMPANION SKILL ===\\n' + (skill_content or '') + '\\n=== END COMPANION SKILL ===\\n' if skill_content else ''}"
         ),
         backend=backend,
         skills=(skills if skills else ["sql-analyst"]),
@@ -461,8 +525,13 @@ async def _run_analysis_agent(
 
     # ── Invoke ───────────────────────────────────────────────────────
 
+    import re as _re_think
+    _think_re = _re_think.compile(r"<think>.*?</think>", _re_think.DOTALL)
+
     full_response = ""
-    tool_call_count = 0
+    tool_trace: list[dict] = []
+    step_idx = 0
+    pending_tool_inputs: dict[str, str] = {}   # run_id -> tool name
 
     async for event in agent.astream_events(
         {"messages": [{"role": "user", "content": message}]},
@@ -474,18 +543,92 @@ async def _run_analysis_agent(
     ):
         kind = event.get("event")
         if kind == "on_tool_start":
-            tool_call_count += 1
+            step_idx += 1
+            name = event.get("name", "")
+            inp = event.get("data", {}).get("input", "")
+            run_id = event.get("run_id", "")
+            pending_tool_inputs[run_id] = name
+            tool_trace.append({
+                "step": step_idx,
+                "type": "tool_call",
+                "name": name,
+                "input": str(inp)[:500],   # truncate huge queries
+                "output": None,
+            })
+        elif kind == "on_tool_end":
+            run_id = event.get("run_id", "")
+            out = event.get("data", {}).get("output", "")
+            # Patch the most recent step with this run_id
+            for step in reversed(tool_trace):
+                if step.get("type") == "tool_call" and step.get("output") is None:
+                    step["output"] = str(out)[:1500]
+                    break
         elif kind == "on_chat_model_stream":
             chunk = event.get("data", {}).get("chunk")
             if hasattr(chunk, "content") and chunk.content:
                 full_response += chunk.content
 
+    # Strip <think>...</think> blocks from the user-facing answer.
+    # Reasoning should be in the trace, not in the chat bubble.
+    clean_response = _think_re.sub("", full_response).strip()
+    # If the model emitted ONLY thinking and no real answer, surface a fallback.
+    if not clean_response and full_response:
+        clean_response = "(模型只输出了内部推理过程，未生成可见回答)"
+
     return AnalysisChatResponse(
-        message=full_response,
-        content=full_response,
-        tool_calls=tool_call_count,
-        total_tokens=len(full_response.split()),
+        message=clean_response,
+        content=clean_response,
+        tool_trace=tool_trace,
+        tool_calls=len(tool_trace),
+        total_tokens=len(clean_response.split()),
     )
+
+
+@router.get("/chat-history/{filename}", response_model=list[AnalysisChatHistoryItem])
+async def get_chat_history(filename: str, db: Session = Depends(get_db)):
+    """Return all chat messages for a given dashboard filename, oldest first.
+
+    Used by the Analysis panel's chat to populate the conversation when
+    the user re-opens a dashboard. Filename is the dashboard's basename
+    (e.g. 'erp_dashboard_20260711_055116.html'); we don't accept paths.
+    """
+    from fastapi import HTTPException
+    # Defend against path traversal: only allow a basename, no slashes
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(400, "Invalid filename")
+    from models.analysis_chat import AnalysisChatMessage
+    rows = (
+        db.query(AnalysisChatMessage)
+        .filter(AnalysisChatMessage.dashboard_filename == filename)
+        .order_by(AnalysisChatMessage.created_at.asc(), AnalysisChatMessage.id.asc())
+        .all()
+    )
+    return [
+        AnalysisChatHistoryItem(
+            id=r.id,
+            role=r.role,
+            content=r.content,
+            tool_trace=r.tool_trace,
+            created_at=r.created_at.isoformat() if r.created_at else "",
+        )
+        for r in rows
+    ]
+
+
+@router.delete("/chat-history/{filename}")
+async def clear_chat_history(filename: str, db: Session = Depends(get_db)):
+    """Delete all chat messages for a given dashboard filename."""
+    from fastapi import HTTPException
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(400, "Invalid filename")
+    from models.analysis_chat import AnalysisChatMessage
+    deleted = (
+        db.query(AnalysisChatMessage)
+        .filter(AnalysisChatMessage.dashboard_filename == filename)
+        .delete()
+    )
+    db.commit()
+    return {"deleted": deleted}
 
 
 @router.get("/data/{hash_id}")

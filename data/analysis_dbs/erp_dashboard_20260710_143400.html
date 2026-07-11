@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+<!--
+  Generated: <auto> | Source: erp_data.db | Mode: static-embed
+  LangConfig Dashboard Meta
+  db: /Users/weiping/dev/Learn/langchain-ai/langconfig/backend/skills/erp-analyst/erp_data.db
+  skills: erp-analyst
+-->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AcmeCloud Inc. · ERP 财务仪表盘</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #f5f7fa; color: #1f2937; font-family: 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif; }
+      header { background: #ffffff; border-bottom: 1px solid #e5e7eb; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; position: sticky; top: 0; z-index: 20; }
+      header h1 { margin: 0; color: #1e3a8a; font-size: 20px; font-weight: 700; }
+      .subtitle { font-size: 12px; color: #6b7280; margin-top: 4px; }
+      .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .toolbar label { color: #6b7280; font-size: 13px; }
+      .toolbar select, .toolbar button { height: 36px; padding: 7px 12px; border-radius: 8px; font-size: 13px; border: 1px solid #d1d5db; background: #ffffff; cursor: pointer; font-family: inherit; }
+      .toolbar button.primary { background: #1e3a8a; color: #ffffff; border-color: #1e3a8a; font-weight: 600; }
+      .toolbar button.secondary { color: #1e3a8a; border-color: #c8a96a; }
+      .toolbar button:disabled { background: #9ca3af; border-color: #9ca3af; color: #fff; cursor: not-allowed; }
+      .status { width: 100%; font-size: 12px; color: #6b7280; }
+      .status .focus { color: #c8a96a; font-weight: 700; }
+      main { padding: 24px; max-width: 1680px; margin: 0 auto; }
+      .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+      .kpi-card { background: #ffffff; border-radius: 12px; padding: 15px 16px; border-left: 4px solid #1e3a8a; box-shadow: 0 2px 8px rgba(31,41,55,0.04); min-height: 98px; }
+      .kpi-card.gold { border-left-color: #c8a96a; }
+      .kpi-card .label { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
+      .kpi-card .value { font-size: 24px; font-weight: 750; color: #1e3a8a; letter-spacing: -0.3px; }
+      .kpi-card .delta { font-size: 12px; color: #6b7280; margin-top: 6px; line-height: 1.35; }
+      .overall-insight { background: #ffffff; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; border-left: 4px solid #c8a96a; box-shadow: 0 2px 8px rgba(31,41,55,0.04); }
+      .overall-insight h2 { margin: 0 0 8px; font-size: 17px; color: #1e3a8a; }
+      .overall-insight .snapshot { font-size: 13px; color: #6b7280; margin-bottom: 10px; }
+      .overall-insight ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
+      .overall-insight li { font-size: 13px; line-height: 1.5; padding: 6px 0; border-bottom: 1px solid #f3f4f6; }
+      .charts-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+      .chart-block { background: #ffffff; border-radius: 12px; padding: 15px 16px 16px; box-shadow: 0 2px 8px rgba(31,41,55,0.04); min-width: 0; }
+      .chart-block h3 { margin: 0 0 10px; font-size: 15px; color: #1f2937; }
+      .chart { width: 100%; height: 360px; }
+      .insight-box { background: #f5f7fa; border-radius: 9px; padding: 11px 13px; margin-top: 12px; border-left: 4px solid #1e3a8a; min-height: 142px; }
+      .insight-box h4 { margin: 0 0 6px; font-size: 12px; color: #1e3a8a; letter-spacing: 0.03em; }
+      .insight-box ul { list-style: none; padding: 0; margin: 0; }
+      .insight-box li { padding: 5px 0; font-size: 12px; line-height: 1.48; border-bottom: 1px solid #e5e7eb; }
+      .insight-box li:last-child { border-bottom: 0; }
+      .insight-box .ic { display: inline-block; width: 18px; }
+      .insight-box .title { font-weight: 700; color: #1f2937; }
+      .insight-box .data { color: #1e3a8a; }
+      .insight-box .biz { color: #6b7280; }
+      .err-banner { background: #fff7ed; color: #9a3412; padding: 12px 18px; text-align: center; font-size: 13px; border-bottom: 1px solid #fed7aa; }
+      @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .charts-grid { grid-template-columns: 1fr; } .overall-insight ul { grid-template-columns: 1fr; } }
+      @media (max-width: 620px) { main { padding: 14px; } .kpi-grid { grid-template-columns: 1fr; } header { position: static; } }
+    </style>
+    </head>
+    <body>
+    <header>
+      <div>
+        <h1>AcmeCloud Inc. · ERP 财务仪表盘</h1>
+        <div class="subtitle">P&L · Balance Sheet · Cash Flow · Products · Customers</div>
+      </div>
+      <div class="toolbar">
+        <label>时间窗口
+          <select id="filterPeriod" onchange="applyFilters()">
+            <option value="all">全部季度</option>
+            <option value="2023">仅 2023</option>
+            <option value="2024">仅 2024</option>
+            <option value="2025">仅 2025</option>
+            <option value="last4">最近 4 季度</option>
+            <option value="last8">最近 8 季度</option>
+          </select>
+        </label>
+        <button id="refreshBtn" class="primary" onclick="refreshData()">刷新数据</button>
+        <button class="secondary" onclick="resetFilters()">重置</button>
+        <div class="status" id="statusText">▸ 数据加载中…</div>
+      </div>
+    </header>
+
+    <main>
+      <section class="kpi-grid" id="kpiGrid"></section>
+      <section class="overall-insight" id="overallInsight"></section>
+
+      <section class="charts-grid">
+        <div class="chart-block"><h3>c1 · 营收趋势与同比增速</h3><div id="c1" class="chart"></div><div id="i1" class="insight-box"></div></div>
+        <div class="chart-block"><h3>c2 · 利润分析：毛利 / EBITDA / 净利率</h3><div id="c2" class="chart"></div><div id="i2" class="insight-box"></div></div>
+        <div class="chart-block"><h3>c3 · 回报能力：ROE / ROA / ROIC</h3><div id="c3" class="chart"></div><div id="i3" class="insight-box"></div></div>
+        <div class="chart-block"><h3>c4 · 资本结构：权益 / 负债 / D/E</h3><div id="c4" class="chart"></div><div id="i4" class="insight-box"></div></div>
+        <div class="chart-block"><h3>c5 · 流动性：流动比率 / 速动比率</h3><div id="c5" class="chart"></div><div id="i5" class="insight-box"></div></div>
+        <div class="chart-block"><h3>c6 · 现金流质量：OCF / OCF 占营收</h3><div id="c6" class="chart"></div><div id="i6" class="insight-box"></div></div>
+        <div class="chart-block"><h3>c7 · 产品组合：按毛利率降序</h3><div id="c7" class="chart"></div><div id="i7" class="insight-box"></div></div>
+        <div class="chart-block"><h3>c8 · 客户分层：按 ARR</h3><div id="c8" class="chart"></div><div id="i8" class="insight-box"></div></div>
+        <div class="chart-block"><h3>c9 · 区域分布：按 ARR</h3><div id="c9" class="chart"></div><div id="i9" class="insight-box"></div></div>
+        <div class="chart-block"><h3>c10 · EBITDA 年度增长归因</h3><div id="c10" class="chart"></div><div id="i10" class="insight-box"></div></div>
+      </section>
+    </main>
+
+    <script>
+    var DATA_API = "erp_data.json";
+    var company = {};
+    var salesData = Array();
+    var allData = Array();
+    var products = Array();
+    var tiers = Array();
+    var regions = Array();
+    var topCustomers = Array();
+    var ebitdaYearly = Array();
+    var overall = {};
+    var selectedPeriod = null;
+    var clickableCharts = ["c1", "c2", "c3", "c4", "c5", "c6"];
+    var NAVY = "#1e3a8a";
+    var GOLD = "#c8a96a";
+    var WARN = "#dc8a3a";
+    var DIM = "#d1d5db";
+
+    function fmtUsd(v){ if(v === null || v === undefined || isNaN(v)) return "—"; var s = v < 0 ? "-" : ""; v = Math.abs(v); if(v >= 1e9) return s + "$" + (v/1e9).toFixed(2) + "B"; if(v >= 1e6) return s + "$" + (v/1e6).toFixed(1) + "M"; if(v >= 1e3) return s + "$" + (v/1e3).toFixed(0) + "K"; return s + "$" + v.toFixed(0); }
+    function fmtPct(v){ if(v === null || v === undefined || isNaN(v)) return "—"; return v.toFixed(1) + "%"; }
+    function fmtNum(v){ if(v === null || v === undefined || isNaN(v)) return "—"; return v.toFixed(2); }
+    function fmtX(v){ if(v === null || v === undefined || isNaN(v)) return "—"; return v.toFixed(1) + "x"; }
+    function sum(arr, key){ return arr.reduce(function(s, r){ return s + (Number(r[key]) || 0); }, 0); }
+    function latestOf(d){ return d && d.length ? d[d.length - 1] : null; }
+    function firstOf(d){ return d && d.length ? d[0] : null; }
+    function findPeriod(period){ for(var i=0; i<salesData.length; i++){ if(salesData[i].period === period) return salesData[i]; } return null; }
+    function indexOfPeriod(period){ for(var i=0; i<salesData.length; i++){ if(salesData[i].period === period) return i; } return -1; }
+    function prevOfPeriod(period, lag){ var i = indexOfPeriod(period); if(i - lag >= 0) return salesData[i-lag]; return null; }
+    function contextRecord(d){ if(selectedPeriod){ var p = findPeriod(selectedPeriod); if(p) return p; } return latestOf(d); }
+    function deltaPct(curr, prev){ if(!prev || prev === 0 || curr === null || curr === undefined) return null; return (curr / prev - 1) * 100; }
+    function deltaText(curr, prev, suffix){ var d = deltaPct(curr, prev); if(d === null) return ""; return (d >= 0 ? "▲ " : "▼ ") + Math.abs(d).toFixed(1) + "%" + (suffix || ""); }
+    function ppText(curr, prev){ if(curr === null || prev === null || curr === undefined || prev === undefined) return "—"; var d = curr - prev; return (d >= 0 ? "+" : "") + d.toFixed(1) + "pp"; }
+    function periods(d){ return d.map(function(r){ return r.period; }); }
+    function perPointColors(xs, baseColor, dimColor){ if(!selectedPeriod) return xs.map(function(){ return baseColor; }); return xs.map(function(p){ return p === selectedPeriod ? baseColor : dimColor; }); }
+    function perPointOpacities(xs){ if(!selectedPeriod) return xs.map(function(){ return 1.0; }); return xs.map(function(p){ return p === selectedPeriod ? 1.0 : 0.25; }); }
+    function perPointSizes(xs, base){ if(!selectedPeriod) return xs.map(function(){ return base; }); return xs.map(function(p){ return p === selectedPeriod ? base + 4 : base; }); }
+    function baseLayout(){ return { font: { family: "PingFang SC, Microsoft YaHei, Arial, sans-serif", size: 11, color: "#1f2937" }, paper_bgcolor: "#ffffff", plot_bgcolor: "#fafbfc", margin: { l: 54, r: 34, t: 24, b: 46 }, hovermode: "x unified", legend: { orientation: "h", y: -0.16, font: { size: 11 } }, xaxis: { gridcolor: "#e5e7eb", zeroline: false }, yaxis: { gridcolor: "#e5e7eb", zeroline: false } }; }
+    function chartConfig(){ return { responsive: true, displaylogo: false, modeBarButtonsToRemove: ["lasso2d", "select2d"] }; }
+
+    function applyPayload(p){
+      company = p.company || {};
+      salesData = p.salesData || Array();
+      allData = salesData.slice();
+      products = p.products || Array();
+      tiers = p.tiers || Array();
+      regions = p.regions || Array();
+      topCustomers = p.topCustomers || Array();
+      ebitdaYearly = p.ebitdaYearly || Array();
+      overall = p.overall || {};
+    }
+
+    function bootstrap(){
+      fetch(DATA_API + "?t=" + Date.now())
+        .then(function(r){ if(!r.ok){ throw new Error("HTTP " + r.status); } return r.json(); })
+        .then(function(p){ applyPayload(p); selectedPeriod = null; renderAll(getFiltered()); })
+        .catch(function(err){ document.body.insertAdjacentHTML("afterbegin", '<div class="err-banner">数据加载失败：' + err.message + '。请在 dashboard 目录启动 HTTP 服务后打开页面。</div>'); });
+    }
+
+    async function refreshData(){
+      var btn = document.getElementById("refreshBtn");
+      var successText = "✅ 已更新";
+      var failureText = "❌ 失败";
+      btn.disabled = true;
+      btn.textContent = "加载中…";
+      selectedPeriod = null;
+      try {
+        var r = await fetch(DATA_API + "?t=" + Date.now());
+        if(!r.ok){ throw new Error("HTTP " + r.status); }
+        var p = await r.json();
+        applyPayload(p);
+        renderAll(getFiltered());
+        btn.textContent = successText;
+        setTimeout(function(){ btn.disabled = false; btn.textContent = "刷新数据"; }, 1500);
+      } catch (err) {
+        btn.textContent = failureText;
+        document.getElementById("statusText").innerHTML = "▸ 刷新失败：" + err.message;
+        setTimeout(function(){ btn.disabled = false; btn.textContent = "刷新数据"; }, 2000);
+      }
+    }
+
+    function getFiltered(){
+      var el = document.getElementById("filterPeriod");
+      var f = el ? el.value : "all";
+      if(f === "all") return salesData.slice();
+      if(f === "last4") return salesData.slice(-4);
+      if(f === "last8") return salesData.slice(-8);
+      var y = parseInt(f, 10);
+      if(!isNaN(y)) return salesData.filter(function(r){ return r.year === y; });
+      return salesData.slice();
+    }
+    function applyFilters(){ selectedPeriod = null; renderAll(getFiltered()); }
+    function resetFilters(){ selectedPeriod = null; document.getElementById("filterPeriod").value = "all"; renderAll(salesData); }
+
+    function updateStatus(d){
+      d = d || getFiltered();
+      var first = firstOf(d), last = latestOf(d);
+      var timeStr = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+      var focusTxt = selectedPeriod ? ' · <span class="focus">▸ 高亮聚焦: ' + selectedPeriod + '</span>' : "";
+      var range = first && last ? first.period + " → " + last.period : "—";
+      document.getElementById("statusText").innerHTML = "▸ 数据更新于 " + timeStr + " · " + d.length + " 个季度（" + range + "）" + focusTxt;
+    }
+
+    function renderKPIs(d){
+      var r = contextRecord(d); if(!r) return;
+      var prev = prevOfPeriod(r.period, 1);
+      // When a multi-quarter filter is active, the focused record is the
+      // latest one (e.g. 2024-Q4 when filter = "仅 2024"). Tag the cards
+      // with the period so the user knows the value represents that one
+      // quarter, not the full year/filter range.
+      var periodTag = "（" + r.period + "）";
+      var cards = [
+        {label: "营收 Revenue " + periodTag, value: fmtUsd(r.revenue), delta: "QoQ " + deltaText(r.revenue, prev ? prev.revenue : null) + (r.yoyPct !== null ? " · YoY " + fmtPct(r.yoyPct) : "")},
+        {label: "EBITDA " + periodTag, value: fmtUsd(r.ebitda), delta: "Margin " + fmtPct(r.ebitdaMargin) + " · QoQ " + deltaText(r.ebitda, prev ? prev.ebitda : null), gold: true},
+        {label: "净利润 " + periodTag, value: fmtUsd(r.netIncome), delta: "净利率 " + fmtPct(r.netMargin) + " · EPS $" + (r.eps || 0).toFixed(3)},
+        {label: "ROE " + periodTag, value: fmtPct(r.roe), delta: r.roe >= 20 ? "优秀：超过 20%" : (r.roe >= 15 ? "健康：超过 15%" : "低于 15% 基准"), gold: true},
+        {label: "毛利率 " + periodTag, value: fmtPct(r.grossMargin), delta: "云基础设施健康线约 65%"},
+        {label: "ROIC " + periodTag, value: fmtPct(r.roic), delta: r.roic >= 15 ? "资本配置优秀" : "需对照 WACC"},
+        {label: "流动比率 " + periodTag, value: fmtNum(r.currentRatio), delta: "速动比率 " + fmtNum(r.quickRatio)},
+        {label: "债务权益比 " + periodTag, value: fmtNum(r.debtToEquity), delta: "负债率 " + fmtNum(r.debtRatio) + " · 利息覆盖 " + fmtX(r.interestCoverage)}
+      ];
+      document.getElementById("kpiGrid").innerHTML = cards.map(function(k){ return '<div class="kpi-card' + (k.gold ? ' gold' : '') + '"><div class="label">' + k.label + '</div><div class="value">' + k.value + '</div><div class="delta">' + (k.delta || "") + '</div></div>'; }).join("");
+    }
+
+    function renderOverall(d){
+      var r = contextRecord(d); if(!r) return;
+      var prev = prevOfPeriod(r.period, 1);
+      var first = firstOf(salesData) || r;
+      var cagr = Math.pow(r.revenue / first.revenue, 4 / Math.max(1, indexOfPeriod(r.period))) - 1;
+      if(!isFinite(cagr)) cagr = 0;
+      var topRegion = regions.length ? regions[0] : null;
+      var apacLatam = regions.filter(function(x){ return x.region === "APAC" || x.region === "LATAM"; }).reduce(function(s,x){ return s + x.pctOfTotal; }, 0);
+      var healthLabel = (r.currentRatio >= 1.5 && r.debtToEquity < 1 && r.interestCoverage >= 5) ? "良好" : "关注";
+      var growthLabel = (r.yoyPct !== null && r.yoyPct >= 25 && r.ebitdaMargin >= 25) ? "强" : "中等";
+      var html = '<h2>仪表盘摘要 · ' + r.period + '</h2>';
+      html += '<div class="snapshot">' + (overall.company_snapshot || (company.name || "")) + '</div><ul>';
+      html += '<li>📊 <b>健康度 · ' + healthLabel + '</b> — 流动比率 ' + fmtNum(r.currentRatio) + '、利息覆盖 ' + fmtX(r.interestCoverage) + '、D/E ' + fmtNum(r.debtToEquity) + '</li>';
+      html += '<li>📈 <b>成长性 · ' + growthLabel + '</b> — 营收 ' + fmtUsd(r.revenue) + '，QoQ ' + deltaText(r.revenue, prev ? prev.revenue : null) + (r.yoyPct !== null ? '，YoY ' + fmtPct(r.yoyPct) : '') + '</li>';
+      html += '<li>🎯 <b>关键发现</b> — EBITDA Margin ' + fmtPct(r.ebitdaMargin) + '，ROE ' + fmtPct(r.roe) + '，OCF/Rev ' + fmtPct(r.ocfToRev) + '</li>';
+      html += '<li>⚡ <b>风险点</b> — ' + (topRegion ? topRegion.region + ' 占 ARR ' + fmtPct(topRegion.pctOfTotal) + '；APAC+LATAM 仅 ' + fmtPct(apacLatam) : '暂无区域数据') + '</li>';
+      html += '<li>💡 <b>建议</b> — 继续扩大高毛利产品占比，并推动非北美区域增长以分散 ARR 来源</li>';
+      html += '<li>📌 <b>期间判断</b> — 自 ' + first.period + ' 起营收年化 CAGR 约 ' + fmtPct(cagr * 100) + '，EBITDA Margin 累计改善 ' + ppText(r.ebitdaMargin, first.ebitdaMargin) + '</li>';
+      html += '</ul>';
+      document.getElementById("overallInsight").innerHTML = html;
+    }
+
+    function renderC1(d){
+      var xs = periods(d), rev = d.map(function(r){ return r.revenue; }), yoy = d.map(function(r){ return r.yoyPct; });
+      var trace1 = { x: xs, y: rev, type: "bar", name: "营业收入", marker: { color: perPointColors(xs, NAVY, DIM), opacity: perPointOpacities(xs) }, text: rev.map(fmtUsd), textposition: "outside", hovertemplate: "%{x}<br>营收 %{text}<extra></extra>" };
+      var trace2 = { x: xs, y: yoy, type: "scatter", mode: "lines+markers", name: "YoY %", yaxis: "y2", line: { color: GOLD, width: 2.5, shape: "spline" }, marker: { color: perPointColors(xs, GOLD, DIM), size: perPointSizes(xs, 7), opacity: perPointOpacities(xs) }, hovertemplate: "%{x}<br>YoY %{y:.1f}%<extra></extra>" };
+      var layout = Object.assign(baseLayout(), { yaxis: { title: "营收 (USD)", gridcolor: "#e5e7eb", tickformat: ".2s" }, yaxis2: { title: "YoY %", overlaying: "y", side: "right", gridcolor: "transparent", ticksuffix: "%" } });
+      Plotly.react("c1", [trace1, trace2], layout, chartConfig());
+    }
+    function renderC2(d){
+      var xs = periods(d);
+      var traces = [
+        { name: "毛利率", y: d.map(function(r){ return r.grossMargin; }), color: NAVY },
+        { name: "EBITDA 利润率", y: d.map(function(r){ return r.ebitdaMargin; }), color: GOLD },
+        { name: "净利率", y: d.map(function(r){ return r.netMargin; }), color: WARN }
+      ].map(function(t){ return { x: xs, y: t.y, type: "scatter", mode: "lines+markers", name: t.name, line: { color: t.color, width: 2.5, shape: "spline" }, marker: { color: perPointColors(xs, t.color, DIM), size: perPointSizes(xs, 7), opacity: perPointOpacities(xs) }, hovertemplate: "%{x}<br>" + t.name + " %{y:.1f}%<extra></extra>" }; });
+      var layout = Object.assign(baseLayout(), { yaxis: { title: "利润率 %", gridcolor: "#e5e7eb", ticksuffix: "%" } });
+      Plotly.react("c2", traces, layout, chartConfig());
+    }
+    function renderC3(d){
+      var xs = periods(d);
+      var trace1 = { x: xs, y: d.map(function(r){ return r.roe; }), type: "scatter", mode: "lines+markers", name: "ROE", line: { color: NAVY, width: 2.5, shape: "spline" }, marker: { color: perPointColors(xs, NAVY, DIM), size: perPointSizes(xs, 7), opacity: perPointOpacities(xs) } };
+      var trace2 = { x: xs, y: d.map(function(r){ return r.roa; }), type: "scatter", mode: "lines+markers", name: "ROA", line: { color: GOLD, width: 2.5, shape: "spline" }, marker: { color: perPointColors(xs, GOLD, DIM), size: perPointSizes(xs, 7), opacity: perPointOpacities(xs) } };
+      var trace3 = { x: xs, y: d.map(function(r){ return r.roic; }), type: "scatter", mode: "lines+markers", name: "ROIC", line: { color: WARN, width: 2.2, shape: "spline" }, marker: { color: perPointColors(xs, WARN, DIM), size: perPointSizes(xs, 6), opacity: perPointOpacities(xs) } };
+      var benchmark = { x: xs, y: xs.map(function(){ return 15; }), type: "scatter", mode: "lines", name: "15% 基准", line: { color: "#6b7280", width: 1.4, dash: "dash" } };
+      var layout = Object.assign(baseLayout(), { yaxis: { title: "回报率 %", gridcolor: "#e5e7eb", ticksuffix: "%" } });
+      Plotly.react("c3", [trace1, trace2, trace3, benchmark], layout, chartConfig());
+    }
+    function renderC4(d){
+      var xs = periods(d);
+      var trace1 = { x: xs, y: d.map(function(r){ return r.equity; }), type: "bar", name: "股东权益", marker: { color: perPointColors(xs, NAVY, DIM), opacity: perPointOpacities(xs) } };
+      var trace2 = { x: xs, y: d.map(function(r){ return r.totalLiabilities; }), type: "bar", name: "总负债", marker: { color: perPointColors(xs, GOLD, DIM), opacity: perPointOpacities(xs) } };
+      var trace3 = { x: xs, y: d.map(function(r){ return r.debtToEquity; }), type: "scatter", mode: "lines+markers", name: "D/E", yaxis: "y2", line: { color: WARN, width: 2.4, shape: "spline" }, marker: { color: perPointColors(xs, WARN, DIM), size: perPointSizes(xs, 7), opacity: perPointOpacities(xs) } };
+      var trace4 = { x: xs, y: xs.map(function(){ return 1.0; }), type: "scatter", mode: "lines", name: "1.0 警戒线", yaxis: "y2", line: { color: "#6b7280", width: 1.4, dash: "dash" } };
+      var layout = Object.assign(baseLayout(), { barmode: "group", yaxis: { title: "金额 (USD)", gridcolor: "#e5e7eb", tickformat: ".2s" }, yaxis2: { title: "D/E", overlaying: "y", side: "right", gridcolor: "transparent" } });
+      Plotly.react("c4", [trace1, trace2, trace3, trace4], layout, chartConfig());
+    }
+    function renderC5(d){
+      var xs = periods(d);
+      var trace1 = { x: xs, y: d.map(function(r){ return r.currentRatio; }), type: "scatter", mode: "lines+markers", name: "流动比率", line: { color: NAVY, width: 2.5, shape: "spline" }, marker: { color: perPointColors(xs, NAVY, DIM), size: perPointSizes(xs, 7), opacity: perPointOpacities(xs) } };
+      var trace2 = { x: xs, y: d.map(function(r){ return r.quickRatio; }), type: "scatter", mode: "lines+markers", name: "速动比率", line: { color: GOLD, width: 2.5, shape: "spline" }, marker: { color: perPointColors(xs, GOLD, DIM), size: perPointSizes(xs, 7), opacity: perPointOpacities(xs) } };
+      var trace3 = { x: xs, y: xs.map(function(){ return 1.5; }), type: "scatter", mode: "lines", name: "1.5 安全线", line: { color: WARN, width: 1.5, dash: "dash" } };
+      var layout = Object.assign(baseLayout(), { yaxis: { title: "比率", gridcolor: "#e5e7eb" } });
+      Plotly.react("c5", [trace1, trace2, trace3], layout, chartConfig());
+    }
+    function renderC6(d){
+      var xs = periods(d);
+      var trace1 = { x: xs, y: d.map(function(r){ return r.ocf; }), type: "bar", name: "经营现金流 OCF", marker: { color: perPointColors(xs, NAVY, DIM), opacity: perPointOpacities(xs) }, text: d.map(function(r){ return fmtUsd(r.ocf); }), textposition: "outside" };
+      var trace2 = { x: xs, y: d.map(function(r){ return r.ocfToRev; }), type: "scatter", mode: "lines+markers", name: "OCF/Rev %", yaxis: "y2", line: { color: GOLD, width: 2.5, shape: "spline" }, marker: { color: perPointColors(xs, GOLD, DIM), size: perPointSizes(xs, 7), opacity: perPointOpacities(xs) } };
+      var layout = Object.assign(baseLayout(), { yaxis: { title: "OCF (USD)", gridcolor: "#e5e7eb", tickformat: ".2s" }, yaxis2: { title: "OCF/Rev %", overlaying: "y", side: "right", gridcolor: "transparent", ticksuffix: "%" } });
+      Plotly.react("c6", [trace1, trace2], layout, chartConfig());
+    }
+    function renderC7(d){
+      var sorted = products.slice().sort(function(a,b){ return (b.margin || 0) - (a.margin || 0); });
+      var trace = { x: sorted.map(function(p){ return p.margin; }), y: sorted.map(function(p){ return p.name; }), type: "bar", orientation: "h", marker: { color: NAVY }, text: sorted.map(function(p){ return fmtPct(p.margin); }), textposition: "outside", hovertemplate: "%{y}<br>毛利率 %{x:.1f}%<extra></extra>" };
+      var layout = Object.assign(baseLayout(), { margin: { l: 150, r: 34, t: 24, b: 44 }, xaxis: { title: "毛利率 %", gridcolor: "#e5e7eb", ticksuffix: "%" }, yaxis: { autorange: "reversed" }, showlegend: false });
+      Plotly.react("c7", [trace], layout, chartConfig());
+    }
+    function renderC8(d){
+      var sorted = tiers.slice().sort(function(a,b){ return b.arr - a.arr; });
+      var colors = [NAVY, GOLD, WARN, "#9ca3af"];
+      var trace = { x: sorted.map(function(t){ return t.tier + " (" + t.customerCount + ")"; }), y: sorted.map(function(t){ return t.arr; }), type: "bar", marker: { color: colors.slice(0, sorted.length) }, text: sorted.map(function(t){ return fmtUsd(t.arr) + " / " + fmtPct(t.pctOfTotal); }), textposition: "outside", hovertemplate: "%{x}<br>ARR %{y:$,.0f}<extra></extra>" };
+      var layout = Object.assign(baseLayout(), { yaxis: { title: "ARR (USD)", gridcolor: "#e5e7eb", tickformat: ".2s" }, showlegend: false });
+      Plotly.react("c8", [trace], layout, chartConfig());
+    }
+    function renderC9(d){
+      var colors = [NAVY, GOLD, WARN, "#9ca3af", "#6b7280"];
+      var labels = regions.map(function(r){ return r.region + " (" + r.customerCount + ")"; });
+      var values = regions.map(function(r){ return r.arr; });
+      var trace = { labels: labels, values: values, type: "pie", hole: 0.52, marker: { colors: colors.slice(0, labels.length) }, textinfo: "percent+label", textposition: "outside", hovertemplate: "%{label}<br>ARR $%{value:,.0f}<br>占比 %{percent}<extra></extra>" };
+      var layout = Object.assign(baseLayout(), { margin: { l: 24, r: 24, t: 24, b: 44 }, showlegend: true, annotations: [{ text: "<b>总 ARR</b><br>" + fmtUsd(sum(regions, "arr")), showarrow: false, font: { size: 14, color: NAVY } }] });
+      Plotly.react("c9", [trace], layout, chartConfig());
+    }
+    function renderC10(d){
+      var years = ebitdaYearly.map(function(e){ return String(e.year); });
+      var eb = ebitdaYearly.map(function(e){ return e.ebitda; });
+      if(eb.length < 2){ Plotly.react("c10", [], baseLayout(), chartConfig()); return; }
+      var x = [years[0] + " EBITDA"], y = [eb[0]], measure = ["absolute"], text = [fmtUsd(eb[0])];
+      for(var i=1; i<eb.length; i++){ var delta = eb[i] - eb[i-1]; x.push("+ " + years[i] + " 增长"); y.push(delta); measure.push("relative"); text.push((delta >= 0 ? "+" : "") + fmtUsd(delta)); }
+      x.push(years[years.length-1] + " EBITDA"); y.push(eb[eb.length-1]); measure.push("total"); text.push(fmtUsd(eb[eb.length-1]));
+      var trace = { x: x, y: y, type: "waterfall", measure: measure, text: text, textposition: "outside", connector: { line: { color: "#9ca3af", width: 1 } }, increasing: { marker: { color: GOLD } }, decreasing: { marker: { color: WARN } }, totals: { marker: { color: NAVY } }, hovertemplate: "%{x}<br>%{y:$,.0f}<extra></extra>" };
+      var layout = Object.assign(baseLayout(), { yaxis: { title: "EBITDA (USD)", gridcolor: "#e5e7eb", tickformat: ".2s" }, showlegend: false });
+      Plotly.react("c10", [trace], layout, chartConfig());
+    }
+
+    function insightHtml(items){ return '<h4>关键洞察</h4><ul>' + items.map(function(x){ return '<li><span class="ic">' + x[0] + '</span><span class="title">' + x[1] + '</span><br><span class="data">数据：' + x[2] + '</span><br><span class="biz">业务：' + x[3] + '</span></li>'; }).join("") + '</ul>'; }
+    function setInsights(id, items){ document.getElementById(id).innerHTML = insightHtml(items); }
+    function renderInsights(d){
+      var r = contextRecord(d); var f = firstOf(d); if(!r || !f) return;
+      var prev = prevOfPeriod(r.period, 1);
+      var revGrowth = deltaPct(r.revenue, f.revenue);
+      var topP = products.slice().sort(function(a,b){ return (b.margin || 0) - (a.margin || 0); })[0] || {};
+      var profitP = products.slice().sort(function(a,b){ return (b.grossProfit || 0) - (a.grossProfit || 0); })[0] || {};
+      var topTier = tiers.slice().sort(function(a,b){ return b.arr - a.arr; })[0] || {};
+      var ent = tiers.filter(function(t){ return t.tier === "enterprise"; })[0] || topTier;
+      var topRegion = regions[0] || {};
+      var apacLatam = regions.filter(function(x){ return x.region === "APAC" || x.region === "LATAM"; }).reduce(function(s,x){ return s + x.pctOfTotal; }, 0);
+      setInsights("i1", [
+        ["📈", "增长趋势", r.period + " 营收 " + fmtUsd(r.revenue) + "，QoQ " + deltaText(r.revenue, prev ? prev.revenue : null) + (r.yoyPct !== null ? "，YoY " + fmtPct(r.yoyPct) : ""), "增长仍强，说明需求和扩张动能保持良好"],
+        ["🎯", "期间累计", "当前窗口从 " + f.period + " 到 " + r.period + "，营收累计变化 " + fmtPct(revGrowth), "筛选不同时间窗口可快速判断阶段性增速"],
+        ["💡", "管理重点", "最近季度 YoY 约 " + fmtPct(r.yoyPct), "需观察高增长能否在扩大规模后继续转化为利润率" ]
+      ]);
+      setInsights("i2", [
+        ["📈", "利润率改善", "毛利率 " + fmtPct(r.grossMargin) + "，EBITDA Margin " + fmtPct(r.ebitdaMargin) + "，净利率 " + fmtPct(r.netMargin), "利润从毛利到净利逐层改善，经营杠杆正在释放"],
+        ["⚡", "经营杠杆", "EBITDA Margin 较窗口首季变化 " + ppText(r.ebitdaMargin, f.ebitdaMargin), "若增长同时带来费用率下降，公司可更快跨越盈利拐点"],
+        ["🎯", "行业对照", "云基础设施健康 EBITDA Margin 约 25%", r.ebitdaMargin >= 25 ? "已进入健康区间，可继续冲击 35% 优秀线" : "仍需提升规模效率与成本纪律"]
+      ]);
+      setInsights("i3", [
+        ["⚡", "股东回报", "ROE " + fmtPct(r.roe) + "、ROA " + fmtPct(r.roa) + "、ROIC " + fmtPct(r.roic), "回报指标显示投入资本正在产生较高收益"],
+        ["🎯", "15% 基准", "ROE 与 ROIC 对照 15% 基准线", (r.roe >= 15 && r.roic >= 15) ? "超过常用优秀线，资本效率较好" : "低于基准时应检查利润率或资产周转"],
+        ["💡", "质量判断", "资产周转率 " + fmtNum(r.assetTurnover) + "，D/E " + fmtNum(r.debtToEquity), "高 ROE 主要来自经营改善，而非高杠杆放大" ]
+      ]);
+      setInsights("i4", [
+        ["📈", "资本积累", "权益 " + fmtUsd(r.equity) + "，总负债 " + fmtUsd(r.totalLiabilities), "权益增长快于负债说明留存收益在增强资产负债表"],
+        ["⚡", "杠杆水平", "D/E " + fmtNum(r.debtToEquity) + "，负债率 " + fmtNum(r.debtRatio), r.debtToEquity < 1 ? "杠杆处于保守水平，抗波动能力较强" : "需关注债务压力和再融资成本"],
+        ["💡", "偿债安全", "利息覆盖 " + fmtX(r.interestCoverage), r.interestCoverage > 10 ? "远高于 5x 安全线，违约风险低" : "若继续下降需控制债务成本" ]
+      ]);
+      setInsights("i5", [
+        ["⚡", "短债覆盖", "流动比率 " + fmtNum(r.currentRatio) + "，速动比率 " + fmtNum(r.quickRatio), "现金与应收足以覆盖短期负债，短期流动性充足"],
+        ["🎯", "营运资本", "Working Capital " + fmtUsd(r.workingCapital), "正营运资本为扩张、研发和客户回款波动提供缓冲"],
+        ["📈", "周转观察", "CCC " + fmtNum(r.ccc) + " 天，DSO " + fmtNum(r.dso) + " 天", "需持续压缩回款周期，避免高增长掩盖应收压力" ]
+      ]);
+      setInsights("i6", [
+        ["⚡", "现金流质量", "OCF " + fmtUsd(r.ocf) + "，OCF/Rev " + fmtPct(r.ocfToRev), "经营利润能转化为现金，盈利质量较好"],
+        ["🎯", "自由现金流", "FCF " + fmtUsd(r.fcf) + "，净利润 " + fmtUsd(r.netIncome), r.fcf > 0 ? "资本开支后仍为正，扩张更可持续" : "FCF 为负时需区分战略投资与现金消耗"],
+        ["💡", "资本开支", "投资现金流 " + fmtUsd(r.icf), "云基础设施需要持续投入，需与 ROIC 联动评估回报" ]
+      ]);
+      setInsights("i7", [
+        ["🎯", "最高毛利产品", (topP.name || "—") + " 毛利率 " + fmtPct(topP.margin), "高毛利 SKU 是利润率扩张的主要抓手"],
+        ["⚡", "最大毛利贡献", (profitP.name || "—") + " 毛利贡献 " + fmtUsd(profitP.grossProfit), "管理层应区分高毛利率与高绝对贡献产品"],
+        ["💡", "组合优化", "产品数 " + products.length + "，覆盖 " + Array.from(new Set(products.map(function(p){return p.category;}))).length + " 个类别", "可将销售资源向高毛利且高需求类别倾斜" ]
+      ]);
+      setInsights("i8", [
+        ["🎯", "客户层级", (topTier.tier || "—") + " ARR " + fmtUsd(topTier.arr) + "，占比 " + fmtPct(topTier.pctOfTotal), "高价值客户是收入稳定性的关键来源"],
+        ["📈", "Enterprise 贡献", "Enterprise ARR " + fmtUsd(ent.arr) + "，客户数 " + (ent.customerCount || 0), "大客户续约和扩容直接影响年度经常性收入"],
+        ["💡", "结构建议", "总客户数 " + (topCustomers.length ? "≥" + topCustomers.length : "—") + "，总 ARR " + fmtUsd(sum(tiers, "arr")), "应跟踪分层净留存率和升级路径" ]
+      ]);
+      setInsights("i9", [
+        ["🎯", "第一大区域", (topRegion.region || "—") + " ARR " + fmtUsd(topRegion.arr) + "，占比 " + fmtPct(topRegion.pctOfTotal), "区域集中提供规模优势，但也带来市场依赖"],
+        ["⚡", "空白市场", "APAC+LATAM 合计 " + fmtPct(apacLatam), "非核心区域占比低，说明国际化仍有提升空间"],
+        ["💡", "扩张建议", "EU/NA 合计 " + fmtPct(100 - apacLatam), "优先复制成熟区域销售动作，再做本地渠道适配" ]
+      ]);
+      var y0 = ebitdaYearly[0] || {}, yLast = ebitdaYearly[ebitdaYearly.length-1] || {};
+      var annualDelta = yLast.ebitda && y0.ebitda ? yLast.ebitda - y0.ebitda : null;
+      setInsights("i10", [
+        ["📈", "年度 EBITDA", (y0.year || "—") + " " + fmtUsd(y0.ebitda) + " → " + (yLast.year || "—") + " " + fmtUsd(yLast.ebitda), "年度利润池持续扩大，规模效应明显"],
+        ["🎯", "增长归因", "累计增加 " + fmtUsd(annualDelta), "瀑布图显示增长主要由连续年度 EBITDA 增量贡献"],
+        ["💡", "董事会问题", "最新年度 EBITDA Margin " + fmtPct(yLast.ebitdaMargin), "下一步应拆分价格、销量、产品组合和费用率贡献" ]
+      ]);
+    }
+
+    function attachClickFilter(elId){
+      var el = document.getElementById(elId);
+      if(!el || el._erpClickAttached) return;
+      el._erpClickAttached = true;
+      var pendingClick = null;
+      el.on("plotly_click", function(ev){
+        var pt = ev.points && ev.points[0];
+        if(!pt || !pt.x) return;
+        pendingClick = { period: pt.x, ts: Date.now() };
+        setTimeout(function(){
+          if(pendingClick && Date.now() - pendingClick.ts >= 250){
+            var p = pendingClick.period;
+            selectedPeriod = (selectedPeriod === p) ? null : p;
+            renderAll(getFiltered());
+            pendingClick = null;
+          }
+        }, 260);
+      });
+      el.on("plotly_doubleclick", function(){
+        pendingClick = null;
+        if(selectedPeriod !== null){ selectedPeriod = null; renderAll(getFiltered()); }
+      });
+    }
+
+    function renderAll(d){
+      d = d || salesData;
+      if(!d.length){ return; }
+      renderKPIs(d);
+      renderOverall(d);
+      renderC1(d);
+      renderC2(d);
+      renderC3(d);
+      renderC4(d);
+      renderC5(d);
+      renderC6(d);
+      renderC7(d);
+      renderC8(d);
+      renderC9(d);
+      renderC10(d);
+      renderInsights(d);
+      clickableCharts.forEach(function(id){ attachClickFilter(id); });
+      updateStatus(d);
+    }
+
+    bootstrap();
+    </script>
+    </body>
+    </html>
+    
