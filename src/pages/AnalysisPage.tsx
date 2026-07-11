@@ -8,7 +8,16 @@ import remarkGfm from 'remark-gfm';
 import apiClient from '../lib/api-client';
 import { API_BASE_URL } from '../config/api';
 
-interface DashboardFile { filename: string; path: string; size_bytes: number; created: string; }
+interface DashboardFile {
+  filename: string;
+  path: string;
+  size_bytes: number;
+  created: string;
+  // Optional enrichment from the dashboard's LangConfig Dashboard Meta block.
+  db_path?: string | null;
+  skills?: string[];
+  mode?: string | null;
+}
 interface ToolTraceStep { step: number; type: string; name: string; input?: string; output?: string; }
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -56,9 +65,32 @@ export default function AnalysisPage() {
     setActiveDashboard(d); setLoadingContent(true); setRawData(null); setActivePanel(null); setChatMessages([]); setDbPath(''); setExpandedTrace(new Set());
     chatSessId.current = Date.now();
     try {
-      const hash = d.filename.replace(/^dashboard_|\.html$/g, '');
-      try { const dr = await apiClient.get(`/api/analysis/data/${hash}`); setRawData(dr.data || null); } catch { setRawData(null); }
-      try { const mr = await apiClient.get(`/api/analysis/meta/${hash}`); const m = mr.data; setSkillContent(m?.skill_content || ''); setDbPath(m?.db_path || ''); } catch { setSkillContent(''); setDbPath(''); }
+      // /api/analysis/dashboards now returns db_path, skills, mode from
+      // the HTML's LangConfig Dashboard Meta block — so we have everything
+      // we need without an extra round-trip. The legacy /data/{hash} and
+      // /meta/{hash} endpoints still exist for backward compat.
+      const m = d;  // DashboardFile
+      setDbPath(m.db_path || '');
+      // /data/{filename} → embedded data (preferred) or live DB
+      try {
+        const dr = await apiClient.get(`/api/analysis/data-embedded/${encodeURIComponent(d.filename)}`);
+        const embedded = dr.data || {};
+        // Find the largest array (the row data the dashboard renders)
+        let rows: any[] = [];
+        let bestKey = '';
+        for (const [k, v] of Object.entries(embedded)) {
+          if (Array.isArray(v) && v.length > rows.length && typeof v[0] === 'object') {
+            rows = v;
+            bestKey = k;
+          }
+        }
+        setRawData(rows);
+      } catch { setRawData(null); }
+      // /skill-content/{filename} → concatenated SKILL.md files
+      try {
+        const sr = await apiClient.get(`/api/analysis/skill-content/${encodeURIComponent(d.filename)}`);
+        setSkillContent(sr.data?.content || '');
+      } catch { setSkillContent(''); }
       // Load prior chat history for this dashboard so reopening shows the
       // full conversation. Failures are silent — empty chat is fine.
       try {
@@ -158,7 +190,11 @@ export default function AnalysisPage() {
   const panelContent = () => {
     if (activePanel === 'data' && rawData) return (
       <div className="p-3 text-xs h-full flex flex-col">
-        <div className="text-gray-400 mb-1 shrink-0">{rawData.length} rows, {Object.keys(rawData[0] || {}).length} cols</div>
+        <div className="text-gray-500 mb-1.5 shrink-0 flex flex-wrap gap-x-3 gap-y-0.5">
+          <span><b className="text-gray-700">源数据库:</b> <code className="bg-gray-100 px-1 rounded">{dbPath || '未知'}</code></span>
+          <span><b className="text-gray-700">行数:</b> {rawData.length}</span>
+          <span><b className="text-gray-700">列数:</b> {Object.keys(rawData[0] || {}).length}</span>
+        </div>
         <div className="overflow-auto flex-1 border rounded">
           <table className="w-full border-collapse">
             <thead><tr className="bg-gray-100 dark:bg-gray-700 sticky top-0">
@@ -175,8 +211,45 @@ export default function AnalysisPage() {
     );
     if (activePanel === 'skill') return (
       <div className="p-3 text-xs h-full overflow-auto">
-        {skillContent ? <pre className="whitespace-pre-wrap font-mono text-gray-700">{skillContent}</pre>
-        : <div className="text-center py-8 text-gray-400"><FileCode className="w-8 h-8 mx-auto mb-2 opacity-50" /><p>No skill file</p></div>}
+        {skillContent ? (
+          <>
+            <div className="text-gray-500 mb-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+              <span><b className="text-gray-700">源数据库:</b> <code className="bg-gray-100 px-1 rounded">{dbPath || '未知'}</code></span>
+              {activeDashboard?.skills && activeDashboard.skills.length > 0 && (
+                <span><b className="text-gray-700">Skills:</b> {activeDashboard.skills.map(s => <code key={s} className="bg-blue-50 text-blue-700 px-1 rounded mx-0.5">{s}</code>)}</span>
+              )}
+              {activeDashboard?.mode && (
+                <span><b className="text-gray-700">模式:</b> <code className="bg-gray-100 px-1 rounded">{activeDashboard.mode}</code></span>
+              )}
+            </div>
+            <div className="markdown-body p-2 border rounded bg-white">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({node, ...props}) => <h1 className="text-lg font-bold mt-2 mb-2 border-b pb-1" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-base font-bold mt-3 mb-1.5" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-sm font-bold mt-2 mb-1" {...props} />,
+                  p: ({node, ...props}) => <p className="my-1" {...props} />,
+                  ul: ({node, ...props}) => <ul className="list-disc pl-5 my-1" {...props} />,
+                  ol: ({node, ...props}) => <ol className="list-decimal pl-5 my-1" {...props} />,
+                  code: ({node, ...props}) => <code className="bg-gray-100 px-1 rounded text-[11px] font-mono" {...props} />,
+                  pre: ({node, ...props}) => <pre className="bg-gray-50 border rounded p-1.5 my-1 text-[11px] font-mono overflow-auto" {...props} />,
+                  a: ({node, ...props}) => <a className="text-blue-600 underline" target="_blank" rel="noreferrer" {...props} />,
+                  table: ({node, ...props}) => <table className="border-collapse border border-gray-300 my-1 text-xs" {...props} />,
+                  th: ({node, ...props}) => <th className="border border-gray-300 px-1.5 py-0.5 bg-gray-50" {...props} />,
+                  td: ({node, ...props}) => <td className="border border-gray-300 px-1.5 py-0.5" {...props} />,
+                }}
+              >
+                {skillContent}
+              </ReactMarkdown>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-8 text-gray-400">
+            <FileCode className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p>本仪表盘未声明任何 skill</p>
+          </div>
+        )}
       </div>
     );
     if (activePanel === 'chat') return (

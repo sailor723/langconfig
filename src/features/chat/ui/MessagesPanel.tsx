@@ -701,20 +701,23 @@ export default function MessagesPanel({
                 );
               }, 500);
             }
-            // Auto-trigger data analysis after CSV upload
-            if (docExt === 'csv') {
+            // Auto-trigger data analysis after CSV or SQLite upload
+            const isDataFile = ['csv', 'db', 'sqlite', 'sqlite3'].includes(docExt);
+            if (isDataFile) {
               setShowAnalysis(false); // reset if previously open
               setCsvUploading(true);
               // File was saved to sandbox by FileUploadButton
-              // Call /api/analysis/init to convert + auto-generate dashboard
-              const csvPath = `outputs/default/${file.filename}`;
+              // Call /api/analysis/init to convert (CSV) or use-as-is (SQLite), auto-generate dashboard
+              const filePath = `outputs/default/${file.filename}`;
+              // Strip any recognized extension to derive a safe table name
+              const stem = file.filename.replace(/\.(csv|db|sqlite|sqlite3)$/i, '').replace(/[^a-zA-Z0-9_]/g, '_');
               fetch('/api/analysis/init', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   session_id: sessionId,
-                  csv_path: csvPath,
-                  table_name: file.filename.replace(/\.csv$/i, '').replace(/[^a-zA-Z0-9_]/g, '_'),
+                  csv_path: filePath,
+                  table_name: stem,
                 }),
               })
                 .then(res => res.json())
