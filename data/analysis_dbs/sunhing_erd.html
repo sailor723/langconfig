@@ -383,7 +383,7 @@ var TABLE_INFO = {
       {name:'eco_partner_profit_wan',type:'REAL',desc:'Eco-partner profit'},
       {name:'reinvested_wan',type:'REAL',desc:'Reinvestment amount'},
     ],
-    kpis:['02_追缴化解率','03_赔偿金额预算控制率','07_核心厂区利润贡献率','08_生态伙伴利润贡献率','13_变革资本再投资率']
+    kpis:['02_追缴化解率','03_赔偿金额预算控制率','07_核心厂区利润贡献率','08_生态伙伴利润贡献率','13_变革资本再投资率']  /* eco_partner_profit_wan is one input to KPI #17 */
   },
   raw_liability: {
     type:'RAW', intro:'Historical liability items — 25 individual items across 6 categories (社保/公积金/企业年金/税务/劳动监察/其他). Each item tracks resolution progress, method, and government authority. Drives KPI #02 detail page.',
@@ -442,7 +442,7 @@ var TABLE_INFO = {
     kpis:['09_数字资产价值转化率','12_数字资产归集与复用率']
   },
   raw_crm: {
-    type:'RAW', intro:'Individual customer orders — per-order level data from the CRM system. ~55 customer orders across 20+ customers (Luxottica, Safilo, Warby Parker, etc.), each with order value, delivery status, and complaint flags. Eco-partner orders are tagged for KPI #17 tracking. Aggregated to compute order loss rate (RS07) and eco-partner synergy (KPI #17).',
+    type:'RAW', intro:'Individual customer orders — per-order level data from the CRM system. ~118 orders across 20 customers (Luxottica, Safilo, Warby Parker, etc.), each with order value, delivery status, and complaint flags. Also tracks eco-partner delivery punctuality as one input to KPI #17 (composite index). Aggregated monthly to compute order loss rate for RS07.',
     cols:[
       {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
       {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
@@ -454,10 +454,10 @@ var TABLE_INFO = {
       {name:'delivered_on_time',type:'INTEGER',desc:'1 = on time, 0 = late'},
       {name:'client_complaint',type:'INTEGER',desc:'1 = complaint received'},
       {name:'is_eco_partner_order',type:'INTEGER',desc:'1 = eco-partner channel'},
-      {name:'eco_partner_delivery_on_time',type:'INTEGER',desc:'Eco-partner punctuality'},
+      {name:'eco_partner_delivery_on_time',type:'INTEGER',desc:'Eco-partner punctuality (one input to KPI #17)'},
       {name:'month',type:'TEXT',desc:'YYYY-MM for grouping'},
     ],
-    kpis:['17_生态伙伴战略协同指数','RS07_客户订单流失率']
+    kpis:['RS07_客户订单流失率']  /* KPI #17 is composite across 4 source systems, not just CRM */
   },
   raw_entity: {
     type:'RAW', intro:'Entity registration data — tracks the legal entity split. Each row shows how many new entities have been registered and their profitability. Supports KPI #14 (equity structure completion) and KPI #15 (partner conversion). 6 rows.',
@@ -470,7 +470,7 @@ var TABLE_INFO = {
       {name:'completion_pct',type:'REAL',desc:'Registration completion %'},
       {name:'eco_entities_profitable',type:'INTEGER',desc:'Profitability status'},
     ],
-    kpis:['14_股权分立架构完成率','15_员工股权/合伙转化率']
+    kpis:['14_股权分立架构完成率','15_员工股权/合伙转化率']  /* eco_entities_with_profit input to KPI #17 */
   },
   raw_pmo: {
     type:'RAW', intro:'PMO project tracking — milestone completion rate and risk score. Monitors the overall transformation program execution. Supports KPI #19 (PMO milestone achievement). 6 rows.',
