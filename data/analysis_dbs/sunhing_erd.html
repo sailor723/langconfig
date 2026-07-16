@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Sun Hing — Database ER Diagram</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:0;font-family:-apple-system,'Noto Sans SC',monospace;background:#1a1a2e;color:#e0e0e0}
+.header{padding:16px 24px;background:#16213e;border-bottom:2px solid #0f3460}
+.header h1{margin:0;font-size:18px;display:flex;align-items:center;gap:10px}
+.header .sub{color:#888;font-size:12px;margin-top:4px}
+.legend{display:flex;gap:20px;padding:8px 24px;background:#16213e;border-bottom:1px solid #0f3460;font-size:11px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px}
+.legend .pk{background:#e94560;width:12px;height:12px;border-radius:3px}
+.legend .fk{background:#f5a623;width:12px;height:12px;border-radius:3px}
+.legend .idx{background:#0f3460;width:12px;height:12px;border-radius:3px;border:1px solid #555}
+.erd-container{position:relative;width:100%;min-height:1600px;padding:20px;overflow:auto}
+svg.relations{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.table-box{position:absolute;background:#16213e;border:1px solid #0f3460;border-radius:6px;overflow:hidden;z-index:1;box-shadow:0 4px 12px rgba(0,0,0,.3);min-width:200px;cursor:grab;user-select:none}
+.table-box.dragging{cursor:grabbing;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:100}
+.table-box .tname{padding:6px 10px;font-size:12px;font-weight:700;border-bottom:1px solid #0f3460;display:flex;justify-content:space-between}
+.table-box .tname .tag{font-size:9px;padding:2px 6px;border-radius:3px}
+.table-box .tname .core{background:#e94560;color:#fff}
+.table-box .tname .fact{background:#0f3460;color:#fff}
+.table-box .tname .raw{background:#2d6a4f;color:#fff}
+.table-box .col{padding:4px 10px;font-size:11px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #0f3460;line-height:1.6}
+.table-box .col:last-child{border-bottom:none}
+.table-box .col .pk-icon{color:#e94560;font-weight:700;font-size:10px;width:14px}
+.table-box .col .fk-icon{color:#f5a623;font-size:10px;width:14px}
+.table-box .col .col-name{color:#ddd;min-width:100px}
+.table-box .col .col-type{color:#777;font-size:10px}
+.section-label{position:absolute;font-size:13px;font-weight:700;color:#888;letter-spacing:2px;text-transform:uppercase}
+.relation-line{stroke:#555;stroke-width:1.5;fill:none}
+.relation-line.pk-line{stroke:#e94560;stroke-width:1.5;stroke-dasharray:4,3}
+.relation-line.fk-line{stroke:#f5a623;stroke-width:1.5}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🗄️ Sun Hing — Database ER Diagram</h1>
+  <div class="sub">16 tables · sunhing_kpi.db · <span style="color:#e94560;">PK</span> = Primary Key · <span style="color:#f5a623;">FK</span> = Foreign Key</div>
+</div>
+<div class="legend">
+  <div class="legend-item"><span class="pk"></span> Core Dimension</div>
+  <div class="legend-item"><span class="idx" style="background:#0f3460;"></span> Fact / Summary</div>
+  <div class="legend-item"><span style="background:#2d6a4f;width:12px;height:12px;border-radius:3px;display:inline-block"></span> Raw Source Data</div>
+  <div class="legend-item" style="color:#888;">Lines: <span style="color:#f5a623;">FK relationship</span> · <span style="color:#e94560;">Referential link</span></div>
+</div>
+
+<div class="erd-container" id="erd">
+<svg class="relations" id="relSvg"></svg>
+
+<!-- SECTION LABELS -->
+<div class="section-label" style="top:80px;left:30px;">📌 Dimension Tables</div>
+<div class="section-label" style="top:80px;left:470px;">📊 Fact Tables</div>
+<div class="section-label" style="top:80px;left:880px;">📁 Raw Source Data (by Domain)</div>
+
+<!-- === TABLE: company (dim) === -->
+<div class="table-box" style="top:110px;left:20px;">
+  <div class="tname"><span>company</span><span class="tag core">DIM</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">name</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">name_cn</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">hkex_code</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">currency</span><span class="col-type">TEXT</span></div>
+</div>
+
+<!-- === TABLE: dim_kpi (dim) === -->
+<div class="table-box" style="top:300px;left:20px;">
+  <div class="tname"><span>dim_kpi</span><span class="tag core">DIM</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">kpi_id</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">kpi_name</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">roe_factor</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">target</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">data_source</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">kpi_type</span><span class="col-type">TEXT</span></div>
+</div>
+
+<!-- === TABLE: fact_kpi_monthly (fact) === -->
+<div class="table-box" style="top:120px;left:380px;">
+  <div class="tname"><span>fact_kpi_monthly</span><span class="tag fact">FACT</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">kpi_id</span><span class="col-type">→ dim_kpi</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT (YYYY-MM)</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">actual</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">target</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">unit</span><span class="col-type">TEXT</span></div>
+</div>
+
+<!-- === TABLE: fact_roe_summary (fact) === -->
+<div class="table-box" style="top:400px;left:380px;">
+  <div class="tname"><span>fact_roe_summary</span><span class="tag fact">FACT</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">net_profit_margin</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">asset_turnover</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">equity_multiplier</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">roe</span><span class="col-type">REAL</span></div>
+</div>
+
+<!-- === TABLE: raw_hr === -->
+<div class="table-box" style="top:110px;left:730px;">
+  <div class="tname"><span>raw_hr</span><span class="tag raw">RAW</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">total_headcount</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">prod_ratio_pct</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">severance_completed</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">employee_partner_converted</span><span class="col-type">INT</span></div>
+  <div class="col" style="color:#555;font-size:10px;">Supports: KPI #01, #06, #15</div>
+</div>
+
+<!-- === TABLE: raw_employee === -->
+<div class="table-box" style="top:110px;left:985px;">
+  <div class="tname"><span>raw_employee</span><span class="tag raw">RAW</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">employee_code</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">name_cn</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">department</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">factory</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">skill_level</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">is_severed</span><span class="col-type">INT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">compensation_wan</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">has_dispute</span><span class="col-type">INT</span></div>
+  <div class="col" style="color:#555;font-size:10px;">856 rows · Supports: KPI #01, RS01</div>
+</div>
+
+<!-- === TABLE: raw_finance === -->
+<div class="table-box" style="top:370px;left:730px;">
+  <div class="tname"><span>raw_finance</span><span class="tag raw">RAW</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">severance_cost_actual_wan</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">liability_resolved_cumul</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">core_factory_profit_wan</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">eco_partner_profit_wan</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">reinvested_wan</span><span class="col-type">REAL</span></div>
+  <div class="col" style="color:#555;font-size:10px;">Supports: KPI #02, #03, #07, #08, #13</div>
+</div>
+
+<!-- === TABLE: raw_liability === -->
+<div class="table-box" style="top:540px;left:985px;">
+  <div class="tname"><span>raw_liability</span><span class="tag raw">RAW</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">item_code</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">category</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">total_amount_wan</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">resolved_wan</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">remaining_wan</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">status</span><span class="col-type">TEXT</span></div>
+  <div class="col" style="color:#555;font-size:10px;">25 rows · Supports: KPI #02</div>
+</div>
+
+<!-- === TABLE: raw_production === -->
+<div class="table-box" style="top:570px;left:730px;">
+  <div class="tname"><span>raw_production</span><span class="tag raw">RAW</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">critical_processes_running</span><span class="col-type">INT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">oee_pct</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">output_frames_monthly</span><span class="col-type">INT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">defect_rate_pct</span><span class="col-type">REAL</span></div>
+  <div class="col" style="color:#555;font-size:10px;">Supports: KPI #05, #10</div>
+</div>
+
+<!-- === TABLE: raw_legal === -->
+<div class="table-box" style="top:750px;left:730px;">
+  <div class="tname"><span>raw_legal</span><span class="tag raw">RAW</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">new_labor_arbitration_cases</span><span class="col-type">INT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">major_group_incidents</span><span class="col-type">INT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">customs_compliance_pct</span><span class="col-type">REAL</span></div>
+  <div class="col" style="color:#555;font-size:10px;">Supports: KPI #04, RS01, RS04, RS05</div>
+</div>
+
+<!-- === TABLE: raw_digital_platform === -->
+<div class="table-box" style="top:110px;left:1240px;">
+  <div class="tname"><span>raw_digital_platform</span><span class="tag raw">RAW</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">reuse_rate_pct</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">kdd_knowledge_density</span><span class="col-type">INT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">digital_cost_savings_wan</span><span class="col-type">REAL</span></div>
+  <div class="col" style="color:#555;font-size:10px;">Supports: KPI #09, #12</div>
+</div>
+
+<!-- === TABLE: raw_crm === -->
+<div class="table-box" style="top:330px;left:1240px;">
+  <div class="tname"><span>raw_crm</span><span class="tag raw">RAW</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">order_loss_rate_pct</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">on_time_delivery_pct</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">eco_partner_punctuality</span><span class="col-type">REAL</span></div>
+  <div class="col" style="color:#555;font-size:10px;">Supports: KPI #17, RS07</div>
+</div>
+
+<!-- === TABLE: raw_entity === -->
+<div class="table-box" style="top:550px;left:1240px;">
+  <div class="tname"><span>raw_entity</span><span class="tag raw">RAW</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">entities_registered</span><span class="col-type">INT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">completion_pct</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">eco_entities_profitable</span><span class="col-type">INT</span></div>
+  <div class="col" style="color:#555;font-size:10px;">Supports: KPI #14, #15</div>
+</div>
+
+<!-- === TABLE: raw_pmo === -->
+<div class="table-box" style="top:730px;left:1240px;">
+  <div class="tname"><span>raw_pmo</span><span class="tag raw">RAW</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">completion_rate_pct</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">pmo_risk_score</span><span class="col-type">INT</span></div>
+  <div class="col" style="color:#555;font-size:10px;">Supports: KPI #19</div>
+</div>
+
+<!-- === TABLE: raw_sentiment === -->
+<div class="table-box" style="top:900px;left:1240px;">
+  <div class="tname"><span>raw_sentiment</span><span class="tag raw">RAW</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">employee_satisfaction</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">severance_satisfaction</span><span class="col-type">REAL</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">negative_social_media</span><span class="col-type">INT</span></div>
+  <div class="col" style="color:#555;font-size:10px;">Supports: RS02, RS03</div>
+</div>
+
+</div><!-- /erd-container -->
+
+<script>
+(function() {
+var erd = document.getElementById('erd');
+var svg = document.getElementById('relSvg');
+
+// Make all table boxes draggable
+document.querySelectorAll('.table-box').forEach(function(box) {
+  var dragging = false;
+  var startX, startY, origLeft, origTop;
+
+  box.addEventListener('mousedown', function(e) {
+    dragging = true;
+    box.classList.add('dragging');
+    startX = e.clientX;
+    startY = e.clientY;
+    origLeft = box.offsetLeft;
+    origTop = box.offsetTop;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var dx = e.clientX - startX;
+    var dy = e.clientY - startY;
+    box.style.left = (origLeft + dx) + 'px';
+    box.style.top = (origTop + dy) + 'px';
+    redrawLines();
+  });
+
+  document.addEventListener('mouseup', function() {
+    if (dragging) {
+      dragging = false;
+      box.classList.remove('dragging');
+      redrawLines();
+    }
+  });
+});
+
+// Relationship pairs: [fromTableName, toTableName]
+var pairs = [
+  ['company', 'fact_kpi_monthly'],
+  ['company', 'fact_roe_summary'],
+  ['dim_kpi', 'fact_kpi_monthly'],
+  ['company', 'raw_hr'],
+  ['company', 'raw_finance'],
+  ['company', 'raw_production'],
+  ['company', 'raw_legal'],
+  ['company', 'raw_digital_platform'],
+  ['company', 'raw_crm'],
+  ['company', 'raw_entity'],
+  ['company', 'raw_pmo'],
+  ['company', 'raw_sentiment'],
+  ['company', 'raw_employee'],
+  ['company', 'raw_liability'],
+];
+
+function getBoxCenter(box, side) {
+  // side: 'right' for from-box (right edge), 'left' for to-box (left edge)
+  var erdRect = erd.getBoundingClientRect();
+  var r = box.getBoundingClientRect();
+  var x = r.left - erdRect.left + erd.scrollLeft;
+  var y = r.top - erdRect.top + erd.scrollTop;
+  if (side === 'right') x += r.width;
+  return {x: x, y: y + r.height / 2};
+}
+
+function redrawLines() {
+  svg.innerHTML = '';
+  var boxMap = {};
+  document.querySelectorAll('.table-box').forEach(function(b) {
+    var name = b.querySelector('.tname span:first-child').textContent.trim();
+    boxMap[name] = b;
+  });
+
+  // Find max extent
+  var maxX = 0, maxY = 0;
+  document.querySelectorAll('.table-box').forEach(function(b) {
+    var r = b.getBoundingClientRect();
+    var erdRect = erd.getBoundingClientRect();
+    var left = r.left - erdRect.left + erd.scrollLeft;
+    var top = r.top - erdRect.top + erd.scrollTop;
+    if (left + r.width + 50 > maxX) maxX = left + r.width + 50;
+    if (top + r.height + 50 > maxY) maxY = top + r.height + 50;
+  });
+  svg.setAttribute('width', Math.max(maxX, 100));
+  svg.setAttribute('height', Math.max(maxY, 100));
+
+  pairs.forEach(function(p) {
+    var fromBox = boxMap[p[0]];
+    var toBox = boxMap[p[1]];
+    if (!fromBox || !toBox) return;
+
+    var from = getBoxCenter(fromBox, 'right');
+    var to = getBoxCenter(toBox, 'left');
+    var midX = (from.x + to.x) / 2;
+
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M'+from.x+','+from.y+' C'+midX+','+from.y+' '+midX+','+to.y+' '+to.x+','+to.y);
+    path.setAttribute('class', 'relation-line fk-line');
+    svg.appendChild(path);
+  });
+}
+
+// Initial draw
+redrawLines();
+})();
+</script>
+</body>
+</html>

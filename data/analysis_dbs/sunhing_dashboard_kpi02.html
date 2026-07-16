@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Sun Hing — 历史人力成本追缴化解率 Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font-family: -apple-system, 'Noto Sans SC', sans-serif; background: #f0f2f5; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  .subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .kpi-card { background: #fff; padding: 16px; border-radius: 10px; border-left: 4px solid #1f77b4; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .kpi-card .label { font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: .5px; }
+  .kpi-card .value { font-size: 24px; font-weight: 700; margin: 4px 0 2px; }
+  .kpi-card .note { font-size: 12px; color: #999; }
+  .kpi-card.ok { border-left-color: #2ca02c; }
+  .kpi-card.warn { border-left-color: #ff7f0e; }
+  .kpi-card.danger { border-left-color: #e74c3c; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid .full { grid-column: 1 / -1; }
+  .card { background: #fff; padding: 12px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .chart { width: 100%; height: 340px; }
+  .cat-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .cat-table th { text-align: left; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #eee; }
+  .cat-table td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; }
+  .cat-table .pct { font-weight: 600; }
+  .cat-table .pct.high { color: #2ca02c; }
+  .cat-table .pct.mid { color: #ff7f0e; }
+  .cat-table .pct.low { color: #e74c3c; }
+  .insight-box { background: #fff; padding: 14px 18px; border-radius: 10px; border-left: 4px solid #2ca02c; margin-top: 14px; }
+  .insight-box h3 { margin: 0 0 8px; font-size: 14px; }
+  .insight-box ul { margin: 0; padding-left: 18px; font-size: 13px; color: #333; }
+  .insight-box li { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<h1>💰 KPI #02 — 历史人力成本追缴化解率</h1>
+<div class="subtitle">Sun Hing Vision Group — Historical Liability Cleanup | Sep 2026 → Feb 2027 | Target: ≥80%</div>
+
+<div class="kpi-row">
+  <div class="kpi-card ok">
+    <div class="label">Resolution Rate (Feb)</div>
+    <div class="value">85.5%</div>
+    <div class="note">Target: 80.0% ✅ Exceeded</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">Total Liability</div>
+    <div class="value">6,643万</div>
+    <div class="note">Across 25 items, 6 categories</div>
+  </div>
+  <div class="kpi-card ok">
+    <div class="label">Resolved</div>
+    <div class="value">5,678万</div>
+    <div class="note">85.5% of total</div>
+  </div>
+  <div class="kpi-card warn">
+    <div class="label">Remaining</div>
+    <div class="value">965万</div>
+    <div class="note">High priority: 770万</div>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="card"><div id="chart1" class="chart"></div></div>
+  <div class="card"><div id="chart2" class="chart"></div></div>
+  <div class="card full"><div id="chart3" class="chart"></div></div>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+  <h3 style="margin:0 0 10px;font-size:14px;">📋 追缴类别明细 — By Category</h3>
+  <table class="cat-table">
+    <tr><th>Category</th><th>Items</th><th>Total (万)</th><th>Resolved (万)</th><th>Remaining (万)</th><th>Resolution Rate</th></tr>
+    <tr><td>社保 (Social Insurance)</td><td>11</td><td>2,920</td><td>2,515</td><td>405</td><td class="pct high">86.1%</td></tr>
+    <tr><td>公积金 (Housing Fund)</td><td>4</td><td>1,765</td><td>1,400</td><td>365</td><td class="pct mid">79.3%</td></tr>
+    <tr><td>企业年金 (Enterprise Annuity)</td><td>2</td><td>505</td><td>460</td><td>45</td><td class="pct high">91.1%</td></tr>
+    <tr><td>税务 (Tax)</td><td>3</td><td>323</td><td>323</td><td>0</td><td class="pct high">100%</td></tr>
+    <tr><td>劳动监察 (Labor Inspection)</td><td>2</td><td>315</td><td>260</td><td>55</td><td class="pct mid">82.5%</td></tr>
+    <tr><td>其他 (Others)</td><td>3</td><td>815</td><td>720</td><td>95</td><td class="pct high">88.3%</td></tr>
+  </table>
+</div>
+
+<div class="insight-box">
+  <h3>关键洞察</h3>
+  <ul>
+    <li><strong>整体进度</strong>: 85.5% resolved at month 6 — exceeded 80% target ✅</li>
+    <li><strong>最大缺口</strong>: 公积金仍有365万未化解 (79.3%)，需优先推进</li>
+    <li><strong>已完成项</strong>: 税务3项已全部化解 (100%)，企业年金91.1%</li>
+    <li><strong>高优先级</strong>: 770万高优先级剩余集中在社保和公积金</li>
+  </ul>
+</div>
+
+<script>
+// KPI #02 — 历史人力成本追缴化解率 data
+var months = ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"];
+var resolutionPct = [2.9, 11.7, 32.1, 55.4, 72.8, 84.5];
+var targetPct = 80.0;
+
+// Category breakdown data
+var categories = ["社保", "公积金", "企业年金", "税务", "劳动监察", "其他"];
+var totalByCat = [2920, 1765, 505, 323, 315, 815];
+var resolvedByCat = [2515, 1400, 460, 323, 260, 720];
+var remainingByCat = [405, 365, 45, 0, 55, 95];
+
+// === Chart 1: Monthly resolution rate with target line ===
+var trace1 = {
+  x: months, y: resolutionPct, type: 'scatter', mode: 'lines+markers',
+  name: 'Actual',
+  line: {color: '#1f77b4', width: 3},
+  marker: {size: 8}
+};
+var targetLine = {
+  x: months, y: months.map(function() { return targetPct; }),
+  type: 'scatter', mode: 'lines',
+  name: 'Target (80%)',
+  line: {color: '#e74c3c', width: 2, dash: 'dash'}
+};
+Plotly.newPlot('chart1', [trace1, targetLine], {
+  title: '月化解率趋势 (%)',
+  yaxis: {range: [0, 100], ticksuffix: '%'},
+  margin: {t: 30, b: 40, l: 50, r: 20},
+  legend: {orientation: 'h', y: -0.25},
+  hovermode: 'x unified'
+});
+
+// === Chart 2: Category stacked bar (resolved vs remaining) ===
+Plotly.newPlot('chart2', [
+  {
+    x: categories, y: resolvedByCat, type: 'bar',
+    name: '已化解',
+    marker: {color: '#2ca02c'},
+    text: resolvedByCat.map(function(v) { return v + '万'; }),
+    textposition: 'inside'
+  },
+  {
+    x: categories, y: remainingByCat, type: 'bar',
+    name: '未化解',
+    marker: {color: '#e74c3c'},
+    text: remainingByCat.map(function(v) { return v + '万'; }),
+    textposition: 'inside'
+  }
+], {
+  title: '追缴类别明细 (万HKD)',
+  barmode: 'stack',
+  margin: {t: 30, b: 50, l: 50, r: 20},
+  legend: {orientation: 'h', y: -0.25}
+});
+
+// === Chart 3: Cumulative resolved vs remaining ===
+// Monthly breakdown: how resolved/remaining progressed
+var cumResolved = [193, 777, 2132, 3679, 4836, 5678];   // approximate cumulative
+var cumRemaining = [6450, 5866, 4511, 2964, 1807, 965];
+Plotly.newPlot('chart3', [
+  {
+    x: months, y: cumResolved, type: 'scatter', mode: 'lines+markers',
+    name: '已化解 (万)',
+    line: {color: '#2ca02c', width: 3},
+    fill: 'tozeroy',
+    fillcolor: 'rgba(44,160,44,0.1)'
+  },
+  {
+    x: months, y: cumRemaining, type: 'scatter', mode: 'lines+markers',
+    name: '剩余未化解 (万)',
+    line: {color: '#e74c3c', width: 3},
+    fill: 'tozeroy',
+    fillcolor: 'rgba(231,76,60,0.08)'
+  }
+], {
+  title: '累计化解 vs 剩余 (万HKD)',
+  yaxis: {title: 'Amount (万HKD)'},
+  margin: {t: 30, b: 40, l: 50, r: 20},
+  legend: {orientation: 'h', y: -0.25},
+  hovermode: 'x unified'
+});
+</script>
+</body>
+</html>

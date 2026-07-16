@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>Sun Hing — 权益乘数 KPI Group</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;font-family:-apple-system,'Noto Sans SC',sans-serif;background:#f0f2f5}
+h1{font-size:20px;font-weight:600;margin-bottom:4px}.subtitle{color:#666;font-size:13px;margin-bottom:20px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.kpi-card{background:#fff;padding:16px;border-radius:10px;border-left:4px solid #1f77b4;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi-card .label{font-size:11px;color:#7f8c8d;text-transform:uppercase;letter-spacing:.5px}
+.kpi-card .value{font-size:24px;font-weight:700;margin:4px 0 2px}.kpi-card .note{font-size:12px;color:#999}
+.kpi-card.ok{border-left-color:#2ca02c}.kpi-card.warn{border-left-color:#ff7f0e}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.card{background:#fff;padding:12px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.chart{width:100%;height:280px}
+.kpi-table{width:100%;border-collapse:collapse;font-size:12px}
+.kpi-table th{text-align:left;padding:7px 8px;background:#f8f9fa;border-bottom:2px solid #eee}
+.kpi-table td{padding:6px 8px;border-bottom:1px solid #f0f0f0}.kpi-table .met{color:#2ca02c;font-weight:600}
+.kpi-table .miss{color:#e74c3c;font-weight:600}
+.insight-box{background:#fff;padding:14px 18px;border-radius:10px;border-left:4px solid #2ca02c;margin-top:14px}
+.insight-box h3{margin:0 0 8px;font-size:14px}.insight-box ul{margin:0;padding-left:18px;font-size:13px;color:#333}.insight-box li{margin:4px 0}
+</style></head>
+<body>
+<h1>🏗️ 权益乘数 Factor — KPI Group</h1>
+<div class="subtitle">ROE DuPont Factor | KPIs 14-17 | Capital Structure Restructuring</div>
+
+<div class="kpi-row">
+  <div class="kpi-card ok"><div class="label">股权分立 (KPI #14)</div><div class="value">100%</div><div class="note">Target 100% ✅ Completed</div></div>
+  <div class="kpi-card warn"><div class="label">员工股权转化 (KPI #15)</div><div class="value">58%</div><div class="note">Target 60% △ 2 gap</div></div>
+  <div class="kpi-card warn"><div class="label">权益乘数 (KPI #16)</div><div class="value">1.9x</div><div class="note">Target 2.0x △ 0.1 gap</div></div>
+  <div class="kpi-card ok"><div class="label">生态协同指数 (KPI #17)</div><div class="value">86</div><div class="note">Target 85 ✅ Exceeded</div></div>
+</div>
+
+<div class="grid">
+  <div class="card"><div id="c14" class="chart"></div></div>
+  <div class="card"><div id="c15" class="chart"></div></div>
+</div>
+<div class="grid">
+  <div class="card"><div id="c16" class="chart"></div></div>
+  <div class="card"><div id="c17" class="chart"></div></div>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+  <h3 style="margin:0 0 10px;font-size:14px;">📋 权益乘数 KPI Status</h3>
+  <table class="kpi-table">
+    <tr><th>#</th><th>KPI</th><th>Feb</th><th>Target</th><th>Gap</th><th>Status</th></tr>
+    <tr><td>14</td><td>股权分立架构完成率</td><td>100%</td><td>100%</td><td>0</td><td class="met">✅ Completed</td></tr>
+    <tr><td>15</td><td>员工股权/合伙转化率</td><td>58%</td><td>60%</td><td>2%</td><td class="miss">⚠️ Near Miss</td></tr>
+    <tr><td>16</td><td>新架构集团权益乘数</td><td>1.9x</td><td>2.0x</td><td>0.1x</td><td class="miss">⚠️ Near Miss</td></tr>
+    <tr><td>17</td><td>生态伙伴战略协同指数</td><td>86</td><td>85</td><td>+1</td><td class="met">✅ Met</td></tr>
+  </table>
+</div>
+
+<div class="insight-box">
+  <h3>关键洞察</h3>
+  <ul>
+    <li><strong>已完成</strong>: KPI #14 股权分立架构100%完成 — 法务实体分立里程碑达成; KPI #17 生态协同指数86超目标</li>
+    <li><strong>接近达标</strong>: KPI #15 员工股权转化58% vs 60%, KPI #16 权益乘数1.9x vs 2.0x</li>
+    <li><strong>趋势</strong>: 权益乘数从2.8x降至1.9x反映去杠杆化 — 新架构更健康的资本结构</li>
+    <li><strong>下一阶段</strong>: 最后2%员工股权转化完成后, 资本架构改革基本完成</li>
+  </ul>
+</div>
+
+<script>
+var M = ["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02"];
+Plotly.newPlot('c14',[{x:M,y:[5,15,35,60,85,100],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3},fill:'tozeroy',fillcolor:'rgba(44,160,44,0.1)'},{x:M,y:M.map(function(){return 100}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #14 股权分立架构完成率 (%)',margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c15',[{x:M,y:[0,5,18,32,48,58],type:'scatter',mode:'lines+markers',line:{color:'#ff7f0e',width:3}},{x:M,y:M.map(function(){return 60}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #15 员工股权转化率 (%)',margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c16',[{x:M,y:[2.8,2.7,2.5,2.3,2.1,1.9],type:'scatter',mode:'lines+markers',line:{color:'#1f77b4',width:3}},{x:M,y:M.map(function(){return 2.0}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #16 新架构权益乘数',yaxis:{range:[1.5,3.0]},margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c17',[{x:M,y:[55,62,68,74,80,86],type:'scatter',mode:'lines+markers',line:{color:'#9467bd',width:3}},{x:M,y:M.map(function(){return 85}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #17 生态伙伴协同指数',margin:{t:30,b:30,l:40,r:10},showlegend:false});
+</script></body></html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>Sun Hing — 资产周转率 KPI Group</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;font-family:-apple-system,'Noto Sans SC',sans-serif;background:#f0f2f5}
+h1{font-size:20px;font-weight:600;margin-bottom:4px}.subtitle{color:#666;font-size:13px;margin-bottom:20px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.kpi-card{background:#fff;padding:16px;border-radius:10px;border-left:4px solid #1f77b4;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi-card .label{font-size:11px;color:#7f8c8d;text-transform:uppercase;letter-spacing:.5px}
+.kpi-card .value{font-size:24px;font-weight:700;margin:4px 0 2px}.kpi-card .note{font-size:12px;color:#999}
+.kpi-card.ok{border-left-color:#2ca02c}.kpi-card.warn{border-left-color:#ff7f0e}.kpi-card.danger{border-left-color:#e74c3c}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}.grid .full{grid-column:1/-1}
+.card{background:#fff;padding:12px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.chart{width:100%;height:280px}
+.kpi-table{width:100%;border-collapse:collapse;font-size:12px}
+.kpi-table th{text-align:left;padding:7px 8px;background:#f8f9fa;border-bottom:2px solid #eee}
+.kpi-table td{padding:6px 8px;border-bottom:1px solid #f0f0f0}.kpi-table .met{color:#2ca02c;font-weight:600}
+.kpi-table .miss{color:#e74c3c;font-weight:600}
+.insight-box{background:#fff;padding:14px 18px;border-radius:10px;border-left:4px solid #2ca02c;margin-top:14px}
+.insight-box h3{margin:0 0 8px;font-size:14px}.insight-box ul{margin:0;padding-left:18px;font-size:13px;color:#333}.insight-box li{margin:4px 0}
+</style></head>
+<body>
+<h1>🔄 资产周转率 Factor — KPI Group</h1>
+<div class="subtitle">ROE DuPont Factor | KPIs 10-13 | Target status at Feb 2027</div>
+
+<div class="kpi-row">
+  <div class="kpi-card warn"><div class="label">固定资产利用率 (KPI #10)</div><div class="value">115%</div><div class="note">Target 120% △ 5 gap</div></div>
+  <div class="kpi-card warn"><div class="label">轻资产化指数 (KPI #11)</div><div class="value">24</div><div class="note">Target 25 △ 1 gap</div></div>
+  <div class="kpi-card ok"><div class="label">数字资产归集复用 (KPI #12)</div><div class="value">42%</div><div class="note">Target 40% ✅ Exceeded</div></div>
+  <div class="kpi-card ok"><div class="label">变革资本再投资 (KPI #13)</div><div class="value">72%</div><div class="note">Target 70% ✅ Exceeded</div></div>
+</div>
+
+<div class="grid">
+  <div class="card"><div id="c10" class="chart"></div></div>
+  <div class="card"><div id="c11" class="chart"></div></div>
+  <div class="card"><div id="c12" class="chart"></div></div>
+  <div class="card"><div id="c13" class="chart"></div></div>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+  <h3 style="margin:0 0 10px;font-size:14px;">📋 资产周转率 KPI Status</h3>
+  <table class="kpi-table">
+    <tr><th>#</th><th>KPI</th><th>Feb</th><th>Target</th><th>Gap</th><th>Status</th></tr>
+    <tr><td>10</td><td>核心厂区固定资产利用率</td><td>115%</td><td>120%</td><td>5%</td><td class="miss">⚠️ Near Miss</td></tr>
+    <tr><td>11</td><td>生态伙伴轻资产化指数</td><td>24</td><td>25</td><td>1</td><td class="miss">⚠️ Near Miss</td></tr>
+    <tr><td>12</td><td>数字资产归集与复用率</td><td>42%</td><td>40%</td><td>+2%</td><td class="met">✅ Met</td></tr>
+    <tr><td>13</td><td>变革资本再投资率</td><td>72%</td><td>70%</td><td>+2%</td><td class="met">✅ Met</td></tr>
+  </table>
+</div>
+
+<div class="insight-box">
+  <h3>关键洞察</h3>
+  <ul>
+    <li><strong>已完成</strong>: KPI #12 (42% digital asset reuse) and KPI #13 (72% reinvestment rate) exceeded targets</li>
+    <li><strong>接近达标</strong>: KPI #10 fixed asset utilization 115% vs 120%, KPI #11 asset-light index 24 vs 25</li>
+    <li><strong>趋势</strong>: All 4 KPIs on strong upward trajectory, expected to meet targets within 1-2 months</li>
+    <li><strong>资产周转效率</strong>: 固定资产利用率从65%升至115%，反映产能集中和效率提升</li>
+  </ul>
+</div>
+
+<script>
+var M = ["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02"];
+Plotly.newPlot('c10',[{x:M,y:[65,72,83,91,102,115],type:'scatter',mode:'lines+markers',line:{color:'#1f77b4',width:3}},{x:M,y:M.map(function(){return 120}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #10 固定资产利用率 (%)',margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c11',[{x:M,y:[0,3,8,14,19,24],type:'scatter',mode:'lines+markers',line:{color:'#ff7f0e',width:3},fill:'tozeroy',fillcolor:'rgba(255,127,14,0.1)'},{x:M,y:M.map(function(){return 25}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #11 轻资产化指数',margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c12',[{x:M,y:[5,12,18,25,33,42],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3}},{x:M,y:M.map(function(){return 40}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #12 数字资产归集复用率 (%)',margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c13',[{x:M,y:[0,15,35,50,62,72],type:'scatter',mode:'lines+markers',line:{color:'#9467bd',width:3}},{x:M,y:M.map(function(){return 70}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #13 变革资本再投资率 (%)',margin:{t:30,b:30,l:40,r:10},showlegend:false});
+</script></body></html>

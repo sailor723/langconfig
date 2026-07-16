@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>Sun Hing — 支撑层 KPI Group</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;font-family:-apple-system,'Noto Sans SC',sans-serif;background:#f0f2f5}
+h1{font-size:20px;font-weight:600;margin-bottom:4px}.subtitle{color:#666;font-size:13px;margin-bottom:20px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.kpi-card{background:#fff;padding:16px;border-radius:10px;border-left:4px solid #1f77b4;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi-card .label{font-size:11px;color:#7f8c8d;text-transform:uppercase;letter-spacing:.5px}
+.kpi-card .value{font-size:24px;font-weight:700;margin:4px 0 2px}.kpi-card .note{font-size:12px;color:#999}
+.kpi-card.ok{border-left-color:#2ca02c}.kpi-card.warn{border-left-color:#ff7f0e}.kpi-card.danger{border-left-color:#e74c3c}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.card{background:#fff;padding:12px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.chart{width:100%;height:280px}
+.kpi-table{width:100%;border-collapse:collapse;font-size:12px}
+.kpi-table th{text-align:left;padding:7px 8px;background:#f8f9fa;border-bottom:2px solid #eee}
+.kpi-table td{padding:6px 8px;border-bottom:1px solid #f0f0f0}.kpi-table .met{color:#2ca02c;font-weight:600}
+.kpi-table .miss{color:#e74c3c;font-weight:600}
+.insight-box{background:#fff;padding:14px 18px;border-radius:10px;border-left:4px solid #2ca02c;margin-top:14px}
+.insight-box h3{margin:0 0 8px;font-size:14px}.insight-box ul{margin:0;padding-left:18px;font-size:13px;color:#333}.insight-box li{margin:4px 0}
+</style></head>
+<body>
+<h1>🛡️ 支撑层 Factor — KPI Group</h1>
+<div class="subtitle">Enabling / Foundation KPIs | KPIs 18-21 | Talent, PMO, Risk, Systems</div>
+
+<div class="kpi-row">
+  <div class="kpi-card ok"><div class="label">技术骨干留任 (KPI #18)</div><div class="value">93%</div><div class="note">Target 90% ✅ Met</div></div>
+  <div class="kpi-card ok"><div class="label">PMO里程碑 (KPI #19)</div><div class="value">92%</div><div class="note">Target 90% ✅ Met</div></div>
+  <div class="kpi-card ok"><div class="label">重大风险事件 (KPI #20)</div><div class="value">0</div><div class="note">Target 0 ✅ Met</div></div>
+  <div class="kpi-card warn"><div class="label">价值交换制度 (KPI #21)</div><div class="value">78%</div><div class="note">Target 80% △ 2 gap</div></div>
+</div>
+
+<div class="grid">
+  <div class="card"><div id="c18" class="chart"></div></div>
+  <div class="card"><div id="c19" class="chart"></div></div>
+  <div class="card"><div id="c20" class="chart"></div></div>
+  <div class="card"><div id="c21" class="chart"></div></div>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+  <h3 style="margin:0 0 10px;font-size:14px;">📋 支撑层 KPI Status</h3>
+  <table class="kpi-table">
+    <tr><th>#</th><th>KPI</th><th>Feb</th><th>Target</th><th>Gap</th><th>Status</th></tr>
+    <tr><td>18</td><td>技术骨干留任率</td><td>93%</td><td>90%</td><td>+3%</td><td class="met">✅ Met</td></tr>
+    <tr><td>19</td><td>PMO执行里程碑达成率</td><td>92%</td><td>90%</td><td>+2%</td><td class="met">✅ Met</td></tr>
+    <tr><td>20</td><td>重大风险事件发生率</td><td>0</td><td>0</td><td>0</td><td class="met">✅ Met</td></tr>
+    <tr><td>21</td><td>员工价值交换制度落地率</td><td>78%</td><td>80%</td><td>2%</td><td class="miss">⚠️ Near Miss</td></tr>
+  </table>
+</div>
+
+<div class="insight-box">
+  <h3>关键洞察</h3>
+  <ul>
+    <li><strong>已完成</strong>: KPI #18 技术骨干留任93%超目标, KPI #19 PMO里程碑92%, KPI #20 零重大风险事件</li>
+    <li><strong>接近达标</strong>: KPI #21 价值交换制度落地78% vs 80% — 最后2%需要法务合同系统支持</li>
+    <li><strong>组织韧性</strong>: 技术骨干留任在变革期保持90%+，显示核心团队稳定性好</li>
+    <li><strong>执行能力</strong>: PMO里程碑达成率先降后升 (85→78→92%), 项目管理能力逐步提升</li>
+  </ul>
+</div>
+
+<script>
+var M = ["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02"];
+Plotly.newPlot('c18',[{x:M,y:[97,95,92,90,91,93],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3}},{x:M,y:M.map(function(){return 90}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #18 技术骨干留任率 (%)',yaxis:{range:[85,100]},margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c19',[{x:M,y:[85,82,78,85,90,92],type:'scatter',mode:'lines+markers',line:{color:'#1f77b4',width:3}},{x:M,y:M.map(function(){return 90}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #19 PMO里程碑达成率 (%)',yaxis:{range:[70,100]},margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c20',[{x:M,y:[0,0,1,0,0,0],type:'scatter',mode:'lines+markers',line:{color:'#e74c3c',width:3}},{x:M,y:M.map(function(){return 0}),type:'scatter',mode:'lines',name:'Target',line:{color:'#2ca02c',width:1}}],{title:'KPI #20 重大风险事件数',yaxis:{dtick:1,range:[-0.5,2]},margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c21',[{x:M,y:[5,12,28,45,62,78],type:'scatter',mode:'lines+markers',line:{color:'#9467bd',width:3}},{x:M,y:M.map(function(){return 80}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #21 价值交换制度落地率 (%)',margin:{t:30,b:30,l:40,r:10},showlegend:false});
+</script></body></html>
