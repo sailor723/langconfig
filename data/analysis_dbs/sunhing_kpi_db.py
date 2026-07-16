@@ -305,30 +305,28 @@ def create_db(db_path: str = str(DB_PATH)):
              row["pmo_risk_score"], i)
         )
 
-    # --- 11. raw_crm ---
+    # --- 11. raw_crm (per-order level) ---
     cursor.execute("DROP TABLE IF EXISTS raw_crm")
     cursor.execute("""
         CREATE TABLE raw_crm (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             company_id INTEGER DEFAULT 1,
-            period TEXT NOT NULL,
-            total_order_value_wan REAL,
-            lost_order_value_wan REAL,
-            order_loss_rate_pct REAL,
-            client_complaints_received INTEGER,
-            on_time_delivery_pct REAL,
-            eco_partner_punctuality_pct REAL,
-            eco_partner_data_upload_pct REAL,
-            month_index INTEGER
+            order_id TEXT NOT NULL,
+            customer_name TEXT,
+            order_date TEXT,
+            order_value_wan REAL,
+            status TEXT,
+            delivered_on_time INTEGER,
+            client_complaint INTEGER,
+            is_eco_partner_order INTEGER,
+            eco_partner_delivery_on_time INTEGER,
+            month TEXT
         )
     """)
-    for i, row in enumerate(data["raw_sources"]["crm_system"]):
-        cursor.execute(
-            "INSERT INTO raw_crm (period, total_order_value_wan, lost_order_value_wan, order_loss_rate_pct, client_complaints_received, on_time_delivery_pct, eco_partner_punctuality_pct, eco_partner_data_upload_pct, month_index) VALUES (?,?,?,?,?,?,?,?,?)",
-            (row["month"], row["total_order_value_wan"], row["lost_order_value_wan"],
-             row["order_loss_rate_pct"], row["client_complaints_received"], row["on_time_delivery_pct"],
-             row["eco_partner_order_punctuality_pct"], row["eco_partner_data_upload_timeliness_pct"], i)
-        )
+    # Generate per-order CRM data
+    from sunhing_crm_data import generate_orders, insert_orders
+    crm_orders = generate_orders()
+    insert_orders(cursor, crm_orders)
 
     # --- 12. raw_entity_registration ---
     cursor.execute("DROP TABLE IF EXISTS raw_entity")

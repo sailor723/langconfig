@@ -442,14 +442,20 @@ var TABLE_INFO = {
     kpis:['09_数字资产价值转化率','12_数字资产归集与复用率']
   },
   raw_crm: {
-    type:'RAW', intro:'Customer relationship data — order loss rate, delivery punctuality, and eco-partner coordination. Tracks whether the restructuring impacts customer relationships. Supports KPI #17 (eco-partner synergy) and RS07 (customer churn). 6 rows.',
+    type:'RAW', intro:'Individual customer orders — per-order level data from the CRM system. ~55 customer orders across 20+ customers (Luxottica, Safilo, Warby Parker, etc.), each with order value, delivery status, and complaint flags. Eco-partner orders are tagged for KPI #17 tracking. Aggregated to compute order loss rate (RS07) and eco-partner synergy (KPI #17).',
     cols:[
       {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
       {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
-      {name:'period',type:'TEXT',desc:'YYYY-MM'},
-      {name:'order_loss_rate_pct',type:'REAL',desc:'Customer order loss %'},
-      {name:'on_time_delivery_pct',type:'REAL',desc:'On-time delivery %'},
-      {name:'eco_partner_punctuality',type:'REAL',desc:'Eco-partner delivery punctuality'},
+      {name:'order_id',type:'TEXT',desc:'Unique order ref (e.g. ORD-202609-001)'},
+      {name:'customer_name',type:'TEXT',desc:'Customer company name'},
+      {name:'order_date',type:'TEXT',desc:'Order placement date'},
+      {name:'order_value_wan',type:'REAL',desc:'Order amount (万HKD)'},
+      {name:'status',type:'TEXT',desc:'completed / lost'},
+      {name:'delivered_on_time',type:'INTEGER',desc:'1 = on time, 0 = late'},
+      {name:'client_complaint',type:'INTEGER',desc:'1 = complaint received'},
+      {name:'is_eco_partner_order',type:'INTEGER',desc:'1 = eco-partner channel'},
+      {name:'eco_partner_delivery_on_time',type:'INTEGER',desc:'Eco-partner punctuality'},
+      {name:'month',type:'TEXT',desc:'YYYY-MM for grouping'},
     ],
     kpis:['17_生态伙伴战略协同指数','RS07_客户订单流失率']
   },
