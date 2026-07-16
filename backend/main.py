@@ -343,6 +343,36 @@ async def serve_gantt_data():
         conn.close()
 
 
+# ── ERD sample data for Sun Hing dashboard ──────────────────────
+@app.get("/api/sample-data")
+async def serve_sample_data(table: str):
+    """Return column info + first 5 rows for a given table in sunhing_kpi.db.
+    Mirrors the /api/sample-data endpoint from sunhing_server.py on port 8999.
+    """
+    import sqlite3
+    from pathlib import Path
+    dbs_dir = Path(__file__).resolve().parent.parent / "data" / "analysis_dbs"
+    db_path = dbs_dir / "sunhing_kpi.db"
+    ALLOWED = {
+        "company", "dim_kpi", "dim_pmo_phase", "fact_kpi_monthly", "fact_roe_summary",
+        "raw_hr", "raw_employee", "raw_finance", "raw_production",
+        "raw_legal", "raw_digital_platform", "raw_crm", "raw_entity",
+        "raw_pmo", "raw_sentiment", "raw_liability",
+    }
+    if table not in ALLOWED:
+        return JSONResponse(content={"error": f"Invalid table: {table}"}, status_code=400)
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+        rows = conn.execute(f"SELECT * FROM {table} LIMIT 5").fetchall()
+        total = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        return {"columns": cols, "rows": [list(r) for r in rows], "total_rows": total}
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+    finally:
+        conn.close()
+
+
 def _swap_plotly_cdn_to_local(html: str) -> str:
     """Replace cdn.plot.ly with /static/plotly.min.js so the page works
     without internet access (corporate proxy / sandboxed browser)."""
