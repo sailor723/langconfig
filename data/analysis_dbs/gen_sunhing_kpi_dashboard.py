@@ -231,6 +231,25 @@ Plotly.newPlot('chart3', [
 </html>
 """
 
+import re as _re_meta
+
 OUTPUT_PATH.write_text(html, encoding="utf-8")
+
+# ── Inject LangConfig Dashboard Meta block ──
+txt = OUTPUT_PATH.read_text(encoding="utf-8")
+if "LangConfig Dashboard Meta" not in txt:
+    meta = (
+        "<!--\n"
+        "  Generated: 2026-07-16 | Source: sunhing_kpi.db | Mode: static-embed\n"
+        "  LangConfig Dashboard Meta\n"
+        f"  db: {DB_PATH}\n"
+        "  skills: sunhing-analyst\n"
+        "-->"
+    )
+    patched = _re_meta.sub(r"(<head>\s*)", r"\1" + meta + "\n", txt, count=1)
+    if patched != txt:
+        OUTPUT_PATH.write_text(patched, encoding="utf-8")
+        print("📝 Injected LangConfig Dashboard Meta block")
+
 print(f"✅ Dashboard generated: {OUTPUT_PATH}")
 print(f"   File size: {len(html):,} bytes")
