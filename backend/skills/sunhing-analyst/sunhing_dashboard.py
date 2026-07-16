@@ -22,9 +22,9 @@ from langchain_core.tools import tool
 from datetime import datetime as _dt
 
 SKILLS_DIR = _BACKEND / "skills"
-DB_PATH = _THIS_DIR / "sunhing_kpi.db"
 _PROJECT_ROOT = _BACKEND.parent
 _OUTPUT_DIR = _PROJECT_ROOT / "data" / "analysis_dbs"
+DB_PATH = str(_OUTPUT_DIR / "sunhing_kpi.db")
 _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 HTML_FILE = _OUTPUT_DIR / f"sunhing_dashboard_{_dt.now().strftime('%Y%m%d_%H%M%S')}.html"
 
@@ -194,11 +194,39 @@ async def main():
             if hasattr(chunk, "content") and chunk.content:
                 print(chunk.content, end="", flush=True)
 
-    # Verify
+    # ── Post-process: inject LangConfig Dashboard Meta block ──────
+    # The Analysis panel in LangConfig reads this block to discover the
+    # source DB and the agent skills needed for the chat panel.
+    import re as _re_meta
     html_path = Path(HTML_FILE)
     if html_path.exists():
+        txt = html_path.read_text(encoding="utf-8")
+        if "LangConfig Dashboard Meta" not in txt:
+            from datetime import datetime as _dt_meta
+            meta_block = (
+                "<!--\n"
+                f"  Generated: {_dt_meta.now().strftime('%Y-%m-%d')} "
+                "| Source: sunhing_kpi.db | Mode: static-embed\n"
+                "  LangConfig Dashboard Meta\n"
+                f"  db: {DB_PATH}\n"
+                "  skills: sunhing-analyst\n"
+                "-->"
+            )
+            # Insert right after <head> or after the first <!-- comment
+            patched = _re_meta.sub(
+                r"(<head>\s*\n)",
+                r"\1" + meta_block + "\n",
+                txt,
+                count=1,
+            )
+            if patched != txt:
+                html_path.write_text(patched, encoding="utf-8")
+                print(f"📝 Injected LangConfig Dashboard Meta block")
+            else:
+                print(f"⚠ Could not inject meta block (no <head> found)")
+
         print(f"\n\n✅ Dashboard generated: {html_path} ({html_path.stat().st_size} bytes)")
-        print(f"   Open in browser: file://{html_path}")
+        print(f"   Now available in LangConfig Analysis Panel")
     else:
         print(f"\n\n❌ Dashboard not found at {html_path}")
     print("\n✅ Done!")
