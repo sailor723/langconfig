@@ -16,8 +16,11 @@ body{margin:0;padding:0;font-family:-apple-system,'Noto Sans SC',monospace;backg
 .legend .idx{background:#0f3460;width:12px;height:12px;border-radius:3px;border:1px solid #555}
 .erd-container{position:relative;width:100%;min-height:1600px;padding:20px;overflow:auto}
 svg.relations{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
-.table-box{position:absolute;background:#16213e;border:1px solid #0f3460;border-radius:6px;overflow:hidden;z-index:1;box-shadow:0 4px 12px rgba(0,0,0,.3);min-width:200px;cursor:grab;user-select:none}
+.table-box{position:absolute;background:#16213e;border:1px solid #0f3460;border-radius:6px;overflow:hidden;z-index:1;box-shadow:0 4px 12px rgba(0,0,0,.3);min-width:200px;cursor:grab;user-select:none;transition:box-shadow .15s}
+.table-box:hover{border-color:#e94560;box-shadow:0 4px 16px rgba(233,69,96,.15)}
 .table-box.dragging{cursor:grabbing;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:100}
+.table-box .click-hint{position:absolute;bottom:2px;right:6px;font-size:9px;color:#555;pointer-events:none}
+
 .table-box .tname{padding:6px 10px;font-size:12px;font-weight:700;border-bottom:1px solid #0f3460;display:flex;justify-content:space-between}
 .table-box .tname .tag{font-size:9px;padding:2px 6px;border-radius:3px}
 .table-box .tname .core{background:#e94560;color:#fff}
@@ -33,6 +36,27 @@ svg.relations{position:absolute;top:0;left:0;width:100%;height:100%;pointer-even
 .relation-line{stroke:#555;stroke-width:1.5;fill:none}
 .relation-line.pk-line{stroke:#e94560;stroke-width:1.5;stroke-dasharray:4,3}
 .relation-line.fk-line{stroke:#f5a623;stroke-width:1.5}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:1000;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal{background:#1a1a2e;border:1px solid #0f3460;border-radius:10px;width:560px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.5)}
+.modal-header{padding:14px 18px;border-bottom:1px solid #0f3460;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#16213e;border-radius:10px 10px 0 0}
+.modal-header h2{margin:0;font-size:16px}
+.modal-header .close-btn{background:none;border:none;color:#888;font-size:20px;cursor:pointer;padding:0 4px}
+.modal-header .close-btn:hover{color:#e94560}
+.modal-body{padding:16px 18px}
+.modal-body .intro{font-size:13px;color:#ccc;line-height:1.7;margin-bottom:14px}
+.modal-body .section-title{font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
+.modal-body .col-detail{display:grid;grid-template-columns:30px 120px 80px 1fr;gap:4px;font-size:12px;padding:4px 0;border-bottom:1px solid #0f3460}
+.modal-body .col-detail .col-pk{color:#e94560;font-weight:700}
+.modal-body .col-detail .col-fk{color:#f5a623}
+.modal-body .col-detail .col-name{color:#ddd}
+.modal-body .col-detail .col-type-d{color:#777}
+.modal-body .col-detail .col-desc{color:#999;font-size:11px}
+.modal-body .supports{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.modal-body .supports span{background:#0f3460;padding:3px 8px;border-radius:4px;font-size:11px;color:#aaa}
+
 </style>
 </head>
 <body>
@@ -244,18 +268,281 @@ svg.relations{position:absolute;top:0;left:0;width:100%;height:100%;pointer-even
 
 </div><!-- /erd-container -->
 
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Table Name</h2>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
 <script>
 (function() {
 var erd = document.getElementById('erd');
 var svg = document.getElementById('relSvg');
 
-// Make all table boxes draggable
+// Table metadata
+var TABLE_INFO = {
+  company: {
+    type:'DIM', intro:'Company entity — the top-level organizational unit. Currently holds 1 row for Sun Hing Vision Group (新溢眼镜, HKEX:00125). All other tables reference this via company_id.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'name',type:'TEXT',desc:'English name (Sun Hing Vision Group)'},
+      {name:'name_cn',type:'TEXT',desc:'Chinese name (新溢眼镜)'},
+      {name:'hkex_code',type:'TEXT',desc:'Stock exchange code (00125)'},
+      {name:'currency',type:'TEXT',desc:'Reporting currency (HKD)'},
+    ],
+    kpis:[]
+  },
+  dim_kpi: {
+    type:'DIM', intro:'KPI definitions — the master list of 28 KPIs. Each row defines one KPI with its ROE factor mapping, target value, data source reference, and type (main/risk). Referenced by fact_kpi_monthly.',
+    cols:[
+      {pk:true,name:'kpi_id',type:'TEXT',desc:'KPI code (e.g. 01_协商减员完成率)'},
+      {name:'kpi_name',type:'TEXT',desc:'Chinese KPI name'},
+      {name:'roe_factor',type:'TEXT',desc:'ROE factor: 净利润率/资产周转率/权益乘数/支撑层/风险监控'},
+      {name:'target',type:'REAL',desc:'Target value'},
+      {name:'unit',type:'TEXT',desc:'Unit of measurement'},
+      {name:'data_source',type:'TEXT',desc:'Source system reference'},
+      {name:'kpi_type',type:'TEXT',desc:'main or risk'},
+    ],
+    kpis:['All 28 KPIs defined here']
+  },
+  fact_kpi_monthly: {
+    type:'FACT', intro:'Monthly KPI actuals — the central fact table. 167 rows of actual KPI values vs targets across 6 months (Sep 2026–Feb 2027). Each row links a KPI (via kpi_id) to a company (via company_id) for a specific month.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {fk:true,name:'kpi_id',type:'TEXT',desc:'FK → dim_kpi.kpi_id'},
+      {name:'period',type:'TEXT',desc:'YYYY-MM format month'},
+      {name:'actual',type:'REAL',desc:'Actual KPI value'},
+      {name:'target',type:'REAL',desc:'Target KPI value'},
+      {name:'unit',type:'TEXT',desc:'% / count / score'},
+    ],
+    kpis:['All 28 KPIs × 6 months']
+  },
+  fact_roe_summary: {
+    type:'FACT', intro:'ROE DuPont decomposition — the 3-factor summary. Each row shows net profit margin, asset turnover, and equity multiplier for a period, plus the calculated ROE. This is the highest-level performance abstraction.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'period',type:'TEXT',desc:'YYYY-MM format month'},
+      {name:'net_profit_margin',type:'REAL',desc:'净利润率 (%)'},
+      {name:'asset_turnover',type:'REAL',desc:'资产周转率 (x)'},
+      {name:'equity_multiplier',type:'REAL',desc:'权益乘数 (x)'},
+      {name:'roe',type:'REAL',desc:'ROE = 利润率 × 周转率 × 乘数 (%)'},
+    ],
+    kpis:['ROE summary across all KPIs']
+  },
+  raw_hr: {
+    type:'RAW', intro:'Monthly HR aggregates — headcount, production ratio, severance progress, and partner conversion counts. Aggregated from the HR system. Supports KPI #01 (severance completion) and KPI #06 (production ratio). 6 rows (monthly).',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'period',type:'TEXT',desc:'YYYY-MM'},
+      {name:'total_headcount',type:'INTEGER',desc:'Total employees at month end'},
+      {name:'prod_ratio_pct',type:'REAL',desc:'Production workers %'},
+      {name:'severance_completed',type:'INTEGER',desc:'Cumulative severed count'},
+      {name:'employee_partner_converted',type:'INTEGER',desc:'Converted to partner'},
+    ],
+    kpis:['01_协商减员完成率','06_生产人员占比优化率','15_员工股权/合伙转化率']
+  },
+  raw_employee: {
+    type:'RAW', intro:'Per-person employee registry — 856 individual records with Chinese names, skill levels, compensation, and dispute flags. This is the most granular table. Drives KPI #01 drill-down and RS01 (dispute rate).',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'employee_code',type:'TEXT',desc:'Unique employee code'},
+      {name:'name_cn',type:'TEXT',desc:'Chinese name'},
+      {name:'department',type:'TEXT',desc:'Department'},
+      {name:'factory',type:'TEXT',desc:'Factory location: 东莞/河源'},
+      {name:'position_category',type:'TEXT',desc:'Position category'},
+      {name:'skill_level',type:'TEXT',desc:'Skill level (初级工~高级技师)'},
+      {name:'tenure_years',type:'REAL',desc:'Years of service'},
+      {name:'is_severed',type:'INT',desc:'1 = severed, 0 = retained'},
+      {name:'severance_month',type:'TEXT',desc:'Month of severance'},
+      {name:'compensation_wan',type:'REAL',desc:'Severance compensation (万HKD)'},
+      {name:'has_dispute',type:'INT',desc:'1 = dispute filed'},
+      {name:'satisfaction_score',type:'REAL',desc:'Severance satisfaction (1-10)'},
+      {name:'converted_to_partner',type:'INT',desc:'1 = converted to partner'},
+    ],
+    kpis:['01_协商减员完成率','RS01_协商减员纠纷发生率']
+  },
+  raw_finance: {
+    type:'RAW', intro:'Monthly financial data — severance costs, liability resolution, factory profits, and reinvestment amounts. Supports budget tracking (KPI #03), profit contribution (KPI #07, #08), and reinvestment rate (KPI #13). 6 rows.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'period',type:'TEXT',desc:'YYYY-MM'},
+      {name:'severance_cost_actual_wan',type:'REAL',desc:'Monthly severance spend (万HKD)'},
+      {name:'severance_budget_wan',type:'REAL',desc:'Budget (万HKD)'},
+      {name:'liability_resolved_cumul',type:'REAL',desc:'Cumulative liability resolved'},
+      {name:'core_factory_profit_wan',type:'REAL',desc:'Core factory profit'},
+      {name:'eco_partner_profit_wan',type:'REAL',desc:'Eco-partner profit'},
+      {name:'reinvested_wan',type:'REAL',desc:'Reinvestment amount'},
+    ],
+    kpis:['02_追缴化解率','03_赔偿金额预算控制率','07_核心厂区利润贡献率','08_生态伙伴利润贡献率','13_变革资本再投资率']
+  },
+  raw_liability: {
+    type:'RAW', intro:'Historical liability items — 25 individual items across 6 categories (社保/公积金/企业年金/税务/劳动监察/其他). Each item tracks resolution progress, method, and government authority. Drives KPI #02 detail page.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'item_code',type:'TEXT',desc:'Liability item code'},
+      {name:'category',type:'TEXT',desc:'Category: 社保/公积金/企业年金/税务/劳动监察/其他'},
+      {name:'description',type:'TEXT',desc:'Item description'},
+      {name:'authority',type:'TEXT',desc:'Overseeing government authority'},
+      {name:'total_amount_wan',type:'REAL',desc:'Total amount (万HKD)'},
+      {name:'resolved_wan',type:'REAL',desc:'Amount resolved'},
+      {name:'remaining_wan',type:'REAL',desc:'Amount remaining'},
+      {name:'resolution_method',type:'TEXT',desc:'Resolution approach'},
+      {name:'status',type:'TEXT',desc:'已化解/部分化解/未启动'},
+    ],
+    kpis:['02_历史人力成本追缴化解率']
+  },
+  raw_production: {
+    type:'RAW', intro:'Monthly production metrics — processes retained, OEE, output volume, and defect rate. Tracks manufacturing stability during restructuring. Supports KPI #05 (process retention) and KPI #10 (asset utilization). 6 rows.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'period',type:'TEXT',desc:'YYYY-MM'},
+      {name:'critical_processes_running',type:'INTEGER',desc:'Critical processes still operational'},
+      {name:'oee_pct',type:'REAL',desc:'Overall Equipment Effectiveness'},
+      {name:'output_frames_monthly',type:'INTEGER',desc:'Monthly frame output'},
+      {name:'defect_rate_pct',type:'REAL',desc:'Defect rate'},
+    ],
+    kpis:['05_工序保留完成率','10_核心厂区固定资产利用率']
+  },
+  raw_legal: {
+    type:'RAW', intro:'Monthly legal/compliance data — arbitration cases, group incidents, and customs compliance. Tracks restructuring-related legal risks. Supports KPI #04 (zero litigation target), RS04 (customs), and RS05 (fines). 6 rows.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'period',type:'TEXT',desc:'YYYY-MM'},
+      {name:'new_labor_arbitration_cases',type:'INTEGER',desc:'New arbitration cases'},
+      {name:'major_group_incidents',type:'INTEGER',desc:'Major group incidents'},
+      {name:'bonded_material_compliance_pct',type:'REAL',desc:'Bonded material compliance %'},
+      {name:'customs_fines_wan',type:'REAL',desc:'Customs fines (万HKD)'},
+      {name:'customs_compliance_pct',type:'REAL',desc:'Customs compliance %'},
+    ],
+    kpis:['04_劳动仲裁与诉讼事件数','RS01_纠纷发生率','RS04_保税物料合规','RS05_海关违规']
+  },
+  raw_digital_platform: {
+    type:'RAW', intro:'Digital platform metrics — knowledge reuse rate, KDD density, and digital cost savings. Tracks digital transformation progress. Supports KPI #09 (digital asset value conversion) and KPI #12 (asset reuse rate). 6 rows.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'period',type:'TEXT',desc:'YYYY-MM'},
+      {name:'reuse_rate_pct',type:'REAL',desc:'Digital asset reuse %'},
+      {name:'kdd_knowledge_density',type:'INTEGER',desc:'Knowledge density index'},
+      {name:'digital_cost_savings_wan',type:'REAL',desc:'Cost savings from digital (万HKD)'},
+    ],
+    kpis:['09_数字资产价值转化率','12_数字资产归集与复用率']
+  },
+  raw_crm: {
+    type:'RAW', intro:'Customer relationship data — order loss rate, delivery punctuality, and eco-partner coordination. Tracks whether the restructuring impacts customer relationships. Supports KPI #17 (eco-partner synergy) and RS07 (customer churn). 6 rows.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'period',type:'TEXT',desc:'YYYY-MM'},
+      {name:'order_loss_rate_pct',type:'REAL',desc:'Customer order loss %'},
+      {name:'on_time_delivery_pct',type:'REAL',desc:'On-time delivery %'},
+      {name:'eco_partner_punctuality',type:'REAL',desc:'Eco-partner delivery punctuality'},
+    ],
+    kpis:['17_生态伙伴战略协同指数','RS07_客户订单流失率']
+  },
+  raw_entity: {
+    type:'RAW', intro:'Entity registration data — tracks the legal entity split. Each row shows how many new entities have been registered and their profitability. Supports KPI #14 (equity structure completion) and KPI #15 (partner conversion). 6 rows.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'period',type:'TEXT',desc:'YYYY-MM'},
+      {name:'entities_registered',type:'INTEGER',desc:'New entities registered'},
+      {name:'target_entities',type:'INTEGER',desc:'Target entities to register'},
+      {name:'completion_pct',type:'REAL',desc:'Registration completion %'},
+      {name:'eco_entities_profitable',type:'INTEGER',desc:'Profitability status'},
+    ],
+    kpis:['14_股权分立架构完成率','15_员工股权/合伙转化率']
+  },
+  raw_pmo: {
+    type:'RAW', intro:'PMO project tracking — milestone completion rate and risk score. Monitors the overall transformation program execution. Supports KPI #19 (PMO milestone achievement). 6 rows.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'period',type:'TEXT',desc:'YYYY-MM'},
+      {name:'completion_rate_pct',type:'REAL',desc:'PMO milestone completion %'},
+      {name:'pmo_risk_score',type:'INTEGER',desc:'PMO risk assessment score'},
+    ],
+    kpis:['19_PMO执行里程碑达成率']
+  },
+  raw_sentiment: {
+    type:'RAW', intro:'Employee sentiment surveys — satisfaction scores, severance negotiation satisfaction, and social media monitoring. Tracks the human side of restructuring. Supports RS02 (negotiation satisfaction) and RS03 (group dispute risk). 6 rows.',
+    cols:[
+      {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
+      {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
+      {name:'period',type:'TEXT',desc:'YYYY-MM'},
+      {name:'employee_satisfaction',type:'REAL',desc:'Overall employee satisfaction'},
+      {name:'severance_satisfaction',type:'REAL',desc:'Severance satisfaction score'},
+      {name:'negative_social_media',type:'INTEGER',desc:'Negative social media mentions'},
+    ],
+    kpis:['RS02_历史追缴协商满意度','RS03_群体性劳动争议风险指数']
+  }
+};
+
+function showModal(tableName) {
+  var info = TABLE_INFO[tableName];
+  if (!info) return;
+  document.getElementById('modalTitle').textContent = tableName + '  (' + info.type + ')';
+
+  var html = '<div class="intro">' + info.intro + '</div>';
+
+  html += '<div class="section-title">📋 Columns</div>';
+  info.cols.forEach(function(c) {
+    var key = '';
+    if (c.pk) key = '<span class="col-pk">PK</span>';
+    else if (c.fk) key = '<span class="col-fk">FK</span>';
+    else key = '';
+    html += '<div class="col-detail">' +
+      '<div>' + key + '</div>' +
+      '<div class="col-name">' + c.name + '</div>' +
+      '<div class="col-type-d">' + c.type + '</div>' +
+      '<div class="col-desc">' + (c.desc||'') + '</div>' +
+      '</div>';
+  });
+
+  if (info.kpis && info.kpis.length) {
+    html += '<div class="section-title">📊 Supports KPIs</div>';
+    html += '<div class="supports">';
+    info.kpis.forEach(function(k) {
+      html += '<span>' + k + '</span>';
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+window.closeModal = function() {
+  document.getElementById('modalOverlay').classList.remove('show');
+};
+
+// Click overlay to close
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// Make table boxes draggable AND clickable
 document.querySelectorAll('.table-box').forEach(function(box) {
   var dragging = false;
+  var dragMoved = false;
   var startX, startY, origLeft, origTop;
 
   box.addEventListener('mousedown', function(e) {
     dragging = true;
+    dragMoved = false;
     box.classList.add('dragging');
     startX = e.clientX;
     startY = e.clientY;
@@ -266,23 +553,31 @@ document.querySelectorAll('.table-box').forEach(function(box) {
 
   document.addEventListener('mousemove', function(e) {
     if (!dragging) return;
-    var dx = e.clientX - startX;
-    var dy = e.clientY - startY;
-    box.style.left = (origLeft + dx) + 'px';
-    box.style.top = (origTop + dy) + 'px';
+    var dx = Math.abs(e.clientX - startX);
+    var dy = Math.abs(e.clientY - startY);
+    if (dx > 3 || dy > 3) dragMoved = true;
+    var nx = origLeft + (e.clientX - startX);
+    var ny = origTop + (e.clientY - startY);
+    box.style.left = nx + 'px';
+    box.style.top = ny + 'px';
     redrawLines();
   });
 
-  document.addEventListener('mouseup', function() {
+  document.addEventListener('mouseup', function(e) {
     if (dragging) {
       dragging = false;
       box.classList.remove('dragging');
       redrawLines();
+      // If barely moved, treat as click
+      if (!dragMoved) {
+        var name = box.querySelector('.tname span:first-child').textContent.trim();
+        showModal(name);
+      }
     }
   });
 });
 
-// Relationship pairs: [fromTableName, toTableName]
+// Relationship pairs
 var pairs = [
   ['company', 'fact_kpi_monthly'],
   ['company', 'fact_roe_summary'],
@@ -301,7 +596,6 @@ var pairs = [
 ];
 
 function getBoxCenter(box, side) {
-  // side: 'right' for from-box (right edge), 'left' for to-box (left edge)
   var erdRect = erd.getBoundingClientRect();
   var r = box.getBoundingClientRect();
   var x = r.left - erdRect.left + erd.scrollLeft;
@@ -318,7 +612,6 @@ function redrawLines() {
     boxMap[name] = b;
   });
 
-  // Find max extent
   var maxX = 0, maxY = 0;
   document.querySelectorAll('.table-box').forEach(function(b) {
     var r = b.getBoundingClientRect();
@@ -335,11 +628,9 @@ function redrawLines() {
     var fromBox = boxMap[p[0]];
     var toBox = boxMap[p[1]];
     if (!fromBox || !toBox) return;
-
     var from = getBoxCenter(fromBox, 'right');
     var to = getBoxCenter(toBox, 'left');
     var midX = (from.x + to.x) / 2;
-
     var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', 'M'+from.x+','+from.y+' C'+midX+','+from.y+' '+midX+','+to.y+' '+to.x+','+to.y);
     path.setAttribute('class', 'relation-line fk-line');
@@ -347,7 +638,14 @@ function redrawLines() {
   });
 }
 
-// Initial draw
+// Also add click-hint text to each box
+document.querySelectorAll('.table-box').forEach(function(b) {
+  var hint = document.createElement('div');
+  hint.className = 'click-hint';
+  hint.textContent = 'click for info';
+  b.appendChild(hint);
+});
+
 redrawLines();
 })();
 </script>
