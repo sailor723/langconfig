@@ -137,22 +137,73 @@ export default function AnalysisPage() {
     const msg = chatInput.trim(); setChatInput('');
     setChatMessages(p => [...p, { role: 'user', content: msg }]); setChatLoading(true);
     try {
-      const r = await apiClient.post('/api/analysis/chat', {
-        session_id: `analysis-${chatSessId.current}`,
-        db_path: dbPath,
-        message: msg,
-        skill_content: skillContent || undefined,
-        // Pass the dashboard filename so the backend can persist this message
-        // and re-opening this dashboard will show the full conversation.
-        dashboard_filename: activeDashboard?.filename,
+      const res = await fetch(`${API_BASE_URL}/api/analysis/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: `analysis-${chatSessId.current}`,
+          db_path: dbPath,
+          message: msg,
+          skill_content: skillContent || undefined,
+          dashboard_filename: activeDashboard?.filename,
+        }),
       });
-      setChatMessages(p => [...p, {
-        role: 'assistant',
-        content: r.data.message || r.data.content || '(no response)',
-        tool_trace: r.data.tool_trace || null,
-      }]);
-    } catch (e: any) { setChatMessages(p => [...p, { role: 'assistant', content: 'Error: ' + (e?.response?.data?.detail || e.message) }]); }
-    finally { setChatLoading(false); }
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      // Read SSE stream from the response
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No response body');
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullResponse = '';
+      let tool_trace: any = null;
+      // Insert a placeholder assistant message that will be updated
+      setChatMessages(p => [...p, { role: 'assistant', content: '' }]);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // Parse SSE lines: each event is "data: {...}\n\n"
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // keep incomplete line in buffer
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const evt = JSON.parse(line.slice(6));
+              if (evt.type === 'chunk' && evt.content) {
+                fullResponse += evt.content;
+                // Update the assistant message reactively
+                setChatMessages(p => p.map((m, i) =>
+                  i === p.length - 1 && m.role === 'assistant'
+                    ? { ...m, content: fullResponse }
+                    : m
+                ));
+              } else if (evt.type === 'done') {
+                fullResponse = evt.content || fullResponse;
+                tool_trace = evt.tool_trace || null;
+                // Final update
+                setChatMessages(p => p.map((m, i) =>
+                  i === p.length - 1 && m.role === 'assistant'
+                    ? { ...m, content: fullResponse, tool_trace }
+                    : m
+                ));
+              } else if (evt.type === 'error') {
+                throw new Error(evt.message);
+              }
+            } catch (parseErr: any) {
+              // ignore malformed events
+            }
+          }
+        }
+      }
+      // If we never got a "done" event, finalize with whatever we have
+      setChatMessages(p => p.map((m, i) =>
+        i === p.length - 1 && m.role === 'assistant' && !m.content
+          ? { ...m, content: fullResponse || '(no response)', tool_trace }
+          : m
+      ));
+    } catch (e: any) {
+      setChatMessages(p => [...p, { role: 'assistant', content: 'Error: ' + (e?.message || String(e)) }]);
+    } finally { setChatLoading(false); }
   };
 
   // ── Resize handler ──
