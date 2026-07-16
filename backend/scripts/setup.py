@@ -176,9 +176,8 @@ def init_database():
         
         # Create extensions first
         with engine.begin() as conn:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
-        print_success("PostgreSQL extensions enabled (pgvector, uuid-ossp)")
+        print_success("PostgreSQL extensions enabled (uuid-ossp)")
         
         # Check if this looks like a fresh install or existing data
         inspector = inspect(engine)
@@ -194,7 +193,6 @@ def init_database():
                 conn.execute(text("GRANT ALL ON SCHEMA public TO langconfig"))
                 conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
                 # Re-enable extensions after schema drop
-                conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
                 conn.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
             print_success("Old tables dropped")
         

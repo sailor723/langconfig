@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     debug: bool = True
 
     # ── Database ──
-    database_url: str = "postgresql://langconfig:langconfig_dev@localhost:5433/langconfig"
+    database_url: str = "postgresql://langconfig:langconfig_dev@localhost:5432/langconfig"
     database_url_async: Optional[str] = None
 
     # ── LLM API Keys (directly from .env, no DB fallback) ──

@@ -195,7 +195,6 @@ async def async_init_db():
     try:
         # Enable PostgreSQL extensions
         async with async_engine.begin() as connection:
-            await connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             await connection.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
             logger.info("✓ PostgreSQL extensions enabled (async)")
 

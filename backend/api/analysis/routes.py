@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -326,52 +327,249 @@ async def analysis_init(request: AnalysisInitRequest, db: Session = Depends(get_
 
 # ── Chat: Ask questions about the data
 
-@router.post("/chat", response_model=AnalysisChatResponse)
+@router.post("/chat")
 async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_db)):
     """
     Chat with the sql-analyst skill about the uploaded data.
+    Returns SSE stream with real-time tokens and tool calls.
 
     Uses create_deep_agent with the sql-analyst SKILL.md and
     sqlite_execute / python_execute tools.
     """
-    import asyncio
+    import json
 
     db_path = request.db_path
-    if not Path(db_path).exists():
+    db_full_path = Path(db_path)
+    if not db_full_path.is_absolute():
+        # db_path from the meta block is relative to the project root
+        # (e.g. "data/analysis_dbs/sunhing_kpi.db") but the server
+        # process CWD may be backend/.  Resolve against ANALYSIS_DBS_DIR
+        # by using only the filename portion.
+        db_full_path = ANALYSIS_DBS_DIR / db_full_path.name
+    if not db_full_path.exists():
         raise HTTPException(status_code=404, detail=f"Database not found: {db_path}")
+    # Use the resolved absolute path for all downstream operations
+    db_path = str(db_full_path)
 
     # Persist the user message BEFORE running the agent so a 504/500 timeout
     # still leaves a record of what was asked. Assistant message is appended
     # only after the agent run succeeds.
-    from models.analysis_chat import AnalysisChatMessage
     dashboard_filename = request.dashboard_filename
     if dashboard_filename:
         _persist_message(db, dashboard_filename, "user", request.message)
 
-    try:
-        result = await asyncio.wait_for(
-            _run_analysis_agent(
-                db_path=request.db_path,
-                message=request.message,
-                session_id=request.session_id,
-                skill_content=request.skill_content,
-                skills=request.skills or ["sql-analyst"],
-            ),
-            timeout=120,  # 2 minute timeout
-        )
-    except asyncio.TimeoutError:
-        raise HTTPException(status_code=504, detail="Analysis timed out")
-    except Exception as e:
-        logger.error(f"Analysis chat error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    async def generate_stream():
+        """Async generator that yields SSE events during agent execution."""
+        import re
+        import sqlite3
+        from langchain_core.tools import tool
+        from langchain_openai import ChatOpenAI
+        from langgraph.checkpoint.memory import MemorySaver
+        from deepagents import create_deep_agent
+        from deepagents.backends.filesystem import FilesystemBackend
+        from config import settings
 
-    # Persist the assistant's reply (clean content + tool_trace separately).
-    if dashboard_filename:
-        _persist_message(
-            db, dashboard_filename, "assistant",
-            result.message, tool_trace=result.tool_trace,
+        skills_root = Path(__file__).resolve().parent.parent / "skills"
+
+        model = ChatOpenAI(
+            model=os.getenv("MINIMAX_MODEL", "minimax-m3"),
+            base_url=settings.MINIMAX_API_BASE,
+            api_key=settings.MINIMAX_API_KEY,
+            temperature=0.3,
         )
-    return result
+
+        backend = FilesystemBackend(root_dir=str(skills_root))
+        checkpointer = MemorySaver()
+
+        @tool
+        def sqlite_execute(sql: str, db_path_override: str = "") -> str:
+            """Execute a read-only SELECT query on a SQLite database."""
+            actual_db_path = db_path_override or db_path
+            sql_stripped = sql.strip().strip(";").strip()
+            blocked = {"insert","update","delete","drop","alter","create","replace"}
+            first_word = sql_stripped.lower().split()[0] if sql_stripped.split() else ""
+            if first_word in blocked:
+                return "❌ BLOCKED: Only SELECT allowed."
+            try:
+                conn = sqlite3.connect(actual_db_path)
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute(f"SELECT * FROM ({sql_stripped}) LIMIT 200")
+                rows = cursor.fetchall()
+                col_names = [d[0] for d in cursor.description] if cursor.description else []
+                if not rows:
+                    conn.close()
+                    return "✅ No rows."
+                widths = [len(c) for c in col_names]
+                for row in rows:
+                    for i, v in enumerate(row):
+                        widths[i] = max(widths[i], len(str(v)))
+                header = " | ".join(c.ljust(w) for c, w in zip(col_names, widths))
+                sep = "-+-".join("-" * w for w in widths)
+                body = "\n".join(
+                    " | ".join(str(v).ljust(w) for v, w in zip(row, widths))
+                    for row in rows[:50]
+                )
+                conn.close()
+                return f"✅ {len(rows)} row(s)\n\n{header}\n{sep}\n{body}"
+            except Exception as e:
+                return f"❌ Error: {e}"
+
+        @tool
+        def python_execute(code: str) -> str:
+            """Execute Python code (pandas, matplotlib). To return charts, use
+            matplotlib Agg backend → base64 → markdown data URI in stdout:
+              import matplotlib; matplotlib.use("Agg")
+              import matplotlib.pyplot as plt, base64, io
+              ... plt.savefig(buf, format="png") ...
+              print(f"![chart](data:image/png;base64,{b64})")"""
+            import subprocess, textwrap
+            try:
+                wrapper = (
+                    "import sys, io\n"
+                    "_buf = io.StringIO()\n"
+                    "sys.stdout = _buf\nsys.stderr = _buf\n"
+                    "try:\n"
+                    + textwrap.indent(code, '    ') + "\n"
+                    "except Exception:\n"
+                    "    import traceback; traceback.print_exc()\n"
+                    "finally:\n"
+                    "    sys.stdout = sys.__stdout__\n"
+                    "    sys.stderr = sys.__stderr__\n"
+                    "    print(_buf.getvalue(), end='')\n"
+                )
+                result = subprocess.run(
+                    [__import__("sys").executable, "-c", wrapper],
+                    capture_output=True, text=True, timeout=30,
+                    cwd=str(Path(db_path).parent)
+                )
+                out = result.stdout + result.stderr
+                return f"✅ OK\n\n{out[:3000]}" if out.strip() else "✅ OK"
+            except subprocess.TimeoutExpired:
+                return "❌ Timeout (>30s)"
+            except Exception as e:
+                return f"❌ Error: {e}"
+
+        agent = create_deep_agent(
+            model=model,
+            tools=[sqlite_execute, python_execute],
+            system_prompt=(
+                f"You are a data analyst. The user's data is in a SQLite database at:\n"
+                f"  {db_path}\n\n"
+                f"Use sqlite_execute to query it. Discover the schema first, then answer questions.\n"
+                "Use python_execute for charts.\n"
+                "To return a chart, use matplotlib Agg + base64 data URI:\n"
+                '  ```python\n  import matplotlib; matplotlib.use("Agg")\n'
+                "  import matplotlib.pyplot as plt, base64, io\n"
+                "  ... plt.savefig(buf, format='png') ...\n"
+                '  print(f"![chart](data:image/png;base64,{b64})")\n  ```\n'
+                "Read the SKILL.md for guidance. Reply in Chinese.\n"
+                "## Output style\n"
+                "- All UI text in Chinese.\n"
+                "- Use **markdown headings** (`##`, `###`) to break up long answers; one heading per logical section.\n"
+                "- Use **bulleted lists** (`- item`) for multi-point answers; one fact per bullet.\n"
+                "- Use **pipe tables** for any 3+ row data dump (KPI snapshot, top-N, comparison).\n"
+                "- **Do NOT use `---` horizontal rules** in normal answers — they create visual noise.\n"
+                "- **Currency**: render ≥$1M as `$X.XM` (1 decimal), <$1M as `$X,XXX` (no decimals), currency table cells use the same rule. Always include thousand separators.\n"
+                "- **Period labels**: always `YYYY-Q#` (e.g. `2024-Q4`). Never write `Q4\\'24` or `Q1 23`.\n"
+                "- **End every answer with a one-line conclusion** in a quote block: `> **结论:** ...` — one sentence, not a paragraph.\n"
+                "- **Long answers**: if the answer is >8 lines, lead with a 2-3 line summary, then detail.\n"
+                "- **Numbers**: when comparing two values, always show the % delta next to the absolute (e.g. `$10.1M → $11.4M (+12.9%)`).\n"
+                + (f"\\n=== COMPANION SKILL ===\\n{request.skill_content}\\n=== END COMPANION SKILL ===\\n" if request.skill_content else "")
+            ),
+            backend=backend,
+            skills=request.skills or ["sql-analyst"],
+            checkpointer=checkpointer,
+        )
+
+        # ── Stream ───────────────────────────────────────────────────
+
+        _think_re = re.compile(r"<think>.*?</think>", re.DOTALL)
+        full_response = ""
+        tool_trace: list[dict] = []
+        step_idx = 0
+
+        # Load conversation history from DB so the agent remembers
+        # previous turns. The current user message was already persisted
+        # (line 358-359), so we query all messages for this dashboard
+        # and pass them to the agent for full context.
+        all_messages = [{"role": "user", "content": request.message}]
+        if dashboard_filename:
+            from models.analysis_chat import AnalysisChatMessage
+            try:
+                prev_msgs = (
+                    db.query(AnalysisChatMessage)
+                    .filter(AnalysisChatMessage.dashboard_filename == dashboard_filename)
+                    .order_by(AnalysisChatMessage.created_at.asc(), AnalysisChatMessage.id.asc())
+                    .all()
+                )
+                if prev_msgs:
+                    all_messages = [{"role": m.role, "content": m.content} for m in prev_msgs]
+            except Exception:
+                pass  # No history — use just the current message
+
+        try:
+            async for event in agent.astream_events(
+                {"messages": all_messages},
+                config={
+                    "configurable": {"thread_id": f"analysis-{request.session_id}"},
+                    "recursion_limit": 50,
+                },
+                version="v2",
+            ):
+                kind = event.get("event")
+                if kind == "on_tool_start":
+                    step_idx += 1
+                    name = event.get("name", "")
+                    inp = event.get("data", {}).get("input", "")
+                    tool_trace.append({
+                        "step": step_idx,
+                        "type": "tool_call",
+                        "name": name,
+                        "input": str(inp)[:500],
+                        "output": None,
+                    })
+                    yield f"data: {json.dumps({'type': 'tool_start', 'tool_name': name, 'data': {'input': str(inp)[:500]}})}\n\n"
+
+                elif kind == "on_tool_end":
+                    out = event.get("data", {}).get("output", "")
+                    for step in reversed(tool_trace):
+                        if step.get("type") == "tool_call" and step.get("output") is None:
+                            step["output"] = str(out)[:1500]
+                            break
+                    yield f"data: {json.dumps({'type': 'tool_end', 'tool_name': event.get('name', '')})}\n\n"
+
+                elif kind == "on_chat_model_stream":
+                    chunk = event.get("data", {}).get("chunk")
+                    if hasattr(chunk, "content") and chunk.content:
+                        full_response += chunk.content
+                        yield f"data: {json.dumps({'type': 'chunk', 'content': chunk.content})}\n\n"
+
+            # Streaming complete — strip <think> blocks
+            clean_response = _think_re.sub("", full_response).strip()
+            if not clean_response and full_response:
+                clean_response = "(模型只输出了内部推理过程，未生成可见回答)"
+
+            # Persist assistant message
+            if dashboard_filename:
+                _persist_message(
+                    db, dashboard_filename, "assistant",
+                    clean_response, tool_trace=tool_trace,
+                )
+
+            # Send done event with final content + complete tool_trace
+            done_payload = json.dumps({
+                "type": "done",
+                "content": clean_response,
+                "tool_calls": len(tool_trace),
+                "tool_trace": tool_trace,
+            })
+            yield f"data: {done_payload}\n\n"
+
+        except Exception as e:
+            logger.error(f"Analysis streaming error: {e}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")
 
 
 def _persist_message(db, dashboard_filename: str, role: str, content: str,
@@ -453,7 +651,12 @@ async def _run_analysis_agent(
 
     @tool
     def python_execute(code: str) -> str:
-        """Execute Python code (pandas, matplotlib, plotly for dashboards)."""
+        """Execute Python code (pandas, matplotlib). To return charts, use
+        matplotlib Agg backend → base64 → markdown data URI in stdout:
+          import matplotlib; matplotlib.use("Agg")
+          import matplotlib.pyplot as plt, base64, io
+          ... plt.savefig(buf, format="png") ...
+          print(f"![chart](data:image/png;base64,{b64})")"""
         import subprocess, textwrap
         try:
             wrapper = (
@@ -502,7 +705,12 @@ async def _run_analysis_agent(
             f"You are a data analyst. The user's data is in a SQLite database at:\n"
             f"  {db_path}\n\n"
             f"Use sqlite_execute to query it. Discover the schema first, then answer questions.\n"
-            "Use python_execute for charts and dashboards.\n"
+            "Use python_execute for charts.\n"
+            "To return a chart, use matplotlib Agg + base64 data URI:\n"
+            '  ```python\n  import matplotlib; matplotlib.use("Agg")\n'
+            "  import matplotlib.pyplot as plt, base64, io\n"
+            "  ... plt.savefig(buf, format='png') ...\n"
+            '  print(f"![chart](data:image/png;base64,{b64})")\n  ```\n'
             "Read the SKILL.md for guidance. Reply in Chinese.\n"
             # ── Output formatting rules (markdown-aware, chat-friendly) ──
             "## Output style\n"
@@ -582,6 +790,8 @@ async def _run_analysis_agent(
         tool_calls=len(tool_trace),
         total_tokens=len(clean_response.split()),
     )
+
+# ── Existing endpoint — now returns SSE stream ──
 
 
 @router.get("/chat-history/{filename}", response_model=list[AnalysisChatHistoryItem])
