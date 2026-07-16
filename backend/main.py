@@ -312,7 +312,36 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+
+# ── Gantt chart data for Sun Hing dashboard ──────────────────────
+@app.get("/api/gantt-data")
+async def serve_gantt_data():
+    """Return milestones + phases from sunhing_kpi.db for the Gantt HTML chart.
+    This mirrors the /api/gantt-data endpoint that existed in the original
+    sunhing_server.py on port 8999.
+    """
+    import sqlite3
+    from pathlib import Path
+    dbs_dir = Path(__file__).resolve().parent.parent / "data" / "analysis_dbs"
+    db_path = dbs_dir / "sunhing_kpi.db"
+    if not db_path.exists():
+        return JSONResponse(content={"milestones": [], "phases": []})
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        milestones = [dict(r) for r in conn.execute(
+            "SELECT * FROM raw_pmo ORDER BY phase_id, milestone_id"
+        ).fetchall()]
+        phases = [dict(r) for r in conn.execute(
+            "SELECT * FROM dim_pmo_phase ORDER BY phase_id"
+        ).fetchall()]
+        return {"milestones": milestones, "phases": phases}
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+    finally:
+        conn.close()
+
 
 def _swap_plotly_cdn_to_local(html: str) -> str:
     """Replace cdn.plot.ly with /static/plotly.min.js so the page works

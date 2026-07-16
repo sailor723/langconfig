@@ -55,7 +55,11 @@ export default function AnalysisPage() {
 
   const loadDashboards = async () => {
     setLoading(true);
-    try { const r = await apiClient.get('/api/analysis/dashboards'); setDashboards(r.data || []); }
+    try {
+      const r = await apiClient.get('/api/analysis/dashboards');
+      const all: DashboardFile[] = r.data || [];
+      setDashboards(all.filter(d => d.skills?.includes('sunhing-analyst')));
+    }
     catch { setDashboards([]); } finally { setLoading(false); }
   };
   useEffect(() => { loadDashboards(); }, []);
