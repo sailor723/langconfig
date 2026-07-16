@@ -88,7 +88,8 @@ html = f"""<!DOCTYPE html>
   .kpi-card.ok {{ border-left-color: #2ca02c; }}
   .grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }}
   .grid .full {{ grid-column: 1 / -1; }}
-  .card {{ background: #fff; padding: 12px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }}
+  .chart-title {{ font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #2c3e50; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+  .card {{ min-width: 0; background: #fff; padding: 12px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }}
   .chart {{ width: 100%; height: 340px; }}
   .risk-table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
   .risk-table th {{ text-align: left; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #eee; }}
@@ -130,9 +131,9 @@ html = f"""<!DOCTYPE html>
 </div>
 
 <div class="grid">
-  <div class="card"><div id="chart1" class="chart"></div></div>
-  <div class="card"><div id="chart2" class="chart"></div></div>
-  <div class="card full"><div id="chart3" class="chart"></div></div>
+  <div class="card"><div class="chart-title">协商减员完成率 (%)</div><div id="chart1" class="chart"></div></div>
+  <div class="card"><div class="chart-title">Cumulative People Severed (of {PLANNED})</div><div id="chart2" class="chart"></div></div>
+  <div class="card full"><div class="chart-title">Headcount &amp; Production Ratio</div><div id="chart3" class="chart"></div></div>
 </div>
 
 <div class="card" style="margin-bottom:14px;">
@@ -184,7 +185,7 @@ var milestone60 = {{
 Plotly.newPlot('chart1', [trace1, targetTrace, milestone60], {{
   title: '协商减员完成率 (%)',
   yaxis: {{range: [0, 105], ticksuffix: '%'}},
-  margin: {{t: 30, b: 40, l: 50, r: 20}},
+  margin: {{t: 52, b: 40, l: 50, r: 20}},
   legend: {{orientation: 'h', y: -0.25}},
   hovermode: 'x unified'
 }});
@@ -199,7 +200,7 @@ Plotly.newPlot('chart2', [{{
 }}], {{
   title: 'Cumulative People Severed (of {PLANNED})',
   yaxis: {{range: [0, {PLANNED + 50}]}},
-  margin: {{t: 30, b: 40, l: 50, r: 20}}
+  margin: {{t: 52, b: 40, l: 50, r: 20}}
 }});
 
 // Chart 3: Headcount trend
@@ -222,7 +223,7 @@ Plotly.newPlot('chart3', [
   title: 'Headcount & Production Ratio',
   yaxis: {{title: 'Headcount'}},
   yaxis2: {{title: 'Production %', overlaying: 'y', side: 'right', ticksuffix: '%'}},
-  margin: {{t: 30, b: 40, l: 50, r: 50}},
+  margin: {{t: 52, b: 40, l: 50, r: 50}},
   legend: {{orientation: 'h', y: -0.25}},
   hovermode: 'x unified'
 }});
