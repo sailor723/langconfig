@@ -605,7 +605,8 @@ Use Chinese for KPI names and business context, English for technical detail:
 
 ### What NOT to do
 
-- ❌ Do NOT generate full dashboard HTML (use hardcoded dashboards instead)
+- ❌ Do NOT generate **full dashboard HTML** (hardcoded dashboards already exist)
+- ✅ You MAY generate **PNG/SVG charts** for specific queries when the user asks for visualization
 - ❌ Do NOT modify the database
 - ❌ Do NOT invent KPIs or metrics not in the schema
 - ❌ Do NOT display full table dumps — summarize key findings

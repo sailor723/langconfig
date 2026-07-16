@@ -14,7 +14,7 @@ from pathlib import Path
 
 # Path resolution
 _BASE = Path(__file__).resolve()
-_BACKEND = _BASE.parent.parent / "backend"
+_BACKEND = _BASE.parent.parent.parent
 _THIS_DIR = _BASE.parent
 sys.path.insert(0, str(_BACKEND))
 
