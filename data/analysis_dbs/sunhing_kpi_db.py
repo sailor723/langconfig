@@ -281,29 +281,43 @@ def create_db(db_path: str = str(DB_PATH)):
              row["digital_platform_users"], row["digital_cost_savings_wan"], i)
         )
 
-    # --- 10. raw_pmo ---
+    # --- 18. raw_pmo (per-milestone level) ---
     cursor.execute("DROP TABLE IF EXISTS raw_pmo")
     cursor.execute("""
         CREATE TABLE raw_pmo (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             company_id INTEGER DEFAULT 1,
-            period TEXT NOT NULL,
-            planned_milestones INTEGER,
-            completed_milestones INTEGER,
-            completion_rate_pct REAL,
-            cumulative_milestones INTEGER,
-            total_planned_all_phases INTEGER,
-            pmo_risk_score INTEGER,
-            month_index INTEGER
+            milestone_id TEXT NOT NULL,
+            phase_id TEXT,
+            milestone_description TEXT,
+            planned_date TEXT,
+            actual_date TEXT,
+            status TEXT,
+            completed_on_time INTEGER,
+            month TEXT
         )
     """)
-    for i, row in enumerate(data["raw_sources"]["pmo_system"]):
-        cursor.execute(
-            "INSERT INTO raw_pmo (period, planned_milestones, completed_milestones, completion_rate_pct, cumulative_milestones, total_planned_all_phases, pmo_risk_score, month_index) VALUES (?,?,?,?,?,?,?,?)",
-            (row["month"], row["planned_milestones"], row["completed_milestones"],
-             row["completion_rate_pct"], row["cumulative_milestones"], row["total_planned_all_phases"],
-             row["pmo_risk_score"], i)
+    from sunhing_pmo_data import generate_milestones, insert_milestones
+    pmo_ms = generate_milestones()
+    insert_milestones(cursor, pmo_ms)
+
+    # --- 19. dim_pmo_phase (phase dimension table) ---
+    cursor.execute("DROP TABLE IF EXISTS dim_pmo_phase")
+    cursor.execute("""
+        CREATE TABLE dim_pmo_phase (
+            phase_id TEXT PRIMARY KEY,
+            phase_name TEXT NOT NULL,
+            phase_name_cn TEXT,
+            start_month TEXT,
+            end_month TEXT,
+            phase_owner TEXT,
+            milestone_count INTEGER,
+            budget_allocated_wan REAL
         )
+    """)
+    from sunhing_pmo_data import generate_phases, insert_phases
+    phases = generate_phases()
+    insert_phases(cursor, phases)
 
     # --- 11. raw_crm (per-order level) ---
     cursor.execute("DROP TABLE IF EXISTS raw_crm")
@@ -328,28 +342,28 @@ def create_db(db_path: str = str(DB_PATH)):
     crm_orders = generate_orders()
     insert_orders(cursor, crm_orders)
 
-    # --- 12. raw_entity_registration ---
+    # --- 12. raw_entity (per-entity level) ---
     cursor.execute("DROP TABLE IF EXISTS raw_entity")
     cursor.execute("""
         CREATE TABLE raw_entity (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             company_id INTEGER DEFAULT 1,
-            period TEXT NOT NULL,
-            planned_new_entities INTEGER,
-            entities_registered INTEGER,
-            completion_pct REAL,
-            entities_separate_accounting INTEGER,
-            eco_entities_profitable INTEGER,
-            month_index INTEGER
+            entity_code TEXT NOT NULL,
+            entity_name TEXT,
+            entity_type TEXT,
+            legal_type TEXT,
+            business_focus TEXT,
+            registration_month TEXT,
+            registration_date TEXT,
+            board_approved INTEGER,
+            has_separate_accounting INTEGER,
+            is_profitable INTEGER,
+            total_setup_cost_wan REAL
         )
     """)
-    for i, row in enumerate(data["raw_sources"]["entity_registration"]):
-        cursor.execute(
-            "INSERT INTO raw_entity (period, planned_new_entities, entities_registered, completion_pct, entities_separate_accounting, eco_entities_profitable, month_index) VALUES (?,?,?,?,?,?,?)",
-            (row["month"], row["planned_new_entities"], row["entities_registered_cumulative"],
-             row["completion_pct"], row["entities_with_separate_accounting"],
-             row["eco_entities_with_profit_gt_15pct"], i)
-        )
+    from sunhing_entity_data import generate_entities, insert_entities
+    entities = generate_entities()
+    insert_entities(cursor, entities)
 
     # --- 13. raw_sentiment ---
     cursor.execute("DROP TABLE IF EXISTS raw_sentiment")
