@@ -40,7 +40,7 @@ svg.relations{position:absolute;top:0;left:0;width:100%;height:100%;pointer-even
 /* Modal */
 .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:1000;justify-content:center;align-items:center}
 .modal-overlay.show{display:flex}
-.modal{background:#1a1a2e;border:1px solid #0f3460;border-radius:10px;width:560px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.5)}
+.modal{background:#1a1a2e;border:1px solid #0f3460;border-radius:10px;width:800px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.5)}
 .modal-header{padding:14px 18px;border-bottom:1px solid #0f3460;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#16213e;border-radius:10px 10px 0 0}
 .modal-header h2{margin:0;font-size:16px}
 .modal-header .close-btn{background:none;border:none;color:#888;font-size:20px;cursor:pointer;padding:0 4px}
@@ -48,7 +48,7 @@ svg.relations{position:absolute;top:0;left:0;width:100%;height:100%;pointer-even
 .modal-body{padding:16px 18px}
 .modal-body .intro{font-size:13px;color:#ccc;line-height:1.7;margin-bottom:14px}
 .modal-body .section-title{font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px}
-.modal-body .col-detail{display:grid;grid-template-columns:30px 120px 80px 1fr;gap:4px;font-size:12px;padding:4px 0;border-bottom:1px solid #0f3460}
+.modal-body .col-detail{display:grid;grid-template-columns:30px 140px 80px 1fr;gap:4px;font-size:12px;padding:4px 0;border-bottom:1px solid #0f3460}
 .modal-body .col-detail .col-pk{color:#e94560;font-weight:700}
 .modal-body .col-detail .col-fk{color:#f5a623}
 .modal-body .col-detail .col-name{color:#ddd}
@@ -68,7 +68,7 @@ svg.relations{position:absolute;top:0;left:0;width:100%;height:100%;pointer-even
 
 <div class="header">
   <h1>🗄️ Sun Hing — Database ER Diagram</h1>
-  <div class="sub">16 tables · sunhing_kpi.db · <span style="color:#e94560;">PK</span> = Primary Key · <span style="color:#f5a623;">FK</span> = Foreign Key</div>
+  <div class="sub">17 tables · sunhing_kpi.db · <span style="color:#e94560;">PK</span> = Primary Key · <span style="color:#f5a623;">FK</span> = Foreign Key</div>
 </div>
 <div class="legend">
   <div class="legend-item"><span class="pk"></span> Core Dimension</div>
@@ -104,6 +104,19 @@ svg.relations{position:absolute;top:0;left:0;width:100%;height:100%;pointer-even
   <div class="col"><span class="fk-icon"></span><span class="col-name">target</span><span class="col-type">REAL</span></div>
   <div class="col"><span class="fk-icon"></span><span class="col-name">data_source</span><span class="col-type">TEXT</span></div>
   <div class="col"><span class="fk-icon"></span><span class="col-name">kpi_type</span><span class="col-type">TEXT</span></div>
+</div>
+
+<!-- === TABLE: dim_pmo_phase (dim) === -->
+<div class="table-box" style="top:500px;left:20px;">
+  <div class="tname"><span>dim_pmo_phase</span><span class="tag core">DIM</span></div>
+  <div class="col"><span class="pk-icon">PK</span><span class="col-name">phase_id</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">phase_name</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">phase_name_cn</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">start_month</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">end_month</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">phase_owner</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">milestone_count</span><span class="col-type">INT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">budget_allocated_wan</span><span class="col-type">REAL</span></div>
 </div>
 
 <!-- === TABLE: fact_kpi_monthly (fact) === -->
@@ -253,10 +266,14 @@ svg.relations{position:absolute;top:0;left:0;width:100%;height:100%;pointer-even
   <div class="tname"><span>raw_pmo</span><span class="tag raw">RAW</span></div>
   <div class="col"><span class="pk-icon">PK</span><span class="col-name">id</span><span class="col-type">INTEGER</span></div>
   <div class="col"><span class="fk-icon">FK</span><span class="col-name">company_id</span><span class="col-type">→ company</span></div>
-  <div class="col"><span class="fk-icon"></span><span class="col-name">period</span><span class="col-type">TEXT</span></div>
-  <div class="col"><span class="fk-icon"></span><span class="col-name">completion_rate_pct</span><span class="col-type">REAL</span></div>
-  <div class="col"><span class="fk-icon"></span><span class="col-name">pmo_risk_score</span><span class="col-type">INT</span></div>
-  <div class="col" style="color:#555;font-size:10px;">Supports: KPI #19</div>
+  <div class="col"><span class="fk-icon">FK</span><span class="col-name">phase_id</span><span class="col-type">→ dim_pmo_phase</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">milestone_id</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">milestone_description</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">planned_date</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">actual_date</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">status</span><span class="col-type">TEXT</span></div>
+  <div class="col"><span class="fk-icon"></span><span class="col-name">completed_on_time</span><span class="col-type">INT</span></div>
+  <div class="col" style="color:#555;font-size:10px;">31 milestones · Supports: KPI #19</div>
 </div>
 
 <!-- === TABLE: raw_sentiment === -->
@@ -478,13 +495,32 @@ var TABLE_INFO = {
     kpis:['14_股权分立架构完成率','15_员工股权/合伙转化率']  /* eco_entities_with_profit input to KPI #17 */
   },
   raw_pmo: {
-    type:'RAW', intro:'PMO project tracking — milestone completion rate and risk score. Monitors the overall transformation program execution. Supports KPI #19 (PMO milestone achievement). 6 rows.',
+    type:'RAW', intro:'PMO project tracking — individual milestone records across 5 transformation phases (P1-P5). Tracks each milestone: planned/actual dates, status, on-time completion. Supports KPI #19 (PMO milestone achievement). 31 milestone records.',
     cols:[
       {pk:true,name:'id',type:'INTEGER',desc:'Auto-increment primary key'},
       {fk:true,name:'company_id',type:'INTEGER',desc:'FK → company.id'},
-      {name:'period',type:'TEXT',desc:'YYYY-MM'},
-      {name:'completion_rate_pct',type:'REAL',desc:'PMO milestone completion %'},
-      {name:'pmo_risk_score',type:'INTEGER',desc:'PMO risk assessment score'},
+      {name:'milestone_id',type:'TEXT',desc:'Milestone code (MS-001 to MS-031)'},
+      {name:'phase_id',type:'TEXT',desc:'Phase ID: P1-P5'},
+      {name:'milestone_description',type:'TEXT',desc:'Milestone description'},
+      {name:'planned_date',type:'TEXT',desc:'Planned completion date'},
+      {name:'actual_date',type:'TEXT',desc:'Actual completion date'},
+      {name:'status',type:'TEXT',desc:'completed / in_progress / not_started'},
+      {name:'completed_on_time',type:'INTEGER',desc:'1=on-time, 0=delayed'},
+      {name:'month',type:'TEXT',desc:'Derived YYYY-MM from planned_date'},
+    ],
+    kpis:['19_PMO执行里程碑达成率']
+  },
+  dim_pmo_phase: {
+    type:'DIM', intro:'PMO phase dimension — metadata for the 5 transformation program phases (P1-P5). Each phase has an owner, budget allocation, and milestone count. Referenced by raw_pmo.phase_id.',
+    cols:[
+      {pk:true,name:'phase_id',type:'TEXT',desc:'PK: P1-P5'},
+      {name:'phase_name',type:'TEXT',desc:'English phase name'},
+      {name:'phase_name_cn',type:'TEXT',desc:'Chinese phase name'},
+      {name:'start_month',type:'TEXT',desc:'Phase start (YYYY-MM)'},
+      {name:'end_month',type:'TEXT',desc:'Phase end (YYYY-MM)'},
+      {name:'phase_owner',type:'TEXT',desc:'Responsible person'},
+      {name:'milestone_count',type:'INTEGER',desc:'Number of milestones'},
+      {name:'budget_allocated_wan',type:'REAL',desc:'Budget (万HKD)'},
     ],
     kpis:['19_PMO执行里程碑达成率']
   },
@@ -637,6 +673,7 @@ var pairs = [
   ['company', 'raw_sentiment'],
   ['company', 'raw_employee'],
   ['company', 'raw_liability'],
+  ['raw_pmo', 'dim_pmo_phase'],
 ];
 
 function getBoxCenter(box, side) {

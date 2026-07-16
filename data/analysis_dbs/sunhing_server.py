@@ -690,6 +690,7 @@ NAV_BAR = """<div style="background:#1a1a2e;padding:10px 20px;display:flex;align
    <a href="/editor" style="color:#fff;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;{ACTIVE_EDIT}">Editor</a>
    <a href="/employees" style="color:#fff;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;{ACTIVE_EMP}">Employees</a>
    <a href="/liability" style="color:#fff;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;{ACTIVE_LIAB}">Liability</a>
+   <a href="/gantt" style="color:#fff;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;{ACTIVE_GANTT}">📅 Gantt</a>
    <a href="/erd" style="color:#fff;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;{ACTIVE_ERD}">🗄️ ERD</a>
   <span style="flex:1"></span>
   <span style="color:#888;font-size:10px;">Sun Hing Vision Group</span>
@@ -706,6 +707,7 @@ def inject_nav(html, active="dash"):
         "supp": "background:rgba(255,255,255,.15);font-weight:700",
         "risk": "background:rgba(255,255,255,.15);font-weight:700",
         "erd": "background:rgba(255,255,255,.15);font-weight:700",
+        "gantt": "background:rgba(255,255,255,.15);font-weight:700",
         "edit": "background:rgba(255,255,255,.15);font-weight:700",
         "emp": "background:rgba(255,255,255,.15);font-weight:700",
         "liab": "background:rgba(255,255,255,.15);font-weight:700",
@@ -717,6 +719,7 @@ def inject_nav(html, active="dash"):
     nav = nav.replace("{ACTIVE_SUPP}", active_styles.get("supp", "") if active == "supp" else "color:#999")
     nav = nav.replace("{ACTIVE_RISK}", active_styles.get("risk", "") if active == "risk" else "color:#999")
     nav = nav.replace("{ACTIVE_ERD}", active_styles.get("erd", "") if active == "erd" else "color:#999")
+    nav = nav.replace("{ACTIVE_GANTT}", active_styles.get("gantt", "") if active == "gantt" else "color:#999")
     nav = nav.replace("{ACTIVE_EDIT}", active_styles.get("edit", "") if active == "edit" else "color:#999")
     nav = nav.replace("{ACTIVE_EMP}", active_styles.get("emp", "") if active == "emp" else "color:#999")
     nav = nav.replace("{ACTIVE_LIAB}", active_styles.get("liab", "") if active == "liab" else "color:#999")
@@ -857,7 +860,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             table = qs.get("table", [None])[0]
             # Allowed tables for sample data
             ALLOWED = {
-                "company", "dim_kpi", "fact_kpi_monthly", "fact_roe_summary",
+                "company", "dim_kpi", "dim_pmo_phase", "fact_kpi_monthly", "fact_roe_summary",
                 "raw_hr", "raw_employee", "raw_finance", "raw_production",
                 "raw_legal", "raw_digital_platform", "raw_crm", "raw_entity",
                 "raw_pmo", "raw_sentiment", "raw_liability",
@@ -902,6 +905,58 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
             self.wfile.write(html.encode("utf-8"))
+            return
+
+        GANTT_PATH = pathlib.Path(__file__).parent / "sunhing_gantt.html"
+        if path == "/gantt":
+            if GANTT_PATH.exists():
+                html = GANTT_PATH.read_text(encoding="utf-8")
+                html = inject_nav(html, "gantt")
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(html.encode("utf-8"))
+            else:
+                self.send_error(404, "Gantt chart not found")
+            return
+
+        if path == "/api/gantt-data":
+            conn = get_conn()
+            try:
+                milestones = []
+                for row in conn.execute("SELECT milestone_id, phase_id, milestone_description, planned_date, actual_date, status, completed_on_time FROM raw_pmo ORDER BY phase_id, milestone_id").fetchall():
+                    milestones.append({
+                        "milestone_id": row["milestone_id"],
+                        "phase_id": row["phase_id"],
+                        "milestone_description": row["milestone_description"],
+                        "planned_date": row["planned_date"],
+                        "actual_date": row["actual_date"],
+                        "status": row["status"],
+                        "completed_on_time": row["completed_on_time"],
+                    })
+                phases = []
+                for row in conn.execute("SELECT phase_id, phase_name, phase_name_cn, start_month, end_month, phase_owner, milestone_count, budget_allocated_wan FROM dim_pmo_phase ORDER BY phase_id").fetchall():
+                    phases.append({
+                        "phase_id": row["phase_id"],
+                        "phase_name": row["phase_name"],
+                        "phase_name_cn": row["phase_name_cn"],
+                        "start_month": row["start_month"],
+                        "end_month": row["end_month"],
+                        "phase_owner": row["phase_owner"],
+                        "milestone_count": row["milestone_count"],
+                        "budget_allocated_wan": row["budget_allocated_wan"],
+                    })
+                data = {"milestones": milestones, "phases": phases}
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+            finally:
+                conn.close()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(data, ensure_ascii=False).encode())
             return
 
         # fallback: try static files in current dir
@@ -970,6 +1025,7 @@ if __name__ == "__main__":
     print(f"   Editor:      http://localhost:{PORT}/editor")
     print(f"   Employees:   http://localhost:{PORT}/employees")
     print(f"   Liability:   http://localhost:{PORT}/liability")
+    print(f"   Gantt:       http://localhost:{PORT}/gantt")
     srv = http.server.HTTPServer(("127.0.0.1", PORT), Handler)
     try:
         srv.serve_forever()
