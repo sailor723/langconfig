@@ -605,7 +605,7 @@ Use Chinese for KPI names and business context, English for technical detail:
 
 ### What NOT to do
 
-- ❌ Do NOT generate **full dashboard HTML** (hardcoded dashboards already exist)
+- ❌ Do NOT generate HTML dashboards (done by hardcoded Python scripts at `data/analysis_dbs/gen_sunhing_*.py`)
 - ✅ You MAY generate **PNG/SVG charts** for specific queries when the user asks for visualization
 - ❌ Do NOT modify the database
 - ❌ Do NOT invent KPIs or metrics not in the schema
