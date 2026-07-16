@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Sun Hing — KPI Dashboard Hub</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font-family: -apple-system, 'Noto Sans SC', sans-serif; background: #f0f2f5; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
+  .kpi-section { margin-bottom: 28px; }
+  .kpi-section h2 { font-size: 16px; font-weight: 600; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .kpi-section .desc { color: #666; font-size: 12px; margin-bottom: 12px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .kpi-card { background: #fff; padding: 16px; border-radius: 10px; border-left: 4px solid #1f77b4; box-shadow: 0 1px 3px rgba(0,0,0,.06); text-decoration: none; color: inherit; display: block; transition: box-shadow .2s; }
+  .kpi-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+  .kpi-card .label { font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: .5px; }
+  .kpi-card .value { font-size: 24px; font-weight: 700; margin: 4px 0 2px; }
+  .kpi-card .note { font-size: 12px; color: #999; }
+  .kpi-card .drill { font-size: 11px; color: #1f77b4; margin-top: 6px; }
+  .kpi-card.ok { border-left-color: #2ca02c; }
+  .kpi-card.warn { border-left-color: #ff7f0e; }
+  .kpi-card.danger { border-left-color: #e74c3c; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid .full { grid-column: 1 / -1; }
+  .card { background: #fff; padding: 12px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .chart { width: 100%; height: 300px; }
+  .nav-links { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .nav-links a { background: #fff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 13px; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: box-shadow .2s; }
+  .nav-links a:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+  .nav-links a .icon { margin-right: 6px; }
+  .risk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .risk-table th { text-align: left; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #eee; }
+  .risk-table td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; }
+  .risk-table .warn { color: #e74c3c; font-weight: 600; }
+  .risk-table .ok { color: #2ca02c; }
+  .insight-box { background: #fff; padding: 14px 18px; border-radius: 10px; border-left: 4px solid #2ca02c; margin-top: 14px; }
+  .insight-box h3 { margin: 0 0 8px; font-size: 14px; }
+  .insight-box ul { margin: 0; padding-left: 18px; font-size: 13px; color: #333; }
+  .insight-box li { margin: 4px 0; }
+  .cat-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+  .cat-table th { text-align: left; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #eee; }
+  .cat-table td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; }
+  .cat-table .pct { font-weight: 600; }
+  .cat-table .pct.high { color: #2ca02c; }
+  .cat-table .pct.mid { color: #ff7f0e; }
+  .cat-table .pct.low { color: #e74c3c; }
+  .progress-bar { height: 6px; border-radius: 3px; background: #eee; overflow: hidden; margin-top: 3px; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width .5s; }
+</style>
+</head>
+<body>
+
+<h1>🏭 Sun Hing Vision Group — 一分为多 KPI Dashboard</h1>
+<div class="subtitle">集团组织变革 KPI v2.0 | Sep 2026 → Feb 2027 | <a href="/editor" style="color:#1f77b4;">Edit Data</a></div>
+
+<!-- Navigation shortcuts -->
+<div class="nav-links">
+  <a href="/profit"><span class="icon">📈</span>Profit (KPI 01-09)</a>
+  <a href="/turnover"><span class="icon">🔄</span>Turnover (10-13)</a>
+  <a href="/leverage"><span class="icon">🏗️</span>Leverage (14-17)</a>
+  <a href="/support"><span class="icon">🛡️</span>Support (18-21)</a>
+  <a href="/risk"><span class="icon">⚠️</span>Risk (RS01-07)</a>
+  <a href="/employees"><span class="icon">👥</span>Employees</a>
+  <a href="/liability"><span class="icon">💰</span>Liability Detail</a>
+  <a href="/editor"><span class="icon">✏️</span>Data Editor</a>
+</div>
+
+<!-- ══════════════ KPI #01 — 协商减员完成率 ══════════════ -->
+<div class="kpi-section">
+  <h2>📋 KPI #01 — 协商减员完成率</h2>
+  <div class="desc">目标: 12个月内完成856人协商减员 | 一分为多 restructuring | <a href="/employees" style="color:#1f77b4;">View Employee Detail →</a></div>
+
+  <div class="kpi-row">
+    <a href="/employees" class="kpi-card ok">
+      <div class="label">Completion Rate (Feb)</div>
+      <div class="value">94.6%</div>
+      <div class="note">Target: 100% <span style="color:#e74c3c;">△ 5.4% gap</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:94.6%;background:#2ca02c;"></div></div>
+      <div class="drill">👥 View employees →</div>
+    </a>
+    <div class="kpi-card">
+      <div class="label">People Severed</div>
+      <div class="value">810</div>
+      <div class="note">of 856 planned (94.6%)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Total Cost (万HKD)</div>
+      <div class="value">2,430</div>
+      <div class="note">vs 2,600 budget ✅</div>
+    </div>
+    <div class="kpi-card ok">
+      <div class="label">Labor Disputes (Feb)</div>
+      <div class="value">0</div>
+      <div class="note">Peak: 5 in Nov — resolved</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div id="chart1a" class="chart"></div></div>
+    <div class="card"><div id="chart1b" class="chart"></div></div>
+  </div>
+</div>
+
+<!-- ══════════════ KPI #02 — 历史人力成本追缴化解率 ══════════════ -->
+<div class="kpi-section">
+  <h2>💰 KPI #02 — 历史人力成本追缴化解率</h2>
+  <div class="desc">目标: 12个月内化解率≥80% | 总追缴金额6,643万HKD | <a href="/liability" style="color:#1f77b4;">View Liability Detail →</a>  |  <a href="/kpi02" style="color:#1f77b4;">Full Dashboard →</a></div>
+
+  <div class="kpi-row">
+    <a href="/kpi02" class="kpi-card ok">
+      <div class="label">Resolution Rate (Feb)</div>
+      <div class="value">85.5%</div>
+      <div class="note">Target: 80% ✅ Exceeded</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:85.5%;background:#2ca02c;"></div></div>
+      <div class="drill">📊 View dashboard →</div>
+    </a>
+    <div class="kpi-card">
+      <div class="label">Total Liability</div>
+      <div class="value">6,643万</div>
+      <div class="note">25 items across 6 categories</div>
+    </div>
+    <div class="kpi-card ok">
+      <div class="label">Resolved</div>
+      <div class="value">5,678万</div>
+      <div class="note">85.5% of total</div>
+    </div>
+    <div class="kpi-card warn">
+      <div class="label">Remaining</div>
+      <div class="value">965万</div>
+      <div class="note">High priority: 770万 remaining</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div id="chart2a" class="chart"></div></div>
+    <div class="card"><div id="chart2b" class="chart"></div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:10px;">
+    <h3 style="margin:0 0 8px;font-size:13px;">📋 追缴类别明细</h3>
+    <table class="cat-table">
+      <tr><th>Category</th><th>Total (万)</th><th>Resolved</th><th>Remaining</th><th>Rate</th></tr>
+      <tr><td>社保 (Social Insurance)</td><td>2,920</td><td>2,515</td><td>405</td><td class="pct high">86.1%</td></tr>
+      <tr><td>公积金 (Housing Fund)</td><td>1,765</td><td>1,400</td><td>365</td><td class="pct mid">79.3%</td></tr>
+      <tr><td>企业年金 (Enterprise Annuity)</td><td>505</td><td>460</td><td>45</td><td class="pct high">91.1%</td></tr>
+      <tr><td>税务 (Tax)</td><td>323</td><td>323</td><td>0</td><td class="pct high">100%</td></tr>
+      <tr><td>劳动监察 (Labor Inspection)</td><td>315</td><td>260</td><td>55</td><td class="pct mid">82.5%</td></tr>
+      <tr><td>其他 (Others)</td><td>815</td><td>720</td><td>95</td><td class="pct high">88.3%</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════ KPI #03 — 赔偿金额预算控制率 ══════════════ -->
+<div class="kpi-section">
+  <h2>💵 KPI #03 — 赔偿金额预算控制率</h2>
+  <div class="desc">目标: 赔偿总支出≤2,600万HKD预算 | 人均赔偿~3.0万 | <a href="/kpi03" style="color:#1f77b4;">Full Dashboard →</a></div>
+
+  <div class="kpi-row">
+    <a href="/kpi03" class="kpi-card ok">
+      <div class="label">Budget Used (Feb)</div>
+      <div class="value">93.5%</div>
+      <div class="note">Target: ≤100% ✅ Within budget</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:93.5%;background:#2ca02c;"></div></div>
+      <div class="drill">💵 View details →</div>
+    </a>
+    <div class="kpi-card">
+      <div class="label">Total Spent</div>
+      <div class="value">2,430万</div>
+      <div class="note">of 2,600万 budget</div>
+    </div>
+    <div class="kpi-card ok">
+      <div class="label">Remaining Budget</div>
+      <div class="value">170万</div>
+      <div class="note">Buffer for 46 remaining</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Avg Cost/Person</div>
+      <div class="value">3.0万</div>
+      <div class="note">2,430万 ÷ 810 people</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div id="chart3a" class="chart"></div></div>
+    <div class="card"><div id="chart3b" class="chart"></div></div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+  <h3 style="margin:0 0 10px;font-size:14px;">📋 All 28 KPIs — Overall Status (Feb 2027)</h3>
+  <table class="kpi-table">
+    <tr><th>#</th><th>KPI Name</th><th>Factor</th><th>Actual</th><th>Target</th><th>Status</th></tr>
+    <tr><td>01</td><td>协商减员完成率</td><td>净利润率</td><td>94.6%</td><td>100%</td><td class="miss">⚠️ -5.4%</td></tr>
+    <tr><td>02</td><td>历史人力成本追缴化解率</td><td>净利润率</td><td>84.5%</td><td>80%</td><td class="met">✅ +4.5%</td></tr>
+    <tr><td>03</td><td>赔偿金额预算控制率</td><td>净利润率</td><td>93.5%</td><td>100%</td><td class="miss">⚠️ -6.5%</td></tr>
+    <tr><td>04</td><td>劳动仲裁与诉讼事件数</td><td>净利润率</td><td>0</td><td>0</td><td class="met">✅ Met</td></tr>
+    <tr><td>05</td><td>工序保留完成率</td><td>净利润率</td><td>98%</td><td>95%</td><td class="met">✅ +3%</td></tr>
+    <tr><td>06</td><td>生产人员占比优化率</td><td>净利润率</td><td>21.4%</td><td>55%</td><td class="miss">🔴 -33.6%</td></tr>
+    <tr><td>07</td><td>核心厂区利润贡献率</td><td>净利润率</td><td>38.5%</td><td>40%</td><td class="miss">⚠️ -1.5%</td></tr>
+    <tr><td>08</td><td>生态伙伴厂利润贡献率</td><td>净利润率</td><td>15.8%</td><td>15%</td><td class="met">✅ +0.8%</td></tr>
+    <tr><td>09</td><td>数字资产价值转化率</td><td>净利润率</td><td>7.2%</td><td>8%</td><td class="miss">⚠️ -0.8%</td></tr>
+    <tr><td>10</td><td>核心厂区固定资产利用率</td><td>资产周转率</td><td>115%</td><td>120%</td><td class="miss">⚠️ -5%</td></tr>
+    <tr><td>11</td><td>生态伙伴轻资产化指数</td><td>资产周转率</td><td>24</td><td>25</td><td class="miss">⚠️ -1</td></tr>
+    <tr><td>12</td><td>数字资产归集与复用率</td><td>资产周转率</td><td>42%</td><td>40%</td><td class="met">✅ +2%</td></tr>
+    <tr><td>13</td><td>变革资本再投资率</td><td>资产周转率</td><td>72%</td><td>70%</td><td class="met">✅ +2%</td></tr>
+    <tr><td>14</td><td>股权分立架构完成率</td><td>权益乘数</td><td>100%</td><td>100%</td><td class="met">✅ Completed</td></tr>
+    <tr><td>15</td><td>员工股权/合伙转化率</td><td>权益乘数</td><td>58%</td><td>60%</td><td class="miss">⚠️ -2%</td></tr>
+    <tr><td>16</td><td>新架构集团权益乘数</td><td>权益乘数</td><td>1.9x</td><td>2.0x</td><td class="miss">⚠️ -0.1x</td></tr>
+    <tr><td>17</td><td>生态伙伴战略协同指数</td><td>权益乘数</td><td>86</td><td>85</td><td class="met">✅ +1</td></tr>
+    <tr><td>18</td><td>技术骨干留任率</td><td>支撑层</td><td>93%</td><td>90%</td><td class="met">✅ +3%</td></tr>
+    <tr><td>19</td><td>PMO执行里程碑达成率</td><td>支撑层</td><td>92%</td><td>90%</td><td class="met">✅ +2%</td></tr>
+    <tr><td>20</td><td>重大风险事件发生率</td><td>支撑层</td><td>0</td><td>0</td><td class="met">✅ Met</td></tr>
+    <tr><td>21</td><td>员工价值交换制度落地率</td><td>支撑层</td><td>78%</td><td>80%</td><td class="miss">⚠️ -2%</td></tr>
+    <tr><td>RS01</td><td>协商减员纠纷发生率</td><td>风险监控</td><td>0.4%</td><td>≤2%</td><td class="met">✅ Safe</td></tr>
+    <tr><td>RS02</td><td>历史追缴协商满意度</td><td>风险监控</td><td>8.3</td><td>≥7</td><td class="met">✅ Safe</td></tr>
+    <tr><td>RS03</td><td>群体性劳动争议风险指数</td><td>风险监控</td><td>35</td><td>≤60</td><td class="met">✅ Safe</td></tr>
+    <tr><td>RS04</td><td>保税物料合规处理完成率</td><td>风险监控</td><td>72%</td><td>100%</td><td class="miss">⚠️ -28%</td></tr>
+    <tr><td>RS05</td><td>海关违规/罚款金额</td><td>风险监控</td><td>0万</td><td>0万</td><td class="met">✅ Safe</td></tr>
+    <tr><td>RS06</td><td>核心技术骨干流失率</td><td>风险监控</td><td>1.5%</td><td>≤5%</td><td class="met">✅ Safe</td></tr>
+    <tr><td>RS07</td><td>客户订单转移/流失率</td><td>风险监控</td><td>0.6%</td><td>≤3%</td><td class="met">✅ Safe</td></tr>
+  </table>
+</div>
+
+<div class="insight-box">
+  <h3>📊 综合洞察 — All KPIs</h3>
+  <ul>
+    <li><strong>已完成 (✅)</strong>: 14/28 KPIs met/exceeded targets — KPI #04(0 disputes), #05(98%), #08(15.8%), #12(42%), #13(72%), #14(100% completed), #17(86), #18(93%), #19(92%), #20(0 events), RS01-RS03, RS05-RS07 all within thresholds</li>
+    <li><strong>接近达标 (⚠️)</strong>: 8 KPIs within 5% of target — KPI #01(94.6%), #03(93.5%), #07(38.5%), #09(7.2%), #10(115%), #11(24), #15(58%), #21(78%)</li>
+    <li><strong>需重点关注 (🔴)</strong>: KPI #06 生产人员占比优化率仅21.4% vs 55%, RS04 保税物料合规72%</li>
+    <li><strong>风险可控</strong>: 6/7风险指标在安全阈值内, 群体争议风险从72降至35</li>
+    <li><strong>下一步</strong>: 剩余46人协商 + 965万追缴收尾 + 生产人员结构优化</li>
+  </ul>
+</div>
+
+<script>
+// ══ KPI #01 data ══
+var months = ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"];
+var pct1 = [0.0, 14.0, 39.7, 65.4, 84.1, 94.6];
+var severed = [0, 120, 340, 560, 720, 810];
+
+// Chart 1a: KPI #01 completion rate
+Plotly.newPlot('chart1a', [
+  { x: months, y: pct1, type: 'scatter', mode: 'lines+markers', name: 'Actual', line: {color: '#1f77b4', width: 3}, marker: {size: 8} },
+  { x: months, y: months.map(function() { return 100; }), type: 'scatter', mode: 'lines', name: 'Target', line: {color: '#e74c3c', width: 2, dash: 'dash'} }
+], { title: 'KPI #01 — 协商减员完成率 (%)', yaxis: {range: [0, 105], ticksuffix: '%'}, margin: {t: 30, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
+
+// Chart 1b: Severed bar
+Plotly.newPlot('chart1b', [{
+  x: months, y: severed, type: 'bar', marker: {color: '#2ca02c'}, text: severed, textposition: 'outside'
+}], { title: 'Cumulative Severed (of 856)', yaxis: {range: [0, 906]}, margin: {t: 30, b: 40, l: 50, r: 20} });
+
+// ══ KPI #02 data ══
+var pct2 = [2.9, 11.7, 32.1, 55.4, 72.8, 84.5];
+var cats = ["社保", "公积金", "企业年金", "税务", "劳动监察", "其他"];
+var resolvedCat = [2515, 1400, 460, 323, 260, 720];
+var remainingCat = [405, 365, 45, 0, 55, 95];
+
+// Chart 2a: KPI #02 resolution rate
+Plotly.newPlot('chart2a', [
+  { x: months, y: pct2, type: 'scatter', mode: 'lines+markers', name: 'Actual', line: {color: '#1f77b4', width: 3}, marker: {size: 8} },
+  { x: months, y: months.map(function() { return 80; }), type: 'scatter', mode: 'lines', name: 'Target (80%)', line: {color: '#e74c3c', width: 2, dash: 'dash'} }
+], { title: 'KPI #02 — 历史人力成本追缴化解率 (%)', yaxis: {range: [0, 100], ticksuffix: '%'}, margin: {t: 30, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
+
+// Chart 2b: Category breakdown
+Plotly.newPlot('chart2b', [
+  { x: cats, y: resolvedCat, type: 'bar', name: '已化解', marker: {color: '#2ca02c'}, text: resolvedCat.map(function(v) { return v + '万'; }), textposition: 'inside' },
+  { x: cats, y: remainingCat, type: 'bar', name: '未化解', marker: {color: '#e74c3c'}, text: remainingCat.map(function(v) { return v + '万'; }), textposition: 'inside' }
+], { title: '追缴类别明细 (万HKD)', barmode: 'stack', margin: {t: 30, b: 50, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3} });
+
+// ══ KPI #03 data ══
+var budgetRate = [0.0, 13.8, 39.2, 64.6, 83.1, 93.5];
+var monthlyCost = [0, 360, 660, 660, 480, 270];
+var cumCost = [0, 360, 1020, 1680, 2160, 2430];
+var budgetTotal = 2600;
+
+// Chart 3a: Budget control rate
+Plotly.newPlot('chart3a', [
+  { x: months, y: budgetRate, type: 'scatter', mode: 'lines+markers', name: 'Budget Used %', line: {color: '#ff7f0e', width: 3}, marker: {size: 8} },
+  { x: months, y: months.map(function() { return 100; }), type: 'scatter', mode: 'lines', name: 'Limit (100%)', line: {color: '#e74c3c', width: 2, dash: 'dash'} }
+], { title: 'KPI #03 — 赔偿金额预算控制率 (%)', yaxis: {range: [0, 110], ticksuffix: '%'}, margin: {t: 30, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
+
+// Chart 3b: Monthly cost bar
+Plotly.newPlot('chart3b', [{
+  x: months, y: monthlyCost, type: 'bar', marker: {color: '#ff7f0e'}, text: monthlyCost.map(function(v) { return v + '万'; }), textposition: 'outside'
+}], { title: '月度赔偿支出 (万HKD)', yaxis: {title: '万HKD'}, margin: {t: 30, b: 40, l: 50, r: 20} });
+</script>
+</body>
+</html>

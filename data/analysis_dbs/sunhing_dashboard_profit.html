@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>Sun Hing — 净利润率 KPI Group</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;font-family:-apple-system,'Noto Sans SC',sans-serif;background:#f0f2f5}
+h1{font-size:20px;font-weight:600;margin-bottom:4px}.subtitle{color:#666;font-size:13px;margin-bottom:20px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.kpi-card{background:#fff;padding:16px;border-radius:10px;border-left:4px solid #1f77b4;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi-card .label{font-size:11px;color:#7f8c8d;text-transform:uppercase;letter-spacing:.5px}
+.kpi-card .value{font-size:24px;font-weight:700;margin:4px 0 2px}.kpi-card .note{font-size:12px;color:#999}
+.kpi-card.ok{border-left-color:#2ca02c}.kpi-card.warn{border-left-color:#ff7f0e}.kpi-card.danger{border-left-color:#e74c3c}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}.grid .full{grid-column:1/-1}
+.card{background:#fff;padding:12px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.chart{width:100%;height:280px}
+.kpi-table{width:100%;border-collapse:collapse;font-size:12px}
+.kpi-table th{text-align:left;padding:7px 8px;background:#f8f9fa;border-bottom:2px solid #eee}
+.kpi-table td{padding:6px 8px;border-bottom:1px solid #f0f0f0}.kpi-table .met{color:#2ca02c;font-weight:600}
+.kpi-table .miss{color:#e74c3c;font-weight:600}.progress-bar{height:6px;border-radius:3px;background:#eee;overflow:hidden;margin-top:3px}
+.progress-fill{height:100%;border-radius:3px;transition:width .5s}
+.insight-box{background:#fff;padding:14px 18px;border-radius:10px;border-left:4px solid #2ca02c;margin-top:14px}
+.insight-box h3{margin:0 0 8px;font-size:14px}.insight-box ul{margin:0;padding-left:18px;font-size:13px;color:#333}.insight-box li{margin:4px 0}
+</style></head>
+<body>
+<h1>📈 净利润率 Factor — KPI Group</h1>
+<div class="subtitle">ROE DuPont Factor | KPIs 04-09 | Target status at Feb 2027</div>
+
+<div class="kpi-row">
+  <div class="kpi-card ok"><div class="label">工序保留 (KPI #05)</div><div class="value">98%</div><div class="note">Target 95% ✅</div></div>
+  <div class="kpi-card warn"><div class="label">生产人员占比 (KPI #06)</div><div class="value">21.4%</div><div class="note">Target 55% △ 33.6 gap</div></div>
+  <div class="kpi-card warn"><div class="label">核心厂区利润 (KPI #07)</div><div class="value">38.5%</div><div class="note">Target 40% △ 1.5 gap</div></div>
+  <div class="kpi-card ok"><div class="label">生态伙伴利润 (KPI #08)</div><div class="value">15.8%</div><div class="note">Target 15% ✅ Exceeded</div></div>
+</div>
+
+<div class="grid">
+  <div class="card"><div id="c04" class="chart"></div></div>
+  <div class="card"><div id="c05" class="chart"></div></div>
+  <div class="card"><div id="c06" class="chart"></div></div>
+  <div class="card"><div id="c07" class="chart"></div></div>
+  <div class="card"><div id="c08" class="chart"></div></div>
+  <div class="card"><div id="c09" class="chart"></div></div>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+  <h3 style="margin:0 0 10px;font-size:14px;">📋 净利润率 KPI Status — All 9 KPIs</h3>
+  <table class="kpi-table">
+    <tr><th>#</th><th>KPI</th><th>Feb</th><th>Target</th><th>Gap</th><th>Status</th></tr>
+    <tr><td>01</td><td>协商减员完成率</td><td>94.6%</td><td>100%</td><td>5.4%</td><td class="miss">In Progress</td></tr>
+    <tr><td>02</td><td>历史人力成本追缴化解率</td><td>84.5%</td><td>80%</td><td>+4.5%</td><td class="met">✅ Met</td></tr>
+    <tr><td>03</td><td>赔偿金额预算控制率</td><td>93.5%</td><td>100%</td><td>6.5%</td><td class="miss">In Progress</td></tr>
+    <tr><td>04</td><td>劳动仲裁与诉讼事件数</td><td>0</td><td>0</td><td>0</td><td class="met">✅ Met</td></tr>
+    <tr><td>05</td><td>工序保留完成率</td><td>98%</td><td>95%</td><td>+3%</td><td class="met">✅ Met</td></tr>
+    <tr><td>06</td><td>生产人员占比优化率</td><td>21.4%</td><td>55%</td><td>33.6%</td><td class="miss">⚠️ Far Behind</td></tr>
+    <tr><td>07</td><td>核心厂区利润贡献率</td><td>38.5%</td><td>40%</td><td>1.5%</td><td class="miss">⚠️ Near Miss</td></tr>
+    <tr><td>08</td><td>生态伙伴厂利润贡献率</td><td>15.8%</td><td>15%</td><td>+0.8%</td><td class="met">✅ Met</td></tr>
+    <tr><td>09</td><td>数字资产价值转化率</td><td>7.2%</td><td>8%</td><td>0.8%</td><td class="miss">⚠️ Near Miss</td></tr>
+  </table>
+</div>
+
+<div class="insight-box">
+  <h3>关键洞察</h3>
+  <ul>
+    <li><strong>已完成</strong>: KPI #04 (0 disputes), #05 (98% process retention), #08 (15.8% eco-partner profit ✅ exceeded)</li>
+    <li><strong>接近达标</strong>: KPI #07 core factory profit 38.5% vs 40%, KPI #09 digital asset 7.2% vs 8%</li>
+    <li><strong>需重点关注</strong>: KPI #06 production ratio only 21.4% vs 55% — far from target, core transformation metric</li>
+    <li><strong>趋势</strong>: 劳动仲裁从峰值的5件降至0; 数字资产转化率稳步上升</li>
+  </ul>
+</div>
+
+<script>
+var M = ["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02"];
+Plotly.newPlot('c04',[{x:M,y:[0,2,5,3,1,0],type:'scatter',mode:'lines+markers',line:{color:'#e74c3c',width:3}}],{title:'KPI #04 劳动仲裁事件数',yaxis:{dtick:1},margin:{t:30,b:30,l:40,r:10}});
+Plotly.newPlot('c05',[{x:M,y:[100,98,95,93,96,98],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3}},{x:M,y:M.map(function(){return 95}),type:'scatter',mode:'lines',name:'Target',line:{color:'#999',width:1,dash:'dash'}}],{title:'KPI #05 工序保留完成率 (%)',yaxis:{range:[85,105]},margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c06',[{x:M,y:[0,2.3,7.1,12,16.8,21.4],type:'scatter',mode:'lines+markers',line:{color:'#ff7f0e',width:3}},{x:M,y:M.map(function(){return 55}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #06 生产人员占比 (%)',yaxis:{range:[0,60]},margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c07',[{x:M,y:[10.2,15.8,22.5,28.3,33.7,38.5],type:'scatter',mode:'lines+markers',line:{color:'#1f77b4',width:3}},{x:M,y:M.map(function(){return 40}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #07 核心厂区利润贡献率 (%)',margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c08',[{x:M,y:[0,2.1,5.6,8.9,12.3,15.8],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3},fill:'tozeroy',fillcolor:'rgba(44,160,44,0.1)'},{x:M,y:M.map(function(){return 15}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #08 生态伙伴利润贡献率 (%)',margin:{t:30,b:30,l:40,r:10},showlegend:false});
+Plotly.newPlot('c09',[{x:M,y:[0.5,1.2,2.3,3.8,5.5,7.2],type:'scatter',mode:'lines+markers',line:{color:'#9467bd',width:3}},{x:M,y:M.map(function(){return 8}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #09 数字资产价值转化率 (%)',margin:{t:30,b:30,l:40,r:10},showlegend:false});
+</script></body></html>

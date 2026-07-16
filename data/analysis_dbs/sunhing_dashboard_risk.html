@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>Sun Hing — 风险监控 Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;font-family:-apple-system,'Noto Sans SC',sans-serif;background:#f0f2f5}
+h1{font-size:20px;font-weight:600;margin-bottom:4px}.subtitle{color:#666;font-size:13px;margin-bottom:20px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.kpi-card{background:#fff;padding:16px;border-radius:10px;border-left:4px solid #1f77b4;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi-card .label{font-size:11px;color:#7f8c8d;text-transform:uppercase;letter-spacing:.5px}
+.kpi-card .value{font-size:22px;font-weight:700;margin:4px 0 2px}.kpi-card .note{font-size:12px;color:#999}
+.kpi-card.ok{border-left-color:#2ca02c}.kpi-card.warn{border-left-color:#ff7f0e}.kpi-card.danger{border-left-color:#e74c3c}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}.grid .full{grid-column:1/-1}
+.card{background:#fff;padding:10px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.chart{width:100%;height:240px}
+.kpi-table{width:100%;border-collapse:collapse;font-size:12px}
+.kpi-table th{text-align:left;padding:7px 8px;background:#f8f9fa;border-bottom:2px solid #eee}
+.kpi-table td{padding:6px 8px;border-bottom:1px solid #f0f0f0}.kpi-table .safe{color:#2ca02c;font-weight:600}
+.kpi-table .warn{color:#ff7f0e;font-weight:600}.kpi-table .danger{color:#e74c3c;font-weight:600}
+.insight-box{background:#fff;padding:14px 18px;border-radius:10px;border-left:4px solid #2ca02c;margin-top:14px}
+.insight-box h3{margin:0 0 8px;font-size:14px}.insight-box ul{margin:0;padding-left:18px;font-size:13px;color:#333}.insight-box li{margin:4px 0}
+</style></head>
+<body>
+<h1>⚠️ 风险监控 — RS01 to RS07</h1>
+<div class="subtitle">Real-time risk indicators | Status at Feb 2027 | Red = Breach, Yellow = Warning, Green = Safe</div>
+
+<div class="kpi-row">
+  <div class="kpi-card ok"><div class="label">纠纷发生率 (RS01)</div><div class="value">0.4%</div><div class="note">Target ≤2% ✅ Safe</div></div>
+  <div class="kpi-card ok"><div class="label">协商满意度 (RS02)</div><div class="value">8.3/10</div><div class="note">Target ≥7 ✅ Safe</div></div>
+  <div class="kpi-card ok"><div class="label">群体争议风险 (RS03)</div><div class="value">35</div><div class="note">Target ≤60 ✅ Safe</div></div>
+  <div class="kpi-card ok"><div class="label">骨干流失率 (RS06)</div><div class="value">1.5%</div><div class="note">Target ≤5% ✅ Safe</div></div>
+</div>
+
+<div class="grid">
+  <div class="card"><div id="cRS01" class="chart"></div></div>
+  <div class="card"><div id="cRS02" class="chart"></div></div>
+  <div class="card"><div id="cRS03" class="chart"></div></div>
+  <div class="card"><div id="cRS04" class="chart"></div></div>
+  <div class="card"><div id="cRS06" class="chart"></div></div>
+  <div class="card"><div id="cRS07" class="chart"></div></div>
+</div>
+
+<div class="card" style="margin-bottom:14px;">
+  <h3 style="margin:0 0 10px;font-size:14px;">📋 风险监控 KPI Status</h3>
+  <table class="kpi-table">
+    <tr><th>#</th><th>Risk Indicator</th><th>Feb</th><th>Threshold</th><th>Status</th></tr>
+    <tr><td>RS01</td><td>协商减员纠纷发生率</td><td>0.4%</td><td>≤2%</td><td class="safe">✅ Safe</td></tr>
+    <tr><td>RS02</td><td>历史追缴协商满意度</td><td>8.3</td><td>≥7.0</td><td class="safe">✅ Safe</td></tr>
+    <tr><td>RS03</td><td>群体性劳动争议风险指数</td><td>35</td><td>≤60</td><td class="safe">✅ Safe</td></tr>
+    <tr><td>RS04</td><td>保税物料合规处理完成率</td><td>72%</td><td>100%</td><td class="warn">⚠️ In Progress</td></tr>
+    <tr><td>RS05</td><td>海关违规/罚款金额</td><td>0万</td><td>0万</td><td class="safe">✅ Safe</td></tr>
+    <tr><td>RS06</td><td>核心技术骨干流失率</td><td>1.5%</td><td>≤5%</td><td class="safe">✅ Safe</td></tr>
+    <tr><td>RS07</td><td>客户订单转移/流失率</td><td>0.6%</td><td>≤3%</td><td class="safe">✅ Safe</td></tr>
+  </table>
+</div>
+
+<div class="insight-box">
+  <h3>关键洞察</h3>
+  <ul>
+    <li><strong>整体风险可控</strong>: 7项风险指标中6项在安全阈值内, 仅RS04保税物料合规仍处中期</li>
+    <li><strong>纠纷趋势</strong>: 纠纷率从11月峰值4.1%降至0.4%, 协商满意度持续提升至8.3/10</li>
+    <li><strong>群体争议风险</strong>: 风险指数从11月72峰值降至35, 已完全脱离警戒区</li>
+    <li><strong>客户稳定性</strong>: 客户流失率仅0.6%, 远低于3%阈值 — 变革未影响客户关系</li>
+    <li><strong>需关注</strong>: 保税物料合规完成率72%, 需持续加速推进至100%</li>
+  </ul>
+</div>
+
+<script>
+var M = ["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02"];
+// RS01 has data from Sep, RS02 from Oct
+function targetLine(limit){return {x:M,y:M.map(function(){return limit}),type:'scatter',mode:'lines',name:'Threshold',line:{color:'#e74c3c',width:2,dash:'dash'}}}
+Plotly.newPlot('cRS01',[{x:M,y:[0,1.7,4.1,2.5,0.8,0.4],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3},fill:'tozeroy',fillcolor:'rgba(44,160,44,0.1)'},targetLine(2)],{title:'RS01 协商减员纠纷发生率 (%)',yaxis:{range:[0,5]},margin:{t:28,b:25,l:35,r:8},showlegend:false});
+Plotly.newPlot('cRS02',[{x:["2026-10","2026-11","2026-12","2027-01","2027-02"],y:[6.2,5.8,7.1,7.8,8.3],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3}},targetLine(7)],{title:'RS02 协商满意度 (1-10)',yaxis:{range:[4,10]},margin:{t:28,b:25,l:35,r:8},showlegend:false});
+Plotly.newPlot('cRS03',[{x:M,y:[45,58,72,55,42,35],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3}},targetLine(60)],{title:'RS03 群体争议风险指数 (0-100)',margin:{t:28,b:25,l:35,r:8},showlegend:false});
+Plotly.newPlot('cRS04',[{x:M,y:[10,22,35,48,60,72],type:'scatter',mode:'lines+markers',line:{color:'#ff7f0e',width:3}},targetLine(100)],{title:'RS04 保税物料合规完成率 (%)',margin:{t:28,b:25,l:35,r:8},showlegend:false});
+Plotly.newPlot('cRS06',[{x:M,y:[0.5,1.2,2.8,3.5,2.2,1.5],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3}},targetLine(5)],{title:'RS06 核心技术骨干流失率 (%)',margin:{t:28,b:25,l:35,r:8},showlegend:false});
+Plotly.newPlot('cRS07',[{x:M,y:[0.2,0.8,1.5,1.8,1.2,0.6],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3}},targetLine(3)],{title:'RS07 客户订单流失率 (%)',margin:{t:28,b:25,l:35,r:8},showlegend:false});
+</script></body></html>
