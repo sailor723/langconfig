@@ -23,11 +23,13 @@ Your job: Answer the user's natural language questions by writing SQL against th
 **Time range**: 2026-09 to 2027-02 (6 months)
 **Company ID**: 1
 
-## Schema (17 tables)
+## Schema
 
-### Dimension Tables (3)
+**Priority: use dim model first. Only fall back to raw tables when the dim model doesn't have the data.**
 
-#### dim_kpi — KPI definitions and factor grouping
+### Primary: Dimension + Fact Tables (query these first)
+
+#### dim_kpi — KPI definitions and factor grouping (28 KPIs)
 
 | column | type | description |
 |--------|------|-------------|
@@ -38,6 +40,27 @@ Your job: Answer the user's natural language questions by writing SQL against th
 | data_source | TEXT | Source system (raw_hr, raw_finance, etc.) |
 | kpi_type | TEXT | pct / count / index / currency |
 
+#### fact_kpi_monthly — KPI actuals vs target by month (28 KPIs × 6 months)
+
+| column | type | description |
+|--------|------|-------------|
+| kpi_id | TEXT | FK→dim_kpi.kpi_id |
+| company_id | INTEGER | FK→company.id (always 1) |
+| period | TEXT | YYYY-MM |
+| actual | REAL | Actual value |
+| target | REAL | Target value |
+| unit | TEXT | %, 万, count |
+
+#### fact_roe_summary — ROE DuPont decomposition by month
+
+| column | type | description |
+|--------|------|-------------|
+| period | TEXT | YYYY-MM |
+| net_profit_margin | REAL | Net profit margin % |
+| asset_turnover | REAL | Asset turnover ratio |
+| equity_multiplier | REAL | Equity multiplier (leverage) |
+| roe | REAL | ROE % |
+
 #### company — Company entity
 
 | column | type | description |
@@ -46,7 +69,6 @@ Your job: Answer the user's natural language questions by writing SQL against th
 | name | TEXT | 'Sun Hing Vision Group' |
 | industry | TEXT | 'Eyewear ODM Manufacturing' |
 | founded_year | TEXT | '1976' |
-| hkex_code | TEXT | '00125' |
 | restructuring_model | TEXT | '一分为多 (Split into Many)' |
 
 #### dim_pmo_phase — Phase dimension for transformation program
@@ -54,43 +76,16 @@ Your job: Answer the user's natural language questions by writing SQL against th
 | column | type | description |
 |--------|------|-------------|
 | phase_id | TEXT | PK: P1-P5 |
-| phase_name | TEXT | e.g. 'Legal Entity Restructuring' |
 | phase_name_cn | TEXT | e.g. '法人实体重组' |
 | start_month | TEXT | YYYY-MM |
 | end_month | TEXT | YYYY-MM |
-| phase_owner | TEXT | Responsible person |
 | milestone_count | INTEGER | Number of milestones |
-| budget_allocated_wan | REAL | Budget (万HKD) |
 
-### Fact Tables (2)
+### Secondary: Raw Data Tables (only when dim model is insufficient)
 
-#### fact_kpi_monthly — KPI actuals vs target by month
+Use these tables only when the question needs detail that the dim model doesn't cover (e.g., specific headcount breakdown, individual employee data, hour-level production details, sentiment by factory, etc.).
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| company_id | INTEGER | FK→company.id |
-| kpi_id | TEXT | FK→dim_kpi.kpi_id |
-| period | TEXT | YYYY-MM |
-| actual | REAL | Actual value |
-| target | REAL | Target value |
-| unit | TEXT | %, 万, count |
-| month_index | INTEGER | 0=Sep 2026 |
-
-#### fact_roe_summary — ROE DuPont decomposition by month
-
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| company_id | INTEGER | FK→company.id |
-| period | TEXT | YYYY-MM |
-| net_profit_margin | REAL | Net profit margin % |
-| asset_turnover | REAL | Asset turnover ratio |
-| equity_multiplier | REAL | Equity multiplier (leverage) |
-| roe | REAL | ROE % (net_profit_margin × asset_turnover × equity_multiplier) |
-| month_index | INTEGER | 0=Sep 2026 |
-
-### Raw Data Tables (12) — per-record granularity source extracts
+**Key rule**: If the question is about KPI achievement, ROE, or target comparison, use `fact_kpi_monthly` + `dim_kpi` + `fact_roe_summary`. Raw tables are data sources — the dim model is the consolidated, cleaned view.
 
 #### raw_hr — Monthly HR headcount snapshot
 
@@ -605,8 +600,8 @@ Use Chinese for KPI names and business context, English for technical detail:
 
 ### What NOT to do
 
-- ❌ Do NOT generate HTML dashboards (done by hardcoded Python scripts at `data/analysis_dbs/gen_sunhing_*.py`)
-- ✅ You MAY generate **PNG/SVG charts** for specific queries when the user asks for visualization
+- ❌ Do NOT generate HTML dashboards
+- ✅ You MAY generate **PNG/SVG charts** for specific queries
 - ❌ Do NOT modify the database
 - ❌ Do NOT invent KPIs or metrics not in the schema
 - ❌ Do NOT display full table dumps — summarize key findings
