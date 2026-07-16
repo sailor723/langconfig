@@ -30,7 +30,7 @@
   .kpi-card.danger { border-left-color: #e74c3c; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
   .grid .full { grid-column: 1 / -1; }
-  .card { background: #fff; padding: 12px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .chart-title{font-size:13px;font-weight:600;margin-bottom:4px;color:#2c3e50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .card { min-width:0; background: #fff; padding: 12px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
   .chart { width: 100%; height: 300px; }
   .nav-links { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
   .nav-links a { background: #fff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 13px; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: box-shadow .2s; }
@@ -59,27 +59,28 @@
 <body>
 
 <h1>🏭 Sun Hing Vision Group — 一分为多 KPI Dashboard</h1>
-<div class="subtitle">集团组织变革 KPI v2.0 | Sep 2026 → Feb 2027 | <a href="/editor" style="color:#1f77b4;">Edit Data</a></div>
+<div class="subtitle">集团组织变革 KPI v2.0 | Sep 2026 → Feb 2027</div>
 
 <!-- Navigation shortcuts -->
 <div class="nav-links">
-  <a href="/profit"><span class="icon">📈</span>Profit (KPI 01-09)</a>
-  <a href="/turnover"><span class="icon">🔄</span>Turnover (10-13)</a>
-  <a href="/leverage"><span class="icon">🏗️</span>Leverage (14-17)</a>
-  <a href="/support"><span class="icon">🛡️</span>Support (18-21)</a>
-  <a href="/risk"><span class="icon">⚠️</span>Risk (RS01-07)</a>
-  <a href="/employees"><span class="icon">👥</span>Employees</a>
-  <a href="/liability"><span class="icon">💰</span>Liability Detail</a>
-  <a href="/editor"><span class="icon">✏️</span>Data Editor</a>
+  <a href="/api/files/sunhing_dashboard_profit.html"><span class="icon">📈</span>Profit (KPI 01-09)</a>
+  <a href="/api/files/sunhing_dashboard_turnover.html"><span class="icon">🔄</span>Turnover (10-13)</a>
+  <a href="/api/files/sunhing_dashboard_leverage.html"><span class="icon">🏗️</span>Leverage (14-17)</a>
+  <a href="/api/files/sunhing_dashboard_support.html"><span class="icon">🛡️</span>Support (18-21)</a>
+  <a href="/api/files/sunhing_dashboard_risk.html"><span class="icon">⚠️</span>Risk (RS01-07)</a>
+  <a href="/api/files/sunhing_dashboard_employees.html"><span class="icon">👥</span>Employees</a>
+  <a href="/api/files/sunhing_dashboard_liability.html"><span class="icon">💰</span>Liability Detail</a>
+  <a href="/api/files/sunhing_erd.html"><span class="icon">🗄️</span>ERD</a>
+  <a href="/api/files/sunhing_gantt.html"><span class="icon">📅</span>Gantt</a>
 </div>
 
 <!-- ══════════════ KPI #01 — 协商减员完成率 ══════════════ -->
 <div class="kpi-section">
   <h2>📋 KPI #01 — 协商减员完成率</h2>
-  <div class="desc">目标: 12个月内完成856人协商减员 | 一分为多 restructuring | <a href="/employees" style="color:#1f77b4;">View Employee Detail →</a></div>
+  <div class="desc">目标: 12个月内完成856人协商减员 | 一分为多 restructuring | <a href="/api/files/sunhing_dashboard_employees.html" style="color:#1f77b4;">View Employee Detail →</a></div>
 
   <div class="kpi-row">
-    <a href="/employees" class="kpi-card ok">
+    <a href="/api/files/sunhing_dashboard_employees.html" class="kpi-card ok">
       <div class="label">Completion Rate (Feb)</div>
       <div class="value">94.6%</div>
       <div class="note">Target: 100% <span style="color:#e74c3c;">△ 5.4% gap</span></div>
@@ -104,18 +105,18 @@
   </div>
 
   <div class="grid">
-    <div class="card"><div id="chart1a" class="chart"></div></div>
-    <div class="card"><div id="chart1b" class="chart"></div></div>
+    <div class="card"><div class="chart-title">KPI #01 — 协商减员完成率 (%)</div><div id="chart1a" class="chart"></div></div>
+    <div class="card"><div class="chart-title">Cumulative Severed (of 856)</div><div id="chart1b" class="chart"></div></div>
   </div>
 </div>
 
 <!-- ══════════════ KPI #02 — 历史人力成本追缴化解率 ══════════════ -->
 <div class="kpi-section">
   <h2>💰 KPI #02 — 历史人力成本追缴化解率</h2>
-  <div class="desc">目标: 12个月内化解率≥80% | 总追缴金额6,643万HKD | <a href="/liability" style="color:#1f77b4;">View Liability Detail →</a>  |  <a href="/kpi02" style="color:#1f77b4;">Full Dashboard →</a></div>
+  <div class="desc">目标: 12个月内化解率≥80% | 总追缴金额6,643万HKD | <a href="/api/files/sunhing_dashboard_liability.html" style="color:#1f77b4;">View Liability Detail →</a>  |  <a href="/api/files/sunhing_dashboard_kpi02.html" style="color:#1f77b4;">Full Dashboard →</a></div>
 
   <div class="kpi-row">
-    <a href="/kpi02" class="kpi-card ok">
+    <a href="/api/files/sunhing_dashboard_kpi02.html" class="kpi-card ok">
       <div class="label">Resolution Rate (Feb)</div>
       <div class="value">85.5%</div>
       <div class="note">Target: 80% ✅ Exceeded</div>
@@ -140,8 +141,8 @@
   </div>
 
   <div class="grid">
-    <div class="card"><div id="chart2a" class="chart"></div></div>
-    <div class="card"><div id="chart2b" class="chart"></div></div>
+    <div class="card"><div class="chart-title">KPI #02 — 历史人力成本追缴化解率 (%)</div><div id="chart2a" class="chart"></div></div>
+    <div class="card"><div class="chart-title">追缴类别明细 (万HKD)</div><div id="chart2b" class="chart"></div></div>
   </div>
 
   <div class="card" style="margin-bottom:10px;">
@@ -161,10 +162,10 @@
 <!-- ══════════════ KPI #03 — 赔偿金额预算控制率 ══════════════ -->
 <div class="kpi-section">
   <h2>💵 KPI #03 — 赔偿金额预算控制率</h2>
-  <div class="desc">目标: 赔偿总支出≤2,600万HKD预算 | 人均赔偿~3.0万 | <a href="/kpi03" style="color:#1f77b4;">Full Dashboard →</a></div>
+  <div class="desc">目标: 赔偿总支出≤2,600万HKD预算 | 人均赔偿~3.0万 | <a href="/api/files/sunhing_dashboard_kpi03.html" style="color:#1f77b4;">Full Dashboard →</a></div>
 
   <div class="kpi-row">
-    <a href="/kpi03" class="kpi-card ok">
+    <a href="/api/files/sunhing_dashboard_kpi03.html" class="kpi-card ok">
       <div class="label">Budget Used (Feb)</div>
       <div class="value">93.5%</div>
       <div class="note">Target: ≤100% ✅ Within budget</div>
@@ -189,8 +190,8 @@
   </div>
 
   <div class="grid">
-    <div class="card"><div id="chart3a" class="chart"></div></div>
-    <div class="card"><div id="chart3b" class="chart"></div></div>
+    <div class="card"><div class="chart-title">KPI #03 — 赔偿金额预算控制率 (%)</div><div id="chart3a" class="chart"></div></div>
+    <div class="card"><div class="chart-title">月度赔偿支出 (万HKD)</div><div id="chart3b" class="chart"></div></div>
   </div>
 </div>
 
@@ -250,12 +251,12 @@ var severed = [0, 120, 340, 560, 720, 810];
 Plotly.newPlot('chart1a', [
   { x: months, y: pct1, type: 'scatter', mode: 'lines+markers', name: 'Actual', line: {color: '#1f77b4', width: 3}, marker: {size: 8} },
   { x: months, y: months.map(function() { return 100; }), type: 'scatter', mode: 'lines', name: 'Target', line: {color: '#e74c3c', width: 2, dash: 'dash'} }
-], { title: 'KPI #01 — 协商减员完成率 (%)', yaxis: {range: [0, 105], ticksuffix: '%'}, margin: {t: 30, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
+], { title: 'KPI #01 — 协商减员完成率 (%)', yaxis: {range: [0, 105], ticksuffix: '%'}, margin: {t: 50, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
 
 // Chart 1b: Severed bar
 Plotly.newPlot('chart1b', [{
   x: months, y: severed, type: 'bar', marker: {color: '#2ca02c'}, text: severed, textposition: 'outside'
-}], { title: 'Cumulative Severed (of 856)', yaxis: {range: [0, 906]}, margin: {t: 30, b: 40, l: 50, r: 20} });
+}], { title: 'Cumulative Severed (of 856)', yaxis: {range: [0, 906]}, margin: {t: 52, b: 40, l: 50, r: 20} });
 
 // ══ KPI #02 data ══
 var pct2 = [2.9, 11.7, 32.1, 55.4, 72.8, 84.5];
@@ -267,13 +268,13 @@ var remainingCat = [405, 365, 45, 0, 55, 95];
 Plotly.newPlot('chart2a', [
   { x: months, y: pct2, type: 'scatter', mode: 'lines+markers', name: 'Actual', line: {color: '#1f77b4', width: 3}, marker: {size: 8} },
   { x: months, y: months.map(function() { return 80; }), type: 'scatter', mode: 'lines', name: 'Target (80%)', line: {color: '#e74c3c', width: 2, dash: 'dash'} }
-], { title: 'KPI #02 — 历史人力成本追缴化解率 (%)', yaxis: {range: [0, 100], ticksuffix: '%'}, margin: {t: 30, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
+], { title: 'KPI #02 — 历史人力成本追缴化解率 (%)', yaxis: {range: [0, 100], ticksuffix: '%'}, margin: {t: 52, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
 
 // Chart 2b: Category breakdown
 Plotly.newPlot('chart2b', [
   { x: cats, y: resolvedCat, type: 'bar', name: '已化解', marker: {color: '#2ca02c'}, text: resolvedCat.map(function(v) { return v + '万'; }), textposition: 'inside' },
   { x: cats, y: remainingCat, type: 'bar', name: '未化解', marker: {color: '#e74c3c'}, text: remainingCat.map(function(v) { return v + '万'; }), textposition: 'inside' }
-], { title: '追缴类别明细 (万HKD)', barmode: 'stack', margin: {t: 30, b: 50, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3} });
+], { title: '追缴类别明细 (万HKD)', barmode: 'stack', margin: {t: 52, b: 50, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3} });
 
 // ══ KPI #03 data ══
 var budgetRate = [0.0, 13.8, 39.2, 64.6, 83.1, 93.5];
@@ -285,12 +286,12 @@ var budgetTotal = 2600;
 Plotly.newPlot('chart3a', [
   { x: months, y: budgetRate, type: 'scatter', mode: 'lines+markers', name: 'Budget Used %', line: {color: '#ff7f0e', width: 3}, marker: {size: 8} },
   { x: months, y: months.map(function() { return 100; }), type: 'scatter', mode: 'lines', name: 'Limit (100%)', line: {color: '#e74c3c', width: 2, dash: 'dash'} }
-], { title: 'KPI #03 — 赔偿金额预算控制率 (%)', yaxis: {range: [0, 110], ticksuffix: '%'}, margin: {t: 30, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
+], { title: 'KPI #03 — 赔偿金额预算控制率 (%)', yaxis: {range: [0, 110], ticksuffix: '%'}, margin: {t: 52, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
 
 // Chart 3b: Monthly cost bar
 Plotly.newPlot('chart3b', [{
   x: months, y: monthlyCost, type: 'bar', marker: {color: '#ff7f0e'}, text: monthlyCost.map(function(v) { return v + '万'; }), textposition: 'outside'
-}], { title: '月度赔偿支出 (万HKD)', yaxis: {title: '万HKD'}, margin: {t: 30, b: 40, l: 50, r: 20} });
+}], { title: '月度赔偿支出 (万HKD)', yaxis: {title: '万HKD'}, margin: {t: 52, b: 40, l: 50, r: 20} });
 </script>
 </body>
 </html>

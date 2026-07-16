@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<!--
+  LangConfig Dashboard Meta
+  db: data/analysis_dbs/sunhing_kpi.db
+  skills: sunhing-analyst
+-->
+
 <meta charset="utf-8">
 <title>Sun Hing — 历史人力成本追缴化解率 Dashboard</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
@@ -19,7 +25,7 @@
   .kpi-card.danger { border-left-color: #e74c3c; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
   .grid .full { grid-column: 1 / -1; }
-  .card { background: #fff; padding: 12px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .chart-title{font-size:13px;font-weight:600;margin-bottom:4px;color:#2c3e50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .card { min-width:0; background: #fff; padding: 12px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
   .chart { width: 100%; height: 340px; }
   .cat-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .cat-table th { text-align: left; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #eee; }
@@ -35,6 +41,16 @@
 </style>
 </head>
 <body>
+
+<div class="top-nav">
+  <span class="brand">Sun Hing KPI</span>
+  <a href="/api/files/sunhing_dashboard.html">← Back to Dashboard</a>
+  <span style="color:#555;font-size:11px;">|</span>
+  <a href="/api/files/sunhing_dashboard_employees.html">Employees</a>
+  <a href="/api/files/sunhing_dashboard_liability.html">Liability</a>
+  <a href="/api/files/sunhing_erd.html">ERD</a>
+  <a href="/api/files/sunhing_gantt.html">Gantt</a>
+</div>
 
 <h1>💰 KPI #02 — 历史人力成本追缴化解率</h1>
 <div class="subtitle">Sun Hing Vision Group — Historical Liability Cleanup | Sep 2026 → Feb 2027 | Target: ≥80%</div>
@@ -63,9 +79,9 @@
 </div>
 
 <div class="grid">
-  <div class="card"><div id="chart1" class="chart"></div></div>
-  <div class="card"><div id="chart2" class="chart"></div></div>
-  <div class="card full"><div id="chart3" class="chart"></div></div>
+  <div class="card"><div class="chart-title">月化解率趋势 (%)</div><div id="chart1" class="chart"></div></div>
+  <div class="card"><div class="chart-title">追缴类别明细 (万HKD)</div><div id="chart2" class="chart"></div></div>
+  <div class="card full"><div class="chart-title">累计化解 vs 剩余 (万HKD)</div><div id="chart3" class="chart"></div></div>
 </div>
 
 <div class="card" style="margin-bottom:14px;">
@@ -119,7 +135,7 @@ var targetLine = {
 Plotly.newPlot('chart1', [trace1, targetLine], {
   title: '月化解率趋势 (%)',
   yaxis: {range: [0, 100], ticksuffix: '%'},
-  margin: {t: 30, b: 40, l: 50, r: 20},
+  margin: {t: 52, b: 40, l: 50, r: 20},
   legend: {orientation: 'h', y: -0.25},
   hovermode: 'x unified'
 });
@@ -143,7 +159,7 @@ Plotly.newPlot('chart2', [
 ], {
   title: '追缴类别明细 (万HKD)',
   barmode: 'stack',
-  margin: {t: 30, b: 50, l: 50, r: 20},
+  margin: {t: 52, b: 50, l: 50, r: 20},
   legend: {orientation: 'h', y: -0.25}
 });
 
@@ -169,7 +185,7 @@ Plotly.newPlot('chart3', [
 ], {
   title: '累计化解 vs 剩余 (万HKD)',
   yaxis: {title: 'Amount (万HKD)'},
-  margin: {t: 30, b: 40, l: 50, r: 20},
+  margin: {t: 52, b: 40, l: 50, r: 20},
   legend: {orientation: 'h', y: -0.25},
   hovermode: 'x unified'
 });

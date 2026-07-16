@@ -2,6 +2,11 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<!--
+  LangConfig Dashboard Meta
+  db: data/analysis_dbs/sunhing_kpi.db
+  skills: sunhing-analyst
+-->
 <title>Sun Hing — Transformation Gantt</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
@@ -25,6 +30,16 @@ h1{font-size:18px;margin:0 0 4px}
 </style>
 </head>
 <body>
+
+<div style="background:#1a1a2e;padding:10px 20px;margin:-20px -24px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+  <span style="color:#fff;font-weight:600;font-size:14px;">Sun Hing KPI</span>
+  <a href="/api/files/sunhing_dashboard.html" style="color:#fff;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;">← Back to Dashboard</a>
+  <span style="color:#555;font-size:11px;">|</span>
+  <a href="/api/files/sunhing_dashboard_employees.html" style="color:#999;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;">Employees</a>
+  <a href="/api/files/sunhing_dashboard_liability.html" style="color:#999;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;">Liability</a>
+  <a href="/api/files/sunhing_erd.html" style="color:#999;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;">ERD</a>
+  <a href="/api/files/sunhing_gantt.html" style="color:#fff;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;background:rgba(255,255,255,.15);font-weight:700">Gantt</a>
+</div>
 
 <h1>📅 Transformation Program — Gantt Chart</h1>
 <div class="sub">5 phases · 31 milestones · Sep 2026 – Feb 2027 · <span style="color:#888;">Phase bars = duration · Dots = milestones · <span style="color:#f39c12;">Click any item for details</span></span></div>
@@ -273,6 +288,11 @@ h1{font-size:18px;margin:0 0 4px}
       responsive: true,
       displayModeBar: false,
     }).then(function(gd) {
+      // ResizeObserver: reflow chart when the iframe/panel resizes
+      var ro = new ResizeObserver(function() {
+        Plotly.Plots.resize(gd);
+      });
+      ro.observe(gd);
       // Click handler for phases and milestones
       gd.on('plotly_click', function(eventData) {
         var pts = eventData.points;

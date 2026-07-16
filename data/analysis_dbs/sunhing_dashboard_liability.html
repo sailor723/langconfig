@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!--
+  LangConfig Dashboard Meta
+  db: data/analysis_dbs/sunhing_kpi.db
+  skills: sunhing-analyst
+-->
+<meta charset="utf-8">
+<title>Sun Hing — 历史人力成本追缴化解</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:20px;font-family:-apple-system,'Noto Sans SC',sans-serif;background:#f0f2f5}
+  .top-nav{background:#1a1a2e;padding:10px 20px;margin:-20px -20px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .top-nav a{color:#fff;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px}
+  .top-nav a:hover{background:rgba(255,255,255,.15)}
+  .top-nav .brand{color:#fff;font-weight:600;font-size:14px}
+  h1{font-size:18px;margin-bottom:4px}
+  .subtitle{color:#666;font-size:13px;margin-bottom:16px}
+  .kpi-big{text-align:center;padding:24px;background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:16px}
+  .kpi-big .num{font-size:42px;font-weight:700}
+  .kpi-big .label{color:#666;font-size:13px;margin-top:4px}
+  .summary{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+  .summary-card{background:#fff;padding:12px 18px;border-radius:8px;border-left:4px solid #1f77b4;box-shadow:0 1px 3px rgba(0,0,0,.06);min-width:120px}
+  .summary-card .label{font-size:11px;color:#7f8c8d}
+  .summary-card .value{font-size:20px;font-weight:700}
+  .summary-card.warn{border-left-color:#e74c3c}
+  .summary-card.ok{border-left-color:#2ca02c}
+  .bar{height:20px;border-radius:4px;background:#eee;position:relative;overflow:hidden}
+  .bar-fill{height:100%;background:#2ca02c;border-radius:4px;transition:width .5s}
+  .bar-fill.warn{background:#ff7f0e}
+  .bar-fill.danger{background:#e74c3c}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);font-size:13px}
+  th{background:#f8f9fa;padding:8px 6px;text-align:left;border-bottom:2px solid #e0e0e0;white-space:nowrap;font-weight:600}
+  td{padding:6px;border-bottom:1px solid #f0f0f0}
+  tr:hover td{background:#f8faff}
+  .badge{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px}
+  .badge.resolved{background:#d4edda;color:#155724}
+  .badge.partial{background:#fff3cd;color:#856404}
+  .badge.pending{background:#fde8e8;color:#e74c3c}
+  .cat-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  .cat-table th{text-align:left;padding:8px 10px;background:#f8f9fa;border-bottom:2px solid #eee}
+  .cat-table td{padding:7px 10px;border-bottom:1px solid #f0f0f0}
+</style>
+</head>
+<body>
+
+<div class="top-nav">
+  <span class="brand">Sun Hing KPI</span>
+  <a href="/api/files/sunhing_dashboard.html">← Back to Dashboard</a>
+  <span style="color:#555;font-size:11px;">|</span>
+  <a href="/api/files/sunhing_dashboard_employees.html">Employees</a>
+  <a href="/api/files/sunhing_dashboard_liability.html" style="background:rgba(255,255,255,.15);font-weight:700">Liability</a>
+  <a href="/api/files/sunhing_erd.html">ERD</a>
+  <a href="/api/files/sunhing_gantt.html">Gantt</a>
+</div>
+
+<h1>💰 KPI #02 — 历史人力成本追缴化解率</h1>
+<div class="subtitle">Total historical liability: 6643.0万HKD | Target: ≥80% resolution in 12 months</div>
+
+<div class="kpi-big">
+  <div class="num">85.5%</div>
+  <div class="label">Resolution Rate</div>
+  <div class="bar" style="width:80%;margin:12px auto;">
+    <div class="bar-fill" style="width:85.5%"></div>
+  </div>
+</div>
+
+<div class="summary">
+  <div class="summary-card"><div class="label">Total Items</div><div class="value">25</div></div>
+  <div class="summary-card"><div class="label">Total Amount</div><div class="value">6643万</div></div>
+  <div class="summary-card ok"><div class="label">Resolved</div><div class="value">5678万</div></div>
+  <div class="summary-card warn"><div class="label">Remaining</div><div class="value">965万</div></div>
+  <div class="summary-card"><div class="label">High Priority</div><div class="value">965万</div></div>
+</div>
+
+<h3 style="font-size:14px;margin:0 0 8px;">📋 追缴类别明细</h3>
+<table class="cat-table">
+<tr><th>Category</th><th>Count</th><th>Total(万)</th><th>Resolved</th><th>Remaining</th><th>Rate</th></tr>
+<tr><td>企业年金</td><td>2</td><td>505</td><td>460</td><td>45</td><td class="pct high">91.1%</td></tr>
+<tr><td>公积金</td><td>4</td><td>1765</td><td>1400</td><td>365</td><td class="pct mid">79.3%</td></tr>
+<tr><td>其他</td><td>3</td><td>815</td><td>720</td><td>95</td><td class="pct mid">88.3%</td></tr>
+<tr><td>劳动监察</td><td>2</td><td>315</td><td>260</td><td>55</td><td class="pct mid">82.5%</td></tr>
+<tr><td>社保</td><td>11</td><td>2920</td><td>2515</td><td>405</td><td class="pct mid">86.1%</td></tr>
+<tr><td>税务</td><td>3</td><td>323</td><td>323</td><td>0</td><td class="pct high">100.0%</td></tr>
+</table>
+
+<div style="margin-top:16px;font-size:12px;color:#999;margin-bottom:8px;">All 25 liability items</div>
+
+<table>
+<tr><th>Code</th><th>Category</th><th>Description</th><th>Authority</th><th>Total(万)</th><th>Resolved(万)</th><th>Remaining(万)</th><th>Progress</th><th>Status</th><th>Priority</th></tr>
+<tr>
+<td>CF-SF-001</td>
+<td>社保</td>
+<td>异地用工社保差额追缴</td>
+<td>广东省社保局</td>
+<td>350</td>
+<td>300</td>
+<td><strong>50</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill warn" style="width:86.0%"></div></div><span style="font-size:11px;color:#999;">86%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>CF-OT-001</td>
+<td>其他</td>
+<td>历史加班费差额补偿基金(预留)</td>
+<td>企业自设</td>
+<td>400</td>
+<td>350</td>
+<td><strong>50</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill warn" style="width:88.0%"></div></div><span style="font-size:11px;color:#999;">88%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>CF-SF-003</td>
+<td>社保</td>
+<td>外籍员工社保欠缴</td>
+<td>东莞市社保局</td>
+<td>45</td>
+<td>0</td>
+<td><strong>45</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill danger" style="width:0.0%"></div></div><span style="font-size:11px;color:#999;">0%</span></td>
+<td><span class="badge pending">未启动</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>HY-SI-001</td>
+<td>社保</td>
+<td>河源厂2019-2023社保欠缴(养老)</td>
+<td>河源社保局</td>
+<td>520</td>
+<td>480</td>
+<td><strong>40</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:92.0%"></div></div><span style="font-size:11px;color:#999;">92%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>CF-LB-001</td>
+<td>劳动监察</td>
+<td>历史劳动监察罚款及整改费用</td>
+<td>东莞市劳动监察</td>
+<td>220</td>
+<td>180</td>
+<td><strong>40</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill warn" style="width:82.0%"></div></div><span style="font-size:11px;color:#999;">82%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>HY-HF-002</td>
+<td>公积金</td>
+<td>河源厂公积金滞纳金</td>
+<td>河源公积金中心</td>
+<td>95</td>
+<td>60</td>
+<td><strong>35</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill warn" style="width:63.0%"></div></div><span style="font-size:11px;color:#999;">63%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>DG-SI-002</td>
+<td>社保</td>
+<td>东莞厂2018-2023社保欠缴(医疗)</td>
+<td>东莞社保局</td>
+<td>410</td>
+<td>380</td>
+<td><strong>30</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:93.0%"></div></div><span style="font-size:11px;color:#999;">93%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>CF-OT-002</td>
+<td>其他</td>
+<td>历史未休年假补偿(预估)</td>
+<td>企业自设</td>
+<td>250</td>
+<td>220</td>
+<td><strong>30</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill warn" style="width:88.0%"></div></div><span style="font-size:11px;color:#999;">88%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>HY-PF-001</td>
+<td>企业年金</td>
+<td>河源厂企业年金欠缴</td>
+<td>河源人社局</td>
+<td>185</td>
+<td>160</td>
+<td><strong>25</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill warn" style="width:86.0%"></div></div><span style="font-size:11px;color:#999;">86%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>DG-PF-001</td>
+<td>企业年金</td>
+<td>东莞厂企业年金欠缴</td>
+<td>东莞人社局</td>
+<td>320</td>
+<td>300</td>
+<td><strong>20</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:94.0%"></div></div><span style="font-size:11px;color:#999;">94%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>HY-SI-002</td>
+<td>社保</td>
+<td>河源厂2019-2023社保欠缴(医疗)</td>
+<td>河源社保局</td>
+<td>260</td>
+<td>240</td>
+<td><strong>20</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:92.0%"></div></div><span style="font-size:11px;color:#999;">92%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>CF-LB-002</td>
+<td>劳动监察</td>
+<td>河源劳动监察历史欠款</td>
+<td>河源市劳动监察</td>
+<td>95</td>
+<td>80</td>
+<td><strong>15</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill warn" style="width:84.0%"></div></div><span style="font-size:11px;color:#999;">84%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>CF-OT-003</td>
+<td>其他</td>
+<td>员工工会经费欠缴</td>
+<td>东莞市总工会</td>
+<td>165</td>
+<td>150</td>
+<td><strong>15</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:91.0%"></div></div><span style="font-size:11px;color:#999;">91%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>DG-SI-003</td>
+<td>社保</td>
+<td>东莞厂2018-2023社保欠缴(失业)</td>
+<td>东莞社保局</td>
+<td>120</td>
+<td>120</td>
+<td><strong>0</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:100.0%"></div></div><span style="font-size:11px;color:#999;">100%</span></td>
+<td><span class="badge resolved">已化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>DG-SI-004</td>
+<td>社保</td>
+<td>东莞厂2018-2023社保欠缴(工伤)</td>
+<td>东莞社保局</td>
+<td>85</td>
+<td>85</td>
+<td><strong>0</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:100.0%"></div></div><span style="font-size:11px;color:#999;">100%</span></td>
+<td><span class="badge resolved">已化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>DG-SI-005</td>
+<td>社保</td>
+<td>东莞厂2018-2023社保欠缴(生育)</td>
+<td>东莞社保局</td>
+<td>55</td>
+<td>55</td>
+<td><strong>0</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:100.0%"></div></div><span style="font-size:11px;color:#999;">100%</span></td>
+<td><span class="badge resolved">已化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>DG-TX-001</td>
+<td>税务</td>
+<td>东莞厂个人所得税代扣欠缴</td>
+<td>东莞税务局</td>
+<td>160</td>
+<td>160</td>
+<td><strong>0</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:100.0%"></div></div><span style="font-size:11px;color:#999;">100%</span></td>
+<td><span class="badge resolved">已化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>DG-TX-002</td>
+<td>税务</td>
+<td>东莞厂附加费及其他税费欠缴</td>
+<td>东莞税务局</td>
+<td>75</td>
+<td>75</td>
+<td><strong>0</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:100.0%"></div></div><span style="font-size:11px;color:#999;">100%</span></td>
+<td><span class="badge resolved">已化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>HY-SI-003</td>
+<td>社保</td>
+<td>河源厂2019-2023社保欠缴(失业/工伤/生育)</td>
+<td>河源社保局</td>
+<td>105</td>
+<td>105</td>
+<td><strong>0</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:100.0%"></div></div><span style="font-size:11px;color:#999;">100%</span></td>
+<td><span class="badge resolved">已化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>HY-TX-001</td>
+<td>税务</td>
+<td>河源厂税务欠缴及滞纳金</td>
+<td>河源税务局</td>
+<td>88</td>
+<td>88</td>
+<td><strong>0</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:100.0%"></div></div><span style="font-size:11px;color:#999;">100%</span></td>
+<td><span class="badge resolved">已化解</span></td>
+<td>低</td>
+</tr>
+<tr>
+<td>DG-HF-001</td>
+<td>公积金</td>
+<td>东莞厂2015-2023住房公积金欠缴</td>
+<td>东莞公积金中心</td>
+<td>950</td>
+<td>800</td>
+<td><strong>150</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill warn" style="width:84.0%"></div></div><span style="font-size:11px;color:#999;">84%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>中</td>
+</tr>
+<tr>
+<td>CF-SF-002</td>
+<td>社保</td>
+<td>越南工厂中国社保欠缴问题</td>
+<td>东莞市社保局</td>
+<td>150</td>
+<td>0</td>
+<td><strong>150</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill danger" style="width:0.0%"></div></div><span style="font-size:11px;color:#999;">0%</span></td>
+<td><span class="badge pending">未启动</span></td>
+<td>中</td>
+</tr>
+<tr>
+<td>HY-HF-001</td>
+<td>公积金</td>
+<td>河源厂2017-2023住房公积金欠缴</td>
+<td>河源公积金中心</td>
+<td>540</td>
+<td>420</td>
+<td><strong>120</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill warn" style="width:78.0%"></div></div><span style="font-size:11px;color:#999;">78%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>中</td>
+</tr>
+<tr>
+<td>DG-SI-001</td>
+<td>社保</td>
+<td>东莞厂2018-2023社保欠缴(养老)</td>
+<td>东莞社保局</td>
+<td>820</td>
+<td>750</td>
+<td><strong>70</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill " style="width:91.0%"></div></div><span style="font-size:11px;color:#999;">91%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>中</td>
+</tr>
+<tr>
+<td>DG-HF-002</td>
+<td>公积金</td>
+<td>东莞厂公积金利息及滞纳金</td>
+<td>东莞公积金中心</td>
+<td>180</td>
+<td>120</td>
+<td><strong>60</strong></td>
+<td style="width:120px;"><div class="bar"><div class="bar-fill warn" style="width:67.0%"></div></div><span style="font-size:11px;color:#999;">67%</span></td>
+<td><span class="badge partial">部分化解</span></td>
+<td>中</td>
+</tr>
+</table>
+</body>
+</html>
