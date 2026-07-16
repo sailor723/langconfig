@@ -139,6 +139,18 @@ def add_period_row(period: str, kpi_id: str, actual: float, target: float, unit:
     conn.commit()
     conn.close()
 
+def fetch_entities(entity_type=None):
+    conn = get_conn()
+    sql = "SELECT * FROM raw_entity WHERE 1=1"
+    params = []
+    if entity_type:
+        sql += " AND entity_type = ?"
+        params.append(entity_type)
+    sql += " ORDER BY registration_month, id"
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
 # ── HTML pages ──────────────────────────────────────────────────────────
 
 EMPLOYEE_HTML = """<!DOCTYPE html>
@@ -833,6 +845,42 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             category = qs.get("category", [None])[0]
             status = qs.get("status", [None])[0]
             data = fetch_liability_items(category, status)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(data, ensure_ascii=False).encode())
+            return
+
+        if path == "/api/sample-data":
+            qs = urllib.parse.parse_qs(parsed.query)
+            table = qs.get("table", [None])[0]
+            # Allowed tables for sample data
+            ALLOWED = {
+                "company", "dim_kpi", "fact_kpi_monthly", "fact_roe_summary",
+                "raw_hr", "raw_employee", "raw_finance", "raw_production",
+                "raw_legal", "raw_digital_platform", "raw_crm", "raw_entity",
+                "raw_pmo", "raw_sentiment", "raw_liability",
+            }
+            if table not in ALLOWED:
+                self.send_error(400, "Invalid table name")
+                return
+            conn = get_conn()
+            try:
+                # Get columns
+                cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+                # Get up to 5 sample rows
+                rows = conn.execute(f"SELECT * FROM {table} LIMIT 5").fetchall()
+                data = {
+                    "columns": cols,
+                    "rows": [list(r) for r in rows],
+                    "total_rows": conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0],
+                }
+            except Exception as e:
+                self.send_error(500, str(e))
+                return
+            finally:
+                conn.close()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")

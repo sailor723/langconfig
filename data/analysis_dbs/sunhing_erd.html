@@ -56,6 +56,11 @@ svg.relations{position:absolute;top:0;left:0;width:100%;height:100%;pointer-even
 .modal-body .col-detail .col-desc{color:#999;font-size:11px}
 .modal-body .supports{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
 .modal-body .supports span{background:#0f3460;padding:3px 8px;border-radius:4px;font-size:11px;color:#aaa}
+.sample-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+.sample-table th{text-align:left;padding:5px 6px;background:#0f3460;color:#aaa;border-bottom:1px solid #1a1a3e;font-weight:600;white-space:nowrap}
+.sample-table td{padding:4px 6px;border-bottom:1px solid #0f3460;color:#ccc;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+.sample-table tr:hover td{background:rgba(15,52,96,.5)}
+.sample-loading{color:#666;font-size:12px;padding:8px 0}
 
 </style>
 </head>
@@ -527,8 +532,41 @@ function showModal(tableName) {
     html += '</div>';
   }
 
+  // Sample data section (loaded async)
+  html += '<div class="section-title">📄 Sample Data (first 5 rows)</div>';
+  html += '<div id="sampleContainer" class="sample-loading">Loading sample data...</div>';
+
   document.getElementById('modalBody').innerHTML = html;
   document.getElementById('modalOverlay').classList.add('show');
+
+  // Fetch sample data
+  fetch('/api/sample-data?table=' + tableName)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var container = document.getElementById('sampleContainer');
+      if (!data.rows || data.rows.length === 0) {
+        container.innerHTML = '<span style="color:#666;font-size:12px;">No data in this table.</span>';
+        return;
+      }
+      var tbl = '<table class="sample-table"><tr>';
+      data.columns.forEach(function(c) { tbl += '<th>' + c + '</th>'; });
+      tbl += '</tr>';
+      data.rows.forEach(function(row) {
+        tbl += '<tr>';
+        row.forEach(function(cell) {
+          var val = cell === null ? '<span style="color:#555">NULL</span>' : String(cell);
+          tbl += '<td>' + val + '</td>';
+        });
+        tbl += '</tr>';
+      });
+      tbl += '</table>';
+      tbl += '<div style="margin-top:6px;font-size:11px;color:#555;">Showing ' + data.rows.length + ' of ' + data.total_rows + ' total rows</div>';
+      container.innerHTML = tbl;
+    })
+    .catch(function(err) {
+      document.getElementById('sampleContainer').innerHTML =
+        '<span style="color:#e74c3c;font-size:12px;">Failed to load sample data: ' + err.message + '</span>';
+    });
 }
 
 window.closeModal = function() {
