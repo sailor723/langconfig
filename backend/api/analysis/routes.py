@@ -90,6 +90,7 @@ class DashboardFile(BaseModel):
     db_path: Optional[str] = None
     skills: list[str] = []
     mode: Optional[str] = None   # 'static-embed' | 'live-fetch' | None
+    entry: Optional[str] = None  # 'hub' | 'detail' | None
 
 
 ANALYSIS_DBS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "analysis_dbs"
@@ -125,6 +126,7 @@ async def list_dashboards():
     META_DB = re.compile(r"LangConfig Dashboard Meta\s*\n\s*db:\s*(\S+)")
     META_SKILLS = re.compile(r"db:\s*\S+\s*\n\s*skills:\s*([^\n]+)")
     META_MODE = re.compile(r"Mode:\s*(\S+)")
+    META_ENTRY = re.compile(r"entry:\s*([^\n]+)")
     if not ANALYSIS_DBS_DIR.exists():
         return []
     files = sorted(ANALYSIS_DBS_DIR.glob("*.html"), key=lambda f: f.stat().st_mtime, reverse=True)
@@ -139,6 +141,7 @@ async def list_dashboards():
         db_m = META_DB.search(head)
         sk_m = META_SKILLS.search(head)
         mo_m = META_MODE.search(head)
+        en_m = META_ENTRY.search(head)
         out.append(DashboardFile(
             filename=f.name,
             path=f"/api/files/{f.name}",
@@ -147,6 +150,7 @@ async def list_dashboards():
             db_path=db_m.group(1) if db_m else None,
             skills=[s.strip() for s in sk_m.group(1).split(",")] if sk_m else [],
             mode=mo_m.group(1) if mo_m else None,
+            entry=en_m.group(1).strip() if en_m else None,
         ))
     return out
 
@@ -1039,6 +1043,7 @@ def _load_dashboard_meta(hash_id: str) -> dict:
         db_m = re.search(r"LangConfig Dashboard Meta\s*\n\s*db:\s*(\S+)", head)
         sk_m = re.search(r"db:\s*\S+\s*\n\s*skills:\s*([^\n]+)", head)
         mo_m = re.search(r"Mode:\s*(\S+)", head)
+        en_m = re.search(r"entry:\s*([^\n]+)", head)
         if not db_m:
             continue
         return {
@@ -1046,6 +1051,7 @@ def _load_dashboard_meta(hash_id: str) -> dict:
             "db_path": db_m.group(1),
             "skills": [s.strip() for s in sk_m.group(1).split(",")] if sk_m else [],
             "mode": mo_m.group(1) if mo_m else None,
+            "entry": en_m.group(1).strip() if en_m else None,
             "table_name": "",   # unknown without reading the embedded data
             "source": "html_meta",
         }
