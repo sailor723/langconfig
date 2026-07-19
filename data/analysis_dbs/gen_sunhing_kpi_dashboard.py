@@ -432,6 +432,7 @@ def factor_health_class(score: float) -> str:
 def nav_links_html(active: str) -> str:
     """Generate nav-links block with active page highlighted."""
     pages = [
+        ("Intro", "/api/files/sunhing_intro.html"),
         ("Main Dashboard", "/api/files/sunhing_dashboard.html"),
         ("Profit", "/api/files/sunhing_dashboard_profit.html"),
         ("Turnover", "/api/files/sunhing_dashboard_turnover.html"),
@@ -1226,6 +1227,7 @@ hub_html = f"""<!DOCTYPE html>
 
 <div class="container">
   <div class="nav-links">
+    <a href="/api/files/sunhing_intro.html">Intro</a>
     <a href="/api/files/sunhing_dashboard_profit.html">Profit (KPI 01-09)</a>
     <a href="/api/files/sunhing_dashboard_turnover.html">Turnover (10-13)</a>
     <a href="/api/files/sunhing_dashboard_leverage.html">Leverage (14-17)</a>

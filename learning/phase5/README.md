@@ -1612,6 +1612,87 @@ The dashboard detail view adds four panels accessible from the header bar:
 | `src/pages/AnalysisPage.tsx` | All panels + resize + theme injection in single component |
 | `backend/api/analysis/routes.py` | Chat endpoint with `skill_content` context injection |
 
+#### Sunhing Mock Data Lineage
+
+The Sunhing business-study flow uses a **mock data pipeline** that ends in a
+SQLite DB consumed by both the dashboard HTML and the analysis chat.
+
+**End-to-end flow:**
+
+```text
+deepagents-quickstarts/.../gen_mock_data.py
+├─ builds mock source systems
+│  ├─ hr_raw
+│  ├─ finance_raw
+│  ├─ prod_raw
+│  ├─ legal_raw
+│  ├─ digital_raw
+│  ├─ pmo_raw
+│  ├─ crm_raw
+│  ├─ entity_raw
+│  └─ sentiment_raw
+│
+├─ builds mock KPI outputs
+│  ├─ kpi_data
+│  ├─ risk_data
+│  └─ roe_summary
+│
+└─ writes mock_kpi_data_v2.0.json
+         │
+         v
+data/analysis_dbs/sunhing_kpi_db.py
+├─ dim_kpi
+├─ fact_kpi_monthly   <- from kpi_data + risk_data
+├─ fact_roe_summary   <- from roe_summary
+├─ raw_hr / raw_finance / raw_production / raw_legal
+├─ raw_digital_platform / raw_sentiment
+└─ helper-generated tables
+   ├─ raw_pmo / dim_pmo_phase
+   ├─ raw_crm
+   ├─ raw_entity
+   ├─ raw_employee
+   └─ raw_liability
+         │
+         v
+data/analysis_dbs/sunhing_kpi.db
+         │
+         ├─ gen_sunhing_kpi_dashboard.py
+         │    └─ sunhing_dashboard.html + detail HTML dashboards
+         │
+         └─ analysis backend / chat
+              └─ query SQLite for verification and answers
+```
+
+**Important distinction:**
+
+- `fact_kpi_monthly` is the **monthly KPI result layer**.
+  - It is inserted from upstream mock KPI outputs (`kpi_data`, `risk_data`).
+  - Its KPI definitions still point to intended raw sources such as
+    `raw_finance`, `raw_production`, `raw_entity`, and `raw_digital_platform`.
+- `fact_roe_summary` is the **monthly DuPont summary layer**.
+  - It is inserted from upstream mock `roe_summary` rows.
+  - In the current repo, it is not recomputed inside `sunhing_kpi_db.py`; it is
+    generated earlier in `gen_mock_data.py` and then loaded into SQLite.
+
+**Why the main dashboard can show both `98.0` and `1.08`:**
+
+- `98.0` is a **factor-card score** from `fact_kpi_monthly`.
+  - For `资产周转率`, the dashboard scores KPI `10-13` individually and averages
+    them in `gen_sunhing_kpi_dashboard.py`.
+- `1.08` is the **raw DuPont asset turnover** from `fact_roe_summary`.
+  - It is shown in the ROE decomposition line:
+    `净利润率 × 资产周转率 × 权益乘数`.
+
+**Mental model:**
+
+```text
+mock source assumptions
+-> mock JSON
+-> SQLite fact tables
+-> static HTML dashboards
+-> analysis panel + analysis chat
+```
+
 #### Key Learnings
 
 | Lesson | Detail |

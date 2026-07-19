@@ -506,7 +506,8 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
                 "- **End every answer with a one-line conclusion** in a quote block: `> **结论:** ...` — one sentence, not a paragraph.\n"
                 "- **Long answers**: if the answer is >8 lines, lead with a 2-3 line summary, then detail.\n"
                 "- **Numbers**: when comparing two values, always show the % delta next to the absolute (e.g. `$10.1M → $11.4M (+12.9%)`).\n"
-                "- For dashboard-linked chats, answer directly from the business context and the current dashboard data. Do not add long process disclosures unless the user asks for methodology.\n"
+                "- For dashboard-linked chats, answer directly from the business context. Do not add long process disclosures unless the user asks for methodology.\n"
+                "- If the user asks about a value visible on the dashboard, use SQLite queries and the skill logic to derive or verify it. Do not treat HTML-rendered numbers as the answer source.\n"
                 + (f"\\n=== COMPANION SKILL ===\\n{resolved_skill_content}\\n=== END COMPANION SKILL ===\\n" if resolved_skill_content else "")
             ),
             backend=backend,
@@ -757,7 +758,8 @@ async def _run_analysis_agent(
             "- **End every answer with a one-line conclusion** in a quote block: `> **结论:** ...` — one sentence, not a paragraph.\n"
             "- **Long answers**: if the answer is >8 lines, lead with a 2-3 line summary, then detail.\n"
             "- **Numbers**: when comparing two values, always show the % delta next to the absolute (e.g. `$10.1M → $11.4M (+12.9%)`).\n"
-            "- For dashboard-linked chats, answer directly from the business context and the current dashboard data. Do not add long process disclosures unless the user asks for methodology.\n"
+            "- For dashboard-linked chats, answer directly from the business context. Do not add long process disclosures unless the user asks for methodology.\n"
+            "- If the user asks about a value visible on the dashboard, use SQLite queries and the skill logic to derive or verify it. Do not treat HTML-rendered numbers as the answer source.\n"
             + f"{'\\n=== COMPANION SKILL ===\\n' + (skill_content or '') + '\\n=== END COMPANION SKILL ===\\n' if skill_content else ''}"
         ),
         backend=backend,
