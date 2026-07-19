@@ -2,15 +2,20 @@
 <html lang="zh-CN">
 <head>
 <!--
+  Generated: 2026-07-19 12:30 | Source: sunhing_kpi.db | Mode: static-embed
   LangConfig Dashboard Meta
   db: data/analysis_dbs/sunhing_kpi.db
   skills: sunhing-analyst
+  mode: static-embed
   entry: detail
+  title: Profit Factor Dashboard
+  study: sunhing-transformation
 -->
-<meta charset="utf-8"><title>Sun Hing — 净利润率 KPI Group</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sun Hing — Profit Factor Dashboard</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-
   :root {
     --navy: #0B2344;
     --navy-mid: #1A3A5C;
@@ -102,14 +107,12 @@
     gap: 14px;
     margin-bottom: 18px;
   }
-  .summary.wide { grid-template-columns: repeat(8, 1fr); }
-  .kpi-card, .summary-card, .card, .kpi-big, .insight-box {
+  .kpi-card, .summary-card, .card, .insight-box {
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   }
   .kpi-card, .summary-card { padding: 16px; border-left: 4px solid #1f77b4; }
-  .summary-card { min-width: 120px; }
   .kpi-card .label, .summary-card .label {
     font-size: 11px;
     color: #7f8c8d;
@@ -141,13 +144,13 @@
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
   .grid .full { grid-column: 1 / -1; }
   .chart { width: 100%; height: 300px; }
-  .kpi-table, .cat-table, table {
+  .kpi-table, table {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
     background: #fff;
   }
-  .kpi-table th, .cat-table th, table th {
+  .kpi-table th, table th {
     text-align: left;
     padding: 8px 10px;
     background: #f8f9fa;
@@ -155,35 +158,28 @@
     font-weight: 600;
     white-space: nowrap;
   }
-  .kpi-table td, .cat-table td, table td {
+  .kpi-table td, table td {
     padding: 7px 10px;
     border-bottom: 1px solid #f0f0f0;
   }
-  .kpi-table .met, .kpi-table .safe { color: #2ca02c; font-weight: 600; }
-  .kpi-table .miss, .kpi-table .warn, .kpi-table .danger { color: #e74c3c; font-weight: 600; }
+  .kpi-table .met { color: #2ca02c; font-weight: 600; }
+  .kpi-table .miss { color: #e74c3c; font-weight: 600; }
+  .kpi-table .safe { color: #2ca02c; font-weight: 600; }
+  .kpi-table .warn { color: #e74c3c; font-weight: 600; }
   .insight-box { padding: 16px 20px; border-left: 4px solid #2ca02c; }
   .insight-box h3 { margin: 0 0 8px; font-size: 14px; color: var(--navy); }
   .insight-box ul { margin: 0; padding-left: 18px; font-size: 13px; color: #333; }
   .insight-box li { margin: 4px 0; }
-  .progress-bar, .bar {
-    height: 8px;
-    border-radius: 6px;
-    background: #eee;
-    overflow: hidden;
-    margin-top: 6px;
-  }
-  .progress-fill, .bar-fill { height: 100%; border-radius: 6px; transition: width .5s; }
-  .bar-fill.warn { background: #ff7f0e; }
-  .bar-fill.danger { background: #e74c3c; }
   @media (max-width: 1100px) {
-    .kpi-row, .summary, .summary.wide { grid-template-columns: repeat(2, 1fr); }
+    .kpi-row, .summary { grid-template-columns: repeat(2, 1fr); }
     .grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 640px) {
-    .kpi-row, .summary, .summary.wide { grid-template-columns: 1fr; }
+    .kpi-row, .summary { grid-template-columns: 1fr; }
   }
 
-</style></head>
+</style>
+</head>
 <body>
 
 <div class="header">
@@ -196,7 +192,8 @@
 
 <div class="baseline-bar">
   <div>当前主题 <span>净利润率 / 利润修复</span></div>
-  <div>入口 <span>Sun Hing detail page</span></div>
+  <div>观察期 <span>2026-09 → 2027-02</span></div>
+  <div>当前月 <span>2027-02</span></div>
 </div>
 
 <div class="container">
@@ -204,68 +201,281 @@
   <div class="nav-links">
     <a href="/api/files/sunhing_dashboard.html">Main Dashboard</a>
     <a href="/api/files/sunhing_dashboard_profit.html" class="active">Profit</a>
-    <a href="/api/files/sunhing_dashboard_turnover.html" class="">Turnover</a>
-    <a href="/api/files/sunhing_dashboard_leverage.html" class="">Leverage</a>
-    <a href="/api/files/sunhing_dashboard_support.html" class="">Support</a>
-    <a href="/api/files/sunhing_dashboard_risk.html" class="">Risk</a>
-    <a href="/api/files/sunhing_dashboard_employees.html" class="">Employees</a>
-    <a href="/api/files/sunhing_dashboard_liability.html" class="">Liability</a>
-    <a href="/api/files/sunhing_erd.html" class="">ERD</a>
-    <a href="/api/files/sunhing_gantt.html" class="">Gantt</a>
+    <a href="/api/files/sunhing_dashboard_turnover.html">Turnover</a>
+    <a href="/api/files/sunhing_dashboard_leverage.html">Leverage</a>
+    <a href="/api/files/sunhing_dashboard_support.html">Support</a>
+    <a href="/api/files/sunhing_dashboard_risk.html">Risk</a>
+    <a href="/api/files/sunhing_dashboard_employees.html">Employees</a>
+    <a href="/api/files/sunhing_dashboard_liability.html">Liability</a>
+    <a href="/api/files/sunhing_erd.html">ERD</a>
+    <a href="/api/files/sunhing_gantt.html">Gantt</a>
   </div>
 
   <div class="page-title">📈 净利润率 Factor Dashboard</div>
   <div class="page-subtitle">净利润率因子看板 · KPI 01-09 执行与盈利修复</div>
 
-<div class="kpi-row">
-  <div class="kpi-card ok"><div class="label">工序保留 (KPI #05)</div><div class="value">98%</div><div class="note">Target 95% ✅</div></div>
-  <div class="kpi-card warn"><div class="label">生产人员占比 (KPI #06)</div><div class="value">21.4%</div><div class="note">Target 55% △ 33.6 gap</div></div>
-  <div class="kpi-card warn"><div class="label">核心厂区利润 (KPI #07)</div><div class="value">38.5%</div><div class="note">Target 40% △ 1.5 gap</div></div>
-  <div class="kpi-card ok"><div class="label">生态伙伴利润 (KPI #08)</div><div class="value">15.8%</div><div class="note">Target 15% ✅ Exceeded</div></div>
-</div>
+  <div class="kpi-row">
+    <div class="kpi-card warn"><div class="label">01 协商减员完成率</div><div class="value">94.6%</div><div class="note">Target 100.0% △ 5.4 gap</div></div>
+    <div class="kpi-card ok"><div class="label">02 历史人力成本追缴化解率</div><div class="value">84.5%</div><div class="note">Target 80.0% ✅ Met</div></div>
+    <div class="kpi-card ok"><div class="label">03 赔偿金额预算控制率</div><div class="value">93.5%</div><div class="note">Target 100.0% ✅ Met</div></div>
+    <div class="kpi-card ok"><div class="label">04 劳动仲裁与诉讼事件数</div><div class="value">0</div><div class="note">Target 0 ✅ Met</div></div>
+    <div class="kpi-card ok"><div class="label">05 工序保留完成率</div><div class="value">98.0%</div><div class="note">Target 95.0% ✅ Met</div></div>
+    <div class="kpi-card warn"><div class="label">06 生产人员占比优化率</div><div class="value">21.4%</div><div class="note">Target 55.0% △ 33.6 gap</div></div>
+    <div class="kpi-card warn"><div class="label">07 核心厂区利润贡献率</div><div class="value">38.5%</div><div class="note">Target 40.0% △ 1.5 gap</div></div>
+    <div class="kpi-card ok"><div class="label">08 生态伙伴厂利润贡献率</div><div class="value">15.8%</div><div class="note">Target 15.0% ✅ Met</div></div>
+    <div class="kpi-card warn"><div class="label">09 数字资产价值转化率</div><div class="value">7.2%</div><div class="note">Target 8.0% △ 0.8 gap</div></div>
+  </div>
 
-<div class="grid">
-  <div class="card"><div class="chart-title">KPI #04 劳动仲裁事件数</div><div id="c04" class="chart"></div></div>
-  <div class="card"><div class="chart-title">KPI #05 工序保留完成率 (%)</div><div id="c05" class="chart"></div></div>
-  <div class="card"><div class="chart-title">KPI #06 生产人员占比 (%)</div><div id="c06" class="chart"></div></div>
-  <div class="card"><div class="chart-title">KPI #07 核心厂区利润贡献率 (%)</div><div id="c07" class="chart"></div></div>
-  <div class="card"><div class="chart-title">KPI #08 生态伙伴利润贡献率 (%)</div><div id="c08" class="chart"></div></div>
-  <div class="card"><div class="chart-title">KPI #09 数字资产价值转化率 (%)</div><div id="c09" class="chart"></div></div>
-</div>
+  <div class="grid">
+    <div class="card"><div class="chart-title">01_协商减员完成率</div><div id="c01" class="chart"></div></div>
+    <div class="card"><div class="chart-title">02_历史人力成本追缴化解率</div><div id="c02" class="chart"></div></div>
+    <div class="card"><div class="chart-title">03_赔偿金额预算控制率</div><div id="c03" class="chart"></div></div>
+    <div class="card"><div class="chart-title">04_劳动仲裁与诉讼事件数</div><div id="c04" class="chart"></div></div>
+    <div class="card"><div class="chart-title">05_工序保留完成率</div><div id="c05" class="chart"></div></div>
+    <div class="card"><div class="chart-title">06_生产人员占比优化率</div><div id="c06" class="chart"></div></div>
+    <div class="card"><div class="chart-title">07_核心厂区利润贡献率</div><div id="c07" class="chart"></div></div>
+    <div class="card"><div class="chart-title">08_生态伙伴厂利润贡献率</div><div id="c08" class="chart"></div></div>
+    <div class="card"><div class="chart-title">09_数字资产价值转化率</div><div id="c09" class="chart"></div></div>
+  </div>
 
-<div class="card" >
-  <h3 style="margin:0 0 10px;font-size:14px;">📋 净利润率 KPI Status — All 9 KPIs</h3>
-  <table class="kpi-table">
-    <tr><th>#</th><th>KPI</th><th>Feb</th><th>Target</th><th>Gap</th><th>Status</th></tr>
-    <tr><td>01</td><td>协商减员完成率</td><td>94.6%</td><td>100%</td><td>5.4%</td><td class="miss">In Progress</td></tr>
-    <tr><td>02</td><td>历史人力成本追缴化解率</td><td>84.5%</td><td>80%</td><td>+4.5%</td><td class="met">✅ Met</td></tr>
-    <tr><td>03</td><td>赔偿金额预算控制率</td><td>93.5%</td><td>100%</td><td>6.5%</td><td class="miss">In Progress</td></tr>
+  <div class="card">
+    <h3 style="margin:0 0 10px;font-size:14px;">📋 净利润率 Factor Dashboard KPI Status</h3>
+    <table class="kpi-table">
+      <tr><th>#</th><th>KPI</th><th>2027-02</th><th>Target</th><th>Gap</th><th>Status</th></tr>
+    <tr><td>01</td><td>协商减员完成率</td><td>94.6%</td><td>100.0%</td><td>5.4</td><td class="miss">⚠️ Near Miss</td></tr>
+    <tr><td>02</td><td>历史人力成本追缴化解率</td><td>84.5%</td><td>80.0%</td><td>-4.5</td><td class="met">✅ Met</td></tr>
+    <tr><td>03</td><td>赔偿金额预算控制率</td><td>93.5%</td><td>100.0%</td><td>-6.5</td><td class="met">✅ Met</td></tr>
     <tr><td>04</td><td>劳动仲裁与诉讼事件数</td><td>0</td><td>0</td><td>0</td><td class="met">✅ Met</td></tr>
-    <tr><td>05</td><td>工序保留完成率</td><td>98%</td><td>95%</td><td>+3%</td><td class="met">✅ Met</td></tr>
-    <tr><td>06</td><td>生产人员占比优化率</td><td>21.4%</td><td>55%</td><td>33.6%</td><td class="miss">⚠️ Far Behind</td></tr>
-    <tr><td>07</td><td>核心厂区利润贡献率</td><td>38.5%</td><td>40%</td><td>1.5%</td><td class="miss">⚠️ Near Miss</td></tr>
-    <tr><td>08</td><td>生态伙伴厂利润贡献率</td><td>15.8%</td><td>15%</td><td>+0.8%</td><td class="met">✅ Met</td></tr>
-    <tr><td>09</td><td>数字资产价值转化率</td><td>7.2%</td><td>8%</td><td>0.8%</td><td class="miss">⚠️ Near Miss</td></tr>
-  </table>
-</div>
+    <tr><td>05</td><td>工序保留完成率</td><td>98.0%</td><td>95.0%</td><td>-3.0</td><td class="met">✅ Met</td></tr>
+    <tr><td>06</td><td>生产人员占比优化率</td><td>21.4%</td><td>55.0%</td><td>33.6</td><td class="miss">⚠️ Far Behind</td></tr>
+    <tr><td>07</td><td>核心厂区利润贡献率</td><td>38.5%</td><td>40.0%</td><td>1.5</td><td class="miss">⚠️ Near Miss</td></tr>
+    <tr><td>08</td><td>生态伙伴厂利润贡献率</td><td>15.8%</td><td>15.0%</td><td>-0.8</td><td class="met">✅ Met</td></tr>
+    <tr><td>09</td><td>数字资产价值转化率</td><td>7.2%</td><td>8.0%</td><td>0.8</td><td class="miss">⚠️ Near Miss</td></tr>
+    </table>
+  </div>
 
-<div class="insight-box">
-  <h3>关键洞察</h3>
-  <ul>
-    <li><strong>已完成</strong>: KPI #04 (0 disputes), #05 (98% process retention), #08 (15.8% eco-partner profit ✅ exceeded)</li>
-    <li><strong>接近达标</strong>: KPI #07 core factory profit 38.5% vs 40%, KPI #09 digital asset 7.2% vs 8%</li>
-    <li><strong>需重点关注</strong>: KPI #06 production ratio only 21.4% vs 55% — far from target, core transformation metric</li>
-    <li><strong>趋势</strong>: 劳动仲裁从峰值的5件降至0; 数字资产转化率稳步上升</li>
-  </ul>
+  <div class="insight-box">
+    <h3>关键洞察</h3>
+    <ul>
+<li><strong>已完成</strong>: 历史人力成本追缴化解率 (84.5%)、赔偿金额预算控制率 (93.5%)、劳动仲裁与诉讼事件数 (0)</li>
+<li><strong>接近达标</strong>: 协商减员完成率 94.6% vs 100.0% — 差距 5.4</li>
+<li><strong>接近达标</strong>: 核心厂区利润贡献率 38.5% vs 40.0% — 差距 1.5</li>
+<li><strong>接近达标</strong>: 数字资产价值转化率 7.2% vs 8.0% — 差距 0.8</li>
+<li><strong>需重点关注</strong>: 生产人员占比优化率 仅 21.4% vs 55.0% — 差距较大</li>
+    </ul>
+  </div>
+
 </div>
 
 <script>
-var M = ["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02"];
-Plotly.newPlot('c04',[{x:M,y:[0,2,5,3,1,0],type:'scatter',mode:'lines+markers',line:{color:'#e74c3c',width:3}}],{title:'KPI #04 劳动仲裁事件数',yaxis:{dtick:1},margin:{t:52,b:30,l:40,r:10}});
-Plotly.newPlot('c05',[{x:M,y:[100,98,95,93,96,98],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3}},{x:M,y:M.map(function(){return 95}),type:'scatter',mode:'lines',name:'Target',line:{color:'#999',width:1,dash:'dash'}}],{title:'KPI #05 工序保留完成率 (%)',yaxis:{range:[85,105]},margin:{t:52,b:30,l:40,r:10},showlegend:false});
-Plotly.newPlot('c06',[{x:M,y:[0,2.3,7.1,12,16.8,21.4],type:'scatter',mode:'lines+markers',line:{color:'#ff7f0e',width:3}},{x:M,y:M.map(function(){return 55}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #06 生产人员占比 (%)',yaxis:{range:[0,60]},margin:{t:52,b:30,l:40,r:10},showlegend:false});
-Plotly.newPlot('c07',[{x:M,y:[10.2,15.8,22.5,28.3,33.7,38.5],type:'scatter',mode:'lines+markers',line:{color:'#1f77b4',width:3}},{x:M,y:M.map(function(){return 40}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #07 核心厂区利润贡献率 (%)',margin:{t:52,b:30,l:40,r:10},showlegend:false});
-Plotly.newPlot('c08',[{x:M,y:[0,2.1,5.6,8.9,12.3,15.8],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3},fill:'tozeroy',fillcolor:'rgba(44,160,44,0.1)'},{x:M,y:M.map(function(){return 15}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #08 生态伙伴利润贡献率 (%)',margin:{t:52,b:30,l:40,r:10},showlegend:false});
-Plotly.newPlot('c09',[{x:M,y:[0.5,1.2,2.3,3.8,5.5,7.2],type:'scatter',mode:'lines+markers',line:{color:'#9467bd',width:3}},{x:M,y:M.map(function(){return 8}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #09 数字资产价值转化率 (%)',margin:{t:52,b:30,l:40,r:10},showlegend:false});
-</script></div>
-</body></html>
+var periods = ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"];
+
+Plotly.newPlot('c01', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [0.0, 14.0, 39.7, 65.4, 84.1, 94.6],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#ff7f0e', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 100.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+
+Plotly.newPlot('c02', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [2.9, 11.7, 32.1, 55.4, 72.8, 84.5],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#2ca02c', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 80.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+
+Plotly.newPlot('c03', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [0.0, 13.8, 39.2, 64.6, 83.1, 93.5],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#2ca02c', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 100.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+
+Plotly.newPlot('c04', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [0.0, 2.0, 5.0, 3.0, 1.0, 0.0],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#2ca02c', width: 3 },
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+
+Plotly.newPlot('c05', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [100.0, 98.0, 95.0, 93.0, 96.0, 98.0],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#2ca02c', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 95.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+
+Plotly.newPlot('c06', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [0.0, 2.3, 7.1, 12.0, 16.8, 21.4],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#ff7f0e', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 55.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+
+Plotly.newPlot('c07', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [10.2, 15.8, 22.5, 28.3, 33.7, 38.5],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#ff7f0e', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 40.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+
+Plotly.newPlot('c08', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [0.0, 2.1, 5.6, 8.9, 12.3, 15.8],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#2ca02c', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 15.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+
+Plotly.newPlot('c09', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [0.5, 1.2, 2.3, 3.8, 5.5, 7.2],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#ff7f0e', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 8.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+</script>
+</body>
+</html>

@@ -2,15 +2,20 @@
 <html lang="zh-CN">
 <head>
 <!--
+  Generated: 2026-07-19 12:30 | Source: sunhing_kpi.db | Mode: static-embed
   LangConfig Dashboard Meta
   db: data/analysis_dbs/sunhing_kpi.db
   skills: sunhing-analyst
+  mode: static-embed
   entry: detail
+  title: Turnover Factor Dashboard
+  study: sunhing-transformation
 -->
-<meta charset="utf-8"><title>Sun Hing — 资产周转率 KPI Group</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sun Hing — Turnover Factor Dashboard</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-
   :root {
     --navy: #0B2344;
     --navy-mid: #1A3A5C;
@@ -102,14 +107,12 @@
     gap: 14px;
     margin-bottom: 18px;
   }
-  .summary.wide { grid-template-columns: repeat(8, 1fr); }
-  .kpi-card, .summary-card, .card, .kpi-big, .insight-box {
+  .kpi-card, .summary-card, .card, .insight-box {
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   }
   .kpi-card, .summary-card { padding: 16px; border-left: 4px solid #1f77b4; }
-  .summary-card { min-width: 120px; }
   .kpi-card .label, .summary-card .label {
     font-size: 11px;
     color: #7f8c8d;
@@ -141,13 +144,13 @@
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
   .grid .full { grid-column: 1 / -1; }
   .chart { width: 100%; height: 300px; }
-  .kpi-table, .cat-table, table {
+  .kpi-table, table {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
     background: #fff;
   }
-  .kpi-table th, .cat-table th, table th {
+  .kpi-table th, table th {
     text-align: left;
     padding: 8px 10px;
     background: #f8f9fa;
@@ -155,35 +158,28 @@
     font-weight: 600;
     white-space: nowrap;
   }
-  .kpi-table td, .cat-table td, table td {
+  .kpi-table td, table td {
     padding: 7px 10px;
     border-bottom: 1px solid #f0f0f0;
   }
-  .kpi-table .met, .kpi-table .safe { color: #2ca02c; font-weight: 600; }
-  .kpi-table .miss, .kpi-table .warn, .kpi-table .danger { color: #e74c3c; font-weight: 600; }
+  .kpi-table .met { color: #2ca02c; font-weight: 600; }
+  .kpi-table .miss { color: #e74c3c; font-weight: 600; }
+  .kpi-table .safe { color: #2ca02c; font-weight: 600; }
+  .kpi-table .warn { color: #e74c3c; font-weight: 600; }
   .insight-box { padding: 16px 20px; border-left: 4px solid #2ca02c; }
   .insight-box h3 { margin: 0 0 8px; font-size: 14px; color: var(--navy); }
   .insight-box ul { margin: 0; padding-left: 18px; font-size: 13px; color: #333; }
   .insight-box li { margin: 4px 0; }
-  .progress-bar, .bar {
-    height: 8px;
-    border-radius: 6px;
-    background: #eee;
-    overflow: hidden;
-    margin-top: 6px;
-  }
-  .progress-fill, .bar-fill { height: 100%; border-radius: 6px; transition: width .5s; }
-  .bar-fill.warn { background: #ff7f0e; }
-  .bar-fill.danger { background: #e74c3c; }
   @media (max-width: 1100px) {
-    .kpi-row, .summary, .summary.wide { grid-template-columns: repeat(2, 1fr); }
+    .kpi-row, .summary { grid-template-columns: repeat(2, 1fr); }
     .grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 640px) {
-    .kpi-row, .summary, .summary.wide { grid-template-columns: 1fr; }
+    .kpi-row, .summary { grid-template-columns: 1fr; }
   }
 
-</style></head>
+</style>
+</head>
 <body>
 
 <div class="header">
@@ -196,67 +192,162 @@
 
 <div class="baseline-bar">
   <div>当前主题 <span>资产周转率 / 轻资产化</span></div>
-  <div>入口 <span>Sun Hing detail page</span></div>
+  <div>观察期 <span>2026-09 → 2027-02</span></div>
+  <div>当前月 <span>2027-02</span></div>
 </div>
 
 <div class="container">
 
   <div class="nav-links">
     <a href="/api/files/sunhing_dashboard.html">Main Dashboard</a>
-    <a href="/api/files/sunhing_dashboard_profit.html" class="">Profit</a>
+    <a href="/api/files/sunhing_dashboard_profit.html">Profit</a>
     <a href="/api/files/sunhing_dashboard_turnover.html" class="active">Turnover</a>
-    <a href="/api/files/sunhing_dashboard_leverage.html" class="">Leverage</a>
-    <a href="/api/files/sunhing_dashboard_support.html" class="">Support</a>
-    <a href="/api/files/sunhing_dashboard_risk.html" class="">Risk</a>
-    <a href="/api/files/sunhing_dashboard_employees.html" class="">Employees</a>
-    <a href="/api/files/sunhing_dashboard_liability.html" class="">Liability</a>
-    <a href="/api/files/sunhing_erd.html" class="">ERD</a>
-    <a href="/api/files/sunhing_gantt.html" class="">Gantt</a>
+    <a href="/api/files/sunhing_dashboard_leverage.html">Leverage</a>
+    <a href="/api/files/sunhing_dashboard_support.html">Support</a>
+    <a href="/api/files/sunhing_dashboard_risk.html">Risk</a>
+    <a href="/api/files/sunhing_dashboard_employees.html">Employees</a>
+    <a href="/api/files/sunhing_dashboard_liability.html">Liability</a>
+    <a href="/api/files/sunhing_erd.html">ERD</a>
+    <a href="/api/files/sunhing_gantt.html">Gantt</a>
   </div>
 
   <div class="page-title">🔄 资产周转率 Factor Dashboard</div>
   <div class="page-subtitle">资产周转率因子看板 · KPI 10-13 轻资产与周转效率</div>
 
-<div class="kpi-row">
-  <div class="kpi-card warn"><div class="label">固定资产利用率 (KPI #10)</div><div class="value">115%</div><div class="note">Target 120% △ 5 gap</div></div>
-  <div class="kpi-card warn"><div class="label">轻资产化指数 (KPI #11)</div><div class="value">24</div><div class="note">Target 25 △ 1 gap</div></div>
-  <div class="kpi-card ok"><div class="label">数字资产归集复用 (KPI #12)</div><div class="value">42%</div><div class="note">Target 40% ✅ Exceeded</div></div>
-  <div class="kpi-card ok"><div class="label">变革资本再投资 (KPI #13)</div><div class="value">72%</div><div class="note">Target 70% ✅ Exceeded</div></div>
-</div>
+  <div class="kpi-row">
+    <div class="kpi-card warn"><div class="label">10 核心厂区固定资产利用率</div><div class="value">115.0%</div><div class="note">Target 120.0% △ 5.0 gap</div></div>
+    <div class="kpi-card warn"><div class="label">11 生态伙伴轻资产化指数</div><div class="value">24.0%</div><div class="note">Target 25.0% △ 1.0 gap</div></div>
+    <div class="kpi-card ok"><div class="label">12 数字资产归集与复用率</div><div class="value">42.0%</div><div class="note">Target 40.0% ✅ Met</div></div>
+    <div class="kpi-card ok"><div class="label">13 变革资本再投资率</div><div class="value">72.0%</div><div class="note">Target 70.0% ✅ Met</div></div>
+  </div>
 
-<div class="grid">
-  <div class="card"><div class="chart-title">KPI #10 固定资产利用率 (%)</div><div id="c10" class="chart"></div></div>
-  <div class="card"><div class="chart-title">KPI #11 轻资产化指数</div><div id="c11" class="chart"></div></div>
-  <div class="card"><div class="chart-title">KPI #12 数字资产归集复用率 (%)</div><div id="c12" class="chart"></div></div>
-  <div class="card"><div class="chart-title">KPI #13 变革资本再投资率 (%)</div><div id="c13" class="chart"></div></div>
-</div>
+  <div class="grid">
+    <div class="card"><div class="chart-title">10_核心厂区固定资产利用率</div><div id="c10" class="chart"></div></div>
+    <div class="card"><div class="chart-title">11_生态伙伴轻资产化指数</div><div id="c11" class="chart"></div></div>
+    <div class="card"><div class="chart-title">12_数字资产归集与复用率</div><div id="c12" class="chart"></div></div>
+    <div class="card"><div class="chart-title">13_变革资本再投资率</div><div id="c13" class="chart"></div></div>
+  </div>
 
-<div class="card" >
-  <h3 style="margin:0 0 10px;font-size:14px;">📋 资产周转率 KPI Status</h3>
-  <table class="kpi-table">
-    <tr><th>#</th><th>KPI</th><th>Feb</th><th>Target</th><th>Gap</th><th>Status</th></tr>
-    <tr><td>10</td><td>核心厂区固定资产利用率</td><td>115%</td><td>120%</td><td>5%</td><td class="miss">⚠️ Near Miss</td></tr>
-    <tr><td>11</td><td>生态伙伴轻资产化指数</td><td>24</td><td>25</td><td>1</td><td class="miss">⚠️ Near Miss</td></tr>
-    <tr><td>12</td><td>数字资产归集与复用率</td><td>42%</td><td>40%</td><td>+2%</td><td class="met">✅ Met</td></tr>
-    <tr><td>13</td><td>变革资本再投资率</td><td>72%</td><td>70%</td><td>+2%</td><td class="met">✅ Met</td></tr>
-  </table>
-</div>
+  <div class="card">
+    <h3 style="margin:0 0 10px;font-size:14px;">📋 资产周转率 Factor Dashboard KPI Status</h3>
+    <table class="kpi-table">
+      <tr><th>#</th><th>KPI</th><th>2027-02</th><th>Target</th><th>Gap</th><th>Status</th></tr>
+    <tr><td>10</td><td>核心厂区固定资产利用率</td><td>115.0%</td><td>120.0%</td><td>5.0</td><td class="miss">⚠️ Near Miss</td></tr>
+    <tr><td>11</td><td>生态伙伴轻资产化指数</td><td>24.0%</td><td>25.0%</td><td>1.0</td><td class="miss">⚠️ Near Miss</td></tr>
+    <tr><td>12</td><td>数字资产归集与复用率</td><td>42.0%</td><td>40.0%</td><td>-2.0</td><td class="met">✅ Met</td></tr>
+    <tr><td>13</td><td>变革资本再投资率</td><td>72.0%</td><td>70.0%</td><td>-2.0</td><td class="met">✅ Met</td></tr>
+    </table>
+  </div>
 
-<div class="insight-box">
-  <h3>关键洞察</h3>
-  <ul>
-    <li><strong>已完成</strong>: KPI #12 (42% digital asset reuse) and KPI #13 (72% reinvestment rate) exceeded targets</li>
-    <li><strong>接近达标</strong>: KPI #10 fixed asset utilization 115% vs 120%, KPI #11 asset-light index 24 vs 25</li>
-    <li><strong>趋势</strong>: All 4 KPIs on strong upward trajectory, expected to meet targets within 1-2 months</li>
-    <li><strong>资产周转效率</strong>: 固定资产利用率从65%升至115%，反映产能集中和效率提升</li>
-  </ul>
+  <div class="insight-box">
+    <h3>关键洞察</h3>
+    <ul>
+<li><strong>已完成</strong>: 数字资产归集与复用率 (42.0%)、变革资本再投资率 (72.0%)</li>
+<li><strong>接近达标</strong>: 核心厂区固定资产利用率 115.0% vs 120.0% — 差距 5.0</li>
+<li><strong>接近达标</strong>: 生态伙伴轻资产化指数 24.0% vs 25.0% — 差距 1.0</li>
+    </ul>
+  </div>
+
 </div>
 
 <script>
-var M = ["2026-09","2026-10","2026-11","2026-12","2027-01","2027-02"];
-Plotly.newPlot('c10',[{x:M,y:[65,72,83,91,102,115],type:'scatter',mode:'lines+markers',line:{color:'#1f77b4',width:3}},{x:M,y:M.map(function(){return 120}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #10 固定资产利用率 (%)',margin:{t:52,b:30,l:40,r:10},showlegend:false});
-Plotly.newPlot('c11',[{x:M,y:[0,3,8,14,19,24],type:'scatter',mode:'lines+markers',line:{color:'#ff7f0e',width:3},fill:'tozeroy',fillcolor:'rgba(255,127,14,0.1)'},{x:M,y:M.map(function(){return 25}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #11 轻资产化指数',margin:{t:52,b:30,l:40,r:10},showlegend:false});
-Plotly.newPlot('c12',[{x:M,y:[5,12,18,25,33,42],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3}},{x:M,y:M.map(function(){return 40}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #12 数字资产归集复用率 (%)',margin:{t:52,b:30,l:40,r:10},showlegend:false});
-Plotly.newPlot('c13',[{x:M,y:[0,15,35,50,62,72],type:'scatter',mode:'lines+markers',line:{color:'#9467bd',width:3}},{x:M,y:M.map(function(){return 70}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #13 变革资本再投资率 (%)',margin:{t:52,b:30,l:40,r:10},showlegend:false});
-</script></div>
-</body></html>
+var periods = ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"];
+
+Plotly.newPlot('c10', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [65.0, 72.0, 83.0, 91.0, 102.0, 115.0],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#ff7f0e', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 120.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+
+Plotly.newPlot('c11', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [0.0, 3.0, 8.0, 14.0, 19.0, 24.0],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#ff7f0e', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 25.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+
+Plotly.newPlot('c12', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [5.0, 12.0, 18.0, 25.0, 33.0, 42.0],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#2ca02c', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 40.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+
+Plotly.newPlot('c13', [
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: [0.0, 15.0, 35.0, 50.0, 62.0, 72.0],
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: { color: '#2ca02c', width: 3 },
+  },
+
+  {
+    x: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"],
+    y: ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"].map(function() { return 70.0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: { color: '#e74c3c', width: 1, dash: 'dash' }
+  },
+
+], {
+  margin: { t: 36, b: 30, l: 40, r: 10 },
+  hovermode: 'x unified',
+  showlegend: false
+});
+</script>
+</body>
+</html>

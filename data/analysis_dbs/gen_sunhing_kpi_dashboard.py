@@ -1,10 +1,16 @@
 """
-Generate the main Sun Hing executive dashboard.
+Generate ALL Sun Hing executive dashboards from the SQLite database.
 
-The main dashboard is a read-only executive cockpit for the Sun Hing
-transformation program. It follows the visual language of the ROE KPI
-simulator while rendering live metrics from SQLite instead of interactive
-score inputs.
+Produces:
+  - sunhing_dashboard.html         — main hub (executive cockpit)
+  - sunhing_dashboard_profit.html  — 净利润率 (KPI 01-09)
+  - sunhing_dashboard_turnover.html  — 资产周转率 (KPI 10-13)
+  - sunhing_dashboard_leverage.html  — 权益乘数 (KPI 14-17)
+  - sunhing_dashboard_support.html   — 支撑层 (KPI 18-21)
+  - sunhing_dashboard_risk.html      — 风险监控 (RS01-RS07)
+
+All follow the visual language of the ROE KPI simulator
+(ROE_KPI_模拟器.html) while rendering live metrics from SQLite.
 """
 
 from __future__ import annotations
@@ -17,7 +23,17 @@ from pathlib import Path
 
 
 DB_PATH = Path(__file__).parent / "sunhing_kpi.db"
-OUTPUT_PATH = Path(__file__).parent / "sunhing_dashboard.html"
+OUTPUT_DIR = Path(__file__).parent
+DB_META_PATH = "data/analysis_dbs/sunhing_kpi.db"
+
+DASHBOARD_META = {
+    "db": DB_META_PATH,
+    "skills": "sunhing-analyst",
+    "mode": "static-embed",
+    "entry": "hub",
+    "title": "Sun Hing ROE Executive Dashboard",
+    "study": "sunhing-transformation",
+}
 
 LOWER_IS_BETTER = {
     "03_赔偿金额预算控制率",
@@ -79,13 +95,254 @@ FACTOR_META = {
     },
 }
 
+# ── Shared CSS for sub-dashboards ──────────────────────────────────────
+
+SUB_CSS = """
+  :root {
+    --navy: #0B2344;
+    --navy-mid: #1A3A5C;
+    --gold: #B5935A;
+    --gold-light: #D4AF70;
+    --slate: #4A5568;
+    --mid-grey: #718096;
+    --light-grey: #E2E8F0;
+    --body: #1A202C;
+    --green: #00B050;
+    --orange: #FFC000;
+    --red: #FF5050;
+    --dark-green: #006600;
+    --dark-blue: #1F4E79;
+    --dark-purple: #5B2C6F;
+    --dark-orange: #C65911;
+    --dark-red: #7A1F1F;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0 0 40px 0;
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    background: #f0f2f5;
+    color: var(--body);
+    line-height: 1.5;
+  }
+  .header {
+    background: var(--navy);
+    color: white;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header h1 { font-size: 20px; font-weight: 700; margin: 0; }
+  .header .sub { font-size: 13px; color: var(--gold-light); }
+  .baseline-bar {
+    background: var(--navy-mid);
+    color: white;
+    padding: 10px 24px;
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .baseline-bar span { color: var(--gold-light); }
+  .container {
+    max-width: 1320px;
+    margin: 20px auto;
+    padding: 0 16px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .nav-links a {
+    background: #fff;
+    color: var(--slate);
+    text-decoration: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .nav-links a:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+  .nav-links a.active {
+    background: var(--navy);
+    color: white;
+  }
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .page-subtitle {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .kpi-row, .summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .kpi-card, .summary-card, .card, .insight-box {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .kpi-card, .summary-card { padding: 16px; border-left: 4px solid #1f77b4; }
+  .kpi-card .label, .summary-card .label {
+    font-size: 11px;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .kpi-card .value, .summary-card .value {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 4px 0 2px;
+  }
+  .kpi-card .note, .summary-card .note {
+    font-size: 12px;
+    color: #999;
+  }
+  .kpi-card.ok, .summary-card.ok { border-left-color: #2ca02c; }
+  .kpi-card.warn, .summary-card.warn { border-left-color: #ff7f0e; }
+  .kpi-card.danger, .summary-card.danger { border-left-color: #e74c3c; }
+  .card { padding: 14px 16px; margin-bottom: 16px; }
+  .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #2c3e50;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid .full { grid-column: 1 / -1; }
+  .chart { width: 100%; height: 300px; }
+  .kpi-table, table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: #fff;
+  }
+  .kpi-table th, table th {
+    text-align: left;
+    padding: 8px 10px;
+    background: #f8f9fa;
+    border-bottom: 2px solid #eee;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .kpi-table td, table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .kpi-table .met { color: #2ca02c; font-weight: 600; }
+  .kpi-table .miss { color: #e74c3c; font-weight: 600; }
+  .kpi-table .safe { color: #2ca02c; font-weight: 600; }
+  .kpi-table .warn { color: #e74c3c; font-weight: 600; }
+  .insight-box { padding: 16px 20px; border-left: 4px solid #2ca02c; }
+  .insight-box h3 { margin: 0 0 8px; font-size: 14px; color: var(--navy); }
+  .insight-box ul { margin: 0; padding-left: 18px; font-size: 13px; color: #333; }
+  .insight-box li { margin: 4px 0; }
+  @media (max-width: 1100px) {
+    .kpi-row, .summary { grid-template-columns: repeat(2, 1fr); }
+    .grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .kpi-row, .summary { grid-template-columns: 1fr; }
+  }
+"""
+
+# ── Sub-dashboard definitions ─────────────────────────────────────────
+# Each entry: (filename, title_en, title_cn, subtitle, factor_key, kpi_ids, header_class, accent_color)
+
+SUB_DASHBOARDS = [
+    {
+        "filename": "sunhing_dashboard_profit.html",
+        "title_en": "Profit Factor Dashboard",
+        "title_cn": "净利润率 Factor Dashboard",
+        "subtitle": "净利润率因子看板 · KPI 01-09 执行与盈利修复",
+        "icon": "📈",
+        "baseline_label": "净利润率 / 利润修复",
+        "factor_key": "净利润率",
+        "kpi_prefix": None,  # all KPIs for this factor
+        "header_class": "npm",
+        "accent": "#006600",
+        "active_nav": "Profit",
+    },
+    {
+        "filename": "sunhing_dashboard_turnover.html",
+        "title_en": "Turnover Factor Dashboard",
+        "title_cn": "资产周转率 Factor Dashboard",
+        "subtitle": "资产周转率因子看板 · KPI 10-13 轻资产与周转效率",
+        "icon": "🔄",
+        "baseline_label": "资产周转率 / 轻资产化",
+        "factor_key": "资产周转率",
+        "kpi_prefix": None,
+        "header_class": "at",
+        "accent": "#1F4E79",
+        "active_nav": "Turnover",
+    },
+    {
+        "filename": "sunhing_dashboard_leverage.html",
+        "title_en": "Leverage Factor Dashboard",
+        "title_cn": "权益乘数 Factor Dashboard",
+        "subtitle": "权益乘数因子看板 · KPI 14-17 资本结构与协同放大",
+        "icon": "🏗️",
+        "baseline_label": "权益乘数 / 架构重组",
+        "factor_key": "权益乘数",
+        "kpi_prefix": None,
+        "header_class": "em",
+        "accent": "#5B2C6F",
+        "active_nav": "Leverage",
+    },
+    {
+        "filename": "sunhing_dashboard_support.html",
+        "title_en": "Support Factor Dashboard",
+        "title_cn": "支撑层 Factor Dashboard",
+        "subtitle": "支撑层看板 · KPI 18-21 人才、PMO 与制度落地",
+        "icon": "🛡️",
+        "baseline_label": "支撑层 / 执行保障",
+        "factor_key": "支撑层",
+        "kpi_prefix": None,
+        "header_class": "sup",
+        "accent": "#C65911",
+        "active_nav": "Support",
+    },
+    {
+        "filename": "sunhing_dashboard_risk.html",
+        "title_en": "Risk Monitoring Dashboard",
+        "title_cn": "风险监控 Dashboard",
+        "subtitle": "风险监控看板 · RS01-RS07 预警阈值与收口动作",
+        "icon": "⚠️",
+        "baseline_label": "风险监控 / 预警",
+        "factor_key": "风险监控",
+        "kpi_prefix": "RS",
+        "header_class": "risk",
+        "accent": "#7A1F1F",
+        "active_nav": "Risk",
+    },
+]
+
+# Chart color mapping per KPI index (cycling)
+CHART_COLORS = ["#2ca02c", "#1f77b4", "#ff7f0e", "#9467bd", "#e74c3c", "#17becf"]
+
+
+# ── Helpers ────────────────────────────────────────────────────────────
 
 def is_lower_better(kpi_id: str) -> bool:
     return kpi_id in LOWER_IS_BETTER
 
 
 def calc_score(actual: float, target: float, kpi_id: str) -> float:
-    """Normalize KPI achievement to a 0-100 score for dashboard summaries."""
     if target == 0:
         return 100.0 if actual == 0 else 0.0
     if is_lower_better(kpi_id):
@@ -144,6 +401,20 @@ def grade_from_score(score: float) -> str:
     return "C"
 
 
+def render_dashboard_meta(generated_at: str, source_name: str, meta: dict) -> str:
+    lines = [
+        "<!--",
+        f"  Generated: {generated_at} | Source: {source_name} | Mode: {meta['mode']}",
+        "  LangConfig Dashboard Meta",
+    ]
+    for key in ("db", "skills", "mode", "entry", "title", "study"):
+        value = meta.get(key)
+        if value:
+            lines.append(f"  {key}: {value}")
+    lines.append("-->")
+    return "\n".join(lines)
+
+
 def factor_health_class(score: float) -> str:
     if score >= 90:
         return "good"
@@ -152,16 +423,287 @@ def factor_health_class(score: float) -> str:
     return "risk"
 
 
+def nav_links_html(active: str) -> str:
+    """Generate nav-links block with active page highlighted."""
+    pages = [
+        ("Main Dashboard", "/api/files/sunhing_dashboard.html"),
+        ("Profit", "/api/files/sunhing_dashboard_profit.html"),
+        ("Turnover", "/api/files/sunhing_dashboard_turnover.html"),
+        ("Leverage", "/api/files/sunhing_dashboard_leverage.html"),
+        ("Support", "/api/files/sunhing_dashboard_support.html"),
+        ("Risk", "/api/files/sunhing_dashboard_risk.html"),
+        ("Employees", "/api/files/sunhing_dashboard_employees.html"),
+        ("Liability", "/api/files/sunhing_dashboard_liability.html"),
+        ("ERD", "/api/files/sunhing_erd.html"),
+        ("Gantt", "/api/files/sunhing_gantt.html"),
+    ]
+    links = []
+    for label, href in pages:
+        cls = ' class="active"' if label == active else ""
+        links.append(f'    <a href="{href}"{cls}>{label}</a>')
+    return "\n".join(links)
+
+
+def generate_chart_js(chart_id: str, kpi_id: str, periods: list, actuals: list, target_val: float) -> str:
+    """Generate Plotly JS for a single KPI time-series chart."""
+    actuals_json = json.dumps(actuals)
+    periods_json = json.dumps(periods)
+
+    # Pick color based on last value vs target
+    last_val = actuals[-1] if actuals else 0
+    is_ok = is_met(last_val, target_val, kpi_id) if target_val != 0 else (last_val == 0)
+    color = "#2ca02c" if is_ok else "#ff7f0e"
+
+    # Determine title from kpi_id
+    pretty_id = kpi_id.split("_", 1)[0]
+
+    js = f"""
+Plotly.newPlot('{chart_id}', [
+  {{
+    x: {periods_json},
+    y: {actuals_json},
+    type: 'scatter',
+    mode: 'lines+markers',
+    line: {{ color: '{color}', width: 3 }},
+  }},
+"""
+
+    if target_val is not None and target_val != 0:
+        js += f"""
+  {{
+    x: {periods_json},
+    y: {periods_json}.map(function() {{ return {target_val}; }}),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Target',
+    line: {{ color: '#e74c3c', width: 1, dash: 'dash' }}
+  }},
+"""
+
+    js += f"""
+], {{
+  margin: {{ t: 36, b: 30, l: 40, r: 10 }},
+  hovermode: 'x unified',
+  showlegend: false
+}});"""
+    return js
+
+
+def generate_sub_dashboard_html(
+    db_cursor: sqlite3.Cursor,
+    config: dict,
+    periods: list,
+    all_monthly_data: dict,
+) -> str:
+    """Generate a factor sub-dashboard HTML file."""
+    factor_key = config["factor_key"]
+    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    # Get latest period
+    latest_p = periods[-1]
+    earliest_p = periods[0]
+
+    # Get KPI data for this factor
+    kpi_rows = db_cursor.execute(
+        """
+        SELECT f.kpi_id, d.kpi_name, d.roe_factor, f.actual, f.target, f.unit
+        FROM fact_kpi_monthly f
+        JOIN dim_kpi d ON f.kpi_id = d.kpi_id
+        WHERE f.company_id = 1 AND f.period = ? AND d.roe_factor = ?
+        ORDER BY f.kpi_id
+        """,
+        (latest_p, factor_key),
+    ).fetchall()
+
+    items = []
+    for row in kpi_rows:
+        row = dict(row)
+        row["kpi_name"] = clean_name(row["kpi_name"])
+        row["score"] = round(calc_score(row["actual"], row["target"], row["kpi_id"]), 1)
+        row["met"] = is_met(row["actual"], row["target"], row["kpi_id"])
+        row["actual_display"] = format_value(row["actual"], row["unit"])
+        row["target_display"] = format_value(row["target"], row["unit"])
+        items.append(row)
+
+    # Summary cards (top 4 items)
+    summary_cards = []
+    for item in items:
+        card_class = "ok" if item["met"] else "warn"
+        gap = item["target"] - item["actual"] if not is_lower_better(item["kpi_id"]) else item["actual"] - item["target"]
+        kpi_short = item["kpi_id"].split("_", 1)[0]
+        note = (
+            f"Target {item['target_display']} ✅ Met"
+            if item["met"]
+            else f"Target {item['target_display']} △ {abs(gap):.1f} gap"
+        )
+        summary_cards.append(
+            f'    <div class="kpi-card {card_class}">'
+            f'<div class="label">{kpi_short} {item["kpi_name"]}</div>'
+            f'<div class="value">{item["actual_display"]}</div>'
+            f'<div class="note">{note}</div></div>'
+        )
+
+    # KPI status table rows (all items)
+    table_rows = []
+    for item in items:
+        kpi_short = item["kpi_id"].split("_", 1)[0]
+        status_cls = "met" if item["met"] else "miss"
+        status_text = "✅ Met" if item["met"] else ("⚠️ Near Miss" if item["score"] >= 70 else "⚠️ Far Behind")
+        gap = item["target"] - item["actual"] if not is_lower_better(item["kpi_id"]) else item["actual"] - item["target"]
+        gap_str = f"+{gap:.1f}" if gap > 0 and item["met"] else f"{gap:.1f}" if gap != 0 else "0"
+        table_rows.append(
+            f"    <tr><td>{kpi_short}</td><td>{item['kpi_name']}</td>"
+            f"<td>{item['actual_display']}</td>"
+            f"<td>{item['target_display']}</td>"
+            f"<td>{gap_str}</td>"
+            f'<td class="{status_cls}">{status_text}</td></tr>'
+        )
+
+    # Generate chart JS for each KPI
+    chart_js_parts = []
+    for i, item in enumerate(items):
+        kpi_short = item["kpi_id"]
+        chart_id = f"c{kpi_short.split('_', 1)[0]}"
+        monthly = all_monthly_data.get(kpi_short, [])
+        if monthly:
+            chart_js_parts.append(
+                generate_chart_js(chart_id, kpi_short, periods, monthly, item["target"])
+            )
+
+    # Chart grid cards
+    chart_cards = []
+    for i, item in enumerate(items):
+        kpi_short = item["kpi_id"].split("_", 1)[0]
+        chart_cards.append(
+            f'    <div class="card">'
+            f'<div class="chart-title">{item["kpi_id"]}</div>'
+            f'<div id="c{kpi_short}" class="chart"></div></div>'
+        )
+
+    # Insight text — auto-generated from items
+    met_items = [it for it in items if it["met"]]
+    miss_items = [it for it in items if not it["met"]]
+    near_miss = [it for it in miss_items if it["score"] >= 70]
+    far_behind = [it for it in miss_items if it["score"] < 70]
+
+    insight_parts = []
+    if met_items:
+        met_names = "、".join(f'{it["kpi_name"]} ({it["actual_display"]})' for it in met_items[:3])
+        insight_parts.append(f"<li><strong>已完成</strong>: {met_names}</li>")
+    if near_miss:
+        for it in near_miss:
+            gap = abs((it["target"] - it["actual"]) if not is_lower_better(it["kpi_id"]) else (it["actual"] - it["target"]))
+            insight_parts.append(
+                f"<li><strong>接近达标</strong>: {it['kpi_name']} {it['actual_display']} vs {it['target_display']}"
+                f" — 差距 {gap:.1f}</li>"
+            )
+    if far_behind:
+        for it in far_behind:
+            insight_parts.append(
+                f"<li><strong>需重点关注</strong>: {it['kpi_name']} 仅 {it['actual_display']} vs {it['target_display']}"
+                f" — 差距较大</li>"
+            )
+    if not insight_parts:
+        insight_parts.append("<li><strong>所有KPI均达标</strong>: 本因子所有指标均达到或超过目标值</li>")
+
+    meta_block = render_dashboard_meta(
+        generated_at, DB_PATH.name,
+        {"db": DB_META_PATH, "skills": "sunhing-analyst", "mode": "static-embed",
+         "entry": "detail", "title": config["title_en"], "study": "sunhing-transformation"}
+    )
+
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+{meta_block}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sun Hing — {config["title_en"]}</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>{SUB_CSS}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>{config["icon"]} {config["title_cn"]}</h1>
+    <div class="sub">Sun Hing Vision Group detail dashboard · aligned with executive cockpit visual system</div>
+  </div>
+  <div style="font-size:13px;color:var(--gold-light)">Sun Hing transformation dashboard suite</div>
+</div>
+
+<div class="baseline-bar">
+  <div>当前主题 <span>{config["baseline_label"]}</span></div>
+  <div>观察期 <span>{earliest_p} → {latest_p}</span></div>
+  <div>当前月 <span>{latest_p}</span></div>
+</div>
+
+<div class="container">
+
+  <div class="nav-links">
+{nav_links_html(config["active_nav"])}
+  </div>
+
+  <div class="page-title">{config["icon"]} {config["title_cn"]}</div>
+  <div class="page-subtitle">{config["subtitle"]}</div>
+
+  <div class="kpi-row">
+{chr(10).join(summary_cards)}
+  </div>
+
+  <div class="grid">
+{chr(10).join(chart_cards)}
+  </div>
+
+  <div class="card">
+    <h3 style="margin:0 0 10px;font-size:14px;">📋 {config["title_cn"]} KPI Status</h3>
+    <table class="kpi-table">
+      <tr><th>#</th><th>KPI</th><th>{latest_p}</th><th>Target</th><th>Gap</th><th>Status</th></tr>
+{chr(10).join(table_rows)}
+    </table>
+  </div>
+
+  <div class="insight-box">
+    <h3>关键洞察</h3>
+    <ul>
+{chr(10).join(insight_parts)}
+    </ul>
+  </div>
+
+</div>
+
+<script>
+var periods = {json.dumps(periods)};
+{chr(10).join(chart_js_parts)}
+</script>
+</body>
+</html>"""
+    return html
+
+
+# ══════════════════════════════════════════════════════════════════════
+# MAIN
+# ══════════════════════════════════════════════════════════════════════
+
 conn = sqlite3.connect(str(DB_PATH))
 conn.row_factory = sqlite3.Row
 
+# ── Periods ────────────────────────────────────────────────────────────
 latest_period = conn.execute(
     "SELECT MAX(period) AS period FROM fact_kpi_monthly WHERE company_id = 1"
 ).fetchone()["period"]
 earliest_period = conn.execute(
     "SELECT MIN(period) AS period FROM fact_kpi_monthly WHERE company_id = 1"
 ).fetchone()["period"]
+all_periods = [
+    r["period"]
+    for r in conn.execute(
+        "SELECT DISTINCT period FROM fact_kpi_monthly WHERE company_id = 1 ORDER BY period"
+    ).fetchall()
+]
 
+# ── ROE trend ──────────────────────────────────────────────────────────
 roe_rows = [
     dict(row)
     for row in conn.execute(
@@ -174,6 +716,7 @@ roe_rows = [
     ).fetchall()
 ]
 
+# ── Latest KPI data (for hub) ──────────────────────────────────────────
 latest_kpis = [
     dict(row)
     for row in conn.execute(
@@ -203,22 +746,32 @@ latest_kpis = [
     ).fetchall()
 ]
 
+# ── Monthly time-series data for all KPIs (for sub-dashboard charts) ───
+all_monthly_data: dict[str, list[float]] = defaultdict(list)
+for row in conn.execute(
+    """
+    SELECT kpi_id, period, actual
+    FROM fact_kpi_monthly
+    WHERE company_id = 1
+    ORDER BY kpi_id, period
+    """
+).fetchall():
+    all_monthly_data[row["kpi_id"]].append(row["actual"])
+
+# ── HR data ────────────────────────────────────────────────────────────
 raw_hr = [
     dict(row)
     for row in conn.execute(
         """
-        SELECT
-            period,
-            total_headcount,
-            production_headcount,
-            severance_completed_cumulative,
-            severance_paid_cumulative_wan
+        SELECT period, total_headcount, production_headcount,
+               severance_completed_cumulative, severance_paid_cumulative_wan
         FROM raw_hr
         ORDER BY period
         """
     ).fetchall()
 ]
 
+# ── Liability data ─────────────────────────────────────────────────────
 raw_liability = [
     dict(row)
     for row in conn.execute(
@@ -232,7 +785,7 @@ raw_liability = [
 
 conn.close()
 
-# Enrich KPI rows for rendering and summaries.
+# ── Enrich KPI rows for hub ────────────────────────────────────────────
 factor_groups: dict[str, list[dict]] = defaultdict(list)
 for row in latest_kpis:
     row["kpi_name"] = clean_name(row["kpi_name"])
@@ -250,20 +803,18 @@ for factor_name, items in factor_groups.items():
     met_count = sum(1 for item in items if item["met"])
     avg_score = round(sum(item["score"] for item in items) / len(items), 1)
     critical = min(items, key=lambda item: item["score"])
-    factor_cards.append(
-        {
-            "factor": factor_name,
-            "short": meta["short"],
-            "score": avg_score,
-            "met_count": met_count,
-            "total": len(items),
-            "grade": grade_from_score(avg_score),
-            "health_class": factor_health_class(avg_score),
-            "meta": meta,
-            "critical_name": critical["kpi_name"],
-            "critical_status": critical["status_detail"],
-        }
-    )
+    factor_cards.append({
+        "factor": factor_name,
+        "short": meta["short"],
+        "score": avg_score,
+        "met_count": met_count,
+        "total": len(items),
+        "grade": grade_from_score(avg_score),
+        "health_class": factor_health_class(avg_score),
+        "meta": meta,
+        "critical_name": critical["kpi_name"],
+        "critical_status": critical["status_detail"],
+    })
 
 factor_cards.sort(
     key=lambda card: ["净利润率", "资产周转率", "权益乘数", "支撑层", "风险监控"].index(card["factor"])
@@ -288,6 +839,7 @@ liability_total = sum(item["total_amount_wan"] for item in raw_liability)
 liability_resolved = sum(item["resolved_wan"] for item in raw_liability)
 liability_remaining = sum(item["remaining_wan"] for item in raw_liability)
 
+# ── Build hub sections (collapsible factor tables) ─────────────────────
 sections_html = []
 for factor_name, items in factor_groups.items():
     meta = FACTOR_META[factor_name]
@@ -333,6 +885,7 @@ for factor_name, items in factor_groups.items():
         """.strip()
     )
 
+# ── Generate HUB HTML ──────────────────────────────────────────────────
 embedded_data = {
     "roeTrend": roe_rows,
     "latestKpis": latest_kpis,
@@ -342,17 +895,12 @@ embedded_data = {
 }
 
 generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+meta_block = render_dashboard_meta(generated_at, DB_PATH.name, DASHBOARD_META)
 
-html = f"""<!DOCTYPE html>
+hub_html = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<!--
-  Generated: {generated_at} | Source: sunhing_kpi.db | Mode: static-embed
-  LangConfig Dashboard Meta
-  db: {DB_PATH}
-  skills: sunhing-analyst
-  entry: hub
--->
+{meta_block}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sun Hing — ROE Executive Dashboard</title>
@@ -680,7 +1228,7 @@ html = f"""<!DOCTYPE html>
         {'+' if roe_delta > 0 else ''}{roe_delta:.1f}% vs {earliest_period}
       </div>
       <div style="font-size:12px;color:#94a3b8;margin-top:4px">
-        {roe_rows[-1]["net_profit_margin"]:.1f}% × {roe_rows[-1]["asset_turnover"]:.2f} × {roe_rows[-1]["equity_multiplier"]:.2f}
+        {roe_rows[-1]["net_profit_margin"]:.1f}% \u00d7 {roe_rows[-1]["asset_turnover"]:.2f} \u00d7 {roe_rows[-1]["equity_multiplier"]:.2f}
       </div>
     </div>
   </div>
@@ -729,7 +1277,7 @@ function toggleSection(header) {{
   var body = header.nextElementSibling;
   var icon = header.querySelector('.toggle-icon');
   body.classList.toggle('open');
-  icon.textContent = body.classList.contains('open') ? '▼' : '▶';
+  icon.textContent = body.classList.contains('open') ? '\u25bc' : '\u25b6';
 }}
 
 var roeRows = EMBEDDED_DATA.roeTrend;
@@ -778,6 +1326,31 @@ Plotly.newPlot('factor-score', [{{
 </html>
 """
 
-OUTPUT_PATH.write_text(html, encoding="utf-8")
-print(f"✅ Dashboard generated: {OUTPUT_PATH}")
-print(f"   File size: {len(html):,} bytes")
+# ── Write hub HTML ─────────────────────────────────────────────────────
+hub_path = OUTPUT_DIR / "sunhing_dashboard.html"
+hub_path.write_text(hub_html, encoding="utf-8")
+print(f"\u2705 Hub dashboard generated: {hub_path}")
+print(f"   File size: {len(hub_html):,} bytes")
+
+# ── Generate ALL sub-dashboards ────────────────────────────────────────
+for sd_config in SUB_DASHBOARDS:
+    # Open a fresh DB connection for each dashboard
+    sub_conn = sqlite3.connect(str(DB_PATH))
+    sub_conn.row_factory = sqlite3.Row
+    sub_html = generate_sub_dashboard_html(
+        sub_conn,
+        sd_config,
+        all_periods,
+        dict(all_monthly_data),
+    )
+    sub_conn.close()
+
+    sub_path = OUTPUT_DIR / sd_config["filename"]
+    sub_path.write_text(sub_html, encoding="utf-8")
+    print(f"\u2705 Sub-dashboard generated: {sub_path} ({len(sub_html):,} bytes)")
+
+print(f"\n\u2705 All dashboards generated successfully.")
+print(f"   Hub: sunhing_dashboard.html")
+print(f"   Sub-dashboards:")
+for sd in SUB_DASHBOARDS:
+    print(f"     - {sd['filename']}")
