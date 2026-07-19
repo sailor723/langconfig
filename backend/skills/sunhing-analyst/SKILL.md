@@ -279,155 +279,464 @@ Use these tables only when the question needs detail that the dim model doesn't 
 
 ## 业务逻辑（KPI 定义）
 
+### 仪表盘评分层（Dashboard Scoring Layer）
+
+When the user asks "why does the card show 98?" or "how is this factor score calculated?", explain **both layers**:
+
+1. **Raw KPI actual/target layer** from `fact_kpi_monthly` or the relevant raw tables
+2. **Dashboard score layer** used by the main HTML factor cards
+
+**Dashboard KPI score**
+- **What it is**: A normalized 0-100 score used to compare KPIs with different units on the same executive dashboard.
+- **How to calculate**:
+  - Higher-is-better KPI: `score = MIN(100, actual * 100.0 / target)`
+  - Lower-is-better KPI: `score = MIN(100, target * 100.0 / actual)` when `actual > 0`; if `actual <= 0`, score is `100`
+  - If `target = 0`: score is `100` only when `actual = 0`, otherwise `0`
+- **Focus**: This score is a dashboard normalization layer, not the raw KPI value itself.
+
+**Dashboard KPI met / miss**
+- **What it is**: Whether the KPI is considered on target in the executive dashboard.
+- **How to calculate**:
+  - Higher-is-better KPI: `actual >= target`
+  - Lower-is-better KPI: `actual <= target`
+- **Focus**: `met_count` on a factor card is the number of KPIs in that factor that satisfy the rule above.
+
+**Dashboard factor card score**
+- **What it is**: The single number shown on the factor card such as `净利润率 91.1` or `资产周转率 98.0`.
+- **How to calculate**: `factor_score = AVG(kpi_score)` across all KPIs under the same `roe_factor` in the latest month.
+- **Focus**: This is why a factor card score may not match any single raw KPI value.
+
+**Dashboard weakest KPI**
+- **What it is**: The KPI shown as the current bottleneck on the factor card.
+- **How to calculate**: Pick the KPI within the factor that has the lowest normalized `score` in the latest month.
+- **Focus**: When explaining "why this factor is weak", start from the weakest KPI first.
+
+**Ambiguous factor-name resolution**
+- **What it is**: Users may ask a short question like `what is 资产周转率` without saying whether they mean the dashboard factor card or the raw DuPont metric.
+- **How to resolve**:
+  - If the user is in the main executive dashboard / analysis panel context, treat a bare factor name such as `净利润率`, `资产周转率`, `权益乘数`, or `支撑层` as the **dashboard factor card** first.
+  - Then, if relevant, add the corresponding **raw DuPont metric** or underlying KPI evidence as the second layer.
+  - Only answer with the raw DuPont metric alone when the user explicitly asks for `raw`, `DuPont`, `fact_roe_summary`, or asks for the formula field itself.
+- **Focus**: In dashboard-linked chat, the first number the user expects should match the visible dashboard card, but the answer must still be backed by SQLite queries rather than by quoting the HTML.
+
+**Asset Turnover special rule**
+- If the user asks only `what is 资产周转率` in dashboard context:
+  - First answer the **factor card score** for `资产周转率`
+  - Then clarify that the raw DuPont `fact_roe_summary.asset_turnover` is a different number
+- Expected interpretation structure:
+  - `资产周转率（dashboard factor score）`
+  - `资产周转率（raw DuPont metric）`
+  - `KPI 10-13 evidence`
+
+**Dashboard factor SQL pattern**
+- Use this logic when reconstructing a factor card from SQLite:
+  ```sql
+  WITH latest_period AS (
+    SELECT MAX(period) AS period
+    FROM fact_kpi_monthly
+    WHERE company_id = 1
+  ),
+  factor_rows AS (
+    SELECT
+      f.kpi_id,
+      d.kpi_name,
+      d.roe_factor,
+      f.actual,
+      f.target,
+      CASE
+        WHEN f.target = 0 AND f.actual = 0 THEN 100.0
+        WHEN f.target = 0 THEN 0.0
+        WHEN d.kpi_id IN (
+          '03_赔偿金额预算控制率',
+          '04_劳动仲裁与诉讼事件数',
+          '16_新架构集团权益乘数',
+          '20_重大风险事件发生率',
+          'RS01_协商减员纠纷发生率',
+          'RS03_群体性劳动争议风险指数',
+          'RS05_海关违规/罚款金额',
+          'RS06_核心技术骨干流失率(变革期)',
+          'RS07_客户订单转移/流失率'
+        ) AND f.actual <= 0 THEN 100.0
+        WHEN d.kpi_id IN (
+          '03_赔偿金额预算控制率',
+          '04_劳动仲裁与诉讼事件数',
+          '16_新架构集团权益乘数',
+          '20_重大风险事件发生率',
+          'RS01_协商减员纠纷发生率',
+          'RS03_群体性劳动争议风险指数',
+          'RS05_海关违规/罚款金额',
+          'RS06_核心技术骨干流失率(变革期)',
+          'RS07_客户订单转移/流失率'
+        ) THEN MIN(100.0, f.target * 100.0 / f.actual)
+        ELSE MIN(100.0, f.actual * 100.0 / f.target)
+      END AS score
+    FROM fact_kpi_monthly f
+    JOIN dim_kpi d ON f.kpi_id = d.kpi_id
+    JOIN latest_period lp ON f.period = lp.period
+    WHERE f.company_id = 1
+  )
+  SELECT roe_factor, ROUND(AVG(score), 1) AS factor_score
+  FROM factor_rows
+  WHERE roe_factor = '资产周转率'
+  GROUP BY roe_factor;
+  ```
+- **Focus**: This query pattern is the DB-backed source for a dashboard factor-card answer.
+
+**Raw DuPont SQL pattern**
+- Use this when the user explicitly wants the raw DuPont metric:
+  ```sql
+  SELECT period, asset_turnover
+  FROM fact_roe_summary
+  WHERE company_id = 1
+  ORDER BY period DESC
+  LIMIT 1;
+  ```
+- **Focus**: `fact_roe_summary.asset_turnover` is not the same thing as the dashboard factor score.
+
+### KPI SQL Query Contract
+
+**Official answer source**
+- For any KPI value, target, met/miss status, or factor grouping question, the official answer source is:
+  - `dim_kpi` for KPI identity, factor, target metadata, and source description
+  - `fact_kpi_monthly` for period-level `actual` and `target`
+  - `fact_roe_summary` only for raw DuPont metrics such as `roe`, `net_profit_margin`, `asset_turnover`, and `equity_multiplier`
+- **Do not reconstruct a KPI from raw tables when `fact_kpi_monthly` already has the answer**, unless the user explicitly asks for drill-down evidence or formula provenance.
+
+**Canonical KPI resolution rule**
+- Resolve user wording to a canonical `kpi_id` first.
+- Query by `kpi_id`, not by fuzzy business prose, whenever possible.
+- If the user gives only a factor name, query all `kpi_id` rows under that `roe_factor`.
+
+**Latest-month KPI query pattern**
+```sql
+SELECT
+  f.period,
+  f.kpi_id,
+  d.kpi_name,
+  d.roe_factor,
+  f.actual,
+  f.target,
+  f.unit
+FROM fact_kpi_monthly f
+JOIN dim_kpi d ON f.kpi_id = d.kpi_id
+WHERE f.company_id = 1
+  AND f.period = (
+    SELECT MAX(period)
+    FROM fact_kpi_monthly
+    WHERE company_id = 1
+  )
+  AND f.kpi_id = '10_核心厂区固定资产利用率';
+```
+
+**Factor KPI query pattern**
+```sql
+SELECT
+  f.period,
+  f.kpi_id,
+  d.kpi_name,
+  d.roe_factor,
+  f.actual,
+  f.target,
+  f.unit
+FROM fact_kpi_monthly f
+JOIN dim_kpi d ON f.kpi_id = d.kpi_id
+WHERE f.company_id = 1
+  AND f.period = (
+    SELECT MAX(period)
+    FROM fact_kpi_monthly
+    WHERE company_id = 1
+  )
+  AND d.roe_factor = '资产周转率'
+ORDER BY f.kpi_id;
+```
+
+**Name-to-`kpi_id` alias map**
+- Use these mappings when the user uses simulator wording, business shorthand, or a variant label:
+  - `协商减员完成率` -> `01_协商减员完成率`
+  - `历史人力成本追索化解率` / `历史人力成本追缴化解率` -> `02_历史人力成本追缴化解率`
+  - `赔偿金额预算控制率` -> `03_赔偿金额预算控制率`
+  - `劳动仲裁与诉讼事件数` -> `04_劳动仲裁与诉讼事件数`
+  - `工序保留完成率` -> `05_工序保留完成率`
+  - `生产人员占比优化率` -> `06_生产人员占比优化率`
+  - `核心厂区利润贡献率` -> `07_核心厂区利润贡献率`
+  - `生态伙伴利润贡献率` / `生态伙伴厂利润贡献率` -> `08_生态伙伴厂利润贡献率`
+  - `数字资产价值转化率` -> `09_数字资产价值转化率`
+  - `核心厂区固定资产利用率` / `OEE` -> `10_核心厂区固定资产利用率`
+  - `生态伙伴轻资产化指数` -> `11_生态伙伴轻资产化指数`
+  - `数字资产归集与复用率` -> `12_数字资产归集与复用率`
+  - `变革资金再投资率` / `变革资本再投资率` -> `13_变革资本再投资率`
+  - `股权分立架构完成率` -> `14_股权分立架构完成率`
+  - `员工股权/合伙转化率` -> `15_员工股权/合伙转化率`
+  - `新架构集团权益乘数` -> `16_新架构集团权益乘数`
+  - `生态伙伴战略协同指数` -> `17_生态伙伴战略协同指数`
+  - `技术骨干留任率` / `技术骨干留任率（综合）` -> `18_技术骨干留任率`
+  - `PMO执行里程碑达成率` -> `19_PMO执行里程碑达成率`
+  - `重大风险事件发生率` -> `20_重大风险事件发生率`
+  - `员工价值交换制度落地率` -> `21_员工价值交换制度落地率`
+  - `协商减员纠纷发生率` -> `RS01_协商减员纠纷发生率`
+  - `历史追缴协商满意度` -> `RS02_历史追缴协商满意度`
+  - `群体性劳动争议风险指数` -> `RS03_群体性劳动争议风险指数`
+  - `保税物料合规处理完成率` -> `RS04_保税物料合规处理完成率`
+  - `海关违规/罚款金额` -> `RS05_海关违规/罚款金额`
+  - `核心技术骨干流失率(变革期)` -> `RS06_核心技术骨干流失率(变革期)`
+  - `客户订单转移/流失率` -> `RS07_客户订单转移/流失率`
+
+**Risk KPI name cleanup**
+- In `dim_kpi.kpi_name`, several risk KPIs are stored with a leading underscore such as `_协商减员纠纷发生率`.
+- For user-facing answers, drop the leading underscore and treat the clean label as the canonical display name.
+- Query by `kpi_id` for risk KPIs to avoid name-matching errors.
+
+**Answering rule**
+- For each KPI answer, return in this order:
+  - `kpi_id`
+  - display name
+  - latest or requested period
+  - `actual`
+  - `target`
+  - status / score if relevant
+- This keeps natural-language answers aligned with what SQL can reproduce exactly.
+
+**Lower-is-better KPI list**
+- `03_赔偿金额预算控制率`
+- `04_劳动仲裁与诉讼事件数`
+- `16_新架构集团权益乘数`
+- `20_重大风险事件发生率`
+- `RS01_协商减员纠纷发生率`
+- `RS03_群体性劳动争议风险指数`
+- `RS05_海关违规/罚款金额`
+- `RS06_核心技术骨干流失率(变革期)`
+- `RS07_客户订单转移/流失率`
+
+### `ROE_KPI_模拟器.html` 对齐规则（21 KPI Simulator Contract）
+
+The file [ROE_KPI_模拟器.html](file:///Users/weiping/dev/Learn/langchain-ai/langconfig/backend/skills/sunhing-analyst/ROE_KPI_%E6%A8%A1%E6%8B%9F%E5%99%A8.html) uses a **21-KPI executive simulator model**. When the user asks about that simulator, use this contract first.
+
+**Simulator factor structure**
+- `净利润率`: KPI `1-9`
+- `资产周转率`: KPI `10-13`
+- `权益乘数`: KPI `14-17`
+- `支撑层`: KPI `18-21`
+
+**Exact simulator KPI names**
+- `1` 协商减员完成率
+- `2` 历史人力成本追索化解率
+- `3` 赔偿金额预算控制率
+- `4` 劳动仲裁与诉讼事件数
+- `5` 工序保留完成率
+- `6` 生产人员占比优化率
+- `7` 核心厂区利润贡献率
+- `8` 生态伙伴利润贡献率
+- `9` 数字资产价值转化率
+- `10` 核心厂区固定资产利用率
+- `11` 生态伙伴轻资产化指数
+- `12` 数字资产归集与复用率
+- `13` 变革资金再投资率
+- `14` 股权分立架构完成率
+- `15` 员工股权/合伙转化率
+- `16` 新架构集团权益乘数
+- `17` 生态伙伴战略协同指数
+- `18` 技术骨干留任率（综合）
+- `19` PMO执行里程碑达成率
+- `20` 重大风险事件发生率
+- `21` 员工价值交换制度落地率
+
+**Simulator aliases to current DB/skill wording**
+- `历史人力成本追索化解率` in the simulator maps to the same business concept as `历史人力成本追缴化解率`
+- `生态伙伴利润贡献率` in the simulator maps to `生态伙伴厂利润贡献率`
+- `变革资金再投资率` in the simulator maps to `变革资本再投资率`
+- `技术骨干留任率（综合）` in the simulator maps to `技术骨干留任率`
+
+**Simulator weighted-average rule**
+- **What it is**: The simulator does not use raw KPI actual values directly. It uses a manually assigned `score` and `weight` for each of the 21 KPIs.
+- **How to calculate**: For each factor, `factor_avg = SUM(score * weight) / SUM(weight)` using only the KPIs inside that factor.
+- **Focus**: This is different from the live dashboard, which derives score from `actual` and `target`.
+
+**Simulator grade rule**
+- For all non-support factors: `A >= 90`, `B = 80-89.9`, `C < 80`
+- For `支撑层`: same grade cutoffs, but a different multiplier table
+
+**Simulator multiplier rule**
+- `净利润率 / 资产周转率 / 权益乘数`
+  - `A -> 1.15`
+  - `B -> 1.00`
+  - `C -> 0.85`
+- `支撑层`
+  - `A -> 1.05`
+  - `B -> 1.00`
+  - `C -> 0.90`
+
+**Simulator ROE formula**
+- Baseline values in the simulator:
+  - `净利润率 = 8.00%`
+  - `资产周转率 = 0.80`
+  - `权益乘数 = 2.30`
+- Adjusted values:
+  - `adj_npm = 8.00% * npm_multiplier`
+  - `adj_at = 0.80 * at_multiplier`
+  - `adj_em = 2.30 * em_multiplier`
+  - `adj_support = support_multiplier`
+- Final simulated ROE:
+  - `ROE = adj_npm * adj_at * adj_em * adj_support`
+
+**Priority KPI rule in the simulator**
+- High-priority KPIs marked `★` have higher default weights.
+- Default high-priority weight: about `6.5`
+- Default normal weight: about `3.4583`
+- Total weight across all 21 KPIs should sum to `100`
+
+**Scope note**
+- The simulator is a `21 KPI` executive model.
+- The `RS01-RS07` risk metrics are still valid in this skill for drill-down analysis, but they are **not part of the 21-KPI simulator body**.
+
 ### 净利润率 Factor (KPIs 01-09)
 
 **#01 协商减员完成率**
-- Formula: `(SELECT COUNT(*) FROM raw_employee WHERE is_severed=1) / 856.0 * 100`
-- Target: 100% (3-month: 60%, 6-month: 90%)
-- Source: raw_employee
+- **What it is**: The share of planned workforce reduction already completed through negotiated severance.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual` for the latest month. Raw-table reconstruction: `(COUNT(*) WHERE is_severed=1) / 856.0 * 100`.
+- **Focus**: Check completion pace, whether execution is front-loaded or delayed, and whether faster progress is creating dispute risk.
 
-**#02 历史人力成本追缴化解率**
-- Formula: `(SELECT SUM(resolved_wan) FROM raw_liability) / (SELECT SUM(total_amount_wan) FROM raw_liability) * 100`
-- Target: ≥80%
-- Source: raw_liability
+**#02 历史人力成本追索化解率（DB alias: 历史人力成本追缴化解率）**
+- **What it is**: The share of historical labor-related liabilities that has already been resolved.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw-table reconstruction: `SUM(resolved_wan) * 100.0 / SUM(total_amount_wan)` from `raw_liability`.
+- **Focus**: Explain both the percentage resolved and the remaining liability amount still hanging over the restructuring.
 
 **#03 赔偿金额预算控制率**
-- Formula: `(SELECT SUM(compensation_wan) FROM raw_employee) / budget_total * 100`
-- Target: ≤100%
-- Source: raw_employee, raw_finance
+- **What it is**: The severance payout consumed as a percentage of the approved budget.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic: `actual_compensation * 100.0 / budget_total`. This is a lower-is-better KPI.
+- **Focus**: A value above target means cost overrun; always quantify the overspend and its profit impact.
 
 **#04 劳动仲裁与诉讼事件数**
-- Formula: `SELECT SUM(new_labor_arbitration_cases) FROM raw_legal`
-- Target: <5 per month
-- Source: raw_legal
+- **What it is**: The count of new labor arbitration and litigation cases triggered during the period.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw check: `SUM(new_labor_arbitration_cases)` for the relevant month or window from `raw_legal`. Lower is better.
+- **Focus**: Link the count to execution quality of the workforce transition and whether disputes are escalating.
 
 **#05 工序保留完成率**
-- Formula: `critical_processes_running_current / critical_processes_running_baseline * 100`
-- Target: ≥95%
-- Source: raw_production
+- **What it is**: The percentage of critical manufacturing processes still operating compared with baseline.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic: `critical_processes_running_current * 100.0 / critical_processes_running_baseline`.
+- **Focus**: Use it to judge whether restructuring is damaging production continuity.
 
 **#06 生产人员占比优化率**
-- Formula: `production_headcount / total_headcount * 100`
-- Target: ≥65%
-- Source: raw_hr
+- **What it is**: The share of total headcount still allocated to production roles.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw-table reconstruction: `production_headcount * 100.0 / total_headcount` from `raw_hr`.
+- **Focus**: High enough to protect output, but not so high that support functions become under-resourced.
 
 **#07 核心厂区利润贡献率**
-- Formula: `core_factory_net_profit_wan / total_mfg_net_profit_wan * 100`
-- Target: ≥70%
-- Source: raw_finance
+- **What it is**: The percentage of manufacturing profit contributed by the core factory base.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic: `core_factory_net_profit_wan * 100.0 / total_mfg_net_profit_wan`.
+- **Focus**: Use it to explain whether profit recovery is still too dependent on the legacy core plants.
 
-**#08 生态伙伴厂利润贡献率**
-- Formula: `eco_partner_net_profit_wan / total_mfg_net_profit_wan * 100`
-- Target: ≥10%
-- Source: raw_finance
+**#08 生态伙伴利润贡献率（DB alias: 生态伙伴厂利润贡献率）**
+- **What it is**: The percentage of manufacturing profit coming from eco-partner entities.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic: `eco_partner_net_profit_wan * 100.0 / total_mfg_net_profit_wan`.
+- **Focus**: This shows whether the "一分为多" model is starting to generate independent profit engines.
 
 **#09 数字资产价值转化率**
-- Formula: Complex composite from digital platform data
-- Target: ≥50%
-- Source: raw_digital_platform
+- **What it is**: A composite indicator for how much digital capability is translating into economic value.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Treat it as a modeled KPI derived from digital platform readiness inputs rather than a single raw field.
+- **Focus**: Explain it as value realization, not just system launch progress; connect it to margins and future scaling.
 
 ### 资产周转率 Factor (KPIs 10-13)
 
 **#10 核心厂区固定资产利用率 (OEE)**
-- Formula: `SELECT oee_pct FROM raw_production`
-- Target: ≥70%
-- Source: raw_production
+- **What it is**: Overall Equipment Effectiveness of the core manufacturing assets.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw-table check: `oee_pct` from `raw_production` for the period.
+- **Focus**: This is usually the anchor KPI for explaining whether fixed assets are truly being used efficiently.
 
 **#11 生态伙伴轻资产化指数**
-- Formula: Composite measure of asset-light ratio at eco-partners
-- Target: ≥60%
-- Source: raw_entity
+- **What it is**: A composite index describing whether eco-partner operations are becoming lighter-asset and more flexible.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Treat it as a modeled KPI backed by `raw_entity` structure rather than a single arithmetic field.
+- **Focus**: Use it to explain whether the ecosystem is reducing balance-sheet heaviness and setup burden.
 
 **#12 数字资产归集与复用率**
-- Formula: `data_integration_pct / 100.0` from raw_digital_platform
-- Target: ≥80%
-- Source: raw_digital_platform
+- **What it is**: The percentage of digital assets and data flows that have been integrated and can be reused across the new structure.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw-table check: `data_integration_pct` from `raw_digital_platform`.
+- **Focus**: Explain it as the infrastructure that enables scale, visibility, and repeatable asset turnover improvements.
 
-**#13 变革资本再投资率**
-- Formula: `reinvested_wan / cash_released_wan * 100`
-- Target: ≥30%
-- Source: raw_finance
+**#13 变革资金再投资率（DB alias: 变革资本再投资率）**
+- **What it is**: The share of cash released by restructuring that has been reinvested into future productivity.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic: `reinvested_wan * 100.0 / cash_released_wan`.
+- **Focus**: Distinguish between cash released, cash retained, and cash put back into transformation capability.
 
 ### 权益乘数 Factor (KPIs 14-17)
 
 **#14 股权分立架构完成率**
-- Formula: Entities with separate accounting / total entities * 100
-- Target: 100%
-- Source: raw_entity
+- **What it is**: The percentage of planned entities that have completed the split-out structure with separate accounting.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic: `entities_with_separate_accounting * 100.0 / total_entities`.
+- **Focus**: This measures whether the legal and financial architecture has actually been put in place.
 
 **#15 员工股权/合伙转化率**
-- Formula: Converted to partner / severed * 100
-- Target: ≥30%
-- Source: raw_employee
+- **What it is**: The share of affected employees who have converted into equity/partner roles in the new ecosystem.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic: `COUNT(converted_to_partner=1) * 100.0 / COUNT(is_severed=1)`.
+- **Focus**: This is a quality-of-transition KPI, not just a headcount KPI.
 
 **#16 新架构集团权益乘数**
-- Formula: `SELECT equity_multiplier FROM fact_roe_summary`
-- Target: <2.0
-- Source: fact_roe_summary
+- **What it is**: The leverage multiple of the restructured group in the DuPont framework.
+- **How to calculate**: Use `equity_multiplier` from `fact_roe_summary` for the month. Lower is better because the goal is deleveraging and cleaner capital structure.
+- **Focus**: Explain whether ROE is being improved by operational quality or just by leverage.
 
 **#17 生态伙伴战略协同指数**
-- Composite index across CRM + Entity + Finance + HR
-- Target: ≥70
-- Source: Composite (raw_crm, raw_entity, raw_finance, raw_hr)
+- **What it is**: A composite score for how well eco-partner entities are coordinating commercially and operationally with the group.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Treat it as a modeled KPI built from CRM, entity, finance, and HR signals.
+- **Focus**: Use it to explain whether the new ecosystem is acting like a network instead of isolated legal entities.
 
 ### 支撑层 (KPIs 18-21)
 
-**#18 技术骨干留任率**
-- Formula: `100 - (tech_leads_severed / total_tech_leads * 100)`
-- Target: ≥90%
-- Source: raw_employee
+**#18 技术骨干留任率（综合）**
+- **What it is**: The retention rate of key technical talent during the transformation.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic: `100 - (tech_leads_severed * 100.0 / total_tech_leads)`.
+- **Focus**: Explain whether the company is losing the capabilities needed to keep product and process quality stable.
 
 **#19 PMO执行里程碑达成率**
-- Formula: `(SELECT COUNT(*) FROM raw_pmo WHERE completed_on_time=1) / (SELECT COUNT(*) FROM raw_pmo WHERE status='completed') * 100`
-- Target: ≥80%
-- Source: raw_pmo
+- **What it is**: The share of completed PMO milestones delivered on time.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic: `COUNT(completed_on_time=1) * 100.0 / COUNT(status='completed')`.
+- **Focus**: This is the execution-discipline KPI for the transformation office.
 
 **#20 重大风险事件发生率**
-- Formula: Count of major risk events (group incidents + major compliance issues)
-- Target: 0 per month
-- Source: raw_legal, raw_liability
+- **What it is**: The count of major transformation risk events in the month.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. It is a lower-is-better count KPI built from major legal, labor, or compliance incidents.
+- **Focus**: Any value above zero deserves immediate explanation because the target is zero tolerance.
 
 **#21 员工价值交换制度落地率**
-- Formula: Adoption rate of new value-exchange framework
-- Target: 100%
-- Source: raw_sentiment, raw_hr
+- **What it is**: The adoption rate of the new employee value-exchange mechanism under the restructured model.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Treat it as a modeled adoption KPI backed by HR and sentiment inputs.
+- **Focus**: Explain whether the new contract with employees has become operational, not just announced.
 
 ### 风险监控 (RS01-RS07)
 
 **RS01 协商减员纠纷发生率**
-- Formula: `(SELECT COUNT(*) FROM raw_employee WHERE has_dispute=1) / total_severed * 100`
-- Target: <3%
-- Source: raw_employee
+- **What it is**: The dispute incidence rate within negotiated severance cases.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic: `COUNT(has_dispute=1) * 100.0 / total_severed`. Lower is better.
+- **Focus**: This is the fastest signal that workforce reduction is becoming adversarial.
 
 **RS02 历史追缴协商满意度**
-- Formula: `SELECT severance_satisfaction FROM raw_sentiment`
-- Target: ≥7.0
-- Source: raw_sentiment
+- **What it is**: Satisfaction with the historical liability and severance negotiation process.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw check: `severance_satisfaction` from `raw_sentiment`.
+- **Focus**: Interpret it together with RS01 and arbitration case volume, not in isolation.
 
 **RS03 群体性劳动争议风险指数**
-- Formula: Composite: major_group_incidents * 10 + near_miss_incidents * 3
-- Target: <10
-- Source: raw_legal, raw_sentiment
+- **What it is**: A composite early-warning index for collective labor dispute escalation.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic can be approximated as `major_group_incidents * 10 + near_miss_group_incidents * 3`. Lower is better.
+- **Focus**: Explain whether the company is near a threshold event even if formal disputes remain low.
 
 **RS04 保税物料合规处理完成率**
-- Formula: Customs bonded material compliance rate
-- Target: 100%
-- Source: raw_legal
+- **What it is**: The completion rate for bonded-material compliance handling during restructuring.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Treat it as a modeled compliance completion KPI backed by legal/compliance tracking.
+- **Focus**: Because the target is 100%, any gap should be treated as a management exception.
 
 **RS05 海关违规/罚款金额**
-- Formula: Zero tolerance — 0 fines target
-- Target: 0
-- Source: raw_legal
+- **What it is**: The amount of customs-related fines or penalties incurred.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Lower is better, with a zero-tolerance target of `0`.
+- **Focus**: Always report both the amount and the implication for compliance credibility.
 
 **RS06 核心技术骨干流失率(变革期)**
-- Formula: `tech_leads_severed_in_period / total_tech_leads * 100`
-- Target: <10%
-- Source: raw_employee
+- **What it is**: The attrition rate of core technical talent during the transformation period.
+- **How to calculate**: Prefer `fact_kpi_monthly.actual`. Raw logic: `tech_leads_severed_in_period * 100.0 / total_tech_leads`. Lower is better.
+- **Focus**: A low overall severance dispute rate can still hide a serious capability drain if this KPI worsens.
 
 **RS07 客户订单转移/流失率**
-- Formula: Eco-partner order OTIF rate
-- Target: ≥95%
-- Source: raw_crm
+- **What it is**: A risk KPI tracking whether customer orders are being disrupted, transferred poorly, or lost during the transition.
+- **How to calculate**: Use `fact_kpi_monthly.actual` as the official value. If reconstructing from raw CRM, be careful: this KPI is listed as lower-is-better in the dashboard scoring logic, so explain whether the stored value represents loss rate or failed-transfer rate before comparing to target.
+- **Focus**: Do not assume the business meaning from the label alone; verify whether the metric is stored as a risk rate or as a service-rate inversion before drawing conclusions.
 
 ---
 
