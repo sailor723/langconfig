@@ -2,296 +2,774 @@
 <html lang="zh-CN">
 <head>
 <!--
-  Generated: 2026-07-16 | Source: sunhing_kpi.db | Mode: static-embed
+  Generated: 2026-07-19 11:23 | Source: sunhing_kpi.db | Mode: static-embed
   LangConfig Dashboard Meta
-  db: data/analysis_dbs/sunhing_kpi.db
+  db: /Users/weiping/dev/Learn/langchain-ai/langconfig/data/analysis_dbs/sunhing_kpi.db
   skills: sunhing-analyst
 -->
 <meta charset="utf-8">
-<title>Sun Hing — KPI Dashboard Hub</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sun Hing — ROE Executive Dashboard</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-  * { box-sizing: border-box; }
-  body { margin: 0; padding: 24px; font-family: -apple-system, 'Noto Sans SC', sans-serif; background: #f0f2f5; }
-  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
-  .subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
-  .kpi-section { margin-bottom: 28px; }
-  .kpi-section h2 { font-size: 16px; font-weight: 600; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
-  .kpi-section .desc { color: #666; font-size: 12px; margin-bottom: 12px; }
-  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-  .kpi-card { background: #fff; padding: 16px; border-radius: 10px; border-left: 4px solid #1f77b4; box-shadow: 0 1px 3px rgba(0,0,0,.06); text-decoration: none; color: inherit; display: block; transition: box-shadow .2s; }
-  .kpi-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
-  .kpi-card .label { font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: .5px; }
-  .kpi-card .value { font-size: 24px; font-weight: 700; margin: 4px 0 2px; }
-  .kpi-card .note { font-size: 12px; color: #999; }
-  .kpi-card .drill { font-size: 11px; color: #1f77b4; margin-top: 6px; }
-  .kpi-card.ok { border-left-color: #2ca02c; }
-  .kpi-card.warn { border-left-color: #ff7f0e; }
-  .kpi-card.danger { border-left-color: #e74c3c; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-  .grid .full { grid-column: 1 / -1; }
-  .chart-title{font-size:13px;font-weight:600;margin-bottom:4px;color:#2c3e50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .card { min-width:0; background: #fff; padding: 12px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
-  .chart { width: 100%; height: 300px; }
-  .nav-links { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-  .nav-links a { background: #fff; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 13px; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: box-shadow .2s; }
-  .nav-links a:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
-  .nav-links a .icon { margin-right: 6px; }
-  .risk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .risk-table th { text-align: left; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #eee; }
-  .risk-table td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; }
-  .risk-table .warn { color: #e74c3c; font-weight: 600; }
-  .risk-table .ok { color: #2ca02c; }
-  .insight-box { background: #fff; padding: 14px 18px; border-radius: 10px; border-left: 4px solid #2ca02c; margin-top: 14px; }
-  .insight-box h3 { margin: 0 0 8px; font-size: 14px; }
-  .insight-box ul { margin: 0; padding-left: 18px; font-size: 13px; color: #333; }
-  .insight-box li { margin: 4px 0; }
-  .cat-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
-  .cat-table th { text-align: left; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #eee; }
-  .cat-table td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; }
-  .cat-table .pct { font-weight: 600; }
-  .cat-table .pct.high { color: #2ca02c; }
-  .cat-table .pct.mid { color: #ff7f0e; }
-  .cat-table .pct.low { color: #e74c3c; }
-  .progress-bar { height: 6px; border-radius: 3px; background: #eee; overflow: hidden; margin-top: 3px; }
-  .progress-fill { height: 100%; border-radius: 3px; transition: width .5s; }
+  :root {
+    --navy: #0B2344;
+    --navy-mid: #1A3A5C;
+    --gold: #B5935A;
+    --gold-light: #D4AF70;
+    --off-white: #F5F4F0;
+    --slate: #4A5568;
+    --mid-grey: #718096;
+    --light-grey: #E2E8F0;
+    --body: #1A202C;
+    --green: #00B050;
+    --orange: #FFC000;
+    --red: #FF5050;
+    --dark-green: #006600;
+    --dark-blue: #1F4E79;
+    --dark-purple: #5B2C6F;
+    --dark-orange: #C65911;
+    --dark-red: #7A1F1F;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    background: #f0f2f5;
+    color: var(--body);
+    line-height: 1.5;
+    padding: 0 0 40px 0;
+  }
+  .header {
+    background: var(--navy);
+    color: white;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header h1 { font-size: 20px; font-weight: 700; }
+  .header .sub { font-size: 13px; color: var(--gold-light); }
+  .baseline-bar {
+    background: var(--navy-mid);
+    color: white;
+    padding: 10px 24px;
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .baseline-bar span { color: var(--gold-light); }
+  .container {
+    max-width: 1320px;
+    margin: 20px auto;
+    padding: 0 16px;
+  }
+  .nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .nav-links a {
+    background: white;
+    color: var(--slate);
+    padding: 10px 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .nav-links a:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+  .dashboard {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 1200px) {
+    .dashboard { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 900px) {
+    .dashboard { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .dashboard { grid-template-columns: 1fr; }
+  }
+  .factor-card {
+    background: white;
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-top: 4px solid #ccc;
+  }
+  .factor-card.npm { border-top-color: var(--dark-green); }
+  .factor-card.at { border-top-color: var(--dark-blue); }
+  .factor-card.em { border-top-color: var(--dark-purple); }
+  .factor-card.sup { border-top-color: var(--dark-orange); }
+  .factor-card.risk { border-top-color: var(--dark-red); }
+  .factor-card h3 { font-size: 13px; color: var(--slate); margin-bottom: 6px; }
+  .factor-card .score { font-size: 26px; font-weight: 700; color: var(--navy); }
+  .factor-card .meta { font-size: 12px; color: var(--mid-grey); margin-top: 4px; }
+  .factor-card .focus {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--body);
+    min-height: 34px;
+  }
+  .grade-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: white;
+    margin-top: 6px;
+  }
+  .grade-A { background: var(--green); }
+  .grade-B { background: var(--orange); color: #333; }
+  .grade-C { background: var(--red); }
+  .result-bar {
+    background: var(--navy);
+    color: white;
+    border-radius: 12px;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .result-bar .roe-value { font-size: 36px; font-weight: 700; color: white; }
+  .result-bar .delta { font-size: 18px; font-weight: 600; }
+  .delta.up { color: #4ade80; }
+  .delta.down { color: #f87171; }
+  .delta.flat { color: var(--gold-light); }
+  .summary-bar {
+    background: white;
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    font-size: 14px;
+  }
+  .summary-bar .total {
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .summary-bar .ok { color: var(--dark-green); }
+  .summary-bar .warn { color: var(--red); }
+  .overview-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 960px) {
+    .overview-grid { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .card h3 {
+    color: var(--navy);
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .chart { width: 100%; height: 330px; }
+  .section {
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .section-header {
+    padding: 12px 18px;
+    font-weight: 700;
+    font-size: 15px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  .section-header.npm { background: var(--dark-green); }
+  .section-header.at { background: var(--dark-blue); }
+  .section-header.em { background: var(--dark-purple); }
+  .section-header.sup { background: var(--dark-orange); }
+  .section-header.risk { background: var(--dark-red); }
+  .section-body { padding: 12px 16px 16px; display: none; }
+  .section-body.open { display: block; }
+  .section-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: var(--mid-grey);
+  }
+  .section-meta a {
+    color: var(--navy);
+    text-decoration: none;
+    font-weight: 700;
+  }
+  .kpi-head,
+  .kpi-row {
+    display: grid;
+    grid-template-columns: 72px 2fr 1fr 1fr 90px 90px;
+    gap: 10px;
+    align-items: center;
+    font-size: 13px;
+  }
+  .kpi-head {
+    border-bottom: 2px solid #eee;
+    padding-bottom: 8px;
+    font-weight: 700;
+    color: var(--mid-grey);
+  }
+  .kpi-row {
+    padding: 10px 0 6px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .kpi-row:last-of-type { border-bottom: none; }
+  .kpi-id { font-weight: 700; color: var(--navy); }
+  .kpi-name { font-weight: 500; }
+  .kpi-score { font-weight: 700; }
+  .kpi-status {
+    text-align: center;
+    padding: 4px 0;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .kpi-status.met { background: #dcfce7; color: #166534; }
+  .kpi-status.miss { background: #fee2e2; color: #991b1b; }
+  .kpi-note {
+    font-size: 12px;
+    color: var(--mid-grey);
+    padding-bottom: 10px;
+    margin-left: 82px;
+  }
+  .insight-box {
+    background: white;
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 13px;
+    color: var(--slate);
+    line-height: 1.7;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .insight-box h3 { color: var(--navy); margin-bottom: 8px; font-size: 14px; }
+  .insight-box ul { padding-left: 20px; }
+  .toggle-icon { font-size: 14px; opacity: 0.9; }
 </style>
 </head>
 <body>
 
-<h1>🏭 Sun Hing Vision Group — 一分为多 KPI Dashboard</h1>
-<div class="subtitle">集团组织变革 KPI v2.0 | Sep 2026 → Feb 2027</div>
-
-<!-- Navigation shortcuts -->
-<div class="nav-links">
-  <a href="/api/files/sunhing_dashboard_profit.html"><span class="icon">📈</span>Profit (KPI 01-09)</a>
-  <a href="/api/files/sunhing_dashboard_turnover.html"><span class="icon">🔄</span>Turnover (10-13)</a>
-  <a href="/api/files/sunhing_dashboard_leverage.html"><span class="icon">🏗️</span>Leverage (14-17)</a>
-  <a href="/api/files/sunhing_dashboard_support.html"><span class="icon">🛡️</span>Support (18-21)</a>
-  <a href="/api/files/sunhing_dashboard_risk.html"><span class="icon">⚠️</span>Risk (RS01-07)</a>
-  <a href="/api/files/sunhing_dashboard_employees.html"><span class="icon">👥</span>Employees</a>
-  <a href="/api/files/sunhing_dashboard_liability.html"><span class="icon">💰</span>Liability Detail</a>
-  <a href="/api/files/sunhing_erd.html"><span class="icon">🗄️</span>ERD</a>
-  <a href="/api/files/sunhing_gantt.html"><span class="icon">📅</span>Gantt</a>
+<div class="header">
+  <div>
+    <h1>Sun Hing Vision Group ROE Executive Dashboard</h1>
+    <div class="sub">一分为多重组执行驾驶舱 · 主仪表盘以 ROE 因子组织 28 项 KPI · 只读管理视图</div>
+  </div>
+  <div style="font-size:13px;color:var(--gold-light)">ROE = 净利润率 × 资产周转率 × 权益乘数 · 支撑层与风险监控提供执行保障</div>
 </div>
 
-<!-- ══════════════ KPI #01 — 协商减员完成率 ══════════════ -->
-<div class="kpi-section">
-  <h2>📋 KPI #01 — 协商减员完成率</h2>
-  <div class="desc">目标: 12个月内完成856人协商减员 | 一分为多 restructuring | <a href="/api/files/sunhing_dashboard_employees.html" style="color:#1f77b4;">View Employee Detail →</a></div>
-
-  <div class="kpi-row">
-    <a href="/api/files/sunhing_dashboard_employees.html" class="kpi-card ok">
-      <div class="label">Completion Rate (Feb)</div>
-      <div class="value">94.6%</div>
-      <div class="note">Target: 100% <span style="color:#e74c3c;">△ 5.4% gap</span></div>
-      <div class="progress-bar"><div class="progress-fill" style="width:94.6%;background:#2ca02c;"></div></div>
-      <div class="drill">👥 View employees →</div>
-    </a>
-    <div class="kpi-card">
-      <div class="label">People Severed</div>
-      <div class="value">810</div>
-      <div class="note">of 856 planned (94.6%)</div>
-    </div>
-    <div class="kpi-card">
-      <div class="label">Total Cost (万HKD)</div>
-      <div class="value">2,430</div>
-      <div class="note">vs 2,600 budget ✅</div>
-    </div>
-    <div class="kpi-card ok">
-      <div class="label">Labor Disputes (Feb)</div>
-      <div class="value">0</div>
-      <div class="note">Peak: 5 in Nov — resolved</div>
-    </div>
-  </div>
-
-  <div class="grid">
-    <div class="card"><div class="chart-title">KPI #01 — 协商减员完成率 (%)</div><div id="chart1a" class="chart"></div></div>
-    <div class="card"><div class="chart-title">Cumulative Severed (of 856)</div><div id="chart1b" class="chart"></div></div>
-  </div>
+<div class="baseline-bar">
+  <div>时间范围 <span>2026-09 → 2027-02</span></div>
+  <div>当前观察月 <span>2027-02</span></div>
+  <div>基准 ROE <span>-9.4%</span></div>
+  <div>当前 ROE <span>4.3%</span></div>
+  <div>追缴总额 <span>6643 万HKD</span></div>
 </div>
 
-<!-- ══════════════ KPI #02 — 历史人力成本追缴化解率 ══════════════ -->
-<div class="kpi-section">
-  <h2>💰 KPI #02 — 历史人力成本追缴化解率</h2>
-  <div class="desc">目标: 12个月内化解率≥80% | 总追缴金额6,643万HKD | <a href="/api/files/sunhing_dashboard_liability.html" style="color:#1f77b4;">View Liability Detail →</a>  |  <a href="/api/files/sunhing_dashboard_kpi02.html" style="color:#1f77b4;">Full Dashboard →</a></div>
+<div class="container">
+  <div class="nav-links">
+    <a href="/api/files/sunhing_dashboard_profit.html">Profit (KPI 01-09)</a>
+    <a href="/api/files/sunhing_dashboard_turnover.html">Turnover (10-13)</a>
+    <a href="/api/files/sunhing_dashboard_leverage.html">Leverage (14-17)</a>
+    <a href="/api/files/sunhing_dashboard_support.html">Support (18-21)</a>
+    <a href="/api/files/sunhing_dashboard_risk.html">Risk (RS01-07)</a>
+    <a href="/api/files/sunhing_dashboard_employees.html">Employees</a>
+    <a href="/api/files/sunhing_dashboard_liability.html">Liability Detail</a>
+    <a href="/api/files/sunhing_erd.html">ERD</a>
+    <a href="/api/files/sunhing_gantt.html">Gantt</a>
+  </div>
 
-  <div class="kpi-row">
-    <a href="/api/files/sunhing_dashboard_kpi02.html" class="kpi-card ok">
-      <div class="label">Resolution Rate (Feb)</div>
-      <div class="value">85.5%</div>
-      <div class="note">Target: 80% ✅ Exceeded</div>
-      <div class="progress-bar"><div class="progress-fill" style="width:85.5%;background:#2ca02c;"></div></div>
-      <div class="drill">📊 View dashboard →</div>
-    </a>
-    <div class="kpi-card">
-      <div class="label">Total Liability</div>
-      <div class="value">6,643万</div>
-      <div class="note">25 items across 6 categories</div>
-    </div>
-    <div class="kpi-card ok">
-      <div class="label">Resolved</div>
-      <div class="value">5,678万</div>
-      <div class="note">85.5% of total</div>
-    </div>
-    <div class="kpi-card warn">
-      <div class="label">Remaining</div>
-      <div class="value">965万</div>
-      <div class="note">High priority: 770万 remaining</div>
+  <div class="dashboard">
+    <div class="factor-card npm">
+      <h3>净利润率</h3>
+      <div class="score">91.1</div>
+      <div class="meta">平均达成得分 · 达标 5/9</div>
+      <div><span class="grade-badge grade-A">等级 A</span></div>
+      <div class="focus">当前最弱项：<strong>生产人员占比优化率</strong><br>低于目标 33.6%</div>
+    </div><div class="factor-card at">
+      <h3>资产周转率</h3>
+      <div class="score">98.0</div>
+      <div class="meta">平均达成得分 · 达标 2/4</div>
+      <div><span class="grade-badge grade-A">等级 A</span></div>
+      <div class="focus">当前最弱项：<strong>核心厂区固定资产利用率</strong><br>低于目标 5.0%</div>
+    </div><div class="factor-card em">
+      <h3>权益乘数</h3>
+      <div class="score">99.2</div>
+      <div class="meta">平均达成得分 · 达标 3/4</div>
+      <div><span class="grade-badge grade-A">等级 A</span></div>
+      <div class="focus">当前最弱项：<strong>员工股权/合伙转化率</strong><br>低于目标 2.0%</div>
+    </div><div class="factor-card sup">
+      <h3>支撑层</h3>
+      <div class="score">99.4</div>
+      <div class="meta">平均达成得分 · 达标 3/4</div>
+      <div><span class="grade-badge grade-A">等级 A</span></div>
+      <div class="focus">当前最弱项：<strong>员工价值交换制度落地率</strong><br>低于目标 2.0%</div>
+    </div><div class="factor-card risk">
+      <h3>风险监控</h3>
+      <div class="score">96.0</div>
+      <div class="meta">平均达成得分 · 达标 6/7</div>
+      <div><span class="grade-badge grade-A">等级 A</span></div>
+      <div class="focus">当前最弱项：<strong>保税物料合规处理完成率</strong><br>低于目标 28.0%</div>
     </div>
   </div>
 
-  <div class="grid">
-    <div class="card"><div class="chart-title">KPI #02 — 历史人力成本追缴化解率 (%)</div><div id="chart2a" class="chart"></div></div>
-    <div class="card"><div class="chart-title">追缴类别明细 (万HKD)</div><div id="chart2b" class="chart"></div></div>
-  </div>
-
-  <div class="card" style="margin-bottom:10px;">
-    <h3 style="margin:0 0 8px;font-size:13px;">📋 追缴类别明细</h3>
-    <table class="cat-table">
-      <tr><th>Category</th><th>Total (万)</th><th>Resolved</th><th>Remaining</th><th>Rate</th></tr>
-      <tr><td>社保 (Social Insurance)</td><td>2,920</td><td>2,515</td><td>405</td><td class="pct high">86.1%</td></tr>
-      <tr><td>公积金 (Housing Fund)</td><td>1,765</td><td>1,400</td><td>365</td><td class="pct mid">79.3%</td></tr>
-      <tr><td>企业年金 (Enterprise Annuity)</td><td>505</td><td>460</td><td>45</td><td class="pct high">91.1%</td></tr>
-      <tr><td>税务 (Tax)</td><td>323</td><td>323</td><td>0</td><td class="pct high">100%</td></tr>
-      <tr><td>劳动监察 (Labor Inspection)</td><td>315</td><td>260</td><td>55</td><td class="pct mid">82.5%</td></tr>
-      <tr><td>其他 (Others)</td><td>815</td><td>720</td><td>95</td><td class="pct high">88.3%</td></tr>
-    </table>
-  </div>
-</div>
-
-<!-- ══════════════ KPI #03 — 赔偿金额预算控制率 ══════════════ -->
-<div class="kpi-section">
-  <h2>💵 KPI #03 — 赔偿金额预算控制率</h2>
-  <div class="desc">目标: 赔偿总支出≤2,600万HKD预算 | 人均赔偿~3.0万 | <a href="/api/files/sunhing_dashboard_kpi03.html" style="color:#1f77b4;">Full Dashboard →</a></div>
-
-  <div class="kpi-row">
-    <a href="/api/files/sunhing_dashboard_kpi03.html" class="kpi-card ok">
-      <div class="label">Budget Used (Feb)</div>
-      <div class="value">93.5%</div>
-      <div class="note">Target: ≤100% ✅ Within budget</div>
-      <div class="progress-bar"><div class="progress-fill" style="width:93.5%;background:#2ca02c;"></div></div>
-      <div class="drill">💵 View details →</div>
-    </a>
-    <div class="kpi-card">
-      <div class="label">Total Spent</div>
-      <div class="value">2,430万</div>
-      <div class="note">of 2,600万 budget</div>
+  <div class="result-bar">
+    <div>
+      <div style="font-size:13px;color:var(--gold-light);margin-bottom:4px">当前 ROE（2027-02）</div>
+      <div class="roe-value">4.3%</div>
     </div>
-    <div class="kpi-card ok">
-      <div class="label">Remaining Budget</div>
-      <div class="value">170万</div>
-      <div class="note">Buffer for 46 remaining</div>
-    </div>
-    <div class="kpi-card">
-      <div class="label">Avg Cost/Person</div>
-      <div class="value">3.0万</div>
-      <div class="note">2,430万 ÷ 810 people</div>
+    <div style="text-align:right">
+      <div class="delta up">
+        +13.7% vs 2026-09
+      </div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:4px">
+        2.1% × 1.08 × 1.90
+      </div>
     </div>
   </div>
 
-  <div class="grid">
-    <div class="card"><div class="chart-title">KPI #03 — 赔偿金额预算控制率 (%)</div><div id="chart3a" class="chart"></div></div>
-    <div class="card"><div class="chart-title">月度赔偿支出 (万HKD)</div><div id="chart3b" class="chart"></div></div>
+  <div class="summary-bar">
+    <div>
+      最新月总体达标：
+      <span class="total">19/28</span>
+      <span class="warn">
+        (67.9%)
+      </span>
+    </div>
+    <div>减员完成 <strong>810</strong> / 856 · 赔偿已支出 <strong>2430 万</strong></div>
+    <div>追缴已化解 <strong>5678 万</strong> · 剩余 <strong>965 万</strong></div>
   </div>
-</div>
 
-<div class="card" style="margin-bottom:14px;">
-  <h3 style="margin:0 0 10px;font-size:14px;">📋 All 28 KPIs — Overall Status (Feb 2027)</h3>
-  <table class="kpi-table">
-    <tr><th>#</th><th>KPI Name</th><th>Factor</th><th>Actual</th><th>Target</th><th>Status</th></tr>
-    <tr><td>01</td><td>协商减员完成率</td><td>净利润率</td><td>94.6%</td><td>100%</td><td class="miss">⚠️ -5.4%</td></tr>
-    <tr><td>02</td><td>历史人力成本追缴化解率</td><td>净利润率</td><td>84.5%</td><td>80%</td><td class="met">✅ +4.5%</td></tr>
-    <tr><td>03</td><td>赔偿金额预算控制率</td><td>净利润率</td><td>93.5%</td><td>100%</td><td class="miss">⚠️ -6.5%</td></tr>
-    <tr><td>04</td><td>劳动仲裁与诉讼事件数</td><td>净利润率</td><td>0</td><td>0</td><td class="met">✅ Met</td></tr>
-    <tr><td>05</td><td>工序保留完成率</td><td>净利润率</td><td>98%</td><td>95%</td><td class="met">✅ +3%</td></tr>
-    <tr><td>06</td><td>生产人员占比优化率</td><td>净利润率</td><td>21.4%</td><td>55%</td><td class="miss">🔴 -33.6%</td></tr>
-    <tr><td>07</td><td>核心厂区利润贡献率</td><td>净利润率</td><td>38.5%</td><td>40%</td><td class="miss">⚠️ -1.5%</td></tr>
-    <tr><td>08</td><td>生态伙伴厂利润贡献率</td><td>净利润率</td><td>15.8%</td><td>15%</td><td class="met">✅ +0.8%</td></tr>
-    <tr><td>09</td><td>数字资产价值转化率</td><td>净利润率</td><td>7.2%</td><td>8%</td><td class="miss">⚠️ -0.8%</td></tr>
-    <tr><td>10</td><td>核心厂区固定资产利用率</td><td>资产周转率</td><td>115%</td><td>120%</td><td class="miss">⚠️ -5%</td></tr>
-    <tr><td>11</td><td>生态伙伴轻资产化指数</td><td>资产周转率</td><td>24</td><td>25</td><td class="miss">⚠️ -1</td></tr>
-    <tr><td>12</td><td>数字资产归集与复用率</td><td>资产周转率</td><td>42%</td><td>40%</td><td class="met">✅ +2%</td></tr>
-    <tr><td>13</td><td>变革资本再投资率</td><td>资产周转率</td><td>72%</td><td>70%</td><td class="met">✅ +2%</td></tr>
-    <tr><td>14</td><td>股权分立架构完成率</td><td>权益乘数</td><td>100%</td><td>100%</td><td class="met">✅ Completed</td></tr>
-    <tr><td>15</td><td>员工股权/合伙转化率</td><td>权益乘数</td><td>58%</td><td>60%</td><td class="miss">⚠️ -2%</td></tr>
-    <tr><td>16</td><td>新架构集团权益乘数</td><td>权益乘数</td><td>1.9x</td><td>2.0x</td><td class="miss">⚠️ -0.1x</td></tr>
-    <tr><td>17</td><td>生态伙伴战略协同指数</td><td>权益乘数</td><td>86</td><td>85</td><td class="met">✅ +1</td></tr>
-    <tr><td>18</td><td>技术骨干留任率</td><td>支撑层</td><td>93%</td><td>90%</td><td class="met">✅ +3%</td></tr>
-    <tr><td>19</td><td>PMO执行里程碑达成率</td><td>支撑层</td><td>92%</td><td>90%</td><td class="met">✅ +2%</td></tr>
-    <tr><td>20</td><td>重大风险事件发生率</td><td>支撑层</td><td>0</td><td>0</td><td class="met">✅ Met</td></tr>
-    <tr><td>21</td><td>员工价值交换制度落地率</td><td>支撑层</td><td>78%</td><td>80%</td><td class="miss">⚠️ -2%</td></tr>
-    <tr><td>RS01</td><td>协商减员纠纷发生率</td><td>风险监控</td><td>0.4%</td><td>≤2%</td><td class="met">✅ Safe</td></tr>
-    <tr><td>RS02</td><td>历史追缴协商满意度</td><td>风险监控</td><td>8.3</td><td>≥7</td><td class="met">✅ Safe</td></tr>
-    <tr><td>RS03</td><td>群体性劳动争议风险指数</td><td>风险监控</td><td>35</td><td>≤60</td><td class="met">✅ Safe</td></tr>
-    <tr><td>RS04</td><td>保税物料合规处理完成率</td><td>风险监控</td><td>72%</td><td>100%</td><td class="miss">⚠️ -28%</td></tr>
-    <tr><td>RS05</td><td>海关违规/罚款金额</td><td>风险监控</td><td>0万</td><td>0万</td><td class="met">✅ Safe</td></tr>
-    <tr><td>RS06</td><td>核心技术骨干流失率</td><td>风险监控</td><td>1.5%</td><td>≤5%</td><td class="met">✅ Safe</td></tr>
-    <tr><td>RS07</td><td>客户订单转移/流失率</td><td>风险监控</td><td>0.6%</td><td>≤3%</td><td class="met">✅ Safe</td></tr>
-  </table>
-</div>
+  <div class="overview-grid">
+    <div class="card">
+      <h3>ROE 修复趋势</h3>
+      <div id="roe-trend" class="chart"></div>
+    </div>
+    <div class="card">
+      <h3>五大因子最新得分</h3>
+      <div id="factor-score" class="chart"></div>
+    </div>
+  </div>
 
-<div class="insight-box">
-  <h3>📊 综合洞察 — All KPIs</h3>
-  <ul>
-    <li><strong>已完成 (✅)</strong>: 14/28 KPIs met/exceeded targets — KPI #04(0 disputes), #05(98%), #08(15.8%), #12(42%), #13(72%), #14(100% completed), #17(86), #18(93%), #19(92%), #20(0 events), RS01-RS03, RS05-RS07 all within thresholds</li>
-    <li><strong>接近达标 (⚠️)</strong>: 8 KPIs within 5% of target — KPI #01(94.6%), #03(93.5%), #07(38.5%), #09(7.2%), #10(115%), #11(24), #15(58%), #21(78%)</li>
-    <li><strong>需重点关注 (🔴)</strong>: KPI #06 生产人员占比优化率仅21.4% vs 55%, RS04 保税物料合规72%</li>
-    <li><strong>风险可控</strong>: 6/7风险指标在安全阈值内, 群体争议风险从72降至35</li>
-    <li><strong>下一步</strong>: 剩余46人协商 + 965万追缴收尾 + 生产人员结构优化</li>
-  </ul>
+  <div class="section">
+        <div class="section-header npm" onclick="toggleSection(this)">
+          <span>净利润率 · 成本与盈利修复</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body open">
+          <div class="section-meta">
+            <span>查看 Profit Dashboard</span>
+            <a href="/api/files/sunhing_dashboard_profit.html">打开详情</a>
+          </div>
+          <div class="kpi-head">
+            <div>#</div>
+            <div>指标</div>
+            <div>实际</div>
+            <div>目标</div>
+            <div>得分</div>
+            <div>状态</div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-id">01</div>
+            <div class="kpi-name">协商减员完成率</div>
+            <div class="kpi-value">94.6%</div>
+            <div class="kpi-target">100.0%</div>
+            <div class="kpi-score">94.6</div>
+            <div class="kpi-status miss">关注</div>
+          </div>
+          <div class="kpi-note">低于目标 5.4%</div><div class="kpi-row">
+            <div class="kpi-id">02</div>
+            <div class="kpi-name">历史人力成本追缴化解率</div>
+            <div class="kpi-value">84.5%</div>
+            <div class="kpi-target">80.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">高于目标 4.5%</div><div class="kpi-row">
+            <div class="kpi-id">03</div>
+            <div class="kpi-name">赔偿金额预算控制率</div>
+            <div class="kpi-value">93.5%</div>
+            <div class="kpi-target">100.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">优于阈值 100.0%</div><div class="kpi-row">
+            <div class="kpi-id">04</div>
+            <div class="kpi-name">劳动仲裁与诉讼事件数</div>
+            <div class="kpi-value">0</div>
+            <div class="kpi-target">0</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">目标为 0</div><div class="kpi-row">
+            <div class="kpi-id">05</div>
+            <div class="kpi-name">工序保留完成率</div>
+            <div class="kpi-value">98.0%</div>
+            <div class="kpi-target">95.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">高于目标 3.0%</div><div class="kpi-row">
+            <div class="kpi-id">06</div>
+            <div class="kpi-name">生产人员占比优化率</div>
+            <div class="kpi-value">21.4%</div>
+            <div class="kpi-target">55.0%</div>
+            <div class="kpi-score">38.9</div>
+            <div class="kpi-status miss">关注</div>
+          </div>
+          <div class="kpi-note">低于目标 33.6%</div><div class="kpi-row">
+            <div class="kpi-id">07</div>
+            <div class="kpi-name">核心厂区利润贡献率</div>
+            <div class="kpi-value">38.5%</div>
+            <div class="kpi-target">40.0%</div>
+            <div class="kpi-score">96.2</div>
+            <div class="kpi-status miss">关注</div>
+          </div>
+          <div class="kpi-note">低于目标 1.5%</div><div class="kpi-row">
+            <div class="kpi-id">08</div>
+            <div class="kpi-name">生态伙伴厂利润贡献率</div>
+            <div class="kpi-value">15.8%</div>
+            <div class="kpi-target">15.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">高于目标 0.8%</div><div class="kpi-row">
+            <div class="kpi-id">09</div>
+            <div class="kpi-name">数字资产价值转化率</div>
+            <div class="kpi-value">7.2%</div>
+            <div class="kpi-target">8.0%</div>
+            <div class="kpi-score">90.0</div>
+            <div class="kpi-status miss">关注</div>
+          </div>
+          <div class="kpi-note">低于目标 0.8%</div>
+        </div>
+      </div><div class="section">
+        <div class="section-header at" onclick="toggleSection(this)">
+          <span>资产周转率 · 轻资产与数字化周转</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body open">
+          <div class="section-meta">
+            <span>查看 Turnover Dashboard</span>
+            <a href="/api/files/sunhing_dashboard_turnover.html">打开详情</a>
+          </div>
+          <div class="kpi-head">
+            <div>#</div>
+            <div>指标</div>
+            <div>实际</div>
+            <div>目标</div>
+            <div>得分</div>
+            <div>状态</div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-id">10</div>
+            <div class="kpi-name">核心厂区固定资产利用率</div>
+            <div class="kpi-value">115.0%</div>
+            <div class="kpi-target">120.0%</div>
+            <div class="kpi-score">95.8</div>
+            <div class="kpi-status miss">关注</div>
+          </div>
+          <div class="kpi-note">低于目标 5.0%</div><div class="kpi-row">
+            <div class="kpi-id">11</div>
+            <div class="kpi-name">生态伙伴轻资产化指数</div>
+            <div class="kpi-value">24.0%</div>
+            <div class="kpi-target">25.0%</div>
+            <div class="kpi-score">96.0</div>
+            <div class="kpi-status miss">关注</div>
+          </div>
+          <div class="kpi-note">低于目标 1.0%</div><div class="kpi-row">
+            <div class="kpi-id">12</div>
+            <div class="kpi-name">数字资产归集与复用率</div>
+            <div class="kpi-value">42.0%</div>
+            <div class="kpi-target">40.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">高于目标 2.0%</div><div class="kpi-row">
+            <div class="kpi-id">13</div>
+            <div class="kpi-name">变革资本再投资率</div>
+            <div class="kpi-value">72.0%</div>
+            <div class="kpi-target">70.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">高于目标 2.0%</div>
+        </div>
+      </div><div class="section">
+        <div class="section-header em" onclick="toggleSection(this)">
+          <span>权益乘数 · 股权重组与协同放大</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body open">
+          <div class="section-meta">
+            <span>查看 Leverage Dashboard</span>
+            <a href="/api/files/sunhing_dashboard_leverage.html">打开详情</a>
+          </div>
+          <div class="kpi-head">
+            <div>#</div>
+            <div>指标</div>
+            <div>实际</div>
+            <div>目标</div>
+            <div>得分</div>
+            <div>状态</div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-id">14</div>
+            <div class="kpi-name">股权分立架构完成率</div>
+            <div class="kpi-value">100.0%</div>
+            <div class="kpi-target">100.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">高于目标 0.0%</div><div class="kpi-row">
+            <div class="kpi-id">15</div>
+            <div class="kpi-name">员工股权/合伙转化率</div>
+            <div class="kpi-value">58.0%</div>
+            <div class="kpi-target">60.0%</div>
+            <div class="kpi-score">96.7</div>
+            <div class="kpi-status miss">关注</div>
+          </div>
+          <div class="kpi-note">低于目标 2.0%</div><div class="kpi-row">
+            <div class="kpi-id">16</div>
+            <div class="kpi-name">新架构集团权益乘数</div>
+            <div class="kpi-value">1.90x</div>
+            <div class="kpi-target">2.00x</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">优于阈值 2.00x</div><div class="kpi-row">
+            <div class="kpi-id">17</div>
+            <div class="kpi-name">生态伙伴战略协同指数</div>
+            <div class="kpi-value">86</div>
+            <div class="kpi-target">85</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">高于目标 1</div>
+        </div>
+      </div><div class="section">
+        <div class="section-header sup" onclick="toggleSection(this)">
+          <span>支撑层 · 人才、PMO 与落地保障</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body open">
+          <div class="section-meta">
+            <span>查看 Support Dashboard</span>
+            <a href="/api/files/sunhing_dashboard_support.html">打开详情</a>
+          </div>
+          <div class="kpi-head">
+            <div>#</div>
+            <div>指标</div>
+            <div>实际</div>
+            <div>目标</div>
+            <div>得分</div>
+            <div>状态</div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-id">18</div>
+            <div class="kpi-name">技术骨干留任率</div>
+            <div class="kpi-value">93.0%</div>
+            <div class="kpi-target">90.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">高于目标 3.0%</div><div class="kpi-row">
+            <div class="kpi-id">19</div>
+            <div class="kpi-name">PMO执行里程碑达成率</div>
+            <div class="kpi-value">92.0%</div>
+            <div class="kpi-target">90.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">高于目标 2.0%</div><div class="kpi-row">
+            <div class="kpi-id">20</div>
+            <div class="kpi-name">重大风险事件发生率</div>
+            <div class="kpi-value">0</div>
+            <div class="kpi-target">0</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">目标为 0</div><div class="kpi-row">
+            <div class="kpi-id">21</div>
+            <div class="kpi-name">员工价值交换制度落地率</div>
+            <div class="kpi-value">78.0%</div>
+            <div class="kpi-target">80.0%</div>
+            <div class="kpi-score">97.5</div>
+            <div class="kpi-status miss">关注</div>
+          </div>
+          <div class="kpi-note">低于目标 2.0%</div>
+        </div>
+      </div><div class="section">
+        <div class="section-header risk" onclick="toggleSection(this)">
+          <span>风险监控 · 关键预警与收口风险</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="section-body open">
+          <div class="section-meta">
+            <span>查看 Risk Dashboard</span>
+            <a href="/api/files/sunhing_dashboard_risk.html">打开详情</a>
+          </div>
+          <div class="kpi-head">
+            <div>#</div>
+            <div>指标</div>
+            <div>实际</div>
+            <div>目标</div>
+            <div>得分</div>
+            <div>状态</div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi-id">RS01</div>
+            <div class="kpi-name">协商减员纠纷发生率</div>
+            <div class="kpi-value">0.4%</div>
+            <div class="kpi-target">2.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">优于阈值 2.0%</div><div class="kpi-row">
+            <div class="kpi-id">RS02</div>
+            <div class="kpi-name">历史追缴协商满意度</div>
+            <div class="kpi-value">8.3</div>
+            <div class="kpi-target">7.0</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">高于目标 1.3</div><div class="kpi-row">
+            <div class="kpi-id">RS03</div>
+            <div class="kpi-name">群体性劳动争议风险指数</div>
+            <div class="kpi-value">35.0%</div>
+            <div class="kpi-target">60.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">优于阈值 60.0%</div><div class="kpi-row">
+            <div class="kpi-id">RS04</div>
+            <div class="kpi-name">保税物料合规处理完成率</div>
+            <div class="kpi-value">72.0%</div>
+            <div class="kpi-target">100.0%</div>
+            <div class="kpi-score">72.0</div>
+            <div class="kpi-status miss">关注</div>
+          </div>
+          <div class="kpi-note">低于目标 28.0%</div><div class="kpi-row">
+            <div class="kpi-id">RS05</div>
+            <div class="kpi-name">海关违规/罚款金额</div>
+            <div class="kpi-value">0.0万</div>
+            <div class="kpi-target">0.0万</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">目标为 0</div><div class="kpi-row">
+            <div class="kpi-id">RS06</div>
+            <div class="kpi-name">核心技术骨干流失率(变革期)</div>
+            <div class="kpi-value">1.5%</div>
+            <div class="kpi-target">5.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">优于阈值 5.0%</div><div class="kpi-row">
+            <div class="kpi-id">RS07</div>
+            <div class="kpi-name">客户订单转移/流失率</div>
+            <div class="kpi-value">0.6%</div>
+            <div class="kpi-target">3.0%</div>
+            <div class="kpi-score">100.0</div>
+            <div class="kpi-status met">达标</div>
+          </div>
+          <div class="kpi-note">优于阈值 3.0%</div>
+        </div>
+      </div>
+
+  <div class="insight-box">
+    <h3>管理层结论</h3>
+    <ul>
+      <li><strong>ROE 修复</strong>：ROE 从 2026-09 的 -9.4% 回升到 2027-02 的 4.3%，已由负转正，说明重组开始释放财务修复效果。</li>
+      <li><strong>最稳因子</strong>：风险监控当前达标 6/7，整体处于可控区间，但仍需盯住 RS04 保税物料合规处理完成率。</li>
+      <li><strong>执行短板</strong>：生产人员占比优化率; 保税物料合规处理完成率; 数字资产价值转化率 仍是当前主要拖累项，应优先安排专项收口。</li>
+      <li><strong>组织进度</strong>：累计减员 810 人，较起点总人数下降 27.4%，但生产人员结构优化仍落后于目标。</li>
+      <li><strong>下一步动作</strong>：保持利润率与资产周转修复节奏，同时将注意力转向生产结构、客户迁移风险和历史追缴尾项。</li>
+    </ul>
+  </div>
 </div>
 
 <script>
-// ══ KPI #01 data ══
-var months = ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"];
-var pct1 = [0.0, 14.0, 39.7, 65.4, 84.1, 94.6];
-var severed = [0, 120, 340, 560, 720, 810];
+var EMBEDDED_DATA = {"roeTrend": [{"period": "2026-09", "net_profit_margin": -4.3, "asset_turnover": 0.78, "equity_multiplier": 2.8, "roe": -9.4}, {"period": "2026-10", "net_profit_margin": -3.7, "asset_turnover": 0.82, "equity_multiplier": 2.7, "roe": -8.2}, {"period": "2026-11", "net_profit_margin": -2.0, "asset_turnover": 0.88, "equity_multiplier": 2.5, "roe": -4.4}, {"period": "2026-12", "net_profit_margin": -0.5, "asset_turnover": 0.95, "equity_multiplier": 2.3, "roe": -1.1}, {"period": "2027-01", "net_profit_margin": 0.8, "asset_turnover": 1.02, "equity_multiplier": 2.1, "roe": 1.7}, {"period": "2027-02", "net_profit_margin": 2.1, "asset_turnover": 1.08, "equity_multiplier": 1.9, "roe": 4.3}], "latestKpis": [{"kpi_id": "01_协商减员完成率", "kpi_name": "协商减员完成率", "roe_factor": "净利润率", "actual": 94.6, "target": 100.0, "unit": "%", "score": 94.6, "met": false, "grade": "A", "actual_display": "94.6%", "target_display": "100.0%", "status_detail": "低于目标 5.4%"}, {"kpi_id": "02_历史人力成本追缴化解率", "kpi_name": "历史人力成本追缴化解率", "roe_factor": "净利润率", "actual": 84.5, "target": 80.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "84.5%", "target_display": "80.0%", "status_detail": "高于目标 4.5%"}, {"kpi_id": "03_赔偿金额预算控制率", "kpi_name": "赔偿金额预算控制率", "roe_factor": "净利润率", "actual": 93.5, "target": 100.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "93.5%", "target_display": "100.0%", "status_detail": "优于阈值 100.0%"}, {"kpi_id": "04_劳动仲裁与诉讼事件数", "kpi_name": "劳动仲裁与诉讼事件数", "roe_factor": "净利润率", "actual": 0.0, "target": 0.0, "unit": "events", "score": 100.0, "met": true, "grade": "A", "actual_display": "0", "target_display": "0", "status_detail": "目标为 0"}, {"kpi_id": "05_工序保留完成率", "kpi_name": "工序保留完成率", "roe_factor": "净利润率", "actual": 98.0, "target": 95.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "98.0%", "target_display": "95.0%", "status_detail": "高于目标 3.0%"}, {"kpi_id": "06_生产人员占比优化率", "kpi_name": "生产人员占比优化率", "roe_factor": "净利润率", "actual": 21.4, "target": 55.0, "unit": "%", "score": 38.9, "met": false, "grade": "C", "actual_display": "21.4%", "target_display": "55.0%", "status_detail": "低于目标 33.6%"}, {"kpi_id": "07_核心厂区利润贡献率", "kpi_name": "核心厂区利润贡献率", "roe_factor": "净利润率", "actual": 38.5, "target": 40.0, "unit": "%", "score": 96.2, "met": false, "grade": "A", "actual_display": "38.5%", "target_display": "40.0%", "status_detail": "低于目标 1.5%"}, {"kpi_id": "08_生态伙伴厂利润贡献率", "kpi_name": "生态伙伴厂利润贡献率", "roe_factor": "净利润率", "actual": 15.8, "target": 15.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "15.8%", "target_display": "15.0%", "status_detail": "高于目标 0.8%"}, {"kpi_id": "09_数字资产价值转化率", "kpi_name": "数字资产价值转化率", "roe_factor": "净利润率", "actual": 7.2, "target": 8.0, "unit": "%", "score": 90.0, "met": false, "grade": "A", "actual_display": "7.2%", "target_display": "8.0%", "status_detail": "低于目标 0.8%"}, {"kpi_id": "10_核心厂区固定资产利用率", "kpi_name": "核心厂区固定资产利用率", "roe_factor": "资产周转率", "actual": 115.0, "target": 120.0, "unit": "%", "score": 95.8, "met": false, "grade": "A", "actual_display": "115.0%", "target_display": "120.0%", "status_detail": "低于目标 5.0%"}, {"kpi_id": "11_生态伙伴轻资产化指数", "kpi_name": "生态伙伴轻资产化指数", "roe_factor": "资产周转率", "actual": 24.0, "target": 25.0, "unit": "%", "score": 96.0, "met": false, "grade": "A", "actual_display": "24.0%", "target_display": "25.0%", "status_detail": "低于目标 1.0%"}, {"kpi_id": "12_数字资产归集与复用率", "kpi_name": "数字资产归集与复用率", "roe_factor": "资产周转率", "actual": 42.0, "target": 40.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "42.0%", "target_display": "40.0%", "status_detail": "高于目标 2.0%"}, {"kpi_id": "13_变革资本再投资率", "kpi_name": "变革资本再投资率", "roe_factor": "资产周转率", "actual": 72.0, "target": 70.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "72.0%", "target_display": "70.0%", "status_detail": "高于目标 2.0%"}, {"kpi_id": "14_股权分立架构完成率", "kpi_name": "股权分立架构完成率", "roe_factor": "权益乘数", "actual": 100.0, "target": 100.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "100.0%", "target_display": "100.0%", "status_detail": "高于目标 0.0%"}, {"kpi_id": "15_员工股权/合伙转化率", "kpi_name": "员工股权/合伙转化率", "roe_factor": "权益乘数", "actual": 58.0, "target": 60.0, "unit": "%", "score": 96.7, "met": false, "grade": "A", "actual_display": "58.0%", "target_display": "60.0%", "status_detail": "低于目标 2.0%"}, {"kpi_id": "16_新架构集团权益乘数", "kpi_name": "新架构集团权益乘数", "roe_factor": "权益乘数", "actual": 1.9, "target": 2.0, "unit": "ratio", "score": 100.0, "met": true, "grade": "A", "actual_display": "1.90x", "target_display": "2.00x", "status_detail": "优于阈值 2.00x"}, {"kpi_id": "17_生态伙伴战略协同指数", "kpi_name": "生态伙伴战略协同指数", "roe_factor": "权益乘数", "actual": 86.0, "target": 85.0, "unit": "points", "score": 100.0, "met": true, "grade": "A", "actual_display": "86", "target_display": "85", "status_detail": "高于目标 1"}, {"kpi_id": "18_技术骨干留任率", "kpi_name": "技术骨干留任率", "roe_factor": "支撑层", "actual": 93.0, "target": 90.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "93.0%", "target_display": "90.0%", "status_detail": "高于目标 3.0%"}, {"kpi_id": "19_PMO执行里程碑达成率", "kpi_name": "PMO执行里程碑达成率", "roe_factor": "支撑层", "actual": 92.0, "target": 90.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "92.0%", "target_display": "90.0%", "status_detail": "高于目标 2.0%"}, {"kpi_id": "20_重大风险事件发生率", "kpi_name": "重大风险事件发生率", "roe_factor": "支撑层", "actual": 0.0, "target": 0.0, "unit": "events", "score": 100.0, "met": true, "grade": "A", "actual_display": "0", "target_display": "0", "status_detail": "目标为 0"}, {"kpi_id": "21_员工价值交换制度落地率", "kpi_name": "员工价值交换制度落地率", "roe_factor": "支撑层", "actual": 78.0, "target": 80.0, "unit": "%", "score": 97.5, "met": false, "grade": "A", "actual_display": "78.0%", "target_display": "80.0%", "status_detail": "低于目标 2.0%"}, {"kpi_id": "RS01_协商减员纠纷发生率", "kpi_name": "协商减员纠纷发生率", "roe_factor": "风险监控", "actual": 0.4, "target": 2.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "0.4%", "target_display": "2.0%", "status_detail": "优于阈值 2.0%"}, {"kpi_id": "RS02_历史追缴协商满意度", "kpi_name": "历史追缴协商满意度", "roe_factor": "风险监控", "actual": 8.3, "target": 7.0, "unit": "score(1-10)", "score": 100.0, "met": true, "grade": "A", "actual_display": "8.3", "target_display": "7.0", "status_detail": "高于目标 1.3"}, {"kpi_id": "RS03_群体性劳动争议风险指数", "kpi_name": "群体性劳动争议风险指数", "roe_factor": "风险监控", "actual": 35.0, "target": 60.0, "unit": "score(0-100)", "score": 100.0, "met": true, "grade": "A", "actual_display": "35.0%", "target_display": "60.0%", "status_detail": "优于阈值 60.0%"}, {"kpi_id": "RS04_保税物料合规处理完成率", "kpi_name": "保税物料合规处理完成率", "roe_factor": "风险监控", "actual": 72.0, "target": 100.0, "unit": "%", "score": 72.0, "met": false, "grade": "C", "actual_display": "72.0%", "target_display": "100.0%", "status_detail": "低于目标 28.0%"}, {"kpi_id": "RS05_海关违规/罚款金额", "kpi_name": "海关违规/罚款金额", "roe_factor": "风险监控", "actual": 0.0, "target": 0.0, "unit": "万元", "score": 100.0, "met": true, "grade": "A", "actual_display": "0.0万", "target_display": "0.0万", "status_detail": "目标为 0"}, {"kpi_id": "RS06_核心技术骨干流失率(变革期)", "kpi_name": "核心技术骨干流失率(变革期)", "roe_factor": "风险监控", "actual": 1.5, "target": 5.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "1.5%", "target_display": "5.0%", "status_detail": "优于阈值 5.0%"}, {"kpi_id": "RS07_客户订单转移/流失率", "kpi_name": "客户订单转移/流失率", "roe_factor": "风险监控", "actual": 0.6, "target": 3.0, "unit": "%", "score": 100.0, "met": true, "grade": "A", "actual_display": "0.6%", "target_display": "3.0%", "status_detail": "优于阈值 3.0%"}], "factorCards": [{"factor": "净利润率", "short": "净利润率", "score": 91.1, "met_count": 5, "total": 9, "grade": "A", "health_class": "good", "meta": {"short": "净利润率", "card_class": "npm", "header_class": "npm", "accent": "#006600", "summary": "成本与盈利修复", "link": "/api/files/sunhing_dashboard_profit.html", "link_label": "查看 Profit Dashboard"}, "critical_name": "生产人员占比优化率", "critical_status": "低于目标 33.6%"}, {"factor": "资产周转率", "short": "资产周转率", "score": 98.0, "met_count": 2, "total": 4, "grade": "A", "health_class": "good", "meta": {"short": "资产周转率", "card_class": "at", "header_class": "at", "accent": "#1F4E79", "summary": "轻资产与数字化周转", "link": "/api/files/sunhing_dashboard_turnover.html", "link_label": "查看 Turnover Dashboard"}, "critical_name": "核心厂区固定资产利用率", "critical_status": "低于目标 5.0%"}, {"factor": "权益乘数", "short": "权益乘数", "score": 99.2, "met_count": 3, "total": 4, "grade": "A", "health_class": "good", "meta": {"short": "权益乘数", "card_class": "em", "header_class": "em", "accent": "#5B2C6F", "summary": "股权重组与协同放大", "link": "/api/files/sunhing_dashboard_leverage.html", "link_label": "查看 Leverage Dashboard"}, "critical_name": "员工股权/合伙转化率", "critical_status": "低于目标 2.0%"}, {"factor": "支撑层", "short": "支撑层", "score": 99.4, "met_count": 3, "total": 4, "grade": "A", "health_class": "good", "meta": {"short": "支撑层", "card_class": "sup", "header_class": "sup", "accent": "#C65911", "summary": "人才、PMO 与落地保障", "link": "/api/files/sunhing_dashboard_support.html", "link_label": "查看 Support Dashboard"}, "critical_name": "员工价值交换制度落地率", "critical_status": "低于目标 2.0%"}, {"factor": "风险监控", "short": "风险监控", "score": 96.0, "met_count": 6, "total": 7, "grade": "A", "health_class": "good", "meta": {"short": "风险监控", "card_class": "risk", "header_class": "risk", "accent": "#7A1F1F", "summary": "关键预警与收口风险", "link": "/api/files/sunhing_dashboard_risk.html", "link_label": "查看 Risk Dashboard"}, "critical_name": "保税物料合规处理完成率", "critical_status": "低于目标 28.0%"}], "rawHr": [{"period": "2026-09", "total_headcount": 3500, "production_headcount": 2420, "severance_completed_cumulative": 0, "severance_paid_cumulative_wan": 0.0}, {"period": "2026-10", "total_headcount": 3380, "production_headcount": 2280, "severance_completed_cumulative": 120, "severance_paid_cumulative_wan": 360.0}, {"period": "2026-11", "total_headcount": 3120, "production_headcount": 2000, "severance_completed_cumulative": 340, "severance_paid_cumulative_wan": 1020.0}, {"period": "2026-12", "total_headcount": 2850, "production_headcount": 1735, "severance_completed_cumulative": 560, "severance_paid_cumulative_wan": 1680.0}, {"period": "2027-01", "total_headcount": 2680, "production_headcount": 1540, "severance_completed_cumulative": 720, "severance_paid_cumulative_wan": 2160.0}, {"period": "2027-02", "total_headcount": 2540, "production_headcount": 1380, "severance_completed_cumulative": 810, "severance_paid_cumulative_wan": 2430.0}], "liabilitySummary": [{"category": "公积金", "total_amount_wan": 950.0, "resolved_wan": 800.0, "remaining_wan": 150.0}, {"category": "社保", "total_amount_wan": 820.0, "resolved_wan": 750.0, "remaining_wan": 70.0}, {"category": "公积金", "total_amount_wan": 540.0, "resolved_wan": 420.0, "remaining_wan": 120.0}, {"category": "社保", "total_amount_wan": 520.0, "resolved_wan": 480.0, "remaining_wan": 40.0}, {"category": "社保", "total_amount_wan": 410.0, "resolved_wan": 380.0, "remaining_wan": 30.0}, {"category": "其他", "total_amount_wan": 400.0, "resolved_wan": 350.0, "remaining_wan": 50.0}, {"category": "社保", "total_amount_wan": 350.0, "resolved_wan": 300.0, "remaining_wan": 50.0}, {"category": "企业年金", "total_amount_wan": 320.0, "resolved_wan": 300.0, "remaining_wan": 20.0}, {"category": "社保", "total_amount_wan": 260.0, "resolved_wan": 240.0, "remaining_wan": 20.0}, {"category": "其他", "total_amount_wan": 250.0, "resolved_wan": 220.0, "remaining_wan": 30.0}, {"category": "劳动监察", "total_amount_wan": 220.0, "resolved_wan": 180.0, "remaining_wan": 40.0}, {"category": "企业年金", "total_amount_wan": 185.0, "resolved_wan": 160.0, "remaining_wan": 25.0}, {"category": "公积金", "total_amount_wan": 180.0, "resolved_wan": 120.0, "remaining_wan": 60.0}, {"category": "其他", "total_amount_wan": 165.0, "resolved_wan": 150.0, "remaining_wan": 15.0}, {"category": "税务", "total_amount_wan": 160.0, "resolved_wan": 160.0, "remaining_wan": 0.0}, {"category": "社保", "total_amount_wan": 150.0, "resolved_wan": 0.0, "remaining_wan": 150.0}, {"category": "社保", "total_amount_wan": 120.0, "resolved_wan": 120.0, "remaining_wan": 0.0}, {"category": "社保", "total_amount_wan": 105.0, "resolved_wan": 105.0, "remaining_wan": 0.0}, {"category": "公积金", "total_amount_wan": 95.0, "resolved_wan": 60.0, "remaining_wan": 35.0}, {"category": "劳动监察", "total_amount_wan": 95.0, "resolved_wan": 80.0, "remaining_wan": 15.0}, {"category": "税务", "total_amount_wan": 88.0, "resolved_wan": 88.0, "remaining_wan": 0.0}, {"category": "社保", "total_amount_wan": 85.0, "resolved_wan": 85.0, "remaining_wan": 0.0}, {"category": "税务", "total_amount_wan": 75.0, "resolved_wan": 75.0, "remaining_wan": 0.0}, {"category": "社保", "total_amount_wan": 55.0, "resolved_wan": 55.0, "remaining_wan": 0.0}, {"category": "社保", "total_amount_wan": 45.0, "resolved_wan": 0.0, "remaining_wan": 45.0}]};
 
-// Chart 1a: KPI #01 completion rate
-Plotly.newPlot('chart1a', [
-  { x: months, y: pct1, type: 'scatter', mode: 'lines+markers', name: 'Actual', line: {color: '#1f77b4', width: 3}, marker: {size: 8} },
-  { x: months, y: months.map(function() { return 100; }), type: 'scatter', mode: 'lines', name: 'Target', line: {color: '#e74c3c', width: 2, dash: 'dash'} }
-], { title: 'KPI #01 — 协商减员完成率 (%)', yaxis: {range: [0, 105], ticksuffix: '%'}, margin: {t: 50, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
+function toggleSection(header) {
+  var body = header.nextElementSibling;
+  var icon = header.querySelector('.toggle-icon');
+  body.classList.toggle('open');
+  icon.textContent = body.classList.contains('open') ? '▼' : '▶';
+}
 
-// Chart 1b: Severed bar
-Plotly.newPlot('chart1b', [{
-  x: months, y: severed, type: 'bar', marker: {color: '#2ca02c'}, text: severed, textposition: 'outside'
-}], { title: 'Cumulative Severed (of 856)', yaxis: {range: [0, 906]}, margin: {t: 52, b: 40, l: 50, r: 20} });
+var roeRows = EMBEDDED_DATA.roeTrend;
+var factorCards = EMBEDDED_DATA.factorCards;
 
-// ══ KPI #02 data ══
-var pct2 = [2.9, 11.7, 32.1, 55.4, 72.8, 84.5];
-var cats = ["社保", "公积金", "企业年金", "税务", "劳动监察", "其他"];
-var resolvedCat = [2515, 1400, 460, 323, 260, 720];
-var remainingCat = [405, 365, 45, 0, 55, 95];
+Plotly.newPlot('roe-trend', [
+  {
+    x: roeRows.map(function(r) { return r.period; }),
+    y: roeRows.map(function(r) { return r.roe; }),
+    type: 'scatter',
+    mode: 'lines+markers',
+    name: 'ROE',
+    line: { color: '#0B2344', width: 3 },
+    marker: { size: 8 }
+  },
+  {
+    x: roeRows.map(function(r) { return r.period; }),
+    y: roeRows.map(function() { return 0; }),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Break-even',
+    line: { color: '#B5935A', width: 2, dash: 'dash' }
+  }
+], {
+  margin: { t: 30, b: 40, l: 50, r: 20 },
+  hovermode: 'x unified',
+  legend: { orientation: 'h', y: -0.22 },
+  yaxis: { ticksuffix: '%' }
+});
 
-// Chart 2a: KPI #02 resolution rate
-Plotly.newPlot('chart2a', [
-  { x: months, y: pct2, type: 'scatter', mode: 'lines+markers', name: 'Actual', line: {color: '#1f77b4', width: 3}, marker: {size: 8} },
-  { x: months, y: months.map(function() { return 80; }), type: 'scatter', mode: 'lines', name: 'Target (80%)', line: {color: '#e74c3c', width: 2, dash: 'dash'} }
-], { title: 'KPI #02 — 历史人力成本追缴化解率 (%)', yaxis: {range: [0, 100], ticksuffix: '%'}, margin: {t: 52, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
-
-// Chart 2b: Category breakdown
-Plotly.newPlot('chart2b', [
-  { x: cats, y: resolvedCat, type: 'bar', name: '已化解', marker: {color: '#2ca02c'}, text: resolvedCat.map(function(v) { return v + '万'; }), textposition: 'inside' },
-  { x: cats, y: remainingCat, type: 'bar', name: '未化解', marker: {color: '#e74c3c'}, text: remainingCat.map(function(v) { return v + '万'; }), textposition: 'inside' }
-], { title: '追缴类别明细 (万HKD)', barmode: 'stack', margin: {t: 52, b: 50, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3} });
-
-// ══ KPI #03 data ══
-var budgetRate = [0.0, 13.8, 39.2, 64.6, 83.1, 93.5];
-var monthlyCost = [0, 360, 660, 660, 480, 270];
-var cumCost = [0, 360, 1020, 1680, 2160, 2430];
-var budgetTotal = 2600;
-
-// Chart 3a: Budget control rate
-Plotly.newPlot('chart3a', [
-  { x: months, y: budgetRate, type: 'scatter', mode: 'lines+markers', name: 'Budget Used %', line: {color: '#ff7f0e', width: 3}, marker: {size: 8} },
-  { x: months, y: months.map(function() { return 100; }), type: 'scatter', mode: 'lines', name: 'Limit (100%)', line: {color: '#e74c3c', width: 2, dash: 'dash'} }
-], { title: 'KPI #03 — 赔偿金额预算控制率 (%)', yaxis: {range: [0, 110], ticksuffix: '%'}, margin: {t: 52, b: 40, l: 50, r: 20}, legend: {orientation: 'h', y: -0.3}, hovermode: 'x unified' });
-
-// Chart 3b: Monthly cost bar
-Plotly.newPlot('chart3b', [{
-  x: months, y: monthlyCost, type: 'bar', marker: {color: '#ff7f0e'}, text: monthlyCost.map(function(v) { return v + '万'; }), textposition: 'outside'
-}], { title: '月度赔偿支出 (万HKD)', yaxis: {title: '万HKD'}, margin: {t: 52, b: 40, l: 50, r: 20} });
+Plotly.newPlot('factor-score', [{
+  x: factorCards.map(function(card) { return card.short; }),
+  y: factorCards.map(function(card) { return card.score; }),
+  type: 'bar',
+  marker: {
+    color: factorCards.map(function(card) { return card.meta.accent; })
+  },
+  text: factorCards.map(function(card) { return card.score.toFixed(1); }),
+  textposition: 'outside'
+}], {
+  margin: { t: 30, b: 60, l: 50, r: 20 },
+  yaxis: { range: [0, 110] }
+});
 </script>
 </body>
 </html>

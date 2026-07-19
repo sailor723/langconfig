@@ -9,40 +9,212 @@
 <meta charset="utf-8"><title>Sun Hing — 资产周转率 KPI Group</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-*{box-sizing:border-box}body{margin:0;padding:24px;font-family:-apple-system,'Noto Sans SC',sans-serif;background:#f0f2f5}
-.top-nav{background:#1a1a2e;padding:10px 20px;margin:-24px -24px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.top-nav a{color:#fff;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px}
-.top-nav a:hover{background:rgba(255,255,255,.15)}
-.top-nav .brand{color:#fff;font-weight:600;font-size:14px}
-h1{font-size:20px;font-weight:600;margin-bottom:4px}.subtitle{color:#666;font-size:13px;margin-bottom:20px}
-.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
-.kpi-card{background:#fff;padding:16px;border-radius:10px;border-left:4px solid #1f77b4;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.kpi-card .label{font-size:11px;color:#7f8c8d;text-transform:uppercase;letter-spacing:.5px}
-.kpi-card .value{font-size:24px;font-weight:700;margin:4px 0 2px}.kpi-card .note{font-size:12px;color:#999}
-.kpi-card.ok{border-left-color:#2ca02c}.kpi-card.warn{border-left-color:#ff7f0e}.kpi-card.danger{border-left-color:#e74c3c}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}.grid .full{grid-column:1/-1}
-.chart-title{font-size:13px;font-weight:600;margin-bottom:4px;color:#2c3e50;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.card{min-width:0;background:#fff;padding:12px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.chart{width:100%;height:280px}
-.kpi-table{width:100%;border-collapse:collapse;font-size:12px}
-.kpi-table th{text-align:left;padding:7px 8px;background:#f8f9fa;border-bottom:2px solid #eee}
-.kpi-table td{padding:6px 8px;border-bottom:1px solid #f0f0f0}.kpi-table .met{color:#2ca02c;font-weight:600}
-.kpi-table .miss{color:#e74c3c;font-weight:600}
-.insight-box{background:#fff;padding:14px 18px;border-radius:10px;border-left:4px solid #2ca02c;margin-top:14px}
-.insight-box h3{margin:0 0 8px;font-size:14px}.insight-box ul{margin:0;padding-left:18px;font-size:13px;color:#333}.insight-box li{margin:4px 0}
+
+  :root {
+    --navy: #0B2344;
+    --navy-mid: #1A3A5C;
+    --gold: #B5935A;
+    --gold-light: #D4AF70;
+    --slate: #4A5568;
+    --mid-grey: #718096;
+    --light-grey: #E2E8F0;
+    --body: #1A202C;
+    --green: #00B050;
+    --orange: #FFC000;
+    --red: #FF5050;
+    --dark-green: #006600;
+    --dark-blue: #1F4E79;
+    --dark-purple: #5B2C6F;
+    --dark-orange: #C65911;
+    --dark-red: #7A1F1F;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0 0 40px 0;
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    background: #f0f2f5;
+    color: var(--body);
+    line-height: 1.5;
+  }
+  .header {
+    background: var(--navy);
+    color: white;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header h1 { font-size: 20px; font-weight: 700; margin: 0; }
+  .header .sub { font-size: 13px; color: var(--gold-light); }
+  .baseline-bar {
+    background: var(--navy-mid);
+    color: white;
+    padding: 10px 24px;
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .baseline-bar span { color: var(--gold-light); }
+  .container {
+    max-width: 1320px;
+    margin: 20px auto;
+    padding: 0 16px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .nav-links a {
+    background: #fff;
+    color: var(--slate);
+    text-decoration: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .nav-links a:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+  .nav-links a.active {
+    background: var(--navy);
+    color: white;
+  }
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .page-subtitle {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .kpi-row, .summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .summary.wide { grid-template-columns: repeat(8, 1fr); }
+  .kpi-card, .summary-card, .card, .kpi-big, .insight-box {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .kpi-card, .summary-card { padding: 16px; border-left: 4px solid #1f77b4; }
+  .summary-card { min-width: 120px; }
+  .kpi-card .label, .summary-card .label {
+    font-size: 11px;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .kpi-card .value, .summary-card .value {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 4px 0 2px;
+  }
+  .kpi-card .note, .summary-card .note {
+    font-size: 12px;
+    color: #999;
+  }
+  .kpi-card.ok, .summary-card.ok { border-left-color: #2ca02c; }
+  .kpi-card.warn, .summary-card.warn { border-left-color: #ff7f0e; }
+  .kpi-card.danger, .summary-card.danger { border-left-color: #e74c3c; }
+  .card { padding: 14px 16px; margin-bottom: 16px; }
+  .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #2c3e50;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid .full { grid-column: 1 / -1; }
+  .chart { width: 100%; height: 300px; }
+  .kpi-table, .cat-table, table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: #fff;
+  }
+  .kpi-table th, .cat-table th, table th {
+    text-align: left;
+    padding: 8px 10px;
+    background: #f8f9fa;
+    border-bottom: 2px solid #eee;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .kpi-table td, .cat-table td, table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .kpi-table .met, .kpi-table .safe { color: #2ca02c; font-weight: 600; }
+  .kpi-table .miss, .kpi-table .warn, .kpi-table .danger { color: #e74c3c; font-weight: 600; }
+  .insight-box { padding: 16px 20px; border-left: 4px solid #2ca02c; }
+  .insight-box h3 { margin: 0 0 8px; font-size: 14px; color: var(--navy); }
+  .insight-box ul { margin: 0; padding-left: 18px; font-size: 13px; color: #333; }
+  .insight-box li { margin: 4px 0; }
+  .progress-bar, .bar {
+    height: 8px;
+    border-radius: 6px;
+    background: #eee;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .progress-fill, .bar-fill { height: 100%; border-radius: 6px; transition: width .5s; }
+  .bar-fill.warn { background: #ff7f0e; }
+  .bar-fill.danger { background: #e74c3c; }
+  @media (max-width: 1100px) {
+    .kpi-row, .summary, .summary.wide { grid-template-columns: repeat(2, 1fr); }
+    .grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .kpi-row, .summary, .summary.wide { grid-template-columns: 1fr; }
+  }
+
 </style></head>
 <body>
-<div class="top-nav">
-  <span class="brand">Sun Hing KPI</span>
-  <a href="/api/files/sunhing_dashboard.html">← Back to Dashboard</a>
-  <span style="color:#555;font-size:11px;">|</span>
-  <a href="/api/files/sunhing_dashboard_employees.html">Employees</a>
-  <a href="/api/files/sunhing_dashboard_liability.html">Liability</a>
-  <a href="/api/files/sunhing_erd.html">ERD</a>
-  <a href="/api/files/sunhing_gantt.html">Gantt</a>
+
+<div class="header">
+  <div>
+    <h1>🔄 资产周转率 Factor Dashboard</h1>
+    <div class="sub">Sun Hing Vision Group detail dashboard · aligned with executive cockpit visual system</div>
+  </div>
+  <div style="font-size:13px;color:var(--gold-light)">Sun Hing transformation dashboard suite</div>
 </div>
 
-<h1>🔄 资产周转率 Factor — KPI Group</h1>
-<div class="subtitle">ROE DuPont Factor | KPIs 10-13 | Target status at Feb 2027</div>
+<div class="baseline-bar">
+  <div>当前主题 <span>资产周转率 / 轻资产化</span></div>
+  <div>入口 <span>Sun Hing detail page</span></div>
+</div>
+
+<div class="container">
+
+  <div class="nav-links">
+    <a href="/api/files/sunhing_dashboard.html">Main Dashboard</a>
+    <a href="/api/files/sunhing_dashboard_profit.html" class="">Profit</a>
+    <a href="/api/files/sunhing_dashboard_turnover.html" class="active">Turnover</a>
+    <a href="/api/files/sunhing_dashboard_leverage.html" class="">Leverage</a>
+    <a href="/api/files/sunhing_dashboard_support.html" class="">Support</a>
+    <a href="/api/files/sunhing_dashboard_risk.html" class="">Risk</a>
+    <a href="/api/files/sunhing_dashboard_employees.html" class="">Employees</a>
+    <a href="/api/files/sunhing_dashboard_liability.html" class="">Liability</a>
+    <a href="/api/files/sunhing_erd.html" class="">ERD</a>
+    <a href="/api/files/sunhing_gantt.html" class="">Gantt</a>
+  </div>
+
+  <div class="page-title">🔄 资产周转率 Factor Dashboard</div>
+  <div class="page-subtitle">资产周转率因子看板 · KPI 10-13 轻资产与周转效率</div>
 
 <div class="kpi-row">
   <div class="kpi-card warn"><div class="label">固定资产利用率 (KPI #10)</div><div class="value">115%</div><div class="note">Target 120% △ 5 gap</div></div>
@@ -58,7 +230,7 @@ h1{font-size:20px;font-weight:600;margin-bottom:4px}.subtitle{color:#666;font-si
   <div class="card"><div class="chart-title">KPI #13 变革资本再投资率 (%)</div><div id="c13" class="chart"></div></div>
 </div>
 
-<div class="card" style="margin-bottom:14px;">
+<div class="card" >
   <h3 style="margin:0 0 10px;font-size:14px;">📋 资产周转率 KPI Status</h3>
   <table class="kpi-table">
     <tr><th>#</th><th>KPI</th><th>Feb</th><th>Target</th><th>Gap</th><th>Status</th></tr>
@@ -85,4 +257,5 @@ Plotly.newPlot('c10',[{x:M,y:[65,72,83,91,102,115],type:'scatter',mode:'lines+ma
 Plotly.newPlot('c11',[{x:M,y:[0,3,8,14,19,24],type:'scatter',mode:'lines+markers',line:{color:'#ff7f0e',width:3},fill:'tozeroy',fillcolor:'rgba(255,127,14,0.1)'},{x:M,y:M.map(function(){return 25}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #11 轻资产化指数',margin:{t:52,b:30,l:40,r:10},showlegend:false});
 Plotly.newPlot('c12',[{x:M,y:[5,12,18,25,33,42],type:'scatter',mode:'lines+markers',line:{color:'#2ca02c',width:3}},{x:M,y:M.map(function(){return 40}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #12 数字资产归集复用率 (%)',margin:{t:52,b:30,l:40,r:10},showlegend:false});
 Plotly.newPlot('c13',[{x:M,y:[0,15,35,50,62,72],type:'scatter',mode:'lines+markers',line:{color:'#9467bd',width:3}},{x:M,y:M.map(function(){return 70}),type:'scatter',mode:'lines',name:'Target',line:{color:'#e74c3c',width:1,dash:'dash'}}],{title:'KPI #13 变革资本再投资率 (%)',margin:{t:52,b:30,l:40,r:10},showlegend:false});
-</script></body></html>
+</script></div>
+</body></html>
