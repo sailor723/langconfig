@@ -7,8 +7,9 @@ No FastAPI server needed.
 Usage:
     python run_dashboard_agent.py --csv data.csv --skill data.skill.md --output dashboard.html
     python run_dashboard_agent.py --csv data.csv --skill data.skill.md --query "top products"
+    python run_dashboard_agent.py --db data/analysis_dbs/sunhing_kpi.db --skill backend/skills/sunhing-analyst/SKILL.md --query "What is 资产周转率?"
 """
-import argparse, asyncio, json, os, sys, sqlite3, subprocess, textwrap
+import argparse, asyncio, os, sys, sqlite3, subprocess, textwrap
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -19,15 +20,27 @@ from services.data_dashboard import parse_skill
 
 async def main():
     parser = argparse.ArgumentParser(description="Business Dashboard via LLM agent + companion skill")
-    parser.add_argument("--csv", required=True, help="Path to CSV file")
+    parser.add_argument("--csv", default=None, help="Path to CSV file")
+    parser.add_argument("--db", default=None, help="Path to existing SQLite database")
     parser.add_argument("--skill", default=None, help="Path to companion .skill.md")
     parser.add_argument("--output", default=None, help="Path to save dashboard HTML")
     parser.add_argument("--query", default=None, help="Business question to answer")
     args = parser.parse_args()
 
-    csv_path = Path(args.csv)
-    if not csv_path.exists():
+    if not args.csv and not args.db:
+        print("Error: provide either --csv or --db")
+        sys.exit(1)
+    if args.csv and args.db:
+        print("Error: use only one of --csv or --db")
+        sys.exit(1)
+
+    csv_path = Path(args.csv) if args.csv else None
+    db_input_path = Path(args.db) if args.db else None
+    if csv_path and not csv_path.exists():
         print(f"Error: CSV not found: {csv_path}")
+        sys.exit(1)
+    if db_input_path and not db_input_path.exists():
+        print(f"Error: DB not found: {db_input_path}")
         sys.exit(1)
 
     # ── 1. Load environment ─────────────────────────────────────
@@ -35,11 +48,20 @@ async def main():
     load_dotenv(override=True)
     from config import settings
 
-    # ── 2. Convert CSV to SQLite ────────────────────────────────
-    csv_bytes = csv_path.read_bytes()
-    table_name = csv_path.stem.replace("-", "_").replace(" ", "_")
-    db_path = csv_to_sqlite_from_bytes(csv_bytes, csv_path.name, table_name)
-    print(f"1. CSV → SQLite: {db_path}")
+    # ── 2. Determine SQLite source ──────────────────────────────
+    if csv_path:
+        csv_bytes = csv_path.read_bytes()
+        table_name = csv_path.stem.replace("-", "_").replace(" ", "_")
+        db_path = csv_to_sqlite_from_bytes(csv_bytes, csv_path.name, table_name)
+        source_name = csv_path.name
+        thread_key = csv_path.stem
+        print(f"1. CSV → SQLite: {db_path}")
+    else:
+        table_name = None
+        db_path = str(db_input_path.resolve())
+        source_name = db_input_path.name
+        thread_key = db_input_path.stem
+        print(f"1. Using existing SQLite DB: {db_path}")
 
     # ── 3. Parse companion skill ────────────────────────────────
     biz_context = ""
@@ -57,6 +79,9 @@ async def main():
                 parts.append("QUESTIONS TO ANSWER:\n" + sec["Common Analysis Questions"])
             if "Sample SQL" in sec:
                 parts.append("REFERENCE SQL:\n" + sec["Sample SQL"])
+            # Keep the full skill available for domain-specific skills whose headings
+            # do not match the generic English section names above.
+            parts.append("FULL SKILL MARKDOWN:\n" + skill.get("raw", ""))
             parts.append("=== END BUSINESS CONTEXT ===")
             biz_context = "\n\n".join(parts)
             print(f"2. Companion skill loaded: {skill_path}")
@@ -136,7 +161,9 @@ async def main():
         tools=[sqlite_execute, python_execute],
         system_prompt=(
             f"You are a business data analyst. Data is at: {db_path}\n"
+            f"Source name: {source_name}\n"
             "Use sqlite_execute to query, python_execute for HTML/Plotly.\n"
+            "Always use sqlite_execute to verify numeric answers from the database.\n"
             "Reply in Chinese."
         ),
         backend=backend,
@@ -168,11 +195,19 @@ async def main():
         # Just show schema
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
-        cur = conn.execute(f"SELECT * FROM \"{table_name}\" LIMIT 5")
+        if table_name:
+            cur = conn.execute(f'SELECT * FROM "{table_name}" LIMIT 5')
+        else:
+            cur = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         rows = cur.fetchall()
         cols = [d[0] for d in cur.description]
         conn.close()
-        print(f"\nTable: {table_name}\nColumns: {cols}")
+        print(f"\nSource: {source_name}")
+        if table_name:
+            print(f"Table: {table_name}\nColumns: {cols}")
+        else:
+            print(f"Columns: {cols}")
+            print(f"Rows: {[dict(r) for r in rows[:20]]}")
         print("Use --output to generate dashboard or --query to ask questions.")
         return
 
@@ -181,7 +216,7 @@ async def main():
     async for event in agent.astream_events(
         {"messages": [{"role": "user", "content": msg}]},
         config={
-            "configurable": {"thread_id": f"dash-{Path(csv_path).stem}"},
+            "configurable": {"thread_id": f"dash-{thread_key}"},
             "recursion_limit": 50,
         },
         version="v2",

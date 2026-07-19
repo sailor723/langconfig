@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<!--
+  Generated: 2026-07-19 | Source: sunhing_kpi.db | Mode: static-embed
+  LangConfig Dashboard Meta
+  db: data/analysis_dbs/sunhing_kpi.db
+  skills: sunhing-analyst
+  mode: static-embed
+  entry: detail
+  title: Sun Hing Study Introduction CN
+  study: sunhing-transformation
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sun Hing — 中文介绍</title>
+<style>
+  :root {
+    --navy: #0B2344;
+    --navy-mid: #1A3A5C;
+    --gold: #B5935A;
+    --gold-light: #D4AF70;
+    --off-white: #F5F4F0;
+    --slate: #4A5568;
+    --mid-grey: #718096;
+    --light-grey: #E2E8F0;
+    --body: #1A202C;
+    --green: #00B050;
+    --orange: #FFC000;
+    --red: #FF5050;
+    --dark-green: #006600;
+    --dark-blue: #1F4E79;
+    --dark-purple: #5B2C6F;
+    --dark-orange: #C65911;
+    --dark-red: #7A1F1F;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    background: #f0f2f5;
+    color: var(--body);
+    line-height: 1.6;
+    padding: 0 0 40px 0;
+  }
+  .header {
+    background: linear-gradient(135deg, var(--navy) 0%, #102d57 45%, var(--navy-mid) 100%);
+    color: white;
+    padding: 22px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; margin: 0; }
+  .header .sub { font-size: 13px; color: var(--gold-light); margin-top: 4px; }
+  .baseline-bar {
+    background: var(--navy-mid);
+    color: white;
+    padding: 10px 24px;
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .baseline-bar span { color: var(--gold-light); }
+  .container {
+    max-width: 1360px;
+    margin: 20px auto;
+    padding: 0 16px;
+  }
+  .nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .nav-links a {
+    background: white;
+    color: var(--slate);
+    padding: 10px 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .nav-links a.active {
+    background: var(--navy);
+    color: white;
+  }
+  .hero {
+    background: linear-gradient(135deg, rgba(11,35,68,0.97) 0%, rgba(26,58,92,0.98) 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: 0 14px 36px rgba(11,35,68,0.16);
+    margin-bottom: 18px;
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.25fr 0.75fr;
+    gap: 20px;
+    align-items: start;
+  }
+  .eyebrow {
+    color: var(--gold-light);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 10px;
+  }
+  .hero h2 {
+    font-size: 32px;
+    line-height: 1.2;
+    margin-bottom: 14px;
+  }
+  .hero p {
+    font-size: 14px;
+    color: rgba(255,255,255,0.84);
+    max-width: 760px;
+    margin-bottom: 14px;
+  }
+  .tag-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(212,175,112,0.28);
+    background: rgba(255,255,255,0.08);
+    color: var(--gold-light);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .hero-panel {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(212,175,112,0.18);
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .hero-panel h3 {
+    font-size: 13px;
+    color: var(--gold-light);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .hero-panel ul {
+    padding-left: 18px;
+    color: rgba(255,255,255,0.88);
+    font-size: 13px;
+  }
+  .hero-panel li { margin: 6px 0; }
+  .section {
+    background: white;
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .section h3 {
+    font-size: 20px;
+    color: var(--navy);
+    margin-bottom: 6px;
+  }
+  .section .subtext {
+    color: #667085;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .flow-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .flowchart {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    align-items: stretch;
+  }
+  .flow-node {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid var(--light-grey);
+    border-radius: 14px;
+    padding: 14px 12px;
+    text-align: center;
+    min-height: 118px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .flow-node .kicker {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--mid-grey);
+    margin-bottom: 8px;
+  }
+  .flow-node .title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 6px;
+  }
+  .flow-node .desc {
+    font-size: 12px;
+    color: #667085;
+  }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gold);
+    font-size: 28px;
+    font-weight: 700;
+  }
+  .step-card {
+    position: relative;
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+    border: 1px solid var(--light-grey);
+    border-radius: 14px;
+    padding: 16px;
+    min-height: 210px;
+  }
+  .step-no {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--navy);
+    color: white;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .step-card h4 {
+    font-size: 16px;
+    color: var(--body);
+    margin-bottom: 8px;
+  }
+  .step-card p {
+    font-size: 13px;
+    color: var(--mid-grey);
+    margin-bottom: 8px;
+  }
+  .mini-list {
+    padding-left: 18px;
+    font-size: 12px;
+    color: #475467;
+  }
+  .mini-list li { margin: 4px 0; }
+  .architecture {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    align-items: stretch;
+  }
+  .layer {
+    background: #f8fafc;
+    border: 1px solid var(--light-grey);
+    border-radius: 14px;
+    padding: 14px;
+    position: relative;
+  }
+  .layer .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--mid-grey);
+    margin-bottom: 8px;
+  }
+  .layer .title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 8px;
+  }
+  .layer p {
+    font-size: 13px;
+    color: #475467;
+    margin-bottom: 10px;
+  }
+  .pill-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .pill {
+    background: white;
+    border: 1px solid var(--light-grey);
+    color: var(--slate);
+    border-radius: 999px;
+    padding: 5px 9px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .arrow-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 12px 6px 0;
+    color: var(--gold);
+    font-size: 28px;
+    text-align: center;
+  }
+  .artifact-grid,
+  .journey-grid,
+  .truth-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .artifact,
+  .journey-card,
+  .truth-card {
+    background: #fbfcfe;
+    border: 1px solid var(--light-grey);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .artifact h4,
+  .journey-card h4,
+  .truth-card h4 {
+    color: var(--navy);
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  .artifact p,
+  .journey-card p,
+  .truth-card p {
+    font-size: 13px;
+    color: #475467;
+    margin-bottom: 8px;
+  }
+  .journey-card .line {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #d0d5dd;
+    font-size: 12px;
+    color: #667085;
+  }
+  .truth-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .truth-table th,
+  .truth-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #eef2f6;
+    vertical-align: top;
+  }
+  .truth-table th {
+    background: #f8fafc;
+    color: var(--navy);
+    font-weight: 700;
+  }
+  .callout {
+    border-left: 4px solid var(--gold);
+    background: #fffaf1;
+    border-radius: 12px;
+    padding: 16px 18px;
+    color: #694c17;
+    font-size: 13px;
+  }
+  .links {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--navy);
+    color: white;
+    text-decoration: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .links a.secondary {
+    background: white;
+    color: var(--navy);
+    border: 1px solid var(--light-grey);
+  }
+  .footer-note {
+    color: #667085;
+    font-size: 12px;
+    margin-top: 8px;
+  }
+  @media (max-width: 1100px) {
+    .hero-grid,
+    .flowchart,
+    .flow-grid,
+    .architecture,
+    .artifact-grid,
+    .journey-grid,
+    .truth-grid {
+      grid-template-columns: 1fr;
+    }
+    .arrow-row { display: none; }
+    .flow-arrow { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>Sun Hing 研究总览</h1>
+    <div class="sub">以高管汇报视角，集中说明 Sun Hing 转型研究的底层数据、语义层、仪表盘入口与分析对话机制</div>
+  </div>
+  <div style="font-size:13px;color:var(--gold-light)">Sun Hing 转型研究管理说明页</div>
+</div>
+
+<div class="baseline-bar">
+  <div>研究主题 <span>sunhing-transformation</span></div>
+  <div>数据库 <span>sunhing_kpi.db</span></div>
+  <div>伴随技能 <span>sunhing-analyst / SKILL.md</span></div>
+  <div>入口模式 <span>Hub HTML -> 详情 HTML -> Chat</span></div>
+</div>
+
+<div class="container">
+  <div class="nav-links">
+    <a href="/api/files/sunhing_intro.html">English Intro</a>
+    <a href="/api/files/sunhing_intro_cn.html" class="active">中文介绍</a>
+    <a href="/api/files/sunhing_dashboard.html">主仪表盘</a>
+    <a href="/api/files/sunhing_dashboard_profit.html">利润率</a>
+    <a href="/api/files/sunhing_dashboard_turnover.html">资产周转</a>
+    <a href="/api/files/sunhing_dashboard_leverage.html">权益乘数</a>
+    <a href="/api/files/sunhing_dashboard_support.html">支撑层</a>
+    <a href="/api/files/sunhing_dashboard_risk.html">风险监控</a>
+    <a href="/api/files/sunhing_erd.html">ERD</a>
+    <a href="/api/files/sunhing_gantt.html">Gantt</a>
+  </div>
+
+  <div class="hero">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">Management Briefing</div>
+        <h2>从模拟经营数据到可执行的管理分析驾驶舱</h2>
+        <p>
+          本页用于从管理层视角解释 Sun Hing 研究在 LangConfig 中的整体构造。数据库负责保存经营事实，
+          <strong>SKILL.md</strong> 负责沉淀业务解释框架，dashboard HTML 负责形成统一展示入口，而分析对话负责把业务语义与 SQL 校验结合起来，输出可执行结论。
+        </p>
+        <p>
+          当前体系在 dashboard 选择与上下文绑定层已经实现 metadata-driven；但在页面布局和内容编排层，仍主要由 Python 脚本驱动，尚未完全过渡为由 <strong>SKILL.md</strong> 主导生成。
+        </p>
+        <div class="tag-row">
+          <span class="tag">DB First</span>
+          <span class="tag">Skill Guided</span>
+          <span class="tag">HTML 统一入口</span>
+          <span class="tag">Chat 以 SQL 校验</span>
+        </div>
+      </div>
+      <div class="hero-panel">
+        <h3>本页管理重点</h3>
+        <ul>
+          <li>研究数据从何而来，schema 如何支撑管理分析</li>
+          <li><strong>SKILL.md</strong> 相对数据库的职责边界是什么</li>
+          <li>HTML dashboard 如何作为研究入口与展示载体</li>
+          <li>LangConfig UI 如何把 dashboard、data、skill、chat 统一起来</li>
+          <li>为什么 analysis chat 必须以 SQL 校验而非直接复用静态页面数字</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>1. 管理层一页流程图</h3>
+    <div class="subtext">先用一张简版流程图，把这个 study 的输入、解释、展示与问答链路快速讲清楚。</div>
+    <div class="flowchart">
+      <div class="flow-node">
+        <div class="kicker">Step 1</div>
+        <div class="title">数据入库</div>
+        <div class="desc">Mock 数据清洗后进入 SQLite，形成 raw / dim / fact 三层结构。</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="kicker">Step 2</div>
+        <div class="title">语义绑定</div>
+        <div class="desc">以 <strong>SKILL.md</strong> 定义业务口径、因子框架与查询优先级。</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="kicker">Step 3</div>
+        <div class="title">页面生成</div>
+        <div class="desc">Python 读取 SQLite 生成 hub 与 detail HTML，并写入 dashboard metadata。</div>
+      </div>
+      <div class="flow-node">
+        <div class="kicker">Step 4</div>
+        <div class="title">统一入口</div>
+        <div class="desc">LangConfig 以主 Hub 为入口，串联仪表盘、技能页、数据页与对话页。</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="kicker">Step 5</div>
+        <div class="title">上下文装载</div>
+        <div class="desc">系统从 HTML metadata 解析 DB、skill、entry，并恢复历史对话。</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="kicker">Step 6</div>
+        <div class="title">SQL 校验回答</div>
+        <div class="desc">Agent 依据 skill 理解问题，并通过 SQL 验证后输出业务回答。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>2. 端到端流程</h3>
+    <div class="subtext">下面这版是基于当前代码实现与 agent 行为梳理出的正式业务流程。</div>
+    <div class="flow-grid">
+      <div class="step-card">
+        <div class="step-no">1</div>
+        <h4>数据清洗与输入</h4>
+        <p>Sun Hing 当前案例使用模拟经营数据，经过整理后装载进结构化 SQLite 分析数据库，作为后续所有展示与问答的底座。</p>
+        <ul class="mini-list">
+          <li>raw source tables 保留业务明细</li>
+          <li>dimension + fact tables 支撑 KPI 与 ROE 分析</li>
+          <li>ERD 负责把 schema 与 lineage 解释清楚</li>
+        </ul>
+      </div>
+      <div class="step-card">
+        <div class="step-no">2</div>
+        <h4>伴随技能文件</h4>
+        <p><strong>SKILL.md</strong> 是数据库的语义伴随层。它不保存事实本身，而是定义事实应如何被理解、归类与解释。</p>
+        <ul class="mini-list">
+          <li>业务背景</li>
+          <li>KPI / 因子分组</li>
+          <li>优先查询路径</li>
+          <li>何时使用 fact 表，何时回退 raw 表</li>
+        </ul>
+      </div>
+      <div class="step-card">
+        <div class="step-no">3</div>
+        <h4>HTML 生成</h4>
+        <p>当前 Sun Hing dashboard 主要由 Python 直接读取 SQLite 后生成，并在 HTML 头部嵌入 skill metadata，完成上下文绑定。</p>
+        <ul class="mini-list">
+          <li>当前状态：Python-first 布局生成</li>
+          <li>HTML metadata 负责连接 DB + skill + entry mode</li>
+          <li>目标状态：更强的 SKILL.md-driven generation</li>
+        </ul>
+      </div>
+      <div class="step-card">
+        <div class="step-no">4</div>
+        <h4>主页面与详情页</h4>
+        <p>整个 study 由一个主 Hub 页面与多个 detail pages 组成，用于按管理问题逐层下钻。</p>
+        <ul class="mini-list">
+          <li>主 hub = executive cockpit</li>
+          <li>detail pages = 因子仪表盘</li>
+          <li>ERD / Gantt = 解释性页面</li>
+        </ul>
+      </div>
+      <div class="step-card">
+        <div class="step-no">5</div>
+        <h4>LangConfig UI</h4>
+        <p>Analysis UI 以当前选中的 dashboard HTML 作为整个分析上下文锚点，统一组织后续所有模块。</p>
+        <ul class="mini-list">
+          <li>在 iframe 里展示 hub HTML</li>
+          <li>给 Data panel 加载 embedded data</li>
+          <li>给 Skill panel 加载关联技能文件</li>
+          <li>依据 dashboard metadata 配置 chat 上下文</li>
+        </ul>
+      </div>
+      <div class="step-card">
+        <div class="step-no">6</div>
+        <h4>分析对话</h4>
+        <p>Chat 虽然由 skill 引导，但实际回答仍依赖后端系统提示、SQL 工具与必要的 Python 工具共同完成。</p>
+        <ul class="mini-list">
+          <li>读取 dashboard 绑定的 skill metadata</li>
+          <li>装载 <strong>SKILL.md</strong> 内容</li>
+          <li>对 SQLite 执行 SQL 做验证</li>
+          <li>最终用业务语言回答，而不是只复述 schema</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>3. 架构分层</h3>
+    <div class="subtext">从管理架构角度看，把这个 study 拆成几层，比把它理解成单一 dashboard 更清晰。</div>
+    <div class="architecture">
+      <div class="layer">
+        <div class="label">Layer 1</div>
+        <div class="title">原始业务数据</div>
+        <p>mock source systems 用来模拟 HR、财务、生产、法务、CRM、PMO、实体、负债、舆情等核心业务域。</p>
+        <div class="pill-list">
+          <span class="pill">raw_hr</span>
+          <span class="pill">raw_finance</span>
+          <span class="pill">raw_production</span>
+          <span class="pill">raw_legal</span>
+          <span class="pill">raw_crm</span>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="label">Layer 2</div>
+        <div class="title">汇总分析模型</div>
+        <p>dimension 与 fact tables 构成清洗后的分析模型，专门服务 KPI、ROE 与管理例会中的核心提问。</p>
+        <div class="pill-list">
+          <span class="pill">dim_kpi</span>
+          <span class="pill">fact_kpi_monthly</span>
+          <span class="pill">fact_roe_summary</span>
+          <span class="pill">company</span>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="label">Layer 3</div>
+        <div class="title">业务语义层</div>
+        <p><strong>SKILL.md</strong> 告诉 agent 应如何理解这些数据：管理重点是什么、如何分组、查询时应优先走哪条路径。</p>
+        <div class="pill-list">
+          <span class="pill">角色</span>
+          <span class="pill">Schema 含义</span>
+          <span class="pill">ROE 因子</span>
+          <span class="pill">查询规则</span>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="label">Layer 4</div>
+        <div class="title">展示 HTML</div>
+        <p>Python 负责生成 Hub 与各类 factor pages，每个 HTML 又嵌入 metadata，明确当前页面对应的 DB 与 skill。</p>
+        <div class="pill-list">
+          <span class="pill">hub</span>
+          <span class="pill">detail</span>
+          <span class="pill">db</span>
+          <span class="pill">skills</span>
+          <span class="pill">entry</span>
+        </div>
+      </div>
+      <div class="layer">
+        <div class="label">Layer 5</div>
+        <div class="title">UI 与 Agent Runtime</div>
+        <p>LangConfig 根据当前 dashboard 去加载 data、skill、history 与 chat context，再由 agent 执行 SQL 形成回答。</p>
+        <div class="pill-list">
+          <span class="pill">Analysis UI</span>
+          <span class="pill">deepagent</span>
+          <span class="pill">sqlite_execute</span>
+          <span class="pill">python_execute</span>
+        </div>
+      </div>
+    </div>
+    <div class="arrow-row">
+      <div>→</div>
+      <div>→</div>
+      <div>→</div>
+      <div>→</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>4. 各类 Artifact 的职责边界</h3>
+    <div class="subtext">最容易产生误解的地方，通常是把 source-of-truth、semantic layer 与 presentation layer 混在一起。</div>
+    <div class="artifact-grid">
+      <div class="artifact">
+        <h4>Database / Schema</h4>
+        <p>SQLite DB 是事实底座，存放真实记录以及用于分析的 KPI / ROE 汇总 fact tables。</p>
+        <p><strong>含义：</strong>数据真相层。</p>
+      </div>
+      <div class="artifact">
+        <h4>ERD HTML</h4>
+        <p>ERD 页面是解释层，用来说明 raw tables、dimension tables 和 fact tables 之间的关系与数据流向。</p>
+        <p><strong>含义：</strong>schema 说明层。</p>
+      </div>
+      <div class="artifact">
+        <h4>SKILL.md</h4>
+        <p>技能文件是业务语义伴随层，它把表结构翻译成管理语言，例如 ROE 因子、KPI 家族和推荐查询顺序。</p>
+        <p><strong>含义：</strong>业务解释层。</p>
+      </div>
+      <div class="artifact">
+        <h4>Dashboard HTML</h4>
+        <p>仪表盘是用户首先接触到的展示页，但它不是数值真相的最终权威。</p>
+        <p><strong>含义：</strong>可视化与导航层。</p>
+      </div>
+      <div class="artifact">
+        <h4>Analysis UI</h4>
+        <p>LangConfig 的 Analysis 页面以当前选中的 HTML 为锚点，把 dashboard、skill panel、data panel 和 chat panel 统一组织起来。</p>
+        <p><strong>含义：</strong>用户操作界面。</p>
+      </div>
+      <div class="artifact">
+        <h4>Analysis Chat</h4>
+        <p>Agent 读取 dashboard 关联 skill，执行 SQL 查询 SQLite，并用业务语言给出回答；它应先校验数值，而不是直接照抄 HTML。</p>
+        <p><strong>含义：</strong>由 skill 引导的 SQL 推理层。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>5. LangConfig 中的用户旅程</h3>
+    <div class="subtext">下面这部分描述的是：一个用户从进入 study 到提出管理问题，整个体验如何发生。</div>
+    <div class="journey-grid">
+      <div class="journey-card">
+        <h4>A. 打开主 Hub</h4>
+        <p>用户先打开 Sun Hing 主仪表盘，该页面相当于整个 study 的统一入口与总览页。</p>
+        <div class="line">为什么重要：用 hub HTML 做入口，比直接暴露所有 detail pages 更容易治理。</div>
+      </div>
+      <div class="journey-card">
+        <h4>B. 浏览详情页</h4>
+        <p>用户可以从 Hub 继续进入 Profit、Turnover、Leverage、Support、Risk、ERD 与 Gantt 页面。</p>
+        <div class="line">为什么重要：每个页面都在缩小管理视角，但不会切换 study 上下文。</div>
+      </div>
+      <div class="journey-card">
+        <h4>C. 查看 Data 与 Skill</h4>
+        <p>UI 可以基于当前 HTML 读取 embedded dashboard data，并同步加载与之绑定的 skill 内容。</p>
+        <div class="line">为什么重要：用户看到的不只是图形结果，还能看到源数据和业务解释。</div>
+      </div>
+      <div class="journey-card">
+        <h4>D. 发起分析提问</h4>
+        <p>用户在 Analysis Chat 中输入自然语言问题，例如询问某个 ROE 因子、某项 KPI 或管理异常点。</p>
+        <div class="line">为什么重要：问题会带着业务 study 的语义上下文被解释，而不是变成通用 SQL 问题。</div>
+      </div>
+      <div class="journey-card">
+        <h4>E. Agent 解析上下文</h4>
+        <p>后端读取 dashboard metadata，装载 skill，解析 DB path，并携带 SQL 工具启动 deep agent。</p>
+        <div class="line">为什么重要：当前选中的 HTML 会自动决定正确的 study context。</div>
+      </div>
+      <div class="journey-card">
+        <h4>F. SQL 校验并回答</h4>
+        <p>Agent 对 SQLite 执行 SQL，用 <strong>SKILL.md</strong> 解释结果，最后返回管理层可直接阅读的业务回答。</p>
+        <div class="line">为什么重要：答案来源是数据库真相，而不是页面卡片上的静态显示值。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>6. 当前状态 vs 目标状态</h3>
+    <div class="subtext">这张表概括了当前体系的关键架构定位，以及后续可持续演进方向。</div>
+    <table class="truth-table">
+      <tr>
+        <th>主题</th>
+        <th>当前状态</th>
+        <th>目标方向</th>
+      </tr>
+      <tr>
+        <td>数据真相</td>
+        <td>SQLite DB 是 source of truth。</td>
+        <td>继续坚持 DB-first，不能把 truth 转移到静态 HTML。</td>
+      </tr>
+      <tr>
+        <td>业务语义</td>
+        <td><strong>SKILL.md</strong> 承担业务解释层角色。</td>
+        <td>继续强化 semantic contract，而不是把 SQL 写死。</td>
+      </tr>
+      <tr>
+        <td>Dashboard 生成</td>
+        <td>目前仍以 Python 驱动布局与计算逻辑。</td>
+        <td>逐步走向更强的 <strong>SKILL.md</strong>-driven dashboard structure。</td>
+      </tr>
+      <tr>
+        <td>Dashboard 选择</td>
+        <td>已经通过 HTML meta block 实现 metadata-driven。</td>
+        <td>这个模式应继续复用于未来更多 business study。</td>
+      </tr>
+      <tr>
+        <td>Analysis Chat</td>
+        <td>由 skill + backend prompt + SQL/Python tools 共同驱动。</td>
+        <td>保持直接回答风格，同时继续坚持 SQL 验证。</td>
+      </tr>
+    </table>
+    <div class="callout" style="margin-top:14px;">
+      <strong>关键设计原则：</strong>DB 保存事实，<strong>SKILL.md</strong> 保存业务含义，HTML 负责展示与导航，Analysis Chat 将三者整合，形成可落地的企业研究分析体验。
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>7. 建议阅读路径</h3>
+    <div class="subtext">如果一个新用户希望快速建立整体认知，建议按以下路径进入。</div>
+    <div class="truth-grid">
+      <div class="truth-card">
+        <h4>路径 1：管理视角</h4>
+        <p>先看主仪表盘，再按管理问题下钻到具体 factor pages。</p>
+      </div>
+      <div class="truth-card">
+        <h4>路径 2：数据理解</h4>
+        <p>先读 ERD，理解 raw tables、dimension、fact tables 与 lineage，再去核对指标。</p>
+      </div>
+      <div class="truth-card">
+        <h4>路径 3：业务语义</h4>
+        <p>阅读关联的 <strong>SKILL.md</strong>，理解每个因子的管理含义，以及 agent 应如何解释自然语言问题。</p>
+      </div>
+      <div class="truth-card">
+        <h4>路径 4：Agent 验证</h4>
+        <p>通过 Analysis Chat 提问，在核对 dashboard 数字时坚持走 SQL 验证。</p>
+      </div>
+    </div>
+    <div class="links">
+      <a href="/api/files/sunhing_dashboard.html">打开主仪表盘</a>
+      <a href="/api/files/sunhing_erd.html" class="secondary">打开 ERD</a>
+      <a href="/api/files/sunhing_gantt.html" class="secondary">打开 Gantt</a>
+    </div>
+    <div class="footer-note">这个介绍页的目标，是替代传统 slide deck，用一个可持续迭代的 HTML artifact，把 study narrative、系统架构与用户路径集中说明清楚。</div>
+  </div>
+</div>
+</body>
+</html>
