@@ -10,8 +10,183 @@
 <title>Sun Hing — Transformation Gantt</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
+
+  :root {
+    --navy: #0B2344;
+    --navy-mid: #1A3A5C;
+    --gold: #B5935A;
+    --gold-light: #D4AF70;
+    --slate: #4A5568;
+    --mid-grey: #718096;
+    --light-grey: #E2E8F0;
+    --body: #1A202C;
+    --green: #00B050;
+    --orange: #FFC000;
+    --red: #FF5050;
+    --dark-green: #006600;
+    --dark-blue: #1F4E79;
+    --dark-purple: #5B2C6F;
+    --dark-orange: #C65911;
+    --dark-red: #7A1F1F;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0 0 40px 0;
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    background: #f0f2f5;
+    color: var(--body);
+    line-height: 1.5;
+  }
+  .header {
+    background: var(--navy);
+    color: white;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header h1 { font-size: 20px; font-weight: 700; margin: 0; }
+  .header .sub { font-size: 13px; color: var(--gold-light); }
+  .baseline-bar {
+    background: var(--navy-mid);
+    color: white;
+    padding: 10px 24px;
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .baseline-bar span { color: var(--gold-light); }
+  .container {
+    max-width: 1320px;
+    margin: 20px auto;
+    padding: 0 16px;
+  }
+  .nav-links {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .nav-links a {
+    background: #fff;
+    color: var(--slate);
+    text-decoration: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .nav-links a:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+  .nav-links a.active {
+    background: var(--navy);
+    color: white;
+  }
+  .page-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .page-subtitle {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .kpi-row, .summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .summary.wide { grid-template-columns: repeat(8, 1fr); }
+  .kpi-card, .summary-card, .card, .kpi-big, .insight-box {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .kpi-card, .summary-card { padding: 16px; border-left: 4px solid #1f77b4; }
+  .summary-card { min-width: 120px; }
+  .kpi-card .label, .summary-card .label {
+    font-size: 11px;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .kpi-card .value, .summary-card .value {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 4px 0 2px;
+  }
+  .kpi-card .note, .summary-card .note {
+    font-size: 12px;
+    color: #999;
+  }
+  .kpi-card.ok, .summary-card.ok { border-left-color: #2ca02c; }
+  .kpi-card.warn, .summary-card.warn { border-left-color: #ff7f0e; }
+  .kpi-card.danger, .summary-card.danger { border-left-color: #e74c3c; }
+  .card { padding: 14px 16px; margin-bottom: 16px; }
+  .chart-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #2c3e50;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid .full { grid-column: 1 / -1; }
+  .chart { width: 100%; height: 300px; }
+  .kpi-table, .cat-table, table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: #fff;
+  }
+  .kpi-table th, .cat-table th, table th {
+    text-align: left;
+    padding: 8px 10px;
+    background: #f8f9fa;
+    border-bottom: 2px solid #eee;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .kpi-table td, .cat-table td, table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .kpi-table .met, .kpi-table .safe { color: #2ca02c; font-weight: 600; }
+  .kpi-table .miss, .kpi-table .warn, .kpi-table .danger { color: #e74c3c; font-weight: 600; }
+  .insight-box { padding: 16px 20px; border-left: 4px solid #2ca02c; }
+  .insight-box h3 { margin: 0 0 8px; font-size: 14px; color: var(--navy); }
+  .insight-box ul { margin: 0; padding-left: 18px; font-size: 13px; color: #333; }
+  .insight-box li { margin: 4px 0; }
+  .progress-bar, .bar {
+    height: 8px;
+    border-radius: 6px;
+    background: #eee;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .progress-fill, .bar-fill { height: 100%; border-radius: 6px; transition: width .5s; }
+  .bar-fill.warn { background: #ff7f0e; }
+  .bar-fill.danger { background: #e74c3c; }
+  @media (max-width: 1100px) {
+    .kpi-row, .summary, .summary.wide { grid-template-columns: repeat(2, 1fr); }
+    .grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .kpi-row, .summary, .summary.wide { grid-template-columns: 1fr; }
+  }
+
+  .dark-frame{background:#1a1a2e;color:#e0e0e0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;}
+
 *{box-sizing:border-box}
-body{margin:0;padding:20px 24px;font-family:-apple-system,'Noto Sans SC',monospace;background:#1a1a2e;color:#e0e0e0}
+body{margin:0;padding:0 0 40px 0;font-family:"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;background:#f0f2f5;color:#1A202C}
 h1{font-size:18px;margin:0 0 4px}
 .sub{color:#888;font-size:12px;margin-bottom:16px}
 #gantt{width:100%;min-height:1400px}
@@ -31,18 +206,37 @@ h1{font-size:18px;margin:0 0 4px}
 </head>
 <body>
 
-<div style="background:#1a1a2e;padding:10px 20px;margin:-20px -24px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-  <span style="color:#fff;font-weight:600;font-size:14px;">Sun Hing KPI</span>
-  <a href="/api/files/sunhing_dashboard.html" style="color:#fff;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;">← Back to Dashboard</a>
-  <span style="color:#555;font-size:11px;">|</span>
-  <a href="/api/files/sunhing_dashboard_employees.html" style="color:#999;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;">Employees</a>
-  <a href="/api/files/sunhing_dashboard_liability.html" style="color:#999;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;">Liability</a>
-  <a href="/api/files/sunhing_erd.html" style="color:#999;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;">ERD</a>
-  <a href="/api/files/sunhing_gantt.html" style="color:#fff;text-decoration:none;padding:4px 10px;border-radius:4px;font-size:12px;background:rgba(255,255,255,.15);font-weight:700">Gantt</a>
+<div class="header">
+  <div>
+    <h1>📅 Transformation Gantt</h1>
+    <div class="sub">Sun Hing Vision Group detail dashboard · aligned with executive cockpit visual system</div>
+  </div>
+  <div style="font-size:13px;color:var(--gold-light)">Sun Hing transformation dashboard suite</div>
 </div>
 
-<h1>📅 Transformation Program — Gantt Chart</h1>
-<div class="sub">5 phases · 31 milestones · Sep 2026 – Feb 2027 · <span style="color:#888;">Phase bars = duration · Dots = milestones · <span style="color:#f39c12;">Click any item for details</span></span></div>
+<div class="baseline-bar">
+  <div>当前主题 <span>Gantt / PMO</span></div>
+  <div>主题 <span>Milestone execution</span></div>
+</div>
+
+<div class="container">
+
+  <div class="nav-links">
+    <a href="/api/files/sunhing_dashboard.html">Main Dashboard</a>
+    <a href="/api/files/sunhing_dashboard_profit.html" class="">Profit</a>
+    <a href="/api/files/sunhing_dashboard_turnover.html" class="">Turnover</a>
+    <a href="/api/files/sunhing_dashboard_leverage.html" class="">Leverage</a>
+    <a href="/api/files/sunhing_dashboard_support.html" class="">Support</a>
+    <a href="/api/files/sunhing_dashboard_risk.html" class="">Risk</a>
+    <a href="/api/files/sunhing_dashboard_employees.html" class="">Employees</a>
+    <a href="/api/files/sunhing_dashboard_liability.html" class="">Liability</a>
+    <a href="/api/files/sunhing_erd.html" class="">ERD</a>
+    <a href="/api/files/sunhing_gantt.html" class="active">Gantt</a>
+  </div>
+
+  <div class="page-title">📅 Transformation Gantt</div>
+  <div class="page-subtitle">重组项目甘特图 · 阶段、里程碑与推进状态</div>
+  <div class="dark-frame" style="padding:20px 24px;">
 
 <div class="legend">
   <div class="legend-item"><span class="dot" style="background:#2ecc71;"></span> Completed On-Time</div>
@@ -509,5 +703,7 @@ function closeDetail() {
   document.getElementById('detailPanel').style.display = 'none';
 }
 </script>
+</div>
+</div>
 </body>
 </html>
