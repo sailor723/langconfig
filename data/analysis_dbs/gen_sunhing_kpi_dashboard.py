@@ -380,6 +380,12 @@ def format_value(value: float, unit: str) -> str:
     return f"{value:.1f}"
 
 
+def format_dupont_value(metric: str, value: float) -> str:
+    if metric in {"net_profit_margin", "roe"}:
+        return f"{value:.1f}%"
+    return f"{value:.2f}x"
+
+
 def status_detail(actual: float, target: float, kpi_id: str, unit: str) -> str:
     if target == 0:
         return "目标为 0"
@@ -822,6 +828,7 @@ factor_cards.sort(
 
 baseline_roe = roe_rows[0]["roe"]
 latest_roe = roe_rows[-1]["roe"]
+latest_dupont = roe_rows[-1]
 roe_delta = latest_roe - baseline_roe
 roe_direction = "up" if roe_delta > 0 else "down" if roe_delta < 0 else "flat"
 
@@ -838,6 +845,33 @@ first_hr = raw_hr[0]
 liability_total = sum(item["total_amount_wan"] for item in raw_liability)
 liability_resolved = sum(item["resolved_wan"] for item in raw_liability)
 liability_remaining = sum(item["remaining_wan"] for item in raw_liability)
+
+dupont_card_metrics = {
+    "净利润率": "net_profit_margin",
+    "资产周转率": "asset_turnover",
+    "权益乘数": "equity_multiplier",
+}
+main_cards = []
+for card in factor_cards:
+    dupont_metric = dupont_card_metrics.get(card["factor"])
+    display_value = f'{card["score"]:.1f}'
+    meta_line = f'平均达成得分 · 达标 {card["met_count"]}/{card["total"]}'
+    focus_prefix = "当前最弱项"
+
+    if dupont_metric:
+        display_value = format_dupont_value(dupont_metric, latest_dupont[dupont_metric])
+        meta_line = (
+            f'DuPont 原始值 · KPI 平均得分 {card["score"]:.1f} · '
+            f'达标 {card["met_count"]}/{card["total"]}'
+        )
+        focus_prefix = "KPI层最弱项"
+
+    main_cards.append({
+        **card,
+        "display_value": display_value,
+        "meta_line": meta_line,
+        "focus_prefix": focus_prefix,
+    })
 
 # ── Build hub sections (collapsible factor tables) ─────────────────────
 sections_html = []
@@ -1208,13 +1242,13 @@ hub_html = f"""<!DOCTYPE html>
         f'''
     <div class="factor-card {card["meta"]["card_class"]}">
       <h3>{card["short"]}</h3>
-      <div class="score">{card["score"]:.1f}</div>
-      <div class="meta">平均达成得分 · 达标 {card["met_count"]}/{card["total"]}</div>
-      <div><span class="grade-badge grade-{card["grade"]}">等级 {card["grade"]}</span></div>
-      <div class="focus">当前最弱项：<strong>{card["critical_name"]}</strong><br>{card["critical_status"]}</div>
+      <div class="score">{card["display_value"]}</div>
+      <div class="meta">{card["meta_line"]}</div>
+      <div><span class="grade-badge grade-{card["grade"]}">KPI等级 {card["grade"]}</span></div>
+      <div class="focus">{card["focus_prefix"]}：<strong>{card["critical_name"]}</strong><br>{card["critical_status"]}</div>
     </div>
         '''.strip()
-        for card in factor_cards
+        for card in main_cards
     )}
   </div>
 
