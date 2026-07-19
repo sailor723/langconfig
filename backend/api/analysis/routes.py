@@ -95,6 +95,24 @@ class DashboardFile(BaseModel):
 ANALYSIS_DBS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "analysis_dbs"
 
 
+def _load_skill_markdown_parts(skills: list[str]) -> list[str]:
+    """Load SKILL.md files for the given skill names."""
+    skills_root = Path(__file__).resolve().parent.parent.parent / "skills"
+    parts: list[str] = []
+    for skill_name in skills or []:
+        if "/" in skill_name or "\\" in skill_name or ".." in skill_name:
+            continue
+        skill_md = skills_root / skill_name / "SKILL.md"
+        if not skill_md.exists():
+            continue
+        try:
+            txt = skill_md.read_text(encoding="utf-8")
+            parts.append(f"# Skill: {skill_name}\n\n{txt}\n")
+        except Exception as e:
+            logger.warning(f"Failed to read {skill_md}: {e}")
+    return parts
+
+
 # ── List dashboards ──────────────────────────────────────────────────
 
 @router.get("/dashboards", response_model=list[DashboardFile])
@@ -351,6 +369,16 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
     # Use the resolved absolute path for all downstream operations
     db_path = str(db_full_path)
 
+    resolved_skills = list(request.skills or [])
+    if request.dashboard_filename and not resolved_skills:
+        meta = _load_dashboard_meta(request.dashboard_filename)
+        if meta:
+            resolved_skills = meta.get("skills") or []
+
+    resolved_skill_content = request.skill_content
+    if not resolved_skill_content and resolved_skills:
+        resolved_skill_content = "\n---\n\n".join(_load_skill_markdown_parts(resolved_skills))
+
     # Persist the user message BEFORE running the agent so a 504/500 timeout
     # still leaves a record of what was asked. Assistant message is appended
     # only after the agent run succeeds.
@@ -369,7 +397,7 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
         from deepagents.backends.filesystem import FilesystemBackend
         from config import settings
 
-        skills_root = Path(__file__).resolve().parent.parent / "skills"
+        skills_root = Path(__file__).resolve().parent.parent.parent / "skills"
 
         model = ChatOpenAI(
             model=os.getenv("MINIMAX_MODEL", "minimax-m3"),
@@ -474,10 +502,11 @@ async def analysis_chat(request: AnalysisChatRequest, db: Session = Depends(get_
                 "- **End every answer with a one-line conclusion** in a quote block: `> **结论:** ...` — one sentence, not a paragraph.\n"
                 "- **Long answers**: if the answer is >8 lines, lead with a 2-3 line summary, then detail.\n"
                 "- **Numbers**: when comparing two values, always show the % delta next to the absolute (e.g. `$10.1M → $11.4M (+12.9%)`).\n"
-                + (f"\\n=== COMPANION SKILL ===\\n{request.skill_content}\\n=== END COMPANION SKILL ===\\n" if request.skill_content else "")
+                "- For dashboard-linked chats, answer directly from the business context and the current dashboard data. Do not add long process disclosures unless the user asks for methodology.\n"
+                + (f"\\n=== COMPANION SKILL ===\\n{resolved_skill_content}\\n=== END COMPANION SKILL ===\\n" if resolved_skill_content else "")
             ),
             backend=backend,
-            skills=request.skills or ["sql-analyst"],
+            skills=resolved_skills or ["sql-analyst"],
             checkpointer=checkpointer,
         )
 
@@ -686,7 +715,7 @@ async def _run_analysis_agent(
 
     # ── Agent ────────────────────────────────────────────────────────
 
-    skills_root = Path(__file__).resolve().parent.parent / "skills"
+    skills_root = Path(__file__).resolve().parent.parent.parent / "skills"
 
     model = ChatOpenAI(
         model=os.getenv("MINIMAX_MODEL", "minimax-m3"),
@@ -724,6 +753,7 @@ async def _run_analysis_agent(
             "- **End every answer with a one-line conclusion** in a quote block: `> **结论:** ...` — one sentence, not a paragraph.\n"
             "- **Long answers**: if the answer is >8 lines, lead with a 2-3 line summary, then detail.\n"
             "- **Numbers**: when comparing two values, always show the % delta next to the absolute (e.g. `$10.1M → $11.4M (+12.9%)`).\n"
+            "- For dashboard-linked chats, answer directly from the business context and the current dashboard data. Do not add long process disclosures unless the user asks for methodology.\n"
             + f"{'\\n=== COMPANION SKILL ===\\n' + (skill_content or '') + '\\n=== END COMPANION SKILL ===\\n' if skill_content else ''}"
         ),
         backend=backend,
@@ -951,19 +981,7 @@ async def get_skill_content(filename: str):
     if not meta:
         raise HTTPException(404, "Dashboard not found")
     skills = meta.get("skills") or []
-    skills_root = Path(__file__).resolve().parent.parent.parent / "skills"
-    parts = []
-    for s in skills:
-        # Defend against traversal
-        if "/" in s or "\\" in s or ".." in s:
-            continue
-        skill_md = skills_root / s / "SKILL.md"
-        if skill_md.exists():
-            try:
-                txt = skill_md.read_text(encoding="utf-8")
-                parts.append(f"# Skill: {s}\n\n{txt}\n")
-            except Exception as e:
-                logger.warning(f"Failed to read {skill_md}: {e}")
+    parts = _load_skill_markdown_parts(skills)
     if not parts:
         raise HTTPException(404, "No skill content found")
     return {"skills": skills, "content": "\n---\n\n".join(parts)}

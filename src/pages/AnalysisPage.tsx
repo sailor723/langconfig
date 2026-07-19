@@ -25,6 +25,13 @@ interface ChatMessage {
   tool_trace?: ToolTraceStep[] | null;
 }
 
+const SUNHING_HUB_FILENAME = 'sunhing_dashboard.html';
+
+function isSunhingHubDashboard(dashboard: DashboardFile): boolean {
+  return dashboard.skills?.includes('sunhing-analyst') === true
+    && dashboard.filename === SUNHING_HUB_FILENAME;
+}
+
 export default function AnalysisPage() {
   const [dashboards, setDashboards] = useState<DashboardFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +65,7 @@ export default function AnalysisPage() {
     try {
       const r = await apiClient.get('/api/analysis/dashboards');
       const all: DashboardFile[] = r.data || [];
-      setDashboards(all.filter(d => d.skills?.includes('sunhing-analyst')));
+      setDashboards(all.filter(isSunhingHubDashboard));
     }
     catch { setDashboards([]); } finally { setLoading(false); }
   };
@@ -145,6 +152,7 @@ export default function AnalysisPage() {
           db_path: dbPath,
           message: msg,
           skill_content: skillContent || undefined,
+          skills: activeDashboard?.skills || [],
           dashboard_filename: activeDashboard?.filename,
         }),
       });
