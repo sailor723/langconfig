@@ -17,6 +17,7 @@ interface DashboardFile {
   db_path?: string | null;
   skills?: string[];
   mode?: string | null;
+  entry?: string | null;
 }
 interface ToolTraceStep { step: number; type: string; name: string; input?: string; output?: string; }
 interface ChatMessage {
@@ -25,11 +26,8 @@ interface ChatMessage {
   tool_trace?: ToolTraceStep[] | null;
 }
 
-const SUNHING_HUB_FILENAME = 'sunhing_dashboard.html';
-
-function isSunhingHubDashboard(dashboard: DashboardFile): boolean {
-  return dashboard.skills?.includes('sunhing-analyst') === true
-    && dashboard.filename === SUNHING_HUB_FILENAME;
+function shouldShowDashboardInPanel(dashboard: DashboardFile): boolean {
+  return dashboard.entry !== 'detail';
 }
 
 export default function AnalysisPage() {
@@ -65,7 +63,7 @@ export default function AnalysisPage() {
     try {
       const r = await apiClient.get('/api/analysis/dashboards');
       const all: DashboardFile[] = r.data || [];
-      setDashboards(all.filter(isSunhingHubDashboard));
+      setDashboards(all.filter(shouldShowDashboardInPanel));
     }
     catch { setDashboards([]); } finally { setLoading(false); }
   };

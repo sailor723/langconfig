@@ -351,6 +351,7 @@ html = f"""<!DOCTYPE html>
   LangConfig Dashboard Meta
   db: {DB_PATH}
   skills: sunhing-analyst
+  entry: hub
 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
