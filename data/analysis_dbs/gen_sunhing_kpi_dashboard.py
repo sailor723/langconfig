@@ -22,9 +22,17 @@ from datetime import datetime
 from pathlib import Path
 
 
-DB_PATH = Path(__file__).parent / "sunhing_kpi.db"
-OUTPUT_DIR = Path(__file__).parent
-DB_META_PATH = "data/analysis_dbs/sunhing_kpi.db"
+# Output to agent-workspace artifact directory (via env or default)
+import os as _os
+_DASHBOARD_DIR = _os.getenv("SUNHING_DASHBOARD_DIR")
+if not _DASHBOARD_DIR:
+    _AW_ROOT = Path("/Users/weiping/dev/Learn/langchain-ai/agent-workspace")
+    _DASHBOARD_DIR = str(_AW_ROOT / "reports/eyewear_industry/新溢眼镜/dashboard")
+DASHBOARD_DIR = Path(_DASHBOARD_DIR)
+DB_PATH = DASHBOARD_DIR / "db" / "sunhing_kpi.db"
+OUTPUT_DIR = DASHBOARD_DIR / "html"
+_LANGCFG_DIR = Path(__file__).parent
+DB_META_PATH = str(DB_PATH)
 
 DASHBOARD_META = {
     "db": DB_META_PATH,
@@ -405,6 +413,21 @@ def grade_from_score(score: float) -> str:
     if score >= 80:
         return "B"
     return "C"
+
+
+def grade_to_multiplier(grade: str, default_a: float = 0.90, default_c: float = 1.10) -> float:
+    """Map KPI grade to DuPont factor adjustment multiplier.
+
+    A (>=90): adjustable 0.80-0.99, default 0.90
+    B (80-89): fixed 1.00
+    C (<80):  adjustable 1.01-1.20, default 1.10
+    """
+    if grade == "A":
+        return default_a
+    if grade == "C":
+        return default_c
+    return 1.00
+
 
 
 def render_dashboard_meta(generated_at: str, source_name: str, meta: dict) -> str:
@@ -827,10 +850,31 @@ factor_cards.sort(
     key=lambda card: ["净利润率", "资产周转率", "权益乘数", "支撑层", "风险监控"].index(card["factor"])
 )
 
+# ── Adjusted ROE (weighted KPI scoring model) ─────────────────────────
+def _card_for_factor(cards, name: str) -> dict:
+    return next(c for c in cards if c["factor"] == name)
+
+npm_card = _card_for_factor(factor_cards, "净利润率")
+at_card = _card_for_factor(factor_cards, "资产周转率")
+em_card = _card_for_factor(factor_cards, "权益乘数")
+
+mult_npm = grade_to_multiplier(npm_card["grade"])
+mult_at = grade_to_multiplier(at_card["grade"])
+mult_em = grade_to_multiplier(em_card["grade"])
+
 baseline_roe = roe_rows[0]["roe"]
 latest_roe = roe_rows[-1]["roe"]
 latest_dupont = roe_rows[-1]
 roe_delta = latest_roe - baseline_roe
+
+adjusted_roe_value = (
+    latest_dupont["net_profit_margin"]
+    * mult_npm
+    * latest_dupont["asset_turnover"]
+    * mult_at
+    * latest_dupont["equity_multiplier"]
+    * mult_em
+)
 roe_direction = "up" if roe_delta > 0 else "down" if roe_delta < 0 else "flat"
 
 met_total = sum(card["met_count"] for card in factor_cards)
@@ -854,6 +898,9 @@ dupont_card_metrics = {
 }
 main_cards = []
 for card in factor_cards:
+    # Only the 3 core DuPont factors in the main dashboard grid
+    if card["factor"] not in ("净利润率", "资产周转率", "权益乘数"):
+        continue
     dupont_metric = dupont_card_metrics.get(card["factor"])
     display_value = f'{card["score"]:.1f}'
     meta_line = f'平均达成得分 · 达标 {card["met_count"]}/{card["total"]}'
@@ -924,7 +971,7 @@ for factor_name, items in factor_groups.items():
 embedded_data = {
     "roeTrend": roe_rows,
     "latestKpis": latest_kpis,
-    "factorCards": factor_cards,
+    "factorCards": [c for c in factor_cards if c["factor"] in ("净利润率", "资产周转率", "权益乘数")],
     "rawHr": raw_hr,
     "liabilitySummary": raw_liability,
 }
@@ -1205,6 +1252,62 @@ hub_html = f"""<!DOCTYPE html>
   .insight-box h3 {{ color: var(--navy); margin-bottom: 8px; font-size: 14px; }}
   .insight-box ul {{ padding-left: 20px; }}
   .toggle-icon {{ font-size: 14px; opacity: 0.9; }}
+  .weight-bar-section {{
+    background: white;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }}
+  .weight-bar-section .title {{
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 10px;
+  }}
+  .weight-bar-section .title span {{
+    color: var(--mid-grey);
+    font-weight: 400;
+  }}
+  .weight-row {{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }}
+  .weight-row:last-child {{ margin-bottom: 0; }}
+  .weight-label {{
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 80px;
+    color: var(--slate);
+  }}
+  .weight-track {{
+    flex: 1;
+    height: 18px;
+    border-radius: 9px;
+    position: relative;
+    min-width: 160px;
+  }}
+  .weight-fill {{
+    height: 100%;
+    border-radius: 9px;
+    transition: width 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+    min-width: 40px;
+  }}
+  .weight-value {{
+    font-size: 14px;
+    font-weight: 700;
+    min-width: 50px;
+    text-align: right;
+  }}
 </style>
 </head>
 <body>
@@ -1214,7 +1317,7 @@ hub_html = f"""<!DOCTYPE html>
     <h1>Sun Hing Vision Group ROE Executive Dashboard</h1>
     <div class="sub">一分为多重组执行驾驶舱 · 主仪表盘以 ROE 因子组织 28 项 KPI · 只读管理视图</div>
   </div>
-  <div style="font-size:13px;color:var(--gold-light)">ROE = 净利润率 × 资产周转率 × 权益乘数 · 支撑层与风险监控提供执行保障</div>
+  <div style="font-size:13px;color:var(--gold-light)">ROE = 净利润率 × 资产周转率 × 权益乘数 · KPI加权评分模型: 调整后ROE = (NPM×f(NPM)) × (AT×f(AT)) × (EM×f(EM))</div>
 </div>
 
 <div class="baseline-bar">
@@ -1255,19 +1358,83 @@ hub_html = f"""<!DOCTYPE html>
   </div>
 
   <div class="result-bar">
-    <div>
-      <div style="font-size:13px;color:var(--gold-light);margin-bottom:4px">当前 ROE（{latest_period}）</div>
-      <div class="roe-value">{latest_roe:.1f}%</div>
+    <div style="flex:1">
+      <div style="font-size:13px;color:var(--gold-light);margin-bottom:4px">调整后 ROE（KPI加权评分模型） · 拖动滑块模拟因子变化</div>
+      <div class="roe-value" id="roeDisplay">{adjusted_roe_value:.1f}%</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:2px">原始ROE {latest_roe:.1f}% · 调整 <span id="roeDiff">{adjusted_roe_value - latest_roe:+.1f}%</span></div>
     </div>
-    <div style="text-align:right">
-      <div class="delta {roe_direction}">
-        {'+' if roe_delta > 0 else ''}{roe_delta:.1f}% vs {earliest_period}
-      </div>
-      <div style="font-size:12px;color:#94a3b8;margin-top:4px">
-        {roe_rows[-1]["net_profit_margin"]:.1f}% \u00d7 {roe_rows[-1]["asset_turnover"]:.2f} \u00d7 {roe_rows[-1]["equity_multiplier"]:.2f}
+    <div style="text-align:right;min-width:320px">
+      <div style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:2.0">
+        <div>
+          净利润率
+          <input type="range" id="npmSlider" min="{latest_dupont['net_profit_margin'] * 0.5:.1f}" max="{latest_dupont['net_profit_margin'] * 1.5:.1f}" step="0.1" value="{latest_dupont['net_profit_margin']}" style="width:120px;vertical-align:middle">
+          <span id="npmDisplay" style="display:inline-block;width:50px">{latest_dupont['net_profit_margin']:.1f}%</span>
+          <span style="color:var(--gold-light)"> &times; {mult_npm:.2f}</span>
+        </div>
+        <div>
+          资产周转率
+          <input type="range" id="atSlider" min="{latest_dupont['asset_turnover'] * 0.5:.2f}" max="{latest_dupont['asset_turnover'] * 1.5:.2f}" step="0.01" value="{latest_dupont['asset_turnover']}" style="width:120px;vertical-align:middle">
+          <span id="atDisplay" style="display:inline-block;width:50px">{latest_dupont['asset_turnover']:.2f}</span>
+          <span style="color:var(--gold-light)"> &times; {mult_at:.2f}</span>
+        </div>
+        <div>
+          权益乘数
+          <input type="range" id="emSlider" min="{latest_dupont['equity_multiplier'] * 0.5:.2f}" max="{latest_dupont['equity_multiplier'] * 1.5:.2f}" step="0.01" value="{latest_dupont['equity_multiplier']}" style="width:120px;vertical-align:middle">
+          <span id="emDisplay" style="display:inline-block;width:50px">{latest_dupont['equity_multiplier']:.2f}</span>
+          <span style="color:var(--gold-light)"> &times; {mult_em:.2f}</span>
+        </div>
       </div>
     </div>
   </div>
+
+  <div class="weight-bar-section">
+    <div class="title">KPI等级加权系数 <span>（A=×0.90 优秀折扣 · B=×1.00 标准 · C=×1.10 改善附加）</span></div>
+    <div class="weight-row">
+      <div class="weight-label">净利润率 <span class="grade-badge grade-{npm_card["grade"]}" style="font-size:10px;padding:1px 6px">{npm_card["grade"]}</span></div>
+      <div class="weight-track" style="background:#e0e7ff">
+        <div class="weight-fill" style="width:{(mult_npm - 0.80) * 250:.0f}%;background:{'#00B050' if mult_npm < 1.0 else '#B5935A' if mult_npm == 1.0 else '#FF5050'}">{mult_npm:.2f}</div>
+      </div>
+      <div class="weight-value" style="color:{'#00B050' if mult_npm < 1.0 else '#B5935A' if mult_npm == 1.0 else '#FF5050'}">× {mult_npm:.2f}</div>
+    </div>
+    <div class="weight-row">
+      <div class="weight-label">资产周转率 <span class="grade-badge grade-{at_card["grade"]}" style="font-size:10px;padding:1px 6px">{at_card["grade"]}</span></div>
+      <div class="weight-track" style="background:#e0e7ff">
+        <div class="weight-fill" style="width:{(mult_at - 0.80) * 250:.0f}%;background:{'#00B050' if mult_at < 1.0 else '#B5935A' if mult_at == 1.0 else '#FF5050'}">{mult_at:.2f}</div>
+      </div>
+      <div class="weight-value" style="color:{'#00B050' if mult_at < 1.0 else '#B5935A' if mult_at == 1.0 else '#FF5050'}">× {mult_at:.2f}</div>
+    </div>
+    <div class="weight-row">
+      <div class="weight-label">权益乘数 <span class="grade-badge grade-{em_card["grade"]}" style="font-size:10px;padding:1px 6px">{em_card["grade"]}</span></div>
+      <div class="weight-track" style="background:#e0e7ff">
+        <div class="weight-fill" style="width:{(mult_em - 0.80) * 250:.0f}%;background:{'#00B050' if mult_em < 1.0 else '#B5935A' if mult_em == 1.0 else '#FF5050'}">{mult_em:.2f}</div>
+      </div>
+      <div class="weight-value" style="color:{'#00B050' if mult_em < 1.0 else '#B5935A' if mult_em == 1.0 else '#FF5050'}">× {mult_em:.2f}</div>
+    </div>
+  </div>
+
+<script>
+const multNpm = {mult_npm};
+const multAt = {mult_at};
+const multEm = {mult_em};
+const baseRoe = {latest_roe};
+
+function updateRoe() {{
+  var npm = parseFloat(document.getElementById('npmSlider').value);
+  var at = parseFloat(document.getElementById('atSlider').value);
+  var em = parseFloat(document.getElementById('emSlider').value);
+  document.getElementById('npmDisplay').textContent = npm.toFixed(1) + '%';
+  document.getElementById('atDisplay').textContent = at.toFixed(2);
+  document.getElementById('emDisplay').textContent = em.toFixed(2);
+  var adj = (npm / 100 * multNpm) * (at * multAt) * (em * multEm);
+  var adjPct = adj * 100;
+  document.getElementById('roeDisplay').textContent = adjPct.toFixed(1) + '%';
+  var diff = adjPct - baseRoe;
+  document.getElementById('roeDiff').textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%';
+}}
+document.getElementById('npmSlider').addEventListener('input', updateRoe);
+document.getElementById('atSlider').addEventListener('input', updateRoe);
+document.getElementById('emSlider').addEventListener('input', updateRoe);
+</script>
 
   <div class="summary-bar">
     <div>
@@ -1287,7 +1454,7 @@ hub_html = f"""<!DOCTYPE html>
       <div id="roe-trend" class="chart"></div>
     </div>
     <div class="card">
-      <h3>五大因子最新得分</h3>
+      <h3>杜邦三联因子得分</h3>
       <div id="factor-score" class="chart"></div>
     </div>
   </div>
@@ -1362,11 +1529,24 @@ Plotly.newPlot('factor-score', [{{
 </html>
 """
 
+# Helper: write to both OUTPUT_DIR and langconfig
+def _write_all(filename: str, html: str):
+    paths = [OUTPUT_DIR / filename]
+    if _LANGCFG_DIR != OUTPUT_DIR:
+        paths.append(_LANGCFG_DIR / filename)
+    for p in paths:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            p.write_text(html, encoding="utf-8")
+        except (OSError, PermissionError) as _exc:
+            print(f"   ⚠ skip {p} ({_exc})")
+
 # ── Write hub HTML ─────────────────────────────────────────────────────
-hub_path = OUTPUT_DIR / "sunhing_dashboard.html"
-hub_path.write_text(hub_html, encoding="utf-8")
-print(f"\u2705 Hub dashboard generated: {hub_path}")
-print(f"   File size: {len(hub_html):,} bytes")
+hub_html_str = hub_html  # avoid confusion with outer variable
+_write_all("sunhing_dashboard.html", hub_html_str)
+print(f"\u2705 Hub dashboard generated: {OUTPUT_DIR / 'sunhing_dashboard.html'}")
+print(f"   Also at: {_LANGCFG_DIR / 'sunhing_dashboard.html'}")
+print(f"   File size: {len(hub_html_str):,} bytes")
 
 # ── Generate ALL sub-dashboards ────────────────────────────────────────
 for sd_config in SUB_DASHBOARDS:
@@ -1381,9 +1561,8 @@ for sd_config in SUB_DASHBOARDS:
     )
     sub_conn.close()
 
-    sub_path = OUTPUT_DIR / sd_config["filename"]
-    sub_path.write_text(sub_html, encoding="utf-8")
-    print(f"\u2705 Sub-dashboard generated: {sub_path} ({len(sub_html):,} bytes)")
+    _write_all(sd_config["filename"], sub_html)
+    print(f"\u2705 Sub-dashboard generated: {sd_config['filename']} ({len(sub_html):,} bytes)")
 
 print(f"\n\u2705 All dashboards generated successfully.")
 print(f"   Hub: sunhing_dashboard.html")
