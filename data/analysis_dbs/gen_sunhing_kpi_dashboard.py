@@ -1349,14 +1349,14 @@ hub_html = f"""<!DOCTYPE html>
 
 <div class="container">
   <div class="nav-links">
-    <a href="/api/files/sunhing_intro.html">Intro</a>
+    <a href="/api/files/sunhing_intro.html">Library</a>
     <a href="/api/files/sunhing_dashboard_profit.html">Profit (KPI 01-09)</a>
     <a href="/api/files/sunhing_dashboard_turnover.html">Turnover (10-13)</a>
     <a href="/api/files/sunhing_dashboard_leverage.html">Leverage (14-17)</a>
     <a href="/api/files/sunhing_dashboard_support.html">Support (18-21)</a>
     <a href="/api/files/sunhing_dashboard_risk.html">Risk (RS01-07)</a>
     <a href="/api/files/sunhing_dashboard_employees.html">Employees</a>
-    <a href="/api/files/sunhing_dashboard_liability.html">Liability Detail</a>
+    <a href="/api/files/sunhing_dashboard_liability.html">Liability</a>
     <a href="/api/files/sunhing_erd.html">ERD</a>
     <a href="/api/files/sunhing_gantt.html">Gantt</a>
   </div>
@@ -1616,6 +1616,17 @@ if _ERD_SRC.exists():
     print(f"\u2705 ERD page generated ({len(_erd_html):,} bytes)")
 else:
     print(f"\u26a0 ERD source not found at {_ERD_SRC}, skipping")
+
+# ── Copy Intro, Employees, Liability static pages ──────────────────────
+for _copy_name in ("sunhing_intro.html", "sunhing_intro_cn.html",
+                   "sunhing_dashboard_employees.html", "sunhing_dashboard_liability.html"):
+    _copy_src = _LANGCFG_DIR / _copy_name
+    if _copy_src.exists():
+        _copy_html = _copy_src.read_text(encoding="utf-8")
+        _write_all(_copy_name, _copy_html)
+        print(f"\u2705 Copied {_copy_name} ({len(_copy_html):,} bytes)")
+    else:
+        print(f"\u26a0 Source not found: {_copy_src}, skipping")
 
 # ── Generate Gantt page (embed data from DB) ───────────────────────────
 _GANTT_SRC = _LANGCFG_DIR / "sunhing_gantt.html"
