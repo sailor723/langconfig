@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <!--
-  Generated: 2026-07-23 09:11 | Source: sunhing_kpi.db | Mode: static-embed
+  Generated: 2026-07-23 14:26 | Source: sunhing_kpi.db | Mode: static-embed
   LangConfig Dashboard Meta
   db: /Users/weiping/dev/Learn/langchain-ai/agent-workspace/reports/eyewear_industry/新溢眼镜/dashboard/db/sunhing_kpi.db
   skills: sunhing-analyst
@@ -280,6 +280,81 @@
   .insight-box h3 { color: var(--navy); margin-bottom: 8px; font-size: 14px; }
   .insight-box ul { padding-left: 20px; }
   .toggle-icon { font-size: 14px; opacity: 0.9; }
+  .weight-bar-section {
+    background: white;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .weight-bar-section .title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 10px;
+  }
+  .weight-bar-section .title span {
+    color: var(--mid-grey);
+    font-weight: 400;
+  }
+  .weight-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .weight-row:last-child { margin-bottom: 0; }
+  .weight-label {
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 80px;
+    color: var(--slate);
+  }
+  .weight-track {
+    flex: 1;
+    height: 18px;
+    border-radius: 9px;
+    position: relative;
+    min-width: 160px;
+  }
+  .weight-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 18px;
+    border-radius: 9px;
+    outline: none;
+    background: #e0e7ff;
+    cursor: pointer;
+    margin: 0;
+  }
+  .weight-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  .weight-slider::-moz-range-thumb {
+    width: 18px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  .weight-fill {
+    display: none;
+  }
+  .weight-value {
+    font-size: 14px;
+    font-weight: 700;
+    min-width: 56px;
+    text-align: right;
+  }
 </style>
 </head>
 <body>
@@ -339,8 +414,8 @@
   <div class="result-bar">
     <div style="flex:1">
       <div style="font-size:13px;color:var(--gold-light);margin-bottom:4px">调整后 ROE（KPI加权评分模型） · 拖动滑块模拟因子变化</div>
-      <div class="roe-value" id="roeDisplay">3.1%</div>
-      <div style="font-size:12px;color:#94a3b8;margin-top:2px">原始ROE 4.3% · 调整 <span id="roeDiff">-1.2%</span></div>
+      <div class="roe-value" id="roeDisplay">2.2%</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:2px">原始ROE 4.3% · 调整 <span id="roeDiff">-2.1%</span></div>
     </div>
     <div style="text-align:right;min-width:320px">
       <div style="font-size:11px;color:#94a3b8;margin-top:4px;line-height:2.0">
@@ -348,29 +423,55 @@
           净利润率
           <input type="range" id="npmSlider" min="1.1" max="3.2" step="0.1" value="2.1" style="width:120px;vertical-align:middle">
           <span id="npmDisplay" style="display:inline-block;width:50px">2.1%</span>
-          <span style="color:var(--gold-light)"> &times; 0.90</span>
+          <span style="color:var(--gold-light)"> &times; 0.80</span>
         </div>
         <div>
           资产周转率
           <input type="range" id="atSlider" min="0.54" max="1.62" step="0.01" value="1.08" style="width:120px;vertical-align:middle">
           <span id="atDisplay" style="display:inline-block;width:50px">1.08</span>
-          <span style="color:var(--gold-light)"> &times; 0.90</span>
+          <span style="color:var(--gold-light)"> &times; 0.80</span>
         </div>
         <div>
           权益乘数
           <input type="range" id="emSlider" min="0.95" max="2.85" step="0.01" value="1.9" style="width:120px;vertical-align:middle">
           <span id="emDisplay" style="display:inline-block;width:50px">1.90</span>
-          <span style="color:var(--gold-light)"> &times; 0.90</span>
+          <span style="color:var(--gold-light)"> &times; 0.80</span>
         </div>
       </div>
     </div>
   </div>
 
+  <div class="weight-bar-section">
+    <div class="title">KPI等级加权系数 <span>（拖动滑块调整各因子权重，观察 ROE 变化）</span></div>
+    <div class="weight-row">
+      <div class="weight-label">净利润率 <span class="grade-badge grade-A" style="font-size:10px;padding:1px 6px">A</span></div>
+      <div class="weight-track">
+        <input type="range" id="npmWeight" class="weight-slider" min="0.70" max="1.30" step="0.05" value="0.80">
+      </div>
+      <div class="weight-value" id="npmWeightVal">× 0.80</div>
+    </div>
+    <div class="weight-row">
+      <div class="weight-label">资产周转率 <span class="grade-badge grade-A" style="font-size:10px;padding:1px 6px">A</span></div>
+      <div class="weight-track">
+        <input type="range" id="atWeight" class="weight-slider" min="0.70" max="1.30" step="0.05" value="0.80">
+      </div>
+      <div class="weight-value" id="atWeightVal">× 0.80</div>
+    </div>
+    <div class="weight-row">
+      <div class="weight-label">权益乘数 <span class="grade-badge grade-A" style="font-size:10px;padding:1px 6px">A</span></div>
+      <div class="weight-track">
+        <input type="range" id="emWeight" class="weight-slider" min="0.70" max="1.30" step="0.05" value="0.80">
+      </div>
+      <div class="weight-value" id="emWeightVal">× 0.80</div>
+    </div>
+  </div>
+
 <script>
-const multNpm = 0.9;
-const multAt = 0.9;
-const multEm = 0.9;
 const baseRoe = 4.3;
+
+function weightColor(v) {
+  return v < 1.0 ? '#00B050' : v > 1.0 ? '#FF5050' : '#B5935A';
+}
 
 function updateRoe() {
   var npm = parseFloat(document.getElementById('npmSlider').value);
@@ -379,7 +480,21 @@ function updateRoe() {
   document.getElementById('npmDisplay').textContent = npm.toFixed(1) + '%';
   document.getElementById('atDisplay').textContent = at.toFixed(2);
   document.getElementById('emDisplay').textContent = em.toFixed(2);
-  var adj = (npm / 100 * multNpm) * (at * multAt) * (em * multEm);
+
+  var wNpm = parseFloat(document.getElementById('npmWeight').value);
+  var wAt = parseFloat(document.getElementById('atWeight').value);
+  var wEm = parseFloat(document.getElementById('emWeight').value);
+  document.getElementById('npmWeightVal').textContent = '× ' + wNpm.toFixed(2);
+  document.getElementById('atWeightVal').textContent = '× ' + wAt.toFixed(2);
+  document.getElementById('emWeightVal').textContent = '× ' + wEm.toFixed(2);
+  document.getElementById('npmWeight').style.background =
+    'linear-gradient(to right, ' + weightColor(wNpm) + ' 0%, ' + weightColor(wNpm) + ' 100%)';
+  document.getElementById('atWeight').style.background =
+    'linear-gradient(to right, ' + weightColor(wAt) + ' 0%, ' + weightColor(wAt) + ' 100%)';
+  document.getElementById('emWeight').style.background =
+    'linear-gradient(to right, ' + weightColor(wEm) + ' 0%, ' + weightColor(wEm) + ' 100%)';
+
+  var adj = (npm / 100 * wNpm) * (at * wAt) * (em * wEm);
   var adjPct = adj * 100;
   document.getElementById('roeDisplay').textContent = adjPct.toFixed(1) + '%';
   var diff = adjPct - baseRoe;
@@ -388,6 +503,10 @@ function updateRoe() {
 document.getElementById('npmSlider').addEventListener('input', updateRoe);
 document.getElementById('atSlider').addEventListener('input', updateRoe);
 document.getElementById('emSlider').addEventListener('input', updateRoe);
+document.getElementById('npmWeight').addEventListener('input', updateRoe);
+document.getElementById('atWeight').addEventListener('input', updateRoe);
+document.getElementById('emWeight').addEventListener('input', updateRoe);
+updateRoe();
 </script>
 
   <div class="summary-bar">

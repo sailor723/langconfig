@@ -415,12 +415,12 @@ def grade_from_score(score: float) -> str:
     return "C"
 
 
-def grade_to_multiplier(grade: str, default_a: float = 0.90, default_c: float = 1.10) -> float:
+def grade_to_multiplier(grade: str, default_a: float = 0.80, default_c: float = 1.20) -> float:
     """Map KPI grade to DuPont factor adjustment multiplier.
 
-    A (>=90): adjustable 0.80-0.99, default 0.90
+    A (>=90): adjustable 0.80-0.99, default 0.80
     B (80-89): fixed 1.00
-    C (<80):  adjustable 1.01-1.20, default 1.10
+    C (<80):  adjustable 1.01-1.20, default 1.20
     """
     if grade == "A":
         return default_a
@@ -1289,23 +1289,42 @@ hub_html = f"""<!DOCTYPE html>
     position: relative;
     min-width: 160px;
   }}
-  .weight-fill {{
-    height: 100%;
+  .weight-slider {{
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 18px;
     border-radius: 9px;
-    transition: width 0.3s;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding-right: 8px;
-    font-size: 11px;
-    font-weight: 700;
-    color: white;
-    min-width: 40px;
+    outline: none;
+    background: #e0e7ff;
+    cursor: pointer;
+    margin: 0;
+  }}
+  .weight-slider::-webkit-slider-thumb {{
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }}
+  .weight-slider::-moz-range-thumb {{
+    width: 18px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }}
+  .weight-fill {{
+    display: none;
   }}
   .weight-value {{
     font-size: 14px;
     font-weight: 700;
-    min-width: 50px;
+    min-width: 56px;
     text-align: right;
   }}
 </style>
@@ -1388,35 +1407,36 @@ hub_html = f"""<!DOCTYPE html>
   </div>
 
   <div class="weight-bar-section">
-    <div class="title">KPI等级加权系数 <span>（A=×0.90 优秀折扣 · B=×1.00 标准 · C=×1.10 改善附加）</span></div>
+    <div class="title">KPI等级加权系数 <span>（拖动滑块调整各因子权重，观察 ROE 变化）</span></div>
     <div class="weight-row">
       <div class="weight-label">净利润率 <span class="grade-badge grade-{npm_card["grade"]}" style="font-size:10px;padding:1px 6px">{npm_card["grade"]}</span></div>
-      <div class="weight-track" style="background:#e0e7ff">
-        <div class="weight-fill" style="width:{(mult_npm - 0.80) * 250:.0f}%;background:{'#00B050' if mult_npm < 1.0 else '#B5935A' if mult_npm == 1.0 else '#FF5050'}">{mult_npm:.2f}</div>
+      <div class="weight-track">
+        <input type="range" id="npmWeight" class="weight-slider" min="0.70" max="1.30" step="0.05" value="{mult_npm:.2f}">
       </div>
-      <div class="weight-value" style="color:{'#00B050' if mult_npm < 1.0 else '#B5935A' if mult_npm == 1.0 else '#FF5050'}">× {mult_npm:.2f}</div>
+      <div class="weight-value" id="npmWeightVal">× {mult_npm:.2f}</div>
     </div>
     <div class="weight-row">
       <div class="weight-label">资产周转率 <span class="grade-badge grade-{at_card["grade"]}" style="font-size:10px;padding:1px 6px">{at_card["grade"]}</span></div>
-      <div class="weight-track" style="background:#e0e7ff">
-        <div class="weight-fill" style="width:{(mult_at - 0.80) * 250:.0f}%;background:{'#00B050' if mult_at < 1.0 else '#B5935A' if mult_at == 1.0 else '#FF5050'}">{mult_at:.2f}</div>
+      <div class="weight-track">
+        <input type="range" id="atWeight" class="weight-slider" min="0.70" max="1.30" step="0.05" value="{mult_at:.2f}">
       </div>
-      <div class="weight-value" style="color:{'#00B050' if mult_at < 1.0 else '#B5935A' if mult_at == 1.0 else '#FF5050'}">× {mult_at:.2f}</div>
+      <div class="weight-value" id="atWeightVal">× {mult_at:.2f}</div>
     </div>
     <div class="weight-row">
       <div class="weight-label">权益乘数 <span class="grade-badge grade-{em_card["grade"]}" style="font-size:10px;padding:1px 6px">{em_card["grade"]}</span></div>
-      <div class="weight-track" style="background:#e0e7ff">
-        <div class="weight-fill" style="width:{(mult_em - 0.80) * 250:.0f}%;background:{'#00B050' if mult_em < 1.0 else '#B5935A' if mult_em == 1.0 else '#FF5050'}">{mult_em:.2f}</div>
+      <div class="weight-track">
+        <input type="range" id="emWeight" class="weight-slider" min="0.70" max="1.30" step="0.05" value="{mult_em:.2f}">
       </div>
-      <div class="weight-value" style="color:{'#00B050' if mult_em < 1.0 else '#B5935A' if mult_em == 1.0 else '#FF5050'}">× {mult_em:.2f}</div>
+      <div class="weight-value" id="emWeightVal">× {mult_em:.2f}</div>
     </div>
   </div>
 
 <script>
-const multNpm = {mult_npm};
-const multAt = {mult_at};
-const multEm = {mult_em};
 const baseRoe = {latest_roe};
+
+function weightColor(v) {{
+  return v < 1.0 ? '#00B050' : v > 1.0 ? '#FF5050' : '#B5935A';
+}}
 
 function updateRoe() {{
   var npm = parseFloat(document.getElementById('npmSlider').value);
@@ -1425,7 +1445,21 @@ function updateRoe() {{
   document.getElementById('npmDisplay').textContent = npm.toFixed(1) + '%';
   document.getElementById('atDisplay').textContent = at.toFixed(2);
   document.getElementById('emDisplay').textContent = em.toFixed(2);
-  var adj = (npm / 100 * multNpm) * (at * multAt) * (em * multEm);
+
+  var wNpm = parseFloat(document.getElementById('npmWeight').value);
+  var wAt = parseFloat(document.getElementById('atWeight').value);
+  var wEm = parseFloat(document.getElementById('emWeight').value);
+  document.getElementById('npmWeightVal').textContent = '\u00d7 ' + wNpm.toFixed(2);
+  document.getElementById('atWeightVal').textContent = '\u00d7 ' + wAt.toFixed(2);
+  document.getElementById('emWeightVal').textContent = '\u00d7 ' + wEm.toFixed(2);
+  document.getElementById('npmWeight').style.background =
+    'linear-gradient(to right, ' + weightColor(wNpm) + ' 0%, ' + weightColor(wNpm) + ' 100%)';
+  document.getElementById('atWeight').style.background =
+    'linear-gradient(to right, ' + weightColor(wAt) + ' 0%, ' + weightColor(wAt) + ' 100%)';
+  document.getElementById('emWeight').style.background =
+    'linear-gradient(to right, ' + weightColor(wEm) + ' 0%, ' + weightColor(wEm) + ' 100%)';
+
+  var adj = (npm / 100 * wNpm) * (at * wAt) * (em * wEm);
   var adjPct = adj * 100;
   document.getElementById('roeDisplay').textContent = adjPct.toFixed(1) + '%';
   var diff = adjPct - baseRoe;
@@ -1434,6 +1468,10 @@ function updateRoe() {{
 document.getElementById('npmSlider').addEventListener('input', updateRoe);
 document.getElementById('atSlider').addEventListener('input', updateRoe);
 document.getElementById('emSlider').addEventListener('input', updateRoe);
+document.getElementById('npmWeight').addEventListener('input', updateRoe);
+document.getElementById('atWeight').addEventListener('input', updateRoe);
+document.getElementById('emWeight').addEventListener('input', updateRoe);
+updateRoe();
 </script>
 
   <div class="summary-bar">
@@ -1569,3 +1607,193 @@ print(f"   Hub: sunhing_dashboard.html")
 print(f"   Sub-dashboards:")
 for sd in SUB_DASHBOARDS:
     print(f"     - {sd['filename']}")
+
+# ── Generate ERD page (copy existing static HTML) ──────────────────────
+_ERD_SRC = _LANGCFG_DIR / "sunhing_erd.html"
+if _ERD_SRC.exists():
+    _erd_html = _ERD_SRC.read_text(encoding="utf-8")
+    _write_all("sunhing_erd.html", _erd_html)
+    print(f"\u2705 ERD page generated ({len(_erd_html):,} bytes)")
+else:
+    print(f"\u26a0 ERD source not found at {_ERD_SRC}, skipping")
+
+# ── Generate Gantt page (embed data from DB) ───────────────────────────
+_GANTT_SRC = _LANGCFG_DIR / "sunhing_gantt.html"
+if _GANTT_SRC.exists():
+    _gantt_html_src = _GANTT_SRC.read_text(encoding="utf-8")
+    # Read gantt data from DB
+    _gconn = sqlite3.connect(str(DB_PATH))
+    _gconn.row_factory = sqlite3.Row
+    _gantt_milestones = []
+    for _row in _gconn.execute("SELECT milestone_id, phase_id, milestone_description, planned_date, actual_date, status, completed_on_time FROM raw_pmo ORDER BY phase_id, milestone_id").fetchall():
+        _gantt_milestones.append({
+            "milestone_id": _row["milestone_id"],
+            "phase_id": _row["phase_id"],
+            "milestone_description": _row["milestone_description"],
+            "planned_date": _row["planned_date"],
+            "actual_date": _row["actual_date"],
+            "status": _row["status"],
+            "completed_on_time": _row["completed_on_time"],
+        })
+    _gantt_phases = []
+    for _row in _gconn.execute("SELECT phase_id, phase_name, phase_name_cn, start_month, end_month, phase_owner, milestone_count, budget_allocated_wan FROM dim_pmo_phase ORDER BY phase_id").fetchall():
+        _gantt_phases.append({
+            "phase_id": _row["phase_id"],
+            "phase_name": _row["phase_name"],
+            "phase_name_cn": _row["phase_name_cn"],
+            "start_month": _row["start_month"],
+            "end_month": _row["end_month"],
+            "phase_owner": _row["phase_owner"],
+            "milestone_count": _row["milestone_count"],
+            "budget_allocated_wan": _row["budget_allocated_wan"],
+        })
+    _gconn.close()
+    _gantt_data_json = json.dumps({"milestones": _gantt_milestones, "phases": _gantt_phases}, ensure_ascii=False)
+    # Replace fetch('/api/gantt-data') with embedded data
+    _gantt_html = _gantt_html_src.replace(
+        "fetch('/api/gantt-data')"
+        + "\n    .then(function(r) { return r.json(); })"
+        + "\n    .then(function(data) {",
+        "// embedded data (no API dependency)\nvar data = " + _gantt_data_json + ";"
+    )
+    # Remove the .catch block that follows
+    _gantt_html = _gantt_html.replace(
+        "\n    .catch(function(err) {"
+        + "\n      document.getElementById('gantt').innerHTML ="
+        + "\n        '<div style=\"color:#e74c3c;text-align:center;padding:40px;\">Failed to load: ' + err.message + '</div>';"
+        + "\n    });",
+        ""
+    )
+    _write_all("sunhing_gantt.html", _gantt_html)
+    print(f"\u2705 Gantt page generated with {len(_gantt_milestones)} milestones, {len(_gantt_phases)} phases ({len(_gantt_html):,} bytes)")
+else:
+    print(f"\u26a0 Gantt source not found at {_GANTT_SRC}, skipping")
+
+# ── Generate Data page (raw KPI data tables) ──────────────────────────
+_dconn = sqlite3.connect(str(DB_PATH))
+_dconn.row_factory = sqlite3.Row
+
+# Read all KPI data
+_kpi_rows = []
+for _row in _dconn.execute("""
+    SELECT f.kpi_id, d.kpi_name, d.roe_factor AS factor, f.unit,
+           f.actual AS actual_value, d.target AS target_value, f.period
+    FROM fact_kpi_monthly f
+    JOIN dim_kpi d ON f.kpi_id = d.kpi_id
+    WHERE f.company_id = 1
+    ORDER BY d.roe_factor, f.kpi_id, f.period
+""").fetchall():
+    _kpi_rows.append({
+        "kpi_id": _row["kpi_id"],
+        "kpi_name": _row["kpi_name"],
+        "factor": _row["factor"],
+        "unit": _row["unit"],
+        "actual": _row["actual_value"],
+        "target": _row["target_value"],
+        "period": _row["period"],
+    })
+
+# Read financial data
+_fin_rows = []
+for _row in _dconn.execute("""
+    SELECT period, net_profit_margin, asset_turnover, equity_multiplier, roe
+    FROM fact_roe_summary
+    WHERE company_id = 1
+    ORDER BY period
+""").fetchall():
+    _fin_rows.append({
+        "period": _row["period"],
+        "net_profit_margin": _row["net_profit_margin"],
+        "asset_turnover": _row["asset_turnover"],
+        "equity_multiplier": _row["equity_multiplier"],
+        "roe": _row["roe"],
+    })
+
+_dconn.close()
+
+# Group KPI data by factor for table display
+_kpi_by_factor = {}
+for _kr in _kpi_rows:
+    _kpi_by_factor.setdefault(_kr["factor"], []).append(_kr)
+
+_data_html_parts = []
+_data_html_parts.append(f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8">
+<title>Sun Hing — Raw Data Tables</title>
+<style>
+  :root {{ --navy: #0B2344; --gold-light: #D4AF70; --body: #1A202C; }}
+  * {{ box-sizing: border-box; }}
+  body {{ font-family: "Microsoft YaHei","PingFang SC","Segoe UI",sans-serif; background: #f0f2f5; color: var(--body); margin: 0; padding: 0 0 40px; }}
+  .header {{ background: var(--navy); color: white; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }}
+  .header h1 {{ font-size: 20px; font-weight: 700; margin: 0; }}
+  .header .sub {{ font-size: 13px; color: var(--gold-light); }}
+  .container {{ max-width: 1400px; margin: 20px auto; padding: 0 16px; }}
+  .nav-links {{ display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }}
+  .nav-links a {{ background: #fff; color: #4A5568; text-decoration: none; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }}
+  .nav-links a:hover {{ box-shadow: 0 4px 12px rgba(0,0,0,0.12); }}
+  .nav-links a.active {{ background: var(--navy); color: white; }}
+  .page-title {{ font-size: 20px; font-weight: 700; margin-bottom: 4px; }}
+  .page-subtitle {{ color: #666; font-size: 13px; margin-bottom: 20px; }}
+  .section {{ background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 18px; overflow: hidden; }}
+  .section h2 {{ font-size: 15px; font-weight: 700; padding: 14px 18px; margin: 0; background: #f8f9fa; border-bottom: 2px solid #eee; }}
+  table {{ width: 100%; border-collapse: collapse; font-size: 12px; }}
+  th {{ text-align: left; padding: 8px 10px; background: #f8f9fa; border-bottom: 2px solid #e2e8f0; font-weight: 600; white-space: nowrap; }}
+  td {{ padding: 7px 10px; border-bottom: 1px solid #f0f0f0; }}
+  tr:hover td {{ background: #f7fafc; }}
+  .factor-badge {{ display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; color: white; }}
+  .badge-npm {{ background: #006600; }}
+  .badge-at {{ background: #1F4E79; }}
+  .badge-em {{ background: #5B2C6F; }}
+  .badge-sup {{ background: #C65911; }}
+  .badge-risk {{ background: #7A1F1F; }}
+</style>
+</head>
+<body>
+<div class="header">
+  <div><h1>Raw Data Tables</h1><div class="sub">Sun Hing KPI & Financial Raw Data</div></div>
+  <div style="font-size:13px;color:var(--gold-light)">data lineage: source_data.db → sunhing_kpi.db</div>
+</div>
+<div class="container">
+  <div class="nav-links">
+    <a href="/api/files/sunhing_dashboard.html">Main Dashboard</a>
+    <a href="/api/files/sunhing_erd.html">ERD</a>
+    <a href="/api/files/sunhing_gantt.html">Gantt</a>
+    <a href="/api/files/sunhing_dashboard_data.html" class="active">Raw Data</a>
+  </div>
+  <div class="page-title">KPI & Financial Raw Data</div>
+  <div class="page-subtitle">数据库中全部KPI指标与财务数据的原始记录</div>
+""")
+
+# Financial data section
+_data_html_parts.append(f"""<div class="section"><h2>Financial Metrics (fact_roe_summary)</h2>
+<table><thead><tr><th>Period</th><th>Net Profit Margin (%)</th><th>Asset Turnover (x)</th><th>Equity Multiplier (x)</th><th>ROE (%)</th></tr></thead><tbody>""")
+for _fr in _fin_rows:
+    _data_html_parts.append(f"<tr><td>{_fr['period']}</td><td>{_fr['net_profit_margin']:.2f}</td><td>{_fr['asset_turnover']:.2f}</td><td>{_fr['equity_multiplier']:.2f}</td><td>{_fr['roe']:.2f}</td></tr>")
+_data_html_parts.append("</tbody></table></div>")
+
+# KPI data by factor
+for _factor, _kpis in sorted(_kpi_by_factor.items()):
+    _badge_class = {"净利润率": "badge-npm", "资产周转率": "badge-at", "权益乘数": "badge-em", "支撑层": "badge-sup", "风险监控": "badge-risk"}.get(_factor, "")
+    _data_html_parts.append(f'<div class="section"><h2><span class="factor-badge {_badge_class}">{_factor}</span> KPI Data</h2>\n<table><thead><tr><th>KPI ID</th><th>KPI Name</th><th>Period</th><th>Actual</th><th>Target</th><th>Unit</th><th>Score</th></tr></thead><tbody>')
+    for _kr in _kpis:
+        _score = calc_score(_kr["actual"], _kr["target"], _kr["kpi_id"])
+        _status = "met" if is_met(_kr["actual"], _kr["target"], _kr["kpi_id"]) else "miss"
+        _data_html_parts.append(f'<tr><td>{_kr["kpi_id"]}</td><td>{_kr["kpi_name"]}</td><td>{_kr["period"]}</td><td class="{_status}">{_kr["actual"]:.2f}</td><td>{_kr["target"]:.2f}</td><td>{_kr["unit"]}</td><td class="{_status}">{_score:.1f}%</td></tr>')
+    _data_html_parts.append("</tbody></table></div>")
+
+_data_html_parts.append("""
+</div>
+</body>
+</html>""")
+
+_data_html = "\n".join(_data_html_parts)
+_write_all("sunhing_dashboard_data.html", _data_html)
+print(f"\u2705 Data page generated ({len(_data_html):,} bytes)")
+
+print(f"\n\u2705 All pages generated. Total files: 9")
+print(f"   - sunhing_dashboard.html (hub)")
+print(f"   - sunhing_dashboard_{{profit,turnover,leverage,support,risk}}.html")
+print(f"   - sunhing_erd.html (ERD)")
+print(f"   - sunhing_gantt.html (Gantt)")
+print(f"   - sunhing_dashboard_data.html (Raw Data)")
