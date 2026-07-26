@@ -1,9 +1,9 @@
 /**
  * LayoutPreview — standalone entry for previewing the VS Code-style layout shell.
  *
- * This is served at /layout-preview.html on port 1420, or separately on port 1421.
- * It renders the layout2 components with mock content so you can see the
- * complete VS Code layout without touching the main app.
+ * Served at port 1421 (/layout-preview.html). Renders the layout2 shell with
+ * real backend data (via Vite proxy) AND the DeepAgent Studio canvas (embedded
+ * directly here, no port-hopping).
  */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -15,6 +15,7 @@ import Workspace from './components/layout2/Workspace';
 import NodeSidebar from './components/layout2/NodeSidebar';
 import BottomPanel from './components/layout2/BottomPanel';
 import StatusBar from './components/layout2/StatusBar';
+import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
 import './index.css';
 
 // ── Mock content for the workspace ────────────────────────
@@ -47,13 +48,15 @@ function EditorPlaceholder({ label }: { label: string }) {
 // ── Layout shell with mock data ──────────────────────────
 
 function LayoutPreviewInner() {
-  const { setBottomPanelOpen, setActiveActivity } = useLayoutState();
+  const { setBottomPanelOpen, setActiveActivity, activeActivity } = useLayoutState();
 
   // Open bottom panel and default to DeepAgents activity on mount
   React.useEffect(() => {
     setActiveActivity('deepagents');
     setBottomPanelOpen(true);
   }, []);
+
+  const isStudio = activeActivity === 'studio';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', overflow: 'hidden' }}>
@@ -62,16 +65,23 @@ function LayoutPreviewInner() {
         <ActivityBar />
         <LeftSidebar />
 
-        {/* Center column: Workspace on top, BottomPanel below */}
+        {/* Center column: Workspace on top, BottomPanel below.
+            When activity === studio, render the canvas directly without the tabs shell. */}
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-          <Workspace
-            fallback={
-              <div style={{ display: 'flex', flex: 1, minWidth: 0, overflow: 'auto' }}>
-                <EditorPlaceholder label="Select a file to edit" />
-              </div>
-            }
-          />
-          <BottomPanel />
+          {isStudio ? (
+            <DeepAgentStudioPage />
+          ) : (
+            <>
+              <Workspace
+                fallback={
+                  <div style={{ display: 'flex', flex: 1, minWidth: 0, overflow: 'auto' }}>
+                    <EditorPlaceholder label="Select a file to edit" />
+                  </div>
+                }
+              />
+              <BottomPanel />
+            </>
+          )}
         </div>
 
         <NodeSidebar />

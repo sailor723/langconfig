@@ -183,7 +183,7 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   analysis: 'analysis',
   settings: 'settings',
   playground: 'workflows',
-  'deepagent-studio': 'workflows',
+  'deepagent-studio': 'studio',
 };
 
 // Map ActivityId → View (for ActivityBar clicks)
@@ -194,6 +194,7 @@ const ACTIVITY_TO_VIEW: Record<ActivityId, View> = {
   library: 'library',
   analysis: 'analysis',
   settings: 'settings',
+  studio: 'deepagent-studio',
 };
 
 function AppContent() {
