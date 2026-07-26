@@ -2,27 +2,22 @@
  * Copyright (c) 2025 Cade Russell (Ghost Peony)
  *
  * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
+ * LICENSE file in this root directory.
+ *
+ * App — root component.
+ *
+ * Layout structure (Obsidian-style shell):
+ * ┌─────┬──────────┬──────────────────┬──────────┐
+ * │ Act │ Left     │ Workspace        │ Right    │
+ * │ Bar │ Sidebar  │ (tabs + content) │ Sidebar  │
+ * ├─────┴──────────┴──────────────────┴──────────┤
+ * │ Bottom Panel (chat / logs / output)          │
+ * ├──────────────────────────────────────────────┤
+ * │ Status Bar                                    │
+ * └──────────────────────────────────────────────┘
  */
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import ModernHeader from './components/layout/ModernHeader';
-import ModernAgentLibrary from './features/agents/ui/ModernAgentLibrary';
-import WorkflowCanvas, { WorkflowCanvasRef, WorkflowRecipe } from './features/workflows/canvas/WorkflowCanvas';
-import { TaskHistoryEntry } from './features/workflows/canvas/types';
-import WorkflowLibraryView from './features/workflows/library/WorkflowLibraryView';
-import NodeConfigPanel from './features/workflows/node-config/NodeConfigPanel';
-import SettingsView from './pages/SettingsPage';
-import PlaygroundPage from './pages/PlaygroundPage';
-import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
-import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
-import AgentLoadouts from './features/agents/ui/AgentLoadouts';
-import ToolLibrary from './features/tools/ToolLibrary';
-import PromptAssemblyPage from './pages/PromptAssemblyPage';
-import { SkillLibrary } from './features/skills';
-import HomePage from './pages/HomePage';
-import AnalysisPage from './pages/AnalysisPage';
 import { ThemeProvider } from './lib/themes';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { ToastProvider, ToastContainer } from './hooks/useToast';
@@ -30,9 +25,310 @@ import { ChatProvider } from './features/chat/state/ChatContext';
 import GlobalChatModal from './features/chat/ui/GlobalChatModal';
 import apiClient from './lib/api-client';
 
+// Pages
+import HomePage from './pages/HomePage';
+import WorkflowCanvas, { WorkflowCanvasRef, WorkflowRecipe } from './features/workflows/canvas/WorkflowCanvas';
+import { TaskHistoryEntry } from './features/workflows/canvas/types';
+import NodeConfigPanel from './features/workflows/node-config/NodeConfigPanel';
+import WorkflowLibraryView from './features/workflows/library/WorkflowLibraryView';
+import ModernAgentLibrary from './features/agents/ui/ModernAgentLibrary';
+import AgentLoadouts from './features/agents/ui/AgentLoadouts';
+import SkillLibrary from './features/skills/ui/SkillLibrary';
+import ToolLibrary from './features/tools/ToolLibrary';
+import PromptAssemblyPage from './pages/PromptAssemblyPage';
+import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
+import AnalysisPage from './pages/AnalysisPage';
+import SettingsView from './pages/SettingsPage';
+import PlaygroundPage from './pages/PlaygroundPage';
+import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
+
+// New layout components
+import { LayoutProvider, useLayoutState, ACTIVITIES, type ActivityId } from './components/layout2/useLayout';
+import ActivityBar from './components/layout2/ActivityBar';
+import LeftSidebar from './components/layout2/LeftSidebar';
+import Workspace from './components/layout2/Workspace';
+import NodeSidebar from './components/layout2/NodeSidebar';
+import BottomPanel from './components/layout2/BottomPanel';
+import StatusBar from './components/layout2/StatusBar';
+
+// ── Types ───────────────────────────────────────────────
 type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
+// Map route path → View
+const ROUTE_TO_VIEW: Record<string, View> = {
+  '/': 'home', '/home': 'home',
+  '/studio': 'studio', '/results': 'studio',
+  '/library': 'library',
+  '/agents': 'agents', '/deepagents': 'agents',
+  '/knowledge': 'knowledge',
+  '/skills': 'skills',
+  '/tools': 'tools',
+  '/prompt': 'prompt',
+  '/analysis': 'analysis',
+  '/settings': 'settings',
+  '/playground': 'playground',
+  '/deepagent-studio': 'deepagent-studio',
+};
+
+// Map View → route path
+const VIEW_ROUTE: Record<View, string> = {
+  home: '/home', studio: '/studio', library: '/library',
+  agents: '/agents', skills: '/skills', knowledge: '/knowledge',
+  analysis: '/analysis', settings: '/settings', playground: '/playground',
+  tools: '/tools', prompt: '/prompt', 'deepagent-studio': '/deepagent-studio',
+};
+
+// Map View → ActivityId (for ActivityBar highlighting)
+const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
+  home: null,
+  studio: 'workflows',
+  library: 'workflows',
+  agents: 'agents',
+  skills: 'library',
+  tools: 'library',
+  prompt: 'library',
+  knowledge: 'library',
+  analysis: 'analysis',
+  settings: 'settings',
+  playground: 'workflows',
+  'deepagent-studio': 'workflows',
+};
+
+// ── Inner AppContent ─────────────────────────────────────
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const workflowCanvasRef = useRef<WorkflowCanvasRef>(null);
+  const saveWorkflowTimeoutRef = useRef<number | null>(null);
+
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [selectedRecipe, setSelectedRecipe] = useState<WorkflowRecipe | null>(null);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<number | null>(null);
+  const [workflowName, setWorkflowName] = useState('Untitled Workflow');
+  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>('draft');
+  const [executing, setExecuting] = useState(false);
+  const [workflowTab, setWorkflowTab] = useState<'studio' | 'results'>('studio');
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeData, setSelectedNodeData] = useState<SelectedNodeData | null>(null);
+  const [nodeConfigs, setNodeConfigs] = useState<Record<string, NodeConfig>>({});
+  const [tokenCostInfo, setTokenCostInfo] = useState<{ totalTokens: number; promptTokens: number; completionTokens: number; costString: string; } | null>(null);
+  const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
+  const [selectedHistoryTask, setSelectedHistoryTask] = useState<TaskHistoryEntry | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [sidebarPanel, setSidebarPanel] = useState<'agents' | 'history'>('agents');
+
+  // Layout state
+  const { setActiveActivity, rightPanelOpen, openRightPanel, closeRightPanel } = useLayoutState();
+
+  // Current view from route
+  const currentView: View = ROUTE_TO_VIEW[location.pathname] ?? 'home';
+
+  // Sync ActivityBar with current view
+  useEffect(() => {
+    const activity = VIEW_TO_ACTIVITY[currentView];
+    if (activity) setActiveActivity(activity);
+  }, [currentView, setActiveActivity]);
+
+  // Sync right panel with node selection
+  useEffect(() => {
+    if (currentView === 'studio' && selectedNodeId && selectedNodeData) {
+      openRightPanel('node-config');
+    } else if (rightPanelOpen) {
+      closeRightPanel();
+    }
+  }, [currentView, selectedNodeId]);
+
+  const handleViewChange = useCallback((view: View) => {
+    // Check for unsaved workflow changes
+    if (currentView === 'studio' && workflowCanvasRef.current?.hasUnsavedChanges()) {
+      const confirmLeave = window.confirm(
+        'You have unsaved workflow changes. Click OK to stay and save, Cancel to leave.'
+      );
+      if (confirmLeave) return;
+    }
+    navigate(VIEW_ROUTE[view]);
+  }, [currentView, navigate]);
+
+  // Handle node config save
+  const handleNodeConfigSave = useCallback((nodeId: string, fullConfig: any) => {
+    setNodeConfigs(prev => ({ ...prev, [nodeId]: fullConfig }));
+    workflowCanvasRef.current?.updateNodeConfig(nodeId, fullConfig);
+
+    // Update selectedNodeData for real-time sync
+    if (selectedNodeId === nodeId && selectedNodeData) {
+      setSelectedNodeData({
+        ...selectedNodeData,
+        ...fullConfig,
+        config: fullConfig,
+        label: fullConfig.label || fullConfig.name || selectedNodeData.label,
+        name: fullConfig.name || selectedNodeData.name,
+      });
+    }
+
+    // Debounced auto-save (800ms)
+    if (saveWorkflowTimeoutRef.current) clearTimeout(saveWorkflowTimeoutRef.current);
+    saveWorkflowTimeoutRef.current = window.setTimeout(() => {
+      workflowCanvasRef.current?.saveWorkflow(true);
+    }, 800);
+  }, [selectedNodeId, selectedNodeData]);
+
+  const handleNodeDelete = useCallback((nodeId: string) => {
+    workflowCanvasRef.current?.deleteNode(nodeId);
+    setSelectedNodeId(null);
+    setSelectedNodeData(null);
+    setNodeConfigs(prev => { const n = { ...prev }; delete n[nodeId]; return n; });
+  }, []);
+
+  // ── Render ─────────────────────────────────────────
+  // The layout shell is rendered here inside the route context
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', overflow: 'hidden' }}>
+      {/* Main row: ActivityBar | LeftSidebar | Workspace | NodeSidebar */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <ActivityBar />
+
+        {/* Left sidebar — contextual, shown for most studio-like views */}
+        {currentView === 'studio' && (
+          <ModernAgentLibrary
+            onSelectAgent={(agent) => {
+              setSelectedAgent(agent);
+            }}
+            onSelectRecipe={(recipe) => {
+              setSelectedRecipe(recipe);
+            }}
+            taskHistory={taskHistory}
+            loadingHistory={loadingHistory}
+            selectedHistoryTask={selectedHistoryTask}
+            onSelectHistoryTask={(task) => {
+              setSelectedHistoryTask(task);
+            }}
+            activePanel={sidebarPanel}
+            onPanelChange={(panel) => setSidebarPanel(panel)}
+          />
+        )}
+        {/* Default Obsidian-style LeftSidebar for non-studio views */}
+        {currentView !== 'studio' && <LeftSidebar />}
+
+        {/* Center workspace — renders the active page */}
+        <Workspace
+          fallback={
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'auto' }}>
+              {currentView === 'home' && <HomePage />}
+              {currentView === 'studio' && (
+                <WorkflowCanvas
+                  ref={workflowCanvasRef}
+                  selectedAgent={selectedAgent}
+                  selectedRecipe={selectedRecipe}
+                  onWorkflowSelect={setSelectedWorkflowId}
+                  onNodeSelect={(nodeId, data) => {
+                    setSelectedNodeId(nodeId);
+                    if (nodeId && data) {
+                      const norm = data.config ? { ...data, ...data.config } : data;
+                      setSelectedNodeData({ id: nodeId, ...norm });
+                    } else {
+                      setSelectedNodeData(null);
+                    }
+                  }}
+                  onNodeDelete={handleNodeDelete}
+                  onExecutionStart={() => { setExecuting(true); setWorkflowStatus('running'); }}
+                  onAgentAdded={() => setSelectedAgent(null)}
+                  onRecipeInserted={() => setSelectedRecipe(null)}
+                  workflowId={selectedWorkflowId}
+                  onTabChange={(tab) => setWorkflowTab(tab)}
+                  initialTab={workflowTab}
+                  onTokenCostUpdate={setTokenCostInfo}
+                  onTaskHistoryUpdate={setTaskHistory}
+                  onSelectedTaskChange={setSelectedHistoryTask}
+                  externalSelectedTask={selectedHistoryTask}
+                />
+              )}
+              {currentView === 'library' && (
+                <WorkflowLibraryView
+                  onWorkflowSelect={setSelectedWorkflowId}
+                  onWorkflowOpen={(id) => { setSelectedWorkflowId(id); navigate('/studio'); }}
+                />
+              )}
+              {currentView === 'agents' && <AgentLoadouts />}
+              {currentView === 'skills' && <SkillLibrary />}
+              {currentView === 'tools' && <ToolLibrary />}
+              {currentView === 'prompt' && <PromptAssemblyPage />}
+              {currentView === 'knowledge' && <KnowledgeBaseView />}
+              {currentView === 'analysis' && <AnalysisPage />}
+              {currentView === 'settings' && <SettingsView />}
+              {currentView === 'playground' && <PlaygroundPage />}
+              {currentView === 'deepagent-studio' && <DeepAgentStudioPage />}
+            </div>
+          }
+        />
+
+        {/* Right panel — node config (when node selected in studio) */}
+        {currentView === 'studio' && selectedNodeId && selectedNodeData && (
+          <NodeConfigPanel
+            selectedNode={{
+              id: selectedNodeId,
+              name: selectedNodeData.label || selectedNodeData.name || selectedNodeData.config?.name || selectedNodeId,
+              agentType: selectedNodeData.agentType,
+              model: selectedNodeData.model || selectedNodeData.config?.model,
+              system_prompt: selectedNodeData.system_prompt || selectedNodeData.config?.system_prompt || '',
+              temperature: selectedNodeData.temperature ?? selectedNodeData.config?.temperature ?? 0.7,
+              max_tokens: selectedNodeData.max_tokens || selectedNodeData.config?.max_tokens || 4000,
+              max_retries: selectedNodeData.max_retries || selectedNodeData.config?.max_retries || 3,
+              recursion_limit: selectedNodeData.recursion_limit || selectedNodeData.config?.recursion_limit || 300,
+              tools: selectedNodeData.tools || selectedNodeData.config?.tools || [],
+              native_tools: selectedNodeData.native_tools || selectedNodeData.config?.native_tools || [],
+              custom_tools: selectedNodeData.custom_tools || selectedNodeData.config?.custom_tools || [],
+              middleware: selectedNodeData.middleware || selectedNodeData.config?.middleware || [],
+              condition: selectedNodeData.condition || selectedNodeData.config?.condition,
+              max_iterations: selectedNodeData.max_iterations || selectedNodeData.config?.max_iterations,
+              exit_condition: selectedNodeData.exit_condition || selectedNodeData.config?.exit_condition,
+              data: selectedNodeData,
+              tool_type: (selectedNodeData as any).tool_type || (selectedNodeData.config as any)?.tool_type,
+              tool_id: (selectedNodeData as any).tool_id || (selectedNodeData.config as any)?.tool_id,
+              tool_params: (selectedNodeData as any).tool_params || (selectedNodeData.config as any)?.tool_params,
+              subagents: (selectedNodeData as any).subagents || selectedNodeData.config?.subagents || [],
+              use_deepagents: (selectedNodeData as any).use_deepagents || selectedNodeData.config?.use_deepagents || false,
+            }}
+            onClose={() => { setSelectedNodeId(null); setSelectedNodeData(null); }}
+            onSave={handleNodeConfigSave}
+            onDelete={handleNodeDelete}
+            tokenCostInfo={tokenCostInfo || undefined}
+          />
+        )}
+        {currentView !== 'studio' && <NodeSidebar />}
+      </div>
+
+      {/* Bottom panel */}
+      <BottomPanel />
+      <StatusBar model="GPT-4o" tokens={1234} />
+    </div>
+  );
+}
+
+// ── Root App ─────────────────────────────────────────────
+function App() {
+  return (
+    <ThemeProvider>
+      <ToastProvider>
+        <LayoutProvider>
+          <HashRouter>
+            <ProjectProvider>
+              <ChatProvider>
+                <AppContent />
+                <GlobalChatModal />
+              </ChatProvider>
+            </ProjectProvider>
+          </HashRouter>
+        </LayoutProvider>
+        <ToastContainer />
+      </ToastProvider>
+    </ThemeProvider>
+  );
+}
+
+export default App;
+
+// ── Type definitions (moved here from the old App.tsx) ──
 interface Agent {
   id: string;
   name: string;
@@ -63,10 +359,7 @@ interface NodeConfig {
   temperature: number;
   tools: string[];
   native_tools: string[];
-  // TOOL_NODE fields (added to support graphindex_* custom tools)
-  // Keep these in sync with the canonical NodeConfig in
-  // src/features/workflows/node-config/NodeConfigPanel.tsx
-  data?: any;  // BUG FIX: full data blob so panel can read selectedNode.data.config
+  data?: any;
   custom_tools?: string[];
   middleware?: any[];
   subagents?: any[];
@@ -120,426 +413,7 @@ interface SelectedNodeData {
     max_iterations?: number;
     exit_condition?: string;
     name?: string;
-    // DeepAgent subagents
     subagents?: any[];
     use_deepagents?: boolean;
   };
 }
-
-function AppContent() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const workflowCanvasRef = useRef<WorkflowCanvasRef>(null);
-  const saveWorkflowTimeoutRef = useRef<number | null>(null);
-
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [selectedRecipe, setSelectedRecipe] = useState<WorkflowRecipe | null>(null);
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState<number | null>(null);
-  const [workflowName, setWorkflowName] = useState('Untitled Workflow');
-  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus>('draft');
-  const [executing, setExecuting] = useState(false);
-  const [workflowTab, setWorkflowTab] = useState<'studio' | 'results'>('studio');
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [selectedNodeData, setSelectedNodeData] = useState<SelectedNodeData | null>(null);
-
-  // Close node config panel when chat opens
-  useEffect(() => {
-    const handleChatOpened = () => {
-      setSelectedNodeId(null);
-      setSelectedNodeData(null);
-    };
-
-    window.addEventListener('chat:opened', handleChatOpened);
-    return () => window.removeEventListener('chat:opened', handleChatOpened);
-  }, []);
-  const [nodeConfigs, setNodeConfigs] = useState<Record<string, NodeConfig>>({});
-  const [tokenCostInfo, setTokenCostInfo] = useState<{
-    totalTokens: number;
-    promptTokens: number;
-    completionTokens: number;
-    costString: string;
-  } | null>(null);
-
-  // Task history state (shared between WorkflowCanvas and ModernAgentLibrary)
-  const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
-  const [selectedHistoryTask, setSelectedHistoryTask] = useState<TaskHistoryEntry | null>(null);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-
-  // Sidebar panel state (agents vs history)
-  const [sidebarPanel, setSidebarPanel] = useState<'agents' | 'history'>('agents');
-
-  // Sync workflowTab with current route
-  useEffect(() => {
-    if (location.pathname === '/results') {
-      setWorkflowTab('results');
-    } else if (location.pathname === '/studio') {
-      setWorkflowTab('studio');
-    }
-  }, [location.pathname]);
-
-  // DeepAgent Studio → navigate to Skill Library
-  // Triggered when user clicks 'Open in Builder' in SubAgentDetailModal
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const ce = e as CustomEvent<{ skillId?: string }>;
-      console.log('[App] navigating to /skills', ce.detail);
-      navigate('/skills');
-      // Pass skill id via window flag so SkillLibrary can auto-select on mount
-      if (ce.detail?.skillId) {
-        sessionStorage.setItem('da:pending-skill-select', ce.detail.skillId);
-      }
-    };
-    window.addEventListener('da:navigate-skills', handler);
-    return () => window.removeEventListener('da:navigate-skills', handler);
-  }, [navigate]);
-
-  // Map routes to views
-  const currentView: View = (() => {
-    const path = location.pathname;
-    if (path === '/' || path === '/home') return 'home';
-    if (path === '/studio' || path === '/results') return 'studio';
-    if (path === '/library') return 'library';
-    if (path === '/agents' || path === '/deepagents') return 'agents';
-    if (path === '/knowledge') return 'knowledge';
-    if (path === '/skills') return 'skills';
-    if (path === '/tools') return 'tools';
-    if (path === '/prompt') return 'prompt';
-    if (path === '/analysis') return 'analysis';
-    if (path === '/settings') return 'settings';
-    if (path === '/playground') return 'playground';
-    if (path === '/deepagent-studio') return 'deepagent-studio';
-    return 'home';
-  })();
-
-  // Handle tab changes within studio view
-  const handleTabChange = useCallback((tab: 'studio' | 'results') => {
-    setWorkflowTab(tab);
-    navigate(tab === 'results' ? '/results' : '/studio');
-    // Auto-switch sidebar to history when going to results tab
-    if (tab === 'results') {
-      setSidebarPanel('history');
-    }
-  }, [navigate]);
-
-  // Handle sidebar panel change (Agents/History tabs)
-  const handleSidebarPanelChange = useCallback((panel: 'agents' | 'history') => {
-    setSidebarPanel(panel);
-    // Switch to studio tab when clicking Agents tab
-    if (panel === 'agents') {
-      handleTabChange('studio');
-    }
-  }, [handleTabChange]);
-
-  const handleViewChange = (view: View) => {
-    // Check for unsaved workflow changes before navigating
-    if (currentView === 'studio' && workflowCanvasRef.current) {
-      const hasUnsaved = workflowCanvasRef.current.hasUnsavedChanges();
-      if (hasUnsaved) {
-        const confirmLeave = window.confirm(
-          'You have unsaved workflow changes. Do you want to save before leaving?\n\n' +
-          'Click OK to stay and save your changes.\n' +
-          'Click Cancel to leave without saving.'
-        );
-        if (confirmLeave) {
-          // User wants to stay and save
-          return;
-        }
-        // User chose to leave without saving, proceed with navigation
-      }
-    }
-
-    const routes: Record<View, string> = {
-      home: '/home',
-      studio: '/studio',
-      library: '/library',
-      agents: '/agents',
-      skills: '/skills',
-      knowledge: '/knowledge',
-      analysis: '/analysis',
-      settings: '/settings',
-      playground: '/playground',
-      tools: '/tools',
-      prompt: '/prompt',
-      'deepagent-studio': '/deepagent-studio'
-    };
-    navigate(routes[view]);
-  };
-
-  const handleSave = () => {
-    // BUG FIX: call the actual saveWorkflow on the canvas ref. The previous
-    // implementation was a no-op that only updated local React state without
-    // ever calling the API, so the top Save button didn't persist anything.
-    if (workflowCanvasRef.current) {
-      workflowCanvasRef.current.saveWorkflow(false);  // not silent: show success message
-    }
-  };
-
-  const handleWorkflowNameChange = (name: string) => {
-    setWorkflowName(name);
-
-    // Save workflow name to backend if we have a selected workflow
-    if (selectedWorkflowId) {
-      // Debounce could be added here, but for now direct update is fine
-      apiClient.updateWorkflow(selectedWorkflowId, { name })
-        .catch((err: any) => console.error("Failed to save workflow name:", err));
-    }
-  };
-
-  const handleExecutionStart = () => {
-    setExecuting(true);
-    setWorkflowStatus('running');
-  };
-
-  const handleNodeSelect = (nodeId: string | null, nodeData?: any) => {
-    setSelectedNodeId(nodeId);
-    if (nodeId && nodeData) {
-
-      // Normalize data structure: flatten nested config if it exists
-      // Some nodes (e.g., created by Claude Code agent) have config nested under nodeData.config
-      // NodeConfigPanel expects a flat structure with model, systemPrompt, etc. at top level
-      let normalizedData;
-      if (nodeData.config && typeof nodeData.config === 'object') {
-        // Flatten nested config while preserving top-level fields
-        normalizedData = {
-          id: nodeId,
-          ...nodeData,
-          ...nodeData.config,  // Spread config fields to top level
-          // Preserve arrays from both levels
-          tools: nodeData.config.tools || nodeData.tools || [],
-          native_tools: nodeData.config.native_tools || nodeData.config.mcp_tools || nodeData.native_tools || [],
-          custom_tools: nodeData.config.custom_tools || nodeData.custom_tools || [],
-        };
-      } else {
-        // Already flat structure
-        normalizedData = {
-          id: nodeId,
-          ...nodeData,
-          tools: nodeData.tools || [],
-          native_tools: nodeData.native_tools || [],
-          custom_tools: nodeData.custom_tools || [],
-        };
-      }
-
-      setSelectedNodeData(normalizedData);
-    } else {
-      setSelectedNodeData(null);
-    }
-  };
-
-  const handleAgentAdded = () => {
-    // Clear selected agent after it's been added to the canvas
-    setSelectedAgent(null);
-  };
-
-  const handleNodeConfigSave = (nodeId: string, fullConfig: any) => {
-
-    // Store config in state
-    setNodeConfigs(prev => ({
-      ...prev,
-      [nodeId]: fullConfig
-    }));
-
-    // Update the actual node in ReactFlow
-    if (workflowCanvasRef.current) {
-      workflowCanvasRef.current.updateNodeConfig(nodeId, fullConfig);
-    }
-
-    // Update selectedNodeData to reflect changes in real-time (keeps panel in sync)
-    if (selectedNodeId === nodeId && selectedNodeData) {
-      setSelectedNodeData({
-        ...selectedNodeData,
-        ...fullConfig,
-        config: fullConfig,  // Also store in nested config for compatibility
-        label: fullConfig.label || fullConfig.name || selectedNodeData.label,
-        name: fullConfig.name || selectedNodeData.name
-      });
-    }
-
-    // Auto-save workflow to database after node config changes
-    // Clear any pending save to debounce rapid changes
-    if (saveWorkflowTimeoutRef.current !== null) {
-      clearTimeout(saveWorkflowTimeoutRef.current);
-    }
-
-    // Schedule save for 800ms after last change
-    saveWorkflowTimeoutRef.current = window.setTimeout(() => {
-      if (workflowCanvasRef.current) {
-        workflowCanvasRef.current.saveWorkflow(true);  // silent = true (no success popup)
-      }
-    }, 800);
-  };
-
-  const handleNodeDelete = (nodeId: string) => {
-    // Delete node from ReactFlow
-    if (workflowCanvasRef.current) {
-      workflowCanvasRef.current.deleteNode(nodeId);
-    }
-
-    // Clear selection
-    setSelectedNodeId(null);
-    setSelectedNodeData(null);
-
-    // Remove from node configs
-    setNodeConfigs(prev => {
-      const newConfigs = { ...prev };
-      delete newConfigs[nodeId];
-      return newConfigs;
-    });
-
-  };
-
-  const handleWorkflowOpen = (workflowId: number) => {
-    setSelectedWorkflowId(workflowId);
-    navigate('/studio');
-    // Load the workflow (it's already been created in the database)
-    setWorkflowName(`Workflow ${workflowId}`);
-    setWorkflowStatus('saved');
-  };
-
-  const selectedNodeConfig = selectedNodeId ? nodeConfigs[selectedNodeId] : null;
-
-  return (
-    <div className="relative flex h-screen w-full flex-col bg-background-light dark:bg-background-dark overflow-hidden">
-      {/* Modern Header */}
-      <ModernHeader
-        currentView={currentView}
-        onViewChange={handleViewChange}
-      />
-
-      {/* Main Content */}
-      <main className="flex flex-row flex-1 overflow-x-auto overflow-y-hidden">
-        {/* Left Panel - Agent Library with Agents/History tabs (always visible in studio view) */}
-        {currentView === 'studio' && (
-          <ModernAgentLibrary
-            onSelectAgent={(agent) => {
-              setSelectedAgent(agent);
-              // Switch to studio tab when selecting an agent
-              handleTabChange('studio');
-            }}
-            onSelectRecipe={(recipe) => {
-              setSelectedRecipe(recipe);
-              // Switch to studio tab when selecting a recipe
-              handleTabChange('studio');
-            }}
-            taskHistory={taskHistory}
-            loadingHistory={loadingHistory}
-            selectedHistoryTask={selectedHistoryTask}
-            onSelectHistoryTask={(task) => {
-              setSelectedHistoryTask(task);
-              // Switch to results tab when selecting a task
-              if (task) {
-                handleTabChange('results');
-              }
-            }}
-            activePanel={sidebarPanel}
-            onPanelChange={handleSidebarPanelChange}
-          />
-        )}
-
-        {/* Center Panel - Dynamic Content */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden" style={{ minWidth: '650px' }}>
-          {currentView === 'home' && <HomePage />}
-          {currentView === 'studio' && (
-            <WorkflowCanvas
-              ref={workflowCanvasRef}
-              selectedAgent={selectedAgent}
-              selectedRecipe={selectedRecipe}
-              onWorkflowSelect={setSelectedWorkflowId}
-              onNodeSelect={handleNodeSelect}
-              onNodeDelete={handleNodeDelete}
-              onExecutionStart={handleExecutionStart}
-              onAgentAdded={handleAgentAdded}
-              onRecipeInserted={() => setSelectedRecipe(null)}
-              workflowId={selectedWorkflowId}
-              onTabChange={handleTabChange}
-              initialTab={workflowTab}
-              onTokenCostUpdate={setTokenCostInfo}
-              onTaskHistoryUpdate={setTaskHistory}
-              onSelectedTaskChange={setSelectedHistoryTask}
-              externalSelectedTask={selectedHistoryTask}
-            />
-          )}
-          {currentView === 'library' && (
-            <WorkflowLibraryView
-              onWorkflowSelect={setSelectedWorkflowId}
-              onWorkflowOpen={handleWorkflowOpen}
-            />
-          )}
-          {currentView === 'agents' && <AgentLoadouts />}
-          {currentView === 'skills' && <SkillLibrary />}
-          {currentView === 'tools' && <ToolLibrary />}
-          {currentView === 'prompt' && <PromptAssemblyPage />}
-          {currentView === 'knowledge' && <KnowledgeBaseView />}
-          {currentView === 'analysis' && <AnalysisPage />}
-          {currentView === 'settings' && <SettingsView />}
-          {currentView === 'playground' && <PlaygroundPage />}
-          {currentView === 'deepagent-studio' && <DeepAgentStudioPage />}
-        </div>
-
-        {/* Right Panel - Node Config (only in studio view on studio tab with selected node) */}
-        {currentView === 'studio' && workflowTab === 'studio' && selectedNodeId && selectedNodeData && (
-          <NodeConfigPanel
-            selectedNode={{
-              id: selectedNodeId,
-              name: selectedNodeData.label || selectedNodeData.name || selectedNodeData.config?.name || selectedNodeId,
-              agentType: selectedNodeData.agentType,
-              model: selectedNodeData.model || selectedNodeData.config?.model,
-              system_prompt: selectedNodeData.system_prompt || selectedNodeData.config?.system_prompt || '',
-              temperature: selectedNodeData.temperature ?? selectedNodeData.config?.temperature ?? 0.7,
-              max_tokens: selectedNodeData.max_tokens || selectedNodeData.config?.max_tokens || 4000,
-              max_retries: selectedNodeData.max_retries || selectedNodeData.config?.max_retries || 3,
-              recursion_limit: selectedNodeData.recursion_limit || selectedNodeData.config?.recursion_limit || 300,
-              tools: selectedNodeData.tools || selectedNodeData.config?.tools || [],
-              native_tools: selectedNodeData.native_tools || selectedNodeData.config?.native_tools || [],
-              custom_tools: selectedNodeData.custom_tools || selectedNodeData.config?.custom_tools || [],
-              middleware: selectedNodeData.middleware || selectedNodeData.config?.middleware || [],
-              condition: selectedNodeData.condition || selectedNodeData.config?.condition,
-              max_iterations: selectedNodeData.max_iterations || selectedNodeData.config?.max_iterations,
-              exit_condition: selectedNodeData.exit_condition || selectedNodeData.config?.exit_condition,
-              // BUG FIX: pass the full data blob so the panel can read
-              // selectedNode.data.config (e.g. tool_type, tool_id) and the
-              // complete config. Without this, the dropdowns showed empty
-              // even when the DB had the values saved.
-              data: selectedNodeData,
-              // Tool node specific fields (TOOL_NODE) — pass at top level too
-              // for backward compatibility with code that reads selectedNode.tool_type.
-              tool_type: (selectedNodeData as any).tool_type || selectedNodeData.config?.tool_type,
-              tool_id: (selectedNodeData as any).tool_id || selectedNodeData.config?.tool_id,
-              tool_params: (selectedNodeData as any).tool_params || selectedNodeData.config?.tool_params,
-              // DeepAgent subagents
-              subagents: (selectedNodeData as any).subagents || selectedNodeData.config?.subagents || [],
-              use_deepagents: (selectedNodeData as any).use_deepagents || selectedNodeData.config?.use_deepagents || false
-            }}
-            onClose={() => {
-              setSelectedNodeId(null);
-              setSelectedNodeData(null);
-            }}
-            onSave={handleNodeConfigSave}
-            onDelete={handleNodeDelete}
-            tokenCostInfo={tokenCostInfo || undefined}
-          />
-        )}
-      </main>
-    </div>
-  );
-}
-
-function App() {
-  return (
-    <ThemeProvider>
-      <ToastProvider>
-        <HashRouter>
-          <ProjectProvider>
-            <ChatProvider>
-              <AppContent />
-              <GlobalChatModal />
-            </ChatProvider>
-          </ProjectProvider>
-        </HashRouter>
-        <ToastContainer />
-      </ToastProvider>
-    </ThemeProvider>
-  );
-}
-
-export default App;
