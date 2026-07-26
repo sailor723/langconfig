@@ -50,6 +50,7 @@ import Workspace from './components/layout2/Workspace';
 import NodeSidebar from './components/layout2/NodeSidebar';
 import BottomPanel from './components/layout2/BottomPanel';
 import StatusBar from './components/layout2/StatusBar';
+import QuickFilePicker from './components/layout2/QuickFilePicker';
 
 // ── Types ───────────────────────────────────────────────
 type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
@@ -120,6 +121,19 @@ function AppContent() {
 
   // Layout state
   const { setActiveActivity, rightPanelOpen, openRightPanel, closeRightPanel } = useLayoutState();
+
+  // Cmd+P / Ctrl+P quick file picker
+  const [quickPickerOpen, setQuickPickerOpen] = useState(false);
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+        e.preventDefault();
+        setQuickPickerOpen(v => !v);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   // Current view from route
   const currentView: View = ROUTE_TO_VIEW[location.pathname] ?? 'home';
@@ -301,6 +315,9 @@ function AppContent() {
       {/* Bottom panel */}
       <BottomPanel />
       <StatusBar model="GPT-4o" tokens={1234} />
+
+      {/* Cmd+P quick file picker */}
+      {quickPickerOpen && <QuickFilePicker onClose={() => setQuickPickerOpen(false)} />}
     </div>
   );
 }
