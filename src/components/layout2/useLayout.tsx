@@ -74,6 +74,8 @@ export interface LayoutState {
   // Right panel (VS Code "Panel" on right side — used for node config)
   rightPanelOpen: boolean;
   rightPanelContent: string | null;
+  rightPanelWidth: number;
+  setRightPanelWidth: (w: number) => void;
   openRightPanel: (content: string) => void;
   closeRightPanel: () => void;
 
@@ -99,6 +101,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightPanelContent, setRightPanelContent] = useState<string | null>(null);
+  const [rightPanelWidth, setRightPanelWidth] = useState(360);
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
 
   const toggleSidebar = useCallback(() => setSidebarOpen(v => !v), []);
@@ -184,6 +187,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     moveTab,
     rightPanelOpen,
     rightPanelContent,
+    rightPanelWidth,
+    setRightPanelWidth,
     openRightPanel,
     closeRightPanel,
     bottomPanelOpen,
@@ -191,7 +196,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     setBottomPanelOpen,
   }), [
     activeActivity, sidebarOpen, sidebarView, sidebarWidth, tabs, activeTabId,
-    rightPanelOpen, rightPanelContent, bottomPanelOpen,
+    rightPanelOpen, rightPanelContent, rightPanelWidth, bottomPanelOpen,
   ]);
 
   return (

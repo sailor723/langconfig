@@ -69,20 +69,20 @@
 }
 
 .theme-dark {
-  --color-primary: #5e5e5e;
-  --color-background-light: #0e0e0e;
-  --color-background-dark: #080808;
-  --color-panel-dark: #161616;
-  --color-border-dark: #242424;
-  --color-text-muted: #a0a0a0;
-  --color-text-primary: #d0d0d0;
-  --color-input-background: #1a1a1a;
-  --color-logo-background: #161616;
-  --color-node-background: #1a1a1a;
-  --color-node-background-light: #242424;
-  --color-category-background: #1a1a1a;
-  --color-header-background: #0e0e0e;
-  --color-header-text: #d0d0d0;
+  --color-primary: #0078d4;
+  --color-background-light: #1e1e1e;
+  --color-background-dark: #252526;
+  --color-panel-dark: #252526;
+  --color-border-dark: #3c3c3c;
+  --color-text-muted: #858585;
+  --color-text-primary: #cccccc;
+  --color-input-background: #3c3c3c;
+  --color-logo-background: #252526;
+  --color-node-background: #2d2d2d;
+  --color-node-background-light: #37373d;
+  --color-category-background: #2d2d2d;
+  --color-header-background: #007acc;
+  --color-header-text: #ffffff;
 }
 
 /* ── Codex Dark Gray Theme ───────────────────────────────────────
@@ -880,47 +880,49 @@ select {
 }
 
 /* ── Dark theme overrides ─────────────────────────────────────────
- * Force backgrounds, text colors, cards, and inputs to the Codex
- * dark palette.  These use !important to override inline styles and
- * any Tailwind-generated rules that cached CSS may still reference.
+ * Force backgrounds, text colors, cards, and inputs to the VS Code
+ * Dark Modern palette.  These use !important to override inline styles
+ * and any Tailwind-generated rules that cached CSS may still reference.
+ * Layout2 components use inline styles via useLayoutTokens and are
+ * unaffected by these overrides — they target legacy Tailwind classes.
  ──────────────────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-  background-color: #0e0e0e;
-  color: #d0d0d0;
+  background-color: #1e1e1e;
+  color: #cccccc;
 }
 
 [data-theme="dark"] body {
-  background-color: #0e0e0e;
+  background-color: #1e1e1e;
 }
 
 /* Cards, panels, and bordered containers */
 [data-theme="dark"] [style*="background-color: var(--color-panel-dark)"] {
-  background-color: #161616 !important;
+  background-color: #252526 !important;
 }
 
 [data-theme="dark"] [style*="background-color: var(--color-background-light)"] {
-  background-color: #0e0e0e !important;
+  background-color: #1e1e1e !important;
 }
 
 [data-theme="dark"] [style*="background-color: var(--color-background-dark)"] {
-  background-color: #080808 !important;
+  background-color: #252526 !important;
 }
 
 [data-theme="dark"] [style*="background-color: var(--color-input-background)"] {
-  background-color: #1a1a1a !important;
+  background-color: #3c3c3c !important;
 }
 
 [data-theme="dark"] .bg-white {
-  background-color: #161616 !important;
+  background-color: #252526 !important;
 }
 
 [data-theme="dark"] div[style*="box-shadow: 0 1px 2px rgba(0,0,0,0.05)"] {
-  background-color: #161616 !important;
+  background-color: #252526 !important;
 }
 
 [data-theme="dark"] .rounded-xl,
 [data-theme="dark"] .rounded-lg {
-  background-color: #161616;
+  background-color: #252526;
 }
 
 /* Text colors */
@@ -934,25 +936,25 @@ select {
 [data-theme="dark"] .text-base,
 [data-theme="dark"] .text-sm,
 [data-theme="dark"] .text-xs {
-  color: #d0d0d0;
+  color: #cccccc;
 }
 
 [data-theme="dark"] [style*="color: var(--color-text-muted)"] {
-  color: #7a7a7a !important;
+  color: #858585 !important;
 }
 
 [data-theme="dark"] [style*="color: var(--color-text-primary)"] {
-  color: #d0d0d0 !important;
+  color: #cccccc !important;
 }
 
 /* Header / top bar */
 [data-theme="dark"] header {
-  background-color: #0e0e0e !important;
-  border-bottom: 1px solid #242424;
+  background-color: #1e1e1e !important;
+  border-bottom: 1px solid #3c3c3c;
 }
 
 [data-theme="dark"] header button {
-  color: #d0d0d0 !important;
+  color: #cccccc !important;
 }
 
 [data-theme="dark"] header .bg-white\/30 {
@@ -968,14 +970,14 @@ select {
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
 [data-theme="dark"] select {
-  background-color: #1a1a1a !important;
-  border-color: #242424 !important;
-  color: #d0d0d0 !important;
+  background-color: #3c3c3c !important;
+  border-color: #3c3c3c !important;
+  color: #cccccc !important;
 }
 
 [data-theme="dark"] input::placeholder,
 [data-theme="dark"] textarea::placeholder {
-  color: #7a7a7a !important;
+  color: #858585 !important;
 }
 
 /* Borders */
@@ -987,17 +989,17 @@ select {
 [data-theme="dark"] [class*="border-l"],
 [data-theme="dark"] hr,
 [data-theme="dark"] .divide-y > * {
-  border-color: #242424 !important;
+  border-color: #3c3c3c !important;
 }
 
 /* Scrollbars */
 [data-theme="dark"] ::-webkit-scrollbar-thumb {
-  background: #333 !important;
+  background: #555 !important;
   border-radius: 8px;
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-track {
-  background: #0e0e0e;
+  background: #1e1e1e;
 }
 
 /* Logo image in dark mode */

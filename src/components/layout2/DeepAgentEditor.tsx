@@ -14,8 +14,24 @@ import { useState } from 'react';
 import { useLayoutTokens } from './tokens';
 import {
   Info, FileText, Wrench, Users, Layers, Shield, Code, ChevronDown, ChevronRight,
+  Play, Square, Loader,
 } from 'lucide-react';
 import type { Tab } from './useLayout';
+import apiClient from '../../lib/api-client';
+import { chatStore } from './chatStore';
+
+/**
+ * Strip <think>...</think> blocks from an LLM response.
+ * Returns the visible answer + any reasoning trace.
+ */
+function extractThinking(text: string): { visible: string; thinking: string } {
+  const re = /<think>([\s\S]*?)<\/think>/g;
+  const thinkingParts: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) thinkingParts.push(m[1].trim());
+  const visible = text.replace(re, '').trim();
+  return { visible, thinking: thinkingParts.join('\n\n') };
+}
 
 interface DeepAgentEditorProps {
   tab: Tab;
@@ -39,6 +55,57 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const config = agent.config || {};
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [expandedSubs, setExpandedSubs] = useState<Record<number, boolean>>({});
+  const [testPrompt, setTestPrompt] = useState('Hello, please introduce yourself.');
+  const [running, setRunning] = useState(false);
+
+  const handleRun = async () => {
+    if (!agent.id || running) return;
+    setRunning(true);
+    const startedAt = Date.now();
+    // Push user message to chat sidebar
+    chatStore.add({
+      role: 'user',
+      text: `[${agent.name ?? 'DeepAgent'}] ${testPrompt}`,
+    });
+    try {
+      // 1) start a chat session for this deep agent
+      const startRes = await apiClient.post('/api/chat/start', {
+        agent_id: agent.id,
+      });
+      const sessionId = startRes.data?.session_id ?? startRes.data?.id;
+      if (!sessionId) throw new Error('No session_id returned');
+      // Stash session for follow-up messages from the chat sidebar
+      chatStore.setSession(sessionId, agent.id);
+      // 2) send a test message and read the response
+      const msgRes = await apiClient.post('/api/chat/message', {
+        session_id: sessionId,
+        message: testPrompt,
+      });
+      const data = msgRes.data || {};
+      const rawText = data.message ?? data.response ?? JSON.stringify(data, null, 2);
+      const { visible, thinking } = extractThinking(rawText);
+      const metrics = data.metrics;
+      chatStore.add({
+        role: 'assistant',
+        text: visible,
+        thinking: thinking || undefined,
+        activity: data.subagent_activity ?? undefined,
+        meta: {
+          tokens: metrics?.total_tokens,
+          toolCalls: metrics?.tool_calls,
+          latencyMs: Date.now() - startedAt,
+        },
+      });
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail ?? err?.response?.data ?? {};
+      chatStore.add({
+        role: 'system',
+        text: `// Test failed: ${err?.message ?? 'unknown error'}\n${typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2)}`,
+      });
+    } finally {
+      setRunning(false);
+    }
+  };
 
   // ── Reusable styles ──
   const cardStyle: React.CSSProperties = {
@@ -337,56 +404,152 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%', background: t.bgContent }}>
-      {/* ── Section nav (left rail) ── */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: t.bgContent }}>
+      {/* ── Top action bar (VS Code run-toolbar style) ── */}
       <div style={{
-        width: 130,
-        minWidth: 130,
-        background: t.bgSidebar,
-        borderRight: `1px solid ${t.border}`,
-        padding: '8px 0',
-        overflowY: 'auto',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        height: 35,
+        minHeight: 35,
+        padding: '0 12px',
+        background: t.bgTabBar,
+        borderBottom: `1px solid ${t.border}`,
         flexShrink: 0,
       }}>
-        {SECTIONS.map(s => {
-          const isActive = s.id === activeSection;
-          return (
-            <button
-              key={s.id}
-              onClick={() => setActiveSection(s.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                width: '100%',
-                padding: '8px 14px',
-                fontSize: 12,
-                color: isActive ? t.textPrimary : t.textMuted,
-                background: isActive ? t.bgHover : 'transparent',
-                border: 'none',
-                borderLeft: isActive ? `2px solid ${t.accent}` : '2px solid transparent',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              {s.icon}
-              {s.label}
-            </button>
-          );
-        })}
+        <span style={{ fontSize: 12, color: t.textMuted }}>Test:</span>
+        <input
+          value={testPrompt}
+          onChange={e => setTestPrompt(e.target.value)}
+          disabled={running}
+          placeholder="Type a test message..."
+          style={{
+            flex: 1,
+            maxWidth: 360,
+            height: 22,
+            padding: '0 8px',
+            background: t.bgContent,
+            border: `1px solid ${t.border}`,
+            borderRadius: 3,
+            color: t.textPrimary,
+            fontSize: 12,
+            outline: 'none',
+            opacity: running ? 0.5 : 1,
+          }}
+        />
+        <button
+          onClick={handleRun}
+          disabled={running || !agent.id}
+          title="Run test"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            height: 24,
+            padding: '0 10px',
+            background: running ? t.bgHover : t.accent,
+            color: '#fff',
+            border: 'none',
+            borderRadius: 3,
+            fontSize: 12,
+            fontWeight: 500,
+            cursor: running || !agent.id ? 'not-allowed' : 'pointer',
+            opacity: running || !agent.id ? 0.6 : 1,
+          }}
+        >
+          {running ? <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={12} />}
+          {running ? 'Running…' : 'Run'}
+        </button>
+        {running && (
+          <button
+            onClick={() => setRunning(false)}
+            title="Cancel"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              height: 24,
+              padding: '0 10px',
+              background: 'transparent',
+              color: t.textPrimary,
+              border: `1px solid ${t.border}`,
+              borderRadius: 3,
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            <Square size={10} />
+            Stop
+          </button>
+        )}
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 11, color: t.textDim }}>
+          ID: {agent.id ?? '—'} · v{agent.version ?? '?'} · {agent.category ?? ''}
+        </span>
       </div>
 
-      {/* ── Section content ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-        <h2 style={{
-          fontSize: 16,
-          fontWeight: 600,
-          color: t.textPrimary,
-          margin: '0 0 12px 0',
+      {/* ── Body: section nav + section content ── */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <div style={{
+          width: 130,
+          minWidth: 130,
+          background: t.bgSidebar,
+          borderRight: `1px solid ${t.border}`,
+          padding: '8px 0',
+          overflowY: 'auto',
+          flexShrink: 0,
         }}>
-          {agent.name || 'DeepAgent'}
-        </h2>
-        {sections[activeSection]()}
+          {SECTIONS.map(s => {
+            const isActive = s.id === activeSection;
+            return (
+              <button
+                key={s.id}
+                onClick={() => setActiveSection(s.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  width: '100%',
+                  padding: '8px 14px',
+                  fontSize: 12,
+                  color: isActive ? t.textPrimary : t.textMuted,
+                  background: isActive ? t.bgHover : 'transparent',
+                  border: 'none',
+                  borderLeft: isActive ? `2px solid ${t.accent}` : '2px solid transparent',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                {s.icon}
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Section content ── */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+          <h2 style={{
+            fontSize: 16,
+            fontWeight: 600,
+            color: t.textPrimary,
+            margin: '0 0 12px 0',
+          }}>
+            {agent.name || 'DeepAgent'}
+          </h2>
+          {sections[activeSection]()}
+
+          {/* Hint about chat sidebar */}
+          <div style={{
+            marginTop: 16,
+            padding: 10,
+            fontSize: 11,
+            color: t.textMuted,
+            fontStyle: 'italic',
+          }}>
+            💬 After clicking <strong style={{ color: t.textPrimary }}>▶ Run</strong>, the conversation appears in the <strong style={{ color: t.textPrimary }}>Chat</strong> panel on the right.
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -51,6 +51,32 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | Backend integration | ✅ | All deep agents loaded from PostgreSQL via Vite proxy (no CORS) |
 | Structured DeepAgent editor | ✅ | 7 sections: Overview / Prompt / Tools / Subagents / Middleware / Guardrails / JSON |
 
+### ✅ Phase 6: Resizable Sidebars
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| LeftSidebar resize | ✅ | Drag the right edge of the file browser to resize (200–600px, default 260px) |
+| NodeSidebar (right) resize | ✅ | Drag the left edge of the right panel to resize (240–800px, default 360px) |
+
+### ✅ Phase 7: Agent Test Runner (Editor Toolbar)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Run / Stop toolbar | ✅ | Each DeepAgent tab has a top toolbar (35px) with prompt input + ▶ Run + ■ Stop |
+| Live API call | ✅ | Run starts a chat session (`POST /api/chat/start`) and sends the test prompt (`POST /api/chat/message`) |
+| Session stored | ✅ | Session id saved on `chatStore` so follow-ups in the right chat panel reuse the same session |
+
+### ✅ Phase 8: Right-Sidebar Chat + Thinking + Actions
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Shared chat store | ✅ | [chatStore.ts](file:///Users/weiping/dev/Learn/langchain-ai/langconfig/src/components/layout2/chatStore.ts) — module-level singleton with subscribe pattern |
+| Session-aware send | ✅ | Chat input uses the active session id to send follow-ups to the same agent |
+| Thinking extraction | ✅ | Strips `<think>...</think>` blocks, displays collapsible reasoning trace in agent bubbles |
+| Copy / Save / Re-run | ✅ | Per assistant message: copy to clipboard, download as `.md`, re-run same prompt |
+| Multi-message conversation | ✅ | User + assistant bubbles with timestamps and tokens/tools/latency footer |
+| Free-form chat | ✅ | Right sidebar input lets you type any prompt without re-running from the toolbar |
+
 ## Architecture
 
 ```
@@ -140,16 +166,49 @@ on `tab.data.agent` so sections can read fields directly without re-fetching.
 - **No Docker**: lightweight SPA + FastAPI, no containers
 - **Right sidebar always visible**: Chat by default, Properties tab on node selection
 - **Bottom panel inside center column**: only spans editor width, not across sidebars
+- **Both sidebars resizable**: VS Code-style drag-to-resize handles
 - **Unified sidebar shell**: LeftSidebar/NodeSidebar accept children — old components render inside the same shell
 - **Tab content from API**: sidebar loads real workflows from `GET /api/workflows/`, deep agents from `GET /api/deepagents/`, content from `GET /api/workflows/{id}/code` and `GET /api/deepagents/{id}`
 - **contentStore**: in-memory Map for session-persistent tab content
+- **chatStore**: module-level singleton for shared chat state (subscribe pattern, no Provider)
 - **ui-system.tsx**: shared UI primitives (IconButton, ToolbarButton, MenuButton, HeaderLabel, PanelHeader)
 - **Vite proxy for /api**: `VITE_API_BASE_URL` empty in dev so requests go through the same-origin proxy (no CORS)
 - **Port 1421 for layout shell**: original langconfig UI stays on 1420; layout shell + DeepAgents sidebar runs on 1421
+- **Thinking blocks**: optional `<think>...</think>` parsing from the LLM response, collapsible in the bubble. The model decides whether to emit them.
+
+## Phase 7 — DeepAgent Editor Toolbar
+
+Each DeepAgent tab has a 35px top action bar (VS Code run-toolbar style):
+
+```
+[ Test: <input prompt>    ] [▶ Run] [■ Stop]      ID: 1 · v1.0.0 · research
+```
+
+- Click **▶ Run** → `POST /api/chat/start` + `POST /api/chat/message` flow
+- The session id is stored on `chatStore`, so the right-sidebar chat panel
+  can send follow-ups without re-starting the session
+- The Run response is also pushed to `chatStore` as a user/assistant pair
+
+## Phase 8 — Right Sidebar Chat
+
+The NodeSidebar's Chat tab is the conversation window. It reads from
+`chatStore` and renders bubbles:
+
+| Bubble | Style | Actions |
+|--------|-------|---------|
+| User | blue, right-aligned | — |
+| Assistant | grey, left-aligned | Copy / Save / Re-run |
+| System | red, left-aligned | — |
+
+Assistant bubbles also expose a collapsible **🧠 Thinking (N chars)** button
+when the LLM emitted a `<think>...` block. The Save button downloads the
+full conversation as `.md`. Re-run resends the original user prompt and
+appends the new assistant reply.
 
 ## Next Steps
 
-- Phase 6: Agents / Skills / Tools sidebar categories (real backend integration)
-- Phase 7: Save edits from DeepAgentEditor back to backend via `PUT /api/deepagents/{id}`
-- Phase 8: Monaco editor for the JSON tab
-- Phase 9: Workflow canvas integration into Workspace
+- Phase 9: Streaming via `POST /api/chat/message/stream` (SSE) for token-by-token output
+- Phase 10: Agents / Skills / Tools sidebar categories (real backend integration)
+- Phase 11: Save edits from DeepAgentEditor back to backend via `PUT /api/deepagents/{id}`
+- Phase 12: Monaco editor for the JSON tab
+- Phase 13: Workflow canvas integration into Workspace
