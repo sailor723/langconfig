@@ -1,19 +1,18 @@
 /**
- * Theme tokens for the Obsidian-style layout shell.
+ * Theme tokens for the VS Code-style layout shell.
  *
- * Maps the existing LangConfig ThemeContext colors into Obsidian-style
- * named tokens so the layout components (ActivityBar, Sidebar, Workspace,
- * etc.) use simple property access instead of dealing with the legacy
- * color system directly.
- *
- * Each exported function returns the same shape as agent-workspace's
- * ThemeTokens so we can reuse that pattern without copying its themes.
+ * Maps the existing LangConfig ThemeContext colors into VS Code-style
+ * named tokens so layout components use simple property access.
  */
 import { useTheme } from '../../lib/themes';
 
 export interface LayoutTokens {
   bgBase: string;
   bgContent: string;
+  bgActivityBar: string;
+  bgSidebar: string;
+  bgTabBar: string;
+  bgStatusBar: string;
   bgHover: string;
   bgSelected: string;
   bgInput: string;
@@ -22,9 +21,9 @@ export interface LayoutTokens {
   textPrimary: string;
   textMuted: string;
   textDim: string;
+  textWhite: string;
 
   border: string;
-  borderStrong: string;
 
   accent: string;
   accentMuted: string;
@@ -32,32 +31,36 @@ export interface LayoutTokens {
 
 /**
  * Derive layout tokens from the current LangConfig theme.
- * This avoids duplicating theme palettes — we just alias the existing
- * ThemeColors into the shape the new layout components expect.
+ * Maps to VS Code Dark Modern color palette.
  */
 export function useLayoutTokens(): LayoutTokens {
   const { theme } = useTheme();
   const c = theme.colors;
+  const isDark = theme.name === 'dark';
 
   return {
-    // Backgrounds — map LangConfig theme fields to Obsidian roles
-    bgBase: c.panelDark,
-    bgContent: theme.name === 'dark' ? '#0e0e0e' : c.backgroundLight,
-    bgHover: theme.name === 'dark' ? '#1e1e1e' : c.categoryBackground,
-    bgSelected: theme.name === 'dark' ? '#242424' : c.backgroundDark,
+    // Backgrounds — VS Code Dark Modern palette
+    bgBase: c.panelDark,                  // sidebar/panel #252526
+    bgContent: c.backgroundLight,         // editor #1e1e1e
+    bgActivityBar: isDark ? '#181818' : '#2c2c2c',
+    bgSidebar: c.panelDark,               // #252526
+    bgTabBar: c.panelDark,                // #252526 — same as sidebar
+    bgStatusBar: isDark ? '#007acc' : '#007acc', // VS Code blue
+    bgHover: isDark ? c.nodeBackground : c.categoryBackground,
+    bgSelected: isDark ? c.nodeBackgroundLight : c.backgroundDark,
     bgInput: c.inputBackground,
     bgDropdown: c.panelDark,
 
     // Text
     textPrimary: c.textPrimary,
     textMuted: c.textMuted,
-    textDim: theme.name === 'dark' ? '#555' : '#9ca3af',
+    textDim: isDark ? '#6e6e6e' : '#9ca3af',
+    textWhite: '#ffffff',
 
     // Borders
     border: c.borderDark,
-    borderStrong: c.primary,
 
-    // Accent — use the theme primary color as the accent
+    // Accent — VS Code blue #0078d4
     accent: c.primary,
     accentMuted: c.primary + '88',
   };

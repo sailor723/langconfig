@@ -1,10 +1,10 @@
 /**
- * useLayout — shared state for the Obsidian-style layout shell.
+ * useLayout — shared state for the VS Code-style layout shell.
  *
  * Owns the top-level UI state used across ActivityBar, Sidebar,
  * Workspace, BottomPanel, etc. so they all stay in sync.
  */
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
 
 // ── Activity definitions ──────────────────────────────────
 // Each icon in the ActivityBar represents a "mode" that changes
@@ -51,25 +51,31 @@ export interface LayoutState {
   activeActivity: ActivityId;
   setActiveActivity: (id: ActivityId) => void;
 
-  // Left sidebar
+  // Left sidebar (VS Code "Side Bar")
   sidebarOpen: boolean;
   toggleSidebar: () => void;
-  setSidebarOpen: (open: boolean) => void;
+  setSidebarOpen: (v: boolean) => void;
+  sidebarView: 'explorer' | 'search';
+  setSidebarView: (v: 'explorer' | 'search') => void;
+  sidebarWidth: number;
+  setSidebarWidth: (w: number) => void;
 
-  // Workspace tabs
+  // Workspace tabs (VS Code "Editor Tabs")
   tabs: Tab[];
   activeTabId: string | null;
   openTab: (tab: Tab) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
+  setTabDirty: (id: string, dirty: boolean) => void;
+  moveTab: (fromIndex: number, toIndex: number) => void;
 
-  // Right panel (node config)
+  // Right panel (VS Code "Panel" on right side — used for node config)
   rightPanelOpen: boolean;
   rightPanelContent: string | null;
   openRightPanel: (content: string) => void;
   closeRightPanel: () => void;
 
-  // Bottom panel
+  // Bottom panel (VS Code "Panel" at bottom — terminal, chat, logs)
   bottomPanelOpen: boolean;
   toggleBottomPanel: () => void;
   setBottomPanelOpen: (open: boolean) => void;
@@ -86,6 +92,7 @@ export function useLayoutState(): LayoutState {
 export function LayoutProvider({ children }: { children: ReactNode }) {
   const [activeActivity, setActiveActivity] = useState<ActivityId>('workflows');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(260);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
@@ -93,6 +100,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
 
   const toggleSidebar = useCallback(() => setSidebarOpen(v => !v), []);
+  const [sidebarView, setSidebarView] = useState<'explorer' | 'search'>('explorer');
 
   const openTab = useCallback((tab: Tab) => {
     setTabs(prev => {
@@ -105,11 +113,17 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     setActiveTabId(tab.id);
   }, []);
 
+  // Use a ref to track activeTabId so closeTab's functional updater always
+  // reads the latest value, avoiding stale-closure bugs on rapid tab closes.
+  const activeTabIdRef = useRef(activeTabId);
+  activeTabIdRef.current = activeTabId;
+
   const closeTab = useCallback((id: string) => {
     setTabs(prev => {
       const idx = prev.findIndex(t => t.id === id);
       const next = prev.filter(t => t.id !== id);
-      if (id === activeTabId && next.length > 0) {
+      const currentActive = activeTabIdRef.current;
+      if (id === currentActive && next.length > 0) {
         const newIdx = Math.min(idx, next.length - 1);
         setActiveTabId(next[newIdx].id);
       } else if (next.length === 0) {
@@ -117,10 +131,24 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
-  }, [activeTabId]);
+  }, []);
 
   const setActiveTab = useCallback((id: string) => {
     setActiveTabId(id);
+  }, []);
+
+  const setTabDirty = useCallback((id: string, dirty: boolean) => {
+    setTabs(prev => prev.map(t => t.id === id ? { ...t, dirty } : t));
+  }, []);
+
+  const moveTab = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setTabs(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
   }, []);
 
   const openRightPanel = useCallback((content: string) => {
@@ -141,11 +169,17 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     sidebarOpen,
     toggleSidebar,
     setSidebarOpen,
+    sidebarView,
+    setSidebarView,
+    sidebarWidth,
+    setSidebarWidth,
     tabs,
     activeTabId,
     openTab,
     closeTab,
     setActiveTab,
+    setTabDirty,
+    moveTab,
     rightPanelOpen,
     rightPanelContent,
     openRightPanel,
@@ -154,7 +188,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     toggleBottomPanel,
     setBottomPanelOpen,
   }), [
-    activeActivity, sidebarOpen, tabs, activeTabId,
+    activeActivity, sidebarOpen, sidebarView, sidebarWidth, tabs, activeTabId,
     rightPanelOpen, rightPanelContent, bottomPanelOpen,
   ]);
 
