@@ -43,13 +43,13 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | Command palette (Cmd+Shift+P) | ✅ | 10+ commands: toggle panels, switch activities, new file, close tab |
 | Search across files (Cmd+Shift+F) | ✅ | Sidebar search panel with results grouped by file, match highlighting |
 
-### ⏳ Phase 5: Editor Enhancements
+### ✅ Phase 5: DeepAgents Sidebar + Structured Editor
 
-| Feature | Status |
-|---------|--------|
-| Monaco editor (instead of textarea) | ⏳ |
-| Status bar: real token/model info | ✅ (wired from workflow state) |
-| File icon themes | ✅ (per view-type icons) |
+| Feature | Status | Description |
+|---------|--------|-------------|
+| DeepAgents activity (Brain icon) | ✅ | New ActivityBar entry — clicks show flat list of deep agents from `GET /api/deepagents/` |
+| Backend integration | ✅ | All deep agents loaded from PostgreSQL via Vite proxy (no CORS) |
+| Structured DeepAgent editor | ✅ | 7 sections: Overview / Prompt / Tools / Subagents / Middleware / Guardrails / JSON |
 
 ## Architecture
 
@@ -64,10 +64,27 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 └──────────────────────────────────────────────────────────┘
 ```
 
+### Activities (ActivityBar icons)
+
+| Icon | Activity | Sidebar Source | Notes |
+|------|----------|---------------|-------|
+| GitBranch | Workflows | `GET /api/workflows/` | Existing |
+| Brain | **DeepAgents** | `GET /api/deepagents/` | **Phase 5 — new** |
+| Users | Agents | `GET /api/agents/templates` | Pending |
+| BookOpen | Library | `GET /api/skills/` + tools | Pending |
+| BarChart3 | Analysis | TBD | Pending |
+| Settings | Settings | — | Hidden (no sidebar) |
+
 ```
 App.tsx
 └── LayoutProvider (useLayout.tsx)
     ├── ActivityBar (48px left, #181818)
+    │   ├── workflows   → /studio
+    │   ├── deepagents  → /deepagents       ← Phase 5
+    │   ├── agents      → /agents
+    │   ├── library     → /library
+    │   ├── analysis    → /analysis
+    │   └── settings    → /settings
     ├── [LeftSidebar (260px resizable)]
     │   ├── Title bar: uppercase label + actions (search, new, refresh)
     │   ├── SearchPanel (toggle: Cmd+Shift+F)
@@ -75,7 +92,8 @@ App.tsx
     ├── [Center column] (flex 1)
     │   ├── Workspace
     │   │   ├── TabBar (35px, drag-reorder, middle-click close)
-    │   │   └── TabContentView → FileEditor / WorkflowCanvas
+    │   │   └── TabContentView → DeepAgentEditor (deepagent viewType) ← Phase 5
+    │   │                      → FileEditor     (workflow viewType)
     │   └── BottomPanel (collapsible)
     │       ├── Terminal (terminal emulator)
     │       ├── Execution (execution logs)
@@ -88,13 +106,33 @@ App.tsx
 
 ## Layout Preview
 
-A standalone preview is available at `layout-preview.html` (served on port 1421):
+A standalone preview is available at `layout-preview.html`:
 
 ```
-http://localhost:1421/
+http://localhost:1421/layout-preview.html
 ```
 
-Opens with mock tabs, Chat sidebar, and Terminal panel to demonstrate the full VS Code layout.
+The preview now defaults to the **DeepAgents** activity so you see real
+deep-agent data from PostgreSQL on load. Backend at `http://localhost:8765`,
+frontend at `http://localhost:1421`, Vite proxies `/api/*` to backend.
+
+## Phase 5 — DeepAgents Editor
+
+Clicking a deep agent in the sidebar opens [DeepAgentEditor.tsx](file:///Users/weiping/dev/Learn/langchain-ai/langconfig/src/components/layout2/DeepAgentEditor.tsx),
+a structured form-based view with a left-rail section nav:
+
+| Section | Content |
+|---------|---------|
+| **Overview** | Name, description, category, model, temperature, max_tokens, version, public, usage stats |
+| **Prompt** | `system_prompt` rendered as preformatted monospace text |
+| **Tools** | Native / CLI / Custom tools as colored chips |
+| **Subagents** | Collapsible cards — name, description, model, tools, system_prompt |
+| **Middleware** | List with ON/OFF badges + raw config JSON |
+| **Guardrails** | Auto-eviction, summarization, long-term memory, token limits, backend type |
+| **JSON** | Full raw agent config (power-user fallback) |
+
+The full agent object is fetched from `GET /api/deepagents/{id}` and cached
+on `tab.data.agent` so sections can read fields directly without re-fetching.
 
 ## Key Decisions
 
@@ -103,6 +141,15 @@ Opens with mock tabs, Chat sidebar, and Terminal panel to demonstrate the full V
 - **Right sidebar always visible**: Chat by default, Properties tab on node selection
 - **Bottom panel inside center column**: only spans editor width, not across sidebars
 - **Unified sidebar shell**: LeftSidebar/NodeSidebar accept children — old components render inside the same shell
-- **Tab content from API**: sidebar loads real workflows from `GET /api/workflows/`, content from `GET /api/workflows/{id}/code`
+- **Tab content from API**: sidebar loads real workflows from `GET /api/workflows/`, deep agents from `GET /api/deepagents/`, content from `GET /api/workflows/{id}/code` and `GET /api/deepagents/{id}`
 - **contentStore**: in-memory Map for session-persistent tab content
 - **ui-system.tsx**: shared UI primitives (IconButton, ToolbarButton, MenuButton, HeaderLabel, PanelHeader)
+- **Vite proxy for /api**: `VITE_API_BASE_URL` empty in dev so requests go through the same-origin proxy (no CORS)
+- **Port 1421 for layout shell**: original langconfig UI stays on 1420; layout shell + DeepAgents sidebar runs on 1421
+
+## Next Steps
+
+- Phase 6: Agents / Skills / Tools sidebar categories (real backend integration)
+- Phase 7: Save edits from DeepAgentEditor back to backend via `PUT /api/deepagents/{id}`
+- Phase 8: Monaco editor for the JSON tab
+- Phase 9: Workflow canvas integration into Workspace

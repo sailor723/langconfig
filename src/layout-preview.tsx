@@ -47,17 +47,11 @@ function EditorPlaceholder({ label }: { label: string }) {
 // ── Layout shell with mock data ──────────────────────────
 
 function LayoutPreviewInner() {
-  const { openTab, setActiveTab, setBottomPanelOpen } = useLayoutState();
+  const { setBottomPanelOpen, setActiveActivity } = useLayoutState();
 
-  // Open mock tabs and bottom panel on mount
+  // Open bottom panel and default to DeepAgents activity on mount
   React.useEffect(() => {
-    const tabs: Tab[] = [
-      { id: 'agent-1', label: 'chat-agent.ts', viewType: 'workflow' },
-      { id: 'agent-2', label: 'research-agent.ts', viewType: 'workflow' },
-      { id: 'agent-3', label: 'summarizer.ts', viewType: 'workflow' },
-    ];
-    tabs.forEach(t => openTab(t));
-    setActiveTab('agent-1');
+    setActiveActivity('deepagents');
     setBottomPanelOpen(true);
   }, []);
 
