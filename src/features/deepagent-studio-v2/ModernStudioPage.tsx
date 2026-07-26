@@ -3,7 +3,7 @@
  * Route: /modern-studio
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useChat } from '@/features/chat/state/ChatContext';
 import ModernStudioCanvas from './ModernStudioCanvas';
 import ModernAgentPicker from './components/ModernAgentPicker';
@@ -13,10 +13,13 @@ import { useAgentStructure } from './hooks/useAgentStructure';
 import type { Node } from 'reactflow';
 
 export default function ModernStudioPage() {
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(112);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const { structure, loading, error } = useAgentStructure(selectedId);
   const { openChat } = useChat();
+
+  // Auto-load default agent on mount
+  useEffect(() => { setSelectedId(112); }, []);
 
   const handleNodeClick = (_nodeId: string | null, node: Node | null) => {
     setSelectedNode(node);

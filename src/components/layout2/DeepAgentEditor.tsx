@@ -237,17 +237,25 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
 
   // ── Subagents section ──
   const renderSubagents = () => {
-    const subs = agent.subagents || agent.subagents_config || [];
+    // Try multiple data locations (DB-level, normalized config, etc.)
+    const subs =
+      agent.subagents ||
+      agent.subagents_config ||
+      agent.config?.subagents ||
+      agent.config?.skills ||
+      [];
     if (subs.length === 0) {
       return (
         <div style={{ padding: 4 }}>
-          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>(no subagents)</div>
+          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>(no subagents / skills)</div>
         </div>
       );
     }
     return (
       <div style={{ padding: 4 }}>
         {subs.map((sa: any, i: number) => {
+          // Normalize: if it's a string (skill name), wrap it
+          const sa_obj = typeof sa === 'string' ? { name: sa } : sa;
           const open = expandedSubs[i];
           return (
             <div key={i} style={cardStyle}>
@@ -256,26 +264,26 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
                 style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}
               >
                 {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                <div style={{ ...valueStyle, fontWeight: 600 }}>{sa.name || `Subagent #${i + 1}`}</div>
+                <div style={{ ...valueStyle, fontWeight: 600 }}>{sa_obj.name || sa_obj.prompt || `Subagent #${i + 1}`}</div>
                 <div style={{ ...valueStyle, color: t.textMuted, fontSize: 11, marginLeft: 8 }}>
-                  {sa.description?.slice(0, 60)}
+                  {sa_obj.description?.slice(0, 60)}
                 </div>
               </div>
               {open && (
                 <div style={{ marginTop: 10, paddingLeft: 20 }}>
                   <div style={labelStyle}>Description</div>
-                  <div style={{ ...valueStyle, marginBottom: 8 }}>{sa.description || '—'}</div>
-                  {sa.model && (
+                  <div style={{ ...valueStyle, marginBottom: 8 }}>{sa_obj.description || '—'}</div>
+                  {sa_obj.model && (
                     <>
                       <div style={labelStyle}>Model</div>
-                      <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa.model}</div>
+                      <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.model}</div>
                     </>
                   )}
-                  {sa.tools && sa.tools.length > 0 && (
+                  {sa_obj.tools && sa_obj.tools.length > 0 && (
                     <>
-                      <div style={labelStyle}>Tools ({sa.tools.length})</div>
+                      <div style={labelStyle}>Tools ({sa_obj.tools.length})</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-                        {sa.tools.map((tool: string, j: number) => (
+                        {sa_obj.tools.map((tool: string, j: number) => (
                           <span key={j} style={{
                             fontSize: 11, padding: '2px 6px',
                             background: t.bgHover, borderRadius: 3,
@@ -285,7 +293,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
                       </div>
                     </>
                   )}
-                  {sa.system_prompt && (
+                  {sa_obj.system_prompt && (
                     <>
                       <div style={labelStyle}>System Prompt</div>
                       <pre style={{
@@ -293,7 +301,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
                         fontFamily: '"SF Mono", monospace', fontSize: 11,
                         color: t.textMuted, lineHeight: 1.5, margin: 0,
                         maxHeight: 200, overflow: 'auto',
-                      }}>{sa.system_prompt}</pre>
+                      }}>{sa_obj.system_prompt}</pre>
                     </>
                   )}
                 </div>

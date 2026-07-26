@@ -77,6 +77,15 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | Multi-message conversation | ✅ | User + assistant bubbles with timestamps and tokens/tools/latency footer |
 | Free-form chat | ✅ | Right sidebar input lets you type any prompt without re-running from the toolbar |
 
+### ✅ Phase 9: Studio Activity + Subagent/Skill Data Merge
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Studio activity (Network icon) | ✅ | New ActivityBar entry — embeds the DeepAgent Studio canvas directly in the layout shell (no port-hopping) |
+| Subagent/Skill data merge | ✅ | DeepAgentEditor Subagents tab now reads from 4 fallback locations: `agent.subagents`, `agent.subagents_config`, `agent.config.subagents`, `agent.config.skills` |
+| String-array normalization | ✅ | When `skills` is a string list (just names), each entry gets wrapped as `{name: ...}` so the UI still renders |
+| Tab re-open fix | ✅ | LeftSidebar calls `openTab` twice for deep agents (immediately + on next tick) so the editor re-renders with the populated `agent` data after the async API call |
+
 ## Architecture
 
 ```
@@ -207,8 +216,8 @@ appends the new assistant reply.
 
 ## Next Steps
 
-- Phase 9: Streaming via `POST /api/chat/message/stream` (SSE) for token-by-token output
-- Phase 10: Agents / Skills / Tools sidebar categories (real backend integration)
-- Phase 11: Save edits from DeepAgentEditor back to backend via `PUT /api/deepagents/{id}`
-- Phase 12: Monaco editor for the JSON tab
-- Phase 13: Workflow canvas integration into Workspace
+- Phase 10: Streaming via `POST /api/chat/message/stream` (SSE) for token-by-token output
+- Phase 11: Agents / Skills / Tools sidebar categories (real backend integration)
+- Phase 12: Save edits from DeepAgentEditor back to backend via `PUT /api/deepagents/{id}`
+- Phase 13: Monaco editor for the JSON tab
+- Phase 14: Workflow canvas integration into Workspace

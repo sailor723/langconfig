@@ -16,7 +16,8 @@ export type ActivityId =
   | 'deepagents'
   | 'library'
   | 'analysis'
-  | 'settings';
+  | 'settings'
+  | 'studio';
 
 export interface ActivityDef {
   id: ActivityId;
@@ -30,6 +31,7 @@ export const ACTIVITIES: ActivityDef[] = [
   { id: 'agents',     label: 'Agents',     icon: 'Users' },
   { id: 'library',    label: 'Library',    icon: 'BookOpen' },
   { id: 'analysis',   label: 'Analysis',   icon: 'BarChart3' },
+  { id: 'studio',     label: 'Studio',     icon: 'Network' },
   { id: 'settings',   label: 'Settings',   icon: 'Settings' },
 ];
 

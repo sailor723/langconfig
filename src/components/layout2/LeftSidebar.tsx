@@ -62,6 +62,8 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
     if (node.children || node.viewType === 'empty') return;
     let content = '';
     try { content = await getNodeContent(node); } catch {}
+    // For deep agents, node.data.agent should now be populated by getNodeContent.
+    // Build the tab and re-open it so React re-renders the editor with fresh data.
     const tab: Tab = {
       id: node.id,
       label: node.label,
@@ -69,6 +71,15 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
       data: { ...node.data, content, onSave: saveNodeContent },
     };
     openTab(tab);
+    // For deep agent, openTab again on next tick so the editor sees the latest node.data.agent
+    if (node.viewType === 'deepagent') {
+      setTimeout(() => {
+        openTab({
+          ...tab,
+          data: { ...node.data, content, onSave: saveNodeContent },
+        });
+      }, 0);
+    }
   }, [activeActivity, openTab, getNodeContent, saveNodeContent]);
 
   const handleNewFile = useCallback(() => {
