@@ -93,11 +93,9 @@ function TreeNodeItem({
   }, [isFolder, node, onFileOpen, renaming]);
 
   const handleDoubleClick = useCallback(() => {
-    if (onRename) {
-      setRenameValue(node.label);
-      setRenaming(true);
-    }
-  }, [node.label, onRename]);
+    setRenameValue(node.label);
+    setRenaming(true);
+  }, [node.label]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -144,13 +142,12 @@ function TreeNodeItem({
           display: 'flex',
           alignItems: 'center',
           gap: 4,
-          padding: '3px 8px 3px 0',
-          paddingLeft: 8 + level * 16,
+          padding: '2px 8px 2px 6px',
+          paddingLeft: 6 + level * 16,
           fontSize: 13,
           color: t.textPrimary,
           cursor: 'pointer',
-          borderRadius: 4,
-          margin: '0 8px',
+          borderRadius: 0,
           userSelect: 'none',
         }}
         onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; }}

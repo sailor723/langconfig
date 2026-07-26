@@ -89,22 +89,22 @@ export const themes: Record<ThemeName, Theme> = {
 
   dark: {
     name: 'dark',
-    displayName: 'Dark (Codex)',
+    displayName: 'Dark (VS Code)',
     colors: {
-      primary: '#5e5e5e',
-      backgroundLight: '#0e0e0e',
-      backgroundDark: '#080808',
-      panelDark: '#161616',
-      borderDark: '#242424',
-      textMuted: '#7a7a7a',
-      textPrimary: '#d0d0d0',
-      inputBackground: '#1a1a1a',
-      logoBackground: '#161616',
-      nodeBackground: '#1a1a1a',
-      nodeBackgroundLight: '#242424',
-      categoryBackground: '#1a1a1a',
-      headerBackground: '#0e0e0e',
-      headerTextColor: '#d0d0d0',
+      primary: '#0078d4',
+      backgroundLight: '#1e1e1e',
+      backgroundDark: '#252526',
+      panelDark: '#252526',
+      borderDark: '#3c3c3c',
+      textMuted: '#858585',
+      textPrimary: '#cccccc',
+      inputBackground: '#3c3c3c',
+      logoBackground: '#252526',
+      nodeBackground: '#2d2d2d',
+      nodeBackgroundLight: '#37373d',
+      categoryBackground: '#2d2d2d',
+      headerBackground: '#007acc',
+      headerTextColor: '#ffffff',
     },
   },
 };
@@ -121,7 +121,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     const saved = localStorage.getItem('langconfig-theme') as ThemeName;
-    return themes[saved] || themes.langconfig;
+    return themes[saved] || themes.dark;
   });
 
   const setTheme = useCallback((name: ThemeName) => {

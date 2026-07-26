@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, useCallback } from 'react';
 import { useLayoutTokens } from './tokens';
+import { MenuButton } from './ui-system';
 
 export interface ContextMenuAction {
   id: string;
@@ -69,32 +70,16 @@ export default function ContextMenu({ x, y, actions, onClose }: ContextMenuProps
       }}
     >
       {actions.map((action, i) => (
-        <button
+        <MenuButton
           key={action.id}
           onClick={() => { action.onClick(); onClose(); }}
-          onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            width: '100%',
-            padding: '6px 10px',
-            fontSize: 13,
-            color: action.danger ? '#e5484d' : t.textPrimary,
-            background: 'transparent',
-            border: 'none',
-            borderRadius: 4,
-            cursor: 'pointer',
-            textAlign: 'left',
-          }}
+          icon={action.icon}
+          shortcut={action.shortcut}
+          danger={action.danger}
+          t={t}
         >
-          {action.icon && <span style={{ display: 'flex', width: 16, opacity: 0.7 }}>{action.icon}</span>}
-          <span style={{ flex: 1 }}>{action.label}</span>
-          {action.shortcut && (
-            <span style={{ fontSize: 11, color: t.textDim }}>{action.shortcut}</span>
-          )}
-        </button>
+          {action.label}
+        </MenuButton>
       ))}
     </div>
   );

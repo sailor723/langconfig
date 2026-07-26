@@ -216,23 +216,67 @@ export default function QuickFilePicker({ onClose }: { onClose: () => void }) {
 
 // ── Helper: fetch sidebar nodes for a given activity ────
 async function fetchSidebarNodes(activity: ActivityId): Promise<{ nodes: TreeNode[] }> {
-  // Dynamic import of the data fetcher
-  const mod = await import('./useSidebarData');
-  // We can't call hooks outside of React, so we fetch directly
-  // via the API client
   const apiClient = (await import('../../lib/api-client')).default;
-
   const nodes: TreeNode[] = [];
 
-  if (activity === 'workflows') {
-    const res = await apiClient.listWorkflows();
-    const workflows = Array.isArray(res.data) ? res.data : (res.data?.items || res.data?.workflows || []);
-    nodes.push(...workflows.map((wf: any) => ({
-      id: `wf-${wf.id}`,
-      label: wf.name || `Workflow #${wf.id}`,
-      viewType: 'workflow',
-      data: { workflowId: wf.id },
-    })));
+  try {
+    if (activity === 'workflows') {
+      const res = await apiClient.listWorkflows();
+      const workflows = Array.isArray(res.data) ? res.data : (res.data?.items || res.data?.workflows || []);
+      nodes.push({
+        id: 'folder-quick-workflows',
+        label: 'My Workflows',
+        children: workflows.map((wf: any) => ({
+          id: `wf-${wf.id}`,
+          label: wf.name || `Workflow #${wf.id}`,
+          viewType: 'workflow',
+          data: { workflowId: wf.id },
+        })),
+      });
+    } else if (activity === 'agents') {
+      const res = await apiClient.get('/api/agents/routes');
+      const agents = Array.isArray(res.data) ? res.data : [];
+      if (agents.length > 0) {
+        nodes.push({
+          id: 'folder-quick-agents',
+          label: 'Agents',
+          children: agents.map((ag: any) => ({
+            id: `ag-${ag.id || ag.name}`,
+            label: ag.name || ag.id || 'Unnamed Agent',
+            viewType: 'agent',
+            data: ag,
+          })),
+        });
+      }
+    } else if (activity === 'library') {
+      nodes.push({
+        id: 'folder-quick-skills',
+        label: 'Skills',
+        children: [
+          { id: 'sk-sql', label: 'sql-analyst', viewType: 'library' },
+          { id: 'sk-viz', label: 'data-visualizer', viewType: 'library' },
+        ],
+      });
+      nodes.push({
+        id: 'folder-quick-tools',
+        label: 'Tools',
+        children: [
+          { id: 'tl-sqlite', label: 'sqlite-execute', viewType: 'library' },
+          { id: 'tl-python', label: 'python-execute', viewType: 'library' },
+        ],
+      });
+    } else if (activity === 'analysis') {
+      nodes.push({
+        id: 'folder-quick-analysis',
+        label: 'Dashboards',
+        children: [
+          { id: 'db-sunhing', label: 'Sunhing KPI', viewType: 'analysis' },
+          { id: 'db-sales', label: 'Sales Overview', viewType: 'analysis' },
+        ],
+      });
+    }
+  } catch {
+    // Silently ignore fetch errors; the picker will show partial results
   }
 
   return { nodes };
