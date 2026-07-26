@@ -7,15 +7,33 @@
  */
 import { useLayoutState, type Tab } from './useLayout';
 import { useLayoutTokens } from './tokens';
-import { X } from 'lucide-react';
+import { X, Workflow, User, BookOpen, BarChart3 } from 'lucide-react';
+
+// ── View icon map ───────────────────────────────────────
+const VIEW_ICONS: Record<string, React.ReactNode> = {
+  workflow:  <Workflow size={14} />,
+  agent:     <User size={14} />,
+  library:   <BookOpen size={14} />,
+  analysis:  <BarChart3 size={14} />,
+};
 
 // ── View router ──────────────────────────────────────────
 // Maps viewType string → React component for the tab content area.
 // We add entries as we migrate pages into the tab system.
-const VIEWS: Record<string, React.FC<{ tab: Tab }>> = {};
+
+interface ViewComponentProps {
+  tab: Tab;
+  onClose?: () => void;
+}
+
+const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
+  workflow:  WorkflowView,
+  agent:     AgentView,
+  library:   LibraryView,
+  analysis:  AnalysisView,
+};
 
 interface WorkspaceProps {
-  /** Fallback content when no tab is open — shows a "home" view for the active activity */
   fallback: React.ReactNode;
 }
 
@@ -65,6 +83,12 @@ export default function Workspace({ fallback }: WorkspaceProps) {
                     minWidth: 0,
                   }}
                 >
+                  {/* View type icon */}
+                  {VIEW_ICONS[tab.viewType] && (
+                    <span style={{ opacity: 0.6, display: 'flex' }}>
+                      {VIEW_ICONS[tab.viewType]}
+                    </span>
+                  )}
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {tab.label}
                   </span>
@@ -110,16 +134,69 @@ export default function Workspace({ fallback }: WorkspaceProps) {
   );
 }
 
-/** Renders the appropriate view component for a given tab type. */
+// ── View Components ──────────────────────────────────────
+
 function TabContentView({ tab }: { tab: Tab }) {
   const View = VIEWS[tab.viewType];
   if (View) return <View tab={tab} />;
 
-  // Fallback: show a simple placeholder with the tab info
+  // Fallback for unregistered view types
   return (
     <div style={{ padding: 24, color: 'inherit' }}>
-      <p style={{ opacity: 0.5 }}>View: {tab.viewType}</p>
+      <p style={{ opacity: 0.5 }}>{tab.viewType}</p>
       <p>{tab.label}</p>
+    </div>
+  );
+}
+
+/** Placeholder workflow view — will be replaced with WorkflowCanvas */
+function WorkflowView({ tab }: ViewComponentProps) {
+  const t = useLayoutTokens();
+  return (
+    <div style={{ padding: 32, color: t.textPrimary }}>
+      <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tab.label}</h2>
+      <p style={{ color: t.textMuted, fontSize: 14 }}>
+        Workflow canvas will render here.
+      </p>
+    </div>
+  );
+}
+
+/** Placeholder agent view */
+function AgentView({ tab }: ViewComponentProps) {
+  const t = useLayoutTokens();
+  return (
+    <div style={{ padding: 32, color: t.textPrimary }}>
+      <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tab.label}</h2>
+      <p style={{ color: t.textMuted, fontSize: 14 }}>
+        Agent detail will render here.
+      </p>
+    </div>
+  );
+}
+
+/** Placeholder library (skill/tool/prompt) view */
+function LibraryView({ tab }: ViewComponentProps) {
+  const t = useLayoutTokens();
+  return (
+    <div style={{ padding: 32, color: t.textPrimary }}>
+      <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tab.label}</h2>
+      <p style={{ color: t.textMuted, fontSize: 14 }}>
+        Library item detail will render here.
+      </p>
+    </div>
+  );
+}
+
+/** Placeholder analysis view */
+function AnalysisView({ tab }: ViewComponentProps) {
+  const t = useLayoutTokens();
+  return (
+    <div style={{ padding: 32, color: t.textPrimary }}>
+      <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{tab.label}</h2>
+      <p style={{ color: t.textMuted, fontSize: 14 }}>
+        Dashboard will render here.
+      </p>
     </div>
   );
 }
