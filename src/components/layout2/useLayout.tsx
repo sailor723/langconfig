@@ -13,6 +13,7 @@ import { createContext, useContext, useState, useCallback, useMemo, useRef, type
 export type ActivityId =
   | 'workflows'
   | 'agents'
+  | 'deepagents'
   | 'library'
   | 'analysis'
   | 'settings';
@@ -24,11 +25,12 @@ export interface ActivityDef {
 }
 
 export const ACTIVITIES: ActivityDef[] = [
-  { id: 'workflows', label: 'Workflows', icon: 'GitBranch' },
-  { id: 'agents',    label: 'Agents',    icon: 'Brain' },
-  { id: 'library',   label: 'Library',   icon: 'BookOpen' },
-  { id: 'analysis',  label: 'Analysis',  icon: 'BarChart3' },
-  { id: 'settings',  label: 'Settings',  icon: 'Settings' },
+  { id: 'workflows',  label: 'Workflows',  icon: 'GitBranch' },
+  { id: 'deepagents', label: 'DeepAgents', icon: 'Brain' },
+  { id: 'agents',     label: 'Agents',     icon: 'Users' },
+  { id: 'library',    label: 'Library',    icon: 'BookOpen' },
+  { id: 'analysis',   label: 'Analysis',   icon: 'BarChart3' },
+  { id: 'settings',   label: 'Settings',   icon: 'Settings' },
 ];
 
 // ── Tab definitions ───────────────────────────────────────

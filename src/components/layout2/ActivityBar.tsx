@@ -10,23 +10,34 @@
 import { useLayoutState, ACTIVITIES, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
-  GitBranch, Brain, BookOpen, BarChart3, Settings, type LucideIcon,
+  GitBranch, Brain, Users, BookOpen, BarChart3, Settings, type LucideIcon,
 } from 'lucide-react';
 
 const ICON_MAP: Record<ActivityId, LucideIcon> = {
-  workflows: GitBranch,
-  agents:    Brain,
-  library:   BookOpen,
-  analysis:  BarChart3,
-  settings:  Settings,
+  workflows:  GitBranch,
+  deepagents: Brain,
+  agents:     Users,
+  library:    BookOpen,
+  analysis:   BarChart3,
+  settings:   Settings,
 };
 
 const MAIN_ACTIVITIES = ACTIVITIES.filter(a => a.id !== 'settings');
 const SETTINGS_ACTIVITY = ACTIVITIES.find(a => a.id === 'settings')!;
 
-export default function ActivityBar() {
+interface ActivityBarProps {
+  /** Called after an activity icon is clicked, with the clicked activity id */
+  onClickActivity?: (activity: ActivityId) => void;
+}
+
+export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
   const { activeActivity, setActiveActivity, sidebarOpen, toggleSidebar } = useLayoutState();
   const t = useLayoutTokens();
+
+  const handleActivityClick = (id: ActivityId) => {
+    setActiveActivity(id);
+    onClickActivity?.(id);
+  };
 
   return (
     <div
@@ -48,7 +59,7 @@ export default function ActivityBar() {
           <button
             key={act.id}
             title={act.label}
-            onClick={() => setActiveActivity(act.id)}
+            onClick={() => handleActivityClick(act.id)}
             style={{
               width: 48,
               height: 48,
@@ -91,7 +102,7 @@ export default function ActivityBar() {
       {/* Settings — pinned to bottom */}
       <button
         title={SETTINGS_ACTIVITY.label}
-        onClick={() => setActiveActivity(SETTINGS_ACTIVITY.id)}
+        onClick={() => handleActivityClick(SETTINGS_ACTIVITY.id)}
         style={{
           width: 48,
           height: 48,
