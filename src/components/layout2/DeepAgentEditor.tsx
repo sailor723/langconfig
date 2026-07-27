@@ -14,24 +14,11 @@ import { useState } from 'react';
 import { useLayoutTokens } from './tokens';
 import {
   Info, FileText, Wrench, Users, Layers, Shield, Code, ChevronDown, ChevronRight,
-  Play, Square, Loader,
+  Play, Square, Loader, Save,
 } from 'lucide-react';
 import type { Tab } from './useLayout';
-import apiClient from '../../lib/api-client';
 import { chatStore } from './chatStore';
-
-/**
- * Strip <think>...</think> blocks from an LLM response.
- * Returns the visible answer + any reasoning trace.
- */
-function extractThinking(text: string): { visible: string; thinking: string } {
-  const re = /<think>([\s\S]*?)<\/think>/g;
-  const thinkingParts: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text))) thinkingParts.push(m[1].trim());
-  const visible = text.replace(re, '').trim();
-  return { visible, thinking: thinkingParts.join('\n\n') };
-}
+import apiClient from '../../lib/api-client';
 
 interface DeepAgentEditorProps {
   tab: Tab;
@@ -57,53 +44,55 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const [expandedSubs, setExpandedSubs] = useState<Record<number, boolean>>({});
   const [testPrompt, setTestPrompt] = useState('Hello, please introduce yourself.');
   const [running, setRunning] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Editable JSON text for the JSON tab
+  const [jsonEdit, setJsonEdit] = useState(() => JSON.stringify(agent, null, 2));
 
   const handleRun = async () => {
     if (!agent.id || running) return;
     setRunning(true);
-    const startedAt = Date.now();
-    // Push user message to chat sidebar
-    chatStore.add({
-      role: 'user',
-      text: `[${agent.name ?? 'DeepAgent'}] ${testPrompt}`,
-    });
     try {
-      // 1) start a chat session for this deep agent
-      const startRes = await apiClient.post('/api/chat/start', {
-        agent_id: agent.id,
-      });
-      const sessionId = startRes.data?.session_id ?? startRes.data?.id;
-      if (!sessionId) throw new Error('No session_id returned');
-      // Stash session for follow-up messages from the chat sidebar
-      chatStore.setSession(sessionId, agent.id);
-      // 2) send a test message and read the response
-      const msgRes = await apiClient.post('/api/chat/message', {
-        session_id: sessionId,
-        message: testPrompt,
-      });
-      const data = msgRes.data || {};
-      const rawText = data.message ?? data.response ?? JSON.stringify(data, null, 2);
-      const { visible, thinking } = extractThinking(rawText);
-      const metrics = data.metrics;
-      chatStore.add({
-        role: 'assistant',
-        text: visible,
-        thinking: thinking || undefined,
-        activity: data.subagent_activity ?? undefined,
-        meta: {
-          tokens: metrics?.total_tokens,
-          toolCalls: metrics?.tool_calls,
-          latencyMs: Date.now() - startedAt,
-        },
-      });
+      // Use SSE streaming — chatStore handles session start + message send + incremental updates
+      await chatStore.sendStreamMessage(agent.id, testPrompt, agent.name ?? 'DeepAgent');
     } catch (err: any) {
-      const detail = err?.response?.data?.detail ?? err?.response?.data ?? {};
       chatStore.add({
         role: 'system',
-        text: `// Test failed: ${err?.message ?? 'unknown error'}\n${typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2)}`,
+        text: `// Test failed: ${err?.message ?? 'unknown error'}`,
       });
     } finally {
       setRunning(false);
+    }
+  };
+
+  const handleStop = () => {
+    chatStore.cancelStream();
+    setRunning(false);
+  };
+
+  /** Parse the JSON textarea and PUT the updated agent back to the backend */
+  const handleSave = async () => {
+    if (!agent.id || saving) return;
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      let payload: any;
+      try {
+        payload = JSON.parse(jsonEdit);
+      } catch {
+        setSaveMsg({ ok: false, text: 'Invalid JSON — fix errors and try again' });
+        setSaving(false);
+        return;
+      }
+      await apiClient.updateDeepAgent(agent.id, payload);
+      setSaveMsg({ ok: true, text: 'Saved successfully' });
+      // Clear message after 3s
+      setTimeout(() => setSaveMsg(null), 3000);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail ?? err?.message ?? 'unknown error';
+      setSaveMsg({ ok: false, text: `Save failed: ${detail}` });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -381,23 +370,29 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     );
   };
 
-  // ── JSON section ──
+  // ── JSON section (editable textarea) ──
   const renderJson = () => (
     <div style={{ padding: 4 }}>
-      <pre style={{
-        background: t.bgContent,
-        border: `1px solid ${t.border}`,
-        borderRadius: 4,
-        padding: 12,
-        fontFamily: '"SF Mono", "Fira Code", monospace',
-        fontSize: 12,
-        color: t.textPrimary,
-        overflow: 'auto',
-        maxHeight: 'calc(100vh - 200px)',
-        margin: 0,
-      }}>
-        {JSON.stringify(agent, null, 2)}
-      </pre>
+      <textarea
+        value={jsonEdit}
+        onChange={e => setJsonEdit(e.target.value)}
+        spellCheck={false}
+        style={{
+          width: '100%',
+          background: t.bgContent,
+          border: `1px solid ${t.border}`,
+          borderRadius: 4,
+          padding: 12,
+          fontFamily: '"SF Mono", "Fira Code", monospace',
+          fontSize: 12,
+          color: t.textPrimary,
+          overflow: 'auto',
+          minHeight: 300,
+          resize: 'vertical',
+          outline: 'none',
+          lineHeight: 1.5,
+        }}
+      />
     </div>
   );
 
@@ -470,8 +465,8 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         </button>
         {running && (
           <button
-            onClick={() => setRunning(false)}
-            title="Cancel"
+            onClick={handleStop}
+            title="Cancel stream"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -489,6 +484,37 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
             <Square size={10} />
             Stop
           </button>
+        )}
+        <button
+          onClick={handleSave}
+          disabled={saving || !agent.id}
+          title="Save changes"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            height: 24,
+            padding: '0 10px',
+            background: saving ? t.bgHover : '#2d7d46',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 3,
+            fontSize: 12,
+            cursor: saving || !agent.id ? 'not-allowed' : 'pointer',
+            opacity: saving || !agent.id ? 0.6 : 1,
+          }}
+        >
+          <Save size={12} />
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        {saveMsg && (
+          <span style={{
+            fontSize: 11,
+            color: saveMsg.ok ? '#4caf50' : '#ef5350',
+            marginLeft: 4,
+          }}>
+            {saveMsg.text}
+          </span>
         )}
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 11, color: t.textDim }}>

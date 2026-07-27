@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useLayoutState } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import { Terminal, Play, FileText, ChevronDown } from 'lucide-react';
+import { useChatMessages } from './chatStore';
 
 type PanelTab = 'terminal' | 'execution' | 'results';
 
@@ -165,30 +166,60 @@ function TerminalContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
   );
 }
 
-// ── Execution logs ──────────────────────────────────────
+// ── Execution logs (from chat store) ────────────────────
 
 function ExecutionContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
-  const logs = [
-    { level: 'info', msg: 'Workflow "Chat Agent" loaded', ts: '10:23:01' },
-    { level: 'info', msg: 'Node "greeter" initialized', ts: '10:23:02' },
-    { level: 'warn', msg: 'Rate limit approaching (85%)', ts: '10:23:15' },
-    { level: 'info', msg: 'Execution completed in 2.3s', ts: '10:23:18' },
-  ];
+  const messages = useChatMessages();
+  // Show the last 50 assistant messages as execution entries
+  const entries = messages
+    .filter(m => m.role === 'assistant' || m.role === 'system')
+    .slice(-50)
+    .reverse();
 
   return (
     <div>
-      {logs.length === 0 ? (
+      {entries.length === 0 ? (
         <p style={{ color: t.textMuted, fontStyle: 'italic', fontFamily: 'inherit', fontSize: 13 }}>
-          No execution logs yet.
+          No execution logs yet. Run a DeepAgent test to see results here.
         </p>
       ) : (
-        logs.map((log, i) => (
-          <div key={i} style={{ display: 'flex', gap: 12, padding: '2px 0', color: t.textMuted }}>
-            <span style={{ color: t.textDim, flexShrink: 0 }}>{log.ts}</span>
-            <span style={{ color: log.level === 'warn' ? '#f59e0b' : t.textPrimary, flexShrink: 0, width: 40 }}>
-              [{log.level}]
-            </span>
-            <span style={{ color: t.textPrimary }}>{log.msg}</span>
+        entries.map((msg, i) => (
+          <div key={msg.id} style={{ padding: '3px 0', borderBottom: i < entries.length - 1 ? `1px solid ${t.border}` : 'none' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <span style={{ color: t.textDim, flexShrink: 0, fontSize: 11 }}>
+                {new Date(msg.ts).toLocaleTimeString()}
+              </span>
+              <span style={{
+                color: msg.role === 'system' ? '#f59e0b' : '#4fc3f7',
+                flexShrink: 0,
+                fontSize: 11,
+                fontWeight: 600,
+                width: 60,
+              }}>
+                {msg.role === 'system' ? '[system]' : msg.streaming ? '[stream]' : '[agent]'}
+              </span>
+              <span style={{
+                color: t.textPrimary,
+                fontSize: 12,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                flex: 1,
+              }}>
+                {msg.text.slice(0, 200)}{msg.text.length > 200 ? '…' : ''}
+              </span>
+            </div>
+            {msg.streaming && (
+              <div style={{ marginTop: 2, fontSize: 11, color: '#4fc3f7' }}>
+                [streaming] In progress…
+              </div>
+            )}
+            {msg.meta && (
+              <div style={{ display: 'flex', gap: 12, marginTop: 2, fontSize: 11, color: t.textMuted }}>
+                {msg.meta.latencyMs != null && <span>latency: {msg.meta.latencyMs}ms</span>}
+                {msg.meta.tokens != null && <span>tokens: {msg.meta.tokens}</span>}
+                {msg.meta.toolCalls != null && <span>tools: {msg.meta.toolCalls}</span>}
+              </div>
+            )}
           </div>
         ))
       )}
@@ -196,14 +227,54 @@ function ExecutionContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
   );
 }
 
-// ── Results output ──────────────────────────────────────
+// ── Results output (completed assistant messages) ─────────
 
 function ResultsContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
+  const messages = useChatMessages();
+  const completed = messages.filter(m => m.role === 'assistant' && !m.streaming).slice(-10);
+
   return (
     <div>
-      <p style={{ color: t.textMuted, fontStyle: 'italic', fontFamily: 'inherit', fontSize: 13 }}>
-        Execution results and rendered output will appear here.
-      </p>
+      {completed.length === 0 ? (
+        <p style={{ color: t.textMuted, fontStyle: 'italic', fontFamily: 'inherit', fontSize: 13 }}>
+          No completed results yet. Run a DeepAgent to see output here.
+        </p>
+      ) : (
+        completed.map(msg => (
+          <div key={msg.id} style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+              <span style={{ fontSize: 11, color: t.textDim }}>
+                {new Date(msg.ts).toLocaleTimeString()}
+              </span>
+              {msg.thinking && (
+                <span style={{ fontSize: 11, color: '#f59e0b' }}>
+                  [has reasoning trace]
+                </span>
+              )}
+              {msg.meta?.latencyMs != null && (
+                <span style={{ fontSize: 11, color: t.textMuted }}>
+                  {msg.meta.latencyMs}ms
+                </span>
+              )}
+            </div>
+            <div style={{
+              background: t.bgHover,
+              border: `1px solid ${t.border}`,
+              borderRadius: 4,
+              padding: 10,
+              fontSize: 13,
+              color: t.textPrimary,
+              lineHeight: 1.5,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              maxHeight: 200,
+              overflowY: 'auto',
+            }}>
+              {msg.text || '(empty response)'}
+            </div>
+          </div>
+        ))
+      )}
     </div>
   );
 }
