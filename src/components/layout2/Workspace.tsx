@@ -13,13 +13,13 @@ import { X, File, User, BookOpen, BarChart3, Brain, Sparkles } from 'lucide-reac
 import FileEditor from './FileEditor';
 import DeepAgentEditor from './DeepAgentEditor';
 import DeepAgentCreator from './DeepAgentCreator';
-import ModelPlaygroundTab from './ModelPlaygroundTab';
+import ModelViewerTab from './ModelViewerTab';
 
 const VIEW_ICONS: Record<string, React.ReactNode> = {
   workflow:          <File size={13} />,
   deepagent:         <Brain size={13} />,
   'deepagent-create': <Brain size={13} />,
-  'model-playground': <Sparkles size={13} />,
+  'model-viewer':     <Sparkles size={13} />,
   agent:             <User size={13} />,
   library:           <BookOpen size={13} />,
   analysis:          <BarChart3 size={13} />,
@@ -33,7 +33,7 @@ const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
   workflow:          FileEditor,
   deepagent:         DeepAgentEditor,
   'deepagent-create': DeepAgentCreator,
-  'model-playground': ModelPlaygroundTab,
+  'model-viewer':     ModelViewerTab,
   agent:             FileEditor,
   library:           FileEditor,
   analysis:          FileEditor,
