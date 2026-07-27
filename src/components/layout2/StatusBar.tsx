@@ -4,17 +4,21 @@
  * VS Code pattern:
  *   - 22px height
  *   - Blue background (#007acc) with white text
- *   - Left: model name, token count
+ *   - Left: default model (from localStorage), token count
  *   - Right: theme selector, running task indicator
  */
+import { useEffect, useState } from 'react';
 import { useLayoutTokens } from './tokens';
 import { useTheme } from '../../lib/themes';
 
 interface StatusBarProps {
+  /** Optional override (e.g. selected node model); falls back to localStorage */
   model?: string;
   tokens?: number;
   task?: string | null;
 }
+
+const DEFAULT_MODEL_KEY = 'langconfig.defaultModel';
 
 /** Theme display config for the theme switcher */
 const THEME_OPTIONS = [
@@ -26,6 +30,26 @@ const THEME_OPTIONS = [
 export default function StatusBar({ model, tokens, task }: StatusBarProps) {
   const t = useLayoutTokens();
   const { theme, setTheme } = useTheme();
+  const [defaultModel, setDefaultModel] = useState(() => localStorage.getItem(DEFAULT_MODEL_KEY) || '');
+
+  // Re-read localStorage when the user sets a new default in the Models sidebar
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === DEFAULT_MODEL_KEY) setDefaultModel(e.newValue || '');
+    };
+    window.addEventListener('storage', handler);
+    // Same-tab updates from setItem need a polling fallback since 'storage' is cross-tab only
+    const interval = setInterval(() => {
+      const fresh = localStorage.getItem(DEFAULT_MODEL_KEY) || '';
+      if (fresh !== defaultModel) setDefaultModel(fresh);
+    }, 500);
+    return () => {
+      window.removeEventListener('storage', handler);
+      clearInterval(interval);
+    };
+  }, [defaultModel]);
+
+  const displayModel = model || defaultModel;
 
   return (
     <div
@@ -44,7 +68,7 @@ export default function StatusBar({ model, tokens, task }: StatusBarProps) {
     >
       {/* Left side */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {model && <span style={{ opacity: 0.9 }}>{model}</span>}
+        {displayModel && <span style={{ opacity: 0.9 }}>{displayModel}</span>}
         {tokens !== undefined && (
           <span style={{ opacity: 0.7 }}>{tokens.toLocaleString()} tokens</span>
         )}

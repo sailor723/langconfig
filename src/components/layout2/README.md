@@ -128,6 +128,16 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | Persistence | ✅ | Uses existing `ThemeProvider`/`setTheme` from `lib/themes` |
 | Obsidian-style | ✅ | Click dots to instantly switch between 3 themes |
 
+### ✅ Phase 15: Models Sidebar (Out of Settings)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Models activity | ✅ | New ActivityBar icon (Sparkles) — replaces Model Cards section in Settings |
+| ModelCardsSidebar | ✅ | Cloud + local models grouped by provider with key/validation indicators |
+| Set default | ✅ | Inline "Set default" button on each row; persists to backend + localStorage |
+| StatusBar integration | ✅ | StatusBar reads default from localStorage and shows active model |
+| Filter input | ✅ | Filter models by display name or id |
+
 ## Architecture
 
 ```
@@ -147,7 +157,8 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 |------|----------|---------------|-------|
 | GitBranch | Workflows | `GET /api/workflows/` | Existing |
 | Brain | **DeepAgents** | `GET /api/deepagents/` | **Phase 5 — new** |
-| Users | Agents | `GET /api/agents/templates` | Pending |
+| Users | Agents | `GET /api/agents/routes` | Existing |
+| Sparkles | **Models** | `GET /api/agents/available-models` | **Phase 15 — new** |
 | BookOpen | Library | `GET /api/skills/` + tools | Pending |
 | BarChart3 | Analysis | TBD | Pending |
 | Settings | Settings | — | Hidden (no sidebar) |
@@ -258,7 +269,7 @@ appends the new assistant reply.
 
 ## Next Steps
 
-- Phase 15: Agents / Skills / Tools sidebar categories (real backend integration)
-- Phase 16: Monaco editor for the JSON tab
-- Phase 17: Workflow canvas integration into Workspace
-- Phase 18: Real terminal emulator (xterm.js) for the Terminal tab
+- Phase 16: Agents / Skills / Tools sidebar categories (real backend integration)
+- Phase 17: Monaco editor for the JSON tab
+- Phase 18: Workflow canvas integration into Workspace
+- Phase 19: Real terminal emulator (xterm.js) for the Terminal tab

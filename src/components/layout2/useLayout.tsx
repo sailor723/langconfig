@@ -17,7 +17,8 @@ export type ActivityId =
   | 'library'
   | 'analysis'
   | 'settings'
-  | 'studio';
+  | 'studio'
+  | 'models';
 
 export interface ActivityDef {
   id: ActivityId;
@@ -29,6 +30,7 @@ export const ACTIVITIES: ActivityDef[] = [
   { id: 'workflows',  label: 'Workflows',  icon: 'GitBranch' },
   { id: 'deepagents', label: 'DeepAgents', icon: 'Brain' },
   { id: 'agents',     label: 'Agents',     icon: 'Users' },
+  { id: 'models',     label: 'Models',     icon: 'Sparkles' },
   { id: 'library',    label: 'Library',    icon: 'BookOpen' },
   { id: 'analysis',   label: 'Analysis',   icon: 'BarChart3' },
   { id: 'studio',     label: 'Studio',     icon: 'Network' },
