@@ -10,7 +10,7 @@
  *   - Guardrails   token limits, eviction
  *   - JSON         raw config
  */
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useLayoutTokens } from './tokens';
 import {
   Info, FileText, Wrench, Users, Layers, Shield, Code, ChevronDown, ChevronRight,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import type { Tab } from './useLayout';
 import { chatStore } from './chatStore';
+import { useAvailableModels } from '../../hooks/useAvailableModels';
 import apiClient from '../../lib/api-client';
 
 interface DeepAgentEditorProps {
@@ -40,6 +41,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const t = useLayoutTokens();
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
+  const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [expandedSubs, setExpandedSubs] = useState<Record<number, boolean>>({});
   const [testPrompt, setTestPrompt] = useState('Hello, please introduce yourself.');
@@ -48,6 +50,25 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // Editable JSON text for the JSON tab
   const [jsonEdit, setJsonEdit] = useState(() => JSON.stringify(agent, null, 2));
+  // Editable model — synced from config, updates jsonEdit on change
+  const [editableModel, setEditableModel] = useState(config.model || '');
+
+  const handleModelChange = useCallback((newModel: string) => {
+    setEditableModel(newModel);
+    // Sync into jsonEdit so the Save button persists the change
+    setJsonEdit(prev => {
+      try {
+        const parsed = JSON.parse(prev);
+        if (!parsed.config) parsed.config = {};
+        parsed.config.model = newModel || null;
+        // Clean up null values
+        if (!parsed.config.model) delete parsed.config.model;
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return prev;
+      }
+    });
+  }, []);
 
   const handleRun = async () => {
     if (!agent.id || running) return;
@@ -134,7 +155,43 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         </div>
         <div style={cardStyle}>
           <div style={labelStyle}>Model</div>
-          <div style={{ ...valueStyle, fontFamily: 'monospace' }}>{config.model || '—'}</div>
+          <select
+            value={editableModel}
+            onChange={e => handleModelChange(e.target.value)}
+            disabled={modelsLoading}
+            style={{
+              width: '100%',
+              height: 28,
+              padding: '0 6px',
+              background: t.bgContent,
+              border: `1px solid ${t.border}`,
+              borderRadius: 3,
+              color: t.textPrimary,
+              fontSize: 12,
+              fontFamily: 'monospace',
+              outline: 'none',
+            }}
+          >
+            <option value="">
+              {modelsLoading ? 'Loading...' : '(Backend default)'}
+            </option>
+            {cloudModels.length > 0 && (
+              <optgroup label="Cloud Models">
+                {cloudModels.map(m => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </optgroup>
+            )}
+            {localModels.length > 0 && (
+              <optgroup label="Local Models">
+                {localModels.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}{m.is_validated === false ? ' [Not Validated]' : ''}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
         </div>
         <div style={cardStyle}>
           <div style={labelStyle}>Temperature</div>

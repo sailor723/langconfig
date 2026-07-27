@@ -35,7 +35,9 @@ export function useSidebarData(activity: string): SidebarData {
         try {
           const res = await apiClient.listDeepAgents();
           const agents = Array.isArray(res.data) ? res.data : [];
-          const children: TreeNode[] = agents.map((ag: any) => ({
+          // Filter: only agents with use_deepagents=true (or missing — default to true)
+          const deepAgents = agents.filter((ag: any) => ag.config?.use_deepagents !== false);
+          const children: TreeNode[] = deepAgents.map((ag: any) => ({
             id: `deepagent-${ag.id}`,
             label: ag.name || `DeepAgent #${ag.id}`,
             viewType: 'deepagent',
@@ -77,20 +79,32 @@ export function useSidebarData(activity: string): SidebarData {
         }
       } else if (activity === 'agents') {
         try {
-          const res = await apiClient.get('/api/agents/routes');
+          const res = await apiClient.listDeepAgents();
           const agents = Array.isArray(res.data) ? res.data : [];
+          // Filter: only agents with use_deepagents=false (normal agents)
+          const normalAgents = agents.filter((ag: any) => ag.config?.use_deepagents === false);
+          const children: TreeNode[] = normalAgents.map((ag: any) => ({
+            id: `agent-${ag.id}`,
+            label: ag.name || `Agent #${ag.id}`,
+            viewType: 'agent',
+            badge: ag.category || '',
+            data: { agentId: ag.id, ...ag },
+          }));
+          if (children.length === 0) {
+            children.push({ id: 'empty-agents', label: '(no agents yet)', viewType: 'empty' });
+          }
           result.push({
             id: 'folder-agents',
             label: 'Agents',
-            children: agents.map((ag: any) => ({
-              id: `ag-${ag.id || ag.name}`,
-              label: ag.name || ag.id || 'Unnamed Agent',
-              viewType: 'agent',
-              data: ag,
-            })),
+            children,
           });
-        } catch {
-          result.push({ id: 'folder-agents', label: 'Agents', children: [] });
+        } catch (err: any) {
+          console.error('Agents load failed:', err?.message, err?.response?.status);
+          result.push({
+            id: 'folder-agents',
+            label: 'Agents',
+            children: [{ id: 'empty-agents', label: `Failed: ${err?.message || 'unknown'}`, viewType: 'empty' }],
+          });
         }
       } else if (activity === 'library') {
         result.push({
@@ -144,6 +158,17 @@ export function useSidebarData(activity: string): SidebarData {
         return JSON.stringify(res.data, null, 2);
       } catch {
         return '// Failed to load DeepAgent config';
+      }
+    }
+
+    if (node.viewType === 'agent' && data.agentId) {
+      try {
+        const res = await apiClient.getDeepAgent(data.agentId);
+        // Stash the full agent object on node.data for the structured editor
+        node.data = { ...node.data, agent: res.data };
+        return JSON.stringify(res.data, null, 2);
+      } catch {
+        return '// Failed to load Agent config';
       }
     }
 

@@ -73,8 +73,8 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
       data: { ...node.data, content, onSave: saveNodeContent },
     };
     openTab(tab);
-    // For deep agent, openTab again on next tick so the editor sees the latest node.data.agent
-    if (node.viewType === 'deepagent') {
+    // For deep agents and agents, openTab again on next tick so the editor sees the latest node.data.agent
+    if (node.viewType === 'deepagent' || node.viewType === 'agent') {
       setTimeout(() => {
         openTab({
           ...tab,
@@ -86,13 +86,19 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
 
   const handleNewFile = useCallback(() => {
     const id = `new-${Date.now()}`;
-    // For deepagents activity, open the creator form
     if (activeActivity === 'deepagents') {
       openTab({
         id,
         label: 'New DeepAgent',
         viewType: 'deepagent-create',
         data: {},
+      });
+    } else if (activeActivity === 'agents') {
+      openTab({
+        id,
+        label: 'New Agent',
+        viewType: 'agent',
+        data: { new: true },
       });
     } else {
       openTab({ id, label: 'Untitled', viewType: activeActivity, data: { new: true } });
@@ -102,8 +108,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
   const handleNewFolder = useCallback(() => setTreeKey(v => v + 1), []);
   const handleRefresh = useCallback(() => setTreeKey(v => v + 1), []);
 
-  // Folder "+" action — for the deepagents folder, opens the creator;
-  // otherwise falls back to a generic new-file tab.
+  // Folder "+" action — opens the creator for supported activity folders.
   const handleFolderAction = useCallback((node: TreeNode) => {
     if (node.id === 'folder-deepagents') {
       openTab({
@@ -111,6 +116,13 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
         label: 'New DeepAgent',
         viewType: 'deepagent-create',
         data: {},
+      });
+    } else if (node.id === 'folder-agents') {
+      openTab({
+        id: `new-${Date.now()}`,
+        label: 'New Agent',
+        viewType: 'agent',
+        data: { new: true },
       });
     }
   }, [openTab]);

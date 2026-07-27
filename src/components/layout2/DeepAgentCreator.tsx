@@ -8,9 +8,15 @@ import { useState } from 'react';
 import type { Tab } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
+import { useAvailableModels } from '../../hooks/useAvailableModels';
 import apiClient from '../../lib/api-client';
 
 const CATEGORIES = ['research', 'coding', 'analysis', 'general', 'custom'];
+
+const LS_KEY_DEFAULT = 'langconfig.defaultModel';
+function getDefaultModel(): string {
+  return localStorage.getItem(LS_KEY_DEFAULT) || '';
+}
 
 interface DeepAgentCreatorProps {
   tab: Tab;
@@ -19,6 +25,7 @@ interface DeepAgentCreatorProps {
 export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   const t = useLayoutTokens();
   const { closeTab, openTab } = useLayoutState();
+  const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -26,7 +33,7 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   const [systemPrompt, setSystemPrompt] = useState(
     'You are a helpful AI assistant. Be concise and accurate.',
   );
-  const [model, setModel] = useState('');
+  const [model, setModel] = useState(getDefaultModel);
   const [temperature, setTemperature] = useState(0.7);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +48,7 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
     try {
       const config = {
         system_prompt: systemPrompt.trim(),
-        model: model.trim() || undefined,
+        model: model || undefined,
         temperature,
         native_tools: [],
         cli_tools: [],
@@ -218,14 +225,34 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
       <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
         <div style={{ flex: 2, ...cardStyle }}>
           <label style={labelStyle}>Model</label>
-          <input
+          <select
             value={model}
             onChange={e => setModel(e.target.value)}
-            placeholder="Leave empty for backend default"
             style={inputBase}
-          />
+            disabled={modelsLoading}
+          >
+            <option value="">
+              {modelsLoading ? 'Loading models...' : '(Backend default)'}
+            </option>
+            {cloudModels.length > 0 && (
+              <optgroup label="Cloud Models">
+                {cloudModels.map(m => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </optgroup>
+            )}
+            {localModels.length > 0 && (
+              <optgroup label="Local Models">
+                {localModels.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}{m.is_validated === false ? ' [Not Validated]' : ''}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
           <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>
-            e.g. gpt-4o, claude-3-opus, deepseek-chat
+            Default model shown first; select from available providers
           </div>
         </div>
         <div style={{ flex: 1, ...cardStyle }}>
