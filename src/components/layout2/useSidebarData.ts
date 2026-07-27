@@ -30,25 +30,33 @@ export function useSidebarData(activity: string): SidebarData {
       const result: TreeNode[] = [];
 
       if (activity === 'deepagents') {
-        // Show deep agents as flat items (no folder layer)
+        // Wrap deep agents in a folder-like container so the folder row
+        // can host a "+ New Agent" action button (VS Code Explorer pattern)
         try {
           const res = await apiClient.listDeepAgents();
           const agents = Array.isArray(res.data) ? res.data : [];
-          agents.forEach((ag: any) => {
-            result.push({
-              id: `deepagent-${ag.id}`,
-              label: ag.name || `DeepAgent #${ag.id}`,
-              viewType: 'deepagent',
-              badge: ag.category || '',
-              data: { agentId: ag.id, ...ag },
-            });
-          });
-          if (agents.length === 0) {
-            result.push({ id: 'empty-deepagents', label: '(no deep agents yet)', viewType: 'empty' });
+          const children: TreeNode[] = agents.map((ag: any) => ({
+            id: `deepagent-${ag.id}`,
+            label: ag.name || `DeepAgent #${ag.id}`,
+            viewType: 'deepagent',
+            badge: ag.category || '',
+            data: { agentId: ag.id, ...ag },
+          }));
+          if (children.length === 0) {
+            children.push({ id: 'empty-deepagents', label: '(no deep agents yet)', viewType: 'empty' });
           }
+          result.push({
+            id: 'folder-deepagents',
+            label: 'Deep Agents',
+            children,
+          });
         } catch (err: any) {
           console.error('DeepAgents load failed:', err?.message, err?.response?.status);
-          result.push({ id: 'empty-deepagents', label: `Failed to load DeepAgents: ${err?.message || 'unknown'}`, viewType: 'empty' });
+          result.push({
+            id: 'folder-deepagents',
+            label: 'Deep Agents',
+            children: [{ id: 'empty-deepagents', label: `Failed: ${err?.message || 'unknown'}`, viewType: 'empty' }],
+          });
         }
       } else if (activity === 'workflows') {
         const res = await apiClient.listWorkflows();
