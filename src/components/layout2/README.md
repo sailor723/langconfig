@@ -143,6 +143,7 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | ModelCardsSidebar | ✅ | **Browser only** — list of providers with model counts; clicking a provider opens its cards in the editor area |
 | ModelCardsGridTab | ✅ | One provider per tab — grid of cards with capability badges, Test/Play/Set Default buttons, modality, pricing, speed |
 | ModelViewerTab (Play) | ✅ | Mirrors previous ModelPlaygroundModal: 8 preset chips, system prompt + 5 sliders + stop seqs, JSON/Tools/Stream toggles, image URL with live preview, animated typing dots, last-usage panel, Enter-to-send |
+| Internal scroll | ✅ | Chat scrolls inside the tab; latest message always visible at the bottom; tab header + BottomPanel never get clipped |
 | Test API Key | ✅ | Per-provider test button uses `/api/settings/api-keys/test` |
 | StatusBar integration | ✅ | StatusBar reads default from localStorage and shows active model |
 
@@ -158,6 +159,47 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 │ Status Bar (#007acc blue, full width)                    │
 └──────────────────────────────────────────────────────────┘
 ```
+
+### Layout / Flex Sizing Rules
+
+The whole layout uses a strict flex sizing chain so individual tabs can
+manage their own internal scroll without the page itself ever scrolling:
+
+```
+<div height:100vh, overflow:hidden>           ← App root (no page scroll)
+  <div flex:1, display:flex>                  ← main row
+    <div flex:1, flexDirection:column, minHeight:0>
+      <div flex:1, minHeight:0, display:flex> ← wraps Workspace
+        <Workspace>                            ← flex:1
+          <tab root: height:100%, overflow:hidden>
+            <tab header>                       ← flex-shrink:0
+            <tab body: flex:1, minHeight:0>   ← flex container
+              <chat col: flex:1, minHeight:0, overflow:hidden>
+                <scroll: flex:1, overflowY:auto, maxHeight:100%>
+                  ...messages
+                </scroll>
+              </chat col>
+            </tab body>
+            <tab input/presets: flex-shrink:0> ← fixed at bottom
+          </tab root>
+        </Workspace>
+      </div>
+      <BottomPanel>                            ← fixed
+    </div>
+  </div>
+</div>
+```
+
+**Critical rules** (any future tab MUST follow these):
+1. Every flex child needs `minHeight: 0` (or `minWidth: 0`) so the
+   flex sizing actually constrains it.
+2. Scroll containers must use `overflowY: auto` AND `maxHeight: 100%`
+   to guarantee they never break out of their parent.
+3. Tab roots must have `height: 100%, overflow: hidden` so each tab
+   manages its own scroll instead of pushing the page out.
+4. The auto-scroll must use `scrollIntoView({block:'end'})` on a
+   sentinel inside the chat — this only scrolls the nearest
+   scrollable ancestor (the chat container), not the page.
 
 ### Activities (ActivityBar icons)
 
@@ -281,3 +323,4 @@ appends the new assistant reply.
 - Phase 17: Monaco editor for the JSON tab
 - Phase 18: Workflow canvas integration into Workspace
 - Phase 19: Real terminal emulator (xterm.js) for the Terminal tab
+- Phase 20: Streaming responses in chat (SSE) — currently uses one-shot POST
