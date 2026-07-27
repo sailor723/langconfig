@@ -140,7 +140,7 @@ export default function Workspace({ fallback }: WorkspaceProps) {
       )}
 
       {/* ── Content area ───────────────────────────────── */}
-      <div style={{ flex: 1, minHeight: 0, background: t.bgContent, overflow: 'hidden', display: 'flex' }}>
+      <div style={{ flex: 1, minHeight: 0, background: t.bgContent, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {activeTab ? <TabContentView tab={activeTab} /> : fallback}
       </div>
     </div>
