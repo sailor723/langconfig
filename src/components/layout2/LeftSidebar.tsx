@@ -84,7 +84,17 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
 
   const handleNewFile = useCallback(() => {
     const id = `new-${Date.now()}`;
-    openTab({ id, label: 'Untitled', viewType: activeActivity, data: { new: true } });
+    // For deepagents activity, open the creator form
+    if (activeActivity === 'deepagents') {
+      openTab({
+        id,
+        label: 'New DeepAgent',
+        viewType: 'deepagent-create',
+        data: {},
+      });
+    } else {
+      openTab({ id, label: 'Untitled', viewType: activeActivity, data: { new: true } });
+    }
   }, [activeActivity, openTab]);
 
   const handleNewFolder = useCallback(() => setTreeKey(v => v + 1), []);
