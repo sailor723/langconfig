@@ -179,10 +179,9 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
             <div style={{ padding: '16px 20px', fontSize: 13, color: '#e5484d' }}>{error}</div>
           ) : (
             <div style={{ overflowY: 'auto', height: '100%' }}>
-              <TreeView key={treeKey} nodes={nodes} onFileOpen={handleFileOpen} onNewFile={handleNewFile} />
-              {/* New Agent button at bottom for deepagents activity */}
+              {/* New Agent button at TOP of content for deepagents activity */}
               {activeActivity === 'deepagents' && (
-                <div style={{ padding: '8px 12px' }}>
+                <div style={{ padding: '8px 12px 4px' }}>
                   <button
                     onClick={handleNewFile}
                     style={{
@@ -206,6 +205,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
                   </button>
                 </div>
               )}
+              <TreeView key={treeKey} nodes={nodes} onFileOpen={handleFileOpen} onNewFile={handleNewFile} />
             </div>
           )}
         </div>

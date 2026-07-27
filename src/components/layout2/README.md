@@ -116,9 +116,17 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | Feature | Status | Description |
 |---------|--------|-------------|
 | Creator form | ✅ | Name, description, category, system prompt, model, temperature |
-| Sidebar "+" button | ✅ | Opens DeepAgentCreator tab for `deepagents` activity |
+| Sidebar "New Agent" button | ✅ | Dashed-border button at TOP of tree view for deepagents activity |
 | Backend integration | ✅ | Submits via `POST /api/deepagents/`, auto-opens new agent in editor |
-| Default config | ✅ | Sanely defaults: memory backend, empty tools/subagents/middleware | |
+| Default config | ✅ | Sanely defaults: memory backend, empty tools/subagents/middleware |
+
+### ✅ Phase 14: Theme Switcher (Dark / Warm / Light)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Theme selector | ✅ | Three color dots in StatusBar — Dark, Warm (Claude), Light (LangConfig) |
+| Persistence | ✅ | Uses existing `ThemeProvider`/`setTheme` from `lib/themes` |
+| Obsidian-style | ✅ | Click dots to instantly switch between 3 themes |
 
 ## Architecture
 
@@ -250,7 +258,7 @@ appends the new assistant reply.
 
 ## Next Steps
 
-- Phase 14: Agents / Skills / Tools sidebar categories (real backend integration)
-- Phase 15: Monaco editor for the JSON tab
-- Phase 16: Workflow canvas integration into Workspace
-- Phase 17: Real terminal emulator (xterm.js) for the Terminal tab
+- Phase 15: Agents / Skills / Tools sidebar categories (real backend integration)
+- Phase 16: Monaco editor for the JSON tab
+- Phase 17: Workflow canvas integration into Workspace
+- Phase 18: Real terminal emulator (xterm.js) for the Terminal tab
