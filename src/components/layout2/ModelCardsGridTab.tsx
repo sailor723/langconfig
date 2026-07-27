@@ -261,8 +261,8 @@ export default function ModelCardsGridTab({ tab }: Props) {
       ) : (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: 14,
+          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+          gap: 12,
         }}>
           {/* Cloud cards */}
           {cloudModels.map(m => {
@@ -277,10 +277,10 @@ export default function ModelCardsGridTab({ tab }: Props) {
                   background: t.bgSidebar,
                   border: `1px solid ${isDefault ? '#10b981' : t.border}`,
                   borderRadius: 8,
-                  padding: 12,
+                  padding: 10,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 8,
+                  gap: 6,
                   boxShadow: isDefault ? '0 0 0 1px #10b981' : 'none',
                 }}
               >
@@ -420,10 +420,10 @@ export default function ModelCardsGridTab({ tab }: Props) {
                   background: t.bgSidebar,
                   border: `1px solid ${isDefault ? '#10b981' : t.border}`,
                   borderRadius: 8,
-                  padding: 12,
+                  padding: 10,
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 8,
+                  gap: 6,
                   boxShadow: isDefault ? '0 0 0 1px #10b981' : 'none',
                 }}
               >
