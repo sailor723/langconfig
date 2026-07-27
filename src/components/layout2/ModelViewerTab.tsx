@@ -428,8 +428,8 @@ export default function ModelViewerTab({ tab }: Props) {
         </div>
 
         {/* ── Chat area ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
-          <div ref={chatScrollRef} style={{ flex: 1, overflowY: 'auto', padding: 14, minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+          <div ref={chatScrollRef} style={{ flex: 1, overflowY: 'auto', padding: 14, minHeight: 0, maxHeight: '100%' }}>
             {chatHistory.length === 0 && (
               <div style={{
                 color: t.textMuted, fontStyle: 'italic',

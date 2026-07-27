@@ -49,7 +49,7 @@ import NodeSidebar from './components/layout2/NodeSidebar';
 import BottomPanel from './components/layout2/BottomPanel';
 import StatusBar from './components/layout2/StatusBar';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
+type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -157,6 +157,7 @@ const ROUTE_TO_VIEW: Record<string, View> = {
   '/analysis': 'analysis',
   '/settings': 'settings',
   '/playground': 'playground',
+  '/models': 'models',
   '/deepagent-studio': 'deepagent-studio',
 };
 
@@ -167,6 +168,7 @@ const VIEW_ROUTE: Record<View, string> = {
   knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
   playground: '/playground', tools: '/tools', prompt: '/prompt',
   'deepagent-studio': '/deepagent-studio',
+  models: '/models',
 };
 
 // Map View → ActivityId
@@ -184,6 +186,7 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   settings: 'settings',
   playground: 'workflows',
   'deepagent-studio': 'studio',
+  models: 'models',
 };
 
 // Map ActivityId → View (for ActivityBar clicks)
@@ -191,6 +194,7 @@ const ACTIVITY_TO_VIEW: Record<ActivityId, View> = {
   workflows: 'studio',
   deepagents: 'deepagents',
   agents: 'agents',
+  models: 'models',
   library: 'library',
   analysis: 'analysis',
   settings: 'settings',
@@ -467,8 +471,10 @@ function AppContent() {
         </LeftSidebar>
 
         {/* Center column */}
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-          <Workspace fallback={renderCurrentPage()} />
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+            <Workspace fallback={renderCurrentPage()} />
+          </div>
           <BottomPanel />
         </div>
 
