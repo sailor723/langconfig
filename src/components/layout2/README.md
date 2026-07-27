@@ -86,6 +86,31 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | String-array normalization | ✅ | When `skills` is a string list (just names), each entry gets wrapped as `{name: ...}` so the UI still renders |
 | Tab re-open fix | ✅ | LeftSidebar calls `openTab` twice for deep agents (immediately + on next tick) so the editor re-renders with the populated `agent` data after the async API call |
 
+### ✅ Phase 10: SSE Streaming Chat
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| chatStore streaming | ✅ | `sendStreamMessage()` matches `useChatStreaming` pattern — AbortController, thinking/tool phase tracking, SSE parsing |
+| DeepAgentEditor streaming | ✅ | Run button uses `/api/chat/message/stream` with incremental token display |
+| Stop button cancellation | ✅ | Stop button calls `chatStore.cancelStream()` which aborts the `AbortController` |
+| NodeSidebar streaming | ✅ | ChatSidebar prefers streaming when agent+session available, falls back to blocking POST |
+| Tool phase tracking | ✅ | Content before first `tool_start` event is tracked as "thinking" (reasoning trace) |
+
+### ✅ Phase 11: Bottom Panel Real Data
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Execution tab | ✅ | Shows real assistant/system messages from chatStore with streaming indicator |
+| Results tab | ✅ | Shows completed assistant responses with reasoning trace and latency markers |
+
+### ✅ Phase 12: Save DeepAgent Edits
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| JSON editor | ✅ | JSON section is now an editable textarea |
+| Save button | ✅ | Green Save button in toolbar calls `PUT /api/deepagents/{id}` |
+| Save feedback | ✅ | Success/error messages shown inline next to Save button |
+
 ## Architecture
 
 ```
@@ -216,8 +241,7 @@ appends the new assistant reply.
 
 ## Next Steps
 
-- Phase 10: Streaming via `POST /api/chat/message/stream` (SSE) for token-by-token output
-- Phase 11: Agents / Skills / Tools sidebar categories (real backend integration)
-- Phase 12: Save edits from DeepAgentEditor back to backend via `PUT /api/deepagents/{id}`
-- Phase 13: Monaco editor for the JSON tab
-- Phase 14: Workflow canvas integration into Workspace
+- Phase 13: Agents / Skills / Tools sidebar categories (real backend integration)
+- Phase 14: Monaco editor for the JSON tab
+- Phase 15: Workflow canvas integration into Workspace
+- Phase 16: Real terminal emulator (xterm.js) for the Terminal tab

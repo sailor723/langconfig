@@ -182,14 +182,17 @@ function ChatSidebar({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
   const handleSend = async () => {
     const text = input.trim();
     if (!text || sending) return;
-    chatStore.add({ role: 'user', text });
     setInput('');
-    // If we have an active session, call the API
+    setSending(true);
     const sessionId = chatStore.getSessionId();
-    if (sessionId) {
-      setSending(true);
-      const startedAt = Date.now();
+    const agentId = chatStore.getAgentId();
+    if (sessionId && agentId) {
+      // Use SSE streaming when agent + session are available
+      await chatStore.sendStreamMessage(agentId, text);
+    } else if (sessionId) {
+      // Fallback to blocking POST for sessions without agent context
       try {
+        const startedAt = Date.now();
         const res = await apiClient.post('/api/chat/message', {
           session_id: sessionId,
           message: text,
@@ -215,16 +218,15 @@ function ChatSidebar({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
           role: 'system',
           text: `// Error: ${err?.message ?? 'unknown'}\n${typeof detail === 'string' ? detail : JSON.stringify(detail, null, 2)}`,
         });
-      } finally {
-        setSending(false);
       }
     } else {
-      // No active session — just store locally
+      // No active session — warn user
       chatStore.add({
         role: 'system',
         text: '⚠️ No active session. Click ▶ Run on a DeepAgent first.',
       });
     }
+    setSending(false);
   };
 
   return (

@@ -66,15 +66,15 @@ start_backend() {
 
 start_frontend() {
     echo "── Frontend ─────────────────────────────"
-    kill_old "frontend" 1420 "$FE_PIDFILE"
+    kill_old "frontend" 1421 "$FE_PIDFILE"
     echo "  Starting frontend..."
     cd "$FE_DIR"
     npm run dev &
     echo $! > "$FE_PIDFILE"
     echo "  Frontend PID: $(cat "$FE_PIDFILE")"
     sleep 4
-    if curl -sf http://127.0.0.1:1420/ >/dev/null 2>&1; then
-        echo "  ✅ Frontend running on http://localhost:1420"
+    if curl -sf http://127.0.0.1:1421/ >/dev/null 2>&1; then
+        echo "  ✅ Frontend running on http://localhost:1421"
     else
         echo "  ⏳ Frontend starting (may need a few more seconds)..."
     fi
@@ -101,5 +101,5 @@ echo ""
 echo "Done. Use Ctrl+C to stop."
 echo ""
 echo "  Backend:  http://localhost:8765  (docs: http://localhost:8765/docs)"
-echo "  Frontend: http://localhost:1420"
+echo "  Frontend: http://localhost:1421"
 echo ""
