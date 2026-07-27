@@ -137,6 +137,9 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | Set default | ✅ | Inline "Set default" button on each row; persists to backend + localStorage |
 | StatusBar integration | ✅ | StatusBar reads default from localStorage and shows active model |
 | Filter input | ✅ | Filter models by display name or id |
+| Test button | ✅ | Each row has a green "▶ Test" button that opens a playground tab |
+| ModelPlaygroundTab | ✅ | Single-model chat tester as a workspace tab — system prompt, temperature, max tokens, stream toggle, token usage |
+| Capability badges | ✅ | Inline icons for thinking/vision/tools/audio on each model row |
 
 ## Architecture
 
