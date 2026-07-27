@@ -14,12 +14,14 @@ import FileEditor from './FileEditor';
 import DeepAgentEditor from './DeepAgentEditor';
 import DeepAgentCreator from './DeepAgentCreator';
 import ModelCardsGridTab from './ModelCardsGridTab';
+import ModelViewerTab from './ModelViewerTab';
 
 const VIEW_ICONS: Record<string, React.ReactNode> = {
   workflow:          <File size={13} />,
   deepagent:         <Brain size={13} />,
   'deepagent-create': <Brain size={13} />,
   'model-cards':      <Sparkles size={13} />,
+  'model-viewer':     <Sparkles size={13} />,
   agent:             <User size={13} />,
   library:           <BookOpen size={13} />,
   analysis:          <BarChart3 size={13} />,
@@ -34,6 +36,7 @@ const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
   deepagent:         DeepAgentEditor,
   'deepagent-create': DeepAgentCreator,
   'model-cards':      ModelCardsGridTab,
+  'model-viewer':     ModelViewerTab,
   agent:             FileEditor,
   library:           FileEditor,
   analysis:          FileEditor,
