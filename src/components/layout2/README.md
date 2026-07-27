@@ -2,6 +2,13 @@
 
 Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspired IDE shell.
 
+## Refactoring Rules
+
+> **Frontend-only refactor.** These rules apply to all layout2 work:
+
+1. **Reuse existing backend APIs** — always call `/api/...` endpoints that already exist in the FastAPI backend (`/api/chat/*`, `/api/deepagents/*`, `/api/settings/models`, `/api/models/invoke`, etc.). Do not invent new endpoints.
+2. **No backend editors / new routes / migrations** without explicit user approval. The backend (`backend/`) is treated as frozen unless the user asks for a change.
+
 ## Progress
 
 ### ✅ Phase 1: Layout Shell (Complete)
