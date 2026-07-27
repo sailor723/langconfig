@@ -16,6 +16,7 @@ import { IconButton } from './ui-system';
 import SearchPanel from './SearchPanel';
 import { Plus, FolderPlus, RefreshCw, Search, Loader } from 'lucide-react';
 import ModelCardsSidebar from './ModelCardsSidebar';
+import SearchProvidersSidebar from './SearchProvidersSidebar';
 
 interface LeftSidebarProps {
   children?: ReactNode;
@@ -182,6 +183,9 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
           ) : activeActivity === 'models' ? (
             /* Models activity renders the dedicated ModelCardsSidebar */
             <ModelCardsSidebar />
+          ) : activeActivity === 'search' ? (
+            /* Search activity renders the dedicated SearchProvidersSidebar */
+            <SearchProvidersSidebar />
           ) : loading ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', fontSize: 13, color: t.textMuted }}>
               <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />

@@ -49,7 +49,7 @@ import NodeSidebar from './components/layout2/NodeSidebar';
 import BottomPanel from './components/layout2/BottomPanel';
 import StatusBar from './components/layout2/StatusBar';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models';
+type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -158,6 +158,7 @@ const ROUTE_TO_VIEW: Record<string, View> = {
   '/settings': 'settings',
   '/playground': 'playground',
   '/models': 'models',
+  '/search': 'search',
   '/deepagent-studio': 'deepagent-studio',
 };
 
@@ -169,6 +170,7 @@ const VIEW_ROUTE: Record<View, string> = {
   playground: '/playground', tools: '/tools', prompt: '/prompt',
   'deepagent-studio': '/deepagent-studio',
   models: '/models',
+  search: '/search',
 };
 
 // Map View → ActivityId
@@ -187,6 +189,7 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   playground: 'workflows',
   'deepagent-studio': 'studio',
   models: 'models',
+  search: 'search',
 };
 
 // Map ActivityId → View (for ActivityBar clicks)
@@ -195,6 +198,7 @@ const ACTIVITY_TO_VIEW: Record<ActivityId, View> = {
   deepagents: 'deepagents',
   agents: 'agents',
   models: 'models',
+  search: 'search',
   library: 'library',
   analysis: 'analysis',
   settings: 'settings',

@@ -10,7 +10,7 @@
 import { useLayoutState, ACTIVITIES, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
-  GitBranch, Brain, Users, BookOpen, BarChart3, Network, Settings, Sparkles, type LucideIcon,
+  GitBranch, Brain, Users, BookOpen, BarChart3, Network, Settings, Sparkles, Globe, type LucideIcon,
 } from 'lucide-react';
 
 const ICON_MAP: Record<ActivityId, LucideIcon> = {
@@ -18,6 +18,7 @@ const ICON_MAP: Record<ActivityId, LucideIcon> = {
   deepagents: Brain,
   agents:     Users,
   models:     Sparkles,
+  search:     Globe,
   library:    BookOpen,
   analysis:   BarChart3,
   studio:     Network,

@@ -9,20 +9,22 @@
 import { useRef } from 'react';
 import { useLayoutState, type Tab } from './useLayout';
 import { useLayoutTokens } from './tokens';
-import { X, File, User, BookOpen, BarChart3, Brain, Sparkles } from 'lucide-react';
+import { X, File, User, BookOpen, BarChart3, Brain, Sparkles, Globe } from 'lucide-react';
 import FileEditor from './FileEditor';
 import DeepAgentEditor from './DeepAgentEditor';
 import DeepAgentCreator from './DeepAgentCreator';
 import ModelCardsGridTab from './ModelCardsGridTab';
 import ModelViewerTab from './ModelViewerTab';
+import SearchProviderDetailTab from './SearchProviderDetailTab';
 
 const VIEW_ICONS: Record<string, React.ReactNode> = {
   workflow:          <File size={13} />,
   deepagent:         <Brain size={13} />,
   'deepagent-create': <Brain size={13} />,
-  'model-cards':      <Sparkles size={13} />,
-  'model-viewer':     <Sparkles size={13} />,
-  agent:             <User size={13} />,
+  'model-cards':              <Sparkles size={13} />,
+  'model-viewer':             <Sparkles size={13} />,
+  'search-provider-detail':   <Globe size={13} />,
+  agent:                     <User size={13} />,
   library:           <BookOpen size={13} />,
   analysis:          <BarChart3 size={13} />,
 };
@@ -35,9 +37,10 @@ const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
   workflow:          FileEditor,
   deepagent:         DeepAgentEditor,
   'deepagent-create': DeepAgentCreator,
-  'model-cards':      ModelCardsGridTab,
-  'model-viewer':     ModelViewerTab,
-  agent:             FileEditor,
+  'model-cards':              ModelCardsGridTab,
+  'model-viewer':             ModelViewerTab,
+  'search-provider-detail':   SearchProviderDetailTab,
+  agent:                     FileEditor,
   library:           FileEditor,
   analysis:          FileEditor,
 };
