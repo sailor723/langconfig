@@ -27,7 +27,7 @@ import SettingsView from './pages/SettingsPage';
 import PlaygroundPage from './pages/PlaygroundPage';
 import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
 import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
-import AgentLoadouts from './features/agents/ui/AgentLoadouts';
+
 import ToolLibrary from './features/tools/ToolLibrary';
 import PromptAssemblyPage from './pages/PromptAssemblyPage';
 import { SkillLibrary } from './features/skills';
@@ -436,7 +436,7 @@ function AppContent() {
           onWorkflowOpen={handleWorkflowOpen}
         />
       );
-      case 'agents': return <AgentLoadouts />;
+      case 'agents': return null; // Handled by layout2 AgentEditor
       case 'skills': return <SkillLibrary />;
       case 'tools': return <ToolLibrary />;
       case 'prompt': return <PromptAssemblyPage />;
