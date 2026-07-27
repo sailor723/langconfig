@@ -8,6 +8,7 @@
  */
 import { useEffect, useState, useCallback } from 'react';
 import { useLayoutTokens } from './tokens';
+import { useLayoutState } from './useLayout';
 import apiClient from '../../lib/api-client';
 
 interface CloudModel {
@@ -52,6 +53,7 @@ const LS_KEY_DEFAULT = 'langconfig.defaultModel';
 
 export default function ModelCardsSidebar() {
   const t = useLayoutTokens();
+  const { openTab } = useLayoutState();
   const [groups, setGroups] = useState<ProviderGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +62,16 @@ export default function ModelCardsSidebar() {
     localStorage.getItem(LS_KEY_DEFAULT) || '',
   );
   const [filter, setFilter] = useState('');
+
+  // Opens a playground tab for the selected model
+  const handlePlay = useCallback((modelId: string, modelName: string, provider: string) => {
+    openTab({
+      id: `playground-${modelId}`,
+      label: `Test: ${modelName}`,
+      viewType: 'model-playground',
+      data: { modelId, modelName, provider },
+    });
+  }, [openTab]);
 
   const loadModels = useCallback(async () => {
     setLoading(true);
@@ -88,12 +100,10 @@ export default function ModelCardsSidebar() {
         setDefaultModel(serverDefault);
       }
 
-      // Group models by provider
-      const cloudList: CloudModel[] = Array.isArray(modelsRes?.data) ? modelsRes.data : [];
-      const localList: LocalModel[] =
-        Array.isArray((modelsRes as any)?.data?.local_models)
-          ? (modelsRes as any).data.local_models
-          : [];
+      // Group models by provider — backend returns {cloud_models: [...], local_models: [...]}
+      const payload: any = modelsRes?.data ?? {};
+      const cloudList: CloudModel[] = Array.isArray(payload.cloud_models) ? payload.cloud_models : [];
+      const localList: LocalModel[] = Array.isArray(payload.local_models) ? payload.local_models : [];
       const byProv: Record<string, ProviderGroup> = {};
       for (const m of cloudList) {
         if (!byProv[m.provider]) byProv[m.provider] = { provider: m.provider, cloudModels: [], localModels: [] };
@@ -225,7 +235,9 @@ export default function ModelCardsSidebar() {
                   sub={m.model_id}
                   isDefault={isDefault}
                   isActive={m.is_active && !!hasKey}
+                  capabilities={m.capabilities}
                   onSetDefault={() => handleSetDefault(m.model_id)}
+                  onPlay={() => handlePlay(m.model_id, m.display_name, m.provider)}
                   t={t}
                 />
               );
@@ -238,7 +250,9 @@ export default function ModelCardsSidebar() {
                 sub={m.name}
                 isDefault={defaultModel === m.name}
                 isActive={m.is_active && m.is_validated}
+                capabilities={m.capabilities}
                 onSetDefault={() => handleSetDefault(m.name)}
+                onPlay={() => handlePlay(m.name, m.display_name, m.provider)}
                 t={t}
               />
             ))}
@@ -257,26 +271,37 @@ export default function ModelCardsSidebar() {
 
 /* ── Single model row ── */
 function ModelRow({
-  name, sub, isDefault, isActive, onSetDefault, t,
+  name, sub, isDefault, isActive, capabilities, onSetDefault, onPlay, t,
 }: {
   name: string;
   sub: string;
   isDefault: boolean;
   isActive: boolean;
+  capabilities?: Record<string, any>;
   onSetDefault: () => void;
+  onPlay: () => void;
   t: ReturnType<typeof useLayoutTokens>;
 }) {
+  // Compact capability badges — only show icons for true flags
+  const caps = capabilities ?? {};
+  const badge = (flag: boolean, glyph: string, color: string) =>
+    flag ? (
+      <span title={glyph} style={{
+        fontSize: 10, color, marginLeft: 2, fontWeight: 700,
+      }}>{glyph}</span>
+    ) : null;
+
   return (
     <div
       style={{
         display: 'flex',
         alignItems: 'center',
         gap: 6,
-        padding: '4px 12px 4px 24px',
+        padding: '6px 12px 6px 24px',
         fontSize: 12,
-        cursor: 'pointer',
         color: t.textPrimary,
         background: isDefault ? t.bgHover : 'transparent',
+        borderTop: `1px solid ${t.border}`,
       }}
       onMouseEnter={e => { if (!isDefault) e.currentTarget.style.background = t.bgHover; }}
       onMouseLeave={e => { if (!isDefault) e.currentTarget.style.background = 'transparent'; }}
@@ -294,6 +319,10 @@ function ModelRow({
           {isDefault && (
             <span style={{ marginLeft: 6, fontSize: 10, color: '#10b981' }}>★ default</span>
           )}
+          {badge(caps.thinking, '🧠', '#f59e0b')}
+          {badge(caps.vision, '👁', '#3b82f6')}
+          {badge(caps.tools, '🔧', '#a855f7')}
+          {caps.audio && badge(true, '🎵', '#06b6d4')}
         </div>
         {sub !== name && (
           <div style={{
@@ -304,26 +333,45 @@ function ModelRow({
           </div>
         )}
       </div>
-      {!isDefault && (
+      {/* Play / Set Default actions */}
+      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
         <button
-          onClick={e => { e.stopPropagation(); onSetDefault(); }}
-          title="Set as default"
+          onClick={e => { e.stopPropagation(); onPlay(); }}
+          title="Open Playground"
           style={{
             background: 'transparent',
-            border: `1px solid ${t.border}`,
-            color: t.textMuted,
+            border: `1px solid #10b981`,
+            color: '#10b981',
             fontSize: 10,
-            padding: '1px 6px',
+            padding: '2px 7px',
             borderRadius: 3,
             cursor: 'pointer',
-            flexShrink: 0,
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#f59e0b'; e.currentTarget.style.borderColor = '#f59e0b'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = t.textMuted; e.currentTarget.style.borderColor = t.border; }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(16,185,129,0.12)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         >
-          Set default
+          ▶ Test
         </button>
-      )}
+        {!isDefault && (
+          <button
+            onClick={e => { e.stopPropagation(); onSetDefault(); }}
+            title="Set as default"
+            style={{
+              background: 'transparent',
+              border: `1px solid ${t.border}`,
+              color: t.textMuted,
+              fontSize: 10,
+              padding: '2px 7px',
+              borderRadius: 3,
+              cursor: 'pointer',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#f59e0b'; e.currentTarget.style.borderColor = '#f59e0b'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = t.textMuted; e.currentTarget.style.borderColor = t.border; }}
+          >
+            ★ Default
+          </button>
+        )}
+      </div>
     </div>
   );
 }
