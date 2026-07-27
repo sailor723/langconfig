@@ -100,6 +100,19 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
   const handleNewFolder = useCallback(() => setTreeKey(v => v + 1), []);
   const handleRefresh = useCallback(() => setTreeKey(v => v + 1), []);
 
+  // Folder "+" action — for the deepagents folder, opens the creator;
+  // otherwise falls back to a generic new-file tab.
+  const handleFolderAction = useCallback((node: TreeNode) => {
+    if (node.id === 'folder-deepagents') {
+      openTab({
+        id: `new-${Date.now()}`,
+        label: 'New DeepAgent',
+        viewType: 'deepagent-create',
+        data: {},
+      });
+    }
+  }, [openTab]);
+
   const countItems = (items: TreeNode[]): number => {
     let count = 0;
     for (const item of items) {
@@ -152,14 +165,9 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
               <Search size={14} />
             </IconButton>
             {!isSearch && (
-              <>
-                <IconButton onClick={handleNewFile} title="New DeepAgent" t={t}>
-                  <Plus size={15} />
-                </IconButton>
-                <IconButton onClick={handleRefresh} title="Refresh" t={t}>
-                  <RefreshCw size={14} />
-                </IconButton>
-              </>
+              <IconButton onClick={handleRefresh} title="Refresh" t={t}>
+                <RefreshCw size={14} />
+              </IconButton>
             )}
           </div>
         </div>
@@ -179,7 +187,13 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
             <div style={{ padding: '16px 20px', fontSize: 13, color: '#e5484d' }}>{error}</div>
           ) : (
             <div style={{ overflowY: 'auto', height: '100%' }}>
-              <TreeView key={treeKey} nodes={nodes} onFileOpen={handleFileOpen} onNewFile={handleNewFile} />
+              <TreeView
+              key={treeKey}
+              nodes={nodes}
+              onFileOpen={handleFileOpen}
+              onNewFile={handleNewFile}
+              onFolderAction={handleFolderAction}
+            />
             </div>
           )}
         </div>

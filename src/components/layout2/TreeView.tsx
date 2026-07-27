@@ -28,6 +28,11 @@ interface TreeViewProps {
   onDelete?: (node: TreeNode) => void;
   onNewFile?: (parent?: TreeNode) => void;
   onNewFolder?: (parent?: TreeNode) => void;
+  /**
+   * Optional callback fired when a folder's "+" action button is clicked.
+   * When set, folder rows render a small "+" button on the right side.
+   */
+  onFolderAction?: (node: TreeNode) => void;
   level?: number;
 }
 
@@ -37,7 +42,9 @@ interface CMState {
   node: TreeNode;
 }
 
-export default function TreeView({ nodes, onFileOpen, onRename, onDelete, onNewFile, onNewFolder, level = 0 }: TreeViewProps) {
+export default function TreeView({
+  nodes, onFileOpen, onRename, onDelete, onNewFile, onNewFolder, onFolderAction, level = 0,
+}: TreeViewProps) {
   const t = useLayoutTokens();
 
   return (
@@ -51,6 +58,7 @@ export default function TreeView({ nodes, onFileOpen, onRename, onDelete, onNewF
           onDelete={onDelete}
           onNewFile={onNewFile}
           onNewFolder={onNewFolder}
+          onFolderAction={onFolderAction}
           level={level}
         />
       ))}
@@ -59,7 +67,7 @@ export default function TreeView({ nodes, onFileOpen, onRename, onDelete, onNewF
 }
 
 function TreeNodeItem({
-  node, onFileOpen, onRename, onDelete, onNewFile, onNewFolder, level,
+  node, onFileOpen, onRename, onDelete, onNewFile, onNewFolder, onFolderAction, level,
 }: {
   node: TreeNode;
   onFileOpen?: (node: TreeNode) => void;
@@ -67,6 +75,7 @@ function TreeNodeItem({
   onDelete?: (node: TreeNode) => void;
   onNewFile?: (parent?: TreeNode) => void;
   onNewFolder?: (parent?: TreeNode) => void;
+  onFolderAction?: (node: TreeNode) => void;
   level: number;
 }) {
   const t = useLayoutTokens();
@@ -208,11 +217,50 @@ function TreeNodeItem({
             {node.badge}
           </span>
         )}
+
+        {/* Folder action button (+ New) */}
+        {isFolder && !renaming && onFolderAction && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onFolderAction(node);
+            }}
+            title={`Add new to "${node.label}"`}
+            style={{
+              width: 18,
+              height: 18,
+              padding: 0,
+              background: 'transparent',
+              border: 'none',
+              borderRadius: 3,
+              color: t.textDim,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = t.bgHover; e.currentTarget.style.color = t.textPrimary; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textDim; }}
+          >
+            <Plus size={13} />
+          </button>
+        )}
       </div>
 
       {/* Children */}
       {isFolder && expanded && node.children && (
-        <TreeView nodes={node.children} onFileOpen={onFileOpen} onRename={onRename} onDelete={onDelete} onNewFile={onNewFile} onNewFolder={onNewFolder} level={level + 1} />
+        <TreeView
+          nodes={node.children}
+          onFileOpen={onFileOpen}
+          onRename={onRename}
+          onDelete={onDelete}
+          onNewFile={onNewFile}
+          onNewFolder={onNewFolder}
+          onFolderAction={onFolderAction}
+          level={level + 1}
+        />
       )}
 
       {/* Context menu */}
