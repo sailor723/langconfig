@@ -1,15 +1,20 @@
 /**
- * ModelViewerTab — playground tab for chatting with a single model.
+ * ModelViewerTab — single-model chat playground as a workspace tab.
  *
- * Opens when the user clicks Play on a model card. Mirrors the previous
- * ModelPlaygroundModal UX: preset prompt chips, advanced sampling params,
- * multimodal image upload, JSON mode, tool call toggle, streaming.
+ * Mirrors the existing ModelPlaygroundModal UX 1:1:
+ * - Preset chips at the bottom (auto-fill prompt + apply per-chip settings)
+ * - Collapsible left-rail with system prompt, temperature, max tokens,
+ *   top P, freq/presence penalty, stop sequences, JSON/Tools/Stream toggles,
+ *   Image URL with live preview, last-usage readout
+ * - User bubbles right-aligned, assistant left-aligned, error red bubble
+ * - Enter (no shift) sends, Shift+Enter newline
+ * - Animated typing dots while loading
+ * - Auto-focus input on open
+ * - Auto-clear stale image when not on Vision preset
  *
- * Reuses existing backend endpoints:
- *   - POST /api/models/invoke       (single-shot chat)
- *   - GET  /api/settings/models     (model capability lookup for vision)
+ * Reuses existing backend: POST /api/models/invoke
  */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useLayoutTokens } from './tokens';
 import apiClient from '../../lib/api-client';
 import type { Tab } from './useLayout';
@@ -17,13 +22,14 @@ import type { Tab } from './useLayout';
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  model?: string;
   usage?: { input_tokens: number; output_tokens: number; total_tokens: number } | null;
   error?: string;
 }
 
 interface Props { tab: Tab }
 
-/** Provider → color map */
+/** Provider → color map (matches existing Modal) */
 const PROVIDER_COLOR: Record<string, string> = {
   openai: '#10b981', anthropic: '#f97316', deepseek: '#3b82f6',
   google: '#a78bfa', agnes: '#ec4899', minimax: '#0ea5e9',
@@ -31,31 +37,51 @@ const PROVIDER_COLOR: Record<string, string> = {
   ollama: '#94a3b8',
 };
 
-/** Preset prompts — each maps to a chip that, when clicked, fills the input
- *  and applies the right settings (json mode, tools, stream, image). */
-const PRESETS: Array<{
+/** Mini-logo chip (first-letter colored badge) */
+function MiniLogo({ provider, size = 18 }: { provider: string; size?: number }) {
+  const p = (provider || '').toLowerCase();
+  const color = PROVIDER_COLOR[p] || '#94a3b8';
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 4,
+      fontWeight: 700,
+      width: size, height: size,
+      background: color,
+      color: '#fff',
+      fontSize: size * 0.55,
+    }}>
+      {p[0]?.toUpperCase() || '?'}
+    </span>
+  );
+}
+
+/** Preset chip definitions — match the previous Modal's behaviour exactly.
+ *  When `image` is set, the modal set imageUrl and sent the request;
+ *  when no image is passed, imageUrl was cleared (avoiding stale URL poisoning). */
+const PRESET_CHIPS: Array<{
   label: string;
-  prompt: string;
+  text: string;
   jsonMode?: boolean;
   tools?: boolean;
   stream?: boolean;
-  image?: boolean;
-  reasoning?: boolean;
+  image?: string;
 }> = [
-  { label: '👋 Greet',  prompt: 'Hi! Please introduce yourself in one sentence.' },
-  { label: '🧮 Math',   prompt: 'What is 17 × 23 + √144? Please show your calculation.' },
-  { label: '{} JSON',   prompt: 'Return Shanghai city info as JSON with fields: city, country, population.',
+  { label: '👋 Greet',  text: 'Hi! Please introduce yourself in one sentence.' },
+  { label: '🧮 Math',   text: 'What is 17 × 23 + √144? Please show your calculation.' },
+  { label: '{} JSON',   text: 'Return Shanghai city info as JSON with fields: city, country, population.',
     jsonMode: true },
-  { label: '🔧 Tools',  prompt: 'Look up the weather in Beijing and the current UTC time.',
+  { label: '🔧 Tools',  text: 'Look up the weather in Beijing and the current UTC time.',
     tools: true },
-  { label: '🌐 Search', prompt: 'Search for the latest release date of DeepSeek V4.',
+  { label: '🌐 Search', text: 'Search for the latest release date of DeepSeek V4.',
     tools: true },
-  { label: '📡 Stream', prompt: 'Write a three-line poem about artificial intelligence.',
+  { label: '📡 Stream', text: 'Write a three-line poem about artificial intelligence.',
     stream: true },
-  { label: '🖼 Vision', prompt: 'Please describe what you see in this image in detail.',
-    image: true },
-  { label: '🧠 Reasoning', prompt: 'All roses are flowers. Some flowers wilt quickly. Can we conclude that "some roses wilt quickly"? Walk through the logic step by step.',
-    reasoning: true },
+  { label: '🖼 Vision', text: 'Please describe what you see in this image in detail.',
+    image: 'https://raw.githubusercontent.com/gradio-app/gradio/main/test/test_files/bus.png' },
+  { label: '🧠 Reasoning', text: 'All roses are flowers. Some flowers wilt quickly. Can we conclude that "some roses wilt quickly"? Walk through the logic step by step.' },
 ];
 
 export default function ModelViewerTab({ tab }: Props) {
@@ -77,14 +103,12 @@ export default function ModelViewerTab({ tab }: Props) {
   const [streamEnabled, setStreamEnabled] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(true);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const provColor = PROVIDER_COLOR[provider?.toLowerCase() || ''] || '#94a3b8';
-
-  // Reset on tab model change
+  // Reset on model change
   useEffect(() => {
     setChatHistory([]);
     setMessage('');
@@ -95,47 +119,34 @@ export default function ModelViewerTab({ tab }: Props) {
     setImageUrl('');
   }, [modelId]);
 
-  // Auto-scroll
+  // Auto-scroll & auto-focus
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
+  useEffect(() => {
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [modelId]);
 
-  /** Run a preset: fill the input and apply its flags */
-  const runPreset = (preset: typeof PRESETS[number]) => {
-    setMessage(preset.prompt);
-    setJsonMode(!!preset.jsonMode);
-    setToolsEnabled(!!preset.tools);
-    setStreamEnabled(!!preset.stream);
-    // Auto-send after a tick so the state flushes
-    setTimeout(() => {
-      void doSend(preset.prompt, {
-        jsonMode: !!preset.jsonMode,
-        tools: !!preset.tools,
-        stream: !!preset.stream,
-        image: !!preset.image,
-      });
-    }, 50);
-  };
+  const provColor = PROVIDER_COLOR[(provider || '').toLowerCase()] || '#94a3b8';
+  // provColor is kept for header chip rendering — used via t.accent for buttons
 
-  /** Send a chat message — central chat handler */
-  const doSend = async (
-    msg: string,
-    overrides: { jsonMode?: boolean; tools?: boolean; stream?: boolean; image?: boolean } = {},
-  ) => {
-    if (!msg.trim() || isLoading) return;
-    setChatHistory(h => [...h, { role: 'user', content: msg }]);
+  /** Send a chat message — central handler */
+  const handleSend = useCallback(async () => {
+    const msg = message.trim();
+    if (!modelId?.trim() || !msg || isLoading) return;
+
     setIsLoading(true);
-    try {
-      const useStream = overrides.stream ?? streamEnabled;
-      const useTools = overrides.tools ?? toolsEnabled;
-      const useJson = overrides.jsonMode ?? jsonMode;
-      const stopArr = stopSeq.trim() ? stopSeq.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    const newUserMsg: ChatMessage = { role: 'user', content: msg };
+    setChatHistory(prev => [...prev, newUserMsg]);
+    setMessage('');
 
-      // Build the prompt — concatenate history for non-streaming
+    try {
+      // Build single-message call with conversation history concatenated
       const historyText = chatHistory.length === 0
         ? msg
-        : chatHistory.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n')
-          + `\nUser: ${msg}`;
+        : chatHistory.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n') + `\nUser: ${msg}`;
+
+      const stopArr = stopSeq.trim() ? stopSeq.split(',').map(s => s.trim()).filter(Boolean) : undefined;
 
       const res = await apiClient.modelInvoke({
         model: modelId,
@@ -147,47 +158,54 @@ export default function ModelViewerTab({ tab }: Props) {
         frequency_penalty: frequencyPenalty !== 0 ? frequencyPenalty : undefined,
         presence_penalty: presencePenalty !== 0 ? presencePenalty : undefined,
         image_url: imageUrl.trim() || undefined,
-        tool_names: useTools ? ['get_weather', 'get_current_time', 'search_web', 'calculate'] : undefined,
+        tool_names: toolsEnabled ? ['get_weather', 'get_current_time', 'search_web', 'calculate'] : undefined,
         stop: stopArr,
-        json_mode: useJson,
-        tools: useTools,
-        stream: useStream,
+        json_mode: jsonMode,
+        tools: toolsEnabled,
+        stream: streamEnabled,
       });
-      const data = res?.data || {};
-      const reply = data.response ?? data.message ?? data.content ?? JSON.stringify(data, null, 2);
-      setChatHistory(h => [...h, {
+
+      const data = (res as any).data ?? res;
+      setChatHistory(prev => [...prev, {
         role: 'assistant',
-        content: reply,
+        content: data.content ?? data.message ?? '',
+        model: data.model ?? modelId,
         usage: data.usage ?? null,
       }]);
     } catch (err: any) {
-      const detail = err?.response?.data?.detail ?? err?.message ?? 'unknown';
-      setChatHistory(h => [...h, { role: 'assistant', content: `(error) ${detail}`, error: detail }]);
+      setChatHistory(prev => [...prev, {
+        role: 'assistant',
+        content: '',
+        error: err?.response?.data?.detail || err?.message || 'Request failed',
+      }]);
     } finally {
       setIsLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
-  };
+  }, [modelId, message, isLoading, chatHistory, systemPrompt, temperature, maxTokens,
+      topP, frequencyPenalty, presencePenalty, stopSeq, jsonMode, toolsEnabled, streamEnabled, imageUrl]);
 
-  const handleSend = () => {
-    const msg = message.trim();
-    if (!msg) return;
+  const handleClear = () => {
+    setChatHistory([]);
     setMessage('');
-    void doSend(msg);
   };
 
-  const handleClear = () => setChatHistory([]);
+  /** Apply a preset — fills the input and runs it */
+  const runPreset = (preset: typeof PRESET_CHIPS[number]) => {
+    if (isLoading) return;
+    // Apply preset-specific settings
+    setJsonMode(!!preset.jsonMode);
+    setToolsEnabled(!!preset.tools);
+    setStreamEnabled(!!preset.stream);
+    setImageUrl(preset.image || '');  // CLEAR if no image, otherwise set the URL
+    setMessage(preset.text);
+    setTimeout(() => handleSend(), 50);
+  };
+
+  const lastUsage = chatHistory.filter(m => m.usage).slice(-1)[0]?.usage;
 
   // ── Styles ──
-  const labelStyle: React.CSSProperties = {
-    fontSize: 10,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: t.textMuted,
-    display: 'block',
-    marginBottom: 3,
-  };
-  const inputStyle: React.CSSProperties = {
+  const inputBase: React.CSSProperties = {
     width: '100%',
     padding: '5px 8px',
     background: t.bgContent,
@@ -198,61 +216,85 @@ export default function ModelViewerTab({ tab }: Props) {
     outline: 'none',
     boxSizing: 'border-box',
   };
+  const labelStyle: React.CSSProperties = {
+    fontSize: 10,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    color: t.textMuted,
+    display: 'block',
+    marginBottom: 3,
+  };
 
   return (
     <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      background: t.bgContent,
-      color: t.textPrimary,
+      display: 'flex', flexDirection: 'column',
+      height: '100%', background: t.bgContent, color: t.textPrimary,
       overflow: 'hidden',
     }}>
-      {/* Header */}
+      {/* ── Header ── */}
       <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '12px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 16px',
         borderBottom: `1px solid ${t.border}`,
         flexShrink: 0,
       }}>
-        <span style={{
-          width: 32, height: 32, borderRadius: 6,
-          background: provColor, color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 700, fontSize: 16, textTransform: 'uppercase',
-        }}>
-          {provider?.[0]?.toUpperCase() || '?'}
-        </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>{modelName}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <div style={{
-            fontSize: 11, color: t.textMuted,
-            fontFamily: 'monospace',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            width: 32, height: 32, borderRadius: 6,
+            background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            {modelId} · {provider}
+            <MiniLogo provider={provider || ''} size={20} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <h2 style={{
+                margin: 0, fontSize: 15, fontWeight: 600,
+                color: t.textPrimary,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                Playground
+              </h2>
+              <span style={{
+                fontSize: 10, padding: '2px 8px', borderRadius: 999,
+                fontWeight: 500,
+                background: t.bgHover,
+                color: t.textMuted,
+              }}>
+                {provider}
+              </span>
+            </div>
+            <p style={{
+              margin: '2px 0 0', fontSize: 11,
+              fontFamily: 'monospace',
+              color: t.textMuted,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {modelName} ({modelId})
+            </p>
           </div>
         </div>
-        <button
-          onClick={handleClear}
-          style={{
-            background: 'transparent',
-            border: `1px solid ${t.border}`,
-            color: t.textMuted,
-            fontSize: 11,
-            padding: '4px 10px',
-            borderRadius: 4,
-            cursor: 'pointer',
-          }}
-        >
-          Clear
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={handleClear}
+            style={{
+              fontSize: 11, padding: '4px 10px',
+              border: `1px solid ${t.border}`,
+              borderRadius: 4,
+              color: t.textMuted,
+              background: 'transparent',
+              cursor: 'pointer',
+            }}
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
+      {/* ── Body: split into advanced params (left) + chat (right) ── */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        {/* Left: advanced params (collapsible) */}
+        {/* Advanced params — collapsible */}
         <div style={{
           width: showAdvanced ? 280 : 40,
           borderRight: `1px solid ${t.border}`,
@@ -265,7 +307,6 @@ export default function ModelViewerTab({ tab }: Props) {
           <button
             onClick={() => setShowAdvanced(v => !v)}
             style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
               padding: '10px 0',
               background: 'transparent',
               border: 'none',
@@ -277,94 +318,182 @@ export default function ModelViewerTab({ tab }: Props) {
             title={showAdvanced ? 'Hide params' : 'Show params'}
           >
             {showAdvanced ? '◀' : '▶'}
+            {showAdvanced && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Params</span>}
           </button>
+
           {showAdvanced && (
-            <div style={{ padding: '0 14px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ padding: '0 12px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <label style={labelStyle}>System prompt</label>
               <textarea
                 value={systemPrompt}
                 onChange={e => setSystemPrompt(e.target.value)}
                 rows={5}
-                style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', minHeight: 60 }}
+                style={{ ...inputBase, resize: 'vertical', fontFamily: 'inherit', minHeight: 60 }}
               />
-              <label style={labelStyle}>Temperature: {temperature.toFixed(2)}</label>
-              <input
-                type="range" min={0} max={2} step={0.05}
-                value={temperature}
-                onChange={e => setTemperature(parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: provColor }}
-              />
-              <label style={labelStyle}>Max tokens: {maxTokens.toLocaleString()}</label>
-              <input
-                type="range" min={256} max={131072} step={256}
-                value={maxTokens}
-                onChange={e => setMaxTokens(parseInt(e.target.value))}
-                style={{ width: '100%', accentColor: provColor }}
-              />
-              <label style={labelStyle}>Top P: {topP.toFixed(2)}</label>
-              <input
-                type="range" min={0} max={1} step={0.05}
-                value={topP}
-                onChange={e => setTopP(parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: provColor }}
-              />
-              <label style={labelStyle}>Frequency penalty: {frequencyPenalty.toFixed(2)}</label>
-              <input
-                type="range" min={-2} max={2} step={0.1}
-                value={frequencyPenalty}
-                onChange={e => setFrequencyPenalty(parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: provColor }}
-              />
-              <label style={labelStyle}>Presence penalty: {presencePenalty.toFixed(2)}</label>
-              <input
-                type="range" min={-2} max={2} step={0.1}
-                value={presencePenalty}
-                onChange={e => setPresencePenalty(parseFloat(e.target.value))}
-                style={{ width: '100%', accentColor: provColor }}
-              />
-              <label style={labelStyle}>Stop sequences (comma-separated)</label>
+
+              <Slider label="Temperature" value={temperature.toFixed(1)}
+                min={0} max={2} step={0.1}
+                onChange={v => setTemperature(parseFloat(v))} t={t} />
+              <Slider label="Max tokens" value={maxTokens.toLocaleString()}
+                min={256} max={131072} step={256}
+                onChange={v => setMaxTokens(parseInt(v))} t={t} />
+              <Slider label="Top P" value={topP.toFixed(2)}
+                min={0} max={1} step={0.05}
+                onChange={v => setTopP(parseFloat(v))} t={t} />
+              <Slider label="Frequency penalty" value={frequencyPenalty.toFixed(1)}
+                min={-2} max={2} step={0.1}
+                onChange={v => setFrequencyPenalty(parseFloat(v))} t={t} />
+              <Slider label="Presence penalty" value={presencePenalty.toFixed(1)}
+                min={-2} max={2} step={0.1}
+                onChange={v => setPresencePenalty(parseFloat(v))} t={t} />
+
+              <label style={labelStyle}>Stop sequences</label>
               <input
                 value={stopSeq}
                 onChange={e => setStopSeq(e.target.value)}
-                placeholder="e.g. ###, END"
-                style={inputStyle}
+                placeholder="e.g. END, STOP, ###"
+                style={inputBase}
               />
-              <label style={labelStyle}>Image URL (vision test)</label>
+
+              {/* Toggles */}
+              <div style={{
+                display: 'flex', flexDirection: 'column', gap: 6,
+                paddingTop: 8,
+                borderTop: `1px solid ${t.border}`,
+              }}>
+                <Toggle label="JSON mode" checked={jsonMode} onChange={setJsonMode}
+                  hint="Force valid JSON output" t={t} />
+                <Toggle label="Tool calling" checked={toolsEnabled} onChange={setToolsEnabled}
+                  hint="Enable function tools" t={t} />
+                <Toggle label="Streaming" checked={streamEnabled} onChange={setStreamEnabled}
+                  hint="Stream response chunks" t={t} />
+              </div>
+
+              {/* Image URL with preview */}
+              <label style={labelStyle}>Image URL (vision)</label>
               <input
                 value={imageUrl}
                 onChange={e => setImageUrl(e.target.value)}
-                placeholder="https://..."
-                style={inputStyle}
+                placeholder="https://...png/jpg/webp"
+                style={inputBase}
               />
-              <ToggleRow label="JSON mode" hint="Force structured JSON output" checked={jsonMode}
-                onChange={setJsonMode} t={t} />
-              <ToggleRow label="Tools" hint="Enable function calling (weather, time, search, calc)" checked={toolsEnabled}
-                onChange={setToolsEnabled} t={t} />
-              <ToggleRow label="Stream" hint="Stream tokens as they're generated" checked={streamEnabled}
-                onChange={setStreamEnabled} t={t} />
+              {imageUrl.trim() && (
+                <img
+                  src={imageUrl}
+                  alt="preview"
+                  style={{
+                    marginTop: 4, maxHeight: 96, borderRadius: 4,
+                    border: `1px solid ${t.border}`,
+                  }}
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                />
+              )}
+
+              {/* Last usage panel */}
+              {lastUsage && (
+                <div style={{
+                  fontSize: 10, padding: 8,
+                  borderRadius: 4,
+                  background: t.bgHover,
+                  color: t.textMuted,
+                  marginTop: 8,
+                }}>
+                  <div style={{
+                    fontWeight: 700, marginBottom: 4,
+                    color: t.textPrimary, textTransform: 'uppercase', letterSpacing: 0.5,
+                  }}>
+                    Last usage
+                  </div>
+                  <div>in: {lastUsage.input_tokens?.toLocaleString()}</div>
+                  <div>out: {lastUsage.output_tokens?.toLocaleString()}</div>
+                  <div>total: {lastUsage.total_tokens?.toLocaleString()}</div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Right: chat area */}
+        {/* ── Chat area ── */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          {/* Preset chips */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
+            {chatHistory.length === 0 && (
+              <div style={{
+                color: t.textMuted, fontStyle: 'italic',
+                fontSize: 13, textAlign: 'center', marginTop: 40,
+              }}>
+                Send a message or click a preset to test {modelName}.
+              </div>
+            )}
+
+            {chatHistory.map((m, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start',
+                  marginBottom: 10,
+                }}
+              >
+                <div style={{
+                  maxWidth: '80%',
+                  padding: '8px 14px',
+                  borderRadius: 14,
+                  fontSize: 13,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  background: m.role === 'user'
+                    ? t.accent
+                    : m.error
+                      ? 'rgba(239,68,68,0.1)'
+                      : t.bgHover,
+                  color: m.role === 'user' ? '#fff' : m.error ? '#ef4444' : t.textPrimary,
+                  border: m.role === 'assistant' && !m.error ? `1px solid ${t.border}` : 'none',
+                }}>
+                  {m.error ? `⚠ ${m.error}` : m.content}
+                  {m.usage && (
+                    <div style={{ fontSize: 10, marginTop: 4, opacity: 0.7 }}>
+                      in {m.usage.input_tokens} · out {m.usage.output_tokens} · {m.usage.total_tokens}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {isLoading && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div style={{
+                  padding: '10px 14px', borderRadius: 14,
+                  background: t.bgHover,
+                  color: t.textMuted,
+                  fontSize: 13,
+                  display: 'inline-flex', gap: 4,
+                }}>
+                  <span style={{ animation: 'bounce 1s infinite' }}>●</span>
+                  <span style={{ animation: 'bounce 1s infinite', animationDelay: '0.15s' }}>●</span>
+                  <span style={{ animation: 'bounce 1s infinite', animationDelay: '0.3s' }}>●</span>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* ── Preset chips row ── */}
           <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 6,
-            padding: '10px 14px',
-            borderBottom: `1px solid ${t.border}`,
+            display: 'flex', flexWrap: 'wrap', gap: 6,
+            padding: '8px 12px',
+            borderTop: `1px solid ${t.border}`,
             background: t.bgSidebar,
           }}>
             <span style={{
-              fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-              color: t.textMuted, marginRight: 4,
+              fontSize: 10, fontWeight: 700,
+              textTransform: 'uppercase', letterSpacing: 0.5,
+              color: t.textMuted,
+              marginRight: 4,
               alignSelf: 'center',
             }}>
-              Presets:
+              Try:
             </span>
-            {PRESETS.map(p => (
+            {PRESET_CHIPS.map(p => (
               <button
                 key={p.label}
                 onClick={() => runPreset(p)}
@@ -374,13 +503,13 @@ export default function ModelViewerTab({ tab }: Props) {
                   padding: '3px 9px',
                   borderRadius: 999,
                   fontWeight: 500,
-                  border: `1px solid ${provColor}`,
+                  border: `1px solid ${t.accent}`,
                   color: t.textPrimary,
                   background: 'transparent',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
                   opacity: isLoading ? 0.5 : 1,
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = `${provColor}22`; }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${t.accent}20`; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
               >
                 {p.label}
@@ -388,52 +517,10 @@ export default function ModelViewerTab({ tab }: Props) {
             ))}
           </div>
 
-          {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
-            {chatHistory.length === 0 && (
-              <div style={{ color: t.textMuted, fontStyle: 'italic', fontSize: 13, textAlign: 'center', marginTop: 40 }}>
-                Click a preset chip or type a message to chat with {modelName}.
-              </div>
-            )}
-            {chatHistory.map((m, i) => (
-              <div
-                key={i}
-                style={{
-                  marginBottom: 12,
-                  padding: '8px 12px',
-                  borderRadius: 6,
-                  background: m.role === 'user' ? `${provColor}20` : t.bgHover,
-                  borderLeft: `3px solid ${m.error ? '#ef5350' : m.role === 'user' ? provColor : t.accent}`,
-                  fontSize: 13,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                <div style={{
-                  fontSize: 10, color: t.textMuted, textTransform: 'uppercase',
-                  marginBottom: 4, display: 'flex', justifyContent: 'space-between',
-                }}>
-                  <span>{m.role === 'user' ? 'You' : modelName}</span>
-                  {m.usage && (
-                    <span>
-                      {m.usage.total_tokens} tok ({m.usage.input_tokens}↑ / {m.usage.output_tokens}↓)
-                    </span>
-                  )}
-                </div>
-                {m.content}
-              </div>
-            ))}
-            {isLoading && (
-              <div style={{ color: t.textMuted, fontSize: 12, fontStyle: 'italic' }}>
-                {streamEnabled ? 'streaming...' : 'thinking...'}
-              </div>
-            )}
-            <div ref={chatEndRef} />
-          </div>
-
-          {/* Composer */}
+          {/* ── Input ── */}
           <div style={{
-            padding: 12, borderTop: `1px solid ${t.border}`,
+            padding: 10,
+            borderTop: `1px solid ${t.border}`,
             display: 'flex', gap: 8,
           }}>
             <textarea
@@ -441,33 +528,39 @@ export default function ModelViewerTab({ tab }: Props) {
               value={message}
               onChange={e => setMessage(e.target.value)}
               onKeyDown={e => {
-                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   handleSend();
                 }
               }}
-              placeholder={`Message ${modelName}... (Cmd/Ctrl+Enter to send)`}
-              rows={3}
-              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', flex: 1 }}
+              placeholder="Type a message…"
+              rows={2}
+              disabled={isLoading}
+              style={{
+                ...inputBase,
+                flex: 1,
+                resize: 'none',
+                fontFamily: 'inherit',
+                fontSize: 13,
+                padding: '8px 12px',
+              }}
             />
             <button
               onClick={handleSend}
-              disabled={isLoading || !message.trim()}
+              disabled={isLoading || !message.trim() || !modelId?.trim()}
               style={{
-                alignSelf: 'flex-end',
-                background: provColor,
-                color: '#fff',
-                border: 'none',
-                borderRadius: 4,
-                padding: '6px 16px',
-                fontSize: 12,
+                padding: '0 16px',
+                borderRadius: 6,
+                fontSize: 13,
                 fontWeight: 600,
-                cursor: isLoading || !message.trim() ? 'not-allowed' : 'pointer',
-                opacity: isLoading || !message.trim() ? 0.5 : 1,
-                height: 32,
+                border: 'none',
+                background: t.accent,
+                color: '#fff',
+                cursor: isLoading || !message.trim() || !modelId?.trim() ? 'not-allowed' : 'pointer',
+                opacity: isLoading || !message.trim() || !modelId?.trim() ? 0.5 : 1,
               }}
             >
-              {isLoading ? '...' : 'Send'}
+              Send
             </button>
           </div>
         </div>
@@ -476,8 +569,40 @@ export default function ModelViewerTab({ tab }: Props) {
   );
 }
 
-/* ── Toggle row (left-side panel) ── */
-function ToggleRow({ label, hint, checked, onChange, t }: {
+/* ── Sub-components ── */
+function Slider({ label, value, min, max, step, onChange, t }: {
+  label: string; value: string; min: number; max: number; step: number;
+  onChange: (v: string) => void;
+  t: ReturnType<typeof useLayoutTokens>;
+}) {
+  return (
+    <div>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 3,
+      }}>
+        <label style={{
+          fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+          letterSpacing: 0.5, color: t.textMuted,
+        }}>
+          {label}
+        </label>
+        <span style={{ fontSize: 11, fontFamily: 'monospace', color: t.textMuted }}>
+          {value}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min} max={max} step={step}
+        value={Number(value)}
+        onChange={e => onChange(e.target.value)}
+        style={{ width: '100%', accentColor: t.accent }}
+      />
+    </div>
+  );
+}
+
+function Toggle({ label, hint, checked, onChange, t }: {
   label: string; hint: string; checked: boolean;
   onChange: (v: boolean) => void;
   t: ReturnType<typeof useLayoutTokens>;
@@ -485,11 +610,11 @@ function ToggleRow({ label, hint, checked, onChange, t }: {
   return (
     <div
       onClick={() => onChange(!checked)}
+      title={hint}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        cursor: 'pointer', padding: '4px 0',
+        cursor: 'pointer', padding: '2px 0',
       }}
-      title={hint}
     >
       <span style={{
         fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
