@@ -240,12 +240,6 @@ CLOUD_MODELS = [
                       "input_price": 0.50, "output_price": 2.00, "speed_tps": 70,
                       "thinking": False, "open_source": False, "release": "2026-03",
                       "strength": "OpenAI-compatible hub"}},
-    {"model_id": "agnes-2.0-flash-free", "display_name": "Agnes 2.0 Flash (Free)", "provider": "agnes",
-     "capabilities": {"streaming": True, "tools": True, "structured_output": True,
-                      "max_context": 1000000, "max_output": 32000,
-                      "input_price": 0.0, "output_price": 0.0, "speed_tps": 60,
-                      "thinking": False, "open_source": False, "release": "2026-03",
-                      "strength": "Free tier"}},
 ]
 
 

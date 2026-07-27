@@ -7,7 +7,8 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 > **Frontend-only refactor.** These rules apply to all layout2 work:
 
 1. **Reuse existing backend APIs** — always call `/api/...` endpoints that already exist in the FastAPI backend (`/api/chat/*`, `/api/deepagents/*`, `/api/settings/models`, `/api/models/invoke`, etc.). Do not invent new endpoints.
-2. **No backend editors / new routes / migrations** without explicit user approval. The backend (`backend/`) is treated as frozen unless the user asks for a change.
+2. **NEVER modify backend files.** The backend (`backend/`) is 100% frozen — no edits, no new routes, no migrations, no new Python files. Zero exceptions.
+3. **If the backend test endpoint is a stub, leave it alone.** The frontend can call existing endpoints like `POST /api/settings/api-keys/test` which already do live validation for Tavily/Serper. Do not touch backend code to "fix" it.
 
 ## Progress
 
@@ -147,6 +148,15 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | Test API Key | ✅ | Per-provider test button uses `/api/settings/api-keys/test` |
 | StatusBar integration | ✅ | StatusBar reads default from localStorage and shows active model |
 
+### ✅ Phase 16: Search Providers Activity (Out of Settings)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Search activity | ✅ | New ActivityBar icon (Globe) — replaces Search Providers section in Settings |
+| SearchProvidersSidebar | ✅ | **Browser only** — list of search providers (Tavily, DDG, Wikipedia, Exa, Brave, SerpAPI); clicking opens detail tab |
+| SearchProviderDetailTab | ✅ | Per-provider detail: description, capabilities, pricing, API key management (set/delete), Test Connection button, Docs link |
+| API key management | ✅ | Inline set/delete via encrypted `settings.api_keys` (same backend as chat providers) |
+
 ## Architecture
 
 ```
@@ -209,6 +219,7 @@ manage their own internal scroll without the page itself ever scrolling:
 | Brain | **DeepAgents** | `GET /api/deepagents/` | **Phase 5 — new** |
 | Users | Agents | `GET /api/agents/routes` | Existing |
 | Sparkles | **Models** | `GET /api/agents/available-models` | **Phase 15 — new** |
+| Globe | **Search** | `GET /api/search-providers/` | **Phase 16 — new** |
 | BookOpen | Library | `GET /api/skills/` + tools | Pending |
 | BarChart3 | Analysis | TBD | Pending |
 | Settings | Settings | — | Hidden (no sidebar) |
