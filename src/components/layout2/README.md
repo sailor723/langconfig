@@ -140,13 +140,11 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | Feature | Status | Description |
 |---------|--------|-------------|
 | Models activity | ✅ | New ActivityBar icon (Sparkles) — replaces Model Cards section in Settings |
-| ModelCardsSidebar | ✅ | Cloud + local models grouped by provider with key/validation indicators |
-| Set default | ✅ | Inline "Set default" button on each row; persists to backend + localStorage |
+| ModelCardsSidebar | ✅ | **Browser only** — pure list of cloud + local models grouped by provider, no inline details |
 | StatusBar integration | ✅ | StatusBar reads default from localStorage and shows active model |
 | Filter input | ✅ | Filter models by display name or id |
-| Test button | ✅ | Each row has a green "▶ Test" button that opens a playground tab |
-| ModelPlaygroundTab | ✅ | Single-model chat tester as a workspace tab — system prompt, temperature, max tokens, stream toggle, token usage |
-| Capability badges | ✅ | Inline icons for thinking/vision/tools/audio on each model row |
+| ModelViewerTab | ✅ | Clicking a model opens this in the editor area — capability badges, set-default, test runner |
+| Test runner | ✅ | System prompt, temperature slider, max tokens, stream toggle, chat history with token usage |
 
 ## Architecture
 
