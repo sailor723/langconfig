@@ -120,21 +120,20 @@ export default function ModelViewerTab({ tab }: Props) {
     setImageUrl('');
   }, [modelId]);
 
-  // Auto-scroll & auto-focus — keep latest message visible
+  // Auto-scroll to the latest message — scoped to the chat container only.
+  // Use scrollIntoView with block:'end' on the chat-end sentinel; this
+  // scrolls the nearest scrollable ancestor (the chat container), NOT
+  // the page — preventing the page from scrolling down.
   useEffect(() => {
-    // First scroll on rAF (after new bubble is in DOM)
     const id = requestAnimationFrame(() => {
-      const container = chatScrollRef.current;
-      if (container) {
-        container.scrollTop = container.scrollHeight;
+      const end = chatEndRef.current;
+      if (end) {
+        end.scrollIntoView({ block: 'end' });
       }
     });
-    // Second scroll on a small delay (after layout settles — async text, image load, etc.)
     const t = window.setTimeout(() => {
-      const container = chatScrollRef.current;
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
+      const end = chatEndRef.current;
+      if (end) end.scrollIntoView({ block: 'end' });
     }, 80);
     return () => { cancelAnimationFrame(id); clearTimeout(t); };
   }, [chatHistory, isLoading]);
