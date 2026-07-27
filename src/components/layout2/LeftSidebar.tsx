@@ -180,6 +180,32 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
           ) : (
             <div style={{ overflowY: 'auto', height: '100%' }}>
               <TreeView key={treeKey} nodes={nodes} onFileOpen={handleFileOpen} onNewFile={handleNewFile} />
+              {/* New Agent button at bottom for deepagents activity */}
+              {activeActivity === 'deepagents' && (
+                <div style={{ padding: '8px 12px' }}>
+                  <button
+                    onClick={handleNewFile}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      width: '100%',
+                      padding: '6px 10px',
+                      background: 'transparent',
+                      border: `1px dashed ${t.border}`,
+                      borderRadius: 4,
+                      color: t.textMuted,
+                      fontSize: 12,
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; e.currentTarget.style.color = t.textPrimary; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
+                  >
+                    <Plus size={14} />
+                    New Agent
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
