@@ -105,6 +105,7 @@ export default function ModelViewerTab({ tab }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(true);
 
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -119,10 +120,24 @@ export default function ModelViewerTab({ tab }: Props) {
     setImageUrl('');
   }, [modelId]);
 
-  // Auto-scroll & auto-focus
+  // Auto-scroll & auto-focus — keep latest message visible
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatHistory]);
+    // First scroll on rAF (after new bubble is in DOM)
+    const id = requestAnimationFrame(() => {
+      const container = chatScrollRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    });
+    // Second scroll on a small delay (after layout settles — async text, image load, etc.)
+    const t = window.setTimeout(() => {
+      const container = chatScrollRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }, 80);
+    return () => { cancelAnimationFrame(id); clearTimeout(t); };
+  }, [chatHistory, isLoading]);
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 100);
   }, [modelId]);
@@ -414,8 +429,8 @@ export default function ModelViewerTab({ tab }: Props) {
         </div>
 
         {/* ── Chat area ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+          <div ref={chatScrollRef} style={{ flex: 1, overflowY: 'auto', padding: 14, minHeight: 0 }}>
             {chatHistory.length === 0 && (
               <div style={{
                 color: t.textMuted, fontStyle: 'italic',
