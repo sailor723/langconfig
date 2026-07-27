@@ -12,13 +12,15 @@ import { useLayoutTokens } from './tokens';
 import { X, File, User, BookOpen, BarChart3, Brain } from 'lucide-react';
 import FileEditor from './FileEditor';
 import DeepAgentEditor from './DeepAgentEditor';
+import DeepAgentCreator from './DeepAgentCreator';
 
 const VIEW_ICONS: Record<string, React.ReactNode> = {
-  workflow:  <File size={13} />,
-  deepagent: <Brain size={13} />,
-  agent:     <User size={13} />,
-  library:   <BookOpen size={13} />,
-  analysis:  <BarChart3 size={13} />,
+  workflow:          <File size={13} />,
+  deepagent:         <Brain size={13} />,
+  'deepagent-create': <Brain size={13} />,
+  agent:             <User size={13} />,
+  library:           <BookOpen size={13} />,
+  analysis:          <BarChart3 size={13} />,
 };
 
 interface ViewComponentProps {
@@ -26,11 +28,12 @@ interface ViewComponentProps {
 }
 
 const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
-  workflow:  FileEditor,
-  deepagent: DeepAgentEditor,
-  agent:     FileEditor,
-  library:   FileEditor,
-  analysis:  FileEditor,
+  workflow:          FileEditor,
+  deepagent:         DeepAgentEditor,
+  'deepagent-create': DeepAgentCreator,
+  agent:             FileEditor,
+  library:           FileEditor,
+  analysis:          FileEditor,
 };
 
 interface WorkspaceProps {

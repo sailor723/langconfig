@@ -109,7 +109,16 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 |---------|--------|-------------|
 | JSON editor | ✅ | JSON section is now an editable textarea |
 | Save button | ✅ | Green Save button in toolbar calls `PUT /api/deepagents/{id}` |
-| Save feedback | ✅ | Success/error messages shown inline next to Save button |
+| Save feedback | ✅ | Success/error messages shown inline next to Save button
+
+### ✅ Phase 13: DeepAgent Creator (New Agent Form)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Creator form | ✅ | Name, description, category, system prompt, model, temperature |
+| Sidebar "+" button | ✅ | Opens DeepAgentCreator tab for `deepagents` activity |
+| Backend integration | ✅ | Submits via `POST /api/deepagents/`, auto-opens new agent in editor |
+| Default config | ✅ | Sanely defaults: memory backend, empty tools/subagents/middleware | |
 
 ## Architecture
 
@@ -241,7 +250,7 @@ appends the new assistant reply.
 
 ## Next Steps
 
-- Phase 13: Agents / Skills / Tools sidebar categories (real backend integration)
-- Phase 14: Monaco editor for the JSON tab
-- Phase 15: Workflow canvas integration into Workspace
-- Phase 16: Real terminal emulator (xterm.js) for the Terminal tab
+- Phase 14: Agents / Skills / Tools sidebar categories (real backend integration)
+- Phase 15: Monaco editor for the JSON tab
+- Phase 16: Workflow canvas integration into Workspace
+- Phase 17: Real terminal emulator (xterm.js) for the Terminal tab
