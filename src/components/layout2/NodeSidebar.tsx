@@ -12,6 +12,8 @@ import { chatStore, useChatMessages } from './chatStore';
 import apiClient from '../../lib/api-client';
 import DocChatPanel from '../../features/knowledge/ui/DocChatPanel';
 import { useProject } from '../../contexts/ProjectContext';
+import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 
 /**
  * Strip <think>...</think> blocks from an LLM response.
@@ -487,7 +489,26 @@ function ChatBubble({ msg }: ChatBubbleProps) {
           </div>
         )}
 
-        <div>{msg.text}</div>
+        {isUser || isSystem ? (
+          <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
+        ) : (
+          <div style={{ whiteSpace: 'pre-wrap' }}>
+            <ReactMarkdown
+              rehypePlugins={[rehypeRaw]}
+              components={{
+                img: ({ src, alt }) => (
+                  <img
+                    src={src}
+                    alt={alt || ''}
+                    style={{ maxWidth: '100%', height: 'auto', borderRadius: 4, marginTop: 4 }}
+                  />
+                ),
+              }}
+            >
+              {msg.text}
+            </ReactMarkdown>
+          </div>
+        )}
 
         {msg.meta && (
           <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4 }}>

@@ -160,13 +160,19 @@ ORDER BY order_date DESC;
 - **用户说"图表"/"可视化"/"看一下"** → 生成 PNG 图片（用 matplotlib）
 - **用户说"仪表盘"/"交互"/"自己看"/"探索"** → 生成交互式 HTML（用 Plotly）
 
-### 方式 A：生成 PNG 图表
+### 方式 A：生成 PNG 图表（在聊天中显示）
 
 用 `python_execute` 运行一个 Python 脚本。脚本里：
 - 用 sqlite3 从数据库取出数据
-- 用 matplotlib 画图
-- 用 `plt.savefig()` 保存
-- 最后 `print()` 告诉用户文件保存在哪里
+- 用 matplotlib 画图（使用中文字体 `plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']`）
+- 用 `plt.savefig()` 保存到临时文件
+- 将 PNG 文件用 base64 编码，`print()` 输出 base64 数据
+- **注意：不要在 base64 输出中添加额外的 print 内容，确保只有一个 clean 的 base64 字符串**
+
+然后在你（LLM）的回复中，用 markdown 图片语法嵌入：
+```
+![图表标题](data:image/png;base64,<python_execute 输出的 base64 数据>)
+```
 
 选择图表类型的简单规则：
 - 比较多和少 → 柱状图 (`plt.bar`)

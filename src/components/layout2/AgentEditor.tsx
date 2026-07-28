@@ -10,7 +10,7 @@
  */
 import { useState, useCallback, useEffect } from 'react';
 import { useLayoutTokens } from './tokens';
-import { Info, FileText, Wrench, Code, Play, Square, Loader, Save } from 'lucide-react';
+import { Info, FileText, Wrench, Code, Play, Square, Loader, Save, Award } from 'lucide-react';
 import type { Tab } from './useLayout';
 import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
@@ -21,12 +21,13 @@ interface AgentEditorProps {
   tab: Tab;
 }
 
-type SectionId = 'overview' | 'prompt' | 'tools' | 'json';
+type SectionId = 'overview' | 'prompt' | 'tools' | 'skills' | 'json';
 
 const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <Info size={13} /> },
   { id: 'prompt',   label: 'Prompt',   icon: <FileText size={13} /> },
   { id: 'tools',    label: 'Tools',    icon: <Wrench size={13} /> },
+  { id: 'skills',   label: 'Skills',   icon: <Award size={13} /> },
   { id: 'json',     label: 'JSON',     icon: <Code size={13} /> },
 ];
 
@@ -55,6 +56,29 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       ? 'You are a helpful AI assistant. Be concise and accurate. When you are unsure, admit it rather than guessing.'
       : '')
   );
+
+  // ── Skills state ──
+  const [skillDetails, setSkillDetails] = useState<Record<string, any>>({});
+  const [skillsLoading, setSkillsLoading] = useState(false);
+
+  useEffect(() => {
+    const skillNames = config.skills || [];
+    if (skillNames.length === 0) return;
+    let cancelled = false;
+    setSkillsLoading(true);
+    Promise.all(
+      skillNames.map((s: string) =>
+        apiClient.getSkill(s).then(res => ({ id: s, data: res.data })).catch(() => ({ id: s, data: null }))
+      )
+    ).then(results => {
+      if (cancelled) return;
+      const map: Record<string, any> = {};
+      for (const r of results) if (r.data) map[r.id] = r.data;
+      setSkillDetails(map);
+      setSkillsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [config.skills]);
 
   // ── Tools state ──
   const { isLoading: toolsLoading, groupedByCategory } = useAvailableTools();
@@ -541,6 +565,125 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     );
   };
 
+  // ── Skills section ──
+  const renderSkills = () => {
+    const skillNames = config.skills || [];
+    if (skillNames.length === 0) {
+      return (
+        <div style={{ padding: 4 }}>
+          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>(no skills configured)</div>
+        </div>
+      );
+    }
+    return (
+      <div style={{ padding: 4 }}>
+        {skillNames.map((skillId: string) => {
+          const detail = skillDetails[skillId];
+          return (
+            <div key={skillId} style={cardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Award size={16} style={{ color: t.accent, flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary }}>
+                    {detail?.name || skillId}
+                  </div>
+                  {detail && (
+                    <div style={{ fontSize: 11, color: t.textMuted }}>
+                      v{detail.version || '?'} · {detail.source_type}
+                    </div>
+                  )}
+                </div>
+                {skillsLoading && !detail && (
+                  <Loader size={12} style={{ animation: 'spin 1s linear infinite', color: t.textMuted }} />
+                )}
+              </div>
+
+              {detail?.description && (
+                <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginBottom: 8 }}>
+                  {detail.description}
+                </div>
+              )}
+
+              {detail?.tags && detail.tags.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                  {detail.tags.map((tag: string) => (
+                    <span key={tag} style={{
+                      fontSize: 10, padding: '1px 6px', borderRadius: 8,
+                      background: t.bgHover, border: `1px solid ${t.border}`, color: t.textMuted,
+                    }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {detail?.allowed_tools && detail.allowed_tools.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', marginBottom: 4 }}>
+                    Allowed Tools
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {detail.allowed_tools.map((tool: string) => (
+                      <span key={tool} style={{
+                        fontSize: 11, padding: '2px 6px', borderRadius: 3,
+                        background: t.accent + '18', border: `1px solid ${t.accent}40`,
+                        color: t.accent, fontFamily: 'monospace',
+                      }}>
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {detail?.instructions && (
+                <details style={{ marginTop: 8 }}>
+                  <summary style={{ fontSize: 11, color: t.textMuted, cursor: 'pointer', userSelect: 'none' }}>
+                    View Instructions ({detail.instructions.length} chars)
+                  </summary>
+                  <pre style={{
+                    whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                    fontFamily: '"SF Mono", "Fira Code", monospace',
+                    fontSize: 11, color: t.textPrimary, lineHeight: 1.5,
+                    margin: '6px 0 0 0',
+                  }}>
+                    {detail.instructions}
+                  </pre>
+                </details>
+              )}
+
+              {/* Copy / Download row */}
+              {detail && (
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <button onClick={async () => {
+                    const text = `# ${detail.name || skillId}\n\n${detail.description || ''}\n\n## Instructions\n\n${detail.instructions || ''}`;
+                    await navigator.clipboard.writeText(text);
+                  }} style={{
+                    fontSize: 11, height: 24, padding: '0 8px',
+                    background: t.bgHover, border: `1px solid ${t.border}`,
+                    borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
+                  }}>Copy</button>
+                  <button onClick={() => {
+                    const text = `# ${detail.name || skillId}\n\n${detail.description || ''}\n\n## Tags\n${(detail.tags || []).join(', ')}\n\n## Instructions\n\n${detail.instructions || ''}`;
+                    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url;
+                    a.download = `${skillId}.md`; a.click();
+                    URL.revokeObjectURL(url);
+                  }} style={{
+                    fontSize: 11, height: 24, padding: '0 8px',
+                    background: t.bgHover, border: `1px solid ${t.border}`,
+                    borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
+                  }}>Download</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // ── JSON section (editable textarea) ──
   const renderJson = () => (
     <div style={{ padding: 4 }}>
@@ -571,6 +714,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     overview: renderOverview,
     prompt:   renderPrompt,
     tools:    renderTools,
+    skills:   renderSkills,
     json:     renderJson,
   };
 

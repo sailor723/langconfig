@@ -21,6 +21,7 @@ export interface Skill {
   usage_count: number;
   last_used_at: string | null;
   avg_success_rate: number;
+  source_path?: string;
 }
 
 export interface SkillDetail extends Skill {
