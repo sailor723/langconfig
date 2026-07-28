@@ -1,10 +1,5 @@
 /**
- * BottomPanel — VS Code-style bottom panel for Terminal / Execution / Results.
- *
- * VS Code pattern:
- *   - Header: #252526 bg, tabs with accent bottom border on active
- *   - Content: #1e1e1e bg when open
- *   - Tabs: Terminal, Execution, Results
+ * BottomPanel — VS Code-style bottom panel for Terminal / Execution / Results / Chat.
  */
 import { useState } from 'react';
 import { useLayoutState } from './useLayout';
@@ -170,7 +165,6 @@ function TerminalContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
 
 function ExecutionContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
   const messages = useChatMessages();
-  // Show the last 50 assistant messages as execution entries
   const entries = messages
     .filter(m => m.role === 'assistant' || m.role === 'system')
     .slice(-50)
@@ -220,7 +214,6 @@ function ExecutionContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
                 {msg.meta.toolCalls != null && <span>tools: {msg.meta.toolCalls}</span>}
               </div>
             )}
-            {/* Tool call cards — populated from SSE tool_start/tool_end events */}
             {msg.toolCalls && msg.toolCalls.length > 0 && (
               <div style={{ marginTop: 6, marginLeft: 68, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {msg.toolCalls.map((tc, j) => (
