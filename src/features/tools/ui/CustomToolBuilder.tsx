@@ -7,10 +7,20 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Play, Save, X, Settings, FileCode, TestTube, Eye, ArrowLeft, Check, Trash2 } from 'lucide-react';
+import { AlertCircle, Play, Save, X, Settings, FileCode, TestTube, Eye, ArrowLeft, Check, Trash2, Info } from 'lucide-react';
 import apiClient from "../../../lib/api-client";
 import CollapsibleSection from '../../../components/ui/CollapsibleSection';
 import ToolTemplateGallery from './ToolTemplateGallery';
+import { useLayoutTokens } from '../../../components/layout2/tokens';
+
+/** Convert "My Custom Tool!" -> "my_custom_tool" */
+const slugify = (name: string): string =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 100);
 
 interface ToolTemplate {
   template_id: string;
@@ -47,6 +57,7 @@ interface CustomToolBuilderProps {
 
 const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep = false, initialTemplate }: CustomToolBuilderProps) => {
   const { t } = useTranslation('chat');
+  const tkn = useLayoutTokens();
   // Show template gallery first, unless editing or skipTemplateStep
   const [showingTemplateGallery, setShowingTemplateGallery] = useState(!existingToolId && !skipTemplateStep && !initialTemplate);
   const [selectedTemplate, setSelectedTemplate] = useState<ToolTemplate | null>(null);
@@ -270,6 +281,16 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
       });
       const data = resp.data;
 
+      // Surface backend-side generation failures (e.g. "Insufficient Balance").
+      // The HTTP call still succeeds — the backend returns 200 with
+      // is_valid=false and a populated `errors` array.
+      if (data && data.is_valid === false && (!data.code || data.code.length === 0)) {
+        const errMsg = data.errors?.[0]?.message || data.explanation || 'Code generation failed';
+        setValidationErrors([`AI code generation failed: ${errMsg}`]);
+        // Keep the prompt open so the user can retry without re-typing
+        return;
+      }
+
       if (data.code) {
         // Fill the code editor
         setImplementationConfig({ ...implementationConfig, code: data.code });
@@ -283,7 +304,8 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
           });
         }
 
-        // Show the explanation
+        // Show the explanation as a verification result so the user sees
+        // the AI's notes about what was generated.
         if (data.explanation) {
           setVerifyResult({
             is_valid: data.is_valid,
@@ -292,13 +314,15 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
           });
         }
 
-        // Hide the prompt input after successful generation
+        // Clear any prior validation errors and close the prompt
+        setValidationErrors([]);
         setShowAiPrompt(false);
         setAiPrompt('');
       }
     } catch (err: any) {
       console.error('Code generation failed:', err);
-      alert('Failed to generate code: ' + (err?.response?.data?.detail || err.message));
+      const detail = err?.response?.data?.detail || err?.response?.data?.explanation || err.message;
+      setValidationErrors([`AI code generation failed: ${detail}`]);
     } finally {
       setGenerating(false);
     }
@@ -423,9 +447,9 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
     const isValid = validateAllSections();
 
     if (!isValid) {
-      alert('Please fix validation errors before saving');
-      // Scroll to top to show errors
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Inline errors are shown in the validationErrors banner — no alert popup needed
+      // Jump user back to Basic Info so they can fix the most common errors
+      setActiveSection('basic');
       return;
     }
 
@@ -451,10 +475,22 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
       if (existingToolId) {
         await apiClient.updateCustomTool(toolId, toolData);
       } else {
-        await apiClient.createCustomTool(toolData);
+        try {
+          await apiClient.createCustomTool(toolData);
+        } catch (createError: any) {
+          // If tool_id already exists (409), fall back to update so saves
+          // are idempotent even when the user re-uses a tool_id.
+          const status = createError?.response?.status ?? createError?.status;
+          const detail = createError?.response?.data?.detail;
+          const detailStr = typeof detail === 'string' ? detail : '';
+          if (status === 409 || detailStr.includes('already exists')) {
+            await apiClient.updateCustomTool(toolId, toolData);
+          } else {
+            throw createError;
+          }
+        }
       }
 
-      alert(`✓ Tool "${toolName}" saved successfully!`);
       onClose();
     } catch (error: any) {
       console.error('[CustomToolBuilder] Save failed with error:', error);
@@ -486,9 +522,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
       console.error('[CustomToolBuilder] Parsed error message:', errorMsg);
       const allErrors = [`Failed to save: ${errorMsg}`, ...errors];
       setValidationErrors(allErrors);
-      alert(`❌ Save failed: ${errorMsg}`);
-      // Scroll to top to show error
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Surface as inline errors only — no alert popups
     } finally {
       setSaving(false);
     }
@@ -509,179 +543,23 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
       onClose();
     } catch (error: any) {
       console.error('[CustomToolBuilder] Delete failed:', error);
-      alert('❌ Delete failed: ' + (error?.response?.data?.detail || error.message));
+      // Show inline error rather than alert
+      const detail = error?.response?.data?.detail || error.message || 'Delete failed';
+      setValidationErrors([`Failed to delete: ${detail}`]);
     } finally {
       setSaving(false);
     }
   };
 
-  const renderAllSections = () => {
-    return (
-      <div className="space-y-4">
-        {/* Basic Information - Always Expanded */}
-        <CollapsibleSection
-          title={t('tool_builder_basic_info')}
-          defaultExpanded={true}
-          alwaysExpanded={true}
-          hasError={validationErrors.some(e =>
-            e.includes('Tool ID') || e.includes('Tool name') || e.includes('Description')
-          )}
-        >
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Tool ID <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={toolId}
-                onChange={(e) => setToolId(e.target.value)}
-                placeholder="my_custom_tool"
-                disabled={!!existingToolId}
-                className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
-                style={{
-                  backgroundColor: existingToolId ? 'var(--color-background-dark)' : 'var(--color-input-background)',
-                  borderColor: 'var(--color-border-dark)',
-                  color: 'var(--color-text-primary)'
-                }}
-                onFocus={(e) => !existingToolId && (e.currentTarget.style.borderColor = 'var(--color-primary)')}
-                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-dark)'}
-              />
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                Unique identifier (letters, numbers, underscores only)
-              </p>
-            </div>
+  const [activeSection, setActiveSection] = useState('basic');
 
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                {t('tool_builder_tool_name_required')}
-              </label>
-              <input
-                type="text"
-                value={toolName}
-                onChange={(e) => setToolName(e.target.value)}
-                placeholder="My Custom Tool"
-                className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
-                style={{
-                  backgroundColor: 'var(--color-input-background)',
-                  borderColor: 'var(--color-border-dark)',
-                  color: 'var(--color-text-primary)'
-                }}
-                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-primary)'}
-                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-dark)'}
-              />
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                Display name shown in the UI (can be different from Tool ID)
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                Description <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe what this tool does... (This helps the LLM understand when to use it)"
-                rows={4}
-                className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
-                style={{
-                  backgroundColor: 'var(--color-input-background)',
-                  borderColor: 'var(--color-border-dark)',
-                  color: 'var(--color-text-primary)'
-                }}
-                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-primary)'}
-                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-dark)'}
-              />
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                Be specific - this description is shown to the LLM to help it decide when to use the tool
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                {t('tool_builder_category_optional')}
-              </label>
-              <input
-                type="text"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="e.g., notifications, integrations"
-                className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
-                style={{
-                  backgroundColor: 'var(--color-input-background)',
-                  borderColor: 'var(--color-border-dark)',
-                  color: 'var(--color-text-primary)'
-                }}
-                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-primary)'}
-                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-dark)'}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
-                {t('tool_builder_tags')}
-              </label>
-              <input
-                type="text"
-                value={tags.join(', ')}
-                onChange={(e) => setTags(e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
-                placeholder={t('tool_builder_add_field')}
-                className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
-                style={{
-                  backgroundColor: 'var(--color-input-background)',
-                  borderColor: 'var(--color-border-dark)',
-                  color: 'var(--color-text-primary)'
-                }}
-                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--color-primary)'}
-                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--color-border-dark)'}
-              />
-            </div>
-          </div>
-        </CollapsibleSection>
-
-        {/* Configuration Section */}
-        <CollapsibleSection
-          title={t('tool_builder_config')}
-          icon={<Settings className="w-5 h-5" />}
-          defaultExpanded={expandedSections.config}
-          hasError={validationErrors.some(e =>
-            e.includes('Webhook') || e.includes('API URL') || e.includes('API key') || e.includes('Provider') || e.includes('Model') || e.includes('HTTP method')
-          )}
-        >
-          {renderConfigStep()}
-        </CollapsibleSection>
-
-        {/* Input Schema Section */}
-        <CollapsibleSection
-          title={t('tool_builder_input_schema')}
-          icon={<FileCode className="w-5 h-5" />}
-          defaultExpanded={expandedSections.schema}
-          hasError={validationErrors.some(e => e.includes('input parameter'))}
-        >
-          {renderSchemaStep()}
-        </CollapsibleSection>
-
-        {/* Test Section */}
-        <CollapsibleSection
-          title={t('tool_builder_test')}
-          icon={<TestTube className="w-5 h-5" />}
-          defaultExpanded={expandedSections.test}
-        >
-          {renderTestStep()}
-        </CollapsibleSection>
-
-        {/* Review Section */}
-        <CollapsibleSection
-          title={t('tool_builder_review')}
-          icon={<Eye className="w-5 h-5" />}
-          defaultExpanded={expandedSections.review}
-        >
-          {renderReviewStep()}
-        </CollapsibleSection>
-      </div>
-    );
-  };
+  const sections = [
+    { id: 'basic', label: 'Basic Info', icon: <Info size={12} /> },
+    { id: 'config', label: 'Configuration', icon: <Settings size={12} /> },
+    { id: 'schema', label: 'Input Schema', icon: <FileCode size={12} /> },
+    { id: 'test', label: 'Test', icon: <TestTube size={12} /> },
+    { id: 'review', label: 'Review', icon: <Eye size={12} /> },
+  ];
 
   const renderConfigStep = () => {
     const toolType = selectedTemplate?.tool_type || 'api';
@@ -1566,8 +1444,8 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
 
             return (
               <div key={`prop-${index}`} className="p-4 rounded-lg border" style={{ borderColor: 'var(--color-border-dark)', backgroundColor: 'var(--color-panel-dark)' }}>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
                       Parameter Name
                     </label>
@@ -1575,16 +1453,13 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                       type="text"
                       value={displayName}
                       onChange={(e) => {
-                        // Update local editing state only - don't modify schema yet
                         setEditingPropNames(prev => ({ ...prev, [propName]: e.target.value }));
                       }}
                       onBlur={(e) => {
-                        // Commit the name change when input loses focus
                         const newName = e.target.value.trim();
                         if (newName && newName !== propName) {
                           updatePropertyName(propName, newName);
                         } else if (!newName) {
-                          // Reset to original if empty
                           setEditingPropNames(prev => {
                             const next = { ...prev };
                             delete next[propName];
@@ -1593,21 +1468,19 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                         }
                       }}
                       onKeyDown={(e) => {
-                        // Also commit on Enter key
-                        if (e.key === 'Enter') {
-                          e.currentTarget.blur();
-                        }
+                        if (e.key === 'Enter') { e.currentTarget.blur(); }
                       }}
                       className="w-full px-3 py-2 rounded-lg border text-sm"
                       style={{
                         backgroundColor: 'var(--color-input-background)',
                         borderColor: 'var(--color-border-dark)',
-                        color: 'var(--color-text-primary)'
+                        color: 'var(--color-text-primary)',
+                        height: 38,
+                        boxSizing: 'border-box',
                       }}
                     />
                   </div>
-
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
                       Type
                     </label>
@@ -1618,7 +1491,9 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                       style={{
                         backgroundColor: 'var(--color-input-background)',
                         borderColor: 'var(--color-border-dark)',
-                        color: 'var(--color-text-primary)'
+                        color: 'var(--color-text-primary)',
+                        height: 38,
+                        boxSizing: 'border-box',
                       }}
                     >
                       <option value="string">String</option>
@@ -1627,9 +1502,28 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                       <option value="boolean">Boolean</option>
                     </select>
                   </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingTop: 22 }}>
+                    <input
+                      type="checkbox"
+                      checked={required.includes(propName)}
+                      onChange={() => toggleRequired(propName)}
+                      className="rounded border-gray-300 focus:ring-2"
+                      style={{ accentColor: 'var(--color-primary)' }}
+                    />
+                    <span style={{ color: 'var(--color-text-primary)', fontSize: 13 }}>Required</span>
+                    <button
+                      onClick={() => removeProperty(propName)}
+                      style={{
+                        background: 'none', border: 'none',
+                        color: '#e5484d', cursor: 'pointer', fontSize: 13, padding: '0 4px'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
 
-                <div className="mt-3">
+                <div className="mt-2">
                   <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
                     Description
                   </label>
@@ -1645,26 +1539,6 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
                       color: 'var(--color-text-primary)'
                     }}
                   />
-                </div>
-
-                <div className="mt-3 flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={required.includes(propName)}
-                      onChange={() => toggleRequired(propName)}
-                      className="rounded border-gray-300 focus:ring-2"
-                      style={{ accentColor: 'var(--color-primary)' }}
-                    />
-                    <span style={{ color: 'var(--color-text-primary)' }}>{t('tool_builder_required_param')}</span>
-                  </label>
-
-                  <button
-                    onClick={() => removeProperty(propName)}
-                    className="text-red-600 hover:text-red-700 text-sm font-medium"
-                  >
-                    Remove
-                  </button>
                 </div>
               </div>
             );
@@ -1700,7 +1574,7 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
     const properties = inputSchema.properties || {};
     const initialInput: any = {};
     Object.keys(properties).forEach(key => {
-      initialInput[key] = testInput[key] || '';
+      initialInput[key] = testInput[key] ?? '';
     });
     setTestInput(initialInput);
   }, [inputSchema]);
@@ -1727,8 +1601,16 @@ const CustomToolBuilder = ({ onClose, onBack, existingToolId, skipTemplateStep =
               </label>
               <input
                 type={prop.type === 'integer' || prop.type === 'number' ? 'number' : 'text'}
-                value={testInput[propName] || ''}
-                onChange={(e) => setTestInput({ ...testInput, [propName]: e.target.value })}
+                value={testInput[propName] ?? ''}
+                onChange={(e) => {
+                  // Use valueAsNumber when the HTML input is type="number",
+                  // regardless of what the stored schema says — this guarantees
+                  // we send proper numeric values to the backend.
+                  const val: any = e.target.type === 'number'
+                    ? (e.target.value === '' ? '' : e.target.valueAsNumber)
+                    : e.target.value;
+                  setTestInput({ ...testInput, [propName]: val });
+                }}
                 placeholder={prop.description || `Enter ${propName}`}
                 className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
                 style={{
@@ -2008,173 +1890,269 @@ ${toolId}_tool = StructuredTool.from_function(
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden" style={{ backgroundColor: 'var(--color-background-dark)' }}>
-      {/* Fixed Header - Primary Color with White Text */}
-      <div className="border-b p-6" style={{
-        backgroundColor: 'var(--color-primary)',
-        borderBottomColor: 'var(--color-border-dark)'
-      }}>
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 flex-1">
-              <button
-                onClick={() => {
-                  // If we're in the form view (not showing template gallery), go back to template selection
-                  if (!showingTemplateGallery && !existingToolId) {
-                    setShowingTemplateGallery(true);
-                    setSelectedTemplate(null);
-                    setAdvancedMode(false);
-                    setValidationErrors([]);
-                  } else {
-                    // Otherwise, go back to parent (AgentLoadouts)
-                    if (onBack) {
-                      onBack();
-                    } else {
-                      onClose();
-                    }
-                  }
-                }}
-                className="p-2 transition-all text-white/90 hover:text-white hover:bg-white/15 rounded-lg"
-                style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)' }}
-                title="Back"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div className="flex-1">
-                <h2 className="text-2xl font-semibold text-white" style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.25)' }}>
-                  {existingToolId ? t('tool_builder_edit_title') : t('tool_builder_title')}
-                </h2>
-                <p className="text-sm mt-1 text-white/90" style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)' }}>
-                  {selectedTemplate
-                    ? t('tool_builder_using_template', { name: selectedTemplate.name })
-                    : t('tool_builder_create_desc')
-                  }
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="transition-all text-white/90 hover:text-white hover:bg-white/15 p-2 rounded-lg"
-              style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)' }}
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: tkn.bgContent }}>
+      {/* Show Template Gallery first */}
+      {showingTemplateGallery ? (
+        <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+          <ToolTemplateGallery
+            onSelectTemplate={handleTemplateSelect}
+            onStartFromScratch={handleStartFromScratch}
+          />
         </div>
-      </div>
-
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
-          {/* Show Template Gallery if not selected yet */}
-          {showingTemplateGallery ? (
-            <ToolTemplateGallery
-              onSelectTemplate={handleTemplateSelect}
-              onStartFromScratch={handleStartFromScratch}
-            />
-          ) : (
-            <>
-              {/* Validation Errors */}
-              {validationErrors.length > 0 && (
-                <div className="mb-4 p-4 rounded-lg border-2 shadow-lg" style={{
-                  backgroundColor: '#fef2f2',
-                  borderColor: '#dc2626'
-                }}>
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5" style={{ color: '#dc2626' }} />
-                    <div className="flex-1">
-                      <h4 className="font-bold text-base mb-2" style={{ color: '#991b1b' }}>
-                        ⚠️ Cannot Save - Please Fix These Errors:
-                      </h4>
-                      <ul className="space-y-1.5">
-                        {validationErrors.map((error, index) => (
-                          <li key={index} className="text-sm font-medium flex items-start gap-2" style={{ color: '#991b1b' }}>
-                            <span className="mt-0.5">•</span>
-                            <span>{error}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* All Sections */}
-              {renderAllSections()}
-
-              {/* Footer */}
-              <div className="pt-6 border-t flex items-center justify-end gap-3" style={{ borderTopColor: 'var(--color-border-dark)' }}>
+      ) : (
+        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+          {/* Section nav — matches ToolEditor exactly */}
+          <div style={{
+            width: 130,
+            minWidth: 130,
+            background: tkn.bgSidebar,
+            borderRight: `1px solid ${tkn.border}`,
+            padding: '8px 0',
+            overflowY: 'auto',
+            flexShrink: 0,
+          }}>
+            {sections.map(s => {
+              const isActive = s.id === activeSection;
+              return (
                 <button
-                  onClick={onClose}
-                  className="px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+                  key={s.id}
+                  onClick={() => setActiveSection(s.id)}
                   style={{
-                    backgroundColor: 'transparent',
-                    borderWidth: '1px',
-                    borderStyle: 'solid',
-                    borderColor: 'var(--color-border-dark)',
-                    color: 'var(--color-text-primary)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-background-dark)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    width: '100%',
+                    padding: '8px 14px',
+                    fontSize: 12,
+                    color: isActive ? tkn.textPrimary : tkn.textMuted,
+                    background: isActive ? tkn.bgHover : 'transparent',
+                    border: 'none',
+                    borderLeft: isActive ? `2px solid ${tkn.accent}` : '2px solid transparent',
+                    cursor: 'pointer',
+                    textAlign: 'left',
                   }}
                 >
-                  {t('tool_builder_cancel')}
+                  {s.icon}
+                  {s.label}
                 </button>
+              );
+            })}
+          </div>
 
-                <button
-                  onClick={handleSave}
-                  disabled={saving || validationErrors.length > 0}
-                  className="flex items-center gap-2 px-6 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-                  style={{ backgroundColor: 'var(--color-primary)' }}
-                >
-                  {saving ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      {t('tool_builder_save')}
-                    </>
-                  )}
-                </button>
-
+          {/* Content */}
+          <div style={{ flex: 1, padding: 16, overflowY: 'auto', minHeight: 0 }}>
+            {/* Title bar + action buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 600, color: tkn.textPrimary, margin: 0 }}>
+                {toolName || toolId || 'Custom Tool'}
+              </h2>
+              <div style={{ display: 'flex', gap: 6 }}>
                 {existingToolId && (
                   <button
                     onClick={handleDelete}
                     disabled={saving}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
-                      backgroundColor: 'rgba(220, 38, 38, 0.1)',
-                      color: 'rgb(220, 38, 38)',
-                      border: '1px solid rgba(220, 38, 38, 0.3)',
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      background: 'rgba(220,38,38,0.1)', color: '#dc2626',
+                      border: '1px solid rgba(220,38,38,0.3)',
+                      borderRadius: 4, padding: '4px 10px', fontSize: 12, cursor: 'pointer',
                     }}
                   >
-                    <Trash2 className="w-4 h-4" />
-                    Delete
+                    <Trash2 size={13} /> Delete
                   </button>
                 )}
+                <button
+                  onClick={onClose}
+                  style={{
+                    background: 'transparent', color: tkn.textMuted,
+                    border: `1px solid ${tkn.border}`,
+                    borderRadius: 4, padding: '4px 10px', fontSize: 12, cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: tkn.accent, color: '#fff', border: 'none',
+                    borderRadius: 4, padding: '4px 10px', fontSize: 12, cursor: 'pointer',
+                    opacity: saving || validationErrors.length > 0 ? 0.5 : 1,
+                  }}
+                >
+                  <Save size={13} /> {saving ? 'Saving...' : 'Save'}
+                </button>
               </div>
-            </>
-          )}
+            </div>
+
+            {/* Validation Errors */}
+            {validationErrors.length > 0 && (
+              <div className="mb-4 p-4 rounded-lg border-2 shadow-lg" style={{
+                backgroundColor: '#fef2f2',
+                borderColor: '#dc2626'
+              }}>
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5" style={{ color: '#dc2626' }} />
+                  <div className="flex-1">
+                    <h4 className="font-bold text-base mb-2" style={{ color: '#991b1b' }}>
+                      ⚠️ Cannot Save - Please Fix These Errors:
+                    </h4>
+                    <ul className="space-y-1.5">
+                      {validationErrors.map((error, index) => (
+                        <li key={index} className="text-sm font-medium flex items-start gap-2" style={{ color: '#991b1b' }}>
+                          <span className="mt-0.5">•</span>
+                          <span>{error}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Active section */}
+            {activeSection === 'basic' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: tkn.textPrimary }}>
+                    {t('tool_builder_tool_name_required')}
+                  </label>
+                  <input
+                    type="text"
+                    value={toolName}
+                    onChange={(e) => {
+                      const newName = e.target.value;
+                      setToolName(newName);
+                      // Auto-generate tool_id from tool_name (slug) so users only
+                      // need to think about the display name. Editing existing
+                      // tools never changes the ID — it's a stable identifier
+                      // referenced by agents/workflows.
+                      if (!existingToolId) {
+                        setToolId(slugify(newName));
+                      }
+                    }}
+                    placeholder="My Custom Tool"
+                    className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
+                    style={{
+                      backgroundColor: 'var(--color-input-background)',
+                      borderColor: tkn.border,
+                      color: tkn.textPrimary
+                    }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = tkn.accent}
+                    onBlur={(e) => e.currentTarget.style.borderColor = tkn.border}
+                  />
+                  {/* Tool ID is auto-derived from the name and hidden from the form.
+                      For new tools we show a live preview so the user can see what
+                      the ID will be. For existing tools the ID is immutable and
+                      shown as a read-only badge for reference. */}
+                  {existingToolId ? (
+                    <div style={{ marginTop: 6, fontSize: 12, color: tkn.textMuted }}>
+                      ID:&nbsp;
+                      <code style={{
+                        fontFamily: '"SF Mono", "Fira Code", monospace',
+                        background: 'var(--color-background-dark)',
+                        padding: '2px 6px',
+                        borderRadius: 4,
+                        color: tkn.textPrimary,
+                      }}>
+                        {toolId}
+                      </code>
+                      &nbsp;(immutable — referenced by agents and workflows)
+                    </div>
+                  ) : (
+                    toolId && (
+                      <div style={{ marginTop: 6, fontSize: 12, color: tkn.textMuted }}>
+                        ID will be:&nbsp;
+                        <code style={{
+                          fontFamily: '"SF Mono", "Fira Code", monospace',
+                          background: 'var(--color-background-dark)',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          color: tkn.textPrimary,
+                        }}>
+                          {toolId}
+                        </code>
+                      </div>
+                    )
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="block text-sm font-medium mb-1" style={{ color: tkn.textPrimary }}>
+                      {t('tool_builder_category_optional')}
+                    </label>
+                    <input
+                      type="text"
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      placeholder="e.g., notifications, integrations"
+                      className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
+                      style={{
+                        backgroundColor: 'var(--color-input-background)',
+                        borderColor: tkn.border,
+                        color: tkn.textPrimary
+                      }}
+                      onFocus={(e) => e.currentTarget.style.borderColor = tkn.accent}
+                      onBlur={(e) => e.currentTarget.style.borderColor = tkn.border}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label className="block text-sm font-medium mb-1" style={{ color: tkn.textPrimary }}>
+                      {t('tool_builder_tags')}
+                    </label>
+                    <input
+                      type="text"
+                      value={tags.join(', ')}
+                      onChange={(e) => setTags(e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
+                      placeholder={t('tool_builder_add_field')}
+                      className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
+                      style={{
+                        backgroundColor: 'var(--color-input-background)',
+                        borderColor: tkn.border,
+                        color: tkn.textPrimary
+                      }}
+                      onFocus={(e) => e.currentTarget.style.borderColor = tkn.accent}
+                      onBlur={(e) => e.currentTarget.style.borderColor = tkn.border}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: tkn.textPrimary }}>
+                    Description <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Describe what this tool does... (This helps the LLM understand when to use it)"
+                    rows={4}
+                    className="w-full px-4 py-2 rounded-lg border text-sm transition-all"
+                    style={{
+                      backgroundColor: 'var(--color-input-background)',
+                      borderColor: tkn.border,
+                      color: tkn.textPrimary
+                    }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = tkn.accent}
+                    onBlur={(e) => e.currentTarget.style.borderColor = tkn.border}
+                  />
+                  <p className="text-xs mt-1" style={{ color: tkn.textMuted }}>
+                    Be specific - this description is shown to the LLM to help it decide when to use the tool
+                  </p>
+                </div>
+              </div>
+            )}
+            {activeSection === 'config' && renderConfigStep()}
+            {activeSection === 'schema' && renderSchemaStep()}
+            {activeSection === 'test' && renderTestStep()}
+            {activeSection === 'review' && renderReviewStep()}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Sliding Information Panel */}
       {showInfoPanel && (
         <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-            onClick={() => setShowInfoPanel(false)}
-          />
-
-          {/* Sliding Panel */}
+          <div className="fixed inset-0 z-40" style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }} onClick={() => setShowInfoPanel(false)} />
           <div
             className="fixed top-0 right-0 bottom-0 w-full max-w-3xl border-l z-50 flex flex-col shadow-2xl"
             style={{
@@ -2183,152 +2161,14 @@ ${toolId}_tool = StructuredTool.from_function(
               borderLeftColor: 'var(--color-border-dark)'
             }}
           >
-            {/* Panel Header */}
-            <div className="p-6 border-b" style={{
-              backgroundColor: 'var(--color-primary)',
-              borderBottomColor: 'var(--color-border-dark)'
-            }}>
+            <div className="p-6 border-b" style={{ backgroundColor: 'var(--color-primary)', borderBottomColor: 'var(--color-border-dark)' }}>
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-white">
-                  Twitter API Rate Limits & Endpoints
-                </h3>
-                <button
-                  onClick={() => setShowInfoPanel(false)}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                >
+                <h3 className="text-xl font-semibold text-white">Twitter API Rate Limits & Endpoints</h3>
+                <button onClick={() => setShowInfoPanel(false)} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
                   <X className="w-5 h-5 text-white" />
                 </button>
               </div>
-              <p className="text-sm text-white/80 mt-2">
-                Free tier rate limits for Twitter API v2 endpoints
-              </p>
-            </div>
-
-            {/* Panel Content */}
-            <div className="flex-1 overflow-y-auto p-6" style={{ backgroundColor: 'var(--color-panel-dark)' }}>
-              <div className="space-y-6">
-                {/* Tweets Section */}
-                <div>
-                  <h4 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                    Tweets
-                  </h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm border" style={{ borderColor: 'var(--color-border-dark)' }}>
-                      <thead style={{ backgroundColor: 'var(--color-background-dark)' }}>
-                        <tr>
-                          <th className="px-4 py-2 text-left font-semibold" style={{ color: 'var(--color-text-primary)' }}>Endpoint</th>
-                          <th className="px-4 py-2 text-left font-semibold" style={{ color: 'var(--color-text-primary)' }}>Free Limit</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>POST /2/tweets</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>17 per 24 hours (per user & app)</td>
-                        </tr>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>GET /2/tweets/:id</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>1 per 15 mins (per user & app)</td>
-                        </tr>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>GET /2/tweets/search/recent</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>1 per 15 mins (per user & app)</td>
-                        </tr>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>GET /2/users/:id/tweets</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>1 per 15 mins (per user & app)</td>
-                        </tr>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>GET /2/users/:id/mentions</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>1 per 15 mins (per user & app)</td>
-                        </tr>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>DELETE /2/tweets/:id</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>17 per 24 hours (per user & app)</td>
-                        </tr>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>POST /2/users/:id/retweets</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>1 per 15 mins (per user)</td>
-                        </tr>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>POST /2/users/:id/likes</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>200 per 24 hours (per user)</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Users Section */}
-                <div>
-                  <h4 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                    Users
-                  </h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm border" style={{ borderColor: 'var(--color-border-dark)' }}>
-                      <thead style={{ backgroundColor: 'var(--color-background-dark)' }}>
-                        <tr>
-                          <th className="px-4 py-2 text-left font-semibold" style={{ color: 'var(--color-text-primary)' }}>Endpoint</th>
-                          <th className="px-4 py-2 text-left font-semibold" style={{ color: 'var(--color-text-primary)' }}>Free Limit</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>GET /2/users/:id</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>1 per 24 hours (per user & app)</td>
-                        </tr>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>GET /2/users/by/username/:username</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>3 per 15 mins (per user & app)</td>
-                        </tr>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>GET /2/users/me</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>25 per 24 hours (per user)</td>
-                        </tr>
-                        <tr className="border-t" style={{ borderColor: 'var(--color-border-dark)' }}>
-                          <td className="px-4 py-2 font-mono text-xs" style={{ color: 'var(--color-text-muted)' }}>POST /2/users/:id/following</td>
-                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>5 per 15 mins (per user)</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Important Notes */}
-                <div className="p-4 rounded-lg border" style={{
-                  backgroundColor: 'var(--color-background-dark)',
-                  borderColor: 'var(--color-border-dark)'
-                }}>
-                  <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    ⚠️ Important Notes
-                  </h4>
-                  <ul className="text-xs space-y-1" style={{ color: 'var(--color-text-muted)' }}>
-                    <li>• Free tier limits are enforced per user AND per app</li>
-                    <li>• Monthly post limit: 1,500 tweets total</li>
-                    <li>• Rate limits reset based on the timeframe (15 mins or 24 hours)</li>
-                    <li>• Exceeding limits returns 429 (Too Many Requests) error</li>
-                    <li>• Consider upgrading to Basic ($100/month) or Pro ($5,000/month) for higher limits</li>
-                  </ul>
-                </div>
-
-                {/* Documentation Link */}
-                <div className="p-4 rounded-lg border" style={{
-                  borderColor: 'var(--color-border-dark)',
-                  backgroundColor: 'var(--color-background-dark)'
-                }}>
-                  <p className="text-sm mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    <strong>Full Documentation:</strong>
-                  </p>
-                  <a
-                    href="https://developer.x.com/en/docs/twitter-api/rate-limits"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm underline hover:opacity-80 transition-opacity"
-                    style={{ color: 'var(--color-primary)' }}
-                  >
-                    View complete rate limits table on X Developer Portal →
-                  </a>
-                </div>
-              </div>
+              <p className="text-sm text-white/80 mt-2">Free tier rate limits for Twitter API v2 endpoints</p>
             </div>
           </div>
         </>

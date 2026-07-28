@@ -14,6 +14,7 @@ export type ActivityId =
   | 'workflows'
   | 'agents'
   | 'deepagents'
+  | 'tools'
   | 'library'
   | 'analysis'
   | 'settings'
@@ -31,6 +32,7 @@ export const ACTIVITIES: ActivityDef[] = [
   { id: 'workflows',  label: 'Workflows',  icon: 'GitBranch' },
   { id: 'deepagents', label: 'DeepAgents', icon: 'Brain' },
   { id: 'agents',     label: 'Agents',     icon: 'Users' },
+  { id: 'tools',      label: 'Tools',      icon: 'Wrench' },
   { id: 'models',     label: 'Models',     icon: 'Sparkles' },
   { id: 'search',     label: 'Search',     icon: 'Search' },
   { id: 'library',    label: 'Library',    icon: 'BookOpen' },

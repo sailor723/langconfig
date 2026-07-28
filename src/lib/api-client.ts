@@ -121,9 +121,16 @@ class APIClient {
 
     switch (status) {
       case 409: {
-        // Conflict - Optimistic locking failure
-        const message = errorData?.message || 'Resource was modified by another user';
+        // Conflict - prefer the actual backend message when available so
+        // errors like "Tool with ID 'x' already exists" reach the user
+        // instead of a generic optimistic-locking fallback.
         const detail = (errorData as ConflictError)?.detail;
+        const detailMsg = typeof detail === 'string'
+          ? detail
+          : (detail && typeof detail === 'object' && 'message' in detail
+            ? String((detail as { message: unknown }).message)
+            : undefined);
+        const message = errorData?.message || detailMsg || 'Resource was modified by another user';
         this.showToast(message, 'warning');
         throw new ConflictErrorClass(message, detail);
       }
