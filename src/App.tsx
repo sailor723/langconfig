@@ -197,6 +197,7 @@ const ACTIVITY_TO_VIEW: Record<ActivityId, View> = {
   workflows: 'studio',
   deepagents: 'deepagents',
   agents: 'agents',
+  tools: 'tools',
   models: 'models',
   search: 'search',
   library: 'library',

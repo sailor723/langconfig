@@ -17,6 +17,7 @@ import SearchPanel from './SearchPanel';
 import { Plus, FolderPlus, RefreshCw, Search, Loader } from 'lucide-react';
 import ModelCardsSidebar from './ModelCardsSidebar';
 import SearchProvidersSidebar from './SearchProvidersSidebar';
+import ToolBrowserSidebar from './ToolBrowserSidebar';
 
 interface LeftSidebarProps {
   children?: ReactNode;
@@ -73,7 +74,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
       data: { ...node.data, content, onSave: saveNodeContent },
     };
     openTab(tab);
-    // For deep agents and agents, openTab again on next tick so the editor sees the latest node.data.agent
+    // For deep agents and agents, openTab again on next tick so the editor sees the latest data
     if (node.viewType === 'deepagent' || node.viewType === 'agent') {
       setTimeout(() => {
         openTab({
@@ -198,6 +199,9 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
           ) : activeActivity === 'search' ? (
             /* Search activity renders the dedicated SearchProvidersSidebar */
             <SearchProvidersSidebar />
+          ) : activeActivity === 'tools' ? (
+            /* Tools activity renders the dedicated ToolBrowserSidebar */
+            <ToolBrowserSidebar />
           ) : loading ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', fontSize: 13, color: t.textMuted }}>
               <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />

@@ -2073,7 +2073,37 @@ class ToolFactory:
         impl_config = tool_config["implementation_config"]
         code_str = impl_config.get("code", "")
         function_name = impl_config.get("function_name", "run")
-        args_schema = impl_config.get("args_schema", {})
+        # Prefer the canonical top-level input_schema (auto-filled by AI
+        # generation / Verify Code) and fall back to the legacy
+        # impl_config.args_schema for older tools that still carry it.
+        top_input_schema = tool_config.get("input_schema") or {}
+        top_props = top_input_schema.get("properties") or {}
+        args_schema = impl_config.get("args_schema") or {}
+        if not args_schema and top_props:
+            # Translate JSON-Schema style to the simpler {arg: {type, desc}}
+            # shape that the pydantic builder below understands.
+            translated: Dict[str, Any] = {}
+            for arg_name, arg_spec in top_props.items():
+                translated[arg_name] = {
+                    "type": arg_spec.get("type", "string"),
+                    "description": arg_spec.get("description", ""),
+                }
+            args_schema = translated
+        if args_schema and top_props and len(args_schema) != len(top_props):
+            logger.warning(
+                "python_function tool '%s' has mismatched args_schema vs input_schema "
+                "(args_schema has %d fields, input_schema has %d). Using input_schema.",
+                tool_config.get("tool_id"),
+                len(args_schema), len(top_props),
+            )
+            # Recompute using top-level input_schema
+            translated = {}
+            for arg_name, arg_spec in top_props.items():
+                translated[arg_name] = {
+                    "type": arg_spec.get("type", "string"),
+                    "description": arg_spec.get("description", ""),
+                }
+            args_schema = translated
 
         logger.info(f"Creating python_function tool: {tool_config['name']} (fn={function_name})")
 

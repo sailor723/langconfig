@@ -1064,9 +1064,18 @@ def _extract_schema_from_code(code: str, function_name: str) -> Optional[Dict[st
             elif isinstance(ann, ast.Constant):
                 py_type = TYPE_MAP.get(str(ann.value), "string")
             elif isinstance(ann, ast.Subscript):
-                # Handle Optional[str], List[int], etc.
+                # Handle Optional[str], List[int], Union[int, float], etc.
                 if isinstance(ann.value, ast.Name):
-                    py_type = TYPE_MAP.get(ann.value.id, "string")
+                    outer = ann.value.id
+                    # Union / Optional → look at the inner type(s)
+                    if outer in ("Union", "Optional") and isinstance(ann.slice, (ast.Tuple, ast.Name)):
+                        inner = ann.slice.elts[0] if isinstance(ann.slice, ast.Tuple) else ann.slice
+                        if isinstance(inner, ast.Name):
+                            py_type = TYPE_MAP.get(inner.id, "string")
+                        else:
+                            py_type = TYPE_MAP.get(outer, "string")
+                    else:
+                        py_type = TYPE_MAP.get(outer, "string")
 
         # Determine description
         description = param_descriptions.get(arg.arg, f"Parameter `{arg.arg}`")

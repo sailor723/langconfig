@@ -106,24 +106,11 @@ export function useSidebarData(activity: string): SidebarData {
             children: [{ id: 'empty-agents', label: `Failed: ${err?.message || 'unknown'}`, viewType: 'empty' }],
           });
         }
+      } else if (activity === 'tools') {
+        // Tools uses a custom sidebar (ToolBrowserSidebar), not TreeView.
+        // Keep TreeView empty to avoid showing stale data.
+        result.push({ id: 'empty-tools', label: '', viewType: 'empty' });
       } else if (activity === 'library') {
-        result.push({
-          id: 'folder-skills',
-          label: 'Skills',
-          children: [
-            { id: 'sk-sql', label: 'sql-analyst', viewType: 'library' },
-            { id: 'sk-viz', label: 'data-visualizer', viewType: 'library' },
-          ],
-        });
-        result.push({
-          id: 'folder-tools',
-          label: 'Tools',
-          children: [
-            { id: 'tl-sqlite', label: 'sqlite-execute', viewType: 'library' },
-            { id: 'tl-python', label: 'python-execute', viewType: 'library' },
-          ],
-        });
-      } else if (activity === 'analysis') {
         result.push({
           id: 'folder-dashboards',
           label: 'Dashboards',
