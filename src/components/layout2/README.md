@@ -157,6 +157,35 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | SearchProviderDetailTab | ✅ | Per-provider detail: description, capabilities, pricing, API key management (set/delete), Test Connection button, Docs link |
 | API key management | ✅ | Inline set/delete via encrypted `settings.api_keys` (same backend as chat providers) |
 
+### ✅ Phase 17: Agents Activity (Matching DeepAgents Pattern)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Agents activity (Users icon) | ✅ | New ActivityBar entry — sidebar lists agents from `deep_agent_templates` filtered by `use_deepagents: false` |
+| Structured Agent editor | ✅ | 4-section editor matching DeepAgent pattern: Overview / Prompt / Tools / JSON |
+| LLM model dropdown | ✅ | Defaults to model stored in `localStorage` under `langconfig.defaultModel` |
+| Unified builder pattern | ✅ | New agents initialized directly in editor tab (no separate creator form) |
+| Backend integration | ✅ | CRUD via existing `GET/PUT /api/deepagents/{id}` — same table, different filter flag |
+
+### ✅ Phase 18: Tools Activity (Full CRUD)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Tools activity (Wrench icon) | ✅ | New ActivityBar entry — sidebar lists tools from `GET /api/tools/registry` grouped by category |
+| ToolBrowserSidebar | ✅ | Category-grouped tree view with tool counts per category |
+| ToolCategoryTab | ✅ | Per-category detail: schema viewer, test runner, usage examples |
+| ToolEditor | ✅ | Full tool editor with inline test form and schema coercion |
+| CustomToolBuilderTab | ✅ | Create custom tools with name, description, schema, and implementation |
+| Test & validate | ✅ | Run tools inline and see results directly in the tab |
+
+### ✅ Phase 19: Interactive Tool Picker
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Tool picker in editors | ✅ | Both AgentEditor and DeepAgentEditor have an interactive tool picker to browse and select tools |
+| Tool call streaming | ✅ | Selected tools can be invoked and stream results directly within the editor |
+| Inline tool test | ✅ | Test individual tool calls without leaving the editor view |
+
 ## Architecture
 
 ```
@@ -217,11 +246,11 @@ manage their own internal scroll without the page itself ever scrolling:
 |------|----------|---------------|-------|
 | GitBranch | Workflows | `GET /api/workflows/` | Existing |
 | Brain | **DeepAgents** | `GET /api/deepagents/` | **Phase 5 — new** |
-| Users | Agents | `GET /api/agents/routes` | Existing |
+| Users | **Agents** | `GET /api/deepagents/` filtered by `use_deepagents: false` | **Phase 17 — new** |
 | Sparkles | **Models** | `GET /api/agents/available-models` | **Phase 15 — new** |
 | Globe | **Search** | `GET /api/search-providers/` | **Phase 16 — new** |
 | BookOpen | Library | `GET /api/skills/` + tools | Pending |
-| Wrench | **Tools** | `GET /api/tools/registry` — grouped by category | **Phase 16 — new** |
+| Wrench | **Tools** | `GET /api/tools/registry` — grouped by category | **Phase 18 — new** |
 | BarChart3 | Analysis | TBD | Pending |
 | Settings | Settings | — | Hidden (no sidebar) |
 
@@ -231,7 +260,10 @@ App.tsx
     ├── ActivityBar (48px left, #181818)
     │   ├── workflows   → /studio
     │   ├── deepagents  → /deepagents       ← Phase 5
-    │   ├── agents      → /agents
+    │   ├── agents      → /agents            ← Phase 17
+    │   ├── models      → /models            ← Phase 15
+    │   ├── search      → /search            ← Phase 16
+    │   ├── tools       → /tools             ← Phase 18
     │   ├── library     → /library
     │   ├── analysis    → /analysis
     │   └── settings    → /settings
@@ -242,8 +274,10 @@ App.tsx
     ├── [Center column] (flex 1)
     │   ├── Workspace
     │   │   ├── TabBar (35px, drag-reorder, middle-click close)
-    │   │   └── TabContentView → DeepAgentEditor (deepagent viewType) ← Phase 5
-    │   │                      → FileEditor     (workflow viewType)
+    │   │   └── TabContentView → DeepAgentEditor (deepagent viewType)  ← Phase 5
+    │   │                      → AgentEditor     (agent viewType)      ← Phase 17
+    │   │                      → ToolEditor      (tool viewType)       ← Phase 18
+    │   │                      → FileEditor      (workflow viewType)
     │   └── BottomPanel (collapsible)
     │       ├── Terminal (terminal emulator)
     │       ├── Execution (execution logs)
@@ -331,8 +365,7 @@ appends the new assistant reply.
 
 ## Next Steps
 
-- Phase 16: Skills / Library sidebar categories (real backend integration)
-- Phase 17: Monaco editor for the JSON tab
-- Phase 18: Workflow canvas integration into Workspace
-- Phase 19: Real terminal emulator (xterm.js) for the Terminal tab
-- Phase 20: Streaming responses in chat (SSE) — currently uses one-shot POST
+- Phase 20: Skills / Library sidebar categories (real backend integration)
+- Phase 21: Monaco editor for the JSON tab
+- Phase 22: Workflow canvas integration into Workspace
+- Phase 23: Real terminal emulator (xterm.js) for the Terminal tab
