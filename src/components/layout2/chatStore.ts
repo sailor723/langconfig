@@ -14,16 +14,38 @@
 import { useEffect, useState } from 'react';
 import apiClient from '../../lib/api-client';
 
+/** Per-tool-call record captured during streaming */
+export interface ChatToolCall {
+  /** Tool name as emitted by the backend (e.g. "math_sqrt", "Web Search") */
+  name: string;
+  /** Tool-call id from the backend (e.g. LangChain tool_call_id) */
+  id?: string;
+  /** Arguments passed to the tool (parsed if backend sent them as JSON) */
+  args?: Record<string, any>;
+  /** Result text returned by the tool (empty while still running) */
+  result?: string;
+  /** Lifecycle state */
+  status: 'running' | 'completed' | 'error';
+  /** When the tool call started streaming in (epoch ms) */
+  startedAt: number;
+  /** When the tool call finished (epoch ms) */
+  endedAt?: number;
+  /** Error message when status === 'error' */
+  error?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   text: string;
   /** Optional metadata (tokens, tool calls, etc.) */
   meta?: { tokens?: number; toolCalls?: number; latencyMs?: number };
-  /** Reasoning trace extracted from <think>...</think> blocks (assistant only) */
+  /** Reasoning trace extracted from  think... think blocks (assistant only) */
   thinking?: string;
   /** Subagent / tool activity log */
   activity?: Array<{ type: string; name?: string; detail?: string }>;
+  /** Tool calls invoked while producing this message, in order */
+  toolCalls?: ChatToolCall[];
   /** Streaming: true while this message is still being received */
   streaming?: boolean;
   ts: number;
@@ -255,6 +277,16 @@ class ChatStoreImpl {
                 }
                 this.toolPhaseCount += 1;
                 this.toolPhaseActive = true;
+                // Capture the tool call into the assistant message so the UI can render it
+                const calls = this._getToolCalls(assistantId);
+                calls.push({
+                  name: payload.tool_name || payload.name || 'unknown_tool',
+                  id: payload.tool_call_id || payload.id,
+                  args: payload.args || payload.arguments || payload.input,
+                  status: 'running',
+                  startedAt: Date.now(),
+                });
+                this._updateMessage(assistantId, { toolCalls: calls });
                 break;
               }
 
@@ -263,6 +295,54 @@ class ChatStoreImpl {
                 if (this.toolPhaseCount <= 0) {
                   this.toolPhaseCount = 0;
                   this.toolPhaseActive = false;
+                }
+                // Mark the matching tool call as completed/error
+                const calls = this._getToolCalls(assistantId);
+                const targetName = payload.tool_name || payload.name;
+                const targetId = payload.tool_call_id || payload.id;
+                // Find the last running call that matches (by id, then by name)
+                const lastIdx: number = (() => {
+                  for (let i = calls.length - 1; i >= 0; i--) {
+                    const c = calls[i];
+                    if (c.status !== 'running') continue;
+                    if (targetId && c.id === targetId) return i;
+                    if (targetName && c.name === targetName) return i;
+                    if (!targetId && !targetName) return i;
+                  }
+                  return -1;
+                })();
+                if (lastIdx >= 0) {
+                  const tc = calls[lastIdx];
+                  const hasError = !!payload.error;
+                  calls[lastIdx] = {
+                    ...tc,
+                    status: hasError ? 'error' : 'completed',
+                    result: payload.output ?? payload.result ?? tc.result,
+                    error: payload.error,
+                    endedAt: Date.now(),
+                  };
+                  this._updateMessage(assistantId, { toolCalls: [...calls] });
+                }
+                break;
+              }
+
+              case 'tool_error': {
+                // Optional explicit error event
+                const calls = this._getToolCalls(assistantId);
+                const targetName = payload.tool_name || payload.name;
+                let idx = -1;
+                for (let i = calls.length - 1; i >= 0; i--) {
+                  if (calls[i].status !== 'running') continue;
+                  if (!targetName || calls[i].name === targetName) { idx = i; break; }
+                }
+                if (idx >= 0) {
+                  calls[idx] = {
+                    ...calls[idx],
+                    status: 'error',
+                    error: payload.error || payload.message,
+                    endedAt: Date.now(),
+                  };
+                  this._updateMessage(assistantId, { toolCalls: [...calls] });
                 }
                 break;
               }
@@ -344,6 +424,15 @@ class ChatStoreImpl {
       m.id === id ? { ...m, ...patch } : m,
     );
     this.emit();
+  }
+
+  /**
+   * Get the current toolCalls array for a message id, or [] if none yet.
+   * Returns a fresh copy so callers can mutate it safely.
+   */
+  private _getToolCalls(id: string): ChatToolCall[] {
+    const m = this.messages.find(x => x.id === id);
+    return m?.toolCalls ? [...m.toolCalls] : [];
   }
 }
 
