@@ -7,9 +7,11 @@
 import { useState, useRef, useCallback, type ReactNode } from 'react';
 import { useLayoutState } from './useLayout';
 import { useLayoutTokens } from './tokens';
-import { MessageSquare, Settings, X, Send, Trash2, Copy, Download, RotateCw, Brain, ChevronDown, ChevronRight } from 'lucide-react';
+import { MessageSquare, FileText, Settings, X, Send, Trash2, Copy, Download, RotateCw, Brain, ChevronDown, ChevronRight } from 'lucide-react';
 import { chatStore, useChatMessages } from './chatStore';
 import apiClient from '../../lib/api-client';
+import DocChatPanel from '../../features/knowledge/ui/DocChatPanel';
+import { useProject } from '../../contexts/ProjectContext';
 
 /**
  * Strip <think>...</think> blocks from an LLM response.
@@ -33,7 +35,7 @@ const SIDEBAR_MAX_WIDTH = 800;
 export default function NodeSidebar({ children }: NodeSidebarProps) {
   const { rightPanelOpen, rightPanelContent, closeRightPanel, rightPanelWidth, setRightPanelWidth } = useLayoutState();
   const t = useLayoutTokens();
-  const [localTab, setLocalTab] = useState<'chat' | 'properties'>('chat');
+  const [localTab, setLocalTab] = useState<'chat' | 'properties' | 'doc-chat'>('chat');
 
   // Resize drag (drag from the LEFT edge of the sidebar to resize wider/narrower)
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -64,8 +66,9 @@ export default function NodeSidebar({ children }: NodeSidebarProps) {
   // When a node is selected (rightPanelContent set), switch to Properties tab
   const activeTab = rightPanelContent ? 'properties' : localTab;
 
-  const tabs: { id: 'chat' | 'properties'; label: string; icon: React.ReactNode }[] = [
+  const tabs: { id: 'chat' | 'properties' | 'doc-chat'; label: string; icon: React.ReactNode }[] = [
     { id: 'chat', label: 'Chat', icon: <MessageSquare size={13} /> },
+    { id: 'doc-chat', label: 'Doc Chat', icon: <FileText size={13} /> },
     ...(rightPanelContent ? [{ id: 'properties' as const, label: 'Properties', icon: <Settings size={13} /> }] : []),
   ];
 
@@ -166,6 +169,7 @@ export default function NodeSidebar({ children }: NodeSidebarProps) {
       <div style={{ flex: 1, overflow: 'auto' }}>
         {activeTab === 'properties' && (children ?? <DefaultNodePanel />)}
         {activeTab === 'chat' && <ChatSidebar t={t} />}
+        {activeTab === 'doc-chat' && <DocChatSidebar />}
       </div>
       </div>
     </div>
@@ -309,6 +313,26 @@ function ChatSidebar({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
           <Send size={12} />
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── Doc Chat sidebar content ────────────────────────────
+
+function DocChatSidebar() {
+  const { tabs, activeTabId } = useLayoutState();
+  const { activeProjectId } = useProject();
+
+  // Derive folderPath and projectId from the active knowledge-view tab
+  const activeKbTab = tabs.find(
+    (tab) => tab.id === activeTabId && tab.viewType === 'knowledge-view',
+  );
+  const folderPath = activeKbTab?.data?.folderPath ?? '';
+  const projectId = activeKbTab?.data?.projectId ?? activeProjectId ?? 1;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <DocChatPanel folderPath={folderPath} projectId={projectId} />
     </div>
   );
 }
