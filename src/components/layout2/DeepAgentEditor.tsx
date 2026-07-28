@@ -14,7 +14,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useLayoutTokens } from './tokens';
 import {
   Info, FileText, Wrench, Users, Layers, Shield, Code, ChevronDown, ChevronRight,
-  Play, Square, Loader, Save,
+  Play, Square, Loader, Save, Award,
 } from 'lucide-react';
 import type { Tab } from './useLayout';
 import { chatStore } from './chatStore';
@@ -26,12 +26,13 @@ interface DeepAgentEditorProps {
   tab: Tab;
 }
 
-type SectionId = 'overview' | 'prompt' | 'tools' | 'subagents' | 'middleware' | 'guardrails' | 'json';
+type SectionId = 'overview' | 'prompt' | 'tools' | 'skills' | 'subagents' | 'middleware' | 'guardrails' | 'json';
 
 const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
   { id: 'overview',   label: 'Overview',   icon: <Info size={13} /> },
   { id: 'prompt',     label: 'Prompt',     icon: <FileText size={13} /> },
   { id: 'tools',      label: 'Tools',      icon: <Wrench size={13} /> },
+  { id: 'skills',     label: 'Skills',     icon: <Award size={13} /> },
   { id: 'subagents',  label: 'Subagents',  icon: <Users size={13} /> },
   { id: 'middleware', label: 'Middleware', icon: <Layers size={13} /> },
   { id: 'guardrails', label: 'Guardrails', icon: <Shield size={13} /> },
@@ -53,6 +54,32 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const [jsonEdit, setJsonEdit] = useState(() => JSON.stringify(agent, null, 2));
   // Editable model — synced from config, updates jsonEdit on change
   const [editableModel, setEditableModel] = useState(config.model || '');
+
+  // ── Skills state ──
+  const [skillDetails, setSkillDetails] = useState<Record<string, any>>({});
+  const [skillsLoading, setSkillsLoading] = useState(false);
+
+  // Fetch skill details for skills in config.skills
+  useEffect(() => {
+    const skillNames = config.skills || [];
+    if (skillNames.length === 0) return;
+    let cancelled = false;
+    setSkillsLoading(true);
+    Promise.all(
+      skillNames.map((s: string) =>
+        apiClient.getSkill(s).then(res => ({ id: s, data: res.data })).catch(() => ({ id: s, data: null }))
+      )
+    ).then(results => {
+      if (cancelled) return;
+      const map: Record<string, any> = {};
+      for (const r of results) {
+        if (r.data) map[r.id] = r.data;
+      }
+      setSkillDetails(map);
+      setSkillsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [config.skills]);
 
   // ── Tools state (interactive picker) ──
   const { isLoading: toolsLoading, groupedByCategory } = useAvailableTools();
@@ -199,12 +226,51 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     <div style={{ padding: 4 }}>
       <div style={cardStyle}>
         <div style={labelStyle}>Name</div>
-        <div style={{ ...valueStyle, fontSize: 18, fontWeight: 600 }}>{agent.name || '—'}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ ...valueStyle, fontSize: 18, fontWeight: 600 }}>{agent.name || '—'}</span>
+          {agent.id && (
+            <span style={{
+              fontSize: 11, color: t.textMuted, fontFamily: 'monospace',
+              background: t.bgHover, padding: '1px 6px', borderRadius: 3,
+              border: `1px solid ${t.border}`,
+            }}>
+              #{agent.id}
+            </span>
+          )}
+        </div>
       </div>
       <div style={cardStyle}>
         <div style={labelStyle}>Description</div>
         <div style={valueStyle}>{agent.description || '—'}</div>
       </div>
+      {/* Skills */}
+      {config.skills && config.skills.length > 0 && (
+        <div style={cardStyle}>
+          <div style={labelStyle}>Skills ({config.skills.length})</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {config.skills.map((skill: string, i: number) => (
+              <span
+                key={i}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '3px 10px',
+                  background: t.accent + '18',
+                  border: `1px solid ${t.accent}40`,
+                  borderRadius: 12,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: t.accent,
+                  fontFamily: 'monospace',
+                }}
+              >
+                {skill}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <div style={cardStyle}>
           <div style={labelStyle}>Category</div>
@@ -438,6 +504,148 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     );
   };
 
+  // ── Skills section ──
+  const renderSkills = () => {
+    const skillNames = config.skills || [];
+    if (skillNames.length === 0) {
+      return (
+        <div style={{ padding: 4 }}>
+          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>(no skills configured)</div>
+        </div>
+      );
+    }
+    return (
+      <div style={{ padding: 4 }}>
+        {skillNames.map((skillId: string) => {
+          const detail = skillDetails[skillId];
+          return (
+            <div key={skillId} style={cardStyle}>
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Award size={16} style={{ color: t.accent, flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary }}>
+                    {detail?.name || skillId}
+                  </div>
+                  {detail && (
+                    <div style={{ fontSize: 11, color: t.textMuted }}>
+                      v{detail.version || '?'} · {detail.source_type}
+                    </div>
+                  )}
+                </div>
+                {skillsLoading && !detail && (
+                  <Loader size={12} style={{ animation: 'spin 1s linear infinite', color: t.textMuted }} />
+                )}
+              </div>
+
+              {/* Description */}
+              {detail?.description && (
+                <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginBottom: 8 }}>
+                  {detail.description}
+                </div>
+              )}
+
+              {/* Tags */}
+              {detail?.tags && detail.tags.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                  {detail.tags.map((tag: string) => (
+                    <span key={tag} style={{
+                      fontSize: 10, padding: '1px 6px', borderRadius: 8,
+                      background: t.bgHover, border: `1px solid ${t.border}`,
+                      color: t.textMuted,
+                    }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Triggers */}
+              {detail?.triggers && detail.triggers.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', marginBottom: 4 }}>
+                    Triggers
+                  </div>
+                  {detail.triggers.map((tr: string, i: number) => (
+                    <div key={i} style={{ fontSize: 11, color: t.textPrimary, fontFamily: 'monospace', paddingLeft: 8 }}>
+                      • {tr}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Allowed Tools */}
+              {detail?.allowed_tools && detail.allowed_tools.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', marginBottom: 4 }}>
+                    Allowed Tools
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {detail.allowed_tools.map((tool: string) => (
+                      <span key={tool} style={{
+                        fontSize: 11, padding: '2px 6px', borderRadius: 3,
+                        background: t.accent + '18', border: `1px solid ${t.accent}40`,
+                        color: t.accent, fontFamily: 'monospace',
+                      }}>
+                        {tool}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Instructions (collapsible) */}
+              {detail?.instructions && (
+                <details style={{ marginTop: 8 }}>
+                  <summary style={{
+                    fontSize: 11, color: t.textMuted, cursor: 'pointer',
+                    userSelect: 'none',
+                  }}>
+                    View Instructions ({detail.instructions.length} chars)
+                  </summary>
+                  <pre style={{
+                    whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                    fontFamily: '"SF Mono", "Fira Code", monospace',
+                    fontSize: 11, color: t.textPrimary,
+                    lineHeight: 1.5, margin: '6px 0 0 0',
+                  }}>
+                    {detail.instructions}
+                  </pre>
+                </details>
+              )}
+
+              {/* Copy / Download row */}
+              {detail && (
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  <button onClick={async () => {
+                    const text = `# ${detail.name || skillId}\n\n${detail.description || ''}\n\n## Instructions\n\n${detail.instructions || ''}`;
+                    await navigator.clipboard.writeText(text);
+                  }} style={{
+                    fontSize: 11, height: 24, padding: '0 8px',
+                    background: t.bgHover, border: `1px solid ${t.border}`,
+                    borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
+                  }}>Copy</button>
+                  <button onClick={() => {
+                    const text = `# ${detail.name || skillId}\n\n${detail.description || ''}\n\n## Tags\n${(detail.tags || []).join(', ')}\n\n## Instructions\n\n${detail.instructions || ''}`;
+                    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url;
+                    a.download = `${skillId}.md`; a.click();
+                    URL.revokeObjectURL(url);
+                  }} style={{
+                    fontSize: 11, height: 24, padding: '0 8px',
+                    background: t.bgHover, border: `1px solid ${t.border}`,
+                    borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
+                  }}>Download</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // ── Subagents section ──
   const renderSubagents = () => {
     // Try multiple data locations (DB-level, normalized config, etc.)
@@ -445,7 +653,6 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       agent.subagents ||
       agent.subagents_config ||
       agent.config?.subagents ||
-      agent.config?.skills ||
       [];
     if (subs.length === 0) {
       return (
@@ -614,6 +821,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     overview:   renderOverview,
     prompt:     renderPrompt,
     tools:      renderTools,
+    skills:     renderSkills,
     subagents:  renderSubagents,
     middleware: renderMiddleware,
     guardrails: renderGuardrails,
@@ -782,8 +990,18 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
             fontWeight: 600,
             color: t.textPrimary,
             margin: '0 0 12px 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
           }}>
             {agent.name || 'DeepAgent'}
+            {agent.id && (
+              <span style={{
+                fontSize: 11, fontWeight: 400, color: t.textMuted, fontFamily: 'monospace',
+              }}>
+                #{agent.id}
+              </span>
+            )}
           </h2>
           {sections[activeSection]()}
 

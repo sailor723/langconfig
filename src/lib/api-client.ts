@@ -586,6 +586,51 @@ class APIClient {
     return this.client.delete(`/api/rag/documents/${id}`);
   }
 
+  // ── KV Document Store (simple file-based, no DB) ─────────────
+
+  /**
+   * List documents from the KV store (file-based, no PostgreSQL/Neo4j).
+   */
+  async listKVDocuments(config: { project_id: number }) {
+    return this.client.get('/api/kv/documents', { params: config });
+  }
+
+  /**
+   * Upload files to the KV store.
+   */
+  async uploadKVDocumentsBulk(
+    projectId: number,
+    files: File[],
+    fileMetadata?: Array<{
+      industry?: string;
+      player?: string;
+      sub_category?: string;
+      sub_department?: string;
+    }>
+  ) {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+    formData.append('project_id', projectId.toString());
+    if (fileMetadata && fileMetadata.length > 0) {
+      formData.append('file_metadata', JSON.stringify(fileMetadata));
+    }
+    return this.client.post('/api/kv/upload-bulk', formData);
+  }
+
+  /**
+   * Ingest a folder from the server's disk into the KV store.
+   */
+  async ingestKVDocumentFolder(params: { project_id: number; folder_path: string }) {
+    return this.client.post('/api/kv/ingest-folder', params);
+  }
+
+  /**
+   * Delete a document from the KV store.
+   */
+  async deleteKVDocument(docId: string, projectId: number) {
+    return this.client.delete(`/api/kv/documents/${docId}?project_id=${projectId}`);
+  }
+
   async searchDocuments(data: {
     query: string;
     project_id: number;
@@ -1353,6 +1398,40 @@ class APIClient {
     return this.client.post('/api/triggers/validate-path', null, {
       params: { path }
     });
+  }
+
+  // =============================================================================
+  // Skills API
+  // =============================================================================
+
+  /**
+   * List all available skills with optional filtering.
+   */
+  async listSkills(config?: { source_type?: string; tag?: string; search?: string; signal?: AbortSignal }) {
+    const { signal, ...params } = config || {};
+    const cleanParams = Object.fromEntries(Object.entries(params).filter(([_, v]) => v !== undefined));
+    return this.client.get('/api/skills', { params: Object.keys(cleanParams).length ? cleanParams : undefined, signal });
+  }
+
+  /**
+   * Get detailed information for a specific skill.
+   */
+  async getSkill(skillId: string) {
+    return this.client.get(`/api/skills/${skillId}`);
+  }
+
+  /**
+   * List files in a skill's source directory.
+   */
+  async getSkillFiles(skillId: string) {
+    return this.client.get(`/api/skills/${skillId}/files`);
+  }
+
+  /**
+   * Read a single file's content from a skill's source directory.
+   */
+  async readSkillFile(skillId: string, filePath: string) {
+    return this.client.get(`/api/skills/${skillId}/files/${filePath}`);
   }
 }
 

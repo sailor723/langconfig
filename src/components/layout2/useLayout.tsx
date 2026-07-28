@@ -15,12 +15,14 @@ export type ActivityId =
   | 'agents'
   | 'deepagents'
   | 'tools'
+  | 'knowledge'
   | 'library'
   | 'analysis'
   | 'settings'
   | 'studio'
   | 'models'
-  | 'search';
+  | 'search'
+  | 'skills';
 
 export interface ActivityDef {
   id: ActivityId;
@@ -33,10 +35,12 @@ export const ACTIVITIES: ActivityDef[] = [
   { id: 'deepagents', label: 'DeepAgents', icon: 'Brain' },
   { id: 'agents',     label: 'Agents',     icon: 'Users' },
   { id: 'tools',      label: 'Tools',      icon: 'Wrench' },
+  { id: 'knowledge',  label: 'Knowledge',  icon: 'Database' },
   { id: 'models',     label: 'Models',     icon: 'Sparkles' },
   { id: 'search',     label: 'Search',     icon: 'Search' },
   { id: 'library',    label: 'Library',    icon: 'BookOpen' },
   { id: 'analysis',   label: 'Analysis',   icon: 'BarChart3' },
+  { id: 'skills',     label: 'Skills',     icon: 'Award' },
   { id: 'studio',     label: 'Studio',     icon: 'Network' },
   { id: 'settings',   label: 'Settings',   icon: 'Settings' },
 ];
@@ -83,9 +87,11 @@ export interface LayoutState {
   rightPanelOpen: boolean;
   rightPanelContent: string | null;
   rightPanelWidth: number;
+  rightPanelTab: 'chat' | 'doc-chat' | 'properties';
   setRightPanelWidth: (w: number) => void;
   openRightPanel: (content: string) => void;
   closeRightPanel: () => void;
+  setRightPanelTab: (tab: 'chat' | 'doc-chat' | 'properties') => void;
 
   // Bottom panel (VS Code "Panel" at bottom — terminal, chat, logs)
   bottomPanelOpen: boolean;
@@ -110,6 +116,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightPanelContent, setRightPanelContent] = useState<string | null>(null);
   const [rightPanelWidth, setRightPanelWidth] = useState(360);
+  const [rightPanelTab, setRightPanelTab] = useState<'chat' | 'doc-chat' | 'properties'>('chat');
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
 
   const toggleSidebar = useCallback(() => setSidebarOpen(v => !v), []);
@@ -196,15 +203,17 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     rightPanelOpen,
     rightPanelContent,
     rightPanelWidth,
+    rightPanelTab,
     setRightPanelWidth,
     openRightPanel,
     closeRightPanel,
+    setRightPanelTab,
     bottomPanelOpen,
     toggleBottomPanel,
     setBottomPanelOpen,
   }), [
     activeActivity, sidebarOpen, sidebarView, sidebarWidth, tabs, activeTabId,
-    rightPanelOpen, rightPanelContent, rightPanelWidth, bottomPanelOpen,
+    rightPanelOpen, rightPanelContent, rightPanelWidth, rightPanelTab, bottomPanelOpen,
   ]);
 
   return (

@@ -183,7 +183,7 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   skills: 'library',
   tools: 'library',
   prompt: 'library',
-  knowledge: 'library',
+  knowledge: 'knowledge',
   analysis: 'analysis',
   settings: 'settings',
   playground: 'workflows',
@@ -198,10 +198,12 @@ const ACTIVITY_TO_VIEW: Record<ActivityId, View> = {
   deepagents: 'deepagents',
   agents: 'agents',
   tools: 'tools',
+  knowledge: 'knowledge',
   models: 'models',
   search: 'search',
   library: 'library',
   analysis: 'analysis',
+  skills: 'skills',
   settings: 'settings',
   studio: 'deepagent-studio',
 };
@@ -441,7 +443,7 @@ function AppContent() {
       case 'skills': return <SkillLibrary />;
       case 'tools': return <ToolLibrary />;
       case 'prompt': return <PromptAssemblyPage />;
-      case 'knowledge': return <KnowledgeBaseView />;
+      case 'knowledge': return null; // Handled by layout2 KnowledgeSidebar + KnowledgeView
       case 'analysis': return <AnalysisPage />;
       case 'settings': return <SettingsView />;
       case 'playground': return <PlaygroundPage />;

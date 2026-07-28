@@ -41,7 +41,7 @@ export function useSidebarData(activity: string): SidebarData {
             id: `deepagent-${ag.id}`,
             label: ag.name || `DeepAgent #${ag.id}`,
             viewType: 'deepagent',
-            badge: ag.category || '',
+            badge: `#${ag.id}`,
             data: { agentId: ag.id, ...ag },
           }));
           if (children.length === 0) {
@@ -87,7 +87,7 @@ export function useSidebarData(activity: string): SidebarData {
             id: `agent-${ag.id}`,
             label: ag.name || `Agent #${ag.id}`,
             viewType: 'agent',
-            badge: ag.category || '',
+            badge: `#${ag.id}`,
             data: { agentId: ag.id, ...ag },
           }));
           if (children.length === 0) {

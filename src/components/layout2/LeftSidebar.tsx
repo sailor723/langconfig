@@ -18,6 +18,8 @@ import { Plus, FolderPlus, RefreshCw, Search, Loader } from 'lucide-react';
 import ModelCardsSidebar from './ModelCardsSidebar';
 import SearchProvidersSidebar from './SearchProvidersSidebar';
 import ToolBrowserSidebar from './ToolBrowserSidebar';
+import KnowledgeSidebar from './KnowledgeSidebar';
+import SkillBrowserSidebar from './SkillBrowserSidebar';
 
 interface LeftSidebarProps {
   children?: ReactNode;
@@ -202,6 +204,12 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
           ) : activeActivity === 'tools' ? (
             /* Tools activity renders the dedicated ToolBrowserSidebar */
             <ToolBrowserSidebar />
+          ) : activeActivity === 'knowledge' ? (
+            /* Knowledge activity renders the dedicated KnowledgeSidebar */
+            <KnowledgeSidebar />
+          ) : activeActivity === 'skills' ? (
+            /* Skills activity renders the dedicated SkillBrowserSidebar */
+            <SkillBrowserSidebar />
           ) : loading ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', fontSize: 13, color: t.textMuted }}>
               <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
