@@ -221,6 +221,7 @@ manage their own internal scroll without the page itself ever scrolling:
 | Sparkles | **Models** | `GET /api/agents/available-models` | **Phase 15 — new** |
 | Globe | **Search** | `GET /api/search-providers/` | **Phase 16 — new** |
 | BookOpen | Library | `GET /api/skills/` + tools | Pending |
+| Wrench | **Tools** | `GET /api/tools/registry` — grouped by category | **Phase 16 — new** |
 | BarChart3 | Analysis | TBD | Pending |
 | Settings | Settings | — | Hidden (no sidebar) |
 
@@ -330,7 +331,7 @@ appends the new assistant reply.
 
 ## Next Steps
 
-- Phase 16: Agents / Skills / Tools sidebar categories (real backend integration)
+- Phase 16: Skills / Library sidebar categories (real backend integration)
 - Phase 17: Monaco editor for the JSON tab
 - Phase 18: Workflow canvas integration into Workspace
 - Phase 19: Real terminal emulator (xterm.js) for the Terminal tab

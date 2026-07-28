@@ -14,6 +14,7 @@ import { Info, FileText, Wrench, Code, Play, Square, Loader, Save } from 'lucide
 import type { Tab } from './useLayout';
 import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
+import { useAvailableTools } from '../../hooks/useAvailableTools';
 import apiClient from '../../lib/api-client';
 
 interface AgentEditorProps {
@@ -54,6 +55,35 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       ? 'You are a helpful AI assistant. Be concise and accurate. When you are unsure, admit it rather than guessing.'
       : '')
   );
+
+  // ── Tools state ──
+  const { isLoading: toolsLoading, groupedByCategory } = useAvailableTools();
+  const [availableCustomTools, setAvailableCustomTools] = useState<
+    { id: number; tool_id: string; name: string; description: string }[]
+  >([]);
+  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(config.native_tools || []);
+  const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(config.custom_tools || []);
+
+  // Fetch custom tools list for the tool picker
+  useEffect(() => {
+    let cancelled = false;
+    apiClient.listCustomTools().then((res: any) => {
+      if (!cancelled && res?.data) setAvailableCustomTools(res.data);
+    }).catch(() => {/* custom tools are optional */});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Toggle helpers
+  const toggleNativeTool = useCallback((toolId: string) => {
+    setSelectedNativeTools(prev =>
+      prev.includes(toolId) ? prev.filter(t => t !== toolId) : [...prev, toolId]
+    );
+  }, []);
+  const toggleCustomTool = useCallback((toolId: string) => {
+    setSelectedCustomTools(prev =>
+      prev.includes(toolId) ? prev.filter(t => t !== toolId) : [...prev, toolId]
+    );
+  }, []);
 
   // For new agents, fetch default model from DB settings
   useEffect(() => {
@@ -152,9 +182,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
       const jsonConfig = payload.config || {};
       const fullConfig = {
         // Defaults for normal agents
-        native_tools: [],
         cli_tools: [],
-        custom_tools: [],
         tools: [],
         skills: [],
         middleware: [],
@@ -164,6 +192,9 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         use_deepagents: false,
         // JSON-tab overrides
         ...jsonConfig,
+        // Tool picker always wins over JSON tab for tool selection
+        native_tools: selectedNativeTools,
+        custom_tools: selectedCustomTools,
         // Form fields always win — the UI is the source of truth
         system_prompt: trimmedPrompt,
         model: editableModel || null,
@@ -370,42 +401,142 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     </div>
   );
 
-  // ── Tools section ──
+  // ── Tools section (interactive picker) ──
   const renderTools = () => {
-    const native = config.native_tools || [];
-    const cli = config.cli_tools || [];
-    const custom = config.custom_tools || [];
-    const groups = [
-      { label: 'Native Tools', items: native },
-      { label: 'CLI Tools', items: cli },
-      { label: 'Custom Tools', items: custom },
-    ];
+    const nativeCount = selectedNativeTools.length;
+    const customCount = selectedCustomTools.length;
+    const totalCount = nativeCount + customCount;
+    const allNativeLoaded = Object.values(groupedByCategory).flat();
+    // Reusable tool card (matches ModelCardsGridTab style)
+    const toolCard = (
+      tool: { id: string; name: string; description: string },
+      checked: boolean,
+      onToggle: () => void,
+    ) => (
+      <label
+        key={tool.id}
+        style={{
+          display: 'flex', flexDirection: 'column', gap: 6,
+          padding: 10, borderRadius: 6, cursor: 'pointer',
+          border: `1px solid ${t.border}`,
+          background: t.bgSidebar,
+          minHeight: 80,
+          boxSizing: 'border-box',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={onToggle}
+            style={{ accentColor: t.accent, flexShrink: 0, marginTop: 2 }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              color: t.textPrimary, fontWeight: 600, fontSize: 12,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {tool.name}
+            </div>
+            <div style={{
+              fontSize: 10, color: t.textMuted, fontFamily: 'monospace',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {tool.id}
+            </div>
+          </div>
+        </div>
+        <div style={{
+          fontSize: 11, color: t.textMuted, lineHeight: 1.4,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}>
+          {tool.description}
+        </div>
+      </label>
+    );
     return (
       <div style={{ padding: 4 }}>
-        {groups.map(g => (
-          <div key={g.label} style={cardStyle}>
-            <div style={labelStyle}>{g.label} ({g.items.length})</div>
-            {g.items.length === 0 ? (
-              <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>(none)</div>
-            ) : (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {g.items.map((tool: string, i: number) => (
-                  <span key={i} style={{
-                    fontSize: 11,
-                    padding: '3px 8px',
-                    background: t.bgHover,
-                    border: `1px solid ${t.border}`,
-                    borderRadius: 3,
-                    color: t.textPrimary,
-                    fontFamily: 'monospace',
-                  }}>
-                    {tool}
-                  </span>
-                ))}
-              </div>
-            )}
+        {/* Native tools grouped by category */}
+        <div style={cardStyle}>
+          <div style={labelStyle}>
+            Native Tools ({nativeCount}/{allNativeLoaded.length} selected)
           </div>
-        ))}
+          {toolsLoading ? (
+            <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>Loading tools...</div>
+          ) : allNativeLoaded.length === 0 ? (
+            <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>(none available)</div>
+          ) : (
+            Object.entries(groupedByCategory).map(([cat, tools]) => (
+              <div key={cat} style={{ marginBottom: 10 }}>
+                <div style={{
+                  fontSize: 10, color: t.textMuted, textTransform: 'uppercase',
+                  letterSpacing: 0.3, marginBottom: 6, fontWeight: 600,
+                }}>
+                  {cat}
+                </div>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: 8,
+                }}>
+                  {tools.map(tool => toolCard(
+                    tool,
+                    selectedNativeTools.includes(tool.id),
+                    () => toggleNativeTool(tool.id),
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Custom tools */}
+        <div style={cardStyle}>
+          <div style={labelStyle}>
+            Custom Tools ({customCount}/{availableCustomTools.length} selected)
+          </div>
+          {availableCustomTools.length === 0 ? (
+            <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>
+              (no custom tools — create one in the Tools activity)
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: 8,
+            }}>
+              {availableCustomTools.map(tool => toolCard(
+                { id: tool.tool_id, name: tool.name, description: tool.description },
+                selectedCustomTools.includes(tool.tool_id),
+                () => toggleCustomTool(tool.tool_id),
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Quick summary of selected tools as chips */}
+        {totalCount > 0 && (
+          <div style={cardStyle}>
+            <div style={labelStyle}>Selected ({totalCount})</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {selectedNativeTools.map(id => (
+                <span key={`n-${id}`} style={{
+                  fontSize: 11, padding: '2px 6px', background: t.bgHover,
+                  border: `1px solid ${t.border}`, borderRadius: 3,
+                  color: t.textPrimary, fontFamily: 'monospace',
+                }}>{id}</span>
+              ))}
+              {selectedCustomTools.map(id => (
+                <span key={`c-${id}`} style={{
+                  fontSize: 11, padding: '2px 6px', background: t.bgHover,
+                  border: `1px solid ${t.accent}40`, borderRadius: 3,
+                  color: t.textPrimary, fontFamily: 'monospace',
+                }}>{id}</span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };

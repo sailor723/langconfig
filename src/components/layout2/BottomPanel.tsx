@@ -220,6 +220,86 @@ function ExecutionContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
                 {msg.meta.toolCalls != null && <span>tools: {msg.meta.toolCalls}</span>}
               </div>
             )}
+            {/* Tool call cards — populated from SSE tool_start/tool_end events */}
+            {msg.toolCalls && msg.toolCalls.length > 0 && (
+              <div style={{ marginTop: 6, marginLeft: 68, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {msg.toolCalls.map((tc, j) => (
+                  <div key={`${msg.id}-tc-${j}`} style={{
+                    border: `1px solid ${
+                      tc.status === 'running' ? '#3b82f6'
+                      : tc.status === 'error' ? '#ef4444'
+                      : t.border
+                    }`,
+                    background: t.bgSidebar,
+                    borderRadius: 4,
+                    padding: '4px 8px',
+                    fontSize: 11,
+                    display: 'flex', flexDirection: 'column', gap: 3,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{
+                        color: tc.status === 'running' ? '#3b82f6'
+                          : tc.status === 'error' ? '#ef4444'
+                          : '#10b981',
+                        flexShrink: 0, fontSize: 13,
+                      }}>
+                        {tc.status === 'running' ? '⟳' : tc.status === 'error' ? '✗' : '✓'}
+                      </span>
+                      <span style={{ fontFamily: 'monospace', color: t.textPrimary, fontWeight: 600 }}>
+                        {tc.name}
+                      </span>
+                      {tc.endedAt && tc.startedAt && (
+                        <span style={{ marginLeft: 'auto', color: t.textMuted, fontSize: 10 }}>
+                          {tc.endedAt - tc.startedAt}ms
+                        </span>
+                      )}
+                      {tc.status === 'running' && (
+                        <span style={{ marginLeft: 'auto', color: '#3b82f6', fontSize: 10 }}>
+                          running…
+                        </span>
+                      )}
+                    </div>
+                    {tc.args && Object.keys(tc.args).length > 0 && (
+                      <div style={{
+                        fontFamily: '"SF Mono", "Fira Code", monospace',
+                        color: t.textMuted,
+                        paddingLeft: 18,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        overflow: 'hidden',
+                        maxHeight: 60,
+                      }}>
+                        {JSON.stringify(tc.args)}
+                      </div>
+                    )}
+                    {tc.result && (
+                      <div style={{
+                        fontFamily: '"SF Mono", "Fira Code", monospace',
+                        color: tc.status === 'error' ? '#fca5a5' : t.textPrimary,
+                        paddingLeft: 18,
+                        paddingTop: 2,
+                        borderTop: `1px dashed ${t.border}`,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        overflow: 'hidden',
+                        maxHeight: 80,
+                      }}>
+                        {tc.result}
+                      </div>
+                    )}
+                    {tc.error && tc.status === 'error' && !tc.result && (
+                      <div style={{
+                        fontFamily: '"SF Mono", "Fira Code", monospace',
+                        color: '#fca5a5',
+                        paddingLeft: 18,
+                      }}>
+                        {tc.error}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))
       )}
