@@ -16,7 +16,7 @@ import {
   Info, FileText, Wrench, Users, Layers, Shield, Code, ChevronDown, ChevronRight,
   Play, Square, Loader, Save, Award,
 } from 'lucide-react';
-import type { Tab } from './useLayout';
+import { useLayoutState, type Tab } from './useLayout';
 import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
 import { useAvailableTools } from '../../hooks/useAvailableTools';
@@ -41,6 +41,7 @@ const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
 
 export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const t = useLayoutTokens();
+  const { closeRightPanel, setRightPanelOpen } = useLayoutState();
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
@@ -129,6 +130,9 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const handleRun = async () => {
     if (!agent.id || running) return;
     setRunning(true);
+    // Ensure the right-panel Chat tab is open, so the user sees responses as they stream in
+    closeRightPanel();   // clear any node-config content → Chat tab becomes the active tab
+    setRightPanelOpen(true);
     try {
       // Use SSE streaming — chatStore handles session start + message send + incremental updates
       await chatStore.sendStreamMessage(agent.id, testPrompt, agent.name ?? 'DeepAgent');

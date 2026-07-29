@@ -10,7 +10,7 @@
  * Settings opens a popover (mirroring agent-workspace) instead of navigating.
  */
 import { useState, useRef } from 'react';
-import { useLayoutState, ACTIVITIES, type ActivityId } from './useLayout';
+import { useLayoutState, ACTIVITIES, type ActivityDef, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
   GitBranch, Brain, Users, BookOpen, BarChart3, Network, Settings, Sparkles, Globe, Wrench, Database, Award, MessageSquare, type LucideIcon,
@@ -32,7 +32,61 @@ const ICON_MAP: Record<ActivityId, LucideIcon> = {
   settings:   Settings,
 };
 
-const MAIN_ACTIVITIES = ACTIVITIES.filter(a => a.id !== 'settings');
+// Activity groups are declared on each ActivityDef.group; we split
+// here so we can render them in two visual clusters inside the bar.
+const MAIN_ACTIVITIES = ACTIVITIES.filter(a => a.group === 'main' && a.id !== 'settings');
+const BOTTOM_ACTIVITIES = ACTIVITIES.filter(a => a.group === 'bottom' && a.id !== 'settings');
+
+interface ActivityButtonProps {
+  act: ActivityDef;
+  active: boolean;
+  onClick: () => void;
+}
+
+/** Single icon button in the ActivityBar — shared by main and bottom clusters
+ *  so hover/active styling stays in sync and stays uniform (48×48, icon 20). */
+function ActivityButton({ act, active, onClick }: ActivityButtonProps) {
+  const t = useLayoutTokens();
+  const Icon = ICON_MAP[act.id];
+  return (
+    <button
+      title={act.label}
+      onClick={onClick}
+      style={{
+        width: 48,
+        height: 48,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'transparent',
+        color: active ? t.textWhite : '#6b6b6b',
+        border: 'none',
+        cursor: 'pointer',
+        position: 'relative',
+      }}
+      onMouseEnter={e => {
+        if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+      }}
+      onMouseLeave={e => {
+        if (!active) e.currentTarget.style.background = 'transparent';
+      }}
+    >
+      {active && (
+        <span
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 8,
+            bottom: 8,
+            width: 2,
+            background: t.textWhite,
+          }}
+        />
+      )}
+      <Icon size={20} strokeWidth={active ? 2 : 1.5} />
+    </button>
+  );
+}
 
 interface ActivityBarProps {
   /** Called after an activity icon is clicked, with the clicked activity id */
@@ -63,49 +117,27 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
       }}
     >
       {/* Main activity icons */}
-      {MAIN_ACTIVITIES.map(act => {
-        const Icon = ICON_MAP[act.id];
-        const isActive = act.id === activeActivity;
-        return (
-          <button
-            key={act.id}
-            title={act.label}
-            onClick={() => handleActivityClick(act.id)}
-            style={{
-              width: 48,
-              height: 48,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'transparent',
-              color: isActive ? t.textWhite : '#6b6b6b',
-              border: 'none',
-              cursor: 'pointer',
-              position: 'relative',
-            }}
-            onMouseEnter={e => {
-              if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-            }}
-            onMouseLeave={e => {
-              if (!isActive) e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            {isActive && (
-              <span
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 8,
-                  bottom: 8,
-                  width: 2,
-                  background: t.textWhite,
-                }}
-              />
-            )}
-            <Icon size={20} strokeWidth={isActive ? 2 : 1.5} />
-          </button>
-        );
-      })}
+      {MAIN_ACTIVITIES.map(act => (
+        <ActivityButton
+          key={act.id}
+          act={act}
+          active={act.id === activeActivity}
+          onClick={() => handleActivityClick(act.id)}
+        />
+      ))}
+
+      {/* Separator before settings-related activities */}
+      <div style={{ width: 28, height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 0' }} />
+
+      {/* Bottom activities — Models, Search (settings-like, not core activities) */}
+      {BOTTOM_ACTIVITIES.map(act => (
+        <ActivityButton
+          key={act.id}
+          act={act}
+          active={act.id === activeActivity}
+          onClick={() => handleActivityClick(act.id)}
+        />
+      ))}
 
       <div style={{ flex: 1 }} />
 

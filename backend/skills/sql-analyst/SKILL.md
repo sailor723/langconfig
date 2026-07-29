@@ -27,7 +27,7 @@ author: system
 | customer_tier | TEXT | 客户等级：gold / silver / bronze | GROUP BY 分层分析 |
 | customer_country | TEXT | 客户国家：China / Korea / Japan | GROUP BY 区域分析 |
 | product_name | TEXT | 产品名称 | 明细分析 |
-| category | TEXT | 产品类别：Software / Hardware / Infrastructure | GROUP BY 品类分析 |
+| category | TEXT | 产品类别：Software / Hardware / Infrastructure | GROUP BY 品类分析 | 
 | order_date | TEXT (YYYY-MM-DD) | 订单日期 | 时间趋势、日期计算 |
 | status | TEXT | 订单状态：completed / pending / cancelled | **收入统计必须过滤 status='completed'** |
 | quantity | INTEGER | 购买数量 | SUM 总量、AVG 均量 |

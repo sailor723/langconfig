@@ -11,7 +11,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useLayoutTokens } from './tokens';
 import { Info, FileText, Wrench, Code, Play, Square, Loader, Save, Award } from 'lucide-react';
-import type { Tab } from './useLayout';
+import { useLayoutState, type Tab } from './useLayout';
 import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
 import { useAvailableTools } from '../../hooks/useAvailableTools';
@@ -33,6 +33,7 @@ const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
 
 export default function AgentEditor({ tab }: AgentEditorProps) {
   const t = useLayoutTokens();
+  const { closeRightPanel, setRightPanelOpen } = useLayoutState();
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
   const isNew = agent.new === true;
@@ -181,6 +182,9 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const handleRun = async () => {
     if (!localAgentId || running) return;
     setRunning(true);
+    // Ensure the right-panel Chat tab is open, so the user sees responses as they stream in
+    closeRightPanel();   // clear any node-config content → Chat tab becomes the active tab
+    setRightPanelOpen(true);
     try {
       await chatStore.sendStreamMessage(localAgentId, testPrompt, editableName || 'Agent');
     } catch (err: any) {
