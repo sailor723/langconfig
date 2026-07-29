@@ -69,10 +69,9 @@ export default function CodexMessageInput({
 
   return (
     <div
-      className="rounded-2xl border shadow-sm overflow-hidden transition-colors"
+      className="rounded-2xl overflow-hidden transition-colors"
       style={{
         backgroundColor: 'var(--color-input-background, #ffffff)',
-        borderColor: 'var(--color-border-dark, #e5e7eb)',
       }}
     >
       {/* Textarea */}
@@ -129,9 +128,8 @@ export default function CodexMessageInput({
       {/* Footer row (project badge, environment) */}
       {agentName && (
         <div
-          className="flex items-center gap-3 px-3 py-1.5 border-t text-[11px]"
+          className="flex items-center gap-3 px-3 py-1.5 text-[11px]"
           style={{
-            borderColor: 'var(--color-border-dark, #e5e7eb)',
             color: 'var(--color-text-muted)',
           }}
         >

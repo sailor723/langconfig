@@ -7,9 +7,9 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { X, GripVertical, BarChart3, FileText, Sun, Moon } from 'lucide-react';
+import { X, GripVertical, BarChart3, FileText } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
-import { useTheme, type ThemeName } from '../../../lib/themes';
+import { themes, type ThemeName } from '../../../lib/themes';
 import HitlInterruptModal from './HitlInterruptModal';
 import ContextPanel from './ContextPanel';
 import { useChatSession } from '../hooks/useChatSession';
@@ -30,7 +30,6 @@ export default function ChatPage() {
   const agentIdFromUrl = searchParams.get('agentId');
 
   const { activeProjectId } = useProject();
-  const { theme, setTheme } = useTheme();
   const {
     isOpen,
     closeChat,
@@ -76,6 +75,35 @@ export default function ChatPage() {
   const [isResuming, setIsResuming] = useState(false);
   const [showMetrics, setShowMetrics] = useState(false);
   const [showContext, setShowContext] = useState(false);
+
+  // Independent chat window theme (separate from main app theme)
+  const [chatTheme, setChatTheme] = useState<ThemeName>(() => {
+    const saved = localStorage.getItem('langconfig-chat-theme');
+    return (saved && ['langconfig', 'dark', 'warm'].includes(saved)) ? saved as ThemeName : 'langconfig';
+  });
+
+  // Apply chat theme CSS variables to the root element
+  useEffect(() => {
+    const t = themes[chatTheme];
+    if (!t) return;
+    const root = document.documentElement;
+    const { colors } = t;
+    root.style.setProperty('--color-primary', colors.primary);
+    root.style.setProperty('--color-background-light', colors.backgroundLight);
+    root.style.setProperty('--color-background-dark', colors.backgroundDark);
+    root.style.setProperty('--color-panel-dark', colors.panelDark);
+    root.style.setProperty('--color-border-dark', colors.borderDark);
+    root.style.setProperty('--color-text-muted', colors.textMuted);
+    root.style.setProperty('--color-text-primary', colors.textPrimary);
+    root.style.setProperty('--color-input-background', colors.inputBackground);
+    root.style.setProperty('--color-header-background', colors.headerBackground);
+    root.style.setProperty('--color-header-text-color', colors.headerTextColor);
+    localStorage.setItem('langconfig-chat-theme', chatTheme);
+  }, [chatTheme]);
+
+  const handleThemeChange = useCallback((name: ThemeName) => {
+    setChatTheme(name);
+  }, []);
 
   // Sidebar resize state
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -348,7 +376,7 @@ export default function ChatPage() {
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-2 border-b" style={{ borderColor: 'var(--color-border-dark)' }}>
+        <div className="flex items-center justify-between px-5 py-2">
           <AgentSelector
             selectedAgentId={selectedAgentId}
             onSelectAgent={handleStartSession}
@@ -421,25 +449,6 @@ export default function ChatPage() {
               </>
             )}
             <button
-              onClick={() => {
-                // Cycle: dark → langconfig → warm → dark
-                const order: ThemeName[] = ['dark', 'langconfig', 'warm'];
-                const idx = order.indexOf(theme.name);
-                const next = order[(idx + 1) % order.length];
-                setTheme(next);
-              }}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              title={theme.name === 'dark' ? 'Dark theme' : theme.name === 'warm' ? 'Warm theme' : 'Light theme'}
-            >
-              {theme.name === 'dark' ? (
-                <Moon className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
-              ) : theme.name === 'warm' ? (
-                <Sun className="w-4 h-4" style={{ color: '#d97706' }} />
-              ) : (
-                <Sun className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
-              )}
-            </button>
-            <button
               onClick={() => window.close()}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               title="Close window"
@@ -467,7 +476,7 @@ export default function ChatPage() {
             agentName={agentName}
           />
           {currentSessionId && showMetrics && (
-            <div className="border-l w-56 overflow-y-auto flex-shrink-0" style={{ borderColor: 'var(--color-border-dark)' }}>
+            <div className="w-56 overflow-y-auto flex-shrink-0" style={{ backgroundColor: 'var(--color-panel-dark, #f9fafb)' }}>
               <MetricsPanel
                 metrics={metrics}
                 toolCalls={toolCalls}
@@ -481,7 +490,7 @@ export default function ChatPage() {
             </div>
           )}
           {currentSessionId && showContext && (
-            <div className="border-l w-56 overflow-y-auto flex-shrink-0" style={{ borderColor: 'var(--color-border-dark)' }}>
+            <div className="w-56 overflow-y-auto flex-shrink-0" style={{ backgroundColor: 'var(--color-panel-dark, #f9fafb)' }}>
               <ContextPanel
                 selectedAgentId={selectedAgentId}
                 sessionId={currentSessionId}
@@ -490,14 +499,22 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Bottom toolbar — settings & theme toggle */}
+        {/* Bottom toolbar — agent info, status & settings gear */}
         <div
-          className="flex items-center justify-between px-6 py-1.5 border-t"
-          style={{ borderColor: 'var(--color-border-dark)' }}
+          className="flex items-center justify-between px-6 py-1.5"
+          style={{
+            backgroundColor: 'var(--color-panel-dark, #f9fafb)',
+          }}
         >
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            Chat
-          </span>
+          <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+              {currentSessionId ? agentName : 'Standalone Chat'}
+            </span>
+            <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'var(--color-text-muted)' }} />
+            <span>{messages.length} message{messages.length !== 1 ? 's' : ''}</span>
+            <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'var(--color-text-muted)' }} />
+            <span className="capitalize">{chatTheme}</span>
+          </div>
           <div className="flex items-center gap-1">
             <ChatSettingsMenu
               sessionId={currentSessionId}
@@ -506,6 +523,8 @@ export default function ChatPage() {
               toolCalls={toolCalls}
               subagentActivity={subagentActivity}
               agentName={agentName}
+              themeName={chatTheme}
+              onThemeChange={handleThemeChange}
               onClearHistory={clearHistory}
               onEndSession={handleEndSession}
             />

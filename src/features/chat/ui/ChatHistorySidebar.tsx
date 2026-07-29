@@ -17,7 +17,7 @@
  *   └─────────────────────┘
  */
 import { useState } from 'react';
-import { Plus, MessageSquare, Search, ChevronDown, ChevronRight, Settings, Calendar, Puzzle } from 'lucide-react';
+import { Plus, MessageSquare, Search, ChevronDown, ChevronRight, Calendar, Puzzle } from 'lucide-react';
 import type { ChatSession } from '../types/chat';
 import { useChat } from '../state/ChatContext';
 
@@ -59,11 +59,10 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
   if (collapsed) {
     return (
       <div
-        className="flex flex-col items-center py-3 border-r transition-all duration-200"
+        className="flex flex-col items-center py-3 transition-all duration-200"
         style={{
           width: '48px',
           backgroundColor: 'var(--color-panel, #f9fafb)',
-          borderColor: 'var(--color-border-dark)',
         }}
       >
         <button
@@ -100,15 +99,14 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
 
   return (
     <div
-      className="flex flex-col transition-all duration-200 border-r"
+      className="flex flex-col transition-all duration-200"
       style={{
         width: '100%',
         backgroundColor: 'var(--color-panel-dark, var(--color-panel, #f9fafb))',
-        borderColor: 'var(--color-border-dark)',
       }}
     >
       {/* ── Top nav: New / Search / Scheduled / Plugins ──────────── */}
-      <div className="flex items-center gap-0.5 px-3 py-2.5 border-b" style={{ borderColor: 'var(--color-border-dark)' }}>
+      <div className="flex items-center gap-0.5 px-3 py-2.5">
         <button
           onClick={onNewSession}
           className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
@@ -234,17 +232,6 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
         )}
       </div>
 
-      {/* ── Bottom: Settings ────────────────────────────────────── */}
-      <div
-        className="flex items-center gap-2 px-4 py-3 border-t text-xs cursor-pointer hover:bg-black/5 transition-colors"
-        style={{
-          borderColor: 'var(--color-border-dark)',
-          color: 'var(--color-text-muted)',
-        }}
-      >
-        <Settings className="w-3.5 h-3.5" />
-        <span>Settings</span>
-      </div>
     </div>
   );
 }
