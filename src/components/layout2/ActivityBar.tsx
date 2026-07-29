@@ -8,34 +8,40 @@
  *   - Hover: subtle bg change
  *
  * Settings opens a popover (mirroring agent-workspace) instead of navigating.
+ * Vault opens a popover (Obsidian-style vault switcher) instead of navigating.
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, Fragment } from 'react';
 import { useLayoutState, ACTIVITIES, type ActivityDef, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
-  GitBranch, Brain, Users, BookOpen, BarChart3, Network, Settings, Sparkles, Globe, Wrench, Database, Award, MessageSquare, type LucideIcon,
+  GitBranch, Brain, Users, BarChart3, Network, Settings, Sparkles, Globe, Wrench, Database, Award, MessageSquare, Archive, FileText, type LucideIcon,
 } from 'lucide-react';
 import SystemSettingsPopover from './SystemSettingsPopover';
+import VaultPopover from './VaultPopover';
 
-const ICON_MAP: Record<ActivityId, LucideIcon> = {
-  workflows:  GitBranch,
+const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
+  vault:      Archive,
   deepagents: Brain,
   agents:     Users,
+  workflows:  GitBranch,
+  prompt:     FileText,
   tools:      Wrench,
+  skills:     Award,
   knowledge:  Database,
+  analysis:   BarChart3,
   models:     Sparkles,
   search:     Globe,
-  library:    BookOpen,
-  analysis:   BarChart3,
-  skills:     Award,
   studio:     Network,
   settings:   Settings,
 };
 
-// Activity groups are declared on each ActivityDef.group; we split
-// here so we can render them in two visual clusters inside the bar.
-const MAIN_ACTIVITIES = ACTIVITIES.filter(a => a.group === 'main' && a.id !== 'settings');
-const BOTTOM_ACTIVITIES = ACTIVITIES.filter(a => a.group === 'bottom' && a.id !== 'settings');
+// Ordered activity groups with visual dividers between them
+const SECTION_GROUPS: ActivityId[][] = [
+  ['vault', 'deepagents', 'agents', 'workflows'],
+  ['prompt', 'tools', 'skills'],
+  ['knowledge', 'analysis'],
+  ['models', 'search'],
+];
 
 interface ActivityButtonProps {
   act: ActivityDef;
@@ -48,6 +54,7 @@ interface ActivityButtonProps {
 function ActivityButton({ act, active, onClick }: ActivityButtonProps) {
   const t = useLayoutTokens();
   const Icon = ICON_MAP[act.id];
+  if (!Icon) return null;
   return (
     <button
       title={act.label}
@@ -97,7 +104,9 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
   const { activeActivity, setActiveActivity, sidebarOpen, toggleSidebar, rightPanelOpen, toggleRightPanel } = useLayoutState();
   const t = useLayoutTokens();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [vaultOpen, setVaultOpen] = useState(false);
   const settingsBtnRef = useRef<HTMLButtonElement | null>(null);
+  const vaultBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const handleActivityClick = (id: ActivityId) => {
     setActiveActivity(id);
@@ -116,27 +125,67 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
         userSelect: 'none',
       }}
     >
-      {/* Main activity icons */}
-      {MAIN_ACTIVITIES.map(act => (
-        <ActivityButton
-          key={act.id}
-          act={act}
-          active={act.id === activeActivity}
-          onClick={() => handleActivityClick(act.id)}
-        />
-      ))}
+      {/* Vault (popover) — always first */}
+      <button
+        ref={vaultBtnRef}
+        title="Switch vault"
+        onClick={() => setVaultOpen(v => !v)}
+        style={{
+          width: 48,
+          height: 48,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'transparent',
+          color: vaultOpen ? t.textWhite : '#6b6b6b',
+          border: 'none',
+          cursor: 'pointer',
+          position: 'relative',
+        }}
+        onMouseEnter={e => { if (!vaultOpen) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+        onMouseLeave={e => { if (!vaultOpen) e.currentTarget.style.background = 'transparent'; }}
+      >
+        {vaultOpen && (
+          <span
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 8,
+              bottom: 8,
+              width: 2,
+              background: t.textWhite,
+            }}
+          />
+        )}
+        <Archive size={20} strokeWidth={vaultOpen ? 2 : 1.5} />
+      </button>
 
-      {/* Separator before settings-related activities */}
-      <div style={{ width: 28, height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 0' }} />
-
-      {/* Bottom activities — Models, Search (settings-like, not core activities) */}
-      {BOTTOM_ACTIVITIES.map(act => (
-        <ActivityButton
-          key={act.id}
-          act={act}
-          active={act.id === activeActivity}
-          onClick={() => handleActivityClick(act.id)}
+      {vaultOpen && (
+        <VaultPopover
+          anchorRef={vaultBtnRef as React.RefObject<HTMLElement | null>}
+          onClose={() => setVaultOpen(false)}
         />
+      )}
+
+      {/* Sectioned activity groups with dividers */}
+      {SECTION_GROUPS.map((group, gi) => (
+        <Fragment key={gi}>
+          {gi > 0 && <div style={{ width: 28, height: 1, background: 'rgba(255,255,255,0.15)', margin: '6px 0' }} />}
+          {group.map(id => {
+            const act = ACTIVITIES.find(a => a.id === id);
+            if (!act) return null;
+            // Vault is rendered specially as a popover above; skip it here
+            if (act.id === 'vault') return null;
+            return (
+              <ActivityButton
+                key={act.id}
+                act={act}
+                active={act.id === activeActivity}
+                onClick={() => handleActivityClick(act.id)}
+              />
+            );
+          })}
+        </Fragment>
       ))}
 
       <div style={{ flex: 1 }} />

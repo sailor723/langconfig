@@ -20,6 +20,7 @@ import SearchProvidersSidebar from './SearchProvidersSidebar';
 import ToolBrowserSidebar from './ToolBrowserSidebar';
 import KnowledgeSidebar from './KnowledgeSidebar';
 import SkillBrowserSidebar from './SkillBrowserSidebar';
+import PromptBrowserSidebar from './PromptBrowserSidebar';
 
 interface LeftSidebarProps {
   children?: ReactNode;
@@ -106,7 +107,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
   };
   const totalItems = nodes ? countItems(nodes) : 0;
 
-  if (!sidebarOpen || activeActivity === 'settings') return null;
+  if (!sidebarOpen || activeActivity === 'settings' || activeActivity === 'vault') return null;
 
   return (
     <div style={{ display: 'flex', flexShrink: 0 }}>
@@ -172,6 +173,9 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
           ) : activeActivity === 'tools' ? (
             /* Tools activity renders the dedicated ToolBrowserSidebar */
             <ToolBrowserSidebar />
+          ) : activeActivity === 'prompt' ? (
+            /* Prompt activity renders the dedicated PromptBrowserSidebar */
+            <PromptBrowserSidebar />
           ) : activeActivity === 'knowledge' ? (
             /* Knowledge activity renders the dedicated KnowledgeSidebar */
             <KnowledgeSidebar />

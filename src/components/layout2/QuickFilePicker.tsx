@@ -248,23 +248,6 @@ async function fetchSidebarNodes(activity: ActivityId): Promise<{ nodes: TreeNod
           })),
         });
       }
-    } else if (activity === 'library') {
-      nodes.push({
-        id: 'folder-quick-skills',
-        label: 'Skills',
-        children: [
-          { id: 'sk-sql', label: 'sql-analyst', viewType: 'library' },
-          { id: 'sk-viz', label: 'data-visualizer', viewType: 'library' },
-        ],
-      });
-      nodes.push({
-        id: 'folder-quick-tools',
-        label: 'Tools',
-        children: [
-          { id: 'tl-sqlite', label: 'sqlite-execute', viewType: 'library' },
-          { id: 'tl-python', label: 'python-execute', viewType: 'library' },
-        ],
-      });
     } else if (activity === 'analysis') {
       nodes.push({
         id: 'folder-quick-analysis',

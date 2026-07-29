@@ -9,7 +9,7 @@
 import { useRef } from 'react';
 import { useLayoutState, type Tab } from './useLayout';
 import { useLayoutTokens } from './tokens';
-import { X, File, User, BookOpen, BarChart3, Brain, Sparkles, Globe, Wrench, Database, Award } from 'lucide-react';
+import { X, File, User, BookOpen, BarChart3, Brain, Sparkles, Globe, Wrench, Database, Award, FileText } from 'lucide-react';
 import FileEditor from './FileEditor';
 import DeepAgentEditor from './DeepAgentEditor';
 import DeepAgentCreator from './DeepAgentCreator';
@@ -22,6 +22,7 @@ import ModelViewerTab from './ModelViewerTab';
 import SearchProviderDetailTab from './SearchProviderDetailTab';
 import KnowledgeView from './KnowledgeView';
 import SkillView from './SkillView';
+import PromptDetailTab from './PromptDetailTab';
 
 const VIEW_ICONS: Record<string, React.ReactNode> = {
   workflow:            <File size={13} />,
@@ -36,6 +37,7 @@ const VIEW_ICONS: Record<string, React.ReactNode> = {
   'search-provider-detail': <Globe size={13} />,
   'knowledge-view':      <Database size={13} />,
   skill:               <Award size={13} />,
+  'prompt-detail':      <FileText size={13} />,
   library:             <BookOpen size={13} />,
   analysis:            <BarChart3 size={13} />,
 };
@@ -57,6 +59,7 @@ const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
   'search-provider-detail': SearchProviderDetailTab,
   'knowledge-view':      KnowledgeView,
   skill:               SkillView,
+  'prompt-detail':      PromptDetailTab,
   library:             FileEditor,
   analysis:            FileEditor,
 };

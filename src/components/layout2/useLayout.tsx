@@ -11,44 +11,41 @@ import { createContext, useContext, useState, useCallback, useMemo, useRef, type
 // what the LeftSidebar and/or Workspace show.
 
 export type ActivityId =
-  | 'workflows'
-  | 'agents'
+  | 'vault'
   | 'deepagents'
+  | 'agents'
+  | 'workflows'
+  | 'prompt'
   | 'tools'
+  | 'skills'
   | 'knowledge'
-  | 'library'
   | 'analysis'
   | 'settings'
   | 'studio'
   | 'models'
-  | 'search'
-  | 'skills';
+  | 'search';
 
-export type ActivityGroup = 'main' | 'bottom';
-
-/** Where the activity sits in the ActivityBar. `bottom` is rendered
- *  just above the Settings gear, separated by a thin divider — used for
- *  configuration / utility-style entries (Models, Search). */
 export interface ActivityDef {
   id: ActivityId;
   label: string;
   icon: string; // lucide icon name
-  group: ActivityGroup;
+  group: 'main' | 'bottom';
 }
 
 export const ACTIVITIES: ActivityDef[] = [
-  { id: 'workflows',  label: 'Workflows',  icon: 'GitBranch', group: 'main' },
-  { id: 'deepagents', label: 'DeepAgents', icon: 'Brain',     group: 'main' },
-  { id: 'agents',     label: 'Agents',     icon: 'Users',     group: 'main' },
-  { id: 'tools',      label: 'Tools',      icon: 'Wrench',    group: 'main' },
-  { id: 'knowledge',  label: 'Knowledge',  icon: 'Database',  group: 'main' },
-  { id: 'library',    label: 'Library',    icon: 'BookOpen',  group: 'main' },
-  { id: 'analysis',   label: 'Analysis',   icon: 'BarChart3', group: 'main' },
-  { id: 'skills',     label: 'Skills',     icon: 'Award',     group: 'main' },
-  { id: 'studio',     label: 'Studio',     icon: 'Network',   group: 'main' },
-  { id: 'models',     label: 'Models',     icon: 'Sparkles',  group: 'bottom' },
-  { id: 'search',     label: 'Search',     icon: 'Search',    group: 'bottom' },
-  { id: 'settings',   label: 'Settings',   icon: 'Settings',  group: 'bottom' },
+  { id: 'vault',      label: 'Vault',      icon: 'Archive',    group: 'main' },
+  { id: 'deepagents', label: 'DeepAgents', icon: 'Brain',      group: 'main' },
+  { id: 'agents',     label: 'Agents',     icon: 'Users',      group: 'main' },
+  { id: 'workflows',  label: 'Workflows',  icon: 'GitBranch',  group: 'main' },
+  { id: 'prompt',     label: 'Prompt',     icon: 'FileText',   group: 'main' },
+  { id: 'tools',      label: 'Tools',      icon: 'Wrench',     group: 'main' },
+  { id: 'skills',     label: 'Skills',     icon: 'Award',      group: 'main' },
+  { id: 'knowledge',  label: 'Knowledge',  icon: 'Database',   group: 'main' },
+  { id: 'analysis',   label: 'Analysis',   icon: 'BarChart3',  group: 'main' },
+  { id: 'studio',     label: 'Studio',     icon: 'Network',    group: 'main' },
+  { id: 'models',     label: 'Models',     icon: 'Sparkles',   group: 'main' },
+  { id: 'search',     label: 'Search',     icon: 'Search',     group: 'main' },
+  { id: 'settings',   label: 'Settings',   icon: 'Settings',   group: 'bottom' },
 ];
 
 // ── Tab definitions ───────────────────────────────────────
