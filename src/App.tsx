@@ -21,7 +21,6 @@ import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-route
 import ModernAgentLibrary from './features/agents/ui/ModernAgentLibrary';
 import WorkflowCanvas, { WorkflowCanvasRef, WorkflowRecipe } from './features/workflows/canvas/WorkflowCanvas';
 import { TaskHistoryEntry } from './features/workflows/canvas/types';
-import WorkflowLibraryView from './features/workflows/library/WorkflowLibraryView';
 import NodeConfigPanel from './features/workflows/node-config/NodeConfigPanel';
 import PlaygroundPage from './pages/PlaygroundPage';
 import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
@@ -49,7 +48,7 @@ import NodeSidebar from './components/layout2/NodeSidebar';
 import BottomPanel from './components/layout2/BottomPanel';
 import StatusBar from './components/layout2/StatusBar';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search' | 'chat';
+type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search' | 'chat';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -148,7 +147,6 @@ interface SelectedNodeData {
 const ROUTE_TO_VIEW: Record<string, View> = {
   '/': 'home', '/home': 'home',
   '/studio': 'studio', '/results': 'studio',
-  '/library': 'library',
   '/agents': 'agents', '/deepagents': 'deepagents',
   '/knowledge': 'knowledge',
   '/skills': 'skills',
@@ -165,7 +163,7 @@ const ROUTE_TO_VIEW: Record<string, View> = {
 
 // Map View → route path
 const VIEW_ROUTE: Record<View, string> = {
-  home: '/home', studio: '/studio', library: '/library',
+  home: '/home', studio: '/studio',
   agents: '/agents', deepagents: '/deepagents', skills: '/skills',
   knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
   playground: '/playground', tools: '/tools', prompt: '/prompt',
@@ -179,12 +177,11 @@ const VIEW_ROUTE: Record<View, string> = {
 const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   home: null,
   studio: 'workflows',
-  library: 'workflows',
   agents: 'agents',
   deepagents: 'deepagents',
-  skills: 'library',
-  tools: 'library',
-  prompt: 'library',
+  skills: 'skills',
+  tools: 'tools',
+  prompt: 'prompt',
   knowledge: 'knowledge',
   analysis: 'analysis',
   settings: 'settings',
@@ -196,15 +193,14 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
 };
 
 // Map ActivityId → View (for ActivityBar clicks)
-const ACTIVITY_TO_VIEW: Record<ActivityId, View> = {
-  workflows: 'studio',
+const ACTIVITY_TO_VIEW: Partial<Record<ActivityId, View>> = {
+  workflows:  'studio',
   deepagents: 'deepagents',
   agents: 'agents',
   tools: 'tools',
   knowledge: 'knowledge',
   models: 'models',
   search: 'search',
-  library: 'library',
   analysis: 'analysis',
   skills: 'skills',
   settings: 'settings',
@@ -439,12 +435,6 @@ function AppContent() {
           onTaskHistoryUpdate={setTaskHistory}
           onSelectedTaskChange={setSelectedHistoryTask}
           externalSelectedTask={selectedHistoryTask}
-        />
-      );
-      case 'library': return (
-        <WorkflowLibraryView
-          onWorkflowSelect={setSelectedWorkflowId}
-          onWorkflowOpen={handleWorkflowOpen}
         />
       );
       case 'agents': return null; // Handled by layout2 AgentEditor

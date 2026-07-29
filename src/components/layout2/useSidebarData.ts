@@ -106,19 +106,9 @@ export function useSidebarData(activity: string): SidebarData {
             children: [{ id: 'empty-agents', label: `Failed: ${err?.message || 'unknown'}`, viewType: 'empty' }],
           });
         }
-      } else if (activity === 'tools') {
-        // Tools uses a custom sidebar (ToolBrowserSidebar), not TreeView.
-        // Keep TreeView empty to avoid showing stale data.
-        result.push({ id: 'empty-tools', label: '', viewType: 'empty' });
-      } else if (activity === 'library') {
-        result.push({
-          id: 'folder-dashboards',
-          label: 'Dashboards',
-          children: [
-            { id: 'db-sunhing', label: 'Sunhing KPI', viewType: 'analysis' },
-            { id: 'db-sales', label: 'Sales Overview', viewType: 'analysis' },
-          ],
-        });
+      } else if (activity === 'tools' || activity === 'prompt' || activity === 'skills') {
+        // Tools, Prompt, and Skills use dedicated sidebar components, not TreeView.
+        result.push({ id: `empty-${activity}`, label: '', viewType: 'empty' });
       }
 
       setNodes(result);
