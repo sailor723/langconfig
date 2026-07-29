@@ -183,10 +183,14 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
         />
       )}
 
-      {/* Toggle right panel (Chat) */}
+      {/* Toggle right panel (Chat) — opens a dedicated window */}
       <button
-        title={rightPanelOpen ? "Close chat panel" : "Open chat panel"}
-        onClick={toggleRightPanel}
+        title="Open chat window"
+        onClick={() => window.open(
+          window.location.origin + '/#/chat',
+          'langconfig-chat',
+          'width=700,height=900,menubar=no,toolbar=no,scrollbars=yes'
+        )}
         style={{
           width: 48,
           height: 48,
@@ -194,14 +198,14 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           alignItems: 'center',
           justifyContent: 'center',
           background: 'transparent',
-          color: rightPanelOpen ? t.textWhite : '#6b6b6b',
+          color: '#6b6b6b',
           border: 'none',
           cursor: 'pointer',
         }}
         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
       >
-        <MessageSquare size={20} strokeWidth={rightPanelOpen ? 2 : 1.5} />
+        <MessageSquare size={20} strokeWidth={1.5} />
       </button>
 
       {/* Toggle sidebar */}

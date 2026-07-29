@@ -150,7 +150,7 @@ export default function MessagesPanel({
   return (
     <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: 'var(--color-background-light)' }}>
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-6 py-6">
         {messages.length === 0 && !disabled && useCodexLayout ? (
           // Codex-style empty state: centered heading + composer
           <div className="flex flex-col items-center justify-center h-full min-h-full px-6">
@@ -208,12 +208,23 @@ export default function MessagesPanel({
           {messages.map((message, index) => (
             <div
               key={index}
-              className="mb-3 group"
+              className="flex items-start gap-2 mb-4 group"
             >
+              {/* AI avatar — left side */}
+              {message.role === 'assistant' && (
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-semibold"
+                  style={{
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                    color: '#3b82f6',
+                    marginTop: 2,
+                  }}
+                >
+                  AI
+                </div>
+              )}
 
-
-              {/* Message Content */}
-              <div className={`${message.role === 'user' ? 'max-w-[60%] ml-auto' : 'max-w-[80%]'}`}>
+              <div className={`${message.role === 'user' ? 'max-w-[60%]' : 'max-w-[80%]'} ${message.role === 'user' ? 'order-2' : 'order-1'}`}>
                 <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-6xl'}`}>
                   {message.role === 'system' ? (
                     <div
@@ -230,15 +241,13 @@ export default function MessagesPanel({
                       {/* Message Content */}
                       <div
                         style={{
-                          padding: message.role === 'user' ? '6px 10px' : '4px 0',
+                          padding: message.role === 'user' ? '8px 12px' : '4px 0',
                           marginLeft: message.role === 'user' ? '0' : '0',
-                          // User messages: just a thin border + light
-                          // text — no shaded background bubble. The
-                          // user asked for a cleaner, less tinted look.
-                          backgroundColor: message.role === 'user' ? 'transparent' : 'transparent',
-                          border: message.role === 'user' ? '1px solid #cbd5e1' : 'none',
-                          paddingLeft: message.role === 'user' ? '10px' : '12px',
-                          borderRadius: message.role === 'user' ? '6px' : '0',
+                          // User messages: subtle bg color, no border
+                          // AI messages: no bg, no border
+                          backgroundColor: message.role === 'user' ? 'var(--color-background-dark)' : 'transparent',
+                          border: 'none',
+                          borderRadius: message.role === 'user' ? '8px' : '0',
                         }}
                       >
                         <div
@@ -528,6 +537,20 @@ export default function MessagesPanel({
                   )}
                 </div>
               </div>
+
+              {/* User avatar — right side */}
+              {message.role === 'user' && (
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-semibold order-3"
+                  style={{
+                    backgroundColor: 'rgba(156, 163, 175, 0.2)',
+                    color: '#6b7280',
+                    marginTop: 2,
+                  }}
+                >
+                  You
+                </div>
+              )}
             </div>
           ))}
           {/* Custom Events (LangGraph-style progress, status, file operations) */}
@@ -679,7 +702,7 @@ export default function MessagesPanel({
       )}
 
       {(messages.length > 0 || disabled) && (
-      <div className="px-4 pb-4">
+      <div className="px-6 pb-4">
         <CodexMessageInput
           onSendMessage={onSendMessage}
           disabled={disabled}
