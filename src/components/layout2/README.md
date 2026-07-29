@@ -249,7 +249,7 @@ manage their own internal scroll without the page itself ever scrolling:
 | Users | **Agents** | `GET /api/deepagents/` filtered by `use_deepagents: false` | **Phase 17 — new** |
 | Sparkles | **Models** | `GET /api/agents/available-models` | **Phase 15 — new** |
 | Globe | **Search** | `GET /api/search-providers/` | **Phase 16 — new** |
-| BookOpen | Library | `GET /api/skills/` + tools | Pending |
+| BookOpen | Library (Knowledge) | `GET /api/rag/documents` — folder tree, upload, doc chat | Existing w/ simplified doc-chat backend |
 | Wrench | **Tools** | `GET /api/tools/registry` — grouped by category | **Phase 18 — new** |
 | BarChart3 | Analysis | TBD | Pending |
 | Settings | Settings | — | Hidden (no sidebar) |

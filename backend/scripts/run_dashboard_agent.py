@@ -100,11 +100,11 @@ async def main():
     skills_root = Path(__file__).resolve().parent.parent / "skills"
     backend = FilesystemBackend(root_dir=str(skills_root))
 
-    # Use Minimax M3 (same as existing analysis flow)
+    # Use DeepSeek (same as agent-workspace backend)
     model = ChatOpenAI(
-        model=os.getenv("MINIMAX_MODEL", "minimax-m3"),
-        base_url=settings.MINIMAX_API_BASE,
-        api_key=settings.MINIMAX_API_KEY,
+        model="deepseek-chat",
+        base_url="https://api.deepseek.com/v1",
+        api_key=os.getenv("DEEPSEEK_API_KEY"),
         temperature=0.3,
     )
 
@@ -217,7 +217,7 @@ async def main():
         {"messages": [{"role": "user", "content": msg}]},
         config={
             "configurable": {"thread_id": f"dash-{thread_key}"},
-            "recursion_limit": 50,
+            "recursion_limit": int(os.getenv("ANALYSIS_RECURSION_LIMIT", "1000")),
         },
         version="v2",
     ):

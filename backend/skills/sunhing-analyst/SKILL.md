@@ -457,7 +457,7 @@ The main Sun Hing HTML dashboard is a **read-only executive cockpit** that follo
 1. **Header / baseline bar**
    - Show current month, time window, baseline ROE, current ROE, and major context such as liability total.
 2. **Factor cards**
-   - Summarize the five factors (`净利润率 / 资产周转率 / 权益乘数 / 支撑层 / 风险监控`).
+   - Summarize the five factors (`净利润率 / ƒ / 权益乘数 / 支撑层 / 风险监控`).
    - Each card should answer: current score / met count / weakest KPI.
 3. **ROE result bar**
    - Emphasize current ROE and delta vs baseline period.

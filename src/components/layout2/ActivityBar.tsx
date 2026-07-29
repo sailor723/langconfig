@@ -6,12 +6,16 @@
  *   - Icons grouped at top, settings at bottom
  *   - Active icon: left 2px white accent bar
  *   - Hover: subtle bg change
+ *
+ * Settings opens a popover (mirroring agent-workspace) instead of navigating.
  */
+import { useState, useRef } from 'react';
 import { useLayoutState, ACTIVITIES, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
-  GitBranch, Brain, Users, BookOpen, BarChart3, Network, Settings, Sparkles, Globe, Wrench, Database, Award, type LucideIcon,
+  GitBranch, Brain, Users, BookOpen, BarChart3, Network, Settings, Sparkles, Globe, Wrench, Database, Award, MessageSquare, type LucideIcon,
 } from 'lucide-react';
+import SystemSettingsPopover from './SystemSettingsPopover';
 
 const ICON_MAP: Record<ActivityId, LucideIcon> = {
   workflows:  GitBranch,
@@ -29,7 +33,6 @@ const ICON_MAP: Record<ActivityId, LucideIcon> = {
 };
 
 const MAIN_ACTIVITIES = ACTIVITIES.filter(a => a.id !== 'settings');
-const SETTINGS_ACTIVITY = ACTIVITIES.find(a => a.id === 'settings')!;
 
 interface ActivityBarProps {
   /** Called after an activity icon is clicked, with the clicked activity id */
@@ -37,8 +40,10 @@ interface ActivityBarProps {
 }
 
 export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
-  const { activeActivity, setActiveActivity, sidebarOpen, toggleSidebar } = useLayoutState();
+  const { activeActivity, setActiveActivity, sidebarOpen, toggleSidebar, rightPanelOpen, toggleRightPanel } = useLayoutState();
   const t = useLayoutTokens();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const handleActivityClick = (id: ActivityId) => {
     setActiveActivity(id);
@@ -85,7 +90,6 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
               if (!isActive) e.currentTarget.style.background = 'transparent';
             }}
           >
-            {/* Left-edge white accent indicator (VS Code pattern) */}
             {isActive && (
               <span
                 style={{
@@ -105,10 +109,11 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
 
       <div style={{ flex: 1 }} />
 
-      {/* Settings — pinned to bottom */}
+      {/* Settings gear — pinned to bottom, opens popover (no navigation) */}
       <button
-        title={SETTINGS_ACTIVITY.label}
-        onClick={() => handleActivityClick(SETTINGS_ACTIVITY.id)}
+        ref={settingsBtnRef}
+        title="Settings"
+        onClick={() => setSettingsOpen(v => !v)}
         style={{
           width: 48,
           height: 48,
@@ -116,19 +121,15 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           alignItems: 'center',
           justifyContent: 'center',
           background: 'transparent',
-          color: activeActivity === 'settings' ? t.textWhite : '#6b6b6b',
+          color: settingsOpen ? t.textWhite : '#6b6b6b',
           border: 'none',
           cursor: 'pointer',
           position: 'relative',
         }}
-        onMouseEnter={e => {
-          if (activeActivity !== 'settings') e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-        }}
-        onMouseLeave={e => {
-          if (activeActivity !== 'settings') e.currentTarget.style.background = 'transparent';
-        }}
+        onMouseEnter={e => { if (!settingsOpen) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+        onMouseLeave={e => { if (!settingsOpen) e.currentTarget.style.background = 'transparent'; }}
       >
-        {activeActivity === 'settings' && (
+        {settingsOpen && (
           <span
             style={{
               position: 'absolute',
@@ -140,7 +141,35 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
             }}
           />
         )}
-        <Settings size={20} strokeWidth={activeActivity === 'settings' ? 2 : 1.5} />
+        <Settings size={20} strokeWidth={settingsOpen ? 2 : 1.5} />
+      </button>
+
+      {settingsOpen && (
+        <SystemSettingsPopover
+          anchorRef={settingsBtnRef as React.RefObject<HTMLElement | null>}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {/* Toggle right panel (Chat) */}
+      <button
+        title={rightPanelOpen ? "Close chat panel" : "Open chat panel"}
+        onClick={toggleRightPanel}
+        style={{
+          width: 48,
+          height: 48,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'transparent',
+          color: rightPanelOpen ? t.textWhite : '#6b6b6b',
+          border: 'none',
+          cursor: 'pointer',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+      >
+        <MessageSquare size={20} strokeWidth={rightPanelOpen ? 2 : 1.5} />
       </button>
 
       {/* Toggle sidebar */}

@@ -134,16 +134,14 @@ function DocCardMini({
             aria-label={`Toggle ${doc.name} in chat scope`}
           />
         </label>
-        {!doc.neo4j_only && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-500/10"
-            style={{ color: 'var(--color-text-muted)' }}
-            title={t('kb_delete')}
-          >
-            <Trash2 className="w-2.5 h-2.5" />
-          </button>
-        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-500/10"
+          style={{ color: 'var(--color-text-muted)' }}
+          title={t('kb_delete')}
+        >
+          <Trash2 className="w-2.5 h-2.5" />
+        </button>
       </div>
     </button>
   );
