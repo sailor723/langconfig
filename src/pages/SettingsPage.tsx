@@ -738,10 +738,8 @@ export default function SettingsView() {
     );
   }
 
-  // Don't render if settings haven't loaded yet
-  if (!generalSettings || !localModelsSettings || !workspaceSettings || !modelDefaultsSettings || !ragSettings) {
-    return null;
-  }
+  // Don't render if core settings haven't loaded yet (others get fallback defaults)
+  if (!generalSettings) return null;
 
   return (
     <SettingsLayout

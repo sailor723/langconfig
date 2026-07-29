@@ -134,6 +134,9 @@ SUB_CSS = """
     line-height: 1.5;
   }
   .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
     background: var(--navy);
     color: white;
     padding: 18px 24px;
@@ -1016,6 +1019,9 @@ hub_html = f"""<!DOCTYPE html>
     padding: 0 0 40px 0;
   }}
   .header {{
+    position: sticky;
+    top: 0;
+    z-index: 100;
     background: var(--navy);
     color: white;
     padding: 18px 24px;
@@ -1736,7 +1742,7 @@ _data_html_parts.append(f"""<!DOCTYPE html>
   :root {{ --navy: #0B2344; --gold-light: #D4AF70; --body: #1A202C; }}
   * {{ box-sizing: border-box; }}
   body {{ font-family: "Microsoft YaHei","PingFang SC","Segoe UI",sans-serif; background: #f0f2f5; color: var(--body); margin: 0; padding: 0 0 40px; }}
-  .header {{ background: var(--navy); color: white; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }}
+  .header {{ background: var(--navy); color: white; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }}
   .header h1 {{ font-size: 20px; font-weight: 700; margin: 0; }}
   .header .sub {{ font-size: 13px; color: var(--gold-light); }}
   .container {{ max-width: 1400px; margin: 20px auto; padding: 0 16px; }}

@@ -442,6 +442,8 @@ from api.projects import routes as projects
 from api.tasks import routes as tasks
 from api.knowledge import rag, store
 from api.knowledge import graphindex_chat  # Phase 9 / Step K
+from api.knowledge import doc_chat  # Simplified doc chat (folder-based, no RAG/Neo4j)
+from api.knowledge import kv  # Simple KV document store (no DB dependencies)
 from api.system import settings, health, debug, background_tasks, search_providers
 from api.models import local as local_models
 from api.models import capabilities as model_capabilities
@@ -481,6 +483,8 @@ app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(rag.router)
 app.include_router(graphindex_chat.router)  # Phase 9 / Step K — graphindex_chat agent API
+app.include_router(doc_chat.router)  # Simplified doc-chat — folder-based context, no RAG/Neo4j
+app.include_router(kv.router)  # KV document store — no DB dependencies
 app.include_router(background_tasks.router)  # Background task queue management
 app.include_router(workspace.router)  # Workspace file management
 app.include_router(settings.router)

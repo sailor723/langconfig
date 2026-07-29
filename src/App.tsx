@@ -23,7 +23,6 @@ import WorkflowCanvas, { WorkflowCanvasRef, WorkflowRecipe } from './features/wo
 import { TaskHistoryEntry } from './features/workflows/canvas/types';
 import WorkflowLibraryView from './features/workflows/library/WorkflowLibraryView';
 import NodeConfigPanel from './features/workflows/node-config/NodeConfigPanel';
-import SettingsView from './pages/SettingsPage';
 import PlaygroundPage from './pages/PlaygroundPage';
 import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
 import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
@@ -155,7 +154,7 @@ const ROUTE_TO_VIEW: Record<string, View> = {
   '/tools': 'tools',
   '/prompt': 'prompt',
   '/analysis': 'analysis',
-  '/settings': 'settings',
+  // settings → popover only, no route
   '/playground': 'playground',
   '/models': 'models',
   '/search': 'search',
@@ -246,7 +245,7 @@ function AppContent() {
   const [sidebarPanel, setSidebarPanel] = useState<'agents' | 'history'>('agents');
 
   // Layout state
-  const { setActiveActivity, sidebarView, setSidebarView, openRightPanel, closeRightPanel } = useLayoutState();
+  const { setActiveActivity, sidebarView, setSidebarView, openRightPanel, closeRightPanel, rightPanelOpen } = useLayoutState();
 
   // Sync workflowTab with current route
   useEffect(() => {
@@ -445,7 +444,7 @@ function AppContent() {
       case 'prompt': return <PromptAssemblyPage />;
       case 'knowledge': return null; // Handled by layout2 KnowledgeSidebar + KnowledgeView
       case 'analysis': return <AnalysisPage />;
-      case 'settings': return <SettingsView />;
+      // settings → popover only, no full-page view
       case 'playground': return <PlaygroundPage />;
       case 'deepagent-studio': return <DeepAgentStudioPage />;
       default: return <HomePage />;
@@ -486,6 +485,7 @@ function AppContent() {
         </div>
 
         {/* Right panel: NodeConfigPanel when node selected, Chat otherwise */}
+        {(rightPanelOpen || selectedNodeData) && (
         <NodeSidebar>
           {currentView === 'studio' && selectedNodeId && selectedNodeData && (
             <NodeConfigPanel
@@ -520,6 +520,7 @@ function AppContent() {
             />
           )}
         </NodeSidebar>
+        )}
       </div>
 
       <StatusBar

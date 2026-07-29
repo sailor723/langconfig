@@ -91,6 +91,7 @@ export interface LayoutState {
   setRightPanelWidth: (w: number) => void;
   openRightPanel: (content: string) => void;
   closeRightPanel: () => void;
+  toggleRightPanel: () => void;
   setRightPanelTab: (tab: 'chat' | 'doc-chat' | 'properties') => void;
 
   // Bottom panel (VS Code "Panel" at bottom — terminal, chat, logs)
@@ -181,6 +182,10 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     setRightPanelContent(null);
   }, []);
 
+  const toggleRightPanel = useCallback(() => {
+    setRightPanelOpen(v => !v);
+  }, []);
+
   const toggleBottomPanel = useCallback(() => setBottomPanelOpen(v => !v), []);
 
   const state = useMemo<LayoutState>(() => ({
@@ -207,6 +212,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     setRightPanelWidth,
     openRightPanel,
     closeRightPanel,
+    toggleRightPanel,
     setRightPanelTab,
     bottomPanelOpen,
     toggleBottomPanel,

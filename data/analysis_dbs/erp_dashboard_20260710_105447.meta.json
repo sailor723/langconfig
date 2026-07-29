@@ -1,0 +1,1 @@
+{"db_path": "/Users/weiping/dev/Learn/langchain-ai/langconfig/data/analysis_dbs/erp_data.db", "table_name": "customers", "columns": ["id", "name", "tier", "region", "country", "arr", "credit_limit", "signup_date"]}

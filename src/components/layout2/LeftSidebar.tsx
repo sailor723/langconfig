@@ -61,14 +61,11 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
     document.body.style.userSelect = 'none';
   }, [sidebarWidth, setSidebarWidth]);
 
-  if (!sidebarOpen || activeActivity === 'settings') return null;
-
+  // ── Callbacks (must be before early return — React hook ordering) ──
   const handleFileOpen = useCallback(async (node: TreeNode) => {
     if (node.children || node.viewType === 'empty') return;
     let content = '';
     try { content = await getNodeContent(node); } catch {}
-    // getNodeContent populates node.data.agent for agent/deepagent nodes.
-    // The tab is opened once with the complete data — no setTimeout needed.
     openTab({
       id: node.id,
       label: node.label,
@@ -80,19 +77,9 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
   const handleNewFile = useCallback(() => {
     const id = `new-${Date.now()}`;
     if (activeActivity === 'deepagents') {
-      openTab({
-        id,
-        label: 'New DeepAgent',
-        viewType: 'deepagent-create',
-        data: {},
-      });
+      openTab({ id, label: 'New DeepAgent', viewType: 'deepagent-create', data: {} });
     } else if (activeActivity === 'agents') {
-      openTab({
-        id,
-        label: 'New Agent',
-        viewType: 'agent',
-        data: { new: true },
-      });
+      openTab({ id, label: 'New Agent', viewType: 'agent', data: { new: true } });
     } else {
       openTab({ id, label: 'Untitled', viewType: activeActivity, data: { new: true } });
     }
@@ -100,26 +87,15 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
 
   const handleNewFolder = useCallback(() => setTreeKey(v => v + 1), []);
   const handleRefresh = useCallback(() => setTreeKey(v => v + 1), []);
-
-  // Folder "+" action — opens the creator for supported activity folders.
   const handleFolderAction = useCallback((node: TreeNode) => {
     if (node.id === 'folder-deepagents') {
-      openTab({
-        id: `new-${Date.now()}`,
-        label: 'New DeepAgent',
-        viewType: 'deepagent-create',
-        data: {},
-      });
+      openTab({ id: `new-${Date.now()}`, label: 'New DeepAgent', viewType: 'deepagent-create', data: {} });
     } else if (node.id === 'folder-agents') {
-      openTab({
-        id: `new-${Date.now()}`,
-        label: 'New Agent',
-        viewType: 'agent',
-        data: { new: true },
-      });
+      openTab({ id: `new-${Date.now()}`, label: 'New Agent', viewType: 'agent', data: { new: true } });
     }
   }, [openTab]);
 
+  // ── Computed values ──
   const countItems = (items: TreeNode[]): number => {
     let count = 0;
     for (const item of items) {
@@ -129,6 +105,8 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
     return count;
   };
   const totalItems = nodes ? countItems(nodes) : 0;
+
+  if (!sidebarOpen || activeActivity === 'settings') return null;
 
   return (
     <div style={{ display: 'flex', flexShrink: 0 }}>

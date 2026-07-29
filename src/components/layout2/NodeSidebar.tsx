@@ -79,16 +79,27 @@ export default function NodeSidebar({ children }: NodeSidebarProps) {
       {/* Resize handle (left edge of the right sidebar) */}
       <div
         onMouseDown={handleResizeStart}
-        title="Drag to resize"
+        title="Drag to resize sidebar width"
         style={{
-          width: 4,
+          width: 7,
           cursor: 'ew-resize',
           background: 'transparent',
           flexShrink: 0,
+          position: 'relative',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = t.border; }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-      />
+        onMouseEnter={e => { e.currentTarget.style.background = t.border; e.currentTarget.style.borderLeft = `1px solid ${t.accent}40`; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderLeft = 'none'; }}
+      >
+        {/* Subtle grip indicator dots (always visible on hover) */}
+        <div style={{
+          position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+          display: 'flex', flexDirection: 'column', gap: 2, opacity: 0.3, pointerEvents: 'none',
+        }}>
+          <div style={{ width: 2, height: 2, borderRadius: '50%', background: t.textMuted }} />
+          <div style={{ width: 2, height: 2, borderRadius: '50%', background: t.textMuted }} />
+          <div style={{ width: 2, height: 2, borderRadius: '50%', background: t.textMuted }} />
+        </div>
+      </div>
       <div
         style={{
           width: rightPanelWidth,
@@ -339,6 +350,86 @@ function DocChatSidebar() {
   );
 }
 
+/**
+ * Split assistant text into segments: regular markdown text and embedded
+ * base64 PNG images. Renders images as direct <img> elements instead of
+ * going through ReactMarkdown, avoiding issues with very long data URLs.
+ */
+function renderWithImages(text: string): React.ReactNode[] {
+  // Regex to find base64 PNG data (starts with iVBORw0KGgo, >=100 base64 chars)
+  const pngRe = /(iVBORw0KGgo[A-Za-z0-9+/=]{100,})/g;
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pngRe.exec(text)) !== null) {
+    // Text segment before the image
+    if (match.index > lastIndex) {
+      const before = text.slice(lastIndex, match.index);
+      nodes.push(
+        <ReactMarkdown
+          key={`md-${lastIndex}`}
+          rehypePlugins={[rehypeRaw]}
+          urlTransform={(url) => {
+            if (url.startsWith('data:')) return url;
+            const colon = url.indexOf(':');
+            if (colon === -1) return url;
+            const safe = /^(https?|ircs?|mailto|xmpp)$/i;
+            if (safe.test(url.slice(0, colon))) return url;
+            return '';
+          }}
+          components={{
+            img: ({ src, alt }) => (
+              <img src={src} alt={alt || ''} style={{ maxWidth: '100%', height: 'auto', borderRadius: 4, marginTop: 4 }} />
+            ),
+          }}
+        >
+          {before}
+        </ReactMarkdown>,
+      );
+    }
+
+    // The base64 PNG image
+    nodes.push(
+      <img
+        key={`img-${match.index}`}
+        src={`data:image/png;base64,${match[1]}`}
+        alt="Chart"
+        style={{ maxWidth: '100%', height: 'auto', borderRadius: 4, marginTop: 4 }}
+      />,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Remaining text after the last image
+  if (lastIndex < text.length) {
+    const after = text.slice(lastIndex);
+    nodes.push(
+      <ReactMarkdown
+        key={`md-${lastIndex}`}
+        rehypePlugins={[rehypeRaw]}
+        urlTransform={(url) => {
+          if (url.startsWith('data:')) return url;
+          const colon = url.indexOf(':');
+          if (colon === -1) return url;
+          const safe = /^(https?|ircs?|mailto|xmpp)$/i;
+          if (safe.test(url.slice(0, colon))) return url;
+          return '';
+        }}
+        components={{
+          img: ({ src, alt }) => (
+            <img src={src} alt={alt || ''} style={{ maxWidth: '100%', height: 'auto', borderRadius: 4, marginTop: 4 }} />
+          ),
+        }}
+      >
+        {after}
+      </ReactMarkdown>,
+    );
+  }
+
+  return nodes;
+}
+
 // ── Chat bubble (message + thinking + actions) ──────────
 
 interface ChatBubbleProps {
@@ -493,20 +584,7 @@ function ChatBubble({ msg }: ChatBubbleProps) {
           <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
         ) : (
           <div style={{ whiteSpace: 'pre-wrap' }}>
-            <ReactMarkdown
-              rehypePlugins={[rehypeRaw]}
-              components={{
-                img: ({ src, alt }) => (
-                  <img
-                    src={src}
-                    alt={alt || ''}
-                    style={{ maxWidth: '100%', height: 'auto', borderRadius: 4, marginTop: 4 }}
-                  />
-                ),
-              }}
-            >
-              {msg.text}
-            </ReactMarkdown>
+            {renderWithImages(msg.text)}
           </div>
         )}
 

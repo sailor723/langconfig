@@ -17,7 +17,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-export type ThemeName = 'langconfig' | 'claude' | 'dark';
+export type ThemeName = 'langconfig' | 'claude' | 'dark' | 'warm' | 'white';
 
 export interface ThemeColors {
   primary: string;
@@ -107,6 +107,48 @@ export const themes: Record<ThemeName, Theme> = {
       headerTextColor: '#ffffff',
     },
   },
+
+  warm: {
+    name: 'warm',
+    displayName: 'Warm Orange',
+    colors: {
+      primary: '#D97706',
+      backgroundLight: '#fff7ed',
+      backgroundDark: '#ffedd5',
+      panelDark: '#fff7ed',
+      borderDark: '#fed7aa',
+      textMuted: '#b45309',
+      textPrimary: '#431407',
+      inputBackground: '#ffffff',
+      logoBackground: '#ffffff',
+      nodeBackground: '#ffedd5',
+      nodeBackgroundLight: '#fed7aa',
+      categoryBackground: '#ffedd5',
+      headerBackground: '#ea580c',
+      headerTextColor: '#ffffff',
+    },
+  },
+
+  white: {
+    name: 'white',
+    displayName: 'White Clean',
+    colors: {
+      primary: '#2563eb',
+      backgroundLight: '#ffffff',
+      backgroundDark: '#f8fafc',
+      panelDark: '#f1f5f9',
+      borderDark: '#e2e8f0',
+      textMuted: '#64748b',
+      textPrimary: '#0f172a',
+      inputBackground: '#ffffff',
+      logoBackground: '#ffffff',
+      nodeBackground: '#f8fafc',
+      nodeBackgroundLight: '#f1f5f9',
+      categoryBackground: '#f1f5f9',
+      headerBackground: '#2563eb',
+      headerTextColor: '#ffffff',
+    },
+  },
 };
 
 // ── React Context ────────────────────────────────────────────────
@@ -156,7 +198,7 @@ export function useTheme(): ThemeContextValue {
 
 export function applyThemeDom(theme: Theme) {
   const root = document.documentElement;
-  root.classList.remove('theme-langconfig', 'theme-claude', 'theme-dark');
+  root.classList.remove('theme-langconfig', 'theme-claude', 'theme-dark', 'theme-warm', 'theme-white');
   root.classList.add(`theme-${theme.name}`);
   root.setAttribute('data-theme', theme.name);
 
