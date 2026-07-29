@@ -87,6 +87,29 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   >([]);
   const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(config.native_tools || []);
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(config.custom_tools || []);
+  const [showAllTools, setShowAllTools] = useState(true);
+
+  // Reset all editable state when tab changes to a different agent
+  // (React reuses the component instance, so useState init values are stale)
+  useEffect(() => {
+    setEditableName(agent.name || '');
+    setEditableDesc(agent.description || '');
+    setEditableCategory(agent.category || 'general');
+    setEditableModel(config.model || '');
+    setEditableTemp(config.temperature ?? 0.7);
+    setEditableMaxTokens(config.max_tokens ?? (isNew ? 4096 : ''));
+    setEditablePrompt(
+      config.system_prompt || (isNew
+        ? 'You are a helpful AI assistant. Be concise and accurate. When you are unsure, admit it rather than guessing.'
+        : '')
+    );
+    setJsonEdit(JSON.stringify(agent, null, 2));
+    setLocalAgentId(agent.id || null);
+    setSelectedNativeTools(config.native_tools || []);
+    setSelectedCustomTools(config.custom_tools || []);
+    setActiveSection('overview');
+    setSaveMsg(null);
+  }, [tab.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch custom tools list for the tool picker
   useEffect(() => {
@@ -255,12 +278,19 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     }
   };
 
-  // Reusable styles matching DeepAgentEditor
+  // Reusable compact card style
+  const compactCardStyle: React.CSSProperties = {
+    background: t.bgContent,
+    border: `1px solid ${t.border}`,
+    borderRadius: 4,
+    padding: '6px 10px',
+    marginBottom: 8,
+  };
   const cardStyle: React.CSSProperties = {
     background: t.bgContent,
     border: `1px solid ${t.border}`,
     borderRadius: 4,
-    padding: 12,
+    padding: 10,
     marginBottom: 10,
   };
   const labelStyle: React.CSSProperties = {
@@ -290,7 +320,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   // ── Overview section (all fields editable) ──
   const renderOverview = () => (
     <div style={{ padding: 4 }}>
-      <div style={cardStyle}>
+      <div style={compactCardStyle}>
         <div style={labelStyle}>Name</div>
         <input
           value={editableName}
@@ -298,7 +328,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           style={inputStyle}
         />
       </div>
-      <div style={cardStyle}>
+      <div style={compactCardStyle}>
         <div style={labelStyle}>Description</div>
         <input
           value={editableDesc}
@@ -306,8 +336,8 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           style={inputStyle}
         />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <div style={cardStyle}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+        <div style={compactCardStyle}>
           <div style={labelStyle}>Category</div>
           <select
             value={editableCategory}
@@ -319,7 +349,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
             ))}
           </select>
         </div>
-        <div style={cardStyle}>
+        <div style={compactCardStyle}>
           <div style={labelStyle}>Model</div>
           <select
             value={editableModel}
@@ -348,9 +378,9 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
             )}
           </select>
         </div>
-        <div style={cardStyle}>
+        <div style={compactCardStyle}>
           <div style={labelStyle}>Temperature</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <input
               type="range"
               min={0}
@@ -360,10 +390,10 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
               onChange={e => { const v = parseFloat(e.target.value); setEditableTemp(v); updateConfigField('temperature', v); }}
               style={{ flex: 1, accentColor: t.accent }}
             />
-            <span style={{ ...valueStyle, fontFamily: 'monospace', minWidth: 28 }}>{editableTemp.toFixed(1)}</span>
+            <span style={{ ...valueStyle, fontFamily: 'monospace', minWidth: 24, fontSize: 11 }}>{editableTemp.toFixed(1)}</span>
           </div>
         </div>
-        <div style={cardStyle}>
+        <div style={compactCardStyle}>
           <div style={labelStyle}>Max Tokens</div>
           <input
             type="number"
@@ -374,19 +404,19 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
             min={0}
           />
         </div>
-        <div style={cardStyle}>
+        <div style={compactCardStyle}>
           <div style={labelStyle}>Version</div>
           <div style={valueStyle}>{agent.version || '—'}</div>
         </div>
-        <div style={cardStyle}>
+        <div style={compactCardStyle}>
           <div style={labelStyle}>Public</div>
           <div style={valueStyle}>{agent.is_public ? 'Yes' : 'No'}</div>
         </div>
-        <div style={cardStyle}>
+        <div style={compactCardStyle}>
           <div style={labelStyle}>Usage Count</div>
           <div style={valueStyle}>{agent.usage_count ?? 0}</div>
         </div>
-        <div style={cardStyle}>
+        <div style={compactCardStyle}>
           <div style={labelStyle}>Chat Sessions</div>
           <div style={valueStyle}>{agent.chat_sessions_count ?? 0}</div>
         </div>
@@ -479,46 +509,82 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         </div>
       </label>
     );
+    const toggleBtn = (label: string, active: boolean, onClick: () => void) => (
+      <button
+        onClick={onClick}
+        style={{
+          padding: '2px 10px',
+          fontSize: 11,
+          border: `1px solid ${active ? t.accent : t.border}`,
+          background: active ? t.accent + '20' : 'transparent',
+          color: active ? t.accent : t.textMuted,
+          borderRadius: 10,
+          cursor: 'pointer',
+          fontWeight: active ? 600 : 400,
+        }}
+      >
+        {label}
+      </button>
+    );
+
+    // Filter helper: when showAllTools=false, only include checked tools
+    const filterTools = <T extends { id: string }>(tools: T[]): T[] =>
+      showAllTools ? tools : tools.filter(t => selectedNativeTools.includes(t.id));
+
     return (
       <div style={{ padding: 4 }}>
         {/* Native tools grouped by category */}
         <div style={cardStyle}>
-          <div style={labelStyle}>
-            Native Tools ({nativeCount}/{allNativeLoaded.length} selected)
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <div style={labelStyle}>
+              Native Tools ({nativeCount}/{allNativeLoaded.length} selected)
+            </div>
+            <div style={{ flex: 1 }} />
+            {toggleBtn('All', showAllTools, () => setShowAllTools(true))}
+            {toggleBtn('Selected', !showAllTools, () => setShowAllTools(false))}
           </div>
           {toolsLoading ? (
             <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>Loading tools...</div>
           ) : allNativeLoaded.length === 0 ? (
             <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>(none available)</div>
           ) : (
-            Object.entries(groupedByCategory).map(([cat, tools]) => (
-              <div key={cat} style={{ marginBottom: 10 }}>
-                <div style={{
-                  fontSize: 10, color: t.textMuted, textTransform: 'uppercase',
-                  letterSpacing: 0.3, marginBottom: 6, fontWeight: 600,
-                }}>
-                  {cat}
+            Object.entries(groupedByCategory).map(([cat, tools]) => {
+              const catTools = filterTools(tools);
+              if (catTools.length === 0) return null;
+              return (
+                <div key={cat} style={{ marginBottom: 10 }}>
+                  <div style={{
+                    fontSize: 10, color: t.textMuted, textTransform: 'uppercase',
+                    letterSpacing: 0.3, marginBottom: 6, fontWeight: 600,
+                  }}>
+                    {cat}
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: 8,
+                  }}>
+                    {catTools.map(tool => toolCard(
+                      tool,
+                      selectedNativeTools.includes(tool.id),
+                      () => toggleNativeTool(tool.id),
+                    ))}
+                  </div>
                 </div>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(4, 1fr)',
-                  gap: 8,
-                }}>
-                  {tools.map(tool => toolCard(
-                    tool,
-                    selectedNativeTools.includes(tool.id),
-                    () => toggleNativeTool(tool.id),
-                  ))}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
         {/* Custom tools */}
         <div style={cardStyle}>
-          <div style={labelStyle}>
-            Custom Tools ({customCount}/{availableCustomTools.length} selected)
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <div style={labelStyle}>
+              Custom Tools ({customCount}/{availableCustomTools.length} selected)
+            </div>
+            <div style={{ flex: 1 }} />
+            {toggleBtn('All', showAllTools, () => setShowAllTools(true))}
+            {toggleBtn('Selected', !showAllTools, () => setShowAllTools(false))}
           </div>
           {availableCustomTools.length === 0 ? (
             <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>
@@ -530,7 +596,10 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
               gridTemplateColumns: 'repeat(4, 1fr)',
               gap: 8,
             }}>
-              {availableCustomTools.map(tool => toolCard(
+              {(showAllTools
+                ? availableCustomTools
+                : availableCustomTools.filter(t => selectedCustomTools.includes(t.tool_id))
+              ).map(tool => toolCard(
                 { id: tool.tool_id, name: tool.name, description: tool.description },
                 selectedCustomTools.includes(tool.tool_id),
                 () => toggleCustomTool(tool.tool_id),
