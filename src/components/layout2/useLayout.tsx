@@ -24,25 +24,31 @@ export type ActivityId =
   | 'search'
   | 'skills';
 
+export type ActivityGroup = 'main' | 'bottom';
+
+/** Where the activity sits in the ActivityBar. `bottom` is rendered
+ *  just above the Settings gear, separated by a thin divider — used for
+ *  configuration / utility-style entries (Models, Search). */
 export interface ActivityDef {
   id: ActivityId;
   label: string;
   icon: string; // lucide icon name
+  group: ActivityGroup;
 }
 
 export const ACTIVITIES: ActivityDef[] = [
-  { id: 'workflows',  label: 'Workflows',  icon: 'GitBranch' },
-  { id: 'deepagents', label: 'DeepAgents', icon: 'Brain' },
-  { id: 'agents',     label: 'Agents',     icon: 'Users' },
-  { id: 'tools',      label: 'Tools',      icon: 'Wrench' },
-  { id: 'knowledge',  label: 'Knowledge',  icon: 'Database' },
-  { id: 'models',     label: 'Models',     icon: 'Sparkles' },
-  { id: 'search',     label: 'Search',     icon: 'Search' },
-  { id: 'library',    label: 'Library',    icon: 'BookOpen' },
-  { id: 'analysis',   label: 'Analysis',   icon: 'BarChart3' },
-  { id: 'skills',     label: 'Skills',     icon: 'Award' },
-  { id: 'studio',     label: 'Studio',     icon: 'Network' },
-  { id: 'settings',   label: 'Settings',   icon: 'Settings' },
+  { id: 'workflows',  label: 'Workflows',  icon: 'GitBranch', group: 'main' },
+  { id: 'deepagents', label: 'DeepAgents', icon: 'Brain',     group: 'main' },
+  { id: 'agents',     label: 'Agents',     icon: 'Users',     group: 'main' },
+  { id: 'tools',      label: 'Tools',      icon: 'Wrench',    group: 'main' },
+  { id: 'knowledge',  label: 'Knowledge',  icon: 'Database',  group: 'main' },
+  { id: 'library',    label: 'Library',    icon: 'BookOpen',  group: 'main' },
+  { id: 'analysis',   label: 'Analysis',   icon: 'BarChart3', group: 'main' },
+  { id: 'skills',     label: 'Skills',     icon: 'Award',     group: 'main' },
+  { id: 'studio',     label: 'Studio',     icon: 'Network',   group: 'main' },
+  { id: 'models',     label: 'Models',     icon: 'Sparkles',  group: 'bottom' },
+  { id: 'search',     label: 'Search',     icon: 'Search',    group: 'bottom' },
+  { id: 'settings',   label: 'Settings',   icon: 'Settings',  group: 'bottom' },
 ];
 
 // ── Tab definitions ───────────────────────────────────────
@@ -85,6 +91,7 @@ export interface LayoutState {
 
   // Right panel (VS Code "Panel" on right side — used for node config)
   rightPanelOpen: boolean;
+  setRightPanelOpen: (open: boolean) => void;
   rightPanelContent: string | null;
   rightPanelWidth: number;
   rightPanelTab: 'chat' | 'doc-chat' | 'properties';
@@ -206,6 +213,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     setTabDirty,
     moveTab,
     rightPanelOpen,
+    setRightPanelOpen,
     rightPanelContent,
     rightPanelWidth,
     rightPanelTab,
