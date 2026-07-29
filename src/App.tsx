@@ -541,6 +541,14 @@ function AppContent() {
   );
 }
 
+function GlobalChatModalWrapper() {
+  const location = useLocation();
+  // Don't render GlobalChatModal on the standalone chat page — ChatPage
+  // manages its own UI and would otherwise show a duplicate overlay.
+  if (location.pathname === '/chat') return null;
+  return <GlobalChatModal />;
+}
+
 function App() {
   return (
     <ThemeProvider>
@@ -550,7 +558,7 @@ function App() {
             <ChatProvider>
               <LayoutProvider>
                 <AppContent />
-                <GlobalChatModal />
+                <GlobalChatModalWrapper />
               </LayoutProvider>
             </ChatProvider>
           </ProjectProvider>
