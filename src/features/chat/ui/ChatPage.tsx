@@ -9,7 +9,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { X, GripVertical, BarChart3, FileText, Sun, Moon } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
-import { useTheme } from '../../../lib/themes';
+import { useTheme, type ThemeName } from '../../../lib/themes';
 import HitlInterruptModal from './HitlInterruptModal';
 import ContextPanel from './ContextPanel';
 import { useChatSession } from '../hooks/useChatSession';
@@ -19,6 +19,7 @@ import MetricsPanel from './MetricsPanel';
 import MessagesPanel from './MessagesPanel';
 import ChatHistorySidebar from './ChatHistorySidebar';
 import AgentSelector from './AgentSelector';
+import ChatSettingsMenu from './ChatSettingsMenu';
 import type { ChatSession, ChatStreamEvent, CustomEventPayload, InterruptData, ToolCall } from '../types/chat';
 import type { ThinkingStep } from './ThinkingBlock';
 import apiClient from '../../../lib/api-client';
@@ -421,16 +422,21 @@ export default function ChatPage() {
             )}
             <button
               onClick={() => {
-                const next = theme.name === 'dark' ? 'langconfig' : 'dark';
+                // Cycle: dark → langconfig → warm → dark
+                const order: ThemeName[] = ['dark', 'langconfig', 'warm'];
+                const idx = order.indexOf(theme.name);
+                const next = order[(idx + 1) % order.length];
                 setTheme(next);
               }}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              title={theme.name === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={theme.name === 'dark' ? 'Dark theme' : theme.name === 'warm' ? 'Warm theme' : 'Light theme'}
             >
               {theme.name === 'dark' ? (
-                <Sun className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
-              ) : (
                 <Moon className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+              ) : theme.name === 'warm' ? (
+                <Sun className="w-4 h-4" style={{ color: '#d97706' }} />
+              ) : (
+                <Sun className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
               )}
             </button>
             <button
@@ -482,6 +488,28 @@ export default function ChatPage() {
               />
             </div>
           )}
+        </div>
+
+        {/* Bottom toolbar — settings & theme toggle */}
+        <div
+          className="flex items-center justify-between px-6 py-1.5 border-t"
+          style={{ borderColor: 'var(--color-border-dark)' }}
+        >
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            Chat
+          </span>
+          <div className="flex items-center gap-1">
+            <ChatSettingsMenu
+              sessionId={currentSessionId}
+              messages={messages}
+              metrics={metrics}
+              toolCalls={toolCalls}
+              subagentActivity={subagentActivity}
+              agentName={agentName}
+              onClearHistory={clearHistory}
+              onEndSession={handleEndSession}
+            />
+          </div>
         </div>
       </div>
 
