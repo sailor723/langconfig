@@ -6,7 +6,7 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
-import { Activity, Copy, CheckCircle, AlertCircle, X, Brain, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2, Download } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, Brain, User, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -213,18 +213,18 @@ export default function MessagesPanel({
               {/* AI avatar — left side */}
               {message.role === 'assistant' && (
                 <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-semibold"
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{
                     backgroundColor: 'rgba(59, 130, 246, 0.15)',
                     color: '#3b82f6',
                     marginTop: 2,
                   }}
                 >
-                  AI
+                  <Brain size={14} strokeWidth={2} />
                 </div>
               )}
 
-              <div className={`${message.role === 'user' ? 'max-w-[60%]' : 'max-w-[80%]'} ${message.role === 'user' ? 'order-2' : 'order-1'}`}>
+              <div className={`${message.role === 'user' ? 'max-w-[60%] ml-auto' : 'max-w-[80%]'}`}>
                 <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-6xl'}`}>
                   {message.role === 'system' ? (
                     <div
@@ -541,14 +541,14 @@ export default function MessagesPanel({
               {/* User avatar — right side */}
               {message.role === 'user' && (
                 <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-[11px] font-semibold order-3"
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{
                     backgroundColor: 'rgba(156, 163, 175, 0.2)',
                     color: '#6b7280',
                     marginTop: 2,
                   }}
                 >
-                  You
+                  <User size={14} strokeWidth={2} />
                 </div>
               )}
             </div>
