@@ -8,7 +8,7 @@
  *   - Status bar at bottom showing item count
  */
 import { type ReactNode, useCallback, useRef, useState } from 'react';
-import { useLayoutState, ACTIVITIES, type Tab } from './useLayout';
+import { useLayoutState, ACTIVITIES } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import TreeView, { type TreeNode } from './TreeView';
 import { useSidebarData } from './useSidebarData';
@@ -67,24 +67,14 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
     if (node.children || node.viewType === 'empty') return;
     let content = '';
     try { content = await getNodeContent(node); } catch {}
-    // For deep agents, node.data.agent should now be populated by getNodeContent.
-    // Build the tab and re-open it so React re-renders the editor with fresh data.
-    const tab: Tab = {
+    // getNodeContent populates node.data.agent for agent/deepagent nodes.
+    // The tab is opened once with the complete data — no setTimeout needed.
+    openTab({
       id: node.id,
       label: node.label,
       viewType: node.viewType ?? activeActivity,
       data: { ...node.data, content, onSave: saveNodeContent },
-    };
-    openTab(tab);
-    // For deep agents and agents, openTab again on next tick so the editor sees the latest data
-    if (node.viewType === 'deepagent' || node.viewType === 'agent') {
-      setTimeout(() => {
-        openTab({
-          ...tab,
-          data: { ...node.data, content, onSave: saveNodeContent },
-        });
-      }, 0);
-    }
+    });
   }, [activeActivity, openTab, getNodeContent, saveNodeContent]);
 
   const handleNewFile = useCallback(() => {

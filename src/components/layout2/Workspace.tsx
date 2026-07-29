@@ -74,7 +74,7 @@ export default function Workspace({ fallback }: WorkspaceProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, background: t.bgContent }}>
-      <style>{`.tab-close-btn { display: none; } div:hover > .tab-close-btn { display: flex; }`}</style>
+      <style>{`.tab-close-btn { display: flex; }`}</style>
 
       {/* ── Tab bar (VS Code style) ────────────────────── */}
       {tabs.length > 0 && (
@@ -127,30 +127,30 @@ export default function Workspace({ fallback }: WorkspaceProps) {
                     <span style={{ opacity: 0.6, display: 'flex' }}>{VIEW_ICONS[tab.viewType]}</span>
                   )}
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 160 }}>{tab.label}</span>
-                  {tab.dirty ? (
+                  {tab.dirty && (
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.accent, minWidth: 8 }} />
-                  ) : (
-                    <button
-                      onClick={e => { e.stopPropagation(); closeTab(tab.id); }}
-                      style={{
-                        display: 'none',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 16,
-                        height: 16,
-                        border: 'none',
-                        background: 'transparent',
-                        color: t.textMuted,
-                        cursor: 'pointer',
-                        padding: 0,
-                      }}
-                      className="tab-close-btn"
-                      onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                    >
-                      <X size={12} />
-                    </button>
                   )}
+                  <button
+                    onClick={e => { e.stopPropagation(); closeTab(tab.id); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 16,
+                      height: 16,
+                      border: 'none',
+                      background: 'transparent',
+                      color: t.textMuted,
+                      cursor: 'pointer',
+                      padding: 0,
+                      opacity: 0.5,
+                    }}
+                    className="tab-close-btn"
+                    onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; e.currentTarget.style.opacity = '1'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.opacity = '0.5'; }}
+                  >
+                    <X size={12} />
+                  </button>
                 </div>
               );
             })}
