@@ -37,6 +37,7 @@ import { ProjectProvider } from './contexts/ProjectContext';
 import { ToastProvider, ToastContainer } from './hooks/useToast';
 import { ChatProvider } from './features/chat/state/ChatContext';
 import GlobalChatModal from './features/chat/ui/GlobalChatModal';
+import ChatPage from './features/chat/ui/ChatPage';
 import apiClient from './lib/api-client';
 
 // Layout2 components
@@ -48,7 +49,7 @@ import NodeSidebar from './components/layout2/NodeSidebar';
 import BottomPanel from './components/layout2/BottomPanel';
 import StatusBar from './components/layout2/StatusBar';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search';
+type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search' | 'chat';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -159,6 +160,7 @@ const ROUTE_TO_VIEW: Record<string, View> = {
   '/models': 'models',
   '/search': 'search',
   '/deepagent-studio': 'deepagent-studio',
+  '/chat': 'chat',
 };
 
 // Map View → route path
@@ -170,6 +172,7 @@ const VIEW_ROUTE: Record<View, string> = {
   'deepagent-studio': '/deepagent-studio',
   models: '/models',
   search: '/search',
+  chat: '/chat',
 };
 
 // Map View → ActivityId
@@ -189,6 +192,7 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   'deepagent-studio': 'studio',
   models: 'models',
   search: 'search',
+  chat: null,
 };
 
 // Map ActivityId → View (for ActivityBar clicks)
@@ -272,6 +276,11 @@ function AppContent() {
 
   // Current view from route
   const currentView: View = ROUTE_TO_VIEW[location.pathname] ?? 'home';
+
+  // Chat is a standalone full-page view — render without layout chrome
+  if (currentView === 'chat') {
+    return <ChatPage />;
+  }
 
   // Sync ActivityBar with current view
   useEffect(() => {

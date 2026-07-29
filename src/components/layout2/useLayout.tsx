@@ -91,7 +91,6 @@ export interface LayoutState {
 
   // Right panel (VS Code "Panel" on right side — used for node config)
   rightPanelOpen: boolean;
-  setRightPanelOpen: (open: boolean) => void;
   rightPanelContent: string | null;
   rightPanelWidth: number;
   rightPanelTab: 'chat' | 'doc-chat' | 'properties';
@@ -213,7 +212,6 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     setTabDirty,
     moveTab,
     rightPanelOpen,
-    setRightPanelOpen,
     rightPanelContent,
     rightPanelWidth,
     rightPanelTab,

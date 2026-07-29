@@ -16,7 +16,7 @@ import {
   Info, FileText, Wrench, Users, Layers, Shield, Code, ChevronDown, ChevronRight,
   Play, Square, Loader, Save, Award,
 } from 'lucide-react';
-import { useLayoutState, type Tab } from './useLayout';
+import type { Tab } from './useLayout';
 import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
 import { useAvailableTools } from '../../hooks/useAvailableTools';
@@ -41,7 +41,6 @@ const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
 
 export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const t = useLayoutTokens();
-  const { closeRightPanel, setRightPanelOpen } = useLayoutState();
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
@@ -129,21 +128,12 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
 
   const handleRun = async () => {
     if (!agent.id || running) return;
-    setRunning(true);
-    // Ensure the right-panel Chat tab is open, so the user sees responses as they stream in
-    closeRightPanel();   // clear any node-config content → Chat tab becomes the active tab
-    setRightPanelOpen(true);
-    try {
-      // Use SSE streaming — chatStore handles session start + message send + incremental updates
-      await chatStore.sendStreamMessage(agent.id, testPrompt, agent.name ?? 'DeepAgent');
-    } catch (err: any) {
-      chatStore.add({
-        role: 'system',
-        text: `// Test failed: ${err?.message ?? 'unknown error'}`,
-      });
-    } finally {
-      setRunning(false);
-    }
+    // Open the dedicated chat window with this agent pre-selected
+    window.open(
+      window.location.origin + '/#/chat?agentId=' + agent.id,
+      'langconfig-chat',
+      'width=700,height=900,menubar=no,toolbar=no,scrollbars=yes'
+    );
   };
 
   const handleStop = () => {
