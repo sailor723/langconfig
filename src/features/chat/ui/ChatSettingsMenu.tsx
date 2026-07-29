@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { Settings, Download, Trash2, LogOut, Check, Sun, Moon } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
-import { useTheme, type ThemeName } from '../../../lib/themes';
+import type { ThemeName } from '../../../lib/themes';
 
 interface ChatSettingsMenuProps {
   sessionId: string | null;
@@ -17,6 +17,8 @@ interface ChatSettingsMenuProps {
   toolCalls: any[];
   subagentActivity: any[];
   agentName: string;
+  themeName: ThemeName;
+  onThemeChange: (name: ThemeName) => void;
   onClearHistory: () => void;
   onEndSession: () => void;
 }
@@ -28,11 +30,12 @@ export default function ChatSettingsMenu({
   toolCalls,
   subagentActivity,
   agentName,
+  themeName,
+  onThemeChange,
   onClearHistory,
   onEndSession
 }: ChatSettingsMenuProps) {
   const { hitlEnabled, toggleHitl } = useChat();
-  const { theme, setTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
@@ -103,9 +106,9 @@ export default function ChatSettingsMenu({
               onClick={() => {
                 // Cycle: dark → langconfig → warm → dark
                 const order: ThemeName[] = ['dark', 'langconfig', 'warm'];
-                const idx = order.indexOf(theme.name);
+                const idx = order.indexOf(themeName);
                 const next = order[(idx + 1) % order.length];
-                setTheme(next);
+                onThemeChange(next);
                 setIsOpen(false);
               }}
               onMouseEnter={() => setHoveredItem('theme')}
@@ -117,9 +120,9 @@ export default function ChatSettingsMenu({
               }}
             >
               <div className="flex items-center gap-2">
-                {theme.name === 'dark' ? (
+                {themeName === 'dark' ? (
                   <Moon className="w-4 h-4" style={{ color: hoveredItem === 'theme' ? 'white' : 'var(--color-text-muted)' }} />
-                ) : theme.name === 'warm' ? (
+                ) : themeName === 'warm' ? (
                   <Sun className="w-4 h-4" style={{ color: hoveredItem === 'theme' ? 'white' : '#d97706' }} />
                 ) : (
                   <Sun className="w-4 h-4" style={{ color: hoveredItem === 'theme' ? 'white' : 'var(--color-text-muted)' }} />
@@ -128,11 +131,11 @@ export default function ChatSettingsMenu({
                   className="text-sm"
                   style={{ color: hoveredItem === 'theme' ? 'white' : 'var(--color-text-primary)' }}
                 >
-                  {theme.name === 'dark' ? 'Dark Theme' : theme.name === 'warm' ? 'Warm Theme' : 'Light Theme'}
+                  {themeName === 'dark' ? 'Dark Theme' : themeName === 'warm' ? 'Warm Theme' : 'Light Theme'}
                 </span>
               </div>
               <span className="text-xs" style={{ color: hoveredItem === 'theme' ? 'white' : 'var(--color-text-muted)' }}>
-                {theme.name === 'dark' ? '🌙' : theme.name === 'warm' ? '☀️' : '🌤️'}
+                {themeName === 'dark' ? '🌙' : themeName === 'warm' ? '☀️' : '🌤️'}
               </span>
             </button>
 
