@@ -925,6 +925,11 @@ class APIClient {
     return this.client.get('/api/deepagents/', { params: Object.keys(params).length ? params : undefined, signal });
   }
 
+  async listDeepAgentTemplates(config?: { signal?: AbortSignal }) {
+    const { signal } = config || {};
+    return this.client.get('/api/deepagents/templates', { signal });
+  }
+
   async getDeepAgent(id: number) {
     return this.client.get(`/api/deepagents/${id}`);
   }
