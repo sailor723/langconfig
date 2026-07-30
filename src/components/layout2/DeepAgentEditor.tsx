@@ -14,6 +14,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useLayoutTokens } from './tokens';
 import { Award, ChevronDown, ChevronRight, Loader, Play, Save, Square } from 'lucide-react';
 import type { Tab } from './useLayout';
+import { useLayoutState } from './useLayout';
 import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
 import { useAvailableTools } from '../../hooks/useAvailableTools';
@@ -28,6 +29,7 @@ type SectionId = _SectionId;
 
 export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const t = useLayoutTokens();
+  const { setRightPanelTab, openRightPanel } = useLayoutState();
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
@@ -115,12 +117,30 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
 
   const handleRun = async () => {
     if (!agent.id || running) return;
-    // Open the dedicated chat window with this agent pre-selected
-    window.open(
-      window.location.origin + '/#/chat?agentId=' + agent.id,
-      'langconfig-chat',
-      'width=700,height=900,menubar=no,toolbar=no,scrollbars=yes'
-    );
+    setRunning(true);
+
+    // Open the right-sidebar chat panel
+    setRightPanelTab('chat');
+    openRightPanel('');
+
+    // Start a chat session and send the test prompt
+    const prompt = testPrompt || 'Hello, please introduce yourself.';
+    try {
+      // sendStreamMessage auto-starts a session if none exists
+      const msgId = await chatStore.sendStreamMessage(agent.id, prompt, agent.name);
+      if (!msgId) {
+        // Session start failed — error is already in chatStore
+        console.error('[DeepAgentEditor] sendStreamMessage failed');
+      }
+    } catch (err: any) {
+      console.error('[DeepAgentEditor] Run error:', err);
+      chatStore.add({
+        role: 'system',
+        text: `// Failed to run agent: ${err.message}`,
+      });
+    } finally {
+      setRunning(false);
+    }
   };
 
   const handleStop = () => {
