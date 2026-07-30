@@ -111,14 +111,21 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
   };
   const totalItems = nodes ? countItems(nodes) : 0;
 
-  // Client-side filtering for deepagents browser
-  const filteredNodes = activeActivity === 'deepagents' && searchQuery.trim()
-    ? nodes.map(n => n.id === 'folder-deepagents' && n.children
-        ? { ...n, children: n.children.filter(c =>
+  // Client-side filtering for deepagents/agents browser
+  const filteredNodes = (activeActivity === 'deepagents' || activeActivity === 'agents') && searchQuery.trim()
+    ? nodes.map(n => {
+        if (n.id === 'folder-deepagents' && n.children) {
+          return { ...n, children: n.children.filter(c =>
             c.label.toLowerCase().includes(searchQuery.toLowerCase())
-          )}
-        : n
-      )
+          )};
+        }
+        if (n.id === 'folder-agents' && n.children) {
+          return { ...n, children: n.children.filter(c =>
+            c.label.toLowerCase().includes(searchQuery.toLowerCase())
+          )};
+        }
+        return n;
+      })
     : nodes;
 
   if (!sidebarOpen || activeActivity === 'settings' || activeActivity === 'vault') return null;
@@ -213,8 +220,8 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
                 onNewFile={handleNewFile}
                 onFolderAction={handleFolderAction}
                 onFolderRefresh={handleRefresh}
-                folderSearchValue={activeActivity === 'deepagents' ? searchQuery : undefined}
-                onFolderSearchChange={activeActivity === 'deepagents' ? setSearchQuery : undefined}
+                folderSearchValue={activeActivity === 'deepagents' || activeActivity === 'agents' ? searchQuery : undefined}
+                onFolderSearchChange={activeActivity === 'deepagents' || activeActivity === 'agents' ? setSearchQuery : undefined}
               />
               </div>
             </div>
