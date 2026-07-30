@@ -20,7 +20,7 @@ _CODEGEN_REPO_ROOT = _os.path.abspath(
 )
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, field_validator
 
 from db.database import get_db
@@ -186,6 +186,46 @@ class ExportResponse(BaseModel):
     created_at: str
     task_id: Optional[int] = None  # Background task ID
     status: Optional[str] = None  # Export status (pending, in_progress, completed, failed)
+
+
+# =============================================================================
+# Built-in Template Endpoints
+# =============================================================================
+
+@router.get("/templates")
+async def list_builtin_deep_templates() -> List[Dict[str, Any]]:
+    """
+    Get all built-in DeepAgent templates (preset configurations).
+
+    Returns pre-configured DeepAgent templates from the DeepAgentTemplateRegistry,
+    similar to how /api/agents/templates serves built-in regular agent templates.
+    Each template includes full config, model, tools, middleware, and subagents.
+    """
+    from core.templates.deep_agent import DeepAgentTemplateRegistry
+
+    templates = DeepAgentTemplateRegistry.list_all()
+    result = []
+    for tpl in templates:
+        # Resolve full config via factory
+        config = DeepAgentTemplateRegistry.get_template(tpl["template_id"])
+        result.append({
+            "template_id": tpl["template_id"],
+            "name": tpl["name"],
+            "description": tpl["description"],
+            "category": tpl["category"],
+            "capabilities": tpl["capabilities"],
+            "use_cases": tpl["use_cases"],
+            "model": config.model,
+            "temperature": config.temperature,
+            "system_prompt": config.system_prompt,
+            "native_tools": config.native_tools,
+            "cli_tools": config.cli_tools,
+            "custom_tools": config.custom_tools,
+            "middleware": [m.dict() for m in config.middleware],
+            "subagents": [s.dict() for s in config.subagents],
+            "use_deepagents": True,
+        })
+    return result
 
 
 # =============================================================================

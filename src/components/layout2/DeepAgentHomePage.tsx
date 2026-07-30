@@ -12,13 +12,13 @@ import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
 import apiClient from '../../lib/api-client';
 import {
-  Brain, Sparkles, Cpu, Search, Code, Layers, Plus, Loader,
+  Brain, Cpu, Search, Code, Layers, Plus, Loader,
   GitBranch, Shield, Workflow, Puzzle, Database, Lightbulb,
   ArrowRight, Rocket, BookOpen,
   Network, FileText, Sliders, Bot, ListTodo, FolderOpen,
   MessagesSquare, GanttChartSquare, UserCheck,
   RefreshCw, AlertTriangle, ScrollText, Terminal,
-  Globe, Box,
+  Globe, Box, Bug,
 } from 'lucide-react';
 
 // ── CSS visual components (replace unavailable images) ───────
@@ -116,7 +116,7 @@ function ArchVisual() {
 // ── Template data ────────────────────────────────────────────
 
 interface TemplateAgent {
-  id: number;
+  id: string | number;
   name: string;
   description: string;
   icon?: string;
@@ -126,14 +126,19 @@ interface TemplateAgent {
   model?: string;
   temperature?: number;
   native_tools?: string[];
+  is_builtin?: boolean;
 }
 
 const CATEGORY_CONFIG: Record<string, { icon: typeof Brain; color: string; labelEn: string; labelZh: string }> = {
+  system:        { icon: Layers,  color: '#8b5cf6', labelEn: 'Template',        labelZh: 'Template' },
+  custom:        { icon: Bot,     color: '#f97316', labelEn: 'Customer Build',  labelZh: 'Customer Build' },
   code_review:   { icon: Code,    color: '#3b82f6', labelEn: 'Code Review',    labelZh: 'Code Review' },
   testing:       { icon: Search,  color: '#22c55e', labelEn: 'Testing',        labelZh: 'Testing' },
   qa_validation: { icon: Layers,  color: '#f59e0b', labelEn: 'QA & Validation', labelZh: 'QA & Validation' },
   research:      { icon: Cpu,     color: '#8b5cf6', labelEn: 'Research',       labelZh: 'Research' },
-  documentation: { icon: Sparkles, color: '#ec4899', labelEn: 'Documentation',  labelZh: 'Documentation' },
+  architecture:  { icon: Layers,  color: '#ec4899', labelEn: 'Architecture',   labelZh: 'Architecture' },
+  documentation: { icon: FileText, color: '#06b6d4', labelEn: 'Documentation',  labelZh: 'Documentation' },
+  debugging:     { icon: Bug,     color: '#f97316', labelEn: 'Debugging',      labelZh: 'Debugging' },
   data:          { icon: Cpu,     color: '#06b6d4', labelEn: 'Data Processing', labelZh: 'Data Processing' },
 };
 
@@ -857,6 +862,7 @@ function HeroCard({ onNewAgent }: { onNewAgent: () => void }) {
               {c.heroCta}
             </button>
             <button
+              onClick={() => document.getElementById('deepagent-templates')?.scrollIntoView({ behavior: 'smooth' })}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
                 padding: '10px 18px', borderRadius: 8,
@@ -1247,38 +1253,63 @@ export default function DeepAgentHomePage() {
   const t = useLayoutTokens();
   const c = useContent();
   const { openTab } = useLayoutState();
-  const [activeTab, setActiveTab] = useState<'intro' | 'templates'>('intro');
   const [templates, setTemplates] = useState<TemplateAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
 
-  // Load templates from API — called on mount and on manual refresh
+  // Load deep agent templates — merges built-in presets + user-created agents
   const loadTemplates = () => {
     const abort = new AbortController();
     setLoading(true);
     setError(null);
     Promise.all([
-      apiClient.apiFetch(`${apiClient.baseURL}/api/agents/templates`, { signal: abort.signal }),
+      apiClient.listDeepAgentTemplates({ signal: abort.signal }),
       apiClient.listDeepAgents({ public_only: false }),
     ])
-      .then(([templatesRes, agentsRes]) => {
-        const tpl = (templatesRes as any[]) || [];
-        const custom = ((agentsRes as any).data ?? []) as any[];
-        // Merge pre-built templates with user-created DeepAgents,
-        // deduplicating by id so agents aren't doubled when they match a template.
-        const customMapped = custom.map((a: any) => ({
-          id: a.id, name: a.name, description: a.description || '',
-          category: a.category, tags: a.tags,
-          system_prompt: a.config?.system_prompt,
+      .then(([builtinRes, dbRes]: any) => {
+        // Unwrap Axios response objects (both use this.client.get)
+        const builtinData = (builtinRes as any)?.data ?? builtinRes ?? [];
+        const builtinRaw = Array.isArray(builtinData) ? builtinData : [];
+
+        // Built-in presets (from DeepAgentTemplateRegistry) → "System Templates"
+        const builtin = builtinRaw.map((t: any) => ({
+          id: t.template_id,
+          name: t.name,
+          description: t.description || '',
+          category: 'system',
+          tags: t.capabilities || [],
+          system_prompt: t.system_prompt,
+          model: t.model,
+          temperature: t.temperature,
+          native_tools: t.native_tools || [],
+          is_builtin: true,
         }));
-        const seen = new Set(tpl.map((t: any) => t.id));
-        setTemplates([...tpl, ...customMapped.filter((c: any) => !seen.has(c.id))]);
+
+        // User-created agents (from deep_agent_templates DB table) → "Custom Builds"
+        const dbData = (dbRes as any)?.data ?? dbRes ?? [];
+        const dbAgents = Array.isArray(dbData) ? dbData : [];
+        const userCreated = dbAgents.map((a: any) => ({
+          id: a.id,
+          name: a.name,
+          description: a.description || '',
+          category: 'custom',
+          tags: a.tags || [],
+          system_prompt: a.config?.system_prompt,
+          model: a.config?.model,
+          temperature: a.config?.temperature,
+          native_tools: a.config?.native_tools || [],
+          is_builtin: false,
+        }));
+
+        // Merge: built-in first, then user-created (dedup by name)
+        const seen = new Set(builtin.map((t: any) => t.name));
+        setTemplates([...builtin, ...userCreated.filter((c: any) => !seen.has(c.name))]);
       })
       .catch(err => {
-        if (err?.name !== 'AbortError') {
-          console.error('Failed to load templates:', err);
+        if (err?.name !== 'AbortError' && err?.name !== 'CanceledError') {
+          console.error('Failed to load deep agent templates:', err);
           setError(c.tplError);
         }
       })
@@ -1320,11 +1351,14 @@ export default function DeepAgentHomePage() {
         id: agent.id,
         name: agent.name,
         description: agent.description,
-        system_prompt: agent.system_prompt,
-        model: agent.model,
-        temperature: agent.temperature || 0.7,
-        native_tools: agent.native_tools || [],
+        category: agent.category,
         tags: agent.tags || [],
+        config: {
+          system_prompt: agent.system_prompt,
+          model: agent.model,
+          temperature: agent.temperature || 0.7,
+          native_tools: agent.native_tools || [],
+        },
       },
     });
   };
@@ -1352,157 +1386,145 @@ export default function DeepAgentHomePage() {
 
   const categoryList = Object.keys(grouped);
 
-  // Tab pill style
-  const tabBtn = (key: 'intro' | 'templates', label: string, count?: number): React.CSSProperties => ({
-    padding: '8px 16px', fontSize: 13, fontWeight: activeTab === key ? 600 : 500,
-    color: activeTab === key ? t.accent : t.textMuted,
-    background: 'transparent', border: 'none',
-    borderBottom: activeTab === key ? `2px solid ${t.accent}` : '2px solid transparent',
-    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-  });
-
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* ── Tab bar ── */}
+      {/* ── Header bar ── */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 24px', borderBottom: `1px solid ${t.border}`,
+        padding: '0 24px', height: 44,
+        borderBottom: `1px solid ${t.border}`,
         background: t.bgContent, flexShrink: 0,
       }}>
-        <div style={{ display: 'flex' }}>
-          <button onClick={() => setActiveTab('intro')} style={tabBtn('intro', c.tplIntroTab)}>
-            <BookOpen size={14} />
-            {c.tplIntroTab}
-          </button>
-          <button onClick={() => setActiveTab('templates')} style={tabBtn('templates', c.tplBrowseTab, templates.length)}>
-            <Layers size={14} />
-            {c.tplBrowseTab}
-            <span style={{
-              fontSize: 10, padding: '1px 6px', borderRadius: 8,
-              background: activeTab === 'templates' ? `${t.accent}20` : t.bgHover,
-              color: activeTab === 'templates' ? t.accent : t.textMuted,
-              marginLeft: 2,
-            }}>
-              {templates.length}
-            </span>
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <BookOpen size={16} style={{ color: t.accent }} />
+          <span style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary }}>{c.heroTitle}</span>
         </div>
 
-        {activeTab === 'templates' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button
-              onClick={handleNewAgent}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '6px 12px', borderRadius: 6,
-                background: t.accent, color: '#fff',
-                fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
-              }}
-            >
-              <Plus size={13} /> {c.heroCta}
-            </button>
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            title="Refresh"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28, borderRadius: 4,
+              background: 'transparent', color: t.textMuted,
+              border: 'none', cursor: 'pointer',
+              opacity: loading ? 0.5 : 1,
+            }}
+            onMouseEnter={e => { if (!loading) e.currentTarget.style.background = t.bgHover; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            {loading ? <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={14} />}
+          </button>
+          <button
+            onClick={handleNewAgent}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '6px 12px', borderRadius: 6,
+              background: t.accent, color: '#fff',
+              fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+            }}
+          >
+            <Plus size={13} /> {c.heroCta}
+          </button>
+        </div>
       </div>
 
-      {/* ── Tab content ── */}
+      {/* ── Scrollable content area — intro + templates ── */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
-        {activeTab === 'intro' && <HeroCard onNewAgent={handleNewAgent} />}
+        <HeroCard onNewAgent={handleNewAgent} />
 
-        {activeTab === 'templates' && (
-          <div>
-            {/* Search + category filter */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16,
-              flexWrap: 'wrap',
-            }}>
-              <div style={{ position: 'relative', flex: 1, minWidth: 220, maxWidth: 360 }}>
-                <Search size={14} style={{
-                  position: 'absolute', left: 10, top: '50%',
-                  transform: 'translateY(-50%)', color: t.textMuted,
-                }} />
-                <input
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder={c.tplSearchPlaceholder}
-                  style={{
-                    width: '100%',
-                    padding: '8px 10px 8px 32px',
-                    background: t.bgContent,
-                    border: `1px solid ${t.border}`,
-                    borderRadius: 4,
-                    color: t.textPrimary,
-                    fontSize: 12,
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
+        {/* Search + category filter */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16,
+          flexWrap: 'wrap',
+        }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: 220, maxWidth: 360 }}>
+            <Search size={14} style={{
+              position: 'absolute', left: 10, top: '50%',
+              transform: 'translateY(-50%)', color: t.textMuted,
+            }} />
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder={c.tplSearchPlaceholder}
+              style={{
+                width: '100%',
+                padding: '8px 10px 8px 32px',
+                background: t.bgContent,
+                border: `1px solid ${t.border}`,
+                borderRadius: 4,
+                color: t.textPrimary,
+                fontSize: 12,
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
 
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setActiveCategory('all')}
+              style={{
+                padding: '5px 12px', fontSize: 11, fontWeight: 500,
+                border: `1px solid ${activeCategory === 'all' ? t.accent : t.border}`,
+                borderRadius: 14, cursor: 'pointer',
+                background: activeCategory === 'all' ? `${t.accent}15` : 'transparent',
+                color: activeCategory === 'all' ? t.accent : t.textPrimary,
+              }}
+            >
+              {c.tplFilterAll} ({templates.length})
+            </button>
+            {categoryList.map(cat => {
+              const cfg = getCategoryConfig(cat);
+              const active = activeCategory === cat;
+              return (
                 <button
-                  onClick={() => setActiveCategory('all')}
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
                   style={{
                     padding: '5px 12px', fontSize: 11, fontWeight: 500,
-                    border: `1px solid ${activeCategory === 'all' ? t.accent : t.border}`,
+                    border: `1px solid ${active ? t.accent : t.border}`,
                     borderRadius: 14, cursor: 'pointer',
-                    background: activeCategory === 'all' ? `${t.accent}15` : 'transparent',
-                    color: activeCategory === 'all' ? t.accent : t.textPrimary,
+                    background: active ? `${t.accent}15` : 'transparent',
+                    color: active ? t.accent : t.textPrimary,
                   }}
                 >
-                  {c.tplFilterAll} ({templates.length})
+                  {cfg.labelEn} ({grouped[cat].length})
                 </button>
-                {categoryList.map(cat => {
-                  const cfg = getCategoryConfig(cat);
-                  const active = activeCategory === cat;
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => setActiveCategory(cat)}
-                      style={{
-                        padding: '5px 12px', fontSize: 11, fontWeight: 500,
-                        border: `1px solid ${active ? t.accent : t.border}`,
-                        borderRadius: 14, cursor: 'pointer',
-                        background: active ? `${t.accent}15` : 'transparent',
-                        color: active ? t.accent : t.textPrimary,
-                      }}
-                    >
-                      {cfg.labelEn} ({grouped[cat].length})
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Templates grid */}
-            <div id="deepagent-templates">
-              {loading ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: t.textMuted, padding: 16 }}>
-                  <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                  {c.tplLoading}
-                </div>
-              ) : error ? (
-                <p style={{ fontSize: 12, color: t.textMuted, padding: 16 }}>{error}</p>
-              ) : templates.length === 0 ? (
-                <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-                  <Cpu size={32} style={{ color: t.textMuted, opacity: 0.3, marginBottom: 8 }} />
-                  <p style={{ fontSize: 13, color: t.textMuted, margin: 0 }}>{c.tplEmpty}</p>
-                  <p style={{ fontSize: 11, color: t.textMuted, margin: '4px 0 0 0' }}>{c.tplEmptyHint}</p>
-                </div>
-              ) : filtered.length === 0 ? (
-                <p style={{ fontSize: 12, color: t.textMuted, padding: 16, textAlign: 'center' }}>
-                  {c.tplNoMatch}
-                </p>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
-                  {filtered.map(a => (
-                    <TemplateCard key={a.id} agent={a} onClick={() => handleTemplateClick(a)} />
-                  ))}
-                </div>
-              )}
-            </div>
+              );
+            })}
           </div>
-        )}
+        </div>
+
+        {/* Templates grid */}
+        <div id="deepagent-templates">
+          {loading ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: t.textMuted, padding: 16 }}>
+              <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
+              {c.tplLoading}
+            </div>
+          ) : error ? (
+            <p style={{ fontSize: 12, color: t.textMuted, padding: 16 }}>{error}</p>
+          ) : templates.length === 0 ? (
+            <div style={{ padding: '24px 16px', textAlign: 'center' }}>
+              <Cpu size={32} style={{ color: t.textMuted, opacity: 0.3, marginBottom: 8 }} />
+              <p style={{ fontSize: 13, color: t.textMuted, margin: 0 }}>{c.tplEmpty}</p>
+              <p style={{ fontSize: 11, color: t.textMuted, margin: '4px 0 0 0' }}>{c.tplEmptyHint}</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <p style={{ fontSize: 12, color: t.textMuted, padding: 16, textAlign: 'center' }}>
+              {c.tplNoMatch}
+            </p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+              {filtered.map(a => (
+                <TemplateCard key={a.id} agent={a} onClick={() => handleTemplateClick(a)} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
