@@ -12,6 +12,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useLayoutTokens } from './tokens';
 import { Info, FileText, Wrench, Code, Play, Square, Loader, Save, Award } from 'lucide-react';
 import type { Tab } from './useLayout';
+import { useLayoutState } from './useLayout';
 import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
 import { useAvailableTools } from '../../hooks/useAvailableTools';
@@ -33,6 +34,7 @@ const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
 
 export default function AgentEditor({ tab }: AgentEditorProps) {
   const t = useLayoutTokens();
+  const { setRightPanelTab, openRightPanel } = useLayoutState();
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
   const isNew = agent.new === true;
@@ -180,12 +182,28 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
 
   const handleRun = async () => {
     if (!localAgentId || running) return;
-    // Open the dedicated chat window with this agent pre-selected
-    window.open(
-      window.location.origin + '/#/chat?agentId=' + localAgentId,
-      'langconfig-chat',
-      'width=700,height=900,menubar=no,toolbar=no,scrollbars=yes'
-    );
+    setRunning(true);
+
+    // Open the right-sidebar chat panel
+    setRightPanelTab('chat');
+    openRightPanel('');
+
+    // Start a chat session and send the test prompt
+    const prompt = testPrompt || 'Hello, please introduce yourself.';
+    try {
+      const msgId = await chatStore.sendStreamMessage(localAgentId, prompt, agent.name);
+      if (!msgId) {
+        console.error('[AgentEditor] sendStreamMessage failed');
+      }
+    } catch (err: any) {
+      console.error('[AgentEditor] Run error:', err);
+      chatStore.add({
+        role: 'system',
+        text: `// Failed to run agent: ${err.message}`,
+      });
+    } finally {
+      setRunning(false);
+    }
   };
 
   const handleStop = () => {
