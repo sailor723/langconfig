@@ -14,7 +14,7 @@ import TreeView, { type TreeNode } from './TreeView';
 import { useSidebarData } from './useSidebarData';
 import { IconButton } from './ui-system';
 import SearchPanel from './SearchPanel';
-import { Plus, FolderPlus, RefreshCw, Search, Loader } from 'lucide-react';
+import { Plus, RefreshCw, Search, Loader } from 'lucide-react';
 import ModelCardsSidebar from './ModelCardsSidebar';
 import SearchProvidersSidebar from './SearchProvidersSidebar';
 import ToolBrowserSidebar from './ToolBrowserSidebar';
@@ -31,9 +31,10 @@ const SIDEBAR_MAX_WIDTH = 600;
 
 export default function LeftSidebar({ children }: LeftSidebarProps) {
   const { activeActivity, sidebarOpen, sidebarView, setSidebarView, openTab, sidebarWidth, setSidebarWidth } = useLayoutState();
-  const { nodes, loading, error, getNodeContent, saveNodeContent } = useSidebarData(activeActivity);
+  const { nodes, loading, error, getNodeContent, saveNodeContent, reload } = useSidebarData(activeActivity);
   const t = useLayoutTokens();
   const [treeKey, setTreeKey] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const isSearch = sidebarView === 'search';
 
@@ -87,7 +88,10 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
   }, [activeActivity, openTab]);
 
   const handleNewFolder = useCallback(() => setTreeKey(v => v + 1), []);
-  const handleRefresh = useCallback(() => setTreeKey(v => v + 1), []);
+  const handleRefresh = useCallback(() => {
+    reload();
+    setTreeKey(v => v + 1);
+  }, [reload]);
   const handleFolderAction = useCallback((node: TreeNode) => {
     if (node.id === 'folder-deepagents') {
       openTab({ id: `new-${Date.now()}`, label: 'New DeepAgent', viewType: 'deepagent-create', data: {} });
@@ -106,6 +110,16 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
     return count;
   };
   const totalItems = nodes ? countItems(nodes) : 0;
+
+  // Client-side filtering for deepagents browser
+  const filteredNodes = activeActivity === 'deepagents' && searchQuery.trim()
+    ? nodes.map(n => n.id === 'folder-deepagents' && n.children
+        ? { ...n, children: n.children.filter(c =>
+            c.label.toLowerCase().includes(searchQuery.toLowerCase())
+          )}
+        : n
+      )
+    : nodes;
 
   if (!sidebarOpen || activeActivity === 'settings' || activeActivity === 'vault') return null;
 
@@ -190,14 +204,19 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
           ) : error ? (
             <div style={{ padding: '16px 20px', fontSize: 13, color: '#e5484d' }}>{error}</div>
           ) : (
-            <div style={{ overflowY: 'auto', height: '100%' }}>
-              <TreeView
-              key={treeKey}
-              nodes={nodes}
-              onFileOpen={handleFileOpen}
-              onNewFile={handleNewFile}
-              onFolderAction={handleFolderAction}
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
+                 <TreeView
+                 key={treeKey}
+                 nodes={filteredNodes}
+                onFileOpen={handleFileOpen}
+                onNewFile={handleNewFile}
+                onFolderAction={handleFolderAction}
+                onFolderRefresh={handleRefresh}
+                folderSearchValue={activeActivity === 'deepagents' ? searchQuery : undefined}
+                onFolderSearchChange={activeActivity === 'deepagents' ? setSearchQuery : undefined}
+              />
+              </div>
             </div>
           )}
         </div>

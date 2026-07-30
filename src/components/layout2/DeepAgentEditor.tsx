@@ -12,32 +12,19 @@
  */
 import { useState, useCallback, useEffect } from 'react';
 import { useLayoutTokens } from './tokens';
-import {
-  Info, FileText, Wrench, Users, Layers, Shield, Code, ChevronDown, ChevronRight,
-  Play, Square, Loader, Save, Award,
-} from 'lucide-react';
+import { Award, ChevronDown, ChevronRight, Loader, Play, Save, Square } from 'lucide-react';
 import type { Tab } from './useLayout';
 import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
 import { useAvailableTools } from '../../hooks/useAvailableTools';
 import apiClient from '../../lib/api-client';
+import { SectionId as _SectionId, SECTIONS } from './editorConstants';
 
 interface DeepAgentEditorProps {
   tab: Tab;
 }
 
-type SectionId = 'overview' | 'prompt' | 'tools' | 'skills' | 'subagents' | 'middleware' | 'guardrails' | 'json';
-
-const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
-  { id: 'overview',   label: 'Overview',   icon: <Info size={13} /> },
-  { id: 'prompt',     label: 'Prompt',     icon: <FileText size={13} /> },
-  { id: 'tools',      label: 'Tools',      icon: <Wrench size={13} /> },
-  { id: 'skills',     label: 'Skills',     icon: <Award size={13} /> },
-  { id: 'subagents',  label: 'Subagents',  icon: <Users size={13} /> },
-  { id: 'middleware', label: 'Middleware', icon: <Layers size={13} /> },
-  { id: 'guardrails', label: 'Guardrails', icon: <Shield size={13} /> },
-  { id: 'json',       label: 'JSON',       icon: <Code size={13} /> },
-];
+type SectionId = _SectionId;
 
 export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const t = useLayoutTokens();
@@ -52,8 +39,8 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // Editable JSON text for the JSON tab
   const [jsonEdit, setJsonEdit] = useState(() => JSON.stringify(agent, null, 2));
-  // Editable model — synced from config, updates jsonEdit on change
-  const [editableModel, setEditableModel] = useState(config.model || '');
+  // Editable model — synced from config, falls back to stored default
+  const [editableModel, setEditableModel] = useState(config.model || localStorage.getItem('langconfig.defaultModel') || '');
 
   // ── Skills state ──
   const [skillDetails, setSkillDetails] = useState<Record<string, any>>({});

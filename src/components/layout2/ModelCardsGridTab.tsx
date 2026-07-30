@@ -106,8 +106,9 @@ export default function ModelCardsGridTab({ tab }: Props) {
         for (const k of keys) status[k.provider] = k.is_set || false;
       }
       setApiKeyStatus(status);
-      setDefaultModel(defaultsRes.data?.primary_model || '');
-      localStorage.setItem(LS_KEY_DEFAULT, defaultsRes.data?.primary_model || '');
+      // Respect localStorage over server value — the backend cannot persist
+      // user-set defaults (they are loaded from .env).
+      setDefaultModel(localStorage.getItem(LS_KEY_DEFAULT) || defaultsRes.data?.primary_model || '');
     } catch (err: any) {
       setToast({ p: { kind: 'error', text: err?.message || 'Failed to load models' } });
     } finally {
