@@ -10,7 +10,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useLayoutTokens } from './tokens';
 import ContextMenu, { type ContextMenuAction } from './ContextMenu';
-import { ChevronRight, File, Folder, FolderOpen, Pencil, Trash2, Plus, FilePlus, FolderPlus } from 'lucide-react';
+import { ChevronRight, File, Folder, FolderOpen, Pencil, Trash2, Plus, FilePlus, FolderPlus, RefreshCw, Search } from 'lucide-react';
 
 export interface TreeNode {
   id: string;
@@ -33,6 +33,18 @@ interface TreeViewProps {
    * When set, folder rows render a small "+" button on the right side.
    */
   onFolderAction?: (node: TreeNode) => void;
+  /**
+   * Optional callback fired when a folder's refresh button is clicked.
+   * When set, folder rows render a refresh icon before the "+" button.
+   */
+  onFolderRefresh?: (node: TreeNode) => void;
+  /**
+   * Optional search value — when set, the top-level folder row renders
+   * a compact search input inline with the label and action buttons.
+   */
+  folderSearchValue?: string;
+  /** Callback when the folder search input changes */
+  onFolderSearchChange?: (value: string) => void;
   level?: number;
 }
 
@@ -43,7 +55,8 @@ interface CMState {
 }
 
 export default function TreeView({
-  nodes, onFileOpen, onRename, onDelete, onNewFile, onNewFolder, onFolderAction, level = 0,
+  nodes, onFileOpen, onRename, onDelete, onNewFile, onNewFolder, onFolderAction, onFolderRefresh,
+  folderSearchValue, onFolderSearchChange, level = 0,
 }: TreeViewProps) {
   const t = useLayoutTokens();
 
@@ -59,6 +72,9 @@ export default function TreeView({
           onNewFile={onNewFile}
           onNewFolder={onNewFolder}
           onFolderAction={onFolderAction}
+          onFolderRefresh={onFolderRefresh}
+          folderSearchValue={folderSearchValue}
+          onFolderSearchChange={onFolderSearchChange}
           level={level}
         />
       ))}
@@ -67,7 +83,8 @@ export default function TreeView({
 }
 
 function TreeNodeItem({
-  node, onFileOpen, onRename, onDelete, onNewFile, onNewFolder, onFolderAction, level,
+  node, onFileOpen, onRename, onDelete, onNewFile, onNewFolder, onFolderAction, onFolderRefresh,
+  folderSearchValue, onFolderSearchChange, level,
 }: {
   node: TreeNode;
   onFileOpen?: (node: TreeNode) => void;
@@ -76,6 +93,9 @@ function TreeNodeItem({
   onNewFile?: (parent?: TreeNode) => void;
   onNewFolder?: (parent?: TreeNode) => void;
   onFolderAction?: (node: TreeNode) => void;
+  onFolderRefresh?: (node: TreeNode) => void;
+  folderSearchValue?: string;
+  onFolderSearchChange?: (value: string) => void;
   level: number;
 }) {
   const t = useLayoutTokens();
@@ -211,11 +231,70 @@ function TreeNodeItem({
           </span>
         )}
 
+        {/* Folder search input — inline with label, on folder rows only */}
+        {isFolder && !renaming && folderSearchValue !== undefined && onFolderSearchChange && level === 0 && (
+          <div style={{ position: 'relative', flex: 1, minWidth: 80, maxWidth: 160, marginLeft: 8 }}>
+            <Search size={11} style={{
+              position: 'absolute', left: 6, top: '50%',
+              transform: 'translateY(-50%)', color: t.textMuted, pointerEvents: 'none',
+            }} />
+            <input
+              value={folderSearchValue}
+              onChange={e => { e.stopPropagation(); onFolderSearchChange(e.target.value); }}
+              onClick={e => e.stopPropagation()}
+              onKeyDown={e => e.stopPropagation()}
+              placeholder="Filter..."
+              style={{
+                width: '100%',
+                padding: '2px 6px 2px 20px',
+                background: t.bgInput,
+                border: `1px solid ${t.border}`,
+                borderRadius: 3,
+                color: t.textPrimary,
+                fontSize: 11,
+                outline: 'none',
+                boxSizing: 'border-box',
+                lineHeight: '18px',
+              }}
+            />
+          </div>
+        )}
+
         {/* Badge */}
         {!renaming && node.badge && (
           <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, background: t.bgHover, color: t.textDim, flexShrink: 0 }}>
             {node.badge}
           </span>
+        )}
+
+        {/* Folder refresh button (↻) */}
+        {isFolder && !renaming && onFolderRefresh && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onFolderRefresh(node);
+            }}
+            title="Refresh"
+            style={{
+              width: 18,
+              height: 18,
+              padding: 0,
+              background: 'transparent',
+              border: 'none',
+              borderRadius: 3,
+              color: t.textDim,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = t.bgHover; e.currentTarget.style.color = t.textPrimary; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textDim; }}
+          >
+            <RefreshCw size={12} />
+          </button>
         )}
 
         {/* Folder action button (+ New) */}
@@ -259,6 +338,7 @@ function TreeNodeItem({
           onNewFile={onNewFile}
           onNewFolder={onNewFolder}
           onFolderAction={onFolderAction}
+          onFolderRefresh={onFolderRefresh}
           level={level + 1}
         />
       )}

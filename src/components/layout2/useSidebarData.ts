@@ -16,6 +16,8 @@ export interface SidebarData {
   getNodeContent: (node: TreeNode) => Promise<string>;
   /** Save content for a specific file node */
   saveNodeContent: (node: TreeNode, content: string) => Promise<void>;
+  /** Re-fetch sidebar data from the backend */
+  reload: () => void;
 }
 
 export function useSidebarData(activity: string): SidebarData {
@@ -172,5 +174,5 @@ export function useSidebarData(activity: string): SidebarData {
     }
   }, []);
 
-  return { nodes, loading, error, getNodeContent, saveNodeContent };
+  return { nodes, loading, error, getNodeContent, saveNodeContent, reload: loadData };
 }
