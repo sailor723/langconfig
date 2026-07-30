@@ -31,6 +31,7 @@ import PromptAssemblyPage from './pages/PromptAssemblyPage';
 import { SkillLibrary } from './features/skills';
 import HomePage from './pages/HomePage';
 import DeepAgentHomePage from './components/layout2/DeepAgentHomePage';
+import AgentHomePage from './components/layout2/AgentHomePage';
 import AnalysisPage from './pages/AnalysisPage';
 import { ThemeProvider } from './lib/themes';
 import { ProjectProvider } from './contexts/ProjectContext';
@@ -439,7 +440,7 @@ function AppContent() {
         />
       );
       case 'deepagents': return <DeepAgentHomePage />;
-      case 'agents': return null; // Handled by layout2 AgentEditor
+      case 'agents': return <AgentHomePage />;
       case 'skills': return <SkillLibrary />;
       case 'tools': return <ToolLibrary />;
       case 'prompt': return <PromptAssemblyPage />;
