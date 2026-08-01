@@ -1,11 +1,13 @@
 """
 API endpoints for the tool registry.
 
-Phase 2 of the native -> DB tool refactor: the registry is now DB-primary.
-Seeded built-in tools (custom_tools rows with ``is_builtin``) are the source
-of truth; legacy-only tools that cannot be seeded (browser, write_todos,
-read_todos, vfs_*, memory_*) still come from TOOL_REGISTRY in
-tools/native_tools.py so the UI pickers never lose an option.
+Phase 3 of the native -> DB tool refactor: the registry is DB-primary.
+Seeded built-in tools (custom_tools rows with ``is_builtin``) carry their
+display metadata (name, category, requires_api_key) in the row itself and are
+the source of truth; legacy-only tools that cannot be seeded (browser,
+write_todos/read_todos, vfs_*, memory_*, tavily_summary, think_tool) still
+come from TOOL_REGISTRY in tools/native_tools.py so the UI pickers never lose
+an option.
 """
 
 from typing import Any, Dict, List
@@ -42,8 +44,9 @@ async def get_registry() -> List[Dict[str, Any]]:
       - requires_api_key: env var name of the required API key, or null
 
     Seeded built-in tools are read from the ``custom_tools`` table (the DB is
-    now the source of truth); the remaining legacy-only tools (browser,
-    write_todos/read_todos, vfs_*, memory_*) are appended from TOOL_REGISTRY.
+    the source of truth for the 43 seedable tools); the remaining legacy-only
+    tools (browser, write_todos/read_todos, vfs_*, memory_*, tavily_summary,
+    think_tool) come from TOOL_REGISTRY in tools/native_tools.py.
     The frontend should group these by `category` and render a checkbox
     (or selection control) for each tool.
     """
@@ -59,13 +62,12 @@ async def get_registry() -> List[Dict[str, Any]]:
     for row in rows:
         if not row.is_builtin:
             continue  # user custom tools stay in their own picker (custom_tool_ids)
-        legacy = legacy_entries.get(row.tool_id, {})
         db_entries.append({
             "id": row.tool_id,
-            "name": legacy.get("name") or row.name or row.tool_id.replace("_", " ").title(),
-            "description": legacy.get("description") or (row.description or "")[:140],
-            "category": row.category or legacy.get("category", "misc"),
-            "requires_api_key": legacy.get("requires_api_key"),
+            "name": row.name or row.tool_id.replace("_", " ").title(),
+            "description": (row.description or "")[:140],
+            "category": row.category or "misc",
+            "requires_api_key": row.requires_api_key,
         })
         db_ids.add(row.tool_id)
 
@@ -112,12 +114,12 @@ async def get_tool_details(tool_id: str) -> Dict[str, Any]:
     if row is not None:
         return {
             "id": tool_id,
-            "name": registry_entry["name"] if registry_entry else (row.name or tool_id),
-            "ui_description": (registry_entry or {}).get("description") or (row.description or "")[:140],
+            "name": row.name or tool_id,
+            "ui_description": (row.description or "")[:140],
             "llm_description": row.description or "",
             "args_schema": row.input_schema or {"type": "object", "properties": {}},
             "category": row.category or (registry_entry or {}).get("category", "misc"),
-            "requires_api_key": (registry_entry or {}).get("requires_api_key"),
+            "requires_api_key": row.requires_api_key or (registry_entry or {}).get("requires_api_key"),
         }
 
     if registry_entry is None:

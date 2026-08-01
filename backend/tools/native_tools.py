@@ -79,32 +79,24 @@ _playwright_browser = None
 # =============================================================================
 # Tool Name Mapping (compatible with existing agent configs)
 # =============================================================================
+#
+# Legacy alias -> canonical name map. Only true aliases are listed here;
+# identity entries (e.g. "web_search": "web_search") were removed because
+# every consumer resolves via TOOL_NAME_MAP.get(name, name). Stored agent
+# configs use canonical names already (verified against deep_agent_templates),
+# so this is a backwards-compatibility shim for older/exported configs.
 
 TOOL_NAME_MAP = {
     # Web tools
     "web": "web_search",
-    "web_search": "web_search",
     "fetch": "web_fetch",
-    "web_fetch": "web_fetch",
 
     # Browser tools (Playwright)
-    "browser": "browser",
     "puppeteer": "browser",  # Legacy MCP tool name
     "chrome_devtools": "browser",  # Legacy MCP tool name
-    "browser_navigate": "browser_navigate",
-    "browser_click": "browser_click",
-    "browser_extract": "browser_extract",
-    "browser_screenshot": "browser_screenshot",
 
     # Filesystem tools (DeepAgents standard naming)
-    # See: https://docs.langchain.com/oss/python/deepagents/harness
     "filesystem": "read_file",
-    "ls": "ls",
-    "read_file": "read_file",
-    "write_file": "write_file",
-    "edit_file": "edit_file",
-    "glob": "glob",
-    "grep": "grep",
     # Backwards compatibility aliases (LangConfig legacy naming)
     "file_read": "read_file",
     "file_write": "write_file",
@@ -112,12 +104,6 @@ TOOL_NAME_MAP = {
 
     # Memory tools (uses existing PostgreSQL)
     "memory": "memory_store",
-    "memory_store": "memory_store",
-    "memory_recall": "memory_recall",
-
-    # SQL/data tools
-    "sqlite_execute": "sqlite_execute",
-    "python_execute": "python_execute",
 
     # Reasoning tools
     "sequential_thinking": "reasoning_chain",
@@ -126,38 +112,6 @@ TOOL_NAME_MAP = {
 
     # Tavily search
     "tavily": "tavily_search",
-    "tavily_search": "tavily_search",
-
-    # Data analysis tools
-    "save_analysis_result": "save_analysis_result",
-    # Presentation generation tools
-    "gen_pptx": "gen_pptx",
-    "gen_html": "gen_html",
-    # Skill management tools
-    "create_skill": "create_skill",
-    "update_skill": "update_skill",
-    "delete_skill": "delete_skill",
-    # Agent management tools
-    "create_deepagent": "create_deepagent",
-    # PostgreSQL schema tools
-    "pg_list_tables": "pg_list_tables",
-    "pg_describe_table": "pg_describe_table",
-    "pg_query": "pg_query",
-    "pg_execute": "pg_execute",
-    # PostgreSQL domain tools
-    "pg_list_agents": "pg_list_agents",
-    "pg_get_agent": "pg_get_agent",
-    "pg_list_skills": "pg_list_skills",
-    "search_skills": "search_skills",
-    "pg_list_projects": "pg_list_projects",
-    "pg_list_documents": "pg_list_documents",
-    "pg_list_custom_tools": "pg_list_custom_tools",
-    # Neo4j tools
-    "neo4j_list_docs": "neo4j_list_docs",
-    "neo4j_get_doc": "neo4j_get_doc",
-    "neo4j_query": "neo4j_query",
-    "neo4j_upsert_doc": "neo4j_upsert_doc",
-    "neo4j_delete_doc": "neo4j_delete_doc",
 }
 
 
@@ -4017,29 +3971,21 @@ FILESYSTEM_TOOLS = ["ls", "read_file", "write_file", "edit_file", "glob", "grep"
 
 
 # =============================================================================
-# Tool Registry (UI-facing metadata)
+# Tool Registry (UI-facing metadata — legacy-only tools)
 # =============================================================================
-# Single source of truth for tool metadata displayed in the frontend.
-# Add a new tool here (id, name, description, category, requires_api_key) and
-# it will automatically appear in both the agent editor and the Studio node
-# config panel via GET /api/tools/registry.
+# Metadata for the tools that CANNOT be seeded into custom_tools (special
+# runtime handling required). The other 43 built-in tools are seeded into
+# custom_tools by tools/seed_builtin_tools.py — their display metadata lives
+# in the DB rows and GET /api/tools/registry (api/tools/registry.py) merges
+# the two sources.
 
 TOOL_REGISTRY = [
+    # Built-in tools that CANNOT be seeded into custom_tools (they need
+    # special runtime handling: injected args, middleware routing, or the
+    # Playwright async path). The other 43 built-in tools are seeded into
+    # custom_tools by tools/seed_builtin_tools.py; the runtime registry
+    # (api/tools/registry.py) reads their metadata from the DB rows.
     # Web tools
-    {
-        "id": "web_search",
-        "name": "Web Search",
-        "description": "Search the web (DuckDuckGo, no API key required)",
-        "category": "web",
-        "requires_api_key": None,
-    },
-    {
-        "id": "tavily_search",
-        "name": "Tavily Search",
-        "description": "AI-optimized web search (requires TAVILY_API_KEY in Settings > API Keys)",
-        "category": "web",
-        "requires_api_key": "TAVILY_API_KEY",
-    },
     {
         "id": "tavily_summary",
         "name": "Tavily Summary",
@@ -4048,60 +3994,10 @@ TOOL_REGISTRY = [
         "requires_api_key": "TAVILY_API_KEY",
     },
     {
-        "id": "web_fetch",
-        "name": "Web Fetch",
-        "description": "Fetch the content of a webpage and convert to markdown",
-        "category": "web",
-        "requires_api_key": None,
-    },
-    {
         "id": "browser",
         "name": "Browser Automation",
         "description": "Advanced web interaction via Playwright (navigate, click, type)",
         "category": "web",
-        "requires_api_key": None,
-    },
-    # Filesystem tools
-    {
-        "id": "ls",
-        "name": "List Directory",
-        "description": "List directory contents with metadata",
-        "category": "filesystem",
-        "requires_api_key": None,
-    },
-    {
-        "id": "read_file",
-        "name": "Read File",
-        "description": "Read file contents with line numbers",
-        "category": "filesystem",
-        "requires_api_key": None,
-    },
-    {
-        "id": "write_file",
-        "name": "Write File",
-        "description": "Create new files",
-        "category": "filesystem",
-        "requires_api_key": None,
-    },
-    {
-        "id": "edit_file",
-        "name": "Edit File",
-        "description": "Exact string replacements in files",
-        "category": "filesystem",
-        "requires_api_key": None,
-    },
-    {
-        "id": "glob",
-        "name": "Glob",
-        "description": "Find files matching patterns",
-        "category": "filesystem",
-        "requires_api_key": None,
-    },
-    {
-        "id": "grep",
-        "name": "Grep",
-        "description": "Search file contents with regex",
-        "category": "filesystem",
         "requires_api_key": None,
     },
     # Memory tools
@@ -4125,262 +4021,6 @@ TOOL_REGISTRY = [
         "name": "Think Tool",
         "description": "Strategic reflection for research progress. Analyze findings, assess gaps, and plan next steps",
         "category": "reasoning",
-        "requires_api_key": None,
-    },
-    {
-        "id": "reasoning_chain",
-        "name": "Reasoning Chain",
-        "description": "Step-by-step reasoning over complex problems",
-        "category": "reasoning",
-        "requires_api_key": None,
-    },
-    # Subagent delegation
-    {
-        "id": "task",
-        "name": "Task (Subagent)",
-        "description": "Delegate a task to a subagent",
-        "category": "delegation",
-        "requires_api_key": None,
-    },
-    # Data analysis tools
-    {
-        "id": "save_analysis_result",
-        "name": "Save Analysis Result",
-        "description": "Save analysis report and optionally copy an attached file (e.g. a plot) to the output directory",
-        "category": "data_analysis",
-        "requires_api_key": None,
-    },
-    # Presentation generation tools
-    {
-        "id": "gen_pptx",
-        "name": "Generate PPTX",
-        "description": "Generate a PowerPoint (.pptx) deck from a slides JSON outline with title, subtitle, bullets, and speaker notes.",
-        "category": "presentation",
-        "requires_api_key": None,
-    },
-    {
-        "id": "gen_html",
-        "name": "Generate HTML Deck",
-        "description": "Generate a standalone HTML presentation deck from a slides JSON outline with keyboard navigation.",
-        "category": "presentation",
-        "requires_api_key": None,
-    },
-    # Skill management tools
-    {
-        "id": "create_skill",
-        "name": "Create Skill",
-        "description": "Create a new skill in the database. Agents use this to save generated skills to the Skills Library.",
-        "category": "skills",
-        "requires_api_key": None,
-    },
-    {
-        "id": "update_skill",
-        "name": "Update Skill",
-        "description": "Update an existing skill's name, description, instructions, tags, or triggers.",
-        "category": "skills",
-        "requires_api_key": None,
-    },
-    {
-        "id": "delete_skill",
-        "name": "Delete Skill",
-        "description": "Delete a skill from the database by its skill_id.",
-        "category": "skills",
-        "requires_api_key": None,
-    },
-    # Agent management tools
-    {
-        "id": "create_deepagent",
-        "name": "Create DeepAgent",
-        "description": "Create a new DeepAgent in the database. Writes agent config (name, system prompt, tools, skills) directly to PostgreSQL.",
-        "category": "agent_management",
-        "requires_api_key": None,
-    },
-    # PostgreSQL schema tools
-    {
-        "id": "pg_list_tables",
-        "name": "PG - List Tables",
-        "description": "List all tables and views in a PostgreSQL schema with estimated row counts.",
-        "category": "database",
-        "requires_api_key": None,
-    },
-    {
-        "id": "pg_describe_table",
-        "name": "PG - Describe Table",
-        "description": "Show column details for a PostgreSQL table: name, type, nullable, defaults, constraints.",
-        "category": "database",
-        "requires_api_key": None,
-    },
-    {
-        "id": "pg_query",
-        "name": "PG - Query (SELECT)",
-        "description": "Run a read-only SELECT query against PostgreSQL. Returns results as a markdown table.",
-        "category": "database",
-        "requires_api_key": None,
-    },
-    {
-        "id": "pg_execute",
-        "name": "PG - Execute (INSERT/UPDATE/DELETE)",
-        "description": "Execute write SQL statements (INSERT, UPDATE, DELETE) against PostgreSQL. Use with caution.",
-        "category": "database",
-        "requires_api_key": None,
-    },
-    # PostgreSQL domain tools
-    {
-        "id": "pg_list_agents",
-        "name": "PG - List Agents",
-        "description": "List all DeepAgent templates with name, category, model, tool/skill counts.",
-        "category": "database",
-        "requires_api_key": None,
-    },
-    {
-        "id": "pg_get_agent",
-        "name": "PG - Get Agent Config",
-        "description": "Get the full configuration of a DeepAgent by ID: system prompt, tools, skills, subagents, model.",
-        "category": "database",
-        "requires_api_key": None,
-    },
-    {
-        "id": "pg_list_skills",
-        "name": "PG - List Skills",
-        "description": "List all skills in the database with descriptions, tags, and usage counts.",
-        "category": "database",
-        "requires_api_key": None,
-    },
-    {
-        "id": "search_skills",
-        "name": "Search Skills",
-        "description": "Search skills by name, description, tags, or triggers. Useful for finding relevant skills for a task.",
-        "category": "database",
-        "requires_api_key": None,
-    },
-    {
-        "id": "pg_list_projects",
-        "name": "PG - List Projects",
-        "description": "List all projects with names, document counts, and indexing status.",
-        "category": "database",
-        "requires_api_key": None,
-    },
-    {
-        "id": "pg_list_documents",
-        "name": "PG - List Documents",
-        "description": "List all context documents (uploaded files) with metadata: type, size, indexing status.",
-        "category": "database",
-        "requires_api_key": None,
-    },
-    {
-        "id": "pg_list_custom_tools",
-        "name": "PG - List Custom Tools",
-        "description": "List all custom/user-created tools with type, description, and usage stats.",
-        "category": "database",
-        "requires_api_key": None,
-    },
-    # Neo4j tools
-    {
-        "id": "neo4j_list_docs",
-        "name": "Neo4j - List Documents",
-        "description": "List all Document nodes in Neo4j for a project with enriched metadata (summary, queries, tags).",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    {
-        "id": "neo4j_get_doc",
-        "name": "Neo4j - Get Document Metadata",
-        "description": "Get full metadata for one Document node: description, supported queries, file path, tags. Use the file_path with read_file for content.",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    {
-        "id": "neo4j_query",
-        "name": "Neo4j - Cypher Query",
-        "description": "Run an arbitrary Cypher query against Neo4j and return results as a table.",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    {
-        "id": "neo4j_upsert_doc",
-        "name": "Neo4j - Upsert Document",
-        "description": "Create or update a Document node in Neo4j. Registers a doc for discovery via graphindex_search.",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    {
-        "id": "neo4j_delete_doc",
-        "name": "Neo4j - Delete Document",
-        "description": "Delete a Document node from Neo4j by project_id and name. Does NOT delete the file on disk.",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    # Document Index tools (vectorless RAG)
-    {
-        "id": "doc_index_list",
-        "name": "Doc Index - List Documents",
-        "description": "List all indexed documents with metadata (no embeddings, vectorless RAG)",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    {
-        "id": "doc_index_structure",
-        "name": "Doc Index - Get Document Structure",
-        "description": "Get the table-of-contents tree structure for a document",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    {
-        "id": "doc_index_pages",
-        "name": "Doc Index - Get Page Content",
-        "description": "Get the full content of specific pages from a document (e.g. '3-5,7')",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    # Note: print_hello has been moved to a custom tool (DB-backed, editable in UI).
-    # See backend/create_print_hello_tool.py for the registration.
-    # GraphIndex tools
-    {
-        "id": "graphindex_search",
-        "name": "GraphIndex - Search Documents",
-        "description": "Search project documents using GraphIndex with LLM semantic routing. Returns matching docs (primary + 0-3 supporting).",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    {
-        "id": "graphindex_load",
-        "name": "GraphIndex - Load Document Content",
-        "description": "Load the full content of a document by its context_doc_id (from graphindex_search). Returns complete document text.",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    {
-        "id": "graphindex_list_docs",
-        "name": "GraphIndex - List Documents",
-        "description": "List all documents available in the project with their about-preview. Use this to discover what docs exist before calling graphindex_search.",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    {
-        "id": "graphindex_multi_doc_load",
-        "name": "GraphIndex - Multi-Doc Load",
-        "description": "One-shot: route a query to the best primary document, then load primary + 0-3 supporting documents as a combined context string.",
-        "category": "retrieval",
-        "requires_api_key": None,
-    },
-    # Note: graphindex_ingest / graphindex_rebuild_one / graphindex_rebuild_project /
-    # graphindex_show have been moved to custom tools (DB-backed, editable in UI).
-    # See backend/create_graphindex_workflow_tools.py and rename_studio_tools.py.
-    # The native Python functions are still defined in this file (above) and
-    # imported by the custom tools' inline code.
-    # SQL/data tools
-    {
-        "id": "sqlite_execute",
-        "name": "SQLite Execute",
-        "description": "Execute a read-only SQL SELECT query on a SQLite database (in-memory or file). Safe for query validation.",
-        "category": "data",
-        "requires_api_key": None,
-    },
-    {
-        "id": "python_execute",
-        "name": "Python Execute",
-        "description": "Execute Python code for data analysis and visualization (pandas, matplotlib, numpy supported).",
-        "category": "data",
         "requires_api_key": None,
     },
     # TODO management tools (notebook 2.1 parity)
@@ -4425,10 +4065,11 @@ TOOL_REGISTRY = [
 
 def get_tool_registry() -> List[Dict[str, Any]]:
     """
-    Get the full tool registry with metadata for UI display.
+    Get the legacy-only tool registry with metadata for UI display.
 
-    Returns a list of tool metadata dictionaries consumed by the frontend
-    (agent editor, Studio node config). Each entry contains:
+    Returns metadata for the built-in tools that cannot be seeded into the
+    DB (special runtime handling). Seeded built-in tools are served from the
+    custom_tools table by GET /api/tools/registry instead. Each entry:
       - id: unique tool identifier
       - name: human-readable name
       - description: short description

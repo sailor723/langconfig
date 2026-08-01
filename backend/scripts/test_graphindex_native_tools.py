@@ -55,14 +55,23 @@ def test_extract_file_text_1m_limit():
 
 
 def test_tool_registry():
-    """Test tools are registered in the TOOL_REGISTRY."""
+    """Test tools are registered (DB-seeded built-in tools)."""
     print("[Test 4] Tool registry...")
-    from tools.native_tools import get_tool_registry
-    registry = get_tool_registry()
-    tool_ids = [t["id"] for t in registry]
-    assert "graphindex_search" in tool_ids, "graphindex_search not in registry"
-    assert "graphindex_load" in tool_ids, "graphindex_load not in registry"
-    print(f"   ✅ Both tools registered in TOOL_REGISTRY")
+    from db.database import SessionLocal
+    from models.custom_tool import CustomTool
+    db = SessionLocal()
+    try:
+        tool_ids = [
+            r.tool_id for r in db.query(CustomTool).filter(
+                CustomTool.is_builtin == True,  # noqa: E712
+                CustomTool.tool_id.in_(["graphindex_search", "graphindex_load"]),
+            )
+        ]
+    finally:
+        db.close()
+    assert "graphindex_search" in tool_ids, "graphindex_search not in built-in tools"
+    assert "graphindex_load" in tool_ids, "graphindex_load not in built-in tools"
+    print(f"   ✅ Both tools registered (DB-backed built-in tools)")
 
 
 def test_dedup_query():
