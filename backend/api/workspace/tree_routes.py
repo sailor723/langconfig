@@ -3,16 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-
-logger = logging.getLogger(__name__)
-# No prefix here: this router is included into routes.router, which already
-# carries the "/api/workspace" prefix (FastAPI would otherwise stack prefixes).
-router = APIRouter(tags=["workspace"])
-
-# Shared response models stay in routes.py (the parent router module).
-# Imported AFTER `router` is defined so a direct import of this module cannot
-# deadlock on the routes.py <-> sub-module circular import.
-from .routes import (
+from .schemas import (
     FileDiffResponse,
     FileTreeResponse,
     FileVersionResponse,
@@ -20,6 +11,11 @@ from .routes import (
     GroupedFilesResponse,
     TreeNode,
 )
+
+logger = logging.getLogger(__name__)
+# No prefix here: this router is included into routes.router, which already
+# carries the "/api/workspace" prefix (FastAPI would otherwise stack prefixes).
+router = APIRouter(tags=["workspace"])
 
 
 @router.get("/files/tree", response_model=FileTreeResponse)
