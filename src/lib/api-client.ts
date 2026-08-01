@@ -1426,6 +1426,45 @@ class APIClient {
   }
 
   /**
+   * Create a new personal skill.
+   */
+  async createSkill(data: {
+    name: string;
+    description?: string;
+    tags?: string[];
+    triggers?: string[];
+    instructions?: string;
+    examples?: string;
+    author?: string;
+    version?: string;
+    required_context?: string[];
+    allowed_tools?: string[];
+  }) {
+    return this.client.post('/api/skills', data);
+  }
+
+  /**
+   * Update an existing skill (all fields optional).
+   */
+  async updateSkill(
+    skillId: string,
+    data: {
+      name?: string;
+      description?: string;
+      tags?: string[];
+      triggers?: string[];
+      instructions?: string;
+      examples?: string;
+      author?: string;
+      version?: string;
+      required_context?: string[];
+      allowed_tools?: string[];
+    }
+  ) {
+    return this.client.put(`/api/skills/${skillId}`, data);
+  }
+
+  /**
    * List files in a skill's source directory.
    */
   async getSkillFiles(skillId: string) {

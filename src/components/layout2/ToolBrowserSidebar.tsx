@@ -8,7 +8,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
 import apiClient from '../../lib/api-client';
-import { Wrench, Loader, Plus, File } from 'lucide-react';
+import { Wrench, Loader, Plus, File, Search, RefreshCw, Pencil } from 'lucide-react';
 
 interface ToolItem {
   id: string;
@@ -35,6 +35,7 @@ export default function ToolBrowserSidebar() {
   // Custom tools state
   const [customTools, setCustomTools] = useState<CustomToolSummary[]>([]);
   const [customLoading, setCustomLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   /** Open a category's tool grid */
   const handleOpen = useCallback((category: string, tools: ToolItem[]) => {
@@ -100,6 +101,12 @@ export default function ToolBrowserSidebar() {
   useEffect(() => { loadTools(); }, [loadTools]);
   useEffect(() => { loadCustomTools(); }, [loadCustomTools, customBuilderTabCount]);
 
+  /** Reload native + custom tools */
+  const handleRefresh = useCallback(() => {
+    loadTools();
+    loadCustomTools();
+  }, [loadTools, loadCustomTools]);
+
   /** Matches TreeView child item: tight line spacing, 22px left indent, font 13 */
   const indentRowStyle = (): React.CSSProperties => ({
     display: 'flex',
@@ -133,8 +140,66 @@ export default function ToolBrowserSidebar() {
     flexShrink: 0,
   };
 
+  const q = searchQuery.trim().toLowerCase();
+  const visibleCategories = q
+    ? categories
+        .map(cat => ({ ...cat, tools: cat.tools.filter(t => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)) }))
+        .filter(cat => cat.tools.length > 0)
+    : categories;
+  const visibleCustomTools = q
+    ? customTools.filter(t =>
+        t.name.toLowerCase().includes(q) ||
+        (t.category || '').toLowerCase().includes(q) ||
+        (t.tool_type || '').toLowerCase().includes(q)
+      )
+    : customTools;
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Header toolbar — title + search + refresh + new, all on one line */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 12px 8px' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, flexShrink: 0 }}>
+          Tools
+        </span>
+        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: t.textMuted }} />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search..."
+            style={{
+              width: '100%',
+              padding: '5px 8px 5px 24px',
+              borderRadius: 6,
+              border: `1px solid ${t.border}`,
+              background: t.bgInput,
+              color: t.textPrimary,
+              fontSize: 11,
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={loading || customLoading}
+          title="Refresh"
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 24, height: 24, borderRadius: 4, flexShrink: 0,
+            background: 'transparent', color: t.textMuted,
+            border: 'none', cursor: 'pointer',
+            opacity: (loading || customLoading) ? 0.5 : 1,
+          }}
+          onMouseEnter={e => { if (!loading && !customLoading) e.currentTarget.style.background = t.bgHover; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        >
+          {(loading || customLoading)
+            ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} />
+            : <RefreshCw size={13} />}
+        </button>
+      </div>
+
       <div style={{ flex: 1, overflowY: 'auto' }}>
 
         {/* ── Native Tool Categories ── */}
@@ -150,12 +215,12 @@ export default function ToolBrowserSidebar() {
           </div>
         ) : error ? (
           <div style={{ padding: '16px 20px', fontSize: 13, color: '#e5484d' }}>{error}</div>
-        ) : categories.length === 0 ? (
+        ) : visibleCategories.length === 0 ? (
           <div style={{ padding: '16px 20px', fontSize: 13, color: t.textMuted, fontStyle: 'italic' }}>
-            (no tools available)
+            {q ? '(no matching tools)' : '(no tools available)'}
           </div>
         ) : (
-          categories.map(({ category, count, tools }) => (
+          visibleCategories.map(({ category, count, tools }) => (
             <div
               key={category}
               onClick={() => handleOpen(category, tools)}
@@ -193,6 +258,8 @@ export default function ToolBrowserSidebar() {
               alignItems: 'center',
               padding: 2,
             }}
+            onMouseEnter={e => { e.currentTarget.style.color = t.textPrimary; }}
+            onMouseLeave={e => { e.currentTarget.style.color = t.textMuted; }}
           >
             <Plus size={14} />
           </button>
@@ -203,12 +270,12 @@ export default function ToolBrowserSidebar() {
             <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
             Loading...
           </div>
-        ) : customTools.length === 0 ? (
+        ) : visibleCustomTools.length === 0 ? (
           <div style={{ padding: '8px 20px', fontSize: 13, color: t.textMuted, fontStyle: 'italic' }}>
-            (no custom tools yet)
+            {q ? '(no matching tools)' : '(no custom tools yet)'}
           </div>
         ) : (
-          customTools.map(tool => (
+          visibleCustomTools.map(tool => (
             <div
               key={tool.tool_id}
               onClick={() => handleOpenCustomTool(tool.tool_id)}
@@ -224,6 +291,23 @@ export default function ToolBrowserSidebar() {
                 {tool.name}
               </span>
               <span style={{ fontSize: 11, color: t.textDim }}>{tool.tool_type}</span>
+              <button
+                onClick={e => { e.stopPropagation(); handleOpenCustomTool(tool.tool_id); }}
+                title="Edit"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: t.textMuted,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: 2,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = t.textPrimary; }}
+                onMouseLeave={e => { e.currentTarget.style.color = t.textMuted; }}
+              >
+                <Pencil size={12} />
+              </button>
             </div>
           ))
         )}

@@ -41,6 +41,16 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // Editable JSON text for the JSON tab
   const [jsonEdit, setJsonEdit] = useState(() => JSON.stringify(agent, null, 2));
+  // Track the persisted agent id locally — template ids are strings until saved
+  const [localAgentId, setLocalAgentId] = useState<number | null>(
+    typeof agent.id === 'number' ? agent.id : null
+  );
+
+  // Keep the persisted id in sync when switching tabs
+  useEffect(() => {
+    setLocalAgentId(typeof agent.id === 'number' ? agent.id : null);
+  }, [tab.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Editable model — synced from config, falls back to stored default
   const [editableModel, setEditableModel] = useState(config.model || localStorage.getItem('langconfig.defaultModel') || '');
 
@@ -116,7 +126,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   }, []);
 
   const handleRun = async () => {
-    if (!agent.id || running) return;
+    if (!localAgentId || running) return;
     setRunning(true);
 
     // Open the right-sidebar chat panel
@@ -127,7 +137,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     const prompt = testPrompt || 'Hello, please introduce yourself.';
     try {
       // sendStreamMessage auto-starts a session if none exists
-      const msgId = await chatStore.sendStreamMessage(agent.id, prompt, agent.name);
+      const msgId = await chatStore.sendStreamMessage(localAgentId, prompt, agent.name);
       if (!msgId) {
         // Session start failed — error is already in chatStore
         console.error('[DeepAgentEditor] sendStreamMessage failed');
@@ -179,7 +189,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
 
   /** Parse the JSON textarea and PUT the updated agent back to the backend */
   const handleSave = async () => {
-    if (!agent.id || saving) return;
+    if (saving) return;
     setSaving(true);
     setSaveMsg(null);
     try {
@@ -191,8 +201,21 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         setSaving(false);
         return;
       }
-      await apiClient.updateDeepAgent(agent.id, payload);
-      setSaveMsg({ ok: true, text: 'Saved successfully' });
+      if (localAgentId) {
+        await apiClient.updateDeepAgent(localAgentId, payload);
+        setSaveMsg({ ok: true, text: 'Saved successfully' });
+      } else {
+        const res = await apiClient.createDeepAgent({
+          name: payload.name || agent.name || 'Untitled Deep Agent',
+          description: payload.description || agent.description || undefined,
+          category: payload.category || agent.category || 'Custom',
+          config: payload.config || {},
+        });
+        const newAgent = res.data;
+        setLocalAgentId(newAgent.id);
+        setJsonEdit(JSON.stringify(newAgent, null, 2));
+        setSaveMsg({ ok: true, text: 'Saved successfully' });
+      }
       // Clear message after 3s
       setTimeout(() => setSaveMsg(null), 3000);
     } catch (err: any) {
@@ -237,7 +260,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         <div style={labelStyle}>Name</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ ...valueStyle, fontSize: 18, fontWeight: 600 }}>{agent.name || '—'}</span>
-          {agent.id && (
+          {localAgentId && (
             <span style={{
               fontSize: 11, color: t.textMuted, fontFamily: 'monospace',
               background: t.bgHover, padding: '1px 6px', borderRadius: 3,
@@ -912,7 +935,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         />
         <button
           onClick={handleRun}
-          disabled={running || !agent.id}
+          disabled={running || !localAgentId}
           title="Run test"
           style={{
             display: 'flex',
@@ -926,8 +949,8 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
             borderRadius: 3,
             fontSize: 12,
             fontWeight: 500,
-            cursor: running || !agent.id ? 'not-allowed' : 'pointer',
-            opacity: running || !agent.id ? 0.6 : 1,
+            cursor: running || !localAgentId ? 'not-allowed' : 'pointer',
+            opacity: running || !localAgentId ? 0.6 : 1,
           }}
         >
           {running ? <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={12} />}
@@ -957,7 +980,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         )}
         <button
           onClick={handleSave}
-          disabled={saving || !agent.id}
+          disabled={saving || !localAgentId}
           title="Save changes"
           style={{
             display: 'flex',
@@ -970,8 +993,8 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
             border: 'none',
             borderRadius: 3,
             fontSize: 12,
-            cursor: saving || !agent.id ? 'not-allowed' : 'pointer',
-            opacity: saving || !agent.id ? 0.6 : 1,
+            cursor: saving || !localAgentId ? 'not-allowed' : 'pointer',
+            opacity: saving || !localAgentId ? 0.6 : 1,
           }}
         >
           <Save size={12} />
@@ -988,7 +1011,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         )}
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 11, color: t.textDim }}>
-          ID: {agent.id ?? '—'} · v{agent.version ?? '?'} · {agent.category ?? ''}
+          ID: {localAgentId ?? agent.id ?? '—'} · v{agent.version ?? '?'} · {agent.category ?? ''}
         </span>
       </div>
 
@@ -1043,7 +1066,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
             gap: 8,
           }}>
             {agent.name || 'DeepAgent'}
-            {agent.id && (
+            {localAgentId && (
               <span style={{
                 fontSize: 11, fontWeight: 400, color: t.textMuted, fontFamily: 'monospace',
               }}>

@@ -468,6 +468,7 @@ from api.presentations import router as presentations
 from api.schedules import router as schedules
 from api.triggers import router as triggers
 from api.webhooks import router as webhooks
+from api.notebooks import routes as notebooks
 
 # Health check endpoints
 app.include_router(health.router)
@@ -511,6 +512,7 @@ app.include_router(presentations)  # Presentation generation
 app.include_router(schedules)  # Workflow cron scheduling
 app.include_router(triggers)  # Workflow event triggers (file watch, etc.)
 app.include_router(webhooks)  # Webhook receiver endpoints
+app.include_router(notebooks.router)  # Educational notebooks viewer
 
 if __name__ == "__main__":
     import sys

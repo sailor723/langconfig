@@ -17,15 +17,16 @@
  *   └─────────────────────┘
  */
 import { useState } from 'react';
-import { Plus, MessageSquare, Search, ChevronDown, ChevronRight, Calendar, Puzzle } from 'lucide-react';
+import { Plus, MessageSquare, Search, ChevronDown, ChevronRight, Calendar, Puzzle, FolderOpen } from 'lucide-react';
 import type { ChatSession } from '../types/chat';
 import { useChat } from '../state/ChatContext';
 
 interface ChatHistorySidebarProps {
   onNewSession: () => void;
+  onOpenFiles?: () => void;
 }
 
-export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarProps) {
+export default function ChatHistorySidebar({ onNewSession, onOpenFiles }: ChatHistorySidebarProps) {
   const { sessions, currentSessionId, switchSession } = useChat();
   const [collapsed, setCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -132,6 +133,13 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
           title="Plugins"
         >
           <Puzzle className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+        </button>
+        <button
+          onClick={onOpenFiles}
+          className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
+          title="Files"
+        >
+          <FolderOpen className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
         </button>
 
         <div className="flex-1" />

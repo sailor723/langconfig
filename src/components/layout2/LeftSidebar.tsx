@@ -20,6 +20,7 @@ import SearchProvidersSidebar from './SearchProvidersSidebar';
 import ToolBrowserSidebar from './ToolBrowserSidebar';
 import KnowledgeSidebar from './KnowledgeSidebar';
 import SkillBrowserSidebar from './SkillBrowserSidebar';
+import NotebookSidebar from './NotebookSidebar';
 import PromptBrowserSidebar from './PromptBrowserSidebar';
 
 interface LeftSidebarProps {
@@ -203,6 +204,9 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
           ) : activeActivity === 'skills' ? (
             /* Skills activity renders the dedicated SkillBrowserSidebar */
             <SkillBrowserSidebar />
+          ) : activeActivity === 'learning' ? (
+            /* Learning activity renders the notebook browser sidebar */
+            <NotebookSidebar />
           ) : loading ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', fontSize: 13, color: t.textMuted }}>
               <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />

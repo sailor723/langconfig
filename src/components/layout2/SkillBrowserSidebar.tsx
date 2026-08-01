@@ -1,16 +1,19 @@
 /**
  * SkillBrowserSidebar — left-sidebar browser for all available skills.
  *
- * Lists skills grouped by source type (builtin, personal) from the
- * /api/skills endpoint. Clicking a skill opens it in the workspace
- * as a tab with the 'skill' view type showing full skill details.
+ * Matches the ToolBrowserSidebar arrangement:
+ *   - top toolbar: title + search + refresh (search covers all skills)
+ *   - Builtin section: system skills, view only (click opens details)
+ *   - My Skills section: editable — "+" in the header, pencil per row
+ *     (both open the skill editor tab)
  */
 import { useEffect, useState, useCallback } from 'react';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState, type Tab } from './useLayout';
 import apiClient from '../../lib/api-client';
 import {
-  Folder, Award, ChevronRight, ChevronDown, Loader, RefreshCw, FileText,
+  Folder, Award, ChevronRight, ChevronDown, Loader, RefreshCw,
+  Search, Plus, Pencil,
 } from 'lucide-react';
 
 /* ── Types ────────────────────────────────────────────── */
@@ -37,6 +40,7 @@ export default function SkillBrowserSidebar() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['builtin']));
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadSkills = useCallback(async () => {
     setLoading(true);
@@ -67,6 +71,28 @@ export default function SkillBrowserSidebar() {
     openTab(tab);
   }, [openTab]);
 
+  /** Open the skill editor for an existing skill */
+  const handleEditSkill = useCallback((skill: SkillSummary) => {
+    const tab: Tab = {
+      id: `skill-edit-${skill.skill_id}`,
+      label: `Edit: ${skill.name || skill.skill_id}`,
+      viewType: 'skill-editor',
+      data: { skill },
+    };
+    openTab(tab);
+  }, [openTab]);
+
+  /** Open the skill editor for a new (blank) skill */
+  const handleNewSkill = useCallback(() => {
+    const tab: Tab = {
+      id: `skill-new-${Date.now()}`,
+      label: 'New Skill',
+      viewType: 'skill-editor',
+      data: { skill: {} },
+    };
+    openTab(tab);
+  }, [openTab]);
+
   const toggleCategory = (cat: string) => {
     setExpandedCategories(prev => {
       const next = new Set(prev);
@@ -75,39 +101,141 @@ export default function SkillBrowserSidebar() {
     });
   };
 
-  // Group skills by source_type
-  const grouped = skills.reduce<Record<string, SkillSummary[]>>((acc, s) => {
-    const key = s.source_type || 'other';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(s);
-    return acc;
-  }, {});
-  const categoryOrder = ['builtin', 'personal', 'project', 'other'];
+  // Search filter — matches name, description and tags of every skill
+  const q = searchQuery.trim().toLowerCase();
+  const matches = (s: SkillSummary) =>
+    !q ||
+    (s.name || '').toLowerCase().includes(q) ||
+    (s.description || '').toLowerCase().includes(q) ||
+    (s.tags || []).some(tag => tag.toLowerCase().includes(q));
+
+  // Split: builtin (view only) vs the rest (editable "My Skills")
+  const builtinSkills = skills.filter(s => s.source_type === 'builtin' && matches(s));
+  const mySkills = skills.filter(s => s.source_type !== 'builtin' && matches(s));
+
+  const renderSkillRow = (skill: SkillSummary, editable: boolean) => (
+    <div
+      key={skill.skill_id}
+      onClick={() => handleSkillClick(skill)}
+      title={skill.description || skill.skill_id}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        padding: '5px 12px 5px 28px', cursor: 'pointer',
+        fontSize: 12, color: t.textPrimary,
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+    >
+      <Award size={13} style={{ flexShrink: 0, color: t.accent }} />
+      <span style={{
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+      }}>
+        {skill.name || skill.skill_id}
+      </span>
+      {/* Tag chips */}
+      {(skill.tags || []).slice(0, 2).map(tag => (
+        <span key={tag} style={{
+          fontSize: 9, padding: '1px 4px', borderRadius: 3,
+          background: t.bgHover, color: t.textMuted,
+          fontFamily: 'monospace', flexShrink: 0,
+        }}>
+          {tag}
+        </span>
+      ))}
+      {editable && (
+        <button
+          onClick={e => { e.stopPropagation(); handleEditSkill(skill); }}
+          title="Edit skill"
+          style={{
+            background: 'none', border: 'none', color: t.textMuted,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 2,
+            flexShrink: 0,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = t.textPrimary; }}
+          onMouseLeave={e => { e.currentTarget.style.color = t.textMuted; }}
+        >
+          <Pencil size={12} />
+        </button>
+      )}
+    </div>
+  );
+
+  const renderCategory = (label: string, items: SkillSummary[], editable: boolean, headerExtra?: React.ReactNode) => {
+    if (items.length === 0 && !headerExtra) return null;
+    const isOpen = expandedCategories.has(label);
+    return (
+      <div key={label}>
+        {/* Category header */}
+        <div
+          onClick={() => toggleCategory(label)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '6px 12px', cursor: 'pointer', userSelect: 'none',
+            fontSize: 11, fontWeight: 600, color: t.textMuted,
+            textTransform: 'uppercase', letterSpacing: 0.3,
+          }}
+        >
+          {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <Folder size={12} />
+          <span style={{ flex: 1 }}>{label}</span>
+          {headerExtra}
+        </div>
+
+        {/* Skill rows under this category */}
+        {isOpen && (items.length === 0 ? (
+          <div style={{ padding: '4px 12px 6px 28px', fontSize: 11, color: t.textMuted, fontStyle: 'italic' }}>
+            {q ? '(no matching skills)' : '(none yet)'}
+          </div>
+        ) : (
+          items.map(skill => renderSkillRow(skill, editable))
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Toolbar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '6px 12px', borderBottom: `1px solid ${t.border}`,
-      }}>
-        <span style={{ fontSize: 11, color: t.textMuted }}>
-          {skills.length} skill{skills.length !== 1 ? 's' : ''}
+      {/* Header toolbar — title + search + refresh, all on one line */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 12px 8px' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, flexShrink: 0 }}>
+          Skills
         </span>
+        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: t.textMuted }} />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search..."
+            style={{
+              width: '100%',
+              padding: '5px 8px 5px 24px',
+              borderRadius: 6,
+              border: `1px solid ${t.border}`,
+              background: t.bgInput,
+              color: t.textPrimary,
+              fontSize: 11,
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
         <button
           onClick={loadSkills}
+          disabled={loading}
           title="Refresh"
           style={{
-            display: 'flex', alignItems: 'center', gap: 4, height: 22,
-            padding: '0 6px', background: 'transparent', border: 'none',
-            color: t.textMuted, fontSize: 11, cursor: 'pointer',
-            borderRadius: 3,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 24, height: 24, borderRadius: 4, flexShrink: 0,
+            background: 'transparent', color: t.textMuted,
+            border: 'none', cursor: 'pointer',
+            opacity: loading ? 0.5 : 1,
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; }}
+          onMouseEnter={e => { if (!loading) e.currentTarget.style.background = t.bgHover; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         >
-          <RefreshCw size={12} />
-          Refresh
+          {loading
+            ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} />
+            : <RefreshCw size={13} />}
         </button>
       </div>
 
@@ -125,65 +253,26 @@ export default function SkillBrowserSidebar() {
             (no skills found)
           </div>
         ) : (
-          categoryOrder.map(cat => {
-            const items = grouped[cat];
-            if (!items || items.length === 0) return null;
-            const isOpen = expandedCategories.has(cat);
-            return (
-              <div key={cat}>
-                {/* Category header */}
-                <div
-                  onClick={() => toggleCategory(cat)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    padding: '6px 12px', cursor: 'pointer', userSelect: 'none',
-                    fontSize: 11, fontWeight: 600, color: t.textMuted,
-                    textTransform: 'uppercase', letterSpacing: 0.3,
-                  }}
-                >
-                  {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                  <Folder size={12} />
-                  <span>{cat}</span>
-                  <span style={{ marginLeft: 4, fontWeight: 400, color: t.textMuted }}>
-                    ({items.length})
-                  </span>
-                </div>
+          <>
+            {/* Builtin — system skills, view only */}
+            {renderCategory('Builtin', builtinSkills, false)}
 
-                {/* Skills under this category */}
-                {isOpen && items.map(skill => (
-                  <div
-                    key={skill.skill_id}
-                    onClick={() => handleSkillClick(skill)}
-                    title={skill.description || skill.skill_id}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 6,
-                      padding: '5px 12px 5px 28px', cursor: 'pointer',
-                      fontSize: 12, color: t.textPrimary,
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <Award size={13} style={{ flexShrink: 0, color: t.accent }} />
-                    <span style={{
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>
-                      {skill.name || skill.skill_id}
-                    </span>
-                    {/* Tag chips */}
-                    {(skill.tags || []).slice(0, 2).map(tag => (
-                      <span key={tag} style={{
-                        fontSize: 9, padding: '1px 4px', borderRadius: 3,
-                        background: t.bgHover, color: t.textMuted,
-                        fontFamily: 'monospace', flexShrink: 0,
-                      }}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            );
-          })
+            {/* My Skills — editable, "+" creates a new skill */}
+            {renderCategory('My Skills', mySkills, true, (
+              <button
+                onClick={e => { e.stopPropagation(); handleNewSkill(); }}
+                title="New Skill"
+                style={{
+                  background: 'none', border: 'none', color: t.textMuted,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 2,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = t.textPrimary; }}
+                onMouseLeave={e => { e.currentTarget.style.color = t.textMuted; }}
+              >
+                <Plus size={14} />
+              </button>
+            ))}
+          </>
         )}
       </div>
     </div>

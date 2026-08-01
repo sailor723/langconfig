@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { File, Trash2, Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { File, Trash2, Loader2, CheckCircle, AlertCircle, Clock, Download } from 'lucide-react';
 import type { SessionDocument } from '../types/chat';
 import apiClient from '../../../lib/api-client';
 
@@ -16,9 +16,18 @@ interface SessionDocumentsPanelProps {
   refreshKey?: number;
 }
 
+interface GeneratedFile {
+  filename: string;
+  path: string;
+  size_bytes: number;
+  size_human?: string;
+  modified_at?: string;
+}
+
 export default function SessionDocumentsPanel({ sessionId, refreshKey }: SessionDocumentsPanelProps) {
   const { t } = useTranslation('chat');
   const [documents, setDocuments] = useState<SessionDocument[]>([]);
+  const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
@@ -28,6 +37,7 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
     } else {
       setDocuments([]);
     }
+    loadGeneratedFiles();
   }, [sessionId, refreshKey]);
 
   const loadDocuments = async () => {
@@ -41,6 +51,34 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
       console.error('Failed to load documents:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadGeneratedFiles = async () => {
+    if (!sessionId) {
+      setGeneratedFiles([]);
+      return;
+    }
+    try {
+      const response = await apiClient.get(`/api/chat/${sessionId}/generated-files`);
+      const files = Array.isArray(response.data?.files) ? response.data.files : [];
+      setGeneratedFiles(files);
+    } catch (error) {
+      console.error('Failed to load generated files:', error);
+    }
+  };
+
+  const downloadFile = async (url: string, params: Record<string, unknown> | undefined, filename: string) => {
+    try {
+      const res = await apiClient.get(url, { params, responseType: 'blob' });
+      const blobUrl = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
     }
   };
 
@@ -81,7 +119,7 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
     }
   };
 
-  if (!sessionId || documents.length === 0) return null;
+  if (!sessionId || (documents.length === 0 && generatedFiles.length === 0)) return null;
 
   return (
     <div
@@ -151,6 +189,17 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
                 </span>
               </div>
               <div className="flex items-center justify-center gap-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                <button
+                  onClick={() => downloadFile(
+                    `/api/chat/${sessionId}/documents/${doc.id}/download`,
+                    undefined,
+                    doc.original_filename || doc.filename,
+                  )}
+                  className="p-0.5 rounded hover:bg-white/10"
+                  title="Download"
+                >
+                  <Download className="w-3 h-3" />
+                </button>
                 <span>{(doc.file_size / 1024).toFixed(0)}KB</span>
                 <span>•</span>
                 {getStatusIcon(doc.indexing_status)}
@@ -158,6 +207,57 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
             </div>
           ))}
         </div>
+      )}
+
+      {generatedFiles.length > 0 && (
+        <>
+          <h3
+            className="text-xs font-semibold mb-1.5"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
+            Generated Files ({generatedFiles.length})
+          </h3>
+          <div className="flex flex-wrap justify-center gap-1.5 max-h-32 overflow-y-auto">
+            {generatedFiles.map(file => (
+              <div
+                key={file.path}
+                className="flex flex-col items-center gap-0.5 p-2 rounded-lg border relative group"
+                style={{
+                  backgroundColor: 'var(--color-background-light)',
+                  borderColor: 'var(--color-border-dark)',
+                  width: 'fit-content',
+                  minWidth: '90px'
+                }}
+              >
+                <button
+                  onClick={() => downloadFile(
+                    '/api/workspace/files/by-path/download',
+                    { file_path: file.path },
+                    file.filename,
+                  )}
+                  className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full transition-colors hover:bg-white/10"
+                  title="Download"
+                  style={{ color: 'var(--color-primary)', backgroundColor: 'var(--color-background-light)', border: '1px solid var(--color-border-dark)' }}
+                >
+                  <Download className="w-2.5 h-2.5" />
+                </button>
+                <div className="flex items-center justify-center gap-1 min-w-0">
+                  <File className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
+                  <span
+                    className="text-[11px] font-medium truncate max-w-[80px]"
+                    style={{ color: 'var(--color-text-primary)' }}
+                    title={file.filename}
+                  >
+                    {file.filename}
+                  </span>
+                </div>
+                <div className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                  {file.size_human || `${(file.size_bytes / 1024).toFixed(0)}KB`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

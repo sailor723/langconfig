@@ -624,38 +624,78 @@ async def update_workspace_settings(workspace: WorkspaceSettings, db: Session = 
     )
 
 
-# Model Defaults Settings Endpoints (read from .env)
+# Model Defaults Settings Endpoints (persisted in PostgreSQL)
 @router.get("/model-defaults", response_model=ModelDefaultsSettings)
-async def get_model_defaults_settings():
-    """Get model defaults configuration (from .env)."""
-    fallback_list = [m.strip() for m in app_settings.fallback_models.split(",") if m.strip()] if app_settings.fallback_models else [app_settings.default_model]
+async def get_model_defaults_settings(db: Session = Depends(get_db)):
+    """Get model defaults configuration from PostgreSQL settings."""
+    settings = get_or_create_settings(db)
+    primary_model = settings.default_model or settings.primary_model or app_settings.default_model
+    fallback_models = settings.fallback_models
+    if not fallback_models:
+        fallback_models = (
+            [m.strip() for m in app_settings.fallback_models.split(",") if m.strip()]
+            if app_settings.fallback_models else [primary_model]
+        )
     return ModelDefaultsSettings(
-        primary_model=app_settings.default_model,
-        fallback_models=fallback_list or [app_settings.default_model],
-        temperature=app_settings.default_temperature,
-        max_tokens=app_settings.max_tokens,
-        top_p=app_settings.top_p,
-        routing_strategy="balanced",
-        daily_token_limit=0,
-        monthly_token_limit=0,
-        alert_threshold=80,
+        primary_model=primary_model,
+        fallback_models=fallback_models,
+        temperature=settings.temperature if settings.temperature is not None else app_settings.default_temperature,
+        max_tokens=settings.max_tokens_default if settings.max_tokens_default is not None else app_settings.max_tokens,
+        top_p=settings.top_p if settings.top_p is not None else app_settings.top_p,
+        routing_strategy=settings.routing_strategy or "balanced",
+        daily_token_limit=settings.daily_token_limit or 0,
+        monthly_token_limit=settings.monthly_token_limit or 0,
+        alert_threshold=settings.alert_threshold or 80,
     )
 
 
 @router.post("/model-defaults", response_model=ModelDefaultsSettings)
-async def update_model_defaults_settings():
-    """Model defaults are managed via .env."""
-    fallback_list = [m.strip() for m in app_settings.fallback_models.split(",") if m.strip()] if app_settings.fallback_models else [app_settings.default_model]
+async def update_model_defaults_settings(
+    update: ModelDefaultsSettings,
+    db: Session = Depends(get_db),
+):
+    """Persist model defaults in PostgreSQL."""
+    settings = get_or_create_settings(db)
+    update_data = update.model_dump(exclude_unset=True)
+
+    if "primary_model" in update_data:
+        settings.default_model = update_data["primary_model"]
+        settings.primary_model = update_data["primary_model"]
+    if "fallback_models" in update_data:
+        settings.fallback_models = update_data["fallback_models"]
+    if "temperature" in update_data:
+        settings.temperature = update_data["temperature"]
+    if "max_tokens" in update_data:
+        settings.max_tokens_default = update_data["max_tokens"]
+        settings.max_tokens = update_data["max_tokens"]
+    if "top_p" in update_data:
+        settings.top_p = update_data["top_p"]
+    if "routing_strategy" in update_data:
+        settings.routing_strategy = update_data["routing_strategy"]
+    if "daily_token_limit" in update_data:
+        settings.daily_token_limit = update_data["daily_token_limit"]
+    if "monthly_token_limit" in update_data:
+        settings.monthly_token_limit = update_data["monthly_token_limit"]
+    if "alert_threshold" in update_data:
+        settings.alert_threshold = update_data["alert_threshold"]
+
+    db.commit()
+    db.refresh(settings)
+
+    fallback_models = settings.fallback_models or (
+        [m.strip() for m in app_settings.fallback_models.split(",") if m.strip()]
+        if app_settings.fallback_models else [settings.default_model or app_settings.default_model]
+    )
     return ModelDefaultsSettings(
-        primary_model=app_settings.default_model,
-        fallback_models=fallback_list or [app_settings.default_model],
-        temperature=app_settings.default_temperature,
-        max_tokens=app_settings.max_tokens,
-        top_p=app_settings.top_p,
-        routing_strategy="balanced",
-        daily_token_limit=0,
-        monthly_token_limit=0,
-        alert_threshold=80,
+        primary_model=settings.default_model or settings.primary_model or app_settings.default_model,
+        fallback_models=fallback_models,
+        temperature=settings.temperature if settings.temperature is not None else app_settings.default_temperature,
+        max_tokens=settings.max_tokens_default if settings.max_tokens_default is not None else app_settings.max_tokens,
+        top_p=settings.top_p if settings.top_p is not None else app_settings.top_p,
+        routing_strategy=settings.routing_strategy or "balanced",
+        daily_token_limit=settings.daily_token_limit or 0,
+        monthly_token_limit=settings.monthly_token_limit or 0,
+        alert_threshold=settings.alert_threshold or 80,
     )
 
 
