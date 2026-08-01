@@ -201,7 +201,7 @@ export default function MessagesPanel({
             </div>
           </div>
         ) : (
-          <div className="w-full space-y-3 mx-8">
+          <div className="w-full space-y-3 px-8">
 
           {messages.map((message, index) => (
             <div
@@ -222,7 +222,7 @@ export default function MessagesPanel({
                 </div>
               )}
 
-              <div className={`${message.role === 'user' ? 'max-w-[60%] ml-auto' : 'max-w-[80%]'}`}>
+              <div className={`min-w-0 ${message.role === 'user' ? 'max-w-[60%] ml-auto' : 'max-w-[80%]'}`}>
                 <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-6xl'}`}>
                   {message.role === 'system' ? (
                     <div
@@ -238,12 +238,15 @@ export default function MessagesPanel({
                     <>
                       {/* Message Content */}
                       <div
-                        style={{
-                          padding: message.role === 'user' ? '8px 12px' : '4px 0',
-                          marginLeft: message.role === 'user' ? '0' : '0',
-                          // User messages: subtle bg color, no border
-                          // AI messages: no bg, no border
-                          backgroundColor: message.role === 'user' ? 'var(--color-background-dark)' : 'transparent',
+                          style={{
+                            padding: message.role === 'user' ? '8px 12px' : '4px 0',
+                            marginLeft: message.role === 'user' ? '0' : '0',
+                            minWidth: 0,
+                            overflowWrap: 'anywhere',
+                            wordBreak: 'break-word',
+                            // User messages: subtle bg color, no border
+                            // AI messages: no bg, no border
+                            backgroundColor: message.role === 'user' ? 'var(--color-background-dark)' : 'transparent',
                           border: 'none',
                           borderRadius: message.role === 'user' ? '8px' : '0',
                         }}
@@ -262,7 +265,7 @@ export default function MessagesPanel({
                               code({ node, inline, className, children, ...props }: any) {
                                 const match = /language-(\w+)/.exec(className || '');
                                 return !inline && match ? (
-                                  <div className="relative group my-2">
+                                  <div className="relative group my-2" style={{ maxWidth: '100%', minWidth: 0, overflowX: 'auto' }}>
                                     <SyntaxHighlighter
                                       style={vscDarkPlus}
                                       language={match[1]}

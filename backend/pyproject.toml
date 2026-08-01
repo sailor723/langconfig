@@ -82,6 +82,11 @@ dependencies = [
     "pdfminer-six>=20260107",
     "pi-heif>=1.4.0",
     "unstructured-inference>=1.6.13",
+    "markdownify>=1.2.3",
+    "nbformat>=5.10.4",
+    "jupyter-client>=8.9.1",
+    "dspy>=2.6,<3",
+    "litellm==1.91.4",
 ]
 
 [dependency-groups]

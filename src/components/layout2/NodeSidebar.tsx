@@ -355,6 +355,31 @@ function DocChatSidebar() {
  * base64 PNG images. Renders images as direct <img> elements instead of
  * going through ReactMarkdown, avoiding issues with very long data URLs.
  */
+const mdComponents = {
+  img: ({ src, alt }: any) => (
+    <img src={src} alt={alt || ''} style={{ maxWidth: '100%', height: 'auto', borderRadius: 4, marginTop: 4 }} />
+  ),
+  pre: ({ children }: any) => (
+    <pre
+      style={{
+        margin: '6px 0',
+        padding: 8,
+        background: 'rgba(0,0,0,0.25)',
+        borderRadius: 4,
+        overflowX: 'auto',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        maxWidth: '100%',
+        fontFamily: '"SF Mono", "Fira Code", monospace',
+        fontSize: 11,
+        lineHeight: 1.5,
+      }}
+    >
+      {children}
+    </pre>
+  ),
+};
+
 function renderWithImages(text: string): React.ReactNode[] {
   // Regex to find base64 PNG data (starts with iVBORw0KGgo, >=100 base64 chars)
   const pngRe = /(iVBORw0KGgo[A-Za-z0-9+/=]{100,})/g;
@@ -378,11 +403,7 @@ function renderWithImages(text: string): React.ReactNode[] {
             if (safe.test(url.slice(0, colon))) return url;
             return '';
           }}
-          components={{
-            img: ({ src, alt }) => (
-              <img src={src} alt={alt || ''} style={{ maxWidth: '100%', height: 'auto', borderRadius: 4, marginTop: 4 }} />
-            ),
-          }}
+          components={mdComponents}
         >
           {before}
         </ReactMarkdown>,
@@ -416,11 +437,7 @@ function renderWithImages(text: string): React.ReactNode[] {
           if (safe.test(url.slice(0, colon))) return url;
           return '';
         }}
-        components={{
-          img: ({ src, alt }) => (
-            <img src={src} alt={alt || ''} style={{ maxWidth: '100%', height: 'auto', borderRadius: 4, marginTop: 4 }} />
-          ),
-        }}
+        components={mdComponents}
       >
         {after}
       </ReactMarkdown>,
@@ -520,6 +537,7 @@ function ChatBubble({ msg }: ChatBubbleProps) {
     <div style={{
       alignSelf: isUser ? 'flex-end' : 'flex-start',
       maxWidth: '95%',
+      minWidth: 0,
       display: 'flex',
       flexDirection: 'column',
       gap: 4,
@@ -530,6 +548,9 @@ function ChatBubble({ msg }: ChatBubbleProps) {
         color: isUser || isSystem ? '#fff' : t.textPrimary,
         fontSize: 12,
         borderRadius: 4,
+        minWidth: 0,
+        maxWidth: '100%',
+        overflowWrap: 'anywhere',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
       }}>
