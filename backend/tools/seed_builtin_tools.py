@@ -1,15 +1,18 @@
 """
-Seed built-in tools (tools/native_tools.py) into the custom_tools table.
+Seed built-in tools into the custom_tools table.
 
-Architecture (Phase 0 of the native -> DB tool refactor):
-    Built-in tools now live in PostgreSQL exactly like custom tools. Each row
-    is a ``python_function`` tool whose code is a thin wrapper that delegates
-    to the legacy implementation in tools/native_tools.py at call time. Agents
-    then compile and run tools uniformly from the DB via ToolFactory.
+Architecture (Phase 4 of the native -> DB tool refactor):
+    Built-in tools live in PostgreSQL exactly like custom tools. Each row is
+    a ``python_function`` tool whose ``implementation_config.code`` is a
+    *fully self-contained* snippet: the tool's implementation plus every
+    module-level helper it references, copied out of tools/native_impl.py at
+    seed time. Agents compile and run tools straight from the DB at runtime —
+    nothing imports tools/native_tools.py or tools/native_impl.py at call
+    time (the legacy ``load_native_tools`` loader has been removed).
 
-    The wrapper resolves the tool through ``load_native_tools`` (the same
-    name -> implementation map the legacy loader used), so a rename of an
-    implementation function never breaks a seeded row.
+    The seed source tools/native_impl.py exists only so the seeder can embed
+    verbatim implementations (no transcription drift) and derive the exact
+    input schemas from the real tool objects.
 
 Run (from backend/):
     uv run python -m tools.seed_builtin_tools
@@ -19,6 +22,7 @@ Use ``--refresh`` to overwrite seeded rows with fresh metadata.
 """
 
 import argparse
+import ast
 import logging
 import sys
 from pathlib import Path
@@ -31,22 +35,6 @@ load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("seed_builtin_tools")
-
-# Tools that must stay on the legacy in-module path:
-#  - browser: Playwright toolkit, loaded asynchronously via a separate path
-#  - write_todos / read_todos: harness middleware (Command return + injected args)
-#  - vfs_*: injected state / tool_call_id args
-#  - memory_*: routed to SimpleMemory by AgentFactory assembly
-SKIP_TOOLS = {
-    "browser",
-    "write_todos",
-    "read_todos",
-    "vfs_ls",
-    "vfs_read_file",
-    "vfs_write_file",
-    "memory_store",
-    "memory_recall",
-}
 
 # Seed-time display metadata for the 43 seedable built-in tools:
 #   {tool_id: (display_name, category, requires_api_key)}
@@ -100,24 +88,197 @@ SEEDABLE_TOOL_META = {
     "python_execute": ("Python Execute", "data", None),
 }
 
-# Thin wrapper executed by ToolFactory._create_python_function_tool.
-# ``**kwargs`` passes the pydantic-validated args straight to the legacy
-# implementation; ``ainvoke`` handles both sync and async native tools.
-WRAPPER_TEMPLATE = '''async def {name}(**kwargs) -> str:
-    """{desc}"""
-    from tools.native_tools import load_native_tools as _load_native_tools
-    _tool = _load_native_tools(["{name}"])[0]
-    return str(await _tool.ainvoke({{**kwargs}}))
+# StructuredTool wrapper names in tools/native_impl.py that carry richer
+# input schemas (per-arg descriptions) than the bare plain functions they
+# wrap. The seeder uses them for schema derivation; the embedded row code
+# still runs the underlying plain function.
+_TOOL_WRAPPER_OVERRIDE = {
+    "doc_index_list": "_doc_index_list_tool",
+    "doc_index_structure": "_doc_index_structure_tool",
+    "doc_index_pages": "_doc_index_pages_tool",
+    "graphindex_search": "_graphindex_search_tool",
+    "graphindex_load": "_graphindex_load_tool",
+    "graphindex_list_docs": "_graphindex_list_docs_tool",
+    "graphindex_multi_doc_load": "_graphindex_multi_doc_load_tool",
+}
+
+# ---------------------------------------------------------------------------
+# Self-contained code generation
+# ---------------------------------------------------------------------------
+# Built-in rows no longer delegate to tools/native_tools.py at call time (that
+# loader is being removed). Instead the seeder embeds the tool's implementation
+# plus every module-level helper it references — copied verbatim out of
+# tools/native_impl.py — into the row's ``code``, exactly like a custom tool.
+
+_TAVILY_GUARD = '''try:
+    from langchain_community.tools.tavily_search import TavilySearchResults
+    TAVILY_AVAILABLE = True
+except ImportError:
+    TAVILY_AVAILABLE = False
 '''
 
-# Used for tools that are plain functions in native_tools.py (not
-# StructuredTool-wrapped, e.g. sqlite_execute / python_execute).
-SYNC_WRAPPER_TEMPLATE = '''def {name}(**kwargs) -> str:
+# Tools whose implementation lives in a stable sibling module (not part of the
+# native_tools removal); their row code delegates to that module directly.
+_IMPORTED_TOOL_TEMPLATE = '''from tools.presentation_tools import {name}
+
+
+async def _run_tool(**kwargs) -> str:
     """{desc}"""
-    from tools.native_tools import load_native_tools as _load_native_tools
-    _impl = _load_native_tools(["{name}"])[0]
-    return str(_impl(**kwargs))
+    return str(await {name}.ainvoke({{**kwargs}}))
 '''
+
+_SOURCE_CACHE: dict = {}
+
+
+def _native_impl_source() -> str:
+    """Read tools/native_impl.py once (the seed source for embedded code)."""
+    src = _SOURCE_CACHE.get("native_impl")
+    if src is None:
+        src = Path(__file__).resolve().parent.joinpath("native_impl.py").read_text(encoding="utf-8")
+        _SOURCE_CACHE["native_impl"] = src
+    return src
+
+
+def _collect_module_layout(src: str) -> tuple[dict, list]:
+    """Index module-level defs and imports of the seed-source file."""
+    tree = ast.parse(src)
+    defs = {}
+    import_nodes = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            defs[node.name] = node
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for t in targets:
+                if isinstance(t, ast.Name):
+                    defs[t.id] = node
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            bound = []
+            for alias in node.names:
+                if isinstance(node, ast.Import):
+                    bound.append(alias.asname or alias.name.split(".")[0])
+                else:
+                    bound.append(alias.asname or alias.name)
+            import_nodes.append((node, bound))
+    return defs, import_nodes
+
+
+def _referenced_names(node: ast.AST) -> set:
+    """All loaded names (incl. ``global`` declarations) referenced by a node."""
+    out = set()
+    for n in ast.walk(node):
+        if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load):
+            out.add(n.id)
+        elif isinstance(n, ast.Global):
+            out.update(n.names)
+    return out
+
+
+def _from_function_func(assign_node: ast.AST):
+    """The plain function behind ``X = StructuredTool.from_function(func=Y, ...)``."""
+    value = getattr(assign_node, "value", None)
+    if not isinstance(value, ast.Call):
+        return None
+    for kw in value.keywords:
+        if kw.arg == "func" and isinstance(kw.value, ast.Name):
+            return kw.value.id
+    if value.args and isinstance(value.args[0], ast.Name):
+        return value.args[0].id
+    return None
+
+
+def _strip_decorators(source_segment: str) -> str:
+    """Drop ``@tool`` decorator lines so the embedded def is a plain function."""
+    lines = source_segment.splitlines()
+    while lines and lines[0].lstrip().startswith("@"):
+        lines.pop(0)
+    return "\n".join(lines)
+
+
+def _build_self_contained_code(tool_name: str, description: str) -> tuple:
+    """Return ``(code, function_name)`` for a fully self-contained built-in row.
+
+    The snippet defines the tool's implementation function plus every
+    module-level helper it transitively references (verbatim from
+    tools/native_impl.py) and the imports those helpers need, so the row can
+    be compiled by ToolFactory at runtime without importing native_tools.py.
+    """
+    src = _native_impl_source()
+    defs, import_nodes = _collect_module_layout(src)
+
+    # Resolve the plain-function entry for this tool.
+    entry = tool_name
+    entry_node = defs.get(tool_name)
+    if isinstance(entry_node, ast.Assign):
+        inner = _from_function_func(entry_node)
+        if inner and inner in defs:
+            entry, entry_node = inner, defs[inner]
+
+    if entry_node is None:
+        # Imported tool (gen_pptx / gen_html) — its stable module stays in the
+        # repo, so the row delegates to it like any custom tool may import a
+        # backend module.
+        return _IMPORTED_TOOL_TEMPLATE.format(name=tool_name, desc=_sanitize(description)), "_run_tool"
+
+    # BFS over module-level helper dependencies (transitive closure).
+    needed = set()
+    ref_names = set()
+    needs_logger = False
+    needs_tavily = False
+    queue = [entry]
+    while queue:
+        name = queue.pop()
+        if name in needed:
+            continue
+        if name in ("logger",):
+            needs_logger = True
+            needed.add(name)
+            continue
+        if name in ("TAVILY_AVAILABLE", "TavilySearchResults"):
+            needs_tavily = True
+            needed.add(name)
+            continue
+        node = defs.get(name)
+        if node is None:
+            continue
+        needed.add(name)
+        names = _referenced_names(node)
+        ref_names |= names
+        for sub in names:
+            if sub in defs or sub in ("logger", "TAVILY_AVAILABLE", "TavilySearchResults"):
+                if sub not in needed:
+                    queue.append(sub)
+
+    # Imports whose bound names are referenced anywhere in the closure.
+    needed_imports = [
+        ast.get_source_segment(src, node)
+        for node, bound in import_nodes
+        if any(b in ref_names for b in bound)
+    ]
+
+    parts = []
+    if needed_imports:
+        parts.append("# --- imports ---")
+        parts.extend(needed_imports)
+    if needs_logger:
+        parts.append("# --- logger ---")
+        parts.append("import logging")
+        parts.append('logger = logging.getLogger("langconfig.builtin_tool")')
+    if needs_tavily:
+        parts.append("# --- tavily guard ---")
+        parts.append(_TAVILY_GUARD.rstrip())
+    for node in sorted(
+        (defs[n] for n in needed if n not in ("logger", "TAVILY_AVAILABLE", "TavilySearchResults")),
+        key=lambda n: n.lineno,
+    ):
+        segment = ast.get_source_segment(src, node)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            segment = _strip_decorators(segment)
+        parts.append(segment)
+    code = "\n\n".join(parts)
+    # Fail fast at seed time if the embedded snippet is not valid Python.
+    compile(code, f"<seed:{tool_name}>", "exec")
+    return code, entry
 
 
 def _sanitize(text: str) -> str:
@@ -194,7 +355,6 @@ def _build_row(tool_name: str, tool_obj, meta: tuple) -> dict:
     if is_plain_function:
         description = (getattr(tool_obj, "__doc__", "") or "").split("\n")[0]
         properties, required = _schema_from_signature(tool_obj)
-        code = SYNC_WRAPPER_TEMPLATE.format(name=tool_name, desc=_sanitize(description))
     else:
         description = tool_obj.description
         try:
@@ -205,7 +365,10 @@ def _build_row(tool_name: str, tool_obj, meta: tuple) -> dict:
             full_schema = {}
         properties = full_schema.get("properties") or getattr(tool_obj, "args", {}) or {}
         required = full_schema.get("required", [])
-        code = WRAPPER_TEMPLATE.format(name=tool_name, desc=_sanitize(description))
+
+    # Self-contained implementation: the tool + its module-level helpers,
+    # embedded verbatim so runtime compiles it straight from the DB row.
+    code, function_name = _build_self_contained_code(tool_name, description)
 
     input_props = {}
     impl_args = {}
@@ -226,7 +389,7 @@ def _build_row(tool_name: str, tool_obj, meta: tuple) -> dict:
         "tool_type": "python_function",
         "template_type": "custom",
         "implementation_config": {
-            "function_name": tool_name,
+            "function_name": function_name,
             "code": code,
             "args_schema": impl_args,
         },
@@ -245,28 +408,27 @@ def main(refresh: bool = False) -> int:
     """Upsert all seedable built-in tools into custom_tools."""
     from models.custom_tool import CustomTool
     from db.database import SessionLocal
-    from tools.native_tools import (
-        get_available_tool_names,
-        load_native_tools,
-    )
+    import tools.native_impl as native_impl
 
-    seed_names = [n for n in get_available_tool_names() if n not in SKIP_TOOLS]
-    logger.info(f"Seeding {len(seed_names)} built-in tools (excluding {len(SKIP_TOOLS)} special-cased)")
+    seed_names = list(SEEDABLE_TOOL_META)
+    logger.info(f"Seeding {len(seed_names)} built-in tools (self-contained code embedded in rows)")
 
     # Capture each tool's real LLM-facing description + args schema from the
-    # concrete StructuredTool instance (single source of truth).
+    # concrete tool object in the seed source (single source of truth). Where
+    # a StructuredTool wrapper exists it carries richer per-arg descriptions.
     rows_by_name = {}
     for name in seed_names:
         try:
-            tools = load_native_tools([name])
+            tool_obj = getattr(native_impl, _TOOL_WRAPPER_OVERRIDE.get(name, name))
         except Exception as exc:  # pragma: no cover — defensive
-            logger.error(f"  x Failed to load '{name}': {exc}")
-            continue
-        if not tools:
-            logger.warning(f"  ! No native tool for '{name}' — skipping")
+            logger.error(f"  x Failed to resolve '{name}' in tools/native_impl.py: {exc}")
             continue
         meta = SEEDABLE_TOOL_META.get(name, (name, "misc", None))
-        rows_by_name[name] = _build_row(name, tools[0], meta)
+        try:
+            rows_by_name[name] = _build_row(name, tool_obj, meta)
+        except Exception as exc:  # pragma: no cover — defensive
+            logger.error(f"  x Failed to build '{name}': {exc}")
+            continue
 
     db = SessionLocal()
     try:

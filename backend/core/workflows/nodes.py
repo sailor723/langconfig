@@ -104,9 +104,11 @@ async def execute_tool_node(
             logger.info(f"[TOOL_NODE] Loaded custom tool: {tool.name}")
 
         elif tool_type == "mcp":
-            # Load MCP tool
-            from tools.native_tools import load_native_tools
-            mcp_tools = load_native_tools([tool_id])
+            # Load MCP tool — built-in tools are read from PostgreSQL
+            # (custom_tools is_builtin rows) via ToolLoader, which also
+            # materializes the legacy-only harness tools in this module.
+            from core.agents.tool_loader import ToolLoader
+            mcp_tools = await ToolLoader.load_native([tool_id])
 
             if not mcp_tools:
                 raise ValueError(f"MCP tool '{tool_id}' not found")

@@ -1653,31 +1653,39 @@ class _ToolBuildersMixin:
 
         logger.info(f"Creating python_function tool: {tool_config['name']} (fn={function_name})")
 
-        # Dynamically execute the function code
-        local_ns = {}
+        # Dynamically execute the function code in a SINGLE namespace.
+        #
+        # exec(code, ns) (instead of exec(code, globals, locals)) makes the
+        # module-level stores — helper defs, imports, logger, module aliases —
+        # live in the same namespace that the compiled functions bind as their
+        # __globals__. With a separate locals dict, module-level names were
+        # invisible inside function bodies (NameError at call time), which
+        # broke self-contained tool rows (e.g. built-ins that import
+        # `sqlite3 as _sqlite3` or define `logger` at module level).
+        tool_ns = {
+            "__builtins__": __builtins__,
+            "math": __import__("math"),
+            "json": json,
+            "typing": __import__("typing"),
+            "os": __import__("os"),
+            "re": __import__("re"),
+            "collections": __import__("collections"),
+            "datetime": __import__("datetime"),
+            "pathlib": __import__("pathlib"),
+            "io": __import__("io"),
+        }
         try:
-            exec(code_str, {
-                "__builtins__": __builtins__,
-                "math": __import__("math"),
-                "json": json,
-                "typing": __import__("typing"),
-                "os": __import__("os"),
-                "re": __import__("re"),
-                "collections": __import__("collections"),
-                "datetime": __import__("datetime"),
-                "pathlib": __import__("pathlib"),
-                "io": __import__("io"),
-            }, local_ns)
+            exec(code_str, tool_ns)
         except Exception as e:
             raise ValueError(f"Failed to compile Python function '{function_name}': {e}")
 
-        if function_name not in local_ns:
+        if function_name not in tool_ns:
             raise ValueError(
                 f"Function '{function_name}' not found in provided code. "
-                f"Available: {list(local_ns.keys())}"
+                f"Available: {list(tool_ns.keys())}"
             )
 
-        fn = local_ns[function_name]
+        fn = tool_ns[function_name]
 
         async def _run(**kwargs) -> str:
             """Execute the user-defined Python function."""

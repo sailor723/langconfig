@@ -145,7 +145,7 @@ class ToolLoader:
             # hitting the DB so old agent configs keep working.
             from tools.native_tools import (
                 TOOL_NAME_MAP,
-                load_native_tools as _legacy_load,
+                load_legacy_native_tools as _legacy_load,
             )
 
             canonical_names = [TOOL_NAME_MAP.get(n, n) for n in native_tool_names]
@@ -206,7 +206,7 @@ class ToolLoader:
             from core.tools.factory import ToolFactory
             from models.custom_tool import CustomTool
             from db.database import SessionLocal
-            from tools.native_tools import load_native_tools as _legacy_load
+            from tools.native_tools import load_legacy_native_tools as _legacy_load
 
             db = SessionLocal()
             try:

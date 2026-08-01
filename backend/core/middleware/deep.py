@@ -221,8 +221,9 @@ class FilesystemMiddleware:
         # Load all filesystem tools (DeepAgents standard)
         # See: https://docs.langchain.com/oss/python/deepagents/harness
         try:
-            from tools.native_tools import load_native_tools, FILESYSTEM_TOOLS
-            fs_tools = load_native_tools(FILESYSTEM_TOOLS)
+            from tools.native_tools import FILESYSTEM_TOOLS
+            from core.agents.tool_loader import ToolLoader
+            fs_tools = await ToolLoader.load_native(FILESYSTEM_TOOLS)
             tools.extend(fs_tools)
             logger.info(f"Loaded {len(fs_tools)} filesystem tools: {FILESYSTEM_TOOLS}")
         except Exception as e:
