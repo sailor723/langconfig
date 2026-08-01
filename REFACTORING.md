@@ -13,6 +13,7 @@ changing the public API.
 | 2 — Shared extraction/dedup | Doc-type maps, api-client split, shared editor components | `5c2f474`, `947950d` | ✅ done |
 | 3a — Route splits | `api/chat`, `api/workflows`, `api/workspace` → sub-router packages | `cd17d25`, `37ee086`, `f79472a`, `8cf2cbf` | ✅ done |
 | 3b — Engine splits | `core/workflows/executor.py`, `events/emitter.py`, `core/tools/factory.py`, `services/deepagent_factory.py` → mixin packages | `1410bc0`, `06abe27`, `82de6e2`, `f5402dc` | ✅ done |
+| 3c — Large god-modules | `api/knowledge/rag.py`, `core/agents/factory.py` → route/mixin packages | `d94bf4e`, `7fc2078` | ✅ done |
 | Test cleanup | Fixed 4 pytest collection errors from stale tests | `0ff16d1` | ✅ done |
 
 ---
@@ -87,15 +88,60 @@ no-op stubs — silent event loss. A NOTE comment documents this.
   `self.method()` semantics preserved via MRO.
 - **`_bind_runtime()` late binding** — required for staticmethod-heavy classes
   whose bodies reference the concrete class bare-name (e.g.
-  `ToolFactory._schema_cache`, `DeepAgentFactory._fallback_to_regular_agent`).
-  Each mixin module exposes `_bind_runtime()`; the package `__init__` calls it
-  after the concrete class exists.
+  `ToolFactory._schema_cache`, `DeepAgentFactory._fallback_to_regular_agent`,
+  `AgentFactory._create_llm`). Each mixin module exposes `_bind_runtime()`; the
+  package `__init__` calls it after the concrete class exists.
 - **Circular-import hardening** — sub-modules import only from sibling
   `shared.py`/`models.py` modules, never from the package `__init__`.
 - **Lazy imports preserved** — every function-level lazy import inside the moved
   methods stays intact (deepagent, workflow executor, DB sessions, etc.).
 - **Logger identity** — `logging.getLogger("core.workflows.executor")` etc. moved
   verbatim into each package's `shared.py`.
+
+## Phase 3c — Large god-modules
+
+### `api/knowledge/rag.py` (1758 L) → `api/knowledge/rag/`
+
+Route-file pattern: the package `__init__` owns the single `/api/rag` prefix
+and includes prefix-less sub-routers (prefix does not stack, same as the
+original `main.py` include).
+
+| Module | Contents |
+|--------|----------|
+| `shared.py` | `logger` |
+| `schemas.py` | 10 pydantic models (upload/search/document/content/history responses) |
+| `helpers.py` | `SUPPORTED_GRAPHINDEX_EXTS`, `_is_graphindexable`, `_queue_graphindex_ingest`, `index_document_background`, `_extract_text_for_viewer` |
+| `uploads.py` | `upload_document`, bulk upload + folder ingest |
+| `documents.py` | list/get/download/content/delete |
+| `search.py` | `search_documents`, `index_document`, `get_search_history` |
+| `__init__.py` | `router = APIRouter(prefix="/api/rag")` + re-exports in `__all__` |
+
+Verified: all 27 moved nodes byte-identical; all 11 routes present under
+`/api/rag`. Removed the orphaned dead tail in `get_search_history`
+(`2c2bb5e` remnant after `return history`).
+
+**⚠️ AnnAssign trap (fixed):** the AST-slicing script originally skipped
+`SUPPORTED_GRAPHINDEX_EXTS` because module-level annotated assignments are
+`ast.AnnAssign`, not `ast.Assign` — it broke server boot
+(`ImportError: cannot import name 'SUPPORTED_GRAPHINDEX_EXTS'`). The constant
+is now present verbatim in `helpers.py`.
+
+### `core/agents/factory.py` (1404 L) → `core/agents/factory/`
+
+Mixin pattern; 15 bare `AgentFactory.` staticmethod references across mixin
+bodies require `_bind_runtime()` in every mixin module.
+
+| Module | Contents |
+|--------|----------|
+| `shared.py` | `logger`, `DEFAULT_AGENT_GUARDRAILS`, `REASONING_FRAMEWORK` |
+| `validation.py` | `_AgentValidationMixin` — `_validate_agent_config` |
+| `prompting.py` | `_AgentPromptingMixin` — prompt construction, skill injection, context augmentation |
+| `llm.py` | `_AgentLLMMixin` — `_create_llm(_with_fallbacks)`, middleware/hook setup, subagent task tool, callbacks |
+| `assembly.py` | `_AgentAssemblyMixin` — `create_agent`, `create_rlm_agent` |
+| `__init__.py` | `class AgentFactory(...)` + `create_agent_from_template` + `services.agent_utils` re-exports (`SUPPORTED_MODELS` etc.) |
+
+Verified: all 15 moved nodes AST-identical; `import main` boots; `_bind_runtime`
+patches all 4 mixin modules; 37 factory-related tests collect cleanly.
 
 ## Verification methodology
 
@@ -139,7 +185,8 @@ None of these touch the refactored modules.
 
 ## Optional next steps
 
-- Split remaining large modules, e.g. `api/knowledge/rag.py` (~1700 L) or
-  `core/agents/factory.py` (~1400 L).
+- Split remaining large modules (largest remaining single files).
 - Fix the pre-existing environmental test failures (start PostgreSQL, configure
   pytest-asyncio, prune stale mongodb tests).
+- Fix the flagged `upload_document` `NameError` (`industry`/`player` etc.
+  referenced before assignment in the bulk-upload loop).
