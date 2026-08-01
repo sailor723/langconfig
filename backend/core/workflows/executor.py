@@ -3085,7 +3085,14 @@ When your work is complete, deliver the final result and END."""
         a RunnableLambda that invokes a chat model with a system prompt + input.
         """
         agent_config = node_data.get("config", {})
-        model_name = agent_config.get("model", "gpt-4o-mini")
+        model_name = agent_config.get("model")
+        if not model_name:
+            # Fall back to the app-wide default model instead of a hardcoded one
+            try:
+                from config import settings as app_settings
+                model_name = app_settings.default_model
+            except Exception:
+                model_name = "gpt-4o-mini"
         temperature = agent_config.get("temperature", 0.7)
         system_prompt = agent_config.get(
             "system_prompt",
@@ -3106,10 +3113,13 @@ When your work is complete, deliver the final result and END."""
                 existing_messages = state.get("messages", [])
                 llm_messages.extend(existing_messages)
 
-                # If there are no messages yet, use the query as a fallback user input
-                if not existing_messages:
-                    query = state.get("query", "")
-                    if query:
+                # Always include the current query as the user input when present,
+                # unless the last message is already that same query (e.g. a prior
+                # node or the initial state seeded it) to avoid duplication.
+                query = state.get("query", "")
+                if query:
+                    last_msg = llm_messages[-1] if llm_messages else None
+                    if not (isinstance(last_msg, HumanMessage) and last_msg.content == query):
                         llm_messages.append(HumanMessage(content=query))
 
                 # ── Create the LLM instance ──

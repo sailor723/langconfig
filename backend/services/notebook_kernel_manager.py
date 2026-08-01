@@ -11,7 +11,7 @@ import uuid
 import json
 import time
 from typing import Dict, Any, Optional, List
-from threading import Lock
+from threading import Lock, RLock
 
 from jupyter_client import KernelManager, BlockingKernelClient
 
@@ -33,7 +33,8 @@ class KernelSession:
         self.kc: Optional[BlockingKernelClient] = None
         self.last_used: float = time.time()
         self.execution_count = 0
-        self._lock = Lock()
+        # RLock so restart() can hold the lock across shutdown+start+chdir
+        self._lock = RLock()
 
     def start(self):
         """Start the kernel."""
@@ -43,10 +44,8 @@ class KernelSession:
 
             try:
                 self.km = KernelManager(kernel_name="python3")
-                if self.cwd:
-                    # We can't set cwd on KernelManager directly, but we can
-                    # use an init script to cd there
-                    pass
+                # cwd is applied via os.chdir after the kernel starts
+                # (see get_or_create_session) so restart() can re-apply it.
                 self.km.start_kernel()
                 self.kc = self.km.client()
                 self.kc.start_channels()
@@ -84,13 +83,15 @@ class KernelSession:
             error_value = ""
             traceback_lines = []
             success = True
+            timed_out = False
 
             try:
                 while True:
                     try:
                         msg = self.kc.get_iopub_msg(timeout=timeout)
                     except Exception:
-                        # Timeout reached
+                        # Timeout reached — execution did not complete
+                        timed_out = True
                         break
 
                     msg_type = msg.get("msg_type", "")
@@ -123,12 +124,17 @@ class KernelSession:
                         execution_state = content.get("execution_state", "")
                         if execution_state == "idle":
                             # Wait briefly for any remaining output
-                            import time as _time
-                            _time.sleep(0.1)
+                            time.sleep(0.1)
                             break
 
             except Exception as e:
                 logger.warning(f"Error reading kernel output for session {self.session_id}: {e}")
+
+            if timed_out:
+                # Report the timeout honestly instead of a misleading success
+                success = False
+                error_name = "TimeoutError"
+                error_value = f"Execution exceeded {timeout}s without completing"
 
             return {
                 "success": success,
@@ -151,9 +157,14 @@ class KernelSession:
                     logger.warning(f"Failed to interrupt kernel: {e}")
 
     def restart(self):
-        """Restart the kernel (clears all state)."""
-        self.shutdown()
-        self.start()
+        """Restart the kernel (clears all state) and re-apply the working directory."""
+        # Hold the lock across shutdown+start so no execute() can interleave,
+        # and re-apply cwd afterwards since start() does not set it.
+        with self._lock:
+            self.shutdown()
+            self.start()
+            if self.cwd:
+                self.execute(f"import os; os.chdir({json.dumps(self.cwd)})")
         logger.info(f"Kernel restarted for session {self.session_id}")
 
     def shutdown(self):
@@ -248,26 +259,15 @@ class NotebookKernelManager:
                 sid for sid, s in self._sessions.items()
                 if (now - s.last_used) > KERNEL_IDLE_TIMEOUT
             ]
-            for sid in idle_sessions:
-                del self._sessions[sid]
-        for sid in idle_sessions:
-            logger.info(f"Shutting down idle kernel session {sid}")
-            # Session objects are already removed; shutdown not needed
-            # since we shutdown via the session objects above
-            # Actually we need to shutdown them:
-            # They were removed from dict, but we lost reference.
-            # Let me fix this by iterating differently.
-        # Better approach:
-        if idle_sessions:
-            # Re-find and shutdown
-            with self._lock:
-                for sid in idle_sessions:
-                    session = self._sessions.pop(sid, None)
-                    if session:
-                        try:
-                            session.shutdown()
-                        except Exception:
-                            pass
+            # Pop once under the lock, then shut down outside it so we don't
+            # hold the manager lock during blocking kernel teardown.
+            sessions = [self._sessions.pop(sid) for sid in idle_sessions]
+        for session in sessions:
+            try:
+                logger.info(f"Shutting down idle kernel session {session.session_id}")
+                session.shutdown()
+            except Exception:
+                pass
 
     def __del__(self):
         """Cleanup on garbage collection."""

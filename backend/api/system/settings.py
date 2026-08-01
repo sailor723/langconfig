@@ -645,7 +645,7 @@ async def get_model_defaults_settings(db: Session = Depends(get_db)):
         routing_strategy=settings.routing_strategy or "balanced",
         daily_token_limit=settings.daily_token_limit or 0,
         monthly_token_limit=settings.monthly_token_limit or 0,
-        alert_threshold=settings.alert_threshold or 80,
+        alert_threshold=settings.alert_threshold if settings.alert_threshold is not None else 80,
     )
 
 
@@ -695,7 +695,7 @@ async def update_model_defaults_settings(
         routing_strategy=settings.routing_strategy or "balanced",
         daily_token_limit=settings.daily_token_limit or 0,
         monthly_token_limit=settings.monthly_token_limit or 0,
-        alert_threshold=settings.alert_threshold or 80,
+        alert_threshold=settings.alert_threshold if settings.alert_threshold is not None else 80,
     )
 
 

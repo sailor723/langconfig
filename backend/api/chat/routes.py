@@ -445,8 +445,16 @@ async def send_message(
         })
         flag_modified(session, "messages")
 
-        # Get or create agent instance
-        agent_instance = get_cached_agent(request.session_id)
+        # Get or create agent instance. Key by agent id + updated_at so edits
+        # invalidate the cache consistently across all chat entry points.
+        agent_version = None
+        if agent.updated_at:
+            agent_version = str(int(agent.updated_at.timestamp()))
+        agent_instance = get_cached_agent(
+            request.session_id,
+            agent_id=agent.id,
+            agent_version=agent_version,
+        )
 
         if not agent_instance:
             # ── Language preference from DB settings ──
@@ -501,7 +509,12 @@ async def send_message(
                     vector_store=None,
                     user_message=request.message
                 )
-            cache_agent(request.session_id, agent_instance)
+            cache_agent(
+                request.session_id,
+                agent_instance,
+                agent_id=agent.id,
+                agent_version=agent_version,
+            )
 
         # Create new user message (checkpointer will load previous messages automatically)
         from langchain_core.messages import HumanMessage
@@ -845,10 +858,21 @@ async def send_message_stream(
                 # Build agent via DeepAgentFactory (standard path)
                 # Use the UI's active project if the agent doesn't have one
                 project_id = agent_project_id or request.project_id
-                agent_instance = None
                 all_context = ""
 
-                if project_id:
+                # Check the compiled-agent cache first. Follow-up turns skip the
+                # RAG/context work that only feeds compilation, making them as
+                # close to a bare CLI agent.invoke() as possible.
+                agent_version = None
+                if agent.updated_at:
+                    agent_version = str(int(agent.updated_at.timestamp()))
+                agent_instance = get_cached_agent(
+                    request.session_id,
+                    agent_id=agent.id,
+                    agent_version=agent_version,
+                )
+
+                if project_id and not agent_instance:
                     from services.context_retrieval import context_retriever
                     from services.token_counter import get_token_counter
                     token_counter = get_token_counter()
@@ -922,18 +946,6 @@ async def send_message_stream(
                                             )
                         except Exception as e:
                             logger.warning(f"Failed to inject companion .skill.md: {e}")
-
-                # Get or create agent instance (always, regardless of project_id).
-                # Use (session_id, agent_id, agent.updated_at) as cache key so that
-                # updates to the agent's config invalidate the cached agent.
-                agent_version = None
-                if agent.updated_at:
-                    agent_version = str(int(agent.updated_at.timestamp()))
-                agent_instance = get_cached_agent(
-                    request.session_id,
-                    agent_id=agent.id,
-                    agent_version=agent_version,
-                )
 
                 if not agent_instance:
                     # Create agent via appropriate factory.
@@ -1425,9 +1437,13 @@ async def end_chat_session(
     manager = get_session_manager()
     removed = manager.remove_session(session_id)
 
-    # Also remove from legacy cache
-    if session_id in active_agents:
-        del active_agents[session_id]
+    # Also remove from legacy cache (plain and composite keys)
+    legacy_keys = [
+        key for key in active_agents
+        if key == session_id or key.startswith(f"{session_id}:")
+    ]
+    for key in legacy_keys:
+        del active_agents[key]
 
     # Cleanup LangGraph checkpoints for this thread
     cleanup_success = False
@@ -1700,8 +1716,19 @@ async def resume_chat(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Check agent exists before entering try block
-    agent_instance = get_cached_agent(session_id)
+    # Check agent exists before entering try block. Use the same composite
+    # cache key as the streaming path so resumed sessions find their agent.
+    agent = db.query(DeepAgentTemplate).filter(
+        DeepAgentTemplate.id == session.agent_id
+    ).first()
+    agent_version = None
+    if agent and agent.updated_at:
+        agent_version = str(int(agent.updated_at.timestamp()))
+    agent_instance = get_cached_agent(
+        session_id,
+        agent_id=session.agent_id,
+        agent_version=agent_version,
+    )
     if not agent_instance:
         raise HTTPException(
             status_code=400,
@@ -2471,25 +2498,27 @@ async def list_session_generated_files(
         if not isinstance(file_arg, str) or not file_arg.strip():
             continue
 
-        filename = Path(file_arg).name
-        if not filename or filename in seen:
-            continue
-
-        full_path = (default_dir / filename).resolve()
+        # Resolve the written path relative to the session workspace, so files
+        # written into subdirectories (e.g. docs/report.md) are found too —
+        # not just root-level basenames.
+        file_path = Path(file_arg)
+        if not file_path.is_absolute():
+            file_path = default_dir / file_path
+        full_path = file_path.resolve()
         try:
             full_path.relative_to(default_dir.resolve())
         except ValueError:
             continue
 
-        if full_path.is_file():
+        if full_path.is_file() and str(full_path) not in seen:
             stat = full_path.stat()
-            seen.add(filename)
+            seen.add(str(full_path))
             size_human = (
                 f"{stat.st_size / 1024:.1f} KB" if stat.st_size >= 1024
                 else f"{stat.st_size} B"
             )
             generated.append({
-                "filename": filename,
+                "filename": full_path.name,
                 "path": str(full_path.relative_to(workspace_mgr.base_dir)),
                 "size_bytes": stat.st_size,
                 "size_human": size_human,
@@ -2516,6 +2545,14 @@ async def download_session_document(
 
     if not doc or not doc.file_path:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    # Defense-in-depth: only serve files inside the storage root, never an
+    # arbitrary path stored in the DB.
+    from services.file_storage import file_storage
+    try:
+        Path(doc.file_path).resolve().relative_to(file_storage.base_dir.resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid document path")
 
     if not Path(doc.file_path).is_file():
         raise HTTPException(status_code=404, detail="File not found on disk")
