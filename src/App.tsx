@@ -18,13 +18,11 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import ModernAgentLibrary from './features/agents/ui/ModernAgentLibrary';
 import WorkflowCanvas, { WorkflowCanvasRef, WorkflowRecipe } from './features/workflows/canvas/WorkflowCanvas';
 import { TaskHistoryEntry } from './features/workflows/canvas/types';
 import NodeConfigPanel from './features/workflows/node-config/NodeConfigPanel';
 import PlaygroundPage from './pages/PlaygroundPage';
 import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
-import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
 
 import ToolHomePage from './components/layout2/ToolHomePage';
 import PromptHomePage from './components/layout2/PromptHomePage';
