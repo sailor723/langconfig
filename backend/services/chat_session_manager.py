@@ -132,9 +132,18 @@ class ChatSessionManager:
         Returns:
             True if session was removed, False if not found
         """
-        if session_id in self.active_sessions:
-            del self.active_sessions[session_id]
-            logger.info(f"Removed session {session_id} from cache (remaining: {len(self.active_sessions)})")
+        prefix = f"{session_id}:"
+        keys_to_remove = [
+            key for key in self.active_sessions
+            if key == session_id or key.startswith(prefix)
+        ]
+        for key in keys_to_remove:
+            del self.active_sessions[key]
+        if keys_to_remove:
+            logger.info(
+                f"Removed session {session_id} from cache "
+                f"(remaining: {len(self.active_sessions)})"
+            )
             return True
         return False
 
