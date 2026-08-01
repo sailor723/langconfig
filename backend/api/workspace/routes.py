@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from db.database import get_db
 from services.workspace_manager import get_workspace_manager
+from services.document_type import resolve_document_type
 from models.core import Task
 from pathlib import Path
 
@@ -655,22 +656,7 @@ async def index_file_to_knowledge_base(
         vector_store.add(nodes)
 
         # Determine document type from extension
-        ext = os.path.splitext(filename)[1].lower()
-        doc_type_map = {
-            '.md': DocumentType.MARKDOWN,
-            '.txt': DocumentType.TEXT,
-            '.pdf': DocumentType.PDF,
-            '.py': DocumentType.CODE,
-            '.js': DocumentType.CODE,
-            '.ts': DocumentType.CODE,
-            '.json': DocumentType.JSON,
-            '.html': DocumentType.HTML,
-            '.xml': DocumentType.XML,
-            '.csv': DocumentType.CSV,
-            '.yaml': DocumentType.YAML,
-            '.yml': DocumentType.YAML,
-        }
-        doc_type = doc_type_map.get(ext, DocumentType.TEXT)
+        doc_type = resolve_document_type(filename)
 
         # Get mime type
         mime_type, _ = mimetypes.guess_type(filename)
@@ -789,22 +775,7 @@ async def index_default_file_to_knowledge_base(
         vector_store.add(nodes)
 
         # Determine document type from extension
-        ext = os.path.splitext(filename)[1].lower()
-        doc_type_map = {
-            '.md': DocumentType.MARKDOWN,
-            '.txt': DocumentType.TEXT,
-            '.pdf': DocumentType.PDF,
-            '.py': DocumentType.CODE,
-            '.js': DocumentType.CODE,
-            '.ts': DocumentType.CODE,
-            '.json': DocumentType.JSON,
-            '.html': DocumentType.HTML,
-            '.xml': DocumentType.XML,
-            '.csv': DocumentType.CSV,
-            '.yaml': DocumentType.YAML,
-            '.yml': DocumentType.YAML,
-        }
-        doc_type = doc_type_map.get(ext, DocumentType.TEXT)
+        doc_type = resolve_document_type(filename)
 
         # Get mime type
         mime_type, _ = mimetypes.guess_type(filename)
@@ -1332,22 +1303,7 @@ async def index_file_by_path(
         vector_store.add(nodes)
 
         # Determine document type from extension
-        ext = os.path.splitext(filename)[1].lower()
-        doc_type_map = {
-            '.md': DocumentType.MARKDOWN,
-            '.txt': DocumentType.TEXT,
-            '.pdf': DocumentType.PDF,
-            '.py': DocumentType.CODE,
-            '.js': DocumentType.CODE,
-            '.ts': DocumentType.CODE,
-            '.json': DocumentType.JSON,
-            '.html': DocumentType.HTML,
-            '.xml': DocumentType.XML,
-            '.csv': DocumentType.CSV,
-            '.yaml': DocumentType.YAML,
-            '.yml': DocumentType.YAML,
-        }
-        doc_type = doc_type_map.get(ext, DocumentType.TEXT)
+        doc_type = resolve_document_type(filename)
 
         # Get mime type
         mime_type, _ = mt.guess_type(filename)
@@ -1506,21 +1462,7 @@ async def bulk_index_files_by_path(
             total_chunks += len(nodes)
 
             # Determine document type from extension
-            doc_type_map = {
-                '.md': DocumentType.MARKDOWN,
-                '.txt': DocumentType.TEXT,
-                '.pdf': DocumentType.PDF,
-                '.py': DocumentType.CODE,
-                '.js': DocumentType.CODE,
-                '.ts': DocumentType.CODE,
-                '.json': DocumentType.JSON,
-                '.html': DocumentType.HTML,
-                '.xml': DocumentType.XML,
-                '.csv': DocumentType.CSV,
-                '.yaml': DocumentType.YAML,
-                '.yml': DocumentType.YAML,
-            }
-            doc_type = doc_type_map.get(ext, DocumentType.TEXT)
+            doc_type = resolve_document_type(full_path.name)
 
             # Get mime type
             mime_type, _ = mt.guess_type(filename)

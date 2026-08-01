@@ -73,6 +73,7 @@ import json
 from db.database import get_db
 from models.deep_agent import DeepAgentTemplate, ChatSession, DeepAgentConfig, SessionDocument
 from models.core import DocumentType, IndexingStatus
+from services.document_type import resolve_document_type
 from services.deepagent_factory import DeepAgentFactory
 from core.workflows.events.emitter import ExecutionEventCallbackHandler
 from langgraph.errors import GraphInterrupt
@@ -2349,13 +2350,7 @@ async def _process_single_chat_upload(
 
     # Detect document type
     file_ext = file.filename.split('.')[-1].lower()
-    doc_type_map = {
-        'txt': DocumentType.TEXT, 'md': DocumentType.MARKDOWN, 'pdf': DocumentType.PDF,
-        'json': DocumentType.JSON, 'py': DocumentType.CODE, 'js': DocumentType.CODE,
-        'ts': DocumentType.CODE, 'tsx': DocumentType.CODE, 'jsx': DocumentType.CODE,
-        'docx': DocumentType.TEXT, 'pptx': DocumentType.TEXT, 'csv': DocumentType.TEXT,
-    }
-    document_type = doc_type_map.get(file_ext, DocumentType.TEXT)
+    document_type = resolve_document_type(file.filename)
 
     # Create SessionDocument record
     doc = SessionDocument(
