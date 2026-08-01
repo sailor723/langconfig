@@ -26,7 +26,6 @@ from typing import List, Dict, Any
 import logging
 
 from core.agents.factory import AgentFactory
-from core.utils.token_tracking import create_token_tracking_callback
 from models.agent_config_schema import (
     AgentConfigV2,
     ToolConfig,
@@ -94,7 +93,7 @@ def routing_agent_config():
 
 
 # =============================================================================
-Critical Bug Fixes Tests
+# Critical Bug Fixes Tests
 # =============================================================================
 
 class TestCriticalFixes:
@@ -207,7 +206,7 @@ class TestCriticalFixes:
 
 
 # =============================================================================
-Schema & Architecture Tests
+# Schema & Architecture Tests
 # =============================================================================
 
 class TestSchemaV2:
@@ -268,7 +267,7 @@ class TestSchemaV2:
 
 
 # =============================================================================
-Dynamic Model Routing Tests
+# Dynamic Model Routing Tests
 # =============================================================================
 
 class TestModelRouting:
@@ -364,7 +363,10 @@ class TestWorkflowIntegration:
     @pytest.mark.asyncio
     async def test_token_tracking_callback_creation(self):
         """Test that TokenTrackingCallback can be created and works."""
-        callback = create_token_tracking_callback(
+        # The token-tracking service module is not shipped with the repo
+        # (production guards this import with try/except); skip when absent.
+        token_tracking = pytest.importorskip("core.utils.token_tracking")
+        callback = token_tracking.create_token_tracking_callback(
             agent_id="test_agent",
             project_id=1,
             task_id="test_task_1",
