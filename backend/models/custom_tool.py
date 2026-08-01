@@ -99,6 +99,7 @@ class CustomTool(Base):
     # Metadata
     category = Column(String(50), nullable=True)  # User-defined category
     is_builtin = Column(Boolean, default=False, nullable=False)  # System-seeded built-in tool (from native_tools.py)
+    requires_api_key = Column(String(100), nullable=True)  # Env var of required API key, or NULL (built-in tools)
     tags = Column(JSON, default=lambda: [], nullable=False)  # Searchable tags
 
     # Timestamps

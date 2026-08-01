@@ -48,6 +48,58 @@ SKIP_TOOLS = {
     "memory_recall",
 }
 
+# Seed-time display metadata for the 43 seedable built-in tools:
+#   {tool_id: (display_name, category, requires_api_key)}
+# This is the one place the human-facing registry metadata lives in code; the
+# runtime registry (GET /api/tools/registry) reads it from the seeded DB rows
+# instead of TOOL_REGISTRY in tools/native_tools.py, which now only carries
+# the 10 legacy-only tools that cannot be seeded.
+SEEDABLE_TOOL_META = {
+    "web_search": ("Web Search", "web", None),
+    "tavily_search": ("Tavily Search", "web", "TAVILY_API_KEY"),
+    "web_fetch": ("Web Fetch", "web", None),
+    "ls": ("List Directory", "filesystem", None),
+    "read_file": ("Read File", "filesystem", None),
+    "write_file": ("Write File", "filesystem", None),
+    "edit_file": ("Edit File", "filesystem", None),
+    "glob": ("Glob", "filesystem", None),
+    "grep": ("Grep", "filesystem", None),
+    "reasoning_chain": ("Reasoning Chain", "reasoning", None),
+    "task": ("Task (Subagent)", "delegation", None),
+    "save_analysis_result": ("Save Analysis Result", "data_analysis", None),
+    "gen_pptx": ("Generate PPTX", "presentation", None),
+    "gen_html": ("Generate HTML Deck", "presentation", None),
+    "create_skill": ("Create Skill", "skills", None),
+    "update_skill": ("Update Skill", "skills", None),
+    "delete_skill": ("Delete Skill", "skills", None),
+    "create_deepagent": ("Create DeepAgent", "agent_management", None),
+    "pg_list_tables": ("PG - List Tables", "database", None),
+    "pg_describe_table": ("PG - Describe Table", "database", None),
+    "pg_query": ("PG - Query (SELECT)", "database", None),
+    "pg_execute": ("PG - Execute (INSERT/UPDATE/DELETE)", "database", None),
+    "pg_list_agents": ("PG - List Agents", "database", None),
+    "pg_get_agent": ("PG - Get Agent Config", "database", None),
+    "pg_list_skills": ("PG - List Skills", "database", None),
+    "search_skills": ("Search Skills", "database", None),
+    "pg_list_projects": ("PG - List Projects", "database", None),
+    "pg_list_documents": ("PG - List Documents", "database", None),
+    "pg_list_custom_tools": ("PG - List Custom Tools", "database", None),
+    "neo4j_list_docs": ("Neo4j - List Documents", "retrieval", None),
+    "neo4j_get_doc": ("Neo4j - Get Document Metadata", "retrieval", None),
+    "neo4j_query": ("Neo4j - Cypher Query", "retrieval", None),
+    "neo4j_upsert_doc": ("Neo4j - Upsert Document", "retrieval", None),
+    "neo4j_delete_doc": ("Neo4j - Delete Document", "retrieval", None),
+    "doc_index_list": ("Doc Index - List Documents", "retrieval", None),
+    "doc_index_structure": ("Doc Index - Get Document Structure", "retrieval", None),
+    "doc_index_pages": ("Doc Index - Get Page Content", "retrieval", None),
+    "graphindex_search": ("GraphIndex - Search Documents", "retrieval", None),
+    "graphindex_load": ("GraphIndex - Load Document Content", "retrieval", None),
+    "graphindex_list_docs": ("GraphIndex - List Documents", "retrieval", None),
+    "graphindex_multi_doc_load": ("GraphIndex - Multi-Doc Load", "retrieval", None),
+    "sqlite_execute": ("SQLite Execute", "data", None),
+    "python_execute": ("Python Execute", "data", None),
+}
+
 # Thin wrapper executed by ToolFactory._create_python_function_tool.
 # ``**kwargs`` passes the pydantic-validated args straight to the legacy
 # implementation; ``ainvoke`` handles both sync and async native tools.
@@ -123,17 +175,20 @@ def _schema_from_signature(fn) -> tuple[dict, list]:
     return properties, required
 
 
-def _build_row(tool_name: str, tool_obj, category: str) -> dict:
+def _build_row(tool_name: str, tool_obj, meta: tuple) -> dict:
     """Build the CustomTool payload for one built-in tool.
 
     ``input_schema`` keeps the faithful JSON Schema (LLM-facing) while
     ``implementation_config.args_schema`` carries the flattened shape the
     python_function pydantic builder needs, including ``default`` values so
-    optional params stay optional.
+    optional params stay optional. Display metadata (name/category/
+    requires_api_key) comes from ``SEEDABLE_TOOL_META`` so the runtime
+    registry can read it straight from the row.
 
     Handles both StructuredTool instances (args from ``.args``) and plain
     functions (args derived from the signature, called directly).
     """
+    display_name, category, requires_api_key = meta
     is_plain_function = not hasattr(tool_obj, "description")
 
     if is_plain_function:
@@ -166,7 +221,7 @@ def _build_row(tool_name: str, tool_obj, category: str) -> dict:
 
     return {
         "tool_id": tool_name,
-        "name": tool_name,  # canonical name — matches the legacy StructuredTool name
+        "name": display_name,  # human display name for the registry / UI
         "description": description or f"Built-in tool: {tool_name}",
         "tool_type": "python_function",
         "template_type": "custom",
@@ -181,6 +236,7 @@ def _build_row(tool_name: str, tool_obj, category: str) -> dict:
         "is_builtin": True,
         "created_by": "builtin-seeder",
         "category": category,
+        "requires_api_key": requires_api_key,
         "tags": ["builtin", category],
     }
 
@@ -191,11 +247,9 @@ def main(refresh: bool = False) -> int:
     from db.database import SessionLocal
     from tools.native_tools import (
         get_available_tool_names,
-        get_tool_registry,
         load_native_tools,
     )
 
-    registry = {entry["id"]: entry for entry in get_tool_registry()}
     seed_names = [n for n in get_available_tool_names() if n not in SKIP_TOOLS]
     logger.info(f"Seeding {len(seed_names)} built-in tools (excluding {len(SKIP_TOOLS)} special-cased)")
 
@@ -211,8 +265,8 @@ def main(refresh: bool = False) -> int:
         if not tools:
             logger.warning(f"  ! No native tool for '{name}' — skipping")
             continue
-        category = registry.get(name, {}).get("category", "misc")
-        rows_by_name[name] = _build_row(name, tools[0], category)
+        meta = SEEDABLE_TOOL_META.get(name, (name, "misc", None))
+        rows_by_name[name] = _build_row(name, tools[0], meta)
 
     db = SessionLocal()
     try:
