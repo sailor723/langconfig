@@ -905,59 +905,6 @@ class DeepAgentFactory:
             vector_store=vector_store
         )
 
-    @staticmethod
-    def create_default_config(
-        template_id: Optional[str] = None,
-        **overrides
-    ) -> DeepAgentConfig:
-        """
-        Create a default DeepAgent configuration.
-
-        Args:
-            template_id: Optional base template to extend
-            **overrides: Override specific config values
-
-        Returns:
-            DeepAgentConfig with defaults
-        """
-        from models.deep_agent import (
-            create_default_middleware_config,
-            create_default_backend_config,
-            create_default_guardrails_config
-        )
-
-        # Use DeepAgents standard filesystem tools + web_search for research
-        # See: https://docs.langchain.com/oss/python/deepagents/harness
-        from tools.native_tools import FILESYSTEM_TOOLS
-
-        # Default tools: filesystem + web_search for research capabilities
-        default_tools = FILESYSTEM_TOOLS + ["web_search"]
-
-        config = {
-            "model": "claude-sonnet-4-5-20250929",
-            "temperature": 0.7,
-            "system_prompt": "You are a helpful AI assistant with planning and research capabilities.",
-            "tools": [],
-            "native_tools": default_tools,  # Filesystem + web_search for research
-            "cli_tools": [],
-            "custom_tools": [],
-            "use_deepagents": True,
-            "middleware": create_default_middleware_config(),
-            "subagents": [],
-            "backend": create_default_backend_config(),
-            "guardrails": create_default_guardrails_config(),
-        }
-
-        # Apply template if specified
-        if template_id:
-            template_config = DeepAgentFactory._load_template_config(template_id)
-            config.update(template_config)
-
-        # Apply overrides
-        config.update(overrides)
-
-        return DeepAgentConfig(**config)
-
 # DeepAgent library v0.6.8 already provides:
 #   - StateBackend, StoreBackend, CompositeBackend (deepagents.backends)
 #   - FilesystemBackend, LocalShellBackend, LangSmithSandbox

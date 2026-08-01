@@ -201,7 +201,7 @@ async def handle_export_workflow_agent(payload: dict, task_id: int) -> dict:
     try:
         # Import here to avoid circular dependencies
         from models.workflow import WorkflowProfile
-        from services.deepagent_factory import auto_export_deepagent_workflow
+        from api.workflows.routes import auto_export_deepagent_workflow
 
         # Load workflow
         workflow = db.query(WorkflowProfile).filter(
@@ -263,7 +263,7 @@ async def handle_auto_export_workflow(payload: dict, task_id: int) -> dict:
     try:
         # Import here to avoid circular dependencies
         from models.workflow import WorkflowProfile
-        from services.deepagent_factory import auto_export_deepagent_workflow
+        from api.workflows.routes import auto_export_deepagent_workflow
         from datetime import datetime
 
         # Load workflow

@@ -2745,15 +2745,9 @@ When your work is complete, deliver the final result and END."""
                     logger.info(f"[CHECKPOINT_NODE] Checkpoint marker set: {checkpoint_data}")
                     logger.debug(f"[CHECKPOINT_NODE] Note: Actual persistence depends on checkpointer configuration")
 
-                    # Emit checkpoint event for frontend visualization
-                    from execution_events import emit_checkpoint_event
-                    await emit_checkpoint_event(
-                        project_id=workflow.project_id,
-                        task_id=task_id,
-                        node_id=node_id,
-                        checkpoint_data=checkpoint_data
-                    )
-
+                    # Checkpoint state is already persisted by the LangGraph checkpointer;
+                    # the legacy execution_events emitter module no longer exists, so
+                    # nothing extra is emitted here.
                     return {
                         "current_step": node_id,
                         "workflow_status": "CHECKPOINTED",
