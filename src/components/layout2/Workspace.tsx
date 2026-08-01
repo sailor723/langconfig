@@ -22,7 +22,9 @@ import ModelViewerTab from './ModelViewerTab';
 import SearchProviderDetailTab from './SearchProviderDetailTab';
 import KnowledgeView from './KnowledgeView';
 import SkillView from './SkillView';
+import SkillEditorTab from './SkillEditorTab';
 import PromptDetailTab from './PromptDetailTab';
+import NotebookViewer from './NotebookViewer';
 
 const VIEW_ICONS: Record<string, React.ReactNode> = {
   workflow:            <File size={13} />,
@@ -37,7 +39,9 @@ const VIEW_ICONS: Record<string, React.ReactNode> = {
   'search-provider-detail': <Globe size={13} />,
   'knowledge-view':      <Database size={13} />,
   skill:               <Award size={13} />,
+  'skill-editor':       <Award size={13} />,
   'prompt-detail':      <FileText size={13} />,
+  notebook:            <BookOpen size={13} />,
   library:             <BookOpen size={13} />,
   analysis:            <BarChart3 size={13} />,
 };
@@ -59,7 +63,9 @@ const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
   'search-provider-detail': SearchProviderDetailTab,
   'knowledge-view':      KnowledgeView,
   skill:               SkillView,
+  'skill-editor':       SkillEditorTab,
   'prompt-detail':      PromptDetailTab,
+  notebook:            NotebookViewer,
   library:             FileEditor,
   analysis:            FileEditor,
 };

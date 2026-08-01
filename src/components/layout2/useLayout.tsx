@@ -23,7 +23,8 @@ export type ActivityId =
   | 'settings'
   | 'studio'
   | 'models'
-  | 'search';
+  | 'search'
+  | 'learning';
 
 export interface ActivityDef {
   id: ActivityId;
@@ -45,6 +46,7 @@ export const ACTIVITIES: ActivityDef[] = [
   { id: 'studio',     label: 'Studio',     icon: 'Network',    group: 'main' },
   { id: 'models',     label: 'Models',     icon: 'Sparkles',   group: 'main' },
   { id: 'search',     label: 'Search',     icon: 'Search',     group: 'main' },
+  { id: 'learning',   label: 'Learning',   icon: 'BookOpen',   group: 'main' },
   { id: 'settings',   label: 'Settings',   icon: 'Settings',   group: 'bottom' },
 ];
 

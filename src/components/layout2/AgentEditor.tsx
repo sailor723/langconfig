@@ -37,7 +37,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const { setRightPanelTab, openRightPanel } = useLayoutState();
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
-  const isNew = agent.new === true;
+  const isNew = agent.new === true || typeof agent.id !== 'number';
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [testPrompt, setTestPrompt] = useState('Hello, please introduce yourself.');
@@ -106,7 +106,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         : '')
     );
     setJsonEdit(JSON.stringify(agent, null, 2));
-    setLocalAgentId(agent.id || null);
+    setLocalAgentId(typeof agent.id === 'number' ? agent.id : null);
     setSelectedNativeTools(config.native_tools || []);
     setSelectedCustomTools(config.custom_tools || []);
     setActiveSection('overview');
@@ -136,7 +136,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
 
   // For new agents, fetch default model from DB settings
   useEffect(() => {
-    if (!isNew) return;
+    if (!isNew || config.model) return;
     let cancelled = false;
     apiClient.getSettings().then((res: any) => {
       if (!cancelled && res?.data?.default_model) {
@@ -178,7 +178,9 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   }, []);
 
   // Track the persisted agent id locally — updated after first save for new agents
-  const [localAgentId, setLocalAgentId] = useState<number | null>(agent.id || null);
+  const [localAgentId, setLocalAgentId] = useState<number | null>(
+    typeof agent.id === 'number' ? agent.id : null
+  );
 
   const handleRun = async () => {
     if (!localAgentId || running) return;

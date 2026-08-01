@@ -8,11 +8,11 @@
 import { useState, useCallback } from 'react';
 
 interface UseUITogglesReturn {
-  // Workflow dropdown
-  showWorkflowDropdown: boolean;
-  setShowWorkflowDropdown: React.Dispatch<React.SetStateAction<boolean>>;
-  handleToggleWorkflowDropdown: () => void;
-  handleCloseWorkflowDropdown: () => void;
+  // Agent template dropdown (replaces old workflow switcher dropdown)
+  showAgentDropdown: boolean;
+  setShowAgentDropdown: React.Dispatch<React.SetStateAction<boolean>>;
+  handleToggleAgentDropdown: () => void;
+  handleCloseAgentDropdown: () => void;
 
   // Thinking stream
   showThinkingStream: boolean;
@@ -29,10 +29,10 @@ interface UseUITogglesReturn {
   setCheckpointerEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   handleToggleCheckpointer: () => void;
 
-  // Workflow search
-  workflowSearchQuery: string;
-  setWorkflowSearchQuery: React.Dispatch<React.SetStateAction<string>>;
-  handleWorkflowSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  // Agent template search
+  agentSearchQuery: string;
+  setAgentSearchQuery: React.Dispatch<React.SetStateAction<string>>;
+  handleAgentSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 
   // Name editing
   isEditingName: boolean;
@@ -48,13 +48,13 @@ interface UseUITogglesReturn {
  * Hook for managing UI toggle states and handlers
  */
 export function useUIToggles(): UseUITogglesReturn {
-  // Workflow dropdown
-  const [showWorkflowDropdown, setShowWorkflowDropdown] = useState(false);
-  const handleToggleWorkflowDropdown = useCallback(() => {
-    setShowWorkflowDropdown(prev => !prev);
+  // Agent template dropdown
+  const [showAgentDropdown, setShowAgentDropdown] = useState(false);
+  const handleToggleAgentDropdown = useCallback(() => {
+    setShowAgentDropdown(prev => !prev);
   }, []);
-  const handleCloseWorkflowDropdown = useCallback(() => {
-    setShowWorkflowDropdown(false);
+  const handleCloseAgentDropdown = useCallback(() => {
+    setShowAgentDropdown(false);
   }, []);
 
   // Thinking stream
@@ -78,10 +78,10 @@ export function useUIToggles(): UseUITogglesReturn {
     setCheckpointerEnabled(prev => !prev);
   }, []);
 
-  // Workflow search
-  const [workflowSearchQuery, setWorkflowSearchQuery] = useState('');
-  const handleWorkflowSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setWorkflowSearchQuery(e.target.value);
+  // Agent template search
+  const [agentSearchQuery, setAgentSearchQuery] = useState('');
+  const handleAgentSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setAgentSearchQuery(e.target.value);
   }, []);
 
   // Name editing
@@ -95,10 +95,10 @@ export function useUIToggles(): UseUITogglesReturn {
   const [customOutputPath, setCustomOutputPath] = useState<string | null>(null);
 
   return {
-    showWorkflowDropdown,
-    setShowWorkflowDropdown,
-    handleToggleWorkflowDropdown,
-    handleCloseWorkflowDropdown,
+    showAgentDropdown,
+    setShowAgentDropdown,
+    handleToggleAgentDropdown,
+    handleCloseAgentDropdown,
     showThinkingStream,
     setShowThinkingStream,
     handleToggleThinkingStream,
@@ -108,9 +108,9 @@ export function useUIToggles(): UseUITogglesReturn {
     checkpointerEnabled,
     setCheckpointerEnabled,
     handleToggleCheckpointer,
-    workflowSearchQuery,
-    setWorkflowSearchQuery,
-    handleWorkflowSearchChange,
+    agentSearchQuery,
+    setAgentSearchQuery,
+    handleAgentSearchChange,
     isEditingName,
     setIsEditingName,
     handleStartEditingName,

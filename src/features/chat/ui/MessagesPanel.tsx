@@ -13,7 +13,6 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { ChatMessage, CustomEventPayload, ToolCall } from '../types/chat';
 import CodexMessageInput from './CodexMessageInput';
-import SessionDocumentsPanel from './SessionDocumentsPanel';
 import AnalysisPanel from './AnalysisPanel';
 import { ContentBlockRenderer } from '@/components/common/ContentBlockRenderer';
 import type { ThinkingStep } from './ThinkingBlock';
@@ -54,7 +53,6 @@ export default function MessagesPanel({
 }: MessagesPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
   const [showThinking, setShowThinking] = useState(false);
   const streamingStartRef = useRef<number>(0);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -150,7 +148,7 @@ export default function MessagesPanel({
   return (
     <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: 'var(--color-background-light)' }}>
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
+      <div className="flex-1 overflow-y-auto px-6 pt-4 pb-2">
         {messages.length === 0 && !disabled && useCodexLayout ? (
           // Codex-style empty state: centered heading + composer
           <div className="flex flex-col items-center justify-center h-full min-h-full px-6">
@@ -663,9 +661,6 @@ export default function MessagesPanel({
         </div>
       )}
 
-      {/* Session Documents Panel */}
-      <SessionDocumentsPanel sessionId={sessionId} refreshKey={documentsRefreshKey} />
-
       {/* Data Analysis Button — generate interactive dashboard via current agent */}
       {typeof onSendMessage === 'function' && (
         <div className="px-4 pb-2">
@@ -713,7 +708,6 @@ export default function MessagesPanel({
           agentName={agentName}
           onFileUploaded={(file) => {
             console.log('File uploaded:', file);
-            setDocumentsRefreshKey(k => k + 1);
             // Auto-trigger briefing after document upload
             const docExt = file.filename.split('.').pop()?.toLowerCase() || '';
             const briefingExts = ['pdf', 'md', 'txt', 'docx', 'pptx'];

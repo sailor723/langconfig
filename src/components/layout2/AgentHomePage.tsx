@@ -689,6 +689,7 @@ export default function AgentHomePage() {
         name: agent.name,
         description: agent.description,
         category: agent.category,
+        new: true,
         tags: agent.tags || [],
         config: {
           system_prompt: agent.system_prompt,

@@ -61,7 +61,7 @@ if _REPO_ROOT not in _sys.path and _os.path.isdir(_REPO_ROOT):
     _sys.path.insert(0, _REPO_ROOT)
 
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
@@ -2434,6 +2434,97 @@ async def list_session_documents(
         )
         for doc in docs
     ]
+
+
+@router.get("/{session_id}/generated-files")
+async def list_session_generated_files(
+    session_id: str,
+    db: Session = Depends(get_db)
+):
+    """List files the agent generated during this chat session."""
+    from datetime import datetime
+    from pathlib import Path
+
+    session = db.query(ChatSession).filter(
+        ChatSession.session_id == session_id
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    from services.workspace_manager import get_workspace_manager
+
+    workspace_mgr = get_workspace_manager()
+    default_dir = workspace_mgr.base_dir / "default"
+
+    generated = []
+    seen = set()
+    write_tools = {"write_file", "file_write", "vfs_write_file", "write"}
+
+    for tool_call in session.tool_calls or []:
+        tool_name = tool_call.get("tool_name", "") or ""
+        if tool_name not in write_tools:
+            continue
+        arguments = tool_call.get("arguments") or {}
+        if not isinstance(arguments, dict):
+            continue
+        file_arg = arguments.get("file_path") or arguments.get("path") or ""
+        if not isinstance(file_arg, str) or not file_arg.strip():
+            continue
+
+        filename = Path(file_arg).name
+        if not filename or filename in seen:
+            continue
+
+        full_path = (default_dir / filename).resolve()
+        try:
+            full_path.relative_to(default_dir.resolve())
+        except ValueError:
+            continue
+
+        if full_path.is_file():
+            stat = full_path.stat()
+            seen.add(filename)
+            size_human = (
+                f"{stat.st_size / 1024:.1f} KB" if stat.st_size >= 1024
+                else f"{stat.st_size} B"
+            )
+            generated.append({
+                "filename": filename,
+                "path": str(full_path.relative_to(workspace_mgr.base_dir)),
+                "size_bytes": stat.st_size,
+                "size_human": size_human,
+                "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            })
+
+    generated.sort(key=lambda f: f.get("modified_at") or "", reverse=True)
+    return {"files": generated, "total_files": len(generated)}
+
+
+@router.get("/{session_id}/documents/{document_id}/download")
+async def download_session_document(
+    session_id: str,
+    document_id: int,
+    db: Session = Depends(get_db)
+):
+    """Download a file uploaded to a chat session."""
+    from pathlib import Path
+
+    doc = db.query(SessionDocument).filter(
+        SessionDocument.id == document_id,
+        SessionDocument.session_id == session_id
+    ).first()
+
+    if not doc or not doc.file_path:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not Path(doc.file_path).is_file():
+        raise HTTPException(status_code=404, detail="File not found on disk")
+
+    return FileResponse(
+        path=doc.file_path,
+        filename=doc.original_filename or doc.filename,
+        media_type=doc.mime_type or "application/octet-stream"
+    )
 
 
 @router.delete("/{session_id}/documents/{document_id}", status_code=204)

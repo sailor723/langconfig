@@ -1776,6 +1776,10 @@ class SimpleWorkflowExecutor:
         if agent_type == 'TOOL_NODE':
             return self._create_tool_node_executor(node_id, node_data)
 
+        # Handle LLM_NODE (simple direct LLM call, no tools/agents)
+        if agent_type == 'LLM_NODE':
+            return self._create_llm_node_executor(node_id, node_data)
+
         async def node_executor(state: SimpleWorkflowState, config: dict = None) -> Dict[str, Any]:
             """Execute a single node in the workflow."""
             # Get the actual display label from node_data if available
@@ -3062,6 +3066,80 @@ When your work is complete, deliver the final result and END."""
             }
 
         return tool_node_executor
+
+    def _create_llm_node_executor(
+        self,
+        node_id: str,
+        node_data: Dict[str, Any]
+    ):
+        """
+        Create an executor for LLM_NODE — a simple direct LLM call without tools or agent middleware.
+
+        Properties configured in the frontend:
+            - prompt: System prompt / instruction text
+            - llm: Which model to use
+            - input: How data flows in (query or previous node's output)
+            - output: What the node produces (appended to messages)
+
+        In LangGraph terms, this is the simplest possible node:
+        a RunnableLambda that invokes a chat model with a system prompt + input.
+        """
+        agent_config = node_data.get("config", {})
+        model_name = agent_config.get("model", "gpt-4o-mini")
+        temperature = agent_config.get("temperature", 0.7)
+        system_prompt = agent_config.get(
+            "system_prompt",
+            "You are a helpful assistant. Respond to the user's input concisely."
+        )
+
+        async def llm_node_executor(state: SimpleWorkflowState, config: dict = None) -> Dict[str, Any]:
+            """Execute a direct LLM call — no tools, no agent, just prompt → model → response."""
+            node_label = node_data.get("data", {}).get("label") or "LLM"
+            logger.info(f"[{node_label} (LLM_NODE)] Invoking model={model_name}")
+
+            try:
+                # ── Build messages for the LLM call ──
+                # Start with system prompt
+                llm_messages: List[BaseMessage] = [SystemMessage(content=system_prompt)]
+
+                # Append any existing messages from the workflow state
+                existing_messages = state.get("messages", [])
+                llm_messages.extend(existing_messages)
+
+                # If there are no messages yet, use the query as a fallback user input
+                if not existing_messages:
+                    query = state.get("query", "")
+                    if query:
+                        llm_messages.append(HumanMessage(content=query))
+
+                # ── Create the LLM instance ──
+                # Use the shared model resolver so provider/API key/base URL config applies.
+                from services.agent_utils import resolve_model
+                max_tokens = agent_config.get("max_tokens")
+                llm = await resolve_model(model_name, temperature, max_tokens, agent_config)
+
+                # ── Invoke ──
+                response = await llm.ainvoke(llm_messages)
+
+                logger.info(f"[{node_label} (LLM_NODE)] Response received (tokens: {len(str(response.content))})")
+
+                return {
+                    "messages": [response],
+                    "current_node": node_id,
+                    "agent_type": "LLM_NODE",
+                    "last_agent_type": "LLM_NODE",
+                }
+
+            except Exception as e:
+                logger.error(f"[{node_label} (LLM_NODE)] Error: {e}")
+                return {
+                    "error_message": f"LLM node error: {str(e)}",
+                    "current_node": node_id,
+                    "agent_type": "LLM_NODE",
+                    "last_agent_type": "LLM_NODE",
+                }
+
+        return llm_node_executor
 
     async def _validate_and_init_tools(
         self,

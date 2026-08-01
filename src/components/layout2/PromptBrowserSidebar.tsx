@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
 import apiClient from '../../lib/api-client';
-import { FileText, Search, Loader, Plus } from 'lucide-react';
+import { FileText, Search, Loader, Plus, RefreshCw } from 'lucide-react';
 
 interface RawAgent {
   id: number;
@@ -44,8 +44,9 @@ export default function PromptBrowserSidebar() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activePromptId, setActivePromptId] = useState<string | null>(null);
 
-  useEffect(() => {
-    apiClient.listDeepAgents({ public_only: false })
+  const loadPrompts = useCallback(() => {
+    setLoading(true);
+    return apiClient.listDeepAgents({ public_only: false })
       .then(res => {
         const data = (res as any).data ?? ([] as RawAgent[]);
         const entries: PromptEntry[] = data
@@ -61,6 +62,14 @@ export default function PromptBrowserSidebar() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadPrompts();
+  }, [loadPrompts]);
+
+  const handleRefresh = useCallback(() => {
+    loadPrompts();
+  }, [loadPrompts]);
 
   const openPrompt = useCallback((entry: PromptEntry) => {
     setActivePromptId(String(entry.id));
@@ -92,60 +101,60 @@ export default function PromptBrowserSidebar() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px 8px' }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary }}>
+      {/* Header toolbar — title + search + refresh + new, all on one line */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 12px 8px' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, flexShrink: 0 }}>
           Prompt Templates
         </span>
-        <span style={{ fontSize: 10, color: t.textMuted }}>
-          {prompts.length}
-        </span>
-      </div>
-
-      {/* New Prompt */}
-      <div style={{ padding: '0 12px 8px' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: t.textMuted }} />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search..."
+            style={{
+              width: '100%',
+              padding: '5px 8px 5px 24px',
+              borderRadius: 6,
+              border: `1px solid ${t.border}`,
+              background: t.bgInput,
+              color: t.textPrimary,
+              fontSize: 11,
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          title="Refresh"
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 24, height: 24, borderRadius: 4, flexShrink: 0,
+            background: 'transparent', color: t.textMuted,
+            border: 'none', cursor: 'pointer',
+            opacity: loading ? 0.5 : 1,
+          }}
+          onMouseEnter={e => { if (!loading) e.currentTarget.style.background = t.bgHover; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+        >
+          {loading ? <Loader size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={13} />}
+        </button>
         <button
           onClick={handleNewPrompt}
+          title="New Prompt"
           style={{
-            width: '100%',
-            padding: '7px 12px',
-            borderRadius: 6,
-            border: `1px dashed ${t.border}`,
-            background: 'transparent',
-            color: t.textMuted,
-            cursor: 'pointer',
-            fontSize: 11,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 24, height: 24, borderRadius: 4, flexShrink: 0,
+            background: 'transparent', color: t.textMuted,
+            border: 'none', cursor: 'pointer',
           }}
           onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; e.currentTarget.style.color = t.textPrimary; }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
         >
           <Plus size={13} />
-          New Blank Prompt
         </button>
-      </div>
-
-      {/* Search */}
-      <div style={{ position: 'relative', padding: '0 12px 8px' }}>
-        <Search size={13} style={{ position: 'absolute', left: 20, top: 8, color: t.textMuted }} />
-        <input
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Search prompts..."
-          style={{
-            width: '100%',
-            padding: '6px 10px 6px 28px',
-            borderRadius: 6,
-            border: `1px solid ${t.border}`,
-            background: t.bgInput,
-            color: t.textPrimary,
-            fontSize: 12,
-            outline: 'none',
-          }}
-        />
       </div>
 
       {/* Prompt list */}

@@ -10,6 +10,7 @@ import { X, GripVertical, BarChart3, FileText } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
 import HitlInterruptModal from './HitlInterruptModal';
 import ContextPanel from './ContextPanel';
+import FilesPanel from './FilesPanel';
 import { useChatSession } from '../hooks/useChatSession';
 import { useChatStreaming } from '../hooks/useChatStreaming';
 import { useChatMetrics } from '../hooks/useChatMetrics';
@@ -49,6 +50,7 @@ export default function GlobalChatModal() {
   // Metrics panel visibility
   const [showMetrics, setShowMetrics] = useState(false);
   const [showContext, setShowContext] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
 
   // Sidebar resize state
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -384,7 +386,10 @@ export default function GlobalChatModal() {
       >
         {/* Left Sidebar + Resize Handle */}
         <div className="flex flex-shrink-0" style={{ width: sidebarWidth }}>
-          <ChatHistorySidebar onNewSession={handleNewSession} />
+          <ChatHistorySidebar
+            onNewSession={handleNewSession}
+            onOpenFiles={() => { setShowFiles(true); setShowMetrics(false); setShowContext(false); }}
+          />
           {/* Resize Handle */}
           <div
             onMouseDown={handleResizeStart}
@@ -411,14 +416,14 @@ export default function GlobalChatModal() {
               {currentSessionId && (
                 <>
                 <button
-                  onClick={() => { setShowMetrics(v => !v); if (!showMetrics) setShowContext(false); }}
+                  onClick={() => { setShowMetrics(v => !v); if (!showMetrics) { setShowContext(false); setShowFiles(false); } }}
                   className={`p-2 rounded-lg transition-colors ${showMetrics ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                   title={showMetrics ? 'Hide metrics' : 'Show metrics'}
                 >
                   <BarChart3 className="w-4 h-4" style={{ color: showMetrics ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                 </button>
                 <button
-                  onClick={() => { setShowContext(v => !v); if (!showContext) setShowMetrics(false); }}
+                  onClick={() => { setShowContext(v => !v); if (!showContext) { setShowMetrics(false); setShowFiles(false); } }}
                   className={`p-2 rounded-lg transition-colors ${showContext ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                   title={showContext ? 'Hide context' : 'Show context'}
                 >
@@ -522,6 +527,14 @@ export default function GlobalChatModal() {
                 <ContextPanel
                   selectedAgentId={selectedAgentId}
                   sessionId={currentSessionId}
+                />
+              </div>
+            )}
+            {currentSessionId && showFiles && (
+              <div className="border-l w-72 overflow-y-auto flex-shrink-0" style={{ borderColor: 'var(--color-border-dark)' }}>
+                <FilesPanel
+                  sessionId={currentSessionId}
+                  onClose={() => setShowFiles(false)}
                 />
               </div>
             )}

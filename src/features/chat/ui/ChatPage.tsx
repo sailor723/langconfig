@@ -12,6 +12,7 @@ import { useChat } from '../state/ChatContext';
 import { themes, type ThemeName } from '../../../lib/themes';
 import HitlInterruptModal from './HitlInterruptModal';
 import ContextPanel from './ContextPanel';
+import FilesPanel from './FilesPanel';
 import { useChatSession } from '../hooks/useChatSession';
 import { useChatStreaming } from '../hooks/useChatStreaming';
 import { useChatMetrics } from '../hooks/useChatMetrics';
@@ -75,6 +76,7 @@ export default function ChatPage() {
   const [isResuming, setIsResuming] = useState(false);
   const [showMetrics, setShowMetrics] = useState(false);
   const [showContext, setShowContext] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
 
   // Independent chat window theme (separate from main app theme)
   const [chatTheme, setChatTheme] = useState<ThemeName>(() => {
@@ -361,7 +363,10 @@ export default function ChatPage() {
     >
       {/* Left Sidebar + Resize Handle */}
       <div className="flex flex-shrink-0" style={{ width: sidebarWidth }}>
-        <ChatHistorySidebar onNewSession={handleNewSession} />
+        <ChatHistorySidebar
+          onNewSession={handleNewSession}
+          onOpenFiles={() => { setShowFiles(true); setShowMetrics(false); setShowContext(false); }}
+        />
         <div
           onMouseDown={handleResizeStart}
           className="w-2 cursor-col-resize flex items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors flex-shrink-0"
@@ -386,14 +391,14 @@ export default function ChatPage() {
             {currentSessionId && (
               <>
                 <button
-                  onClick={() => { setShowMetrics(v => !v); if (!showMetrics) setShowContext(false); }}
+                  onClick={() => { setShowMetrics(v => !v); if (!showMetrics) { setShowContext(false); setShowFiles(false); } }}
                   className={`p-2 rounded-lg transition-colors ${showMetrics ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                   title={showMetrics ? 'Hide metrics' : 'Show metrics'}
                 >
                   <BarChart3 className="w-4 h-4" style={{ color: showMetrics ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
                 </button>
                 <button
-                  onClick={() => { setShowContext(v => !v); if (!showContext) setShowMetrics(false); }}
+                  onClick={() => { setShowContext(v => !v); if (!showContext) { setShowMetrics(false); setShowFiles(false); } }}
                   className={`p-2 rounded-lg transition-colors ${showContext ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                   title={showContext ? 'Hide context' : 'Show context'}
                 >
@@ -494,6 +499,14 @@ export default function ChatPage() {
               <ContextPanel
                 selectedAgentId={selectedAgentId}
                 sessionId={currentSessionId}
+              />
+            </div>
+          )}
+          {currentSessionId && showFiles && (
+            <div className="w-72 overflow-y-auto flex-shrink-0" style={{ backgroundColor: 'var(--color-panel-dark, #f9fafb)' }}>
+              <FilesPanel
+                sessionId={currentSessionId}
+                onClose={() => setShowFiles(false)}
               />
             </div>
           )}

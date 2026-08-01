@@ -26,9 +26,9 @@ import PlaygroundPage from './pages/PlaygroundPage';
 import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
 import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
 
-import ToolLibrary from './features/tools/ToolLibrary';
-import PromptAssemblyPage from './pages/PromptAssemblyPage';
-import { SkillLibrary } from './features/skills';
+import ToolHomePage from './components/layout2/ToolHomePage';
+import PromptHomePage from './components/layout2/PromptHomePage';
+import SkillHomePage from './components/layout2/SkillHomePage';
 import HomePage from './pages/HomePage';
 import DeepAgentHomePage from './components/layout2/DeepAgentHomePage';
 import AgentHomePage from './components/layout2/AgentHomePage';
@@ -49,8 +49,10 @@ import Workspace from './components/layout2/Workspace';
 import NodeSidebar from './components/layout2/NodeSidebar';
 import BottomPanel from './components/layout2/BottomPanel';
 import StatusBar from './components/layout2/StatusBar';
+import WorkflowStudioPage, { type WorkflowStudioRef, type StudioNodeConfig } from './components/layout2/WorkflowStudioPage';
+import WorkflowStudioSidebar from './components/layout2/WorkflowStudioSidebar';
 
-type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search' | 'chat';
+type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search' | 'chat' | 'learning';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -161,6 +163,7 @@ const ROUTE_TO_VIEW: Record<string, View> = {
   '/search': 'search',
   '/deepagent-studio': 'deepagent-studio',
   '/chat': 'chat',
+  '/learning': 'learning',
 };
 
 // Map View → route path
@@ -173,6 +176,7 @@ const VIEW_ROUTE: Record<View, string> = {
   models: '/models',
   search: '/search',
   chat: '/chat',
+  learning: '/learning',
 };
 
 // Map View → ActivityId
@@ -192,6 +196,7 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   models: 'models',
   search: 'search',
   chat: null,
+  learning: 'learning',
 };
 
 // Map ActivityId → View (for ActivityBar clicks)
@@ -199,6 +204,7 @@ const ACTIVITY_TO_VIEW: Partial<Record<ActivityId, View>> = {
   workflows:  'studio',
   deepagents: 'deepagents',
   agents: 'agents',
+  prompt: 'prompt',
   tools: 'tools',
   knowledge: 'knowledge',
   models: 'models',
@@ -207,6 +213,7 @@ const ACTIVITY_TO_VIEW: Partial<Record<ActivityId, View>> = {
   skills: 'skills',
   settings: 'settings',
   studio: 'deepagent-studio',
+  learning: 'learning',
 };
 
 function AppContent() {
@@ -215,7 +222,6 @@ function AppContent() {
   const workflowCanvasRef = useRef<WorkflowCanvasRef>(null);
   const saveWorkflowTimeoutRef = useRef<number | null>(null);
 
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<WorkflowRecipe | null>(null);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<number | null>(null);
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
@@ -233,6 +239,11 @@ function AppContent() {
     window.addEventListener('chat:opened', handleChatOpened);
     return () => window.removeEventListener('chat:opened', handleChatOpened);
   }, []);
+
+  // Workflow Studio (layout2) state
+  const workflowStudioRef = useRef<WorkflowStudioRef>(null);
+  const [studioSelectedNode, setStudioSelectedNode] = useState<{ nodeId: string; config: StudioNodeConfig } | null>(null);
+
   const [nodeConfigs, setNodeConfigs] = useState<Record<string, NodeConfig>>({});
   const [tokenCostInfo, setTokenCostInfo] = useState<{
     totalTokens: number;
@@ -368,10 +379,6 @@ function AppContent() {
     }
   };
 
-  const handleAgentAdded = () => {
-    setSelectedAgent(null);
-  };
-
   const handleNodeConfigSave = (nodeId: string, fullConfig: any) => {
     setNodeConfigs(prev => ({ ...prev, [nodeId]: fullConfig }));
     if (workflowCanvasRef.current) {
@@ -420,30 +427,26 @@ function AppContent() {
     switch (currentView) {
       case 'home': return <HomePage />;
       case 'studio': return (
-        <WorkflowCanvas
-          ref={workflowCanvasRef}
-          selectedAgent={selectedAgent}
-          selectedRecipe={selectedRecipe}
-          onWorkflowSelect={setSelectedWorkflowId}
-          onNodeSelect={handleNodeSelect}
-          onNodeDelete={handleNodeDelete}
-          onExecutionStart={handleExecutionStart}
-          onAgentAdded={handleAgentAdded}
-          onRecipeInserted={() => setSelectedRecipe(null)}
+        <WorkflowStudioPage
+          ref={workflowStudioRef}
           workflowId={selectedWorkflowId}
-          onTabChange={handleTabChange}
-          initialTab={workflowTab}
-          onTokenCostUpdate={setTokenCostInfo}
-          onTaskHistoryUpdate={setTaskHistory}
-          onSelectedTaskChange={setSelectedHistoryTask}
-          externalSelectedTask={selectedHistoryTask}
+          onNodeSelectChange={(nodeId, config) => {
+            if (nodeId && config) {
+              setStudioSelectedNode({ nodeId, config });
+              openRightPanel('node-config');
+            } else {
+              setStudioSelectedNode(null);
+              closeRightPanel();
+            }
+          }}
+          onWorkflowSelect={setSelectedWorkflowId}
         />
       );
       case 'deepagents': return <DeepAgentHomePage />;
       case 'agents': return <AgentHomePage />;
-      case 'skills': return <SkillLibrary />;
-      case 'tools': return <ToolLibrary />;
-      case 'prompt': return <PromptAssemblyPage />;
+      case 'skills': return <SkillHomePage />;
+      case 'tools': return <ToolHomePage />;
+      case 'prompt': return <PromptHomePage />;
       case 'knowledge': return null; // Handled by layout2 KnowledgeSidebar + KnowledgeView
       case 'analysis': return <AnalysisPage />;
       // settings → popover only, no full-page view
@@ -462,18 +465,16 @@ function AppContent() {
           if (view) handleViewChange(view);
         }} />
 
-        {/* Sidebar: ModernAgentLibrary in studio, default TreeView otherwise */}
+        {/* Sidebar: WorkflowStudioSidebar in studio, default TreeView otherwise */}
         <LeftSidebar>
           {currentView === 'studio' && (
-            <ModernAgentLibrary
-              onSelectAgent={(agent) => { setSelectedAgent(agent); handleTabChange('studio'); }}
-              onSelectRecipe={(recipe) => { setSelectedRecipe(recipe); handleTabChange('studio'); }}
-              taskHistory={taskHistory}
-              loadingHistory={loadingHistory}
-              selectedHistoryTask={selectedHistoryTask}
-              onSelectHistoryTask={(task) => { setSelectedHistoryTask(task); if (task) handleTabChange('results'); }}
-              activePanel={sidebarPanel}
-              onPanelChange={handleSidebarPanelChange}
+            <WorkflowStudioSidebar
+              onLoadWorkflow={(id) => {
+                setSelectedWorkflowId(id);
+              }}
+              onLoadRecipe={(recipeId) => {
+                workflowStudioRef.current?.loadRecipe?.(recipeId);
+              }}
             />
           )}
         </LeftSidebar>
@@ -487,37 +488,20 @@ function AppContent() {
         </div>
 
         {/* Right panel: NodeConfigPanel when node selected, Chat otherwise */}
-        {(rightPanelOpen || selectedNodeData) && (
+        {(rightPanelOpen || studioSelectedNode) && (
         <NodeSidebar>
-          {currentView === 'studio' && selectedNodeId && selectedNodeData && (
+          {currentView === 'studio' && studioSelectedNode && (
             <NodeConfigPanel
-              selectedNode={{
-                id: selectedNodeId,
-                name: selectedNodeData.label || selectedNodeData.name || selectedNodeData.config?.name || selectedNodeId,
-                agentType: selectedNodeData.agentType,
-                model: selectedNodeData.model || selectedNodeData.config?.model,
-                system_prompt: selectedNodeData.system_prompt || selectedNodeData.config?.system_prompt || '',
-                temperature: selectedNodeData.temperature ?? selectedNodeData.config?.temperature ?? 0.7,
-                max_tokens: selectedNodeData.max_tokens || selectedNodeData.config?.max_tokens || 4000,
-                max_retries: selectedNodeData.max_retries || selectedNodeData.config?.max_retries || 3,
-                recursion_limit: selectedNodeData.recursion_limit || selectedNodeData.config?.recursion_limit || 300,
-                tools: selectedNodeData.tools || selectedNodeData.config?.tools || [],
-                native_tools: selectedNodeData.native_tools || selectedNodeData.config?.native_tools || [],
-                custom_tools: selectedNodeData.custom_tools || selectedNodeData.config?.custom_tools || [],
-                middleware: selectedNodeData.middleware || selectedNodeData.config?.middleware || [],
-                condition: selectedNodeData.condition || selectedNodeData.config?.condition,
-                max_iterations: selectedNodeData.max_iterations || selectedNodeData.config?.max_iterations,
-                exit_condition: selectedNodeData.exit_condition || selectedNodeData.config?.exit_condition,
-                data: selectedNodeData,
-                tool_type: (selectedNodeData as any).tool_type || selectedNodeData.config?.tool_type,
-                tool_id: (selectedNodeData as any).tool_id || selectedNodeData.config?.tool_id,
-                tool_params: (selectedNodeData as any).tool_params || selectedNodeData.config?.tool_params,
-                subagents: (selectedNodeData as any).subagents || selectedNodeData.config?.subagents || [],
-                use_deepagents: (selectedNodeData as any).use_deepagents || selectedNodeData.config?.use_deepagents || false
+              selectedNode={studioSelectedNode.config as any}
+              onClose={() => { setStudioSelectedNode(null); closeRightPanel(); }}
+              onSave={(nodeId, config) => {
+                workflowStudioRef.current?.updateNodeConfig(nodeId, config);
               }}
-              onClose={() => { setSelectedNodeId(null); setSelectedNodeData(null); closeRightPanel(); }}
-              onSave={handleNodeConfigSave}
-              onDelete={handleNodeDelete}
+              onDelete={(nodeId) => {
+                workflowStudioRef.current?.deleteNode?.(nodeId);
+                setStudioSelectedNode(null);
+                closeRightPanel();
+              }}
               tokenCostInfo={tokenCostInfo || undefined}
             />
           )}
