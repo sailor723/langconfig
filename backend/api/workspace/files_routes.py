@@ -2,22 +2,13 @@ import logging
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from pathlib import Path
 
 from db.database import get_db
 from services.workspace_manager import get_workspace_manager
 from services.document_type import resolve_document_type
 from models.core import Task
-
-logger = logging.getLogger(__name__)
-# No prefix here: this router is included into routes.router, which already
-# carries the "/api/workspace" prefix (FastAPI would otherwise stack prefixes).
-router = APIRouter(tags=["workspace"])
-
-# Shared response/request models and the path-validation helper stay in routes.py
-# (the parent router module). Imported AFTER `router` is defined so a direct
-# import of this module cannot deadlock on the routes.py <-> sub-module cycle.
-from .routes import (
-    _validate_path_in_workspace,
+from .schemas import (
     AllFilesResponse,
     BulkDeleteRequest,
     BulkDeleteResponse,
@@ -30,6 +21,38 @@ from .routes import (
     IndexFileResponse,
     RenameFileRequest,
 )
+
+logger = logging.getLogger(__name__)
+# No prefix here: this router is included into routes.router, which already
+# carries the "/api/workspace" prefix (FastAPI would otherwise stack prefixes).
+router = APIRouter(tags=["workspace"])
+
+
+def _validate_path_in_workspace(file_path: str, workspace_mgr) -> Path:
+    """
+    Validate that a file path is within the workspace directory.
+
+    Uses Path.relative_to() for robust cross-platform path comparison
+    that handles Windows case differences and path separator issues.
+
+    Returns the resolved full path if valid.
+    Raises HTTPException(403) if path traversal is attempted.
+    Raises HTTPException(404) if file doesn't exist.
+    """
+    full_path = (workspace_mgr.base_dir / file_path).resolve()
+    workspace_resolved = workspace_mgr.base_dir.resolve()
+
+    # Security: Use relative_to() for robust path comparison
+    try:
+        full_path.relative_to(workspace_resolved)
+    except ValueError:
+        logger.warning(f"Path traversal attempt blocked: {file_path}")
+        raise HTTPException(status_code=403, detail="Invalid path")
+
+    if not full_path.exists() or not full_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return full_path
 
 
 # =============================================================================
