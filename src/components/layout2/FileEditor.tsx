@@ -21,6 +21,7 @@ export default function FileEditor({ tab }: Props) {
   const [content, setContentState] = useState(() => getContent(tab.id) ?? tab.data?.content ?? '');
   const [originalContent] = useState(() => getContent(tab.id) ?? tab.data?.content ?? '');
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isDirty = content !== originalContent;
@@ -37,17 +38,22 @@ export default function FileEditor({ tab }: Props) {
     setContent(tab.id, val);
   }, [tab.id]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     // Persist to content store for session persistence
     setContent(tab.id, content);
+    setSaveError(null);
     // Call API save if the tab data provides a save function
-    if (tab.data?.onSave) {
-      tab.data.onSave(tab.id, content);
+    try {
+      if (tab.data?.onSave) {
+        await tab.data.onSave(tab.id, content);
+      }
+      // Clear dirty flag after save
+      setTabDirty(tab.id, false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch (err: any) {
+      setSaveError(err?.message ?? 'Save failed');
     }
-    // Clear dirty flag after save
-    setTabDirty(tab.id, false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
   }, [content, tab.id, tab.data, setTabDirty]);
 
   const handleCopy = useCallback(() => {
@@ -76,6 +82,10 @@ export default function FileEditor({ tab }: Props) {
         <ToolbarButton onClick={handleCopy} title="Copy content" t={t}>
           <Copy size={14} /> Copy
         </ToolbarButton>
+
+        {saveError && (
+          <span style={{ fontSize: 12, color: '#e5484d', marginRight: 4 }}>{saveError}</span>
+        )}
 
         <ToolbarButton
           onClick={handleSave}

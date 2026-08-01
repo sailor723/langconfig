@@ -25,16 +25,17 @@ interface DeepAgentCreatorProps {
 type SectionId = _SectionId;
 
 // Available middleware toggles — mirrors the catalog in DeepAgentHomePage.
+// Only types the backend accepts (MiddlewareType enum) are listed:
+// 'memory'/'model_fallback'/'pii'/'tool_call_limit' are intentionally omitted
+// because the backend does not implement them; 'hitl' is the backend id for
+// human-in-the-loop (previously a dead 'human_in_the_loop' option).
 const MIDDLEWARE_OPTIONS = [
-  { id: 'todo_list',         label: 'TodoList',         desc: 'Task planning & tracking' },
-  { id: 'filesystem',        label: 'Filesystem',       desc: 'File operations (ls/read/write/edit)' },
-  { id: 'memory',            label: 'Memory',           desc: 'Long-term memory & persistence' },
-  { id: 'summarization',     label: 'Summarization',    desc: 'Auto-summarize near token limits' },
-  { id: 'human_in_the_loop', label: 'Human-in-Loop',    desc: 'Pause for human approval' },
-  { id: 'model_fallback',    label: 'Model Fallback',   desc: 'Auto-switch on primary failure' },
-  { id: 'pii',               label: 'PII Filter',       desc: 'Detect & filter PII' },
-  { id: 'tool_retry',        label: 'Tool Retry',       desc: 'Auto-retry failed tool calls' },
-  { id: 'tool_call_limit',   label: 'Tool Call Limit',  desc: 'Cap tool calls per execution' },
+  { id: 'todo_list',     label: 'TodoList',         desc: 'Task planning & tracking' },
+  { id: 'filesystem',    label: 'Filesystem',       desc: 'File operations (ls/read/write/edit)' },
+  { id: 'summarization', label: 'Summarization',    desc: 'Auto-summarize near token limits' },
+  { id: 'hitl',          label: 'Human-in-Loop',    desc: 'Pause for human approval' },
+  { id: 'tool_retry',    label: 'Tool Retry',       desc: 'Auto-retry failed tool calls' },
+  { id: 'subagent',      label: 'Subagents',        desc: 'Delegate to specialized subagents' },
 ];
 
 // Backend options for memory persistence.
@@ -65,10 +66,6 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   const [model, setModel] = useState(() => localStorage.getItem('langconfig.defaultModel') || '');
   const [temperature, setTemperature] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState<number | ''>('');
-  const [maxRetries, setMaxRetries] = useState(3);
-  const [enableMemory, setEnableMemory] = useState(true);
-  const [enableRag, setEnableRag] = useState(false);
-  const [requiresHumanApproval, setRequiresHumanApproval] = useState(false);
 
   // Tools (native via useAvailableTools hook above + custom below)
   // Skills
@@ -385,23 +382,21 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
                   <input type="number" value={maxTokens} onChange={e => setMaxTokens(e.target.value === '' ? '' : Number(e.target.value))}
                     placeholder="auto" style={inputBase} min={1} />
                 </div>
-                <div style={{ flex: 1, ...cardStyle }}>
-                  <label style={labelStyle}>Max Retries</label>
-                  <input type="number" value={maxRetries} onChange={e => setMaxRetries(Number(e.target.value))}
-                    style={inputBase} min={0} max={10} />
-                </div>
               </div>
 
               <div style={cardStyle}>
                 <label style={labelStyle}>Capabilities</label>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button onClick={() => setEnableMemory(!enableMemory)} style={toggleBtn(enableMemory)}>
+                  {/* Memory maps to guardrails.long_term_memory in buildConfig */}
+                  <button onClick={() => setLongTermMemory(!longTermMemory)} style={toggleBtn(longTermMemory)}>
                     Memory
                   </button>
-                  <button onClick={() => setEnableRag(!enableRag)} style={toggleBtn(enableRag)}>
-                    RAG (Retrieval)
-                  </button>
-                  <button onClick={() => setRequiresHumanApproval(!requiresHumanApproval)} style={toggleBtn(requiresHumanApproval)}>
+                  {/* Human-in-Loop maps to the 'hitl' middleware entry in buildConfig */}
+                  <button
+                    onClick={() => setEnabledMiddleware(prev =>
+                      prev.includes('hitl') ? prev.filter(x => x !== 'hitl') : [...prev, 'hitl'])}
+                    style={toggleBtn(enabledMiddleware.includes('hitl'))}
+                  >
                     Human-in-Loop
                   </button>
                 </div>

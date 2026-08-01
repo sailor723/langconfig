@@ -54,16 +54,36 @@ interface NotebookViewerProps {
   tab: Tab;
 }
 
+/** Escape HTML so user-controlled markdown cannot inject scripts (stored XSS). */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Allow only safe URL schemes in rendered links/images. */
+function safeUrl(url: string): string {
+  const trimmed = url.trim();
+  return /^(https?:|mailto:|#|\/|\.\/|\.\.\/)/i.test(trimmed) ? trimmed : '#';
+}
+
 function renderMarkdown(text: string): string {
-  let html = text
+  // Escape first, then apply the markdown transforms so captured content stays inert.
+  const escaped = escapeHtml(text);
+  let html = escaped
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h2>$1</h2>')
     .replace(/^# (.+)$/gm, '<h1>$1</h1>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`(.+?)`/g, '<code style="background:#2d2d2d;padding:1px 4px;border-radius:3px;font-size:0.9em">$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#58a6ff">$1</a>')
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:8px 0" />')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label, url) =>
+      `<a href="${safeUrl(url)}" target="_blank" style="color:#58a6ff">${label}</a>`)
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, url) =>
+      `<img src="${safeUrl(url)}" alt="${alt}" style="max-width:100%;border-radius:6px;margin:8px 0" />`)
     .replace(/\n\n/g, '</p><p>')
     .replace(/^- (.+)$/gm, '<li style="margin-left:20px">$1</li>')
     .replace(/^\d+\. (.+)$/gm, '<li style="margin-left:20px">$1</li>');

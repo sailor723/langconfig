@@ -315,9 +315,9 @@ function AppContent() {
   }, [handleTabChange]);
 
   const handleViewChange = (view: View) => {
-    if (currentView === 'studio' && workflowCanvasRef.current) {
-      const hasUnsaved = workflowCanvasRef.current.hasUnsavedChanges();
-      if (hasUnsaved) {
+    if (currentView === 'studio') {
+      const canvas = workflowCanvasRef.current ?? workflowStudioRef.current;
+      if (canvas?.hasUnsavedChanges?.()) {
         const confirmLeave = window.confirm(
           'You have unsaved workflow changes. Do you want to save before leaving?\n\n' +
           'Click OK to stay and save your changes.\n' +
@@ -330,9 +330,8 @@ function AppContent() {
   };
 
   const handleSave = () => {
-    if (workflowCanvasRef.current) {
-      workflowCanvasRef.current.saveWorkflow(false);
-    }
+    const canvas = workflowCanvasRef.current ?? workflowStudioRef.current;
+    canvas?.saveWorkflow?.(false);
   };
 
   const handleWorkflowNameChange = (name: string) => {
@@ -495,7 +494,8 @@ function AppContent() {
               selectedNode={studioSelectedNode.config as any}
               onClose={() => { setStudioSelectedNode(null); closeRightPanel(); }}
               onSave={(nodeId, config) => {
-                workflowStudioRef.current?.updateNodeConfig(nodeId, config);
+                // Route through the debounced save so right-panel edits persist
+                workflowStudioRef.current?.handleNodeConfigSave?.(nodeId, config);
               }}
               onDelete={(nodeId) => {
                 workflowStudioRef.current?.deleteNode?.(nodeId);
