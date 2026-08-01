@@ -21,6 +21,7 @@ from pathlib import Path
 
 from db.database import get_db
 from models.core import ContextDocument, DocumentType, IndexingStatus, SearchHistory, Project
+from services.document_type import resolve_document_type
 from services.token_counter import get_token_counter
 
 # Phase 9 integration: ensure learning/phase9/ is importable for
@@ -329,58 +330,7 @@ async def upload_document(
     )
 
     # Determine document type from file extension (expanded support)
-    file_ext = file.filename.split('.')[-1].lower()
-    doc_type_map = {
-        'txt': DocumentType.TEXT,
-        'md': DocumentType.MARKDOWN,
-        'pdf': DocumentType.PDF,
-        'json': DocumentType.JSON,
-        'py': DocumentType.CODE,
-        'js': DocumentType.CODE,
-        'ts': DocumentType.CODE,
-        'tsx': DocumentType.CODE,
-        'jsx': DocumentType.CODE,
-        'java': DocumentType.CODE,
-        'c': DocumentType.CODE,
-        'cpp': DocumentType.CODE,
-        'h': DocumentType.CODE,
-        'hpp': DocumentType.CODE,
-        'cs': DocumentType.CODE,
-        'rb': DocumentType.CODE,
-        'go': DocumentType.CODE,
-        'rs': DocumentType.CODE,
-        'php': DocumentType.CODE,
-        'swift': DocumentType.CODE,
-        'kt': DocumentType.CODE,
-        'scala': DocumentType.CODE,
-        'r': DocumentType.CODE,
-        'sql': DocumentType.CODE,
-        'sh': DocumentType.CODE,
-        'bash': DocumentType.CODE,
-        'html': DocumentType.HTML,
-        'htm': DocumentType.HTML,
-        'xml': DocumentType.XML,
-        'csv': DocumentType.CSV,
-        'yaml': DocumentType.YAML,
-        'yml': DocumentType.YAML,
-        'doc': DocumentType.DOCX,
-        'docx': DocumentType.DOCX,
-        'rtf': DocumentType.TEXT,
-        'odt': DocumentType.TEXT,
-        'epub': DocumentType.TEXT,
-        'ppt': DocumentType.TEXT,
-        'pptx': DocumentType.TEXT,
-        'xls': DocumentType.CSV,
-        'xlsx': DocumentType.CSV,
-        'png': DocumentType.IMAGE,
-        'jpg': DocumentType.IMAGE,
-        'jpeg': DocumentType.IMAGE,
-        'gif': DocumentType.IMAGE,
-        'bmp': DocumentType.IMAGE,
-        'tiff': DocumentType.IMAGE,
-        'webp': DocumentType.IMAGE,
-    }
-    document_type = doc_type_map.get(file_ext, DocumentType.TEXT)
+    document_type = resolve_document_type(file.filename)
 
     # Save file to disk. Pass the resolved hierarchy so file_storage
     # writes the file under a nested folder path mirroring the
@@ -580,7 +530,6 @@ async def _process_single_file_for_bulk(
     # actual upload would 400 with `Refusing to save hidden file`
     # from file_storage. We catch it here and skip cleanly so the
     # remaining 4 valid files in a folder upload still ingest.)
-    file_ext = file.filename.split('.')[-1].lower()
     base_filename = Path(file.filename).name
     if base_filename.startswith("."):
         logger.warning(
@@ -598,57 +547,7 @@ async def _process_single_file_for_bulk(
             status=IndexingStatus.SKIPPED,
             message=f"Skipped hidden file (no extension): {file.filename}",
         )
-    doc_type_map = {
-        'txt': DocumentType.TEXT,
-        'md': DocumentType.MARKDOWN,
-        'pdf': DocumentType.PDF,
-        'json': DocumentType.JSON,
-        'py': DocumentType.CODE,
-        'js': DocumentType.CODE,
-        'ts': DocumentType.CODE,
-        'tsx': DocumentType.CODE,
-        'jsx': DocumentType.CODE,
-        'java': DocumentType.CODE,
-        'c': DocumentType.CODE,
-        'cpp': DocumentType.CODE,
-        'h': DocumentType.CODE,
-        'hpp': DocumentType.CODE,
-        'cs': DocumentType.CODE,
-        'rb': DocumentType.CODE,
-        'go': DocumentType.CODE,
-        'rs': DocumentType.CODE,
-        'php': DocumentType.CODE,
-        'swift': DocumentType.CODE,
-        'kt': DocumentType.CODE,
-        'scala': DocumentType.CODE,
-        'r': DocumentType.CODE,
-        'sql': DocumentType.CODE,
-        'sh': DocumentType.CODE,
-        'bash': DocumentType.CODE,
-        'html': DocumentType.HTML,
-        'htm': DocumentType.HTML,
-        'xml': DocumentType.XML,
-        'csv': DocumentType.CSV,
-        'yaml': DocumentType.YAML,
-        'yml': DocumentType.YAML,
-        'doc': DocumentType.DOCX,
-        'docx': DocumentType.DOCX,
-        'rtf': DocumentType.TEXT,
-        'odt': DocumentType.TEXT,
-        'epub': DocumentType.TEXT,
-        'ppt': DocumentType.TEXT,
-        'pptx': DocumentType.TEXT,
-        'xls': DocumentType.CSV,
-        'xlsx': DocumentType.CSV,
-        'png': DocumentType.IMAGE,
-        'jpg': DocumentType.IMAGE,
-        'jpeg': DocumentType.IMAGE,
-        'gif': DocumentType.IMAGE,
-        'bmp': DocumentType.IMAGE,
-        'tiff': DocumentType.IMAGE,
-        'webp': DocumentType.IMAGE,
-    }
-    document_type = doc_type_map.get(file_ext, DocumentType.TEXT)
+    document_type = resolve_document_type(file.filename)
 
     # Build metadata
     custom_name = metadata.get("name") if isinstance(metadata, dict) else None
