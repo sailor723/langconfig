@@ -52,6 +52,8 @@ if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):
 
 logger = logging.getLogger(__name__)
 
+from tools.presentation_tools import gen_html, gen_pptx
+
 # Playwright imports - conditional to avoid import errors if not available
 try:
     from playwright.async_api import async_playwright
@@ -128,6 +130,9 @@ TOOL_NAME_MAP = {
 
     # Data analysis tools
     "save_analysis_result": "save_analysis_result",
+    # Presentation generation tools
+    "gen_pptx": "gen_pptx",
+    "gen_html": "gen_html",
     # Skill management tools
     "create_skill": "create_skill",
     "update_skill": "update_skill",
@@ -3616,6 +3621,9 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "task": task,
         # Data analysis tools
         "save_analysis_result": save_analysis_result,
+        # Presentation generation tools
+        "gen_pptx": gen_pptx,
+        "gen_html": gen_html,
         # Skill management tools
         "create_skill": create_skill,
         "update_skill": update_skill,
@@ -3768,6 +3776,9 @@ def get_available_tool_names() -> List[str]:
         "python_execute",
         # Data analysis tools
         "save_analysis_result",
+        # Presentation generation tools
+        "gen_pptx",
+        "gen_html",
         # Skill management tools
         "create_skill",
         "update_skill",
@@ -4137,6 +4148,21 @@ TOOL_REGISTRY = [
         "name": "Save Analysis Result",
         "description": "Save analysis report and optionally copy an attached file (e.g. a plot) to the output directory",
         "category": "data_analysis",
+        "requires_api_key": None,
+    },
+    # Presentation generation tools
+    {
+        "id": "gen_pptx",
+        "name": "Generate PPTX",
+        "description": "Generate a PowerPoint (.pptx) deck from a slides JSON outline with title, subtitle, bullets, and speaker notes.",
+        "category": "presentation",
+        "requires_api_key": None,
+    },
+    {
+        "id": "gen_html",
+        "name": "Generate HTML Deck",
+        "description": "Generate a standalone HTML presentation deck from a slides JSON outline with keyboard navigation.",
+        "category": "presentation",
         "requires_api_key": None,
     },
     # Skill management tools

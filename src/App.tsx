@@ -30,6 +30,7 @@ import SkillHomePage from './components/layout2/SkillHomePage';
 import HomePage from './pages/HomePage';
 import DeepAgentHomePage from './components/layout2/DeepAgentHomePage';
 import AgentHomePage from './components/layout2/AgentHomePage';
+import ModelHomePage from './components/layout2/ModelHomePage';
 import AnalysisPage from './pages/AnalysisPage';
 import { ThemeProvider } from './lib/themes';
 import { ProjectProvider } from './contexts/ProjectContext';
@@ -444,6 +445,7 @@ function AppContent() {
       case 'skills': return <SkillHomePage />;
       case 'tools': return <ToolHomePage />;
       case 'prompt': return <PromptHomePage />;
+      case 'models': return <ModelHomePage />;
       case 'knowledge': return null; // Handled by layout2 KnowledgeSidebar + KnowledgeView
       case 'analysis': return <AnalysisPage />;
       // settings → popover only, no full-page view
