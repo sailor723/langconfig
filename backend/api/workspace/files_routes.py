@@ -55,6 +55,42 @@ def _validate_path_in_workspace(file_path: str, workspace_mgr) -> Path:
     return full_path
 
 
+def _get_custom_path_roots(workspace_mgr, db: Session) -> list:
+    """Allowed roots for the /files/from-path endpoints.
+
+    These endpoints exist to serve workflow output files written to a
+    user-configured `custom_output_path` (anywhere on disk). Without a
+    containment check they become an arbitrary-file-read oracle, so a
+    requested path must resolve inside one of these roots: the default
+    workspace directory or a directory configured on a workflow.
+    """
+    roots = [workspace_mgr.base_dir.resolve()]
+    try:
+        from models.workflow import WorkflowProfile
+        rows = db.query(WorkflowProfile.custom_output_path).filter(
+            WorkflowProfile.custom_output_path.isnot(None)
+        ).all()
+        for (custom_path,) in rows:
+            if custom_path:
+                roots.append(Path(custom_path).expanduser().resolve())
+    except Exception as e:
+        logger.warning(f"Could not load workflow custom output paths: {e}")
+    return roots
+
+
+def _validate_custom_path(file_path: str, workspace_mgr, db: Session) -> Path:
+    """Resolve `file_path` and require it to be inside an allowed root."""
+    full_path = Path(file_path).expanduser().resolve()
+    for root in _get_custom_path_roots(workspace_mgr, db):
+        try:
+            full_path.relative_to(root)
+            return full_path
+        except ValueError:
+            continue
+    logger.warning(f"Blocked out-of-root custom path access: {file_path}")
+    raise HTTPException(status_code=403, detail="Path is outside allowed output directories")
+
+
 # =============================================================================
 # All Files (for Library)
 # =============================================================================
@@ -768,7 +804,7 @@ async def get_file_content_by_path(file_path: str):
     text_extensions = {
         '.md', '.txt', '.py', '.js', '.ts', '.tsx', '.jsx', '.json',
         '.yaml', '.yml', '.xml', '.html', '.css', '.scss', '.sql',
-        '.sh', '.bash', '.env', '.gitignore', '.csv', '.toml', '.ini',
+        '.sh', '.bash', '.gitignore', '.csv', '.toml', '.ini',
         '.cfg', '.conf', '.log', '.rst', '.tex'
     }
     if full_path.suffix.lower() in text_extensions:
@@ -1136,7 +1172,8 @@ async def bulk_index_files_by_path(
 async def list_files_from_custom_path(
     directory: str,
     search: str | None = None,
-    file_type: str | None = None
+    file_type: str | None = None,
+    db: Session = Depends(get_db)
 ):
     """
     List all files from a custom directory path.
@@ -1144,11 +1181,11 @@ async def list_files_from_custom_path(
     Used when workflows have a custom_output_path configured.
     Returns files in the same format as list_all_files for frontend compatibility.
     """
-    from pathlib import Path
     from datetime import datetime
     import mimetypes
 
-    base_path = Path(directory).resolve()
+    workspace_mgr = get_workspace_manager()
+    base_path = _validate_custom_path(directory, workspace_mgr, db)
 
     if not base_path.exists():
         return {"files": [], "total_files": 0, "directory": str(base_path), "exists": False}
@@ -1230,16 +1267,19 @@ async def list_files_from_custom_path(
 
 
 @router.get("/files/from-path/content")
-async def get_file_content_from_custom_path(file_path: str):
+async def get_file_content_from_custom_path(
+    file_path: str,
+    db: Session = Depends(get_db)
+):
     """
     Get file content from a custom path for preview.
 
     Used when files are stored outside the default outputs/ directory.
     """
-    from pathlib import Path
     import mimetypes
 
-    full_path = Path(file_path).resolve()
+    workspace_mgr = get_workspace_manager()
+    full_path = _validate_custom_path(file_path, workspace_mgr, db)
 
     if not full_path.exists() or not full_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
@@ -1258,7 +1298,7 @@ async def get_file_content_from_custom_path(file_path: str):
     text_extensions = {
         '.md', '.txt', '.py', '.js', '.ts', '.tsx', '.jsx', '.json',
         '.yaml', '.yml', '.xml', '.html', '.css', '.scss', '.sql',
-        '.sh', '.bash', '.env', '.gitignore', '.csv', '.toml', '.ini',
+        '.sh', '.bash', '.gitignore', '.csv', '.toml', '.ini',
         '.cfg', '.conf', '.log', '.rst', '.tex'
     }
     if full_path.suffix.lower() in text_extensions:
@@ -1296,13 +1336,15 @@ async def get_file_content_from_custom_path(file_path: str):
 
 
 @router.get("/files/from-path/download")
-async def download_file_from_custom_path(file_path: str):
+async def download_file_from_custom_path(
+    file_path: str,
+    db: Session = Depends(get_db)
+):
     """
     Download a file from a custom path.
     """
-    from pathlib import Path
-
-    full_path = Path(file_path).resolve()
+    workspace_mgr = get_workspace_manager()
+    full_path = _validate_custom_path(file_path, workspace_mgr, db)
 
     if not full_path.exists() or not full_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")

@@ -38,6 +38,7 @@ import logging
 import time
 from contextlib import contextmanager
 from typing import Optional, Generator
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError, DBAPIError
 import psycopg2.errors
@@ -313,11 +314,20 @@ def get_transaction_isolation_level(session: Session) -> Optional[str]:
         Optional[str]: Isolation level name or None
     """
     try:
-        result = session.execute("SHOW transaction_isolation")
+        result = session.execute(text("SHOW transaction_isolation"))
         return result.scalar()
     except Exception as e:
         logger.error(f"Failed to get transaction isolation level: {e}")
         return None
+
+
+# Fixed set of isolation levels PostgreSQL supports (allowlisted for SET TRANSACTION)
+_ALLOWED_ISOLATION_LEVELS = {
+    "READ UNCOMMITTED",
+    "READ COMMITTED",
+    "REPEATABLE READ",
+    "SERIALIZABLE",
+}
 
 
 @contextmanager
@@ -336,25 +346,36 @@ def transaction_isolation(
     Yields:
         None
 
+    Raises:
+        ValueError: If level is not one of the allowed isolation levels
+
     Example:
         with transaction_isolation(db, 'SERIALIZABLE'):
             # Critical operation requiring serializable isolation
             update_workflow_version(...)
     """
+    # Isolation level is an SQL identifier (not a bindable literal), so it is
+    # validated against an allowlist before being interpolated
+    level = level.upper()
+    if level not in _ALLOWED_ISOLATION_LEVELS:
+        raise ValueError(f"Unsupported transaction isolation level: {level!r}")
+
     # Get current isolation level
     original_level = get_transaction_isolation_level(session)
 
     try:
         # Set new isolation level
-        session.execute(f"SET TRANSACTION ISOLATION LEVEL {level}")
+        session.execute(text(f"SET TRANSACTION ISOLATION LEVEL {level}"))
         logger.debug(f"Set transaction isolation level to {level}")
         yield
 
     finally:
         # Restore original isolation level if we got it
         if original_level:
-            session.execute(f"SET TRANSACTION ISOLATION LEVEL {original_level}")
-            logger.debug(f"Restored transaction isolation level to {original_level}")
+            original_level = original_level.upper()
+            if original_level in _ALLOWED_ISOLATION_LEVELS:
+                session.execute(text(f"SET TRANSACTION ISOLATION LEVEL {original_level}"))
+                logger.debug(f"Restored transaction isolation level to {original_level}")
 
 
 # =============================================================================

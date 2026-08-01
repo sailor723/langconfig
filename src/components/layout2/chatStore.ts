@@ -161,7 +161,7 @@ class ChatStoreImpl {
     let sessionId = this.sessionId;
     if (!sessionId) {
       try {
-        const res = await fetch('/api/chat/start', {
+        const res = await fetch(`${apiClient.baseURL}/api/chat/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ agent_id: agentId }),
@@ -267,6 +267,13 @@ class ChatStoreImpl {
                   thinking: fullThinking,
                   streaming: true,
                 });
+                break;
+              }
+
+              case 'custom_event': {
+                // LangGraph-style progress/status events are not rendered in
+                // the compact sidebar chat — intentionally ignored here (the
+                // full ChatPage renders them via useChatStreaming instead).
                 break;
               }
 

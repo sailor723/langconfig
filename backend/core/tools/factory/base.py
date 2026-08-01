@@ -346,6 +346,54 @@ class _ToolFactoryBaseMixin:
             logger.error(f"SSRF validation failed for URL {url}: {e}")
             raise
 
+    # MongoDB operators that execute arbitrary JavaScript server-side —
+    # blocking them prevents NoSQL injection / code execution attacks
+    _MONGODB_BLOCKED_OPERATORS = ("$where", "$function", "$accumulator")
+
+    @staticmethod
+    def _validate_mongodb_query(query: Dict[str, Any]) -> bool:
+        """
+        Validate a MongoDB query document to prevent NoSQL injection.
+
+        Recursively blocks operators that execute arbitrary JavaScript
+        server-side (``$where``, ``$function``, ``$accumulator``). Safe
+        operators (e.g. ``$gt``, ``$and``, ``$or``) are allowed, including
+        when nested inside arrays or sub-documents.
+
+        Args:
+            query: MongoDB query document
+
+        Returns:
+            True if the query is safe
+
+        Raises:
+            ValueError: If a dangerous operator is found
+        """
+        dangerous = ToolFactory._find_mongodb_dangerous_operator(query)
+        if dangerous is not None:
+            raise ValueError(
+                f"MongoDB query validation failed: operator '{dangerous}' is not allowed"
+            )
+        return True
+
+    @staticmethod
+    def _find_mongodb_dangerous_operator(value: Any) -> Optional[str]:
+        """Recursively search for a blocked MongoDB operator; returns the
+        first one found, or None if the query is safe."""
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key in ToolFactory._MONGODB_BLOCKED_OPERATORS:
+                    return key
+                found = ToolFactory._find_mongodb_dangerous_operator(item)
+                if found is not None:
+                    return found
+        elif isinstance(value, list):
+            for item in value:
+                found = ToolFactory._find_mongodb_dangerous_operator(item)
+                if found is not None:
+                    return found
+        return None
+
 
 def _bind_runtime() -> None:
     """Bind the concrete ToolFactory class into this module's globals.

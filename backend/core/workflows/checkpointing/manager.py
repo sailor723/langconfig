@@ -15,6 +15,9 @@ Pattern: AsyncConnectionPool passed directly to AsyncPostgresSaver
 
 import asyncio
 import logging
+import os
+import sys
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from contextlib import asynccontextmanager
 
@@ -22,6 +25,7 @@ from contextlib import asynccontextmanager
 try:
     from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver as PostgresSaver
     from langgraph.store.postgres import AsyncPostgresStore
+    from langgraph.checkpoint.base.id import UUID, uuid6
     from psycopg_pool import AsyncConnectionPool
     from psycopg.rows import dict_row
     CHECKPOINTING_AVAILABLE = True
@@ -31,16 +35,13 @@ except ImportError as e:
     AsyncPostgresStore = None
     AsyncConnectionPool = None
     dict_row = None
+    UUID = None
+    uuid6 = None
     CHECKPOINTING_AVAILABLE = False
     STORE_AVAILABLE = False
     _import_error = str(e)
 
-from sqlalchemy import text
-
-from db.database import engine
 from config import settings
-import os
-import sys
 
 logger = logging.getLogger(__name__)
 
@@ -323,62 +324,187 @@ def get_store() -> Optional[AsyncPostgresStore]:
 
 
 # Utility functions for workflow state management
+def _checkpoint_created_at(checkpoint_id: str) -> Optional[datetime]:
+    """
+    Extract the creation time from a LangGraph checkpoint id.
+
+    LangGraph generates checkpoint ids as UUIDv6, which embeds a 60-bit
+    timestamp (100ns intervals since the UUID epoch 1582-10-15). Returns
+    None if the id is not a parseable UUIDv6 (e.g. old/custom ids).
+
+    The `checkpoints` table has no `created_at` column, so this decode is
+    the only reliable way to do time-based retention in SQL.
+    """
+    if UUID is None:
+        return None
+    try:
+        parsed = UUID(checkpoint_id)
+        if parsed.version != 6:
+            return None
+        # 0x01B21DD213814000 = 100ns intervals between 1582-10-15 and Unix epoch
+        unix_seconds = (parsed.time - 0x01B21DD213814000) / 10_000_000
+        return datetime.fromtimestamp(unix_seconds, tz=timezone.utc)
+    except (ValueError, TypeError):
+        return None
+
+
 async def save_workflow_checkpoint(
     thread_id: str,
     state: dict,
     metadata: Optional[dict] = None
 ):
     """
-    Save a workflow checkpoint to PostgreSQL.
-    
+    Manually persist workflow state as a new root checkpoint.
+
+    Note: LangGraph already checkpoints automatically during graph execution;
+    this utility exists for capturing state outside a running graph (e.g. a
+    manual "save state" API handler). Uses the global checkpointer's aput().
+
     Args:
         thread_id: Unique identifier for the workflow thread
-        state: The workflow state to checkpoint
+        state: The workflow state to checkpoint (becomes channel_values)
         metadata: Optional metadata about the checkpoint
+
+    Returns:
+        The new checkpoint id, or None if the save failed
     """
     checkpointer = get_checkpointer()
-    
-    # The actual checkpointing is handled by LangGraph during workflow execution
-    # This is a utility for manual checkpointing if needed
-    logger.debug(f"Saving checkpoint for thread {thread_id}")
+
+    if checkpointer is None or uuid6 is None:
+        logger.warning("Checkpointer not initialized - checkpoint not saved")
+        return None
+
+    try:
+        checkpoint = {
+            "v": 1,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "id": str(uuid6(clock_seq=-2)),
+            "channel_values": dict(state),
+            "channel_versions": {},
+            "versions_seen": {},
+        }
+        checkpoint_metadata = {"source": "manual", "step": -1, "writes": {}}
+        if metadata:
+            checkpoint_metadata.update(metadata)
+
+        await checkpointer.aput(
+            {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}},
+            checkpoint,
+            checkpoint_metadata,
+            {},
+        )
+        logger.debug(f"Saved checkpoint {checkpoint['id']} for thread {thread_id}")
+        return checkpoint["id"]
+
+    except Exception as e:
+        logger.error(f"Failed to save checkpoint for thread {thread_id}: {e}")
+        return None
 
 
 async def load_workflow_checkpoint(thread_id: str) -> Optional[dict]:
     """
-    Load a workflow checkpoint from PostgreSQL.
-    
+    Load the latest workflow state for a thread from PostgreSQL.
+
     Args:
         thread_id: Unique identifier for the workflow thread
-        
+
     Returns:
-        The loaded workflow state, or None if not found
+        The checkpoint's channel_values (persisted workflow state),
+        or None if the thread has no checkpoint yet or loading failed
     """
     checkpointer = get_checkpointer()
-    
-    # The actual checkpoint loading is handled by LangGraph during workflow execution
-    # This is a utility for manual checkpoint loading if needed
-    logger.debug(f"Loading checkpoint for thread {thread_id}")
-    return None
+
+    if checkpointer is None:
+        logger.debug("Checkpointer not initialized - nothing to load")
+        return None
+
+    try:
+        checkpoint_tuple = await checkpointer.aget_tuple(
+            {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
+        )
+        if checkpoint_tuple is None:
+            logger.debug(f"No checkpoint found for thread {thread_id}")
+            return None
+        return dict(checkpoint_tuple.checkpoint.get("channel_values", {}))
+
+    except Exception as e:
+        logger.error(f"Failed to load checkpoint for thread {thread_id}: {e}")
+        return None
 
 
 async def cleanup_old_checkpoints(days_old: int = 30):
     """
     Clean up old checkpoints to prevent database bloat.
-    
+
+    LangGraph's `checkpoints` table has no `created_at` column; creation time
+    is encoded in the UUIDv6 `checkpoint_id`. We decode it in Python, then
+    delete stale rows from `checkpoints` and `checkpoint_writes` through the
+    async connection pool (psycopg %s placeholders - not SQLAlchemy text()).
+
+    `checkpoint_blobs` is intentionally left untouched: blobs are content-
+    addressed and may be shared by retained checkpoints.
+
     Args:
         days_old: Remove checkpoints older than this many days
     """
+    global _connection_pool
+
+    if _connection_pool is None:
+        logger.debug("Checkpointing not initialized - skipping cleanup")
+        return
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days_old)
+
     try:
-        async with engine.begin() as conn:
-            result = await conn.execute(text("""
-                DELETE FROM checkpoints 
-                WHERE created_at < NOW() - INTERVAL '%s days'
-                RETURNING checkpoint_id;
-            """), (days_old,))
-            
-            deleted_count = len(result.fetchall())
-            logger.info(f"Cleaned up {deleted_count} old checkpoints")
-            
+        # Load checkpoint ids (UUIDv6 = timestamp-encoded) from the async pool
+        async with _connection_pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT thread_id, checkpoint_ns, checkpoint_id FROM checkpoints"
+                )
+                rows = await cur.fetchall()
+
+        stale = [
+            (thread_id, checkpoint_ns, checkpoint_id)
+            for thread_id, checkpoint_ns, checkpoint_id in rows
+            if (created := _checkpoint_created_at(checkpoint_id)) is not None
+            and created < cutoff
+        ]
+
+        if not stale:
+            logger.info(f"No checkpoints older than {days_old} days found")
+            return
+
+        thread_ids = [r[0] for r in stale]
+        namespaces = [r[1] for r in stale]
+        checkpoint_ids = [r[2] for r in stale]
+
+        # Delete from writes first, then checkpoints (blobs are shared, skip)
+        async with _connection_pool.connection() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    """
+                    DELETE FROM checkpoint_writes
+                    WHERE (thread_id, checkpoint_ns, checkpoint_id) IN (
+                        SELECT * FROM unnest(%s::text[], %s::text[], %s::text[])
+                    )
+                    """,
+                    (thread_ids, namespaces, checkpoint_ids),
+                )
+                await cur.execute(
+                    """
+                    DELETE FROM checkpoints
+                    WHERE (thread_id, checkpoint_ns, checkpoint_id) IN (
+                        SELECT * FROM unnest(%s::text[], %s::text[], %s::text[])
+                    )
+                    """,
+                    (thread_ids, namespaces, checkpoint_ids),
+                )
+
+        logger.info(
+            f"Cleaned up {len(stale)} old checkpoints (older than {days_old} days)"
+        )
+
     except Exception as e:
         logger.error(f"Failed to cleanup old checkpoints: {e}")
 

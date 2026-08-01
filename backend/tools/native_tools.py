@@ -1921,21 +1921,21 @@ def _get_pg_session():
 
 
 @tool
-def pg_list_tables(schema: str = "public") -> str:
+def pg_list_tables(schema_name: str = "public") -> str:
     """
     List all tables and views in a PostgreSQL schema with row counts.
 
     Use this to discover what tables exist in the database before querying.
 
     Args:
-        schema: Schema name to list (default: 'public')
+        schema_name: Schema name to list (default: 'public')
 
     Returns:
         Formatted table list with type (table/view) and estimated row count
 
     Example:
         >>> pg_list_tables()
-        >>> pg_list_tables(schema="public")
+        >>> pg_list_tables(schema_name="public")
     """
     import sqlalchemy as sa
     db = _get_pg_session()
@@ -1959,11 +1959,11 @@ def pg_list_tables(schema: str = "public") -> str:
             WHERE schemaname = :schema
             ORDER BY name
             """
-        ), {"schema": schema})
+        ), {"schema": schema_name})
         rows = result.fetchall()
         if not rows:
-            return f"No tables found in schema '{schema}'."
-        lines = [f"## Tables in schema '{schema}'", ""]
+            return f"No tables found in schema '{schema_name}'."
+        lines = [f"## Tables in schema '{schema_name}'", ""]
         for r in rows:
             lines.append(f"- **{r.name}** ({r.type}, ~{r.estimated_rows} rows)")
         return "\n".join(lines)
@@ -1974,7 +1974,7 @@ def pg_list_tables(schema: str = "public") -> str:
 
 
 @tool
-def pg_describe_table(table_name: str, schema: str = "public") -> str:
+def pg_describe_table(table_name: str, schema_name: str = "public") -> str:
     """
     Show column details for a PostgreSQL table: name, type, nullable, default, constraints.
 
@@ -1982,14 +1982,14 @@ def pg_describe_table(table_name: str, schema: str = "public") -> str:
 
     Args:
         table_name: Name of the table to describe
-        schema: Schema name (default: 'public')
+        schema_name: Schema name (default: 'public')
 
     Returns:
         Formatted column list with type, nullable, default, and constraint info
 
     Example:
         >>> pg_describe_table("deep_agent_templates")
-        >>> pg_describe_table("skills", schema="public")
+        >>> pg_describe_table("skills", schema_name="public")
     """
     import sqlalchemy as sa
     db = _get_pg_session()
@@ -2017,11 +2017,11 @@ def pg_describe_table(table_name: str, schema: str = "public") -> str:
             WHERE c.table_name = :table_name AND c.table_schema = :schema
             ORDER BY c.ordinal_position
             """
-        ), {"table_name": table_name, "schema": schema})
+        ), {"table_name": table_name, "schema": schema_name})
         rows = result.fetchall()
         if not rows:
-            return f"Table '{schema}.{table_name}' not found."
-        lines = [f"## Columns of '{schema}.{table_name}'", ""]
+            return f"Table '{schema_name}.{table_name}' not found."
+        lines = [f"## Columns of '{schema_name}.{table_name}'", ""]
         for r in rows:
             nullable = "NULL" if r.is_nullable == "YES" else "NOT NULL"
             default = f" default={r.default_value}" if r.default_value else ""

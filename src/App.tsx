@@ -285,11 +285,6 @@ function AppContent() {
   // Current view from route
   const currentView: View = ROUTE_TO_VIEW[location.pathname] ?? 'home';
 
-  // Chat is a standalone full-page view — render without layout chrome
-  if (currentView === 'chat') {
-    return <ChatPage />;
-  }
-
   // Sync ActivityBar with current view
   useEffect(() => {
     const activity = VIEW_TO_ACTIVITY[currentView];
@@ -454,6 +449,12 @@ function AppContent() {
       default: return <HomePage />;
     }
   };
+
+  // Chat is a standalone full-page view — render without layout chrome.
+  // Returned here, after all hooks, to satisfy the Rules of Hooks.
+  if (currentView === 'chat') {
+    return <ChatPage />;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', overflow: 'hidden' }}>

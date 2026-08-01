@@ -116,6 +116,11 @@ class TestCriticalFixes:
     @pytest.mark.asyncio
     async def test_callbacks_integration(self, basic_agent_config):
         """Test that TokenTrackingCallback is properly integrated."""
+        # The token-tracking service module is not shipped with the repo
+        # (production guards this import with try/except); skip when absent,
+        # mirroring test_token_tracking_callback_creation below.
+        pytest.importorskip("core.utils.token_tracking")
+
         agent_graph, tools, callbacks = await AgentFactory.create_agent(
             agent_config=basic_agent_config,
             project_id=1,
@@ -175,7 +180,7 @@ class TestCriticalFixes:
         # Test invalid max_tokens
         invalid_config2 = {
             "model": "claude-haiku-4-5-20251015",
-            "max_tokens": 1000000,  # Invalid: > 500000
+            "max_tokens": 2000000,  # Invalid: > 1_000_000 (MAX_MAX_TOKENS)
             "system_prompt": "Test"
         }
 
@@ -410,7 +415,7 @@ class TestValidationAndErrors:
 
         assert "claude-haiku-4-5-20251015" in SUPPORTED_MODELS, "Haiku should be supported"
         assert "claude-opus-4-5-20250514" in SUPPORTED_MODELS, "Opus should be supported"
-        assert "gpt-5-turbo" in SUPPORTED_MODELS, "GPT-5 Turbo should be supported"
+        assert "gpt-4o" in SUPPORTED_MODELS, "GPT-4o should be supported"
 
     def test_validation_catches_mutual_exclusivity(self):
         """Test that validation catches structured output + tools conflict."""

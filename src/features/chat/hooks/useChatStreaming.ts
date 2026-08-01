@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ChatMessage, ChatStreamEvent } from '../types/chat';
 import apiClient from '../../../lib/api-client';
 
@@ -29,6 +29,8 @@ interface UseChatStreamingResult {
         empty and causes "no documents in project X"). */
     projectId?: number | null,
   ) => Promise<void>;
+  /** Abort the current in-flight stream (also called automatically on unmount) */
+  cancel: () => void;
   isStreaming: boolean;
   error: string | null;
   clearError: () => void;
@@ -267,7 +269,8 @@ export function useChatStreaming(
     [sessionId, hitlEnabled, isStreaming]
   );
 
-  // Cleanup on unmount
+  // Cleanup on unmount — abort any in-flight stream so the aborted request
+  // can't keep writing into state after the component is gone
   const cancel = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -276,8 +279,11 @@ export function useChatStreaming(
     setIsStreaming(false);
   }, []);
 
+  useEffect(() => cancel, [cancel]);
+
   return {
     sendMessage,
+    cancel,
     isStreaming,
     error,
     clearError,
