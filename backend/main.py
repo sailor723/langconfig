@@ -416,12 +416,34 @@ def _swap_plotly_cdn_to_local(html: str) -> str:
     )
 
 
+def _is_safe_filename(filename: str) -> bool:
+    """A filename is safe to serve only if it is a bare name.
+
+    Rejects path separators and `..` (path traversal via rglob on
+    Python < 3.13) and glob metacharacters (which would turn rglob
+    into a full recursive scan of the outputs tree — perf DoS).
+    """
+    if not filename or filename in (".", ".."):
+        return False
+    if "/" in filename or "\\" in filename or ".." in filename:
+        return False
+    if any(ch in filename for ch in "*?[]{}"):
+        return False
+    return True
+
+
 @app.get("/api/files/{filename:path}")
 async def serve_output_file(filename: str):
     """Serve generated files (charts, reports, dashboards) from outputs/ and data/ dirs."""
     from pathlib import Path
     from fastapi.responses import HTMLResponse, JSONResponse
     from services.workspace_manager import get_workspace_manager
+
+    # Security: only bare filenames may be served. rglob() interprets
+    # `..` (traversal on Py < 3.13) and glob metacharacters (full-tree
+    # scan) from user input, so reject both up front.
+    if not _is_safe_filename(filename):
+        return JSONResponse(status_code=400, content={"error": "Invalid filename"})
 
     # Cache-busting headers — analysis dashboards are regenerated often and the
     # browser MUST NOT serve a stale copy of the HTML (cached HTML references

@@ -9,7 +9,7 @@ REST API endpoints for managing local LLM configurations (Ollama, LM Studio, vLL
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, validator
 from typing import Optional, List
 from datetime import datetime
 import httpx
@@ -99,8 +99,8 @@ class LocalModelResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    # Pydantic V2 config: read from SQLAlchemy ORM objects.
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ValidationResult(BaseModel):

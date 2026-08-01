@@ -50,21 +50,21 @@ async def preview_context(
     """
     try:
         from backend.services.conversation_context import ConversationContextService
-        from sqlalchemy.ext.asyncio import AsyncSession
+        # Use the async engine session factory — AsyncSession(bind=sync_engine)
+        # would fail at first use and silently break context retrieval.
+        from db.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as async_db:
+            context_service = ConversationContextService(async_db)
 
-        # Convert to async session
-        async_db = AsyncSession(bind=db.get_bind())
-        context_service = ConversationContextService(async_db)
-
-        # Get context
-        messages = await context_service.get_context_for_agent(
-            agent_template_id=agent_template_id,
-            current_query=query,
-            context_mode=context_mode,
-            window_size=window_size,
-            banked_message_ids=[],
-            project_id=project_id
-        )
+            # Get context
+            messages = await context_service.get_context_for_agent(
+                agent_template_id=agent_template_id,
+                current_query=query,
+                context_mode=context_mode,
+                window_size=window_size,
+                banked_message_ids=[],
+                project_id=project_id
+            )
 
         # Convert messages to dict format for response
         message_dicts = []

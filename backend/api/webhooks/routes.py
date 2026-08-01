@@ -128,11 +128,12 @@ async def receive_webhook(
 
     config = trigger.config or {}
 
-    # Get client IP
+    # Get client IP — use the direct peer address only. The
+    # X-Forwarded-For header is attacker-controllable and must not be
+    # trusted here, otherwise the IP whitelist is trivially bypassed.
+    # When running behind a reverse proxy, uvicorn --proxy-headers
+    # already rewrites request.client.host from the trusted proxy.
     client_ip = request.client.host if request.client else "unknown"
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        client_ip = forwarded_for.split(",")[0].strip()
 
     # Check IP whitelist
     allowed_ips = config.get("allowed_ips", [])
@@ -143,8 +144,10 @@ async def receive_webhook(
     # Get raw body for signature verification
     body = await request.body()
 
-    # Verify signature if required
-    if config.get("require_signature", False) and trigger.webhook_secret:
+    # Verify signature if the trigger has a secret configured. The
+    # require_signature flag defaults to True when a secret exists so a
+    # caller cannot disable verification by simply omitting the flag.
+    if config.get("require_signature", True) and trigger.webhook_secret:
         signature = (
             request.headers.get("X-Webhook-Signature") or
             request.headers.get("X-Hub-Signature-256") or  # GitHub

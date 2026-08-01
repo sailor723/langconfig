@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ChatMessage } from '../types/chat';
 import apiClient from '../../../lib/api-client';
 
@@ -26,6 +26,9 @@ export function useChatSession(currentSessionId: string | null): UseChatSessionR
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Tracks the session the user last asked for, so a stale in-flight
+  // history response can't overwrite a newer one (session-switch race)
+  const requestedSessionRef = useRef<string | null>(null);
 
   // Update sessionId when currentSessionId changes
   useEffect(() => {
@@ -34,6 +37,7 @@ export function useChatSession(currentSessionId: string | null): UseChatSessionR
 
   // Load history when sessionId changes
   useEffect(() => {
+    requestedSessionRef.current = sessionId;
     if (sessionId) {
       loadHistory(sessionId);
     } else {
@@ -42,24 +46,30 @@ export function useChatSession(currentSessionId: string | null): UseChatSessionR
   }, [sessionId]);
 
   const loadHistory = useCallback(async (sid: string) => {
+    requestedSessionRef.current = sid;
     setIsLoading(true);
     setError(null);
 
     try {
       const response = await apiClient.getChatHistory(sid);
-      const data = response.data;
+      // Ignore the response if the user already switched sessions
+      if (requestedSessionRef.current !== sid) return;
 
+      const data = response.data;
       if (data.messages && Array.isArray(data.messages)) {
         setMessages(data.messages);
       } else {
         setMessages([]);
       }
     } catch (err: any) {
+      if (requestedSessionRef.current !== sid) return;
       console.error('Failed to load chat history:', err);
       setError('Failed to load chat history');
       setMessages([]);
     } finally {
-      setIsLoading(false);
+      if (requestedSessionRef.current === sid) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -71,10 +81,13 @@ export function useChatSession(currentSessionId: string | null): UseChatSessionR
     setMessages(prev => {
       if (prev.length === 0) return prev;
 
+      // Replace the last message immutably — mutating it in place would
+      // violate React state immutability and skip re-renders
       const newMessages = [...prev];
-      const lastMessage = newMessages[newMessages.length - 1];
-      lastMessage.content = content;
-
+      newMessages[newMessages.length - 1] = {
+        ...newMessages[newMessages.length - 1],
+        content,
+      };
       return newMessages;
     });
   }, []);

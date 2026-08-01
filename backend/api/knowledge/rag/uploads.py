@@ -29,6 +29,43 @@ from .shared import logger
 
 router = APIRouter(tags=["rag"])
 
+
+def _safe_archive_member_path(target_dir: Path, member_name: str) -> Path:
+    """Resolve an archive member name inside target_dir, rejecting any
+    member that would escape it (Zip Slip / tar traversal protection)."""
+    resolved = (target_dir / member_name).resolve()
+    if not resolved.is_relative_to(target_dir.resolve()):
+        raise ValueError(f"Unsafe archive member path: {member_name!r}")
+    return resolved
+
+
+def _safe_extract_zip_member(zip_ref: zipfile.ZipFile, member: zipfile.ZipInfo,
+                             target_dir: Path) -> None:
+    """Extract a single zip member safely, guarding against path traversal."""
+    dest = _safe_archive_member_path(target_dir, member.filename)
+    if member.is_dir():
+        dest.mkdir(parents=True, exist_ok=True)
+        return
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with zip_ref.open(member) as src, open(dest, "wb") as dst:
+        shutil.copyfileobj(src, dst)
+
+
+def _safe_extract_tar_member(tar_ref: tarfile.TarFile, member: tarfile.TarInfo,
+                             target_dir: Path) -> None:
+    """Extract a single tar member safely, guarding against path traversal.
+    Symlinks/device members are skipped (no extractfile content)."""
+    dest = _safe_archive_member_path(target_dir, member.name)
+    if member.isdir():
+        dest.mkdir(parents=True, exist_ok=True)
+        return
+    src = tar_ref.extractfile(member)
+    if src is None:
+        return  # e.g. symlink / special file — skip
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with src, open(dest, "wb") as dst:
+        shutil.copyfileobj(src, dst)
+
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     background_tasks: BackgroundTasks,
@@ -55,6 +92,16 @@ async def upload_document(
         except json.JSONDecodeError:
             logger.warning(f"Invalid metadata JSON: {metadata}")
 
+    # Step N+1: hierarchy metadata (industry/player/sub_category/
+    # sub_department). Optional for single uploads — most users won't
+    # set them, but the workspace-bulk-upload path can pass them
+    # through so the sidebar's Tree view shows the file in the
+    # right folder.
+    industry        = doc_metadata.get("industry") if isinstance(doc_metadata, dict) else None
+    player          = doc_metadata.get("player") if isinstance(doc_metadata, dict) else None
+    sub_category    = doc_metadata.get("sub_category") if isinstance(doc_metadata, dict) else None
+    sub_department  = doc_metadata.get("sub_department") if isinstance(doc_metadata, dict) else None
+
     # Save file to disk. Pass the resolved hierarchy (industry /
     # player / sub_category / sub_department) so file_storage writes
     # the file under a nested folder path that mirrors the source
@@ -76,37 +123,11 @@ async def upload_document(
     # Determine document type from file extension (expanded support)
     document_type = resolve_document_type(file.filename)
 
-    # Save file to disk. Pass the resolved hierarchy so file_storage
-    # writes the file under a nested folder path mirroring the
-    # source folder (industry/player/sub_category/sub_department/).
-    # Without this, a browser folder-picker upload that includes a
-    # relative path (e.g. "analysis/company_report.md") would be
-    # written to `<project_dir>/<uuid>_analysis/company_report.md`
-    # which pathlib treats as a directory and crashes the write.
-    file_path = file_storage.save_file(
-        project_id, file.filename, content,
-        hierarchy={
-            "industry": industry,
-            "player": player,
-            "sub_category": sub_category,
-            "sub_department": sub_department,
-        },
-    )
-
     # Create document record with correct schema
     # Build name, tags and description from metadata
     custom_name = doc_metadata.get("name") if isinstance(doc_metadata, dict) else None
     description = doc_metadata.get("description") if isinstance(doc_metadata, dict) else None
     tags = doc_metadata.get("tags") if isinstance(doc_metadata, dict) else None
-    # Step N+1: hierarchy metadata (industry/player/sub_category/
-    # sub_department). Optional for single uploads — most users won't
-    # set them, but the workspace-bulk-upload path can pass them
-    # through so the sidebar's Tree view shows the file in the
-    # right folder.
-    industry        = doc_metadata.get("industry") if isinstance(doc_metadata, dict) else None
-    player          = doc_metadata.get("player") if isinstance(doc_metadata, dict) else None
-    sub_category    = doc_metadata.get("sub_category") if isinstance(doc_metadata, dict) else None
-    sub_department  = doc_metadata.get("sub_department") if isinstance(doc_metadata, dict) else None
 
     # Check for duplicate: same filename + project_id (skip failed docs so they can be re-uploaded)
     existing = db.query(ContextDocument).filter(
@@ -528,14 +549,18 @@ async def upload_documents_bulk(
                     # Save archive to temp location
                     archive_path.write_bytes(content)
 
-                    # Extract based on type
+                    # Extract based on type — member-by-member with
+                    # traversal protection (rejects ../ or absolute
+                    # entries instead of writing outside temp_dir).
                     try:
                         if file_ext == 'zip':
                             with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-                                zip_ref.extractall(temp_path)
+                                for member in zip_ref.infolist():
+                                    _safe_extract_zip_member(zip_ref, member, temp_path)
                         elif file_ext in ['tar', 'gz', 'tgz']:
                             with tarfile.open(archive_path, 'r:*') as tar_ref:
-                                tar_ref.extractall(temp_path)
+                                for member in tar_ref.getmembers():
+                                    _safe_extract_tar_member(tar_ref, member, temp_path)
 
                         # Process all extracted files
                         for extracted_file in temp_path.rglob('*'):

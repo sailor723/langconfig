@@ -91,3 +91,21 @@ dependencies = [
 
 [dependency-groups]
 dev = []
+
+[tool.pytest.ini_options]
+# Run pytest from backend/ — only collects the tests package and keeps
+# vendored/external dirs (venv, outputs, etc.) out of the collection path
+testpaths = ["tests"]
+norecursedirs = [
+    ".venv",
+    "venv",
+    "env",
+    "node_modules",
+    "dist",
+    "outputs",
+    "data",
+    "skills",
+]
+# Auto mode: async test functions run regardless of whether they carry
+# @pytest.mark.asyncio (matches the repo's mixed test styles)
+asyncio_mode = "auto"

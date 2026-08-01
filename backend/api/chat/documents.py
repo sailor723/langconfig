@@ -10,6 +10,7 @@ by the parent (routes.py) under the "/api/chat" prefix.
 """
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
@@ -368,11 +369,12 @@ async def _process_single_chat_upload(
 
     # Copy to sandbox workspace for agent access
     sandbox_exts = ('.csv', '.pdf', '.docx', '.pptx', '.md', '.txt', '.json', '.py', '.js', '.ts', '.tsx', '.jsx')
+    safe_name = Path(file.filename).name  # basename only — block path-traversal writes
     if file.filename.lower().endswith(sandbox_exts):
         try:
             from services.workspace_manager import get_workspace_manager
             ws_mgr = get_workspace_manager()
-            sandbox_path = ws_mgr.base_dir / "default" / file.filename
+            sandbox_path = ws_mgr.base_dir / "default" / safe_name
             sandbox_path.parent.mkdir(parents=True, exist_ok=True)
             sandbox_path.write_bytes(content)
             logger.info(f"File copied to sandbox workspace: {sandbox_path}")

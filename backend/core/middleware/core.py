@@ -447,9 +447,11 @@ class ValidationMiddleware(AgentMiddleware):
                 modified_content = f"[WARNING: Response may be missing required information]\n\n{content}"
 
         if modified_content != content:
-            # Update message
+            # Update message — copy in place to preserve tool_calls /
+            # id fields on the AIMessage (reconstructing with
+            # AIMessage(content=...) would drop them).
             updated_messages = messages.copy()
-            updated_messages[-1] = AIMessage(content=modified_content)
+            updated_messages[-1] = last_message.model_copy(update={"content": modified_content})
             return {"messages": updated_messages}
 
         return None
@@ -869,14 +871,18 @@ class ToolRetryMiddleware(AgentMiddleware):
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
 
-    def wrap_tool_call(self, tool_name: str, tool_input: Dict, handler: Callable) -> Any:
-        """Retry tool calls on failure."""
+    def wrap_tool_call(self, request: Any, handler: Callable) -> Any:
+        """Retry tool calls on failure (sync path).
 
+        Follows the base-class contract wrap_tool_call(request, handler)
+        where `request` carries the tool call (tool_name / tool_input).
+        """
         last_error = None
+        tool_name = getattr(request, "tool_name", getattr(request, "name", "tool"))
 
         for attempt in range(self.max_retries):
             try:
-                result = handler(tool_name, tool_input)
+                result = handler(request)
 
                 if attempt > 0:
                     logger.info(f"✓ Tool '{tool_name}' succeeded on attempt {attempt + 1}")
@@ -893,6 +899,43 @@ class ToolRetryMiddleware(AgentMiddleware):
                         f"Retrying in {wait_time}s..."
                     )
                     time.sleep(wait_time)
+                else:
+                    logger.error(
+                        f"Tool '{tool_name}' failed after {self.max_retries} attempts: {e}"
+                    )
+
+        # All retries exhausted
+        return f"Error: Tool '{tool_name}' failed after {self.max_retries} attempts. Last error: {last_error}"
+
+    async def awrap_tool_call(self, request: Any, handler: Callable) -> Any:
+        """Retry tool calls on failure (async path — used by the executor).
+
+        Without this override, the base awrap_tool_call just awaits the
+        handler and the retry logic would be skipped in async execution.
+        """
+        last_error = None
+        tool_name = getattr(request, "tool_name", getattr(request, "name", "tool"))
+
+        for attempt in range(self.max_retries):
+            try:
+                result = await handler(request)
+
+                if attempt > 0:
+                    logger.info(f"✓ Tool '{tool_name}' succeeded on attempt {attempt + 1}")
+
+                return result
+
+            except Exception as e:
+                last_error = e
+
+                if attempt < self.max_retries - 1:
+                    wait_time = self.backoff_factor ** attempt
+                    logger.warning(
+                        f"Tool '{tool_name}' failed (attempt {attempt + 1}/{self.max_retries}): {e}. "
+                        f"Retrying in {wait_time}s..."
+                    )
+                    # Non-blocking sleep — must not block the event loop.
+                    await asyncio.sleep(wait_time)
                 else:
                     logger.error(
                         f"Tool '{tool_name}' failed after {self.max_retries} attempts: {e}"
@@ -1040,12 +1083,11 @@ class PIIMiddleware(AgentMiddleware):
 
                 if redacted_content != original_content:
                     redacted_count += 1
-                    # Create new message with redacted content
-                    msg_class = msg.__class__
-                    updated_msg = msg_class(content=redacted_content)
-                    # Copy other attributes
-                    if hasattr(msg, 'additional_kwargs'):
-                        updated_msg.additional_kwargs = msg.additional_kwargs
+                    # Create new message with redacted content, preserving
+                    # tool_calls / id / tool_call_id etc. Reconstructing via
+                    # msg_class(content=...) would drop those fields and
+                    # break the ReAct loop when a tool-call message is redacted.
+                    updated_msg = msg.model_copy(update={"content": redacted_content})
                     updated_messages.append(updated_msg)
                 else:
                     updated_messages.append(msg)

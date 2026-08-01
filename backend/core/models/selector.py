@@ -108,9 +108,11 @@ class ModelSelector:
 
         from core.agents.factory import AgentFactory
 
-        def static_selector(state: dict, config: dict) -> BaseChatModel:
+        async def static_selector(state: dict, config: dict) -> BaseChatModel:
             """Always return primary model."""
-            llm = AgentFactory._create_llm(
+            # _create_llm is async — await it here. create_react_agent
+            # supports async model callables (is_async_dynamic_model).
+            llm = await AgentFactory._create_llm(
                 self.primary_model,
                 self.temperature,
                 None,
@@ -129,7 +131,7 @@ class ModelSelector:
 
         from core.agents.factory import AgentFactory
 
-        def dynamic_selector(state: dict, config: dict) -> BaseChatModel:
+        async def dynamic_selector(state: dict, config: dict) -> BaseChatModel:
             """
             Select optimal model based on conversation state.
 
@@ -218,7 +220,7 @@ class ModelSelector:
 
             # Create LLM instance
             try:
-                llm = AgentFactory._create_llm(
+                llm = await AgentFactory._create_llm(
                     model_name,
                     temp,
                     None,
@@ -233,7 +235,7 @@ class ModelSelector:
             except Exception as e:
                 logger.error(f"Failed to create model {model_name}: {e}, falling back to primary")
                 # Fallback to primary model
-                llm = AgentFactory._create_llm(
+                llm = await AgentFactory._create_llm(
                     self.primary_model,
                     self.temperature,
                     None,

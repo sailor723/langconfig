@@ -28,6 +28,8 @@ class AnalysisInitRequest(BaseModel):
     session_id: str
     csv_path: str
     table_name: str = "data"
+    # Optional companion skill file path for the generated dashboard.
+    skill_path: Optional[str] = None
 
 
 class AnalysisInitResponse(BaseModel):
@@ -259,7 +261,9 @@ async def analysis_upload(
     skill_status = "none"
     if skill_file and skill_file.filename:
         skill_bytes = await skill_file.read()
-        skill_path = str(ANALYSIS_DBS_DIR / skill_file.filename)
+        # Use basename only so a crafted filename cannot escape
+        # ANALYSIS_DBS_DIR (path traversal write).
+        skill_path = str(ANALYSIS_DBS_DIR / Path(skill_file.filename).name)
         Path(skill_path).write_bytes(skill_bytes)
         skill_status = "active"
     elif file.filename:

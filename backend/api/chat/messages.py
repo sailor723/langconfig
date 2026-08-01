@@ -473,35 +473,41 @@ async def send_message(
 
         # Store messages in vector store for semantic search (if project_id available)
         # Note: Chat sessions currently don't have project association, but we'll add it later
-        project_id_for_vectorstore = getattr(session, 'project_id', None) or agent.project_id if hasattr(agent, 'project_id') else None
+        project_id_for_vectorstore = (
+            getattr(session, 'project_id', None)
+            or (agent.project_id if hasattr(agent, 'project_id') else None)
+        )
         if project_id_for_vectorstore:
             try:
                 from backend.services.conversation_context import ConversationContextService
-                from sqlalchemy.ext.asyncio import AsyncSession
-                async_db = AsyncSession(bind=db.get_bind())
-                context_service = ConversationContextService(async_db)
+                # Use the async engine session factory — binding AsyncSession
+                # to the sync engine would fail at first use and silently
+                # disable vector-store persistence.
+                from db.database import AsyncSessionLocal
+                async with AsyncSessionLocal() as async_db:
+                    context_service = ConversationContextService(async_db)
 
-                # Store user message
-                await context_service.store_message_in_vector_store(
-                    session_id=session.session_id,
-                    agent_template_id=session.agent_id,
-                    message_index=user_message_index,
-                    role="user",
-                    content=request.message,
-                    timestamp=user_message_timestamp,
-                    project_id=project_id_for_vectorstore
-                )
+                    # Store user message
+                    await context_service.store_message_in_vector_store(
+                        session_id=session.session_id,
+                        agent_template_id=session.agent_id,
+                        message_index=user_message_index,
+                        role="user",
+                        content=request.message,
+                        timestamp=user_message_timestamp,
+                        project_id=project_id_for_vectorstore
+                    )
 
-                # Store assistant message
-                await context_service.store_message_in_vector_store(
-                    session_id=session.session_id,
-                    agent_template_id=session.agent_id,
-                    message_index=assistant_message_index,
-                    role="assistant",
-                    content=response_text,
-                    timestamp=assistant_message_timestamp,
-                    project_id=project_id_for_vectorstore
-                )
+                    # Store assistant message
+                    await context_service.store_message_in_vector_store(
+                        session_id=session.session_id,
+                        agent_template_id=session.agent_id,
+                        message_index=assistant_message_index,
+                        role="assistant",
+                        content=response_text,
+                        timestamp=assistant_message_timestamp,
+                        project_id=project_id_for_vectorstore
+                    )
             except Exception as e:
                 # Don't fail the whole request if vector storage fails
                 print(f"Failed to store messages in vector store: {e}")
