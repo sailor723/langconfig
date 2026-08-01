@@ -6,6 +6,9 @@ across cell runs within the same session.
 """
 import json
 import logging
+import os
+import signal
+import subprocess
 from pathlib import Path
 from typing import List, Optional
 
@@ -158,16 +161,37 @@ def _parse_notebook(path: Path) -> NotebookDetail:
     )
 
 
-def _compute_cells_hash(cells: List[dict]) -> str:
-    """Simple hash of cell sources to detect changes."""
-    import hashlib
-    raw = json.dumps([{"type": c["cell_type"], "src": c["source"]} for c in cells], sort_keys=True)
-    return hashlib.md5(raw.encode()).hexdigest()
-
-
 def _session_id(module: str, name: str) -> str:
     """Generate a deterministic session ID for a notebook."""
     return f"nb_{module}_{name}"
+
+
+def _run_shell_command(cmd: str) -> str:
+    """
+    Run a `!` shell line with a timeout that also kills child processes.
+
+    start_new_session=True puts the shell in its own process group so a
+    timeout can kill the whole group (shell + grandchildren), not just the
+    direct child.
+    """
+    try:
+        proc = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=30,
+            start_new_session=True,
+        )
+        output = (proc.stdout or "") + (proc.stderr or "")
+        if proc.returncode != 0:
+            output = f"(exit code {proc.returncode})\n{output}"
+        return output
+    except subprocess.TimeoutExpired as e:
+        # Kill the entire process group created by start_new_session
+        try:
+            os.killpg(os.getpgid(e.pid), signal.SIGKILL)
+        except Exception:
+            pass
+        return "(command timed out after 30s)"
+    except Exception as e:
+        return f"(command failed: {e})"
 
 
 # ── API endpoints ─────────────────────────────────────────
@@ -227,23 +251,28 @@ def execute_notebook_cell(module: str, name: str, req: ExecuteRequest):
 
     source = "".join(cell.get("source", []))
 
-    # Handle IPython magic commands
-    code_lines = []
+    # Handle IPython magic commands and shell lines
+    # Shell (`!`) lines run via a hardened helper; unsupported IPython magics
+    # (`%`) are surfaced as an explicit error instead of being silently dropped.
+    unsupported_magics: List[str] = []
+    code_lines: List[str] = []
     for line in source.split("\n"):
         stripped = line.strip()
         if stripped.startswith("!"):
-            # Shell commands — use subprocess
-            import subprocess
-            cmd = stripped[1:].strip()
-            try:
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
-                code_lines.append(f"print({json.dumps(result.stdout + result.stderr)})")
-            except Exception as e:
-                code_lines.append(f"print({json.dumps(str(e))})")
+            code_lines.append(f"print({json.dumps(_run_shell_command(stripped[1:].strip()))})")
         elif stripped.startswith("%"):
-            code_lines.append(f"# IPython magic: {stripped}")
+            unsupported_magics.append(stripped)
         else:
             code_lines.append(line)
+
+    if unsupported_magics:
+        return ExecuteResponse(
+            success=False, stdout="", stderr="",
+            execute_result="",
+            error_name="UnsupportedMagic",
+            error_value="IPython magic commands are not supported: "
+                        + ", ".join(unsupported_magics[:5]),
+        )
 
     final_code = "\n".join(code_lines)
 
@@ -290,6 +319,20 @@ def interrupt_kernel(module: str, name: str):
         session.interrupt()
         return {"status": "interrupted"}
     return {"status": "no_session"}
+
+
+@router.post("/{module}/{name}/shutdown")
+def shutdown_kernel(module: str, name: str):
+    """
+    Shut down the notebook's kernel, releasing its process and memory.
+
+    The kernel is recreated automatically on the next execute call.
+    """
+    _validate_path(module, name)
+    sid = _session_id(module, name)
+    km = get_kernel_manager()
+    km.shutdown_session(sid)
+    return {"status": "shutdown"}
 
 
 @router.put("/{module}/{name}/cells", response_model=NotebookDetail)

@@ -139,6 +139,28 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Chat session manager failed to start: {e}. Abandoned sessions won't be cleaned up automatically.")
 
+    # Periodic cleanup of idle notebook kernels (prevents ipykernel process leaks)
+    notebook_cleanup_task = None
+    try:
+        import asyncio as _asyncio
+
+        from services.notebook_kernel_manager import get_kernel_manager
+
+        async def _notebook_kernel_cleanup_loop():
+            km = get_kernel_manager()
+            while True:
+                try:
+                    # cleanup_idle() is blocking; keep it off the event loop
+                    await _asyncio.to_thread(km.cleanup_idle)
+                except Exception as e:
+                    logger.warning(f"Notebook kernel cleanup failed (non-fatal): {e}")
+                await _asyncio.sleep(120)
+
+        notebook_cleanup_task = _asyncio.create_task(_notebook_kernel_cleanup_loop())
+        logger.info("Notebook kernel idle-cleanup loop started (every 120s)")
+    except Exception as e:
+        logger.warning(f"Notebook kernel cleanup loop failed to start: {e}. Idle kernels won't be cleaned up.")
+
     # Start background task queue workers
     try:
         # Import task handlers to register them
@@ -211,6 +233,16 @@ async def lifespan(app: FastAPI):
         logger.info("Chat session manager stopped")
     except Exception as e:
         logger.error(f"Error stopping chat session manager: {e}")
+
+    # Stop notebook kernel idle-cleanup loop and shut down all kernels
+    try:
+        if notebook_cleanup_task is not None:
+            notebook_cleanup_task.cancel()
+        from services.notebook_kernel_manager import get_kernel_manager
+        get_kernel_manager().shutdown_all()
+        logger.info("Notebook kernels shut down")
+    except Exception as e:
+        logger.error(f"Error shutting down notebook kernels: {e}")
 
     # Shutdown LangGraph checkpointing
     try:

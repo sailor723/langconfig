@@ -11,11 +11,9 @@ type RefreshFn = () => void;
 let _refresh: RefreshFn | null = null;
 
 export function setRefreshAgents(fn: RefreshFn | null) {
-  console.log('[refresh-agents] setRefreshAgents:', !!fn);
   _refresh = fn;
 }
 
 export function triggerRefreshAgents() {
-  console.log('[refresh-agents] triggerRefreshAgents, _refresh exists:', !!_refresh);
   _refresh?.();
 }
