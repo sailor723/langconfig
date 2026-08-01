@@ -120,6 +120,13 @@ class ToolLoader:
         """
         Load native Python tools.
 
+        Tools are materialized from the PostgreSQL ``custom_tools`` table
+        (``is_builtin`` rows seeded from ``tools/native_tools.py``) via the
+        same ``ToolFactory`` codegen path used for custom tools — agents
+        compile and run all tools uniformly from the DB. If the table is not
+        seeded yet, falls back to the legacy in-module loader so existing
+        agents keep working unchanged.
+
         Special handling for "browser" tool which uses Playwright (async).
         For write_file tool, binds workspace_context and agent_context for
         file metadata tracking.
@@ -134,17 +141,27 @@ class ToolLoader:
         if not native_tool_names:
             return []
         try:
-            all_tools: List[BaseTool] = []
+            # Resolve legacy aliases (TOOL_NAME_MAP) to canonical names before
+            # hitting the DB so old agent configs keep working.
+            from tools.native_tools import (
+                TOOL_NAME_MAP,
+                load_native_tools as _legacy_load,
+            )
+
+            canonical_names = [TOOL_NAME_MAP.get(n, n) for n in native_tool_names]
 
             # Check if browser tools are requested (requires special async handling)
-            browser_requested = "browser" in native_tool_names
-            non_browser_tools = [t for t in native_tool_names if t != "browser"]
+            browser_requested = "browser" in canonical_names
+            non_browser_tools = [t for t in canonical_names if t != "browser"]
 
-            # Load regular native tools (synchronous)
+            all_tools: List[BaseTool] = []
+
+            # Load native tools — DB-first (custom_tools rows), legacy fallback
             if non_browser_tools:
-                # Local import keeps module-load fast; the function is cheap to import
-                from tools.native_tools import load_native_tools
-                native_tools = load_native_tools(non_browser_tools)
+                native_tools = await ToolLoader._load_builtin_from_db(non_browser_tools)
+                if native_tools is None:
+                    # Table not seeded yet (migration/seed not run) → legacy loader
+                    native_tools = _legacy_load(non_browser_tools)
 
                 # Wrap write_file tool with context for file metadata tracking
                 if workspace_context or agent_context:
@@ -172,6 +189,72 @@ class ToolLoader:
         except Exception as e:
             logger.error(f"Failed to load native tools: {e}. Proceeding without them.")
             return []
+
+    @staticmethod
+    async def _load_builtin_from_db(names: List[str]) -> Optional[List[BaseTool]]:
+        """Materialize built-in tools from ``custom_tools`` rows (``is_builtin``).
+
+        Returns ``None`` when the built-in seed has not been run (empty or
+        unmigrated table), signalling the caller to fall back to the legacy
+        in-module loader. Names that are not seeded (e.g. harness tools like
+        ``write_todos`` / ``vfs_*`` that need injected args) are appended from
+        the legacy loader so behavior is unchanged.
+        """
+        if not names:
+            return []
+        try:
+            from core.tools.factory import ToolFactory
+            from models.custom_tool import CustomTool
+            from db.database import SessionLocal
+            from tools.native_tools import load_native_tools as _legacy_load
+
+            db = SessionLocal()
+            try:
+                rows = db.query(CustomTool).filter(
+                    CustomTool.tool_id.in_(names),
+                    CustomTool.is_builtin.is_(True),
+                ).all()
+            finally:
+                db.close()
+
+            if not rows:
+                return None
+
+            found = {row.tool_id: row for row in rows}
+            missing = [n for n in names if n not in found]
+
+            tools: List[BaseTool] = []
+            for row in rows:
+                tool_config = {
+                    "tool_id": row.tool_id,
+                    # Canonical name — matches the legacy StructuredTool names
+                    # (e.g. "web_search"); required by tool-name lookups like
+                    # the write_file context wrap below.
+                    "name": row.tool_id,
+                    "description": row.description,
+                    "tool_type": row.tool_type.value,
+                    "template_type": row.template_type.value if row.template_type else None,
+                    "implementation_config": row.implementation_config,
+                    "input_schema": row.input_schema,
+                    "output_format": row.output_format,
+                }
+                try:
+                    tools.append(await ToolFactory.create_tool(tool_config))
+                except Exception as exc:
+                    # A single broken built-in must not take down the agent;
+                    # fall back to the legacy loader for it.
+                    logger.error(f"Failed to build built-in tool '{row.tool_id}' from DB: {exc}")
+                    missing.append(row.tool_id)
+
+            # Harness-only tools (write_todos, read_todos, vfs_*) and broken
+            # rows keep the legacy path.
+            if missing:
+                tools.extend(_legacy_load(missing))
+
+            return tools
+        except Exception as e:
+            logger.error(f"DB built-in tool load failed ({e}); falling back to legacy loader")
+            return None
 
     @staticmethod
     def _wrap_file_tools_with_context(
