@@ -1118,10 +1118,13 @@ llm = ChatOpenAI(
     # Tool loading
     native_tools_lines = ""
     if native_tools:
+        # Emit a proper Python list literal — previously `load_native_tools`
+        # received a set containing one JSON string, so zero tools loaded.
+        tool_names_literal = ", ".join(json.dumps(t) for t in native_tools)
         native_tools_lines = f"""
 # Native tools (graphindex-backed document search)
 from tools.native_tools import load_native_tools
-tools.extend(load_native_tools({json.dumps(native_tools)}))
+tools.extend(load_native_tools([{tool_names_literal}]))
 """
 
     custom_tools_lines = ""

@@ -142,9 +142,14 @@ def _build_row(tool_name: str, tool_obj, category: str) -> dict:
         code = SYNC_WRAPPER_TEMPLATE.format(name=tool_name, desc=_sanitize(description))
     else:
         description = tool_obj.description
-        args = getattr(tool_obj, "args", {}) or {}
-        properties = args.get("properties", {})
-        required = args.get("required", [])
+        try:
+            # `.args` only exposes the properties dict — the full JSON Schema
+            # (with `required`) comes from the input schema.
+            full_schema = tool_obj.get_input_schema().model_json_schema()
+        except Exception:  # pragma: no cover — defensive fallback
+            full_schema = {}
+        properties = full_schema.get("properties") or getattr(tool_obj, "args", {}) or {}
+        required = full_schema.get("required", [])
         code = WRAPPER_TEMPLATE.format(name=tool_name, desc=_sanitize(description))
 
     input_props = {}
