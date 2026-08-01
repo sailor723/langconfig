@@ -39,7 +39,8 @@ export default function SkillBrowserSidebar() {
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['builtin']));
+  // Category keys are the display labels used by renderCategory (e.g. 'Builtin')
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['Builtin']));
   const [searchQuery, setSearchQuery] = useState('');
 
   const loadSkills = useCallback(async () => {

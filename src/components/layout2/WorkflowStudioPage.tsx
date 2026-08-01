@@ -44,6 +44,8 @@ export interface StudioNodeConfig {
  */
 export interface WorkflowStudioRef {
   updateNodeConfig: (nodeId: string, config: any) => void;
+  /** Update node config AND schedule the debounced backend save (used by the right panel) */
+  handleNodeConfigSave: (nodeId: string, config: any) => void;
   deleteNode: (nodeId: string) => void;
   saveWorkflow: (silent?: boolean) => void;
   hasUnsavedChanges: () => boolean;
@@ -261,6 +263,9 @@ const WorkflowStudioPage = forwardRef<WorkflowStudioRef, WorkflowStudioPageProps
     updateNodeConfig: (nodeId: string, config: any) => {
       workflowCanvasRef.current?.updateNodeConfig(nodeId, config);
     },
+    handleNodeConfigSave: (nodeId: string, config: any) => {
+      handleNodeConfigSave(nodeId, config);
+    },
     deleteNode: handleNodeDelete,
     saveWorkflow: (silent?: boolean) => {
       workflowCanvasRef.current?.saveWorkflow(silent);
@@ -273,7 +278,7 @@ const WorkflowStudioPage = forwardRef<WorkflowStudioRef, WorkflowStudioPageProps
     openCreateWorkflowModal: () => {
       workflowCanvasRef.current?.openCreateWorkflowModal?.();
     },
-  }), [handleNodeDelete, loadRecipe]);
+  }), [handleNodeDelete, handleNodeConfigSave, loadRecipe]);
 
   // Sync external workflowId (from sidebar) into local state
   useEffect(() => {

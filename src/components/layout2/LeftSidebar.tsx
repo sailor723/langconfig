@@ -73,7 +73,8 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
       id: node.id,
       label: node.label,
       viewType: node.viewType ?? activeActivity,
-      data: { ...node.data, content, onSave: saveNodeContent },
+      // Keep the node reference in the save callback — editors call onSave(id, content)
+      data: { ...node.data, content, onSave: (id: string, c: string) => saveNodeContent(node, c) },
     });
   }, [activeActivity, openTab, getNodeContent, saveNodeContent]);
 
@@ -102,16 +103,6 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
   }, [openTab]);
 
   // ── Computed values ──
-  const countItems = (items: TreeNode[]): number => {
-    let count = 0;
-    for (const item of items) {
-      if (!item.children) count++;
-      if (item.children) count += countItems(item.children);
-    }
-    return count;
-  };
-  const totalItems = nodes ? countItems(nodes) : 0;
-
   // Client-side filtering for deepagents/agents browser
   const filteredNodes = (activeActivity === 'deepagents' || activeActivity === 'agents') && searchQuery.trim()
     ? nodes.map(n => {
@@ -128,6 +119,19 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
         return n;
       })
     : nodes;
+
+  // Count rendered rows (respects the search filter; skips empty-* placeholders
+  // so tools/prompt/skills don't show a fake "1 item")
+  const countItems = (items: TreeNode[]): number => {
+    let count = 0;
+    for (const item of items) {
+      if (item.id.startsWith('empty-')) continue;
+      if (!item.children) count++;
+      if (item.children) count += countItems(item.children);
+    }
+    return count;
+  };
+  const totalItems = filteredNodes ? countItems(filteredNodes) : 0;
 
   if (!sidebarOpen || activeActivity === 'settings' || activeActivity === 'vault') return null;
 

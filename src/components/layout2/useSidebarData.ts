@@ -4,7 +4,7 @@
  * Replaces the hardcoded placeholder data in LeftSidebar.
  * Loads workflows, agents, etc. from the APIClient.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '../../lib/api-client';
 import type { TreeNode } from './TreeView';
 
@@ -25,7 +25,12 @@ export function useSidebarData(activity: string): SidebarData {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Monotonic request id — invalidated on every load/cleanup so a stale
+  // in-flight response (e.g. from a previous activity) can never commit state.
+  const requestIdRef = useRef(0);
+
   const loadData = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -113,17 +118,21 @@ export function useSidebarData(activity: string): SidebarData {
         result.push({ id: `empty-${activity}`, label: '', viewType: 'empty' });
       }
 
+      if (requestId !== requestIdRef.current) return; // superseded
       setNodes(result);
     } catch (err: any) {
+      if (requestId !== requestIdRef.current) return; // superseded
       setError(err?.message || 'Failed to load sidebar data');
       setNodes([]);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, [activity]);
 
   useEffect(() => {
     loadData();
+    // Invalidate any in-flight request when the activity changes or unmounts
+    return () => { requestIdRef.current++; };
   }, [loadData]);
 
   const getNodeContent = useCallback(async (node: TreeNode): Promise<string> => {
@@ -168,8 +177,10 @@ export function useSidebarData(activity: string): SidebarData {
     if (node.viewType === 'workflow' && data.workflowId) {
       try {
         await apiClient.updateWorkflow(data.workflowId, { configuration: content });
-      } catch {
-        // Silently fail for now
+      } catch (err) {
+        // Surface the failure — the editor shows it to the user
+        console.error('Failed to save workflow:', err);
+        throw err;
       }
     }
   }, []);

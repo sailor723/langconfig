@@ -5,8 +5,7 @@
  * (TodoList, Filesystem, Memory, etc.), and template cards (~30%).
  * Supports zh/en language switching via react-i18next.
  */
-import { useState, useEffect, useRef } from 'react';
-import { setRefreshAgents } from '../../lib/refresh-agents';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
@@ -1259,9 +1258,15 @@ export default function DeepAgentHomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
 
-  // Load deep agent templates — merges built-in presets + user-created agents
-  const loadTemplates = () => {
+  // Load deep agent templates — merges built-in presets + user-created agents.
+  // A single shared AbortController cancels in-flight requests on refresh/unmount
+  // so out-of-order responses can never overwrite newer data.
+  const abortRef = useRef<AbortController | null>(null);
+
+  const loadTemplates = useCallback(() => {
+    abortRef.current?.abort();
     const abort = new AbortController();
+    abortRef.current = abort;
     setLoading(true);
     setError(null);
     Promise.all([
@@ -1269,6 +1274,7 @@ export default function DeepAgentHomePage() {
       apiClient.listDeepAgents({ public_only: false }),
     ])
       .then(([builtinRes, dbRes]: any) => {
+        if (abort.signal.aborted) return; // superseded by a newer request
         // Unwrap Axios response objects (both use this.client.get)
         const builtinData = (builtinRes as any)?.data ?? builtinRes ?? [];
         const builtinRaw = Array.isArray(builtinData) ? builtinData : [];
@@ -1308,34 +1314,23 @@ export default function DeepAgentHomePage() {
         setTemplates([...builtin, ...userCreated.filter((c: any) => !seen.has(c.name))]);
       })
       .catch(err => {
+        if (abort.signal.aborted) return; // superseded by a newer request
         if (err?.name !== 'AbortError' && err?.name !== 'CanceledError') {
           console.error('Failed to load deep agent templates:', err);
           setError(c.tplError);
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!abort.signal.aborted) setLoading(false); });
     return abort;
-  };
-
-  // Keep a ref to the latest loadTemplates so the module-level refresh
-  // function (registered below) always calls the current version.
-  const loadRef = useRef(loadTemplates);
-  loadRef.current = loadTemplates;
+  }, [c.tplError]);
 
   useEffect(() => {
-    const abort = loadTemplates();
-    return () => abort.abort();
-  }, []);
-
-  // Register/unregister the module-level refresh function so LeftSidebar's
-  // Refresh button can trigger a re-fetch regardless of component mount state.
-  useEffect(() => {
-    setRefreshAgents(() => loadRef.current());
-    return () => setRefreshAgents(null);
-  }, []);
+    loadTemplates();
+    return () => abortRef.current?.abort();
+  }, [loadTemplates]);
 
   const handleNewAgent = () => {
-    openTab({ id: 'new-deepagent', label: 'New DeepAgent', viewType: 'deepagent-create', data: {} });
+    openTab({ id: `new-deepagent-${Date.now()}`, label: 'New DeepAgent', viewType: 'deepagent-create', data: {} });
   };
 
   const handleRefresh = () => {

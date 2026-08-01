@@ -28,7 +28,10 @@ interface SkillPayload {
 export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
   const t = useLayoutTokens();
   const skill = (tab.data?.skill ?? tab.data ?? {}) as SkillPayload;
-  const isNew = !skill.skill_id;
+  // Track the persisted skill_id locally so a freshly created skill flips
+  // from create-mode to update-mode without needing to mutate tab data.
+  const [skillId, setSkillId] = useState<string | undefined>(skill.skill_id);
+  const isNew = !skillId;
   const isBuiltin = skill.source_type === 'builtin' && !isNew;
 
   const [name, setName] = useState(skill.name || '');
@@ -61,9 +64,11 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
     };
     try {
       if (isNew) {
-        await apiClient.createSkill(payload);
+        const res = await apiClient.createSkill(payload);
+        const createdId = res?.data?.skill_id ?? res?.data?.id;
+        if (createdId) setSkillId(createdId); // flip to update-mode after create
       } else {
-        await apiClient.updateSkill(skill.skill_id as string, payload);
+        await apiClient.updateSkill(skillId as string, payload);
       }
       setSaveMsg({ ok: true, text: isNew ? 'Skill created' : 'Saved successfully' });
       setTimeout(() => setSaveMsg(null), 3000);
@@ -73,7 +78,7 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
     } finally {
       setSaving(false);
     }
-  }, [name, description, tags, triggers, instructions, isNew, isBuiltin, skill.skill_id]);
+  }, [name, description, tags, triggers, instructions, isNew, isBuiltin, skillId]);
 
   const labelStyle: React.CSSProperties = {
     fontSize: 11, color: t.textMuted, textTransform: 'uppercase',

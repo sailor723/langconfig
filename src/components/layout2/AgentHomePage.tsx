@@ -6,7 +6,7 @@
  * template/gallery browser (~40%).
  * Supports zh/en language switching via react-i18next.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
@@ -635,9 +635,15 @@ export default function AgentHomePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
 
-  // Load templates from API — all built-in presets are system templates
-  const loadTemplates = () => {
+  // Load templates from API — all built-in presets are system templates.
+  // A single shared AbortController ensures refresh/unmount cancel in-flight
+  // requests so out-of-order responses can never overwrite newer data.
+  const abortRef = useRef<AbortController | null>(null);
+
+  const loadTemplates = useCallback(() => {
+    abortRef.current?.abort();
     const abort = new AbortController();
+    abortRef.current = abort;
     setLoading(true);
     setError(null);
     apiClient.apiFetch(`${apiClient.baseURL}/api/agents/templates`, { signal: abort.signal })
@@ -654,22 +660,23 @@ export default function AgentHomePage() {
           native_tools: t.mcp_tools || t.native_tools || [],
           is_builtin: true,
         }));
-        setTemplates(tpl);
+        if (!abort.signal.aborted) setTemplates(tpl);
       })
       .catch(err => {
+        if (abort.signal.aborted) return; // superseded by a newer request
         if (err?.name !== 'AbortError' && err?.name !== 'CanceledError') {
           console.error('Failed to load templates:', err);
           setError(c.tplError);
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!abort.signal.aborted) setLoading(false); });
     return abort;
-  };
+  }, [c.tplError]);
 
   useEffect(() => {
-    const abort = loadTemplates();
-    return () => abort.abort();
-  }, []);
+    loadTemplates();
+    return () => abortRef.current?.abort();
+  }, [loadTemplates]);
 
   const handleNewAgent = () => {
     openTab({ id: `new-agent-${Date.now()}`, label: 'New Agent', viewType: 'agent', data: { new: true } });
