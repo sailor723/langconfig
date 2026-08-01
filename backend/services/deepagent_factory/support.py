@@ -106,8 +106,8 @@ class _DeepAgentSupportMixin:
                 subagent_tools = None
                 if sub_config.tools:
                     try:
-                        from tools.native_tools import load_native_tools
-                        subagent_tools = load_native_tools(sub_config.tools)
+                        from core.agents.tool_loader import ToolLoader
+                        subagent_tools = await ToolLoader.load_native(sub_config.tools)
                         logger.info(f"Loaded {len(subagent_tools)} tools for subagent '{sub_config.name}': {sub_config.tools}")
                     except Exception as e:
                         logger.warning(f"Failed to load tools for subagent '{sub_config.name}': {e}")

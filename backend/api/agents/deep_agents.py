@@ -1120,11 +1120,14 @@ llm = ChatOpenAI(
     if native_tools:
         # Emit a proper Python list literal — previously `load_native_tools`
         # received a set containing one JSON string, so zero tools loaded.
+        # Built-in tools now come from the DB (custom_tools is_builtin rows);
+        # load_native_tools_from_db is the sync bridge for this generated
+        # standalone script (async code uses await ToolLoader.load_native()).
         tool_names_literal = ", ".join(json.dumps(t) for t in native_tools)
         native_tools_lines = f"""
 # Native tools (graphindex-backed document search)
-from tools.native_tools import load_native_tools
-tools.extend(load_native_tools([{tool_names_literal}]))
+from tools.native_tools import load_native_tools_from_db
+tools.extend(load_native_tools_from_db([{tool_names_literal}]))
 """
 
     custom_tools_lines = ""

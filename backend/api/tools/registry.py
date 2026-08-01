@@ -14,7 +14,7 @@ from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException
 
-from tools.native_tools import get_tool_registry, load_native_tools
+from tools.native_tools import get_tool_registry, load_legacy_native_tools
 
 router = APIRouter(prefix="/api/tools", tags=["tools"])
 
@@ -125,9 +125,11 @@ async def get_tool_details(tool_id: str) -> Dict[str, Any]:
     if registry_entry is None:
         raise HTTPException(status_code=404, detail=f"Tool '{tool_id}' not found in registry")
 
-    # Legacy path: resolve the actual tool object for description + args
+    # Legacy path: resolve the actual tool object for description + args.
+    # Only the legacy-only tools (injected-state harness tools) still resolve
+    # from code; DB-seeded built-ins are handled by the row path above.
     try:
-        tools = load_native_tools([tool_id])
+        tools = load_legacy_native_tools([tool_id])
     except Exception as exc:  # pragma: no cover — defensive
         raise HTTPException(status_code=500, detail=f"Failed to load tool: {exc}")
     if not tools:
