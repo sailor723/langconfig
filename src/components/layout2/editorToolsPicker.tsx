@@ -7,6 +7,25 @@
  */
 import type { LayoutTokens } from './tokens';
 
+/**
+ * Normalize a tool-list config value into a clean string array.
+ * Legacy rows may store native_tools / custom_tools as a JSON string
+ * (e.g. '["read_file", ...]') instead of a real array — normalize both so
+ * the picker never crashes on `.map()` over a non-array.
+ */
+export function toToolIdList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string');
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 export interface NativeTool {
   id: string;
   name: string;
