@@ -56,7 +56,6 @@ SEEDABLE_TOOL_META = {
     "task": ("Task (Subagent)", "delegation", None),
     "save_analysis_result": ("Save Analysis Result", "data_analysis", None),
     "gen_pptx": ("Generate PPTX", "presentation", None),
-    "gen_html": ("Generate HTML Deck", "presentation", None),
     "create_skill": ("Create Skill", "skills", None),
     "update_skill": ("Update Skill", "skills", None),
     "delete_skill": ("Delete Skill", "skills", None),
@@ -215,9 +214,9 @@ def _build_self_contained_code(tool_name: str, description: str) -> tuple:
             entry, entry_node = inner, defs[inner]
 
     if entry_node is None:
-        # Imported tool (gen_pptx / gen_html) — its stable module stays in the
-        # repo, so the row delegates to it like any custom tool may import a
-        # backend module.
+        # Imported tool (gen_pptx) — its stable module stays in the repo, so
+        # the row delegates to it like any custom tool may import a backend
+        # module.
         return _IMPORTED_TOOL_TEMPLATE.format(name=tool_name, desc=_sanitize(description)), "_run_tool"
 
     # BFS over module-level helper dependencies (transitive closure).

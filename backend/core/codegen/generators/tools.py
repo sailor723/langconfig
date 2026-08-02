@@ -179,7 +179,7 @@ class ToolGenerators:
         """Get read_file tool implementation."""
         return dedent('''
             @tool
-            def read_file(file_path: str, max_chars: int = 50000) -> str:
+            def read_file(file_path: str, max_chars: int = 500_000) -> str:
                 """
                 Read file contents with optional line numbers.
 
