@@ -19,7 +19,7 @@ import { useAvailableTools } from '../../hooks/useAvailableTools';
 import apiClient from '../../lib/api-client';
 import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
-import ToolsPicker from './editorToolsPicker';
+import ToolsPicker, { toToolIdList } from './editorToolsPicker';
 import EditorSectionNav from './editorSectionNav';
 
 interface AgentEditorProps {
@@ -91,8 +91,8 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const [availableCustomTools, setAvailableCustomTools] = useState<
     { id: number; tool_id: string; name: string; description: string }[]
   >([]);
-  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(config.native_tools || []);
-  const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(config.custom_tools || []);
+  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(toToolIdList(config.native_tools));
+  const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(toToolIdList(config.custom_tools));
   const [showAllTools, setShowAllTools] = useState(true);
 
   // Reset all editable state when tab changes to a different agent
@@ -111,8 +111,8 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     );
     setJsonEdit(JSON.stringify(agent, null, 2));
     setLocalAgentId(typeof agent.id === 'number' ? agent.id : null);
-    setSelectedNativeTools(config.native_tools || []);
-    setSelectedCustomTools(config.custom_tools || []);
+    setSelectedNativeTools(toToolIdList(config.native_tools));
+    setSelectedCustomTools(toToolIdList(config.custom_tools));
     setActiveSection('overview');
     setSaveMsg(null);
   }, [tab.id]); // eslint-disable-line react-hooks/exhaustive-deps

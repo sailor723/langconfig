@@ -22,7 +22,7 @@ import apiClient from '../../lib/api-client';
 import { SectionId as _SectionId, SECTIONS } from './editorConstants';
 import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
-import ToolsPicker from './editorToolsPicker';
+import ToolsPicker, { toToolIdList } from './editorToolsPicker';
 import EditorSectionNav from './editorSectionNav';
 
 interface DeepAgentEditorProps {
@@ -89,8 +89,8 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const [availableCustomTools, setAvailableCustomTools] = useState<
     { id: number; tool_id: string; name: string; description: string }[]
   >([]);
-  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(config.native_tools || []);
-  const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(config.custom_tools || []);
+  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(toToolIdList(config.native_tools));
+  const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(toToolIdList(config.custom_tools));
   const [showAllTools, setShowAllTools] = useState(true);
 
   // Seed tool state from jsonEdit on mount (since payload may change after load)
@@ -98,8 +98,8 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     try {
       const p = JSON.parse(jsonEdit);
       const c = p.config || {};
-      setSelectedNativeTools(c.native_tools || []);
-      setSelectedCustomTools(c.custom_tools || []);
+      setSelectedNativeTools(toToolIdList(c.native_tools));
+      setSelectedCustomTools(toToolIdList(c.custom_tools));
     } catch { /* ignore malformed json */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
