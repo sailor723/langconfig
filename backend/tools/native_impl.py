@@ -53,7 +53,7 @@ if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):
 
 logger = logging.getLogger(__name__)
 
-from tools.presentation_tools import gen_html, gen_pptx
+from tools.presentation_tools import gen_pptx
 
 # Tavily search - conditional to avoid import errors if not installed
 try:
@@ -372,7 +372,7 @@ async def tavily_search(query: str, max_results: int = 5) -> str:
 # =============================================================================
 
 @tool
-def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int = 50000) -> str:
+def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int = 500_000) -> str:
     """
     Read the contents of a file with optional line offset and limit.
 
@@ -383,7 +383,7 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
         file_path: Path to the file to read
         offset: Line number to start reading from (0-indexed, default: 0)
         limit: Maximum number of lines to read (default: None for all lines)
-        max_chars: Maximum characters to read (default: 50000)
+        max_chars: Maximum characters to read (default: 500000)
 
     Returns:
         File contents with line numbers
