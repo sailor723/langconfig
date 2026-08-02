@@ -18,10 +18,18 @@ import logging
 from typing import Any, Dict, List, Optional, Callable
 from functools import wraps
 
+# langchain's create_agent inspects middleware classes at compile time
+# (e.g. ``m.__class__.wrap_tool_call is not AgentMiddleware.wrap_tool_call``),
+# so every middleware placed in the agent stack MUST be an AgentMiddleware
+# subclass. A plain wrapper class lacking those class attributes crashes the
+# build, which previously forced deep agents to fall back to regular agents
+# (no subagents / no real `task` tool).
+from langchain.agents.middleware import AgentMiddleware
+
 logger = logging.getLogger(__name__)
 
 
-class InstrumentedFilesystemMiddleware:
+class InstrumentedFilesystemMiddleware(AgentMiddleware):
     """
     Wrapper around DeepAgents FilesystemMiddleware that emits observability events.
 
@@ -37,6 +45,7 @@ class InstrumentedFilesystemMiddleware:
             filesystem_middleware: The official DeepAgents FilesystemMiddleware instance
             callback_handler: ExecutionEventCallbackHandler for event emission
         """
+        super().__init__()
         self.middleware = filesystem_middleware
         self.callback_handler = callback_handler
         logger.info("InstrumentedFilesystemMiddleware initialized")
@@ -97,7 +106,7 @@ class InstrumentedFilesystemMiddleware:
         return getattr(self.middleware, name)
 
 
-class InstrumentedSubAgentMiddleware:
+class InstrumentedSubAgentMiddleware(AgentMiddleware):
     """
     Wrapper around DeepAgents SubAgentMiddleware that emits observability events.
 
@@ -113,6 +122,7 @@ class InstrumentedSubAgentMiddleware:
             subagent_middleware: The official DeepAgents SubAgentMiddleware instance
             callback_handler: ExecutionEventCallbackHandler for event emission
         """
+        super().__init__()
         self.middleware = subagent_middleware
         self.callback_handler = callback_handler
         logger.info("InstrumentedSubAgentMiddleware initialized")

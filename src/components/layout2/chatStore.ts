@@ -13,6 +13,7 @@
  */
 import { useEffect, useState } from 'react';
 import apiClient from '../../lib/api-client';
+import { streamChatEvents } from '../../features/chat/utils/streamChatEvents';
 
 /** Per-tool-call record captured during streaming */
 export interface ChatToolCall {
@@ -139,6 +140,10 @@ class ChatStoreImpl {
    *     as "thinking" (shown as reasoning trace)
    *   - tool_start/tool_end events tracked
    *
+   * The SSE transport (fetch + `data:` parsing) is shared with
+   * `useChatStreaming` via `streamChatEvents` — only the event
+   * handling below differs.
+   *
    * @returns The assistant message id once streaming completes (or fails).
    */
   async sendStreamMessage(
@@ -202,194 +207,170 @@ class ChatStoreImpl {
     const startedAt = Date.now();
 
     try {
-      const response = await fetch(`${apiClient.baseURL}/api/chat/message/stream`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, message: prompt }),
-        signal: this.abortController.signal,
-      });
-      if (!response.ok) throw new Error(`Stream request failed: ${response.status}`);
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response body');
-
-      const decoder = new TextDecoder();
-      let buffer = '';
       let assistantAdded = false;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      // Shared SSE transport — fetch + `data:` parsing live in
+      // streamChatEvents (same transport as useChatStreaming).
+      const events = streamChatEvents(
+        '/api/chat/message/stream',
+        { session_id: sessionId, message: prompt },
+        this.abortController.signal,
+      );
+      for await (const payload of events) {
+        switch (payload.type) {
+          case 'chunk': {
+            const token = payload.content || '';
+            fullText += token;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep partial last line in buffer
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
-
-          try {
-            const payload = JSON.parse(trimmed.slice(6));
-
-            switch (payload.type) {
-              case 'chunk': {
-                const token = payload.content || '';
-                fullText += token;
-
-                // Track pre-tool content as thinking (mirrors useChatStreaming)
-                if (!this.toolPhaseSeen) {
-                  this.thinkingBuffer += token;
-                  fullThinking = this.thinkingBuffer;
-                }
-
-                if (!assistantAdded) {
-                  // First chunk: add the assistant message
-                  this._updateMessage(assistantId, {
-                    text: fullText,
-                    thinking: fullThinking || undefined,
-                    streaming: true,
-                  });
-                  assistantAdded = true;
-                } else {
-                  this._updateMessage(assistantId, {
-                    text: fullText,
-                    streaming: true,
-                  });
-                }
-                break;
-              }
-
-              case 'thinking': {
-                // Backend emits this for <think>...</think> blocks
-                fullThinking += payload.content || '';
-                this._updateMessage(assistantId, {
-                  thinking: fullThinking,
-                  streaming: true,
-                });
-                break;
-              }
-
-              case 'custom_event': {
-                // LangGraph-style progress/status events are not rendered in
-                // the compact sidebar chat — intentionally ignored here (the
-                // full ChatPage renders them via useChatStreaming instead).
-                break;
-              }
-
-              case 'tool_start': {
-                // First tool_start marks end of thinking phase
-                if (!this.toolPhaseSeen) {
-                  this.toolPhaseSeen = true;
-                }
-                this.toolPhaseCount += 1;
-                this.toolPhaseActive = true;
-                // Capture the tool call into the assistant message so the UI can render it
-                const calls = this._getToolCalls(assistantId);
-                calls.push({
-                  name: payload.tool_name || payload.name || 'unknown_tool',
-                  id: payload.tool_call_id || payload.id,
-                  args: payload.args || payload.arguments || payload.input,
-                  status: 'running',
-                  startedAt: Date.now(),
-                });
-                this._updateMessage(assistantId, { toolCalls: calls });
-                break;
-              }
-
-              case 'tool_end': {
-                this.toolPhaseCount -= 1;
-                if (this.toolPhaseCount <= 0) {
-                  this.toolPhaseCount = 0;
-                  this.toolPhaseActive = false;
-                }
-                // Mark the matching tool call as completed/error
-                const calls = this._getToolCalls(assistantId);
-                const targetName = payload.tool_name || payload.name;
-                const targetId = payload.tool_call_id || payload.id;
-                // Find the last running call that matches (by id, then by name)
-                const lastIdx: number = (() => {
-                  for (let i = calls.length - 1; i >= 0; i--) {
-                    const c = calls[i];
-                    if (c.status !== 'running') continue;
-                    if (targetId && c.id === targetId) return i;
-                    if (targetName && c.name === targetName) return i;
-                    if (!targetId && !targetName) return i;
-                  }
-                  return -1;
-                })();
-                if (lastIdx >= 0) {
-                  const tc = calls[lastIdx];
-                  const hasError = !!payload.error;
-                  calls[lastIdx] = {
-                    ...tc,
-                    status: hasError ? 'error' : 'completed',
-                    result: payload.output ?? payload.result ?? tc.result,
-                    error: payload.error,
-                    endedAt: Date.now(),
-                  };
-                  this._updateMessage(assistantId, { toolCalls: [...calls] });
-                }
-                break;
-              }
-
-              case 'tool_error': {
-                // Optional explicit error event
-                const calls = this._getToolCalls(assistantId);
-                const targetName = payload.tool_name || payload.name;
-                let idx = -1;
-                for (let i = calls.length - 1; i >= 0; i--) {
-                  if (calls[i].status !== 'running') continue;
-                  if (!targetName || calls[i].name === targetName) { idx = i; break; }
-                }
-                if (idx >= 0) {
-                  calls[idx] = {
-                    ...calls[idx],
-                    status: 'error',
-                    error: payload.error || payload.message,
-                    endedAt: Date.now(),
-                  };
-                  this._updateMessage(assistantId, { toolCalls: [...calls] });
-                }
-                break;
-              }
-
-              case 'complete': {
-                // Authoritative final content from backend
-                if (payload.content && payload.content !== fullText) {
-                  fullText = payload.content;
-                }
-                this._updateMessage(assistantId, {
-                  text: fullText,
-                  thinking: fullThinking || undefined,
-                  streaming: false,
-                  meta: { latencyMs: Date.now() - startedAt },
-                });
-                break;
-              }
-
-              case 'error': {
-                this._updateMessage(assistantId, {
-                  text: fullText || `// Error: ${payload.message || 'unknown'}`,
-                  streaming: false,
-                });
-                this._isStreaming = false;
-                this.abortController = null;
-                return assistantId;
-              }
-
-              case 'interrupt': {
-                this._updateMessage(assistantId, {
-                  text: fullText || '(interrupted — awaiting approval)',
-                  streaming: false,
-                });
-                this._isStreaming = false;
-                this.abortController = null;
-                return assistantId;
-              }
+            // Track pre-tool content as thinking (mirrors useChatStreaming)
+            if (!this.toolPhaseSeen) {
+              this.thinkingBuffer += token;
+              fullThinking = this.thinkingBuffer;
             }
-          } catch {
-            // Skip malformed SSE lines
+
+            if (!assistantAdded) {
+              // First chunk: add the assistant message
+              this._updateMessage(assistantId, {
+                text: fullText,
+                thinking: fullThinking || undefined,
+                streaming: true,
+              });
+              assistantAdded = true;
+            } else {
+              this._updateMessage(assistantId, {
+                text: fullText,
+                streaming: true,
+              });
+            }
+            break;
+          }
+
+          case 'thinking': {
+            // Backend emits this for <think>...</think> blocks
+            fullThinking += payload.content || '';
+            this._updateMessage(assistantId, {
+              thinking: fullThinking,
+              streaming: true,
+            });
+            break;
+          }
+
+          case 'custom_event': {
+            // LangGraph-style progress/status events are not rendered in
+            // the compact sidebar chat — intentionally ignored here (the
+            // full ChatPage renders them via useChatStreaming instead).
+            break;
+          }
+
+          case 'tool_start': {
+            // First tool_start marks end of thinking phase
+            if (!this.toolPhaseSeen) {
+              this.toolPhaseSeen = true;
+            }
+            this.toolPhaseCount += 1;
+            this.toolPhaseActive = true;
+            // Capture the tool call into the assistant message so the UI can render it
+            const calls = this._getToolCalls(assistantId);
+            calls.push({
+              name: payload.tool_name || payload.name || 'unknown_tool',
+              id: payload.tool_call_id || payload.id,
+              args: payload.args || payload.arguments || payload.input,
+              status: 'running',
+              startedAt: Date.now(),
+            });
+            this._updateMessage(assistantId, { toolCalls: calls });
+            break;
+          }
+
+          case 'tool_end': {
+            this.toolPhaseCount -= 1;
+            if (this.toolPhaseCount <= 0) {
+              this.toolPhaseCount = 0;
+              this.toolPhaseActive = false;
+            }
+            // Mark the matching tool call as completed/error
+            const calls = this._getToolCalls(assistantId);
+            const targetName = payload.tool_name || payload.name;
+            const targetId = payload.tool_call_id || payload.id;
+            // Find the last running call that matches (by id, then by name)
+            const lastIdx: number = (() => {
+              for (let i = calls.length - 1; i >= 0; i--) {
+                const c = calls[i];
+                if (c.status !== 'running') continue;
+                if (targetId && c.id === targetId) return i;
+                if (targetName && c.name === targetName) return i;
+                if (!targetId && !targetName) return i;
+              }
+              return -1;
+            })();
+            if (lastIdx >= 0) {
+              const tc = calls[lastIdx];
+              const hasError = !!payload.error;
+              calls[lastIdx] = {
+                ...tc,
+                status: hasError ? 'error' : 'completed',
+                result: payload.output ?? payload.result ?? tc.result,
+                error: payload.error,
+                endedAt: Date.now(),
+              };
+              this._updateMessage(assistantId, { toolCalls: [...calls] });
+            }
+            break;
+          }
+
+          case 'tool_error': {
+            // Optional explicit error event
+            const calls = this._getToolCalls(assistantId);
+            const targetName = payload.tool_name || payload.name;
+            let idx = -1;
+            for (let i = calls.length - 1; i >= 0; i--) {
+              if (calls[i].status !== 'running') continue;
+              if (!targetName || calls[i].name === targetName) { idx = i; break; }
+            }
+            if (idx >= 0) {
+              calls[idx] = {
+                ...calls[idx],
+                status: 'error',
+                error: payload.error || payload.message,
+                endedAt: Date.now(),
+              };
+              this._updateMessage(assistantId, { toolCalls: [...calls] });
+            }
+            break;
+          }
+
+          case 'complete': {
+            // Authoritative final content from backend
+            if (payload.content && payload.content !== fullText) {
+              fullText = payload.content;
+            }
+            this._updateMessage(assistantId, {
+              text: fullText,
+              thinking: fullThinking || undefined,
+              streaming: false,
+              meta: { latencyMs: Date.now() - startedAt },
+            });
+            break;
+          }
+
+          case 'error': {
+            this._updateMessage(assistantId, {
+              text: fullText || `// Error: ${payload.message || 'unknown'}`,
+              streaming: false,
+            });
+            this._isStreaming = false;
+            this.abortController = null;
+            return assistantId;
+          }
+
+          case 'interrupt': {
+            this._updateMessage(assistantId, {
+              text: fullText || '(interrupted — awaiting approval)',
+              streaming: false,
+            });
+            this._isStreaming = false;
+            this.abortController = null;
+            return assistantId;
           }
         }
       }

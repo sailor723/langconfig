@@ -88,6 +88,9 @@ export default function FileUploadButton({ sessionId, projectId, onFileUploaded,
           onMultipleUploaded(uploadedFiles);
         }
       }
+
+      // Notify any open Files panels to refresh their lists
+      window.dispatchEvent(new CustomEvent('chat:files-changed'));
     } catch (error: any) {
       console.error('Failed to upload file(s):', error);
       alert(error.response?.data?.detail || 'Failed to upload file(s)');
@@ -172,7 +175,7 @@ export default function FileUploadButton({ sessionId, projectId, onFileUploaded,
         </div>
         {showMenu && (
           <div
-            className="absolute bottom-full left-0 mb-1 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg shadow-lg overflow-hidden min-w-[200px] z-50"
+            className="absolute bottom-full left-0 mb-1 bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg shadow-lg overflow-hidden w-64 z-50"
             style={{ backgroundColor: 'var(--color-panel-light)' }}
           >
             <button
@@ -180,18 +183,18 @@ export default function FileUploadButton({ sessionId, projectId, onFileUploaded,
               className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-panel-darker transition-colors"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              <FileUp className="w-4 h-4" />
-              <span>Upload file(s)</span>
+              <FileUp className="w-4 h-4 flex-shrink-0" />
+              <span className="flex-1">Upload file(s)</span>
             </button>
             <button
               onClick={() => folderInputRef.current?.click()}
               className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-panel-darker transition-colors border-t"
               style={{ color: 'var(--color-text-primary)', borderColor: 'var(--color-border)' }}
             >
-              <FolderUp className="w-4 h-4" />
-              <span>Upload folder</span>
+              <FolderUp className="w-4 h-4 flex-shrink-0" />
+              <span className="flex-1">Upload folder</span>
               <span
-                className="ml-auto text-[10px] px-1.5 py-0.5 rounded"
+                className="text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
                 style={{ backgroundColor: 'var(--color-panel-darker)', color: 'var(--color-text-muted)' }}
               >
                 recursive

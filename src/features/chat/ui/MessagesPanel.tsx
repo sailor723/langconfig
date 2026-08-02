@@ -700,7 +700,7 @@ export default function MessagesPanel({
       )}
 
       {(messages.length > 0 || disabled) && (
-      <div className="px-6 pb-4">
+      <div className="px-6 pt-4 pb-6">
         <CodexMessageInput
           onSendMessage={onSendMessage}
           disabled={disabled}

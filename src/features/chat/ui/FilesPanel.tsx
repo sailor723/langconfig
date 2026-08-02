@@ -27,6 +27,18 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
+  // Refresh whenever a new file/folder is uploaded (FileUploadButton fires
+  // 'chat:files-changed' after a successful upload)
+  useEffect(() => {
+    const handleFilesChanged = () => {
+      loadDocuments();
+      loadGeneratedFiles();
+    };
+    window.addEventListener('chat:files-changed', handleFilesChanged);
+    return () => window.removeEventListener('chat:files-changed', handleFilesChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const loadDocuments = async () => {
     if (!sessionId) {
       setDocuments([]);

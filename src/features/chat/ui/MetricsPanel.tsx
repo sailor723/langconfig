@@ -37,9 +37,8 @@ export default function MetricsPanel({
 
   return (
     <div
-      className="w-56 border-l overflow-y-auto"
+      className="h-full overflow-y-auto"
       style={{
-        borderColor: 'var(--color-border-dark)',
         backgroundColor: 'var(--color-background-light)',
       }}
     >
