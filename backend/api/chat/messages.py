@@ -31,6 +31,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from core.workflows.events.emitter import ExecutionEventCallbackHandler
 from db.database import get_db
 from models.deep_agent import ChatSession, DeepAgentConfig, DeepAgentTemplate, SessionDocument
+from models.core import IndexingStatus
 from services.conversation_context import ConversationContextService
 from services.deepagent_factory import DeepAgentFactory
 

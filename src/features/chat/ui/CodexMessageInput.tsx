@@ -69,7 +69,7 @@ export default function CodexMessageInput({
 
   return (
     <div
-      className="rounded-2xl overflow-hidden transition-colors"
+      className="rounded-2xl transition-colors"
       style={{
         backgroundColor: 'var(--color-input-background, #ffffff)',
       }}

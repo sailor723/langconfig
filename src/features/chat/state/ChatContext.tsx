@@ -113,6 +113,10 @@ export function ChatProvider({ children }: ChatProviderProps) {
       const response = await apiClient.startChatSession(agentId);
       const sessionId = response.data.session_id;
 
+      // Set the selected agent so agent-scoped panels (Context, Files, Metrics)
+      // can resolve the agent instead of showing "No agent selected"
+      setSelectedAgentId(agentId);
+
       // Refresh sessions list to include new session
       await refreshSessions();
 
