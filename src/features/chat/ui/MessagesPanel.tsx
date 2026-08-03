@@ -120,24 +120,10 @@ export default function MessagesPanel({
         setAnalysisMeta({ rowCount: data.row_count, colCount: data.col_count });
         setShowAnalysis(true);
         setCsvUploading(false);
-        if (onSendMessage) {
-          onSendMessage(
-            `I loaded ${filename} (${data.row_count} rows, ${data.col_count} columns). ` +
-              `Here's a quick overview: what columns and data types does it have? ` +
-              `Then summarize the key metrics.`
-          );
-        }
       })
       .catch((err) => {
         console.error('Analysis init failed:', err);
         setCsvUploading(false);
-        if (onSendMessage) {
-          onSendMessage(
-            `I loaded ${filename}. ` +
-              `Here's a quick overview: what columns and data types does it have? ` +
-              `Then summarize the key metrics.`
-          );
-        }
       });
   };
 
@@ -164,10 +150,10 @@ export default function MessagesPanel({
                 sessionId={sessionId}
                 projectId={projectId}
                 onFileUploaded={(file) => {
-                  handleCsvUpload(file.filename);
-                  onSendMessage(
-                    `A new document "${file.filename}" has been uploaded. Please read it and provide a briefing.`
-                  );
+                  // Data files trigger the analysis dashboard; other uploads stay silent
+                  if (/\.(csv|db|sqlite|sqlite3)$/i.test(file.filename)) {
+                    handleCsvUpload(file.filename);
+                  }
                 }}
                 agentName={agentName}
               />
@@ -711,17 +697,8 @@ export default function MessagesPanel({
           agentName={agentName}
           onFileUploaded={(file) => {
             console.log('File uploaded:', file);
-            // Auto-trigger briefing after document upload
+            // Auto-trigger data analysis after CSV or SQLite upload (no chat message)
             const docExt = file.filename.split('.').pop()?.toLowerCase() || '';
-            const briefingExts = ['pdf', 'md', 'txt', 'docx', 'pptx'];
-            if (briefingExts.includes(docExt) && onSendMessage) {
-              setTimeout(() => {
-                onSendMessage(
-                  `A new document "${file.filename}" has been uploaded. Please read it and provide a briefing.`
-                );
-              }, 500);
-            }
-            // Auto-trigger data analysis after CSV or SQLite upload
             const isDataFile = ['csv', 'db', 'sqlite', 'sqlite3'].includes(docExt);
             if (isDataFile) {
               setShowAnalysis(false); // reset if previously open
@@ -746,26 +723,10 @@ export default function MessagesPanel({
                   setAnalysisMeta({ rowCount: data.row_count, colCount: data.col_count });
                   setShowAnalysis(true);
                   setCsvUploading(false);
-                  // Send a message to the chat agent for schema overview
-                  if (onSendMessage) {
-                    onSendMessage(
-                      `I loaded ${file.filename} (${data.row_count} rows, ${data.col_count} columns). ` +
-                      `Here's a quick overview: what columns and data types does it have? ` +
-                      `Then summarize the key metrics.`
-                    );
-                  }
                 })
                 .catch(err => {
                   console.error('Analysis init failed:', err);
                   setCsvUploading(false);
-                  // Fall back — agent analyzes from sandbox
-                  if (onSendMessage) {
-                    onSendMessage(
-                      `I loaded ${file.filename}. ` +
-                      `Here's a quick overview: what columns and data types does it have? ` +
-                      `Then summarize the key metrics.`
-                    );
-                  }
                 });
             }
           }}
