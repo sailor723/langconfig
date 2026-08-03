@@ -58,6 +58,8 @@ fix_*.py
 fix_*.ts
 migrate_*.ps1
 migrate_*.py
+# ...except the Phase 4 storage migration tool (backend/tools/migrate_storage.py)
+!backend/tools/migrate_storage.py
 update_*.ts
 update_*.py
 

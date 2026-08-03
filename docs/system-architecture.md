@@ -660,11 +660,11 @@ cwd that's `load_dotenv("../.env")`, or better, derive the path from `__file__` 
 
 ## 15. Storage strategy: DB as the permanent store (enterprise-ready)
 
-> **Status (2026-08-03):** Phase 1 shipped in commit `3aa794d`; Phase 2 (write-through
-> wiring) shipped; Phase 3 (deepagents `DbBackend`) shipped — `storage_objects` table,
-> `services/storage/` package, `STORAGE_MODE` setting all live, writers persist through
-> `get_storage()` when `STORAGE_MODE=db`, and in db mode equipped skills are served 100%
-> from the DB via `DbBackend` (no FS staging). Phase 4 (migration tool) pending.
+> **Status (2026-08-03):** All four phases of the storage strategy are shipped —
+> Phase 1 (abstraction, commit `3aa794d`), Phase 2 (write-through wiring), Phase 3
+> (deepagents `DbBackend`, skills 100% DB-managed in `STORAGE_MODE=db`), and Phase 4
+> (FS→DB migration tool). `storage_objects`, `services/storage/`, and `STORAGE_MODE`
+> are all live; flip `STORAGE_MODE=db` after running `uv run python -m tools.migrate_storage`.
 
 ### The vision
 
