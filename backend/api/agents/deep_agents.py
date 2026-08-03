@@ -43,18 +43,28 @@ router = APIRouter(prefix="/api/deepagents", tags=["deepagents"])
 
 # Legacy-only built-in tools that agents may request but which have no
 # custom_tools row (their real implementations live in
-# backend/tools/native_tools.py). The codegen inlines these stubs so the
-# generated script stays fully standalone — no backend repo, no PostgreSQL.
+# backend/tools/native_tools.py). The codegen inlines real in-session
+# implementations so the generated script stays fully standalone — no
+# backend repo, no PostgreSQL. memory_store/memory_recall share the
+# process-scoped `_MEMORY` dict (emitted once by the generator).
 _CODEGEN_LEGACY_TOOLS: Dict[str, str] = {
     "memory_store": (
         'def memory_store(key: str, value: str, context: str = "general") -> str:\n'
-        '    """Store a fact in long-term memory (standalone stub)."""\n'
-        "    return f\"Stored memory: {key} in context '{context}'\"\n"
+        '    """Store a fact in in-memory agent memory for later recall.\n'
+        '\n'
+        '    Standalone replacement for the backend SimpleMemory service.\n'
+        '    Data lives only for the lifetime of this process.\n'
+        '    """\n'
+        '    _MEMORY[f"{context}:{key}"] = value\n'
+        '    return f"Stored memory: {key} in context \'{context}\'"\n'
     ),
     "memory_recall": (
         'def memory_recall(key: str, context: str = "general") -> str:\n'
-        '    """Recall a fact from long-term memory (standalone stub)."""\n'
-        "    return f\"Memory lookup for '{key}' - not implemented (stateless standalone)\"\n"
+        '    """Recall a previously stored fact from in-memory agent memory."""\n'
+        '    return _MEMORY.get(\n'
+        '        f"{context}:{key}",\n'
+        '        f"No memory found for \'{key}\' in context \'{context}\'",\n'
+        '    )\n'
     ),
 }
 
@@ -1000,50 +1010,121 @@ llm = ChatOpenAI(
         ic = row.implementation_config or {}
         code = ic.get("code") or ""
         fn = ic.get("function_name") or "run"
-        # Tavily's code imports the backend config module; the standalone
-        # get_api_key_from_db shim (emitted in the header) replaces it.
+        # The built-in Tavily tool reads its key via the backend's `config`
+        # module. Rewrite it to read the env var directly, so the generated
+        # script needs no backend import and no shim.
+        code = code.replace("from config import get_api_key_from_db", "")
         code = code.replace(
-            "from config import get_api_key_from_db",
-            "# (backend config import replaced by the get_api_key_from_db shim above)",
+            'get_api_key_from_db("tavily_api_key")',
+            'os.environ.get("TAVILY_API_KEY", "")',
         )
         desc = (row.description or "").replace("\n", " ")
         return (
             f"# ── Tool: {row.tool_id} ({row.name}) ─────────────────────────────\n"
             f"{code}\n"
             f"# register as a LangChain tool (name must be the tool_id)\n"
-            f"_tools.append(tool({json.dumps(row.tool_id)}, {fn}, "
-            f"description={json.dumps(desc)}))\n"
+            f"_tools.append(tool(\n"
+            f"    {json.dumps(row.tool_id)},\n"
+            f"    {fn},\n"
+            f"    description={json.dumps(desc)},\n"
+            f"))\n"
         )
 
     def _emit_api_tool(row) -> str:
-        """Emit an api tool as an httpx-based async function (mirrors backend)."""
+        """Emit an api tool as an httpx-based async function (mirrors backend).
+
+        Mirrors ToolFactory._create_api_tool: URL/header template substitution,
+        auth headers (api_key/bearer), request body for POST/PUT/PATCH, and
+        optional json_path response parsing.
+        """
         ic = row.implementation_config or {}
         url = ic.get("url", "")
         method = ic.get("method", "GET")
         headers = ic.get("headers") or {}
+        auth = ic.get("auth") or {}
+        body_template = ic.get("body_template")
         timeout = ic.get("timeout", 30)
+        response_parser = ic.get("response_parser") or {}
         props = (row.input_schema or {}).get("properties") or {}
         arg_defs = ", ".join(
             f"{k}: {_PY_TYPE_HINTS.get(v.get('type', 'string'), 'str')}"
             for k, v in props.items()
         )
+        # Named params dict used for {param} substitution in url/headers/body.
+        params_literal = ", ".join(f"{json.dumps(k)}: {k}" for k in props)
         desc = (row.description or "").replace("\n", " ")
-        return (
-            f"# ── Tool: {row.tool_id} ({row.name}) ─────────────────────────────\n"
+
+        # Auth headers (api_key / bearer), matching _build_auth_headers.
+        auth_lines = []
+        if auth.get("type") == "api_key" and auth.get("location") == "header":
+            auth_lines.append(
+                f"    _headers[{json.dumps(auth.get('key', 'Authorization'))}] = "
+                f"{json.dumps(auth.get('value', ''))}"
+            )
+        elif auth.get("type") == "bearer":
+            auth_lines.append(
+                f"    _headers['Authorization'] = f\"Bearer {auth.get('token', '')}\""
+            )
+        auth_block = "\n".join(auth_lines)
+
+        # Request body for POST/PUT/PATCH (template substitution like backend).
+        body_block = ""
+        if method.upper() in ("POST", "PUT", "PATCH") and body_template is not None:
+            tpl_literal = json.dumps(body_template)
+            if isinstance(body_template, str):
+                body_block = f"    _body = {tpl_literal}.format(**_params)"
+            else:
+                body_block = f"    _body = json.dumps({tpl_literal})"
+
+        # Response parsing (json_path support, mirrors backend response_parser).
+        if response_parser.get("type") == "json_path":
+            path_literal = json.dumps(response_parser.get("path", ""))
+            resp_block = (
+                "            _data = _resp.json()\n"
+                "            _result = _data\n"
+                f"            for _k in {path_literal}.split('.'):\n"
+                "                _result = _result.get(_k) if isinstance(_result, dict) else None\n"
+                "                if _result is None:\n"
+                "                    break\n"
+                "            return str(_result)\n"
+            )
+        else:
+            resp_block = "            return _resp.text\n"
+
+        fn_body = (
             f"async def {row.tool_id}({arg_defs}) -> str:\n"
             f'    """{desc}"""\n'
-            f"    import httpx\n"
-            f"    _url = {json.dumps(url)}.format(**locals())\n"
+            "    import httpx\n"
+            "    import json\n"
+            f"    _params = {{{params_literal}}}\n"
+            f"    _url = {json.dumps(url)}.format(**_params)\n"
             f"    _headers = {json.dumps(headers)}\n"
-            f"    try:\n"
+            "    for _hk, _hv in list(_headers.items()):\n"
+            "        if isinstance(_hv, str):\n"
+            "            _headers[_hk] = _hv.format(**_params)\n"
+        )
+        if auth_block:
+            fn_body += auth_block + "\n"
+        fn_body += "    _body = None\n"
+        if body_block:
+            fn_body += body_block + "\n"
+        fn_body += (
+            "    try:\n"
             f"        async with httpx.AsyncClient(timeout={timeout}) as _client:\n"
-            f"            _resp = await _client.request({json.dumps(method)}, _url, headers=_headers)\n"
-            f"            _resp.raise_for_status()\n"
-            f"            return _resp.text\n"
-            f"    except Exception as _e:\n"
-            f'        return f"Error: {{_e}}"\n'
-            f"\n"
-            f"# register as a LangChain tool (name must be the tool_id)\n"
+            f"            _resp = await _client.request(\n"
+            f"                {json.dumps(method)}, _url, headers=_headers,\n"
+            "                content=_body if isinstance(_body, str) else None,\n"
+            "                json=_body if isinstance(_body, dict) else None,\n"
+            "            )\n"
+            "            _resp.raise_for_status()\n"
+        )
+        fn_body += resp_block
+        fn_body += '    except Exception as _e:\n        return f"Error: {_e}"\n'
+
+        return (
+            f"# ── Tool: {row.tool_id} ({row.name}) ─────────────────────────────\n"
+            f"{fn_body}\n"
+            "# register as a LangChain tool (name must be the tool_id)\n"
             f"_tools.append(tool({json.dumps(row.tool_id)}, {row.tool_id}, "
             f"description={json.dumps(desc)}))\n"
         )
@@ -1153,6 +1234,9 @@ agent = create_agent(
         'import os\n'
         'import sys\n'
         'import asyncio\n'
+        '# Same namespaces the backend preloads into each tool\'s exec() scope,\n'
+        '# so inlined python_function tools that reference them work as-is.\n'
+        'import math, json, re, collections, datetime, pathlib, io, typing\n'
         '\n'
         '# ── Env ──────────────────────────────────────────────────────────────\n'
         'from dotenv import load_dotenv\n'
@@ -1163,11 +1247,6 @@ agent = create_agent(
         '\n'
         '# Default project id (kept for compatibility with inlined tool code)\n'
         'project_id = int(os.environ.get("GRAPHINDEX_PROJECT_ID", "1"))\n'
-        '\n'
-        '# ── Backend-API shims (standalone — no Postgres) ─────────────────────\n'
-        'def get_api_key_from_db(*args, **kwargs) -> str:\n'
-        '    """Standalone replacement for backend config.get_api_key_from_db()."""\n'
-        '    return os.environ.get("TAVILY_API_KEY", "")\n'
         '\n'
         f'{model_import}\n'
         '\n'
@@ -1180,6 +1259,9 @@ agent = create_agent(
         '# ── 3. Tools (all inlined — no DB lookup at runtime) ─────────────────\n'
         'from langchain_core.tools import tool\n'
         '_tools: list = []\n'
+        '# Process-scoped memory store used by the memory_store/memory_recall\n'
+        '# built-ins (standalone replacement for the PG-backed SimpleMemory).\n'
+        '_MEMORY: dict = {}\n'
         f'{tools_block}\n'
         '\n'
         'tools = _tools\n'
