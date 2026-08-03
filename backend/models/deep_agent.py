@@ -41,7 +41,12 @@ class SubAgentConfig(BaseModel):
     @field_validator('type', mode='before')
     @classmethod
     def coerce_type(cls, v):
-        """Coerce type to SubAgentType enum, defaulting to DICTIONARY if invalid."""
+        """Coerce type to SubAgentType enum; reject unknown values.
+
+        Missing/empty stays lenient (defaults to DICTIONARY) so legacy rows
+        load, but an explicitly invalid value raises instead of silently
+        changing the agent's behavior.
+        """
         import logging
         logger = logging.getLogger(__name__)
         logger.info(f"[SubAgentConfig] Coercing type from: {v!r} (type={type(v).__name__})")
@@ -57,11 +62,14 @@ class SubAgentConfig(BaseModel):
                 return SubAgentType.DICTIONARY
             elif v_lower == 'compiled':
                 return SubAgentType.COMPILED
-            else:
-                logger.warning(f"[SubAgentConfig] Unknown type '{v}', defaulting to DICTIONARY")
-                return SubAgentType.DICTIONARY
-        logger.warning(f"[SubAgentConfig] Unexpected type value {v!r}, defaulting to DICTIONARY")
-        return SubAgentType.DICTIONARY
+            raise ValueError(
+                f"[SubAgentConfig] Unknown subagent type '{v}'. "
+                "Expected 'dictionary' or 'compiled'."
+            )
+        raise ValueError(
+            f"[SubAgentConfig] Unexpected type value {v!r} for subagent type. "
+            "Expected 'dictionary' or 'compiled'."
+        )
 
     # For dictionary-based subagents
     template_id: Optional[str] = Field(None, description="Base template to use from AgentTemplateRegistry")
