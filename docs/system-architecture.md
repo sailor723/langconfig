@@ -656,6 +656,9 @@ stale instance and report phantom `UndefinedColumn` errors.
 
 ## 15. Storage strategy: DB as the permanent store (enterprise-ready)
 
+> **Status (2026-08-03):** Phase 1 shipped in commit `3aa794d`. `storage_objects` table,
+> `services/storage/` package, `STORAGE_MODE` setting — all live. Phases 2–4 pending.
+
 ### The vision
 
 The filesystem is the *personal / local-dev* default. For **enterprise**, the durable home
@@ -665,6 +668,19 @@ blobs. The filesystem stays only for what is genuinely **ephemeral**: task scrat
 staging dirs, export zips, local sandboxes.
 
 **Rule: DB holds durable artifacts; the filesystem holds transient working files.**
+
+### Blob vs object storage — the decision
+
+Not either/or — a **hybrid** selected by size threshold + `STORAGE_MODE`:
+
+| Storage | Best for | Trade-off |
+|---|---|---|
+| Postgres BYTEA (`storage_objects`) | Skills, configs, small artifacts (< ~1 MB) | Transactional, zero infra, same backup — bloats DB, poor for large/media |
+| Object storage (S3 / MinIO / COS / OSS / R2) | Uploaded RAG docs, images, large outputs, exports | Built for big blobs + streaming, cheap, multi-node — needs a service/vendor |
+
+**Enterprise pattern:** DB row = *metadata + object key*; the *blob* lives in object
+storage. The `StorageBackend` interface makes the physical choice config-driven, so the
+same callers work unchanged in every mode.
 
 ### A single seam: `StorageBackend`
 
@@ -707,12 +723,27 @@ protocol gives **skills 100% in DB** while preserving progressive disclosure (me
 catalog in the system prompt, SKILL.md body read on demand) and the agent's `read_file`
 tool works transparently against the DB.
 
-### Rollout phases
+### Rollout phases & current state
 
-1. **Phase 1 — abstraction** — `storage_objects` table + `services/storage/` (`base` / `local` / `db` backends + factory), default `local`
-2. **Phase 2 — wiring** — `FileStorage`, `WorkspaceManager`, skill sync through the interface
-3. **Phase 3 — deepagents `DbBackend`** — skills + workspace virtual paths served from DB
-4. **Phase 4 — migration tool** — one-shot job to move existing FS artifacts into DB on flip
+1. **Phase 1 — abstraction ✅ DONE (commit `3aa794d`)**
+   - `backend/services/storage/` — `base.py` (`StorageBackend` ABC + `StorageStat`),
+     `local.py` (`LocalStorageBackend`, key sanitization), `db.py` (`DbStorageBackend`,
+     BYTEA), `__init__.py` (`get_storage()` factory, cached)
+   - `backend/models/storage_object.py` — `storage_objects` table (unique `key`, BYTEA
+     `content`, `size_bytes`, `mime_type`, timestamps)
+   - Alembic `018_add_storage_objects` (idempotent existence check) — **schema only, no data moved**
+   - `config.py` — `storage_mode` (`local` default) + `storage_base_dir` (`./data/storage`)
+   - Tests: `backend/tests/test_storage.py` — 5 passed (roundtrip both backends, unsafe-key
+     rejection, missing-key raise, upsert single-row)
+   - Verified live: factory returns `LocalStorageBackend`; `DbStorageBackend` save/read/
+     stat/list/delete roundtrip on Postgres `:5432`
+2. **Phase 2 — wiring (next)** — route `FileStorage` (uploaded docs), `WorkspaceManager`
+   (agent outputs), and skill sync (`db_row_to_fs`) through `get_storage()`; keep `local`
+   as the default so behavior is unchanged until `STORAGE_MODE=db`
+3. **Phase 3 — deepagents `DbBackend`** — implement `BackendProtocol` backed by
+   `get_storage()`; map `/skills/<name>/SKILL.md` → DB so skills are 100% DB-managed
+   while keeping progressive disclosure (catalog + on-demand read)
+4. **Phase 4 — migration tool** — one-shot job moving existing FS artifacts into DB on flip
 
 ---
 
@@ -722,7 +753,7 @@ tool works transparently against the DB.
 | ----------------------------- | ------------------------------------------------------------------------------------------- |
 | What builds a normal agent?   | `core/agents/factory/assembly.py` → `AgentFactory.create_agent`                        |
 | What builds a DeepAgent?      | `services/deepagent_factory/assembly.py` → `DeepAgentFactory.create_deep_agent`        |
-| What is`deep_agents.py`?    | The REST controller (CRUD + prompt-preview + export) — not the builder                     |
+| What is `deep_agents.py`? | The REST controller (CRUD + prompt-preview + export) — not the builder              |
 | Where is export code?         | `services/export_service.py` (`ExportService`)                                          |
 | Where do agents persist?      | `deep_agent_templates` table (flag `config.use_deepagents`)                             |
 | How does chat stream?         | `POST /api/chat/message/stream` → SSE via `useChatStreaming` / `streamChatEvents.ts` |
