@@ -13,11 +13,6 @@ import os as _os
 from fastapi import APIRouter, HTTPException, Depends
 from starlette.responses import Response, FileResponse
 
-# Repo root — used by the codegen endpoint so generated scripts know where
-# to find langconfig modules, even when run from a different directory.
-_CODEGEN_REPO_ROOT = _os.path.abspath(
-    _os.path.join(_os.path.dirname(__file__), "..", "..", "..")
-)
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import Any, Dict, List, Optional
@@ -40,6 +35,40 @@ from core.versioning import check_version_conflict, format_lock_version_error
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/deepagents", tags=["deepagents"])
+
+
+# =============================================================================
+# Standalone codegen helpers (used by download_agent_code)
+# =============================================================================
+
+# Legacy-only built-in tools that agents may request but which have no
+# custom_tools row (their real implementations live in
+# backend/tools/native_tools.py). The codegen inlines these stubs so the
+# generated script stays fully standalone — no backend repo, no PostgreSQL.
+_CODEGEN_LEGACY_TOOLS: Dict[str, str] = {
+    "memory_store": (
+        'def memory_store(key: str, value: str, context: str = "general") -> str:\n'
+        '    """Store a fact in long-term memory (standalone stub)."""\n'
+        "    return f\"Stored memory: {key} in context '{context}'\"\n"
+    ),
+    "memory_recall": (
+        'def memory_recall(key: str, context: str = "general") -> str:\n'
+        '    """Recall a fact from long-term memory (standalone stub)."""\n'
+        "    return f\"Memory lookup for '{key}' - not implemented (stateless standalone)\"\n"
+    ),
+}
+
+# JSON Schema type -> Python type hint, used when inlining API tool signatures.
+_PY_TYPE_HINTS: Dict[str, str] = {
+    "float": "float",
+    "int": "int",
+    "str": "str",
+    "bool": "bool",
+    "number": "float",
+    "integer": "int",
+    "string": "str",
+    "boolean": "bool",
+}
 
 
 def _merge_skill_subagents(config: dict, db: Session) -> list:
@@ -881,14 +910,17 @@ async def import_langconfig(
 
 @router.get("/{agent_id}/code")
 async def download_agent_code(agent_id: int, db: Session = Depends(get_db)):
-    """Download a runnable Python file for this agent.
+    """Download a runnable, fully standalone Python file for this agent.
 
-    The generated code mirrors the backend's actual agent creation exactly:
-    - sys.path setup with _REPO_ROOT + _PHASE9_DIR
-    - ChatOpenAI with proper env vars (MINIMAX_API_KEY, MINIMAX_API_BASE, etc.)
-    - load_native_tools() for tool loading
-    - create_deep_agent() for DeepAgents / create_react_agent for regular agents
-    - CLI entry point (python agent.py)
+    The generated script embeds everything needed at runtime — LLM config
+    (env vars), system prompt, tool source code (inlined from the
+    custom_tools table at generation time), and the agent state schema — so
+    it runs with just:
+
+        pip install langchain-openai langgraph langchain-community python-dotenv httpx
+        python agent.py "your question"
+
+    It has no dependency on PostgreSQL or the LangConfig backend repo.
     """
     agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
     if not agent:
@@ -899,9 +931,8 @@ async def download_agent_code(agent_id: int, db: Session = Depends(get_db)):
     temperature = config.get("temperature", 0.7)
     max_tokens = config.get("max_tokens") or 4000
     system_prompt = config.get("system_prompt", "You are a helpful AI assistant.")
-    native_tools = config.get("native_tools", [])
-    custom_tools = config.get("custom_tools", [])
-    middleware = config.get("middleware", [])
+    native_tools = config.get("native_tools", []) or []
+    custom_tools = config.get("custom_tools", []) or []
 
     # Determine model provider for env vars
     model_lower = model.lower()
@@ -953,75 +984,153 @@ llm = ChatOpenAI(
     max_tokens={max_tokens},
 )"""
 
-    # Tool loading
-    native_tools_lines = ""
-    if native_tools:
-        # Emit a proper Python list literal — previously `load_native_tools`
-        # received a set containing one JSON string, so zero tools loaded.
-        # Built-in tools now come from the DB (custom_tools is_builtin rows);
-        # load_native_tools_from_db is the sync bridge for this generated
-        # standalone script (async code uses await ToolLoader.load_native()).
-        tool_names_literal = ", ".join(json.dumps(t) for t in native_tools)
-        native_tools_lines = f"""
-# Native tools (graphindex-backed document search)
-from tools.native_tools import load_native_tools_from_db
-tools.extend(load_native_tools_from_db([{tool_names_literal}]))
-"""
+    # ── Tool resolution: inline every enabled tool as Python source ───────
+    # The DB is needed only here, at generation time. The emitted script
+    # contains the tool code verbatim, so it never touches PostgreSQL.
+    from models.custom_tool import CustomTool
 
-    custom_tools_lines = ""
-    if custom_tools:
-        # Custom tools live in the custom_tools table — use the same async
-        # loader the backend runtime uses (ToolLoader.load_custom), wrapped
-        # in asyncio.run for this sync CLI script.
-        tool_ids_literal = ", ".join(json.dumps(t) for t in custom_tools)
-        custom_tools_lines = f"""
-# Custom tools (loaded from the custom_tools table — mirrors backend runtime)
-from core.agents.tool_loader import ToolLoader
-tools.extend(asyncio.run(ToolLoader.load_custom([{tool_ids_literal}], project_id)))
-"""
+    tool_ids = list(dict.fromkeys([*native_tools, *custom_tools]))
+    tool_rows: Dict[str, Any] = {}
+    if tool_ids:
+        rows = db.query(CustomTool).filter(CustomTool.tool_id.in_(tool_ids)).all()
+        tool_rows = {r.tool_id: r for r in rows}
+
+    def _emit_python_tool(row) -> str:
+        """Emit a python_function tool: its raw source + a registration line."""
+        ic = row.implementation_config or {}
+        code = ic.get("code") or ""
+        fn = ic.get("function_name") or "run"
+        # Tavily's code imports the backend config module; the standalone
+        # get_api_key_from_db shim (emitted in the header) replaces it.
+        code = code.replace(
+            "from config import get_api_key_from_db",
+            "# (backend config import replaced by the get_api_key_from_db shim above)",
+        )
+        desc = (row.description or "").replace("\n", " ")
+        return (
+            f"# ── Tool: {row.tool_id} ({row.name}) ─────────────────────────────\n"
+            f"{code}\n"
+            f"# register as a LangChain tool (name must be the tool_id)\n"
+            f"_tools.append(tool({json.dumps(row.tool_id)}, {fn}, "
+            f"description={json.dumps(desc)}))\n"
+        )
+
+    def _emit_api_tool(row) -> str:
+        """Emit an api tool as an httpx-based async function (mirrors backend)."""
+        ic = row.implementation_config or {}
+        url = ic.get("url", "")
+        method = ic.get("method", "GET")
+        headers = ic.get("headers") or {}
+        timeout = ic.get("timeout", 30)
+        props = (row.input_schema or {}).get("properties") or {}
+        arg_defs = ", ".join(
+            f"{k}: {_PY_TYPE_HINTS.get(v.get('type', 'string'), 'str')}"
+            for k, v in props.items()
+        )
+        desc = (row.description or "").replace("\n", " ")
+        return (
+            f"# ── Tool: {row.tool_id} ({row.name}) ─────────────────────────────\n"
+            f"async def {row.tool_id}({arg_defs}) -> str:\n"
+            f'    """{desc}"""\n'
+            f"    import httpx\n"
+            f"    _url = {json.dumps(url)}.format(**locals())\n"
+            f"    _headers = {json.dumps(headers)}\n"
+            f"    try:\n"
+            f"        async with httpx.AsyncClient(timeout={timeout}) as _client:\n"
+            f"            _resp = await _client.request({json.dumps(method)}, _url, headers=_headers)\n"
+            f"            _resp.raise_for_status()\n"
+            f"            return _resp.text\n"
+            f"    except Exception as _e:\n"
+            f'        return f"Error: {{_e}}"\n'
+            f"\n"
+            f"# register as a LangChain tool (name must be the tool_id)\n"
+            f"_tools.append(tool({json.dumps(row.tool_id)}, {row.tool_id}, "
+            f"description={json.dumps(desc)}))\n"
+        )
+
+    def _emit_legacy_tool(tool_id: str) -> str:
+        """Emit a legacy-only built-in stub (memory_store / memory_recall)."""
+        desc = f"Legacy built-in tool ({tool_id}), inlined standalone stub."
+        return (
+            f"# ── Tool: {tool_id} (legacy standalone stub) ─────────────────────\n"
+            f"{_CODEGEN_LEGACY_TOOLS[tool_id]}\n"
+            f"# register as a LangChain tool (name must be the tool_id)\n"
+            f"_tools.append(tool({json.dumps(tool_id)}, {tool_id}, "
+            f"description={json.dumps(desc)}))\n"
+        )
+
+    def _emit_missing_tool(tool_id: str) -> str:
+        """Emit a harmless stub for a tool that could not be inlined."""
+        return (
+            f"# ── Tool: {tool_id} (NOT available in standalone mode) ───────────\n"
+            f"def {tool_id}(*args, **kwargs) -> str:\n"
+            f'    return "Tool {json.dumps(tool_id)} is not available in this standalone script."\n\n'
+            f"# register as a LangChain tool (name must be the tool_id)\n"
+            f"_tools.append(tool({json.dumps(tool_id)}, {tool_id}))\n"
+        )
+
+    tool_blocks = []
+    for tid in tool_ids:
+        row = tool_rows.get(tid)
+        if row is not None and row.tool_type.value == "api":
+            tool_blocks.append(_emit_api_tool(row))
+        elif row is not None:
+            tool_blocks.append(_emit_python_tool(row))
+        elif tid in _CODEGEN_LEGACY_TOOLS:
+            tool_blocks.append(_emit_legacy_tool(tid))
+        else:
+            tool_blocks.append(_emit_missing_tool(tid))
+    tools_block = "\n".join(tool_blocks)
 
     is_deep = config.get("use_deepagents", False)
 
     if is_deep:
         build_section = '''
-# Build DeepAgent with PostgreSQL checkpointer for conversation persistence
-import psycopg
-from langgraph.checkpoint.postgres import PostgresSaver
+# Build DeepAgent (deepagents pip package — stateless, no PostgreSQL)
 from deepagents import create_deep_agent
 
-# PostgresSaver.from_conn_string() is a context manager in current langgraph;
-# use the direct constructor with a long-lived sync connection instead.
-_checkpointer_conn = psycopg.connect(
-    os.environ.get("DATABASE_URL", "postgresql://user:pass@localhost:5432/langconfig")
-)
-checkpointer = PostgresSaver(_checkpointer_conn)
 agent = create_deep_agent(
     model=llm,
     system_prompt=system_prompt,
     tools=tools,
-    checkpointer=checkpointer,
 )
 '''
     else:
         build_section = '''
-# Build LangGraph agent (LangChain v1.0 API — mirrors AgentFactory in the backend)
-import psycopg
-from langgraph.checkpoint.postgres import PostgresSaver
-from langchain.agents import create_agent
-from core.state import DeepAgentState
+# Build LangGraph agent (LangChain v1.0 API — stateless, no PostgreSQL)
+from typing import Annotated, Literal, Optional
 
-# PostgresSaver.from_conn_string() is a context manager in current langgraph;
-# use the direct constructor with a long-lived sync connection instead.
-_checkpointer_conn = psycopg.connect(
-    os.environ.get("DATABASE_URL", "postgresql://user:pass@localhost:5432/langconfig")
-)
-checkpointer = PostgresSaver(_checkpointer_conn)
+from typing_extensions import NotRequired, TypedDict
+
+from langchain.agents import AgentState, create_agent
+
+
+class Todo(TypedDict):
+    """A structured task item for tracking progress through complex workflows."""
+    content: str
+    status: Literal["pending", "in_progress", "completed"]
+
+
+def file_reducer(left: Optional[dict], right: Optional[dict]) -> dict:
+    """Merge two file dictionaries, with right side taking precedence."""
+    if left is None:
+        return right or {}
+    if right is None:
+        return left
+    return {**left, **right}
+
+
+class DeepAgentState(AgentState):
+    """Extended agent state with TODO tracking and a virtual file system."""
+    todos: NotRequired[list[Todo]]
+    files: Annotated[NotRequired[dict[str, str]], file_reducer]
+
+
 agent = create_agent(
     model=llm,
     tools=tools,
     system_prompt=system_prompt,
     state_schema=DeepAgentState,
-    checkpointer=checkpointer,
 )
 '''
 
@@ -1030,10 +1139,13 @@ agent = create_agent(
 
     source = (
         '#!/usr/bin/env python3\n'
-        f'"""Runnable agent: {agent.name} (generated by LangConfig)\n'
+        f'"""Runnable agent: {agent.name} (generated by LangConfig) — fully standalone.\n'
+        '\n'
+        'Everything needed at runtime is inlined below: LLM config, prompt,\n'
+        'tools, and agent state. No PostgreSQL or LangConfig backend required.\n'
         '\n'
         'Usage:\n'
-        '    pip install langchain-openai langgraph python-dotenv\n'
+        '    pip install langchain-openai langgraph langchain-community python-dotenv httpx\n'
         '    python agent.py                     # interactive chat\n'
         '    python agent.py "your question"     # one-shot answer\n'
         '"""\n'
@@ -1042,55 +1154,48 @@ agent = create_agent(
         'import sys\n'
         'import asyncio\n'
         '\n'
-        '# ── Path setup (mirrors backend/api/chat/routes.py) ──────────────────────\n'
-        '# You can override this by setting LANGCFG_ROOT or placing this script\n'
-        '# anywhere inside the repo (it walks up looking for backend/).\n'
-        f'_REPO_ROOT = r"{_CODEGEN_REPO_ROOT}"\n'
-        'if _REPO_ROOT not in sys.path:\n'
-        '    sys.path.insert(0, _REPO_ROOT)\n'
-        '_BACKEND_DIR = os.path.join(_REPO_ROOT, "backend")\n'
-        'if _BACKEND_DIR not in sys.path:\n'
-        '    sys.path.insert(0, _BACKEND_DIR)\n'
-        '_PHASE9_DIR = os.path.join(_REPO_ROOT, "learning", "phase9")\n'
-        'if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):\n'
-        '    sys.path.insert(0, _PHASE9_DIR)\n'
-        '\n'
-        '# Default project ID for graphindex tools (override via env)\n'
-        f'project_id = int(os.environ.get("GRAPHINDEX_PROJECT_ID", "{getattr(agent, "project_id", 1) or 1}"))\n'
-        '\n'
-        '# ── Env ──────────────────────────────────────────────────────────────────\n'
+        '# ── Env ──────────────────────────────────────────────────────────────\n'
         'from dotenv import load_dotenv\n'
-        '_dotenv_path = os.path.join(_REPO_ROOT, ".env")\n'
-        'if os.path.isfile(_dotenv_path):\n'
-        '    load_dotenv(_dotenv_path)\n'
-        'else:\n'
-        '    load_dotenv()\n'
+        'load_dotenv()  # loads .env from the current directory\n'
+        '_LANGCFG_ROOT = os.environ.get("LANGCFG_ROOT", "")\n'
+        'if _LANGCFG_ROOT and os.path.isfile(os.path.join(_LANGCFG_ROOT, ".env")):\n'
+        '    load_dotenv(os.path.join(_LANGCFG_ROOT, ".env"))\n'
+        '\n'
+        '# Default project id (kept for compatibility with inlined tool code)\n'
+        'project_id = int(os.environ.get("GRAPHINDEX_PROJECT_ID", "1"))\n'
+        '\n'
+        '# ── Backend-API shims (standalone — no Postgres) ─────────────────────\n'
+        'def get_api_key_from_db(*args, **kwargs) -> str:\n'
+        '    """Standalone replacement for backend config.get_api_key_from_db()."""\n'
+        '    return os.environ.get("TAVILY_API_KEY", "")\n'
         '\n'
         f'{model_import}\n'
         '\n'
-        '# ── 1. LLM ──────────────────────────────────────────────────────────────\n'
+        '# ── 1. LLM ───────────────────────────────────────────────────────────\n'
         f'{llm_init}\n'
         '\n'
-        '# ── 2. System prompt ────────────────────────────────────────────────────\n'
+        '# ── 2. System prompt ─────────────────────────────────────────────────\n'
         f"system_prompt = '''{escaped_prompt}'''\n"
         '\n'
-        '# ── 3. Tools ────────────────────────────────────────────────────────────\n'
-        'tools = []\n'
-        f'{native_tools_lines}{custom_tools_lines}'
+        '# ── 3. Tools (all inlined — no DB lookup at runtime) ─────────────────\n'
+        'from langchain_core.tools import tool\n'
+        '_tools: list = []\n'
+        f'{tools_block}\n'
         '\n'
-        '# ── 4. Build agent ──────────────────────────────────────────────────────\n'
+        'tools = _tools\n'
+        '\n'
+        '# ── 4. Build agent ───────────────────────────────────────────────────\n'
         f'{build_section}'
         '\n'
-        '# ── 5. CLI entry point ─────────────────────────────────────────────────\n'
-        'def _run_turn(user_input: str) -> str:\n'
+        '# ── 5. CLI entry point ───────────────────────────────────────────────\n'
+        'async def _run_turn(user_input: str) -> str:\n'
         '    """Run a single user turn and return the agent reply text."""\n'
         '    from langchain_core.messages import HumanMessage\n'
-        '    # The Postgres checkpointer resumes prior turns automatically, so\n'
-        '    # only the new message is passed (replaying the whole history would\n'
-        '    # duplicate messages in the checkpointed state).\n'
-        '    result = agent.invoke(\n'
+        '    # Stateless: every turn starts a fresh run, so only the new message\n'
+        '    # is passed (the conversation is not checkpointed).\n'
+        '    result = await agent.ainvoke(\n'
         '        {"messages": [HumanMessage(content=user_input)]},\n'
-        '        config={"configurable": {"thread_id": "cli"}, "recursion_limit": 500},\n'
+        '        config={"recursion_limit": 500},\n'
         '    )\n'
         '    msgs = result.get("messages", [])\n'
         '    # AIMessage always has a `tool_calls` attr (default []), so use\n'
@@ -1103,7 +1208,7 @@ agent = create_agent(
         'def main(query: str | None = None):\n'
         '    # One-shot mode: `python agent.py "your question"`\n'
         '    if query:\n'
-        '        print(_run_turn(query))\n'
+        '        print(asyncio.run(_run_turn(query)))\n'
         '        return\n'
         f'    print(f"=== {agent.name} ===")\n'
         '    print("Type \'exit\' to quit.\\n")\n'
@@ -1111,7 +1216,7 @@ agent = create_agent(
         '        user_input = input("You: ").strip()\n'
         '        if user_input.lower() in ("exit", "quit"):\n'
         '            break\n'
-        '        print(f"\\nAgent: {_run_turn(user_input)}\\n")\n'
+        '        print(f"\\nAgent: {asyncio.run(_run_turn(user_input))}\\n")\n'
         '\n'
         '\n'
         'if __name__ == "__main__":\n'
