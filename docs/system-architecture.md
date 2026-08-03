@@ -765,7 +765,16 @@ tool works transparently against the DB.
    `execute` in the sandbox. `local` mode keeps the legacy disk staging untouched.
    Tests: `backend/tests/test_db_backend.py` (10 cases incl. recursive delete, glob
    `**`, grep truncation, traversal rejection, prefix mapping).
-4. **Phase 4 — migration tool** — one-shot job moving existing FS artifacts into DB on flip
+4. **Phase 4 — migration tool ✅ DONE** — `backend/tools/migrate_storage.py`, a
+   one-shot job for the flip: copies existing FS artifacts into `storage_objects`
+   under the same keys Phase 2 writes through (`documents/<rel>` from
+   `FileStorage`, `outputs/<rel>` from `WorkspaceManager`, `skills/<type>/<id>/SKILL.md`
+   rendered canonically from the `skills` table). Idempotent (existing keys
+   skipped; `--force` overwrites), `--dry-run` to preview, forces
+   `STORAGE_MODE=db`, loads the root `.env` before importing `db.database` (the
+   §14 gotcha). Verified live on `:5432`: 1,301 artifacts migrated with
+   content-identical spot checks, re-run skips all 1,301.
+   Run: `uv run python -m tools.migrate_storage [--force] [--dry-run]`
 
 ---
 

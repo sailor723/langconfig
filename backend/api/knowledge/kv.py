@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from services.file_storage import file_storage
@@ -474,20 +474,31 @@ async def delete_document(doc_id: str, project_id: int):
 
 @router.get("/documents/{doc_id}/file")
 async def get_document_file(doc_id: str, project_id: int):
-    """Serve the raw document file for inline viewing or download."""
+    """Serve the raw document file for inline viewing or download.
+
+    In STORAGE_MODE=db the durable copy in storage_objects is read first
+    (read-through), falling back to the disk copy when the storage row is
+    missing. Local mode behaves exactly as before — a plain disk read.
+    """
     store = KVStore(project_id)
     doc = store.get_doc(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
     file_path = Path(doc.storage_path)
-    if not file_path.exists():
+    content = file_storage.read_bytes(file_path)
+    if content is None:
         raise HTTPException(status_code=404, detail="File not found on disk")
 
     media_type = doc.mime_type or "application/octet-stream"
-    return FileResponse(
-        path=str(file_path),
+    # Serve the raw bytes (storage-backed or disk) with an inline disposition,
+    # matching the FileResponse behavior used before read-through.
+    return Response(
+        content=content,
         media_type=media_type,
-        filename=doc.original_filename,
-        content_disposition_type="inline",
+        headers={
+            "Content-Disposition": (
+                f'inline; filename="{doc.original_filename}"'
+            )
+        },
     )
