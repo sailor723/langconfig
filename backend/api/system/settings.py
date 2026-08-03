@@ -7,10 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Optional
+import logging
 from pydantic import BaseModel
 
 from db.database import get_db
 from models.settings import Settings as SettingsModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -380,6 +383,63 @@ async def reset_settings(db: Session = Depends(get_db)):
 
     db.commit()
     return {"message": "Settings reset to defaults"}
+
+
+# ── Storage mode (docs/system-architecture.md §15, Phase 5) ──
+# Runtime switch between 'local' (disk, default) and 'db' (Postgres BYTEA).
+# The choice is persisted in the settings table so it survives restarts; on
+# boot the lifespan applies the persisted value over the .env default.
+VALID_STORAGE_MODES = ("local", "db")
+
+
+class StorageModeUpdate(BaseModel):
+    mode: str
+
+
+def _storage_mode_label(mode: str) -> str:
+    """Human-readable backend label for the Settings UI."""
+    return "PostgreSQL (BYTEA)" if mode == "db" else "Local disk"
+
+
+@router.get("/storage-mode")
+async def get_storage_mode(db: Session = Depends(get_db)):
+    """Current storage mode: persisted runtime override > .env/default."""
+    row = get_or_create_settings(db)
+    persisted = getattr(row, "storage_mode", None)
+    mode = (persisted or app_settings.storage_mode or "local").lower()
+    return {
+        "mode": mode,
+        "source": "db" if persisted else "env",
+        "backend": _storage_mode_label(mode),
+    }
+
+
+@router.put("/storage-mode")
+async def update_storage_mode(update: StorageModeUpdate, db: Session = Depends(get_db)):
+    """Switch the storage backend at runtime and persist the choice."""
+    from services.storage import reset_storage
+
+    mode = update.mode.strip().lower()
+    if mode not in VALID_STORAGE_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid storage mode: {mode!r}. Choose 'local' or 'db'.",
+        )
+
+    row = get_or_create_settings(db)
+    row.storage_mode = mode
+    db.commit()
+
+    # Take effect immediately: mutate the process-wide setting and drop the
+    # cached backend so the next get_storage() builds the new one.
+    app_settings.storage_mode = mode
+    reset_storage()
+    logger.info("Storage mode switched to '%s' (persisted)", mode)
+    return {
+        "mode": mode,
+        "source": "db",
+        "backend": _storage_mode_label(mode),
+    }
 
 
 @router.get("/models")

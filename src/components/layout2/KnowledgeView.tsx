@@ -19,8 +19,9 @@ interface KnowledgeViewProps {
 }
 
 /* ── Supported formats ──────────────────────────────── */
-const TEXT_EXTENSIONS = new Set(['md', 'txt', 'json', 'csv', 'yaml', 'yml', 'xml', 'html', 'htm', 'css', 'sql', 'sh', 'bash', 'py', 'js', 'ts', 'tsx', 'jsx', 'rb', 'go', 'rs', 'java', 'kt', 'swift', 'c', 'cpp', 'h', 'hpp']);
+const TEXT_EXTENSIONS = new Set(['md', 'txt', 'json', 'csv', 'yaml', 'yml', 'xml', 'css', 'sql', 'sh', 'bash', 'py', 'js', 'ts', 'tsx', 'jsx', 'rb', 'go', 'rs', 'java', 'kt', 'swift', 'c', 'cpp', 'h', 'hpp']);
 const PDF_EXTENSIONS = new Set(['pdf']);
+const HTML_EXTENSIONS = new Set(['html', 'htm']);
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']);
 
 type DocStatus = 'loading' | 'loaded' | 'error';
@@ -66,7 +67,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
       setStatus('loaded');
       return;
     }
-    if (PDF_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext)) {
+    if (PDF_EXTENSIONS.has(ext) || HTML_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext)) {
       setStatus('loaded');
       return;
     }
@@ -96,6 +97,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
 
   const ext = docName.split('.').pop()?.toLowerCase() || '';
   const isPdf = PDF_EXTENSIONS.has(ext);
+  const isHtml = HTML_EXTENSIONS.has(ext);
   const isImage = IMAGE_EXTENSIONS.has(ext);
   const isText = TEXT_EXTENSIONS.has(ext);
   const isMarkdown = ext === 'md';
@@ -210,8 +212,8 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
               </a>
             )}
           </div>
-        ) : isPdf ? (
-          /* PDF: render via iframe */
+        ) : isPdf || isHtml ? (
+          /* PDF/HTML: render via iframe (browser-native viewer) */
           <iframe
             src={fileUrl!}
             title={docName}

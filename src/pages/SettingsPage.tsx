@@ -101,6 +101,10 @@ export default function SettingsView() {
   // RAG settings state - start with null, load from backend
   const [ragSettings, setRagSettings] = useState<RagSettings | null>(null);
 
+  // Storage mode (docs/system-architecture.md §15, Phase 5)
+  const [storageMode, setStorageMode] = useState<'local' | 'db'>('local');
+  const [storageSource, setStorageSource] = useState<'env' | 'db'>('env');
+
   useEffect(() => {
     const abortController = new AbortController();
 
@@ -199,6 +203,20 @@ export default function SettingsView() {
       // Note: available embedding models are now loaded by the
       // <EmbeddingSettings> child component (it owns its own UI state).
 
+      // Load storage mode
+      try {
+        const storageResponse = await apiClient.getStorageMode();
+        const storageData = storageResponse.data;
+        if (storageData.mode === 'local' || storageData.mode === 'db') {
+          setStorageMode(storageData.mode);
+        }
+        if (storageData.source === 'db' || storageData.source === 'env') {
+          setStorageSource(storageData.source);
+        }
+      } catch (error) {
+        console.error('Failed to load storage mode:', error);
+      }
+
     } catch (error) {
       // Ignore abort errors
       if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
@@ -292,6 +310,19 @@ export default function SettingsView() {
     try {
       apiClient.updateGeneralSettings({ theme: themeName });
     } catch {}
+  };
+
+  // Storage mode switch — takes effect immediately on the backend
+  // (reset_storage() drops the cached backend), and persists the choice.
+  const handleStorageModeChange = async (mode: 'local' | 'db') => {
+    if (mode === storageMode) return;
+    try {
+      const resp = await apiClient.updateStorageMode({ mode });
+      setStorageMode(resp.data.mode);
+      setStorageSource('db');
+    } catch (error) {
+      console.error('Failed to switch storage mode:', error);
+    }
   };
 
   const renderCategoryContent = () => {
@@ -463,6 +494,61 @@ export default function SettingsView() {
 
       case 'embedding':
         return <EmbeddingSettings />;
+
+      case 'storage':
+        return (
+          <SettingsSection
+            title="Storage Mode"
+            description="Where documents, skills, and outputs are durably stored. Switch takes effect immediately; data migration is done via CLI/batch scripts."
+            icon="storage"
+          >
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                { value: 'local' as const, name: 'Local disk', desc: 'Files on the local filesystem (default). Best for development and single-user setups.', icon: 'folder_open' },
+                { value: 'db' as const, name: 'PostgreSQL (BYTEA)', desc: 'Blobs in the storage_objects table. Durable, enterprise home; survives filesystem loss.', icon: 'database' },
+              ]).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => handleStorageModeChange(opt.value)}
+                  className="p-4 rounded-lg border-2 transition-all text-left hover:border-primary/50"
+                  style={{
+                    borderColor: storageMode === opt.value
+                      ? 'var(--color-primary)'
+                      : 'var(--color-border-dark)',
+                    backgroundColor: storageMode === opt.value
+                      ? 'var(--color-primary)' + '10'
+                      : 'transparent'
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="material-symbols-outlined text-lg" style={{ color: 'var(--color-primary)' }}>
+                      {opt.icon}
+                    </span>
+                    <span className="font-medium text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                      {opt.name}
+                    </span>
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
+                    {opt.desc}
+                  </p>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3 p-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg">
+              <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-xl">info</span>
+              <div className="text-xs text-blue-700 dark:text-blue-400/80">
+                <p className="font-semibold mb-1">
+                  Source: {storageSource === 'db' ? 'persisted in database (overrides .env)' : '.env / default'}
+                </p>
+                <p>
+                  Switching modes does <strong>not</strong> move existing data. Use the CLI/batch migration
+                  scripts to backfill or copy documents between backends.
+                </p>
+              </div>
+            </div>
+          </SettingsSection>
+        );
 
       case 'local-workspace':
         if (!workspaceSettings) return null;

@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLayoutTokens } from './tokens';
 import { useTheme, type ThemeName } from '../../lib/themes';
 import { useTranslation } from 'react-i18next';
-import { Check, Sun, Moon, Flame, FolderOpen } from 'lucide-react';
+import { Check, Sun, Moon, Flame, FolderOpen, Database } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 
 interface SystemSettingsPopoverProps {
@@ -22,12 +22,13 @@ interface SystemSettingsPopoverProps {
 
 const POPOVER_WIDTH = 260;
 
-type SettingsTab = 'appearance' | 'language' | 'workspace';
+type SettingsTab = 'appearance' | 'language' | 'workspace' | 'storage';
 
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
   { id: 'appearance', label: 'Appearance', icon: <Sun size={14} /> },
   { id: 'language',   label: 'Language',   icon: <span style={{ fontSize: 13 }}>A</span> },
   { id: 'workspace',  label: 'Workspace',  icon: <FolderOpen size={14} /> },
+  { id: 'storage',    label: 'Storage',    icon: <Database size={14} /> },
 ];
 
 export default function SystemSettingsPopover({ anchorRef, onClose }: SystemSettingsPopoverProps) {
@@ -45,6 +46,10 @@ export default function SystemSettingsPopover({ anchorRef, onClose }: SystemSett
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
   const [workspaceSaved, setWorkspaceSaved] = useState(false);
 
+  // ── Storage mode state (docs/system-architecture.md §15, Phase 5) ──
+  const [storageMode, setStorageMode] = useState<'local' | 'db'>('local');
+  const [storageSource, setStorageSource] = useState<'env' | 'db'>('env');
+
   // Load workspace settings on mount
   useEffect(() => {
     apiClient.getWorkspaceSettings().then((res: any) => {
@@ -54,7 +59,25 @@ export default function SystemSettingsPopover({ anchorRef, onClose }: SystemSett
       setAllowWrite(d.allow_write ?? true);
       setRequireApproval(d.require_approval ?? true);
     }).catch(() => {}).finally(() => setWorkspaceLoading(false));
+
+    // Load current storage mode
+    apiClient.getStorageMode().then((res: any) => {
+      const d = res.data;
+      if (d.mode === 'local' || d.mode === 'db') setStorageMode(d.mode);
+      if (d.source === 'env' || d.source === 'db') setStorageSource(d.source);
+    }).catch(() => {});
   }, []);
+
+  // Switch storage backend at runtime — takes effect immediately (the backend
+  // drops its cached backend via reset_storage()) and persists the choice.
+  const switchStorageMode = async (mode: 'local' | 'db') => {
+    if (mode === storageMode) return;
+    try {
+      const res = await apiClient.updateStorageMode({ mode });
+      setStorageMode(res.data.mode);
+      setStorageSource('db');
+    } catch {}
+  };
 
   const saveWorkspace = async () => {
     try {
@@ -311,6 +334,51 @@ export default function SystemSettingsPopover({ anchorRef, onClose }: SystemSett
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Storage mode ── */}
+      {activeTab === 'storage' && (
+        <div style={{ padding: '6px 8px' }}>
+          {([
+            { id: 'local' as const, label: 'Local disk', desc: 'Default. Files on the local filesystem.' },
+            { id: 'db' as const, label: 'PostgreSQL (BYTEA)', desc: 'Durable blobs in storage_objects.' },
+          ]).map(({ id, label, desc }) => {
+            const isActive = storageMode === id;
+            return (
+              <button
+                key={id}
+                onClick={() => switchStorageMode(id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: '100%',
+                  padding: '6px 10px',
+                  background: isActive ? tk.bgSelected : 'transparent',
+                  border: 'none',
+                  borderRadius: 3,
+                  cursor: 'pointer',
+                  color: tk.textPrimary,
+                  fontSize: 13,
+                  textAlign: 'left',
+                }}
+                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = tk.bgHover; }}
+                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+              >
+                <Database size={14} strokeWidth={1.5} style={{ color: tk.textMuted }} />
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: 'block' }}>{label}</span>
+                  <span style={{ display: 'block', fontSize: 11, color: tk.textMuted }}>{desc}</span>
+                </span>
+                {isActive && <Check size={14} strokeWidth={2} style={{ color: tk.accent }} />}
+              </button>
+            );
+          })}
+          <div style={{ padding: '6px 10px', fontSize: 11, color: tk.textMuted, lineHeight: 1.5 }}>
+            Source: {storageSource === 'db' ? 'persisted (overrides .env)' : '.env / default'}. Switching does
+            not migrate data — use CLI/batch scripts.
+          </div>
         </div>
       )}
     </div>

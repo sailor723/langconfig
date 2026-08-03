@@ -39,6 +39,10 @@ class Settings(Base):
 
     # RAG/Vector Database Settings
     storage_path = Column(String, nullable=True)
+    # Storage mode runtime override (docs/system-architecture.md §15): 'local'
+    # (disk, default) | 'db' (Postgres BYTEA). Nullable — None means "use the
+    # .env / default value". Set via Settings UI -> GET/PUT /api/settings/storage-mode.
+    storage_mode = Column(String, nullable=True)
     embedding_model = Column(String, default="text-embedding-3-small")
     chunk_size = Column(Integer, default=1000)
     chunk_overlap = Column(Integer, default=200)

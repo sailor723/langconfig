@@ -251,3 +251,136 @@ def test_skill_storage_key_normalizes_source_type():
     assert skill_storage_key(row(SkillSourceType.PERSONAL)) == "skills/personal/x/SKILL.md"
     assert skill_storage_key(row("learning.phase5")) == "skills/phase5/x/SKILL.md"
     assert skill_storage_key(row(None)) == "skills/builtin/x/SKILL.md"
+
+
+def test_kv_list_and_file_from_storage_db_mode(db_mode, tmp_path, monkeypatch):
+    """In db mode GET /api/kv/documents lists from storage_objects, and the
+    file/delete endpoints resolve those DB-listed docs by storage-derived id.
+    Also verifies RFC 5987 filename encoding (non-ASCII) + media types."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from api.knowledge import kv as kv_module
+    from services.file_storage import FileStorage
+
+    kv_meta = tmp_path / ".kvmeta"
+    kv_meta.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(kv_module, "KV_DATA_DIR", kv_meta)
+    monkeypatch.setattr(FileStorage, "base_dir", property(lambda self: tmp_path))
+
+    # Seed durable rows directly — no .kvmeta metadata, as after a migration
+    # or a DB-restored deployment. Includes a non-ASCII filename (the reported
+    # "garbled PDF" case).
+    db_mode.save("documents/project_1/fin/77a07943_report.md", b"hello world", "text/markdown")
+    db_mode.save("documents/project_1/bbdd1122_\u62a5\u544a.pdf", b"%PDF-1.4 fake", "application/pdf")
+    db_mode.save("documents/project_1/cc334455_\u6d4b\u8bd5.docx", b"PK fake", "application/octet-stream")
+
+    app = FastAPI()
+    app.include_router(kv_module.router)
+    client = TestClient(app)
+
+    # Listing is DB-sourced, with hierarchy parsed positionally from the key.
+    resp = client.get("/api/kv/documents", params={"project_id": 1})
+    assert resp.status_code == 200
+    docs = {d["name"]: d for d in resp.json()}
+    assert set(docs) == {"report.md", "\u62a5\u544a.pdf", "\u6d4b\u8bd5.docx"}
+    assert docs["report.md"]["id"] == "77a07943"
+    assert docs["report.md"]["industry"] == "fin"
+    assert docs["report.md"]["document_type"] == "markdown"
+    assert docs["report.md"]["size"] == 11
+    assert docs["report.md"]["mime_type"] == "text/markdown"
+
+    # PDF with non-ASCII name: proper content-type, inline disposition,
+    # RFC 5987 encoded filename (no raw bytes in the header).
+    pdf = docs["\u62a5\u544a.pdf"]
+    resp = client.get(f"/api/kv/documents/{pdf['id']}/file", params={"project_id": 1})
+    assert resp.status_code == 200
+    assert resp.content == b"%PDF-1.4 fake"
+    assert resp.headers["content-type"].startswith("application/pdf")
+    cd = resp.headers["content-disposition"]
+    assert "inline" in cd
+    assert "filename*=UTF-8''%E6%8A%A5%E5%91%8A.pdf" in cd
+
+    # docx with non-ASCII name: correct office MIME, forced to attachment.
+    docx = docs["\u6d4b\u8bd5.docx"]
+    resp = client.get(f"/api/kv/documents/{docx['id']}/file", params={"project_id": 1})
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert "attachment" in resp.headers["content-disposition"]
+
+    # Deleting a DB-listed doc removes only its durable row.
+    resp = client.delete(f"/api/kv/documents/{pdf['id']}", params={"project_id": 1})
+    assert resp.status_code == 200
+    assert db_mode.exists("documents/project_1/bbdd1122_\u62a5\u544a.pdf") is False
+    assert db_mode.exists("documents/project_1/fin/77a07943_report.md") is True
+
+
+def test_storage_mode_api_switches_and_persists(tmp_path, monkeypatch):
+    """PUT /api/settings/storage-mode flips the runtime mode + resets the
+    storage cache, and persists the choice; GET reports it."""
+    from sqlalchemy.pool import StaticPool
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from api.system import settings as settings_api
+    from config import settings as app_settings
+    from db.database import get_db
+    from models.settings import Settings as SettingsModel
+    from services import storage as storage_mod
+
+    # sqlite DB hosting the settings table, shared across threads.
+    engine = create_engine(
+        "sqlite:///:memory:",
+        poolclass=StaticPool,
+        connect_args={"check_same_thread": False},
+    )
+    SettingsModel.__table__.create(engine)
+    Session = sessionmaker(bind=engine)
+
+    app = FastAPI()
+    app.include_router(settings_api.router)
+
+    def override_db():
+        session = Session()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    app.dependency_overrides[get_db] = override_db
+    client = TestClient(app)
+
+    # Normalize the ambient mode so assertions don't depend on .env.
+    monkeypatch.setattr(app_settings, "storage_mode", "local")
+    # Prove reset_storage() actually clears the cached backend.
+    monkeypatch.setattr(storage_mod, "_storage", object())
+
+    resp = client.get("/api/settings/storage-mode")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["mode"] == "local"
+    assert body["source"] == "env"
+    assert body["backend"] == "Local disk"
+
+    resp = client.put("/api/settings/storage-mode", json={"mode": "db"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["mode"] == "db"
+    assert body["source"] == "db"
+    assert body["backend"] == "PostgreSQL (BYTEA)"
+    # Runtime effects: process-wide setting mutated + cache cleared.
+    assert app_settings.storage_mode == "db"
+    assert storage_mod._storage is None
+    # Persisted in the settings table.
+    row = Session().query(SettingsModel).first()
+    assert row.storage_mode == "db"
+
+    resp = client.get("/api/settings/storage-mode")
+    assert resp.json()["mode"] == "db"
+    assert resp.json()["source"] == "db"
+
+    # Invalid mode rejected.
+    resp = client.put("/api/settings/storage-mode", json={"mode": "s3"})
+    assert resp.status_code == 400
