@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useLayoutTokens } from './tokens';
+import PdfViewer from './PdfViewer';
 import type { Tab } from './useLayout';
 import { Database, FileText, Loader, Download, AlertCircle } from 'lucide-react';
 
@@ -151,6 +152,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
+          position: 'relative', // anchor for the absolutely-filled PDF embed
           ...cardStyle,
         }}
       >
@@ -212,8 +214,12 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
               </a>
             )}
           </div>
-        ) : isPdf || isHtml ? (
-          /* PDF/HTML: render via iframe (browser-native viewer) */
+        ) : isPdf ? (
+          /* PDF: render with pdf.js (PdfViewer) so Safari's PDFKit can't
+           * garble subsetted fonts — output is identical in every browser. */
+          <PdfViewer url={fileUrl!} />
+        ) : isHtml ? (
+          /* HTML: keep iframe so it renders as a document */
           <iframe
             src={fileUrl!}
             title={docName}
