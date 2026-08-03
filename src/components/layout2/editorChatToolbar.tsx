@@ -8,7 +8,7 @@
  *   - statusLabel   : pre-formatted right-hand status line
  */
 import type { LayoutTokens } from './tokens';
-import { Loader, Play, Square, Save, FileCode2 } from 'lucide-react';
+import { Loader, Play, Square, Save, Eye } from 'lucide-react';
 
 export interface SaveMessage {
   ok: boolean;
@@ -23,8 +23,8 @@ interface ChatTestToolbarProps {
   onStop: () => void;
   saving: boolean;
   onSave: () => void;
-  /** Download the generated runnable Python CLI (`agent.py`). */
-  onExport: () => void;
+  /** Open the code viewer popup (View + Download generated `agent.py`). */
+  onViewCode: () => void;
   /** True when an agent id is present (disables Run otherwise). */
   canRun: boolean;
   /** Extra condition that disables the Save button (e.g. missing agent id). */
@@ -42,7 +42,7 @@ export default function ChatTestToolbar({
   onStop,
   saving,
   onSave,
-  onExport,
+  onViewCode,
   canRun,
   saveDisabled,
   saveMsg,
@@ -127,9 +127,9 @@ export default function ChatTestToolbar({
         </button>
       )}
       <button
-        onClick={onExport}
+        onClick={onViewCode}
         disabled={!canRun}
-        title="Download agent.py — runnable Python CLI"
+        title="View generated agent.py — runnable Python CLI"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -145,8 +145,8 @@ export default function ChatTestToolbar({
           opacity: canRun ? 1 : 0.6,
         }}
       >
-        <FileCode2 size={12} />
-        Export .py
+        <Eye size={12} />
+        View code
       </button>
       <button
         onClick={onSave}
