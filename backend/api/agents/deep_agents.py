@@ -10,7 +10,7 @@ API endpoints for DeepAgent configuration and management.
 import logging
 import json
 import os as _os
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends
 from starlette.responses import Response, FileResponse
 
 # Repo root — used by the codegen endpoint so generated scripts know where
@@ -26,7 +26,6 @@ from pydantic import BaseModel, field_validator
 from db.database import get_db
 from models.deep_agent import (
     DeepAgentTemplate,
-    AgentExport,
     DeepAgentConfig,
     SubAgentConfig,
     MiddlewareConfig,
@@ -36,7 +35,6 @@ from models.deep_agent import (
     create_default_backend_config,
     create_default_guardrails_config,
 )
-from services.export_service import ExportService
 from core.versioning import check_version_conflict, format_lock_version_error
 
 logger = logging.getLogger(__name__)
@@ -168,24 +166,6 @@ class DeepAgentResponse(BaseModel):
         if isinstance(v, dict):
             return []
         return v or []
-
-
-class ExportRequest(BaseModel):
-    """Request to export a DeepAgent."""
-    export_type: str  # 'standalone' or 'langconfig'
-    include_chat_ui: bool = True
-    include_docker: bool = False
-
-
-class ExportResponse(BaseModel):
-    """Response with export details."""
-    export_id: int
-    export_type: str
-    file_path: Optional[str]
-    download_url: Optional[str]
-    created_at: str
-    task_id: Optional[int] = None  # Background task ID
-    status: Optional[str] = None  # Export status (pending, in_progress, completed, failed)
 
 
 # =============================================================================
@@ -808,138 +788,6 @@ async def save_agent_prompt(
 
 
 # =============================================================================
-# Export Endpoints
-# =============================================================================
-
-@router.post("/{agent_id}/export", response_model=ExportResponse)
-async def export_deepagent(
-    agent_id: int,
-    request: ExportRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """
-    Export a DeepAgent as standalone code or .langconfig format.
-
-    Export now runs in background using task queue.
-    - Returns immediately with export_id and task_id
-    - Client polls /api/background-tasks/{task_id} for status
-    - Export record is updated when task completes
-    """
-    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
-
-    if not agent:
-        raise HTTPException(status_code=404, detail="DeepAgent not found")
-
-    try:
-        # Create export record with pending status
-        export = AgentExport(
-            agent_id=agent.id,
-            export_type=request.export_type,
-            export_config={
-                "include_chat_ui": request.include_chat_ui,
-                "include_docker": request.include_docker
-            }
-        )
-        db.add(export)
-        db.commit()
-        db.refresh(export)
-
-        # Enqueue export task (non-blocking)
-        from core.task_queue import task_queue, TaskPriority
-
-        task_id = await task_queue.enqueue(
-            "export_agent",
-            {
-                "agent_id": agent.id,
-                "export_id": export.id,
-                "export_type": request.export_type,
-                "export_config": {
-                    "include_chat_ui": request.include_chat_ui,
-                    "include_docker": request.include_docker
-                }
-            },
-            priority=TaskPriority.NORMAL,
-            max_retries=2  # Exports can be expensive, limit retries
-        )
-
-        logger.info(
-            f"Enqueued export task for DeepAgent {agent.name} (export_id: {export.id}, task_id: {task_id})",
-            extra={
-                "agent_id": agent.id,
-                "export_id": export.id,
-                "task_id": task_id,
-                "export_type": request.export_type
-            }
-        )
-
-        return ExportResponse(
-            export_id=export.id,
-            export_type=export.export_type,
-            file_path=None,  # Will be set by background task
-            download_url=None,  # Will be available after export completes
-            created_at=export.created_at.isoformat(),
-            task_id=task_id,
-            status="pending"
-        )
-
-    except Exception as e:
-        logger.error(f"Error exporting DeepAgent: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/exports/{export_id}/download")
-async def download_export(
-    export_id: int,
-    db: Session = Depends(get_db)
-):
-    """Download an exported DeepAgent."""
-    from starlette.responses import FileResponse
-
-    export = db.query(AgentExport).filter(AgentExport.id == export_id).first()
-
-    if not export:
-        raise HTTPException(status_code=404, detail="Export not found")
-
-    if not export.file_path or not _os.path.exists(export.file_path):
-        raise HTTPException(status_code=404, detail="Export file not found")
-
-    # Update download count
-    export.download_count += 1
-    import datetime
-    export.last_downloaded_at = datetime.datetime.utcnow()
-    db.commit()
-
-    return FileResponse(
-        export.file_path,
-        filename=_os.path.basename(export.file_path),
-        media_type="application/octet-stream"
-    )
-
-
-@router.get("/{agent_id}/exports", response_model=List[ExportResponse])
-async def list_exports(
-    agent_id: int,
-    db: Session = Depends(get_db)
-):
-    """List all exports for a DeepAgent."""
-    exports = db.query(AgentExport).filter(
-        AgentExport.agent_id == agent_id
-    ).order_by(AgentExport.created_at.desc()).all()
-
-    return [
-        ExportResponse(
-            export_id=export.id,
-            export_type=export.export_type,
-            file_path=export.file_path,
-            download_url=f"/api/deepagents/exports/{export.id}/download",
-            created_at=export.created_at.isoformat()
-        )
-        for export in exports
-    ]
-
-
-# =============================================================================
 # Import Endpoint
 # =============================================================================
 
@@ -966,9 +814,8 @@ async def import_langconfig(
 
         # Create agent
         # .langconfig exports BOTH `tools` and `native_tools` as separate
-        # fields (see services/export_service.py::export_langconfig). We
-        # therefore read each from its own field — the previous version
-        # mistakenly loaded `.langconfig.tools` into DB `native_tools`,
+        # fields. We therefore read each from its own field — the previous
+        # version mistakenly loaded `.langconfig.tools` into DB `native_tools`,
         # which made `native_tools == tools` and surfaced as 8 chips in
         # Studio for any imported agent.
         config_dict = {

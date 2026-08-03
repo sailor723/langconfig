@@ -360,51 +360,10 @@ class DeepAgentTemplate(Base, OptimisticLockMixin):
     )
 
     # Relationships
-    exports = relationship("AgentExport", back_populates="agent", cascade="all, delete-orphan")
     chat_sessions = relationship("ChatSession", back_populates="agent", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<DeepAgentTemplate(id={self.id}, name='{self.name}')>"
-
-
-class AgentExport(Base):
-    """
-    Tracks exports of DeepAgent configurations.
-    Stores export history and generated artifacts.
-    """
-    __tablename__ = "agent_exports"
-
-    id = Column(Integer, primary_key=True, index=True)
-
-    # Reference to agent
-    agent_id = Column(Integer, ForeignKey("deep_agent_templates.id"), nullable=False)
-
-    # Export metadata
-    export_type = Column(String(50), nullable=False, index=True)  # 'standalone' or 'langconfig'
-    export_format = Column(String(50), nullable=True)  # 'zip', 'json', etc.
-
-    # Export configuration (what was included)
-    export_config = Column(JSON, nullable=False)
-
-    # File storage
-    file_path = Column(String(500), nullable=True)  # Path to exported artifact
-    file_size = Column(Integer, nullable=True)  # Size in bytes
-
-    # Generation metadata
-    generated_files = Column(JSON, nullable=True)  # List of files included
-
-    # Download tracking
-    download_count = Column(Integer, default=0, nullable=False)
-    last_downloaded_at = Column(DateTime(timezone=True), nullable=True)
-
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-    # Relationships
-    agent = relationship("DeepAgentTemplate", back_populates="exports")
-
-    def __repr__(self):
-        return f"<AgentExport(id={self.id}, type='{self.export_type}', agent_id={self.agent_id})>"
 
 
 class ChatSession(Base):

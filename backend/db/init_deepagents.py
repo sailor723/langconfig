@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from db.database import engine, SessionLocal, init_db, Base
-from models.deep_agent import DeepAgentTemplate, AgentExport, ChatSession
+from models.deep_agent import DeepAgentTemplate, ChatSession
 from core.templates.deep_agent import seed_deepagent_templates
 
 logging.basicConfig(level=logging.INFO)
@@ -69,12 +69,10 @@ def verify_tables():
 
         # Check if tables exist by querying them
         deep_agent_count = db.query(DeepAgentTemplate).count()
-        export_count = db.query(AgentExport).count()
         session_count = db.query(ChatSession).count()
 
         logger.info(f"✓ Verification complete:")
         logger.info(f"  - deep_agent_templates: {deep_agent_count} records")
-        logger.info(f"  - agent_exports: {export_count} records")
         logger.info(f"  - chat_sessions: {session_count} records")
 
         db.close()

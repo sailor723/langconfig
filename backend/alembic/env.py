@@ -43,7 +43,7 @@ from models.core import Directive, Project, Task, ContextDocument, SearchHistory
 from models.workflow import WorkflowProfile, WorkflowVersion, WorkflowExecution
 
 # DeepAgent models
-from models.deep_agent import DeepAgentTemplate, AgentExport, ChatSession
+from models.deep_agent import DeepAgentTemplate, ChatSession
 
 # System models
 from models.audit_log import AuditLog

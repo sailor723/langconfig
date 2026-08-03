@@ -50,18 +50,15 @@ def __getattr__(name: str):
     """Lazily re-export sub-module functions.
 
     External code imports `update_workflow`, `create_workflow_version`,
-    `create_workflow_execution`, and `auto_export_deepagent_workflow` from
-    this module (tests/test_critical_safety.py, core/task_handlers.py).
-    Resolving them on demand (PEP 562) instead of eagerly at the bottom of
-    this file avoids ImportError when a sub-module is imported directly
-    before this parent module has finished initializing.
+    and `create_workflow_execution` from this module
+    (tests/test_critical_safety.py). Resolving them on demand (PEP 562)
+    instead of eagerly at the bottom of this file avoids ImportError when
+    a sub-module is imported directly before this parent module has
+    finished initializing.
     """
     if name == "update_workflow":
         from .crud import update_workflow
         return update_workflow
-    if name == "auto_export_deepagent_workflow":
-        from .crud import auto_export_deepagent_workflow
-        return auto_export_deepagent_workflow
     if name == "create_workflow_version":
         from .versions import create_workflow_version
         return create_workflow_version
