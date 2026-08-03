@@ -15,8 +15,13 @@ git mirror, so migrated content matches what ``db_row_to_fs`` writes.
 Idempotent by default: keys that already exist are skipped (use ``--force`` to
 overwrite). Safe to re-run at any time.
 
+Rollback: ``--rollback --yes`` deletes every key in the migrated namespaces
+(``documents/``, ``outputs/``, ``skills/``), restoring filesystem-only operation
+— add ``--dry-run`` to preview first.
+
 Run (from backend/):
     uv run python -m tools.migrate_storage [--force] [--dry-run]
+    uv run python -m tools.migrate_storage --rollback [--yes] [--dry-run]
 """
 
 import argparse
@@ -110,18 +115,62 @@ def migrate_skills(storage, force: bool, dry_run: bool) -> tuple[int, int, int]:
     return copied, skipped, errors
 
 
+def _rollback_namespace(storage, prefix: str, dry_run: bool) -> tuple[int, int]:
+    """Delete every storage key in a migrated namespace (reverse of migrate).
+    Returns (deleted, errors)."""
+    deleted = errors = 0
+    for key in storage.list(prefix):
+        try:
+            if not dry_run:
+                storage.delete(key)
+            logger.info("  - %s", key)
+            deleted += 1
+        except Exception as e:  # noqa: BLE001
+            errors += 1
+            logger.error("  !! %s: %s", key, e)
+    return deleted, errors
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--force", action="store_true",
                         help="Overwrite keys that already exist (default: skip)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Report what would be copied without writing anything")
+    parser.add_argument("--rollback", action="store_true",
+                        help="Delete storage keys in the migrated namespaces "
+                             "(documents/, outputs/, skills/) — the reverse of migrate. "
+                             "Requires --yes.")
+    parser.add_argument("--yes", action="store_true",
+                        help="Skip the rollback confirmation prompt")
     args = parser.parse_args()
 
     from services.storage import get_storage
     storage = get_storage()
-    mode = "DRY-RUN" if args.dry_run else "MIGRATE"
+    mode = "DRY-RUN" if args.dry_run else ("ROLLBACK" if args.rollback else "MIGRATE")
     logger.info("%s into storage backend: %s", mode, type(storage).__name__)
+
+    if args.rollback:
+        namespaces = ("documents/", "outputs/", "skills/")
+        if not args.yes and not args.dry_run:
+            print(f"This will delete ALL storage keys under {', '.join(namespaces)} "
+                  f"(including any post-flip write-through data). Continue? [y/N]")
+            if input().strip().lower() != "y":
+                logger.info("aborted")
+                return
+        total = {"deleted": 0, "errors": 0}
+        for prefix in namespaces:
+            logger.info("[%s] %s", prefix.rstrip("/"), prefix)
+            deleted, errors = _rollback_namespace(storage, prefix, args.dry_run)
+            total["deleted"] += deleted
+            total["errors"] += errors
+            logger.info("[%s] deleted=%d errors=%d", prefix, deleted, errors)
+        logger.info("done: deleted=%d errors=%d%s",
+                    total["deleted"], total["errors"], " (dry run)" if args.dry_run else "")
+        if total["errors"]:
+            raise SystemExit(1)
+        return
+
     if args.force:
         logger.info("--force: existing keys will be overwritten")
 
