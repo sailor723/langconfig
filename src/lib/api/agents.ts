@@ -21,7 +21,6 @@ export interface AgentsApi {
   previewPromptAssembly(model: string, systemPrompt?: string, customPrompt?: string, customSuffix?: string): Promise<any>;
   saveAgentPrompt(agentId: number, customPrompt?: string, customSuffix?: string): Promise<any>;
   generateAgentConfig(data: { name: string; description: string; agent_type: string; category: string }): Promise<any>;
-  exportDeepAgent(id: number, data: { export_type: string; include_chat_ui: boolean; include_docker: boolean }): Promise<any>;
   /**
    * Download the generated runnable Python CLI for an agent
    * (GET /api/deepagents/{id}/code — returns `agent.py` as text).
@@ -80,14 +79,6 @@ export const agentsApi: AgentsApi = {
     category: string;
   }) {
     return this.post('/api/generation/generate', data);
-  },
-
-  async exportDeepAgent(this: APIClient, id: number, data: {
-    export_type: string;
-    include_chat_ui: boolean;
-    include_docker: boolean;
-  }) {
-    return this.post(`/api/deepagents/${id}/export`, data);
   },
 
   /**
@@ -167,21 +158,3 @@ export const agentsApi: AgentsApi = {
     }
   },
 };
-
-/**
- * Download the generated runnable Python CLI (`agent.py`) for an agent.
- * Fetches GET /api/deepagents/{id}/code and triggers a browser download
- * of the returned text as `<agent-name>.py`.
- */
-export async function downloadAgentCode(api: APIClient, id: number, name?: string) {
-  const res = await api.getAgentCode(id);
-  const text = typeof res.data === 'string' ? res.data : String(res.data ?? '');
-  const safeName = (name || 'agent').replace(/[^\w\-]+/g, '_');
-  const blob = new Blob([text], { type: 'text/x-python;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${safeName}.py`;
-  a.click();
-  URL.revokeObjectURL(url);
-}

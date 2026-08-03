@@ -17,7 +17,7 @@ import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
 import { useAvailableTools } from '../../hooks/useAvailableTools';
 import apiClient from '../../lib/api-client';
-import { downloadAgentCode } from '../../lib/api/agents';
+import CodeViewerModal from './CodeViewerModal';
 import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
@@ -218,14 +218,18 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     setRunning(false);
   };
 
-  // Download the generated runnable Python CLI (`agent.py`) for this agent
-  const handleExportCode = async () => {
+  // Fetch the generated runnable Python CLI (`agent.py`) and show it in a code popup
+  const [codeModal, setCodeModal] = useState<{ filename: string; code: string } | null>(null);
+  const handleViewCode = async () => {
     if (!localAgentId) return;
     try {
-      await downloadAgentCode(apiClient, localAgentId, agent.name);
+      const res = await apiClient.getAgentCode(localAgentId);
+      const code = typeof res.data === 'string' ? res.data : String(res.data ?? '');
+      const safeName = (agent.name || 'agent').replace(/[^\w\-]+/g, '_');
+      setCodeModal({ filename: `${safeName}.py`, code });
     } catch (err: any) {
-      console.error('[AgentEditor] Export error:', err);
-      setSaveMsg({ ok: false, text: 'Export failed' });
+      console.error('[AgentEditor] View code error:', err);
+      setSaveMsg({ ok: false, text: 'Failed to load code' });
     }
   };
 
@@ -637,7 +641,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         onStop={handleStop}
         saving={saving}
         onSave={handleSave}
-        onExport={handleExportCode}
+        onViewCode={handleViewCode}
         canRun={!!localAgentId}
         saveDisabled={false}
         saveMsg={saveMsg}
@@ -653,6 +657,14 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         renderSection={id => sections[id as SectionId]()}
         t={t}
       />
+
+      {codeModal && (
+        <CodeViewerModal
+          filename={codeModal.filename}
+          code={codeModal.code}
+          onClose={() => setCodeModal(null)}
+        />
+      )}
     </div>
   );
 }
