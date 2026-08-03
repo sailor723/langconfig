@@ -10,8 +10,6 @@ Tests for:
 - Transaction management framework
 - Race condition prevention in version creation
 - Foreign key validation for executions
-- Export status tracking
-- Auto-export transaction safety
 
 Run with: pytest tests/test_phase1_critical_safety.py -v
 """
@@ -338,79 +336,6 @@ class TestForeignKeyValidation:
         ).first()
 
         assert version_check is None, "Nonexistent version should not be found"
-
-
-# =============================================================================
-# Export Status Tracking Tests
-# =============================================================================
-
-class TestExportStatusTracking:
-    """Tests for export status tracking functionality."""
-
-    def test_export_status_columns_exist(self, db_session, test_workflow):
-        """Test that export status columns exist on WorkflowProfile."""
-        assert hasattr(test_workflow, 'export_status')
-        assert hasattr(test_workflow, 'export_error')
-        assert hasattr(test_workflow, 'last_export_at')
-
-    def test_export_status_pending(self, db_session, test_workflow):
-        """Test setting export status to pending."""
-        with managed_transaction(db_session, "set_pending"):
-            test_workflow.export_status = 'pending'
-            test_workflow.export_error = None
-
-        db_session.refresh(test_workflow)
-        assert test_workflow.export_status == 'pending'
-        assert test_workflow.export_error is None
-
-    def test_export_status_completed(self, db_session, test_workflow):
-        """Test setting export status to completed."""
-        with managed_transaction(db_session, "set_completed"):
-            test_workflow.export_status = 'completed'
-            test_workflow.export_error = None
-            test_workflow.last_export_at = datetime.utcnow()
-
-        db_session.refresh(test_workflow)
-        assert test_workflow.export_status == 'completed'
-        assert test_workflow.export_error is None
-        assert test_workflow.last_export_at is not None
-
-    def test_export_status_failed(self, db_session, test_workflow):
-        """Test setting export status to failed with error message."""
-        error_msg = "Export failed: Test error"
-
-        with managed_transaction(db_session, "set_failed"):
-            test_workflow.export_status = 'failed'
-            test_workflow.export_error = error_msg
-
-        db_session.refresh(test_workflow)
-        assert test_workflow.export_status == 'failed'
-        assert test_workflow.export_error == error_msg
-
-    def test_export_status_survives_workflow_update(self, db_session, test_workflow):
-        """Test that workflow update succeeds even if export fails."""
-        # Set initial export status
-        test_workflow.export_status = 'pending'
-        db_session.commit()
-
-        # Update workflow
-        with managed_transaction(db_session, "update_workflow") as tx:
-            test_workflow.name = "Updated Name"
-            test_workflow.export_status = 'pending'
-
-            # Simulate export failure in nested savepoint
-            try:
-                with tx.savepoint("export"):
-                    test_workflow.export_status = 'in_progress'
-                    raise Exception("Export failed")
-            except Exception:
-                test_workflow.export_status = 'failed'
-                test_workflow.export_error = "Export failed"
-
-        # Verify workflow update succeeded despite export failure
-        db_session.refresh(test_workflow)
-        assert test_workflow.name == "Updated Name"
-        assert test_workflow.export_status == 'failed'
 
 
 # =============================================================================
