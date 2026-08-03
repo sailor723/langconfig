@@ -687,16 +687,16 @@ async def preview_prompt_assembly(request: PromptPreviewRequest):
     Accepts optional custom_prompt (to replace BASE) and custom_suffix (appended last).
     """
     try:
-        from deepagents.graph import BASE_AGENT_PROMPT
         from deepagents.profiles.harness.harness_profiles import (
             _harness_profile_for_model,
-            _apply_profile_prompt,
         )
     except ImportError:
         raise HTTPException(status_code=500, detail="DeepAgents SDK not available")
 
     segments = []
-    profile = _harness_profile_for_model(request.model, None)
+    # deepagents >= 0.7 changed _harness_profile_for_model to take a resolved
+    # model instance first; a bare model string goes in the `spec` position.
+    profile = _harness_profile_for_model(None, request.model)
     has_base_override = profile.base_system_prompt is not None
     has_suffix = profile.system_prompt_suffix is not None
 
@@ -710,31 +710,25 @@ async def preview_prompt_assembly(request: PromptPreviewRequest):
             editable=True,
         ))
 
-    # Determine base content: CUSTOM (user override) > profile CUSTOM > SDK BASE
+    # Base content: user CUSTOM > harness-profile base > none.
+    # NOTE: deepagents >= 0.7 no longer ships an SDK-authored base prompt
+    # (the old BASE_AGENT_PROMPT constant was removed), so when no profile
+    # base exists the BASE segment is simply empty.
+    base_content = ""
+    base_source = "sdk_default"
     if request.custom_prompt:
         # User provided custom prompt → CUSTOM segment, replaces BASE
         base_content = request.custom_prompt
-        segments.append(PromptSegment(
-            name="CUSTOM",
-            source="custom",
-            content=base_content,
-            editable=True,
-        ))
+        base_source = "custom"
     elif has_base_override:
         base_content = profile.base_system_prompt
+        base_source = "harness_profile"
+    if base_content:
         segments.append(PromptSegment(
-            name="CUSTOM",
-            source="harness_profile",
+            name="CUSTOM" if base_source == "custom" else "BASE",
+            source=base_source,
             content=base_content,
-            editable=False,
-        ))
-    else:
-        base_content = BASE_AGENT_PROMPT
-        segments.append(PromptSegment(
-            name="BASE",
-            source="sdk_default",
-            content=base_content,
-            editable=False,
+            editable=base_source == "custom",
         ))
 
     # 3. SUFFIX segment
@@ -753,15 +747,12 @@ async def preview_prompt_assembly(request: PromptPreviewRequest):
             editable=False,
         ))
 
-    # Assemble the final prompt
+    # Assemble the final prompt: USER -> BASE -> SUFFIX (each part optional)
     parts = []
     if user_content:
         parts.append(user_content)
-    if request.custom_prompt:
-        parts.append(request.custom_prompt)
-    else:
-        base_for_assembly = _apply_profile_prompt(profile, BASE_AGENT_PROMPT)
-        parts.append(base_for_assembly)
+    if base_content:
+        parts.append(base_content)
     if request.custom_suffix:
         parts.append(request.custom_suffix)
     elif has_suffix:
@@ -1132,14 +1123,14 @@ tools.extend(load_native_tools_from_db([{tool_names_literal}]))
 
     custom_tools_lines = ""
     if custom_tools:
-        import_lines = "\n".join(
-            f'tools.append(tool_factory.load_custom_tool("{t}"))' for t in custom_tools
-        )
+        # Custom tools live in the custom_tools table — use the same async
+        # loader the backend runtime uses (ToolLoader.load_custom), wrapped
+        # in asyncio.run for this sync CLI script.
+        tool_ids_literal = ", ".join(json.dumps(t) for t in custom_tools)
         custom_tools_lines = f"""
-# Custom tools
-from orchestration.tool_factory import ToolFactory
-tool_factory = ToolFactory()
-{import_lines}
+# Custom tools (loaded from the custom_tools table — mirrors backend runtime)
+from core.agents.tool_loader import ToolLoader
+tools.extend(asyncio.run(ToolLoader.load_custom([{tool_ids_literal}], project_id)))
 """
 
     is_deep = config.get("use_deepagents", False)
@@ -1147,12 +1138,16 @@ tool_factory = ToolFactory()
     if is_deep:
         build_section = '''
 # Build DeepAgent with PostgreSQL checkpointer for conversation persistence
+import psycopg
 from langgraph.checkpoint.postgres import PostgresSaver
 from deepagents import create_deep_agent
 
-checkpointer = PostgresSaver.from_conn_string(
+# PostgresSaver.from_conn_string() is a context manager in current langgraph;
+# use the direct constructor with a long-lived sync connection instead.
+_checkpointer_conn = psycopg.connect(
     os.environ.get("DATABASE_URL", "postgresql://user:pass@localhost:5432/langconfig")
 )
+checkpointer = PostgresSaver(_checkpointer_conn)
 agent = create_deep_agent(
     model=llm,
     system_prompt=system_prompt,
@@ -1162,17 +1157,23 @@ agent = create_deep_agent(
 '''
     else:
         build_section = '''
-# Build LangGraph agent
+# Build LangGraph agent (LangChain v1.0 API — mirrors AgentFactory in the backend)
+import psycopg
 from langgraph.checkpoint.postgres import PostgresSaver
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
+from core.state import DeepAgentState
 
-checkpointer = PostgresSaver.from_conn_string(
+# PostgresSaver.from_conn_string() is a context manager in current langgraph;
+# use the direct constructor with a long-lived sync connection instead.
+_checkpointer_conn = psycopg.connect(
     os.environ.get("DATABASE_URL", "postgresql://user:pass@localhost:5432/langconfig")
 )
-agent = create_react_agent(
-    llm,
-    tools,
-    state_modifier=system_prompt,
+checkpointer = PostgresSaver(_checkpointer_conn)
+agent = create_agent(
+    model=llm,
+    tools=tools,
+    system_prompt=system_prompt,
+    state_schema=DeepAgentState,
     checkpointer=checkpointer,
 )
 '''
@@ -1186,11 +1187,13 @@ agent = create_react_agent(
         '\n'
         'Usage:\n'
         '    pip install langchain-openai langgraph python-dotenv\n'
-        '    python agent.py\n'
+        '    python agent.py                     # interactive chat\n'
+        '    python agent.py "your question"     # one-shot answer\n'
         '"""\n'
         '\n'
         'import os\n'
         'import sys\n'
+        'import asyncio\n'
         '\n'
         '# ── Path setup (mirrors backend/api/chat/routes.py) ──────────────────────\n'
         '# You can override this by setting LANGCFG_ROOT or placing this script\n'
@@ -1206,8 +1209,7 @@ agent = create_react_agent(
         '    sys.path.insert(0, _PHASE9_DIR)\n'
         '\n'
         '# Default project ID for graphindex tools (override via env)\n'
-        'if not os.environ.get("GRAPHINDEX_PROJECT_ID"):\n'
-        '    os.environ["GRAPHINDEX_PROJECT_ID"] = "1"\n'
+        f'project_id = int(os.environ.get("GRAPHINDEX_PROJECT_ID", "{getattr(agent, "project_id", 1) or 1}"))\n'
         '\n'
         '# ── Env ──────────────────────────────────────────────────────────────────\n'
         'from dotenv import load_dotenv\n'
@@ -1233,34 +1235,40 @@ agent = create_react_agent(
         f'{build_section}'
         '\n'
         '# ── 5. CLI entry point ─────────────────────────────────────────────────\n'
-        'def main():\n'
+        'def _run_turn(user_input: str) -> str:\n'
+        '    """Run a single user turn and return the agent reply text."""\n'
+        '    from langchain_core.messages import HumanMessage\n'
+        '    # The Postgres checkpointer resumes prior turns automatically, so\n'
+        '    # only the new message is passed (replaying the whole history would\n'
+        '    # duplicate messages in the checkpointed state).\n'
+        '    result = agent.invoke(\n'
+        '        {"messages": [HumanMessage(content=user_input)]},\n'
+        '        config={"configurable": {"thread_id": "cli"}, "recursion_limit": 500},\n'
+        '    )\n'
+        '    msgs = result.get("messages", [])\n'
+        '    # AIMessage always has a `tool_calls` attr (default []), so use\n'
+        '    # getattr() — text replies are picked, pure tool-call turns skipped.\n'
+        '    for m in reversed(msgs):\n'
+        '        if m.content and not getattr(m, "tool_calls", None):\n'
+        '            return m.content\n'
+        '    return str(result)\n'
+        '\n'
+        'def main(query: str | None = None):\n'
+        '    # One-shot mode: `python agent.py "your question"`\n'
+        '    if query:\n'
+        '        print(_run_turn(query))\n'
+        '        return\n'
         f'    print(f"=== {agent.name} ===")\n'
         '    print("Type \'exit\' to quit.\\n")\n'
-        '    from langchain_core.messages import HumanMessage, AIMessage\n'
-        '    history = []\n'
         '    while True:\n'
         '        user_input = input("You: ").strip()\n'
         '        if user_input.lower() in ("exit", "quit"):\n'
         '            break\n'
-        '        history.append(HumanMessage(content=user_input))\n'
-        '        result = agent.invoke(\n'
-        '            {"messages": history},\n'
-        '            config={"configurable": {"thread_id": "cli"}, "recursion_limit": 500},\n'
-        '        )\n'
-        '        msgs = result.get("messages", [])\n'
-        '        reply = ""\n'
-        '        for m in reversed(msgs):\n'
-        '            if hasattr(m, "content") and m.content and not hasattr(m, "tool_calls"):\n'
-        '                reply = m.content\n'
-        '                break\n'
-        '        if not reply:\n'
-        '            reply = str(result)\n'
-        '        print(f"\\nAgent: {reply}\\n")\n'
-        '        history.append(AIMessage(content=reply))\n'
+        '        print(f"\\nAgent: {_run_turn(user_input)}\\n")\n'
         '\n'
         '\n'
         'if __name__ == "__main__":\n'
-        '    main()\n'
+        '    main(sys.argv[1] if len(sys.argv) > 1 else None)\n'
     )
 
     return Response(

@@ -22,11 +22,12 @@ class TestSummarizationMiddlewareConfig:
         config = GuardrailsConfig()
         limits = config.token_limits
 
-        # Map guardrails config → SummarizationMiddleware params
-        trigger = ("token", limits["summarization_threshold"])
+        # Map guardrails config → SummarizationMiddleware params.
+        # langchain >= 1.3.14 renamed the context-size kind "token" -> "tokens".
+        trigger = ("tokens", limits["summarization_threshold"])
         keep = ("fraction", 0.10)  # keep 10% of context after summarization
 
-        assert trigger[0] == "token"
+        assert trigger[0] == "tokens"
         assert trigger[1] == 60000
         assert keep[0] == "fraction"
         assert keep[1] == 0.10
@@ -54,11 +55,11 @@ class TestSummarizationMiddlewareConfig:
         limits = config.token_limits
 
         # Build the middleware kwargs from guardrails config
-        trigger = ("token", limits["summarization_threshold"])
+        trigger = ("tokens", limits["summarization_threshold"])
         keep = ("fraction", 0.10)
 
         # Verify the values that would be passed to the middleware
-        assert trigger == ("token", 60000)
+        assert trigger == ("tokens", 60000)
         assert keep == ("fraction", 0.10)
 
 

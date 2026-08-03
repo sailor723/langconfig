@@ -221,9 +221,18 @@ class _DeepAgentSupportMixin:
         resolved = []
         for name in middleware_names:
             if name == 'todo_list':
-                from deepagents.middleware.todo_list import TodoListMiddleware
-                resolved.append(TodoListMiddleware())
-                logger.info(f"  Subagent '{subagent_name}': added TodoListMiddleware")
+                # deepagents >= 0.7 removed the built-in TodoListMiddleware;
+                # task tracking is covered by the native write_todos/read_todos
+                # tools on the main agent, so subagents just skip it.
+                try:
+                    from deepagents.middleware.todo_list import TodoListMiddleware
+                    resolved.append(TodoListMiddleware())
+                    logger.info(f"  Subagent '{subagent_name}': added TodoListMiddleware")
+                except ImportError:
+                    logger.info(
+                        f"  Subagent '{subagent_name}': todo_list middleware not "
+                        f"available in deepagents >= 0.7, skipping"
+                    )
             elif name == 'filesystem':
                 from deepagents.middleware.filesystem import FilesystemMiddleware
                 from deepagents.backends.filesystem import FilesystemBackend

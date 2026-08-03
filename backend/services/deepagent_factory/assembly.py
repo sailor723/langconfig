@@ -10,6 +10,8 @@ The main ``create_deep_agent`` orchestration, extracted from the former
 monolithic deepagent_factory.py.
 """
 
+import shutil
+from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
 from langchain_core.tools import BaseTool
@@ -190,7 +192,8 @@ class _DeepAgentAssemblyMixin:
                 from deepagents.middleware.summarization import SummarizationMiddleware
                 from deepagents.backends import StateBackend
 
-                trigger = ("token", config.guardrails.token_limits.get("summarization_threshold", 60000))
+                # langchain >= 1.3.14 renamed the context-size kind "token" -> "tokens"
+                trigger = ("tokens", config.guardrails.token_limits.get("summarization_threshold", 60000))
                 keep = ("messages", 20)
                 summarization_mw = SummarizationMiddleware(
                     model=config.model,
@@ -280,14 +283,22 @@ class _DeepAgentAssemblyMixin:
             except Exception as e:
                 logger.warning(f"Failed to initialize LocalShellBackend: {e}. Proceeding without sandbox.")
 
-        # ── Skills (notebook-style progressive disclosure) ──
-        # Pattern (from backend/notebooks/module-5):
-        # - Each skill's SKILL.md path goes directly into the main agent
-        # - Library creates SkillsMiddleware on main agent: injects metadata
-        #   catalog (name + description + path) into the system prompt
-        # - Main agent reads SKILL.md body on demand via built-in read_file
-        # - No subagent wrapping — LLM matches via description
-        agent_kwargs_skills: list = []
+        # ── Skills (progressive disclosure via SkillsMiddleware) ──
+        # deepagents exposes skills through its SkillsMiddleware: it injects
+        # a metadata catalog (name + description + path) into the system
+        # prompt, and the agent reads each SKILL.md body on demand with the
+        # built-in read_file tool.
+        #
+        # Wiring requirements (deepagents docs on the `skills` param):
+        # - Each source must be a *container* of skill directories, and must
+        #   be readable by the agent's backend. The default StateBackend is
+        #   in-memory and cannot see disk paths, so we stage the equipped
+        #   skills into <workspace>/skills/ and point SkillsMiddleware at that
+        #   folder with a FilesystemBackend (set below).
+        # - The agent needs a working read_file, so the same FilesystemBackend
+        #   is passed to create_deep_agent (also activates library ls/glob/grep
+        #   scoped to the workspace).
+        skills_staging_root: Optional[Path] = None
         if getattr(config, 'skills', None):
             try:
                 from db.database import SessionLocal
@@ -301,14 +312,52 @@ class _DeepAgentAssemblyMixin:
                 finally:
                     db.close()
 
-                for s in skill_records:
-                    agent_kwargs_skills.append(s.source_path)
-                logger.info(
-                    f"Registered {len(agent_kwargs_skills)} skill(s) on main agent "
-                    f"(notebook-style progressive disclosure)"
-                )
+                if skill_records:
+                    # Stage under the backend root: the sandbox path when a
+                    # sandbox is active, otherwise the task workspace.
+                    if local_sandbox_backend is not None and sandbox_path is not None:
+                        skills_staging_root = sandbox_path
+                    else:
+                        from services.workspace_manager import get_workspace_manager
+                        skills_staging_root = get_workspace_manager().get_task_workspace_with_override(
+                            project_id=project_id,
+                            workflow_id=workflow_id,
+                            task_id=task_id,
+                            custom_output_path=custom_output_path,
+                        )
+
+                    skills_dir = skills_staging_root / "skills"
+                    skills_dir.mkdir(parents=True, exist_ok=True)
+                    for s in skill_records:
+                        src = Path(s.source_path)
+                        if not src.is_dir():
+                            logger.warning(f"Skill source dir missing: {s.source_path}")
+                            continue
+                        shutil.copytree(src, skills_dir / s.skill_id, dirs_exist_ok=True)
+                    logger.info(
+                        f"Staged {len(skill_records)} skill(s) into {skills_dir} "
+                        f"(progressive disclosure via SkillsMiddleware)"
+                    )
             except Exception as e:
                 logger.warning(f"Failed to register skills: {e}")
+
+        # Deduplicate filesystem tools when a disk backend is used.
+        # deepagents always adds its own FilesystemMiddleware (required, cannot
+        # be excluded), which ships ls/read_file/write_file/edit_file/glob/grep
+        # scoped to the backend root. create_agent/bind_tools do NOT dedupe by
+        # name, so keeping our native copies would double those tools in the
+        # model schema. With a backend in play the library's versions are
+        # workspace-scoped (same directory), so we drop our native duplicates.
+        # Without a backend (plain chat) the library's fs tools are in-memory
+        # StateBackend no-ops, so our natives stay and keep disk writes working.
+        has_disk_backend = local_sandbox_backend is not None or skills_staging_root is not None
+        if has_disk_backend:
+            native_fs_collisions = {"ls", "read_file", "write_file", "edit_file", "glob", "grep"}
+            all_tools = [t for t in all_tools if t.name not in native_fs_collisions]
+            logger.info(
+                "Dropped native fs tools (library provides them via backend): "
+                f"{sorted(native_fs_collisions)}"
+            )
 
         # Create DeepAgent with all components
         try:
@@ -326,15 +375,23 @@ class _DeepAgentAssemblyMixin:
                 "middleware": middleware_instances if middleware_instances else None,
                 "subagents": subagents_config if subagents_config else None,
                 "checkpointer": checkpointer,
-                # Notebook-style: skills registered directly on main agent.
-                # Library creates SkillsMiddleware which injects metadata catalog.
-                "skills": agent_kwargs_skills if agent_kwargs_skills else None,
             }
 
             # Pass LocalShellBackend so the agent gains the `execute` tool for
             # running scripts (Python, shell commands, pip install, etc.)
             if local_sandbox_backend is not None:
                 agent_kwargs["backend"] = local_sandbox_backend
+            elif skills_staging_root is not None:
+                # Skills need a disk-backed backend (StateBackend is in-memory)
+                # so SkillsMiddleware can list the staged SKILL.md files.
+                from deepagents.backends.filesystem import FilesystemBackend
+                agent_kwargs["backend"] = FilesystemBackend(
+                    root_dir=str(skills_staging_root)
+                )
+
+            if skills_staging_root is not None:
+                # Relative source: <root>/skills is a container of skill dirs.
+                agent_kwargs["skills"] = ["skills"]
 
             # Try to pass guardrails if supported
             try:
@@ -401,10 +458,6 @@ class _DeepAgentAssemblyMixin:
                                     "ls", "glob", "grep", "execute",
                                     "task",
                                 }),
-                                excluded_middleware=[
-                                    "TodoListMiddleware",
-                                    "SkillsMiddleware",
-                                ],
                             ),
                         )
                         logger.info(
