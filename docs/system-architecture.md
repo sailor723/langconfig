@@ -661,9 +661,10 @@ cwd that's `load_dotenv("../.env")`, or better, derive the path from `__file__` 
 ## 15. Storage strategy: DB as the permanent store (enterprise-ready)
 
 > **Status (2026-08-03):** Phase 1 shipped in commit `3aa794d`; Phase 2 (write-through
-> wiring) shipped — `storage_objects` table, `services/storage/` package, `STORAGE_MODE`
-> setting all live, and `FileStorage` / `WorkspaceManager` / skill sync persist through
-> `get_storage()` when `STORAGE_MODE=db`. Phases 3–4 pending.
+> wiring) shipped; Phase 3 (deepagents `DbBackend`) shipped — `storage_objects` table,
+> `services/storage/` package, `STORAGE_MODE` setting all live, writers persist through
+> `get_storage()` when `STORAGE_MODE=db`, and in db mode equipped skills are served 100%
+> from the DB via `DbBackend` (no FS staging). Phase 4 (migration tool) pending.
 
 ### The vision
 
@@ -752,9 +753,18 @@ tool works transparently against the DB.
    tools), `skills/<type>/<id>/SKILL.md` (`db_row_to_fs`). The on-disk copy stays the
    operational store for consumers (RAG, workspace readers); storage failures are logged and
    non-fatal (durability copy only). `local` mode is a strict no-op.
-3. **Phase 3 — deepagents `DbBackend`** — implement `BackendProtocol` backed by
-   `get_storage()`; map `/skills/<name>/SKILL.md` → DB so skills are 100% DB-managed
-   while keeping progressive disclosure (catalog + on-demand read)
+3. **Phase 3 — deepagents `DbBackend` ✅ DONE** — `services/storage/db_backend.py`
+   implements `BackendProtocol` (`ls`/`read`/`write`/`edit`/`delete`/`glob`/`grep`/
+   `download_files`/`upload_files`) backed by `get_storage()`; virtual path
+   `/skills/<type>/<id>/SKILL.md` maps 1:1 to the storage key (an optional
+   `storage_prefix` re-attaches the namespace when routed behind `CompositeBackend`).
+   In `STORAGE_MODE=db`, `DeepAgentFactory` now persists each equipped skill under its
+   canonical key and serves them via `DbBackend` (skills are 100% DB-managed, no FS
+   staging), preserving progressive disclosure (catalog + on-demand `read`). With a
+   sandbox active, a `CompositeBackend` routes `/skills/` to storage and keeps
+   `execute` in the sandbox. `local` mode keeps the legacy disk staging untouched.
+   Tests: `backend/tests/test_db_backend.py` (10 cases incl. recursive delete, glob
+   `**`, grep truncation, traversal rejection, prefix mapping).
 4. **Phase 4 — migration tool** — one-shot job moving existing FS artifacts into DB on flip
 
 ---

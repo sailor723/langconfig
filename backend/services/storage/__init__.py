@@ -18,6 +18,7 @@ from typing import Optional
 from .base import StorageBackend, StorageStat  # noqa: F401
 from .local import LocalStorageBackend
 from .db import DbStorageBackend
+from .db_backend import DbBackend  # noqa: F401 - deepagents BackendProtocol adapter
 
 logger = logging.getLogger(__name__)
 
