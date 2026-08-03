@@ -11,9 +11,16 @@ Part of the "DB as the permanent store" strategy
 text outputs) live here as BYTEA; the ``key`` doubles as the object key
 when an object store (S3 / COS / OSS) is used instead.
 """
-from sqlalchemy import Column, Integer, String, LargeBinary, DateTime, BigInteger
-from db.database import Base
 import datetime
+
+from sqlalchemy import BigInteger, Column, DateTime, Integer, LargeBinary, String, func
+
+from db.database import Base
+
+
+def _utcnow() -> datetime.datetime:
+    """Timezone-aware UTC now (datetime.utcnow is deprecated since Python 3.12)."""
+    return datetime.datetime.now(datetime.timezone.utc)
 
 
 class StorageObject(Base):
@@ -25,5 +32,11 @@ class StorageObject(Base):
     content = Column(LargeBinary, nullable=False)  # BYTEA in Postgres
     size_bytes = Column(BigInteger, nullable=False, default=0)
     mime_type = Column(String(100), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    # server_default matches migration 018; Python-side onupdate keeps
+    # updated_at fresh on ORM writes (Postgres has no server ON UPDATE clause).
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=_utcnow,
+    )

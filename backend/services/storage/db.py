@@ -84,7 +84,14 @@ class DbStorageBackend(StorageBackend):
         try:
             q = db.query(StorageObject.key)
             if prefix:
-                q = q.filter(StorageObject.key.like(f"{prefix}%"))
+                # Escape LIKE wildcards so prefix matches literally, keeping
+                # semantics identical to LocalStorageBackend.list().
+                escaped = (
+                    prefix.replace("\\", "\\\\")
+                    .replace("%", "\\%")
+                    .replace("_", "\\_")
+                )
+                q = q.filter(StorageObject.key.like(f"{escaped}%", escape="\\"))
             return [row[0] for row in q.all()]
         finally:
             db.close()
