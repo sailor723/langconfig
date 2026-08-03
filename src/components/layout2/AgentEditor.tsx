@@ -17,6 +17,7 @@ import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
 import { useAvailableTools } from '../../hooks/useAvailableTools';
 import apiClient from '../../lib/api-client';
+import { downloadAgentCode } from '../../lib/api/agents';
 import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
@@ -215,6 +216,17 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const handleStop = () => {
     chatStore.cancelStream();
     setRunning(false);
+  };
+
+  // Download the generated runnable Python CLI (`agent.py`) for this agent
+  const handleExportCode = async () => {
+    if (!localAgentId) return;
+    try {
+      await downloadAgentCode(apiClient, localAgentId, agent.name);
+    } catch (err: any) {
+      console.error('[AgentEditor] Export error:', err);
+      setSaveMsg({ ok: false, text: 'Export failed' });
+    }
   };
 
   const handleSave = async () => {
@@ -625,6 +637,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         onStop={handleStop}
         saving={saving}
         onSave={handleSave}
+        onExport={handleExportCode}
         canRun={!!localAgentId}
         saveDisabled={false}
         saveMsg={saveMsg}

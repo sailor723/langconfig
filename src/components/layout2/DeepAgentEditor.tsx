@@ -19,6 +19,7 @@ import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
 import { useAvailableTools } from '../../hooks/useAvailableTools';
 import apiClient from '../../lib/api-client';
+import { downloadAgentCode } from '../../lib/api/agents';
 import { SectionId as _SectionId, SECTIONS } from './editorConstants';
 import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
@@ -190,6 +191,17 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       return next;
     });
   }, [syncToolsToJson, selectedNativeTools]);
+
+  // Download the generated runnable Python CLI (`agent.py`) for this agent
+  const handleExportCode = async () => {
+    if (!localAgentId) return;
+    try {
+      await downloadAgentCode(apiClient, localAgentId, agent.name);
+    } catch (err: any) {
+      console.error('[DeepAgentEditor] Export error:', err);
+      setSaveMsg({ ok: false, text: 'Export failed' });
+    }
+  };
 
   /** Parse the JSON textarea and PUT the updated agent back to the backend */
   const handleSave = async () => {
@@ -720,6 +732,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         onStop={handleStop}
         saving={saving}
         onSave={handleSave}
+        onExport={handleExportCode}
         canRun={!!localAgentId}
         saveDisabled={!localAgentId}
         saveMsg={saveMsg}
