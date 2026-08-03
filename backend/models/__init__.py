@@ -16,7 +16,6 @@ from .core import (
 from .workflow import WorkflowProfile, WorkflowStrategy, WorkflowVersion, WorkflowExecution
 from .deep_agent import (
     DeepAgentTemplate,
-    AgentExport,
     ChatSession,
     DeepAgentConfig,
     SubAgentConfig,
@@ -60,7 +59,6 @@ __all__ = [
     "IndexingStatus",
     "DocumentType",
     "DeepAgentTemplate",
-    "AgentExport",
     "ChatSession",
     "DeepAgentConfig",
     "SubAgentConfig",
