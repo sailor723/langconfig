@@ -142,6 +142,43 @@ class WorkspaceManager:
         workspace = self.base_dir / f"project_{project_id}"
         workspace.mkdir(parents=True, exist_ok=True)
         return workspace
+
+    def persist_output(self, file_path: Path, content: bytes, mime_type: Optional[str] = None) -> Optional[str]:
+        """
+        Phase 2 write-through (docs/system-architecture.md §15): persist an
+        agent output file to the storage backend when STORAGE_MODE=db. The
+        on-disk workspace file remains the operational copy, so this is a
+        no-op in local mode (default) and behavior is unchanged.
+
+        Args:
+            file_path: Full path of the output file (usually under base_dir)
+            content: File content bytes
+            mime_type: Optional MIME type; guessed from the filename if None
+
+        Returns:
+            Storage key when persisted, else None
+        """
+        from config import settings
+        if settings.storage_mode != "db":
+            return None
+
+        import mimetypes
+        try:
+            rel = Path(file_path).resolve().relative_to(Path(self.base_dir).resolve())
+        except ValueError:
+            # File lives outside the workspace root; keep it addressable by name.
+            rel = Path(file_path).name
+        key = f"outputs/{rel.as_posix()}"
+
+        try:
+            from services.storage import get_storage
+            mime = mime_type or mimetypes.guess_type(file_path.name)[0]
+            get_storage().save(key, content, mime)
+            logger.info(f"Persisted output to storage: {key}")
+            return key
+        except Exception as e:
+            logger.warning(f"Failed to persist output {key}: {e}")
+            return None
     
     def list_task_files(self, project_id: Optional[int], workflow_id: int, task_id: int) -> list[dict]:
         """
