@@ -100,6 +100,33 @@ class FileStorage:
             get_storage().delete(key)
         except Exception as e:
             logger.warning(f"Failed to delete storage copy {key}: {e}")
+
+    # ------------------------------------------------------------------
+    # Phase 3 read-through: in STORAGE_MODE=db the durable copy in
+    # storage_objects is authoritative and the on-disk copy is only a
+    # fallback, so documents survive even if the filesystem copy is lost.
+    # Local mode (default) stays a plain disk read.
+    # ------------------------------------------------------------------
+    def read_bytes(self, file_path: Path) -> Optional[bytes]:
+        """Read a document's bytes: storage-first in db mode, disk fallback.
+
+        Returns None if the document exists in neither place.
+        """
+        from config import settings
+        if settings.storage_mode == "db":
+            key = self._storage_key(file_path)
+            if key is not None:
+                try:
+                    from services.storage import get_storage
+                    return get_storage().read(key)
+                except KeyError:
+                    pass  # not in storage yet — fall back to the disk copy
+                except Exception as e:
+                    logger.warning(f"Failed to read storage copy {key}: {e}")
+        try:
+            return file_path.read_bytes()
+        except FileNotFoundError:
+            return None
     
     def save_file(self, project_id: int, filename: str, content: bytes,
                   hierarchy: dict = None) -> str:
@@ -171,13 +198,16 @@ class FileStorage:
         """
         try:
             path = Path(file_path)
+            deleted = False
             if path.exists():
                 path.unlink()
-                # Phase 2: drop the durable copy in storage when STORAGE_MODE=db.
-                self._unpersist(path)
+                deleted = True
+            # Phase 3: drop the durable storage copy even when the disk copy
+            # is already gone (read-through survival case) — best-effort.
+            self._unpersist(path)
+            if deleted:
                 logger.info(f"Deleted file {file_path}")
-                return True
-            return False
+            return deleted
         except Exception as e:
             logger.error(f"Failed to delete file {file_path}: {e}")
             return False
