@@ -15,6 +15,7 @@ export type SettingsCategory =
   | 'model-cards'
   | 'search-providers'
   | 'embedding'
+  | 'storage'
   | 'backend'
   | 'workflow'
   | 'general'

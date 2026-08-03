@@ -25,6 +25,7 @@ const menuSections: MenuSection[] = [
   { id: 'model-cards', labelKey: 'settings_model_cards', icon: 'smart_toy' },
   { id: 'search-providers', labelKey: 'settings_search_providers', icon: 'travel_explore' },
   { id: 'embedding', labelKey: 'settings_embedding', icon: 'database' },
+  { id: 'storage', labelKey: 'settings_storage', icon: 'storage' },
   { id: 'model-defaults', labelKey: 'settings_model_defaults', icon: 'psychology' },
   // 'local-models' removed 2026-06-23 — local models now shown under their provider in Model Cards
   { id: 'local-workspace', labelKey: 'settings_local_workspace', icon: 'folder_open' },

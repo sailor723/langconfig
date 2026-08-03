@@ -119,6 +119,8 @@ export interface SettingsApi {
     monthly_token_limit?: number;
     alert_threshold?: number;
   }): Promise<any>;
+  getStorageMode(): Promise<any>;
+  updateStorageMode(data: { mode: 'local' | 'db' }): Promise<any>;
   browseDirectories(path?: string): Promise<any>;
 }
 
@@ -349,6 +351,16 @@ export const settingsApi: SettingsApi = {
     alert_threshold?: number;
   }) {
     return this.post('/api/settings/model-defaults', data);
+  },
+
+  // Storage mode (docs/system-architecture.md §15 Phase 5) — runtime switch
+  // between 'local' (disk, default) and 'db' (PostgreSQL BYTEA).
+  async getStorageMode(this: APIClient) {
+    return this.get('/api/settings/storage-mode');
+  },
+
+  async updateStorageMode(this: APIClient, data: { mode: 'local' | 'db' }) {
+    return this.put('/api/settings/storage-mode', data);
   },
 
   // Directory Browser

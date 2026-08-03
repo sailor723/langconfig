@@ -21,10 +21,12 @@ import hashlib
 import json
 import logging
 import mimetypes
+import re
 import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
@@ -33,6 +35,18 @@ from pydantic import BaseModel, Field
 from services.file_storage import file_storage
 
 logger = logging.getLogger(__name__)
+
+# Office/document MIME types vary across OS mimetypes databases — register
+# them explicitly so docx/pptx/xlsx uploads and serving are consistent.
+for _ext, _mime in (
+    (".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+    (".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    (".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+    (".doc", "application/msword"),
+    (".xls", "application/vnd.ms-excel"),
+    (".ppt", "application/vnd.ms-powerpoint"),
+):
+    mimetypes.add_type(_mime, _ext)
 
 router = APIRouter(prefix="/api/kv", tags=["kv"])
 
@@ -157,6 +171,147 @@ def _parse_hierarchy_from_metadata(metadata: dict) -> dict:
     }
 
 
+# ── Storage-backed docs (docs/system-architecture.md §15, Phase 5) ──────────
+# In STORAGE_MODE=db the durable copy in storage_objects is authoritative, so
+# the listing is sourced from `documents/project_<id>/` keys instead of the
+# .kvmeta JSON. `save_file` writes `project_<id>/[industry/][player/]
+# [sub_category/][sub_department/]<uuid8>_<name>` — the position-based
+# hierarchy matches `_parse_hierarchy_from_path` in rag/uploads.py.
+
+_UUID8_RE = re.compile(r"^([0-9a-f]{8})_(.+)$")
+
+
+def _parse_storage_key(project_id: int, key: str) -> Optional[dict]:
+    """Parse a storage key into its id / filename / hierarchy parts.
+
+    Returns None when the key isn't a document belonging to `project_id`.
+    """
+    prefix = f"documents/project_{project_id}/"
+    if not key.startswith(prefix):
+        return None
+    segs = key[len(prefix):].split("/")
+    basename = segs[-1]
+    hier = segs[:-1]
+    m = _UUID8_RE.match(basename)
+    if m:
+        doc_id, original = m.group(1), m.group(2)
+    else:
+        doc_id, original = basename, basename  # legacy/no-prefix names
+    return {
+        "id": doc_id,
+        "original_filename": original,
+        "industry": hier[0] if len(hier) >= 1 else None,
+        "player": hier[1] if len(hier) >= 2 else None,
+        "sub_category": hier[2] if len(hier) >= 3 else None,
+        "sub_department": hier[3] if len(hier) >= 4 else None,
+    }
+
+
+def _storage_doc(project_id: int, doc_id: str) -> Optional[dict]:
+    """Find a document in storage_objects by its storage-derived id.
+
+    Used for docs listed from the DB, which have no .kvmeta record.
+    """
+    from services.storage import get_storage
+
+    storage = get_storage()
+    for key in storage.list(f"documents/project_{project_id}/"):
+        parsed = _parse_storage_key(project_id, key)
+        if parsed and parsed["id"] == doc_id:
+            stat = storage.stat(key)
+            return {
+                "key": key,
+                "original_filename": parsed["original_filename"],
+                "mime_type": stat.mime_type if stat else None,
+            }
+    return None
+
+
+def _purge_kvmeta_for_key(store: "KVStore", key: str) -> None:
+    """Drop .kvmeta records whose on-disk path maps to `key` (dedupe).
+
+    A doc uploaded in db mode exists both in .kvmeta and storage_objects, but
+    the DB listing uses the storage-derived id, so deleting it must not leave
+    a ghost record behind for when the user switches back to local mode.
+    """
+    for doc in store.list_docs():
+        try:
+            if file_storage._storage_key(Path(doc.storage_path)) == key:
+                store.delete_doc(doc.id)
+        except Exception:
+            continue
+
+
+def _list_docs_from_storage(project_id: int) -> List["KVDocumentResponse"]:
+    """DB mode: list documents from storage_objects instead of .kvmeta JSON."""
+    from services.storage import get_storage
+
+    storage = get_storage()
+    out: List[KVDocumentResponse] = []
+    for key in storage.list(f"documents/project_{project_id}/"):
+        parsed = _parse_storage_key(project_id, key)
+        if parsed is None:
+            continue
+        stat = storage.stat(key)
+        created_at = stat.updated_at.timestamp() if stat and stat.updated_at else 0.0
+        out.append(KVDocumentResponse(
+            id=parsed["id"],
+            project_id=project_id,
+            name=parsed["original_filename"],
+            original_filename=parsed["original_filename"],
+            document_type=_doc_type_from_ext(parsed["original_filename"]),
+            size=stat.size_bytes if stat else 0,
+            mime_type=stat.mime_type if stat else None,
+            industry=parsed["industry"],
+            player=parsed["player"],
+            sub_category=parsed["sub_category"],
+            sub_department=parsed["sub_department"],
+            created_at=created_at,
+        ))
+    out.sort(key=lambda d: d.created_at, reverse=True)
+    return out
+
+
+# ── File serving (encoding & media types) ────────────────────────────────
+# Formats the browser can render inline; everything else (docx/pptx/zip/...)
+# is sent as `attachment` so it downloads with the correct filename instead of
+# rendering as garbage.
+_VIEWABLE_EXTENSIONS = {
+    ".pdf", ".html", ".htm",
+    ".md", ".txt", ".json", ".csv", ".yaml", ".yml", ".xml",
+    ".css", ".sql", ".sh", ".bash", ".py", ".js", ".ts", ".tsx", ".jsx",
+    ".rb", ".go", ".rs", ".java", ".kt", ".swift", ".c", ".cpp", ".h", ".hpp",
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg",
+}
+
+
+def _content_disposition(filename: str, inline: bool) -> str:
+    """RFC 5987 content-disposition with an ASCII fallback, so non-ASCII
+    filenames (e.g. Chinese) survive every browser/client without garbling."""
+    disposition = "inline" if inline else "attachment"
+    ascii_name = filename.encode("ascii", "ignore").decode("ascii") or "download"
+    return f'{disposition}; filename="{ascii_name}"; filename*=UTF-8\'\'{quote(filename)}'
+
+
+def _serve_file_bytes(content: bytes, filename: str, stored_mime: Optional[str]) -> Response:
+    """Build the document response: correct media type (re-guessing when the
+    stored MIME is missing/unknown) and a properly encoded disposition."""
+    ext = Path(filename).suffix.lower()
+    mime = stored_mime or "application/octet-stream"
+    if mime == "application/octet-stream":
+        mime, _ = mimetypes.guess_type(filename)
+        mime = mime or "application/octet-stream"
+    return Response(
+        content=content,
+        media_type=mime,
+        headers={
+            "Content-Disposition": _content_disposition(
+                filename, inline=ext in _VIEWABLE_EXTENSIONS
+            ),
+        },
+    )
+
+
 # ── Response schemas ──────────────────────────────────────────────
 
 class KVDocumentResponse(BaseModel):
@@ -185,7 +340,17 @@ class KVUploadResponse(BaseModel):
 
 @router.get("/documents")
 async def list_documents(project_id: int):
-    """List all documents for a project."""
+    """List all documents for a project.
+
+    In STORAGE_MODE=db the list is sourced from storage_objects
+    (documents/project_<id>/ keys) — the durable store is authoritative.
+    Local mode reads the .kvmeta JSON as before.
+    """
+    from config import settings
+
+    if settings.storage_mode == "db":
+        return _list_docs_from_storage(project_id)
+
     store = KVStore(project_id)
     docs = store.list_docs()
     # Sort newest first
@@ -460,7 +625,15 @@ async def delete_document(doc_id: str, project_id: int):
     store = KVStore(project_id)
     doc = store.get_doc(doc_id)
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        # DB mode: docs listed from storage_objects have no .kvmeta record.
+        resolved = _storage_doc(project_id, doc_id)
+        if resolved is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+        from services.storage import get_storage
+        get_storage().delete(resolved["key"])
+        _purge_kvmeta_for_key(store, resolved["key"])
+        logger.info(f"Deleted document {doc_id} from storage ({resolved['key']})")
+        return {"message": "Document deleted."}
 
     # Delete file from disk
     try:
@@ -483,22 +656,21 @@ async def get_document_file(doc_id: str, project_id: int):
     store = KVStore(project_id)
     doc = store.get_doc(doc_id)
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        # DB mode: docs listed from storage_objects have no .kvmeta record,
+        # so resolve the durable row by its storage-derived id.
+        resolved = _storage_doc(project_id, doc_id)
+        if resolved is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+        from services.storage import get_storage
+        return _serve_file_bytes(
+            get_storage().read(resolved["key"]),
+            resolved["original_filename"],
+            resolved["mime_type"],
+        )
 
     file_path = Path(doc.storage_path)
     content = file_storage.read_bytes(file_path)
     if content is None:
         raise HTTPException(status_code=404, detail="File not found on disk")
 
-    media_type = doc.mime_type or "application/octet-stream"
-    # Serve the raw bytes (storage-backed or disk) with an inline disposition,
-    # matching the FileResponse behavior used before read-through.
-    return Response(
-        content=content,
-        media_type=media_type,
-        headers={
-            "Content-Disposition": (
-                f'inline; filename="{doc.original_filename}"'
-            )
-        },
-    )
+    return _serve_file_bytes(content, doc.original_filename, doc.mime_type)

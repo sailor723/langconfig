@@ -67,6 +67,28 @@ async def lifespan(app: FastAPI):
         logger.error("Make sure PostgreSQL is running: docker-compose up -d postgres")
         raise
 
+    # Apply the persisted storage-mode override (Settings UI runtime switch,
+    # docs/system-architecture.md §15 Phase 5): a value in the settings table
+    # wins over the .env STORAGE_MODE default.
+    try:
+        from api.system.settings import get_or_create_settings
+        from db.database import SessionLocal as _sync_session_local
+        from config import settings as _app_settings
+
+        db = _sync_session_local()
+        try:
+            row = get_or_create_settings(db)
+            persisted_mode = getattr(row, "storage_mode", None)
+            if persisted_mode:
+                _app_settings.storage_mode = persisted_mode
+                logger.info("Storage mode: %s (persisted override)", persisted_mode)
+            else:
+                logger.info("Storage mode: %s (.env/default)", _app_settings.storage_mode)
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Failed to apply storage-mode override (non-fatal): {e}")
+
     # Initialize LangGraph checkpointing for workflow persistence and HITL
     try:
         from core.workflows.checkpointing.manager import setup_checkpointing
