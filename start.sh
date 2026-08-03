@@ -1,8 +1,8 @@
 #!/bin/bash
-# Start LangConfig — kills previous processes, then starts BE + FE
-# Usage:  bash start.sh          # start both
+# Start LangConfig — kills previous processes, then starts PostgreSQL + BE + FE
+# Usage:  bash start.sh          # start all (db + backend + frontend)
 #         bash start.sh --fe     # frontend only
-#         bash start.sh --be     # backend only
+#         bash start.sh --be     # backend only (db started first)
 
 set -e
 
@@ -42,6 +42,26 @@ kill_old() {
         done
         sleep 1
     fi
+}
+
+start_postgres() {
+    echo "── PostgreSQL ────────────────────────────"
+    # Native Homebrew PostgreSQL 16 on :5432 — Docker is NOT used here.
+    PG_READY="$(command -v pg_isready || echo /opt/homebrew/opt/postgresql@16/bin/pg_isready)"
+    if "$PG_READY" -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
+        echo "  ✅ PostgreSQL already running on :5432"
+        return 0
+    fi
+    echo "  Starting PostgreSQL via brew services (postgresql@16)..."
+    brew services start postgresql@16
+    for _ in 1 2 3 4 5; do
+        if "$PG_READY" -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
+            echo "  ✅ PostgreSQL ready on :5432"
+            return 0
+        fi
+        sleep 2
+    done
+    echo "  ⚠️  PostgreSQL not ready — the backend may fail to connect"
 }
 
 start_backend() {
@@ -89,10 +109,12 @@ echo ""
 
 # Parse args
 if [ "$1" = "--be" ]; then
+    start_postgres
     start_backend
 elif [ "$1" = "--fe" ]; then
     start_frontend
 else
+    start_postgres
     start_backend
     start_frontend
 fi
