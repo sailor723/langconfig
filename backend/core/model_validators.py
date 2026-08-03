@@ -153,15 +153,6 @@ workflow_validator.register_fields({
     },
     "last_used_at": {
         "permission": PermissionLevel.SYSTEM
-    },
-    "export_status": {
-        "permission": PermissionLevel.SYSTEM
-    },
-    "export_error": {
-        "permission": PermissionLevel.SYSTEM
-    },
-    "last_export_at": {
-        "permission": PermissionLevel.SYSTEM
     }
 })
 
