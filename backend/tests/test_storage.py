@@ -317,6 +317,71 @@ def test_kv_list_and_file_from_storage_db_mode(db_mode, tmp_path, monkeypatch):
     assert db_mode.exists("documents/project_1/fin/77a07943_report.md") is True
 
 
+def test_kv_file_serves_range_requests(tmp_path, monkeypatch):
+    """GET /api/kv/documents/{id}/file answers Range probes with 206 +
+    Content-Range — Safari's PDF viewer requires this (it errors out when a
+    Range request is answered with a plain 200 full-body response)."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from api.knowledge import kv as kv_module
+    from services.file_storage import FileStorage
+
+    kv_meta = tmp_path / ".kvmeta"
+    kv_meta.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(kv_module, "KV_DATA_DIR", kv_meta)
+    monkeypatch.setattr(FileStorage, "base_dir", property(lambda self: tmp_path))
+
+    app = FastAPI()
+    app.include_router(kv_module.router)
+    client = TestClient(app)
+
+    body = b"%PDF-1.4 fake body " * 40
+    total = len(body)
+    resp = client.post(
+        "/api/kv/upload",
+        data={"project_id": "1"},
+        files={"file": ("report.pdf", body, "application/pdf")},
+    )
+    assert resp.status_code == 200
+    doc_id = resp.json()["id"]
+
+    # Full response advertises range support.
+    r = client.get(f"/api/kv/documents/{doc_id}/file", params={"project_id": 1})
+    assert r.status_code == 200
+    assert r.headers["accept-ranges"] == "bytes"
+    assert r.content == body
+
+    # Safari-style probe range.
+    r = client.get(
+        f"/api/kv/documents/{doc_id}/file",
+        params={"project_id": 1},
+        headers={"Range": "bytes=0-1"},
+    )
+    assert r.status_code == 206
+    assert r.content == b"%P"
+    assert r.headers["content-range"] == f"bytes 0-1/{total}"
+
+    # Suffix range (last N bytes).
+    r = client.get(
+        f"/api/kv/documents/{doc_id}/file",
+        params={"project_id": 1},
+        headers={"Range": "bytes=-8"},
+    )
+    assert r.status_code == 206
+    assert r.content == body[-8:]
+    assert r.headers["content-range"] == f"bytes {total - 8}-{total - 1}/{total}"
+
+    # Un-satisfiable range -> 416 with an asterisk Content-Range.
+    r = client.get(
+        f"/api/kv/documents/{doc_id}/file",
+        params={"project_id": 1},
+        headers={"Range": "bytes=999999-"},
+    )
+    assert r.status_code == 416
+    assert r.headers["content-range"] == f"bytes */{total}"
+
+
 def test_storage_mode_api_switches_and_persists(tmp_path, monkeypatch):
     """PUT /api/settings/storage-mode flips the runtime mode + resets the
     storage cache, and persists the choice; GET reports it."""
