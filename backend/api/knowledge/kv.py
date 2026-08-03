@@ -293,23 +293,55 @@ def _content_disposition(filename: str, inline: bool) -> str:
     return f'{disposition}; filename="{ascii_name}"; filename*=UTF-8\'\'{quote(filename)}'
 
 
-def _serve_file_bytes(content: bytes, filename: str, stored_mime: Optional[str]) -> Response:
+def _serve_file_bytes(
+    content: bytes,
+    filename: str,
+    stored_mime: Optional[str],
+    range_header: Optional[str] = None,
+) -> Response:
     """Build the document response: correct media type (re-guessing when the
-    stored MIME is missing/unknown) and a properly encoded disposition."""
+    stored MIME is missing/unknown), a properly encoded disposition, and
+    single-range support so Safari's PDF viewer can probe/seek (it errors out
+    when a Range request is answered with a plain 200)."""
     ext = Path(filename).suffix.lower()
     mime = stored_mime or "application/octet-stream"
     if mime == "application/octet-stream":
         mime, _ = mimetypes.guess_type(filename)
         mime = mime or "application/octet-stream"
-    return Response(
-        content=content,
-        media_type=mime,
-        headers={
-            "Content-Disposition": _content_disposition(
-                filename, inline=ext in _VIEWABLE_EXTENSIONS
-            ),
-        },
-    )
+    headers = {
+        "Content-Disposition": _content_disposition(
+            filename, inline=ext in _VIEWABLE_EXTENSIONS
+        ),
+        "Accept-Ranges": "bytes",
+    }
+    total = len(content)
+
+    # Browsers' PDF viewers issue a single range (e.g. "bytes=0-1" probe,
+    # "bytes=100-200" seek, "bytes=-500" suffix) — handle just that.
+    if range_header and total > 0:
+        m = re.match(r"bytes=(\d*)-(\d*)$", range_header.strip())
+        if m:
+            start_s, end_s = m.groups()
+            if start_s == "" and end_s:  # suffix range: last N bytes
+                start = max(0, total - int(end_s))
+                end = total - 1
+            else:
+                start = int(start_s) if start_s else 0
+                end = int(end_s) if end_s else total - 1
+            if start < total and start <= end:
+                end = min(end, total - 1)
+                headers["Content-Range"] = f"bytes {start}-{end}/{total}"
+                return Response(
+                    content=content[start : end + 1],
+                    media_type=mime,
+                    status_code=206,
+                    headers=headers,
+                )
+        # Un-satisfiable range
+        headers["Content-Range"] = f"bytes */{total}"
+        return Response(content=b"", media_type=mime, status_code=416, headers=headers)
+
+    return Response(content=content, media_type=mime, headers=headers)
 
 
 # ── Response schemas ──────────────────────────────────────────────
@@ -646,7 +678,7 @@ async def delete_document(doc_id: str, project_id: int):
 
 
 @router.get("/documents/{doc_id}/file")
-async def get_document_file(doc_id: str, project_id: int):
+async def get_document_file(doc_id: str, project_id: int, request: Request):
     """Serve the raw document file for inline viewing or download.
 
     In STORAGE_MODE=db the durable copy in storage_objects is read first
@@ -666,6 +698,7 @@ async def get_document_file(doc_id: str, project_id: int):
             get_storage().read(resolved["key"]),
             resolved["original_filename"],
             resolved["mime_type"],
+            request.headers.get("range"),
         )
 
     file_path = Path(doc.storage_path)
@@ -673,4 +706,4 @@ async def get_document_file(doc_id: str, project_id: int):
     if content is None:
         raise HTTPException(status_code=404, detail="File not found on disk")
 
-    return _serve_file_bytes(content, doc.original_filename, doc.mime_type)
+    return _serve_file_bytes(content, doc.original_filename, doc.mime_type, request.headers.get("range"))
