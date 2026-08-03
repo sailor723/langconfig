@@ -332,8 +332,9 @@ class _DeepAgentAssemblyMixin:
                                 "text/markdown",
                             )
                         # Sources are the <type> containers: skills/<type>/<id>/SKILL.md.
+                        from core.skills.sync import normalize_source_type
                         types = sorted({
-                            (getattr(s, "source_type", "builtin") or "builtin").split(".")[-1].lower()
+                            normalize_source_type(getattr(s, "source_type", "builtin"))
                             for s in skill_records
                         })
                         skills_sources = [f"/skills/{t}" for t in types]

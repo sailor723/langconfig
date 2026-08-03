@@ -154,3 +154,18 @@ def test_db_row_to_fs_write_through_db_mode(db_mode, tmp_path):
     content = db_mode.read("skills/builtin/hello/SKILL.md")
     assert content.startswith(b"---")
     assert b"Say hi" in content
+
+
+def test_skill_storage_key_normalizes_source_type():
+    """skill_storage_key canonicalizes str-mixin enums and dot paths."""
+    from types import SimpleNamespace
+
+    from core.skills.sync import skill_storage_key
+    from models.skill import SkillSourceType
+
+    row = lambda source_type: SimpleNamespace(skill_id="x", source_type=source_type)  # noqa: E731
+
+    assert skill_storage_key(row("builtin")) == "skills/builtin/x/SKILL.md"
+    assert skill_storage_key(row(SkillSourceType.PERSONAL)) == "skills/personal/x/SKILL.md"
+    assert skill_storage_key(row("learning.phase5")) == "skills/phase5/x/SKILL.md"
+    assert skill_storage_key(row(None)) == "skills/builtin/x/SKILL.md"

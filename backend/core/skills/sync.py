@@ -130,16 +130,33 @@ def skill_row_to_markdown(skill_row) -> str:
     return serialize_skill_md(fm, body)
 
 
+def normalize_source_type(source_type: Any) -> str:
+    """Normalize a skill row's source_type to its canonical key segment.
+
+    Handles str-mixin enums (``SkillSourceType.PERSONAL`` -> ``"personal"``),
+    plain strings, and legacy dot paths (``"learning.phase5"`` -> ``"phase5"``);
+    missing/empty defaults to ``"builtin"``. Shared by ``skill_storage_key``
+    and ``db_row_to_fs`` so storage keys and FS dirs always agree.
+    """
+    if source_type is None or source_type == "":
+        return "builtin"
+    if not isinstance(source_type, str):
+        # str-mixin enum members are str subclasses whose f-string repr is
+        # "SkillSourceType.PERSONAL"; the actual value lives in `.value`.
+        source_type = getattr(source_type, "value", str(source_type))
+    if "." in source_type:
+        source_type = source_type.split(".")[-1]
+    return source_type.lower()
+
+
 def skill_storage_key(skill_row) -> str:
     """
     Canonical storage key for a skill: ``skills/<source_type>/<skill_id>/SKILL.md``.
 
-    Normalizes ``source_type`` the same way ``db_row_to_fs`` does (dot path →
-    leaf segment), so DB rows and FS mirrors agree on the key.
+    Normalizes ``source_type`` via ``normalize_source_type`` so DB rows and
+    FS mirrors agree on the key.
     """
-    source_type = getattr(skill_row, "source_type", "builtin")
-    if isinstance(source_type, str) and "." in source_type:
-        source_type = source_type.split(".")[-1].lower()
+    source_type = normalize_source_type(getattr(skill_row, "source_type", "builtin"))
     return f"skills/{source_type}/{skill_row.skill_id}/SKILL.md"
 
 
@@ -156,9 +173,7 @@ def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
     root = skills_root or DEFAULT_BUILTIN_SKILLS_ROOT
 
     # Determine target directory
-    source_type = getattr(skill_row, "source_type", "builtin")
-    if isinstance(source_type, str) and "." in source_type:
-        source_type = source_type.split(".")[-1].lower()
+    source_type = normalize_source_type(getattr(skill_row, "source_type", "builtin"))
 
     if hasattr(skill_row, "source_path") and skill_row.source_path:
         skill_dir = Path(skill_row.source_path)
