@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
@@ -44,6 +45,16 @@ TEXT_EXTENSIONS = {
     ".swift", ".r", ".c", ".cpp", ".h", ".hpp",
 }
 PDF_EXTENSIONS = {".pdf"}
+
+# FileStorage.save_file prefixes on-disk filenames with an 8-hex uuid to
+# avoid collisions (e.g. "b37a8720_industry_analysis_report.md"). Strip it
+# when naming documents in the prompt so citations show the clean name.
+_HASH_PREFIX_RE = re.compile(r"^[0-9a-f]{8}_")
+
+
+def _display_doc_name(filename: str) -> str:
+    """Human-friendly document name — removes the 8-hex uuid collision prefix."""
+    return _HASH_PREFIX_RE.sub("", filename)
 
 # Max chars to feed into LLM context
 MAX_CONTEXT_CHARS = 500_000  # 500K chars — fits comfortably in most model context windows
@@ -143,6 +154,7 @@ def _scan_folder_sync(folder_path: str, project_id: int, max_files: int = MAX_FI
                 continue
             files.append({
                 "name": fp.name,
+                "display_name": _display_doc_name(fp.name),
                 "path": str(fp.relative_to(base)),
                 "content": text,
                 "size": len(text),
@@ -298,7 +310,9 @@ async def doc_chat(request: DocChatRequest):
         total_chars = 0
         max_context = min(request.max_context_chars, MAX_CONTEXT_CHARS)
         for f in md_files:
-            header = f"\n--- File: {f['path']} ---\n"
+            # Use the cleaned name so citations show the original document
+            # name instead of the uuid-prefixed on-disk filename.
+            header = f"\n--- File: {f.get('display_name', f['path'])} ---\n"
             entry = header + f["content"]
             if total_chars + len(entry) > max_context:
                 remaining = max_context - total_chars

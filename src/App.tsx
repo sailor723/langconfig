@@ -489,7 +489,9 @@ function AppContent() {
 
         {/* Right panel: NodeConfigPanel when node selected, Chat otherwise */}
         {(rightPanelOpen || studioSelectedNode) && (
-        <NodeSidebar>
+        <NodeSidebar
+          onClose={() => { setStudioSelectedNode(null); closeRightPanel(); }}
+        >
           {currentView === 'studio' && studioSelectedNode && (
             <NodeConfigPanel
               selectedNode={studioSelectedNode.config as any}

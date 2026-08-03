@@ -29,12 +29,14 @@ function extractThinking(text: string): { visible: string; thinking: string } {
 
 interface NodeSidebarProps {
   children?: ReactNode;
+  /** Optional callback invoked when the panel is closed (e.g. clear studio node selection) */
+  onClose?: () => void;
 }
 
 const SIDEBAR_MIN_WIDTH = 240;
 const SIDEBAR_MAX_WIDTH = 800;
 
-export default function NodeSidebar({ children }: NodeSidebarProps) {
+export default function NodeSidebar({ children, onClose }: NodeSidebarProps) {
   const { rightPanelOpen, rightPanelContent, closeRightPanel, rightPanelWidth, setRightPanelWidth } = useLayoutState();
   const t = useLayoutTokens();
   const [localTab, setLocalTab] = useState<'chat' | 'properties' | 'doc-chat'>('chat');
@@ -156,26 +158,27 @@ export default function NodeSidebar({ children }: NodeSidebarProps) {
 
         <div style={{ flex: 1 }} />
 
-        {/* Close button (only when properties/child content shown) */}
-        {rightPanelContent && (
-          <button
-            onClick={closeRightPanel}
-            title="Close"
-            style={{
-              width: 24,
-              height: 24,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'transparent',
-              border: 'none',
-              color: t.textMuted,
-              cursor: 'pointer',
-            }}
-          >
-            <X size={14} />
-          </button>
-        )}
+        {/* Close button — hides the whole right panel (chat or properties) */}
+        <button
+          onClick={() => {
+            closeRightPanel();
+            onClose?.();
+          }}
+          title="Close"
+          style={{
+            width: 24,
+            height: 24,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'transparent',
+            border: 'none',
+            color: t.textMuted,
+            cursor: 'pointer',
+          }}
+        >
+          <X size={14} />
+        </button>
       </div>
 
       {/* ── Content ─────────────────────────────────── */}

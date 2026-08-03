@@ -11,7 +11,7 @@ this mixin. Bare ``AgentFactory.`` references in staticmethod bodies are
 late-bound into this module's globals by ``_bind_runtime``.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from langchain_core.tools import BaseTool
 
@@ -27,7 +27,7 @@ class _AgentPromptingMixin:
         enable_memory: bool,
         long_term_memory: bool = False,
         tools: List[BaseTool] = None,
-        custom_guardrails: str = None
+        custom_guardrails: Optional[Union[str, Dict[str, Any]]] = None
     ) -> str:
         """
         Constructs the system prompt string using Context Engineering principles.
@@ -45,6 +45,11 @@ class _AgentPromptingMixin:
         Note: In LangChain v1.0, create_agent handles the reasoning loop internally.
         These guardrails add production-safety rules (stopping criteria, tool usage).
         """
+        # Guardrails can be a plain string (legacy prompt rules) or a structured
+        # dict (interrupts/token_limits runtime config). A dict is operational
+        # config, not prompt text — fall back to the default string guardrails.
+        if isinstance(custom_guardrails, dict):
+            custom_guardrails = None
         # Use custom guardrails if provided, otherwise use default
         guardrails = custom_guardrails if custom_guardrails is not None else DEFAULT_AGENT_GUARDRAILS
         if enable_memory:
