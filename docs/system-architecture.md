@@ -20,11 +20,11 @@ runtime.
 
 ### Tech stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 19 + TypeScript + Tailwind CSS 4 + ReactFlow |
-| Backend | Python 3.11/3.13 + FastAPI + LangChain V1 + LangGraph + deepagents 0.7.1 |
-| Database | PostgreSQL 16 + pgvector + SQLAlchemy + Alembic |
+| Layer        | Technology                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------ |
+| Frontend     | React 19 + TypeScript + Tailwind CSS 4 + ReactFlow                                               |
+| Backend      | Python 3.11/3.13 + FastAPI + LangChain V1 + LangGraph + deepagents 0.7.1                         |
+| Database     | PostgreSQL 16 + pgvector + SQLAlchemy + Alembic                                                  |
 | Runtime libs | deepagents SDK, langchain/langgraph, LLM providers (DeepSeek / OpenAI-compatible), Tavily search |
 
 ### The five-layer mental model
@@ -59,108 +59,101 @@ Each layer has a **strict responsibility**:
 
 ---
 
-## 2. The layer map (everything at a glance)
+## 2.
+
+<u><wbr> The layer map (everything at a glance)</u>
 
 ```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}}}%%
 flowchart TB
-    subgraph UI["1 · Frontend (React 19 + TS + Tailwind 4)"]
-        A1["IDE shell (components/layout2/)<br/>AgentEditor · DeepAgentEditor · WorkflowEditor<br/>NodeSidebar · chatStore"]
-        A2["Features (features/)<br/>workflows canvas · agents · deepagent-studio-v2<br/>chat · tools · knowledge · memory · settings"]
-        A3["Typed API clients (lib/api/)<br/>agents.ts · workflows.ts · chat.ts · tools.ts"]
+    subgraph UI["1 · FRONTEND LAYER — React 19 + TypeScript + Tailwind 4"]
+        direction LR
+        A1["IDE shell<br/>components/layout2/"]
+        A2["Features<br/>workflows · agents · deepagent studio · chat"]
+        A3["API clients<br/>lib/api/ (typed)"]
     end
 
-    subgraph API["2 · Backend API Layer (FastAPI, main.py — 40 routers)"]
-        R1["api/agents/deep_agents.py<br/>DeepAgent CRUD + prompt-preview + export/codegen"]
-        R2["api/agents/routes.py<br/>Normal Agent CRUD (templates)"]
-        R3["api/chat + api/workflows<br/>Chat / Workflow execution (SSE)"]
-        R4["api/knowledge, api/rag, api/memory<br/>Doc-chat, RAG, memory"]
-        R5["api/tools, api/skills, api/workspace<br/>Tools, skills, workspace files"]
+    subgraph API["2 · API LAYER — FastAPI · 40 routers (main.py)"]
+        direction LR
+        R1["agents + deepagents<br/>CRUD · prompt-preview · export"]
+        R2["chat + workflows<br/>SSE · orchestration · hitl"]
+        R3["rag + doc_chat + memory<br/>knowledge · store · agents_md"]
+        R4["tools + skills + workspace<br/>models · settings"]
     end
 
-    subgraph SVC["3 · Service Layer (builders + managers)"]
-        F1["core/agents/factory/<br/>AgentFactory.create_agent (normal)"]
-        F2["services/deepagent_factory/<br/>DeepAgentFactory.create_deep_agent (deep)"]
-        E1["services/export_service.py<br/>ExportService (.py / langconfig)"]
-        W1["services/workspace_manager.py<br/>Task workspaces"]
-        T1["core/agents/tool_loader.py<br/>tools/registry.py + custom_tools"]
-        S1["core/skills/ (registry, sync, matcher)<br/>core/middleware/deep.py"]
+    subgraph SVC["3 · SERVICE LAYER — builders + managers"]
+        direction LR
+        F1["AgentFactory<br/>core/agents/factory"]
+        F2["DeepAgentFactory<br/>services/deepagent_factory"]
+        E1["ExportService<br/>services/export_service"]
+        W1["WorkspaceManager<br/>+ 20 support services"]
     end
 
-    subgraph CORE["4 · Core Engines"]
-        C1["core/workflows/<br/>executor · checkpointing · events/emitter"]
-        C2["core/codegen/<br/>langgraph · workflow_exporter · generators"]
-        C3["core/context + core/middleware<br/>compactor · runtime · dynamic_tools"]
-        C4["core/models/<br/>registry · router · selector"]
+    subgraph CORE["4 · CORE ENGINES"]
+        direction LR
+        C1["workflows<br/>executor · checkpoints · events"]
+        C2["codegen"]
+        C3["skills + middleware"]
+        C4["models + context"]
     end
 
-    subgraph LIB["Runtime Libraries"]
-        L1["deepagents (create_deep_agent,<br/>SkillsMiddleware, harness profiles)"]
-        L2["langchain V1 create_agent<br/>+ langgraph (graph, checkpoints)"]
-        L3["LLM providers<br/>(DeepSeek / OpenAI-compatible)"]
-        L4["Tavily web search"]
+    subgraph LIB["RUNTIME LIBRARIES"]
+        direction LR
+        L1["deepagents SDK"]
+        L2["langchain V1 + langgraph"]
+        L3["LLM providers"]
+        L4["Tavily search"]
     end
 
-    subgraph DB["5 · Data Layer"]
-        D1[("PostgreSQL 16 + pgvector :5432")]
-        D2[("deep_agent_templates<br/>custom_tools · skills · workflows<br/>agent_memories · execution_events")]
+    subgraph DB["5 · DATA LAYER"]
+        D1(("PostgreSQL 16<br/>+ pgvector :5432"))
+        D2["Tables:<br/>deep_agent_templates · custom_tools · skills<br/>workflows · agent_memories · execution_events"]
     end
 
-    A1 --> A2
-    A2 --> A3
-    A3 -->|"HTTP / SSE :8765"| R1
+    A3 --> R1
     A3 --> R2
     A3 --> R3
     A3 --> R4
-    A3 --> R5
 
     R1 --> F1
     R1 --> F2
     R1 --> E1
     R2 --> F1
+    R2 --> F2
     R3 --> F1
-    R3 --> F2
     R4 --> F1
-    R4 --> F2
-    R5 --> F1
-    R5 --> F2
-
-    F2 --> T1
-    F2 --> S1
-    F2 --> W1
-    F1 --> T1
-    F1 --> S1
-    E1 --> L2
 
     F1 --> C1
+    F1 --> C3
     F1 --> C4
     F2 --> C1
-    F2 --> C4
+    F2 --> C3
     C1 --> L2
-    C2 --> L2
 
     F1 --> L2
     F2 --> L1
     L1 --> L2
     F1 --> L3
     F2 --> L3
-    T1 --> L4
 
     F1 --> D1
     F2 --> D1
-    R1 --> D2
-    R2 --> D2
     C1 --> D1
+    D1 --> D2
 
-    classDef api fill:#dbeafe,stroke:#2563eb,color:#111;
-    classDef svc fill:#dcfce7,stroke:#16a34a,color:#111;
-    classDef lib fill:#fef3c7,stroke:#d97706,color:#111;
-    classDef db fill:#fee2e2,stroke:#dc2626,color:#111;
-    classDef core fill:#ede9fe,stroke:#7c3aed,color:#111;
-    class R1,R2,R3,R4,R5 api;
-    class F1,F2,E1,W1,T1,S1 svc;
+    classDef ui fill:#e2e8f0,stroke:#334155,color:#0f172a,font-size:18px;
+    classDef api fill:#bfdbfe,stroke:#1d4ed8,color:#1e3a8a,font-size:18px;
+    classDef svc fill:#bbf7d0,stroke:#15803d,color:#14532d,font-size:18px;
+    classDef core fill:#ddd6fe,stroke:#6d28d9,color:#4c1d95,font-size:18px;
+    classDef lib fill:#fde68a,stroke:#b45309,color:#78350f,font-size:18px;
+    classDef db fill:#fecaca,stroke:#b91c1c,color:#7f1d1d,font-size:18px;
+
+    class A1,A2,A3 ui;
+    class R1,R2,R3,R4 api;
+    class F1,F2,E1,W1 svc;
+    class C1,C2,C3,C4 core;
     class L1,L2,L3,L4 lib;
     class D1,D2 db;
-    class C1,C2,C3,C4 core;
 ```
 
 ---
@@ -171,11 +164,11 @@ It is the **REST API router (controller) for DeepAgents** — registered in `mai
 "DeepAgents configuration and export" router. It does **not** build agents and does **not**
 export by itself; it:
 
-| Endpoint group | Responsibility | Delegates to |
-|---|---|---|
-| `POST/GET /api/deepagents/`, `GET /api/deepagents/{id}`, `GET /templates` | DeepAgent CRUD + built-in templates | `models.deep_agent` (DB) |
-| `POST /api/deepagents/prompt-preview` | System-prompt assembly preview | deepagents harness profiles (`_harness_profile_for_model`) |
-| `/export`, `/code` | Export `.py` CLI / langconfig bundles | `services/export_service.py` (`ExportService`) |
+| Endpoint group                                                                  | Responsibility                         | Delegates to                                                 |
+| ------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------ |
+| `POST/GET /api/deepagents/`, `GET /api/deepagents/{id}`, `GET /templates` | DeepAgent CRUD + built-in templates    | `models.deep_agent` (DB)                                   |
+| `POST /api/deepagents/prompt-preview`                                         | System-prompt assembly preview         | deepagents harness profiles (`_harness_profile_for_model`) |
+| `/export`, `/code`                                                          | Export`.py` CLI / langconfig bundles | `services/export_service.py` (`ExportService`)           |
 
 The actual builders are `core/agents/factory/` (normal agents) and
 `services/deepagent_factory/` (deep agents) — `deep_agents.py` only exposes them over HTTP.
@@ -196,29 +189,29 @@ workflow design.
 
 ### The IDE shell — `src/components/layout2/`
 
-| Component | Purpose |
-|---|---|
-| `AgentEditor` / `AgentHomePage` | 4-section structured editor (Overview · Prompt · Tools · JSON) for normal agents |
-| `DeepAgentEditor` / `DeepAgentCreator` / `DeepAgentHomePage` | Same 4-section editor for DeepAgents, with export buttons |
-| `WorkflowEditor` / `WorkflowStudioPage` | Visual workflow builder |
-| `NodeSidebar` | Right-hand config panel for the selected canvas node |
-| `SkillEditorTab` / `SkillBrowserSidebar` | Skill authoring + browsing |
-| `ToolEditor` | Custom tool builder |
-| `ModelHomePage` / `SearchProvidersSidebar` | Model defaults + search-provider API keys |
-| `KnowledgeView` / `NotebookViewer` | RAG knowledge + notebooks |
-| `PromptBrowserSidebar` | Prompt library |
-| `editorChatToolbar` / `chatStore.ts` / `useLayout.tsx` | In-editor chat + layout state |
+| Component                                                          | Purpose                                                                             |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `AgentEditor` / `AgentHomePage`                                | 4-section structured editor (Overview · Prompt · Tools · JSON) for normal agents |
+| `DeepAgentEditor` / `DeepAgentCreator` / `DeepAgentHomePage` | Same 4-section editor for DeepAgents, with export buttons                           |
+| `WorkflowEditor` / `WorkflowStudioPage`                        | Visual workflow builder                                                             |
+| `NodeSidebar`                                                    | Right-hand config panel for the selected canvas node                                |
+| `SkillEditorTab` / `SkillBrowserSidebar`                       | Skill authoring + browsing                                                          |
+| `ToolEditor`                                                     | Custom tool builder                                                                 |
+| `ModelHomePage` / `SearchProvidersSidebar`                     | Model defaults + search-provider API keys                                           |
+| `KnowledgeView` / `NotebookViewer`                             | RAG knowledge + notebooks                                                           |
+| `PromptBrowserSidebar`                                           | Prompt library                                                                      |
+| `editorChatToolbar` / `chatStore.ts` / `useLayout.tsx`       | In-editor chat + layout state                                                       |
 
 ### Feature modules — `src/features/`
 
-| Module | Purpose |
-|---|---|
-| `workflows/` | Full ReactFlow canvas (nodes, edges, node-config, toolbar, results, execution, settings) |
-| `agents/ui/PromptCanvas.tsx` | Visual prompt editing |
-| `deepagent-studio-v2/` | Modern DeepAgent studio: `ModernStudioCanvas`, agent picker, capability bar, main/sub-agent nodes, tool nodes, auto-layout |
-| `chat/` | Chat UI with SSE streaming (`useChatController`, `useChatStreaming`, `streamChatEvents.ts`), sessions, files, metrics, HITL interrupts, thinking blocks, analysis panel |
-| `tools/ui/` | `CustomToolBuilder` + `ToolTemplateGallery` |
-| `knowledge/`, `memory/`, `settings/ui/`, `projects/AgentsMdEditor.tsx` | Supporting views |
+| Module                                                                         | Purpose                                                                                                                                                                       |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workflows/`                                                                 | Full ReactFlow canvas (nodes, edges, node-config, toolbar, results, execution, settings)                                                                                      |
+| `agents/ui/PromptCanvas.tsx`                                                 | Visual prompt editing                                                                                                                                                         |
+| `deepagent-studio-v2/`                                                       | Modern DeepAgent studio:`ModernStudioCanvas`, agent picker, capability bar, main/sub-agent nodes, tool nodes, auto-layout                                                   |
+| `chat/`                                                                      | Chat UI with SSE streaming (`useChatController`, `useChatStreaming`, `streamChatEvents.ts`), sessions, files, metrics, HITL interrupts, thinking blocks, analysis panel |
+| `tools/ui/`                                                                  | `CustomToolBuilder` + `ToolTemplateGallery`                                                                                                                               |
+| `knowledge/`, `memory/`, `settings/ui/`, `projects/AgentsMdEditor.tsx` | Supporting views                                                                                                                                                              |
 
 ### Typed API clients — `src/lib/api/`
 
@@ -255,18 +248,18 @@ flowchart LR
 `backend/main.py` registers **40 routers** on the FastAPI app. They are thin controllers:
 parse the request, delegate to a service/factory, and stream the result.
 
-| Group | Routers (in `main.py` order) | Purpose |
-|---|---|---|
-| Health & debug | `health`, `debug` | Liveness + dev-only diagnostics |
-| Agents | `agents` (templates), `agent_generator`, `action_presets`, `images` | Normal-agent CRUD, AI agent generation, action presets, image storage |
-| DeepAgents | `deepagents`, `chat` | DeepAgent CRUD/export + DeepAgent chat testing |
-| Workflows | `workflows`, `orchestration`, `hitl`, `checkpoints` | Workflow CRUD/execute, simplified orchestration, human-in-the-loop approvals, checkpoint restore |
-| Chat & memory | `memory`, `store`, `agents_md_router`, `chat_skill_review` | Agent memory, long-term store, AGENTS.md (MemoryMiddleware), data-skill review |
-| Knowledge / RAG | `rag`, `graphindex_chat`, `doc_chat`, `kv`, `analysis` | RAG ingestion/search, graph-index chat, folder-based doc-chat, KV store, CSV→SQLite→charts |
-| Tools & skills | `custom_tools`, `tool_registry`, `skills` | User tools, native tool registry (single source of truth), skills system |
-| Workspace & projects | `projects`, `tasks`, `workspace`, `background_tasks` | Projects, task workspaces, file trees, background job queue |
-| Models & settings | `settings`, `search_providers`, `local_models`, `model_capabilities`, `model_routes`, `schemas` | Config, search-provider keys, local models, capability profiles, model invocation (Playground), structured-output schemas |
-| Automation & extras | `schedules`, `triggers`, `webhooks`, `notebooks`, `presentations`, `google_auth` | Cron scheduling, file-watch triggers, webhook receivers, notebooks, presentation generation + OAuth |
+| Group                | Routers (in`main.py` order)                                                                               | Purpose                                                                                                                   |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Health & debug       | `health`, `debug`                                                                                       | Liveness + dev-only diagnostics                                                                                           |
+| Agents               | `agents` (templates), `agent_generator`, `action_presets`, `images`                                 | Normal-agent CRUD, AI agent generation, action presets, image storage                                                     |
+| DeepAgents           | `deepagents`, `chat`                                                                                    | DeepAgent CRUD/export + DeepAgent chat testing                                                                            |
+| Workflows            | `workflows`, `orchestration`, `hitl`, `checkpoints`                                                 | Workflow CRUD/execute, simplified orchestration, human-in-the-loop approvals, checkpoint restore                          |
+| Chat & memory        | `memory`, `store`, `agents_md_router`, `chat_skill_review`                                          | Agent memory, long-term store, AGENTS.md (MemoryMiddleware), data-skill review                                            |
+| Knowledge / RAG      | `rag`, `graphindex_chat`, `doc_chat`, `kv`, `analysis`                                            | RAG ingestion/search, graph-index chat, folder-based doc-chat, KV store, CSV→SQLite→charts                              |
+| Tools & skills       | `custom_tools`, `tool_registry`, `skills`                                                             | User tools, native tool registry (single source of truth), skills system                                                  |
+| Workspace & projects | `projects`, `tasks`, `workspace`, `background_tasks`                                                | Projects, task workspaces, file trees, background job queue                                                               |
+| Models & settings    | `settings`, `search_providers`, `local_models`, `model_capabilities`, `model_routes`, `schemas` | Config, search-provider keys, local models, capability profiles, model invocation (Playground), structured-output schemas |
+| Automation & extras  | `schedules`, `triggers`, `webhooks`, `notebooks`, `presentations`, `google_auth`                | Cron scheduling, file-watch triggers, webhook receivers, notebooks, presentation generation + OAuth                       |
 
 ```mermaid
 flowchart LR
@@ -292,32 +285,32 @@ own the filesystem, workspaces, and side effects.
 
 ### Builders (compile config → LangGraph)
 
-| Service | Entry point | Produces |
-|---|---|---|
-| `core/agents/factory/assembly.py` | `AgentFactory.create_agent()` (L29) | Normal agent via langchain V1 `create_agent` |
-| `services/deepagent_factory/assembly.py` | `DeepAgentFactory.create_deep_agent()` (L29) | DeepAgent via `deepagents.create_deep_agent` |
-| `services/deepagent_factory/{preflight,shared,support}.py` | helpers | Config validation, shared wiring, SDK compatibility guards |
-| `services/export_service.py` | `ExportService.export_standalone()` / `export_langconfig()` | Standalone `.py` repo or import/export bundle |
+| Service                                                      | Entry point                                                     | Produces                                                   |
+| ------------------------------------------------------------ | --------------------------------------------------------------- | ---------------------------------------------------------- |
+| `core/agents/factory/assembly.py`                          | `AgentFactory.create_agent()` (L29)                           | Normal agent via langchain V1`create_agent`              |
+| `services/deepagent_factory/assembly.py`                   | `DeepAgentFactory.create_deep_agent()` (L29)                  | DeepAgent via`deepagents.create_deep_agent`              |
+| `services/deepagent_factory/{preflight,shared,support}.py` | helpers                                                         | Config validation, shared wiring, SDK compatibility guards |
+| `services/export_service.py`                               | `ExportService.export_standalone()` / `export_langconfig()` | Standalone`.py` repo or import/export bundle             |
 
 ### Managers & support services
 
-| Service | Responsibility |
-|---|---|
-| `workspace_manager.py` | Project/task workspace directories; sandbox and filesystem backends are scoped here |
-| `chat_session_manager.py` | Chat session lifecycle (start/end/resume/recover) |
-| `conversation_context.py`, `context_window_manager.py`, `context_retrieval.py`, `context_document_indexer.py` | Context packing, token-window management, retrieval |
-| `mcp_manager.py` | MCP server/tool loading |
-| `scheduler_service.py`, `triggers/file_watcher.py` | Cron + file-watch triggers |
-| `presentation_service.py`, `dashboard_generator.py`, `data_dashboard.py`, `data_skill_generator.py`, `csv_to_sqlite.py` | Data analysis → presentations/dashboards |
-| `notebook_kernel_manager.py` | Python kernel for notebooks |
-| `event_bus.py`, `audit_service.py`, `deepagents_instrumentation.py` | Observability, audit logs, Langfuse callbacks |
-| `local_model_service.py`, `llama_config.py` | Local model config |
-| `oauth_service.py`, `encryption.py` | Google OAuth + secret encryption |
-| `diff_service.py`, `file_storage.py`, `image_storage.py`, `storage_estimator.py` | Diff/versioning + storage |
-| `agents_md_service.py` | Project `AGENTS.md` for MemoryMiddleware |
-| `token_counter.py`, `output_formatter.py` | Token counting, response formatting |
-| `agent_generator_service.py`, `agent_utils.py` | AI agent generation, model resolution (`resolve_model`) |
-| `workflow_config_service.py` | Workflow config helpers |
+| Service                                                                                                                           | Responsibility                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `workspace_manager.py`                                                                                                          | Project/task workspace directories; sandbox and filesystem backends are scoped here |
+| `chat_session_manager.py`                                                                                                       | Chat session lifecycle (start/end/resume/recover)                                   |
+| `conversation_context.py`, `context_window_manager.py`, `context_retrieval.py`, `context_document_indexer.py`             | Context packing, token-window management, retrieval                                 |
+| `mcp_manager.py`                                                                                                                | MCP server/tool loading                                                             |
+| `scheduler_service.py`, `triggers/file_watcher.py`                                                                            | Cron + file-watch triggers                                                          |
+| `presentation_service.py`, `dashboard_generator.py`, `data_dashboard.py`, `data_skill_generator.py`, `csv_to_sqlite.py` | Data analysis → presentations/dashboards                                           |
+| `notebook_kernel_manager.py`                                                                                                    | Python kernel for notebooks                                                         |
+| `event_bus.py`, `audit_service.py`, `deepagents_instrumentation.py`                                                         | Observability, audit logs, Langfuse callbacks                                       |
+| `local_model_service.py`, `llama_config.py`                                                                                   | Local model config                                                                  |
+| `oauth_service.py`, `encryption.py`                                                                                           | Google OAuth + secret encryption                                                    |
+| `diff_service.py`, `file_storage.py`, `image_storage.py`, `storage_estimator.py`                                          | Diff/versioning + storage                                                           |
+| `agents_md_service.py`                                                                                                          | Project`AGENTS.md` for MemoryMiddleware                                           |
+| `token_counter.py`, `output_formatter.py`                                                                                     | Token counting, response formatting                                                 |
+| `agent_generator_service.py`, `agent_utils.py`                                                                                | AI agent generation, model resolution (`resolve_model`)                           |
+| `workflow_config_service.py`                                                                                                    | Workflow config helpers                                                             |
 
 ---
 
@@ -347,11 +340,13 @@ Reusable engines that both agent types and workflows share.
 ### `core/context/` — `compactor.py`, `content_blocks.py`, `runtime.py`, `synthesis.py`
 
 ### `core/middleware/` — `core.py`, `advanced.py`, `deep.py`, `dynamic_tools.py`, `presets.py`,
+
 `question_detection.py`, `routing.py`, `tool_selection.py`
 
 ### `core/skills/` — `registry.py`, `sync.py`, `matcher.py`, `loader.py`
 
 ### `core/tools/` — `factory/` (base, builders, models), `adapters/llamaindex.py`,
+
 `templates/` (api/cms/data/database/image/notification/python/social/video), `bigtool_registry.py`,
 `execution_wrapper.py`, `seed.py`
 
@@ -480,14 +475,14 @@ flowchart LR
 
 **Middleware stack inside a DeepAgent** (in assembly order):
 
-| Middleware | Source | Effect |
-|---|---|---|
-| MemoryMiddleware | deepagents SDK | Loads project `AGENTS.md` into the system prompt (cache-controlled for Anthropic) |
-| FilesystemMiddleware | deepagents SDK | File read/write scoped to the task workspace |
-| SummarizationMiddleware | deepagents SDK | Auto-compresses history past a token threshold (langchain ≥1.3.14 renamed kind `"token"` → `"tokens"`) |
-| SubAgentMiddleware | added by assembly | Provides the `task` tool so the main agent can delegate to subagents |
-| Custom middleware | `core/middleware/deep.py` | Self-contained TodoListMiddleware + others (guarded imports keep SDK compat) |
-| Sandbox | optional `LocalShellBackend` | `execute` tool for shell/python in the workspace |
+| Middleware              | Source                        | Effect                                                                                                      |
+| ----------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| MemoryMiddleware        | deepagents SDK                | Loads project`AGENTS.md` into the system prompt (cache-controlled for Anthropic)                          |
+| FilesystemMiddleware    | deepagents SDK                | File read/write scoped to the task workspace                                                                |
+| SummarizationMiddleware | deepagents SDK                | Auto-compresses history past a token threshold (langchain ≥1.3.14 renamed kind`"token"` → `"tokens"`) |
+| SubAgentMiddleware      | added by assembly             | Provides the`task` tool so the main agent can delegate to subagents                                       |
+| Custom middleware       | `core/middleware/deep.py`   | Self-contained TodoListMiddleware + others (guarded imports keep SDK compat)                                |
+| Sandbox                 | optional`LocalShellBackend` | `execute` tool for shell/python in the workspace                                                          |
 
 ---
 
@@ -544,22 +539,22 @@ backend runtime — so what you export behaves identically to what you tested in
 
 SQLAlchemy models in `backend/models/` map to these tables:
 
-| Model (file) | Table purpose |
-|---|---|
-| `deep_agent.py` (`DeepAgentTemplate` / `DeepAgentConfig`) | **`deep_agent_templates`** — both normal agents *and* deep agents, distinguished by `config.use_deepagents` |
-| `custom_tool.py` | **`custom_tools`** — user tools + built-in seeds (`is_builtin=True`) |
-| `skill.py` | **`skills`** — skill catalog |
-| `workflow.py`, `workflow_schedule.py`, `workflow_trigger.py` | Workflows + cron schedules + event triggers |
-| `agent_memory.py` | Long-term agent memories (pgvector) |
-| `conversation_archive.py` | Chat session archives |
-| `execution_event.py` | Streamed execution events |
-| `background_task.py` | Background job queue |
-| `workspace_file.py`, `file_version.py` | Workspace files + version history |
-| `local_model.py`, `model.py`, `search_provider.py`, `settings.py` | Model/local-model/search-provider/settings config |
-| `user_profile.py` | User profile |
-| `audit_log.py` | Audit trail |
-| `oauth_token.py`, `presentation_job.py` | OAuth tokens + presentation jobs |
-| `analysis_chat.py`, `custom_schema.py` | Analysis chats + structured-output schemas |
+| Model (file)                                                              | Table purpose                                                                                                            |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `deep_agent.py` (`DeepAgentTemplate` / `DeepAgentConfig`)           | **`deep_agent_templates`** — both normal agents *and* deep agents, distinguished by `config.use_deepagents` |
+| `custom_tool.py`                                                        | **`custom_tools`** — user tools + built-in seeds (`is_builtin=True`)                                          |
+| `skill.py`                                                              | **`skills`** — skill catalog                                                                                    |
+| `workflow.py`, `workflow_schedule.py`, `workflow_trigger.py`        | Workflows + cron schedules + event triggers                                                                              |
+| `agent_memory.py`                                                       | Long-term agent memories (pgvector)                                                                                      |
+| `conversation_archive.py`                                               | Chat session archives                                                                                                    |
+| `execution_event.py`                                                    | Streamed execution events                                                                                                |
+| `background_task.py`                                                    | Background job queue                                                                                                     |
+| `workspace_file.py`, `file_version.py`                                | Workspace files + version history                                                                                        |
+| `local_model.py`, `model.py`, `search_provider.py`, `settings.py` | Model/local-model/search-provider/settings config                                                                        |
+| `user_profile.py`                                                       | User profile                                                                                                             |
+| `audit_log.py`                                                          | Audit trail                                                                                                              |
+| `oauth_token.py`, `presentation_job.py`                               | OAuth tokens + presentation jobs                                                                                         |
+| `analysis_chat.py`, `custom_schema.py`                                | Analysis chats + structured-output schemas                                                                               |
 
 ```mermaid
 flowchart TB
@@ -661,13 +656,13 @@ stale instance and report phantom `UndefinedColumn` errors.
 
 ## Quick reference — where things live
 
-| Question | Answer |
-|---|---|
-| What builds a normal agent? | `core/agents/factory/assembly.py` → `AgentFactory.create_agent` |
-| What builds a DeepAgent? | `services/deepagent_factory/assembly.py` → `DeepAgentFactory.create_deep_agent` |
-| What is `deep_agents.py`? | The REST controller (CRUD + prompt-preview + export) — not the builder |
-| Where is export code? | `services/export_service.py` (`ExportService`) |
-| Where do agents persist? | `deep_agent_templates` table (flag `config.use_deepagents`) |
-| How does chat stream? | `POST /api/chat/message/stream` → SSE via `useChatStreaming` / `streamChatEvents.ts` |
-| How do workflows run? | `core/workflows/` executor + Postgres checkpointer, streamed over SSE |
-| Where do exported files land? | `backend/outputs/exports/*.py` (or download zip from `/export`) |
+| Question                      | Answer                                                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------- |
+| What builds a normal agent?   | `core/agents/factory/assembly.py` → `AgentFactory.create_agent`                        |
+| What builds a DeepAgent?      | `services/deepagent_factory/assembly.py` → `DeepAgentFactory.create_deep_agent`        |
+| What is`deep_agents.py`?    | The REST controller (CRUD + prompt-preview + export) — not the builder                     |
+| Where is export code?         | `services/export_service.py` (`ExportService`)                                          |
+| Where do agents persist?      | `deep_agent_templates` table (flag `config.use_deepagents`)                             |
+| How does chat stream?         | `POST /api/chat/message/stream` → SSE via `useChatStreaming` / `streamChatEvents.ts` |
+| How do workflows run?         | `core/workflows/` executor + Postgres checkpointer, streamed over SSE                     |
+| Where do exported files land? | `backend/outputs/exports/*.py` (or download zip from `/export`)                         |
