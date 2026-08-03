@@ -1,3 +1,4 @@
+
 # LangConfig System Architecture
 
 > Visual overview of the LangConfig platform (Agent IDE). Built with Mermaid — open this
@@ -61,7 +62,7 @@ Each layer has a **strict responsibility**:
 
 ## 2.
 
-<u><wbr> The layer map (everything at a glance)</u>
+<u> The layer map (everything at a glance)</u>
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "18px"}}}%%
@@ -555,6 +556,7 @@ SQLAlchemy models in `backend/models/` map to these tables:
 | `audit_log.py`                                                          | Audit trail                                                                                                              |
 | `oauth_token.py`, `presentation_job.py`                               | OAuth tokens + presentation jobs                                                                                         |
 | `analysis_chat.py`, `custom_schema.py`                                | Analysis chats + structured-output schemas                                                                               |
+| `storage_object.py`                                                   | **`storage_objects`** — durable artifact blobs (BYTEA), the DB-as-store seam (Phase 1, §15)                              |
 
 ```mermaid
 flowchart TB
@@ -564,7 +566,7 @@ flowchart TB
         T3["workflows + schedules + triggers"]
         T4["agent_memories (pgvector) · conversation_archives"]
         T5["execution_events · background_tasks · audit_logs"]
-        T6["workspace_files · file_versions · local_models · settings"]
+        T6["workspace_files · file_versions · local_models · settings · storage_objects"]
     end
     T1 --> T2
     T1 --> T3
@@ -649,8 +651,10 @@ flowchart LR
 
 **Gotcha:** a second, stale Postgres container (`langconfig-postgres`) exists on `:5433`.
 The app and seeders always load the root `.env` (→ `:5432`, fully migrated). Standalone
-scripts must `load_dotenv("../../.env")` *before* importing `db.database`, or they hit the
-stale instance and report phantom `UndefinedColumn` errors.
+scripts must load the root `.env` *before* importing `db.database` — from the `backend/`
+cwd that's `load_dotenv("../.env")`, or better, derive the path from `__file__` (see
+`tools/seed_builtin_tools.py`) — otherwise they hit the stale instance and report phantom
+`UndefinedColumn` errors.
 
 ---
 
@@ -673,9 +677,9 @@ staging dirs, export zips, local sandboxes.
 
 Not either/or — a **hybrid** selected by size threshold + `STORAGE_MODE`:
 
-| Storage | Best for | Trade-off |
-|---|---|---|
-| Postgres BYTEA (`storage_objects`) | Skills, configs, small artifacts (< ~1 MB) | Transactional, zero infra, same backup — bloats DB, poor for large/media |
+| Storage                                      | Best for                                          | Trade-off                                                                    |
+| -------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Postgres BYTEA (`storage_objects`)         | Skills, configs, small artifacts (< ~1 MB)        | Transactional, zero infra, same backup — bloats DB, poor for large/media    |
 | Object storage (S3 / MinIO / COS / OSS / R2) | Uploaded RAG docs, images, large outputs, exports | Built for big blobs + streaming, cheap, multi-node — needs a service/vendor |
 
 **Enterprise pattern:** DB row = *metadata + object key*; the *blob* lives in object
@@ -707,13 +711,13 @@ flowchart LR
 
 ### What already exists (foundation)
 
-| Asset | DB foundation today | Gap closed by this design |
-|---|---|---|
-| Workspace files | `workspace_files` (metadata, tags, agent/workflow/task context) + `file_versions` | content is on disk; only paths in DB → `storage_objects` BYTEA rows / object store |
-| Skills | `skills` table already holds the SKILL.md body in `instructions` | the `backend/skills/**/SKILL.md` git mirror becomes optional |
-| Uploaded docs | `FileStorage` service | hardwired to `./data/documents/` → route through the backend |
-| Agent file tools | deepagents `BackendProtocol` is pluggable (`ls/read/write/glob/grep/download_files`) | a `DbBackend` maps `/skills/<name>/SKILL.md` → DB rows |
-| Runtime flag | `config.py` pydantic settings (root `.env`) | new `STORAGE_MODE` env key (`local` \| `db` \| `s3`) |
+| Asset            | DB foundation today                                                                     | Gap closed by this design                                                            |
+| ---------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Workspace files  | `workspace_files` (metadata, tags, agent/workflow/task context) + `file_versions`   | content is on disk; only paths in DB →`storage_objects` BYTEA rows / object store |
+| Skills           | `skills` table already holds the SKILL.md body in `instructions`                    | the`backend/skills/**/SKILL.md` git mirror becomes optional                        |
+| Uploaded docs    | `FileStorage` service                                                                 | hardwired to`./data/documents/` → route through the backend                       |
+| Agent file tools | deepagents`BackendProtocol` is pluggable (`ls/read/write/glob/grep/download_files`) | a`DbBackend` maps `/skills/<name>/SKILL.md` → DB rows                           |
+| Runtime flag     | `config.py` pydantic settings (root `.env`)                                         | new`STORAGE_MODE` env key (`local` \| `db` \| `s3`)                          |
 
 ### Why this composes with deepagents
 
@@ -749,14 +753,14 @@ tool works transparently against the DB.
 
 ## Quick reference — where things live
 
-| Question                      | Answer                                                                                      |
-| ----------------------------- | ------------------------------------------------------------------------------------------- |
-| What builds a normal agent?   | `core/agents/factory/assembly.py` → `AgentFactory.create_agent`                        |
-| What builds a DeepAgent?      | `services/deepagent_factory/assembly.py` → `DeepAgentFactory.create_deep_agent`        |
-| What is `deep_agents.py`? | The REST controller (CRUD + prompt-preview + export) — not the builder              |
-| Where is export code?         | `services/export_service.py` (`ExportService`)                                          |
-| Where do agents persist?      | `deep_agent_templates` table (flag `config.use_deepagents`)                             |
-| How does chat stream?         | `POST /api/chat/message/stream` → SSE via `useChatStreaming` / `streamChatEvents.ts` |
-| How do workflows run?         | `core/workflows/` executor + Postgres checkpointer, streamed over SSE                     |
-| Where do exported files land? | `backend/outputs/exports/*.py` (or download zip from `/export`)                         |
+| Question                      | Answer                                                                                                                |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| What builds a normal agent?   | `core/agents/factory/assembly.py` → `AgentFactory.create_agent`                                                  |
+| What builds a DeepAgent?      | `services/deepagent_factory/assembly.py` → `DeepAgentFactory.create_deep_agent`                                  |
+| What is`deep_agents.py`?    | The REST controller (CRUD + prompt-preview + export) — not the builder                                               |
+| Where is export code?         | `services/export_service.py` (`ExportService`)                                                                    |
+| Where do agents persist?      | `deep_agent_templates` table (flag `config.use_deepagents`)                                                       |
+| How does chat stream?         | `POST /api/chat/message/stream` → SSE via `useChatStreaming` / `streamChatEvents.ts`                           |
+| How do workflows run?         | `core/workflows/` executor + Postgres checkpointer, streamed over SSE                                               |
+| Where do exported files land? | `backend/outputs/exports/*.py` (or download zip from `/export`)                                                   |
 | Where do artifacts persist?   | `services/storage/` `StorageBackend` seam — `local` (disk) \| `db` (Postgres BYTEA) \| `s3` (object store) |
