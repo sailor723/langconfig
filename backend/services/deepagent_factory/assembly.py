@@ -299,6 +299,8 @@ class _DeepAgentAssemblyMixin:
         #   is passed to create_deep_agent (also activates library ls/glob/grep
         #   scoped to the workspace).
         skills_staging_root: Optional[Path] = None
+        skills_sources: Optional[List[str]] = None
+        db_skills_backend: Optional[Any] = None
         if getattr(config, 'skills', None):
             try:
                 from db.database import SessionLocal
@@ -313,31 +315,59 @@ class _DeepAgentAssemblyMixin:
                     db.close()
 
                 if skill_records:
-                    # Stage under the backend root: the sandbox path when a
-                    # sandbox is active, otherwise the task workspace.
-                    if local_sandbox_backend is not None and sandbox_path is not None:
-                        skills_staging_root = sandbox_path
-                    else:
-                        from services.workspace_manager import get_workspace_manager
-                        skills_staging_root = get_workspace_manager().get_task_workspace_with_override(
-                            project_id=project_id,
-                            workflow_id=workflow_id,
-                            task_id=task_id,
-                            custom_output_path=custom_output_path,
-                        )
+                    from config import settings
+                    if settings.storage_mode == "db":
+                        # Phase 3 (docs/system-architecture.md §15): skills are
+                        # 100% DB-managed. Persist each equipped skill under its
+                        # canonical storage key and serve them via DbBackend, so
+                        # no FS staging happens in db mode.
+                        from core.skills.sync import skill_row_to_markdown, skill_storage_key
+                        from services.storage import DbBackend, get_storage
 
-                    skills_dir = skills_staging_root / "skills"
-                    skills_dir.mkdir(parents=True, exist_ok=True)
-                    for s in skill_records:
-                        src = Path(s.source_path)
-                        if not src.is_dir():
-                            logger.warning(f"Skill source dir missing: {s.source_path}")
-                            continue
-                        shutil.copytree(src, skills_dir / s.skill_id, dirs_exist_ok=True)
-                    logger.info(
-                        f"Staged {len(skill_records)} skill(s) into {skills_dir} "
-                        f"(progressive disclosure via SkillsMiddleware)"
-                    )
+                        storage = get_storage()
+                        for s in skill_records:
+                            storage.save(
+                                skill_storage_key(s),
+                                skill_row_to_markdown(s).encode("utf-8"),
+                                "text/markdown",
+                            )
+                        # Sources are the <type> containers: skills/<type>/<id>/SKILL.md.
+                        types = sorted({
+                            (getattr(s, "source_type", "builtin") or "builtin").split(".")[-1].lower()
+                            for s in skill_records
+                        })
+                        skills_sources = [f"/skills/{t}" for t in types]
+                        db_skills_backend = DbBackend()
+                        logger.info(
+                            f"Registered {len(skill_records)} skill(s) from storage "
+                            f"(progressive disclosure via DbBackend, sources={skills_sources})"
+                        )
+                    else:
+                        # Stage under the backend root: the sandbox path when a
+                        # sandbox is active, otherwise the task workspace.
+                        if local_sandbox_backend is not None and sandbox_path is not None:
+                            skills_staging_root = sandbox_path
+                        else:
+                            from services.workspace_manager import get_workspace_manager
+                            skills_staging_root = get_workspace_manager().get_task_workspace_with_override(
+                                project_id=project_id,
+                                workflow_id=workflow_id,
+                                task_id=task_id,
+                                custom_output_path=custom_output_path,
+                            )
+
+                        skills_dir = skills_staging_root / "skills"
+                        skills_dir.mkdir(parents=True, exist_ok=True)
+                        for s in skill_records:
+                            src = Path(s.source_path)
+                            if not src.is_dir():
+                                logger.warning(f"Skill source dir missing: {s.source_path}")
+                                continue
+                            shutil.copytree(src, skills_dir / s.skill_id, dirs_exist_ok=True)
+                        logger.info(
+                            f"Staged {len(skill_records)} skill(s) into {skills_dir} "
+                            f"(progressive disclosure via SkillsMiddleware)"
+                        )
             except Exception as e:
                 logger.warning(f"Failed to register skills: {e}")
 
@@ -350,7 +380,11 @@ class _DeepAgentAssemblyMixin:
         # workspace-scoped (same directory), so we drop our native duplicates.
         # Without a backend (plain chat) the library's fs tools are in-memory
         # StateBackend no-ops, so our natives stay and keep disk writes working.
-        has_disk_backend = local_sandbox_backend is not None or skills_staging_root is not None
+        has_disk_backend = (
+            local_sandbox_backend is not None
+            or skills_staging_root is not None
+            or db_skills_backend is not None
+        )
         if has_disk_backend:
             native_fs_collisions = {"ls", "read_file", "write_file", "edit_file", "glob", "grep"}
             all_tools = [t for t in all_tools if t.name not in native_fs_collisions]
@@ -377,9 +411,26 @@ class _DeepAgentAssemblyMixin:
                 "checkpointer": checkpointer,
             }
 
-            # Pass LocalShellBackend so the agent gains the `execute` tool for
-            # running scripts (Python, shell commands, pip install, etc.)
-            if local_sandbox_backend is not None:
+            # Backend selection (docs/system-architecture.md §15):
+            # - db mode + skills: DbBackend serves /skills from storage; when a
+            #   sandbox is active, a CompositeBackend routes /skills/ to storage
+            #   and keeps everything else (incl. `execute`) in the sandbox.
+            # - sandbox only: LocalShellBackend (execute tool).
+            # - local mode + staged skills: FilesystemBackend over the workspace.
+            if db_skills_backend is not None:
+                if local_sandbox_backend is not None:
+                    from deepagents.backends.composite import CompositeBackend
+                    from services.storage import DbBackend
+                    agent_kwargs["backend"] = CompositeBackend(
+                        default=local_sandbox_backend,
+                        routes={"/skills/": DbBackend(storage_prefix="skills")},
+                    )
+                else:
+                    agent_kwargs["backend"] = db_skills_backend
+                agent_kwargs["skills"] = skills_sources
+            elif local_sandbox_backend is not None:
+                # Pass LocalShellBackend so the agent gains the `execute` tool for
+                # running scripts (Python, shell commands, pip install, etc.)
                 agent_kwargs["backend"] = local_sandbox_backend
             elif skills_staging_root is not None:
                 # Skills need a disk-backed backend (StateBackend is in-memory)
@@ -388,8 +439,6 @@ class _DeepAgentAssemblyMixin:
                 agent_kwargs["backend"] = FilesystemBackend(
                     root_dir=str(skills_staging_root)
                 )
-
-            if skills_staging_root is not None:
                 # Relative source: <root>/skills is a container of skill dirs.
                 agent_kwargs["skills"] = ["skills"]
 

@@ -89,32 +89,13 @@ def serialize_skill_md(frontmatter: Dict[str, Any], body: str) -> str:
     return "\n".join(parts)
 
 
-def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
+def skill_row_to_markdown(skill_row) -> str:
     """
-    Write a DB skill row to its SKILL.md on the filesystem.
+    Render a DB skill row as the canonical SKILL.md text (frontmatter + body).
 
-    Returns the path to the SKILL.md file.
-
-    The skill directory is determined by:
-      1. skill_row.source_path if set (existing location)
-      2. Otherwise: skills_root / <source_type> / <skill_id>
+    Shared by ``db_row_to_fs`` (FS mirror) and the Phase 3 DbBackend wiring
+    (DB-only skills), so both write byte-identical content.
     """
-    root = skills_root or DEFAULT_BUILTIN_SKILLS_ROOT
-
-    # Determine target directory
-    source_type = getattr(skill_row, "source_type", "builtin")
-    if isinstance(source_type, str) and "." in source_type:
-        source_type = source_type.split(".")[-1].lower()
-
-    if hasattr(skill_row, "source_path") and skill_row.source_path:
-        skill_dir = Path(skill_row.source_path)
-    else:
-        skill_dir = root / source_type / skill_row.skill_id
-
-    skill_dir.mkdir(parents=True, exist_ok=True)
-    skill_md = skill_dir / "SKILL.md"
-
-    # Build frontmatter
     fm = {
         "name": skill_row.name,
         "description": skill_row.description,
@@ -146,7 +127,48 @@ def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
     else:
         body = f"## Instructions\n\n{body}"
 
-    content = serialize_skill_md(fm, body)
+    return serialize_skill_md(fm, body)
+
+
+def skill_storage_key(skill_row) -> str:
+    """
+    Canonical storage key for a skill: ``skills/<source_type>/<skill_id>/SKILL.md``.
+
+    Normalizes ``source_type`` the same way ``db_row_to_fs`` does (dot path →
+    leaf segment), so DB rows and FS mirrors agree on the key.
+    """
+    source_type = getattr(skill_row, "source_type", "builtin")
+    if isinstance(source_type, str) and "." in source_type:
+        source_type = source_type.split(".")[-1].lower()
+    return f"skills/{source_type}/{skill_row.skill_id}/SKILL.md"
+
+
+def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
+    """
+    Write a DB skill row to its SKILL.md on the filesystem.
+
+    Returns the path to the SKILL.md file.
+
+    The skill directory is determined by:
+      1. skill_row.source_path if set (existing location)
+      2. Otherwise: skills_root / <source_type> / <skill_id>
+    """
+    root = skills_root or DEFAULT_BUILTIN_SKILLS_ROOT
+
+    # Determine target directory
+    source_type = getattr(skill_row, "source_type", "builtin")
+    if isinstance(source_type, str) and "." in source_type:
+        source_type = source_type.split(".")[-1].lower()
+
+    if hasattr(skill_row, "source_path") and skill_row.source_path:
+        skill_dir = Path(skill_row.source_path)
+    else:
+        skill_dir = root / source_type / skill_row.skill_id
+
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_md = skill_dir / "SKILL.md"
+
+    content = skill_row_to_markdown(skill_row)
     skill_md.write_text(content, encoding="utf-8")
     logger.info(f"Wrote SKILL.md → {skill_md}")
 
@@ -160,7 +182,7 @@ def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
         if settings.storage_mode == "db":
             from services.storage import get_storage
             get_storage().save(
-                f"skills/{source_type}/{skill_row.skill_id}/SKILL.md",
+                skill_storage_key(skill_row),
                 content.encode("utf-8"),
                 "text/markdown",
             )
