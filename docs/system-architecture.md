@@ -660,8 +660,10 @@ cwd that's `load_dotenv("../.env")`, or better, derive the path from `__file__` 
 
 ## 15. Storage strategy: DB as the permanent store (enterprise-ready)
 
-> **Status (2026-08-03):** Phase 1 shipped in commit `3aa794d`. `storage_objects` table,
-> `services/storage/` package, `STORAGE_MODE` setting — all live. Phases 2–4 pending.
+> **Status (2026-08-03):** Phase 1 shipped in commit `3aa794d`; Phase 2 (write-through
+> wiring) shipped — `storage_objects` table, `services/storage/` package, `STORAGE_MODE`
+> setting all live, and `FileStorage` / `WorkspaceManager` / skill sync persist through
+> `get_storage()` when `STORAGE_MODE=db`. Phases 3–4 pending.
 
 ### The vision
 
@@ -741,9 +743,15 @@ tool works transparently against the DB.
      rejection, missing-key raise, upsert single-row)
    - Verified live: factory returns `LocalStorageBackend`; `DbStorageBackend` save/read/
      stat/list/delete roundtrip on Postgres `:5432`
-2. **Phase 2 — wiring (next)** — route `FileStorage` (uploaded docs), `WorkspaceManager`
+2. **Phase 2 — wiring ✅ DONE** — route `FileStorage` (uploaded docs), `WorkspaceManager`
    (agent outputs), and skill sync (`db_row_to_fs`) through `get_storage()`; keep `local`
-   as the default so behavior is unchanged until `STORAGE_MODE=db`
+   as the default so behavior is unchanged until `STORAGE_MODE=db`.
+   Implemented as **write-through**: in `STORAGE_MODE=db` each writer additionally persists
+   to `storage_objects` — keys `documents/<rel>` (`FileStorage.save_file`/`delete_file`),
+   `outputs/<rel>` (`WorkspaceManager.persist_output`, called by the agent write/edit file
+   tools), `skills/<type>/<id>/SKILL.md` (`db_row_to_fs`). The on-disk copy stays the
+   operational store for consumers (RAG, workspace readers); storage failures are logged and
+   non-fatal (durability copy only). `local` mode is a strict no-op.
 3. **Phase 3 — deepagents `DbBackend`** — implement `BackendProtocol` backed by
    `get_storage()`; map `/skills/<name>/SKILL.md` → DB so skills are 100% DB-managed
    while keeping progressive disclosure (catalog + on-demand read)

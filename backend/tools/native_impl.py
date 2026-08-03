@@ -501,6 +501,9 @@ def _write_file_impl(
 
         path.write_text(content, encoding="utf-8")
 
+        # Phase 2: durable storage copy when STORAGE_MODE=db (no-op in local).
+        workspace_mgr.persist_output(path, content.encode("utf-8"))
+
         logger.info(f"Wrote file: {path} ({len(content)} chars)")
 
         # Record file metadata in database if we have context
@@ -910,6 +913,10 @@ def _edit_file_impl(
         # Perform replacement
         new_content = content.replace(old_string, new_string, 1)
         path.write_text(new_content, encoding="utf-8")
+
+        # Phase 2: durable storage copy when STORAGE_MODE=db (no-op in local).
+        from services.workspace_manager import get_workspace_manager
+        get_workspace_manager().persist_output(path, new_content.encode("utf-8"))
 
         logger.info(f"Edited file: {file_path}")
 

@@ -9,6 +9,7 @@ File Storage Service
 Handles persistence of uploaded documents to disk.
 """
 import logging
+import mimetypes
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -54,6 +55,51 @@ class FileStorage:
         except:
             pass
         return self._base_dir
+
+    # ------------------------------------------------------------------
+    # Phase 2 write-through (docs/system-architecture.md §15):
+    # when STORAGE_MODE=db each uploaded document is also persisted to
+    # the storage backend (storage_objects) under `documents/<rel-path>`.
+    # The on-disk copy stays the operational store for the RAG pipeline,
+    # so local mode (default) is a no-op and behavior is unchanged.
+    # ------------------------------------------------------------------
+    def _storage_key(self, file_path: Path) -> Optional[str]:
+        """Map an on-disk document path to its storage key, or None if the
+        file lives outside the documents base dir."""
+        try:
+            rel = Path(file_path).resolve().relative_to(self.base_dir.resolve())
+        except ValueError:
+            return None
+        return f"documents/{rel.as_posix()}"
+
+    def _persist(self, file_path: Path, content: bytes) -> None:
+        """Write-through: store a durable copy in storage when STORAGE_MODE=db."""
+        from config import settings
+        if settings.storage_mode != "db":
+            return
+        key = self._storage_key(file_path)
+        if key is None:
+            return
+        try:
+            from services.storage import get_storage
+            mime, _ = mimetypes.guess_type(file_path.name)
+            get_storage().save(key, content, mime)
+        except Exception as e:
+            logger.warning(f"Failed to persist storage copy {key}: {e}")
+
+    def _unpersist(self, file_path: Path) -> None:
+        """Best-effort delete of the durable storage copy when STORAGE_MODE=db."""
+        from config import settings
+        if settings.storage_mode != "db":
+            return
+        key = self._storage_key(file_path)
+        if key is None:
+            return
+        try:
+            from services.storage import get_storage
+            get_storage().delete(key)
+        except Exception as e:
+            logger.warning(f"Failed to delete storage copy {key}: {e}")
     
     def save_file(self, project_id: int, filename: str, content: bytes,
                   hierarchy: dict = None) -> str:
@@ -107,6 +153,8 @@ class FileStorage:
 
         # Write file
         file_path.write_bytes(content)
+        # Phase 2: durable copy in storage_objects when STORAGE_MODE=db.
+        self._persist(file_path, content)
         logger.info(f"Saved file {base} to {file_path}")
 
         return str(file_path.absolute())
@@ -125,6 +173,8 @@ class FileStorage:
             path = Path(file_path)
             if path.exists():
                 path.unlink()
+                # Phase 2: drop the durable copy in storage when STORAGE_MODE=db.
+                self._unpersist(path)
                 logger.info(f"Deleted file {file_path}")
                 return True
             return False

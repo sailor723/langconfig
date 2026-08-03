@@ -149,6 +149,24 @@ def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
     content = serialize_skill_md(fm, body)
     skill_md.write_text(content, encoding="utf-8")
     logger.info(f"Wrote SKILL.md → {skill_md}")
+
+    # Phase 2 write-through (docs/system-architecture.md §15): when
+    # STORAGE_MODE=db, also persist the SKILL.md body to the storage
+    # backend so it survives independently of the git mirror. The FS
+    # mirror stays the operational view until Phase 3 DbBackend lands;
+    # local mode (default) is a no-op and behavior is unchanged.
+    try:
+        from config import settings
+        if settings.storage_mode == "db":
+            from services.storage import get_storage
+            get_storage().save(
+                f"skills/{source_type}/{skill_row.skill_id}/SKILL.md",
+                content.encode("utf-8"),
+                "text/markdown",
+            )
+    except Exception as e:
+        logger.warning(f"Failed to persist SKILL.md to storage: {e}")
+
     return skill_md
 
 
