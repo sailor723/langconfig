@@ -654,6 +654,68 @@ stale instance and report phantom `UndefinedColumn` errors.
 
 ---
 
+## 15. Storage strategy: DB as the permanent store (enterprise-ready)
+
+### The vision
+
+The filesystem is the *personal / local-dev* default. For **enterprise**, the durable home
+for all artifacts — skills, workspace files, uploaded documents, outputs, versions — is the
+**database**, with **object storage** (S3 / MinIO / Tencent COS / Aliyun OSS / R2) for large
+blobs. The filesystem stays only for what is genuinely **ephemeral**: task scratch,
+staging dirs, export zips, local sandboxes.
+
+**Rule: DB holds durable artifacts; the filesystem holds transient working files.**
+
+### A single seam: `StorageBackend`
+
+Every writer in the platform talks to one object-addressed interface, so the physical
+backend changes per deployment (`local` / `db` / `s3`) without touching any caller.
+
+```mermaid
+flowchart LR
+    subgraph Callers["Writers"]
+        W1["FileStorage<br/>uploaded RAG docs"]
+        W2["WorkspaceManager<br/>agent outputs"]
+        W3["Skills<br/>SKILL.md content"]
+    end
+    W1 --> IF["StorageBackend<br/>save(key, content) · read(key)<br/>exists · delete · list · stat"]
+    W2 --> IF
+    W3 --> IF
+    IF --> L1["LocalStorageBackend<br/>disk (personal default)"]
+    IF --> L2["DbStorageBackend<br/>Postgres BYTEA · small payloads"]
+    IF --> L3["ObjectStorageBackend<br/>S3 / COS / OSS · large blobs"]
+    L1 --> T1["STORAGE_MODE=local"]
+    L2 --> T2["STORAGE_MODE=db"]
+    L3 --> T3["STORAGE_MODE=s3"]
+```
+
+### What already exists (foundation)
+
+| Asset | DB foundation today | Gap closed by this design |
+|---|---|---|
+| Workspace files | `workspace_files` (metadata, tags, agent/workflow/task context) + `file_versions` | content is on disk; only paths in DB → `storage_objects` BYTEA rows / object store |
+| Skills | `skills` table already holds the SKILL.md body in `instructions` | the `backend/skills/**/SKILL.md` git mirror becomes optional |
+| Uploaded docs | `FileStorage` service | hardwired to `./data/documents/` → route through the backend |
+| Agent file tools | deepagents `BackendProtocol` is pluggable (`ls/read/write/glob/grep/download_files`) | a `DbBackend` maps `/skills/<name>/SKILL.md` → DB rows |
+| Runtime flag | `config.py` pydantic settings (root `.env`) | new `STORAGE_MODE` env key (`local` \| `db` \| `s3`) |
+
+### Why this composes with deepagents
+
+`SkillsMiddleware` only calls `backend.ls()` + `backend.download_files()` on the
+`BackendProtocol` — it never touches the disk itself. So a DB-backed implementation of that
+protocol gives **skills 100% in DB** while preserving progressive disclosure (metadata
+catalog in the system prompt, SKILL.md body read on demand) and the agent's `read_file`
+tool works transparently against the DB.
+
+### Rollout phases
+
+1. **Phase 1 — abstraction** — `storage_objects` table + `services/storage/` (`base` / `local` / `db` backends + factory), default `local`
+2. **Phase 2 — wiring** — `FileStorage`, `WorkspaceManager`, skill sync through the interface
+3. **Phase 3 — deepagents `DbBackend`** — skills + workspace virtual paths served from DB
+4. **Phase 4 — migration tool** — one-shot job to move existing FS artifacts into DB on flip
+
+---
+
 ## Quick reference — where things live
 
 | Question                      | Answer                                                                                      |
@@ -666,3 +728,4 @@ stale instance and report phantom `UndefinedColumn` errors.
 | How does chat stream?         | `POST /api/chat/message/stream` → SSE via `useChatStreaming` / `streamChatEvents.ts` |
 | How do workflows run?         | `core/workflows/` executor + Postgres checkpointer, streamed over SSE                     |
 | Where do exported files land? | `backend/outputs/exports/*.py` (or download zip from `/export`)                         |
+| Where do artifacts persist?   | `services/storage/` `StorageBackend` seam — `local` (disk) \| `db` (Postgres BYTEA) \| `s3` (object store) |

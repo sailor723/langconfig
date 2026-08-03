@@ -92,6 +92,12 @@ class Settings(BaseSettings):
     chunk_size: int = 1000
     chunk_overlap: int = 200
 
+    # ── Storage (docs/system-architecture.md §15) ──
+    # Where durable artifacts live: local (disk, personal default) |
+    # db (Postgres BYTEA, enterprise) | s3 (object store, future).
+    storage_mode: str = "local"
+    storage_base_dir: str = "./data/storage"
+
     # ── Uppercase aliases for convenience ──
     @property
     def OPENAI_API_KEY(self) -> Optional[str]:
