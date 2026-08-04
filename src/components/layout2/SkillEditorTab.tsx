@@ -92,15 +92,20 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
   };
   const textareaStyle: React.CSSProperties = {
     ...inputStyle,
+    // Cap height so the parent flex container (flex:1; overflowY:auto) handles
+    // scrolling instead of the textarea growing past the viewport and hiding
+    // content below. `resize: none` keeps it predictable.
     minHeight: 240,
+    maxHeight: '60vh',
     lineHeight: 1.6,
     fontFamily: '"SF Mono", "Fira Code", monospace',
-    resize: 'vertical',
+    resize: 'none',
     whiteSpace: 'pre-wrap',
+    overflowY: 'auto',
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header bar */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -142,8 +147,8 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
         </div>
       </div>
 
-      {/* Editor body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 24, maxWidth: 760, width: '100%', boxSizing: 'border-box', margin: '0 auto' }}>
+      {/* Editor body — uses the same scroll pattern as PromptDetailTab */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '24px 24px 32px', maxWidth: 760, width: '100%', boxSizing: 'border-box', margin: '0 auto' }}>
         <div style={{ marginBottom: 14 }}>
           <div style={labelStyle}>Name *</div>
           <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. api-rate-limiter" style={inputStyle} />
@@ -155,7 +160,7 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="Brief description — the agent matches skills by this."
-            style={{ ...textareaStyle, minHeight: 56 }}
+            style={{ ...textareaStyle, minHeight: 56, maxHeight: 120 }}
           />
         </div>
 
