@@ -545,6 +545,7 @@ from api.schedules import router as schedules
 from api.triggers import router as triggers
 from api.webhooks import router as webhooks
 from api.notebooks import routes as notebooks
+from api.agent_documents import routes as agent_documents
 
 # Health check endpoints
 app.include_router(health.router)
@@ -564,6 +565,7 @@ app.include_router(doc_chat.router)  # Simplified doc-chat — folder-based cont
 app.include_router(kv.router)  # KV document store — no DB dependencies
 app.include_router(background_tasks.router)  # Background task queue management
 app.include_router(workspace.router)  # Workspace file management
+app.include_router(agent_documents.router)  # DB-mode document library
 app.include_router(settings.router)
 app.include_router(search_providers.router)  # Search provider cards + API key mgmt
 app.include_router(local_models.router, prefix="/api/local-models", tags=["local-models"])  # Local model configurations

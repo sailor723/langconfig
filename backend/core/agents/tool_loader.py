@@ -46,6 +46,15 @@ from langchain_core.tools import BaseTool, StructuredTool
 logger = logging.getLogger(__name__)
 
 
+def _is_db_storage_mode() -> bool:
+    """True when STORAGE_MODE=db (formal documents persist to agent_documents)."""
+    try:
+        from config import settings
+        return (settings.storage_mode or "local").lower() == "db"
+    except Exception:  # pragma: no cover - config is always importable in-app
+        return False
+
+
 class ToolLoader:
     """Loads and wraps tools for agent creation.
 
@@ -149,6 +158,13 @@ class ToolLoader:
             )
 
             canonical_names = [TOOL_NAME_MAP.get(n, n) for n in native_tool_names]
+
+            # DB mode: agents always get save_document so their final
+            # deliverables land in the agent_documents table (dedicated doc
+            # library) instead of loose files. FS mode keeps the legacy flow.
+            if _is_db_storage_mode() and "save_document" not in canonical_names:
+                canonical_names.append("save_document")
+                logger.info("STORAGE_MODE=db: injecting save_document built-in tool")
 
             # Check if browser tools are requested (requires special async handling)
             browser_requested = "browser" in canonical_names
@@ -271,6 +287,7 @@ class ToolLoader:
         """
         from tools.native_tools import (
             _write_file_impl, _write_file_error_handler, WriteFileArgs,
+            _save_document_impl, SaveDocumentArgs,
         )
 
         wrapped_tools: List[BaseTool] = []
@@ -305,6 +322,34 @@ class ToolLoader:
                 wrapped_tools.append(wrapped_tool)
                 logger.debug(
                     f"Wrapped write_file tool with context: "
+                    f"workspace={workspace_context}, agent={agent_context}"
+                )
+            elif tool.name == "save_document":
+                # DB-mode formal document persistence — pre-bind the execution
+                # context (project/agent/execution ids) for the agent_documents
+                # row, exactly like write_file above.
+                def create_bound_save_document(ws_ctx, ag_ctx):
+                    def bound_save_document(title: str, content: str, doc_type: str = "report") -> str:
+                        return _save_document_impl(
+                            title=title,
+                            content=content,
+                            doc_type=doc_type,
+                            _workspace_context=ws_ctx,
+                            _agent_context=ag_ctx,
+                        )
+                    return bound_save_document
+
+                bound_save = create_bound_save_document(workspace_context, agent_context)
+
+                wrapped_tool = StructuredTool.from_function(
+                    func=bound_save,
+                    name="save_document",
+                    description=tool.description,
+                    args_schema=SaveDocumentArgs,
+                )
+                wrapped_tools.append(wrapped_tool)
+                logger.debug(
+                    f"Wrapped save_document tool with context: "
                     f"workspace={workspace_context}, agent={agent_context}"
                 )
             else:
