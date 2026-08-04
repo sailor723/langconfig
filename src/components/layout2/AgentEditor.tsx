@@ -10,7 +10,7 @@
  */
 import { useState, useCallback, useEffect } from 'react';
 import { useLayoutTokens } from './tokens';
-import { Award, Loader, Info, FileText, Wrench, Code } from 'lucide-react';
+import { Award, Info, FileText, Wrench, Code } from 'lucide-react';
 import type { Tab } from './useLayout';
 import { useLayoutState } from './useLayout';
 import { chatStore } from './chatStore';
@@ -21,6 +21,7 @@ import CodeViewerModal from './CodeViewerModal';
 import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
+import SkillsPicker from './editorSkillsPicker';
 import EditorSectionNav from './editorSectionNav';
 
 interface AgentEditorProps {
@@ -65,27 +66,28 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   );
 
   // ── Skills state ──
-  const [skillDetails, setSkillDetails] = useState<Record<string, any>>({});
-  const [skillsLoading, setSkillsLoading] = useState(false);
+  const [availableSkills, setAvailableSkills] = useState<any[]>([]);
+  const [skillsLoading, setSkillsLoading] = useState(true);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(config.skills || []);
+  const [showAllSkills, setShowAllSkills] = useState(true);
 
+  // Fetch the full skill catalog for the picker
   useEffect(() => {
-    const skillNames = config.skills || [];
-    if (skillNames.length === 0) return;
     let cancelled = false;
-    setSkillsLoading(true);
-    Promise.all(
-      skillNames.map((s: string) =>
-        apiClient.getSkill(s).then(res => ({ id: s, data: res.data })).catch(() => ({ id: s, data: null }))
-      )
-    ).then(results => {
-      if (cancelled) return;
-      const map: Record<string, any> = {};
-      for (const r of results) if (r.data) map[r.id] = r.data;
-      setSkillDetails(map);
-      setSkillsLoading(false);
-    });
+    apiClient.listSkills()
+      .then(res => {
+        if (!cancelled) setAvailableSkills(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch(() => { /* skills are optional */ })
+      .finally(() => { if (!cancelled) setSkillsLoading(false); });
     return () => { cancelled = true; };
-  }, [config.skills]);
+  }, []);
+
+  const toggleSkill = useCallback((skillId: string) => {
+    setSelectedSkills(prev =>
+      prev.includes(skillId) ? prev.filter(s => s !== skillId) : [...prev, skillId]
+    );
+  }, []);
 
   // ── Tools state ──
   const { isLoading: toolsLoading, groupedByCategory } = useAvailableTools();
@@ -114,6 +116,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     setLocalAgentId(typeof agent.id === 'number' ? agent.id : null);
     setSelectedNativeTools(toToolIdList(config.native_tools));
     setSelectedCustomTools(toToolIdList(config.custom_tools));
+    setSelectedSkills(config.skills || []);
     setActiveSection('overview');
     setSaveMsg(null);
   }, [tab.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -266,7 +269,6 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         // Defaults for normal agents
         cli_tools: [],
         tools: [],
-        skills: [],
         middleware: [],
         subagents: [],
         backend: { type: 'state' },
@@ -277,6 +279,8 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         // Tool picker always wins over JSON tab for tool selection
         native_tools: selectedNativeTools,
         custom_tools: selectedCustomTools,
+        // Skill picker always wins over JSON tab for skill selection
+        skills: selectedSkills,
         // Form fields always win — the UI is the source of truth
         system_prompt: trimmedPrompt,
         model: editableModel || null,
@@ -490,124 +494,18 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     </div>
   );
 
-  // ── Skills section ──
-  const renderSkills = () => {
-    const skillNames = config.skills || [];
-    if (skillNames.length === 0) {
-      return (
-        <div style={{ padding: 4 }}>
-          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>(no skills configured)</div>
-        </div>
-      );
-    }
-    return (
-      <div style={{ padding: 4 }}>
-        {skillNames.map((skillId: string) => {
-          const detail = skillDetails[skillId];
-          return (
-            <div key={skillId} style={cardStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Award size={16} style={{ color: t.accent, flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary }}>
-                    {detail?.name || skillId}
-                  </div>
-                  {detail && (
-                    <div style={{ fontSize: 11, color: t.textMuted }}>
-                      v{detail.version || '?'} · {detail.source_type}
-                    </div>
-                  )}
-                </div>
-                {skillsLoading && !detail && (
-                  <Loader size={12} style={{ animation: 'spin 1s linear infinite', color: t.textMuted }} />
-                )}
-              </div>
-
-              {detail?.description && (
-                <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.5, marginBottom: 8 }}>
-                  {detail.description}
-                </div>
-              )}
-
-              {detail?.tags && detail.tags.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-                  {detail.tags.map((tag: string) => (
-                    <span key={tag} style={{
-                      fontSize: 10, padding: '1px 6px', borderRadius: 8,
-                      background: t.bgHover, border: `1px solid ${t.border}`, color: t.textMuted,
-                    }}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {detail?.allowed_tools && detail.allowed_tools.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', marginBottom: 4 }}>
-                    Allowed Tools
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {detail.allowed_tools.map((tool: string) => (
-                      <span key={tool} style={{
-                        fontSize: 11, padding: '2px 6px', borderRadius: 3,
-                        background: t.accent + '18', border: `1px solid ${t.accent}40`,
-                        color: t.accent, fontFamily: 'monospace',
-                      }}>
-                        {tool}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {detail?.instructions && (
-                <details style={{ marginTop: 8 }}>
-                  <summary style={{ fontSize: 11, color: t.textMuted, cursor: 'pointer', userSelect: 'none' }}>
-                    View Instructions ({detail.instructions.length} chars)
-                  </summary>
-                  <pre style={{
-                    whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                    fontFamily: '"SF Mono", "Fira Code", monospace',
-                    fontSize: 11, color: t.textPrimary, lineHeight: 1.5,
-                    margin: '6px 0 0 0',
-                  }}>
-                    {detail.instructions}
-                  </pre>
-                </details>
-              )}
-
-              {/* Copy / Download row */}
-              {detail && (
-                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                  <button onClick={async () => {
-                    const text = `# ${detail.name || skillId}\n\n${detail.description || ''}\n\n## Instructions\n\n${detail.instructions || ''}`;
-                    await navigator.clipboard.writeText(text);
-                  }} style={{
-                    fontSize: 11, height: 24, padding: '0 8px',
-                    background: t.bgHover, border: `1px solid ${t.border}`,
-                    borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
-                  }}>Copy</button>
-                  <button onClick={() => {
-                    const text = `# ${detail.name || skillId}\n\n${detail.description || ''}\n\n## Tags\n${(detail.tags || []).join(', ')}\n\n## Instructions\n\n${detail.instructions || ''}`;
-                    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a'); a.href = url;
-                    a.download = `${skillId}.md`; a.click();
-                    URL.revokeObjectURL(url);
-                  }} style={{
-                    fontSize: 11, height: 24, padding: '0 8px',
-                    background: t.bgHover, border: `1px solid ${t.border}`,
-                    borderRadius: 3, color: t.textPrimary, cursor: 'pointer',
-                  }}>Download</button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+  // ── Skills section — searchable, card-grid picker over all skills ──
+  const renderSkills = () => (
+    <SkillsPicker
+      selectedSkills={selectedSkills}
+      onToggle={toggleSkill}
+      showAll={showAllSkills}
+      onShowAllChange={setShowAllSkills}
+      skillsLoading={skillsLoading}
+      availableSkills={availableSkills}
+      t={t}
+    />
+  );
 
   const sections: Record<SectionId, () => React.ReactNode> = {
     overview: renderOverview,

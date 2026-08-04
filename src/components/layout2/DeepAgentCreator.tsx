@@ -14,6 +14,7 @@ import { useAvailableTools } from '../../hooks/useAvailableTools';
 import apiClient from '../../lib/api-client';
 import { Loader, Plus, X } from 'lucide-react';
 import { SectionId as _SectionId, SECTIONS } from './editorConstants';
+import SkillsPicker from './editorSkillsPicker';
 
 const CATEGORIES = ['research', 'coding', 'analysis', 'general', 'custom'];
 
@@ -71,6 +72,7 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   // Skills
   const [availableSkills, setAvailableSkills] = useState<any[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [showAllSkills, setShowAllSkills] = useState(true);
   const [skillsLoading, setSkillsLoading] = useState(false);
 
   // Subagents
@@ -585,42 +587,18 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
             <div>
               <h3 style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, margin: '0 0 4px 0' }}>Skills</h3>
               <p style={{ fontSize: 12, color: t.textMuted, margin: '0 0 12px 0' }}>Skills are reusable instruction sets triggered by domain keywords.</p>
-              {skillsLoading ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: t.textMuted, fontSize: 12, padding: 16 }}>
-                  <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Loading skills...
-                </div>
-              ) : availableSkills.length === 0 ? (
-                <p style={{ fontSize: 12, color: t.textMuted, padding: 16 }}>No skills available. Create skills in the Skills panel.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {availableSkills.map((skill: any) => {
-                    const selected = selectedSkills.includes(skill.id || skill.name);
-                    return (
-                      <button key={skill.id || skill.name}
-                        onClick={() => setSelectedSkills(prev =>
-                          selected ? prev.filter(x => x !== (skill.id || skill.name))
-                                    : [...prev, skill.id || skill.name])}
-                        style={{
-                          padding: 12, borderRadius: 6,
-                          background: selected ? `${t.accent}15` : t.bgSidebar,
-                          border: `1px solid ${selected ? t.accent : t.border}`,
-                          textAlign: 'left', cursor: 'pointer',
-                        }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>{skill.name || skill.id}</div>
-                          <input type="checkbox" checked={selected} readOnly style={{ accentColor: t.accent }} />
-                        </div>
-                        <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                          {skill.description || skill.instructions || ''}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              <div style={{ marginTop: 12, fontSize: 11, color: t.textMuted }}>
-                {selectedSkills.length} skill{selectedSkills.length !== 1 ? 's' : ''} selected
-              </div>
+              {/* Searchable card-grid picker; saves skill_ids (backend resolves by id) */}
+              <SkillsPicker
+                selectedSkills={selectedSkills}
+                onToggle={id => setSelectedSkills(prev =>
+                  prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+                )}
+                showAll={showAllSkills}
+                onShowAllChange={setShowAllSkills}
+                skillsLoading={skillsLoading}
+                availableSkills={availableSkills}
+                t={t}
+              />
             </div>
           )}
 
