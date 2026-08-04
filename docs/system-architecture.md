@@ -552,6 +552,55 @@ SQLAlchemy models in `backend/models/` map to these tables:
 | `background_task.py`                                                    | Background job queue                                                                                                     |
 | `workspace_file.py`, `file_version.py`                                | Workspace files + version history                                                                                        |
 | `local_model.py`, `model.py`, `search_provider.py`, `settings.py` | Model/local-model/search-provider/settings config                                                                        |
+
+### 12.1 The unified `models` table — cloud + local LLMs in one place
+
+The `models` table is the single source of truth for every model the app can call. It replaces the legacy hardcoded enum (`constants/models.py`) and the now-removed `local_models` split. Both managed cloud entries and user-added local entries share one schema, distinguished by `source`.
+
+**Schema** (`backend/models/model.py`):
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | SERIAL PK | autoincrement |
+| `model_id` | VARCHAR UNIQUE | stable id used in API calls (e.g. `deepseek-chat`, `gpt-4o`, `local-ollama-llama3`) |
+| `display_name` | VARCHAR | human-readable label shown in the UI |
+| `provider` | VARCHAR (indexed) | `openai`, `anthropic`, `google`, `deepseek`, `glm`, `minimax`, `qwen`, `kimi`, `agnes`, `ollama`, `lmstudio`, `vllm`, `litellm`, `custom` |
+| `source` | VARCHAR | `'cloud'` (managed) or `'local'` (user) |
+| `capabilities` | JSONB | `{streaming, tools, structured_output, vision, audio, video, thinking, max_context, ...}` |
+| `is_active` | BOOL | soft-delete flag |
+| `base_url` | VARCHAR NULL | local-only: endpoint URL |
+| `api_model_name` | VARCHAR NULL | local-only: provider's internal name (e.g. `llama3.2:latest`) |
+| `api_key` | VARCHAR NULL | local-only: optional per-model key (rarely used — global keys live in `settings.api_keys`) |
+| `is_validated`, `last_validated_at`, `validation_error` | bool/tz/varchar | local-only: connection-test result |
+| `usage_count`, `last_used_at` | int/tz | usage tracking |
+| `tags` | JSONB | categorization |
+| `created_at`, `updated_at` | timestamptz | audit |
+
+**Initial seed flow** (post-install / after table drop):
+
+1. **Drop the table** (full reset):
+   ```sql
+   DROP TABLE IF EXISTS models CASCADE;
+   ```
+2. **Recreate from `models/model.py`** — the schema lives in the SQLAlchemy `Model` class, so any of the following works:
+   - Run Alembic up to head (`alembic upgrade head`) — preferred for migrations,
+   - Or `Base.metadata.create_all(bind=engine, tables=[Model.__table__])` from a Python shell,
+   - Or apply the standalone SQL in `/tmp/create_models.sql` (kept in sync with the model).
+3. **Seed from the canonical CSV** — `/tmp/models_with_url.csv` is the "initial query" written by `/tmp/export_models.py`. The seed script reads it:
+   ```bash
+   cd backend && DATABASE_URL="postgresql://langconfig:langconfig_dev@localhost:5432/langconfig" \
+       .venv/bin/python scripts/seed_models.py
+   ```
+   This inserts ~28 cloud rows (skipping the 4 ollama-local rows in the CSV) with `is_active=true` and a per-provider default `capabilities` JSON.
+4. **Local rows** (`source='local'`) are NOT seeded by the script — users add them through Settings > Local Models.
+
+**Why CSV instead of hardcoded enum**: every change to the model catalog (new Gemini release, added provider, pricing update) only requires regenerating the CSV and re-running the seed. No code changes needed.
+
+**Reads** go through `GET /api/settings/models` which returns both cloud and validated local models with full metadata. The chat + workflow engines call this once at startup.
+
+**The provider→key mapping** is independent of `models`: cloud providers' API keys live in `settings.api_keys.{provider}_api_key` (encrypted at rest), and resolution is DB-first, `.env` fallback. See §12.2.
+
+---
 | `user_profile.py`                                                       | User profile                                                                                                             |
 | `audit_log.py`                                                          | Audit trail                                                                                                              |
 | `oauth_token.py`, `presentation_job.py`                               | OAuth tokens + presentation jobs                                                                                         |
