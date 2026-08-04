@@ -24,6 +24,138 @@ from services.agent_utils import resolve_model, DEFAULT_MODEL
 from .shared import logger
 
 
+def _stage_skill_catalog(
+    config: DeepAgentConfig,
+    local_sandbox_backend: Optional[Any],
+    sandbox_path: Optional[Path],
+    project_id: Optional[int],
+    workflow_id: Optional[int],
+    task_id: int,
+    custom_output_path: Optional[str],
+) -> Tuple[Optional[Path], Optional[List[str]], Optional[Any]]:
+    """Stage the full skill catalog for SkillsMiddleware (progressive disclosure).
+
+    Classic Anthropic pattern: every agent sees the ENTIRE skill library —
+    builtin + personal roots. SkillsMiddleware preloads metadata (name +
+    description + path) into the system prompt and the agent reads each
+    SKILL.md body on demand with read_file. config.skills, when set, only pins
+    extra skills (custom locations / DB-only) for availability; it no longer
+    limits what the agent can discover.
+
+    Returns (skills_staging_root, skills_sources, db_skills_backend):
+    - db mode: all skills persisted to storage, served via DbBackend.
+    - local mode: all skills staged under the backend root, served via
+      FilesystemBackend. Builtin root is staged first so personal skills win
+      name collisions (later sources override earlier ones in the middleware).
+    """
+    try:
+        from config import settings
+
+        if settings.storage_mode == "db":
+            # DB mode: skills are 100% DB-managed (docs/system-architecture.md
+            # §15). Persist the FULL catalog under canonical storage keys and
+            # serve them via DbBackend, so no FS staging happens in db mode.
+            from db.database import SessionLocal
+            from models.skill import Skill
+            from core.skills.sync import (
+                normalize_source_type,
+                skill_row_to_markdown,
+                skill_storage_key,
+            )
+            from services.storage import DbBackend, get_storage
+
+            db = SessionLocal()
+            try:
+                skill_records = db.query(Skill).all()
+            finally:
+                db.close()
+
+            if not skill_records:
+                return None, None, None
+            storage = get_storage()
+            for s in skill_records:
+                storage.save(
+                    skill_storage_key(s),
+                    skill_row_to_markdown(s).encode("utf-8"),
+                    "text/markdown",
+                )
+            types = sorted({
+                normalize_source_type(getattr(s, "source_type", "builtin"))
+                for s in skill_records
+            })
+            skills_sources = [f"/skills/{t}" for t in types]
+            logger.info(
+                f"Registered {len(skill_records)} skill(s) from storage "
+                f"(progressive disclosure via DbBackend, sources={skills_sources})"
+            )
+            return None, skills_sources, DbBackend()
+
+        # ── local mode ──
+        from core.skills.sync import DEFAULT_BUILTIN_SKILLS_ROOT, PERSONAL_SKILLS_ROOT
+
+        if local_sandbox_backend is not None and sandbox_path is not None:
+            skills_staging_root = sandbox_path
+        else:
+            from services.workspace_manager import get_workspace_manager
+            skills_staging_root = get_workspace_manager().get_task_workspace_with_override(
+                project_id=project_id,
+                workflow_id=workflow_id,
+                task_id=task_id,
+                custom_output_path=custom_output_path,
+            )
+
+        skills_dir = skills_staging_root / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+
+        staged = 0
+        for root, target_sub in (
+            (DEFAULT_BUILTIN_SKILLS_ROOT, "builtin"),
+            (PERSONAL_SKILLS_ROOT, None),
+        ):
+            if not root.is_dir():
+                continue
+            for skill_dir in sorted(root.iterdir()):
+                if not skill_dir.is_dir() or not (skill_dir / "SKILL.md").is_file():
+                    continue
+                dst = skills_dir if target_sub is None else skills_dir / target_sub
+                shutil.copytree(skill_dir, dst / skill_dir.name, dirs_exist_ok=True)
+                staged += 1
+        skills_sources = ["skills/builtin", "skills"]
+
+        # Optional pins: any config.skills entry living outside the global
+        # roots is staged additionally (custom-location or DB-only skills).
+        pinned = getattr(config, "skills", None) or []
+        if pinned:
+            from db.database import SessionLocal
+            from models.skill import Skill
+
+            db = SessionLocal()
+            try:
+                skill_records = db.query(Skill).filter(
+                    Skill.skill_id.in_(pinned)
+                ).all()
+            finally:
+                db.close()
+            for s in skill_records:
+                src = Path(s.source_path)
+                inside_catalog = (
+                    src.is_relative_to(PERSONAL_SKILLS_ROOT)
+                    or src.is_relative_to(DEFAULT_BUILTIN_SKILLS_ROOT)
+                )
+                if not inside_catalog and src.is_dir():
+                    shutil.copytree(src, skills_dir / s.skill_id, dirs_exist_ok=True)
+                    staged += 1
+
+        logger.info(
+            f"Staged {staged} skill(s) from global roots into {skills_dir} "
+            f"(progressive disclosure via SkillsMiddleware, sources={skills_sources})"
+        )
+        return skills_staging_root, skills_sources, None
+    except Exception as e:
+        logger.warning(f"Failed to register skills: {e}")
+        return None, None, None
+
+
 class _DeepAgentAssemblyMixin:
     @staticmethod
     async def create_deep_agent(
@@ -284,93 +416,23 @@ class _DeepAgentAssemblyMixin:
                 logger.warning(f"Failed to initialize LocalShellBackend: {e}. Proceeding without sandbox.")
 
         # ── Skills (progressive disclosure via SkillsMiddleware) ──
-        # deepagents exposes skills through its SkillsMiddleware: it injects
-        # a metadata catalog (name + description + path) into the system
-        # prompt, and the agent reads each SKILL.md body on demand with the
-        # built-in read_file tool.
-        #
-        # Wiring requirements (deepagents docs on the `skills` param):
-        # - Each source must be a *container* of skill directories, and must
-        #   be readable by the agent's backend. The default StateBackend is
-        #   in-memory and cannot see disk paths, so we stage the equipped
-        #   skills into <workspace>/skills/ and point SkillsMiddleware at that
-        #   folder with a FilesystemBackend (set below).
-        # - The agent needs a working read_file, so the same FilesystemBackend
-        #   is passed to create_deep_agent (also activates library ls/glob/grep
-        #   scoped to the workspace).
-        skills_staging_root: Optional[Path] = None
-        skills_sources: Optional[List[str]] = None
-        db_skills_backend: Optional[Any] = None
-        if getattr(config, 'skills', None):
-            try:
-                from db.database import SessionLocal
-                from models.skill import Skill
-
-                db = SessionLocal()
-                try:
-                    skill_records = db.query(Skill).filter(
-                        Skill.skill_id.in_(config.skills)
-                    ).all()
-                finally:
-                    db.close()
-
-                if skill_records:
-                    from config import settings
-                    if settings.storage_mode == "db":
-                        # Phase 3 (docs/system-architecture.md §15): skills are
-                        # 100% DB-managed. Persist each equipped skill under its
-                        # canonical storage key and serve them via DbBackend, so
-                        # no FS staging happens in db mode.
-                        from core.skills.sync import skill_row_to_markdown, skill_storage_key
-                        from services.storage import DbBackend, get_storage
-
-                        storage = get_storage()
-                        for s in skill_records:
-                            storage.save(
-                                skill_storage_key(s),
-                                skill_row_to_markdown(s).encode("utf-8"),
-                                "text/markdown",
-                            )
-                        # Sources are the <type> containers: skills/<type>/<id>/SKILL.md.
-                        from core.skills.sync import normalize_source_type
-                        types = sorted({
-                            normalize_source_type(getattr(s, "source_type", "builtin"))
-                            for s in skill_records
-                        })
-                        skills_sources = [f"/skills/{t}" for t in types]
-                        db_skills_backend = DbBackend()
-                        logger.info(
-                            f"Registered {len(skill_records)} skill(s) from storage "
-                            f"(progressive disclosure via DbBackend, sources={skills_sources})"
-                        )
-                    else:
-                        # Stage under the backend root: the sandbox path when a
-                        # sandbox is active, otherwise the task workspace.
-                        if local_sandbox_backend is not None and sandbox_path is not None:
-                            skills_staging_root = sandbox_path
-                        else:
-                            from services.workspace_manager import get_workspace_manager
-                            skills_staging_root = get_workspace_manager().get_task_workspace_with_override(
-                                project_id=project_id,
-                                workflow_id=workflow_id,
-                                task_id=task_id,
-                                custom_output_path=custom_output_path,
-                            )
-
-                        skills_dir = skills_staging_root / "skills"
-                        skills_dir.mkdir(parents=True, exist_ok=True)
-                        for s in skill_records:
-                            src = Path(s.source_path)
-                            if not src.is_dir():
-                                logger.warning(f"Skill source dir missing: {s.source_path}")
-                                continue
-                            shutil.copytree(src, skills_dir / s.skill_id, dirs_exist_ok=True)
-                        logger.info(
-                            f"Staged {len(skill_records)} skill(s) into {skills_dir} "
-                            f"(progressive disclosure via SkillsMiddleware)"
-                        )
-            except Exception as e:
-                logger.warning(f"Failed to register skills: {e}")
+        # Classic Anthropic pattern: the FULL skill catalog (builtin + personal
+        # roots) is exposed to every agent, not just config.skills. The
+        # middleware injects a metadata catalog (name + description + path)
+        # into the system prompt and the agent reads each SKILL.md body on
+        # demand with the built-in read_file tool. config.skills, when set,
+        # only *pins* skills for availability (and feeds skill-subagent
+        # synthesis in deep_agents.py); discovery is metadata-driven for the
+        # whole catalog.
+        skills_staging_root, skills_sources, db_skills_backend = _stage_skill_catalog(
+            config=config,
+            local_sandbox_backend=local_sandbox_backend,
+            sandbox_path=sandbox_path,
+            project_id=project_id,
+            workflow_id=workflow_id,
+            task_id=task_id,
+            custom_output_path=custom_output_path,
+        )
 
         # Deduplicate filesystem tools when a disk backend is used.
         # deepagents always adds its own FilesystemMiddleware (required, cannot
@@ -440,8 +502,9 @@ class _DeepAgentAssemblyMixin:
                 agent_kwargs["backend"] = FilesystemBackend(
                     root_dir=str(skills_staging_root)
                 )
-                # Relative source: <root>/skills is a container of skill dirs.
-                agent_kwargs["skills"] = ["skills"]
+                # Relative sources: <root>/skills is a container of personal skill
+                # dirs; <root>/skills/builtin is the container of builtin skills.
+                agent_kwargs["skills"] = skills_sources
 
             # Try to pass guardrails if supported
             try:
