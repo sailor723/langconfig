@@ -68,6 +68,100 @@ _CODEGEN_LEGACY_TOOLS: Dict[str, str] = {
     ),
 }
 
+# Trivial stateless built-ins with no custom_tools row (safe in any build path).
+_CODEGEN_SIMPLE_TOOLS: Dict[str, str] = {
+    "think_tool": (
+        "def think_tool(reflection: str) -> str:\n"
+        '    """Record a strategic reflection on research progress and decision-making."""\n'
+        '    return f"Thought recorded: {reflection}"\n'
+    ),
+}
+
+# Stateful harness tools (write_todos / read_todos / vfs_*) that have no
+# custom_tools row either. They operate on agent state via InjectedState and
+# Command — the same machinery the backend uses in
+# backend/tools/native_tools.py — so the generated script must define the
+# state schema (Todo / DeepAgentState) BEFORE these tool defs. Only emitted
+# for the LangGraph (non-deep) build path, which passes state_schema.
+_CODEGEN_FS_TOOLS: Dict[str, str] = {
+    "write_todos": (
+        'def write_todos(\n'
+        '    todos: list[Todo],\n'
+        '    tool_call_id: Annotated[str, InjectedToolCallId],\n'
+        ') -> Command:\n'
+        '    """Create or update the agent\'s TODO list for task planning and tracking."""\n'
+        '    return Command(\n'
+        '        update={\n'
+        '            "todos": todos,\n'
+        '            "messages": [ToolMessage(f"Updated todo list to {todos}", tool_call_id=tool_call_id)],\n'
+        '        }\n'
+        '    )\n'
+    ),
+    "read_todos": (
+        'def read_todos(\n'
+        '    state: Annotated[DeepAgentState, InjectedState],\n'
+        '    tool_call_id: Annotated[str, InjectedToolCallId],\n'
+        ') -> str:\n'
+        '    """Read the current TODO list from the agent state."""\n'
+        '    todos = state.get("todos", [])\n'
+        '    if not todos:\n'
+        '        return "No todos currently in the list."\n'
+        '    result = "Current TODO List:\\n"\n'
+        '    for i, todo in enumerate(todos, 1):\n'
+        '        emoji = {"pending": "\\u23f3", "in_progress": "\\U0001f504", "completed": "\\u2705"}.get(\n'
+        '            todo.get("status", ""), "\\u2753"\n'
+        '        )\n'
+        '        result += f"{i}. {emoji} {todo[\'content\']} ({todo[\'status\']})\\n"\n'
+        '    return result.strip()\n'
+    ),
+    "vfs_ls": (
+        'def vfs_ls(state: Annotated[DeepAgentState, InjectedState]) -> list[str]:\n'
+        '    """List all files in the virtual filesystem stored in agent state."""\n'
+        '    return list(state.get("files", {}).keys())\n'
+    ),
+    "vfs_read_file": (
+        'def vfs_read_file(\n'
+        '    file_path: str,\n'
+        '    state: Annotated[DeepAgentState, InjectedState],\n'
+        '    offset: int = 0,\n'
+        '    limit: int = 2000,\n'
+        ') -> str:\n'
+        '    """Read content from a file in the virtual filesystem with optional pagination."""\n'
+        '    files = state.get("files", {})\n'
+        '    if file_path not in files:\n'
+        '        return f"Error: File \'{file_path}\' not found"\n'
+        '    content = files[file_path]\n'
+        '    if not content:\n'
+        '        return "System reminder: File exists but has empty contents"\n'
+        '    lines = content.splitlines()\n'
+        '    start_idx = offset\n'
+        '    end_idx = min(start_idx + limit, len(lines))\n'
+        '    if start_idx >= len(lines):\n'
+        '        return f"Error: Line offset {offset} exceeds file length ({len(lines)} lines)"\n'
+        '    result_lines = []\n'
+        '    for i in range(start_idx, end_idx):\n'
+        '        result_lines.append(f"{i + 1:6d}\\t{lines[i][:2000]}")\n'
+        '    return "\\n".join(result_lines)\n'
+    ),
+    "vfs_write_file": (
+        'def vfs_write_file(\n'
+        '    file_path: str,\n'
+        '    content: str,\n'
+        '    state: Annotated[DeepAgentState, InjectedState],\n'
+        '    tool_call_id: Annotated[str, InjectedToolCallId],\n'
+        ') -> Command:\n'
+        '    """Create a new file or completely overwrite an existing file in the virtual filesystem."""\n'
+        '    files = state.get("files", {})\n'
+        '    files[file_path] = content\n'
+        '    return Command(\n'
+        '        update={\n'
+        '            "files": files,\n'
+        '            "messages": [ToolMessage(f"Updated file {file_path}", tool_call_id=tool_call_id)],\n'
+        '        }\n'
+        '    )\n'
+    ),
+}
+
 # JSON Schema type -> Python type hint, used when inlining API tool signatures.
 _PY_TYPE_HINTS: Dict[str, str] = {
     "float": "float",
@@ -1150,6 +1244,35 @@ llm = ChatOpenAI(
             f"_tools.append(tool({json.dumps(tool_id)}, {tool_id}))\n"
         )
 
+    is_deep = config.get("use_deepagents", False)
+
+    def _emit_simple_tool(tool_id: str) -> str:
+        """Emit a trivial stateless built-in (think_tool)."""
+        desc = f"Built-in tool ({tool_id}), inlined standalone implementation."
+        return (
+            f"# ── Tool: {tool_id} (inlined standalone) ─────────────────────────\n"
+            f"{_CODEGEN_SIMPLE_TOOLS[tool_id]}\n"
+            f"# register as a LangChain tool (name must be the tool_id)\n"
+            f"_tools.append(tool({json.dumps(tool_id)}, {tool_id}, "
+            f"description={json.dumps(desc)}))\n"
+        )
+
+    def _emit_fs_tool(tool_id: str) -> str:
+        """Emit a stateful harness tool (write_todos / read_todos / vfs_*).
+
+        These operate on DeepAgentState via InjectedState/Command, exactly like
+        the backend's native_tools.py. Only used in the LangGraph build path.
+        """
+        desc = (f"Harness tool ({tool_id}), inlined standalone implementation "
+                f"operating on agent state.")
+        return (
+            f"# ── Tool: {tool_id} (stateful harness — inlined) ────────────────\n"
+            f"{_CODEGEN_FS_TOOLS[tool_id]}\n"
+            f"# register as a LangChain tool (name must be the tool_id)\n"
+            f"_tools.append(tool({json.dumps(tool_id)}, {tool_id}, "
+            f"description={json.dumps(desc)}))\n"
+        )
+
     tool_blocks = []
     for tid in tool_ids:
         row = tool_rows.get(tid)
@@ -1159,11 +1282,13 @@ llm = ChatOpenAI(
             tool_blocks.append(_emit_python_tool(row))
         elif tid in _CODEGEN_LEGACY_TOOLS:
             tool_blocks.append(_emit_legacy_tool(tid))
+        elif tid in _CODEGEN_SIMPLE_TOOLS:
+            tool_blocks.append(_emit_simple_tool(tid))
+        elif tid in _CODEGEN_FS_TOOLS and not is_deep:
+            tool_blocks.append(_emit_fs_tool(tid))
         else:
             tool_blocks.append(_emit_missing_tool(tid))
     tools_block = "\n".join(tool_blocks)
-
-    is_deep = config.get("use_deepagents", False)
 
     if is_deep:
         build_section = '''
@@ -1179,33 +1304,7 @@ agent = create_deep_agent(
     else:
         build_section = '''
 # Build LangGraph agent (LangChain v1.0 API — stateless, no PostgreSQL)
-from typing import Annotated, Literal, Optional
-
-from typing_extensions import NotRequired, TypedDict
-
-from langchain.agents import AgentState, create_agent
-
-
-class Todo(TypedDict):
-    """A structured task item for tracking progress through complex workflows."""
-    content: str
-    status: Literal["pending", "in_progress", "completed"]
-
-
-def file_reducer(left: Optional[dict], right: Optional[dict]) -> dict:
-    """Merge two file dictionaries, with right side taking precedence."""
-    if left is None:
-        return right or {}
-    if right is None:
-        return left
-    return {**left, **right}
-
-
-class DeepAgentState(AgentState):
-    """Extended agent state with TODO tracking and a virtual file system."""
-    todos: NotRequired[list[Todo]]
-    files: Annotated[NotRequired[dict[str, str]], file_reducer]
-
+from langchain.agents import create_agent
 
 agent = create_agent(
     model=llm,
@@ -1214,6 +1313,49 @@ agent = create_agent(
     state_schema=DeepAgentState,
 )
 '''
+
+    # The state schema must be defined BEFORE the harness tool defs below
+    # (write_todos / read_todos / vfs_*) because their annotations reference
+    # DeepAgentState eagerly (Annotated[...] evaluates its arguments at def
+    # time). Deep agents build via create_deep_agent and skip this section.
+    if is_deep:
+        state_section = ''
+    else:
+        state_section = (
+            '# ── Agent state schema + tool runtime imports ────────────────────\n'
+            '# The harness tools below (write_todos / read_todos / vfs_*) operate\n'
+            '# on agent state via InjectedState/Command — the same machinery the\n'
+            '# backend uses. Todo lists and scratch files are TRANSIENT (they live\n'
+            '# only in this run\'s state, i.e. the file system during execution);\n'
+            '# formal documents are produced as the agent\'s final answer (explicit\n'
+            '# state) and persisted by the runner. No PostgreSQL involved.\n'
+            'from typing import Annotated, Literal, Optional\n'
+            'from typing_extensions import NotRequired, TypedDict\n'
+            'from langchain.agents import AgentState\n'
+            'from langchain_core.messages import ToolMessage\n'
+            'from langchain_core.tools import InjectedToolCallId\n'
+            'from langgraph.prebuilt import InjectedState\n'
+            'from langgraph.types import Command\n'
+            '\n'
+            'class Todo(TypedDict):\n'
+            '    """A structured task item for tracking progress through complex workflows."""\n'
+            '    content: str\n'
+            '    status: Literal["pending", "in_progress", "completed"]\n'
+            '\n'
+            'def file_reducer(left: Optional[dict], right: Optional[dict]) -> dict:\n'
+            '    """Merge two file dictionaries, with right side taking precedence."""\n'
+            '    if left is None:\n'
+            '        return right or {}\n'
+            '    if right is None:\n'
+            '        return left\n'
+            '    return {**left, **right}\n'
+            '\n'
+            'class DeepAgentState(AgentState):\n'
+            '    """Extended agent state with TODO tracking and a virtual file system."""\n'
+            '    todos: NotRequired[list[Todo]]\n'
+            '    files: Annotated[NotRequired[dict[str, str]], file_reducer]\n'
+            '\n'
+        )
 
     # Escape single-quotes in system prompt for the generated code
     escaped_prompt = system_prompt.replace("\\", "\\\\").replace("'", "\\'")
@@ -1256,6 +1398,7 @@ agent = create_agent(
         '# ── 2. System prompt ─────────────────────────────────────────────────\n'
         f"system_prompt = '''{escaped_prompt}'''\n"
         '\n'
+        f'{state_section}'
         '# ── 3. Tools (all inlined — no DB lookup at runtime) ─────────────────\n'
         'from langchain_core.tools import tool\n'
         '_tools: list = []\n'
