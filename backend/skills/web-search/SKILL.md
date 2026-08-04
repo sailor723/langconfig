@@ -14,7 +14,7 @@ triggers:
   - "when user wants to find URLs related to a specific topic"
   - "when user asks to look up something online"
   - "when user asks to verify a fact or claim"
-allowed-tools: [[, ", w, e, b, _, s, e, a, r, c, h, ", ,,  , ", f, e, t, c, h, _, u, r, l, ", ,,  , ", w, r, i, t, e, _, f, i, l, e, ", ,,  , ", r, e, a, d, _, f, i, l, e, ", ]]
+allowed-tools: [web_search, fetch_url, write_file, read_file]
 author: User
 ---
 

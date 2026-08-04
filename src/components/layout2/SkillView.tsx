@@ -92,7 +92,15 @@ export default function SkillView({ tab }: SkillViewProps) {
   }
 
   return (
-    <div style={{ padding: 20, maxWidth: 800 }}>
+    /* Scrollable content — same pattern as PromptDetailTab / SkillEditorTab:
+       outer column-flex with overflow hidden, inner flex:1 body scrolls */
+    <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Scroll body */}
+      <div style={{
+        flex: 1, minHeight: 0, overflow: 'auto',
+        padding: '20px', maxWidth: 800, width: '100%',
+        boxSizing: 'border-box', margin: '0 auto',
+      }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
         <Award size={24} style={{ color: t.accent }} />
@@ -262,6 +270,7 @@ export default function SkillView({ tab }: SkillViewProps) {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
