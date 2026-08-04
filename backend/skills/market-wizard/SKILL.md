@@ -1,5 +1,5 @@
 ---
-name: market_wizard
+name: market-wizard
 description: 通用 CSV 数据清洗技能。基于 YAML 规则将脏数据规范化为标准 schema,供下游分析技能使用。引擎通用、内容无关,规则写在 rules.yaml。
 ---
 
