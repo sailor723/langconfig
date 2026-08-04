@@ -5,7 +5,7 @@
  * triggers, instructions. New skills POST to /api/skills; existing ones
  * PUT to /api/skills/{id}. Editing builtin skills is disabled (system-defined).
  */
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useLayoutTokens } from './tokens';
 import { Award, Save, Loader, FileText, Tag, Zap } from 'lucide-react';
 import type { Tab } from './useLayout';
@@ -41,6 +41,29 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
   const [instructions, setInstructions] = useState(skill.instructions || '');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // True when this tab was opened for a brand-new skill (nothing to fetch).
+  const isNewRef = useRef(!skill.skill_id);
+
+  // The sidebar passes only a SkillSummary (no instructions/examples), so
+  // fetch the full detail when editing an existing skill. Skipped for new
+  // skills and when full detail was already provided.
+  useEffect(() => {
+    if (isNewRef.current || !skillId || skill.instructions !== undefined) return;
+    let cancelled = false;
+    apiClient.getSkill(skillId)
+      .then(res => {
+        if (cancelled || !res?.data) return;
+        const d = res.data as SkillPayload;
+        setName(d.name || '');
+        setDescription(d.description || '');
+        setTags((d.tags || []).join(', '));
+        setTriggers((d.triggers || []).join(', '));
+        setInstructions(d.instructions || '');
+      })
+      .catch(() => { /* keep sidebar summary values */ });
+    return () => { cancelled = true; };
+  }, [skillId]);
 
   const handleSave = useCallback(async () => {
     const trimmedName = name.trim();
