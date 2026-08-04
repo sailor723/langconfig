@@ -25,21 +25,26 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
-# Default skill roots (LangChain deepagents layout)
-DEFAULT_BUILTIN_SKILLS_ROOT = Path(
-    os.environ.get(
-        "BUILTIN_SKILLS_ROOT",
-        "/Users/weiping/dev/Learn/langchain-ai/langconfig/backend/skills/builtin",
-    )
-)
+# Default skill roots (LangChain deepagents layout).
+# Values come from the root .env (BUILTIN_SKILLS_ROOT / PERSONAL_SKILLS_ROOT).
+# Relative values are resolved against the project root so they work no matter
+# what the process CWD is; fallbacks keep the repo layout as-is.
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]  # backend/core/skills/ -> repo root
+
+
+def _resolve_skill_root(env_name: str, default_rel: str) -> Path:
+    """Resolve a skill root from env, or fall back to the repo-relative default."""
+    raw = os.environ.get(env_name)
+    if raw:
+        p = Path(raw).expanduser()
+        return p if p.is_absolute() else (_PROJECT_ROOT / p).resolve()
+    return (_PROJECT_ROOT / default_rel).resolve()
+
+
+DEFAULT_BUILTIN_SKILLS_ROOT = _resolve_skill_root("BUILTIN_SKILLS_ROOT", "backend/skills/builtin")
 # Personal/user-created skills live alongside builtin, in a sibling directory.
 # The library's FilesystemBackend reads SKILL.md from these real FS paths.
-PERSONAL_SKILLS_ROOT = Path(
-    os.environ.get(
-        "PERSONAL_SKILLS_ROOT",
-        str(DEFAULT_BUILTIN_SKILLS_ROOT.parent / "personal"),
-    )
-)
+PERSONAL_SKILLS_ROOT = _resolve_skill_root("PERSONAL_SKILLS_ROOT", "backend/skills/personal")
 
 
 def parse_skill_md(text: str) -> Tuple[Dict[str, Any], str]:
