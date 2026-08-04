@@ -812,6 +812,114 @@ If you don't have content ready yet, DO NOT call this tool until you do.""",
 file_write = write_file
 
 
+# =============================================================================
+# Agent Documents (DB mode) — formal document persistence
+# =============================================================================
+# When STORAGE_MODE=db, agents persist their FINAL deliverables through
+# save_document into the agent_documents table (dedicated, versioned,
+# queryable). FS mode keeps the legacy write_file flow. The tool mirrors the
+# write_file pattern: a StructuredTool wrapper whose args schema hides the
+# runtime-injected context kwargs (bound by ToolLoader at load time).
+
+class SaveDocumentArgs(BaseModel):
+    """Arguments for save_document tool."""
+    title: str = PydanticField(
+        ...,
+        description="REQUIRED: Title of the formal document (e.g., 'Q3 Market Analysis Report')."
+    )
+    content: str = PydanticField(
+        ...,
+        description="REQUIRED: The COMPLETE final document content (markdown/text)."
+    )
+    doc_type: str = PydanticField(
+        "report",
+        description="Optional document type: report, notes, data, plan, code (default: report)."
+    )
+
+
+def _save_document_impl(
+    title: str,
+    content: str,
+    doc_type: str = "report",
+    _workspace_context: dict = None,
+    _agent_context: dict = None,
+) -> str:
+    """Persist a formal document into the agent_documents table (DB mode).
+
+    Saving with the same (project, title) bumps the version chain instead of
+    overwriting, so the Workbench can list/get any historical version.
+    """
+    try:
+        from models.agent_document import AgentDocument
+        from db.database import SessionLocal
+
+        # Resolve execution context; fall back to the process env vars other
+        # DB tools use (GRAPHINDEX_PROJECT_ID) when no context was bound.
+        ctx = _workspace_context or {}
+        project_id = ctx.get("project_id")
+        execution_id = ctx.get("execution_id")
+        agent_id = (_agent_context or {}).get("agent_id")
+        if project_id is None:
+            pid = os.environ.get("GRAPHINDEX_PROJECT_ID")
+            if pid:
+                try:
+                    project_id = int(pid)
+                except (ValueError, TypeError):
+                    project_id = None
+
+        db = SessionLocal()
+        try:
+            # Version chain: same (project, title) -> next version.
+            query = db.query(AgentDocument).filter(AgentDocument.title == title)
+            if project_id is not None:
+                query = query.filter(AgentDocument.project_id == project_id)
+            latest = query.order_by(AgentDocument.version.desc()).first()
+            version = (latest.version + 1) if latest else 1
+
+            doc = AgentDocument(
+                project_id=project_id,
+                agent_id=agent_id,
+                execution_id=execution_id,
+                title=title,
+                doc_type=doc_type or "report",
+                version=version,
+                content=content,
+            )
+            db.add(doc)
+            db.commit()
+        finally:
+            db.close()
+
+        scope = f"project={project_id}" if project_id is not None else "project=unset"
+        return (f"Document '{title}' saved to the document library (version {version}, {scope}, "
+                f"doc_type={doc_type or 'report'}, {len(content)} chars).")
+    except Exception as e:
+        logger.error("Error saving document '%s': %s", title, e)
+        return f"Error saving document: {e}"
+
+
+save_document = StructuredTool.from_function(
+    func=_save_document_impl,
+    name="save_document",
+    args_schema=SaveDocumentArgs,
+    description="""Save a FORMAL document into the project document library (database).
+
+Use this for the FINAL deliverable of a task: reports, analyses, plans,
+release notes — anything the user will view/manage in the Workbench.
+Saving with the same title creates a new version instead of overwriting.
+
+REQUIRED PARAMETERS:
+1. title (str): A clear document title, e.g. 'Q3 Market Analysis Report'
+2. content (str): The COMPLETE final content (markdown/text) — do not truncate
+
+OPTIONAL:
+3. doc_type (str): report (default), notes, data, plan, code
+
+Prefer this over write_file for the task's final document; use write_file for
+working files (scratch, todos, intermediate artifacts).""",
+)
+
+
 @tool
 def ls(directory_path: str = ".") -> str:
     """

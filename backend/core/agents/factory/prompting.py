@@ -78,8 +78,22 @@ You have been equipped with the following tools: {', '.join(tool_names)}
 **If you fail to use your tools when required, your output will be considered incomplete.**
 """
 
+        # DB mode (STORAGE_MODE=db): the final deliverable must be persisted
+        # through save_document into the agent_documents document library
+        # instead of being written to a loose file.
+        doc_library_guidance = ""
+        if tools and any(t.name == "save_document" for t in tools):
+            doc_library_guidance = """
+# DOCUMENT LIBRARY (DB MODE)
+You have the 'save_document' tool for persisting the FINAL deliverable of this task.
+- Call save_document(title=..., content=..., doc_type=...) with the COMPLETE final document once you have finished it
+- Use a clear, descriptive title (e.g. 'Q3 Market Analysis Report') and the full final content
+- Use write_file only for working files (scratch, todos, intermediate artifacts) — never for the final deliverable
+"""
+
         system_message_content = f"""{guardrails}
 {tool_enforcement}
+{doc_library_guidance}
 # YOUR SPECIFIC ROLE AND GOAL
 {base_prompt}
 

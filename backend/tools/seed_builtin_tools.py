@@ -85,6 +85,7 @@ SEEDABLE_TOOL_META = {
     "graphindex_multi_doc_load": ("GraphIndex - Multi-Doc Load", "retrieval", None),
     "sqlite_execute": ("SQLite Execute", "data", None),
     "python_execute": ("Python Execute", "data", None),
+    "save_document": ("Save Document", "document", None),
 }
 
 # StructuredTool wrapper names in tools/native_impl.py that carry richer

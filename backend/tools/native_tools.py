@@ -134,12 +134,15 @@ from tools.native_impl import (  # noqa: E402
 
 
 # =============================================================================
-# write_file context helpers (re-exported for ToolLoader._wrap_file_tools_with_context).
+# write_file / save_document context helpers (re-exported for
+# ToolLoader._wrap_file_tools_with_context).
 # =============================================================================
 from tools.native_impl import (  # noqa: E402
     _write_file_impl,
     _write_file_error_handler,
     WriteFileArgs,
+    _save_document_impl,
+    SaveDocumentArgs,
 )
 
 
