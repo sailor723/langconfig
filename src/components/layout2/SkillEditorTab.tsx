@@ -118,7 +118,7 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
     // Cap height so the parent flex container (flex:1; overflowY:auto) handles
     // scrolling instead of the textarea growing past the viewport and hiding
     // content below. `resize: none` keeps it predictable.
-    minHeight: 240,
+    minHeight: 500,
     maxHeight: '60vh',
     lineHeight: 1.6,
     fontFamily: '"SF Mono", "Fira Code", monospace',
@@ -170,8 +170,8 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
         </div>
       </div>
 
-      {/* Editor body — uses the same scroll pattern as PromptDetailTab */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '24px 24px 32px', maxWidth: 760, width: '100%', boxSizing: 'border-box', margin: '0 auto' }}>
+      {/* Editor body — fills the available width, scrolls vertically */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '24px 24px 32px', width: '100%', boxSizing: 'border-box' }}>
         <div style={{ marginBottom: 14 }}>
           <div style={labelStyle}>Name *</div>
           <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. api-rate-limiter" style={inputStyle} />
@@ -192,22 +192,22 @@ export default function SkillEditorTab({ tab }: SkillEditorTabProps) {
             <div style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>
               <Tag size={11} /> Tags
             </div>
-            <input
+            <textarea
               value={tags}
               onChange={e => setTags(e.target.value)}
               placeholder="research, python, api (comma separated)"
-              style={inputStyle}
+              style={{ ...textareaStyle, minHeight: 72, maxHeight: 180 }}
             />
           </div>
           <div>
             <div style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 4 }}>
               <Zap size={11} /> Triggers
             </div>
-            <input
+            <textarea
               value={triggers}
               onChange={e => setTriggers(e.target.value)}
               placeholder="retry failed API calls (comma separated)"
-              style={inputStyle}
+              style={{ ...textareaStyle, minHeight: 72, maxHeight: 180 }}
             />
           </div>
         </div>

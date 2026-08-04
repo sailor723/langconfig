@@ -95,11 +95,10 @@ export default function SkillView({ tab }: SkillViewProps) {
     /* Scrollable content — same pattern as PromptDetailTab / SkillEditorTab:
        outer column-flex with overflow hidden, inner flex:1 body scrolls */
     <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Scroll body */}
+      {/* Scroll body — fills the available width */}
       <div style={{
         flex: 1, minHeight: 0, overflow: 'auto',
-        padding: '20px', maxWidth: 800, width: '100%',
-        boxSizing: 'border-box', margin: '0 auto',
+        padding: '20px', width: '100%', boxSizing: 'border-box',
       }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
