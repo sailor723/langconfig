@@ -1017,7 +1017,8 @@ async def download_agent_code(agent_id: int, db: Session = Depends(get_db)):
     """Download a runnable, fully standalone Python file for this agent.
 
     The generated script embeds everything needed at runtime — LLM config
-    (env vars), system prompt, tool source code (inlined from the
+    (env vars), system prompt (with any attached skill instructions inlined),
+    tool source code (inlined from the
     custom_tools table at generation time), and the agent state schema — so
     it runs with just:
 
@@ -1037,6 +1038,26 @@ async def download_agent_code(agent_id: int, db: Session = Depends(get_db)):
     system_prompt = config.get("system_prompt", "You are a helpful AI assistant.")
     native_tools = config.get("native_tools", []) or []
     custom_tools = config.get("custom_tools", []) or []
+
+    # Inline attached skills into the system prompt so the standalone script
+    # carries the skill instructions with no DB dependency at runtime.
+    skill_ids = config.get("skills", []) or []
+    if skill_ids:
+        from models.skill import Skill as SkillModel
+        skill_rows = db.query(SkillModel).filter(SkillModel.skill_id.in_(skill_ids)).all()
+        skill_by_id = {s.skill_id: s for s in skill_rows}
+        skill_sections = []
+        for sid in skill_ids:
+            s = skill_by_id.get(sid)
+            if s is None:
+                continue
+            body = s.instructions or s.description or ''
+            skill_sections.append(f"## Skill: {sid}\n\n{body}")
+        if skill_sections:
+            system_prompt = (
+                f"{system_prompt}\n\n# Attached Skills\n\n"
+                + "\n\n".join(skill_sections)
+            )
 
     # Determine model provider for env vars
     model_lower = model.lower()
