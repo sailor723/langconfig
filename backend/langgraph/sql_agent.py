@@ -236,12 +236,6 @@ agent = builder.compile(checkpointer=checkpointer, store=store)
 
 # ── 5. Visualize + run ──────────────────────────────────────────────
 def main() -> None:
-    # import pathlib
-
-    # graph_png = pathlib.Path(__file__).with_name("sql_agent_graph.png")
-    # graph_png.write_bytes(agent.get_graph().draw_mermaid_png())
-    # print(f"Graph saved to {graph_png}\n")
-
     print("Interactive SQL agent over the Chinook database.")
     print("Memory enabled: thread-scoped history + cross-thread store.")
     print("Type a question, or 'exit' / 'quit' / 'q' to stop.\n")
