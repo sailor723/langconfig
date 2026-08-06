@@ -59,6 +59,22 @@ export interface DatabaseInfo {
   active: string;
 }
 
+/** One table of the active database, with its exact row count (null = unknown). */
+export interface TableSummary {
+  name: string;
+  rows: number | null;
+}
+
+/** Summary of the active target database, rendered in the canvas header. */
+export interface DatabaseSummary {
+  database: string;
+  table_count: number;
+  row_count: number;
+  tables: TableSummary[];
+  /** LLM-written business description (<=3 lines) in the requested language; null on failure. */
+  summary: string | null;
+}
+
 export interface Thread {
   thread_id: string;
   assistant_id: string;
@@ -141,6 +157,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ database: name }),
     });
+  },
+
+  async loadDatabaseSummary(lang?: 'en' | 'zh'): Promise<DatabaseSummary> {
+    const qs = lang ? `?lang=${lang}` : '';
+    return request(`/databases/summary${qs}`);
   },
 
   async loadThreads(metadata: Record<string, unknown> = {}): Promise<Thread[]> {

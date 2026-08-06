@@ -11,9 +11,11 @@
 import { useSyncExternalStore } from 'react';
 import { api } from './api';
 import { streamSSE } from './stream';
+import i18n from '../../i18n';
 import type {
   Assistant,
   AssistantSchemas,
+  DatabaseSummary,
   GraphSpec,
   LiveMessage,
   RunInfo,
@@ -32,6 +34,8 @@ export interface StudioState {
   direction: Direction;
   databases: string[];
   activeDatabase: string;
+  /** Live summary of the active database (canvas header). */
+  dbSummary: DatabaseSummary | null;
   threads: Thread[];
   currentThreadId: string;
   threadState: ThreadState | null;
@@ -54,6 +58,7 @@ const initialState: StudioState = {
   direction: 'lr',
   databases: [],
   activeDatabase: '',
+  dbSummary: null,
   threads: [],
   currentThreadId: '',
   threadState: null,
@@ -115,6 +120,19 @@ export const studio = {
     } catch (err) {
       console.error('[graph-studio] loadDatabases failed', err);
     }
+    await studio.loadDatabaseSummary();
+  },
+
+  /** Refresh the canvas-header summary of the active database.
+   *  The business-summary text follows the current UI language (en | zh). */
+  async loadDatabaseSummary() {
+    const lang = i18n.language?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+    try {
+      const dbSummary = await api.loadDatabaseSummary(lang);
+      setState({ dbSummary });
+    } catch (err) {
+      console.error('[graph-studio] loadDatabaseSummary failed', err);
+    }
   },
 
   /** Switch which database the SQL tools query (runtime, no .env edit). */
@@ -126,6 +144,7 @@ export const studio = {
     } catch (err) {
       console.error('[graph-studio] selectDatabase failed', err);
     }
+    await studio.loadDatabaseSummary();
   },
 
   async selectAssistant(assistant: Assistant | null) {

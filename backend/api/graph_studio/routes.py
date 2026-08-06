@@ -17,6 +17,7 @@ Endpoints:
 - GET  /api/graph-studio/assistants/{id}/graph    nodes + edges (canvas spec)
 - GET  /api/graph-studio/assistants/{id}/schemas  input/state/output jsonschemas
 - GET  /api/graph-studio/databases                list target DBs + the active one
+- GET  /api/graph-studio/databases/summary         tables + row counts + LLM business summary (lang=en|zh)
 - POST /api/graph-studio/databases/select         switch the SQL tools' target DB
 - POST /api/graph-studio/threads/search           list threads
 - POST /api/graph-studio/threads                  create a thread
@@ -34,11 +35,12 @@ import asyncio
 import importlib.util
 import inspect
 import json
+import os
 import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -387,6 +389,120 @@ def select_database(payload: SelectDatabaseRequest) -> Dict[str, Any]:
     sqlmod = _sql_setup_module()
     sqlmod.set_target_database(payload.database)
     return {"databases": databases, "active": payload.database}
+
+
+# LLM business summaries are cached per (database, language); schemas change
+# rarely, so regenerating on every request would just waste tokens.
+_BUSINESS_SUMMARY_CACHE: Dict[Tuple[str, str], str] = {}
+
+
+def _business_summary(dbname: str, tables: List[Dict[str, Any]], lang: str) -> Optional[str]:
+    """Describe the database in business terms (<=3 lines) via the LLM.
+
+    Best-effort: any failure (missing API key, network, model error) yields
+    None so the UI can fall back to the raw table counts. The inventory
+    (table -> row count -> columns) is compact enough for a small model call.
+    """
+    key = (dbname, lang)
+    if key in _BUSINESS_SUMMARY_CACHE:
+        return _BUSINESS_SUMMARY_CACHE[key]
+
+    from langchain.chat_models import init_chat_model
+
+    model = init_chat_model(
+        "deepseek-chat",
+        model_provider="deepseek",
+        api_key=os.environ.get("DEEPSEEK_API_KEY"),
+        base_url=os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com",
+        temperature=0,
+    )
+
+    lines = [f"Database: {dbname}"]
+    for t in tables:
+        cols = ", ".join(t["columns"]) if t["columns"] else "-"
+        rows = "?" if t["rows"] is None else f"{t['rows']:,}"
+        lines.append(f"- {t['name']} ({rows} rows): {cols}")
+    inventory = "\n".join(lines)
+
+    language_note = "回答必须使用中文。" if lang.startswith("zh") else "Respond in English."
+    prompt = (
+        "You are a data analyst. Write a concise BUSINESS summary of the database below:\n"
+        f"{inventory}\n\n"
+        "Describe what business domain or processes the data covers and any interesting "
+        f"scale signals. Keep it to AT MOST 3 short lines, plain text, no markdown. {language_note}"
+    )
+
+    try:
+        response = model.invoke(
+            [
+                {"role": "system", "content": "You are a helpful data analyst."},
+                {"role": "user", "content": prompt},
+            ]
+        )
+        summary = (response.content or "").strip()
+    except Exception as exc:  # noqa: BLE001 - LLM failures are non-fatal
+        print(f"[graph-studio] business summary failed for '{dbname}': {exc}")
+        return None
+
+    if not summary:
+        return None
+    _BUSINESS_SUMMARY_CACHE[key] = summary
+    return summary
+
+
+@router.get("/databases/summary")
+def database_summary(lang: str = "en") -> Dict[str, Any]:
+    """Summarize the *active* target database for the canvas header.
+
+    Lists every public table of the database the SQL tools are currently
+    pointed at, plus exact row counts (small dev databases; count(*) is fine).
+    A `summary` field holds an LLM-written business description (<=3 lines)
+    in the requested language (`lang` = en | zh). The response changes as the
+    user switches databases, so the header stays in sync with the studio's
+    Database dropdown.
+    """
+    import psycopg2
+    from psycopg2 import sql
+
+    sqlmod = _sql_setup_module()
+    dbname = sqlmod.get_target_database()
+    try:
+        conn = psycopg2.connect(**sqlmod._connection_params())
+    except Exception as exc:  # noqa: BLE001 - surface connection errors
+        raise HTTPException(500, f"cannot connect to database '{dbname}': {exc}")
+
+    tables: List[Dict[str, Any]] = []
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema = 'public' ORDER BY table_name"
+            )
+            for (name,) in cur.fetchall():
+                try:
+                    cur.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(name)))
+                    rows = cur.fetchone()[0]
+                except Exception:  # noqa: BLE001 - one bad table must not sink the summary
+                    rows = None
+                # Column names feed the LLM so it can infer the business purpose.
+                cur.execute(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = %s "
+                    "ORDER BY ordinal_position LIMIT 12",
+                    (name,),
+                )
+                columns = [row[0] for row in cur.fetchall()]
+                tables.append({"name": name, "rows": rows, "columns": columns})
+    finally:
+        conn.close()
+
+    return {
+        "database": dbname,
+        "table_count": len(tables),
+        "row_count": sum(t["rows"] for t in tables if t["rows"] is not None),
+        "tables": [{"name": t["name"], "rows": t["rows"]} for t in tables],
+        "summary": _business_summary(dbname, tables, lang),
+    }
 
 
 # ---------------------------------------------------------------------------
