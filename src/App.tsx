@@ -53,6 +53,7 @@ import WorkflowStudioPage, { type WorkflowStudioRef, type StudioNodeConfig } fro
 import WorkflowStudioSidebar from './components/layout2/WorkflowStudioSidebar';
 import GraphStudioPage from './features/graph-studio/GraphStudioPage';
 import GraphStudioSidebar from './features/graph-studio/GraphStudioSidebar';
+import GraphHomePage from './features/graph-studio/GraphHomePage';
 
 type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search' | 'chat' | 'learning' | 'graph';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
@@ -289,8 +290,17 @@ function AppContent() {
     return () => window.removeEventListener('da:navigate-skills', handler);
   }, [navigate]);
 
+  // Graph activity: show the LangGraph landing page until the user enters the
+  // studio (via "Open Studio" or picking an assistant on the home page).
+  const [graphEntered, setGraphEntered] = useState(false);
+
   // Current view from route
   const currentView: View = ROUTE_TO_VIEW[location.pathname] ?? 'home';
+
+  // Returning to the Graph activity always starts at the home page.
+  useEffect(() => {
+    if (currentView !== 'graph') setGraphEntered(false);
+  }, [currentView]);
 
   // Sync ActivityBar with current view
   useEffect(() => {
@@ -442,7 +452,7 @@ function AppContent() {
           onWorkflowSelect={setSelectedWorkflowId}
         />
       );
-      case 'graph': return <GraphStudioPage />;
+      case 'graph': return graphEntered ? <GraphStudioPage /> : <GraphHomePage onEnterStudio={() => setGraphEntered(true)} />;
       case 'deepagents': return <DeepAgentHomePage />;
       case 'agents': return <AgentHomePage />;
       case 'skills': return <SkillHomePage />;
@@ -485,7 +495,7 @@ function AppContent() {
               }}
             />
           )}
-          {currentView === 'graph' && <GraphStudioSidebar />}
+          {currentView === 'graph' && graphEntered && <GraphStudioSidebar />}
         </LeftSidebar>
 
         {/* Center column */}
