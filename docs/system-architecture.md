@@ -511,7 +511,7 @@ Key mechanics:
 - **SSE shape.** With a *list* of stream modes, `compiled.astream(...)` yields
   `(mode, payload)` tuples. Partial AIMessage chunks are accumulated per message id
   (content concatenation + `tool_call_chunks` merged by index), empty provider shells are
-  `values` / `updates` snapshots pass through as-is.
+  stripped, and `values` / `updates` snapshots pass through as-is.
 - **Node introspection for the popup.** `GET /assistants/{id}/graph` enriches every node
   via `_graph_node_info` / `_source_info` (`inspect.getsource`, best-effort/None-safe): a
   `kind` (`start` / `end` / `function` / `tool` / `subgraph` / `unknown`), module, file,

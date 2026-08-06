@@ -28,6 +28,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { ArrowLeftRight, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens, type LayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState, type Direction } from './studioStore';
 import type { GraphSpec } from './api';
@@ -178,6 +179,100 @@ function iconButtonStyle(t: ReturnType<typeof useLayoutTokens>): CSSProperties {
   };
 }
 
+/** Text box at the top of the canvas: a live, bilingual BUSINESS summary of the
+ *  active target database (LLM-generated, <=3 lines). Re-renders on DB switch
+ *  (store) and on language change (i18next), so the text always matches the
+ *  interface language setting. Falls back to raw table counts if the LLM fails. */
+function DatabaseSummaryBox() {
+  const t = useLayoutTokens();
+  const { dbSummary, activeDatabase } = useStudioState();
+  const { t: tr, i18n } = useTranslation('chat');
+  const zh = i18n.language?.toLowerCase().startsWith('zh') ?? false;
+  const mountedRef = useRef(false);
+
+  // Regenerate the business summary in the new language on language switch.
+  // Skip the first render — loadDatabases already fetched it on mount.
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    void studio.loadDatabaseSummary();
+  }, [i18n.language]);
+
+  const dbName = dbSummary?.database || activeDatabase || '—';
+  const counts = dbSummary
+    ? zh
+      ? `${dbSummary.table_count} 张表 · ${dbSummary.row_count.toLocaleString()} 行`
+      : `${dbSummary.table_count} tables · ${dbSummary.row_count.toLocaleString()} rows`
+    : '—';
+
+  // Preferred: the LLM business summary. Fallback: a technical one-liner.
+  let body = dbSummary?.summary ?? null;
+  if (!body && dbSummary) {
+    const top = [...dbSummary.tables]
+      .filter((x) => x.rows != null)
+      .sort((a, b) => (b.rows ?? 0) - (a.rows ?? 0))
+      .slice(0, 3)
+      .map((x) => (zh ? `${x.name}（${x.rows!.toLocaleString()}）` : `${x.name} (${x.rows!.toLocaleString()})`))
+      .join(zh ? '、' : ', ');
+    if (dbSummary.table_count === 0) {
+      body = zh ? `数据库 ${dbName} 目前没有表。` : `Database ${dbName} has no tables yet.`;
+    } else if (top.length === 0) {
+      body = zh ? '无法获取各表的行数。' : 'Table row counts are unavailable.';
+    } else {
+      body = zh
+        ? `共 ${dbSummary.table_count} 张表、${dbSummary.row_count.toLocaleString()} 行数据。最大的表：${top}。`
+        : `${dbSummary.table_count} tables, ${dbSummary.row_count.toLocaleString()} rows in total. Largest: ${top}.`;
+    }
+  }
+
+  return (
+    <div
+      style={{
+        margin: '8px 10px 0',
+        padding: '8px 12px',
+        background: t.bgSidebar,
+        border: `1px solid ${t.border}`,
+        borderRadius: 8,
+        flexShrink: 0,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+        <span style={{ fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.6, color: t.textDim }}>
+          {tr('graph_db_summary')}
+        </span>
+        <span
+          style={{
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            fontSize: 11.5,
+            fontWeight: 600,
+            color: t.accent,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {dbName}
+        </span>
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: t.textDim, whiteSpace: 'nowrap' }}>{counts}</span>
+      </div>
+      <div
+        style={{
+          fontSize: 12,
+          color: t.textMuted,
+          lineHeight: 1.5,
+          whiteSpace: 'pre-wrap',
+          display: '-webkit-box',
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}
+      >
+        {body ?? '—'}
+      </div>
+    </div>
+  );
+}
+
 function GraphCanvasInner() {
   const t = useLayoutTokens();
   const { fitView } = useReactFlow();
@@ -268,86 +363,87 @@ function GraphCanvasInner() {
     return () => clearTimeout(timer);
   }, [graph, direction, fitView]);
 
-  if (!graph) {
-    return (
-      <div
-        style={{
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: t.textDim,
-          fontSize: 13,
-        }}
-      >
-        Select an assistant to view its graph.
-      </div>
-    );
-  }
-
   return (
-    <div style={{ height: '100%', width: '100%', position: 'relative' }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        onNodeClick={(_, node) => studio.selectNode(node.id)}
-        fitView
-        minZoom={0.2}
-        maxZoom={2}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background color={t.border} gap={24} variant={BackgroundVariant.Dots} style={{ opacity: 0.35 }} />
-        <Controls showInteractive={false} />
-      </ReactFlow>
+    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+      <DatabaseSummaryBox />
+      {graph ? (
+        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            nodeTypes={nodeTypes}
+            onNodeClick={(_, node) => studio.selectNode(node.id)}
+            fitView
+            minZoom={0.2}
+            maxZoom={2}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background color={t.border} gap={24} variant={BackgroundVariant.Dots} style={{ opacity: 0.35 }} />
+            <Controls showInteractive={false} />
+          </ReactFlow>
 
-      {/* Overlay: direction toggle + run status + legend */}
-      <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button style={iconButtonStyle(t)} onClick={studio.toggleDirection} title="Toggle layout direction">
-          <ArrowLeftRight size={14} />
-        </button>
-        <span
+          {/* Overlay: direction toggle + run status + legend */}
+          <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button style={iconButtonStyle(t)} onClick={studio.toggleDirection} title="Toggle layout direction">
+              <ArrowLeftRight size={14} />
+            </button>
+            <span
+              style={{
+                fontSize: 11,
+                color: t.textDim,
+                background: t.bgSidebar,
+                border: `1px solid ${t.border}`,
+                borderRadius: 4,
+                padding: '3px 8px',
+              }}
+            >
+              {running ? '● running' : '○ idle'}
+            </span>
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 10,
+              left: 10,
+              zIndex: 5,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+              fontSize: 11,
+              color: t.textDim,
+              background: t.bgSidebar,
+              border: `1px solid ${t.border}`,
+              borderRadius: 6,
+              padding: '6px 10px',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: t.accent }} /> executing
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: CONDITIONAL_COLOR }} /> conditional edge
+            </span>
+          </div>
+
+          {/* Node detail popup (floating overlay — deliberately not a dock) */}
+          {activeNodeId && <NodePopup />}
+        </div>
+      ) : (
+        <div
           style={{
-            fontSize: 11,
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             color: t.textDim,
-            background: t.bgSidebar,
-            border: `1px solid ${t.border}`,
-            borderRadius: 4,
-            padding: '3px 8px',
+            fontSize: 13,
           }}
         >
-          {running ? '● running' : '○ idle'}
-        </span>
-      </div>
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 10,
-          left: 10,
-          zIndex: 5,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-          fontSize: 11,
-          color: t.textDim,
-          background: t.bgSidebar,
-          border: `1px solid ${t.border}`,
-          borderRadius: 6,
-          padding: '6px 10px',
-        }}
-      >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: t.accent }} /> executing
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: CONDITIONAL_COLOR }} /> conditional edge
-        </span>
-      </div>
-
-      {/* Node detail popup (floating overlay — deliberately not a dock) */}
-      {activeNodeId && <NodePopup />}
+          Select an assistant to view its graph.
+        </div>
+      )}
     </div>
   );
 }

@@ -512,7 +512,9 @@ const en = {
   "tool_builder_api_key_config": "🔑 API Key Configuration",
   "tool_builder_code_valid": "Code is valid",
   "tool_builder_code_errors": "Code has errors",
-  "tool_builder_add_field": "Add Field"
+  "tool_builder_add_field": "Add Field",
+  "graph_db_summary": "Database Summary",
+  "graph_db_tables": "Tables"
 };
 
 const zh = {
@@ -1025,7 +1027,9 @@ const zh = {
   "tool_builder_api_key_config": "🔑 API 密钥配置",
   "tool_builder_code_valid": "代码有效",
   "tool_builder_code_errors": "代码有错误",
-  "tool_builder_add_field": "添加字段"
+  "tool_builder_add_field": "添加字段",
+  "graph_db_summary": "数据库摘要",
+  "graph_db_tables": "表"
 };
 
 i18n

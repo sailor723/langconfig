@@ -6,6 +6,7 @@
  * checkpointed state into the inspector.
  */
 import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState } from './studioStore';
 import type { Thread } from './api';
@@ -25,7 +26,8 @@ function threadTime(iso: string): string {
 
 export default function GraphStudioSidebar() {
   const t = useLayoutTokens();
-  const { assistants, activeAssistantId, threads, currentThreadId, databases, activeDatabase } =
+  const { t: tr } = useTranslation('chat');
+  const { assistants, activeAssistantId, threads, currentThreadId, databases, activeDatabase, dbSummary } =
     useStudioState();
 
   const sectionTitle: React.CSSProperties = {
@@ -112,6 +114,56 @@ export default function GraphStudioSidebar() {
             </button>
           );
         })}
+      </div>
+
+      {/* Tables in the active database (below the assistant list) */}
+      <div style={sectionTitle}>{tr('graph_db_tables')}</div>
+      <div
+        style={{
+          flex: 1,
+          minHeight: 120,
+          maxHeight: 360,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 1,
+          padding: '0 6px',
+        }}
+      >
+        {!dbSummary && <span style={{ color: t.textDim, padding: '2px 8px', fontSize: 11 }}>—</span>}
+        {dbSummary && dbSummary.tables.length === 0 && (
+          <span style={{ color: t.textDim, padding: '2px 8px', fontSize: 11 }}>no tables</span>
+        )}
+        {dbSummary?.tables.map((tbl) => (
+          <div
+            key={tbl.name}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '3px 8px',
+              borderRadius: 5,
+            }}
+          >
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontFamily: 'monospace',
+                fontSize: 11,
+                color: t.textPrimary,
+              }}
+            >
+              {tbl.name}
+            </span>
+            <span style={{ color: t.textDim, fontSize: 10, fontFamily: 'monospace', flexShrink: 0 }}>
+              {tbl.rows?.toLocaleString() ?? '?'}
+            </span>
+          </div>
+        ))}
       </div>
 
       <div style={{ height: 1, background: t.border, margin: '6px 10px' }} />
