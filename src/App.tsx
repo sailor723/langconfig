@@ -27,6 +27,7 @@ import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage
 import ToolHomePage from './components/layout2/ToolHomePage';
 import PromptHomePage from './components/layout2/PromptHomePage';
 import SkillHomePage from './components/layout2/SkillHomePage';
+import KnowledgeHomePage from './components/layout2/KnowledgeHomePage';
 import HomePage from './pages/HomePage';
 import DeepAgentHomePage from './components/layout2/DeepAgentHomePage';
 import AgentHomePage from './components/layout2/AgentHomePage';
@@ -448,7 +449,7 @@ function AppContent() {
       case 'tools': return <ToolHomePage />;
       case 'prompt': return <PromptHomePage />;
       case 'models': return <ModelHomePage />;
-      case 'knowledge': return null; // Handled by layout2 KnowledgeSidebar + KnowledgeView
+      case 'knowledge': return <KnowledgeHomePage />;
       case 'analysis': return <AnalysisPage />;
       // settings → popover only, no full-page view
       case 'playground': return <PlaygroundPage />;

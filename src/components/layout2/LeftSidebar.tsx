@@ -7,7 +7,7 @@
  *   - Tree view below
  *   - Status bar at bottom showing item count
  */
-import { type ReactNode, useCallback, useRef, useState } from 'react';
+import { type ReactNode, Children, useCallback, useRef, useState } from 'react';
 import { useLayoutState, ACTIVITIES } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import TreeView, { type TreeNode } from './TreeView';
@@ -188,7 +188,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           {isSearch ? (
             <SearchPanel onClose={() => setSidebarView('explorer')} />
-          ) : children ? (
+          ) : Children.toArray(children).length > 0 ? (
             <div style={{ height: '100%', overflow: 'auto' }}>{children}</div>
           ) : activeActivity === 'models' ? (
             /* Models activity renders the dedicated ModelCardsSidebar */
