@@ -266,6 +266,8 @@ export default function ChatPage() {
               onClearHistory={c.clearHistory}
               onEndSession={c.handleEndSession}
             />
+            {/* Company copyright line at the foot of the standalone chat window */}
+            <span className="text-xs ml-3" style={{ color: 'var(--color-text-muted)' }}>Copyright © EBL 2026</span>
           </div>
         </div>
       </div>

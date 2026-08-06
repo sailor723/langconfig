@@ -48,7 +48,7 @@ import LeftSidebar from './components/layout2/LeftSidebar';
 import Workspace from './components/layout2/Workspace';
 import NodeSidebar from './components/layout2/NodeSidebar';
 import BottomPanel from './components/layout2/BottomPanel';
-import StatusBar from './components/layout2/StatusBar';
+import Footer from './components/layout2/Footer';
 import WorkflowStudioPage, { type WorkflowStudioRef, type StudioNodeConfig } from './components/layout2/WorkflowStudioPage';
 import WorkflowStudioSidebar from './components/layout2/WorkflowStudioSidebar';
 import GraphStudioPage from './features/graph-studio/GraphStudioPage';
@@ -531,11 +531,7 @@ function AppContent() {
         )}
       </div>
 
-      <StatusBar
-        model={selectedNodeData?.model || 'GPT-4o'}
-        tokens={tokenCostInfo?.totalTokens}
-        task={workflowStatus === 'running' || executing ? 'Workflow Running' : null}
-      />
+      <Footer />
     </div>
   );
 }
