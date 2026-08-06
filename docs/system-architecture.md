@@ -60,9 +60,497 @@ Each layer has a **strict responsibility**:
 
 ---
 
-## 2.
+## 2. What is an AI agent?
 
-<u> The layer map (everything at a glance)</u>
+An **AI agent** is a software system that uses a large language model (LLM) to *act*, not just
+answer: given a goal it plans a sequence of steps, calls tools (search, databases, files, APIs,
+shell), observes the results, and iterates until the goal is done. The classic loop:
+
+```text
+goal → LLM reasons about steps → pick a tool → execute → observe result → feed back → repeat → deliver
+```
+
+| | Chatbot | AI agent |
+|---|---|---|
+| Input | a question | a *goal* |
+| Output | a reply | an *outcome* |
+| Loop | single turn, stops | plan → act → observe → iterate |
+| Tools | none or fixed | arbitrary tools, chosen by the model |
+| State | conversation only | conversation + memory + external state |
+| Example | "What is the weather?" | "Book a flight under ¥6,000 and email the itinerary" |
+
+Agents differ wildly across **who they serve** and **how they are built**:
+
+1. **Consumer assistant products** — closed, hosted, chat-first (豆包 / Doubao, ChatGPT, Copilot).
+2. **Personal / messaging / desktop-workbench agents** — self-hosted or a desktop app, talk to
+   you through chat apps, operate your machine (OpenClaw, Hermes Agent, WorkBuddy).
+3. **Coding agents / agent IDEs** — operate inside a repo or IDE (Claude Code, Cursor, MarsCode).
+4. **Developer frameworks & runtimes** — the building blocks used to *construct* any of the above (LangChain, LangGraph, Deep Agents).
+
+LangConfig sits in the **4th** category: a visual IDE on top of the LangChain stack, used to
+build and ship agents of the other three kinds (§3–§4).
+
+---
+
+## 3. The agent landscape — OpenClaw · Hermes · Doubao · the LangChain stack
+
+### 3.1 OpenClaw — the personal messaging agent
+
+**What.** Open-source (MIT) autonomous agent by Austrian developer Peter Steinberger. Launched
+Nov 24, 2025 as *Clawdbot*, renamed *Moltbot* (Jan 2026, after an Anthropic trademark complaint)
+then *OpenClaw*. TypeScript/Node gateway + Swift mobile client; runs locally on your machine;
+one of the fastest-growing open-source projects ever (~247k GitHub stars by Mar 2026). You talk
+to it through messaging apps — WhatsApp, Telegram, Discord, Slack, Signal, iMessage, and 15+
+more.
+
+**How it works.** A persistent gateway daemon:
+
+1. a message arrives on any channel → resolved to a per-session transcript;
+2. the LLM plans and streams back tool calls;
+3. tools execute (shell, files, browser via Playwright, email, APIs); results are appended to
+   the transcript and the LLM is called again — a tool loop;
+4. a final reply is delivered on the originating channel.
+
+Between messages a **heartbeat** wakes the agent for background work (email, calendar, cron).
+It ships 100+ pre-built **skills**, persistent memory (`SOUL.md` / `MEMORY.md` / `AGENTS.md`),
+subagents, and a Docker sandbox, and works with Anthropic, OpenAI, DeepSeek, and local models.
+
+**Typical use.** A 24/7 personal assistant inside your chat app: "research three competitors and
+draft a summary", book travel, send email, manage files, run scheduled tasks. The software is
+free; the ongoing cost is your LLM API spend (~$5–20/month light use, more for heavy use).
+
+**Pros / cons.**
+
+| Pros | Cons |
+|---|---|
+| Free, MIT, massive community | Self-hosting setup is technical |
+| Provider-agnostic, local-first (data on your machine) | Broad system access = real security risk |
+| 20+ messaging platforms | Token costs grow with use |
+| Skills / plugins / browser automation | Single-user personal automation — no team governance |
+| Browser + shell + cron out of the box | Not a framework: you consume it, you don't build products on it |
+
+### 3.2 Hermes Agent — the self-improving agent (Nous Research)
+
+**What.** Open-source, self-improving agent framework from Nous Research (the team behind the
+Hermes fine-tuned models), released Feb 25, 2026. Python 3.11+, open source, provider-agnostic
+(OpenRouter, Anthropic, OpenAI, DeepSeek, Gemini, local models). One of the fastest-growing
+agent frameworks of 2026 — tens of thousands of GitHub stars within weeks of release. Runs in
+the terminal, a desktop app, and 16+ messaging platforms (Telegram, Discord, Slack, WhatsApp,
+Signal, Matrix, iMessage, WeChat).
+
+**How it works.** A closed self-improvement loop:
+
+- after any complex task (≥5 tool calls) it **auto-writes a reusable skill** — a Markdown skill
+  doc capturing the approach, edge cases, and domain knowledge;
+- skills are refined on reuse, so the agent gets measurably better at *your* workflows (Nous
+  benchmarks: 40% faster research once 20+ skills accumulate);
+- a **three-layer memory** (user profile / session / long-term; pluggable backends: built-in,
+  Honcho, Mem0) persists identity, preferences, and lessons across sessions;
+- planning → execution → memory → skills layers, MCP server integration for external tools,
+  `delegate_task` subagents, credential pooling, and local / Docker / SSH / serverless
+  execution backends.
+
+**Typical use.** A self-hosting research / ops agent on a cheap VPS that accumulates your
+personal skill library; scheduled research and content work; coding and infrastructure
+automation; one agent reachable from Telegram, Discord, and WhatsApp.
+
+**Pros / cons.**
+
+| Pros | Cons |
+|---|---|
+| Self-improving, compounding skill library | Young project (2026) — maturity/stability risk |
+| Persistent memory + provider-agnostic | Autonomous self-modification needs skill review & isolation |
+| MCP integration, subagents | Single-user focus — not an enterprise governance model |
+| Cheap to run ($5 VPS) | Not a general framework for shipping agent products |
+| Huge community momentum | Auto-generated skills can contain risky operations if unreviewed |
+
+### 3.3 豆包 Doubao — ByteDance's all-scenario assistant platform
+
+**What.** ByteDance's AI assistant and agent platform (launched Aug 2023 as "Grace";
+international version *Dola*). China's #1 AI app (~170M monthly active users, 100M+ daily
+active users). Built on the Doubao (formerly 云雀/Lark) LLM family — text, image, audio, video,
+1M+ token context — and wired into ByteDance's ecosystem (Douyin, Toutiao, Feishu/Lark). For
+developers it is exposed through the Volcano Engine (火山引擎) API; sibling products include
+**Coze (扣子)** — a no-code agent builder — and **MarsCode**, a coding agent.
+
+**How it works.** A multimodal LLM plus a product-level agent framework. In 2026 ByteDance
+restructured Doubao into three modes:
+
+- **Quick** — fast Q&A and retrieval;
+- **Expert** — deep reasoning (math, long documents, legal logic), powered by Doubao 2.0 Pro
+  with a native agent architecture;
+- **Task** — autonomous agent execution: decompose → plan → invoke tools → deliver, including
+  scheduled background tasks, zero-code webpage/PPT generation, and Excel→charts visualization.
+
+**Typical use.** Everyday consumer AI: Chinese writing / summarization / study, image and
+audio/video generation, meeting minutes, deep-research reports. For business: Volcano Engine
+APIs and Coze no-code agents. Free consumer tier; paid tiers since June 2026 (Standard ¥68/mo,
+Enhanced ¥200/mo, Professional ¥500/mo).
+
+**Pros / cons.**
+
+| Pros | Cons |
+|---|---|
+| Best-in-class Chinese-language output | Closed source, hosted — privacy / jurisdiction concerns |
+| Free consumer tier + multimodal | Not a framework: you can't re-orchestrate or self-host the logic |
+| Massive distribution, cheap tokens | Consumer-shaped — weak for custom enterprise coding workflows |
+| No-code agent building via Coze | You don't own the data, prompts, or behavior |
+| Task Mode = real autonomous execution | English / code output lags Western assistants |
+
+### 3.4 WorkBuddy — Tencent's all-scenario AI office workstation
+
+**What.** Tencent's all-scenario AI agent desktop workstation — the "AI colleague" (AI 数字同事)
+of Tencent Cloud's "Buddy" family (alongside the CodeBuddy coding agent). Built by the Tencent
+Cloud CodeBuddy team: internal pilot (2,000+ Tencent employees, Jan 2026) → closed beta (Feb
+2026) → public launch (Mar 9, 2026). A Windows/macOS desktop app that wraps autonomous agent
+execution into a no-deploy, out-of-the-box package — by Tencent's own numbers one of China's
+most widely used productivity agent tools by daily active users (~8.85M monthly visits by Mar
+2026). Its technical foundation is same-origin with the open-source OpenClaw project.
+
+**How it works.** Three working modes that scale autonomy against risk:
+
+- **Ask** — pure Q&A / consultation, no file operations, zero risk;
+- **Plan** — proposes a step-by-step execution plan and waits for approval before touching anything;
+- **Craft** — full autonomous execution: decompose → plan → execute multi-step tasks on local
+  files, delivering checkable artifacts (documents, spreadsheets, PPT, charts).
+
+On top of that: **100+ out-of-the-box expert Skills** (updated weekly, plus custom skills);
+**Expert Groups** (专家团) that package multi-agent collaboration — Skill (capability) → Expert
+(capability + experience) → Expert Group (multiple experts + a collaboration process); a
+**sandbox** for safe execution; MCP protocol support; and multiple model providers (including
+Tencent's Hunyuan family). **Remote control:** send commands from your phone via IM apps (WeChat,
+Enterprise WeChat, QQ, Slack, Telegram, Discord, DingTalk, Feishu) to run tasks on your machine.
+The office ecosystem: Tencent Docs integration brings human-AI co-writing into
+Word/Excel/PPT/Markdown (July 2026, WorkBuddy V5.3+).
+
+**Enterprise edition** (June 5, 2026): WorkBuddy Enterprise AI Workspace — a three-tier
+progressive framework (Expert Layer: Skills, MCP, data/knowledge connectors, harness; Assistant
+Layer: a 24/7 assistant with memory and self-evolution; Team Layer: shared context and a
+"Context Flywheel"); three core offerings (CodeBuddy for development teams, WorkBuddy for
+business teams, Managed Agents); and a unified admin platform with SaaS / dedicated-VPC /
+private deployment modes.
+
+**Typical use.** Everyday office automation: document processing, data analysis and reports,
+meeting minutes, PPT generation, competitor research, and remote task scheduling from your
+phone. Personal tiers from ¥99/mo (free trial tier); team plans from ~$40/seat/month; enterprise
+SaaS from ¥198/user/month.
+
+**Pros / cons.**
+
+| Pros | Cons |
+|---|---|
+| No-deploy, pre-integrated, sandboxed — low adoption risk | Closed source, hosted — data flows through Tencent Cloud (private deploy needs the enterprise tier) |
+| 100+ skills + Expert Groups (multi-agent parallel) | A workplace product — not a framework for building agent products |
+| Ask / Plan / Craft dial autonomy against risk | Deep customization needs the enterprise/private edition |
+| Office ecosystem (Tencent Docs human-AI co-writing) | China-first; international footprint still maturing |
+| Remote control via IM apps (phone → machine) | Desktop app, per-user view — team governance sits in the enterprise edition |
+
+### 3.5 LangChain — the framework (abstractions)
+
+**What.** The most widely used open-source **agent framework**. The official docs call it "the
+agent framework: abstractions and integrations for models, tools, and agent loops" — a
+standardized vocabulary (model/chat interfaces, tool schemas, content blocks, the agent loop)
+plus **600+ integrations** (models, vector stores, document loaders, tools). v1.0 (Oct 2025)
+slimmed the `langchain` namespace down to the essential agent building blocks —
+`langchain.agents` (`create_agent`), `langchain.messages`, `langchain.tools`,
+`langchain.chat_models` (`init_chat_model`), `langchain.embeddings` — and moved legacy chains,
+retrievers, and the hub into a separate `langchain-classic` package.
+
+**How it works.** Since v1.0, `create_agent` (which replaced the older
+`langgraph.prebuilt.create_react_agent`) is the standard entry point, and it runs **on the
+LangGraph execution engine under the hood**. You declare a model, a list of tools, and a system
+prompt; `create_agent` assembles the "reason → pick tool → execute → feed back" loop as a
+LangGraph graph, customized with a **middleware array** instead of subclassing. The docs call
+middleware *the defining feature of `create_agent`*: composable hooks run before/after the model
+and before/after each tool, letting you **monitor** (logging, analytics, debugging), **modify**
+(prompts, tool selection, output formatting), **control** (retries, fallbacks, early
+termination), and **enforce** (rate limits, guardrails, PII detection). Prebuilt middleware
+includes `PIIMiddleware`, `SummarizationMiddleware`, `HumanInTheLoopMiddleware`,
+`ModelCallLimitMiddleware`, `ToolCallLimitMiddleware`, `ModelFallbackMiddleware`, Anthropic
+prompt caching, a to-do list, an LLM tool selector, and context editing.
+
+**Typical use.** Standard tool-calling agents and RAG apps; quick prototypes; a uniform way for
+a team to build LLM features. (This repo's normal agents are built this way:
+`AgentFactory.create_agent` — §11.)
+
+### 3.6 LangGraph — the runtime (durable execution)
+
+**What.** A low-level orchestration framework and **agent runtime**: you define nodes, edges,
+and a state schema (`StateGraph`) and get production infrastructure — durable execution (resume
+after failures), streaming, human-in-the-loop interrupts, and thread-level + cross-thread
+persistence. Used in production by Klarna, Uber, J.P. Morgan, and LinkedIn.
+
+**How it works.** The graph engine persists each state transition to a checkpointer (Postgres
+in this repo), streams `values`/`updates`/messages, and supports the `interrupt()` primitive for
+human approval — so long-running, stateful agents can pause, resume, and survive restarts.
+
+**Typical use.** Workflows that branch, retry, fan out, or need gates; multi-agent topologies
+(supervisor, swarm); anything that must run for a long time and resume reliably. (This repo:
+workflow execution engine §12 + Graph Studio §13.)
+
+### 3.7 Deep Agents — the harness (batteries included)
+
+**What.** LangChain's "batteries-included agent harness" — the `deepagents` SDK (v0.6.12, June
+2026; this repo pins 0.7.1). It bundles everything a *long-horizon autonomous* agent needs so
+one starts working out of the box: a planning/todo tool, a pluggable filesystem, sub-agents
+with isolated context windows, context summarization, persistent memory, skills, and
+human-approval gates.
+
+**How it works.** Deep Agents adds **no new runtime** — it is a curated preset of the same
+middleware you could pass to `create_agent`, wired to a detailed system prompt and compiled onto
+the LangGraph engine. Any LangGraph `CompiledStateGraph` can be handed to a Deep Agent as a
+sub-agent, so custom orchestration plugs in alongside the defaults instead of replacing them.
+
+**Typical use.** Long-running, multi-step, non-deterministic tasks: research, coding,
+go-to-market automation. (This repo's DeepAgents are built by
+`DeepAgentFactory.create_deep_agent` with a skills + middleware + sandbox pipeline — §11.)
+
+### 3.8 One stack, three rungs — not three competitors
+
+Official LangChain guidance frames these as **Framework / Runtime / Harness** — "composition,
+not migration":
+
+| | LangChain | LangGraph | Deep Agents |
+|---|---|---|---|
+| Layer | Framework | Runtime | Harness |
+| Value add | Abstractions + integrations | Durable execution, streaming, HITL, persistence | Predefined tools, prompts, subagents |
+| You write | model + tools + middleware | nodes, edges, state schema | a prompt + tools; defaults do the rest |
+| Reach for it when | standard tool/RAG loop | branching, retries, fan-out, gates | long-horizon autonomous task |
+
+A useful analogy that circulates in the community: **LangChain = 流水线 (pipeline)**,
+**LangGraph = 图 / 交通枢纽 (graph / traffic hub)**, **Deep Agents = 大脑 / 项目经理 (brain /
+project manager)** — the pipeline speeds up development, the graph keeps everything running,
+and Deep Agents plans and delegates.
+
+```mermaid
+flowchart TB
+    H["Deep Agents · harness<br/>planning · filesystem · subagents · skills"]
+    F["LangChain · framework<br/>create_agent · middleware · integrations"]
+    R["LangGraph · runtime<br/>StateGraph · durable execution · HITL · persistence"]
+    M["Models · tools · vector stores · LangSmith observability"]
+
+    H --> F --> R --> M
+
+    style H fill:#fde68a,stroke:#b45309,color:#111
+    style F fill:#bbf7d0,stroke:#15803d,color:#111
+    style R fill:#ddd6fe,stroke:#6d28d9,color:#111
+```
+
+### 3.9 The Activities sidebar — where the stack shows up in LangConfig
+
+The three rungs above are not just abstract libraries — each maps to a first-class workspace in
+LangConfig's VS Code-style **Activities sidebar**, alongside the workflow canvas (the fourth
+surface):
+
+| Activity | What you build | Stack rung | Entry point |
+|---|---|---|---|
+| **Agents** (users icon) | Normal tool-calling agents via the 4-section editor (Overview · Prompt · Tools · JSON) | LangChain framework | `AgentFactory.create_agent` |
+| **DeepAgents** (brain icon) | Long-horizon autonomous agents: skills + middleware + sandbox | Deep Agents harness | `DeepAgentFactory.create_deep_agent` |
+| **Workflows** (branch icon) | Visual workflows — nodes + edges drawn on a canvas, stored as JSON in Postgres | LangGraph runtime (visual) | Workflow Studio, executor §12 |
+| **Graph** (network icon) | Introspect and run code-defined LangGraph graphs (`backend/langgraph/*.py`) | LangGraph runtime (code) | Graph Studio §13 |
+
+So the IDE itself is organized around the stack: the framework (Agents), the harness
+(DeepAgents), and both faces of the runtime (Workflows visually, Graph by introspection). §2's
+"four categories" taxonomy and this sidebar are the same answer seen from two sides.
+
+---
+
+## 4. Value proposition & use cases — LangChain stack vs Doubao · WorkBuddy · OpenClaw · Hermes
+
+The six tools in this document live in **two different worlds**. OpenClaw, Hermes, Doubao, and
+WorkBuddy are *products you use*; LangChain, LangGraph, and Deep Agents are *building blocks you
+build with*. Comparing them on the same axis is like comparing a kitchen with a restaurant.
+
+| Axis | LangChain stack (LangChain / LangGraph / DeepAgents) | OpenClaw | Hermes Agent | WorkBuddy | 豆包 Doubao |
+|---|---|---|---|---|---|---|
+| Category | Dev framework + runtime + harness | Personal messaging agent | Self-improving personal agent | Personal AI agent workstation ("AI colleague") | Consumer assistant product |
+| You are | a developer building systems | an end-user delegating | an end-user delegating | an end-user delegating (workplace) | a consumer |
+| Orchestration | explicit graph, durable, HITL, checkpointed | session transcript + tool loop | planning + skill loop | Ask / Plan / Craft modes + Expert Groups | product-managed Task Mode |
+| Data & runtime | yours — your DB, your infra, your models | your machine, your keys | your VPS, your keys | Tencent Cloud (closed); enterprise tier can private-deploy | ByteDance cloud (closed) |
+| Extension | code + middleware + skills | skills + plugins | self-authored skills + MCP | 100+ skills + MCP connectors + custom skills | Coze no-code |
+| Multi-agent | supervisor / swarm / subagents (explicit) | subagents (basic) | `delegate_task` subagents | Expert Groups (skill → expert → expert group) | product-managed |
+| Best for | production agent systems, enterprise workflows | 24/7 personal automation via chat | self-hosted compounding research/ops agent | everyday office automation — docs, data, meetings, reports | everyday consumer AI (esp. Chinese) |
+| Security & privacy | encrypted secrets, self-hosted DB, HITL gates, audit log | broad system access — your permissions | skills need review + isolation | sandboxed execution + Ask/Plan/Craft gates; enterprise admin & audit | vendor cloud, Chinese jurisdiction |
+
+### 4.1 Security & data privacy
+
+Where your data lives decides everything — and it is the sharpest differentiator between the
+self-hosted LangChain stack and the hosted consumer products.
+
+| Security axis | LangChain stack (LangConfig) | OpenClaw | Hermes Agent | WorkBuddy | 豆包 Doubao |
+|---|---|---|---|---|---|---|
+| Where data lives | your PostgreSQL + your infra; `STORAGE_MODE=db` puts even skills/files in the DB | your local machine | your VPS | Tencent Cloud (Chinese jurisdiction); enterprise tier private/VPC deploy | ByteDance cloud (Chinese jurisdiction) |
+| Transparency | open source (MIT) — fully auditable | open source (MIT) | open source | closed source | closed source, black box |
+| Secrets | encrypted at rest (`encryption.py`, `settings.api_keys`) | env keys on disk | env keys on disk | managed by Tencent Cloud | managed by ByteDance |
+| Action safety | sandboxed shell, workspace-scoped filesystem, HITL approval gates, audit log | broad system access — permissions are on you | skills need review + container isolation | sandbox + Ask/Plan/Craft gates; enterprise permission & audit admin | platform-managed, no per-org policy |
+| Auditability | `execution_events` + `audit_logs` (Postgres), Langfuse/LangSmith tracing | session transcripts on disk | local logs | enterprise admin console (usage, member stats, audit) | vendor-side, limited export |
+| Compliance | deploy in your region, you own retention (GDPR, HIPAA…) | personal tool (n/a) | personal tool (n/a) | hosted in China; private tier for data residency | vendor compliance; jurisdiction questions for enterprises |
+
+Takeaways:
+
+- **LangConfig / the stack** — data never leaves your infrastructure; every run is checkpointed
+  to Postgres, every action lands in an audit log; risky tools sit behind approval gates
+  (`hitl` routes); secrets are encrypted at rest; and `STORAGE_MODE=db` moves even skills and
+  files into *your* database instead of a vendor's bucket.
+- **OpenClaw / Hermes** — local-first is privacy-friendly and works offline, but both receive
+  *broad* access to your machine and chat accounts; there is no team policy or review layer, so
+  safety rests on your own discipline (and, for Hermes, on reviewing its auto-written skills).
+- **Doubao** — the least control: prompts, documents, and outputs flow through ByteDance
+  infrastructure under Chinese jurisdiction. Fine for personal use; a blocker for enterprises
+  with data-residency or secrecy requirements.
+- **WorkBuddy** — the most "ready-to-use" of the products: sandboxed, an Ask/Plan/Craft risk
+  dial, and a genuine enterprise tier with an admin console and private deployment. But it is
+  closed source and Tencent-hosted by default: prompts, files, and outputs run through Tencent
+  infrastructure unless you take the private edition, and you cannot re-orchestrate or self-host
+  the product logic itself.
+
+**Purely local — and it scales outward.** Skills, prompts, tools, checkpoints, and outputs are
+plain artifacts you can run entirely on-prem: no vendor round-trip for any of them. When you
+outgrow one machine the stack *expands* instead of replacing you — swap in cloud models, add
+S3 storage (`STORAGE_MODE=s3`), deploy the same exported agents to your own servers. OpenClaw
+is an all-in-one agent bolted to one machine; Doubao and WorkBuddy are 100% vendor-hosted
+(WorkBuddy only leaves the cloud in its private enterprise edition); only the stack lets
+you start local and scale on your own terms.
+
+**Enterprise-grade open source.** The LangChain ecosystem — LangChain, LangGraph, LangSmith,
+plus a rich community of tools, templates, and integrations — is maintained by a company with
+a large contributor community, which is what enterprises need: auditability, governance,
+integration partners, and support paths. OpenClaw is essentially one maintainer's all-in-one
+personal agent (hard to extend to team/enterprise needs); Doubao's and WorkBuddy's enterprise
+stories are vendor terms on closed clouds (WorkBuddy's private edition still runs Tencent's
+closed software on your hardware).
+
+### 4.2 Who it's for — users & use cases
+
+| Persona | Use case | Best tool | Why |
+|---|---|---|---|
+| Consumer | everyday Q&A, Chinese writing, image/audio/video generation | 豆包 Doubao | free, multimodal, best-in-class Chinese |
+| Individual power user | 24/7 personal assistant in WhatsApp/Telegram/email | OpenClaw · Hermes | local, chat-native, autonomous, self-improving |
+| Workplace individual / enterprise employee | everyday office automation — documents, data reports, meeting minutes, PPT | WorkBuddy | no-deploy, out-of-the-box, 100+ skills, remote IM control |
+| Researcher | long-horizon research, literature surveys, deep-dive reports | Deep Agents (LangConfig) · Doubao Deep Research | planning + subagents + context management; Doubao for consumer-grade |
+| Strategy & business analyst | deep research on strategy — competitor scans, market reports, decision memos | Deep Agents (LangConfig) | planning + subagents + long-horizon research |
+| Developer | quick tool-calling / RAG agents | LangChain `create_agent` | fastest standard agent loop, 100+ integrations |
+| Platform engineer | durable, stateful, HITL, multi-agent production workflows | LangGraph | durable execution, checkpoints, interrupts, persistence |
+| AI product teams | build and ship an AI app on your own data/model | LangConfig (stack + export) | visual build + standalone Python export |
+| Ops & automation teams | cron schedules, file-watch triggers, background jobs | LangConfig | `schedules`, `triggers`, `background_tasks`, `webhooks` routers |
+| Data analysts | CSV → SQLite → charts, dashboards, presentations | LangConfig | `analysis`, `presentations`, `data_dashboard` pipeline |
+| Business systems / enterprise IT | DB CRUD + agent on existing transactional systems (CRM, ERP, finance) | LangConfig | SQL tools + graph orchestration + HITL approval against your existing Postgres/DBs |
+| No-code / AI app builders | assemble AI apps visually, zero code, full ownership | LangConfig | canvas + graph editing + standalone export (Coze if product-managed is fine) |
+| Learners & educators | learn LangChain / LangGraph by doing | LangConfig | live graph visualization, step-through runs, state inspector, run console |
+
+### 4.3 Head-to-head — LangChain stack vs Doubao · OpenClaw · Hermes
+
+- **Native multi-agent, by design.** Collaboration is a first-class pattern in the stack:
+  supervisor / swarm / sub-agents (Deep Agents' `delegate_task`), LangGraph sub-graphs, and
+  shared graph state — so you compose specialized agents (planner, coder, reviewer, executor),
+  each with isolated context, coordinated by explicit edges. OpenClaw and Hermes each run *one*
+  agent loop on *one* machine; Doubao's multi-agent behavior is opaque and product-managed.
+- **vs 豆包 (Doubao)** — Doubao is a closed product: fixed model, product-managed
+  orchestration, data in ByteDance's cloud, and **no setup transparency** — prompts, tools,
+  and the graph behind your agent are black-box; you cannot inspect, version, or reproduce
+  them. The stack wins where you need *control* — choose the model, define the graph, own the
+  data, self-host, ship code. Doubao wins on zero-setup consumer experience and
+  Chinese-language quality at scale.
+- **vs OpenClaw** — OpenClaw is a *personal* agent for one machine, reached through chat apps.
+  LangGraph / Deep Agents are for *systems*: multi-tenant, durable, auditable, deployable
+  anywhere. They answer different questions — "automate my Mac" vs "operate a production
+  service". LangConfig can build an OpenClaw-style assistant *and* a corporate workflow in the
+  same IDE.
+- **vs Hermes** — Hermes's self-improving skill loop is genuinely novel; LangConfig's
+  SkillsMiddleware provides the same progressive-disclosure skills (a `SKILL.md` catalog read
+  on demand — §14) but under *your* control: skills are reviewed, stored in Postgres when
+  `STORAGE_MODE=db`, and part of an auditable, governed runtime rather than an autonomous
+  self-modifying agent.
+- **vs WorkBuddy** — WorkBuddy is a *ready-made* personal agent workstation: no deploy,
+  pre-integrated, sandboxed, with an excellent enterprise tier. The stack answers a different
+  question: *you* are the builder — the graph is explicit, the middleware is yours, the data
+  stays on your infrastructure, and you ship runnable code. WorkBuddy executes *inside its own
+  product*; the stack delivers agents you can export and run anywhere. LangConfig can build a
+  WorkBuddy-style office assistant *and* a governed enterprise workflow in the same IDE.
+
+### 4.4 Why the LangChain stack wins where it wins
+
+- **Over Doubao** — Doubao is closed: you cannot change its orchestration, choose its model,
+  self-host it, or own the data it touches. LangGraph gives you explicit, checkpointed control
+  flow; you pick any provider (this repo defaults to DeepSeek); and you ship runnable code
+  instead of renting a feature.
+- **Over OpenClaw / Hermes** — those are single-user personal agents wired to *one machine* and
+  its chat apps. The LangChain stack is engineered for *systems*: durable state that survives
+  restarts, human-in-the-loop approvals, multi-agent topologies, Postgres persistence, team
+  governance, and deployment anywhere.
+- **Over WorkBuddy** — WorkBuddy automates *its own* workspace: you work inside Tencent's
+  product, on Tencent's cloud, with the skills Tencent ships. The stack is the *build layer*:
+  any provider, your data, your graph, exportable code, deployable anywhere — including inside
+  an enterprise's own infrastructure, which is exactly where WorkBuddy's private edition still
+  runs Tencent's closed software.
+
+### 4.5 LangConfig's unique value proposition
+
+LangConfig is a **visual Agent IDE ("Workbench") on exactly this stack** — LangChain V1 +
+LangGraph + DeepAgents 0.7.1 (see §1 and §11). Agents are stored as JSON config and **compiled
+into real LangGraph executables at runtime**, which combines the convenience of a product with
+the control of a framework:
+
+| Capability | Doubao / OpenClaw / WorkBuddy | LangConfig (on the LangChain stack) |
+|---|---|---|
+| Build without code | Coze no-code (product-managed) | Visual canvas + graph editing, *and* full code access |
+| Runtime control | none (fixed product) | explicit graph, interrupts, checkpoints, Postgres |
+| Human-in-the-loop | no | yes (`hitl` routes, approval gates) |
+| Autonomy dial | none — the product decides | per-workflow: fully autonomous, or HITL-gated |
+| Multi-agent | product-managed | supervisor / swarm / subagents, wired by you |
+| Data ownership | vendor cloud | your PostgreSQL, your files, your skills |
+| Setup transparency | opaque prompts/graphs (black box) | inspectable JSON config compiled to a visible, versioned graph |
+| Ship it | n/a (you stay in the product) | export standalone Python that runs anywhere |
+| Learn by doing | n/a | live graph visualization, step-through runs, state inspector — a built-in way to learn LangGraph |
+
+### 4.6 Use-case decision rule
+
+- everyday consumer help, Chinese-language work → **Doubao**;
+- everyday office automation on a desktop workstation — docs, data, meetings, PPT → **WorkBuddy**;
+- a 24/7 personal assistant inside WhatsApp/Telegram → **OpenClaw** (or **Hermes** if you want a
+  self-improving skill library);
+- building an agent *product or enterprise workflow* — tool-calling/RAG → **LangChain
+  `create_agent`**; branching/durable/stateful/HITL → **LangGraph**; long-horizon autonomous
+  research/coding → **Deep Agents**;
+- you want to build, test, and *ship* any of those visually → **LangConfig**, which rides the
+  same stack and exports runnable Python;
+- working against existing transactional / legacy business systems — DB CRUD + agent (SQL
+  tools, graph orchestration, HITL approval on your Postgres) → **LangConfig**;
+- assembling AI apps with no code but full ownership → **LangConfig** (Coze if
+  product-managed is fine);
+- learning LangChain / LangGraph visually → **LangConfig** — the canvas shows the real graph,
+  and you step through runs and inspect state as you learn.
+
+### 4.7 Platform + ready-to-use agents — a differentiator
+
+Most products are either a **platform** (you build everything) or a **product** (you consume what
+we ship). LangConfig is deliberately **both**: the same IDE that incubates new agents also ships a
+**starter line of enterprise agents**, pre-built on the stack above and stored exactly like any
+other agent — a `deep_agent_templates` row you can inspect, edit, and export.
+
+| Ready-to-use agent | What it does | Built on |
+|---|---|---|
+| **Enterprise strategic consultancy agent** | Long-horizon deep research: market/competitor scans, strategy memos, and decision support with citations — a DeepAgent with planning, subagents, and context management | Deep Agents |
+| **Enterprise ontology management agent** | Govern your domain model: create, version, and audit entities/relations; map business terms to a canonical ontology; validate schemas and flag drift | LangChain + skills + workflows |
+| **Enterprise admin agent** | Everyday operations over your systems: DB CRUD on existing transactional databases, HITL approval gates, report and audit pulls — the "DB CRUD + agent" pattern | LangGraph + SQL tools |
+| **The Agent IDE (LangConfig)** | The fourth "agent" is the incubator: build, test, and ship the next enterprise agent visually — no code, full ownership, standalone export | The whole stack |
+
+Why this is a differentiator:
+
+- **Two lanes, one stack.** Ready-made agents give instant value to non-developers; the IDE gives
+  developers a place to evolve them. Neither lane exists in the alternatives: Doubao/Coze manage
+  agents in their cloud, OpenClaw/Hermes are single-agent personal tools, WorkBuddy's agents stay
+  inside its own workspace, and bare LangChain/LangGraph ship no productized agents at all.
+- **Pre-built ≠ black box.** Unlike product agents, every ready-made agent is a config you can
+  open in the IDE — inspect its graph, edit the prompt, swap tools, and re-export. The starter
+  line is a *starting point*, not a walled garden.
+- **The line grows through the platform.** New use cases are incubated in the IDE and, after
+  review, can be promoted into the ready-made library — a flywheel that product-only vendors
+  can't replicate.
+
+---
+
+## 5. The layer map (everything at a glance)
 
 ```mermaid
 %%{init: {"themeVariables": {"fontSize": "18px"}}}%%
@@ -162,7 +650,7 @@ flowchart TB
 
 ---
 
-## 3. What is `backend/api/agents/deep_agents.py`?
+## 6. What is `backend/api/agents/deep_agents.py`?
 
 It is the **REST API router (controller) for DeepAgents** — registered in `main.py` as the
 "DeepAgents configuration and export" router. It does **not** build agents and does **not**
@@ -186,7 +674,7 @@ The actual builders are `core/agents/factory/` (normal agents) and
 
 ---
 
-## 4. Frontend layer deep-dive (`src/`)
+## 7. Frontend layer deep-dive (`src/`)
 
 The UI is an **IDE shell** (Obsidian/VS Code style) that maximizes canvas space for visual
 workflow design.
@@ -214,7 +702,7 @@ workflow design.
 | `agents/ui/PromptCanvas.tsx`                                                 | Visual prompt editing                                                                                                                                                         |
 | `deepagent-studio-v2/`                                                       | Modern DeepAgent studio:`ModernStudioCanvas`, agent picker, capability bar, main/sub-agent nodes, tool nodes, auto-layout                                                   |
 | `chat/`                                                                      | Chat UI with SSE streaming (`useChatController`, `useChatStreaming`, `streamChatEvents.ts`), sessions, files, metrics, HITL interrupts, thinking blocks, analysis panel |
-| `graph-studio/`                                                              | Graph Engineering activity: assistant + database sidebar, ReactFlow canvas (auto-layout, conditional edges, run-path, node-click detail popup), test-run console, inspector, chat input with interrupt — see §10  |
+| `graph-studio/`                                                              | Graph Engineering activity: assistant + database sidebar, ReactFlow canvas (auto-layout, conditional edges, run-path, node-click detail popup), test-run console, inspector, chat input with interrupt — see §13  |
 | `tools/ui/`                                                                  | `CustomToolBuilder` + `ToolTemplateGallery`                                                                                                                               |
 | `knowledge/`, `memory/`, `settings/ui/`, `projects/AgentsMdEditor.tsx` | Supporting views                                                                                                                                                              |
 
@@ -248,7 +736,7 @@ flowchart LR
 
 ---
 
-## 5. Backend API layer — the 41 routers
+## 8. Backend API layer — the 41 routers
 
 `backend/main.py` registers **41 routers** on the FastAPI app. They are thin controllers:
 parse the request, delegate to a service/factory, and stream the result.
@@ -259,7 +747,7 @@ parse the request, delegate to a service/factory, and stream the result.
 | Agents               | `agents` (templates), `agent_generator`, `action_presets`, `images`                                 | Normal-agent CRUD, AI agent generation, action presets, image storage                                                     |
 | DeepAgents           | `deepagents`, `chat`                                                                                    | DeepAgent CRUD/export + DeepAgent chat testing                                                                            |
 | Workflows            | `workflows`, `orchestration`, `hitl`, `checkpoints`                                                 | Workflow CRUD/execute, simplified orchestration, human-in-the-loop approvals, checkpoint restore                          |
-| Graph Engineering    | `graph_studio`                                                                                    | Code-defined graph hosting (`backend/langgraph/*.py`): introspection, threads, SSE runs, target-DB switching, run interrupt — see §10 |
+| Graph Engineering    | `graph_studio`                                                                                    | Code-defined graph hosting (`backend/langgraph/*.py`): introspection, threads, SSE runs, target-DB switching, run interrupt — see §13 |
 | Chat & memory        | `memory`, `store`, `agents_md_router`, `chat_skill_review`                                          | Agent memory, long-term store, AGENTS.md (MemoryMiddleware), data-skill review                                            |
 | Knowledge / RAG      | `rag`, `graphindex_chat`, `doc_chat`, `kv`, `analysis`                                            | RAG ingestion/search, graph-index chat, folder-based doc-chat, KV store, CSV→SQLite→charts                              |
 | Tools & skills       | `custom_tools`, `tool_registry`, `skills`                                                             | User tools, native tool registry (single source of truth), skills system                                                  |
@@ -286,7 +774,7 @@ flowchart LR
 
 ---
 
-## 6. Service layer deep-dive (`backend/services/`)
+## 9. Service layer deep-dive (`backend/services/`)
 
 This is the brain: **builders** turn persisted config into runnable graphs; **managers**
 own the filesystem, workspaces, and side effects.
@@ -322,7 +810,7 @@ own the filesystem, workspaces, and side effects.
 
 ---
 
-## 7. Core engines deep-dive (`backend/core/`)
+## 10. Core engines deep-dive (`backend/core/`)
 
 Reusable engines that both agent types and workflows share.
 
@@ -332,7 +820,7 @@ Reusable engines that both agent types and workflows share.
 - `specialized/` — `json_agent.py`, `pandas_agent.py`, `sql_agent.py` (typed specialist agents)
 - `delegation.py`, `memory.py`, `model_profiles.py`, `multimodal.py`, `templates.py`, `templates_specialized.py`, `tool_loader.py` (`ToolLoader.load_native`)
 
-### `core/workflows/` — the execution engine (see §9)
+### `core/workflows/` — the execution engine (see §12)
 
 `executor/builder.py` · `executor/execution.py` · `executor/nodes.py` · `executor/shared.py` ·
 `checkpointing/manager.py` (Postgres checkpointer) · `events/emitter/` (progress, callbacks) ·
@@ -362,7 +850,7 @@ Reusable engines that both agent types and workflows share.
 
 ---
 
-## 8. Agent build pipeline (runtime)
+## 11. Agent build pipeline (runtime)
 
 Both agent types are compiled on every chat/execution from their stored JSON config.
 
@@ -416,7 +904,7 @@ filesystem tools so the agent exposes one set of file tools — the backend-scop
 
 ---
 
-## 9. Workflow execution engine (`core/workflows/`)
+## 12. Workflow execution engine (`core/workflows/`)
 
 Workflows are **visual graphs** (ReactFlow on the frontend) persisted as JSON nodes/edges,
 then executed by this engine.
@@ -466,7 +954,7 @@ Key mechanics:
 
 ---
 
-## 10. Graph Engineering Studio (`api/graph_studio/`)
+## 13. Graph Engineering Studio (`api/graph_studio/`)
 
 The **Graph Engineering** activity is the IDE-side companion to the workflow engine: it
 hosts *code-defined* LangGraph agents (`backend/langgraph/*.py`) directly inside the
@@ -569,7 +1057,7 @@ The canvas is **generic**: any introspected graph renders with the same layered 
 
 ---
 
-## 11. Skills & middleware pipeline
+## 14. Skills & middleware pipeline
 
 **Skills** give agents modular, context-aware capabilities. The pipeline is
 **progressive disclosure**: the agent is given a *catalog* (name + description + path) and
@@ -597,7 +1085,7 @@ flowchart LR
 
 ---
 
-## 12. Export subsystem (ship it)
+## 15. Export subsystem (ship it)
 
 The "develop in the IDE, run anywhere" story. `ExportService` (`services/export_service.py`)
 produces two artifact kinds:
@@ -646,7 +1134,7 @@ backend runtime — so what you export behaves identically to what you tested in
 
 ---
 
-## 13. Data layer — PostgreSQL tables
+## 16. Data layer — PostgreSQL tables
 
 SQLAlchemy models in `backend/models/` map to these tables:
 
@@ -663,7 +1151,7 @@ SQLAlchemy models in `backend/models/` map to these tables:
 | `workspace_file.py`, `file_version.py`                                | Workspace files + version history                                                                                        |
 | `local_model.py`, `model.py`, `search_provider.py`, `settings.py` | Model/local-model/search-provider/settings config                                                                        |
 
-### 13.1 The unified `models` table — cloud + local LLMs in one place
+### 16.1 The unified `models` table — cloud + local LLMs in one place
 
 The `models` table is the single source of truth for every model the app can call. It replaces the legacy hardcoded enum (`constants/models.py`) and the now-removed `local_models` split. Both managed cloud entries and user-added local entries share one schema, distinguished by `source`.
 
@@ -708,14 +1196,14 @@ The `models` table is the single source of truth for every model the app can cal
 
 **Reads** go through `GET /api/settings/models` which returns both cloud and validated local models with full metadata. The chat + workflow engines call this once at startup.
 
-**The provider→key mapping** is independent of `models`: cloud providers' API keys live in `settings.api_keys.{provider}_api_key` (encrypted at rest), and resolution is DB-first, `.env` fallback. See §13.2.
+**The provider→key mapping** is independent of `models`: cloud providers' API keys live in `settings.api_keys.{provider}_api_key` (encrypted at rest), and resolution is DB-first, `.env` fallback. See §16.2.
 
 ---
 | `user_profile.py`                                                       | User profile                                                                                                             |
 | `audit_log.py`                                                          | Audit trail                                                                                                              |
 | `oauth_token.py`, `presentation_job.py`                               | OAuth tokens + presentation jobs                                                                                         |
 | `analysis_chat.py`, `custom_schema.py`                                | Analysis chats + structured-output schemas                                                                               |
-| `storage_object.py`                                                   | **`storage_objects`** — durable artifact blobs (BYTEA), the DB-as-store seam (Phase 1, §16)                              |
+| `storage_object.py`                                                   | **`storage_objects`** — durable artifact blobs (BYTEA), the DB-as-store seam (Phase 1, §19)                              |
 
 ```mermaid
 flowchart TB
@@ -736,7 +1224,7 @@ flowchart TB
 
 ---
 
-## 14. Request lifecycle — sequence diagrams
+## 17. Request lifecycle — sequence diagrams
 
 ### DeepAgent chat (SSE)
 
@@ -785,7 +1273,7 @@ sequenceDiagram
 
 ---
 
-## 15. Development topology
+## 18. Development topology
 
 Two long-running processes + one database, all driven by the root `.env` (FastAPI loads it via
 `backend/config.py`, so ports and API keys are consistent everywhere).
@@ -822,7 +1310,7 @@ shell-exported provider keys, so the key must live in the root `.env` — otherw
 
 ---
 
-## 16. Storage strategy: DB as the permanent store (enterprise-ready)
+## 19. Storage strategy: DB as the permanent store (enterprise-ready)
 
 > **Status (2026-08-03):** All four phases of the storage strategy are shipped —
 > Phase 1 (abstraction, commit `3aa794d`), Phase 2 (write-through wiring), Phase 3
@@ -936,7 +1424,7 @@ tool works transparently against the DB.
    rendered canonically from the `skills` table). Idempotent (existing keys
    skipped; `--force` overwrites), `--dry-run` to preview, forces
    `STORAGE_MODE=db`, loads the root `.env` before importing `db.database` (the
-   §15 gotcha). Verified live on `:5432`: 1,301 artifacts migrated with
+   §18 gotcha). Verified live on `:5432`: 1,301 artifacts migrated with
    content-identical spot checks, re-run skips all 1,301.
    Run: `uv run python -m tools.migrate_storage [--force] [--dry-run]`
 
