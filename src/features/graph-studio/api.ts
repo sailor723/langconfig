@@ -53,6 +53,12 @@ export interface AssistantSchemas {
   output_schema?: unknown;
 }
 
+/** Databases the SQL tools can target (list + current selection). */
+export interface DatabaseInfo {
+  databases: string[];
+  active: string;
+}
+
 export interface Thread {
   thread_id: string;
   assistant_id: string;
@@ -126,6 +132,17 @@ export const api = {
     return request(`/assistants/${assistantId}/schemas`);
   },
 
+  async loadDatabases(): Promise<DatabaseInfo> {
+    return request('/databases');
+  },
+
+  async selectDatabase(name: string): Promise<DatabaseInfo> {
+    return request('/databases/select', {
+      method: 'POST',
+      body: JSON.stringify({ database: name }),
+    });
+  },
+
   async loadThreads(metadata: Record<string, unknown> = {}): Promise<Thread[]> {
     return request('/threads/search', { method: 'POST', body: JSON.stringify({ metadata }) });
   },
@@ -160,5 +177,10 @@ export const api = {
         stream_mode: ['messages', 'values', 'updates'],
       }),
     });
+  },
+
+  /** Interrupt the in-flight run on a thread (stops at the next event boundary). */
+  async cancelRun(threadId: string): Promise<{ thread_id: string; cancelled: boolean }> {
+    return request(`/threads/${threadId}/runs/cancel`, { method: 'POST' });
   },
 };

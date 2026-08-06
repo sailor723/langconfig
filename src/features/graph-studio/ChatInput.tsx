@@ -5,7 +5,7 @@
  * `input` field (form graphs). Enter submits; Shift+Enter inserts a newline.
  */
 import { useState } from 'react';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Square } from 'lucide-react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState } from './studioStore';
 import { hasMessagesInput } from './api';
@@ -70,25 +70,47 @@ export default function ChatInput() {
           outline: 'none',
         }}
       />
-      <button
-        onClick={() => void submit()}
-        disabled={!value.trim() || running || interrupted}
-        title="Send (Enter)"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 28,
-          height: 28,
-          borderRadius: 6,
-          border: 'none',
-          background: value.trim() && !running && !interrupted ? t.accent : t.bgInput,
-          color: value.trim() && !running && !interrupted ? '#ffffff' : t.textDim,
-          cursor: value.trim() && !running && !interrupted ? 'pointer' : 'not-allowed',
-        }}
-      >
-        <ArrowUp size={15} />
-      </button>
+      {running ? (
+        // While a run is in-flight the send button becomes "Interrupt".
+        <button
+          onClick={() => void studio.cancel()}
+          title="Interrupt the run"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 28,
+            height: 28,
+            borderRadius: 6,
+            border: `1px solid #e5484d`,
+            background: '#e5484d22',
+            color: '#e5484d',
+            cursor: 'pointer',
+          }}
+        >
+          <Square size={13} fill="currentColor" />
+        </button>
+      ) : (
+        <button
+          onClick={() => void submit()}
+          disabled={!value.trim() || running || interrupted}
+          title="Send (Enter)"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 28,
+            height: 28,
+            borderRadius: 6,
+            border: 'none',
+            background: value.trim() && !running && !interrupted ? t.accent : t.bgInput,
+            color: value.trim() && !running && !interrupted ? '#ffffff' : t.textDim,
+            cursor: value.trim() && !running && !interrupted ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <ArrowUp size={15} />
+        </button>
+      )}
     </div>
   );
 }
