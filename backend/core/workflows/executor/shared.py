@@ -86,6 +86,21 @@ class SimpleWorkflowState(TypedDict):
     loop_should_exit: Optional[bool]  # Whether loop should exit
     loop_exit_reason: Optional[str]  # Reason for loop exit
 
+    # CONDITIONAL_NODE internals - both are written by the node executor and
+    # must be declared or LangGraph v1 drops them from state between nodes:
+    #  - condition_hits powers the reflection-loop guard (max 5 iterations).
+    #    The executor returns it, but without a declared channel LangGraph
+    #    silently discards it, so the guard would never accumulate.
+    #  - decision holds the parsed [DECISION: PASS|REVISE] marker.
+    condition_hits: Optional[Dict[str, int]]  # Iteration count per CONDITIONAL_NODE id
+    decision: Optional[str]  # Parsed decision marker from agent messages
+
+    # TOOL_NODE outputs - written by execute_tool_node, read by the
+    # output_formatter and by CONDITIONAL_NODE/LOOP_NODE conditions.
+    # Must be declared or LangGraph v1 drops them from state entirely.
+    tool_result: Optional[Any]  # Raw result returned by the last executed tool
+    last_tool_output: Optional[str]  # String form of the last tool output
+
     # Multimodal attachments (images, documents, videos, audio)
     # workflow_attachments: Provided at workflow start, passed to all agents
     # agent_attachments: Retrieved per-agent from node config
@@ -94,6 +109,12 @@ class SimpleWorkflowState(TypedDict):
 
     # Deferred node support: parallel branch outputs merged here
     branch_results: Annotated[Dict[str, Any], operator.ior]
+
+    # Named handoff values written by nodes so later nodes can consume them,
+    # e.g. LLM_NODE with config["output_key"] writes node_outputs[key], and a
+    # TOOL_NODE tool_params value like "{{my_key}}" is resolved from here.
+    # Declared channel required or LangGraph v1 silently drops the writes.
+    node_outputs: Annotated[Dict[str, Any], operator.ior]
 
     # Critic output for conditional routing
     critic_output: Annotated[Optional[str], pick_last]

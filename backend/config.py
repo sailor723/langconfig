@@ -99,49 +99,64 @@ class Settings(BaseSettings):
     storage_base_dir: str = "./data/storage"
 
     # ── Uppercase aliases for convenience ──
+    # UI-editable providers: DB-first (DB keys are encrypted at rest, decrypted
+    # transparently by _db_api_key_only below). .env is the fallback when no
+    # DB key exists, so the system still works on a fresh install with only
+    # .env. Keys are matched by snake_case; *_API_BASE properties use .env as
+    # the source for now (TODO: extend APIKeySet to accept base_url overrides).
     @property
     def OPENAI_API_KEY(self) -> Optional[str]:
-        return self.openai_api_key
+        return _db_api_key_only("openai_api_key") or self.openai_api_key
 
     @property
     def ANTHROPIC_API_KEY(self) -> Optional[str]:
-        return self.anthropic_api_key
+        return _db_api_key_only("anthropic_api_key") or self.anthropic_api_key
 
     @property
     def GOOGLE_API_KEY(self) -> Optional[str]:
-        return self.google_api_key or self.gemini_api_key
+        return (
+            _db_api_key_only("google_api_key")
+            or self.google_api_key
+            or self.gemini_api_key
+        )
 
     @property
     def DEEPSEEK_API_KEY(self) -> Optional[str]:
-        return self.deepseek_api_key
+        return _db_api_key_only("deepseek_api_key") or self.deepseek_api_key
 
     @property
     def DEEPSEEK_API_BASE(self) -> str:
-        return self.deepseek_api_base
+        return _db_api_key_only("deepseek_api_base") or self.deepseek_api_base
+
+    @property
+    def SERPER_API_KEY(self) -> Optional[str]:
+        return _db_api_key_only("serper_api_key") or self.serper_api_key
 
     @property
     def TAVILY_API_KEY(self) -> Optional[str]:
-        return self.tavily_api_key
+        return _db_api_key_only("tavily_api_key") or self.tavily_api_key
 
     @property
     def AGNES_API_KEY(self) -> Optional[str]:
-        return self.agnes_api_key
+        return _db_api_key_only("agnes_api_key") or self.agnes_api_key
 
     @property
     def AGNES_BASE_URL(self) -> str:
-        return self.agnes_base_url
+        # AGNES_BASE_URL lives in DB under agnes_base_url; honor it when set.
+        return _db_api_key_only("agnes_base_url") or self.agnes_base_url
 
     @property
     def MINIMAX_API_KEY(self) -> Optional[str]:
-        return self.minimax_api_key
+        return _db_api_key_only("minimax_api_key") or self.minimax_api_key
 
     @property
     def MINIMAX_API_BASE(self) -> str:
+        # TODO: wire through when APIKeySet accepts minimax_base_url
         return self.minimax_api_base
 
     @property
     def KIMI_API_KEY(self) -> Optional[str]:
-        return self.kimi_api_key
+        return _db_api_key_only("kimi_api_key") or self.kimi_api_key
 
     @property
     def KIMI_API_BASE(self) -> Optional[str]:
@@ -149,7 +164,7 @@ class Settings(BaseSettings):
 
     @property
     def QWEN_API_KEY(self) -> Optional[str]:
-        return self.qwen_api_key
+        return _db_api_key_only("qwen_api_key") or self.qwen_api_key
 
     @property
     def QWEN_API_BASE(self) -> Optional[str]:
@@ -157,7 +172,7 @@ class Settings(BaseSettings):
 
     @property
     def GLM_API_KEY(self) -> Optional[str]:
-        return self.glm_api_key
+        return _db_api_key_only("glm_api_key") or self.glm_api_key
 
     @property
     def GLM_API_BASE(self) -> Optional[str]:
@@ -178,6 +193,30 @@ class Settings(BaseSettings):
         extra = "ignore"
 
 
+# ── DB-first helpers ──
+# Read encrypted DB key directly (skipping get_api_key_from_db's .env-first
+# logic) and fall back to the .env value. Used by uppercase property aliases
+# above so runtime resolution honors what the user saved in Settings UI.
+def _db_api_key_only(key_name: str) -> Optional[str]:
+    """Read just the DB value (decrypted). Returns None if absent."""
+    try:
+        from db.database import SessionLocal
+        from models.settings import Settings as SettingsModel
+        from services.encryption import encryption_service
+        db = SessionLocal()
+        try:
+            row = db.query(SettingsModel).filter(SettingsModel.id == 1).first()
+            if row and row.api_keys:
+                val = row.api_keys.get(key_name)
+                if val:
+                    return encryption_service.decrypt(val)
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return None
+
+
 # Global settings instance
 settings = Settings()
 
@@ -187,7 +226,7 @@ def get_api_key_from_db(key_name: str) -> Optional[str]:
 
     Resolution order:
     1. .env file (via pydantic-settings) — canonical source of truth
-    2. DB settings.api_keys JSONB column — set via Settings UI at runtime
+    2. DB `settings.api_keys` JSONB column — set via the Settings UI at runtime
 
     The DB fallback allows API keys to be configured through the Settings UI
     when .env is not available or incomplete. .env always takes precedence.
@@ -200,17 +239,20 @@ def get_api_key_from_db(key_name: str) -> Optional[str]:
     except Exception:
         pass
 
-    # Fallback: try the database settings.api_keys JSONB column
+    # Fallback: try the DB settings.api_keys JSONB column (single row, id=1)
     try:
         from db.database import SessionLocal
-        from models.core import Setting
+        from models.settings import Settings as SettingsModel
         db = SessionLocal()
         try:
-            rec = db.query(Setting).filter(Setting.key == "api_keys").first()
-            if rec and rec.value:
-                import json
-                keys = json.loads(rec.value) if isinstance(rec.value, str) else rec.value
-                return keys.get(key_name)
+            row = db.query(SettingsModel).filter(SettingsModel.id == 1).first()
+            if row and row.api_keys:
+                val = row.api_keys.get(key_name)
+                if val:
+                    # Keys are Fernet-encrypted at rest; decrypt before use.
+                    # decrypt() returns the value unchanged if not encrypted.
+                    from services.encryption import encryption_service
+                    return encryption_service.decrypt(val)
         finally:
             db.close()
     except Exception:

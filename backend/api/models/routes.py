@@ -98,21 +98,23 @@ def _get_active_model_row(db: Session, model_name: str) -> Optional[Model]:
 
 
 def _get_decrypted_setting_value(settings_row: SettingsModel, key_name: str) -> Optional[str]:
-    """Get API key from .env (via app_settings) for a provider."""
+    """Get API key for a provider via app_settings. Uppercase properties are
+    DB-first (encrypted at rest, decrypted transparently), .env fallback.
+    """
     from config import settings as app_settings
     mapping: dict[str, Optional[str]] = {
-        "openai": app_settings.openai_api_key,
-        "anthropic": app_settings.anthropic_api_key,
-        "google": app_settings.google_api_key,
+        "openai": app_settings.OPENAI_API_KEY,
+        "anthropic": app_settings.ANTHROPIC_API_KEY,
+        "google": app_settings.GOOGLE_API_KEY,
         "cohere": None,
         "replicate": None,
-        "deepseek": app_settings.deepseek_api_key,
+        "deepseek": app_settings.DEEPSEEK_API_KEY,
         "glm": None,
-        "minimax": app_settings.minimax_api_key,
-        "tavily": app_settings.tavily_api_key,
-        "serper": app_settings.serper_api_key,
-        "agnes": app_settings.agnes_api_key,
-        "agnes_base_url": app_settings.agnes_base_url,
+        "minimax": app_settings.MINIMAX_API_KEY,
+        "tavily": app_settings.TAVILY_API_KEY,
+        "serper": app_settings.SERPER_API_KEY,
+        "agnes": app_settings.AGNES_API_KEY,
+        "agnes_base_url": app_settings.AGNES_BASE_URL,
     }
     return mapping.get(key_name)
 
@@ -123,6 +125,7 @@ def _create_openai_compatible_llm(
     max_tokens: Optional[int],
     api_key: str,
     base_url: str,
+    streaming: bool = False,
 ):
     """Create an OpenAI-compatible client for providers that expose custom base URLs."""
     return ChatOpenAI(
@@ -131,7 +134,7 @@ def _create_openai_compatible_llm(
         api_key=api_key,
         temperature=temperature,
         max_tokens=max_tokens,
-        streaming=False,
+        streaming=streaming,
     )
 
 
@@ -218,6 +221,9 @@ def _create_llm_for_playground(
             max_tokens=max_tokens,
             api_key=api_key,
             base_url=base_url,
+            # Agnes only answers STREAMING chat requests; invoke() still returns
+            # the full message when streaming=True, so this is a safe override.
+            streaming=True,
         )
 
     if provider in OPENAI_COMPATIBLE_PROVIDER_BASE_URLS:

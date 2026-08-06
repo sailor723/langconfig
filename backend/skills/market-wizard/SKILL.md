@@ -25,7 +25,7 @@ wizard engine** (`backend/core/data_prep/wizard.py`) driven by a **YAML rules fi
 (currently `CleanedSalesRow` from `backend/schemas/sales.py`).
 
 **Files**:
-- Rules: `skills/market_wizard/rules.yaml` (THIS skill's content)
+- Rules: `skills/market-wizard/rules.yaml` (THIS skill's content)
 - Engine: `core/data_prep/wizard.py` (generic, reusable for other skills)
 - Schema: `schemas/sales.py` (shared with `finance_pro`)
 
@@ -125,7 +125,7 @@ from pathlib import Path
 from core.data_prep import run
 
 result = run(
-    spec_path=Path("skills/market_wizard/rules.yaml"),
+    spec_path=Path("skills/market-wizard/rules.yaml"),
     input_path=Path("enterprise_data/modern_marketing.csv"),
 )
 assert result["status"] == "ok"

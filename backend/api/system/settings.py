@@ -26,13 +26,25 @@ class APIKeyTestRequest(BaseModel):
 
 class APIKeySet(BaseModel):
     openai_api_key: Optional[str] = None
+    openai_base_url: Optional[str] = None
     anthropic_api_key: Optional[str] = None
+    anthropic_base_url: Optional[str] = None
     google_api_key: Optional[str] = None
+    google_base_url: Optional[str] = None
     cohere_api_key: Optional[str] = None
+    cohere_base_url: Optional[str] = None
     replicate_api_key: Optional[str] = None
+    replicate_base_url: Optional[str] = None
     deepseek_api_key: Optional[str] = None
+    deepseek_api_base: Optional[str] = None
     glm_api_key: Optional[str] = None
+    glm_api_base: Optional[str] = None
     minimax_api_key: Optional[str] = None
+    minimax_api_base: Optional[str] = None
+    qwen_api_key: Optional[str] = None
+    qwen_api_base: Optional[str] = None
+    kimi_api_key: Optional[str] = None
+    kimi_api_base: Optional[str] = None
     tavily_api_key: Optional[str] = None
     serper_api_key: Optional[str] = None
     agnes_api_key: Optional[str] = None
@@ -122,17 +134,28 @@ def get_default_storage_path() -> str:
         return os.path.expanduser("~/.local/share/langconfig/documents")
 
 
+# Process-wide guard so the settings-table migration runs at most once.
+# ALTER TABLE takes an ACCESS EXCLUSIVE lock; running it on every request could
+# deadlock the server when concurrent calls contend for the same table lock.
+_SETTINGS_MIGRATED = False
+
+
 # Helper functions for database access
 def get_or_create_settings(db: Session) -> SettingsModel:
     """Get settings from database or create default row if it doesn't exist"""
-    # Migrate: add theme column if missing
-    try:
-        from sqlalchemy import text as sa_text
-        db.execute(sa_text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS theme VARCHAR DEFAULT 'langconfig'"))
-        db.commit()
-    except Exception:
-        db.rollback()
-        pass
+    global _SETTINGS_MIGRATED
+    # Migrate: add theme column if missing — once per process, with a short
+    # lock_timeout so it fails fast instead of hanging the event loop forever.
+    if not _SETTINGS_MIGRATED:
+        try:
+            from sqlalchemy import text as sa_text
+            db.execute(sa_text("SET LOCAL lock_timeout = '3s'"))
+            db.execute(sa_text("ALTER TABLE settings ADD COLUMN IF NOT EXISTS theme VARCHAR DEFAULT 'langconfig'"))
+            db.commit()
+            _SETTINGS_MIGRATED = True
+        except Exception:
+            db.rollback()
+            pass
 
     settings = db.query(SettingsModel).filter(SettingsModel.id == 1).first()
     if not settings:
@@ -160,14 +183,14 @@ from config import settings as app_settings
 PROVIDER_TEST_MODELS = {
     "openai": "gpt-4o-mini",
     "anthropic": "claude-haiku-4-5",
-    "google": "gemini-2.5-flash",
+    "google": "gemini-3.1-flash-lite",
     "deepseek": "deepseek-chat",
     "glm": "glm-4",
     "minimax": "minimax-m3",
     "agnes": "agnes-2.0-flash",
 }
 
-CHAT_PROVIDERS = ["openai", "anthropic", "google", "deepseek", "glm", "minimax", "agnes"]
+CHAT_PROVIDERS = ["openai", "anthropic", "google", "deepseek", "glm", "minimax", "qwen", "kimi", "agnes"]
 SEARCH_PROVIDERS = ["tavily", "serper"]
 CONNECTION_STATUS_KEY = "_connection_status"
 
@@ -191,7 +214,8 @@ def _test_provider_connection(provider: str, api_key: str, base_url_extra: str |
         elif provider == "google":
             from openai import OpenAI
             client = OpenAI(api_key=api_key, base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
-            r = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": "ok"}], max_tokens=5, timeout=15)
+            # gemini-3 models "think" first; give the test a generous timeout
+            r = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": "ok"}], max_tokens=5, timeout=30)
             _ = r.choices[0].message.content
         elif provider == "deepseek":
             from openai import OpenAI
@@ -212,8 +236,23 @@ def _test_provider_connection(provider: str, api_key: str, base_url_extra: str |
             from openai import OpenAI
             base_url = base_url_extra or "https://apihub.agnes-ai.com/v1"
             client = OpenAI(api_key=api_key, base_url=base_url)
-            r = client.chat.completions.create(model=test_model, messages=[{"role": "user", "content": "ok"}], max_tokens=5, timeout=15)
-            _ = r.choices[0].message.content
+            # Agnes only responds to STREAMING chat requests — non-streaming
+            # calls hang with 0 bytes server-side. Drain the SSE stream and
+            # verify the key by collecting the final answer.
+            stream = client.chat.completions.create(
+                model=test_model,
+                messages=[{"role": "user", "content": "ok"}],
+                timeout=20,
+                stream=True,
+            )
+            content = ""
+            for chunk in stream:
+                for choice in chunk.choices or []:
+                    if choice.delta and choice.delta.content:
+                        content += choice.delta.content
+                    if choice.finish_reason == "stop":
+                        break
+            _ = content or "<empty response>"
         else:
             return {"success": False, "message": f"Test not implemented for {provider}"}
         return {"success": True, "message": f"✓ Connected to {test_model}"}
@@ -258,17 +297,50 @@ def _test_search_connection(provider: str, api_key: str) -> dict:
         return {"success": False, "message": f"✗ Connection failed: {error_msg[:200]}"}
 
 
-# ── API Keys endpoints (now read from .env) ──
+# ── API Keys endpoints (env-first, DB fallback) ──
+
+
+# Provider list derived from the active models table — falls back to the
+# hardcoded CHAT_PROVIDERS list if the DB hasn't been seeded yet.
+def _active_providers(db: Session) -> list[str]:
+    """Distinct lower(provider) from `models` where is_active=true."""
+    try:
+        rows = db.execute(
+            __import__("sqlalchemy").text(
+                "SELECT DISTINCT lower(provider) FROM models WHERE is_active=true ORDER BY 1"
+            )
+        ).fetchall()
+        if rows:
+            return [r[0] for r in rows]
+    except Exception:
+        pass
+    return list(CHAT_PROVIDERS)
 
 
 @router.get("/api-keys")
-async def get_api_keys():
-    """Get API key status (read from .env)."""
-    providers = ["openai", "anthropic", "google", "cohere", "replicate", "deepseek", "glm", "minimax", "tavily", "serper", "agnes"]
+async def get_api_keys(db: Session = Depends(get_db)):
+    """Get API key status. Reads DB first (UI-set), then .env fallback.
 
+    Provider list comes from the active `models` table so qwen/kimi and any
+    newly seeded providers appear automatically.
+    """
+    chat_providers = _active_providers(db)
+    # Always include search providers too
+    providers = sorted(set(chat_providers) | set(SEARCH_PROVIDERS))
+
+    db_keys = _db_api_keys(db)
     results = []
     for provider in providers:
-        key = _get_env_key_for_provider(provider)
+        # DB-first (encrypted at rest) → .env fallback
+        key = None
+        field = API_PROVIDER_KEY_FIELDS.get(provider)
+        if field:
+            db_val = db_keys.get(field)
+            if db_val:
+                from services.encryption import encryption_service
+                key = encryption_service.decrypt(db_val)
+        if not key:
+            key = _get_env_key_for_provider(provider)
         results.append(
             APIKeyResponse(
                 provider=provider,
@@ -283,32 +355,99 @@ async def get_api_keys():
 
 
 @router.post("/api-keys")
-async def set_api_keys():
-    """API keys are managed via .env — this endpoint is no longer used."""
-    return {"message": "API keys are configured in .env file. Edit .env directly or use Settings UI to see current status."}
+async def set_api_keys(payload: APIKeySet, db: Session = Depends(get_db)):
+    """Persist API keys to the DB settings row (runtime override), encrypted at rest.
+
+    .env still takes precedence when both exist (see config.get_api_key_from_db).
+    Keys are Fernet-encrypted before storage; reads decrypt transparently.
+    Empty-string values are treated as removal requests.
+    """
+    from services.encryption import encryption_service
+    settings = get_or_create_settings(db)
+    keys = dict(settings.api_keys or {})
+    updated, removed = [], []
+    for field, value in payload.model_dump(exclude_none=True).items():
+        if isinstance(value, str):
+            value = value.strip()
+            if value:
+                keys[field] = encryption_service.encrypt(value)
+                updated.append(field)
+            elif field in keys:
+                del keys[field]
+                removed.append(field)
+    settings.api_keys = keys
+    db.commit()
+    msg = f"Saved: {', '.join(updated) or 'none'}"
+    if removed:
+        msg += f"; Removed: {', '.join(removed)}"
+    return {"updated": updated, "removed": removed, "message": msg}
 
 
 @router.delete("/api-keys/{provider}")
-async def delete_api_key(provider: str):
-    """API keys are managed via .env — this endpoint is no longer used."""
-    return {"message": f"API keys are configured in .env file. Remove the entry for '{provider}' from .env directly."}
+async def delete_api_key(provider: str, db: Session = Depends(get_db)):
+    """Remove a provider's DB-stored key. Keys set in .env must be removed there."""
+    field = API_PROVIDER_KEY_FIELDS.get(provider)
+    if not field:
+        raise HTTPException(status_code=404, detail=f"Unknown provider: {provider}")
+    settings = get_or_create_settings(db)
+    keys = dict(settings.api_keys or {})
+    removed = keys.pop(field, None)
+    settings.api_keys = keys
+    db.commit()
+    if removed is not None:
+        return {"message": f"Removed {provider} API key from DB."}
+    return {"message": f"No DB-stored key for {provider}. Note: keys set in .env must be edited in .env directly."}
 
 
 @router.post("/api-keys/test")
-async def test_api_key(req: APIKeyTestRequest):
-    """Test a provider's API key connection. Reads key from .env."""
-    key = req.api_key or _get_env_key_for_provider(req.provider)
+async def test_api_key(req: APIKeyTestRequest, db: Session = Depends(get_db)):
+    """Test a provider's API key connection. Uses the posted key, else DB, else .env.
 
+    base_url follows the same DB-first precedence via API_PROVIDER_BASE_URL_FIELDS.
+    """
+    key = req.api_key or _resolve_api_key(db, req.provider)
     if not key:
-        raise HTTPException(status_code=400, detail=f"No API key found for '{req.provider}'. Set it in .env file.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"No API key found for '{req.provider}'. Set it via the UI (⊕ Set Key) or in .env.",
+        )
+
+    # Base URL: DB override → posted → .env default
+    base_url_field = API_PROVIDER_BASE_URL_FIELDS.get(req.provider)
+    base_url = None
+    if base_url_field:
+        base_url = _db_api_keys(db).get(base_url_field)
+        if base_url:
+            from services.encryption import encryption_service
+            base_url = encryption_service.decrypt(base_url)
+    if not base_url:
+        base_url = req.api_key and None  # posted-only flow doesn't carry base_url; .env default kicks in below
+        base_url = app_settings.AGNES_BASE_URL if req.provider == "agnes" else base_url
+        # For OpenAI-compat providers, the .env default is set via *_api_base fields
+        if not base_url:
+            base_url = _get_env_base_url_for_provider(req.provider)
 
     if req.provider in SEARCH_PROVIDERS:
         result = _test_search_connection(req.provider, key)
     else:
-        base_url_extra = app_settings.AGNES_BASE_URL if req.provider == "agnes" else None
-        result = _test_provider_connection(req.provider, key, base_url_extra)
+        result = _test_provider_connection(req.provider, key, base_url_extra=base_url)
 
     return {"success": result["success"], "message": result["message"]}
+
+
+def _get_env_base_url_for_provider(provider: str) -> Optional[str]:
+    """Default base URL for a provider from app_settings."""
+    return {
+        "openai": "https://api.openai.com/v1",
+        "deepseek": app_settings.DEEPSEEK_API_BASE,
+        "glm": app_settings.GLM_API_BASE or "https://open.bigmodel.cn/api/paas/v4/",
+        "minimax": app_settings.MINIMAX_API_BASE,
+        "qwen": app_settings.QWEN_API_BASE,
+        "kimi": app_settings.KIMI_API_BASE,
+        "anthropic": None,  # uses native Anthropic client
+        "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "agnes": app_settings.AGNES_BASE_URL,
+    }.get(provider)
 
 
 def _get_env_key_for_provider(provider: str) -> Optional[str]:
@@ -327,6 +466,67 @@ def _get_env_key_for_provider(provider: str) -> Optional[str]:
         "agnes": app_settings.agnes_api_key,
     }
     return mapping.get(provider)
+
+
+# Provider name → settings.api_keys JSON field name (matches APIKeySet + get_api_key_from_db)
+API_PROVIDER_KEY_FIELDS = {
+    "openai": "openai_api_key",
+    "anthropic": "anthropic_api_key",
+    "google": "google_api_key",
+    "cohere": "cohere_api_key",
+    "replicate": "replicate_api_key",
+    "deepseek": "deepseek_api_key",
+    "glm": "glm_api_key",
+    "minimax": "minimax_api_key",
+    "qwen": "qwen_api_key",
+    "kimi": "kimi_api_key",
+    "tavily": "tavily_api_key",
+    "serper": "serper_api_key",
+    "agnes": "agnes_api_key",
+}
+
+# Provider → settings.api_keys JSON field name for base URLs. Most providers use
+# "*_api_base" (matching .env + pydantic); the ones with explicit "_base_url"
+# suffix are providers whose standard env var is named that way.
+API_PROVIDER_BASE_URL_FIELDS = {
+    "openai": "openai_base_url",
+    "anthropic": "anthropic_base_url",
+    "google": "google_base_url",
+    "cohere": "cohere_base_url",
+    "replicate": "replicate_base_url",
+    "deepseek": "deepseek_api_base",
+    "glm": "glm_api_base",
+    "minimax": "minimax_api_base",
+    "qwen": "qwen_api_base",
+    "kimi": "kimi_api_base",
+    "agnes": "agnes_base_url",
+}
+
+
+def _db_api_keys(db: Session) -> dict:
+    """Return the API keys stored in the DB settings row (UI-set keys)."""
+    try:
+        row = get_or_create_settings(db)
+        return dict(row.api_keys or {})
+    except Exception:
+        return {}
+
+
+def _resolve_api_key(db: Session, provider: str) -> Optional[str]:
+    """Resolve a provider's key for testing: DB-stored (UI-set) key first, then .env.
+
+    The test endpoint validates what the user saved in the Settings UI, so the
+    DB key takes priority here — the opposite of normal app resolution, where
+    .env is canonical. Falls back to .env when no UI-set key exists.
+    """
+    field = API_PROVIDER_KEY_FIELDS.get(provider)
+    db_key = _db_api_keys(db).get(field) if field else None
+    if db_key:
+        # DB keys are Fernet-encrypted at rest; decrypt for the test. decrypt()
+        # returns the value unchanged if it was never encrypted (backward compat).
+        from services.encryption import encryption_service
+        return encryption_service.decrypt(db_key)
+    return _get_env_key_for_provider(provider)
 
 
 @router.get("/", response_model=SettingsResponse)

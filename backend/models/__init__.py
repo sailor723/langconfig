@@ -46,6 +46,7 @@ from .workflow_trigger import WorkflowTrigger, TriggerLog, TriggerType, TriggerS
 from .agent_memory import AgentMemory
 from .analysis_chat import AnalysisChatMessage
 from .agent_document import AgentDocument
+from .classic_graph import ClassicGraph, ClassicGraphRun
 
 __all__ = [
     "Project",
@@ -96,4 +97,6 @@ __all__ = [
     "AgentMemory",
     "AnalysisChatMessage",
     "AgentDocument",
+    "ClassicGraph",
+    "ClassicGraphRun",
 ]

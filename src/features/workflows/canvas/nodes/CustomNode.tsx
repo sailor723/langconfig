@@ -102,6 +102,19 @@ const CustomNode = memo(function CustomNode({ id, data, selected }: NodeProps) {
     return theme ? ['dark', 'midnight', 'ocean', 'forest', 'botanical', 'godspeed'].includes(theme) : false;
   }, []); // Empty deps - theme doesn't change during node drag
 
+  // Color for content drawn directly on the node surface.
+  // In light themes the old `var(--color-background-light)` text color is
+  // near-white AND the global theme-override CSS (themes.tsx __theme-force)
+  // also paints those elements with a near-white panel background, making
+  // the text invisible. Use explicit per-surface colors instead.
+  const onSurfaceColor = isDarkTheme
+    ? 'var(--color-text-primary)'
+    : data._isToolNode
+      ? '#374151'
+      : data._isSubagent
+        ? 'var(--color-text-primary)'
+        : '#ffffff';
+
   return (
     <div
       ref={nodeRef}
@@ -222,13 +235,13 @@ const CustomNode = memo(function CustomNode({ id, data, selected }: NodeProps) {
           >
             <span className="material-symbols-outlined" style={{
               fontSize: '16px',
-              color: customToolCount > 0 ? '#f59e0b' : (isDarkTheme ? 'var(--color-primary)' : 'var(--color-background-light)'),
+              color: customToolCount > 0 ? '#f59e0b' : onSurfaceColor,
               fontWeight: 600
             }}>
               construction
             </span>
             <span className="text-sm font-bold" style={{
-              color: customToolCount > 0 ? '#f59e0b' : (isDarkTheme ? 'var(--color-primary)' : 'var(--color-background-light)')
+              color: customToolCount > 0 ? '#f59e0b' : onSurfaceColor
             }}>
               {toolCount}
             </span>
@@ -314,7 +327,7 @@ const CustomNode = memo(function CustomNode({ id, data, selected }: NodeProps) {
           <div className="flex-shrink-0">
             <span className="material-symbols-outlined" style={{
               fontSize: '28px',
-              color: isDarkTheme ? 'var(--color-primary)' : 'var(--color-background-light)'
+              color: onSurfaceColor
             }}>
               {data.icon}
             </span>
@@ -323,7 +336,7 @@ const CustomNode = memo(function CustomNode({ id, data, selected }: NodeProps) {
 
         {/* Agent Name - Larger and bold */}
         <div className="font-bold text-lg leading-tight px-2" style={{
-          color: isDarkTheme ? 'var(--color-text-primary)' : 'var(--color-background-light)'
+          color: onSurfaceColor
         }}>
           {agentType === 'TOOL_NODE' && data.config?.tool_id
             ? data.config.tool_id
@@ -340,7 +353,7 @@ const CustomNode = memo(function CustomNode({ id, data, selected }: NodeProps) {
               }}
               className="text-xs font-medium px-3 py-1 rounded-full nodrag"
               style={{
-                color: isDarkTheme ? 'var(--color-text-muted)' : 'var(--color-background-light)',
+                color: onSurfaceColor,
                 backgroundColor: isDarkTheme
                   ? 'rgba(var(--color-primary-rgb, 99, 102, 241), 0.15)'
                   : 'rgba(255, 255, 255, 0.25)',

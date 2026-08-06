@@ -266,17 +266,24 @@ export function useWorkflowPersistence({
           const config = latestWorkflow.configuration;
 
           if (config.nodes) {
-            const restoredNodes = config.nodes.map((n: any) => ({
-              id: n.id,
-              type: 'custom',
-              position: n.position || { x: 0, y: 0 },
-              data: n.data || {
-                label: n.type,
-                agentType: n.type,
-                model: n.config?.model || 'gpt-4o-mini',
-                config: n.config || {}
-              }
-            }));
+            const restoredNodes = config.nodes.map((n: any) => {
+              // Merge the persisted top-level node config into data.config so
+              // control/tool node fields survive a reload (same as the load
+              // path in useWorkflowManagement).
+              const persistedData = n.data || {};
+              const persistedConfig = n.config || {};
+              return {
+                id: n.id,
+                type: 'custom',
+                position: n.position || { x: 0, y: 0 },
+                data: {
+                  label: persistedData.label ?? n.type,
+                  ...persistedData,
+                  agentType: persistedData.agentType || n.type,
+                  config: { ...(persistedData.config || {}), ...persistedConfig }
+                }
+              };
+            });
             setNodes(restoredNodes);
           }
 

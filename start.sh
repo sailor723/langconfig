@@ -67,6 +67,12 @@ start_postgres() {
 start_backend() {
     echo "── Backend ──────────────────────────────"
     kill_old "backend" 8765 "$BE_PIDFILE"
+    # The root .env is the single source of truth for API keys. Unset provider
+    # key vars that may be exported in the shell so a stale value can't
+    # silently override .env (pydantic-settings prefers os.environ).
+    unset GOOGLE_API_KEY GEMINI_API_KEY OPENAI_API_KEY ANTHROPIC_API_KEY \
+          DEEPSEEK_API_KEY MINIMAX_API_KEY AGNES_API_KEY TAVILY_API_KEY \
+          SERPER_API_KEY 2>/dev/null || true
     echo "  Starting backend..."
     cd "$BE_DIR"
     SKIP_STARTUP_API_TEST=true .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --reload &
