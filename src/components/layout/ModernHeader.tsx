@@ -88,10 +88,10 @@ export default function ModernHeader({
               transform: 'rotate(-45deg)', // 45 degrees to the right
             }}
           />
-          {/* LangConfig Logo */}
+          {/* Carrier Logo */}
           <img
             src="/langconfignewlogo.png"
-            alt="LangConfig"
+            alt="Carrier"
             style={{
               height: '100px',
               width: 'auto',
