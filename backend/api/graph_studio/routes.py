@@ -16,17 +16,21 @@ Endpoints:
 - POST /api/graph-studio/assistants/search       list code-defined assistants
 - GET  /api/graph-studio/assistants/{id}/graph    nodes + edges (canvas spec)
 - GET  /api/graph-studio/assistants/{id}/schemas  input/state/output jsonschemas
+- GET  /api/graph-studio/databases                list target DBs + the active one
+- POST /api/graph-studio/databases/select         switch the SQL tools' target DB
 - POST /api/graph-studio/threads/search           list threads
 - POST /api/graph-studio/threads                  create a thread
 - GET  /api/graph-studio/threads/{id}/state       checkpointed thread state
 - GET  /api/graph-studio/threads/{id}/runs        run history
 - POST /api/graph-studio/threads/{id}/runs/stream SSE run (messages/values/updates)
+- POST /api/graph-studio/threads/{id}/runs/cancel interrupt an in-flight run
 
 Threads and run history live in memory for the process lifetime; the compiled
 graphs keep their own checkpointer (thread-scoped history) + store (memory).
 """
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import inspect
 import json
@@ -323,10 +327,76 @@ def get_assistant_schemas(assistant_id: str) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Target database switching (the DB the SQL tools query)
+# ---------------------------------------------------------------------------
+def _sql_setup_module() -> Any:
+    """Import backend/langgraph/sql_setup_db.py (the SQL tools' module)."""
+    if str(_LANGGRAPH_DIR) not in sys.path:
+        sys.path.insert(0, str(_LANGGRAPH_DIR))
+    import sql_setup_db
+
+    return sql_setup_db
+
+
+def _list_databases() -> List[str]:
+    """List every non-template database on the Postgres server."""
+    import psycopg2
+
+    sqlmod = _sql_setup_module()
+    conn = psycopg2.connect(**sqlmod._connection_params())
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT datname FROM pg_database "
+                "WHERE datistemplate = false ORDER BY datname"
+            )
+            return [row[0] for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+@router.get("/databases")
+def list_databases() -> Dict[str, Any]:
+    """List the databases the SQL tools can target, plus the active one."""
+    try:
+        databases = _list_databases()
+    except Exception as exc:  # noqa: BLE001 - surface connection errors
+        raise HTTPException(500, f"cannot list databases: {exc}")
+    sqlmod = _sql_setup_module()
+    return {"databases": databases, "active": sqlmod.get_target_database()}
+
+
+class SelectDatabaseRequest(BaseModel):
+    database: str
+
+
+@router.post("/databases/select")
+def select_database(payload: SelectDatabaseRequest) -> Dict[str, Any]:
+    """Point the SQL tools at another database (runtime only, no .env edit).
+
+    The next run uses the new target; the change lasts for the process
+    lifetime and resets to the .env value on backend restart.
+    """
+    try:
+        databases = _list_databases()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"cannot list databases: {exc}")
+    if payload.database not in databases:
+        raise HTTPException(404, f"unknown database '{payload.database}'")
+
+    sqlmod = _sql_setup_module()
+    sqlmod.set_target_database(payload.database)
+    return {"databases": databases, "active": payload.database}
+
+
+# ---------------------------------------------------------------------------
 # Threads (in-memory registry for the studio session)
 # ---------------------------------------------------------------------------
 _THREADS: Dict[str, Dict[str, Any]] = {}
 _RUNS: Dict[str, List[Dict[str, Any]]] = {}
+# Per-thread cancellation flags: an in-flight SSE run checks the flag between
+# events and stops at the next boundary when the user hits "interrupt".
+_CANCEL_EVENTS: Dict[str, asyncio.Event] = {}
 
 
 def _thread_out(t: Dict[str, Any]) -> Dict[str, Any]:
@@ -517,6 +587,10 @@ def _clean_partials(partial: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
+class _RunCancelled(Exception):
+    """Raised inside the SSE generator when the user interrupts a run."""
+
+
 async def _run_event_gen(
     compiled: Any,
     config: Dict[str, Any],
@@ -538,11 +612,18 @@ async def _run_event_gen(
     _RUNS.setdefault(record["thread_id"], []).append(run)
     record["status"] = "running"
 
+    # Arm the cancellation flag for this thread (reused across runs).
+    cancel_event = _CANCEL_EVENTS.setdefault(record["thread_id"], asyncio.Event())
+    cancel_event.clear()
+
     partial_messages: Dict[str, Dict[str, Any]] = {}
     try:
         async for event in compiled.astream(
             payload.input, config=config, stream_mode=payload.stream_mode
         ):
+            # Stop at the next event boundary when the user hit "interrupt".
+            if cancel_event.is_set():
+                raise _RunCancelled()
             if isinstance(event, tuple):
                 # With a LIST of stream modes langgraph yields (mode, payload);
                 # a bare (chunk, metadata) tuple is the single-mode messages shape.
@@ -568,6 +649,10 @@ async def _run_event_gen(
                     yield _sse("updates", _jsonable(event))
         run["status"] = "completed"
         record["status"] = "completed"
+    except _RunCancelled:
+        run["status"] = "cancelled"
+        record["status"] = "cancelled"
+        yield _sse("error", {"message": "Run cancelled by user"})
     except Exception as exc:  # noqa: BLE001 - surface any graph error to the client
         run["status"] = "error"
         run["error"] = str(exc)
@@ -575,6 +660,7 @@ async def _run_event_gen(
         yield _sse("error", {"message": str(exc)})
     finally:
         run["updated_at"] = _now()
+        _CANCEL_EVENTS.pop(record["thread_id"], None)
 
 
 @router.post("/threads/{thread_id}/runs/stream")
@@ -594,3 +680,19 @@ async def stream_run(thread_id: str, payload: StreamRunRequest) -> StreamingResp
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/threads/{thread_id}/runs/cancel")
+def cancel_run(thread_id: str) -> Dict[str, Any]:
+    """Ask an in-flight run on a thread to stop at the next event boundary.
+
+    The run is not killed mid-step — the SSE generator checks the flag between
+    events, so the user gets a clean "Run cancelled" event and the graph
+    checkpointer is left in a consistent state.
+    """
+    if thread_id not in _THREADS:
+        raise HTTPException(404, f"unknown thread '{thread_id}'")
+    event = _CANCEL_EVENTS.get(thread_id)
+    if event is not None:
+        event.set()
+    return {"thread_id": thread_id, "cancelled": True}

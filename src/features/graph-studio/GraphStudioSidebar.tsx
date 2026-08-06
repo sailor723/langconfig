@@ -25,7 +25,8 @@ function threadTime(iso: string): string {
 
 export default function GraphStudioSidebar() {
   const t = useLayoutTokens();
-  const { assistants, activeAssistantId, threads, currentThreadId } = useStudioState();
+  const { assistants, activeAssistantId, threads, currentThreadId, databases, activeDatabase } =
+    useStudioState();
 
   const sectionTitle: React.CSSProperties = {
     fontSize: 10.5,
@@ -48,6 +49,37 @@ export default function GraphStudioSidebar() {
         overflow: 'hidden',
       }}
     >
+      {/* Target database: the DB the SQL tools query */}
+      <div style={sectionTitle}>Database</div>
+      <div style={{ padding: '0 8px 2px' }}>
+        <select
+          value={activeDatabase}
+          onChange={(e) => void studio.selectDatabase(e.target.value)}
+          disabled={databases.length === 0}
+          title="Target database for the SQL tools"
+          style={{
+            width: '100%',
+            padding: '4px 6px',
+            fontSize: 11.5,
+            fontFamily: 'monospace',
+            color: t.textPrimary,
+            background: t.bgContent,
+            border: `1px solid ${t.border}`,
+            borderRadius: 6,
+            outline: 'none',
+            cursor: databases.length ? 'pointer' : 'not-allowed',
+          }}
+        >
+          {databases.length === 0 && <option value="">no databases</option>}
+          {databases.map((db) => (
+            <option key={db} value={db}>
+              {db}
+              {db === activeDatabase ? ' (active)' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Assistants */}
       <div style={sectionTitle}>Assistants</div>
       <div style={{ flexShrink: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1, padding: '0 6px' }}>

@@ -30,6 +30,8 @@ export interface StudioState {
   graph: GraphSpec | null;
   schemas: AssistantSchemas | null;
   direction: Direction;
+  databases: string[];
+  activeDatabase: string;
   threads: Thread[];
   currentThreadId: string;
   threadState: ThreadState | null;
@@ -50,6 +52,8 @@ const initialState: StudioState = {
   graph: null,
   schemas: null,
   direction: 'lr',
+  databases: [],
+  activeDatabase: '',
   threads: [],
   currentThreadId: '',
   threadState: null,
@@ -98,6 +102,29 @@ export const studio = {
     } catch (err) {
       setState({ apiOnline: false });
       console.error('[graph-studio] loadAssistants failed', err);
+    }
+    // Load the DB selector (best-effort; the SQL tools may be unavailable).
+    await studio.loadDatabases();
+  },
+
+  /** Load the databases the SQL tools can target. */
+  async loadDatabases() {
+    try {
+      const info = await api.loadDatabases();
+      setState({ databases: info.databases, activeDatabase: info.active });
+    } catch (err) {
+      console.error('[graph-studio] loadDatabases failed', err);
+    }
+  },
+
+  /** Switch which database the SQL tools query (runtime, no .env edit). */
+  async selectDatabase(name: string) {
+    if (!name || name === state.activeDatabase) return;
+    try {
+      const info = await api.selectDatabase(name);
+      setState({ databases: info.databases, activeDatabase: info.active });
+    } catch (err) {
+      console.error('[graph-studio] selectDatabase failed', err);
     }
   },
 
@@ -233,6 +260,18 @@ export const studio = {
 
   toggleDirection() {
     setState({ direction: state.direction === 'lr' ? 'tb' : 'lr' });
+  },
+
+  /** Interrupt the in-flight run (chat "stop" button). */
+  async cancel() {
+    if (!state.running || !state.currentThreadId) return;
+    try {
+      await api.cancelRun(state.currentThreadId);
+    } catch (err) {
+      console.error('[graph-studio] cancel failed', err);
+    }
+    // The SSE stream ends with a "Run cancelled" error event; stop the UI now.
+    setState({ running: false, runError: 'Run cancelled by user' });
   },
 
   setInspectorTab(tab: StudioState['inspectorTab']) {

@@ -163,7 +163,7 @@ If there are any of the above mistakes, rewrite the query. If there are no mista
 just reproduce the original query.
 
 You will call the appropriate tool to execute the query after running this check.
-""".format(dialect="sqlite")
+""".format(dialect="postgresql")
 
 
 def check_query(state: MessagesState):
