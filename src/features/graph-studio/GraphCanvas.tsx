@@ -4,7 +4,14 @@
  * introspected by the backend renders sensibly, in either left→right or
  * top→bottom orientation. Running nodes are highlighted as updates arrive.
  */
-import { useEffect, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -20,8 +27,8 @@ import ReactFlow, {
   type NodeProps,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { ArrowLeftRight } from 'lucide-react';
-import { useLayoutTokens } from '../../components/layout2/tokens';
+import { ArrowLeftRight, X } from 'lucide-react';
+import { useLayoutTokens, type LayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState, type Direction } from './studioStore';
 import type { GraphSpec } from './api';
 
@@ -35,6 +42,7 @@ interface GraphNodeData {
   name: string;
   current: boolean;
   direction: Direction;
+  selected: boolean;
 }
 type StudioEdgeData = { conditional: boolean };
 type StudioEdge = Edge<StudioEdgeData>;
@@ -105,6 +113,7 @@ function GraphNode({ data }: NodeProps<GraphNodeData>) {
   const sourcePos = data.direction === 'lr' ? Position.Right : Position.Bottom;
 
   const active = data.current;
+  const selected = data.selected;
   const handleStyle: CSSProperties = {
     width: 6,
     height: 6,
@@ -129,8 +138,8 @@ function GraphNode({ data }: NodeProps<GraphNodeData>) {
         whiteSpace: 'nowrap',
         background: isStart ? '#3f9e4d' : isEnd ? t.accent : active ? t.bgSelected : t.bgSidebar,
         color: isStart || isEnd ? '#ffffff' : active ? t.textWhite : t.textPrimary,
-        border: `1px solid ${isStart || isEnd ? 'transparent' : active ? t.accent : t.border}`,
-        boxShadow: active ? `0 0 0 2px ${t.accentMuted}` : 'none',
+        border: `1px solid ${isStart || isEnd ? 'transparent' : active || selected ? t.accent : t.border}`,
+        boxShadow: active || selected ? `0 0 0 2px ${t.accentMuted}` : 'none',
         transition: 'all 0.15s ease',
       }}
     >
@@ -172,7 +181,7 @@ function iconButtonStyle(t: ReturnType<typeof useLayoutTokens>): CSSProperties {
 function GraphCanvasInner() {
   const t = useLayoutTokens();
   const { fitView } = useReactFlow();
-  const { graph, direction, runPath, running } = useStudioState();
+  const { graph, direction, runPath, running, activeNodeId } = useStudioState();
   const [nodes, setNodes, onNodesChange] = useNodesState<GraphNodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<StudioEdgeData>([]);
 
@@ -189,7 +198,7 @@ function GraphCanvasInner() {
         id: n.id,
         position: positions[n.id] ?? { x: OFFSET, y: OFFSET },
         type: 'studio',
-        data: { name: n.id, current: false, direction },
+        data: { name: n.id, current: false, direction, selected: activeNodeId === n.id },
       })),
     );
     setEdges(
@@ -234,6 +243,24 @@ function GraphCanvasInner() {
     );
   }, [runPath, t.accent, t.border, setNodes, setEdges]);
 
+  // Reflect popup selection on the node visuals (separate from layout so a
+  // direction toggle doesn't drop the highlight).
+  useEffect(() => {
+    setNodes((ns) =>
+      ns.map((n) => ({ ...n, data: { ...n.data, selected: n.id === activeNodeId } })),
+    );
+  }, [activeNodeId, setNodes]);
+
+  // Escape closes the node detail popup.
+  useEffect(() => {
+    if (!activeNodeId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') studio.selectNode(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeNodeId]);
+
   // Fit the fresh layout into view.
   useEffect(() => {
     if (!graph) return;
@@ -266,6 +293,7 @@ function GraphCanvasInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
+        onNodeClick={(_, node) => studio.selectNode(node.id)}
         fitView
         minZoom={0.2}
         maxZoom={2}
@@ -317,7 +345,284 @@ function GraphCanvasInner() {
           <span style={{ width: 8, height: 8, borderRadius: 2, background: CONDITIONAL_COLOR }} /> conditional edge
         </span>
       </div>
+
+      {/* Node detail popup (floating overlay — deliberately not a dock) */}
+      {activeNodeId && <NodePopup />}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Node detail popup
+// ---------------------------------------------------------------------------
+const KIND_COLORS: Record<string, string> = {
+  start: '#3f9e4d',
+  end: '#e8a33d',
+  function: '#3b82f6',
+  tool: '#a855f7',
+  subgraph: '#ec4899',
+  unknown: '#6b7280',
+};
+
+function codeStyle(t: LayoutTokens): CSSProperties {
+  return {
+    margin: 0,
+    padding: 8,
+    borderRadius: 6,
+    background: t.bgBase,
+    border: `1px solid ${t.border}`,
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+    fontSize: 11,
+    lineHeight: 1.55,
+    color: t.textPrimary,
+    whiteSpace: 'pre',
+    overflow: 'auto',
+    maxHeight: 320,
+  };
+}
+
+function SectionLabel({ t, children }: { t: LayoutTokens; children: ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: 10,
+        textTransform: 'uppercase',
+        letterSpacing: 0.6,
+        color: t.textDim,
+        marginBottom: 4,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Floating card with the clicked node's metadata + source code. */
+function NodePopup() {
+  const t = useLayoutTokens();
+  const { graph, activeNodeId } = useStudioState();
+  // Drag position (null = anchored top-right until the user moves it).
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const node = graph?.nodes.find((n) => n.id === activeNodeId);
+  if (!node) return null;
+
+  const d = node.data;
+  const kind = d.kind ?? 'unknown';
+  const chipColor = KIND_COLORS[kind] ?? KIND_COLORS.unknown;
+
+  // "file.py:12-18" location string (or null when nothing is known).
+  const location = (() => {
+    const line =
+      d.start_line != null
+        ? `:${d.start_line}${d.end_line && d.end_line !== d.start_line ? `-${d.end_line}` : ''}`
+        : '';
+    return d.file ? `${d.file}${line}` : null;
+  })();
+
+  const hasContent = Boolean(location || d.code || (d.tools && d.tools.length > 0));
+
+  // Drag the popup around the canvas from its header.
+  const onHeaderMouseDown = (e: ReactMouseEvent) => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const startX = e.clientX - rect.left;
+    const startY = e.clientY - rect.top;
+    const startPos = { x: rect.left, y: rect.top };
+    const onMove = (ev: MouseEvent) => {
+      setPos({ x: startPos.x + ev.clientX - startX, y: startPos.y + ev.clientY - startY });
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  return (
+    <>
+      {/* Backdrop: any click outside the popup closes it */}
+      <div
+        style={{ position: 'absolute', inset: 0, zIndex: 9, background: 'transparent' }}
+        onClick={() => studio.selectNode(null)}
+      />
+      <div
+        data-node-popup
+        ref={cardRef}
+        style={{
+          position: 'absolute',
+          zIndex: 10,
+          width: 912,
+          height: 620,
+          minWidth: 520,
+          minHeight: 360,
+          maxWidth: 'calc(100% - 20px)',
+          maxHeight: 'calc(100% - 20px)',
+          resize: 'both',
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          background: t.bgContent,
+          border: `1px solid ${t.border}`,
+          borderRadius: 8,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+          ...(pos ? { left: pos.x, top: pos.y } : { top: 10, right: 10 }),
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div
+          onMouseDown={onHeaderMouseDown}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 12px',
+            borderBottom: `1px solid ${t.border}`,
+            background: t.bgSidebar,
+            flexShrink: 0,
+            cursor: 'move',
+            userSelect: 'none',
+          }}
+        >
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: chipColor, flexShrink: 0 }} />
+          <span
+            style={{
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: t.textPrimary,
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {node.id}
+          </span>
+          <span
+            style={{
+              fontSize: 10,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+              color: chipColor,
+              background: `${chipColor}22`,
+              border: `1px solid ${chipColor}55`,
+              borderRadius: 4,
+              padding: '1px 6px',
+              flexShrink: 0,
+            }}
+          >
+            {kind}
+          </span>
+          <button
+            onClick={() => studio.selectNode(null)}
+            title="Close (Esc)"
+            style={{
+              marginLeft: 'auto',
+              width: 24,
+              height: 24,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: 'none',
+              background: 'transparent',
+              color: t.textMuted,
+              cursor: 'pointer',
+              borderRadius: 4,
+              flexShrink: 0,
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: 'auto',
+            padding: 12,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          {location && (
+            <div>
+              <SectionLabel t={t}>source</SectionLabel>
+              <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: t.textMuted, wordBreak: 'break-all' }}>
+                {location}
+              </div>
+              {d.module && (
+                <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: t.textDim, marginTop: 2 }}>
+                  module: {d.module}
+                </div>
+              )}
+            </div>
+          )}
+
+          {d.metadata && Object.keys(d.metadata).length > 0 && (
+            <div>
+              <SectionLabel t={t}>metadata</SectionLabel>
+              <pre style={codeStyle(t)}>{JSON.stringify(d.metadata, null, 2)}</pre>
+            </div>
+          )}
+
+          {d.code && (
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <SectionLabel t={t}>code</SectionLabel>
+              <pre style={{ ...codeStyle(t), flex: 1, minHeight: 0, maxHeight: 'none' }}>{d.code}</pre>
+            </div>
+          )}
+
+          {d.tools && d.tools.length > 0 && (
+            <div>
+              <SectionLabel t={t}>bound tools</SectionLabel>
+              {d.tools.map((tool, i) => (
+                <details
+                  key={tool.name ?? i}
+                  open={d.tools!.length === 1}
+                  style={{
+                    marginBottom: 8,
+                    border: `1px solid ${t.border}`,
+                    borderRadius: 6,
+                    background: t.bgSidebar,
+                    padding: '6px 8px',
+                  }}
+                >
+                  <summary style={{ cursor: 'pointer', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11.5, color: t.textPrimary }}>
+                    {tool.name ?? '(unnamed tool)'}
+                  </summary>
+                  {tool.description && (
+                    <div style={{ fontSize: 11, color: t.textMuted, margin: '6px 0 4px', lineHeight: 1.5 }}>
+                      {tool.description}
+                    </div>
+                  )}
+                  {tool.file && (
+                    <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 10.5, color: t.textDim, marginBottom: 4 }}>
+                      {tool.file}
+                      {tool.start_line != null ? `:${tool.start_line}` : ''}
+                    </div>
+                  )}
+                  {tool.code && <pre style={codeStyle(t)}>{tool.code}</pre>}
+                </details>
+              ))}
+            </div>
+          )}
+
+          {!hasContent && (
+            <div style={{ fontSize: 11.5, color: t.textDim, lineHeight: 1.5 }}>
+              {kind === 'start' || kind === 'end'
+                ? 'Graph boundary marker — no user code to show.'
+                : 'No source metadata available for this node.'}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 

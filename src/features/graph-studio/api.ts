@@ -20,8 +20,29 @@ export interface Assistant {
   description?: string;
 }
 
+/** Node metadata + source info returned by the graph endpoint (canvas popup). */
+export interface GraphNodeData {
+  name: string;
+  kind?: 'start' | 'end' | 'function' | 'tool' | 'subgraph' | 'unknown';
+  module?: string | null;
+  file?: string | null;
+  start_line?: number | null;
+  end_line?: number | null;
+  code?: string | null;
+  metadata?: Record<string, unknown> | null;
+  tools?: {
+    name?: string | null;
+    description?: string | null;
+    module?: string | null;
+    file?: string | null;
+    start_line?: number | null;
+    end_line?: number | null;
+    code?: string | null;
+  }[];
+}
+
 export interface GraphSpec {
-  nodes: { id: string; data: { name: string } }[];
+  nodes: { id: string; data: GraphNodeData }[];
   edges: { source: string; target: string; conditional?: boolean }[];
 }
 

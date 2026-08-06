@@ -39,6 +39,8 @@ export interface StudioState {
   liveMap: Record<string, LiveMessage>;
   runPath: string[];
   inspectorTab: 'messages' | 'state' | 'raw';
+  /** Canvas node currently selected for the detail popup (id or null). */
+  activeNodeId: string | null;
 }
 
 const initialState: StudioState = {
@@ -57,6 +59,7 @@ const initialState: StudioState = {
   liveMap: {},
   runPath: [],
   inspectorTab: 'messages',
+  activeNodeId: null,
 };
 
 let state: StudioState = initialState;
@@ -111,11 +114,12 @@ export const studio = {
         runPath: [],
         liveMap: {},
         runError: null,
+        activeNodeId: null,
       });
       return;
     }
 
-    setState({ activeAssistantId: assistant.assistant_id, runError: null });
+    setState({ activeAssistantId: assistant.assistant_id, runError: null, activeNodeId: null });
 
     // Load graph structure + schemas in parallel.
     const [graph, schemas] = await Promise.all([
@@ -233,5 +237,10 @@ export const studio = {
 
   setInspectorTab(tab: StudioState['inspectorTab']) {
     setState({ inspectorTab: tab });
+  },
+
+  /** Open (or close, with null) the canvas node detail popup. */
+  selectNode(nodeId: string | null) {
+    setState({ activeNodeId: nodeId });
   },
 };
