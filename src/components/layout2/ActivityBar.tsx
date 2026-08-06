@@ -14,7 +14,7 @@ import { useState, useRef, Fragment } from 'react';
 import { useLayoutState, ACTIVITIES, type ActivityDef, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
-  GitBranch, Brain, Users, BarChart3, Network, Settings, Sparkles, Globe, Wrench, Database, Award, MessageSquare, Archive, FileText, BookOpen, type LucideIcon,
+  GitBranch, Brain, Users, BarChart3, Network, Settings, Sparkles, Globe, Wrench, Database, Award, MessageSquare, Archive, FileText, BookOpen, Workflow, type LucideIcon,
 } from 'lucide-react';
 import SystemSettingsPopover from './SystemSettingsPopover';
 import VaultPopover from './VaultPopover';
@@ -24,6 +24,7 @@ const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
   deepagents: Brain,
   agents:     Users,
   workflows:  GitBranch,
+  graph:      Workflow,
   prompt:     FileText,
   tools:      Wrench,
   skills:     Award,
@@ -38,7 +39,7 @@ const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
 
 // Ordered activity groups with visual dividers between them
 const SECTION_GROUPS: ActivityId[][] = [
-  ['vault', 'deepagents', 'agents', 'workflows'],
+  ['vault', 'deepagents', 'agents', 'workflows', 'graph'],
   ['prompt', 'tools', 'skills'],
   ['knowledge', 'analysis', 'learning'],
   ['models', 'search'],

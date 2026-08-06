@@ -50,8 +50,10 @@ import BottomPanel from './components/layout2/BottomPanel';
 import StatusBar from './components/layout2/StatusBar';
 import WorkflowStudioPage, { type WorkflowStudioRef, type StudioNodeConfig } from './components/layout2/WorkflowStudioPage';
 import WorkflowStudioSidebar from './components/layout2/WorkflowStudioSidebar';
+import GraphStudioPage from './features/graph-studio/GraphStudioPage';
+import GraphStudioSidebar from './features/graph-studio/GraphStudioSidebar';
 
-type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search' | 'chat' | 'learning';
+type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search' | 'chat' | 'learning' | 'graph';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -150,6 +152,7 @@ interface SelectedNodeData {
 const ROUTE_TO_VIEW: Record<string, View> = {
   '/': 'home', '/home': 'home',
   '/studio': 'studio', '/results': 'studio',
+  '/graph': 'graph',
   '/agents': 'agents', '/deepagents': 'deepagents',
   '/knowledge': 'knowledge',
   '/skills': 'skills',
@@ -168,6 +171,7 @@ const ROUTE_TO_VIEW: Record<string, View> = {
 // Map View → route path
 const VIEW_ROUTE: Record<View, string> = {
   home: '/home', studio: '/studio',
+  graph: '/graph',
   agents: '/agents', deepagents: '/deepagents', skills: '/skills',
   knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
   playground: '/playground', tools: '/tools', prompt: '/prompt',
@@ -182,6 +186,7 @@ const VIEW_ROUTE: Record<View, string> = {
 const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   home: null,
   studio: 'workflows',
+  graph: 'graph',
   agents: 'agents',
   deepagents: 'deepagents',
   skills: 'skills',
@@ -201,6 +206,7 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
 // Map ActivityId → View (for ActivityBar clicks)
 const ACTIVITY_TO_VIEW: Partial<Record<ActivityId, View>> = {
   workflows:  'studio',
+  graph: 'graph',
   deepagents: 'deepagents',
   agents: 'agents',
   prompt: 'prompt',
@@ -435,6 +441,7 @@ function AppContent() {
           onWorkflowSelect={setSelectedWorkflowId}
         />
       );
+      case 'graph': return <GraphStudioPage />;
       case 'deepagents': return <DeepAgentHomePage />;
       case 'agents': return <AgentHomePage />;
       case 'skills': return <SkillHomePage />;
@@ -477,6 +484,7 @@ function AppContent() {
               }}
             />
           )}
+          {currentView === 'graph' && <GraphStudioSidebar />}
         </LeftSidebar>
 
         {/* Center column */}

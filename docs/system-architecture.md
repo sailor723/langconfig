@@ -70,16 +70,17 @@ flowchart TB
     subgraph UI["1 · FRONTEND LAYER — React 19 + TypeScript + Tailwind 4"]
         direction LR
         A1["IDE shell<br/>components/layout2/"]
-        A2["Features<br/>workflows · agents · deepagent studio · chat"]
+        A2["Features<br/>workflows · agents · graph studio · chat"]
         A3["API clients<br/>lib/api/ (typed)"]
     end
 
-    subgraph API["2 · API LAYER — FastAPI · 40 routers (main.py)"]
+    subgraph API["2 · API LAYER — FastAPI · 41 routers (main.py)"]
         direction LR
         R1["agents + deepagents<br/>CRUD · prompt-preview · export"]
         R2["chat + workflows<br/>SSE · orchestration · hitl"]
         R3["rag + doc_chat + memory<br/>knowledge · store · agents_md"]
         R4["tools + skills + workspace<br/>models · settings"]
+        R5["graph_studio<br/>code-defined graphs · threads · SSE runs"]
     end
 
     subgraph SVC["3 · SERVICE LAYER — builders + managers"]
@@ -115,6 +116,7 @@ flowchart TB
     A3 --> R2
     A3 --> R3
     A3 --> R4
+    A3 --> R5
 
     R1 --> F1
     R1 --> F2
@@ -130,6 +132,7 @@ flowchart TB
     F2 --> C1
     F2 --> C3
     C1 --> L2
+    R5 --> L2
 
     F1 --> L2
     F2 --> L1
@@ -150,7 +153,7 @@ flowchart TB
     classDef db fill:#fecaca,stroke:#b91c1c,color:#7f1d1d,font-size:18px;
 
     class A1,A2,A3 ui;
-    class R1,R2,R3,R4 api;
+    class R1,R2,R3,R4,R5 api;
     class F1,F2,E1,W1 svc;
     class C1,C2,C3,C4 core;
     class L1,L2,L3,L4 lib;
@@ -211,6 +214,7 @@ workflow design.
 | `agents/ui/PromptCanvas.tsx`                                                 | Visual prompt editing                                                                                                                                                         |
 | `deepagent-studio-v2/`                                                       | Modern DeepAgent studio:`ModernStudioCanvas`, agent picker, capability bar, main/sub-agent nodes, tool nodes, auto-layout                                                   |
 | `chat/`                                                                      | Chat UI with SSE streaming (`useChatController`, `useChatStreaming`, `streamChatEvents.ts`), sessions, files, metrics, HITL interrupts, thinking blocks, analysis panel |
+| `graph-studio/`                                                              | Graph Engineering activity: assistant/thread sidebar, ReactFlow canvas (auto-layout, conditional edges, run-path), test-run console, inspector, chat input — see §10  |
 | `tools/ui/`                                                                  | `CustomToolBuilder` + `ToolTemplateGallery`                                                                                                                               |
 | `knowledge/`, `memory/`, `settings/ui/`, `projects/AgentsMdEditor.tsx` | Supporting views                                                                                                                                                              |
 
@@ -244,9 +248,9 @@ flowchart LR
 
 ---
 
-## 5. Backend API layer — the 40 routers
+## 5. Backend API layer — the 41 routers
 
-`backend/main.py` registers **40 routers** on the FastAPI app. They are thin controllers:
+`backend/main.py` registers **41 routers** on the FastAPI app. They are thin controllers:
 parse the request, delegate to a service/factory, and stream the result.
 
 | Group                | Routers (in`main.py` order)                                                                               | Purpose                                                                                                                   |
@@ -255,6 +259,7 @@ parse the request, delegate to a service/factory, and stream the result.
 | Agents               | `agents` (templates), `agent_generator`, `action_presets`, `images`                                 | Normal-agent CRUD, AI agent generation, action presets, image storage                                                     |
 | DeepAgents           | `deepagents`, `chat`                                                                                    | DeepAgent CRUD/export + DeepAgent chat testing                                                                            |
 | Workflows            | `workflows`, `orchestration`, `hitl`, `checkpoints`                                                 | Workflow CRUD/execute, simplified orchestration, human-in-the-loop approvals, checkpoint restore                          |
+| Graph Engineering    | `graph_studio`                                                                                    | Code-defined graph hosting (`backend/langgraph/*.py`): introspection, threads, SSE runs — see §10                      |
 | Chat & memory        | `memory`, `store`, `agents_md_router`, `chat_skill_review`                                          | Agent memory, long-term store, AGENTS.md (MemoryMiddleware), data-skill review                                            |
 | Knowledge / RAG      | `rag`, `graphindex_chat`, `doc_chat`, `kv`, `analysis`                                            | RAG ingestion/search, graph-index chat, folder-based doc-chat, KV store, CSV→SQLite→charts                              |
 | Tools & skills       | `custom_tools`, `tool_registry`, `skills`                                                             | User tools, native tool registry (single source of truth), skills system                                                  |
@@ -267,6 +272,7 @@ flowchart LR
     subgraph Routers["FastAPI app (main.py)"]
         RA["agents + deepagents + chat"]
         RW["workflows + orchestration + hitl + checkpoints"]
+        RG["graph_studio<br/>code-defined langgraph modules"]
         RK["rag + doc_chat + graphindex_chat + kv + analysis"]
         RT["custom_tools + tool_registry + skills"]
         RM["memory + store + agents_md"]
@@ -275,6 +281,7 @@ flowchart LR
     Routers --> SVC["Service / Factory layer"]
     SVC --> CORE["Core engines"]
     SVC --> DB[("PostgreSQL")]
+    RG --> CORE
 ```
 
 ---
@@ -459,7 +466,84 @@ Key mechanics:
 
 ---
 
-## 10. Skills & middleware pipeline
+## 10. Graph Engineering Studio (`api/graph_studio/`)
+
+The **Graph Engineering** activity is the IDE-side companion to the workflow engine: it
+hosts *code-defined* LangGraph agents (`backend/langgraph/*.py`) directly inside the
+FastAPI process — no separate `langgraph dev` server is needed. The user picks an agent
+in the sidebar, sees its graph structure on a canvas, creates threads, and test-runs it
+with live SSE streaming.
+
+### Backend — native graph hosting
+
+`backend/api/graph_studio/routes.py` registers one router (`/api/graph-studio`, mounted in
+`main.py`) exposing 8 endpoints:
+
+| Endpoint                                             | Purpose                                                            |
+| ---------------------------------------------------- | ------------------------------------------------------------------ |
+| `POST /assistants/search`                           | List code-defined assistants (registry)                            |
+| `GET /assistants/{id}/graph`                        | Introspect nodes + edges (`compiled.get_graph()`) for the canvas   |
+| `GET /assistants/{id}/schemas`                      | input / state / output jsonschemas (`get_*_jsonschema()`)          |
+| `POST /threads/search`                              | List in-memory threads (filter by `graph_id`)                      |
+| `POST /threads`                                     | Create a thread (uuid-hex id, status `idle`)                       |
+| `GET /threads/{id}/state`                           | Checkpointed state via `compiled.aget_state(config)`               |
+| `GET /threads/{id}/runs`                            | Run history for a thread                                           |
+| `POST /threads/{id}/runs/stream`                    | SSE run — `messages/partial` · `values` · `updates`                |
+
+Key mechanics:
+
+- **Registry → lazy import.** `_ASSISTANT_REGISTRY` lists each assistant (`sql_agent`,
+  `sql_agent_hitl`); `_load_compiled()` imports the module once via
+  `importlib.util.spec_from_file_location` and caches the compiled graph. The graph
+  modules import each other by plain name (e.g. `sql_setup_db`), so `backend/langgraph/`
+  is put on `sys.path`. Registering a new entry is the only step needed to surface a new
+  code-defined graph.
+- **No service layer.** Studio endpoints call the LangGraph SDK (`get_graph`,
+  `get_*_jsonschema`, `astream`, `aget_state`) directly — the graphs are *code*, not
+  persisted JSON config, so there is nothing to compile at request time.
+- **In-memory threads.** `_THREADS` / `_RUNS` are process-lifetime dicts (the studio is a
+  scratch workspace). The compiled graph keeps its own thread-scoped checkpointer
+  (`InMemorySaver`) + cross-thread memory store, so conversation state survives within the
+  process — follow-ups skip the schema preamble thanks to memory.
+- **SSE shape.** With a *list* of stream modes, `compiled.astream(...)` yields
+  `(mode, payload)` tuples. Partial AIMessage chunks are accumulated per message id
+  (content concatenation + `tool_call_chunks` merged by index), empty provider shells are
+  stripped, and `values` / `updates` snapshots pass through as-is.
+
+```mermaid
+flowchart LR
+    U1["Graph activity<br/>src/features/graph-studio/"] -->|"POST /runs/stream (SSE)"| A1["api/graph_studio/routes.py"]
+    U2["Assistants + threads<br/>sidebar"] -->|"search · create · state"| A1
+    A1 -->|"_load_compiled<br/>(importlib · cached)"| G1["backend/langgraph/*.py<br/>sql_agent · sql_agent_hitl"]
+    G1 --> L2["LangGraph SDK<br/>StateGraph · astream · InMemorySaver"]
+    A1 --> L2
+    L2 -->|"checkpoint + memstore"| M1["In-memory thread state"]
+
+    style A1 fill:#dcfce7,stroke:#16a34a,color:#111
+    style G1 fill:#fee2e2,stroke:#dc2626,color:#111
+```
+
+### Frontend — the Graph activity
+
+`src/features/graph-studio/` is wired into the IDE shell as activity id `graph` (Workflow
+icon, right after **Workflows** in `useLayout.tsx` / `ActivityBar.tsx`, route `/#/graph` in
+`App.tsx`):
+
+| Module                    | Purpose                                                                                                  |
+| ------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `GraphStudioSidebar.tsx` | Assistant picker + thread list (+ new-thread button)                                                     |
+| `GraphCanvas.tsx`        | ReactFlow canvas: BFS layered auto-layout, conditional edges (`#e8a33d`), run-path highlight, direction toggle |
+| `RunConsole.tsx`         | "Test Run" prompt → SSE stream                                                                            |
+| `Inspector.tsx`          | messages / state / raw tabs + chat input for follow-ups (thread-aware)                                    |
+| `studioStore.ts`         | `useSyncExternalStore` store (assistants, threads, live messages, run path, direction)                    |
+| `stream.ts` / `api.ts`   | SSE parser + feature-local typed client (`hasMessagesInput` schema detection)                             |
+
+The canvas is **generic**: any introspected graph renders with the same layered layout
+(BFS from `__start__`), so the React side needs no per-agent code.
+
+---
+
+## 11. Skills & middleware pipeline
 
 **Skills** give agents modular, context-aware capabilities. The pipeline is
 **progressive disclosure**: the agent is given a *catalog* (name + description + path) and
@@ -487,7 +571,7 @@ flowchart LR
 
 ---
 
-## 11. Export subsystem (ship it)
+## 12. Export subsystem (ship it)
 
 The "develop in the IDE, run anywhere" story. `ExportService` (`services/export_service.py`)
 produces two artifact kinds:
@@ -536,7 +620,7 @@ backend runtime — so what you export behaves identically to what you tested in
 
 ---
 
-## 12. Data layer — PostgreSQL tables
+## 13. Data layer — PostgreSQL tables
 
 SQLAlchemy models in `backend/models/` map to these tables:
 
@@ -553,7 +637,7 @@ SQLAlchemy models in `backend/models/` map to these tables:
 | `workspace_file.py`, `file_version.py`                                | Workspace files + version history                                                                                        |
 | `local_model.py`, `model.py`, `search_provider.py`, `settings.py` | Model/local-model/search-provider/settings config                                                                        |
 
-### 12.1 The unified `models` table — cloud + local LLMs in one place
+### 13.1 The unified `models` table — cloud + local LLMs in one place
 
 The `models` table is the single source of truth for every model the app can call. It replaces the legacy hardcoded enum (`constants/models.py`) and the now-removed `local_models` split. Both managed cloud entries and user-added local entries share one schema, distinguished by `source`.
 
@@ -598,14 +682,14 @@ The `models` table is the single source of truth for every model the app can cal
 
 **Reads** go through `GET /api/settings/models` which returns both cloud and validated local models with full metadata. The chat + workflow engines call this once at startup.
 
-**The provider→key mapping** is independent of `models`: cloud providers' API keys live in `settings.api_keys.{provider}_api_key` (encrypted at rest), and resolution is DB-first, `.env` fallback. See §12.2.
+**The provider→key mapping** is independent of `models`: cloud providers' API keys live in `settings.api_keys.{provider}_api_key` (encrypted at rest), and resolution is DB-first, `.env` fallback. See §13.2.
 
 ---
 | `user_profile.py`                                                       | User profile                                                                                                             |
 | `audit_log.py`                                                          | Audit trail                                                                                                              |
 | `oauth_token.py`, `presentation_job.py`                               | OAuth tokens + presentation jobs                                                                                         |
 | `analysis_chat.py`, `custom_schema.py`                                | Analysis chats + structured-output schemas                                                                               |
-| `storage_object.py`                                                   | **`storage_objects`** — durable artifact blobs (BYTEA), the DB-as-store seam (Phase 1, §15)                              |
+| `storage_object.py`                                                   | **`storage_objects`** — durable artifact blobs (BYTEA), the DB-as-store seam (Phase 1, §16)                              |
 
 ```mermaid
 flowchart TB
@@ -626,7 +710,7 @@ flowchart TB
 
 ---
 
-## 13. Request lifecycle — sequence diagrams
+## 14. Request lifecycle — sequence diagrams
 
 ### DeepAgent chat (SSE)
 
@@ -675,14 +759,14 @@ sequenceDiagram
 
 ---
 
-## 14. Development topology
+## 15. Development topology
 
 Two long-running processes + one database, all driven by the root `.env` (FastAPI loads it via
 `backend/config.py`, so ports and API keys are consistent everywhere).
 
 ```mermaid
 flowchart LR
-    subgraph FRONT["Vite dev server (:1420)"]
+    subgraph FRONT["Vite dev server (:1421)"]
         F["React 19 app<br/>npm run dev"]
     end
     subgraph BACK["uvicorn (:8765, reload)"]
@@ -705,9 +789,14 @@ cwd that's `load_dotenv("../.env")`, or better, derive the path from `__file__` 
 `tools/seed_builtin_tools.py`) — otherwise they hit the stale instance and report phantom
 `UndefinedColumn` errors.
 
+**Gotcha (Graph Studio):** the `backend/langgraph/*.py` modules build their chat model with
+`init_chat_model(...)`, which validates `DEEPSEEK_API_KEY` at import time. `start.sh` unsets
+shell-exported provider keys, so the key must live in the root `.env` — otherwise the
+`/api/graph-studio` introspection endpoints fail with a pydantic `ValidationError` (HTTP 500).
+
 ---
 
-## 15. Storage strategy: DB as the permanent store (enterprise-ready)
+## 16. Storage strategy: DB as the permanent store (enterprise-ready)
 
 > **Status (2026-08-03):** All four phases of the storage strategy are shipped —
 > Phase 1 (abstraction, commit `3aa794d`), Phase 2 (write-through wiring), Phase 3
@@ -821,7 +910,7 @@ tool works transparently against the DB.
    rendered canonically from the `skills` table). Idempotent (existing keys
    skipped; `--force` overwrites), `--dry-run` to preview, forces
    `STORAGE_MODE=db`, loads the root `.env` before importing `db.database` (the
-   §14 gotcha). Verified live on `:5432`: 1,301 artifacts migrated with
+   §15 gotcha). Verified live on `:5432`: 1,301 artifacts migrated with
    content-identical spot checks, re-run skips all 1,301.
    Run: `uv run python -m tools.migrate_storage [--force] [--dry-run]`
 
@@ -838,5 +927,7 @@ tool works transparently against the DB.
 | Where do agents persist?      | `deep_agent_templates` table (flag `config.use_deepagents`)                                                       |
 | How does chat stream?         | `POST /api/chat/message/stream` → SSE via `useChatStreaming` / `streamChatEvents.ts`                           |
 | How do workflows run?         | `core/workflows/` executor + Postgres checkpointer, streamed over SSE                                               |
+| How does Graph studio work?   | Graph activity (`/#/graph`) → `api/graph_studio/` hosts `backend/langgraph/*.py` natively (no `langgraph dev` server); threads + runs are in-memory |
+| Where are code graphs?        | `backend/langgraph/*.py` — imported lazily by `api/graph_studio/routes.py` (`_load_compiled`)                     |
 | Where do exported files land? | `backend/outputs/exports/*.py` (or download zip from `/export`)                                                   |
 | Where do artifacts persist?   | `services/storage/` `StorageBackend` seam — `local` (disk) \| `db` (Postgres BYTEA) \| `s3` (object store) |
