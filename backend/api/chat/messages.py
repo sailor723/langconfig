@@ -268,6 +268,11 @@ async def send_message(
                 config.system_prompt = (config.system_prompt or "") + lang_instruction
 
             use_deepagents = _safe_config.get("use_deepagents", True)
+            # Per-agent chat workspace: all of this agent's files (uploads +
+            # generated output) live under outputs/agents/agent_{id}/, so the
+            # Files panel can list them from one root without heuristics.
+            from services.workspace_manager import get_workspace_manager
+            agent_workspace_root = str(get_workspace_manager().get_agent_workspace(agent.id))
             if not use_deepagents:
                 from core.agents.factory import AgentFactory
                 agent_instance, _tools, _callbacks = await AgentFactory.create_agent(
@@ -286,7 +291,8 @@ async def send_message(
                     context="",
                     mcp_manager=None,
                     vector_store=None,
-                    user_message=request.message
+                    user_message=request.message,
+                    workspace_root=agent_workspace_root,
                 )
             cache_agent(
                 request.session_id,
@@ -749,6 +755,8 @@ async def send_message_stream(
                         )
                     else:
                         config = DeepAgentConfig(**agent_config)
+                        from services.workspace_manager import get_workspace_manager
+                        agent_workspace_root = str(get_workspace_manager().get_agent_workspace(agent.id))
                         agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
                             config=config,
                             project_id=project_id or 0,
@@ -756,7 +764,8 @@ async def send_message_stream(
                             context=all_context,
                             mcp_manager=None,
                             vector_store=None,
-                            user_message=request.message
+                            user_message=request.message,
+                            workspace_root=agent_workspace_root,
                         )
                     cache_agent(
                         request.session_id,

@@ -367,17 +367,18 @@ async def _process_single_chat_upload(
     # Save file to session-scoped storage
     file_path = file_storage.save_file(f"chat_sessions/{session_id}", file.filename, content)
 
-    # Copy to sandbox workspace for agent access
+    # Copy to sandbox workspace for agent access. Per-agent workspace root
+    # keeps uploads + generated files under one directory (outputs/agents/
+    # agent_{id}/), so the Files panel lists everything from a single root.
     sandbox_exts = ('.csv', '.pdf', '.docx', '.pptx', '.md', '.txt', '.json', '.py', '.js', '.ts', '.tsx', '.jsx')
     safe_name = Path(file.filename).name  # basename only — block path-traversal writes
     if file.filename.lower().endswith(sandbox_exts):
         try:
             from services.workspace_manager import get_workspace_manager
             ws_mgr = get_workspace_manager()
-            sandbox_path = ws_mgr.base_dir / "default" / safe_name
-            sandbox_path.parent.mkdir(parents=True, exist_ok=True)
+            sandbox_path = ws_mgr.get_agent_workspace(session.agent_id) / safe_name
             sandbox_path.write_bytes(content)
-            logger.info(f"File copied to sandbox workspace: {sandbox_path}")
+            logger.info(f"File copied to agent workspace: {sandbox_path}")
             # If uploaded CSV, auto-generate companion .skill.md from the data.
             if file.filename.lower().endswith('.csv'):
                 try:
@@ -507,7 +508,13 @@ async def list_session_generated_files(
     session_id: str,
     db: Session = Depends(get_db)
 ):
-    """List files the agent generated during this chat session."""
+    """List files the agent generated during this chat session.
+
+    Primary source: the per-agent workspace (outputs/agents/agent_{id}/),
+    where all of the agent's files — uploads and generated output — now
+    live. Legacy roots (standalone chat workspace + default) are scanned
+    for sessions created before this workspace layout existed.
+    """
     from datetime import datetime
     from pathlib import Path
 
@@ -520,12 +527,49 @@ async def list_session_generated_files(
     from services.workspace_manager import get_workspace_manager
 
     workspace_mgr = get_workspace_manager()
-    default_dir = workspace_mgr.base_dir / "default"
-
-    generated = []
     seen = set()
-    write_tools = {"write_file", "file_write", "vfs_write_file", "write"}
+    generated = []
 
+    def add_file(path: Path):
+        """Record a file into the result set (dedup by resolved path)."""
+        key = str(path.resolve())
+        if key in seen:
+            return
+        seen.add(key)
+        stat = path.stat()
+        size_human = (
+            f"{stat.st_size / 1024:.1f} KB" if stat.st_size >= 1024
+            else f"{stat.st_size} B"
+        )
+        generated.append({
+            "filename": path.name,
+            "path": str(path.resolve().relative_to(workspace_mgr.base_dir)),
+            "size_bytes": stat.st_size,
+            "size_human": size_human,
+            "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+        })
+
+    # ── Primary root: the agent's own workspace. No time-window heuristic
+    #    needed — every file here belongs to this agent (uploads are copied
+    #    in on upload, generated files land here via the sandbox root).
+    if session.agent_id:
+        agent_workspace = workspace_mgr.get_agent_workspace(session.agent_id)
+        if agent_workspace.is_dir():
+            for p in sorted(agent_workspace.rglob("*")):
+                if p.is_file() and "__pycache__" not in p.parts:
+                    add_file(p)
+
+    # ── Legacy roots: sessions that ran before per-agent workspaces wrote
+    #    to standalone/workflow_None/task_0 or default/. Resolve write-tool
+    #    calls against them, plus a time-window fallback for non-write tools.
+    try:
+        chat_workspace_dir = workspace_mgr.get_task_workspace(None, None, 0)
+    except Exception:
+        chat_workspace_dir = None
+    default_dir = workspace_mgr.base_dir / "default"
+    legacy_roots = [r for r in (chat_workspace_dir, default_dir) if r is not None]
+
+    write_tools = {"write_file", "file_write", "vfs_write_file", "write"}
     for tool_call in session.tool_calls or []:
         tool_name = tool_call.get("tool_name", "") or ""
         if tool_name not in write_tools:
@@ -537,32 +581,39 @@ async def list_session_generated_files(
         if not isinstance(file_arg, str) or not file_arg.strip():
             continue
 
-        # Resolve the written path relative to the session workspace, so files
-        # written into subdirectories (e.g. docs/report.md) are found too —
-        # not just root-level basenames.
+        # Resolve the written path inside any legacy root; the first root
+        # that actually contains the file wins.
         file_path = Path(file_arg)
-        if not file_path.is_absolute():
-            file_path = default_dir / file_path
-        full_path = file_path.resolve()
-        try:
-            full_path.relative_to(default_dir.resolve())
-        except ValueError:
-            continue
+        for root in legacy_roots:
+            candidate = file_path if file_path.is_absolute() else root / file_path
+            candidate = candidate.resolve()
+            try:
+                candidate.relative_to(root.resolve())
+            except ValueError:
+                continue
+            if candidate.is_file():
+                add_file(candidate)
+                break
 
-        if full_path.is_file() and str(full_path) not in seen:
-            stat = full_path.stat()
-            seen.add(str(full_path))
-            size_human = (
-                f"{stat.st_size / 1024:.1f} KB" if stat.st_size >= 1024
-                else f"{stat.st_size} B"
-            )
-            generated.append({
-                "filename": full_path.name,
-                "path": str(full_path.relative_to(workspace_mgr.base_dir)),
-                "size_bytes": stat.st_size,
-                "size_human": size_human,
-                "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-            })
+    if session.created_at and session.updated_at:
+        from datetime import timedelta, timezone
+
+        window_start = session.created_at - timedelta(minutes=2)
+        window_end = session.updated_at + timedelta(minutes=2)
+        for root in legacy_roots:
+            try:
+                for p in root.rglob("*"):
+                    if not p.is_file() or "__pycache__" in p.parts:
+                        continue
+                    try:
+                        mtime = datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc)
+                    except OSError:
+                        continue
+                    if not (window_start <= mtime <= window_end):
+                        continue
+                    add_file(p)
+            except OSError:
+                continue
 
     generated.sort(key=lambda f: f.get("modified_at") or "", reverse=True)
     return {"files": generated, "total_files": len(generated)}

@@ -32,7 +32,8 @@ class _DeepAgentSupportMixin:
         project_id: int,
         task_id: int,
         workflow_id: Optional[int] = None,
-        custom_output_path: Optional[str] = None
+        custom_output_path: Optional[str] = None,
+        workspace_root: Optional[str] = None
     ) -> List[BaseTool]:
         """Load tools from configuration using shared agent_utils."""
         workspace_context = {
@@ -40,7 +41,8 @@ class _DeepAgentSupportMixin:
             "task_id": task_id,
             "workflow_id": workflow_id,
             "custom_output_path": custom_output_path,
-        } if (custom_output_path or workflow_id) else None
+            "workspace_root": workspace_root,
+        } if (workspace_root or custom_output_path or workflow_id) else None
         return await load_agent_tools(
             native_tool_names=config.native_tools or [],
             cli_tool_names=config.cli_tools or [],
@@ -58,6 +60,7 @@ class _DeepAgentSupportMixin:
         task_id: int = None,
         workflow_id: int = None,
         custom_output_path: Optional[str] = None,
+        workspace_root: Optional[str] = None,
         mcp_manager=None,
         vector_store=None
     ) -> List[Any]:
@@ -73,6 +76,7 @@ class _DeepAgentSupportMixin:
             task_id: Task ID for context
             workflow_id: Workflow ID for file organization
             custom_output_path: Custom output directory for file writes
+            workspace_root: Explicit root for file-writing tools (per-agent workspace)
             mcp_manager: MCP manager instance
             vector_store: Vector store instance
 
@@ -92,7 +96,8 @@ class _DeepAgentSupportMixin:
             "task_id": task_id,
             "workflow_id": workflow_id,
             "custom_output_path": custom_output_path,
-        } if custom_output_path or workflow_id else None
+            "workspace_root": workspace_root,
+        } if (workspace_root or custom_output_path or workflow_id) else None
 
         for sub_config in subagent_configs:
             # Dictionary-based subagent (simple)

@@ -32,6 +32,7 @@ def _stage_skill_catalog(
     workflow_id: Optional[int],
     task_id: int,
     custom_output_path: Optional[str],
+    workspace_root: Optional[str] = None,
 ) -> Tuple[Optional[Path], Optional[List[str]], Optional[Any]]:
     """Stage the full skill catalog for SkillsMiddleware (progressive disclosure).
 
@@ -95,6 +96,9 @@ def _stage_skill_catalog(
 
         if local_sandbox_backend is not None and sandbox_path is not None:
             skills_staging_root = sandbox_path
+        elif workspace_root:
+            # Per-agent chat workspace: stage skills under the workspace root.
+            skills_staging_root = Path(workspace_root).resolve()
         else:
             from services.workspace_manager import get_workspace_manager
             skills_staging_root = get_workspace_manager().get_task_workspace_with_override(
@@ -167,6 +171,7 @@ class _DeepAgentAssemblyMixin:
         vector_store=None,
         workflow_id: Optional[int] = None,
         custom_output_path: Optional[str] = None,
+        workspace_root: Optional[str] = None,
         user_message: Optional[str] = None  # First user message for skill routing
     ) -> Tuple[CompiledStateGraph, List[BaseTool], List[Any]]:
         """
@@ -181,6 +186,10 @@ class _DeepAgentAssemblyMixin:
             vector_store: Vector store for RAG
             workflow_id: Workflow ID for file organization
             custom_output_path: Custom output directory for file writes (overrides default)
+            workspace_root: Explicit root directory for the agent's filesystem
+                sandbox and file-writing tools. When set, it is used directly
+                (no workflow/task subdirectories appended), e.g. per-agent
+                chat workspaces: outputs/agents/agent_{id}.
             user_message: First user message, used by Skill Router LLM if skill_router_model is set
 
         Returns:
@@ -213,7 +222,8 @@ class _DeepAgentAssemblyMixin:
         base_tools = await DeepAgentFactory._load_base_tools(
             config, mcp_manager, vector_store, project_id, task_id,
             workflow_id=workflow_id,
-            custom_output_path=custom_output_path
+            custom_output_path=custom_output_path,
+            workspace_root=workspace_root,
         )
 
         # Create middleware-specific tools
@@ -236,6 +246,7 @@ class _DeepAgentAssemblyMixin:
             task_id=task_id,
             workflow_id=workflow_id,
             custom_output_path=custom_output_path,
+            workspace_root=workspace_root,
             mcp_manager=mcp_manager,
             vector_store=vector_store
         )
@@ -298,12 +309,18 @@ class _DeepAgentAssemblyMixin:
 
                 # Get task workspace for file storage (with custom path override if configured)
                 workspace_mgr = get_workspace_manager()
-                workspace_path = workspace_mgr.get_task_workspace_with_override(
-                    project_id=project_id,
-                    workflow_id=workflow_id,
-                    task_id=task_id,
-                    custom_output_path=custom_output_path
-                )
+                if workspace_root:
+                    # Per-agent chat workspace: use the root as-is (no
+                    # workflow/task subdirectories appended).
+                    workspace_path = Path(workspace_root).resolve()
+                    workspace_path.mkdir(parents=True, exist_ok=True)
+                else:
+                    workspace_path = workspace_mgr.get_task_workspace_with_override(
+                        project_id=project_id,
+                        workflow_id=workflow_id,
+                        task_id=task_id,
+                        custom_output_path=custom_output_path
+                    )
 
                 # Use FilesystemBackend with task workspace as root (files persist to disk)
                 fs_backend = FilesystemBackend(root_dir=str(workspace_path))
@@ -393,7 +410,10 @@ class _DeepAgentAssemblyMixin:
                 # If no project/workflow/task context (standalone/chat sessions),
                 # fall back to outputs/default/ to stay consistent with
                 # FilesystemMiddleware and write_file's default location.
-                if workflow_id is None:
+                if workspace_root:
+                    sandbox_path = Path(workspace_root).resolve()
+                    sandbox_path.mkdir(parents=True, exist_ok=True)
+                elif workflow_id is None:
                     sandbox_path = workspace_mgr.base_dir / "default"
                     sandbox_path.mkdir(parents=True, exist_ok=True)
                 else:
@@ -432,6 +452,7 @@ class _DeepAgentAssemblyMixin:
             workflow_id=workflow_id,
             task_id=task_id,
             custom_output_path=custom_output_path,
+            workspace_root=workspace_root,
         )
 
         # Deduplicate filesystem tools when a disk backend is used.
