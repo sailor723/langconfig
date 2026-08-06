@@ -143,6 +143,20 @@ class WorkspaceManager:
         workspace.mkdir(parents=True, exist_ok=True)
         return workspace
 
+    def get_agent_workspace(self, agent_id: int) -> Path:
+        """
+        Get the per-agent workspace root: outputs/agents/agent_{id}/.
+
+        Every chat session of an agent shares this directory, so all of the
+        agent's files (uploads + generated output) live under one root and
+        are trivial to list. This is the canonical location for chat runs,
+        replacing the shared standalone/workflow_None/task_0 default.
+        """
+        workspace = self.base_dir / "agents" / f"agent_{agent_id}"
+        workspace.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Agent workspace: {workspace}")
+        return workspace
+
     def persist_output(self, file_path: Path, content: bytes, mime_type: Optional[str] = None) -> Optional[str]:
         """
         Phase 2 write-through (docs/system-architecture.md §15): persist an

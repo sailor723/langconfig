@@ -471,14 +471,21 @@ def _write_file_impl(
 
         # If workspace context provided, use it; otherwise use a default workspace
         if _workspace_context:
-            # Use custom output path if configured for this workflow
-            custom_output_path = _workspace_context.get('custom_output_path')
-            workspace = workspace_mgr.get_task_workspace_with_override(
-                project_id=_workspace_context.get('project_id'),
-                workflow_id=_workspace_context.get('workflow_id'),
-                task_id=_workspace_context.get('task_id'),
-                custom_output_path=custom_output_path
-            )
+            # Per-agent workspace root takes precedence: used as-is, no
+            # workflow/task subdirectories appended.
+            workspace_root = _workspace_context.get('workspace_root')
+            if workspace_root:
+                workspace = Path(workspace_root).resolve()
+                workspace.mkdir(parents=True, exist_ok=True)
+            else:
+                # Use custom output path if configured for this workflow
+                custom_output_path = _workspace_context.get('custom_output_path')
+                workspace = workspace_mgr.get_task_workspace_with_override(
+                    project_id=_workspace_context.get('project_id'),
+                    workflow_id=_workspace_context.get('workflow_id'),
+                    task_id=_workspace_context.get('task_id'),
+                    custom_output_path=custom_output_path
+                )
         else:
             # Default to outputs/default/ - use workspace manager's base_dir for consistent path
             workspace = workspace_mgr.base_dir / "default"
