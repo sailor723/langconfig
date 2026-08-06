@@ -241,6 +241,9 @@ class _WorkflowExecutionMixin:
                 "custom_output_path": getattr(workflow, 'custom_output_path', None),
                 # Deferred node support: parallel branch outputs merged here
                 "branch_results": {},
+                # Named handoff values written by LLM_NODE (output_key) and read
+                # by TOOL_NODE templated tool_params ("{{key}}")
+                "node_outputs": {},
             }
 
             # 5. Create callback handler for detailed agent logging

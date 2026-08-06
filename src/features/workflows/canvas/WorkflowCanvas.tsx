@@ -1149,37 +1149,46 @@ if __name__ == "__main__":
 
       // Restore ReactFlow nodes from saved config
       const restoredNodes = configNodes.map((node: any, index: number) => {
-        let restoredAgentType = node.type || (node.data?.agentType) || 'default';
-        const lower = restoredAgentType.toLowerCase();
-        if (lower === 'conditional') restoredAgentType = 'CONDITIONAL_NODE';
-        if (lower === 'loop') restoredAgentType = 'LOOP_NODE';
-        if (lower === 'start') restoredAgentType = 'START_NODE';
-        if (lower === 'end') restoredAgentType = 'END_NODE';
-        if (lower === 'approval') restoredAgentType = 'APPROVAL_NODE';
-        if (lower === 'tool') restoredAgentType = 'TOOL_NODE';
+          let restoredAgentType = node.type || (node.data?.agentType) || 'default';
+          const lower = restoredAgentType.toLowerCase();
+          if (lower === 'conditional') restoredAgentType = 'CONDITIONAL_NODE';
+          if (lower === 'loop') restoredAgentType = 'LOOP_NODE';
+          if (lower === 'start') restoredAgentType = 'START_NODE';
+          if (lower === 'end') restoredAgentType = 'END_NODE';
+          if (lower === 'approval') restoredAgentType = 'APPROVAL_NODE';
+          if (lower === 'tool') restoredAgentType = 'TOOL_NODE';
 
-        const nodeData = node.data || {
-          label: node.type ? node.type.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : `Node ${node.id}`,
-          agentType: restoredAgentType,
-          model: node.config?.model || 'gpt-4o-mini',
-          config: node.config || {},
-        };
-        if (nodeData && !nodeData.agentType) {
-          nodeData.agentType = restoredAgentType;
-        }
+          // Merge the persisted top-level node config into data.config so
+          // control/tool node fields (condition, control_type, tool_type,
+          // tool_id) survive the load. Script/API-written workflows keep those
+          // fields at the TOP level with an empty data.config, while frontend
+          // saves duplicate them into both. Without this merge the fields never
+          // reach the canvas and the next save wipes them.
+          const persistedData = node.data || {};
+          const persistedConfig = node.config || {};
 
-        return {
-          ...node,
-          type: 'custom',
-          data: nodeData,
-          position: {
-            x: typeof node.position?.x === 'number' && !isNaN(node.position.x) ? node.position.x : 250 + index * 200,
-            y: typeof node.position?.y === 'number' && !isNaN(node.position.y) ? node.position.y : 250,
-          },
-          width: node.width || 200,
-          height: node.height || 100,
-        };
-      });
+          const nodeData = {
+            label: persistedData.label ?? (node.type
+              ? node.type.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+              : `Node ${node.id}`),
+            ...persistedData,
+            agentType: restoredAgentType,
+            model: persistedConfig?.model || persistedData.model || 'gpt-4o-mini',
+            config: { ...(persistedData.config || {}), ...persistedConfig },
+          };
+
+          return {
+            ...node,
+            type: 'custom',
+            data: nodeData,
+            position: {
+              x: typeof node.position?.x === 'number' && !isNaN(node.position.x) ? node.position.x : 250 + index * 200,
+              y: typeof node.position?.y === 'number' && !isNaN(node.position.y) ? node.position.y : 250,
+            },
+            width: node.width || 200,
+            height: node.height || 100,
+          };
+        });
 
       const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#6366f1';
       const restoredEdges = (config.edges || []).map((e: any) => ({

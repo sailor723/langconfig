@@ -546,6 +546,7 @@ from api.triggers import router as triggers
 from api.webhooks import router as webhooks
 from api.notebooks import routes as notebooks
 from api.agent_documents import routes as agent_documents
+from api.classic_graph import routes as classic_graph
 
 # Health check endpoints
 app.include_router(health.router)
@@ -591,6 +592,7 @@ app.include_router(schedules)  # Workflow cron scheduling
 app.include_router(triggers)  # Workflow event triggers (file watch, etc.)
 app.include_router(webhooks)  # Webhook receiver endpoints
 app.include_router(notebooks.router)  # Educational notebooks viewer
+app.include_router(classic_graph.router)  # Classic LangGraph builder API
 
 if __name__ == "__main__":
     import sys

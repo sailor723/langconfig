@@ -84,6 +84,11 @@ export default function ModelCardsGridTab({ tab }: Props) {
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<Record<string, { success: boolean; message: string }>>({});
   const [toast, setToast] = useState<Record<string, { kind: 'success' | 'error'; text: string }>>({});
+  // Inline API key + base URL editor state (saves to DB settings row; .env still takes precedence)
+  const [editingKey, setEditingKey] = useState(false);
+  const [keyInput, setKeyInput] = useState('');
+  const [urlInput, setUrlInput] = useState('');
+  const [savingKey, setSavingKey] = useState(false);
   const { openTab } = useLayoutState();
 
   const loadData = useCallback(async () => {
@@ -134,6 +139,46 @@ export default function ModelCardsGridTab({ tab }: Props) {
       } }));
     } finally {
       setTestingProvider(null);
+    }
+  };
+
+  // Save/update the provider's API key (and optionally base URL) via the
+  // Settings API (persisted to DB; .env still takes precedence when both exist).
+  // Both fields are optional — saving only a key (no URL) is fine and vice-versa.
+  const handleSaveKey = async () => {
+    if (savingKey) return;
+    const trimmedKey = keyInput.trim();
+    const trimmedUrl = urlInput.trim();
+    if (!trimmedKey && !trimmedUrl) return; // need at least one
+    setSavingKey(true);
+    const prov = provider.toLowerCase();
+    // Map provider → backend field names. openai/google/... use "_base_url",
+    // *_api_base providers use "_api_base" to match backend APIKeySet schema.
+    const baseField = /^(openai|anthropic|google|cohere|replicate|agnes)$/.test(prov)
+      ? `${prov}_base_url`
+      : `${prov}_api_base`;
+    const payload: Record<string, string> = {};
+    if (trimmedKey) payload[`${prov}_api_key`] = trimmedKey;
+    if (trimmedUrl) payload[baseField] = trimmedUrl;
+    try {
+      await apiClient.setApiKeys(payload as any);
+      if (trimmedKey) setApiKeyStatus(prev => ({ ...prev, [prov]: true }));
+      setTestResult(prev => ({
+        ...prev,
+        [prov]: { success: true, message: 'Saved ✓ (DB; .env takes precedence)' },
+      }));
+      setTimeout(() => {
+        setTestResult(prev => { const next = { ...prev }; delete next[prov]; return next; });
+      }, 5000);
+      setEditingKey(false);
+      setKeyInput('');
+      setUrlInput('');
+    } catch (err: any) {
+      setTestResult(prev => ({ ...prev, [prov]: {
+        success: false, message: err?.response?.data?.detail || err?.message || 'Failed to save'
+      } }));
+    } finally {
+      setSavingKey(false);
     }
   };
 
@@ -250,6 +295,89 @@ export default function ModelCardsGridTab({ tab }: Props) {
           }}>
             ⚠ No API key set
           </span>
+        )}
+        {/* Inline API key + base URL editor — click the badge to set/update
+            (saved to DB; .env takes precedence) */}
+        {editingKey ? (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <input
+              type="password"
+              value={keyInput}
+              onChange={e => setKeyInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleSaveKey();
+                if (e.key === 'Escape') { setEditingKey(false); setKeyInput(''); setUrlInput(''); }
+              }}
+              placeholder={`${provider.toUpperCase()}_API_KEY`}
+              autoFocus
+              disabled={savingKey}
+              style={{
+                padding: '6px 10px', fontSize: 11, fontFamily: 'monospace',
+                width: 200, borderRadius: 4,
+                border: '1px solid #3b82f6',
+                background: t.bgSidebar, color: t.textPrimary, outline: 'none',
+              }}
+            />
+            <input
+              type="text"
+              value={urlInput}
+              onChange={e => setUrlInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleSaveKey();
+                if (e.key === 'Escape') { setEditingKey(false); setKeyInput(''); setUrlInput(''); }
+              }}
+              placeholder={`${provider.toUpperCase()}_API_BASE (optional)`}
+              disabled={savingKey}
+              style={{
+                padding: '6px 10px', fontSize: 11, fontFamily: 'monospace',
+                width: 230, borderRadius: 4,
+                border: `1px solid ${t.border}`,
+                background: t.bgSidebar, color: t.textPrimary, outline: 'none',
+              }}
+            />
+            <button
+              onClick={handleSaveKey}
+              disabled={savingKey || (!keyInput.trim() && !urlInput.trim())}
+              style={{
+                padding: '6px 12px', fontSize: 11, fontWeight: 600,
+                background: '#d97757', color: '#fff', border: 'none', borderRadius: 4,
+                cursor: savingKey || (!keyInput.trim() && !urlInput.trim()) ? 'not-allowed' : 'pointer',
+                opacity: savingKey || (!keyInput.trim() && !urlInput.trim()) ? 0.6 : 1,
+              }}
+            >
+              {savingKey ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={() => { setEditingKey(false); setKeyInput(''); setUrlInput(''); }}
+              title="Cancel"
+              style={{
+                padding: '6px 10px', fontSize: 11,
+                background: 'transparent', border: `1px solid ${t.border}`,
+                borderRadius: 4, color: t.textMuted, cursor: 'pointer',
+              }}
+            >
+              ✕
+            </button>
+          </span>
+        ) : (
+          <button
+            onClick={() => setEditingKey(true)}
+            title={
+              hasKey
+                ? 'Click to update API key + base URL (saved to DB; .env takes precedence)'
+                : 'Click to set API key + base URL'
+            }
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: hasKey ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.1)',
+              border: `1px solid ${hasKey ? 'rgba(16,185,129,0.4)' : 'rgba(245,158,11,0.3)'}`,
+              color: hasKey ? '#10b981' : '#f59e0b',
+              fontSize: 11, fontWeight: 600, padding: '6px 12px', borderRadius: 4,
+              cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+          >
+            {hasKey ? '✓ Key Set' : '⊕ Set Key'}
+          </button>
         )}
       </div>
 

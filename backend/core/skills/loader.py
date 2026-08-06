@@ -217,7 +217,9 @@ class SkillLoader:
                 version=str(frontmatter.get('version', '1.0.0')),
                 author=frontmatter.get('author'),
                 tags=frontmatter.get('tags', []),
-                triggers=frontmatter.get('triggers', []),
+                # SKILL.md is user-authored — tolerate a scalar `triggers:`
+                # by wrapping it, instead of letting a str fail List[str].
+                triggers=([frontmatter['triggers']] if isinstance(frontmatter.get('triggers'), str) else frontmatter.get('triggers', [])),
                 allowed_tools=frontmatter.get('allowed_tools'),
                 required_context=frontmatter.get('required_context', []),
                 instructions=instructions,

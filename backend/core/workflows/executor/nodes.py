@@ -1039,11 +1039,15 @@ When your work is complete, deliver the final result and END."""
                     }
 
                 elif control_type == 'CONDITIONAL_NODE':
-                    # Conditional routing based on state evaluation
+                    # Conditional routing based on state evaluation.
+                    # NOTE: the builder wires conditional edges by EDGE LABEL
+                    # ("true"/"false"/"default" -> target node), so this node
+                    # writes the route KEY into state.conditional_route, not a
+                    # target node id (routing to node ids was the old, broken
+                    # behavior - see LOOP_NODE for the same label-key pattern).
                     config = node_data.get("config", {})
                     # Support both "condition" and "condition_expression" keys
                     condition_expr = (config.get("condition", "") or config.get("condition_expression", "")).strip()
-                    routing_map = config.get("routing_map", {})
 
                     logger.info(f"[CONDITIONAL_NODE] Evaluating condition: '{condition_expr}'")
 
@@ -1061,13 +1065,18 @@ When your work is complete, deliver the final result and END."""
                                 logger.info(f"[CONDITIONAL_NODE] Extracted decision from messages: {state['decision']}")
                                 break
 
+                    # Capture for durable merge: LangGraph only persists keys a
+                    # node RETURNS - mutating the passed state dict alone is
+                    # discarded after the node finishes.
+                    decision_value = state.get("decision")
+
                     # Default route if no condition specified
                     if not condition_expr:
                         logger.warning(f"[CONDITIONAL_NODE] No condition expression provided - using default route")
-                        condition_result = routing_map.get("default", "default")
                         return {
                             "current_step": node_id,
-                            "conditional_route": condition_result
+                            "conditional_route": "default",
+                            "decision": decision_value,
                         }
 
                     # Reflection-loop guard: track iterations through condition nodes
@@ -1079,17 +1088,17 @@ When your work is complete, deliver the final result and END."""
 
                     MAX_CONDITION_ITERATIONS = 5  # Max reflection/critique rounds
                     if condition_count > MAX_CONDITION_ITERATIONS:
-                        route_key = "true"  # Force forward exit (PASS route)
+                        # Force forward exit (PASS route) to break infinite critique loops
                         logger.warning(
                             f"[CONDITIONAL_NODE] Max iterations ({MAX_CONDITION_ITERATIONS}) reached. "
                             f"Forcing exit via 'true' route."
                         )
-                        target_route = routing_map.get("true", routing_map.get("default", "default"))
                         return {
                             "current_step": node_id,
-                            "conditional_route": target_route,
+                            "conditional_route": "true",
                             "condition_result": True,
                             "condition_hits": condition_hits,
+                            "decision": decision_value,
                             "forced_exit": True
                         }
 
@@ -1124,33 +1133,31 @@ When your work is complete, deliver the final result and END."""
 
                         logger.info(f"[CONDITIONAL_NODE] Condition '{condition_expr}' evaluated to: {condition_met}")
 
-                        # Determine route based on condition result
-                        # routing_map should have "true" and "false" keys mapping to node IDs
+                        # Determine route based on condition result.
+                        # The builder maps edge labels ("true"/"false") to target
+                        # nodes, so we emit the route KEY (not a node id) here.
                         if condition_met:
                             route_key = "true"
                         else:
                             route_key = "false"
 
-                        # Get target node from routing map, fallback to default
-                        target_route = routing_map.get(route_key, routing_map.get("default", "default"))
-
-                        logger.debug(f"[CONDITIONAL_NODE] Routing to: {target_route} (condition: {condition_met})")
+                        logger.debug(f"[CONDITIONAL_NODE] Routing via '{route_key}' (condition: {condition_met})")
 
                         return {
                             "current_step": node_id,
-                            "conditional_route": target_route,
+                            "conditional_route": route_key,
                             "condition_result": condition_met,
                             "condition_hits": condition_hits,
+                            "decision": decision_value,
                         }
 
                     except Exception as e:
                         logger.error(f"[CONDITIONAL_NODE] Failed to evaluate condition '{condition_expr}': {e}")
-                        # Fallback to default route on error
-                        fallback_route = routing_map.get("default", "default")
-                        logger.warning(f"[CONDITIONAL_NODE] Using fallback route: {fallback_route}")
+                        logger.warning(f"[CONDITIONAL_NODE] Using fallback 'default' route")
                         return {
                             "current_step": node_id,
-                            "conditional_route": fallback_route,
+                            "conditional_route": "default",
+                            "decision": decision_value,
                             "condition_error": str(e)
                         }
 
@@ -1389,12 +1396,24 @@ When your work is complete, deliver the final result and END."""
 
                 logger.info(f"[{node_label} (LLM_NODE)] Response received (tokens: {len(str(response.content))})")
 
-                return {
+                updates = {
                     "messages": [response],
                     "current_node": node_id,
                     "agent_type": "LLM_NODE",
                     "last_agent_type": "LLM_NODE",
                 }
+
+                # Optional named handoff: store the response under
+                # config["output_key"] so a downstream node can consume it,
+                # e.g. a TOOL_NODE tool_params value like "{{my_key}}".
+                output_key = agent_config.get("output_key")
+                if output_key:
+                    node_outputs = dict(state.get("node_outputs") or {})
+                    node_outputs[output_key] = str(response.content)
+                    updates["node_outputs"] = node_outputs
+                    logger.info(f"[{node_label} (LLM_NODE)] Stored response under node_outputs['{output_key}']")
+
+                return updates
 
             except Exception as e:
                 logger.error(f"[{node_label} (LLM_NODE)] Error: {e}")

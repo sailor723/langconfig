@@ -20,6 +20,8 @@ Key Enhancements:
 
 import logging
 import asyncio
+import json
+import re
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from langchain_core.runnables.config import RunnableConfig
@@ -47,6 +49,79 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Tool Node Execution (Direct Tool Calls Without Agent)
 # =============================================================================
+
+# Tool params templating: lets a dedicated TOOL_NODE consume workflow state so
+# tool calls can be assigned to tool nodes instead of living inside an agent's
+# ReAct loop. Any string value (or nested dict/list value) may reference state
+# with "{{key}}" / "{{node_outputs.key}}" / "{{query}}" — resolved at execution
+# time. A whole-value template is coerced to a JSON/numeric type.
+_TEMPLATE_RE = re.compile(r"\{\{\s*([\w.]+)\s*\}\}")
+
+
+def _lookup_state_path(state: Dict[str, Any], path: str) -> Any:
+    """Resolve a dotted path against state. The first segment prefers a named
+    handoff value from node_outputs (written by LLM_NODE output_key) before a
+    top-level state key (query, tool_result, ...)."""
+    parts = path.split(".")
+    outputs = state.get("node_outputs") or {}
+    node_value = outputs.get(parts[0])
+    if node_value is not None:
+        return _walk_path(node_value, parts[1:])
+    return _walk_path(state.get(parts[0]), parts[1:])
+
+
+def _walk_path(value: Any, parts: List[str]) -> Any:
+    for part in parts:
+        if isinstance(value, dict):
+            value = value.get(part)
+        else:
+            return None
+    return value
+
+
+def _resolve_param_value(value: Any, state: Dict[str, Any]) -> Any:
+    """Resolve "{{...}}" templates inside a single parameter value."""
+    if not isinstance(value, str):
+        return value
+    full_match = re.fullmatch(r"\s*\{\{\s*([\w.]+)\s*\}\}\s*", value)
+    resolved = _TEMPLATE_RE.sub(
+        lambda m: str(_lookup_state_path(state, m.group(1))), value
+    )
+    if full_match is None:
+        return resolved
+    # The whole value was a template — coerce "467"/"21.6"/"true" to real types
+    # so numeric tool args (e.g. math_sqrt.number) receive numbers, not strings.
+    stripped = resolved.strip()
+    try:
+        parsed = json.loads(stripped)
+        if not isinstance(parsed, str):
+            return parsed
+    except (ValueError, TypeError):
+        pass
+    try:
+        return float(stripped) if ("." in stripped or "e" in stripped.lower()) else int(stripped)
+    except ValueError:
+        pass
+    # LLMs often wrap answers in <think>...</think> or prose; fall back to the
+    # last numeric token so numeric tool args still resolve (e.g. "<think>…
+    # </think>\n\n21.61" -> 21.61).
+    numbers = re.findall(r"-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?", stripped)
+    if numbers:
+        token = numbers[-1]
+        try:
+            return float(token) if ("." in token or "e" in token.lower()) else int(token)
+        except ValueError:
+            pass
+    return resolved
+
+
+def resolve_tool_params(params: Any, state: Dict[str, Any]) -> Any:
+    """Recursively resolve state templates in the tool_params dict."""
+    if isinstance(params, dict):
+        return {k: resolve_tool_params(v, state) for k, v in params.items()}
+    if isinstance(params, list):
+        return [resolve_tool_params(v, state) for v in params]
+    return _resolve_param_value(params, state)
 
 async def execute_tool_node(
     state: WorkflowState,
@@ -128,6 +203,11 @@ async def execute_tool_node(
             logger.info(f"[TOOL_NODE] Loaded CLI tool: {tool.name}")
         else:
             raise ValueError(f"Unknown tool type: {tool_type}")
+
+        # Resolve state templates in tool params ("{{query}}", "{{number}}")
+        # at execution time so a dedicated tool node consumes values produced
+        # upstream (LLM_NODE output_key handoffs, the workflow query, etc.).
+        tool_params = resolve_tool_params(tool_params, state)
 
         # Execute the tool with parameters
         logger.info(f"[TOOL_NODE] Executing tool '{tool.name}' with params: {tool_params}")
