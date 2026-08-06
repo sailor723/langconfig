@@ -28,6 +28,7 @@ graphs keep their own checkpointer (thread-scoped history) + store (memory).
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import json
 import sys
 import time
@@ -148,6 +149,119 @@ def _now() -> str:
 # ---------------------------------------------------------------------------
 # Assistants
 # ---------------------------------------------------------------------------
+def _source_info(obj: Any) -> Dict[str, Any]:
+    """Best-effort source location + text for a callable (None-safe)."""
+    if obj is None:
+        return {
+            "module": None,
+            "file": None,
+            "start_line": None,
+            "end_line": None,
+            "code": None,
+        }
+    try:
+        code = inspect.getsource(obj)
+    except Exception:  # noqa: BLE001 - compiled/builtin callables have no source
+        code = None
+    try:
+        module = getattr(inspect.getmodule(obj), "__name__", None)
+    except Exception:  # noqa: BLE001
+        module = None
+    try:
+        file = inspect.getsourcefile(obj)
+    except Exception:  # noqa: BLE001
+        file = None
+    try:
+        lines, lineno = inspect.getsourcelines(obj)
+        start_line, end_line = lineno, lineno + len(lines) - 1
+    except Exception:  # noqa: BLE001
+        start_line = end_line = None
+    return {
+        "module": module,
+        "file": file,
+        "start_line": start_line,
+        "end_line": end_line,
+        "code": code,
+    }
+
+
+def _graph_node_info(node_id: str, node: Any) -> Dict[str, Any]:
+    """Describe one graph node for the canvas popup: kind, source, bound tools.
+
+    ``node`` is a langgraph ``Node`` namedtuple (id, name, data, metadata, index);
+    ``data`` is typically a ``RunnableCallable`` (wraps the real function in
+    ``.func``) or a ``ToolNode`` (has ``.tools``). Everything is best-effort and
+    None-safe so the UI always gets a renderable payload.
+    """
+    # START / END markers carry no user code.
+    if node_id == "__start__":
+        return {"id": node_id, "data": {"name": node_id, "kind": "start"}}
+    if node_id == "__end__":
+        return {"id": node_id, "data": {"name": node_id, "kind": "end"}}
+
+    data = getattr(node, "data", None)
+    kind = "unknown"
+    info: Dict[str, Any] = {
+        "module": None,
+        "file": None,
+        "start_line": None,
+        "end_line": None,
+        "code": None,
+    }
+    tools: List[Dict[str, Any]] = []
+    type_name = type(data).__name__
+
+    if type_name in ("ToolNode", "StructuredToolNode"):
+        # Tool runner node — surface each bound tool (name, description, source).
+        # Newer langgraph exposes a `tools_by_name` dict; older versions have `.tools`.
+        kind = "tool"
+        tools_list = getattr(data, "tools", None)
+        if tools_list is None:
+            tools_list = list(getattr(data, "tools_by_name", {}).values())
+        for tool in tools_list or []:
+            tool_fn = getattr(tool, "func", None) or getattr(tool, "coroutine", None)
+            tools.append(
+                {
+                    "name": getattr(tool, "name", None),
+                    "description": getattr(tool, "description", None),
+                    **_source_info(tool_fn),
+                }
+            )
+    elif type_name == "CompiledStateGraph":
+        # Nested (sub)graph node — report its top-level structure instead of source.
+        kind = "subgraph"
+        sub = data
+        try:
+            sub_graph = sub.get_graph()
+            info["module"] = getattr(inspect.getmodule(sub), "__name__", None)
+            info["file"] = inspect.getsourcefile(sub) if sub else None
+            info["code"] = (
+                f"# nested graph with {len(sub_graph.nodes)} nodes / "
+                f"{len(sub_graph.edges)} edges"
+            )
+        except Exception:  # noqa: BLE001
+            info["code"] = None
+    else:
+        # Plain function node — RunnableCallable keeps the real fn in .func.
+        fn = getattr(data, "func", None)
+        if fn is None and callable(data):
+            fn = data
+        if fn is not None:
+            kind = "function"
+            info = _source_info(fn)
+
+    return {
+        "id": node_id,
+        "data": {
+            "name": node_id,
+            "kind": kind,
+            "metadata": getattr(node, "metadata", None) or None,
+            **info,
+            "tools": tools or None,
+        },
+    }
+
+
 class AssistantSearchRequest(BaseModel):
     metadata: Dict[str, Any] = {}
 
@@ -172,10 +286,14 @@ def list_assistants(payload: AssistantSearchRequest) -> List[Dict[str, Any]]:
 
 @router.get("/assistants/{assistant_id}/graph")
 def get_assistant_graph(assistant_id: str) -> Dict[str, Any]:
-    """Return the graph structure (nodes + edges) for the canvas."""
+    """Return the graph structure (nodes + edges) for the canvas.
+
+    Each node carries best-effort metadata + source info (kind, module, file,
+    line range, code, bound tools) so the canvas popup can show node details.
+    """
     compiled = _load_compiled(assistant_id)
     graph = compiled.get_graph()
-    nodes = [{"id": nid, "data": {"name": nid}} for nid in graph.nodes]
+    nodes = [_graph_node_info(nid, graph.nodes[nid]) for nid in graph.nodes]
     edges = [
         {
             "source": e.source,
