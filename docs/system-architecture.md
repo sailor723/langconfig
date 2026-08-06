@@ -214,7 +214,7 @@ workflow design.
 | `agents/ui/PromptCanvas.tsx`                                                 | Visual prompt editing                                                                                                                                                         |
 | `deepagent-studio-v2/`                                                       | Modern DeepAgent studio:`ModernStudioCanvas`, agent picker, capability bar, main/sub-agent nodes, tool nodes, auto-layout                                                   |
 | `chat/`                                                                      | Chat UI with SSE streaming (`useChatController`, `useChatStreaming`, `streamChatEvents.ts`), sessions, files, metrics, HITL interrupts, thinking blocks, analysis panel |
-| `graph-studio/`                                                              | Graph Engineering activity: assistant/thread sidebar, ReactFlow canvas (auto-layout, conditional edges, run-path), test-run console, inspector, chat input — see §10  |
+| `graph-studio/`                                                              | Graph Engineering activity: assistant + database sidebar, ReactFlow canvas (auto-layout, conditional edges, run-path, node-click detail popup), test-run console, inspector, chat input with interrupt — see §10  |
 | `tools/ui/`                                                                  | `CustomToolBuilder` + `ToolTemplateGallery`                                                                                                                               |
 | `knowledge/`, `memory/`, `settings/ui/`, `projects/AgentsMdEditor.tsx` | Supporting views                                                                                                                                                              |
 
@@ -259,7 +259,7 @@ parse the request, delegate to a service/factory, and stream the result.
 | Agents               | `agents` (templates), `agent_generator`, `action_presets`, `images`                                 | Normal-agent CRUD, AI agent generation, action presets, image storage                                                     |
 | DeepAgents           | `deepagents`, `chat`                                                                                    | DeepAgent CRUD/export + DeepAgent chat testing                                                                            |
 | Workflows            | `workflows`, `orchestration`, `hitl`, `checkpoints`                                                 | Workflow CRUD/execute, simplified orchestration, human-in-the-loop approvals, checkpoint restore                          |
-| Graph Engineering    | `graph_studio`                                                                                    | Code-defined graph hosting (`backend/langgraph/*.py`): introspection, threads, SSE runs — see §10                      |
+| Graph Engineering    | `graph_studio`                                                                                    | Code-defined graph hosting (`backend/langgraph/*.py`): introspection, threads, SSE runs, target-DB switching, run interrupt — see §10 |
 | Chat & memory        | `memory`, `store`, `agents_md_router`, `chat_skill_review`                                          | Agent memory, long-term store, AGENTS.md (MemoryMiddleware), data-skill review                                            |
 | Knowledge / RAG      | `rag`, `graphindex_chat`, `doc_chat`, `kv`, `analysis`                                            | RAG ingestion/search, graph-index chat, folder-based doc-chat, KV store, CSV→SQLite→charts                              |
 | Tools & skills       | `custom_tools`, `tool_registry`, `skills`                                                             | User tools, native tool registry (single source of truth), skills system                                                  |
@@ -477,7 +477,7 @@ with live SSE streaming.
 ### Backend — native graph hosting
 
 `backend/api/graph_studio/routes.py` registers one router (`/api/graph-studio`, mounted in
-`main.py`) exposing 8 endpoints:
+`main.py`) exposing 11 endpoints:
 
 | Endpoint                                             | Purpose                                                            |
 | ---------------------------------------------------- | ------------------------------------------------------------------ |
@@ -489,6 +489,9 @@ with live SSE streaming.
 | `GET /threads/{id}/state`                           | Checkpointed state via `compiled.aget_state(config)`               |
 | `GET /threads/{id}/runs`                            | Run history for a thread                                           |
 | `POST /threads/{id}/runs/stream`                    | SSE run — `messages/partial` · `values` · `updates`                |
+| `GET /databases`                                    | List the Postgres databases the SQL tools can target + the active one |
+| `POST /databases/select`                            | Switch the SQL tools' target database at runtime (no `.env` edit)   |
+| `POST /threads/{id}/runs/cancel`                    | Interrupt an in-flight run (stops at the next SSE event boundary)   |
 
 Key mechanics:
 
@@ -508,7 +511,28 @@ Key mechanics:
 - **SSE shape.** With a *list* of stream modes, `compiled.astream(...)` yields
   `(mode, payload)` tuples. Partial AIMessage chunks are accumulated per message id
   (content concatenation + `tool_call_chunks` merged by index), empty provider shells are
-  stripped, and `values` / `updates` snapshots pass through as-is.
+  `values` / `updates` snapshots pass through as-is.
+- **Node introspection for the popup.** `GET /assistants/{id}/graph` enriches every node
+  via `_graph_node_info` / `_source_info` (`inspect.getsource`, best-effort/None-safe): a
+  `kind` (`start` / `end` / `function` / `tool` / `subgraph` / `unknown`), module, file,
+  line range + raw source code, `node.metadata`, and for tool-runner nodes the bound
+  tools (name, description, their own source — `ToolNode.tools` or the newer
+  `tools_by_name` dict). Clicking a canvas node opens a floating popup with this detail,
+  deliberately different from classic LangChain Studio's inspector dock.
+- **Run interrupt.** `_CANCEL_EVENTS` maps `thread_id → asyncio.Event`; the SSE generator
+  checks the flag between events and raises `_RunCancelled` when the user hits Stop,
+  emitting a clean `Run cancelled by user` error event — the graph checkpointer stays in
+  a consistent state.
+- **Target database switching.** The SQL tools in `sql_setup_db.py` resolve their database
+  at call time: a runtime `_DB_OVERRIDE` (set by `POST /databases/select`) takes
+  precedence over the `SQL_*` env config, so switching needs no graph re-import.
+- **The SQL agents query Postgres.** `backend/langgraph/sql_setup_db.py` connects to the
+  Postgres `chinook` database (read-only psycopg2 sessions; `information_schema`
+  introspection emits Postgres-flavoured DDL). The target DB is configured via the
+  `SQL_*` env block in the root `.env` (or a `SQL_DATABASE_URL` override) and can be
+  changed at runtime from the studio's Database dropdown.
+  `backend/db/setup_target_db.py` provisions any target DB (create + pgvector + all
+  tables) and prints the `DATABASE_URL` to use.
 
 ```mermaid
 flowchart LR
@@ -531,11 +555,13 @@ icon, right after **Workflows** in `useLayout.tsx` / `ActivityBar.tsx`, route `/
 
 | Module                    | Purpose                                                                                                  |
 | ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `GraphStudioSidebar.tsx` | Assistant picker + thread list (+ new-thread button)                                                     |
-| `GraphCanvas.tsx`        | ReactFlow canvas: BFS layered auto-layout, conditional edges (`#e8a33d`), run-path highlight, direction toggle |
+| `GraphStudioPage.tsx`    | Layout shell: canvas + resizable right rail (drag handle between them)                                     |
+| `GraphStudioSidebar.tsx` | Assistant picker + **database selector** + thread list (+ new-thread button)                            |
+| `GraphCanvas.tsx`        | ReactFlow canvas: BFS layered auto-layout, conditional edges (`#e8a33d`), run-path highlight, direction toggle, **node-click detail popup** |
 | `RunConsole.tsx`         | "Test Run" prompt → SSE stream                                                                            |
 | `Inspector.tsx`          | messages / state / raw tabs + chat input for follow-ups (thread-aware)                                    |
-| `studioStore.ts`         | `useSyncExternalStore` store (assistants, threads, live messages, run path, direction)                    |
+| `ChatInput.tsx`          | Follow-up input — send button becomes **Stop** while a run is in-flight (interrupt)                      |
+| `studioStore.ts`         | `useSyncExternalStore` store (assistants, threads, live messages, run path, direction, active node, DB selection) |
 | `stream.ts` / `api.ts`   | SSE parser + feature-local typed client (`hasMessagesInput` schema detection)                             |
 
 The canvas is **generic**: any introspected graph renders with the same layered layout
@@ -929,5 +955,7 @@ tool works transparently against the DB.
 | How do workflows run?         | `core/workflows/` executor + Postgres checkpointer, streamed over SSE                                               |
 | How does Graph studio work?   | Graph activity (`/#/graph`) → `api/graph_studio/` hosts `backend/langgraph/*.py` natively (no `langgraph dev` server); threads + runs are in-memory |
 | Where are code graphs?        | `backend/langgraph/*.py` — imported lazily by `api/graph_studio/routes.py` (`_load_compiled`)                     |
+| How do I switch the agent's DB? | Studio Database dropdown → `POST /databases/select` (runtime `_DB_OVERRIDE`); or `SQL_*` env / `SQL_DATABASE_URL` in `.env` + restart |
+| How do I stop a run?          | Chat **Stop** button → `POST /threads/{id}/runs/cancel` (next SSE event boundary)                              |
 | Where do exported files land? | `backend/outputs/exports/*.py` (or download zip from `/export`)                                                   |
 | Where do artifacts persist?   | `services/storage/` `StorageBackend` seam — `local` (disk) \| `db` (Postgres BYTEA) \| `s3` (object store) |
