@@ -27,6 +27,13 @@ export interface LayoutTokens {
 
   accent: string;
   accentMuted: string;
+
+  // Activity bar colors (theme-aware — the bar stays darker than the sidebar
+  // but follows light/dark themes instead of being hardcoded dark)
+  activityBarActive: string;
+  activityBarInactive: string;
+  activityBarHover: string;
+  activityBarDivider: string;
 }
 
 /**
@@ -42,7 +49,7 @@ export function useLayoutTokens(): LayoutTokens {
     // Backgrounds — VS Code Dark Modern palette
     bgBase: c.panelDark,                  // sidebar/panel #252526
     bgContent: c.backgroundLight,         // editor #1e1e1e
-    bgActivityBar: isDark ? '#181818' : '#2c2c2c',
+    bgActivityBar: isDark ? '#181818' : c.backgroundDark, // darker than sidebar, theme-aware
     bgSidebar: c.panelDark,               // #252526
     bgTabBar: c.panelDark,                // #252526 — same as sidebar
     bgStatusBar: isDark ? '#007acc' : '#007acc', // VS Code blue
@@ -63,5 +70,11 @@ export function useLayoutTokens(): LayoutTokens {
     // Accent — VS Code blue #0078d4
     accent: c.primary,
     accentMuted: c.primary + '88',
+
+    // Activity bar — icons & separators: white on dark, theme colors on light
+    activityBarActive: isDark ? '#ffffff' : c.primary,
+    activityBarInactive: isDark ? '#858585' : c.textMuted,
+    activityBarHover: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+    activityBarDivider: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
   };
 }

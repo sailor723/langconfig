@@ -39,7 +39,7 @@ const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
 
 // Ordered activity groups with visual dividers between them
 const SECTION_GROUPS: ActivityId[][] = [
-  ['vault', 'deepagents', 'agents', 'workflows', 'graph'],
+  ['vault', 'deepagents', 'agents', 'graph'],
   ['prompt', 'tools', 'skills'],
   ['knowledge', 'analysis', 'learning'],
   ['models', 'search'],
@@ -68,13 +68,13 @@ function ActivityButton({ act, active, onClick }: ActivityButtonProps) {
         alignItems: 'center',
         justifyContent: 'center',
         background: 'transparent',
-        color: active ? t.textWhite : '#6b6b6b',
+        color: active ? t.activityBarActive : t.activityBarInactive,
         border: 'none',
         cursor: 'pointer',
         position: 'relative',
       }}
       onMouseEnter={e => {
-        if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+        if (!active) e.currentTarget.style.background = t.activityBarHover;
       }}
       onMouseLeave={e => {
         if (!active) e.currentTarget.style.background = 'transparent';
@@ -88,7 +88,7 @@ function ActivityButton({ act, active, onClick }: ActivityButtonProps) {
             top: 8,
             bottom: 8,
             width: 2,
-            background: t.textWhite,
+            background: t.activityBarActive,
           }}
         />
       )}
@@ -139,12 +139,12 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           alignItems: 'center',
           justifyContent: 'center',
           background: 'transparent',
-          color: vaultOpen ? t.textWhite : '#6b6b6b',
+          color: vaultOpen ? t.activityBarActive : t.activityBarInactive,
           border: 'none',
           cursor: 'pointer',
           position: 'relative',
         }}
-        onMouseEnter={e => { if (!vaultOpen) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+        onMouseEnter={e => { if (!vaultOpen) e.currentTarget.style.background = t.activityBarHover; }}
         onMouseLeave={e => { if (!vaultOpen) e.currentTarget.style.background = 'transparent'; }}
       >
         {vaultOpen && (
@@ -155,7 +155,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
               top: 8,
               bottom: 8,
               width: 2,
-              background: t.textWhite,
+              background: t.activityBarActive,
             }}
           />
         )}
@@ -172,7 +172,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
       {/* Sectioned activity groups with dividers */}
       {SECTION_GROUPS.map((group, gi) => (
         <Fragment key={gi}>
-          {gi > 0 && <div style={{ width: 28, height: 1, background: 'rgba(255,255,255,0.15)', margin: '6px 0' }} />}
+          {gi > 0 && <div style={{ width: 28, height: 1, background: t.activityBarDivider, margin: '6px 0' }} />}
           {group.map(id => {
             const act = ACTIVITIES.find(a => a.id === id);
             if (!act) return null;
@@ -204,12 +204,12 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           alignItems: 'center',
           justifyContent: 'center',
           background: 'transparent',
-          color: settingsOpen ? t.textWhite : '#6b6b6b',
+          color: settingsOpen ? t.activityBarActive : t.activityBarInactive,
           border: 'none',
           cursor: 'pointer',
           position: 'relative',
         }}
-        onMouseEnter={e => { if (!settingsOpen) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+        onMouseEnter={e => { if (!settingsOpen) e.currentTarget.style.background = t.activityBarHover; }}
         onMouseLeave={e => { if (!settingsOpen) e.currentTarget.style.background = 'transparent'; }}
       >
         {settingsOpen && (
@@ -220,7 +220,7 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
               top: 8,
               bottom: 8,
               width: 2,
-              background: t.textWhite,
+              background: t.activityBarActive,
             }}
           />
         )}
@@ -249,11 +249,11 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           alignItems: 'center',
           justifyContent: 'center',
           background: 'transparent',
-          color: '#6b6b6b',
+          color: t.activityBarInactive,
           border: 'none',
           cursor: 'pointer',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+        onMouseEnter={e => { e.currentTarget.style.background = t.activityBarHover; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
       >
         <MessageSquare size={20} strokeWidth={1.5} />
@@ -270,12 +270,12 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           alignItems: 'center',
           justifyContent: 'center',
           background: 'transparent',
-          color: '#6b6b6b',
+          color: t.activityBarInactive,
           border: 'none',
           cursor: 'pointer',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
+          borderTop: `1px solid ${t.activityBarDivider}`,
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+        onMouseEnter={e => { e.currentTarget.style.background = t.activityBarHover; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
       >
         {sidebarOpen ? (

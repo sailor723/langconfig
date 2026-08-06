@@ -21,7 +21,7 @@ export default function CommunityPage() {
 
         {/* Description */}
         <p className="text-lg mb-8" style={{ color: 'var(--color-text-muted)' }}>
-          We're building a space for the Carrier community to share workflows, articles, and best practices.
+          We're building a space for the Carrier AI IDE community to share workflows, articles, and best practices.
         </p>
 
         {/* Features List */}

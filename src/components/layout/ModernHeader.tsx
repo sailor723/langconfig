@@ -90,15 +90,16 @@ export default function ModernHeader({
           />
           {/* Carrier Logo */}
           <img
-            src="/langconfignewlogo.png"
-            alt="Carrier"
+            src="/orca.png"
+            alt="Carrier Studio"
             style={{
-              height: '100px',
-              width: 'auto',
+              height: '52px',
+              width: '52px',
               display: 'block',
-              filter: 'brightness(0) invert(1)', // Makes the logo white
+              borderRadius: '10px',
+              objectFit: 'cover',
               margin: '0',
-              marginTop: '15px', // Shift logo down slightly
+              marginTop: '6px', // Shift logo down slightly
             }}
           />
         </button>
