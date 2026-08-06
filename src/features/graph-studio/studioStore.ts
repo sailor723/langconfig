@@ -97,19 +97,25 @@ export function useStudioState(): StudioState {
 // Actions
 // ---------------------------------------------------------------------------
 export const studio = {
-  /** Load the code-defined assistants; select the first one by default. */
-  async loadAssistants() {
+  /** Load the code-defined assistants without selecting one (graph home page). */
+  async loadAssistantsOnly() {
     try {
       const assistants = await api.loadAssistants();
       setState({ assistants, apiOnline: true });
-      const active = assistants.find((a) => a.assistant_id === state.activeAssistantId);
-      await studio.selectAssistant(active ?? assistants[0] ?? null);
     } catch (err) {
       setState({ apiOnline: false });
       console.error('[graph-studio] loadAssistants failed', err);
     }
     // Load the DB selector (best-effort; the SQL tools may be unavailable).
     await studio.loadDatabases();
+  },
+
+  /** Load the code-defined assistants; select the first one by default. */
+  async loadAssistants() {
+    await studio.loadAssistantsOnly();
+    const assistants = state.assistants;
+    const active = assistants.find((a) => a.assistant_id === state.activeAssistantId);
+    await studio.selectAssistant(active ?? assistants[0] ?? null);
   },
 
   /** Load the databases the SQL tools can target. */
