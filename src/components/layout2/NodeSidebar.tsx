@@ -4,7 +4,7 @@
  * Always visible. Shows Chat by default.
  * When a canvas node is selected, a Properties tab appears.
  */
-import { useState, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useCallback, useEffect, type ReactNode } from 'react';
 import { useLayoutState } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import { MessageSquare, FileText, Settings, X, Send, Trash2, Copy, Download, RotateCw, Brain, ChevronDown, ChevronRight } from 'lucide-react';
@@ -198,6 +198,14 @@ function ChatSidebar({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
   const messages = useChatMessages();
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const messagesRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to the latest message — fires on every store update,
+  // including incremental streaming chunks.
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages]);
 
   const handleSend = async () => {
     const text = input.trim();
@@ -281,7 +289,7 @@ function ChatSidebar({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
       </div>
 
       {/* ── Messages ── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div ref={messagesRef} style={{ flex: 1, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {messages.length === 0 && (
           <p style={{ color: t.textMuted, fontSize: 12, fontStyle: 'italic', padding: 8 }}>
             Open a DeepAgent and click <strong style={{ color: t.textPrimary }}>▶ Run</strong> to start chatting.
