@@ -7,10 +7,10 @@
  * terminal list with add/kill actions. Execution and Results are separate
  * panel sections.
  */
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLayoutState } from './useLayout';
 import { useLayoutTokens } from './tokens';
-import { ScrollText, Terminal, Play, FileText, Plus, Trash2, ChevronDown, X, Check } from 'lucide-react';
+import { ScrollText, Terminal, Play, FileText, Plus, Trash2, ChevronDown, X, Check, Search } from 'lucide-react';
 import { useChatMessages } from './chatStore';
 import TerminalTab from './TerminalTab';
 
@@ -27,10 +27,14 @@ export default function BottomPanel() {
   const { bottomPanelOpen, toggleBottomPanel } = useLayoutState();
   const t = useLayoutTokens();
   const [activeSection, setActiveSection] = useState<PanelSection>('terminal');
-  const [shells, setShells] = useState<ShellTerminal[]>([]);
+  // One shell terminal is created by default (like VS Code opening a terminal
+  // with the panel); more can be added with "+" or Ctrl+Shift+`.
+  const [shells, setShells] = useState<ShellTerminal[]>(() => [
+    { id: 'term-1', n: 1, name: 'Terminal 1' },
+  ]);
   const [activeShellId, setActiveShellId] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
-  const nextTerminalN = useRef(1);
+  const nextTerminalN = useRef(2);
 
   // Inside the terminal section, "system-log" is the default tab
   const activeTerminalId = activeShellId ?? 'system-log';
@@ -446,10 +450,23 @@ interface LogEntry {
   line: string;
 }
 
+type LogLevel = 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
+const LOG_LEVELS: LogLevel[] = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];
+
+// Parse "asctime - logger - LEVEL - message" into its metadata so filters
+// can match on level and source. Unparseable lines return no metadata.
+function parseLogMeta(line: string): { level?: LogLevel; source?: string } {
+  const m = line.match(/ - ([A-Za-z_][\w.]*) - (DEBUG|INFO|WARNING|ERROR|CRITICAL) - /);
+  return m ? { level: m[2] as LogLevel, source: m[1] } : {};
+}
+
 function SystemLogContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
   const [lines, setLines] = useState<LogEntry[]>([]);
   const [connected, setConnected] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [filterText, setFilterText] = useState('');
+  const [filterLevel, setFilterLevel] = useState<'all' | LogLevel>('all');
+  const [filterSource, setFilterSource] = useState('all');
   const scrollRef = useRef<HTMLDivElement>(null);
   const nextId = useRef(0);
 
@@ -495,6 +512,27 @@ function SystemLogContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
     if (el) el.scrollTop = el.scrollHeight;
   };
 
+  // Distinct logger names present in the buffered lines, for the source filter
+  const sources = useMemo(() => {
+    const set = new Set<string>();
+    for (const entry of lines) {
+      const src = parseLogMeta(entry.line).source;
+      if (src) set.add(src);
+    }
+    return Array.from(set).sort();
+  }, [lines]);
+
+  // Apply the three filters (AND): text, level, source
+  const hasFilters = filterText.trim() !== '' || filterLevel !== 'all' || filterSource !== 'all';
+  const visible = lines.filter(entry => {
+    const q = filterText.trim().toLowerCase();
+    if (q && !entry.line.toLowerCase().includes(q)) return false;
+    const meta = parseLogMeta(entry.line);
+    if (filterLevel !== 'all' && meta.level !== filterLevel) return false;
+    if (filterSource !== 'all' && meta.source !== filterSource) return false;
+    return true;
+  });
+
   // Rough level coloring on the formatted log line
   const colorFor = (line: string) => {
     if (line.includes(' - ERROR - ') || line.includes(' - CRITICAL - ')) return '#f48771';
@@ -503,10 +541,20 @@ function SystemLogContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
     return '#d4d4d4';
   };
 
+  const selectStyle: CSSProperties = {
+    background: t.bgInput,
+    border: `1px solid ${t.border}`,
+    color: t.textPrimary,
+    fontSize: 11,
+    padding: '2px 4px',
+    borderRadius: 3,
+    outline: 'none',
+  };
+
   return (
     <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Status + toolbar row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexShrink: 0 }}>
+      {/* Toolbar: status + filters */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexShrink: 0, flexWrap: 'wrap' }}>
         <span
           style={{
             display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
@@ -516,7 +564,63 @@ function SystemLogContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
         <span style={{ fontSize: 11, color: connected ? '#22c55e' : '#f59e0b' }}>
           {connected ? 'backend connected' : 'connecting…'}
         </span>
+
+        {/* Keyword filter */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          background: t.bgInput, border: `1px solid ${t.border}`,
+          borderRadius: 3, padding: '1px 6px',
+        }}>
+          <Search size={11} style={{ color: t.textDim, flexShrink: 0 }} />
+          <input
+            value={filterText}
+            onChange={e => setFilterText(e.target.value)}
+            placeholder="Filter…"
+            style={{
+              background: 'transparent', border: 'none', outline: 'none',
+              color: t.textPrimary, fontSize: 11, width: 120,
+              fontFamily: 'inherit',
+            }}
+          />
+          {filterText && (
+            <button
+              onClick={() => setFilterText('')}
+              title="Clear filter"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: t.textDim, display: 'flex', padding: 0 }}
+            >
+              <X size={10} />
+            </button>
+          )}
+        </div>
+
+        {/* Level filter */}
+        <select
+          value={filterLevel}
+          onChange={e => setFilterLevel(e.target.value as 'all' | LogLevel)}
+          style={selectStyle}
+        >
+          <option value="all">All levels</option>
+          {LOG_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+        </select>
+
+        {/* Source filter */}
+        <select
+          value={filterSource}
+          onChange={e => setFilterSource(e.target.value)}
+          style={selectStyle}
+        >
+          <option value="all">All sources</option>
+          {sources.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+
         <div style={{ flex: 1 }} />
+
+        {hasFilters && (
+          <span style={{ fontSize: 10, color: t.textDim }}>
+            {visible.length} of {lines.length}
+          </span>
+        )}
+
         <button
           onClick={() => setLines([])}
           title="Clear logs"
@@ -537,8 +641,12 @@ function SystemLogContent({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
           <div style={{ color: t.textMuted, fontStyle: 'italic' }}>
             Waiting for backend logs… run a chat or any API call and the output appears here.
           </div>
+        ) : visible.length === 0 ? (
+          <div style={{ color: t.textMuted, fontStyle: 'italic' }}>
+            No log lines match the current filters.
+          </div>
         ) : (
-          lines.map(entry => (
+          visible.map(entry => (
             <div key={entry.id} style={{ whiteSpace: 'pre', color: colorFor(entry.line) }}>
               {entry.line || '\u00A0'}
             </div>
