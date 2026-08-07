@@ -58,6 +58,14 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting LangConfig API...")
 
+    # Attach the live log-stream handler so the bottom-panel Terminal tab
+    # receives backend system logs over SSE (GET /api/debug/logs/stream).
+    try:
+        from services.log_stream import attach_log_stream
+        attach_log_stream()
+    except Exception as e:
+        logger.warning(f"Failed to attach live log stream (non-fatal): {e}")
+
     # Initialize PostgreSQL database (unified database for everything)
     try:
         await async_init_db()
