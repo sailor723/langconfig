@@ -36,6 +36,20 @@ export interface DocChatRequest {
   folder_path: string;
   project_id?: number;
   conversation_id?: string | null;
+  /** LLM settings (same resolution path as the rest of the app). */
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+}
+
+/**
+ * LLM settings honored by the doc-chat backend (same resolution path as
+ * the rest of the app). `model` empty/undefined = the app's default model.
+ */
+export interface DocChatLlmOptions {
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
 }
 
 export interface DocChatConversation {
@@ -86,6 +100,18 @@ export async function postChat(
   return { response, conversationId };
 }
 
+/**
+ * Fetch the backend doc-chat module source. Powers the "View code"
+ * action in the Doc Chat panel.
+ */
+export async function getDocChatCode(): Promise<{ file: string; code: string }> {
+  const response = await apiClient.get('/api/doc-chat/code');
+  return {
+    file: response.data.file || 'doc_chat.py',
+    code: response.data.code || '',
+  };
+}
+
 export async function listConversations(): Promise<DocChatConversation[]> {
   const response = await apiClient.get('/api/doc-chat/conversations');
   return response.data.conversations || [];
@@ -120,6 +146,7 @@ export const docChatApi = {
   getHistory,
   deleteConversation,
   listDocChatFolders,
+  getDocChatCode,
 };
 
 export default docChatApi;

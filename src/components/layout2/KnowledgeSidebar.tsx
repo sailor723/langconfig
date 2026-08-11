@@ -12,7 +12,7 @@ import { useLayoutState } from './useLayout';
 import { useProject } from '../../contexts/ProjectContext';
 import apiClient from '../../lib/api-client';
 import {
-  Folder, FileText, ChevronRight, ChevronDown, CheckCircle, Loader, RefreshCw, Plus, FileUp, FolderUp,
+  Folder, FileText, ChevronRight, ChevronDown, CheckCircle, Loader, RefreshCw, Plus, FileUp, FolderUp, MessagesSquare,
 } from 'lucide-react';
 
 /* ── Types ────────────────────────────────────────────── */
@@ -114,7 +114,7 @@ function buildFolderTree(docs: Document[]): { folders: FolderNode[]; ungrouped: 
 
 export default function KnowledgeSidebar() {
   const t = useLayoutTokens();
-  const { openTab } = useLayoutState();
+  const { openTab, setRightPanelTab, openRightPanel } = useLayoutState();
   const { activeProjectId, activeProject, projects, setActiveProjectId } = useProject();
 
   const [folderTree, setFolderTree] = useState<FolderNode[]>([]);
@@ -176,6 +176,12 @@ export default function KnowledgeSidebar() {
       data: { folderPath, projectId },
     });
   }, [openTab, projectId]);
+
+  /** Open Doc Chat in the right panel — sits aside the doc viewer, not in its place */
+  const handleOpenDocPlayground = useCallback(() => {
+    setRightPanelTab('doc-chat');
+    openRightPanel('');
+  }, [setRightPanelTab, openRightPanel]);
 
   /** Open a document view with chat, scoped to the doc's containing folder */
   const handleOpenDoc = useCallback((doc: Document) => {
@@ -453,6 +459,20 @@ export default function KnowledgeSidebar() {
           Knowledge Base
         </span>
         <div style={{ display: 'flex', gap: 2 }}>
+          <button
+            onClick={handleOpenDocPlayground}
+            title="Doc Playground — chat with the knowledge base"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 22, height: 22,
+              border: 'none', background: 'transparent', color: t.accent,
+              cursor: 'pointer', borderRadius: 3,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = t.bgHover; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <MessagesSquare size={13} />
+          </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             title="Upload files"

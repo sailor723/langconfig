@@ -32,7 +32,7 @@ class LocalModelConfig:
     base_url: str
     model_name: str
     api_key: Optional[str]
-    timeout: int = 60
+    timeout: int = 600
     capabilities: dict = None
 
     def to_chatmodel_params(self) -> Dict[str, any]:
@@ -157,7 +157,7 @@ class LocalModelService:
                 base_url=local_model.base_url,
                 model_name=local_model.model_name,
                 api_key=api_key,
-                timeout=60,
+                timeout=600,
                 capabilities=local_model.capabilities or {}
             )
 
@@ -299,7 +299,7 @@ def get_legacy_local_model(db: Session) -> Optional[LocalModelConfig]:
         base_url=app_settings.local_llm_base_url,
         model_name=app_settings.local_llm_model,
         api_key=app_settings.local_llm_api_key,
-        timeout=60
+        timeout=600
     )
 
 
