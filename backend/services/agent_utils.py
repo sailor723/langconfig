@@ -167,6 +167,138 @@ def validate_agent_config(agent_config: Dict[str, Any]) -> List[str]:
 # LLM Creation
 # =============================================================================
 
+def local_model_extra_body(local_config) -> Optional[Dict[str, Any]]:
+    """Extra request body for local OpenAI-compatible chat calls.
+
+    Qwen3-series models served by Ollama enable a long "thinking" phase by
+    default; those reasoning tokens can stall clients and even exceed the
+    request timeout before the first real answer token arrives. Passing
+    `think: false` skips that phase entirely. Non-reasoning models (e.g.
+    gemma4) ignore the flag harmlessly, so this only fires for the family
+    that actually supports the toggle.
+
+    Args:
+        local_config: LocalModelConfig for the model being created.
+
+    Returns:
+        Extra body dict, or None when no override applies.
+    """
+    if getattr(local_config, "provider", "") != "ollama":
+        return None
+    name = (getattr(local_config, "model_name", "") or "").lower()
+    if name.startswith("qwen3") or name.startswith("qwq"):
+        return {"think": False}
+    return None
+
+
+def is_ollama_reasoning_model(local_config) -> bool:
+    """Whether an Ollama model supports (and should keep) its thinking phase.
+
+    Qwen3/QwQ-family models serve reasoning natively; keeping it ON lets the
+    chain-of-thought be captured into `additional_kwargs["reasoning_content"]`
+    and shown in the UI. Other Ollama models don't support thinking, so the
+    flag is left off (Ollama ignores it harmlessly either way).
+    """
+    if getattr(local_config, "provider", "") != "ollama":
+        return False
+    name = (getattr(local_config, "model_name", "") or "").lower()
+    return name.startswith("qwen3") or name.startswith("qwq")
+
+
+# Token budget reserved for a reasoning model's chain-of-thought so the final
+# answer is not starved out by the thinking phase.
+REASONING_HEADROOM_TOKENS = 8192
+
+# Minimum context window served to Ollama models (128K). Reasoning models eat
+# a large share of it during thinking, so the context must be sized generously.
+OLLAMA_CONTEXT_TOKENS = 131072
+
+
+def ollama_num_predict(max_tokens: Optional[int], reasoning: bool) -> Optional[int]:
+    """Map a max_tokens budget to Ollama `num_predict`.
+
+    With reasoning enabled the chain-of-thought counts against the output
+    budget; without headroom a small `max_tokens` is fully consumed by
+    thinking and the final answer comes back empty. The result is capped at
+    the Ollama context window (`num_ctx`), which also bounds output.
+
+    Args:
+        max_tokens: Requested output token cap (None = model default).
+        reasoning: Whether thinking mode is enabled for this model.
+
+    Returns:
+        Ollama num_predict value (None keeps the model default).
+    """
+    if max_tokens is None:
+        return None
+    budget = max_tokens + (REASONING_HEADROOM_TOKENS if reasoning else 0)
+    return min(budget, OLLAMA_CONTEXT_TOKENS)
+
+
+def normalize_ollama_base_url(base_url: Optional[str]) -> str:
+    """Strip any path (typically `/v1`) from a local endpoint URL.
+
+    The DB stores OpenAI-compatible URLs (`http://localhost:11434/v1`), but
+    ChatOllama speaks the native `/api/chat` protocol on the host root, so the
+    trailing path must be dropped or every request would hit a 404.
+    """
+    from urllib.parse import urlsplit, urlunsplit
+
+    parts = urlsplit(base_url or "")
+    if not parts.scheme:
+        return base_url or ""
+    return urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+
+
+def build_local_chat_model(
+    local_config,
+    temperature: float,
+    max_tokens: Optional[int],
+    streaming: bool = True,
+) -> BaseChatModel:
+    """Create a chat model for a locally-hosted model.
+
+    Ollama models are built with ChatOllama (native `/api/chat`) because the
+    OpenAI-compatible `/v1` shim used by ChatOpenAI drops `reasoning_content`
+    — the model's thinking output. ChatOllama preserves it (when `reasoning`
+    is enabled) in `additional_kwargs["reasoning_content"]`. Other local
+    providers (LM Studio, vLLM, ...) keep the OpenAI-compatible client.
+
+    Args:
+        local_config: LocalModelConfig for the model being created.
+        temperature: Generation temperature.
+        max_tokens: Maximum tokens to generate (maps to Ollama `num_predict`).
+        streaming: Request streaming mode (OpenAI-compatible providers only).
+
+    Returns:
+        Configured chat model instance.
+    """
+    if getattr(local_config, "provider", "") == "ollama":
+        from langchain_ollama import ChatOllama
+
+        reasoning = is_ollama_reasoning_model(local_config)
+        return ChatOllama(
+            model=local_config.model_name,
+            base_url=normalize_ollama_base_url(local_config.base_url),
+            temperature=temperature,
+            num_ctx=OLLAMA_CONTEXT_TOKENS,
+            num_predict=ollama_num_predict(max_tokens, reasoning),
+            reasoning=reasoning,
+            client_kwargs={"timeout": local_config.timeout},
+        )
+
+    return ChatOpenAI(
+        model=local_config.model_name,
+        base_url=local_config.base_url,
+        api_key=local_config.api_key or "not-needed",
+        temperature=temperature,
+        max_tokens=max_tokens,
+        streaming=streaming,
+        timeout=local_config.timeout,
+        extra_body=local_model_extra_body(local_config),
+    )
+
+
 async def resolve_model(
     model_name: str,
     temperature: float,
@@ -242,14 +374,11 @@ async def resolve_model(
                 "Configure it in Settings > Local Models and test the connection."
             )
         logger.info(f"✓ Creating local model: {local_config.model_name} via {local_config.provider} at {local_config.base_url}")
-        return ChatOpenAI(
-            model=local_config.model_name,
-            base_url=local_config.base_url,
-            api_key=local_config.api_key or "not-needed",
+        return build_local_chat_model(
+            local_config,
             temperature=temperature,
             max_tokens=max_tokens,
             streaming=streaming,
-            timeout=local_config.timeout
         )
 
     # --- Standard Providers via init_chat_model ---

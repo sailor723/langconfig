@@ -31,6 +31,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from config import settings
+from services.agent_utils import resolve_model
 from services.file_storage import file_storage
 
 logger = logging.getLogger(__name__)
@@ -86,6 +87,10 @@ class DocChatRequest(BaseModel):
         None, description="Existing conversation id for multi-turn. Omit to start new."
     )
     temperature: float = Field(0.0, ge=0.0, le=2.0)
+    max_tokens: Optional[int] = Field(
+        None, ge=1, le=1_000_000,
+        description="Maximum output tokens. Defaults to the model's own default.",
+    )
     max_context_chars: int = Field(
         MAX_CONTEXT_CHARS, ge=10_000, le=1_000_000,
         description="Max characters of document text to include in context",
@@ -183,88 +188,20 @@ def _scan_folder_sync(folder_path: str, project_id: int, max_files: int = MAX_FI
 
 # ── LLM helpers ──────────────────────────────────────────────────────────
 
-# Provider → env var key mapping
-PROVIDER_API_KEY_MAP: Dict[str, str] = {
-    "openai": "openai_api_key",
-    "deepseek": "deepseek_api_key",
-    "anthropic": "anthropic_api_key",
-    "google": "google_api_key",
-    "agnes": "agnes_api_key",
-    "minimax": "minimax_api_key",
-    "kimi": "kimi_api_key",
-    "qwen": "qwen_api_key",
-    "glm": "glm_api_key",
-}
+async def _resolve_llm(request: DocChatRequest):
+    """Create the chat model for a doc-chat request.
 
-# Provider → base URL mapping for OpenAI-compatible providers
-PROVIDER_BASE_URL_MAP: Dict[str, str] = {
-    "deepseek": "https://api.deepseek.com",
-    "agnes": "https://apihub.agnes-ai.com/v1",
-    "minimax": "https://api.minimax.chat/v1",
-    "glm": "https://open.bigmodel.cn/api/paas/v4/",
-}
-
-
-def _create_llm(model_name: Optional[str] = None):
-    """Create a LangChain ChatOpenAI instance for the given model.
-
-    Resolves model → provider → API key from config (env vars).
-    Falls back to settings.default_model if no model specified.
+    Routes through the app's shared model resolution (services.agent_utils)
+    so Doc Chat honors the same LLM settings as everywhere else: DB-stored
+    API keys, local Ollama models served with the 128K context window, etc.
     """
-    from langchain_openai import ChatOpenAI
-
-    resolved_model = model_name or settings.default_model or "deepseek-chat"
-    api_key = None
-    base_url = None
-
-    # Determine provider from model name prefix
-    provider_prefixes = {
-        "deepseek": "deepseek",
-        "gpt": "openai",
-        "o1": "openai",
-        "o3": "openai",
-        "claude": "anthropic",
-        "gemini": "google",
-        "agnes": "agnes",
-        "minimax": "minimax",
-        "kimi": "kimi",
-        "qwen": "qwen",
-        "glm": "glm",
-    }
-
-    provider = None
-    for prefix, prov in provider_prefixes.items():
-        if resolved_model.lower().startswith(prefix):
-            provider = prov
-            break
-
-    if provider:
-        key_attr = PROVIDER_API_KEY_MAP.get(provider)
-        if key_attr:
-            api_key = getattr(settings, key_attr, None)
-        base_url = PROVIDER_BASE_URL_MAP.get(provider)
-
-    # If we have an API key, use ChatOpenAI directly
-    if api_key:
-        kwargs: Dict[str, Any] = {
-            "model": resolved_model,
-            "api_key": api_key,
-            "temperature": 0.0,
-        }
-        if base_url:
-            kwargs["base_url"] = base_url
-
-        return ChatOpenAI(**kwargs)
-
-    # Fallback: try LangChain's init_chat_model
-    try:
-        from langchain.chat_models import init_chat_model
-        return init_chat_model(model=resolved_model, temperature=0.0)
-    except Exception:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Could not create LLM for model '{resolved_model}'. Check API key is configured in .env.",
-        )
+    model_name = request.model or settings.default_model or "deepseek-chat"
+    return await resolve_model(
+        model_name,
+        temperature=request.temperature,
+        max_tokens=request.max_tokens,
+        config={"streaming": True},
+    )
 
 
 # ── Streaming endpoint ───────────────────────────────────────────────────
@@ -362,7 +299,7 @@ async def doc_chat(request: DocChatRequest):
 
         user_message = request.messages[-1].content if request.messages else ""
         assistant_response = ""
-        llm = _create_llm(request.model)
+        llm = await _resolve_llm(request)
 
         async def event_generator() -> AsyncGenerator[str, None]:
             nonlocal assistant_response
@@ -447,6 +384,22 @@ async def list_doc_chat_folders(project_id: int = 1):
 
     sorted_folders = sorted(folders)
     return {"folders": sorted_folders, "total": len(sorted_folders)}
+
+
+# ── Source-code endpoint ────────────────────────────────────────────────
+
+@router.get("/code")
+async def get_doc_chat_code():
+    """Return the source of this doc-chat module.
+
+    Powers the "View code" action in the Doc Chat panel so users can inspect
+    exactly how the folder-scoped Q&A pipeline is implemented.
+    """
+    try:
+        code = Path(__file__).read_text(encoding="utf-8")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not read source: {e}")
+    return {"file": "doc_chat.py", "code": code}
 
 
 # ── History endpoints ────────────────────────────────────────────────────

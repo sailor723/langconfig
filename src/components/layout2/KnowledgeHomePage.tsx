@@ -8,7 +8,8 @@
  */
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
-import { Database, FileUp, FolderUp, FileText, Search, ArrowRight } from 'lucide-react';
+import { useLayoutState } from './useLayout';
+import { Database, FileUp, FolderUp, FileText, Search, ArrowRight, MessagesSquare } from 'lucide-react';
 
 function useContent() {
   const { i18n } = useTranslation();
@@ -72,6 +73,13 @@ function StepCard({ icon: Icon, title, desc, accent }: { icon: typeof FileUp; ti
 export default function KnowledgeHomePage() {
   const t = useLayoutTokens();
   const c = useContent();
+  const { setRightPanelTab, openRightPanel } = useLayoutState();
+
+  /** Open Doc Chat in the right panel — sits aside the doc viewer, not in its place */
+  const openDocPlayground = () => {
+    setRightPanelTab('doc-chat');
+    openRightPanel('');
+  };
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: '40px 48px' }}>
@@ -88,6 +96,29 @@ export default function KnowledgeHomePage() {
         </div>
         <p style={{ fontSize: 14, color: t.textPrimary, lineHeight: 1.8, margin: '0 0 8px', maxWidth: 720 }}>{c.heroP1}</p>
         <p style={{ fontSize: 13, color: t.textMuted, lineHeight: 1.7, margin: 0, maxWidth: 720 }}>{c.heroP2}</p>
+
+        {/* ── Doc Playground CTA ─────────────────────── */}
+        <button
+          onClick={openDocPlayground}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            marginTop: 16,
+            padding: '8px 16px',
+            border: 'none',
+            borderRadius: 8,
+            background: t.accent,
+            color: '#fff',
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+          }}
+        >
+          <MessagesSquare size={15} />
+          Open Doc Playground
+        </button>
       </div>
 
       {/* ── How it works ─────────────────────────────── */}

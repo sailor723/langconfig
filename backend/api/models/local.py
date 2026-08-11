@@ -72,6 +72,7 @@ class LocalModelUpdate(BaseModel):
     model_name: Optional[str] = None
     api_key: Optional[str] = None
     tags: Optional[List[str]] = None
+    capabilities: Optional[dict] = None
 
     @validator('base_url')
     def validate_base_url(cls, v):
@@ -356,6 +357,13 @@ async def update_local_model(
 
     if model_data.tags is not None:
         model.tags = model_data.tags
+
+    if model_data.capabilities is not None:
+        # Merge — keep capability flags (streaming/tools/...) and only replace
+        # the fields the client explicitly sends (e.g. max_context).
+        caps = dict(model.capabilities or {})
+        caps.update(model_data.capabilities)
+        model.capabilities = caps
 
     # Reset validation if connection details changed
     if connection_changed:

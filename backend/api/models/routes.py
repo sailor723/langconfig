@@ -57,6 +57,7 @@ class ModelInvokeResponse(BaseModel):
     usage: Optional[dict] = None
     model: str
     tool_calls: Optional[list[ToolCallLog]] = None
+    reasoning_content: Optional[str] = None
 
 
 def _get_settings_row(db: Session) -> SettingsModel:
@@ -161,6 +162,7 @@ def _create_llm_for_playground(
         for provider in ["ollama", "lmstudio", "vllm", "litellm"]
     ):
         from services.local_model_service import LocalModelService
+        from services.agent_utils import build_local_chat_model
 
         local_config = LocalModelService.get_local_model_config(resolved_model_name)
         if not local_config:
@@ -171,14 +173,11 @@ def _create_llm_for_playground(
                     "Configure it in Settings > Local Models."
                 ),
             )
-        return ChatOpenAI(
-            model=local_config.model_name,
-            base_url=local_config.base_url,
-            api_key=local_config.api_key or "not-needed",
+        return build_local_chat_model(
+            local_config,
             temperature=temperature,
             max_tokens=max_tokens,
             streaming=streaming,
-            timeout=local_config.timeout,
         )
 
     if not model_row:
@@ -521,6 +520,11 @@ async def model_invoke(request: ModelInvokeRequest, db: Session = Depends(get_db
             usage=usage_meta,
             model=resolved_model_name,
             tool_calls=tool_call_log or None,
+            reasoning_content=(
+                response.additional_kwargs.get("reasoning_content")
+                if getattr(response, "additional_kwargs", None)
+                else None
+            ),
         )
 
     except HTTPException:

@@ -37,9 +37,15 @@ const SIDEBAR_MIN_WIDTH = 240;
 const SIDEBAR_MAX_WIDTH = 800;
 
 export default function NodeSidebar({ children, onClose }: NodeSidebarProps) {
-  const { rightPanelOpen, rightPanelContent, closeRightPanel, rightPanelWidth, setRightPanelWidth } = useLayoutState();
+  const { rightPanelOpen, rightPanelContent, rightPanelTab, closeRightPanel, rightPanelWidth, setRightPanelWidth } = useLayoutState();
   const t = useLayoutTokens();
   const [localTab, setLocalTab] = useState<'chat' | 'properties' | 'doc-chat'>('chat');
+
+  // External tab requests (e.g. the "Doc Playground" button in the Knowledge
+  // sidebar) switch this panel's active tab programmatically.
+  useEffect(() => {
+    setLocalTab(rightPanelTab);
+  }, [rightPanelTab]);
 
   // Resize drag (drag from the LEFT edge of the sidebar to resize wider/narrower)
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
