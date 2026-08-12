@@ -1447,3 +1447,128 @@ tool works transparently against the DB.
 | How do I stop a run?          | Chat **Stop** button → `POST /threads/{id}/runs/cancel` (next SSE event boundary)                              |
 | Where do exported files land? | `backend/outputs/exports/*.py` (or download zip from `/export`)                                                   |
 | Where do artifacts persist?   | `services/storage/` `StorageBackend` seam — `local` (disk) \| `db` (Postgres BYTEA) \| `s3` (object store) |
+
+---
+
+# Installation & Setup (WSL2 / Ubuntu)
+
+LangConfig runs as two processes — a **FastAPI backend** (:8765) and a **Vite/React frontend** (:1421) — plus a **native PostgreSQL 16 + pgvector** instance (host port **5432**). The instructions below are written for **WSL2 + Ubuntu** (22.04/24.04) and use a native Postgres install — no Docker required.
+
+## 1. Prerequisites
+
+| Requirement | Version / Install |
+|---|---|
+| WSL2 + Ubuntu | `wsl --install` (Windows), then `wsl --install -d Ubuntu-24.04` |
+| Python | **3.13** (`backend/.python-version`, `pyproject.toml` `requires-python = ">=3.13"`) |
+| Node.js | **20.19+** (Vite 7 requirement) — install via `nvm` |
+| uv | Python package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| PostgreSQL 16 + pgvector | Native apt install (see step 3) — no Docker needed |
+| Git / build tools | `sudo apt install -y git build-essential` |
+
+Install Python 3.13 (Ubuntu ships 3.12) and Node:
+
+```bash
+# Python 3.13 via deadsnakes PPA
+sudo add-apt-repository ppa:deadsnakes/ppa -y && sudo apt update
+sudo apt install -y python3.13 python3.13-venv python3.13-dev
+
+# Node via nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+nvm install 22
+```
+
+## 2. Clone & configure environment
+
+```bash
+git clone <repo-url> && cd langconfig
+cp .env.example .env
+```
+
+Edit `.env` minimally:
+
+- Set your LLM keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (default provider is Anthropic, `DEFAULT_MODEL=claude-haiku-4-5`)
+- Replace the two security placeholders (they must be **different** 64-hex strings):
+  ```bash
+  openssl rand -hex 32   # run twice → SECRET_KEY, API_KEY_ENCRYPTION_KEY
+  ```
+- `DATABASE_URL` must point at the native Postgres on **5432** (the `.env.example` default uses 5433, which was the Docker mapping). Set:
+  ```
+  DATABASE_URL=postgresql://langconfig:langconfig_dev@localhost:5432/langconfig
+  POSTGRES_PORT=5432
+  ```
+- Optional: `MINIMAX_API_KEY` + `NEO4J_*` (only needed for Phase 9 graphindex tools); `LOCAL_LLM_HOST` (Ollama)
+
+## 3. Install PostgreSQL 16 + pgvector (native, no Docker)
+
+Add the official PGDG apt repo — this gives you Postgres **16** plus the `pgvector` extension (pgvector is missing from Ubuntu 22.04's default repos):
+
+```bash
+sudo apt install -y curl ca-certificates gnupg lsb-release
+curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/pgdg.gpg
+echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+sudo apt update
+sudo apt install -y postgresql-16 postgresql-16-pgvector
+```
+
+Start the cluster (WSL2 has **no systemd by default** — use `service`, not `systemctl`):
+
+```bash
+sudo service postgresql start
+sudo pg_isready          # expect "accepting connections" on :5432
+```
+
+Create the app role + databases (must match the credentials in `.env`), then run the bootstrap script:
+
+```bash
+sudo -u postgres psql <<'SQL'
+CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev';
+CREATE DATABASE langconfig OWNER langconfig;
+CREATE DATABASE langconfig_test OWNER langconfig;   -- only needed if you run pytest
+SQL
+
+sudo -u postgres psql -d langconfig -f backend/db/init_postgres.sql
+```
+
+> **Note:** `init_postgres.sql` only enables pgvector and creates a legacy `vector_documents` table — the real schema comes from Alembic (`uv run alembic upgrade head`) in step 4.
+
+(Optional) Native Redis, only if you want caching/locking — `sudo apt install redis-server && sudo service redis-server start`
+
+## 4. Backend
+
+```bash
+cd backend
+uv sync            # installs exact versions from pyproject.toml / uv.lock
+uv run alembic upgrade head   # apply migrations
+uv run python main.py         # FastAPI on http://localhost:8765
+```
+
+Verify the API: `http://localhost:8765/docs` (Swagger) or `http://localhost:8765/health`.
+
+> On first startup the app also syncs `backend/skills/` (SKILL.md files) into the DB, so don't be surprised by log output about skills.
+
+## 5. Frontend
+
+```bash
+# from the repo root
+npm install
+npm run dev        # Vite on http://localhost:1421
+```
+
+Open **http://localhost:1421** in the Windows browser. WSL2 automatically forwards localhost, so no extra networking setup is needed. If you must reach it from another machine, use the WSL IP: `wsl hostname -I`.
+
+## 6. Optional extras
+
+- **Ollama** (local LLMs/embeddings): install inside WSL, keep `LOCAL_LLM_HOST=http://localhost:11434`; pull models such as `llama3.2`, `nomic-embed-text`, `gemma4` (used by graphindex routing)
+- **Playwright** (screenshots / notebook tools): `cd backend && uv run playwright install chromium`
+- **Production frontend build**: `npm run build` (outputs to `dist/`)
+
+## 7. WSL troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `connect: connection refused` on 5432 | Postgres not running — `sudo service postgresql start`, then `sudo pg_isready` |
+| Password authentication failed | Confirm `.env` `DATABASE_URL` uses **5432** and the role/password were created in step 3 (`langconfig` / `langconfig_dev`) |
+| Slow `uv sync` | A fresh venv is created in `backend/.venv`; re-running after code changes is incremental. dspy is intentionally **not** a dependency (slow to build/install) |
+| Backend :8765 unreachable | Backend must be running inside WSL; from Windows use `http://localhost:8765` |
+| OOM during npm/uv install | WSL2 default memory cap too low — bump `.wslconfig` `memory=8GB` + restart `wsl --shutdown` |
+| Alembic "target database is not up to date" | Re-run `uv run alembic upgrade head` after a fresh DB (drop & recreate `langconfig`, then re-run `init_postgres.sql` and migrate) |

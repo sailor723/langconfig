@@ -85,8 +85,8 @@ dependencies = [
     "markdownify>=1.2.3",
     "nbformat>=5.10.4",
     "jupyter-client>=8.9.1",
-    "dspy>=2.6,<3",
     "litellm==1.91.4",
+    "langchain-ollama>=1.1.0",
 ]
 
 [dependency-groups]

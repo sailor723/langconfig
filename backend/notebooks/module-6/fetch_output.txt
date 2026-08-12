@@ -1,5 +1,0 @@
-import httpx
-r = httpx.get("https://docs.langchain.com/llms.txt", follow_redirects=True, timeout=30)
-print(f"Status: {r.status_code}, Length: {len(r.text)}")
-# Print first 3000 chars
-print(r.text[:3000])

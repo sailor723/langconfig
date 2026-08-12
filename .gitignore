@@ -17,6 +17,7 @@ backend/data/documents/**
 
 # Build artifacts
 dist/
+dist-preview/
 build/
 src-tauri/target/
 
