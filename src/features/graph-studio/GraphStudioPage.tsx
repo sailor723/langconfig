@@ -6,7 +6,10 @@
  */
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
+import { Eye } from 'lucide-react';
+import CodeViewerModal from '../../components/layout2/CodeViewerModal';
 import { studio, useStudioState } from './studioStore';
+import { api } from './api';
 import { GraphCanvas } from './GraphCanvas';
 import RunConsole from './RunConsole';
 import Inspector from './Inspector';
@@ -49,6 +52,19 @@ export default function GraphStudioPage() {
 
   const active = assistants.find((a) => a.assistant_id === activeAssistantId);
 
+  // ── "View code" popup (the assistant's graph module source) ──
+  const [codeModal, setCodeModal] = useState<{ filename: string; code: string } | null>(null);
+
+  const handleViewCode = async () => {
+    if (!active) return;
+    try {
+      const code = await api.loadAssistantCode(active.assistant_id);
+      setCodeModal({ filename: `${active.graph_id}.py`, code });
+    } catch (err) {
+      console.error('[GraphStudioPage] View code error:', err);
+    }
+  };
+
   return (
     <div
       style={{
@@ -85,7 +101,30 @@ export default function GraphStudioPage() {
             running
           </span>
         )}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: t.textDim }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, color: t.textDim }}>
+          {/* View the assistant's graph module source (same as the agent editors) */}
+          <button
+            onClick={handleViewCode}
+            disabled={!active}
+            title={active ? `View ${active.graph_id}.py` : 'No assistant selected'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              height: 22,
+              padding: '0 8px',
+              background: 'transparent',
+              color: t.textPrimary,
+              border: `1px solid ${t.border}`,
+              borderRadius: 3,
+              fontSize: 11,
+              cursor: active ? 'pointer' : 'not-allowed',
+              opacity: active ? 1 : 0.5,
+            }}
+          >
+            <Eye size={11} />
+            View code
+          </button>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: apiOnline ? '#4caf50' : '#e5484d' }} />
           {apiOnline ? 'connected' : 'offline'}
         </div>
@@ -127,6 +166,14 @@ export default function GraphStudioPage() {
           </div>
         </aside>
       </div>
+
+      {codeModal && (
+        <CodeViewerModal
+          filename={codeModal.filename}
+          code={codeModal.code}
+          onClose={() => setCodeModal(null)}
+        />
+      )}
     </div>
   );
 }

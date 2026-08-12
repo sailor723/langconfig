@@ -12,12 +12,15 @@ function inside a script and was effectively dead code. We extract it to
 module level so we can call it from anywhere, and we swap the LLM to
 MiniMax M3 (consistent with dv_chat.py).
 
-Commands:
+Commands (query side moved to index_query.py):
   --show <name>           Dump the current node + enrichment for one doc
+  --wipe-graph            Empty the Neo4j graph (Document + Entity nodes) for a project
   --rebuild-one <name>    Rebuild enrichment for one doc (LLM call)
   --rebuild-project       Rebuild enrichment for every Document node (LLM call)
-  --query <text>          Run choose_best_document_match on a query
-  --no-llm                Skip enrichment, only show / query
+  --build-graph           Rebuild the entity graph layer (Entity nodes + MENTIONS edges)
+  --build-embeddings      Embed each Document node's routing blob (doc_embedding index)
+  --build-entity-embeddings  Embed each Entity node's blob (entity_embedding index)
+  --list / --ingest / --ingest-folder / --remove / --remove-folder / --purge / --show-agent
 """
 from __future__ import annotations
 
@@ -30,7 +33,7 @@ import shutil
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from dotenv import load_dotenv
 
@@ -52,9 +55,8 @@ from services.neo4j_document_index import (  # noqa: E402
     Neo4jDocumentEnrichment,
     Neo4jDocumentIndex,
     build_document_node_properties,
-    build_project_scope_names,
-    choose_best_document_match,
 )
+from services.neo4j_embedding_matcher import Neo4jEmbeddingMatcher  # noqa: E402
 
 from db.database import SessionLocal
 from models.core import ContextDocument, DocumentType, IndexingStatus
@@ -68,6 +70,127 @@ from pydantic import BaseModel, Field  # noqa: E402
 _DOCS_BASE = REPO_ROOT / "backend/data/documents"
 _SUPPORTED_EXTS = {".pdf", ".md", ".markdown", ".txt", ".json"}
 _PROJECT_ID = int(os.getenv("GRAPHINDEX_DEFAULT_PROJECT_ID", "1"))
+
+
+# --- Ontology source (single source of truth: .Codex/docs/graphindex-ontology.md) ---
+# The md is parsed at import time into the controlled vocabularies below. The
+# Pydantic schemas, the normalization map, and the prompt blocks are all built
+# from ONTOLOGY, so changing a vocabulary is a one-file edit. A built-in
+# fallback keeps the module importable if the md is missing or unparseable.
+
+_ONTOLOGY_MD = REPO_ROOT / ".Codex" / "docs" / "graphindex-ontology.md"
+
+_ONTOLOGY_FALLBACK = {
+    "entity_type": [
+        "Organization", "Industry", "Person", "Product", "Brand",
+        "Geography", "Metric", "Department", "Concept",
+    ],
+    "role": ["subject", "competitor", "partner", "author", "source", "market", "other"],
+    "genre": [
+        "company_analysis", "industry_analysis", "comparison", "survey", "dossier",
+        "strategic_framework", "financial_data", "source_document", "filing",
+        "dashboard", "other",
+    ],
+    "primary_subject": [
+        "economy_business_finance", "science_technology", "labour", "environment",
+        "health", "education", "society", "politics", "other",
+    ],
+    "question_types": [
+        "factual", "financial_metric", "comparison", "trend_analysis",
+        "customer_support", "regulatory", "strategy_recommendation", "other",
+    ],
+}
+
+
+def _md_table_values(text: str, header: str) -> list[str]:
+    """Collect first-column backticked tokens from a markdown table."""
+    start = text.find(header)
+    if start < 0:
+        return []
+    lines = text[start:].splitlines()
+    # Skip the header row and its "|---|---|" separator before data rows.
+    for i, line in enumerate(lines):
+        if line.startswith("|") and "---" in line and i > 0:
+            lines = lines[i + 1:]
+            break
+    values: list[str] = []
+    for line in lines:
+        if not line.startswith("|"):
+            if values:
+                break  # table ended
+            continue
+        m = re.search(r"`([a-zA-Z][a-zA-Z0-9_]*)`", line)
+        if m and m.group(1) not in values:
+            values.append(m.group(1))
+    return values
+
+
+def _md_brace_values(text: str) -> list[str]:
+    """Parse the `` `role` ∈ `{a, b, c}` `` idiom."""
+    m = re.search(r"`\{([^}`]+)\}`", text)
+    if not m:
+        return []
+    return [t.strip() for t in m.group(1).split(",") if t.strip()]
+
+
+def _md_inline_values(text: str, section: str) -> list[str]:
+    """Collect backticked snake_case tokens from a markdown section.
+
+    Handles the `` `value1` · `value2` ... `` idiom, possibly wrapped over
+    multiple lines. Stops at the next level-2/3 heading so later sections
+    don't leak in.
+    """
+    start = text.find(section)
+    if start < 0:
+        return []
+    body = text[start:]
+    m = re.search(r"\n(?=#{2,3} )", body)
+    if m:
+        body = body[:m.start()]
+    return list(dict.fromkeys(re.findall(r"`([a-z][a-z0-9_]*)`", body)))
+
+
+def load_ontology() -> dict[str, list[str]]:
+    """Parse the controlled vocabularies from the ontology md.
+
+    Falls back to _ONTOLOGY_FALLBACK per-field when the md is missing,
+    unparseable, or a section is not found.
+    """
+    try:
+        text = _ONTOLOGY_MD.read_text(encoding="utf-8")
+        parsed = {
+            "entity_type": _md_table_values(text, "| `entity_type` |"),
+            "role": _md_brace_values(text),
+            "genre": _md_inline_values(text, "### 2.1 genre"),
+            "primary_subject": _md_inline_values(text, "### 2.2 primary_subject"),
+            "question_types": _md_inline_values(text, "### 2.4 question_types"),
+        }
+    except Exception as e:
+        sys.stderr.write(f"WARNING: failed to read ontology md {_ONTOLOGY_MD}: {e}\n")
+        return dict(_ONTOLOGY_FALLBACK)
+    return {
+        field: (values if values else _ONTOLOGY_FALLBACK[field])
+        for field, values in parsed.items()
+    }
+
+
+ONTOLOGY = load_ontology()
+
+# Dynamic Literal types — rebuilt whenever the md vocabulary changes.
+EntityType = Literal[tuple(ONTOLOGY["entity_type"])]
+Role = Literal[tuple(ONTOLOGY["role"])]
+Genre = Literal[tuple(ONTOLOGY["genre"])]
+PrimarySubject = Literal[tuple(ONTOLOGY["primary_subject"])]
+QuestionType = Literal[tuple(ONTOLOGY["question_types"])]
+
+
+def _ontology_prompt_block() -> str:
+    """Render the controlled vocabularies for the enrichment prompt."""
+    return "\n".join(
+        f"- {field}: {', '.join(ONTOLOGY[field])}"
+        for field in ("entity_type", "role", "genre", "primary_subject", "question_types")
+    )
+
 
 
 # --- Document loading (lifted from scripts/test_neo4j_document_kv_roundtrip.py) -
@@ -190,6 +313,46 @@ class FewShotExample(BaseModel):
     answer_hint: str = Field(default="")
 
 
+class DocumentEntity(BaseModel):
+    """Typed noun entity mentioned in the document (docs/graphindex-ontology.md).
+
+    entity_type and role are controlled vocabularies loaded from the
+    ontology md (ONTOLOGY) at import time; the LLM must pick from them
+    (unknown values normalize to the fallback in the parser).
+    """
+    name: str = Field(..., min_length=1, max_length=100,
+                      description="Exact surface form of the entity as it appears in the document.")
+    entity_type: EntityType = Field(..., description="Controlled entity type (see ontology spec).")
+    role: Role = Field(default="other", description="Entity's role relative to the document.")
+
+
+class DocumentCategories(BaseModel):
+    """Controlled categorization of the document (docs/graphindex-ontology.md).
+
+    genre / primary_subject / question_types are controlled vocabularies
+    loaded from the ontology md (ONTOLOGY) at import time.
+    """
+    genre: Genre = Field(..., description="Document kind.")
+    primary_subject: PrimarySubject = Field(
+        ..., description="IPTC Media Topics-aligned top-level subject.")
+    subjects: List[str] = Field(
+        default_factory=list, max_length=5,
+        description="Level-2 topics (e.g. financial performance, market position, "
+                    "product portfolio, technology & innovation, operations, "
+                    "strategy, organization, regulatory, transformation).",
+    )
+    question_types: List[QuestionType] = Field(
+        default_factory=list, max_length=3,
+        description="Kinds of questions this document can answer.",
+    )
+    financial_metrics: List[str] = Field(
+        default_factory=list, max_length=10,
+        description="IFRS/XBRL-aligned metric concepts (revenue, operating_profit, "
+                    "net_income, ebitda_margin, current_assets, net_cash_flow, cagr, ...). "
+                    "Only when the document is finance-related; empty otherwise.",
+    )
+
+
 class DocumentEnrichmentOutput(BaseModel):
     what_this_document_is_about: str = Field(
         default="",
@@ -199,12 +362,156 @@ class DocumentEnrichmentOutput(BaseModel):
         default_factory=list,
         description="Natural-language questions this document can answer.",
     )
-    out_of_scope: List[str] = Field(
-        default_factory=list,
-        description="Topics this document does NOT cover (include names of other "
-                    "project documents that handle those topics).",
-    )
     few_shot: List[FewShotExample] = Field(default_factory=list)
+    # Ontology enrichment (docs/graphindex-ontology.md)
+    entities: List[DocumentEntity] = Field(
+        default_factory=list, max_length=20,
+        description="Typed noun entities mentioned in the document.",
+    )
+    categories: DocumentCategories = Field(
+        default_factory=DocumentCategories,
+        description="Controlled categorization (genre, subjects, question types, "
+                    "financial metrics).",
+    )
+    tags: List[str] = Field(
+        default_factory=list, max_length=10,
+        description="Document-level tags derived from the top entities and key "
+                    "topics; lowercase, no standalone dates/numbers.",
+    )
+
+
+# --- Controlled-vocabulary normalization --------------------------------------
+# "Controlled + LLM maps" (docs/graphindex-ontology.md): the LLM occasionally
+# invents enum members or malformed shapes. Coerce them to the safe fallback
+# instead of failing the whole node.
+
+# Fallbacks are derived from ONTOLOGY so they stay in sync with the md:
+# 'Concept' is the catch-all entity type, 'other' the catch-all elsewhere.
+_ENTITY_TYPE_FALLBACK = ONTOLOGY["entity_type"][-1]
+_OTHER_FALLBACK = "other"
+
+
+def _canonical_map(values: list[str]) -> dict[str, str]:
+    """Map lowercase keys to canonical members, preserving original casing.
+
+    entity_type members are PascalCase (FIBO-style names), the rest are
+    lowercase snake; keying by lowercase lets _coerce_enum match
+    case-insensitively while still returning the canonical form.
+    """
+    return {value.lower(): value for value in values}
+
+
+# Canonical (schema-facing) members per field, keyed by their lowercase form —
+# rebuilt from ONTOLOGY so normalization and the md never drift apart.
+_ENUM_CANONICAL = {field: _canonical_map(ONTOLOGY[field]) for field in ONTOLOGY}
+
+# LLM-friendly synonyms for the PascalCase entity_type vocabulary. The md's
+# table literally lists "company / institution / agency" as the *meaning* of
+# Organization, so a sloppy LLM echoes those words instead of the enum name —
+# map them back to the canonical member.
+_ENTITY_TYPE_SYNONYMS = {
+    "company": "Organization", "corporation": "Organization",
+    "institution": "Organization", "agency": "Organization",
+    "country": "Geography", "region": "Geography", "nation": "Geography",
+}
+
+
+def _coerce_enum(value: Any, field: str, fallback: str) -> str:
+    """Case-insensitive match against a controlled vocabulary.
+
+    Returns the canonical member (e.g. 'industry' -> 'Industry',
+    'economy, business, finance' -> 'economy_business_finance').
+    """
+    if not isinstance(value, str):
+        return fallback
+    key = value.strip().lower().replace(",", "").replace(" ", "_")
+    if field == "entity_type" and key in _ENTITY_TYPE_SYNONYMS:
+        return _ENTITY_TYPE_SYNONYMS[key]
+    return _ENUM_CANONICAL[field].get(key, fallback)
+
+
+def _str_list(value: Any, cap: int) -> list[str]:
+    """Coerce to a cleaned string list, truncated to cap."""
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    for item in value:
+        if isinstance(item, str) and item.strip():
+            out.append(item.strip())
+        if len(out) >= cap:
+            break
+    return out
+
+
+def _normalize_few_shot(raw: Any) -> list[dict]:
+    out: list[dict] = []
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, dict) and isinstance(item.get("query"), str):
+                out.append({
+                    "query": item["query"],
+                    "answer_hint": str(item.get("answer_hint") or ""),
+                })
+                if len(out) >= 50:
+                    break
+    return out
+
+
+def _normalize_entities(raw: Any) -> list[dict]:
+    out: list[dict] = []
+    if isinstance(raw, list):
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            if not isinstance(name, str) or not name.strip():
+                continue
+            out.append({
+                "name": name.strip()[:100],
+                "entity_type": _coerce_enum(item.get("entity_type"),
+                                            "entity_type",
+                                            _ENTITY_TYPE_FALLBACK),
+                "role": _coerce_enum(item.get("role"), "role", _OTHER_FALLBACK),
+            })
+            if len(out) >= 20:
+                break
+    return out
+
+
+def normalize_enrichment_data(data: Any) -> dict:
+    """Coerce raw LLM JSON into the DocumentEnrichmentOutput shape.
+
+    Unknown enum values fall back to 'other' (or 'Concept' for entity_type);
+    lists are truncated to their caps; financial_metrics are dropped when the
+    document is not finance-related (no 'financial_metric' question type).
+    """
+    data = data if isinstance(data, dict) else {}
+
+    categories = data.get("categories") if isinstance(data.get("categories"), dict) else {}
+    question_types = [
+        _coerce_enum(q, "question_types", _OTHER_FALLBACK)
+        for q in _str_list(categories.get("question_types"), 3)
+    ]
+    # IFRS/XBRL-anchored metrics only make sense for finance-related documents.
+    financial_metrics = _str_list(categories.get("financial_metrics"), 10)
+    if "financial_metric" not in question_types:
+        financial_metrics = []
+
+    return {
+        "what_this_document_is_about": str(data.get("what_this_document_is_about") or ""),
+        "supported_queries": _str_list(data.get("supported_queries"), 50),
+        "few_shot": _normalize_few_shot(data.get("few_shot")),
+        "entities": _normalize_entities(data.get("entities")),
+        "categories": {
+            "genre": _coerce_enum(categories.get("genre"), "genre", _OTHER_FALLBACK),
+            "primary_subject": _coerce_enum(categories.get("primary_subject"),
+                                            "primary_subject", _OTHER_FALLBACK),
+            "subjects": _str_list(categories.get("subjects"), 5),
+            "question_types": question_types,
+            "financial_metrics": financial_metrics,
+        },
+        "tags": _str_list(data.get("tags"), 10),
+    }
 
 
 # --- LLM + enrichment (lifted from scripts/test_neo4j_document_kv_roundtrip.py) --
@@ -238,7 +545,6 @@ def extract_document_enrichment(
     tags: List[str],
     graphindex_meta: dict,
     content: str,
-    other_document_names: List[str],
 ) -> Neo4jDocumentEnrichment:
     """Use the LLM to create compact routing metadata for one document.
 
@@ -251,8 +557,7 @@ def extract_document_enrichment(
     # stays bounded regardless of how much was stored on the
     # source node. Without these caps a single 1000-doc project
     # could grow each prompt by 50+ KB from a fat `description` or
-    # a `tags` list with hundreds of entries — same scaling pain
-    # as `other_document_names` above.
+    # a `tags` list with hundreds of entries.
     description_capped = (description or "")[:500]
     tags_capped = (tags or [])[:30]
     content_preview_capped = graphindex_meta.get("content_preview", "")[:1000]
@@ -267,27 +572,29 @@ def extract_document_enrichment(
         f"GraphIndex doc_name: {graphindex_meta.get('doc_name', '')}\n"
         f"GraphIndex page_count: {graphindex_meta.get('page_count', 0)}\n"
         f"GraphIndex content_preview: {content_preview_capped}\n"
-        f"GraphIndex search_terms: {search_terms_capped}\n"
-        f"Other documents in same project: {other_document_names}\n\n"
+        f"GraphIndex search_terms: {search_terms_capped}\n\n"
         "Return:\n"
         "1. what_this_document_is_about\n"
         "2. supported_queries\n"
-        "3. out_of_scope\n"
-        "4. few_shot\n\n"
-        "CRITICAL — out_of_scope format rules:\n"
-        "- Each entry MUST be a single, exact document name from the list above\n"
-        "- Do NOT group multiple documents into one string\n"
-        "- Do NOT add phrases like 'see X' or 'and Y' — just the bare name\n"
-        "- Example (correct): ['6 人物库.pdf', 'Deep Learning in Healthcare.pdf']\n"
-        "- Example (WRONG): ['Biographical profiles (see 6 人物库.pdf)']\n"
-        "- The scoring algorithm does exact substring match against these names,\n"
-        "  so any extra text breaks routing.\n\n"
-        "Other rules:\n"
+        "3. few_shot\n"
+        "4. entities — typed noun entities (name, entity_type, role); max 20\n"
+        "5. categories — genre, primary_subject, subjects, question_types, "
+        "financial_metrics\n"
+        "6. tags — lowercase document-level tags; max 10\n\n"
+        "CRITICAL — controlled vocabularies (pick only from these):\n"
+        f"{_ontology_prompt_block()}\n\n"
+        "Rules:\n"
         "- Keep it concise and routing-oriented\n"
         "- supported_queries are the natural questions this doc can answer\n"
         "- few_shot should be short examples of the kinds of questions "
         "this document can answer\n"
-        "- Do not invent unsupported topics\n\n"
+        "- Do not invent unsupported topics\n"
+        "- entities: only entities actually mentioned in the document; "
+        "use the exact name as written\n"
+        "- subjects: 1-5 level-2 topics; financial_metrics only when the "
+        "document is finance-related (use IFRS-style concept names)\n"
+        "- tags: derive from the top entities and key topics; lowercase, "
+        "no standalone dates or numbers\n\n"
         f"Document excerpt:\n{content_excerpt}"
     )
     try:
@@ -310,10 +617,15 @@ def extract_document_enrichment(
                 "KV system. Reply with ONLY a JSON object matching this schema:\n"
                 '{"what_this_document_is_about": str, '
                 '"supported_queries": [str], '
-                '"out_of_scope": [str], '
-                '"few_shot": [{"query": str, "answer_hint": str}]}\n'
-                "CRITICAL: each out_of_scope entry MUST be a single, exact "
-                "document name (e.g. '6 人物库.pdf'). Do NOT group names. "
+                '"few_shot": [{"query": str, "answer_hint": str}], '
+                '"entities": [{"name": str, "entity_type": str, "role": str}], '
+                '"categories": {"genre": str, "primary_subject": str, '
+                '"subjects": [str], "question_types": [str], '
+                '"financial_metrics": [str]}, '
+                '"tags": [str]}\n'
+                "entities/categories use only the controlled vocabularies: "
+                f"entity_type in [{', '.join(ONTOLOGY['entity_type'])}], "
+                f"genre in [{', '.join(ONTOLOGY['genre'])}]. "
                 "Do NOT include <think> blocks or commentary."
             )),
             HumanMessage(content=message),
@@ -322,48 +634,63 @@ def extract_document_enrichment(
         # Strip <think>...</think> block if present
         if "<think>" in text and "</think>" in text:
             text = text.split("</think>", 1)[1].strip()
-        # Find a balanced { ... } JSON object using brace matching (the LLM
-        # sometimes appends trailing text after the JSON).
-        start = text.find("{")
-        if start < 0:
-            raise ValueError(f"no JSON object in response: {text[:200]}")
-        depth = 0
-        in_string = False
-        escape = False
-        end = -1
-        for i in range(start, len(text)):
-            c = text[i]
-            if escape:
-                escape = False
-                continue
-            if c == "\\":
-                escape = True
-                continue
-            if c == '"':
-                in_string = not in_string
-                continue
-            if in_string:
-                continue
-            if c == "{":
-                depth += 1
-            elif c == "}":
-                depth -= 1
-                if depth == 0:
-                    end = i
-                    break
-        if end < 0:
-            raise ValueError(f"unbalanced JSON braces in: {text[:200]}")
-        text = text[start:end + 1]
-        # Sanitize common LLM JSON issues
-        text = text.replace("\\n", " ").replace("\\t", " ")
-        text = re.sub(r"[\x00-\x1f]+", " ", text)
-        data = json.loads(text)
-        result = DocumentEnrichmentOutput(**data)
+        # MiniMax sometimes wraps the JSON in a ```json ... ``` fence —
+        # extract the fenced body before parsing.
+        fence = re.search(r"```(?:json)?\s*\n(.*?)\n```", text, re.DOTALL)
+        if fence:
+            text = fence.group(1).strip()
+        # Fast path: the whole remaining text is already valid JSON.
+        try:
+            data = json.loads(text)
+        except Exception:
+            # Fall back to brace matching (the LLM sometimes appends prose
+            # after the JSON object). Quotes toggle in_string; backslashes
+            # only escape the NEXT char while inside a string — treating a
+            # stray backslash in prose as an escape would swallow the
+            # following quote and desync the whole scan.
+            start = text.find("{")
+            if start < 0:
+                raise ValueError(f"no JSON object in response: {text[:200]}")
+            depth = 0
+            in_string = False
+            escape = False
+            end = -1
+            for i in range(start, len(text)):
+                c = text[i]
+                if in_string:
+                    if escape:
+                        escape = False
+                    elif c == "\\":
+                        escape = True
+                    elif c == '"':
+                        in_string = False
+                    continue
+                if c == '"':
+                    in_string = True
+                elif c == "{":
+                    depth += 1
+                elif c == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end = i
+                        break
+            if end < 0:
+                raise ValueError(f"unbalanced JSON braces in: {text[:200]}")
+            text = text[start:end + 1]
+            # Sanitize common LLM JSON issues
+            text = text.replace("\\n", " ").replace("\\t", " ")
+            text = re.sub(r"[\x00-\x1f]+", " ", text)
+            data = json.loads(text)
+        # Normalize enum values / shapes so one bad field never kills the node.
+        result = DocumentEnrichmentOutput(**normalize_enrichment_data(data))
+    # Convert the validated output into the enrichment the Neo4j layer stores.
     return Neo4jDocumentEnrichment(
         what_this_document_is_about=result.what_this_document_is_about,
         supported_queries=list(result.supported_queries),
-        out_of_scope=list(result.out_of_scope),
         few_shot=[ex.model_dump() for ex in result.few_shot],
+        entities=[e.model_dump() for e in result.entities],
+        categories=result.categories.model_dump(),
+        llm_tags=list(result.tags),
     )
 
 
@@ -416,12 +743,19 @@ def cmd_show(index: Neo4jDocumentIndex, name: str, project_id: int = _PROJECT_ID
     print(f"  supported_queries ({len(node.supported_queries)}):")
     for q in node.supported_queries:
         print(f"    - {q}")
-    print(f"  out_of_scope ({len(node.out_of_scope)}):")
-    for q in node.out_of_scope:
-        print(f"    - {q}")
     print(f"  few_shot ({len(node.few_shot)}):")
     for ex in node.few_shot:
         print(f"    - Q: {ex.get('query')}  A: {ex.get('answer_hint')}")
+    print(f"  entities ({len(node.entities)}):")
+    for e in node.entities:
+        print(f"    - {e.get('name')}  [{e.get('entity_type')} / {e.get('role')}]")
+    cats = node.categories or {}
+    print(f"  categories:")
+    print(f"    genre           = {cats.get('genre')}")
+    print(f"    primary_subject = {cats.get('primary_subject')}")
+    print(f"    subjects        = {cats.get('subjects')}")
+    print(f"    question_types  = {cats.get('question_types')}")
+    print(f"    financial_metrics = {cats.get('financial_metrics')}")
     return 0
 
 
@@ -434,29 +768,6 @@ def sha256_of_file(file_path: str) -> str:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
-
-
-def scan_filesystem_for_dupe(file_path: str, content_hash: str,
-                              docs_base: Path = _DOCS_BASE) -> List[Path]:
-    """Find any file under docs_base whose name ends with the same hash prefix
-    or whose full sha256 matches the candidate. Returns existing files."""
-    matches: List[Path] = []
-    if not docs_base.exists():
-        return matches
-    for p in docs_base.rglob("*"):
-        if not p.is_file() or p.resolve() == Path(file_path).resolve():
-            continue
-        # Skip chat-session copies and files outside the scan root.
-        rel = p.relative_to(docs_base)
-        top = rel.parts[0] if rel.parts else ""
-        # When scanning from _DOCS_BASE (full root), skip non-project dirs.
-        # When scanning from a project folder, all files are in-scope.
-        if docs_base == _DOCS_BASE and (not top.startswith("project_")
-                                         or top == "project_chat_sessions"):
-            continue
-        if sha256_of_file(str(p)) == content_hash:
-            matches.append(p)
-    return matches
 
 
 def scan_neo4j_for_dupe(index: Neo4jDocumentIndex, content_hash: str,
@@ -535,12 +846,6 @@ def cmd_ingest(
         print(f"  ✓ copied: {target_path}")
 
     # 4. Add Neo4j node via rebuild-one (which also sets content_sha256)
-    # Only the names are needed for the "other documents" prompt
-    # header — skip pulling all 13 fields × N rows over the Neo4j
-    # HTTP API when we just want a name list.
-    docs = index.list_documents(project_id=project_id, name_only=True)
-    all_names = [d.name for d in docs]
-
     # 5. Insert into PostgreSQL context_documents so the file appears
     #    in the Knowledge panel tree view with the correct folder.
     try:
@@ -580,7 +885,7 @@ def cmd_ingest(
     except Exception as e:
         print(f"  ⚠️ PostgreSQL insert skipped: {e}")
 
-    return cmd_rebuild_one(index, llm, src.name, all_names, project_id=project_id)
+    return cmd_rebuild_one(index, llm, src.name, project_id=project_id)
 
 
 def cmd_ingest_folder(
@@ -633,7 +938,6 @@ def cmd_rebuild_one(
     index: Neo4jDocumentIndex,
     llm: BaseChatModel,
     name: str,
-    all_names: List[str],
     project_id: int = _PROJECT_ID,
 ) -> int:
     """Rebuild enrichment for one doc and upsert it.
@@ -674,7 +978,6 @@ def cmd_rebuild_one(
         print(f"  ✗ no content extracted from {file_path}")
         return 1
     graphindex_meta = load_graphindex_metadata(file_path)
-    other_names = build_project_scope_names(name, all_names)
 
     print(f"  → generating enrichment for {name!r} "
           f"({len(content):,} chars)...")
@@ -686,7 +989,6 @@ def cmd_rebuild_one(
         tags=tags,
         graphindex_meta=graphindex_meta,
         content=content,
-        other_document_names=other_names,
     )
     elapsed = time.time() - t0
 
@@ -702,6 +1004,9 @@ def cmd_rebuild_one(
     )
     index.upsert_document(project_id=project_id, name=name,
                           file_path=file_path, properties=properties)
+    # Keep the entity graph layer (Entity nodes + MENTIONS edges) in sync
+    # with the freshly generated enrichment.
+    index.sync_entity_graph(project_id, name, enrichment.entities)
 
     # Also set content_sha256 (not in base properties builder)
     content_hash = sha256_of_file(file_path)
@@ -715,8 +1020,33 @@ def cmd_rebuild_one(
     print(f"    about: {enrichment.what_this_document_is_about[:120]}")
     print(f"    supports ({len(enrichment.supported_queries)}): "
           f"{enrichment.supported_queries[:3]}")
-    print(f"    out_of_scope ({len(enrichment.out_of_scope)}): "
-          f"{enrichment.out_of_scope[:3]}")
+    print(f"    entities ({len(enrichment.entities)}): "
+          f"{[e['name'] for e in enrichment.entities[:5]]}")
+    return 0
+
+
+def cmd_wipe_graph(index: Neo4jDocumentIndex, project_id: int = _PROJECT_ID) -> int:
+    """Empty the Neo4j graph for a project (Document + Entity nodes).
+
+    Neo4j only — files on disk and PostgreSQL context_documents are kept,
+    so a subsequent --rebuild-one / --ingest can recreate the nodes.
+    """
+    index.delete_project_documents(project_id)
+    print(f"  ✓ wiped graph for project {project_id}: "
+          f"Document + Entity nodes removed")
+    return 0
+
+
+def cmd_build_graph(index: Neo4jDocumentIndex, project_id: int = _PROJECT_ID) -> int:
+    """Promote each doc's entities_json into (:Entity) nodes + MENTIONS edges.
+
+    Idempotent: purges the project's entity layer and rebuilds it from the
+    current Document nodes, so it's safe to re-run after any enrichment
+    rebuild or backfill.
+    """
+    stats = index.build_entity_graph(project_id)
+    print(f"  ✓ entity graph rebuilt: {stats['entities']} entities, "
+          f"{stats['mentions']} mentions")
     return 0
 
 
@@ -889,21 +1219,12 @@ def cmd_rebuild_project(
     project_id: int = _PROJECT_ID,
 ) -> int:
     """Rebuild enrichment for every Document node in the project."""
-    # Two queries: one for full records (rebuild_one reads
-    # file_path / description / tags from each node) and one
-    # name-only for the prompt-header companion list. At 1000
-    # docs the second query is ~10x cheaper than reusing the
-    # first one's records.
     docs = index.list_documents(project_id=project_id)
-    all_names = [
-        d.name
-        for d in index.list_documents(project_id=project_id, name_only=True)
-    ]
     print(f"\n{'='*70}\nRebuilding enrichment for {len(docs)} doc(s) "
           f"(project {project_id})\n{'='*70}\n")
     failed = 0
     for d in docs:
-        ok = cmd_rebuild_one(index, llm, d.name, all_names, project_id=project_id)
+        ok = cmd_rebuild_one(index, llm, d.name, project_id=project_id)
         if ok != 0:
             failed += 1
         print()
@@ -911,72 +1232,25 @@ def cmd_rebuild_project(
     return 0 if failed == 0 else 1
 
 
-def cmd_query(index: Neo4jDocumentIndex, query_text: str,
-              project_id: int = _PROJECT_ID,
-              scope: Optional[list[str]] = None) -> int:
-    """Route a query using the current enrichment state and print top candidates."""
-    docs = index.list_documents(project_id=project_id)
-    print(f"\nQuery ({query_text!r}) — project {project_id}\n")
-    if not docs:
-        print(f"  ✗ no documents in project {project_id}")
-        return 1
-    best = index.find_best_document(project_id=project_id, query=query_text, scope=scope)
-    if best is None:
-        print("  ✗ no match")
-        return 1
-    print(f"  ✓ best match: {best.name}  (context_doc_id={best.context_doc_id})")
-    print(f"    about: {best.what_this_document_is_about[:200]}")
-    print(f"    file: {best.file_path}")
+def cmd_build_embeddings(index: Neo4jDocumentIndex,
+                         project_id: int = _PROJECT_ID) -> int:
+    """Embed every Document node's routing blob into the Neo4j vector index."""
+    matcher = Neo4jEmbeddingMatcher(index)
+    matcher.ensure_index()
+    stats = matcher.build_embeddings(project_id)
+    print(f"\n  ✓ embedded {stats['embedded']} doc(s) into vector index "
+          f"'doc_embedding' (dim={stats['dim']}, cosine)")
     return 0
 
 
-def cmd_qa(
-    index: Neo4jDocumentIndex,
-    llm: BaseChatModel,
-    query_text: str,
-    project_id: int = _PROJECT_ID,
-    scope: Optional[list[str]] = None,
-) -> int:
-    """GraphIndex find_best_document → load full text → LLM answer synthesis."""
-    docs = index.list_documents(project_id=project_id)
-    if not docs:
-        print(f"  ✗ no documents in project {project_id}")
-        return 1
-
-    best = index.find_best_document(project_id=project_id, query=query_text, scope=scope)
-    if best is None:
-        print("  ✗ no match found")
-        return 1
-
-    print(f"  ✓ matched: {best.name}")
-    print(f"    about: {best.what_this_document_is_about[:200]}")
-    print(f"    loading full text...")
-
-    content = load_document_content(best.file_path) if best.file_path else ""
-    if not content:
-        print(f"  ✗ empty content at {best.file_path}")
-        return 1
-
-    print(f"    {len(content)} chars loaded\n")
-    print(f"{'='*70}")
-    resp = llm.invoke([
-        SystemMessage(content=(
-            "You are a precise Q&A assistant. Answer the user's question "
-            "based solely on the provided document content. "
-            "If the document doesn't contain enough information, say so. "
-            "Be concise and cite relevant parts."
-        )),
-        HumanMessage(content=(
-            f"Question: {query_text}\n\n"
-            f"--- Document: {best.name} ---\n\n{content[:8000]}"
-        )),
-    ])
-    answer = resp.content if isinstance(resp.content, str) else str(resp.content)
-    # Strip <think>...</think> reasoning blocks (MiniMax often returns them)
-    if "<think>" in answer:
-        answer = answer.split("</think>", 1)[1].strip() if "</think>" in answer else answer.split("<think>", 1)[0].strip()
-    print(f"Answer:\n{answer.strip()}")
-    print(f"{'='*70}")
+def cmd_build_entity_embeddings(index: Neo4jDocumentIndex,
+                                project_id: int = _PROJECT_ID) -> int:
+    """Embed every Entity node's routing blob into the entity vector index."""
+    matcher = Neo4jEmbeddingMatcher(index)
+    matcher.ensure_entity_index()
+    stats = matcher.build_entity_embeddings(project_id)
+    print(f"\n  ✓ embedded {stats['embedded']} entity node(s) into vector index "
+          f"'entity_embedding' (dim={stats['dim']}, cosine)")
     return 0
 
 
@@ -1006,6 +1280,12 @@ def main() -> int:
                              "from GRAPHINDEX_DEFAULT_PROJECT_ID env var)")
     parser.add_argument("--purge", action="store_true",
                         help="Remove ALL documents in the project from Neo4j and disk")
+    parser.add_argument("--wipe-graph", action="store_true",
+                        help="Empty the Neo4j graph for the project (Document + Entity nodes)")
+    parser.add_argument("--build-embeddings", action="store_true",
+                        help="Embed each Document node's routing blob into the Neo4j vector index")
+    parser.add_argument("--build-entity-embeddings", action="store_true",
+                        help="Embed each Entity node's blob into the Neo4j vector index")
     parser.add_argument("--list", action="store_true",
                         help="List files on disk, cross-checked against Neo4j")
     parser.add_argument("--show", metavar="NAME", help="Show a document node")
@@ -1017,12 +1297,8 @@ def main() -> int:
                         help="Rebuild enrichment for one doc")
     parser.add_argument("--rebuild-project", action="store_true",
                         help="Rebuild enrichment for every doc in the project")
-    parser.add_argument("--query", metavar="TEXT",
-                        help="Route a query and print best match")
-    parser.add_argument("--qa", metavar="TEXT",
-                        help="Full QA: GraphIndex find_best_document → LLM answer synthesis")
-    parser.add_argument("--doc-scope", metavar="NAMES", nargs="*", default=None,
-                        help="Scope search to specific doc names (space-separated)")
+    parser.add_argument("--build-graph", action="store_true",
+                        help="Rebuild the entity graph layer (Entity nodes + MENTIONS edges)")
     parser.add_argument("--ingest", metavar="FILE",
                         help="Ingest a single file: hash, dedup, copy, build graphindex")
     parser.add_argument("--ingest-folder", metavar="DIR",
@@ -1034,9 +1310,12 @@ def main() -> int:
     args = parser.parse_args()
     project_id = args.project_id
 
-    if not any([args.list, args.show, args.remove, args.remove_folder, args.show_agent, args.purge,
+    if not any([args.list, args.show, args.remove, args.remove_folder, args.show_agent,
+                args.purge, args.wipe_graph,
                 args.rebuild_one, args.rebuild_project,
-                args.query, args.qa, args.ingest, args.ingest_folder]):
+                args.ingest, args.ingest_folder,
+                args.build_graph, args.build_embeddings,
+                args.build_entity_embeddings]):
         parser.print_help()
         return 1
 
@@ -1051,9 +1330,9 @@ def main() -> int:
     index.ensure_constraints()
     print(f"   constraints ensured")
 
-    # Build LLM (lazy — only when we need enrichment or QA)
+    # Build LLM (lazy — only when we need enrichment)
     llm: Optional[BaseChatModel] = None
-    if args.rebuild_one or args.rebuild_project or args.ingest or args.ingest_folder or args.qa:
+    if args.rebuild_one or args.rebuild_project or args.ingest or args.ingest_folder:
         llm = make_llm()
         print(f"🔌 LLM: {os.getenv('GRAPHINDEX_MODEL', 'minimax-m3')}\n")
 
@@ -1063,24 +1342,23 @@ def main() -> int:
         return cmd_show(index, args.show, project_id=project_id)
     if args.purge:
         return cmd_purge(index, project_id=project_id)
+    if args.wipe_graph:
+        return cmd_wipe_graph(index, project_id=project_id)
     if args.remove_folder:
         return cmd_remove_folder(index, args.remove_folder, project_id=project_id)
     if args.remove:
         return cmd_remove(index, args.remove, project_id=project_id)
     if args.rebuild_one:
-        # Only the names are needed for the prompt header.
-        all_names = [
-            d.name
-            for d in index.list_documents(project_id=project_id, name_only=True)
-        ]
-        return cmd_rebuild_one(index, llm, args.rebuild_one, all_names,
+        return cmd_rebuild_one(index, llm, args.rebuild_one,
                                project_id=project_id)
     if args.rebuild_project:
         return cmd_rebuild_project(index, llm, project_id=project_id)
-    if args.query:
-        return cmd_query(index, args.query, project_id=project_id, scope=args.doc_scope)
-    if args.qa:
-        return cmd_qa(index, llm, args.qa, project_id=project_id, scope=args.doc_scope)
+    if args.build_graph:
+        return cmd_build_graph(index, project_id=project_id)
+    if args.build_embeddings:
+        return cmd_build_embeddings(index, project_id=project_id)
+    if args.build_entity_embeddings:
+        return cmd_build_entity_embeddings(index, project_id=project_id)
     if args.ingest:
         return cmd_ingest(index, llm, args.ingest, args.ingest_target,
                           project_id=project_id)

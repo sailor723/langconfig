@@ -10,9 +10,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLayoutState } from './useLayout';
 import { useLayoutTokens } from './tokens';
-import { ScrollText, Terminal, Play, FileText, Plus, Trash2, ChevronDown, X, Check, Search } from 'lucide-react';
+import { ScrollText, Terminal, Play, FileText, Plus, Trash2, ChevronDown, ArrowUp, ArrowDown, X, Check, Search } from 'lucide-react';
 import { useChatMessages } from './chatStore';
-import TerminalTab from './TerminalTab';
+import TerminalTab, { type TerminalTabHandle } from './TerminalTab';
 
 type PanelSection = 'terminal' | 'execution' | 'results';
 
@@ -35,6 +35,8 @@ export default function BottomPanel() {
   const [activeShellId, setActiveShellId] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
   const nextTerminalN = useRef(2);
+  // Imperative handles of the mounted shell terminals, for the scroll arrows
+  const shellRefs = useRef<Record<string, TerminalTabHandle | null>>({});
 
   // Inside the terminal section, "system-log" is the default tab
   const activeTerminalId = activeShellId ?? 'system-log';
@@ -267,6 +269,22 @@ export default function BottomPanel() {
         {activeSection === 'terminal' && (
           <>
             <button
+              onClick={() => shellRefs.current[activeShellId ?? '']?.scrollUp()}
+              disabled={!activeShellId}
+              title={activeShellId ? 'Scroll up (older output)' : 'No terminal to scroll'}
+              style={{ ...iconBtnStyle, opacity: activeShellId ? 1 : 0.35, cursor: activeShellId ? 'pointer' : 'not-allowed' }}
+            >
+              <ArrowUp size={14} />
+            </button>
+            <button
+              onClick={() => shellRefs.current[activeShellId ?? '']?.scrollDown()}
+              disabled={!activeShellId}
+              title={activeShellId ? 'Scroll down (newer output)' : 'No terminal to scroll'}
+              style={{ ...iconBtnStyle, opacity: activeShellId ? 1 : 0.35, cursor: activeShellId ? 'pointer' : 'not-allowed' }}
+            >
+              <ArrowDown size={14} />
+            </button>
+            <button
               onClick={() => setShowList(v => !v)}
               title="Terminal list"
               style={iconBtnStyle}
@@ -353,17 +371,17 @@ export default function BottomPanel() {
         </>
       )}
 
-      {/* Content */}
-      {bottomPanelOpen && (
-        <div
-          style={{
-            height: panelHeight,
-            minHeight: 100,
-            background: t.bgContent,
-            borderTop: `1px solid ${t.border}`,
-            overflow: 'hidden',
-          }}
-        >
+      {/* Content — always mounted; collapsed to height 0 when the panel is
+          hidden so shell processes keep running (like VS Code) */}
+      <div
+        style={{
+          height: bottomPanelOpen ? panelHeight : 0,
+          minHeight: 0,
+          background: t.bgContent,
+          borderTop: `1px solid ${t.border}`,
+          overflow: 'hidden',
+        }}
+      >
           {/* Terminal section: System Log + shell tabs (kept mounted so
               processes keep running while hidden, like VS Code) */}
           {activeSection === 'terminal' && (
@@ -389,6 +407,7 @@ export default function BottomPanel() {
                   }}
                 >
                   <TerminalTab
+                    ref={el => { shellRefs.current[shell.id] = el; }}
                     terminalId={shell.id}
                     isActive={shell.id === activeTerminalId}
                     onReady={name => handleShellReady(shell.id, name)}
@@ -409,8 +428,7 @@ export default function BottomPanel() {
               <ResultsContent t={t} />
             </div>
           )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }

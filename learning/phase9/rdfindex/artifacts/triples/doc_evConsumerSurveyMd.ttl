@@ -1,0 +1,25 @@
+@prefix gi: <http://langconfig.local/graphindex#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+gi:doc_evConsumerSurveyMd a gi:Document ;
+    gi:answersQuestionType gi:customer_support,
+        gi:factual ;
+    gi:filePath "backend/data/documents/ev_consumer_survey.md" ;
+    gi:hasGenre gi:survey ;
+    gi:hasPrimarySubject gi:society ;
+    gi:hasSummary "Consumer survey on EV ownership experience and charging habits" ;
+    gi:hasTitle "ev_consumer_survey.md" ;
+    gi:mentionsEntity gi:chargingNetwork,
+        gi:europe,
+        gi:evOwners ;
+    gi:supportedQuery "What do EV owners think about charging?" .
+
+gi:chargingNetwork a gi:Concept ;
+    rdfs:label "Charging Network" .
+
+gi:europe a gi:Geography ;
+    rdfs:label "Europe" .
+
+gi:evOwners a gi:Concept ;
+    rdfs:label "EV Owners" .
+

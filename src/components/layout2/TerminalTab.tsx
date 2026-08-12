@@ -7,7 +7,7 @@
  * socket drops without an explicit exit frame we auto-reconnect and spawn a
  * fresh shell, keeping the tab alive.
  */
-import { useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -22,7 +22,17 @@ interface TerminalTabProps {
 
 const MAX_RECONNECTS = 3;
 
-export default function TerminalTab({ terminalId, isActive, onReady }: TerminalTabProps) {
+export interface TerminalTabHandle {
+  /** Scroll the xterm buffer up (toward older output). */
+  scrollUp: () => void;
+  /** Scroll the xterm buffer down (toward newer output). */
+  scrollDown: () => void;
+}
+
+const TerminalTab = forwardRef<TerminalTabHandle, TerminalTabProps>(function TerminalTab(
+  { terminalId, isActive, onReady },
+  ref,
+) {
   const t = useLayoutTokens();
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -95,6 +105,12 @@ export default function TerminalTab({ terminalId, isActive, onReady }: TerminalT
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Expose scroll controls to the panel's arrow buttons ──────
+  useImperativeHandle(ref, () => ({
+    scrollUp: () => termRef.current?.scrollLines(-5),
+    scrollDown: () => termRef.current?.scrollLines(5),
+  }), []);
 
   // ── Fit when this tab becomes visible again ──────────────────
   useEffect(() => {
@@ -208,4 +224,6 @@ export default function TerminalTab({ terminalId, isActive, onReady }: TerminalT
       {/* xterm mounts its viewport here */}
     </div>
   );
-}
+});
+
+export default TerminalTab;

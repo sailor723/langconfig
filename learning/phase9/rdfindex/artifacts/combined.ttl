@@ -1,0 +1,304 @@
+@prefix gi: <http://langconfig.local/graphindex#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<http://langconfig.local/graphindex> a owl:Ontology .
+
+gi:Brand a owl:Class ;
+    rdfs:subClassOf gi:EntityType .
+
+gi:ComparisonReport a owl:Class ;
+    rdfs:subClassOf gi:Document ;
+    owl:equivalentClass [ a owl:Class ;
+            owl:intersectionOf ( gi:Document [ a owl:Restriction ;
+                        owl:hasValue gi:comparison ;
+                        owl:onProperty gi:hasGenre ] ) ] .
+
+gi:Department a owl:Class ;
+    rdfs:subClassOf gi:EntityType .
+
+gi:FinancialReport a owl:Class ;
+    rdfs:subClassOf gi:Document ;
+    owl:equivalentClass [ a owl:Class ;
+            owl:intersectionOf ( gi:Document [ a owl:Restriction ;
+                        owl:hasValue gi:financial_data ;
+                        owl:onProperty gi:hasGenre ] ) ] .
+
+gi:InvestmentGradeReport a owl:Class ;
+    rdfs:subClassOf gi:Document ;
+    owl:equivalentClass [ a owl:Class ;
+            owl:intersectionOf ( gi:Document [ a owl:Restriction ;
+                        owl:onProperty gi:mentionsEntity ;
+                        owl:someValuesFrom gi:Metric ] [ a owl:Restriction ;
+                        owl:onProperty gi:mentionsEntity ;
+                        owl:someValuesFrom gi:Organization ] ) ] .
+
+gi:Person a owl:Class ;
+    rdfs:subClassOf gi:EntityType .
+
+gi:Product a owl:Class ;
+    rdfs:subClassOf gi:EntityType .
+
+gi:answersQuestionType a owl:ObjectProperty ;
+    rdfs:domain gi:Document ;
+    rdfs:range gi:QuestionType .
+
+gi:author a gi:Role,
+        owl:NamedIndividual .
+
+gi:company_analysis a gi:Genre,
+        owl:NamedIndividual .
+
+gi:competitor a gi:Role,
+        owl:NamedIndividual .
+
+gi:dashboard a gi:Genre,
+        owl:NamedIndividual .
+
+gi:doc_bydAnalysisReportMd a gi:Document ;
+    gi:answersQuestionType gi:factual,
+        gi:financial_metric ;
+    gi:filePath "backend/data/documents/byd_analysis_report.md" ;
+    gi:hasGenre gi:financial_data ;
+    gi:hasPrimarySubject gi:economy_business_finance ;
+    gi:hasSummary "Deep dive into BYD's 2025 financial performance and EV strategy" ;
+    gi:hasTitle "byd_analysis_report.md" ;
+    gi:mentionsEntity gi:byd,
+        gi:china,
+        gi:operatingProfit,
+        gi:revenue ;
+    gi:supportedQuery "BYD EV market position",
+        "BYD operating profit margin",
+        "What is BYD's revenue?" .
+
+gi:doc_bydVsTeslaEuropeMd a gi:Document ;
+    gi:answersQuestionType gi:comparison,
+        gi:trend_analysis ;
+    gi:filePath "backend/data/documents/byd_vs_tesla_europe.md" ;
+    gi:hasGenre gi:comparison ;
+    gi:hasPrimarySubject gi:economy_business_finance ;
+    gi:hasSummary "Head-to-head comparison of BYD and Tesla in the European EV market" ;
+    gi:hasTitle "byd_vs_tesla_europe.md" ;
+    gi:mentionsEntity gi:byd,
+        gi:europe,
+        gi:europeanEVMarket,
+        gi:tesla ;
+    gi:supportedQuery "How does BYD compare to Tesla in Europe?" .
+
+gi:doc_europeanEvMarketReportMd a gi:Document ;
+    gi:answersQuestionType gi:financial_metric,
+        gi:trend_analysis ;
+    gi:filePath "backend/data/documents/european_ev_market_report.md" ;
+    gi:hasGenre gi:industry_analysis ;
+    gi:hasPrimarySubject gi:economy_business_finance ;
+    gi:hasSummary "European EV market share trends by manufacturer" ;
+    gi:hasTitle "european_ev_market_report.md" ;
+    gi:mentionsEntity gi:byd,
+        gi:europe,
+        gi:europeanEVMarket,
+        gi:marketShare,
+        gi:tesla ;
+    gi:supportedQuery "European EV market outlook",
+        "What is Tesla's market share in Europe?" .
+
+gi:doc_evConsumerSurveyMd a gi:Document ;
+    gi:answersQuestionType gi:customer_support,
+        gi:factual ;
+    gi:filePath "backend/data/documents/ev_consumer_survey.md" ;
+    gi:hasGenre gi:survey ;
+    gi:hasPrimarySubject gi:society ;
+    gi:hasSummary "Consumer survey on EV ownership experience and charging habits" ;
+    gi:hasTitle "ev_consumer_survey.md" ;
+    gi:mentionsEntity gi:chargingNetwork,
+        gi:europe,
+        gi:evOwners ;
+    gi:supportedQuery "What do EV owners think about charging?" .
+
+gi:doc_teslaQ3StrategyMd a gi:Document ;
+    gi:answersQuestionType gi:strategy_recommendation ;
+    gi:filePath "backend/data/documents/tesla_q3_strategy.md" ;
+    gi:hasGenre gi:strategic_framework ;
+    gi:hasPrimarySubject gi:economy_business_finance ;
+    gi:hasSummary "Tesla's Q3 strategy memo: product roadmap and expansion plans" ;
+    gi:hasTitle "tesla_q3_strategy.md" ;
+    gi:mentionsEntity gi:ev,
+        gi:tesla ;
+    gi:supportedQuery "Tesla expansion plans",
+        "What is Tesla's strategy?" .
+
+gi:dossier a gi:Genre,
+        owl:NamedIndividual .
+
+gi:education a gi:PrimarySubject,
+        owl:NamedIndividual .
+
+gi:environment a gi:PrimarySubject,
+        owl:NamedIndividual .
+
+gi:filePath a owl:DatatypeProperty ;
+    rdfs:domain gi:Document .
+
+gi:filing a gi:Genre,
+        owl:NamedIndividual .
+
+gi:hasPrimarySubject a owl:ObjectProperty ;
+    rdfs:domain gi:Document ;
+    rdfs:range gi:PrimarySubject .
+
+gi:hasSummary a owl:DatatypeProperty ;
+    rdfs:domain gi:Document .
+
+gi:hasTitle a owl:DatatypeProperty ;
+    rdfs:domain gi:Document .
+
+gi:health a gi:PrimarySubject,
+        owl:NamedIndividual .
+
+gi:labour a gi:PrimarySubject,
+        owl:NamedIndividual .
+
+gi:market a gi:Role,
+        owl:NamedIndividual .
+
+gi:other a gi:Genre,
+        gi:PrimarySubject,
+        gi:QuestionType,
+        gi:Role,
+        owl:NamedIndividual .
+
+gi:partner a gi:Role,
+        owl:NamedIndividual .
+
+gi:politics a gi:PrimarySubject,
+        owl:NamedIndividual .
+
+gi:regulatory a gi:QuestionType,
+        owl:NamedIndividual .
+
+gi:science_technology a gi:PrimarySubject,
+        owl:NamedIndividual .
+
+gi:source a gi:Role,
+        owl:NamedIndividual .
+
+gi:source_document a gi:Genre,
+        owl:NamedIndividual .
+
+gi:subject a gi:Role,
+        owl:NamedIndividual .
+
+gi:supportedQuery a owl:DatatypeProperty ;
+    rdfs:domain gi:Document .
+
+gi:chargingNetwork a gi:Concept ;
+    rdfs:label "Charging Network" .
+
+gi:china a gi:Geography ;
+    rdfs:label "China" .
+
+gi:customer_support a gi:QuestionType,
+        owl:NamedIndividual .
+
+gi:ev a gi:Industry ;
+    rdfs:label "EV" .
+
+gi:evOwners a gi:Concept ;
+    rdfs:label "EV Owners" .
+
+gi:industry_analysis a gi:Genre,
+        owl:NamedIndividual .
+
+gi:marketShare a gi:Metric ;
+    rdfs:label "Market Share" .
+
+gi:operatingProfit a gi:Metric ;
+    rdfs:label "Operating Profit" .
+
+gi:revenue a gi:Metric ;
+    rdfs:label "Revenue" .
+
+gi:society a gi:PrimarySubject,
+        owl:NamedIndividual .
+
+gi:strategic_framework a gi:Genre,
+        owl:NamedIndividual .
+
+gi:strategy_recommendation a gi:QuestionType,
+        owl:NamedIndividual .
+
+gi:survey a gi:Genre,
+        owl:NamedIndividual .
+
+gi:Concept a owl:Class ;
+    rdfs:subClassOf gi:EntityType .
+
+gi:Geography a owl:Class ;
+    rdfs:subClassOf gi:EntityType .
+
+gi:Industry a owl:Class ;
+    rdfs:subClassOf gi:EntityType .
+
+gi:europeanEVMarket a gi:Industry ;
+    rdfs:label "European EV Market" .
+
+gi:factual a gi:QuestionType,
+        owl:NamedIndividual .
+
+gi:financial_data a gi:Genre,
+        owl:NamedIndividual .
+
+gi:financial_metric a gi:QuestionType,
+        owl:NamedIndividual .
+
+gi:hasGenre a owl:ObjectProperty ;
+    rdfs:domain gi:Document ;
+    rdfs:range gi:Genre .
+
+gi:mentionsEntity a owl:ObjectProperty ;
+    rdfs:domain gi:Document ;
+    rdfs:range gi:EntityType .
+
+gi:trend_analysis a gi:QuestionType,
+        owl:NamedIndividual .
+
+gi:Organization a owl:Class ;
+    rdfs:subClassOf gi:EntityType .
+
+gi:byd a gi:Organization ;
+    rdfs:label "BYD" .
+
+gi:comparison a gi:Genre,
+        gi:QuestionType,
+        owl:NamedIndividual .
+
+gi:europe a gi:Geography ;
+    rdfs:label "Europe" .
+
+gi:tesla a gi:Organization ;
+    rdfs:label "Tesla" .
+
+gi:Metric a owl:Class ;
+    rdfs:subClassOf gi:EntityType .
+
+gi:economy_business_finance a gi:PrimarySubject,
+        owl:NamedIndividual .
+
+gi:Role a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+
+gi:QuestionType a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+
+gi:EntityType a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+
+gi:PrimarySubject a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+
+gi:Genre a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+
+gi:Document a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+

@@ -75,33 +75,6 @@ def test_choose_best_document_match_uses_supported_queries_and_preview():
     assert matched.name == "nke-10k-2023.pdf"
 
 
-def test_choose_best_document_match_respects_out_of_scope_signal():
-    documents = [
-        Neo4jDocumentRecord(
-            project_id=1,
-            name="人物库.pdf",
-            file_path="/tmp/people.pdf",
-            what_this_document_is_about="Profiles of entrepreneurs.",
-            supported_queries=["who is jobs"],
-            out_of_scope=["nike annual report", "nike revenue"],
-            search_terms=["jobs", "musk"],
-        ),
-        Neo4jDocumentRecord(
-            project_id=1,
-            name="nke-10k-2023.pdf",
-            file_path="/tmp/nike.pdf",
-            what_this_document_is_about="Nike annual report and financial statements.",
-            supported_queries=["what is nike revenue"],
-            search_terms=["nike", "revenue"],
-        ),
-    ]
-
-    matched = choose_best_document_match("what is nike revenue", documents)
-
-    assert matched is not None
-    assert matched.name == "nke-10k-2023.pdf"
-
-
 def test_choose_best_document_match_ignores_generic_question_words():
     documents = [
         Neo4jDocumentRecord(
@@ -110,7 +83,6 @@ def test_choose_best_document_match_ignores_generic_question_words():
             file_path="/tmp/test.txt",
             what_this_document_is_about="Placeholder test content.",
             supported_queries=["what is in the test document"],
-            out_of_scope=["nike revenue"],
             search_terms=["test", "placeholder"],
         ),
         Neo4jDocumentRecord(

@@ -43,7 +43,7 @@ from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/graph-studio", tags=["graph-studio"])
@@ -123,6 +123,13 @@ def _message_to_dict(message: Any) -> Dict[str, Any]:
     tool_calls = getattr(message, "tool_calls", None)
     if tool_calls:
         out["tool_calls"] = _jsonable(tool_calls)
+    # Reasoning/chain-of-thought preserved by ChatDeepSeek / ChatOllama
+    # (ChatOpenAI drops it, which is why Ollama must not go through it).
+    reasoning = (getattr(message, "additional_kwargs", None) or {}).get(
+        "reasoning_content"
+    )
+    if reasoning:
+        out["reasoning_content"] = reasoning
     return out
 
 
@@ -309,6 +316,26 @@ def get_assistant_graph(assistant_id: str) -> Dict[str, Any]:
         for e in graph.edges
     ]
     return {"nodes": nodes, "edges": edges}
+
+
+@router.get("/assistants/{assistant_id}/code", response_class=PlainTextResponse)
+def get_assistant_code(assistant_id: str) -> str:
+    """Return the full Python source of the assistant's graph module.
+
+    Mirrors the agent editors' "View code" — the studio shows the file that
+    actually defines the graph (backend/langgraph/<graph_id>.py).
+    """
+    entry = next(
+        (a for a in _ASSISTANT_REGISTRY if a["assistant_id"] == assistant_id), None
+    )
+    if entry is None:
+        raise HTTPException(404, f"unknown assistant '{assistant_id}'")
+
+    module_path = _LANGGRAPH_DIR / f"{entry['graph_id']}.py"
+    if not module_path.exists():
+        raise HTTPException(404, f"graph module '{module_path}' not found")
+
+    return module_path.read_text(encoding="utf-8")
 
 
 @router.get("/assistants/{assistant_id}/schemas")
@@ -659,6 +686,14 @@ def _accumulate_chunk(
     if content:
         prev["content"] += content if isinstance(content, str) else str(content)
 
+    # Streaming reasoning tokens arrive as deltas in additional_kwargs
+    # (ChatOllama maps Ollama's `message.thinking` -> reasoning_content).
+    reasoning = (getattr(chunk, "additional_kwargs", None) or {}).get(
+        "reasoning_content"
+    )
+    if reasoning:
+        prev["reasoning_content"] = prev.get("reasoning_content", "") + reasoning
+
     for tcc in getattr(chunk, "tool_call_chunks", None) or []:
         idx = tcc.get("index")
         parts = prev["_tool_parts"].setdefault(idx, {"name": "", "args": "", "id": ""})
@@ -697,7 +732,7 @@ def _clean_partials(partial: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
     (messages a provider opened but never filled) before emitting."""
     out = []
     for m in partial.values():
-        if not m.get("content") and not m.get("tool_calls"):
+        if not m.get("content") and not m.get("tool_calls") and not m.get("reasoning_content"):
             continue
         out.append({k: v for k, v in m.items() if not k.startswith("_")})
     return out

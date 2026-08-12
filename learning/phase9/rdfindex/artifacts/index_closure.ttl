@@ -1,0 +1,311 @@
+@prefix ns1: <http://langconfig.local/graphindex#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://anonymous> a owl:Ontology .
+
+<http://langconfig.local/graphindex> a owl:Ontology .
+
+ns1:Brand a owl:Class ;
+    rdfs:subClassOf ns1:EntityType .
+
+ns1:Department a owl:Class ;
+    rdfs:subClassOf ns1:EntityType .
+
+ns1:Person a owl:Class ;
+    rdfs:subClassOf ns1:EntityType .
+
+ns1:Product a owl:Class ;
+    rdfs:subClassOf ns1:EntityType .
+
+ns1:answersQuestionType a owl:ObjectProperty ;
+    rdfs:domain ns1:Document ;
+    rdfs:range ns1:QuestionType .
+
+ns1:author a ns1:Role,
+        owl:NamedIndividual .
+
+ns1:company_analysis a ns1:Genre,
+        owl:NamedIndividual .
+
+ns1:competitor a ns1:Role,
+        owl:NamedIndividual .
+
+ns1:dashboard a ns1:Genre,
+        owl:NamedIndividual .
+
+ns1:doc_bydAnalysisReportMd a ns1:Document,
+        ns1:FinancialReport,
+        ns1:InvestmentGradeReport ;
+    ns1:answersQuestionType ns1:factual,
+        ns1:financial_metric ;
+    ns1:filePath "backend/data/documents/byd_analysis_report.md"^^xsd:string ;
+    ns1:hasGenre ns1:financial_data ;
+    ns1:hasPrimarySubject ns1:economy_business_finance ;
+    ns1:hasSummary "Deep dive into BYD's 2025 financial performance and EV strategy"^^xsd:string ;
+    ns1:hasTitle "byd_analysis_report.md"^^xsd:string ;
+    ns1:mentionsEntity ns1:byd,
+        ns1:china,
+        ns1:operatingProfit,
+        ns1:revenue ;
+    ns1:supportedQuery "BYD EV market position"^^xsd:string,
+        "BYD operating profit margin"^^xsd:string,
+        "What is BYD's revenue?"^^xsd:string .
+
+ns1:doc_bydVsTeslaEuropeMd a ns1:ComparisonReport,
+        ns1:Document ;
+    ns1:answersQuestionType ns1:comparison,
+        ns1:trend_analysis ;
+    ns1:filePath "backend/data/documents/byd_vs_tesla_europe.md"^^xsd:string ;
+    ns1:hasGenre ns1:comparison ;
+    ns1:hasPrimarySubject ns1:economy_business_finance ;
+    ns1:hasSummary "Head-to-head comparison of BYD and Tesla in the European EV market"^^xsd:string ;
+    ns1:hasTitle "byd_vs_tesla_europe.md"^^xsd:string ;
+    ns1:mentionsEntity ns1:byd,
+        ns1:europe,
+        ns1:europeanEVMarket,
+        ns1:tesla ;
+    ns1:supportedQuery "How does BYD compare to Tesla in Europe?"^^xsd:string .
+
+ns1:doc_europeanEvMarketReportMd a ns1:Document,
+        ns1:InvestmentGradeReport ;
+    ns1:answersQuestionType ns1:financial_metric,
+        ns1:trend_analysis ;
+    ns1:filePath "backend/data/documents/european_ev_market_report.md"^^xsd:string ;
+    ns1:hasGenre ns1:industry_analysis ;
+    ns1:hasPrimarySubject ns1:economy_business_finance ;
+    ns1:hasSummary "European EV market share trends by manufacturer"^^xsd:string ;
+    ns1:hasTitle "european_ev_market_report.md"^^xsd:string ;
+    ns1:mentionsEntity ns1:byd,
+        ns1:europe,
+        ns1:europeanEVMarket,
+        ns1:marketShare,
+        ns1:tesla ;
+    ns1:supportedQuery "European EV market outlook"^^xsd:string,
+        "What is Tesla's market share in Europe?"^^xsd:string .
+
+ns1:doc_evConsumerSurveyMd a ns1:Document ;
+    ns1:answersQuestionType ns1:customer_support,
+        ns1:factual ;
+    ns1:filePath "backend/data/documents/ev_consumer_survey.md"^^xsd:string ;
+    ns1:hasGenre ns1:survey ;
+    ns1:hasPrimarySubject ns1:society ;
+    ns1:hasSummary "Consumer survey on EV ownership experience and charging habits"^^xsd:string ;
+    ns1:hasTitle "ev_consumer_survey.md"^^xsd:string ;
+    ns1:mentionsEntity ns1:chargingNetwork,
+        ns1:europe,
+        ns1:evOwners ;
+    ns1:supportedQuery "What do EV owners think about charging?"^^xsd:string .
+
+ns1:doc_teslaQ3StrategyMd a ns1:Document ;
+    ns1:answersQuestionType ns1:strategy_recommendation ;
+    ns1:filePath "backend/data/documents/tesla_q3_strategy.md"^^xsd:string ;
+    ns1:hasGenre ns1:strategic_framework ;
+    ns1:hasPrimarySubject ns1:economy_business_finance ;
+    ns1:hasSummary "Tesla's Q3 strategy memo: product roadmap and expansion plans"^^xsd:string ;
+    ns1:hasTitle "tesla_q3_strategy.md"^^xsd:string ;
+    ns1:mentionsEntity ns1:ev,
+        ns1:tesla ;
+    ns1:supportedQuery "Tesla expansion plans"^^xsd:string,
+        "What is Tesla's strategy?"^^xsd:string .
+
+ns1:dossier a ns1:Genre,
+        owl:NamedIndividual .
+
+ns1:education a ns1:PrimarySubject,
+        owl:NamedIndividual .
+
+ns1:environment a ns1:PrimarySubject,
+        owl:NamedIndividual .
+
+ns1:filePath a owl:DatatypeProperty ;
+    rdfs:domain ns1:Document .
+
+ns1:filing a ns1:Genre,
+        owl:NamedIndividual .
+
+ns1:hasPrimarySubject a owl:ObjectProperty ;
+    rdfs:domain ns1:Document ;
+    rdfs:range ns1:PrimarySubject .
+
+ns1:hasSummary a owl:DatatypeProperty ;
+    rdfs:domain ns1:Document .
+
+ns1:hasTitle a owl:DatatypeProperty ;
+    rdfs:domain ns1:Document .
+
+ns1:health a ns1:PrimarySubject,
+        owl:NamedIndividual .
+
+ns1:labour a ns1:PrimarySubject,
+        owl:NamedIndividual .
+
+ns1:market a ns1:Role,
+        owl:NamedIndividual .
+
+ns1:other a ns1:Genre,
+        ns1:PrimarySubject,
+        ns1:QuestionType,
+        ns1:Role,
+        owl:NamedIndividual .
+
+ns1:partner a ns1:Role,
+        owl:NamedIndividual .
+
+ns1:politics a ns1:PrimarySubject,
+        owl:NamedIndividual .
+
+ns1:regulatory a ns1:QuestionType,
+        owl:NamedIndividual .
+
+ns1:science_technology a ns1:PrimarySubject,
+        owl:NamedIndividual .
+
+ns1:source a ns1:Role,
+        owl:NamedIndividual .
+
+ns1:source_document a ns1:Genre,
+        owl:NamedIndividual .
+
+ns1:subject a ns1:Role,
+        owl:NamedIndividual .
+
+ns1:supportedQuery a owl:DatatypeProperty ;
+    rdfs:domain ns1:Document .
+
+ns1:ComparisonReport a owl:Class ;
+    rdfs:subClassOf ns1:Document ;
+    owl:equivalentClass [ a owl:Class ;
+            owl:intersectionOf ( ns1:Document [ a owl:Restriction ;
+                        owl:hasValue ns1:comparison ;
+                        owl:onProperty ns1:hasGenre ] ) ] .
+
+ns1:FinancialReport a owl:Class ;
+    rdfs:subClassOf ns1:Document ;
+    owl:equivalentClass [ a owl:Class ;
+            owl:intersectionOf ( ns1:Document [ a owl:Restriction ;
+                        owl:hasValue ns1:financial_data ;
+                        owl:onProperty ns1:hasGenre ] ) ] .
+
+ns1:chargingNetwork a ns1:Concept ;
+    rdfs:label "Charging Network"^^xsd:string .
+
+ns1:china a ns1:Geography ;
+    rdfs:label "China"^^xsd:string .
+
+ns1:customer_support a ns1:QuestionType,
+        owl:NamedIndividual .
+
+ns1:ev a ns1:Industry ;
+    rdfs:label "EV"^^xsd:string .
+
+ns1:evOwners a ns1:Concept ;
+    rdfs:label "EV Owners"^^xsd:string .
+
+ns1:industry_analysis a ns1:Genre,
+        owl:NamedIndividual .
+
+ns1:marketShare a ns1:Metric ;
+    rdfs:label "Market Share"^^xsd:string .
+
+ns1:operatingProfit a ns1:Metric ;
+    rdfs:label "Operating Profit"^^xsd:string .
+
+ns1:revenue a ns1:Metric ;
+    rdfs:label "Revenue"^^xsd:string .
+
+ns1:society a ns1:PrimarySubject,
+        owl:NamedIndividual .
+
+ns1:strategic_framework a ns1:Genre,
+        owl:NamedIndividual .
+
+ns1:strategy_recommendation a ns1:QuestionType,
+        owl:NamedIndividual .
+
+ns1:survey a ns1:Genre,
+        owl:NamedIndividual .
+
+ns1:Concept a owl:Class ;
+    rdfs:subClassOf ns1:EntityType .
+
+ns1:Geography a owl:Class ;
+    rdfs:subClassOf ns1:EntityType .
+
+ns1:Industry a owl:Class ;
+    rdfs:subClassOf ns1:EntityType .
+
+ns1:InvestmentGradeReport a owl:Class ;
+    rdfs:subClassOf ns1:Document ;
+    owl:equivalentClass [ a owl:Class ;
+            owl:intersectionOf ( ns1:Document [ a owl:Restriction ;
+                        owl:onProperty ns1:mentionsEntity ;
+                        owl:someValuesFrom ns1:Metric ] [ a owl:Restriction ;
+                        owl:onProperty ns1:mentionsEntity ;
+                        owl:someValuesFrom ns1:Organization ] ) ] .
+
+ns1:europeanEVMarket a ns1:Industry ;
+    rdfs:label "European EV Market"^^xsd:string .
+
+ns1:factual a ns1:QuestionType,
+        owl:NamedIndividual .
+
+ns1:financial_data a ns1:Genre,
+        owl:NamedIndividual .
+
+ns1:financial_metric a ns1:QuestionType,
+        owl:NamedIndividual .
+
+ns1:hasGenre a owl:ObjectProperty ;
+    rdfs:domain ns1:Document ;
+    rdfs:range ns1:Genre .
+
+ns1:mentionsEntity a owl:ObjectProperty ;
+    rdfs:domain ns1:Document ;
+    rdfs:range ns1:EntityType .
+
+ns1:trend_analysis a ns1:QuestionType,
+        owl:NamedIndividual .
+
+ns1:Organization a owl:Class ;
+    rdfs:subClassOf ns1:EntityType .
+
+ns1:byd a ns1:Organization ;
+    rdfs:label "BYD"^^xsd:string .
+
+ns1:comparison a ns1:Genre,
+        ns1:QuestionType,
+        owl:NamedIndividual .
+
+ns1:europe a ns1:Geography ;
+    rdfs:label "Europe"^^xsd:string .
+
+ns1:tesla a ns1:Organization ;
+    rdfs:label "Tesla"^^xsd:string .
+
+ns1:Metric a owl:Class ;
+    rdfs:subClassOf ns1:EntityType .
+
+ns1:economy_business_finance a ns1:PrimarySubject,
+        owl:NamedIndividual .
+
+ns1:Role a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+
+ns1:QuestionType a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+
+ns1:EntityType a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+
+ns1:PrimarySubject a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+
+ns1:Genre a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+
+ns1:Document a owl:Class ;
+    rdfs:subClassOf owl:Thing .
+

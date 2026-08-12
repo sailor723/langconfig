@@ -1,0 +1,31 @@
+@prefix gi: <http://langconfig.local/graphindex#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+gi:doc_bydAnalysisReportMd a gi:Document ;
+    gi:answersQuestionType gi:factual,
+        gi:financial_metric ;
+    gi:filePath "backend/data/documents/byd_analysis_report.md" ;
+    gi:hasGenre gi:financial_data ;
+    gi:hasPrimarySubject gi:economy_business_finance ;
+    gi:hasSummary "Deep dive into BYD's 2025 financial performance and EV strategy" ;
+    gi:hasTitle "byd_analysis_report.md" ;
+    gi:mentionsEntity gi:byd,
+        gi:china,
+        gi:operatingProfit,
+        gi:revenue ;
+    gi:supportedQuery "BYD EV market position",
+        "BYD operating profit margin",
+        "What is BYD's revenue?" .
+
+gi:byd a gi:Organization ;
+    rdfs:label "BYD" .
+
+gi:china a gi:Geography ;
+    rdfs:label "China" .
+
+gi:operatingProfit a gi:Metric ;
+    rdfs:label "Operating Profit" .
+
+gi:revenue a gi:Metric ;
+    rdfs:label "Revenue" .
+

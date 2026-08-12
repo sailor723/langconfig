@@ -2,8 +2,8 @@
 """
 Phase 9 / Step 2.6 — semantic LLM-based doc routing.
 
-Builds a one-shot catalog from Neo4j (each doc + its out_of_scope neighbors'
-full metadata), then asks an LLM to pick the best document for a query.
+Builds a one-shot catalog from Neo4j (each doc's routing metadata),
+then asks an LLM to pick the best document for a query.
 
 This is progressive disclosure: the catalog is the small "what exists"
 view, and only the chosen doc's full content is loaded afterward.
@@ -66,7 +66,7 @@ SESSION_START = time.time()
 
 def fetch_catalog(idx: Neo4jDocumentIndex, project_id: int,
                   doc_scope: str = "all") -> List[Dict[str, Any]]:
-    """Pull docs (all or scoped) + their out_of_scope neighbors' full metadata.
+    """Pull docs (all or scoped) as routing metadata rows.
 
     If *doc_scope* is ``"all"`` (the default), returns ALL docs in the project.
     Otherwise it's treated as a JSON array of doc names to scope to.
@@ -74,21 +74,11 @@ def fetch_catalog(idx: Neo4jDocumentIndex, project_id: int,
     if doc_scope == "all":
         cypher = """
 MATCH (d:Document {project_id: $pid})
-WITH d, coalesce(d.out_of_scope, []) AS ex_names
-UNWIND (CASE WHEN size(ex_names) = 0 THEN [null] ELSE ex_names END) AS ex_name
-WITH d, ex_name
-OPTIONAL MATCH (other:Document {project_id: $pid, name: ex_name})
-WITH d, collect({
-    name: other.name,
-    about: COALESCE(other.what_this_document_is_about, other.content_preview, ''),
-    supports: COALESCE(other.supported_queries, other.search_terms, [])
-}) AS excluded_full
 RETURN d.name AS name,
        d.context_doc_id AS cid,
        d.file_path AS fp,
        COALESCE(d.what_this_document_is_about, d.content_preview, '') AS about,
-       COALESCE(d.supported_queries, d.search_terms, []) AS supports,
-       excluded_full AS excludes
+       COALESCE(d.supported_queries, d.search_terms, []) AS supports
 ORDER BY d.name
 """
         return idx._run_cypher(cypher, {"pid": project_id})
@@ -103,22 +93,11 @@ ORDER BY d.name
     cypher = f"""
 MATCH (d:Document {{project_id: $pid}})
 WHERE {contains_filters}
-WITH d, coalesce(d.out_of_scope, []) AS ex_names
-UNWIND (CASE WHEN size(ex_names) = 0 THEN [null] ELSE ex_names END) AS ex_name
-WITH d, ex_name
-OPTIONAL MATCH (other:Document {{project_id: $pid, name: ex_name}})
-WHERE other.name IN $scope_list OR other IS NULL
-WITH d, collect({{
-    name: other.name,
-    about: COALESCE(other.what_this_document_is_about, other.content_preview, ''),
-    supports: COALESCE(other.supported_queries, other.search_terms, [])
-}}) AS excluded_full
 RETURN d.name AS name,
        d.context_doc_id AS cid,
        d.file_path AS fp,
        COALESCE(d.what_this_document_is_about, d.content_preview, '') AS about,
-       COALESCE(d.supported_queries, d.search_terms, []) AS supports,
-       excluded_full AS excludes
+       COALESCE(d.supported_queries, d.search_terms, []) AS supports
 ORDER BY d.name
 """
     return idx._run_cypher(cypher, params)
