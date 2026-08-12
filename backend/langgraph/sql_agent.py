@@ -20,7 +20,6 @@ from typing import Literal
 from uuid import uuid4
 
 from dotenv import load_dotenv
-from langchain.chat_models import init_chat_model
 from langchain.messages import AIMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
@@ -28,6 +27,7 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.store.memory import InMemoryStore
 
+from llm import build_chat_model
 from sql_setup_db import ensure_chinook_db, sql_db_list_tables, sql_db_schema, sql_db_query
 
 # Best-effort: pick up the repo-root .env if the keys live there.
@@ -35,23 +35,19 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file_
 
 
 # ── 1. Select an LLM ────────────────────────────────────────────────
-# Local Ollama via its OpenAI-compatible endpoint (no extra install needed).
-# Pull the model first if missing:  ollama pull qwen2.5:14b
-# model = init_chat_model(
-#     "qwen2.5:14b",
-#     model_provider="openai",
-#     base_url="http://localhost:11434/v1",
-#     api_key="ollama",  # placeholder; Ollama ignores the key
-#     temperature=0,
-# )
-# Cloud fallback (DeepSeek via the langchain-deepseek provider):
-model = init_chat_model(
-    "deepseek-chat",
-    model_provider="deepseek",
-    api_key=os.environ.get("DEEPSEEK_API_KEY"),
-    base_url=os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com",
-    temperature=0,
-)
+# Use the platform's default model — the one chosen in
+# Settings > Model Cards > "Set Default" (falls back to .env DEFAULT_MODEL,
+# then deepseek-chat). A local Ollama default is served through its
+# OpenAI-compatible endpoint; cloud models go through their provider.
+# The comment below shows the raw call for a local Ollama model:
+#   model = init_chat_model(
+#       "qwen2.5:14b",
+#       model_provider="openai",
+#       base_url="http://localhost:11434/v1",
+#       api_key="ollama",  # placeholder; Ollama ignores the key
+#       temperature=0,
+#   )
+model = build_chat_model(temperature=0)
 # ── 2. Database + tools ─────────────────────────────────────────────
 ensure_chinook_db()
 tools = [sql_db_list_tables, sql_db_schema, sql_db_query]

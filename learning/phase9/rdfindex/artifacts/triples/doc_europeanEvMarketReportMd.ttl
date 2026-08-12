@@ -1,0 +1,34 @@
+@prefix gi: <http://langconfig.local/graphindex#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+gi:doc_europeanEvMarketReportMd a gi:Document ;
+    gi:answersQuestionType gi:financial_metric,
+        gi:trend_analysis ;
+    gi:filePath "backend/data/documents/european_ev_market_report.md" ;
+    gi:hasGenre gi:industry_analysis ;
+    gi:hasPrimarySubject gi:economy_business_finance ;
+    gi:hasSummary "European EV market share trends by manufacturer" ;
+    gi:hasTitle "european_ev_market_report.md" ;
+    gi:mentionsEntity gi:byd,
+        gi:europe,
+        gi:europeanEVMarket,
+        gi:marketShare,
+        gi:tesla ;
+    gi:supportedQuery "European EV market outlook",
+        "What is Tesla's market share in Europe?" .
+
+gi:byd a gi:Organization ;
+    rdfs:label "BYD" .
+
+gi:europe a gi:Geography ;
+    rdfs:label "Europe" .
+
+gi:europeanEVMarket a gi:Industry ;
+    rdfs:label "European EV Market" .
+
+gi:marketShare a gi:Metric ;
+    rdfs:label "Market Share" .
+
+gi:tesla a gi:Organization ;
+    rdfs:label "Tesla" .
+

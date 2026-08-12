@@ -12,7 +12,6 @@ import os
 from typing import Literal
 
 from dotenv import load_dotenv
-from langchain.chat_models import init_chat_model
 from langchain.messages import AIMessage
 from langchain.tools import tool
 from langchain_core.runnables import RunnableConfig
@@ -21,6 +20,7 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.types import Command, interrupt
 
+from llm import build_chat_model
 from sql_setup_db import ensure_chinook_db, sql_db_list_tables, sql_db_schema, sql_db_query
 
 # Best-effort: pick up the repo-root .env if the keys live there.
@@ -28,13 +28,11 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file_
 
 
 # ── 1. Select an LLM ────────────────────────────────────────────────
-model = init_chat_model(
-    "deepseek-chat",
-    model_provider="deepseek",
-    api_key=os.environ.get("DEEPSEEK_API_KEY"),
-    base_url=os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com",
-    temperature=0,
-)
+# Use the platform's default model — the one chosen in
+# Settings > Model Cards > "Set Default" (falls back to .env DEFAULT_MODEL,
+# then deepseek-chat). A local Ollama default is served through its
+# OpenAI-compatible endpoint; cloud models go through their provider.
+model = build_chat_model(temperature=0)
 
 # ── 2. Database + tools ─────────────────────────────────────────────
 ensure_chinook_db()

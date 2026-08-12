@@ -1,0 +1,21 @@
+@prefix gi: <http://langconfig.local/graphindex#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+gi:doc_teslaQ3StrategyMd a gi:Document ;
+    gi:answersQuestionType gi:strategy_recommendation ;
+    gi:filePath "backend/data/documents/tesla_q3_strategy.md" ;
+    gi:hasGenre gi:strategic_framework ;
+    gi:hasPrimarySubject gi:economy_business_finance ;
+    gi:hasSummary "Tesla's Q3 strategy memo: product roadmap and expansion plans" ;
+    gi:hasTitle "tesla_q3_strategy.md" ;
+    gi:mentionsEntity gi:ev,
+        gi:tesla ;
+    gi:supportedQuery "Tesla expansion plans",
+        "What is Tesla's strategy?" .
+
+gi:ev a gi:Industry ;
+    rdfs:label "EV" .
+
+gi:tesla a gi:Organization ;
+    rdfs:label "Tesla" .
+

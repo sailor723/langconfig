@@ -1,0 +1,29 @@
+@prefix gi: <http://langconfig.local/graphindex#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+gi:doc_bydVsTeslaEuropeMd a gi:Document ;
+    gi:answersQuestionType gi:comparison,
+        gi:trend_analysis ;
+    gi:filePath "backend/data/documents/byd_vs_tesla_europe.md" ;
+    gi:hasGenre gi:comparison ;
+    gi:hasPrimarySubject gi:economy_business_finance ;
+    gi:hasSummary "Head-to-head comparison of BYD and Tesla in the European EV market" ;
+    gi:hasTitle "byd_vs_tesla_europe.md" ;
+    gi:mentionsEntity gi:byd,
+        gi:europe,
+        gi:europeanEVMarket,
+        gi:tesla ;
+    gi:supportedQuery "How does BYD compare to Tesla in Europe?" .
+
+gi:byd a gi:Organization ;
+    rdfs:label "BYD" .
+
+gi:europe a gi:Geography ;
+    rdfs:label "Europe" .
+
+gi:europeanEVMarket a gi:Industry ;
+    rdfs:label "European EV Market" .
+
+gi:tesla a gi:Organization ;
+    rdfs:label "Tesla" .
+

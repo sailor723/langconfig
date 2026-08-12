@@ -110,6 +110,8 @@ export interface LiveMessage {
   content?: string | unknown[];
   tool_calls?: { name: string; args: Record<string, unknown>; id: string }[];
   response_metadata?: Record<string, unknown>;
+  /** Chain-of-thought from reasoning models (ChatDeepSeek / ChatOllama). */
+  reasoning_content?: string;
 }
 
 /** A chat graph takes `{messages: [{role, content}]}`; a form graph takes raw fields. */
@@ -142,6 +144,16 @@ export const api = {
 
   async loadGraph(assistantId: string): Promise<GraphSpec> {
     return request(`/assistants/${assistantId}/graph`);
+  },
+
+  /** Full Python source of the assistant's graph module (plain text). */
+  async loadAssistantCode(assistantId: string): Promise<string> {
+    const res = await fetch(`${BASE}/assistants/${assistantId}/code`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`${res.status}: ${text.slice(0, 200) || res.statusText}`);
+    }
+    return res.text();
   },
 
   async loadSchemas(assistantId: string): Promise<AssistantSchemas> {

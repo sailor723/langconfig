@@ -1,0 +1,285 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xml:base="http://langconfig.local/graphindex"
+         xmlns="http://langconfig.local/graphindex#">
+
+<owl:Ontology rdf:about="http://langconfig.local/graphindex"/>
+
+<owl:ObjectProperty rdf:about="#mentionsEntity">
+  <rdfs:domain rdf:resource="#Document"/>
+  <rdfs:range rdf:resource="#EntityType"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#hasGenre">
+  <rdfs:domain rdf:resource="#Document"/>
+  <rdfs:range rdf:resource="#Genre"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#hasPrimarySubject">
+  <rdfs:domain rdf:resource="#Document"/>
+  <rdfs:range rdf:resource="#PrimarySubject"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#answersQuestionType">
+  <rdfs:domain rdf:resource="#Document"/>
+  <rdfs:range rdf:resource="#QuestionType"/>
+</owl:ObjectProperty>
+
+<owl:DatatypeProperty rdf:about="#hasTitle">
+  <rdfs:domain rdf:resource="#Document"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#hasSummary">
+  <rdfs:domain rdf:resource="#Document"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#filePath">
+  <rdfs:domain rdf:resource="#Document"/>
+</owl:DatatypeProperty>
+
+<owl:DatatypeProperty rdf:about="#supportedQuery">
+  <rdfs:domain rdf:resource="#Document"/>
+</owl:DatatypeProperty>
+
+<owl:Class rdf:about="#Document">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#EntityType">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Organization">
+  <rdfs:subClassOf rdf:resource="#EntityType"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Industry">
+  <rdfs:subClassOf rdf:resource="#EntityType"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Person">
+  <rdfs:subClassOf rdf:resource="#EntityType"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Product">
+  <rdfs:subClassOf rdf:resource="#EntityType"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Brand">
+  <rdfs:subClassOf rdf:resource="#EntityType"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Geography">
+  <rdfs:subClassOf rdf:resource="#EntityType"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Metric">
+  <rdfs:subClassOf rdf:resource="#EntityType"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Department">
+  <rdfs:subClassOf rdf:resource="#EntityType"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Concept">
+  <rdfs:subClassOf rdf:resource="#EntityType"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Genre">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#PrimarySubject">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#QuestionType">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Role">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#FinancialReport">
+  <rdfs:subClassOf rdf:resource="#Document"/>
+  <owl:equivalentClass>
+    <owl:Class>
+      <owl:intersectionOf rdf:parseType="Collection">
+        <rdf:Description rdf:about="#Document"/>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#hasGenre"/>
+          <owl:hasValue rdf:resource="#financial_data"/>
+        </owl:Restriction>
+      </owl:intersectionOf>
+    </owl:Class>
+  </owl:equivalentClass>
+</owl:Class>
+
+<owl:Class rdf:about="#ComparisonReport">
+  <rdfs:subClassOf rdf:resource="#Document"/>
+  <owl:equivalentClass>
+    <owl:Class>
+      <owl:intersectionOf rdf:parseType="Collection">
+        <rdf:Description rdf:about="#Document"/>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#hasGenre"/>
+          <owl:hasValue rdf:resource="#comparison"/>
+        </owl:Restriction>
+      </owl:intersectionOf>
+    </owl:Class>
+  </owl:equivalentClass>
+</owl:Class>
+
+<owl:Class rdf:about="#InvestmentGradeReport">
+  <rdfs:subClassOf rdf:resource="#Document"/>
+  <owl:equivalentClass>
+    <owl:Class>
+      <owl:intersectionOf rdf:parseType="Collection">
+        <rdf:Description rdf:about="#Document"/>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#mentionsEntity"/>
+          <owl:someValuesFrom rdf:resource="#Metric"/>
+        </owl:Restriction>
+        <owl:Restriction>
+          <owl:onProperty rdf:resource="#mentionsEntity"/>
+          <owl:someValuesFrom rdf:resource="#Organization"/>
+        </owl:Restriction>
+      </owl:intersectionOf>
+    </owl:Class>
+  </owl:equivalentClass>
+</owl:Class>
+
+<owl:NamedIndividual rdf:about="#company_analysis">
+  <rdf:type rdf:resource="#Genre"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#industry_analysis">
+  <rdf:type rdf:resource="#Genre"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#comparison">
+  <rdf:type rdf:resource="#Genre"/>
+  <rdf:type rdf:resource="#QuestionType"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#survey">
+  <rdf:type rdf:resource="#Genre"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#dossier">
+  <rdf:type rdf:resource="#Genre"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#strategic_framework">
+  <rdf:type rdf:resource="#Genre"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#financial_data">
+  <rdf:type rdf:resource="#Genre"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#source_document">
+  <rdf:type rdf:resource="#Genre"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#filing">
+  <rdf:type rdf:resource="#Genre"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#dashboard">
+  <rdf:type rdf:resource="#Genre"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#other">
+  <rdf:type rdf:resource="#Genre"/>
+  <rdf:type rdf:resource="#PrimarySubject"/>
+  <rdf:type rdf:resource="#QuestionType"/>
+  <rdf:type rdf:resource="#Role"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#economy_business_finance">
+  <rdf:type rdf:resource="#PrimarySubject"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#science_technology">
+  <rdf:type rdf:resource="#PrimarySubject"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#labour">
+  <rdf:type rdf:resource="#PrimarySubject"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#environment">
+  <rdf:type rdf:resource="#PrimarySubject"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#health">
+  <rdf:type rdf:resource="#PrimarySubject"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#education">
+  <rdf:type rdf:resource="#PrimarySubject"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#society">
+  <rdf:type rdf:resource="#PrimarySubject"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#politics">
+  <rdf:type rdf:resource="#PrimarySubject"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#factual">
+  <rdf:type rdf:resource="#QuestionType"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#financial_metric">
+  <rdf:type rdf:resource="#QuestionType"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#trend_analysis">
+  <rdf:type rdf:resource="#QuestionType"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#customer_support">
+  <rdf:type rdf:resource="#QuestionType"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#regulatory">
+  <rdf:type rdf:resource="#QuestionType"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#strategy_recommendation">
+  <rdf:type rdf:resource="#QuestionType"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#subject">
+  <rdf:type rdf:resource="#Role"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#competitor">
+  <rdf:type rdf:resource="#Role"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#partner">
+  <rdf:type rdf:resource="#Role"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#author">
+  <rdf:type rdf:resource="#Role"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#source">
+  <rdf:type rdf:resource="#Role"/>
+</owl:NamedIndividual>
+
+<owl:NamedIndividual rdf:about="#market">
+  <rdf:type rdf:resource="#Role"/>
+</owl:NamedIndividual>
+
+
+</rdf:RDF>

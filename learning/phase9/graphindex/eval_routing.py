@@ -165,7 +165,6 @@ class EvalResult:
 
 def _to_record(r: Dict[str, Any]) -> Neo4jDocumentRecord:
     """Convert a catalog row into a Neo4jDocumentRecord for string matching."""
-    excluded_names = [ex["name"] for ex in (r["excludes"] or []) if ex.get("name")]
     return Neo4jDocumentRecord(
         project_id=1,
         name=r["name"],
@@ -174,7 +173,6 @@ def _to_record(r: Dict[str, Any]) -> Neo4jDocumentRecord:
         tags=[],
         what_this_document_is_about=r["about"],
         supported_queries=list(r["supports"] or []),
-        out_of_scope=excluded_names,
         search_terms=[],
         content_preview="",
         doc_index_id=None,

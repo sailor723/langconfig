@@ -3,6 +3,7 @@
  * plus the chat input for message-based graphs.
  */
 import type { CSSProperties } from 'react';
+import { useState } from 'react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState } from './studioStore';
 import ChatInput from './ChatInput';
@@ -27,6 +28,54 @@ function renderContent(content: unknown): string {
   return JSON.stringify(content);
 }
 
+/** Collapsible block showing a reasoning model's chain-of-thought. */
+function ThinkingBlock({ text }: { text: string }) {
+  const t = useLayoutTokens();
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginTop: 4 }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
+          fontSize: 10.5,
+          fontWeight: 600,
+          padding: '2px 8px',
+          borderRadius: 999,
+          border: 'none',
+          cursor: 'pointer',
+          color: '#c4b5fd',
+          background: 'rgba(168,85,247,0.12)',
+        }}
+      >
+        {open ? '▾' : '▸'} 🧠 Thinking
+      </button>
+      {open && (
+        <pre
+          style={{
+            margin: '4px 0 0',
+            fontSize: 11,
+            lineHeight: 1.5,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            fontFamily: 'monospace',
+            color: t.textMuted,
+            background: t.bgInput,
+            borderRadius: 6,
+            padding: '6px 8px',
+            maxHeight: 260,
+            overflowY: 'auto',
+          }}
+        >
+          {text}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 function MessageRow({ message }: { message: LiveMessage }) {
   const t = useLayoutTokens();
   const type = message.type ?? 'ai';
@@ -35,6 +84,7 @@ function MessageRow({ message }: { message: LiveMessage }) {
   const label = isHuman ? 'You' : isTool ? 'Tool' : 'Assistant';
   const body = renderContent(message.content);
   const toolCalls = message.tool_calls ?? [];
+  const reasoning = message.reasoning_content;
 
   const rowStyle: CSSProperties = {
     border: `1px solid ${t.border}`,
@@ -59,6 +109,7 @@ function MessageRow({ message }: { message: LiveMessage }) {
       </span>
       <div style={rowStyle}>
         {body ? <div style={{ whiteSpace: 'pre-wrap', color: t.textPrimary }}>{body}</div> : null}
+        {reasoning ? <ThinkingBlock text={reasoning} /> : null}
         {toolCalls.length > 0 && (
           <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
             {toolCalls.map((tc, i) => (
@@ -81,7 +132,7 @@ function MessageRow({ message }: { message: LiveMessage }) {
             ))}
           </div>
         )}
-        {!body && toolCalls.length === 0 && (
+        {!body && toolCalls.length === 0 && !reasoning && (
           <span style={{ color: t.textDim, fontStyle: 'italic' }}>…</span>
         )}
       </div>
