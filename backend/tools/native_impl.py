@@ -9,7 +9,7 @@ Seed-time implementations of the DB-seeded built-in tools (seed source).
 
 This module is the SEED SOURCE for the built-in tools stored in the
 ``custom_tools`` table as ``is_builtin`` rows. The seeder
-(tools/seed_builtin_tools.py) bakes each tool's implementation into a
+(scripts/seeds/seed_builtin_tools.py) bakes each tool's implementation into a
 self-contained ``python_function`` row, so agents compile tools directly
 from PostgreSQL at runtime — exactly like custom tools. This module is
 only required at seed time (plus a few direct importers of the GraphIndex

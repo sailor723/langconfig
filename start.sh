@@ -11,42 +11,81 @@ BE_DIR="$ROOT_DIR/backend"
 FE_DIR="$ROOT_DIR"
 
 SELF_PID=$$
+# PID files persist across runs (NOT deleted on exit) so a re-run can stop the
+# previous uvicorn/vite instance, and so you can stop manually:
+#   kill $(cat /tmp/langconfig-be.pid) $(cat /tmp/langconfig-fe.pid)
 BE_PIDFILE="/tmp/langconfig-be.pid"
 FE_PIDFILE="/tmp/langconfig-fe.pid"
 
-cleanup() {
-    rm -f "$BE_PIDFILE" "$FE_PIDFILE" 2>/dev/null
-}
-trap cleanup EXIT
-
 kill_old() {
     local name="$1" port="$2" pidfile="$3"
-    # Kill by PID file
+
+    # 1) Stop via PID file first. SIGTERM lets the uvicorn reloader shut down
+    #    its worker cleanly (SIGKILL is only the last resort).
     if [ -f "$pidfile" ]; then
         old_pid=$(cat "$pidfile")
         if kill -0 "$old_pid" 2>/dev/null && [ "$old_pid" != "$SELF_PID" ]; then
-            echo "  Killing previous $name (PID $old_pid)..."
+            echo "  Stopping previous $name (PID $old_pid)..."
             kill "$old_pid" 2>/dev/null || true
-            sleep 1
+            for _ in 1 2 3 4 5; do
+                kill -0 "$old_pid" 2>/dev/null || break
+                sleep 1
+            done
+            kill -9 "$old_pid" 2>/dev/null || true
         fi
     fi
-    # Kill by port
+
+    # 2) Kill anything still LISTENING on the port. Restrict to LISTEN state —
+    #    `lsof -i:PORT` alone also matches outbound sockets, e.g. the Vite dev
+    #    server's ws-proxy connections to the backend on 8765, which would
+    #    wrongly take down the frontend too.
     local pids
-    pids=$(lsof -ti:"$port" 2>/dev/null || true)
+    pids=$(lsof -ti:"$port" -sTCP:LISTEN 2>/dev/null || true)
     if [ -n "$pids" ]; then
         for p in $pids; do
             if [ "$p" != "$SELF_PID" ]; then
-                echo "  Killing process on port $port (PID $p)..."
+                echo "  Stopping process on port $port (PID $p)..."
                 kill -9 "$p" 2>/dev/null || true
             fi
         done
-        sleep 1
     fi
+
+    # 3) Wait until the port is actually free so the new server can bind.
+    for _ in 1 2 3 4 5; do
+        lsof -ti:"$port" -sTCP:LISTEN >/dev/null 2>&1 || return 0
+        sleep 1
+    done
+    echo "  ⚠️  Port $port is still busy after 5s"
+    return 1
 }
 
 start_postgres() {
     echo "── PostgreSQL ────────────────────────────"
-    # Native Homebrew PostgreSQL 16 on :5432 — Docker is NOT used here.
+    # The DB mode is driven by POSTGRES_PORT in the root .env:
+    #   5432 = native Homebrew postgresql@16,  5433 = Docker (pgvector/pgvector:pg16)
+    PG_PORT="$(grep -E '^POSTGRES_PORT=' "$ROOT_DIR/.env" 2>/dev/null | head -1 | cut -d= -f2)"
+    PG_PORT="${PG_PORT:-5432}"
+
+    if [ "$PG_PORT" = "5433" ]; then
+        # Docker mode: keep the langconfig-postgres container running
+        if docker ps --format '{{.Names}} {{.Ports}}' 2>/dev/null | grep -q "langconfig-postgres.*5433"; then
+            echo "  ✅ Docker PostgreSQL already running on :5433"
+            return 0
+        fi
+        echo "  Starting Docker PostgreSQL (pgvector/pgvector:pg16)..."
+        (cd "$ROOT_DIR" && docker compose up -d postgres)
+        for _ in 1 2 3 4 5; do
+            if [ "$(docker inspect langconfig-postgres --format '{{.State.Health.Status}}' 2>/dev/null)" = "healthy" ]; then
+                echo "  ✅ Docker PostgreSQL healthy on :5433"
+                return 0
+            fi
+            sleep 2
+        done
+        echo "  ⚠️  Docker PostgreSQL not healthy — the backend may fail to connect"
+        return 0
+    fi
+
+    # Native mode (default): Homebrew PostgreSQL 16 on :5432
     PG_READY="$(command -v pg_isready || echo /opt/homebrew/opt/postgresql@16/bin/pg_isready)"
     if "$PG_READY" -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
         echo "  ✅ PostgreSQL already running on :5432"
@@ -99,7 +138,8 @@ start_frontend() {
     echo $! > "$FE_PIDFILE"
     echo "  Frontend PID: $(cat "$FE_PIDFILE")"
     sleep 4
-    if curl -sf http://127.0.0.1:1421/ >/dev/null 2>&1; then
+    # Vite binds to ::1 (IPv6 loopback) on macOS, so check `localhost`, not 127.0.0.1
+    if curl -sf http://localhost:1421/ >/dev/null 2>&1; then
         echo "  ✅ Frontend running on http://localhost:1421"
     else
         echo "  ⏳ Frontend starting (may need a few more seconds)..."

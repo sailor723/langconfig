@@ -18,6 +18,19 @@ import sys
 import json
 import os
 
+# Reuse the POSTGRES_* single source of truth when the backend package is
+# importable (run inside the app); fall back to the same defaults standalone.
+try:
+    from db.db_url import compose_db_url
+except ImportError:  # pragma: no cover - standalone execution from the skill dir
+    def compose_db_url() -> str:
+        host = os.environ.get("POSTGRES_HOST", "localhost")
+        port = os.environ.get("POSTGRES_PORT", "5432")
+        user = os.environ.get("POSTGRES_USER", "langconfig")
+        password = os.environ.get("POSTGRES_PASSWORD", "langconfig_dev")
+        dbname = os.environ.get("POSTGRES_DB", "langconfig")
+        return f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
+
 
 def load_dataframe(payload):
     """Load DataFrame from CSV path or SQL query."""
@@ -36,9 +49,8 @@ def load_dataframe(payload):
         if not query:
             raise ValueError("SQL source requires 'query' field")
         conn_str = payload.get("connection_string") or os.environ.get(
-            "DATABASE_URL",
-            "postgresql://langconfig:langconfig_dev@localhost:5433/langconfig",
-        )
+            "DATABASE_URL"
+        ) or compose_db_url()
         from sqlalchemy import create_engine
         engine = create_engine(conn_str)
         df = pd.read_sql(query, engine)

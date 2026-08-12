@@ -12,7 +12,7 @@ Playground** without leaving Settings.
 |---|---|
 | Model Cards grid (visual) | `src/features/settings/ui/ModelCardsSettings.tsx` |
 | Playground popup modal | `src/features/settings/ui/ModelPlaygroundModal.tsx` |
-| Model metadata + capability badges | `backend/scripts/seed_models.py` |
+| Model metadata + capability badges | `backend/scripts/seeds/seed_models.py` |
 | Mock tool registry | `backend/api/models/routes.py` |
 
 ---
@@ -66,7 +66,7 @@ Click `▶ Play` on any model card → centered popup (~960×720).
 
 After running any preset, the user can type their own query and continue.
 
-### 4. Backend Model Metadata (`seed_models.py`)
+### 4. Backend Model Metadata (`scripts/seeds/seed_models.py`)
 
 Enriched `capabilities` JSON for **26 cloud models**:
 
@@ -172,7 +172,7 @@ src/lib/
 backend/api/models/
 └── routes.py                                     ← tool registry, agent loop, image_url
 
-backend/scripts/
+backend/scripts/seeds/
 └── seed_models.py                                ← 26 cloud models + V4 specs
 ```
 

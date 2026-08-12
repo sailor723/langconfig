@@ -17,8 +17,19 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from contextlib import asynccontextmanager
 from typing import Generator, AsyncGenerator
 import logging
+from dotenv import load_dotenv
+
+# compose_db_url lives in the dependency-free db.db_url module so config.py
+# and standalone scripts can reuse it without building SQLAlchemy engines.
+from db.db_url import compose_db_url
 
 logger = logging.getLogger(__name__)
+
+# Load the project-root .env file so this module behaves the same in
+# standalone scripts (uv run python ..., pytest, one-off DB scripts) as the
+# app does via backend/config.py. The root .env is the single source of truth.
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
+load_dotenv(env_path)
 
 # Environment variables for configuration
 SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() == "true"
@@ -28,10 +39,9 @@ DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
 DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "20"))
 
 # PostgreSQL URL (unified database for everything)
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://langconfig:langconfig_dev@localhost:5433/langconfig"
-)
+# Explicit DATABASE_URL wins; otherwise it is composed from POSTGRES_* so the
+# app, docker-compose and the SQL agent always point at the same server.
+DATABASE_URL = os.getenv("DATABASE_URL") or compose_db_url()
 
 # Async PostgreSQL URL (for async operations like event persistence)
 ASYNC_DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+asyncpg://')
@@ -135,6 +145,15 @@ def init_db():
     Use async_init_db() for async contexts (FastAPI lifespan).
     """
     try:
+        # Register ALL ORM models with Base before create_all.
+        # The app does this via `import models` in main.py, but standalone
+        # scripts (bootstrap, tests, one-off DB jobs) only import
+        # db.database — so import every models.* module explicitly here.
+        import importlib
+        import pkgutil
+        import models as _models_pkg
+        for _mod in pkgutil.iter_modules(_models_pkg.__path__):
+            importlib.import_module(f"models.{_mod.name}")
         # Enable PostgreSQL extensions
         with engine.begin() as connection:
             connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))

@@ -9,7 +9,7 @@ LangConfig Setup Script
 =======================
 
 One-command setup for fresh clones. Handles:
-1. Environment file creation (.env from .env.example)
+1. Environment file creation (.env from env_example)
 2. Python dependency installation
 3. Database initialization (tables + extensions)
 4. Playwright browser installation (optional)
@@ -79,22 +79,22 @@ def check_docker():
         return False
 
 def setup_env_file():
-    """Create .env from .env.example if it doesn't exist."""
+    """Create .env from env_example if it doesn't exist."""
     print_step("Setting up environment file...")
     root = get_project_root()
     env_file = root / ".env"
-    env_example = root / ".env.example"
+    env_example = root / "env_example"
     
     if env_file.exists():
         print_success(".env already exists")
         return True
     
     if not env_example.exists():
-        print_error(".env.example not found!")
+        print_error("env_example not found!")
         return False
     
     shutil.copy(env_example, env_file)
-    print_success("Created .env from .env.example")
+    print_success("Created .env from env_example")
     print_warning("Edit .env to add your API keys (OPENAI_API_KEY, etc.)")
     return True
 

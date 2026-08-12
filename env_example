@@ -3,20 +3,60 @@
 # =============================================================================
 # Copy this file to .env and fill in your actual values
 # DO NOT commit .env to version control - it contains sensitive credentials
+#
+# RULE: any value containing "your-", "change-this" or "replace-with" is a
+# PLACEHOLDER that MUST be replaced before running. Never ship a placeholder.
 
 # =============================================================================
 # Database Configuration (PostgreSQL + pgvector)
 # =============================================================================
-# Main PostgreSQL database URL for LangConfig
-# Format: postgresql://user:password@host:port/database
-DATABASE_URL=postgresql://langconfig:langconfig_dev@localhost:5433/langconfig
-
-# PostgreSQL Connection Details (used by Docker Compose)
+# The POSTGRES_* block below is the SINGLE SOURCE OF TRUTH. Every consumer —
+# the backend (db/database.py, config.py), the seed scripts, docker-compose.yml
+# and the LangGraph SQL agent — reads it. So switching between a NATIVE install
+# and a DOCKER container is a pure .env edit, no code changes needed.
+#
+#   MODE A — Native PostgreSQL (installed on your machine, e.g. Mac/WSL)
+#     POSTGRES_HOST=localhost
+#     POSTGRES_PORT=5432
+#     POSTGRES_DB=langconfig
+#     POSTGRES_USER=langconfig
+#     POSTGRES_PASSWORD=langconfig_dev
+#     Then start Postgres yourself (e.g. `brew services start postgresql@16`).
+#
+#   MODE B — Docker PostgreSQL (docker-compose up -d postgres)
+#     Same values as above: compose publishes the container on
+#     localhost:5432 and reads these same POSTGRES_* vars, so the app still
+#     connects to localhost:5432. Only change them if you publish a
+#     different port (e.g. POSTGRES_PORT=5433 for a second instance).
+#
+# DATABASE_URL is derived from these parts automatically. Set it explicitly
+# only to point at a remote/cloud database (it then overrides the parts).
 POSTGRES_HOST=localhost
-POSTGRES_PORT=5433
+POSTGRES_PORT=5432
 POSTGRES_DB=langconfig
 POSTGRES_USER=langconfig
 POSTGRES_PASSWORD=langconfig_dev
+# DATABASE_URL=postgresql://langconfig:langconfig_dev@localhost:5432/langconfig
+
+# Optional: default target database for `python db/setup_target_db.py`
+# when no name argument is given (DATABASE_URL above is the actual runtime config).
+# TARGET_DB=
+
+# =============================================================================
+# LangGraph SQL Agent target database (the DB the workflow queries)
+# =============================================================================
+# The LangGraph SQL agent reads from this database through the tools in
+# backend/langgraph/sql_setup_db.py. Set SQL_DATABASE_URL to fully override;
+# otherwise the SQL_* parts are used (falling back to the POSTGRES_* block).
+# Set SQL_POSTGRES_DB=chinook to point the workflow at the chinook DB.
+# By default the agent connects to the SAME server as POSTGRES_* above, so in
+# docker mode you don't need to repeat host/port/user/password here.
+SQL_POSTGRES_HOST=localhost
+SQL_POSTGRES_PORT=5432
+SQL_POSTGRES_DB=chinook
+SQL_POSTGRES_USER=langconfig
+SQL_POSTGRES_PASSWORD=langconfig_dev
+# SQL_DATABASE_URL=
 
 # Connection Pool Settings
 DB_POOL_SIZE=10
@@ -28,7 +68,7 @@ LOG_SLOW_QUERIES=true
 SLOW_QUERY_THRESHOLD=1.0
 
 # Test Database Configuration
-TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5433/langconfig_test
+TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5432/langconfig_test
 
 # Database Backup Configuration
 BACKUP_DIR=./backups
@@ -39,17 +79,51 @@ REDIS_URL=redis://localhost:6379
 # =============================================================================
 # LLM API Keys
 # =============================================================================
-OPENAI_API_KEY=sk-your-openai-api-key-here
-ANTHROPIC_API_KEY=sk-ant-your-anthropic-api-key-here
+# REQUIRED for the providers you actually use. Anthropic is the default
+# provider (DEFAULT_LLM_PROVIDER=anthropic). Replace placeholders with real keys.
+OPENAI_API_KEY=your-openai-api-key-here
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
 GOOGLE_API_KEY=your-google-api-key-here
 GEMINI_API_KEY=your-google-gemini-api-key-here
+
+# DeepSeek (also required by backend/langgraph/ modules via init_chat_model)
+DEEPSEEK_API_KEY=your-deepseek-api-key-here
+DEEPSEEK_API_BASE=https://api.deepseek.com
+
+# Search providers
+# Tavily Search (for web search tool)
+# TAVILY_API_KEY=your-tavily-api-key-here
+# Serper (alternative search)
+SERPER_API_KEY=your-serper-api-key-here
 
 # =============================================================================
 # Default Model Settings
 # =============================================================================
 DEFAULT_LLM_PROVIDER=anthropic
 DEFAULT_MODEL=claude-haiku-4-5
+
+# Fallback models (comma-separated)
+FALLBACK_MODELS=local-ollama-qwen25-14b
+
+# Model defaults
+DEFAULT_TEMPERATURE=0.7
+MAX_TOKENS=4096
+TOP_P=1.0
+
+# Embedding model for RAG
 DEFAULT_EMBEDDING_MODEL=txt-embedding-3-small
+
+# Ollama Embedding (for local RAG vector search)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_EMBED_MODEL=nomic-embed-text:latest
+
+# =============================================================================
+# Local LLM Model Settings
+# =============================================================================
+LOCAL_LLM_PROVIDER=ollama
+LOCAL_LLM_BASE_URL=http://localhost:11434/v1
+LOCAL_LLM_MODEL=llama3.2:latest
+LOCAL_LLM_API_KEY=
 
 # =============================================================================
 # RAG Configuration
@@ -70,19 +144,20 @@ MCP_SERVERS_CONFIG_PATH=./backend/config/mcp_servers.json
 ENVIRONMENT=development
 LOG_LEVEL=INFO
 ENABLE_TOOL_LOGGING=true
-CORS_ORIGINS=["http://localhost:1420", "tauri://localhost"]
+CORS_ORIGINS=["http://localhost:1420", "http://localhost:1421", "tauri://localhost"]
 
 # =============================================================================
 # Frontend Configuration
 # =============================================================================
 # API base URL for frontend (Vite reads VITE_ prefixed vars)
-VITE_API_BASE_URL=http://localhost:8765
+# Leave empty so requests go through Vite proxy (avoids CORS issues)
+VITE_API_BASE_URL=
 VITE_ALLOWED_HOSTS=langconfig.kb.pub
 
 # =============================================================================
 # MiniMax (for Phase 9 graphindex tools)
 # =============================================================================
-MINIMAX_API_KEY=sk-your-minimax-api-key-here
+MINIMAX_API_KEY=your-minimax-api-key-here
 MINIMAX_BASE_URL=https://api.minimax.chat/v1
 
 # =============================================================================
@@ -90,7 +165,18 @@ MINIMAX_BASE_URL=https://api.minimax.chat/v1
 # =============================================================================
 NEO4J_URL=http://localhost:7474
 NEO4J_USER=neo4j
-NEO4J_PASSWORD=password
+NEO4J_PASSWORD=your-neo4j-password-here
+
+# =============================================================================
+# Analysis Agent (data analysis panel — CSV/SQLite → dashboard + chat)
+# =============================================================================
+# Max recursion depth for the analysis deep agent.
+# Higher = longer reasoning chains tolerated (more LLM turns, slower).
+ANALYSIS_RECURSION_LIMIT=1000
+# Wall-clock timeout (seconds) for dashboard auto-generation.
+ANALYSIS_DASHBOARD_TIMEOUT=600
+# Wall-clock timeout (seconds) for follow-up chat after upload.
+ANALYSIS_CHAT_TIMEOUT=120
 
 # =============================================================================
 # Phase 9 / GraphIndex default model (overrides DEFAULT_MODEL for doc build/query)
@@ -118,10 +204,12 @@ GRAPHINDEX_ROUTING_MODEL=gemma4
 GRAPHINDEX_ANSWER_MAX_TOKENS=8192
 
 # =============================================================================
-# Security
+# Security — REQUIRED: generate your own keys, never share or commit them
 # =============================================================================
-SECRET_KEY=change-this-in-production-use-openssl-rand-hex-32
-API_KEY_ENCRYPTION_KEY=change-this-in-production-use-openssl-rand-hex-32
+# Generate each key with: openssl rand -hex 32
+# IMPORTANT: run it TWICE and use two DIFFERENT outputs — the keys must not match.
+SECRET_KEY=replace-with-your-own-openssl-rand-hex-32-output
+API_KEY_ENCRYPTION_KEY=replace-with-a-different-openssl-rand-hex-32-output
 ENABLE_SSRF_PROTECTION=true
 ENABLE_MONGODB_VALIDATION=true
 
@@ -144,22 +232,22 @@ DEEPAGENTS_FILESYSTEM_SANDBOX_PATH=./sandbox
 # Notification Services (optional)
 # =============================================================================
 # Slack Webhook URL (for Slack notification tools)
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/your-team/your-webhook/your-url
 
 # Discord Webhook URL (for Discord notification tools)
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR/WEBHOOK/URL
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/your-webhook-id/your-token
 
 # =============================================================================
 # External Database Connections (for database tools)
 # =============================================================================
 # PostgreSQL Connection String
-POSTGRES_CONNECTION_STRING=postgresql://user:password@localhost:5432/mydb
+POSTGRES_CONNECTION_STRING=postgresql://your-user:your-password@localhost:5432/mydb
 
 # MySQL Connection String
-MYSQL_CONNECTION_STRING=mysql://user:password@localhost:3306/mydb
+MYSQL_CONNECTION_STRING=mysql://your-user:your-password@localhost:3306/mydb
 
 # MongoDB Connection String
-MONGODB_CONNECTION_STRING=mongodb://localhost:27017/mydb
+MONGODB_CONNECTION_STRING=mongodb://your-user:your-password@localhost:27017/mydb
 
 # =============================================================================
 # WordPress CMS API Credentials (optional)
@@ -189,18 +277,23 @@ LOG_ALL_REQUESTS=false
 ENABLE_SCHEMA_CACHING=true
 SCHEMA_CACHE_MAX_SIZE=100
 
+# LangSmith tracing (optional)
+LANGSMITH_API_KEY=your-langsmith-api-key-here
+LANGSMITH_TRACING=false
+LANGSMITH_PROJECT=langconfig
+
 # =============================================================================
 # Rate Limiting
 # =============================================================================
 RATE_LIMIT_ENABLED=true
-RATE_LIMIT_REQUESTS_PER_MINUTE=60
+RATE_LIMIT_REQUESTS_PER_MINUTE=1000
 RATE_LIMIT_CLEANUP_INTERVAL=300
 
 # =============================================================================
 # Git Integration (optional)
 # =============================================================================
-GITHUB_PAT=your_github_personal_access_token_here
-GITLAB_PAT=your_gitlab_personal_access_token_here
+GITHUB_PAT=your-github-personal-access-token-here
+GITLAB_PAT=your-gitlab-personal-access-token-here
 
 # =============================================================================
 # Google OAuth (for Presentation Generator - Google Slides export)
@@ -216,7 +309,7 @@ GITLAB_PAT=your_gitlab_personal_access_token_here
 #
 # See docs/GOOGLE_OAUTH_SETUP.md for detailed instructions
 GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-your-google-client-secret
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_REDIRECT_URI=http://localhost:8765/api/auth/google/callback
 
 # =============================================================================
@@ -230,3 +323,17 @@ LOCAL_LLM_HOST=http://localhost:11434
 MAX_EXECUTION_HISTORY_PER_WORKFLOW=100
 EXECUTION_HISTORY_RETENTION_DAYS=90
 AUTO_CLEANUP_EXECUTION_HISTORY=true
+
+# =============================================================================
+# Storage Mode
+# =============================================================================
+# local (default) = filesystem, db = PostgreSQL (persists a durable copy of
+# documents/outputs to storage_objects and routes agent final documents to the
+# agent_documents table via the save_document tool).
+STORAGE_MODE=local
+
+# =============================================================================
+# Skill Roots (where skill SKILL.md folders live; relative to the project root)
+# =============================================================================
+BUILTIN_SKILLS_ROOT=./backend/skills/builtin
+PERSONAL_SKILLS_ROOT=./backend/skills

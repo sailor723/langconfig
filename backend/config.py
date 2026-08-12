@@ -12,6 +12,13 @@ from dotenv import load_dotenv
 env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
 load_dotenv(env_path)
 
+# Compose DATABASE_URL from the POSTGRES_* parts when not set explicitly, so
+# Settings.database_url always agrees with db.database and docker-compose.
+# db.db_url is dependency-free (no SQLAlchemy), so importing config stays light.
+if not os.getenv("DATABASE_URL"):
+    from db.db_url import compose_db_url
+    os.environ["DATABASE_URL"] = compose_db_url()
+
 
 class Settings(BaseSettings):
     """Application settings — all API keys and infrastructure config from .env"""

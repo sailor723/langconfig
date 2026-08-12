@@ -3,7 +3,7 @@ Seed the unified `models` table from /tmp/models_with_url.csv (the "initial quer
 
 Run once after dropping + recreating the `models` table:
     cd backend && DATABASE_URL="postgresql://langconfig:langconfig_dev@localhost:5432/langconfig" \
-        .venv/bin/python scripts/seed_models.py
+        .venv/bin/python scripts/seeds/seed_models.py
 
 Source of truth: /tmp/models_with_url.csv. Run /tmp/export_models.py first if the CSV
 is missing.
@@ -18,7 +18,7 @@ import os
 import sys
 import logging
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from db.database import SessionLocal
 from models.model import Model

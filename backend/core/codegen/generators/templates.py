@@ -98,7 +98,7 @@ class TemplateGenerators:
 
             3. Configure API keys:
                ```bash
-               cp .env.example .env
+               cp env_example .env
                # Edit .env and add your API keys
                ```
 
@@ -229,7 +229,7 @@ class TemplateGenerators:
         workflow_name: str,
         sanitize_name_func
     ) -> str:
-        """Generate .env.example with API key placeholders."""
+        """Generate env_example with API key placeholders."""
         env_vars = [
             "# API Keys - Add your keys here",
             "",

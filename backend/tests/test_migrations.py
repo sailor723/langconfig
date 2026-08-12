@@ -32,7 +32,7 @@ def run_alembic_command(command_args, env_vars=None):
     # Get test database URL
     test_db_url = os.getenv(
         "TEST_DATABASE_URL",
-        "postgresql://langconfig:langconfig_dev@localhost:5433/langconfig_test"
+        "postgresql://langconfig:langconfig_dev@localhost:5432/langconfig_test"
     )
 
     # Set DATABASE_URL for alembic

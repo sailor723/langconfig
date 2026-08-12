@@ -224,11 +224,16 @@ def fs_to_db_dict(skill_md: Path) -> Dict[str, Any]:
     from datetime import timezone
     mtime = datetime.fromtimestamp(skill_md.stat().st_mtime, tz=timezone.utc)
 
+    # YAML parses `version: 1.0` as a float; Postgres then infers the whole
+    # bulk VALUES column as numeric and rejects string versions like "1.0.0".
+    # Always coerce to a string (empty/None fall back to the default).
+    version = fm.get("version") or "1.0.0"
+
     return {
         "skill_id": skill_id,
         "name": fm.get("name", skill_id),
         "description": fm.get("description", ""),
-        "version": fm.get("version", "1.0.0"),
+        "version": str(version),
         "author": fm.get("author"),
         "tags": fm.get("tags") or [],
         "triggers": fm.get("triggers") or [],

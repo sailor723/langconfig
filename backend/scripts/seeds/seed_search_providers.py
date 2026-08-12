@@ -2,7 +2,7 @@
 Seed the `search_providers` table with 6 default web/encyclopedia search backends.
 
 Run once after creating the `search_providers` table:
-    cd backend && .venv/bin/python3 scripts/seed_search_providers.py
+    cd backend && .venv/bin/python3 scripts/seeds/seed_search_providers.py
 
 This is idempotent: it uses INSERT ... ON CONFLICT DO UPDATE to keep the table
 in sync with the canonical list below.
@@ -12,7 +12,7 @@ Storage:
   - API keys (if required) → `settings.api_keys` JSONB column (encrypted via Fernet)
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from sqlalchemy import text
 from db.database import SessionLocal, engine

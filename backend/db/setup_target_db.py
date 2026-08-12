@@ -86,10 +86,10 @@ def main() -> int:
     parser.add_argument("--list", action="store_true", help="list existing databases and exit")
     args = parser.parse_args()
 
-    url = os.getenv("DATABASE_URL", "")
-    if not url:
-        print("✗ DATABASE_URL is not set (check the root .env)")
-        return 1
+    # DATABASE_URL may be derived from POSTGRES_* (see db/db_url.py); reuse
+    # the same fallback so this utility targets the configured server too.
+    from db.db_url import compose_db_url
+    url = os.getenv("DATABASE_URL") or compose_db_url()
     host, port, user, password, url_db = _parse_db_url(url)
     maintenance_url = _conn_url(user, password, host, port, "postgres")
 

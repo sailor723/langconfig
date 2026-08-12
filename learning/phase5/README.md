@@ -20,7 +20,7 @@
 ## Architecture
 
 ```
-React UI (port 1420) ──→ FastAPI Backend (port 8765) ──→ PostgreSQL (port 5433)
+React UI (port 1420) ──→ FastAPI Backend (port 8765) ──→ PostgreSQL (port 5432)
                               │
                          Agent Factory
                               │
