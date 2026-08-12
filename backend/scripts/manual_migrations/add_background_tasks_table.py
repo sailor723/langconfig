@@ -29,6 +29,11 @@ import logging
 from sqlalchemy import create_engine, text, MetaData, inspect
 from dotenv import load_dotenv
 
+# Add the backend dir to path so we can reuse db.db_url (the POSTGRES_* single source of truth)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from db.db_url import compose_db_url
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,
@@ -41,11 +46,8 @@ load_dotenv()
 
 
 def get_database_url():
-    """Get database URL from environment variables."""
-    db_url = os.getenv(
-        "DATABASE_URL",
-        "postgresql://langconfig:langconfig_dev@localhost:5433/langconfig"
-    )
+    """Get database URL from environment variables (POSTGRES_* single source of truth)."""
+    db_url = os.getenv("DATABASE_URL") or compose_db_url()
     logger.info(f"Using database: {db_url.split('@')[1] if '@' in db_url else db_url}")
     return db_url
 

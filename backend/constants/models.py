@@ -5,7 +5,7 @@ This file is intentionally empty and kept as a placeholder to avoid breaking leg
 that may still reference `from constants.models import ...`.
 
 Current model management design (deliberate, post-Phase 5):
-  - MODELS    → PostgreSQL `models` table, seeded by scripts/seed_models.py
+  - MODELS    → PostgreSQL `models` table, seeded by scripts/seeds/seed_models.py
                 (23 cloud models: DeepSeek, GLM, MiniMax, Claude, GPT, Gemini, etc.)
                 Query path: backend/core/agents/factory.py:_create_llm()
                 Editable via UI / API.
@@ -25,7 +25,7 @@ Rationale:
 
 See:
   - models/model.py (SQLAlchemy Model)
-  - scripts/seed_models.py (seeding)
+  - scripts/seeds/seed_models.py (seeding)
   - core/agents/factory.py:_create_llm() (DB-driven routing)
   - config.py:Settings (.env-driven keys)
   - learning/phase1/README.md (Phase 1 design intent)

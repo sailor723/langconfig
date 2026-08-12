@@ -15,7 +15,7 @@ Architecture (Phase 4 of the native -> DB tool refactor):
     input schemas from the real tool objects.
 
 Run (from backend/):
-    uv run python -m tools.seed_builtin_tools
+    uv run python scripts/seeds/seed_builtin_tools.py
 
 Idempotent: existing rows are left untouched (user edits are preserved).
 Use ``--refresh`` to overwrite seeded rows with fresh metadata.
@@ -27,11 +27,14 @@ import logging
 import sys
 from pathlib import Path
 
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(BACKEND_DIR))
+
 # Load the project-root .env (DATABASE_URL etc.) before db.database is
 # imported, mirroring how the FastAPI app boots (config.py -> load_dotenv).
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+load_dotenv(BACKEND_DIR.parent / ".env")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("seed_builtin_tools")
@@ -134,7 +137,7 @@ def _native_impl_source() -> str:
     """Read tools/native_impl.py once (the seed source for embedded code)."""
     src = _SOURCE_CACHE.get("native_impl")
     if src is None:
-        src = Path(__file__).resolve().parent.joinpath("native_impl.py").read_text(encoding="utf-8")
+        src = BACKEND_DIR.joinpath("tools", "native_impl.py").read_text(encoding="utf-8")
         _SOURCE_CACHE["native_impl"] = src
     return src
 

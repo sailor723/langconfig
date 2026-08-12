@@ -20,7 +20,7 @@ bash start.sh
 ## Architecture
 
 ```
-UI (React/Vite) ──→ BE (FastAPI/uvicorn) ──→ PostgreSQL 5433
+UI (React/Vite) ──→ BE (FastAPI/uvicorn) ──→ PostgreSQL 5432
                         │
                    Agent Factory
                         │
@@ -127,7 +127,7 @@ All model configuration is stored in PostgreSQL — no hardcoded enums.
 
 ```
 models table (unified)
-├── source='cloud'  → 21 models (seeded from seed_models.py)
+├── source='cloud'  → 21 models (seeded from scripts/seeds/seed_models.py)
 │   Providers: openai, anthropic, deepseek, google, agnes, glm, minimax
 └── source='local'  → user-configured (Ollama, LM Studio, vLLM, etc.)
     Added via Settings > Local Models UI

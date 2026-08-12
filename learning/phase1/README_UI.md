@@ -486,7 +486,7 @@ const handleSaveKey = async () => {
 
 | Field | Source | Endpoint |
 |---|---|---|
-| Card list | PostgreSQL `models` table (seeded by `scripts/seed_models.py`) | `GET /api/settings/available-models` |
+| Card list | PostgreSQL `models` table (seeded by `scripts/seeds/seed_models.py`) | `GET /api/settings/available-models` |
 | API key status | PostgreSQL `settings.api_keys` (encrypted JSON) | `GET /api/settings/api-keys` |
 | Playground chat | Backend agent factory | `POST /api/chat/playground` |
 

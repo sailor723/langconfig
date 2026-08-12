@@ -67,7 +67,7 @@ cd ..
 docker-compose up -d postgres
 
 # Configure environment
-cp .env.example .env
+cp env_example .env
 # Edit .env with your API keys
 
 # Initialize database
