@@ -1098,7 +1098,7 @@ Generates a **zip containing a complete standalone agent project**:
 deepagent_export/
 ├── README.md               # what it is + how to run
 ├── requirements.txt        # pinned deps
-├── .env.example            # API keys
+├── env_example             # API keys
 ├── agent_config.json       # the JSON config snapshot
 ├── main.py                 # CLI chat interface: python main.py "query"
 ├── api_server.py           # optional FastAPI server
@@ -1296,11 +1296,11 @@ flowchart LR
     style P fill:#fee2e2,stroke:#dc2626,color:#111
 ```
 
-**Gotcha:** a second, stale Postgres container (`langconfig-postgres`) exists on `:5433`.
-The app and seeders always load the root `.env` (→ `:5432`, fully migrated). Standalone
+**Gotcha:** a second, stale Postgres container (`langconfig-postgres`) may exist — the app
+always loads the root `.env` (→ `:5432`, fully migrated). Standalone
 scripts must load the root `.env` *before* importing `db.database` — from the `backend/`
 cwd that's `load_dotenv("../.env")`, or better, derive the path from `__file__` (see
-`tools/seed_builtin_tools.py`) — otherwise they hit the stale instance and report phantom
+`tools/seed_builtin_tools.py`) — otherwise they miss the `.env` and report phantom
 `UndefinedColumn` errors.
 
 **Gotcha (Graph Studio):** the `backend/langgraph/*.py` modules build their chat model with
@@ -1450,29 +1450,35 @@ tool works transparently against the DB.
 
 ---
 
-# Installation & Setup (WSL2 / Ubuntu)
+# Installation & Setup
 
-LangConfig runs as two processes — a **FastAPI backend** (:8765) and a **Vite/React frontend** (:1421) — plus a **native PostgreSQL 16 + pgvector** instance (host port **5432**). The instructions below are written for **WSL2 + Ubuntu** (22.04/24.04) and use a native Postgres install — no Docker required.
+LangConfig runs as two processes — a **FastAPI backend** (:8765) and a **Vite/React frontend** (:1421) — plus a **PostgreSQL 16 + pgvector** instance. Postgres runs **natively** on :5432 or in **Docker** on :5433; the mode is switched by `POSTGRES_PORT` in `.env`. Everything — the app, Alembic, seeds, `docker-compose.yml`, and the SQL agent — derives its URL from the `POSTGRES_*` block via `db/db_url.py::compose_db_url()`, so switching modes is a pure `.env` edit. Instructions below cover **macOS (Homebrew)** and **WSL2 + Ubuntu** (22.04/24.04).
 
 ## 1. Prerequisites
 
 | Requirement | Version / Install |
 |---|---|
-| WSL2 + Ubuntu | `wsl --install` (Windows), then `wsl --install -d Ubuntu-24.04` |
+| OS | macOS (Homebrew) or WSL2 + Ubuntu 22.04/24.04 |
 | Python | **3.13** (`backend/.python-version`, `pyproject.toml` `requires-python = ">=3.13"`) |
-| Node.js | **20.19+** (Vite 7 requirement) — install via `nvm` |
+| Node.js | **20.19+** (Vite 7 requirement) |
 | uv | Python package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-| PostgreSQL 16 + pgvector | Native apt install (see step 3) — no Docker needed |
-| Git / build tools | `sudo apt install -y git build-essential` |
+| PostgreSQL 16 + pgvector | native install **or** Docker (`docker compose up -d postgres`) — see step 3 |
+| Docker | only needed for Docker Postgres mode |
+| Git / build tools | `brew install git` or `sudo apt install -y git build-essential` |
 
-Install Python 3.13 (Ubuntu ships 3.12) and Node:
+macOS:
 
 ```bash
-# Python 3.13 via deadsnakes PPA
-sudo add-apt-repository ppa:deadsnakes/ppa -y && sudo apt update
-sudo apt install -y python3.13 python3.13-venv python3.13-dev
+brew install python@3.13 node
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
-# Node via nvm
+WSL2 / Ubuntu (ships Python 3.12 — install 3.13 via deadsnakes):
+
+```bash
+sudo add-apt-repository ppa:deadsnakes/ppa -y && sudo apt update
+sudo apt install -y python3.13 python3.13-venv python3.13-dev build-essential git
+curl -LsSf https://astral.sh/uv/install.sh | sh
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 nvm install 22
 ```
@@ -1481,26 +1487,37 @@ nvm install 22
 
 ```bash
 git clone <repo-url> && cd langconfig
-cp .env.example .env
+cp env_example .env
 ```
 
 Edit `.env` minimally:
 
-- Set your LLM keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (default provider is Anthropic, `DEFAULT_MODEL=claude-haiku-4-5`)
+- LLM keys: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (default provider is Anthropic, `DEFAULT_MODEL=claude-haiku-4-5`)
 - Replace the two security placeholders (they must be **different** 64-hex strings):
   ```bash
   openssl rand -hex 32   # run twice → SECRET_KEY, API_KEY_ENCRYPTION_KEY
   ```
-- `DATABASE_URL` must point at the native Postgres on **5432** (the `.env.example` default uses 5433, which was the Docker mapping). Set:
+- Pick the DB mode — the **only** switch you need to change Postgres backends:
   ```
-  DATABASE_URL=postgresql://langconfig:langconfig_dev@localhost:5432/langconfig
-  POSTGRES_PORT=5432
+  POSTGRES_PORT=5432     # native (Homebrew / apt postgres)
+  # POSTGRES_PORT=5433   # docker (docker compose up -d postgres)
   ```
-- Optional: `MINIMAX_API_KEY` + `NEO4J_*` (only needed for Phase 9 graphindex tools); `LOCAL_LLM_HOST` (Ollama)
+  `DATABASE_URL` is composed from the `POSTGRES_*` block automatically, and the SQL agent (`SQL_*`) follows it too — leave the `SQL_*` connection parts commented.
+- Optional: `MINIMAX_API_KEY` + `NEO4J_*` (graphindex tools); `LOCAL_LLM_HOST` (Ollama)
 
-## 3. Install PostgreSQL 16 + pgvector (native, no Docker)
+## 3. PostgreSQL 16 + pgvector — native OR Docker
 
-Add the official PGDG apt repo — this gives you Postgres **16** plus the `pgvector` extension (pgvector is missing from Ubuntu 22.04's default repos):
+### 3a. Native on :5432 — macOS (Homebrew)
+
+```bash
+brew install postgresql@16 pgvector
+brew services start postgresql@16
+pg_isready -h 127.0.0.1 -p 5432        # expect "accepting connections"
+```
+
+### 3b. Native on :5432 — WSL2 / Ubuntu (no systemd → use `service`)
+
+Add the official PGDG apt repo — this gives you Postgres **16** plus `pgvector` (pgvector is missing from Ubuntu 22.04's default repos):
 
 ```bash
 sudo apt install -y curl ca-certificates gnupg lsb-release
@@ -1508,16 +1525,18 @@ curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearm
 echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
 sudo apt update
 sudo apt install -y postgresql-16 postgresql-16-pgvector
+sudo service postgresql start && sudo pg_isready
 ```
 
-Start the cluster (WSL2 has **no systemd by default** — use `service`, not `systemctl`):
+### 3c. Docker on :5433 — any OS
 
 ```bash
-sudo service postgresql start
-sudo pg_isready          # expect "accepting connections" on :5432
+# .env has POSTGRES_PORT=5433; the container publishes 5433 -> 5432 inside
+docker compose up -d postgres
+docker inspect langconfig-postgres --format '{{.State.Health.Status}}'   # healthy
 ```
 
-Create the app role + databases (must match the credentials in `.env`), then run the bootstrap script:
+Create the app role + databases (native only — Docker does it automatically from `POSTGRES_USER`/`POSTGRES_DB`), then run the bootstrap script:
 
 ```bash
 sudo -u postgres psql <<'SQL'
@@ -1529,22 +1548,47 @@ SQL
 sudo -u postgres psql -d langconfig -f backend/db/init_postgres.sql
 ```
 
-> **Note:** `init_postgres.sql` only enables pgvector and creates a legacy `vector_documents` table — the real schema comes from Alembic (`uv run alembic upgrade head`) in step 4.
+> **Note:** `backend/db/init_postgres.sql` enables **pgvector** and creates a legacy `vector_documents` table; on Docker it runs automatically on first boot. The full schema is built from the ORM models in step 4 — the legacy `001_initial_schema` migration chain is **not** replayable on an empty database (it starts with DROP TABLE statements).
 
-(Optional) Native Redis, only if you want caching/locking — `sudo apt install redis-server && sudo service redis-server start`
-
-## 4. Backend
+## 4. Backend — uv, DB init & migration, seeds
 
 ```bash
 cd backend
-uv sync            # installs exact versions from pyproject.toml / uv.lock
-uv run alembic upgrade head   # apply migrations
-uv run python main.py         # FastAPI on http://localhost:8765
+uv sync        # installs the exact Python deps from pyproject.toml / uv.lock into backend/.venv
 ```
 
-Verify the API: `http://localhost:8765/docs` (Swagger) or `http://localhost:8765/health`.
+### 4a. FRESH INSTALL: init schema + stamp Alembic + seeds (one command)
 
-> On first startup the app also syncs `backend/skills/` (SKILL.md files) into the DB, so don't be surprised by log output about skills.
+`scripts/seeds/seed_all.py` is the canonical bootstrap — it initializes the schema from the ORM models (the same code path the app runs at startup), stamps Alembic at HEAD, and loads every seed. All steps are idempotent and target whatever `DATABASE_URL` the `.env` resolves to (native or Docker):
+
+```bash
+cd backend && uv run python scripts/seeds/seed_all.py
+```
+
+It runs, in order:
+1. `init_server` — ensures the role + database exist
+2. `init_db` — `create_all` from the ORM models + pgvector (`init_db()` in `db/database.py`)
+3. `alembic stamp head` — marks the schema current (no legacy migrations to replay)
+4. `seed_models` / `seed_search_providers` — LLM providers + search backends
+5. `custom_tools` — 53 built-in tools (dump) · `deep_agents` — agent templates (dump)
+6. `skills` — `backend/skills/**/SKILL.md` synced into the DB
+7. `chinook` — sample business DB for the SQL agent
+
+For an **already-initialized** database, apply migrations instead of re-initializing:
+
+```bash
+cd backend && uv run alembic upgrade head
+```
+
+### 4b. Run the backend
+
+```bash
+cd backend && uv run python main.py      # FastAPI on http://localhost:8765
+# or the one-shot launcher (starts Postgres in the configured mode, then backend + frontend):
+bash start.sh
+```
+
+Verify: `http://localhost:8765/docs` (Swagger) or `http://localhost:8765/health`. On first startup the app also syncs `backend/skills/` (SKILL.md files) into the DB — expect log output about skills.
 
 ## 5. Frontend
 
@@ -1554,21 +1598,32 @@ npm install
 npm run dev        # Vite on http://localhost:1421
 ```
 
-Open **http://localhost:1421** in the Windows browser. WSL2 automatically forwards localhost, so no extra networking setup is needed. If you must reach it from another machine, use the WSL IP: `wsl hostname -I`.
+Open **http://localhost:1421**. WSL2 forwards localhost automatically; to reach it from another machine use the WSL IP: `wsl hostname -I`.
 
-## 6. Optional extras
+## 6. Tests
 
-- **Ollama** (local LLMs/embeddings): install inside WSL, keep `LOCAL_LLM_HOST=http://localhost:11434`; pull models such as `llama3.2`, `nomic-embed-text`, `gemma4` (used by graphindex routing)
+```bash
+cd backend && uv run pytest                    # full suite
+uv run pytest tests/test_db_connection.py      # single file
+```
+
+The suite uses `TEST_DATABASE_URL` (default `postgresql+asyncpg://langconfig:langconfig_dev@localhost:5432/langconfig_test`) — create that database in step 3 before running. Tests build their own schema via `init_db()` at startup, so no separate migration step is needed.
+
+## 7. Optional extras
+
+- **Ollama** (local LLMs/embeddings): keep `LOCAL_LLM_HOST=http://localhost:11434`; pull models such as `llama3.2`, `nomic-embed-text`, `gemma4` (used by graphindex routing)
 - **Playwright** (screenshots / notebook tools): `cd backend && uv run playwright install chromium`
+- **Redis** (caching/locking, optional): `brew install redis` / `sudo apt install redis-server`
 - **Production frontend build**: `npm run build` (outputs to `dist/`)
 
-## 7. WSL troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| `connect: connection refused` on 5432 | Postgres not running — `sudo service postgresql start`, then `sudo pg_isready` |
-| Password authentication failed | Confirm `.env` `DATABASE_URL` uses **5432** and the role/password were created in step 3 (`langconfig` / `langconfig_dev`) |
-| Slow `uv sync` | A fresh venv is created in `backend/.venv`; re-running after code changes is incremental. dspy is intentionally **not** a dependency (slow to build/install) |
-| Backend :8765 unreachable | Backend must be running inside WSL; from Windows use `http://localhost:8765` |
-| OOM during npm/uv install | WSL2 default memory cap too low — bump `.wslconfig` `memory=8GB` + restart `wsl --shutdown` |
-| Alembic "target database is not up to date" | Re-run `uv run alembic upgrade head` after a fresh DB (drop & recreate `langconfig`, then re-run `init_postgres.sql` and migrate) |
+| `connect: connection refused` | Postgres not running — native: `pg_isready -h 127.0.0.1 -p $POSTGRES_PORT`; docker: `docker compose up -d postgres` |
+| Port 5432 already in use | Another Postgres (e.g. brew) owns 5432 — use Docker mode (`POSTGRES_PORT=5433`) or stop the other service |
+| Password authentication failed | Confirm `.env` role/password match step 3 (`langconfig` / `langconfig_dev`) and `POSTGRES_PORT` matches the running server |
+| Alembic "target database is not up to date" | Re-run `uv run alembic upgrade head`; on a fresh DB re-run `uv run python scripts/seeds/seed_all.py` |
+| Slow `uv sync` | Fresh venv in `backend/.venv` on first run, then incremental; dspy is intentionally **not** a dependency |
+| Backend :8765 unreachable | Backend must be running; from another host use the WSL IP (`wsl hostname -I`) |
+| OOM during npm/uv install (WSL2) | Bump `.wslconfig` `memory=8GB` + restart `wsl --shutdown` |
