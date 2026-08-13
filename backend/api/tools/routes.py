@@ -132,7 +132,11 @@ async def list_custom_tools(
     - tool_type: Filter by tool type
     """
     try:
-        query = db.query(CustomTool)
+        # Only user-defined tools belong in the custom list. Seeded built-ins
+        # (is_builtin=true) are surfaced by the native registry
+        # (GET /api/tools/registry), so including them here makes tools like
+        # "Write File" appear twice in the UI.
+        query = db.query(CustomTool).filter(CustomTool.is_builtin.is_(False))
 
         # Apply filters
         if project_id is not None:
