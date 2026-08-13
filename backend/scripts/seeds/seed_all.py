@@ -78,12 +78,17 @@ def _psql(sql: str, dbname: str | None = None) -> str:
 
 
 def _restore_dump(dump_name: str, dbname: str | None = None) -> None:
-    """Load a data-only pg_dump file via psql (ON_ERROR_STOP so failures surface)."""
+    """Load a data-only pg_dump file via psql (ON_ERROR_STOP so failures surface).
+
+    PGOPTIONS applies a 10s lock_timeout so a restore that collides with the
+    running backend fails fast instead of blocking indefinitely.
+    """
     dump_path = SEEDS_DIR / dump_name
     print(f"  -> loading {dump_path.name} ...")
     subprocess.run(
         ["psql", _db_url(dbname), "-q", "-v", "ON_ERROR_STOP=1", "-f", str(dump_path)],
         check=True,
+        env={**os.environ, "PGOPTIONS": "-c lock_timeout=10s"},
     )
 
 
@@ -140,9 +145,15 @@ def _admin_run(sql: str) -> str | None:
 
 
 def _truncate(table: str) -> None:
-    """Wipe a table and restart its identity (CASCADE covers referencing rows)."""
+    """Wipe a table and restart its identity (CASCADE covers referencing rows).
+
+    A running backend can hold locks on these tables (idle-in-transaction
+    pool connections), so a lock_timeout makes that fail fast with a clear
+    error instead of hanging on TRUNCATE forever.
+    """
     print(f"  -> truncating {table} (--replace)")
     with engine.begin() as conn:
+        conn.execute(text("SET LOCAL lock_timeout = '10s'"))
         conn.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
 
 
