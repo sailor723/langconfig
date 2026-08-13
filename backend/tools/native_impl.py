@@ -376,8 +376,10 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
     """
     Read the contents of a file with optional line offset and limit.
 
-    Supports text files including .txt, .md, .py, .json, etc.
-    Returns content with line numbers for easy reference.
+    Supports plain text files (.txt, .md, .py, .json, .csv, etc.) plus
+    binary documents: PDF (.pdf), Word (.docx) and PowerPoint (.pptx).
+    Binary formats are converted to text (line-numbered like any other file).
+    Legacy .ppt / .doc (pre-2007) are not supported - convert them first.
 
     Args:
         file_path: Path to the file to read
@@ -391,6 +393,8 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
     Example:
         >>> read_file("src/main.py")
         >>> read_file("logs/app.log", offset=100, limit=50)
+        >>> read_file("report.pdf")
+        >>> read_file("slides.pptx")
     """
     try:
         path = Path(file_path).resolve()
@@ -401,7 +405,20 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
         if not path.is_file():
             return f"Error: Path is not a file: {file_path}"
 
-        content = path.read_text(encoding="utf-8")
+        # Binary document formats are converted to plain text first; the
+        # line-numbering / offset / limit logic below applies to all formats.
+        ext = path.suffix.lower()
+        if ext == ".pdf":
+            content = _extract_pdf_text(path)
+        elif ext == ".docx":
+            content = _extract_docx_text(path)
+        elif ext == ".pptx":
+            content = _extract_pptx_text(path)
+        elif ext in (".ppt", ".doc"):
+            return (f"Error: legacy {ext} files are not supported. "
+                    f"Convert to .pptx / .docx and read that instead")
+        else:
+            content = path.read_text(encoding="utf-8")
         lines = content.split('\n')
 
         # Apply offset and limit
@@ -429,6 +446,67 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
 
 # Backwards compatibility alias
 file_read = read_file
+
+
+# ---------------------------------------------------------------------------
+# Binary document extraction helpers (used by read_file)
+# Libraries imported lazily so the module stays import-safe when compiled
+# into a self-contained DB row by the seeding pipeline.
+# ---------------------------------------------------------------------------
+
+def _extract_pdf_text(path: Path) -> str:
+    """Extract readable text from a PDF, grouped page by page."""
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return "Error: pypdf is not installed. Run: pip install pypdf"
+    reader = PdfReader(str(path))
+    pages = []
+    for i, page in enumerate(reader.pages, start=1):
+        text = (page.extract_text() or "").strip()
+        if text:
+            pages.append(f"[Page {i}]\n{text}")
+    return "\n\n".join(pages) if pages else "Error: no extractable text found in PDF"
+
+
+def _extract_docx_text(path: Path) -> str:
+    """Extract text from a Word .docx: paragraphs first, then table cells."""
+    try:
+        import docx
+    except ImportError:
+        return "Error: python-docx is not installed. Run: pip install python-docx"
+    document = docx.Document(str(path))
+    lines = [p.text for p in document.paragraphs if p.text.strip()]
+    for table in document.tables:
+        for row in table.rows:
+            cells = [cell.text.strip() for cell in row.cells]
+            if any(cells):
+                lines.append(" | ".join(cells))
+    return "\n".join(lines) if lines else "Error: no text found in document"
+
+
+def _extract_pptx_text(path: Path) -> str:
+    """Extract text from a PowerPoint .pptx, slide by slide."""
+    try:
+        from pptx import Presentation
+    except ImportError:
+        return "Error: python-pptx is not installed. Run: pip install python-pptx"
+    prs = Presentation(str(path))
+    slides = []
+    for i, slide in enumerate(prs.slides, start=1):
+        parts = [f"[Slide {i}]"]
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                text = shape.text_frame.text.strip()
+                if text:
+                    parts.append(text)
+            elif getattr(shape, "has_table", False) and shape.has_table:
+                for row in shape.table.rows:
+                    cells = [cell.text.strip() for cell in row.cells]
+                    if any(cells):
+                        parts.append(" | ".join(cells))
+        slides.append("\n".join(parts))
+    return "\n\n".join(slides) if slides else "Error: no text found in presentation"
 
 
 def _split_text_blocks(content: str) -> list:
