@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { File, FolderOpen, Download, X, Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import type { SessionDocument } from '../types/chat';
 import apiClient from '../../../lib/api-client';
+import { downloadFile } from '../utils/downloadFile';
 
 interface FilesPanelProps {
   sessionId: string | null;
@@ -66,20 +67,6 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
       setGeneratedFiles(files);
     } catch (error) {
       console.error('Failed to load generated files:', error);
-    }
-  };
-
-  const downloadFile = async (url: string, params: Record<string, unknown> | undefined, filename: string) => {
-    try {
-      const res = await apiClient.get(url, { params, responseType: 'blob' });
-      const blobUrl = URL.createObjectURL(res.data as Blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      console.error('Download failed:', error);
     }
   };
 
@@ -150,7 +137,7 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
                   </span>
                   <button
                     onClick={() => downloadFile(
-                      '/api/workspace/files/by-path/download',
+                      '/api/workspace/by-path/download',
                       { file_path: file.path },
                       file.filename,
                     )}
