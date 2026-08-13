@@ -14,8 +14,8 @@ What it does (every step is idempotent):
     5. seed_search_providers.py -> 6 search backends
     6. custom_tools_dump.sql    -> 53 tools incl. your 10 custom ones (restore if empty;
                                    otherwise seed_builtin_tools keeps the 43 built-ins in sync)
-    7. deep_agents_dump.sql     -> 42 deep agents incl. your custom ones (restore if empty,
-                                   or if the table only holds the 5 built-in seeds)
+    7. deep_agents_dump.sql     -> 42 deep agents incl. your custom ones (restore if empty
+                                   or under-populated — fewer rows than the dump)
     8. skills FS -> DB sync     -> upsert all SKILL.md files from backend/skills/ (33 total)
     9. chinook (best-effort)    -> create the sample DB + restore 11 tables for Graph Studio
 
@@ -47,17 +47,6 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
 from db.database import SessionLocal, engine, init_db
-
-# The 5 built-in DeepAgent templates seeded by core/templates/deep_agent.py.
-# Used to detect a table that only holds seed data (safe to replace with the dump).
-BUILTIN_AGENT_NAMES = {
-    "Deep Code Researcher",
-    "Deep Architect",
-    "Deep Debugger",
-    "Deep Document Writer",
-    "Deep Test Engineer",
-}
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -96,6 +85,25 @@ def _restore_dump(dump_name: str, dbname: str | None = None) -> None:
         ["psql", _db_url(dbname), "-q", "-v", "ON_ERROR_STOP=1", "-f", str(dump_path)],
         check=True,
     )
+
+
+def _dump_row_count(dump_name: str) -> int:
+    """Count data rows inside a pg_dump data-only COPY block.
+
+    Used to decide whether a table is under-populated (partial/seed-only data)
+    and should be reloaded from the canonical dump on a fresh bootstrap.
+    """
+    count = 0
+    in_copy = False
+    with (SEEDS_DIR / dump_name).open(encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            if line.startswith("COPY ") and "FROM stdin" in line:
+                in_copy = True
+            elif in_copy and line.rstrip("\n") == "\\.":
+                break
+            elif in_copy:
+                count += 1
+    return count
 
 
 def _admin_run(sql: str) -> str | None:
@@ -215,21 +223,23 @@ def step_custom_tools(replace: bool) -> None:
 def step_deep_agents(replace: bool) -> None:
     print("\n[7/9] deep_agents  (42 agents incl. custom)")
     count = _table_count("deep_agent_templates")
+    dump_count = _dump_row_count("deep_agents_dump.sql")
     if count == 0 or replace:
         if replace and count:
             _truncate("deep_agent_templates")
         _restore_dump("deep_agents_dump.sql")
         return
 
-    with SessionLocal() as db:
-        names = {r[0] for r in db.execute(text("SELECT name FROM deep_agent_templates"))}
-    if names and names.issubset(BUILTIN_AGENT_NAMES):
-        # Table holds only the built-in seed rows -> swap in the full agent set.
-        print("  -> table only contains the 5 built-in seeds; replacing with full dump")
+    if count < dump_count:
+        # Under-populated table (stray rows from a partial run or an older
+        # install) — reload the canonical agent set so a fresh bootstrap always
+        # ends up complete instead of silently skipping the dump.
+        print(f"  -> table has {count} row(s), fewer than the dump's {dump_count}; reloading full agent set")
         _truncate("deep_agent_templates")
         _restore_dump("deep_agents_dump.sql")
-    else:
-        print("  -> already has user agents; skipping dump (re-run with --replace to reset)")
+        return
+
+    print("  -> already has user agents; skipping dump (re-run with --replace to reset)")
 
 
 def step_skills() -> None:
