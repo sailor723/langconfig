@@ -25,11 +25,12 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langgraph.errors import GraphInterrupt
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from core.workflows.events.emitter import ExecutionEventCallbackHandler
-from db.database import get_db
+from db.database import AsyncSessionLocal, get_db
 from models.deep_agent import ChatSession, DeepAgentConfig, DeepAgentTemplate, SessionDocument
 from models.core import IndexingStatus
 from services.conversation_context import ConversationContextService
@@ -624,15 +625,20 @@ async def send_message_stream(
             rag_tokens_used = 0
             stream_filter = StreamingFilter()
 
+            # Dedicated async session for the stream: keeps blocking DB work
+            # off the event loop so one slow chat never stalls the whole API.
+            async_db = AsyncSessionLocal()
+
             try:
                 # Re-query session inside generator to avoid detached object issues
                 from sqlalchemy.orm.attributes import flag_modified
-                fresh_session = db.query(ChatSession).filter(
-                    ChatSession.session_id == session_id
-                ).first()
+                fresh_session = (await async_db.execute(
+                    select(ChatSession).where(ChatSession.session_id == session_id)
+                )).scalar_one_or_none()
 
                 if not fresh_session:
                     logger.error(f"Session {session_id} not found in generator")
+                    await async_db.close()
                     yield f"data: {json.dumps({'type': 'error', 'message': 'Session not found'})}\n\n"
                     return
 
@@ -642,8 +648,8 @@ async def send_message_stream(
                     "content": request.message
                 })
                 flag_modified(fresh_session, "messages")
-                db.commit()  # Commit user message immediately
-                db.refresh(fresh_session)  # Refresh to confirm save
+                await async_db.commit()  # Commit user message immediately
+                await async_db.refresh(fresh_session)  # Refresh to confirm save
                 logger.info(f"✓ User message saved to DB: session={session_id}, total_messages={len(fresh_session.messages)}")
 
                 # Build agent via DeepAgentFactory (standard path)
@@ -682,10 +688,12 @@ async def send_message_stream(
                         project_context = ""
 
                     session_context = ""
-                    session_docs = db.query(SessionDocument).filter(
-                        SessionDocument.session_id == request.session_id,
-                        SessionDocument.indexing_status == IndexingStatus.READY
-                    ).all()
+                    session_docs = (await async_db.execute(
+                        select(SessionDocument).where(
+                            SessionDocument.session_id == request.session_id,
+                            SessionDocument.indexing_status == IndexingStatus.READY,
+                        )
+                    )).scalars().all()
 
                     if session_docs:
                         try:
@@ -782,6 +790,7 @@ async def send_message_stream(
                         logger.info(f"Fallback: built graphindex agent for session={session_id}")
                     except Exception as e:
                         logger.error(f"Fallback agent build failed: {e}")
+                        await async_db.close()
                         yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to build agent'})}\n\n"
                         return
 
@@ -1010,9 +1019,9 @@ async def send_message_stream(
                 if full_response:
                     try:
                         # Re-query session to ensure we have a fresh, attached object
-                        final_session = db.query(ChatSession).filter(
-                            ChatSession.session_id == session_id
-                        ).first()
+                        final_session = (await async_db.execute(
+                            select(ChatSession).where(ChatSession.session_id == session_id)
+                        )).scalar_one_or_none()
 
                         if final_session:
                             logger.info(f"Before adding assistant message: total_messages={len(final_session.messages)}")
@@ -1045,8 +1054,8 @@ async def send_message_stream(
                                 final_session.tool_calls = (final_session.tool_calls or []) + collected_tool_names
                                 flag_modified(final_session, "tool_calls")
 
-                            db.commit()
-                            db.refresh(final_session)  # Refresh to confirm save
+                            await async_db.commit()
+                            await async_db.refresh(final_session)  # Refresh to confirm save
                             logger.info(f"✓ Assistant message saved to DB: session={session_id}, total_messages={len(final_session.messages)}, rag_tokens={rag_tokens_used}")
 
                             # Archive conversation turn (mirrors non-streaming path at line 619)
@@ -1064,19 +1073,22 @@ async def send_message_stream(
                                     agent_response=full_response,
                                     tool_calls=collected_tool_names or [],
                                 )
-                                db.add(_archive)
-                                db.commit()
+                                async_db.add(_archive)
+                                await async_db.commit()
                                 logger.info(f"✓ Turn archived: session={session_id}, turn={_turn_number}")
                             except Exception as _archive_err:
                                 logger.warning(f"⚠ Failed to archive turn (non-fatal): {_archive_err}")
-                                db.rollback()
+                                await async_db.rollback()
                         else:
                             logger.error(f"❌ Session {session_id} not found when saving assistant message")
                     except Exception as save_error:
                         logger.error(f"❌ Failed to save assistant message to DB: {save_error}", exc_info=True)
-                        db.rollback()
+                        await async_db.rollback()
                 else:
                     logger.warning(f"⚠ No response generated for session={session_id}")
+
+                # Release the stream's DB session (runs on success and error).
+                await async_db.close()
 
         return StreamingResponse(
             generate_stream(),
