@@ -431,6 +431,158 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
 file_read = read_file
 
 
+def _split_text_blocks(content: str) -> list:
+    """Split text content into ``(kind, text)`` blocks for format-aware rendering.
+
+    Markdown-style heading lines (``#`` / ``##`` / ``###``) become headings;
+    blank-line-separated chunks become paragraphs. ``kind`` is one of
+    ``h1`` / ``h2`` / ``h3`` / ``p``.
+    """
+    blocks = []
+    for raw in (content or "").replace("\r\n", "\n").split("\n\n"):
+        text = raw.strip()
+        if not text:
+            continue
+        if text.startswith("# "):
+            blocks.append(("h1", text[2:].strip()))
+        elif text.startswith("## "):
+            blocks.append(("h2", text[3:].strip()))
+        elif text.startswith("### "):
+            blocks.append(("h3", text[4:].strip()))
+        else:
+            blocks.append(("p", text))
+    if not blocks:
+        blocks.append(("p", ""))
+    return blocks
+
+
+def _render_html_document(content: str, title: str = "Document") -> str:
+    """Wrap text content into a self-contained, styled HTML document."""
+    import html as _html
+
+    safe_title = _html.escape(title or "Document")
+    blocks = _split_text_blocks(content)
+    # Only prepend the filename heading when the content has no H1 of its own.
+    parts = [] if any(kind == "h1" for kind, _ in blocks) else [f"<h1>{safe_title}</h1>"]
+    for kind, text in blocks:
+        safe = _html.escape(text).replace("\n", "<br>")
+        if kind == "h1":
+            parts.append(f"<h1>{safe}</h1>")
+        elif kind == "h2":
+            parts.append(f"<h2>{safe}</h2>")
+        elif kind == "h3":
+            parts.append(f"<h3>{safe}</h3>")
+        else:
+            parts.append(f"<p>{safe}</p>")
+    body = "\n".join(parts)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{safe_title}</title>
+<style>
+  body {{ font-family: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif; max-width: 820px; margin: 40px auto; padding: 0 24px; color: #1f2328; line-height: 1.7; }}
+  h1 {{ font-size: 26px; border-bottom: 2px solid #d0d7de; padding-bottom: 8px; }}
+  h2 {{ font-size: 20px; margin-top: 28px; }}
+  h3 {{ font-size: 16px; margin-top: 22px; }}
+  p {{ font-size: 15px; }}
+  pre, code {{ background: #f6f8fa; border-radius: 4px; }}
+  code {{ padding: 1px 4px; }}
+  pre {{ padding: 12px; overflow-x: auto; }}
+</style>
+</head>
+<body>
+{body}
+</body>
+</html>
+"""
+
+
+def _add_pdf_font(pdf) -> str:
+    """Register the first usable Unicode font on ``pdf`` and return its family.
+
+    Tries common CJK-capable system fonts (macOS/Windows/Linux) so non-Latin
+    text renders correctly; falls back to the built-in Latin-1 ``Helvetica``
+    when none is available. ``FPDF`` is imported lazily by the caller, so the
+    parameter is deliberately unannotated.
+    """
+    import os as _os
+
+    candidates = [
+        ("/System/Library/Fonts/Supplemental/Arial Unicode.ttf", 0),
+        ("/System/Library/Fonts/PingFang.ttc", 0),
+        ("/System/Library/Fonts/STHeiti Light.ttc", 0),
+        ("/System/Library/Fonts/Hiragino Sans GB.ttc", 0),
+        ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 0),
+        ("/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc", 0),
+        ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 0),
+        ("C:/Windows/Fonts/msyh.ttc", 0),
+        ("C:/Windows/Fonts/arial.ttf", 0),
+    ]
+    for path, index in candidates:
+        if not _os.path.isfile(path):
+            continue
+        try:
+            # Register once for regular and once for bold (same file, so bold
+            # renders as regular — avoids fpdf2's "undefined font" error).
+            pdf.add_font("DocFont", "", path, font_index=index)
+            pdf.add_font("DocFont", "B", path, font_index=index)
+            return "DocFont"
+        except Exception:
+            continue
+    return "Helvetica"
+
+
+def _write_pdf_file(path: Path, content: str) -> None:
+    """Generate a PDF from text content using fpdf2 (lazy import keeps the
+    backend import-safe when the package is not installed)."""
+    from fpdf import FPDF
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    family = _add_pdf_font(pdf)
+    pdf.set_font(family, "B", 15)
+    pdf.multi_cell(0, 8, (path.stem or "Document").replace("_", " ").title())
+    pdf.ln(3)
+
+    for kind, text in _split_text_blocks(content):
+        if kind == "h1":
+            pdf.set_font(family, "B", 14)
+        elif kind == "h2":
+            pdf.set_font(family, "B", 12)
+        elif kind == "h3":
+            pdf.set_font(family, "B", 11)
+        else:
+            pdf.set_font(family, "", 11)
+        pdf.multi_cell(0, 8, text)
+        if kind != "p":
+            pdf.ln(1)
+        else:
+            pdf.ln(2)
+
+    pdf.output(str(path))
+
+
+def _write_docx_file(path: Path, content: str) -> None:
+    """Generate a .docx from text content using python-docx (lazy import)."""
+    from docx import Document
+
+    doc = Document()
+    doc.add_heading((path.stem or "Document").replace("_", " ").title(), level=0)
+    for kind, text in _split_text_blocks(content):
+        if kind == "h1":
+            doc.add_heading(text, level=1)
+        elif kind == "h2":
+            doc.add_heading(text, level=2)
+        elif kind == "h3":
+            doc.add_heading(text, level=3)
+        else:
+            doc.add_paragraph(text)
+    doc.save(str(path))
+
+
 def _write_file_impl(
     file_path: str,
     content: str,
@@ -439,6 +591,10 @@ def _write_file_impl(
 ) -> str:
     """
     Implementation of write_file tool with workspace-aware file storage.
+
+    The output format follows the requested file extension: ``.md`` and other
+    plain-text extensions are written verbatim, while ``.html`` / ``.pdf`` /
+    ``.docx`` are rendered as proper documents from the text content.
 
     Args:
         file_path: The filename to create
@@ -506,10 +662,23 @@ def _write_file_impl(
         # Create parent directories if they don't exist
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        path.write_text(content, encoding="utf-8")
+        # Format-aware rendering based on the requested file extension:
+        # markdown and other plain-text formats are written verbatim, while
+        # html / pdf / docx are rendered as real documents from the content.
+        ext = path.suffix.lower()
+        if ext == ".html":
+            path.write_text(_render_html_document(content, title=filename), encoding="utf-8")
+        elif ext == ".pdf":
+            _write_pdf_file(path, content)
+        elif ext == ".docx":
+            _write_docx_file(path, content)
+        else:
+            # Plain text formats: markdown, txt, json, csv, py, etc.
+            path.write_text(content, encoding="utf-8")
 
         # Phase 2: durable storage copy when STORAGE_MODE=db (no-op in local).
-        workspace_mgr.persist_output(path, content.encode("utf-8"))
+        # Read the bytes back so binary outputs (pdf/docx) persist correctly.
+        workspace_mgr.persist_output(path, path.read_bytes())
 
         logger.info(f"Wrote file: {path} ({len(content)} chars)")
 
@@ -686,6 +855,10 @@ def _record_file_metadata(
         # Create database session
         db = SessionLocal()
         try:
+            # Use the actual file size on disk (binary outputs like pdf/docx
+            # have no meaningful text-length equivalent).
+            actual_size = file_path.stat().st_size if file_path.exists() else len(content.encode('utf-8'))
+
             # Check if file record already exists (update if so)
             existing = db.query(WorkspaceFile).filter(
                 WorkspaceFile.file_path == relative_path
@@ -693,7 +866,7 @@ def _record_file_metadata(
 
             if existing:
                 # Update existing record
-                existing.size_bytes = len(content.encode('utf-8'))
+                existing.size_bytes = actual_size
                 existing.mime_type = mime_type
                 if agent_context:
                     existing.agent_label = agent_context.get('agent_label')
@@ -709,7 +882,7 @@ def _record_file_metadata(
                 file_record = WorkspaceFile(
                     filename=filename,
                     file_path=relative_path,
-                    size_bytes=len(content.encode('utf-8')),
+                    size_bytes=actual_size,
                     mime_type=mime_type,
                     extension=extension,
                     # Workspace context
@@ -786,11 +959,16 @@ class WriteFileArgs(BaseModel):
     """Arguments for write_file tool - BOTH are REQUIRED"""
     file_path: str = PydanticField(
         ...,  # ... means required in Pydantic
-        description="REQUIRED: The filename to create (e.g., 'report.md', 'data.json'). Directory path is ignored."
+        description="REQUIRED: The filename to create. The extension picks the output "
+                    "format: '.md' markdown, '.html' styled page, '.pdf' PDF document, "
+                    "'.docx' Word document, or plain text (.txt/.json/.csv/.py). "
+                    "Directory path is ignored."
     )
     content: str = PydanticField(
         ...,  # ... means required in Pydantic
-        description="REQUIRED: The COMPLETE text content to write to the file. You MUST provide this parameter."
+        description="REQUIRED: The COMPLETE text content to write to the file. "
+                    "Use markdown headings (# / ## / ###) for pdf/html/docx titles. "
+                    "You MUST provide this parameter."
     )
 
 write_file = StructuredTool.from_function(
@@ -806,10 +984,17 @@ MANDATORY PARAMETERS (you MUST provide BOTH):
 WRONG: write_file(file_path='test.md')  ← MISSING content, will ERROR
 CORRECT: write_file(file_path='test.md', content='# My Report\\nContent here...')
 
+SUPPORTED FORMATS — pick the format by file extension:
+- .md    Markdown document (stored as-is)
+- .html  Styled, self-contained HTML page (rendered from the content)
+- .pdf   PDF document (headings + paragraphs rendered from the content)
+- .docx  Word document (headings + paragraphs rendered from the content)
+- .txt / .json / .csv / .py  plain text (stored as-is)
+Use markdown headings (# / ## / ###) in content so pdf/html/docx outputs
+get proper document structure.
+
 Files are saved to the workflow's organized output directory.
 Users can view, preview, and download files from the 'Files' tab.
-
-Best practice filenames: .md (reports), .json (data), .csv (tables), .py (code)
 
 If you don't have content ready yet, DO NOT call this tool until you do.""",
     handle_tool_error=_write_file_error_handler
