@@ -27,6 +27,11 @@ export interface AgentsApi {
    */
   getAgentCode(id: number): Promise<any>;
   importDeepAgent(langconfig: object): Promise<any>;
+  /**
+   * Download a self-contained .langconfig (v1.1) bundle for an agent
+   * (GET /api/deepagents/{id}/export — full config + custom tools + skills).
+   */
+  exportDeepAgent(id: number): Promise<any>;
 }
 
 export const agentsApi: AgentsApi = {
@@ -156,5 +161,15 @@ export const agentsApi: AgentsApi = {
       console.error(`[apiClient] fallback to ${fallbackUrl} also failed:`, err);
       throw err;
     }
+  },
+
+  /**
+   * Download the agent as a self-contained .langconfig (v1.1) bundle.
+   * Returns a Blob for the browser to save via the anchor-download pattern.
+   */
+  async exportDeepAgent(this: APIClient, id: number) {
+    return this.get(`/api/deepagents/${id}/export`, {
+      responseType: 'blob'
+    });
   },
 };

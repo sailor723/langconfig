@@ -221,6 +221,21 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     }
   };
 
+  // After a .langconfig import, point the editor at the imported agent.
+  const handleImported = useCallback((imported: any) => {
+    if (!imported?.id) return;
+    setLocalAgentId(typeof imported.id === 'number' ? imported.id : null);
+    setJsonEdit(JSON.stringify(imported, null, 2));
+    // Sync tool + skill pickers with the imported config.
+    const c = imported.config || {};
+    setSelectedNativeTools(toToolIdList(c.native_tools));
+    setSelectedCustomTools(toToolIdList(c.custom_tools));
+    setSelectedSkills(Array.isArray(c.skills) ? c.skills : []);
+    setActiveSection('json');
+    setSaveMsg({ ok: true, text: `Imported as "${imported.name}"` });
+    setTimeout(() => setSaveMsg(null), 4000);
+  }, [setLocalAgentId, setJsonEdit, setSelectedNativeTools, setSelectedCustomTools, setSelectedSkills, setActiveSection, setSaveMsg]);
+
   /** Parse the JSON textarea and PUT the updated agent back to the backend */
   const handleSave = async () => {
     if (saving) return;
@@ -622,6 +637,9 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         saving={saving}
         onSave={handleSave}
         onViewCode={handleViewCode}
+        agentId={localAgentId ?? (typeof agent.id === 'number' ? agent.id : null)}
+        agentName={agent.name}
+        onImported={handleImported}
         canRun={!!localAgentId}
         saveDisabled={!localAgentId}
         saveMsg={saveMsg}

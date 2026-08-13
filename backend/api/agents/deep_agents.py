@@ -31,6 +31,7 @@ from models.deep_agent import (
     create_default_guardrails_config,
 )
 from core.versioning import check_version_conflict, format_lock_version_error
+from services.agent_bundle import build_agent_bundle, import_agent_bundle
 
 logger = logging.getLogger(__name__)
 
@@ -934,82 +935,75 @@ async def import_langconfig(
     request: ImportRequest,
     db: Session = Depends(get_db)
 ):
-    """Import a DeepAgent from .langconfig format."""
+    """Import a DeepAgent from .langconfig format (v1.0 or v1.1)."""
     try:
-        import json
         langconfig = json.loads(request.langconfig_content)
-
-        # Validate format
-        if langconfig.get("version") != "1.0" or langconfig.get("export_type") != "deepagent":
-            raise HTTPException(status_code=400, detail="Invalid .langconfig format")
-
-        agent_data = langconfig["agent"]
-
-        # Create agent
-        # .langconfig exports BOTH `tools` and `native_tools` as separate
-        # fields. We therefore read each from its own field — the previous
-        # version mistakenly loaded `.langconfig.tools` into DB `native_tools`,
-        # which made `native_tools == tools` and surfaced as 8 chips in
-        # Studio for any imported agent.
-        config_dict = {
-            "model": agent_data["model"],
-            "temperature": agent_data["temperature"],
-            "max_tokens": agent_data.get("max_tokens"),
-            "system_prompt": agent_data["system_prompt"],
-            "tools": agent_data.get("tools", []),
-            "native_tools": agent_data.get("native_tools", []),
-            "mcp_tools": agent_data.get("mcp_tools", []),
-            "cli_tools": agent_data.get("cli_tools", []),
-            "middleware": agent_data.get("middleware", []),
-            "subagents": agent_data.get("subagents", []),
-            "backend": agent_data.get("backend", {}),
-            "guardrails": agent_data.get("guardrails", {})
-        }
-
-        config = DeepAgentConfig(**config_dict)
-
-        agent = DeepAgentTemplate(
-            name=agent_data["name"],
-            description=agent_data.get("description"),
-            category=agent_data.get("category", "research"),
-            config=config.dict(),
-            middleware_config=[m.dict() for m in config.middleware],
-            subagents_config=[s.dict() for s in config.subagents],
-            backend_config=config.backend.dict(),
-            guardrails_config=config.guardrails.dict(),
-            is_community=True  # Mark as imported
-        )
-
-        db.add(agent)
-        db.commit()
-        db.refresh(agent)
-
-        logger.info(f"Imported DeepAgent: {agent.name} (id={agent.id})")
-
-        return DeepAgentResponse(
-            id=agent.id,
-            name=agent.name,
-            description=agent.description,
-            category=agent.category,
-            config=_ensure_deep_agent_config(agent.config),
-            middleware_config=agent.middleware_config,
-            subagents_config=agent.subagents_config,
-            subagents=agent.subagents_config,
-            backend_config=agent.backend_config,
-            guardrails_config=agent.guardrails_config,
-            usage_count=agent.usage_count,
-            version=agent.version,
-            lock_version=agent.lock_version,
-            is_public=agent.is_public,
-            created_at=agent.created_at.isoformat(),
-            updated_at=agent.updated_at.isoformat()
-        )
-
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format")
+
+    # v1.1 bundles also create any embedded custom tools + skills (reusing
+    # same-name ones) before the agent row; all in one transaction.
+    try:
+        agent = import_agent_bundle(langconfig, db)
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
+        db.rollback()
         logger.error(f"Error importing .langconfig: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+    logger.info(f"Imported DeepAgent: {agent.name} (id={agent.id})")
+
+    return DeepAgentResponse(
+        id=agent.id,
+        name=agent.name,
+        description=agent.description,
+        category=agent.category,
+        config=_ensure_deep_agent_config(agent.config),
+        middleware_config=agent.middleware_config,
+        subagents_config=agent.subagents_config,
+        subagents=agent.subagents_config,
+        backend_config=agent.backend_config,
+        guardrails_config=agent.guardrails_config,
+        usage_count=agent.usage_count,
+        version=agent.version,
+        lock_version=agent.lock_version,
+        is_public=agent.is_public,
+        created_at=agent.created_at.isoformat(),
+        updated_at=agent.updated_at.isoformat()
+    )
+
+
+@router.get("/{agent_id}/export")
+async def export_deepagent(
+    agent_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Export a DeepAgent as a self-contained .langconfig (v1.1) file.
+
+    Bundles the full config (system_prompt + custom_prompt + custom_suffix,
+    tools, middleware, subagents, guardrails, skills, runtime flags) plus the
+    definitions of every referenced custom tool and skill. Secrets in tool
+    config are redacted.
+    """
+    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    bundle = build_agent_bundle(agent, db)
+
+    # Safe download filename derived from the agent name.
+    safe_name = agent.name.replace(" ", "_")
+    safe_name = "".join(c for c in safe_name if c.isalnum() or c in "_-") or "agent"
+    return Response(
+        content=json.dumps(bundle, ensure_ascii=False, indent=2),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_name}.langconfig.json"'
+        }
+    )
 
 
 @router.get("/{agent_id}/code")
