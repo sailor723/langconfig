@@ -619,5 +619,9 @@ if __name__ == "__main__":
         "main:app",
         host="localhost",
         port=8765,
-        reload=True
+        # 2 workers give process-level parallelism so one slow request
+        # (LLM/SSE stream) no longer blocks every other API call.
+        # NOTE: reload + workers are mutually exclusive in uvicorn.
+        workers=2,
+        reload=False,
     )
