@@ -170,6 +170,29 @@ class WorkspaceManager:
         logger.info(f"Agent workspace: {workspace}")
         return workspace
 
+    def resolve_agent_workspace(self, agent) -> Path:
+        """Resolve an agent's workspace root.
+
+        Priority (per the product rule that workspace is user-defined and
+        persisted in PostgreSQL):
+          1. ``agent.workspace_path`` (deep_agent_templates.workspace_path) —
+             a user-defined directory. Relative paths resolve against
+             ``base_dir`` (outputs/).
+          2. Default convention ``outputs/agents/agent_{id}/`` when unset.
+
+        The directory is created if missing so uploads + generated files
+        always have a home.
+        """
+        custom = getattr(agent, "workspace_path", None)
+        if custom and str(custom).strip():
+            p = Path(str(custom).strip()).expanduser()
+            if not p.is_absolute():
+                p = self.base_dir / p
+            p.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Agent workspace (custom): {p}")
+            return p
+        return self.get_agent_workspace(agent.id)
+
     def persist_output(self, file_path: Path, content: bytes, mime_type: Optional[str] = None) -> Optional[str]:
         """
         Phase 2 write-through (docs/system-architecture.md §15): persist an
@@ -193,9 +216,10 @@ class WorkspaceManager:
         try:
             rel = Path(file_path).resolve().relative_to(Path(self.base_dir).resolve())
         except ValueError:
-            # File lives outside the workspace root; keep it addressable by name.
+            # File lives outside the workspace root; keep it addressable by
+            # bare name. Path.name returns a str (posix-safe, no separators).
             rel = Path(file_path).name
-        key = f"outputs/{rel.as_posix()}"
+        key = f"outputs/{rel if isinstance(rel, str) else rel.as_posix()}"
 
         try:
             from services.storage import get_storage

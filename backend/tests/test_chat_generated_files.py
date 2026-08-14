@@ -38,6 +38,17 @@ class _FakeWorkspaceManager:
         workspace.mkdir(parents=True, exist_ok=True)
         return workspace
 
+    def resolve_agent_workspace(self, agent) -> Path:
+        """Mirror the real resolver: custom workspace_path wins, else default."""
+        custom = getattr(agent, "workspace_path", None)
+        if custom and str(custom).strip():
+            p = Path(str(custom).strip()).expanduser()
+            if not p.is_absolute():
+                p = self.base_dir / p
+            p.mkdir(parents=True, exist_ok=True)
+            return p
+        return self.get_agent_workspace(agent.id)
+
     def get_task_workspace(self, project_id, workflow_id, task_id) -> Path:
         return self.base_dir / "standalone" / f"workflow_{workflow_id}" / f"task_{task_id}"
 
@@ -45,11 +56,17 @@ class _FakeWorkspaceManager:
 def _make_session(**extra):
     now = datetime.now(timezone.utc)
     base = {
+        # The fake doubles as both the ChatSession and (via _FakeDB.query)
+        # the DeepAgentTemplate row resolved by _resolve_agent_workspace.
+        "id": 0,
+        "workspace_path": None,
         "tool_calls": [],
         "created_at": now - timedelta(hours=1),
         "updated_at": now,
     }
     base.update(extra)
+    if base.get("id") == 0 and base.get("agent_id") is not None:
+        base["id"] = base["agent_id"]
     return type("Session", (), base)()
 
 

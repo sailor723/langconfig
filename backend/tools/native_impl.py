@@ -24,6 +24,7 @@ from typing import Annotated, List, Literal, NotRequired, Optional, Dict, Any
 from pathlib import Path
 import asyncio
 import sys
+from contextvars import ContextVar
 
 from typing_extensions import TypedDict
 
@@ -213,8 +214,9 @@ async def _yahoo_search_fallback(query: str, max_results: int = 5) -> Optional[s
     try:
         from bs4 import BeautifulSoup
         
-        # Format query for Yahoo
-        formatted_query = query.replace(' ', '+')
+        # Format query for Yahoo with proper percent-encoding.
+        from urllib.parse import quote_plus
+        formatted_query = quote_plus(query)
         url = f"https://search.yahoo.com/search?p={formatted_query}"
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -249,6 +251,31 @@ async def _yahoo_search_fallback(query: str, max_results: int = 5) -> Optional[s
         return None
 
 
+def _validate_fetch_url(url: str):
+    """SSRF guard for web_fetch: reject non-http(s) URLs and any host that
+    resolves to a private/loopback/link-local/cloud-metadata address.
+
+    Returns an error message, or None when the URL is safe to fetch.
+    """
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return f"Error: invalid URL: {url}"
+    if parsed.scheme not in ("http", "https"):
+        return f"Error: only http/https URLs are supported (got '{parsed.scheme}')"
+    if not parsed.hostname:
+        return f"Error: invalid URL (no host): {url}"
+    # Delegate the IP-range checks to the shared factory validator (also used
+    # by ToolFactory custom tools, keeping one source of truth for SSRF rules).
+    try:
+        from core.tools.factory.base import ToolFactory
+        ToolFactory._validate_url_ssrf(url)
+    except ValueError as e:
+        return f"Error: {e}"
+    return None
+
+
 @tool
 async def web_fetch(url: str, timeout: int = 10) -> str:
     """
@@ -269,18 +296,38 @@ async def web_fetch(url: str, timeout: int = 10) -> str:
     try:
         logger.info(f"Fetching URL: {url}")
 
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-
-            content_type = response.headers.get("content-type", "")
-
-            if "text" in content_type or "html" in content_type:
-                text = response.text
-                logger.info(f"Fetched {len(text)} characters from {url}")
-                return text
-            else:
-                return f"Content type '{content_type}' is not text-based"
+        # SSRF guard with manual redirect handling: every hop is re-validated,
+        # so a public page can never bounce us onto localhost / metadata IPs.
+        final_url = url
+        for _ in range(5):
+            err = _validate_fetch_url(final_url)
+            if err:
+                return err
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+                async with client.stream("GET", final_url) as response:
+                    response.raise_for_status()
+                    if response.is_redirect:
+                        final_url = response.headers.get("location", "")
+                        if not final_url:
+                            return "Error fetching URL: redirect without Location header"
+                        continue
+                    # Bound the body size — never buffer an unbounded response.
+                    MAX_BODY = 2 * 1024 * 1024  # 2MB cap
+                    chunks = []
+                    total = 0
+                    async for chunk in response.aiter_bytes():
+                        chunks.append(chunk)
+                        total += len(chunk)
+                        if total > MAX_BODY:
+                            return (f"Error fetching URL: response exceeds "
+                                    f"{MAX_BODY // (1024 * 1024)}MB size limit")
+                    content_type = response.headers.get("content-type", "")
+                    if "text" in content_type or "html" in content_type:
+                        text = b"".join(chunks).decode("utf-8", errors="replace")
+                        logger.info(f"Fetched {len(text)} characters from {url}")
+                        return text
+                    return f"Content type '{content_type}' is not text-based"
+        return "Error fetching URL: too many redirects"
 
     except httpx.HTTPError as e:
         logger.error(f"HTTP error fetching {url}: {e}")
@@ -371,6 +418,49 @@ async def tavily_search(query: str, max_results: int = 5) -> str:
 # See: https://docs.langchain.com/oss/python/deepagents/harness
 # =============================================================================
 
+# ---------------------------------------------------------------------------
+# Workspace sandbox helpers — shared by all filesystem tools. write_file already
+# enforced containment; the read/list/search tools now apply the same policy so
+# an agent cannot read arbitrary server paths (.env, /etc, source dirs, ...).
+# ---------------------------------------------------------------------------
+
+def _sandbox_roots() -> list:
+    """Roots the filesystem tools are allowed to touch (resolved)."""
+    backend_dir = Path(__file__).resolve().parent.parent
+    from services.workspace_manager import get_workspace_manager
+    roots = [
+        get_workspace_manager().base_dir,   # backend/outputs (write_file home)
+        backend_dir / ".workspace_data",     # agent workspaces (AGENTS.md etc.)
+        backend_dir / "data",                # uploaded documents / analysis outputs
+        backend_dir.parent / "data",         # repo-root data/ (sql-skill-generator etc.)
+    ]
+    # Tool-owned presentation output dir (gen_pptx) so agents can read decks.
+    present_dir = os.getenv("PRESENTATION_OUTPUT_DIR", "/tmp/langconfig-tools/presentations")
+    roots.append(Path(present_dir))
+    return [r.resolve() for r in roots]
+
+
+def _resolve_sandbox_path(path_str: str):
+    """Resolve *path_str* and enforce the workspace sandbox.
+
+    Returns (resolved_path, None) on success, or (None, error_message)
+    when the path escapes the allowed workspace roots.
+    """
+    try:
+        path = Path(path_str).resolve()
+    except (OSError, RuntimeError, ValueError) as e:
+        return None, f"Error: invalid path '{path_str}': {e}"
+    for root in _sandbox_roots():
+        try:
+            path.relative_to(root)
+            return path, None
+        except ValueError:
+            continue
+    return (None, f"Error: Path '{path_str}' is outside the allowed workspace. "
+                  f"Filesystem tools are restricted to project outputs, workspace "
+                  f"data, uploaded documents, and presentation output.")
+
+
 @tool
 def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int = 500_000) -> str:
     """
@@ -397,7 +487,9 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
         >>> read_file("slides.pptx")
     """
     try:
-        path = Path(file_path).resolve()
+        path, err = _resolve_sandbox_path(file_path)
+        if err:
+            return err
 
         if not path.exists():
             return f"Error: File not found: {file_path}"
@@ -418,7 +510,14 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
             return (f"Error: legacy {ext} files are not supported. "
                     f"Convert to .pptx / .docx and read that instead")
         else:
-            content = path.read_text(encoding="utf-8")
+            # Bounded read: never slurp an arbitrarily large file into memory
+            # before truncating. The 2MB ceiling is generous and the offset /
+            # limit / max_chars slicing below still applies on top of it.
+            MAX_READ_BYTES = 2 * 1024 * 1024
+            with path.open("r", encoding="utf-8", errors="replace") as fh:
+                content = fh.read(MAX_READ_BYTES + 1)
+            if len(content) > MAX_READ_BYTES:
+                content = content[:MAX_READ_BYTES] + "\n...[file too large to read in full; truncated]..."
         lines = content.split('\n')
 
         # Apply offset and limit
@@ -686,7 +785,9 @@ def _write_file_impl(
         original_path = file_path
         filename = Path(file_path).name  # Gets just "report.md" from any path
 
-        # Block suspicious filenames or paths that could cause issues
+        # Block suspicious paths — if a protected directory component appears
+        # anywhere outside the bare filename, refuse instead of silently
+        # rewriting the path (a silent sanitize hides bugs from the agent).
         dangerous_patterns = [
             'langconfig', 'backend', 'src', 'node_modules', '.git',
             'frontend', 'api', 'core', 'services', 'models'
@@ -695,8 +796,9 @@ def _write_file_impl(
         for pattern in dangerous_patterns:
             if pattern in path_lower and pattern not in filename.lower():
                 logger.warning(f"Blocked dangerous path: {file_path} (contains '{pattern}')")
-                # Still write the file, but only use the filename
-                logger.info(f"Sanitized path: {file_path} -> {filename}")
+                return (f"Error: refusing to write to '{file_path}': path contains "
+                        f"protected directory component '{pattern}'. Write into the "
+                        f"workspace output folder instead (e.g. '{filename}').")
 
         # Always use organized workspace for better file management
         from services.workspace_manager import get_workspace_manager
@@ -1139,28 +1241,59 @@ def _save_document_impl(
 
         db = SessionLocal()
         try:
-            # Version chain: same (project, title) -> next version.
-            query = db.query(AgentDocument).filter(AgentDocument.title == title)
-            if project_id is not None:
-                query = query.filter(AgentDocument.project_id == project_id)
-            latest = query.order_by(AgentDocument.version.desc()).first()
-            version = (latest.version + 1) if latest else 1
+            from sqlalchemy.exc import IntegrityError
 
-            doc = AgentDocument(
-                project_id=project_id,
-                agent_id=agent_id,
-                execution_id=execution_id,
-                title=title,
-                doc_type=doc_type or "report",
-                version=version,
-                content=content,
-            )
-            db.add(doc)
-            db.commit()
+            # Version chain: same (project, title) -> next version. Retry a few
+            # times on unique-constraint conflicts so two concurrent saves can't
+            # both pick the same version number (version-race fix).
+            for _attempt in range(3):
+                query = db.query(AgentDocument).filter(AgentDocument.title == title)
+                if project_id is not None:
+                    query = query.filter(AgentDocument.project_id == project_id)
+                latest = query.order_by(AgentDocument.version.desc()).with_for_update().first()
+                version = (latest.version + 1) if latest else 1
+
+                doc = AgentDocument(
+                    project_id=project_id,
+                    agent_id=agent_id,
+                    execution_id=execution_id,
+                    title=title,
+                    doc_type=doc_type or "report",
+                    version=version,
+                    content=content,
+                )
+                db.add(doc)
+                try:
+                    db.commit()
+                    break
+                except IntegrityError:
+                    # Another writer won the version race — rollback and retry
+                    # on the next free version.
+                    db.rollback()
+            else:
+                return "Error saving document: concurrent version conflict, please retry."
         finally:
             db.close()
 
+        # Write-through: also drop a file copy into the agent's workspace
+        # (workspace_root) so the Files panel — which lists workspace files —
+        # shows this document. The DB row remains the versioned source of
+        # truth; the copy is for visibility/download convenience.
+        ws_copy = None
+        ws_root = (_workspace_context or {}).get("workspace_root")
+        if ws_root:
+            try:
+                from pathlib import Path as _Path
+                safe_title = _Path(title).name or "document"
+                target = _Path(ws_root).resolve() / f"{safe_title}.md"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content, encoding="utf-8")
+                ws_copy = str(target)
+            except Exception as e:
+                logger.warning("Failed to write workspace copy of '%s': %s", title, e)
+
         scope = f"project={project_id}" if project_id is not None else "project=unset"
+        extra = f" Also saved a copy to the workspace: {ws_copy}" if ws_copy else ""
         return (f"Document '{title}' saved to the document library (version {version}, {scope}, "
                 f"doc_type={doc_type or 'report'}, {len(content)} chars).")
     except Exception as e:
@@ -1208,7 +1341,9 @@ def ls(directory_path: str = ".") -> str:
         >>> ls("/home/user/projects")
     """
     try:
-        path = Path(directory_path).resolve()
+        path, err = _resolve_sandbox_path(directory_path)
+        if err:
+            return err
 
         if not path.exists():
             return f"Error: Directory not found: {directory_path}"
@@ -1271,7 +1406,9 @@ def _edit_file_impl(
         Success message or error if old_string not found/not unique
     """
     try:
-        path = Path(file_path).resolve()
+        path, err = _resolve_sandbox_path(file_path)
+        if err:
+            return err
 
         if not path.exists():
             return f"Error: File not found: {file_path}"
@@ -1368,7 +1505,9 @@ def glob(pattern: str, path: str = ".") -> str:
         >>> glob("src/**/*.tsx")
     """
     try:
-        base_path = Path(path).resolve()
+        base_path, err = _resolve_sandbox_path(path)
+        if err:
+            return err
 
         if not base_path.exists():
             return f"Error: Path not found: {path}"
@@ -1418,7 +1557,9 @@ def grep(pattern: str, path: str = ".", file_pattern: str = None) -> str:
     import re
 
     try:
-        base_path = Path(path).resolve()
+        base_path, err = _resolve_sandbox_path(path)
+        if err:
+            return err
 
         if not base_path.exists():
             return f"Error: Path not found: {path}"
@@ -1437,6 +1578,10 @@ def grep(pattern: str, path: str = ".", file_pattern: str = None) -> str:
         else:
             glob_pattern = file_pattern or "**/*"
             files_to_search = [f for f in base_path.glob(glob_pattern) if f.is_file()]
+            # Bound the scan: cap the number of files searched per call.
+            MAX_FILES = 500
+            if len(files_to_search) > MAX_FILES:
+                files_to_search = files_to_search[:MAX_FILES]
 
         # Search through files
         for file_path in files_to_search:
@@ -1445,6 +1590,9 @@ def grep(pattern: str, path: str = ".", file_pattern: str = None) -> str:
                 lines = content.split('\n')
 
                 for i, line in enumerate(lines, 1):
+                    # Bound per-file scan depth too.
+                    if i > 200_000:
+                        break
                     if regex.search(line):
                         try:
                             rel_path = file_path.relative_to(base_path)
@@ -1511,17 +1659,30 @@ def reasoning_chain(task: str, steps: int = 5) -> str:
     logger.info(f"Reasoning chain for task: {task}")
 
     # This is a simplified version. The actual LLM will do the reasoning.
-    # This tool just provides a structure for the agent to follow.
+    # This tool just provides a structure for the agent to follow. The
+    # requested number of steps is honored (clamped to [1, 10]).
+
+    step_labels = [
+        "Analyze the requirements and constraints",
+        "Identify key objectives and success criteria",
+        "Consider potential approaches and trade-offs",
+        "Evaluate risks and mitigation strategies",
+        "Synthesize into a concrete action plan",
+    ]
+    try:
+        n = max(1, min(int(steps), 10))
+    except (TypeError, ValueError):
+        n = 5
+    step_lines = "\n".join(
+        f"{i}. {step_labels[i - 1] if i <= len(step_labels) else f'Deepen the analysis (step {i})'}"
+        for i in range(1, n + 1)
+    )
 
     reasoning_template = f"""
 TASK: {task}
 
 REASONING STEPS:
-1. Analyze the requirements and constraints
-2. Identify key objectives and success criteria
-3. Consider potential approaches and trade-offs
-4. Evaluate risks and mitigation strategies
-5. Synthesize into a concrete action plan
+{step_lines}
 
 Note: This is a reasoning framework. The agent should fill in the actual analysis.
 """
@@ -1602,7 +1763,10 @@ def save_analysis_result(text: str, file_path: str | None = None) -> str:
     report_path = output_dir / "analysis_report.txt"
     report_path.write_text(text)
     if file_path:
-        fp = Path(file_path)
+        # Only copy attachments that live inside the workspace sandbox.
+        fp, err = _resolve_sandbox_path(file_path)
+        if err:
+            return f"Error saving analysis result: {err}"
         if fp.exists():
             local_path = output_dir / fp.name
             local_path.write_bytes(fp.read_bytes())
@@ -1683,6 +1847,12 @@ def update_skill(skill_id: str, name: str | None = None,
     from db.database import SessionLocal
     from models.skill import Skill
     import datetime
+    import re as _re
+
+    # Sanitize the identifier — only kebab-case ids are valid; anything else is
+    # rejected before touching the DB (defense-in-depth against odd inputs).
+    if not _re.fullmatch(r"[a-z0-9][a-z0-9-]*", skill_id or ""):
+        return f"❌ Invalid skill_id '{skill_id}': use kebab-case (letters, digits, hyphens)."
 
     db = SessionLocal()
     try:
@@ -1719,6 +1889,11 @@ def delete_skill(skill_id: str) -> str:
     """
     from db.database import SessionLocal
     from models.skill import Skill
+    import re as _re
+
+    # Sanitize the identifier before touching the DB.
+    if not _re.fullmatch(r"[a-z0-9][a-z0-9-]*", skill_id or ""):
+        return f"❌ Invalid skill_id '{skill_id}': use kebab-case (letters, digits, hyphens)."
 
     db = SessionLocal()
     try:
@@ -1967,9 +2142,21 @@ def pg_query(sql: str) -> str:
         >>> pg_query("SELECT count(*) AS total FROM skills")
     """
     import sqlalchemy as sa
-    sql_stripped = sql.strip().lower()
-    if not sql_stripped.startswith("select"):
+    import re as _re
+    # Read-only guard: require a single, comment-free SELECT statement. ';' is
+    # rejected so stacked multi-statements (e.g. "SELECT 1; DROP TABLE x") can't
+    # slip past a naive startswith("select") check, and leading comments are
+    # stripped so "/* */ DROP ..." can't dodge the keyword check either.
+    stripped = sql.strip()
+    if stripped.endswith(";"):
+        stripped = stripped[:-1].rstrip()
+    if ";" in stripped:
+        return "❌ Multiple statements are not allowed. Use a single SELECT query."
+    no_comments = _re.sub(r"^\s*(--[^\n]*\n|/\*.*?\*/|#.*?\n)*\s*", "", stripped,
+                          flags=_re.DOTALL).lower()
+    if not no_comments.startswith("select"):
         return "❌ Only SELECT queries are allowed. Use pg_execute for write operations."
+    sql = stripped
 
     db = _get_pg_session()
     try:
@@ -2015,10 +2202,22 @@ def pg_execute(sql: str) -> str:
         >>> pg_execute("DELETE FROM chat_sessions WHERE is_active=false")
     """
     import sqlalchemy as sa
-    sql_stripped = sql.strip().lower()
-    allowed_keywords = ("insert", "update", "delete", "create", "alter", "drop", "truncate")
-    if not any(sql_stripped.startswith(kw) for kw in allowed_keywords):
-        return "❌ Only write statements are allowed (INSERT, UPDATE, DELETE, etc.). Use pg_query for SELECT."
+    # Write guard: only row-level DML (INSERT/UPDATE/DELETE). Destructive DDL
+    # (CREATE/ALTER/DROP/TRUNCATE) is intentionally excluded, and ';' is banned
+    # so a stacked "UPDATE ...; DROP TABLE ..." can't slip through.
+    stripped = sql.strip()
+    if stripped.endswith(";"):
+        stripped = stripped[:-1].rstrip()
+    if ";" in stripped:
+        return "❌ Multiple statements are not allowed. Use a single write statement."
+    sql_lower = stripped.lower()
+    if not (sql_lower.startswith("insert")
+            or sql_lower.startswith("update")
+            or sql_lower.startswith("delete")):
+        return ("❌ Only INSERT/UPDATE/DELETE statements are allowed. "
+                "Destructive DDL (CREATE/ALTER/DROP/TRUNCATE) is blocked. "
+                "Use pg_query for SELECT.")
+    sql = stripped
 
     db = _get_pg_session()
     try:
@@ -2759,8 +2958,12 @@ _doc_index_pages_tool = StructuredTool.from_function(
 # GraphIndex tools — doc scope filter and default project_id.
 # Set by the chat route before calling the agent when the user has
 # selected specific docs. None = all docs visible.
-_GRAPHINDEX_DOC_SCOPE: Optional[List[str]] = None
-_GRAPHINDEX_PROJECT_ID: Optional[int] = None
+# Chat-scoped doc filter for graphindex tools. Stored in ContextVars (not
+# module globals) so concurrent chats/requests can't leak scope into each other
+# — each request task carries its own value, and asyncio propagates the context
+# into worker threads (asyncio.to_thread) automatically.
+_GRAPHINDEX_DOC_SCOPE: ContextVar = ContextVar("_GRAPHINDEX_DOC_SCOPE", default=None)
+_GRAPHINDEX_PROJECT_ID: ContextVar = ContextVar("_GRAPHINDEX_PROJECT_ID", default=None)
 
 
 # =============================================================================
@@ -2768,16 +2971,20 @@ _GRAPHINDEX_PROJECT_ID: Optional[int] = None
 # =============================================================================
 
 def set_graphindex_doc_scope(scope: Optional[List[str]], project_id: Optional[int] = None) -> None:
-    """Set the doc scope filter for graphindex tools. Pass None for 'all'."""
-    global _GRAPHINDEX_DOC_SCOPE, _GRAPHINDEX_PROJECT_ID
-    _GRAPHINDEX_DOC_SCOPE = scope
-    _GRAPHINDEX_PROJECT_ID = project_id
+    """Set the doc scope filter for graphindex tools. Pass None for 'all'.
+
+    Stored per-request via ContextVar: each chat request gets its own scope,
+    so concurrent requests can't cross-contaminate each other's filters.
+    """
+    _GRAPHINDEX_DOC_SCOPE.set(scope)
+    _GRAPHINDEX_PROJECT_ID.set(project_id)
 
 
 def _get_project_id() -> Optional[int]:
-    """Get the current project ID from module-level var (set during agent execution)."""
-    if _GRAPHINDEX_PROJECT_ID is not None:
-        return _GRAPHINDEX_PROJECT_ID
+    """Get the current project ID from the request-scoped var (set during agent execution)."""
+    pid = _GRAPHINDEX_PROJECT_ID.get()
+    if pid is not None:
+        return pid
     pid = os.environ.get("GRAPHINDEX_PROJECT_ID")
     if pid:
         try:
@@ -2800,9 +3007,11 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
 
     Returns matching documents with name, type, domain, and supporting list.
     """
-    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
-    if _GRAPHINDEX_PROJECT_ID is not None:
-        project_id = _GRAPHINDEX_PROJECT_ID
+    # Request-scoped override (set by the chat route) takes precedence over the
+    # LLM-provided arg.
+    pid_override = _GRAPHINDEX_PROJECT_ID.get()
+    if pid_override is not None:
+        project_id = pid_override
     elif not project_id:
         project_id = _get_project_id()
     if not project_id:
@@ -2830,7 +3039,7 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
         best = idx.find_best_document(
             project_id=project_id,
             query=query,
-            scope=_GRAPHINDEX_DOC_SCOPE,
+            scope=_GRAPHINDEX_DOC_SCOPE.get(),
         )
         if best is None:
             return (f"No documents found matching '{query}' in project {project_id}.")
@@ -2877,11 +3086,12 @@ def graphindex_load(context_doc_id: int, max_chars: int = 10_000_000) -> str:
             return f"❌ Document with context_doc_id={context_doc_id} not found in either Postgres or Neo4j."
 
         # Deterministic scope enforcement — refuse to load docs outside scope.
-        if _GRAPHINDEX_DOC_SCOPE is not None:
-            if context_doc.filename not in _GRAPHINDEX_DOC_SCOPE:
+        doc_scope = _GRAPHINDEX_DOC_SCOPE.get()
+        if doc_scope is not None:
+            if context_doc.filename not in doc_scope:
                 return (f"SCOPE_ERROR: Document '{context_doc.filename}' is not in the "
                         f"current chat scope. Only the following docs are visible to "
-                        f"this chat: {', '.join(_GRAPHINDEX_DOC_SCOPE)}. "
+                        f"this chat: {', '.join(doc_scope)}. "
                         f"Search again within the selected scope, or ask the user to "
                         f"clear the scope filter.")
 
@@ -2890,6 +3100,13 @@ def graphindex_load(context_doc_id: int, max_chars: int = 10_000_000) -> str:
         if not full_content:
             return (f"❌ Could not extract text from {context_doc.filename} "
                     f"(file_path={context_doc.file_path})")
+
+        # Honor the caller's character budget — the full doc is no longer dumped
+        # unconditionally (previously max_chars was a dead parameter).
+        if len(full_content) > max_chars:
+            full_content = full_content[:max_chars] + (
+                f"\n\n[...truncated at {max_chars} chars — original length "
+                f"{len(full_content):,}...]")
 
         return (f"## Document: {context_doc.filename}\n"
                 f"Source: GraphIndex (Phase 9 read path)\n"
@@ -2997,9 +3214,11 @@ def graphindex_list_docs(project_id: Optional[int] = None) -> str:
             current project (from GRAPHINDEX_PROJECT_ID env var).
             Returns an error if neither is set.
     """
-    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
-    if _GRAPHINDEX_PROJECT_ID is not None:
-        project_id = _GRAPHINDEX_PROJECT_ID
+    # Request-scoped override (set by the chat route) takes precedence over the
+    # LLM-provided arg.
+    pid_override = _GRAPHINDEX_PROJECT_ID.get()
+    if pid_override is not None:
+        project_id = pid_override
     elif not project_id:
         project_id = _get_project_id()
     if not project_id:
@@ -3016,7 +3235,7 @@ def graphindex_list_docs(project_id: Optional[int] = None) -> str:
             password=os.environ.get("NEO4J_PASSWORD", "password"),
         )
         idx.ensure_constraints()
-        rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE or "all")
+        rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE.get() or "all")
 
         if not rows:
             # Fallback: PostgreSQL ContextDocuments (not yet Neo4j-indexed)
@@ -3050,9 +3269,11 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
         query: Natural language query (e.g., "compare Nike strategy with industry trends")
         project_id: Optional project ID. Uses GRAPHINDEX_PROJECT_ID env var if not set.
     """
-    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
-    if _GRAPHINDEX_PROJECT_ID is not None:
-        project_id = _GRAPHINDEX_PROJECT_ID
+    # Request-scoped override (set by the chat route) takes precedence over the
+    # LLM-provided arg.
+    pid_override = _GRAPHINDEX_PROJECT_ID.get()
+    if pid_override is not None:
+        project_id = pid_override
     elif not project_id:
         project_id = _get_project_id()
     if not project_id:
@@ -3076,7 +3297,7 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
         best = idx.find_best_document(
             project_id=project_id,
             query=query,
-            scope=_GRAPHINDEX_DOC_SCOPE,
+            scope=_GRAPHINDEX_DOC_SCOPE.get(),
         )
         if best is None:
             return f"No document matched '{query}'."
@@ -3126,9 +3347,11 @@ def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
         name: Exact document filename (use graphindex_list_docs to find names).
         project_id: Optional project ID.
     """
-    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
-    if _GRAPHINDEX_PROJECT_ID is not None:
-        project_id = _GRAPHINDEX_PROJECT_ID
+    # Request-scoped override (set by the chat route) takes precedence over the
+    # LLM-provided arg.
+    pid_override = _GRAPHINDEX_PROJECT_ID.get()
+    if pid_override is not None:
+        project_id = pid_override
     elif not project_id:
         project_id = _get_project_id()
     if not project_id:
@@ -3155,9 +3378,11 @@ def graphindex_ingest(file_path: str, project_id: Optional[int] = None,
         project_id: Optional project ID.
         target_dir: Optional override for the target directory.
     """
-    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
-    if _GRAPHINDEX_PROJECT_ID is not None:
-        project_id = _GRAPHINDEX_PROJECT_ID
+    # Request-scoped override (set by the chat route) takes precedence over the
+    # LLM-provided arg.
+    pid_override = _GRAPHINDEX_PROJECT_ID.get()
+    if pid_override is not None:
+        project_id = pid_override
     elif not project_id:
         project_id = _get_project_id()
     if not project_id:
@@ -3183,9 +3408,11 @@ def graphindex_rebuild_project(project_id: Optional[int] = None) -> str:
     Args:
         project_id: Optional project ID.
     """
-    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
-    if _GRAPHINDEX_PROJECT_ID is not None:
-        project_id = _GRAPHINDEX_PROJECT_ID
+    # Request-scoped override (set by the chat route) takes precedence over the
+    # LLM-provided arg.
+    pid_override = _GRAPHINDEX_PROJECT_ID.get()
+    if pid_override is not None:
+        project_id = pid_override
     elif not project_id:
         project_id = _get_project_id()
     if not project_id:
@@ -3210,9 +3437,11 @@ def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
         name: Exact document filename.
         project_id: Optional project ID.
     """
-    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
-    if _GRAPHINDEX_PROJECT_ID is not None:
-        project_id = _GRAPHINDEX_PROJECT_ID
+    # Request-scoped override (set by the chat route) takes precedence over the
+    # LLM-provided arg.
+    pid_override = _GRAPHINDEX_PROJECT_ID.get()
+    if pid_override is not None:
+        project_id = pid_override
     elif not project_id:
         project_id = _get_project_id()
     if not project_id:
@@ -3276,6 +3505,7 @@ import sqlite3 as _sqlite3
 import csv as _csv
 import io as _io
 import os as _os
+import re as _re
 
 TOOL_SQLITE_EXECUTE_DESCRIPTION = """Execute a read-only SQL query on a SQLite database.
 
@@ -3301,6 +3531,14 @@ Examples:
 """
 
 
+def _validate_sqlite_db_path(db_path: str):
+    """Only ':memory:' or a file inside the workspace sandbox is allowed."""
+    if not db_path or db_path == ":memory:":
+        return None
+    _, err = _resolve_sandbox_path(db_path)
+    return err
+
+
 def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
     """
     Execute a read-only SQL query on a SQLite database.
@@ -3318,13 +3556,26 @@ def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
     # Safety: block all non-SELECT statements
     sql_stripped = sql.strip().strip(";").strip()
     sql_lower = sql_stripped.lower()
+
+    # 'pragma' used to be whitelisted out of the blocked list, which made the
+    # guard below dead code for PRAGMA — it is now blocked like every other
+    # write verb (PRAGMA can mutate db state, e.g. PRAGMA writable_schema=ON).
     blocked_keywords = ["insert", "update", "delete", "drop", "alter",
                         "create", "replace", "truncate", "exec", "pragma"]
 
     first_word = sql_lower.split()[0] if sql_lower.split() else ""
-    if first_word in blocked_keywords and first_word != "pragma":
+    if first_word in blocked_keywords:
         return f"❌ BLOCKED: Only SELECT queries are allowed. Got: '{sql_stripped[:100]}'"
+    # Reject stacked statements (e.g. "SELECT 1; DROP TABLE x") — the sub-query
+    # wrapper below would otherwise only execute the first statement silently.
+    if ";" in sql_stripped:
+        return "❌ BLOCKED: Multiple statements are not allowed."
 
+    err = _validate_sqlite_db_path(db_path)
+    if err:
+        return err
+
+    conn = None
     try:
         conn = _sqlite3.connect(db_path)
         conn.row_factory = _sqlite3.Row
@@ -3334,7 +3585,6 @@ def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
         col_names = [desc[0] for desc in cursor.description] if cursor.description else []
 
         if not rows:
-            conn.close()
             return "✅ Query executed. No rows returned (empty result)."
 
         # Format output as aligned table
@@ -3351,11 +3601,15 @@ def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
         )
 
         summary = f"✅ {len(rows)} row(s) returned"
-        conn.close()
         return f"{summary}\n\n{header}\n{sep}\n{body}"
 
     except Exception as e:
         return f"❌ SQL Error: {e}"
+    finally:
+        # Always release the connection — the success paths above no longer
+        # close explicitly, so an error mid-formatting can't leak it.
+        if conn is not None:
+            conn.close()
 
 
 def sqlite_load_csv(csv_content: str, table_name: str, db_path: str = ":memory:") -> str:
@@ -3378,18 +3632,32 @@ def sqlite_load_csv(csv_content: str, table_name: str, db_path: str = ":memory:"
             return "❌ CSV has no data rows."
 
         col_names = list(rows[0].keys())
-        col_defs = ", ".join(f'"{c}" TEXT' for c in col_names)
+
+        # Quote identifiers by doubling embedded quotes — never interpolate raw
+        # CSV headers / table names into SQL unescaped.
+        def _q(ident: str) -> str:
+            return '"' + ident.replace('"', '""') + '"'
+
+        if not _re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", table_name):
+            return ("❌ Invalid table_name: use letters, digits and underscores "
+                    "only (got %r)." % table_name[:50])
+
+        err = _validate_sqlite_db_path(db_path)
+        if err:
+            return err
+
+        col_defs = ", ".join(f"{_q(c)} TEXT" for c in col_names)
         placeholders = ", ".join("?" for _ in col_names)
 
         conn = _sqlite3.connect(db_path)
         cursor = conn.cursor()
-        cursor.execute(f"DROP TABLE IF EXISTS \"{table_name}\"")
-        cursor.execute(f'CREATE TABLE "{table_name}" ({col_defs})')
+        cursor.execute(f"DROP TABLE IF EXISTS {_q(table_name)}")
+        cursor.execute(f'CREATE TABLE {_q(table_name)} ({col_defs})')
 
         for row in rows:
             values = [row.get(c, "") for c in col_names]
-            col_list = ', '.join(f'"{c}"' for c in col_names)
-            cursor.execute(f'INSERT INTO "{table_name}" ({col_list}) VALUES ({placeholders})', values)
+            col_list = ', '.join(_q(c) for c in col_names)
+            cursor.execute(f'INSERT INTO {_q(table_name)} ({col_list}) VALUES ({placeholders})', values)
 
         conn.commit()
         conn.close()
@@ -3409,7 +3677,9 @@ import textwrap as _textwrap
 
 TOOL_PYTHON_EXECUTE_DESCRIPTION = """Execute Python code for data analysis and visualization.
 
-Use with caution — code runs in a restricted sandbox with limited filesystem access.
+Use with caution — code runs in an isolated subprocess (isolated mode, temporary
+working directory, minimal env) but this is NOT a security sandbox. Only trusted
+agents should call this tool.
 
 Available libraries: pandas, matplotlib, numpy, json, csv, statistics, math, datetime, collections.
 
@@ -3467,13 +3737,18 @@ def python_execute(code: str, timeout: int = 30) -> str:
             "    sys.stderr = sys.__stderr__\n"
             "    print(_buffer.getvalue(), end='')\n"
         )
-        result = _subprocess.run(
-            [_sys.executable, "-c", wrapper_code],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env={k: v for k, v in _os.environ.items() if k in ("PATH", "HOME", "TEMP", "TMPDIR")}
-        )
+        with _tempfile.TemporaryDirectory() as tmpdir:
+            result = _subprocess.run(
+                # -I = isolated mode: ignores PYTHON* env vars and user
+                # site-packages; cwd is a throwaway temp dir so the code can't
+                # read/write repo files by relative path.
+                [_sys.executable, "-I", "-c", wrapper_code],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=tmpdir,
+                env={k: v for k, v in _os.environ.items() if k in ("PATH", "HOME", "TEMP", "TMPDIR")}
+            )
         output = result.stdout or ""
         if result.stderr:
             output += f"\n--- stderr ---\n{result.stderr}"

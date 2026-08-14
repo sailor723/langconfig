@@ -555,6 +555,7 @@ async def load_agent_tools(
     workspace_context: Optional[Dict[str, Any]] = None,
     project_id: Optional[int] = None,
     task_id: Optional[int] = None,
+    agent_context: Optional[Dict[str, Any]] = None,
 ) -> List[BaseTool]:
     """
     Load tools from config, handling memory tool routing automatically.
@@ -586,7 +587,7 @@ async def load_agent_tools(
 
     # Load regular native tools
     if reg_tools:
-        loaded = await ToolLoader.load_native(reg_tools, workspace_context=workspace_context)
+        loaded = await ToolLoader.load_native(reg_tools, workspace_context=workspace_context, agent_context=agent_context)
         tools.extend(loaded)
         logger.info(f"Loaded {len(loaded)} native tools: {reg_tools}")
 

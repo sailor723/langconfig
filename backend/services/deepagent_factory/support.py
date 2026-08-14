@@ -33,7 +33,8 @@ class _DeepAgentSupportMixin:
         task_id: int,
         workflow_id: Optional[int] = None,
         custom_output_path: Optional[str] = None,
-        workspace_root: Optional[str] = None
+        workspace_root: Optional[str] = None,
+        agent_id: Optional[int] = None
     ) -> List[BaseTool]:
         """Load tools from configuration using shared agent_utils."""
         workspace_context = {
@@ -50,6 +51,7 @@ class _DeepAgentSupportMixin:
             workspace_context=workspace_context,
             project_id=project_id,
             task_id=task_id,
+            agent_context={"agent_id": agent_id} if agent_id is not None else None,
         )
 
     @staticmethod
