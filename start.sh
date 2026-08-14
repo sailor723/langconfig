@@ -114,9 +114,15 @@ start_backend() {
           SERPER_API_KEY 2>/dev/null || true
     echo "  Starting backend..."
     cd "$BE_DIR"
-    SKIP_STARTUP_API_TEST=true .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --reload &
+    # 2 workers (UVICORN_WORKERS) give process-level parallelism so one slow
+    # LLM/SSE request can't block every other API call. Reload is disabled:
+    # uvicorn's --reload and --workers are mutually exclusive, and the reloader
+    # has wedged the single worker before. Restart via start.sh to pick up
+    # code changes (project rule).
+    WORKERS="${UVICORN_WORKERS:-2}"
+    SKIP_STARTUP_API_TEST=true .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --workers "$WORKERS" &
     echo $! > "$BE_PIDFILE"
-    echo "  Backend PID: $(cat "$BE_PIDFILE")"
+    echo "  Backend PID: $(cat "$BE_PIDFILE") (workers=$WORKERS)"
     sleep 3
     # Quick health check
     for i in 1 2 3; do
