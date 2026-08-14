@@ -108,6 +108,12 @@ class Settings(BaseSettings):
     storage_mode: str = "local"
     storage_base_dir: str = "./data/storage"
 
+    # ── Filesystem roots (all overridable via .env) ──
+    # backend/outputs — agent + workflow output files (WorkspaceManager)
+    workspace_base_dir: str = "backend/outputs"
+    # ./data/documents — uploaded documents (FileStorage)
+    documents_base_dir: str = "./data/documents"
+
     # ── Uppercase aliases for convenience ──
     # UI-editable providers: DB-first (DB keys are encrypted at rest, decrypted
     # transparently by _db_api_key_only below). .env is the fallback when no

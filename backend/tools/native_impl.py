@@ -2803,10 +2803,15 @@ def _get_doc_index_base() -> str:
     """Get the doc_index workspace base path."""
     global _DOC_INDEX_BASE
     if _DOC_INDEX_BASE is None:
-        _DOC_INDEX_BASE = os.environ.get(
-            "DOC_INDEX_BASE",
-            os.path.join(os.path.dirname(os.path.dirname(__file__)), "outputs", "default")
-        )
+        try:
+            # Follow the env-configurable workspace root (WORKSPACE_BASE_DIR).
+            from services.workspace_manager import get_workspace_manager
+            default_base = str(get_workspace_manager().base_dir / "default")
+        except Exception:
+            default_base = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "outputs", "default"
+            )
+        _DOC_INDEX_BASE = os.environ.get("DOC_INDEX_BASE", default_base)
     return _DOC_INDEX_BASE
 
 

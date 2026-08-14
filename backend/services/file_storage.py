@@ -19,14 +19,23 @@ logger = logging.getLogger(__name__)
 
 class FileStorage:
     """Manages file storage for uploaded documents."""
-    
-    def __init__(self, base_dir: str = "./data/documents"):
+
+    def __init__(self, base_dir: str = None):
         """
         Initialize file storage.
-        
+
         Args:
-            base_dir: Base directory for document storage
+            base_dir: Base directory for document storage. Defaults to
+                config.documents_base_dir (DOCUMENTS_BASE_DIR in the root
+                .env, else ./data/documents); a DB settings.storage_path
+                override wins at runtime.
         """
+        if base_dir is None:
+            try:
+                from config import settings
+                base_dir = getattr(settings, "documents_base_dir", None) or "./data/documents"
+            except Exception:
+                base_dir = "./data/documents"
         self._default_base_dir = base_dir
         self._base_dir = None
         self._init_storage()
