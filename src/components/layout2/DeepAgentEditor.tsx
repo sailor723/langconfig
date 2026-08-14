@@ -47,6 +47,15 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // Editable JSON text for the JSON tab
   const [jsonEdit, setJsonEdit] = useState(() => JSON.stringify(agent, null, 2));
+  // User-defined workspace path (persisted in PostgreSQL; empty → default
+  // outputs/agents/agent_{id}/)
+  const [workspacePath, setWorkspacePath] = useState<string>(agent.workspace_path || '');
+  // Agent instruction docs (AGENTS.md / CLAUDE.md …) — edited in the Docs tab
+  const [docsDraft, setDocsDraft] = useState<Record<string, string>>(() => ({
+    ...((agent.agent_docs as Record<string, string>) || {}),
+  }));
+  const [docsSaving, setDocsSaving] = useState(false);
+  const [docsMsg, setDocsMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // Track the persisted agent id locally — template ids are strings until saved
   const [localAgentId, setLocalAgentId] = useState<number | null>(
     typeof agent.id === 'number' ? agent.id : null
@@ -251,6 +260,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         return;
       }
       if (localAgentId) {
+        payload.workspace_path = workspacePath.trim() || null;
         await apiClient.updateDeepAgent(localAgentId, payload);
         setSaveMsg({ ok: true, text: 'Saved successfully' });
       } else {
@@ -259,6 +269,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           description: payload.description || agent.description || undefined,
           category: payload.category || agent.category || 'Custom',
           config: payload.config || {},
+          workspace_path: workspacePath.trim() || undefined,
         });
         const newAgent = res.data;
         setLocalAgentId(newAgent.id);
@@ -323,6 +334,31 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       <div style={compactCardStyle}>
         <div style={labelStyle}>Description</div>
         <div style={valueStyle}>{agent.description || '—'}</div>
+      </div>
+      {/* Workspace path — user-defined per-agent directory (PostgreSQL) */}
+      <div style={compactCardStyle}>
+        <div style={labelStyle}>Workspace Path (optional)</div>
+        <input
+          value={workspacePath}
+          onChange={e => setWorkspacePath(e.target.value)}
+          placeholder="e.g. outputs/agents/my-analysis  (empty = default agent workspace)"
+          style={{
+            width: '100%',
+            height: 26,
+            padding: '0 6px',
+            background: t.bgContent,
+            border: `1px solid ${t.border}`,
+            borderRadius: 3,
+            color: t.textPrimary,
+            fontSize: 11,
+            fontFamily: 'monospace',
+            outline: 'none',
+          }}
+        />
+        <div style={{ fontSize: 10, color: t.textMuted, marginTop: 3 }}>
+          Uploads + generated files for this agent live here (absolute, or relative to outputs/).
+          Saved on the next <b>Save</b>.
+        </div>
       </div>
       {/* Skills */}
       {config.skills && config.skills.length > 0 && (
@@ -424,6 +460,88 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       </div>
     </div>
   );
+
+  // ── Agent Docs section (AGENTS.md / CLAUDE.md — per specific agent) ──
+  const renderDocs = () => {
+    const docKeys = ['AGENTS.md', 'CLAUDE.md'];
+    const handleDocSave = async () => {
+      if (!localAgentId) {
+        setDocsMsg({ ok: false, text: 'Save the agent first, then edit its docs' });
+        return;
+      }
+      setDocsSaving(true);
+      setDocsMsg(null);
+      try {
+        await apiClient.updateAgentDocs(localAgentId, docsDraft);
+        setDocsMsg({ ok: true, text: 'Docs saved (PostgreSQL). Applied on the next chat run.' });
+      } catch (err: any) {
+        const detail = err?.response?.data?.detail ?? err?.message ?? 'unknown error';
+        setDocsMsg({ ok: false, text: `Save failed: ${detail}` });
+      } finally {
+        setDocsSaving(false);
+      }
+    };
+    return (
+      <div style={{ padding: 4 }}>
+        <div style={cardStyle}>
+          <div style={labelStyle}>Agent Docs — this agent only</div>
+          <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 8 }}>
+            Stored in PostgreSQL on this agent&apos;s row; written into the agent workspace
+            (AGENTS.md is loaded by MemoryMiddleware) on each chat run.
+          </div>
+          {docKeys.map(name => (
+            <div key={name} style={{ marginBottom: 10 }}>
+              <div style={{ ...labelStyle, textTransform: 'none', fontSize: 12 }}>{name}</div>
+              <textarea
+                value={docsDraft[name] ?? ''}
+                onChange={e => setDocsDraft(prev => ({ ...prev, [name]: e.target.value }))}
+                placeholder={`# ${name} — instructions specific to ${agent.name || 'this agent'}…`}
+                spellCheck={false}
+                style={{
+                  width: '100%',
+                  minHeight: 140,
+                  padding: 8,
+                  background: t.bgContent,
+                  border: `1px solid ${t.border}`,
+                  borderRadius: 4,
+                  color: t.textPrimary,
+                  fontSize: 12,
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  lineHeight: 1.5,
+                  outline: 'none',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button
+              onClick={handleDocSave}
+              disabled={docsSaving || !localAgentId}
+              style={{
+                padding: '5px 14px',
+                border: 'none',
+                borderRadius: 4,
+                background: t.accent,
+                color: '#fff',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: docsSaving || !localAgentId ? 'not-allowed' : 'pointer',
+                opacity: docsSaving || !localAgentId ? 0.6 : 1,
+              }}
+            >
+              {docsSaving ? 'Saving…' : 'Save Docs'}
+            </button>
+            {docsMsg && (
+              <span style={{ fontSize: 11, color: docsMsg.ok ? '#22c55e' : '#ef4444' }}>
+                {docsMsg.text}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // ── System prompt section ──
   const renderPrompt = () => (
@@ -622,6 +740,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     subagents:  renderSubagents,
     middleware: renderMiddleware,
     guardrails: renderGuardrails,
+    docs:       renderDocs,
     json:       () => <JsonEditorSection value={jsonEdit} onChange={setJsonEdit} t={t} />,
   };
 

@@ -56,6 +56,36 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
 
 
+def _materialize_agent_docs(agent, workspace_root: str) -> None:
+    """Write the agent's instruction docs (AGENTS.md / CLAUDE.md / …) into
+    its workspace.
+
+    ``deep_agent_templates.agent_docs`` (PostgreSQL) is the source of truth;
+    the files are materialized here so MemoryMiddleware can read AGENTS.md and
+    the Files panel shows the docs alongside uploads + generated files.
+    """
+    docs = getattr(agent, "agent_docs", None) or {}
+    if not docs or not workspace_root:
+        return
+    from pathlib import Path
+    root = Path(workspace_root)
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        for name, content in docs.items():
+            if not name or not isinstance(content, str):
+                continue
+            # basename only — keep the docs inside the workspace root
+            safe_name = Path(name).name
+            target = (root / safe_name).resolve()
+            if not target.is_relative_to(root.resolve()):
+                logger.warning(f"Skipping agent doc with unsafe name: {name!r}")
+                continue
+            target.write_text(content, encoding="utf-8")
+        logger.info(f"Materialized {len(docs)} agent doc(s) into {root}")
+    except Exception as e:
+        logger.warning(f"Failed to materialize agent docs into {workspace_root}: {e}")
+
+
 # =============================================================================
 # Helper Functions
 # =============================================================================
@@ -269,16 +299,23 @@ async def send_message(
                 config.system_prompt = (config.system_prompt or "") + lang_instruction
 
             use_deepagents = _safe_config.get("use_deepagents", True)
-            # Per-agent chat workspace: all of this agent's files (uploads +
-            # generated output) live under outputs/agents/agent_{id}/, so the
-            # Files panel can list them from one root without heuristics.
+            # Per-agent chat workspace, anchored to the active vault (project):
+            # all of this agent's files (uploads + generated output) live under
+            # the resolved root (user-defined workspace_path → vault-scoped
+            # outputs/projects/{id}/agents/agent_{id}/ → legacy default).
             from services.workspace_manager import get_workspace_manager
-            agent_workspace_root = str(get_workspace_manager().resolve_agent_workspace(agent))
+            _session_project_id = getattr(session, "project_id", None)
+            agent_workspace_root = str(get_workspace_manager().resolve_agent_workspace(
+                agent, _session_project_id
+            ))
+            # Materialize the agent's instruction docs (AGENTS.md / CLAUDE.md…)
+            # into the workspace so MemoryMiddleware + the Files panel see them.
+            _materialize_agent_docs(agent, agent_workspace_root)
             if not use_deepagents:
                 from core.agents.factory import AgentFactory
                 agent_instance, _tools, _callbacks = await AgentFactory.create_agent(
                     agent_config=_safe_config,
-                    project_id=0,
+                    project_id=_session_project_id or 0,
                     task_id=0,
                     context="",
                     mcp_manager=None,
@@ -290,7 +327,7 @@ async def send_message(
             else:
                 agent_instance, _tools, _callbacks = await DeepAgentFactory.create_deep_agent(
                     config=config,
-                    project_id=0,
+                    project_id=_session_project_id or 0,
                     task_id=0,
                     context="",
                     mcp_manager=None,
@@ -755,13 +792,17 @@ async def send_message_stream(
                     # Regular agents (use_deepagents=False) → AgentFactory with _create_task_tool
                     # Deep agents → DeepAgentFactory with SubAgentMiddleware
                     from services.workspace_manager import get_workspace_manager
-                    agent_workspace_root = str(get_workspace_manager().resolve_agent_workspace(agent))
+                    _session_project_id = getattr(session, "project_id", None) or project_id
+                    agent_workspace_root = str(get_workspace_manager().resolve_agent_workspace(
+                        agent, _session_project_id
+                    ))
+                    _materialize_agent_docs(agent, agent_workspace_root)
                     use_deepagents = agent_config.get("use_deepagents", True)
                     if not use_deepagents:
                         from core.agents.factory import AgentFactory
                         agent_instance, tools, callbacks = await AgentFactory.create_agent(
                             agent_config=agent_config,
-                            project_id=project_id or 0,
+                            project_id=_session_project_id or 0,
                             task_id=0,
                             context=all_context,
                             mcp_manager=None,
@@ -774,7 +815,7 @@ async def send_message_stream(
                         config = DeepAgentConfig(**agent_config)
                         agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
                             config=config,
-                            project_id=project_id or 0,
+                            project_id=_session_project_id or 0,
                             task_id=0,
                             context=all_context,
                             mcp_manager=None,

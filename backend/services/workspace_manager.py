@@ -170,15 +170,20 @@ class WorkspaceManager:
         logger.info(f"Agent workspace: {workspace}")
         return workspace
 
-    def resolve_agent_workspace(self, agent) -> Path:
+    def resolve_agent_workspace(self, agent, project_id: Optional[int] = None) -> Path:
         """Resolve an agent's workspace root.
 
         Priority (per the product rule that workspace is user-defined and
-        persisted in PostgreSQL):
+        persisted in PostgreSQL, anchored to the active vault/project):
           1. ``agent.workspace_path`` (deep_agent_templates.workspace_path) —
-             a user-defined directory. Relative paths resolve against
-             ``base_dir`` (outputs/).
-          2. Default convention ``outputs/agents/agent_{id}/`` when unset.
+             a user-defined directory. Absolute paths are used as-is;
+             relative paths resolve against the vault root
+             (``outputs/projects/{project_id}/``) when a project is bound,
+             else against ``base_dir``.
+          2. Vault-scoped default ``outputs/projects/{project_id}/agents/
+             agent_{id}/`` when a project is bound.
+          3. Legacy default ``outputs/agents/agent_{id}/`` when neither is
+             available.
 
         The directory is created if missing so uploads + generated files
         always have a home.
@@ -187,10 +192,18 @@ class WorkspaceManager:
         if custom and str(custom).strip():
             p = Path(str(custom).strip()).expanduser()
             if not p.is_absolute():
-                p = self.base_dir / p
+                if project_id is not None:
+                    p = self.base_dir / "projects" / str(project_id) / p
+                else:
+                    p = self.base_dir / p
             p.mkdir(parents=True, exist_ok=True)
             logger.info(f"Agent workspace (custom): {p}")
             return p
+        if project_id is not None:
+            vault_root = self.base_dir / "projects" / str(project_id) / "agents" / f"agent_{agent.id}"
+            vault_root.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Agent workspace (vault-scoped): {vault_root}")
+            return vault_root
         return self.get_agent_workspace(agent.id)
 
     def persist_output(self, file_path: Path, content: bytes, mime_type: Optional[str] = None) -> Optional[str]:

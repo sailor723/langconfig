@@ -110,7 +110,12 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
   const startSession = useCallback(async (agentId: number): Promise<string> => {
     try {
-      const response = await apiClient.startChatSession(agentId);
+      // Bind the active vault (project) so the agent workspace is vault-scoped
+      const projectId = localStorage.getItem('activeProjectId');
+      const response = await apiClient.startChatSession(
+        agentId,
+        projectId ? Number(projectId) : null,
+      );
       const sessionId = response.data.session_id;
 
       // Set the selected agent so agent-scoped panels (Context, Files, Metrics)

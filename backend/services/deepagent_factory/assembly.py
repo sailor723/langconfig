@@ -288,19 +288,33 @@ class _DeepAgentAssemblyMixin:
             try:
                 from deepagents.middleware.memory import MemoryMiddleware
                 from services.agents_md_service import ensure_agents_md_exists
+                from pathlib import Path as _Path
 
-                agents_md_path = ensure_agents_md_exists(project_id)
-                # FilesystemBackend is scoped to the project root so the agent
-                # can only read/write files within its own project directory.
-                # AGENTS.md lives at projects/{id}/AGENTS.md, so we use a
-                # backend with root_dir = projects/{id}.
-                from deepagents.backends.filesystem import FilesystemBackend
-                mem_backend = FilesystemBackend(
-                    root_dir=str(agents_md_path.parent)
-                )
+                # If the agent has its own AGENTS.md (materialized into its
+                # workspace by the chat path from agent_docs), MemoryMiddleware
+                # reads that — the agent's instructions take precedence over
+                # the project default.
+                if workspace_root and (_Path(workspace_root) / "AGENTS.md").exists():
+                    mem_dir = _Path(workspace_root)
+                    mem_backend = FilesystemBackend(root_dir=str(mem_dir))
+                    mem_sources = ["AGENTS.md"]
+                    logger.info(f"MemoryMiddleware using agent AGENTS.md at {mem_dir}")
+                else:
+                    agents_md_path = ensure_agents_md_exists(project_id)
+                    # FilesystemBackend is scoped to the project root so the
+                    # agent can only read/write files within its own project
+                    # directory. AGENTS.md lives at projects/{id}/AGENTS.md,
+                    # so we use a backend with root_dir = projects/{id}.
+                    mem_backend = FilesystemBackend(
+                        root_dir=str(agents_md_path.parent)
+                    )
+                    mem_sources = [agents_md_path.name]  # relative to root_dir
+                    logger.info(
+                        f"MemoryMiddleware initialized: AGENTS.md={agents_md_path}"
+                    )
                 mem_middleware = MemoryMiddleware(
                     backend=mem_backend,
-                    sources=[agents_md_path.name],  # relative to root_dir
+                    sources=mem_sources,
                     add_cache_control=True,         # for Anthropic prompt caching
                 )
                 from services.deepagents_instrumentation import (
@@ -311,9 +325,6 @@ class _DeepAgentAssemblyMixin:
                     callback_handler=callback_handler
                 )
                 middleware_instances.append(instrumented_mem)
-                logger.info(
-                    f"MemoryMiddleware initialized: AGENTS.md={agents_md_path}"
-                )
             except Exception as e:
                 logger.warning(f"MemoryMiddleware not available: {e}")
 

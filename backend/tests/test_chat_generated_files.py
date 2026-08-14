@@ -38,15 +38,23 @@ class _FakeWorkspaceManager:
         workspace.mkdir(parents=True, exist_ok=True)
         return workspace
 
-    def resolve_agent_workspace(self, agent) -> Path:
-        """Mirror the real resolver: custom workspace_path wins, else default."""
+    def resolve_agent_workspace(self, agent, project_id=None) -> Path:
+        """Mirror the real resolver: custom workspace_path wins, else vault-
+        scoped default, else legacy default."""
         custom = getattr(agent, "workspace_path", None)
         if custom and str(custom).strip():
             p = Path(str(custom).strip()).expanduser()
             if not p.is_absolute():
-                p = self.base_dir / p
+                if project_id is not None:
+                    p = self.base_dir / "projects" / str(project_id) / p
+                else:
+                    p = self.base_dir / p
             p.mkdir(parents=True, exist_ok=True)
             return p
+        if project_id is not None:
+            vault = self.base_dir / "projects" / str(project_id) / "agents" / f"agent_{agent.id}"
+            vault.mkdir(parents=True, exist_ok=True)
+            return vault
         return self.get_agent_workspace(agent.id)
 
     def get_task_workspace(self, project_id, workflow_id, task_id) -> Path:

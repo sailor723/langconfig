@@ -16,7 +16,7 @@ from starlette.responses import Response, FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from db.database import get_db
 from models.deep_agent import (
@@ -250,7 +250,9 @@ class CreateDeepAgentRequest(BaseModel):
     category: str
     config: DeepAgentConfig
     base_template_id: Optional[str] = None
-    workspace_path: Optional[str] = None  # User-defined workspace; None → default
+    workspace_path: Optional[str] = None
+    agent_docs: Optional[Dict[str, str]] = None  # User-defined workspace; None → default
+    agent_docs: Optional[Dict[str, str]] = None  # {"AGENTS.md": "...", "CLAUDE.md": "..."}
 
 
 class UpdateDeepAgentRequest(BaseModel):
@@ -260,6 +262,7 @@ class UpdateDeepAgentRequest(BaseModel):
     config: Optional[DeepAgentConfig] = None
     lock_version: Optional[int] = None  # For optimistic locking
     workspace_path: Optional[str] = None  # None → leave unchanged
+    agent_docs: Optional[Dict[str, str]] = None  # None → leave unchanged
 
 
 class DeepAgentResponse(BaseModel):
@@ -375,6 +378,7 @@ async def create_deepagent(
             category=request.category,
             base_template_id=request.base_template_id,
             workspace_path=request.workspace_path,
+            agent_docs=request.agent_docs,
             config=config_dict,
             middleware_config=[m.dict() for m in request.config.middleware],
             subagents_config=[s.dict() for s in request.config.subagents],
@@ -406,6 +410,7 @@ async def create_deepagent(
             lock_version=agent.lock_version,
             is_public=agent.is_public,
             workspace_path=agent.workspace_path,
+            agent_docs=agent.agent_docs,
             created_at=agent.created_at.isoformat(),
             updated_at=agent.updated_at.isoformat()
         )
@@ -581,6 +586,8 @@ async def update_deepagent(
     # empty string clears it back to the default).
     if "workspace_path" in request.model_fields_set:
         agent.workspace_path = request.workspace_path or None
+    if "agent_docs" in request.model_fields_set:
+        agent.agent_docs = request.agent_docs or None
 
     db.commit()
     db.refresh(agent)
@@ -605,9 +612,48 @@ async def update_deepagent(
         lock_version=agent.lock_version,
         is_public=agent.is_public,
         workspace_path=agent.workspace_path,
+        agent_docs=agent.agent_docs,
         created_at=agent.created_at.isoformat(),
         updated_at=agent.updated_at.isoformat()
     )
+
+
+class AgentDocsUpdate(BaseModel):
+    """Payload for updating a specific agent's instruction docs."""
+    docs: Dict[str, str] = Field(
+        default_factory=dict,
+        description='Filename → content, e.g. {"AGENTS.md": "...", "CLAUDE.md": "..."}',
+    )
+
+
+@router.get("/{agent_id}/agents-md", response_model=dict)
+async def get_agent_agents_md(
+    agent_id: int,
+    db: Session = Depends(get_db),
+):
+    """Get a specific agent's instruction docs (AGENTS.md / CLAUDE.md / …)."""
+    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return {"agent_id": agent.id, "docs": agent.agent_docs or {}}
+
+
+@router.put("/{agent_id}/agents-md", response_model=dict)
+async def update_agent_agents_md(
+    agent_id: int,
+    payload: AgentDocsUpdate,
+    db: Session = Depends(get_db),
+):
+    """Set a specific agent's instruction docs (PostgreSQL is source of truth;
+    materialized into the agent workspace at chat build time)."""
+    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    agent.agent_docs = payload.docs or None
+    db.commit()
+    db.refresh(agent)
+    logger.info(f"Updated agent docs for agent {agent_id}: {list((agent.agent_docs or {}).keys())}")
+    return {"agent_id": agent.id, "docs": agent.agent_docs or {}}
 
 
 @router.delete("/{agent_id}")

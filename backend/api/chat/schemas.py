@@ -20,6 +20,7 @@ class StartChatRequest(BaseModel):
     """Request to start a new chat session."""
     agent_id: int
     user_id: Optional[int] = None
+    project_id: Optional[int] = None  # Active vault (project) — scopes the agent workspace
 
 
 class ChatMessage(BaseModel):
@@ -70,6 +71,7 @@ class ChatSessionResponse(BaseModel):
     session_id: str
     agent_id: int
     agent_name: str
+    project_id: Optional[int] = None  # Vault this session is scoped to
     is_active: bool
     message_count: int
     created_at: str

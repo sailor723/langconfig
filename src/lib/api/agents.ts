@@ -12,7 +12,11 @@ export interface AgentsApi {
     category: string;
     config: any;
     base_template_id?: string;
+    workspace_path?: string; // user-defined per-agent workspace directory
+    agent_docs?: Record<string, string>; // {"AGENTS.md": "...", "CLAUDE.md": "..."}
   }): Promise<any>;
+  getAgentDocs(id: number): Promise<any>;
+  updateAgentDocs(id: number, docs: Record<string, string>): Promise<any>;
   listDeepAgents(config?: { category?: string; public_only?: boolean; signal?: AbortSignal }): Promise<any>;
   listDeepAgentTemplates(config?: { signal?: AbortSignal }): Promise<any>;
   getDeepAgent(id: number): Promise<any>;
@@ -42,8 +46,18 @@ export const agentsApi: AgentsApi = {
     category: string;
     config: any;
     base_template_id?: string;
+    workspace_path?: string;
+    agent_docs?: Record<string, string>;
   }) {
     return this.post('/api/deepagents/', data);
+  },
+
+  async getAgentDocs(this: APIClient, id: number) {
+    return this.get(`/api/deepagents/${id}/agents-md`);
+  },
+
+  async updateAgentDocs(this: APIClient, id: number, docs: Record<string, string>) {
+    return this.put(`/api/deepagents/${id}/agents-md`, { docs });
   },
 
   async listDeepAgents(this: APIClient, config?: { category?: string; public_only?: boolean; signal?: AbortSignal }) {
