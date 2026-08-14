@@ -152,3 +152,38 @@ def test_legacy_roots_still_scoped_to_session(tmp_path):
     assert result["total_files"] == 1
     assert result["files"][0]["filename"] == "report.md"
     assert result["files"][0]["path"] == "default/report.md"
+
+
+def test_folder_separation_uploads_excluded_generated_included(tmp_path):
+    """Generated files (generated/) are listed; uploads (knowledge-base/) and
+    the instruction docs (AGENTS.md / CLAUDE.md) are not."""
+    agent_dir = tmp_path / "agents" / "agent_9"
+    gen_dir = agent_dir / "generated"
+    kb_dir = agent_dir / "knowledge-base"
+    gen_dir.mkdir(parents=True)
+    kb_dir.mkdir(parents=True)
+    (gen_dir / "industry_report.md").write_text("report", encoding="utf-8")
+    (kb_dir / "upload.pdf").write_bytes(b"pdf")
+    (kb_dir / "data.csv").write_text("a,b\n", encoding="utf-8")
+    (agent_dir / "AGENTS.md").write_text("instructions", encoding="utf-8")
+    (agent_dir / "CLAUDE.md").write_text("instructions", encoding="utf-8")
+    # Legacy root-level generated file still surfaces (not a doc / upload).
+    (agent_dir / "legacy_note.md").write_text("note", encoding="utf-8")
+
+    session = _make_session(agent_id=9)
+    db = _FakeDB(session)
+    manager = _FakeWorkspaceManager(tmp_path)
+
+    async def run():
+        with patch(
+            "services.workspace_manager.get_workspace_manager",
+            return_value=manager,
+        ):
+            return await list_session_generated_files("session-1", db)
+
+    result = asyncio.run(run())
+    names = {f["filename"] for f in result["files"]}
+    assert names == {"industry_report.md", "legacy_note.md"}
+    paths = {f["filename"]: f["path"] for f in result["files"]}
+    assert paths["industry_report.md"] == "agents/agent_9/generated/industry_report.md"
+    assert paths["legacy_note.md"] == "agents/agent_9/legacy_note.md"

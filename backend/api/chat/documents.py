@@ -390,17 +390,20 @@ async def _process_single_chat_upload(
     # Save file to session-scoped storage
     file_path = file_storage.save_file(f"chat_sessions/{session_id}", file.filename, content)
 
-    # Copy to sandbox workspace for agent access. Per-agent workspace root
-    # keeps uploads + generated files under one directory (the agent's
-    # user-defined workspace_path when set, else outputs/agents/agent_{id}/),
-    # so the Files panel lists everything from a single root.
+    # Copy to sandbox workspace for agent access. Uploads land in the agent
+    # workspace's dedicated knowledge-base subfolder (AGENT_UPLOADS_DIR), kept
+    # separate from agent-generated files (generated/) and the instruction docs
+    # (AGENTS.md / CLAUDE.md at the root). The agent's filesystem tools are
+    # scoped to the workspace root, so it can still read uploads.
     sandbox_exts = ('.csv', '.pdf', '.docx', '.pptx', '.md', '.txt', '.json', '.py', '.js', '.ts', '.tsx', '.jsx')
     safe_name = Path(file.filename).name  # basename only — block path-traversal writes
     if file.filename.lower().endswith(sandbox_exts):
         try:
-            from services.workspace_manager import get_workspace_manager
+            from services.workspace_manager import get_workspace_manager, AGENT_UPLOADS_DIR
             ws_mgr = get_workspace_manager()
-            sandbox_path = _resolve_agent_workspace(session, db, ws_mgr) / safe_name
+            uploads_dir = _resolve_agent_workspace(session, db, ws_mgr) / AGENT_UPLOADS_DIR
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            sandbox_path = uploads_dir / safe_name
             sandbox_path.write_bytes(content)
             logger.info(f"File copied to agent workspace: {sandbox_path}")
             # If uploaded CSV, auto-generate companion .skill.md from the data.
@@ -574,14 +577,23 @@ async def list_session_generated_files(
         })
 
     # ── Primary root: the agent's own workspace. No time-window heuristic
-    #    needed — every file here belongs to this agent (uploads are copied
-    #    in on upload, generated files land here via the sandbox root).
+    #    needed — every file here belongs to this agent. Uploads (knowledge-base/)
+    #    and the instruction docs (AGENTS.md / CLAUDE.md) are excluded — uploads
+    #    are listed from the session-documents table, and the docs are not
+    #    generated output.
     if session.agent_id:
         agent_workspace = _resolve_agent_workspace(session, db, workspace_mgr)
         if agent_workspace.is_dir():
+            from services.workspace_manager import AGENT_UPLOADS_DIR
             for p in sorted(agent_workspace.rglob("*")):
-                if p.is_file() and "__pycache__" not in p.parts:
-                    add_file(p)
+                if not p.is_file() or "__pycache__" in p.parts:
+                    continue
+                if p.name in ("AGENTS.md", "CLAUDE.md"):
+                    continue
+                rel = p.relative_to(agent_workspace)
+                if AGENT_UPLOADS_DIR in rel.parts[:-1]:
+                    continue
+                add_file(p)
 
     # ── Legacy roots: sessions that ran before per-agent workspaces wrote
     #    to standalone/workflow_None/task_0 or default/. Resolve write-tool

@@ -24,6 +24,13 @@ import shutil
 logger = logging.getLogger(__name__)
 
 
+# Per-agent workspace subfolders: uploaded files and agent-generated files are
+# kept in separate, clearly-named folders inside each agent's workspace so the
+# Files panel and the on-disk layout stay organized.
+AGENT_UPLOADS_DIR = "knowledge-base"   # files the user uploads (RAG knowledge)
+AGENT_GENERATED_DIR = "generated"      # files the agent produces
+
+
 def _is_within(path: Path, root: Path) -> bool:
     """True if the resolved `path` is strictly inside `root`.
 

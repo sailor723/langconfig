@@ -94,8 +94,9 @@ async def test_regular_agent_gets_workspace_save_document_tool(tmp_path, monkeyp
     sd = next(t for t in tools if t.name == "save_document")
     result = await sd.ainvoke({"file_path": "report.md", "content": "# Report"})
     assert "Successfully wrote" in str(result)
-    assert (ws / "report.md").exists()
-    assert "Report" in (ws / "report.md").read_text(encoding="utf-8")
+    # Generated deliverables land in the workspace's generated/ subfolder.
+    assert (ws / "generated" / "report.md").exists()
+    assert "Report" in (ws / "generated" / "report.md").read_text(encoding="utf-8")
 
 
 async def test_save_document_binds_agent_id_and_writes_copy(tmp_path, monkeypatch):
@@ -148,5 +149,5 @@ async def test_save_document_binds_agent_id_and_writes_copy(tmp_path, monkeypatc
     assert "saved to the document library" in str(result)
     # agent_id bound on the DB row
     assert captured["obj"].agent_id == 159
-    # workspace copy written
-    assert (ws / "测试报告.md").exists()
+    # workspace copy written into the generated/ subfolder
+    assert (ws / "generated" / "测试报告.md").exists()
