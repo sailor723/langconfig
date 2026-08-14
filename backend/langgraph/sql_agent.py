@@ -131,7 +131,7 @@ examples in the database. Never query for all the columns from a specific table,
 only ask for the relevant columns given the question.
 
 DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
-""".format(dialect="sqlite", top_k=5)
+""".format(dialect="postgresql", top_k=5)
 
 
 def generate_query(state: MessagesState):

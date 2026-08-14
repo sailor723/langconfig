@@ -131,6 +131,7 @@ class LangGraphCodeGenerator:
 
         # Generate code sections
         imports = self._generate_imports()
+        safe_condition_helper = self._generate_safe_condition_helper()
         context_class = self._generate_context_class()
         state_class = self._generate_state_class(nodes, blueprint)
         strategy_class = self._generate_strategy_class(
@@ -148,6 +149,9 @@ class LangGraphCodeGenerator:
 
         # Combine all sections
         code = f"""{imports}
+
+
+{safe_condition_helper}
 
 
 # =============================================================================
@@ -214,6 +218,52 @@ class LangGraphCodeGenerator:
 
         logger = logging.getLogger(__name__)
         ''').strip()
+
+    def _generate_safe_condition_helper(self) -> str:
+        """Self-contained safe condition evaluator for the generated file.
+
+        Replaces the previous ``eval(condition_expr, {"state": ..., "len": ...})``
+        emission: empty-builtins eval is bypassable via object-graph escapes.
+        The helper AST-validates the expression and rejects dunder attribute
+        access and calls outside a safe allowlist.
+        """
+        return dedent('''
+        def _safe_condition(expr, ctx):
+            """Evaluate a workflow condition without raw eval.
+
+            Accepts only arithmetic/comparison/boolean expressions, method
+            calls on context values (e.g. state.get(...)), and a small set
+            of safe builtins. Dunder attribute access is rejected.
+            """
+            import ast
+            import operator as _op
+            safe_calls = {
+                "len", "str", "int", "float", "bool", "abs", "min", "max",
+                "sum", "round", "list", "dict", "set", "tuple", "sorted",
+                "any", "all", "enumerate", "zip", "range", "isinstance",
+                "type", "repr", "format", "chr", "ord", "hex", "oct", "bin",
+            }
+            try:
+                tree = ast.parse(expr, mode="eval")
+            except SyntaxError as e:
+                raise ValueError(f"invalid condition: {e}") from e
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+                    raise ValueError(f"unsafe condition: attribute '{node.attr}'")
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id not in safe_calls
+                ):
+                    raise ValueError(f"unsafe condition: call '{node.func.id}()'")
+            namespace = dict(ctx)
+            namespace.update(
+                {name: getattr(__builtins__, name)
+                 for name in safe_calls if hasattr(__builtins__, name)}
+            )
+            code = compile(tree, "<condition>", "eval")
+            return eval(code, {"__builtins__": {}}, namespace)
+        ''')
 
     def _generate_context_class(self) -> str:
         """Generate WorkflowContext class for runtime configuration."""
@@ -318,10 +368,13 @@ class LangGraphCodeGenerator:
             condition = config.get('condition', 'True')
             lines.extend([
                 f'    # Evaluate condition: {condition}',
-                f'    condition_expr = "{condition}"',
+                # repr() escapes quotes/backslashes so a condition containing
+                # " cannot break the generated string literal.
+                f'    condition_expr = {condition!r}',
                 '    try:',
-                '        # Safe evaluation of basic conditions',
-                '        result = eval(condition_expr, {"state": state, "len": len, "str": str, "int": int, "bool": bool})',
+                '        # AST-validated safe evaluation (no raw eval — object-',
+                '        # graph escapes in user conditions are rejected).',
+                '        result = _safe_condition(condition_expr, {"state": state})',
                 '        route = "true" if bool(result) else "false"',
                 '        logger.info(f"[{display_name}] Condition evaluated to: {{route}}")',
                 '    except Exception as e:',

@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
 
+    # ── Secrets at rest (Fernet key seed — read by services/encryption.py) ──
+    api_key_encryption_key: Optional[str] = None
+
     # ── Database ──
     database_url: str = "postgresql://langconfig:langconfig_dev@localhost:5432/langconfig"
     database_url_async: Optional[str] = None

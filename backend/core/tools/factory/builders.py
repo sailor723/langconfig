@@ -30,6 +30,146 @@ from config import settings
 
 from .shared import logger, store_artifact
 
+# ─────────────────────────────────────────────────────────────────────
+# python_function tool sandbox (trust boundary)
+#
+# Platform-seeded built-in tools (is_builtin=True) are trusted code from
+# git and keep the full exec namespace. User-created / agent-generated /
+# bundle-imported tools are UNTRUSTED and get:
+#  1. a static AST validation rejecting dangerous imports and calls, and
+#  2. a restricted exec namespace (no __import__/open/eval/exec/compile,
+#     no os/sys/pathlib/io/subprocess pre-loaded).
+# ─────────────────────────────────────────────────────────────────────
+
+# Import roots an untrusted python_function tool may use.
+_SAFE_TOOL_IMPORTS = frozenset({
+    "math", "json", "typing", "re", "collections", "datetime", "statistics",
+    "random", "string", "itertools", "functools", "operator", "decimal",
+    "fractions", "numbers", "enum", "dataclasses", "uuid", "hashlib",
+    "base64", "binascii", "struct", "calendar", "time", "zoneinfo",
+})
+
+# Builtins an untrusted tool may reference. Notably excludes __import__,
+# open, eval, exec, compile, input, globals/locals — the classic escapes.
+_SAFE_TOOL_BUILTIN_NAMES = frozenset({
+    "abs", "all", "any", "ascii", "bin", "bool", "bytearray", "bytes",
+    "callable", "chr", "classmethod", "complex", "dict", "divmod",
+    "enumerate", "filter", "float", "format", "frozenset", "getattr",
+    "hasattr", "hash", "hex", "id", "int", "isinstance", "issubclass",
+    "iter", "len", "list", "map", "max", "min", "next", "object", "oct",
+    "ord", "pow", "print", "property", "range", "repr", "reversed",
+    "round", "set", "setattr", "slice", "sorted", "staticmethod", "str",
+    "sum", "super", "tuple", "type", "vars", "zip",
+    "__build_class__",  # required for `class` statements
+})
+
+# Dunder attributes that enable object-graph escapes (().__class__…).
+_DANGEROUS_DUNDERS = frozenset({
+    "__class__", "__bases__", "__subclasses__", "__globals__",
+    "__builtins__", "__import__", "__getattribute__", "__reduce__",
+    "__reduce_ex__", "__mro_entries__", "__init_subclass__",
+    "__loader__", "__spec__",
+})
+
+# Builtin calls that are never safe for untrusted code.
+_DANGEROUS_CALLS = frozenset({
+    "open", "eval", "exec", "compile", "input", "breakpoint",
+    "__import__", "globals", "locals", "help", "memoryview",
+})
+
+
+def _validate_untrusted_python(code: str, function_name: str) -> None:
+    """Static AST validation for untrusted python_function tool code.
+
+    Raises ValueError with a specific message on the first dangerous
+    construct found.
+    """
+    import ast
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as e:
+        raise ValueError(
+            f"Failed to compile Python function '{function_name}': {e}"
+        ) from e
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                root = alias.name.split(".")[0]
+                if root not in _SAFE_TOOL_IMPORTS:
+                    raise ValueError(
+                        f"python_function tool '{function_name}' uses "
+                        f"disallowed import '{alias.name}'. Untrusted tools "
+                        "may only import: "
+                        + ", ".join(sorted(_SAFE_TOOL_IMPORTS))
+                    )
+        elif isinstance(node, ast.ImportFrom):
+            root = (node.module or "").split(".")[0]
+            if root and root not in _SAFE_TOOL_IMPORTS:
+                raise ValueError(
+                    f"python_function tool '{function_name}' uses "
+                    f"disallowed import '{node.module}'. Untrusted tools "
+                    "may only import: "
+                    + ", ".join(sorted(_SAFE_TOOL_IMPORTS))
+                )
+        elif isinstance(node, ast.Attribute):
+            if node.attr in _DANGEROUS_DUNDERS:
+                raise ValueError(
+                    f"python_function tool '{function_name}' accesses "
+                    f"forbidden attribute '{node.attr}'"
+                )
+        elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in _DANGEROUS_CALLS:
+                raise ValueError(
+                    f"python_function tool '{function_name}' calls forbidden "
+                    f"builtin '{node.func.id}()'"
+                )
+
+
+def _untrusted_tool_namespace() -> Dict[str, Any]:
+    """Restricted exec namespace for untrusted python_function tools."""
+    import builtins as _builtins
+    import math, json, typing, re, collections, datetime  # noqa: F401
+    import statistics, random, string, itertools, functools, operator  # noqa: F401
+
+    real_import = _builtins.__import__
+
+    def _safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+        """Runtime import gate: only modules on the safe list may load.
+
+        Backstop for the static AST validation — even if an import slips
+        through (or the code is transformed), `import os` cannot execute.
+        """
+        root = name.split(".")[0]
+        if root not in _SAFE_TOOL_IMPORTS:
+            raise ImportError(
+                f"import of '{name}' is not allowed in untrusted tool code"
+            )
+        return real_import(name, globals, locals, fromlist, level)
+
+    safe_builtins = {
+        name: getattr(_builtins, name)
+        for name in _SAFE_TOOL_BUILTIN_NAMES
+        if hasattr(_builtins, name)
+    }
+    safe_builtins["__import__"] = _safe_import
+    return {
+        "__builtins__": safe_builtins,
+        "math": math,
+        "json": json,
+        "typing": typing,
+        "re": re,
+        "collections": collections,
+        "datetime": datetime,
+        "statistics": statistics,
+        "random": random,
+        "string": string,
+        "itertools": itertools,
+        "functools": functools,
+        "operator": operator,
+    }
+
 
 class _ToolBuildersMixin:
 
@@ -1662,18 +1802,26 @@ class _ToolBuildersMixin:
         # invisible inside function bodies (NameError at call time), which
         # broke self-contained tool rows (e.g. built-ins that import
         # `sqlite3 as _sqlite3` or define `logger` at module level).
-        tool_ns = {
-            "__builtins__": __builtins__,
-            "math": __import__("math"),
-            "json": json,
-            "typing": __import__("typing"),
-            "os": __import__("os"),
-            "re": __import__("re"),
-            "collections": __import__("collections"),
-            "datetime": __import__("datetime"),
-            "pathlib": __import__("pathlib"),
-            "io": __import__("io"),
-        }
+        # Trust boundary: platform-seeded built-ins are reviewed code in git
+        # and keep the full namespace; user/agent/bundle-created tools get the
+        # restricted sandbox (AST validation + safe namespace).
+        is_builtin = bool(tool_config.get("is_builtin"))
+        if is_builtin:
+            tool_ns = {
+                "__builtins__": __builtins__,
+                "math": __import__("math"),
+                "json": json,
+                "typing": __import__("typing"),
+                "os": __import__("os"),
+                "re": __import__("re"),
+                "collections": __import__("collections"),
+                "datetime": __import__("datetime"),
+                "pathlib": __import__("pathlib"),
+                "io": __import__("io"),
+            }
+        else:
+            _validate_untrusted_python(code_str, function_name)
+            tool_ns = _untrusted_tool_namespace()
         try:
             exec(code_str, tool_ns)
         except Exception as e:

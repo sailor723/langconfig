@@ -46,6 +46,24 @@ from langchain_core.tools import BaseTool, StructuredTool
 logger = logging.getLogger(__name__)
 
 
+def _custom_tool_scope_filter(project_id: int):
+    """SQLAlchemy predicate for cross-project custom-tool isolation.
+
+    A custom tool is loadable by an agent when it is global (project_id
+    NULL), belongs to the requesting project, is system-seeded (builtin),
+    or is public. Tools owned by other projects must never load.
+    """
+    from sqlalchemy import or_
+    from models.custom_tool import CustomTool
+
+    return or_(
+        CustomTool.project_id.is_(None),
+        CustomTool.project_id == project_id,
+        CustomTool.is_builtin.is_(True),
+        CustomTool.is_public.is_(True),
+    )
+
+
 def _is_db_storage_mode() -> bool:
     """True when STORAGE_MODE=db (formal documents persist to agent_documents)."""
     try:
@@ -253,6 +271,9 @@ class ToolLoader:
                     "implementation_config": row.implementation_config,
                     "input_schema": row.input_schema,
                     "output_format": row.output_format,
+                    # Trust boundary: platform-seeded rows keep full exec
+                    # power; user/agent/bundle rows get the restricted sandbox.
+                    "is_builtin": bool(getattr(row, "is_builtin", False)),
                 }
                 try:
                     tools.append(await ToolFactory.create_tool(tool_config))
@@ -430,9 +451,14 @@ class ToolLoader:
                     try:
                         logger.info(f"🔍 Attempting to load custom tool with ID: '{tool_id}'")
 
-                        # Fetch tool from database
+                        # Fetch tool from database — scoped to the requesting
+                        # project. A tool is loadable when it is global
+                        # (project_id NULL), belongs to the same project,
+                        # is system-seeded (builtin), or is public. Tools
+                        # owned by OTHER projects must never load here.
                         custom_tool = db.query(CustomTool).filter(
-                            CustomTool.tool_id == tool_id
+                            CustomTool.tool_id == tool_id,
+                            _custom_tool_scope_filter(project_id),
                         ).first()
 
                         if not custom_tool:
@@ -452,6 +478,9 @@ class ToolLoader:
                             "implementation_config": custom_tool.implementation_config,
                             "input_schema": custom_tool.input_schema,
                             "output_format": custom_tool.output_format,
+                            # Trust boundary: only platform-seeded rows get
+                            # full exec power; everything else is sandboxed.
+                            "is_builtin": bool(custom_tool.is_builtin),
                         }
 
                         # Create the tool using ToolFactory

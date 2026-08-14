@@ -1126,7 +1126,10 @@ When your work is complete, deliver the final result and END."""
                         # Supports expressions like: state.get("retry_count", 0) < 3
                         #                           state.get("validation_passed") == True
                         #                           len(state.get("messages", [])) > 0
-                        result = eval(condition_expr, {"__builtins__": {}}, eval_context)
+                        # AST-validated safe evaluation (no raw eval of the
+                        # user string — object-graph escapes are rejected).
+                        from core.utils.safe_eval import safe_eval_expression
+                        result = safe_eval_expression(condition_expr, eval_context)
 
                         # Convert to boolean
                         condition_met = bool(result)
@@ -1208,8 +1211,9 @@ When your work is complete, deliver the final result and END."""
                                 "sum": sum,
                             }
 
-                            # Evaluate exit condition
-                            result = eval(exit_condition, {"__builtins__": {}}, eval_context)
+                            # Evaluate exit condition (AST-validated safe eval)
+                            from core.utils.safe_eval import safe_eval_expression
+                            result = safe_eval_expression(exit_condition, eval_context)
                             should_exit = bool(result)
 
                             if should_exit:
