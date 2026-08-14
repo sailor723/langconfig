@@ -24,6 +24,25 @@ from services.agent_utils import resolve_model, DEFAULT_MODEL
 from .shared import logger
 
 
+def _is_filesystem_middleware(mw) -> bool:
+    """True if `mw` is (a wrapper around) a filesystem middleware.
+
+    The deepagents SDK always injects its own FilesystemMiddleware when a
+    backend is active, so the assembly's instrumented copy would duplicate
+    the ls/read_file/write_file/... tool set.
+    """
+    from deepagents.middleware.filesystem import FilesystemMiddleware
+    from services.deepagents_instrumentation import (
+        InstrumentedFilesystemMiddleware,
+    )
+
+    return (
+        isinstance(mw, InstrumentedFilesystemMiddleware)
+        or isinstance(getattr(mw, "middleware_instance", None), FilesystemMiddleware)
+        or isinstance(mw, FilesystemMiddleware)
+    )
+
+
 def _stage_skill_catalog(
     config: DeepAgentConfig,
     local_sandbox_backend: Optional[Any],
@@ -470,6 +489,23 @@ class _DeepAgentAssemblyMixin:
             or db_skills_backend is not None
         )
         if has_disk_backend:
+            # deepagents ALWAYS injects its own FilesystemMiddleware (verified
+            # in deepagents/graph.py) scoped to the backend root. Our
+            # instrumented copy would add a second ls/read_file/write_file/…
+            # set with a DIFFERENT root — duplicated tools resolved last-wins
+            # by accident. Drop ours; the SDK's is the workspace-scoped one.
+            before = len(middleware_instances)
+            middleware_instances = [
+                mw for mw in middleware_instances
+                if not _is_filesystem_middleware(mw)
+            ]
+            if len(middleware_instances) != before:
+                logger.info(
+                    f"Dropped duplicate FilesystemMiddleware from the middleware "
+                    f"stack ({before - len(middleware_instances)} removed — the "
+                    "deepagents SDK injects its own when a backend is active)"
+                )
+        if has_disk_backend:
             native_fs_collisions = {"ls", "read_file", "write_file", "edit_file", "glob", "grep"}
             all_tools = [t for t in all_tools if t.name not in native_fs_collisions]
             logger.info(
@@ -580,10 +616,18 @@ class _DeepAgentAssemblyMixin:
                         from deepagents import (
                             HarnessProfile, register_harness_profile,
                         )
-                        # The model is a ChatOpenAI instance, which the library
-                        # resolves with provider="openai". The key must match
-                        # what _harness_profile_for_model generates.
-                        _profile_key = f"openai:{_model_str}"
+                        # The profile key must match what the SDK's
+                        # _harness_profile_for_model derives for a pre-built
+                        # model: "provider:identifier". Derive it from the
+                        # resolved model (previously an undefined `_model_str`
+                        # NameError made this whole block dead code).
+                        from deepagents._models import (
+                            get_model_identifier, get_model_provider,
+                        )
+                        _profile_key = (
+                            f"{get_model_provider(main_chat_model)}:"
+                            f"{get_model_identifier(main_chat_model)}"
+                        )
                         register_harness_profile(
                             _profile_key,
                             HarnessProfile(
@@ -601,14 +645,27 @@ class _DeepAgentAssemblyMixin:
                     except Exception as e:
                         logger.warning(f"Failed to register harness profile: {e}")
 
-                agent = create_deep_agent(**agent_kwargs, guardrails=guardrails_config)
-                logger.info(f"Guardrails configuration applied")
-            except TypeError as e:
-                if "guardrails" in str(e):
-                    logger.warning("Guardrails parameter not supported, creating without it")
-                    agent = create_deep_agent(**agent_kwargs)
-                else:
-                    raise
+                # deepagents 0.7.x has NO `guardrails=` parameter (verified
+                # signature) — passing it always raised TypeError and the
+                # guardrails config was silently dropped. Only `interrupts`
+                # is enforceable here via agent_kwargs["interrupt_on"] above;
+                # token limits / auto-eviction are not enforced by the SDK.
+                if guardrails_config:
+                    if guardrails_config.get("enable_auto_eviction") or (
+                        guardrails_config.get("token_limits")
+                        and guardrails_config.get("enable_summarization")
+                    ):
+                        logger.warning(
+                            "deepagents 0.7.x does not accept guardrails= — "
+                            "token_limits/auto_eviction are not enforced. "
+                            "Summarization is handled by SummarizationMiddleware; "
+                            "configure token limits there instead."
+                        )
+                agent = create_deep_agent(**agent_kwargs)
+                logger.info(f"DeepAgent created (guardrails.interrupts → interrupt_on={bool(interrupt_on)})")
+            except Exception:
+                logger.error("Failed to configure guardrails/interrupts", exc_info=True)
+                raise
 
             # Log tools available to the agent for debugging
             tool_names = [getattr(t, "name", str(t)) for t in all_tools] if all_tools else []
@@ -623,11 +680,19 @@ class _DeepAgentAssemblyMixin:
             return agent, all_tools, callbacks
 
         except Exception as e:
-            logger.error(f"Error creating DeepAgent: {e}")
-            logger.info("Falling back to regular agent")
-            return await DeepAgentFactory._fallback_to_regular_agent(
-                config, project_id, task_id, context, mcp_manager, vector_store
+            # Only the missing-deepagents case (handled above, ImportError)
+            # is a legitimate reason to silently degrade to a regular agent.
+            # Any other build failure must surface to the caller instead of
+            # quietly producing a plain agent with no skills/subagents/
+            # sandbox/memory.
+            logger.error(
+                "DeepAgent build failed (NOT falling back to a regular agent) — "
+                "surface the error to the caller",
+                exc_info=True,
             )
+            raise RuntimeError(
+                f"Failed to build DeepAgent: {type(e).__name__}: {e}"
+            ) from e
 
 
 def _bind_runtime() -> None:
