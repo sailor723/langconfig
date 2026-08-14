@@ -80,11 +80,33 @@ def test_materialize_agent_docs_writes_into_workspace(tmp_path):
     assert "Research US markets" in (ws / "AGENTS.md").read_text(encoding="utf-8")
 
 
-def test_materialize_no_docs_is_noop(tmp_path):
+def test_materialize_no_docs_writes_defaults(tmp_path):
     ws = tmp_path / "ws"
     ws.mkdir()
     _materialize_agent_docs(_FakeAgent(159, agent_docs=None), str(ws))
-    assert list(ws.iterdir()) == []
+    assert (ws / "AGENTS.md").exists()
+    assert (ws / "CLAUDE.md").exists()
+    text = (ws / "AGENTS.md").read_text(encoding="utf-8")
+    assert "Agent 159" in text  # default docs are agent-aware
+    assert str(ws) in text      # and reference the workspace root
+
+
+def test_materialize_no_docs_seeds_db_row(tmp_path):
+    class _FakeDb:
+        def __init__(self):
+            self.committed = False
+
+        def commit(self):
+            self.committed = True
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    db = _FakeDb()
+    agent = _FakeAgent(159, agent_docs=None)
+    _materialize_agent_docs(agent, str(ws), db=db)
+    assert agent.agent_docs and "AGENTS.md" in agent.agent_docs
+    assert db.committed is True
+    assert (ws / "AGENTS.md").exists()
 
 
 def test_materialize_rejects_unsafe_doc_name(tmp_path):

@@ -56,17 +56,92 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
 
 
-def _materialize_agent_docs(agent, workspace_root: str) -> None:
+def _default_agent_docs(agent, workspace_root: str) -> dict:
+    """Sensible default AGENTS.md / CLAUDE.md for agents that have no
+    user-authored docs in PostgreSQL.
+
+    Every agent workspace should carry these files: MemoryMiddleware loads
+    AGENTS.md into the system prompt and the Files panel lists them next to
+    uploads + generated files. The defaults are stored back to the DB row so
+    the Docs tab in the editor shows the same content (editable).
+    """
+    name = getattr(agent, "name", None) or f"Agent {getattr(agent, 'id', '')}".strip()
+    description = getattr(agent, "description", None) or "An AI agent."
+    agents_md = (
+        f"# {name}\n\n"
+        f"{description}\n\n"
+        f"## Workspace\n\n"
+        f"Your workspace directory is:\n\n"
+        f"    {workspace_root}\n\n"
+        f"- **Generated files** — save every deliverable you produce (reports, "
+        f"documents, exports) into the `generated/` subfolder, e.g. via "
+        f"`save_document` or file-writing tools, so the user can find them in "
+        f"the Files panel.\n"
+        f"- **Uploaded files** — documents the user uploads appear in the "
+        f"`knowledge-base/` subfolder; read them from there when a task needs "
+        f"their data.\n"
+        f"- **Your instructions** — AGENTS.md (this file) and CLAUDE.md sit at "
+        f"the workspace root.\n"
+        f"- Keep all files inside the workspace — do not write outside it.\n\n"
+        f"## Working conventions\n\n"
+        f"- Before generating a file, match the format the user asked for "
+        f"(Markdown, DOCX, CSV, HTML, …) and save it with a descriptive "
+        f"filename inside `generated/`.\n"
+        f"- After producing a deliverable, summarize what you created and "
+        f"where it was saved.\n"
+        f"- If a task needs data from uploaded files, read them from "
+        f"`knowledge-base/` first.\n\n"
+        f"## Agent docs\n\n"
+        f"- This file (AGENTS.md) is loaded into your context as instructions "
+        f"on every chat run.\n"
+        f"- CLAUDE.md (next to this file) mirrors these instructions.\n"
+    )
+    claude_md = (
+        f"# {name} — CLAUDE.md\n\n"
+        f"Mirror of AGENTS.md — see that file in the same folder for the "
+        f"agent's full operating instructions.\n\n"
+        f"## Quick reference\n\n"
+        f"- Workspace: `{workspace_root}`\n"
+        f"- Save generated deliverables into `generated/`; user uploads appear "
+        f"in `knowledge-base/`.\n"
+        f"- After producing a deliverable, summarize what you created and "
+        f"where it was saved.\n"
+    )
+    return {"AGENTS.md": agents_md, "CLAUDE.md": claude_md}
+
+
+def _materialize_agent_docs(agent, workspace_root: str, db=None) -> None:
     """Write the agent's instruction docs (AGENTS.md / CLAUDE.md / …) into
     its workspace.
 
     ``deep_agent_templates.agent_docs`` (PostgreSQL) is the source of truth;
     the files are materialized here so MemoryMiddleware can read AGENTS.md and
     the Files panel shows the docs alongside uploads + generated files.
+
+    Agents without authored docs get sensible defaults materialized, and (when
+    a DB session is available) those defaults are stored back onto the row so
+    the editor's Docs tab stays consistent.
     """
-    docs = getattr(agent, "agent_docs", None) or {}
-    if not docs or not workspace_root:
+    if not workspace_root:
         return
+    docs = getattr(agent, "agent_docs", None) or {}
+    if not docs:
+        docs = _default_agent_docs(agent, workspace_root)
+        if db is not None:
+            # Seed the defaults back onto the row (best-effort — a chat run
+            # must never fail because persisting defaults failed).
+            try:
+                agent.agent_docs = docs
+                db.commit()
+                logger.info(
+                    f"Seeded default agent docs for agent "
+                    f"{getattr(agent, 'id', '?')}: {list(docs.keys())}"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to persist default agent docs "
+                    f"(agent {getattr(agent, 'id', '?')}): {e}"
+                )
     from pathlib import Path
     root = Path(workspace_root)
     try:
@@ -313,7 +388,8 @@ async def send_message(
             ))
             # Materialize the agent's instruction docs (AGENTS.md / CLAUDE.md…)
             # into the workspace so MemoryMiddleware + the Files panel see them.
-            _materialize_agent_docs(agent, agent_workspace_root)
+            # Agents without authored docs get defaults seeded + materialized.
+            _materialize_agent_docs(agent, agent_workspace_root, db=db)
             if not use_deepagents:
                 from core.agents.factory import AgentFactory
                 agent_instance, _tools, _callbacks = await AgentFactory.create_agent(
@@ -802,7 +878,7 @@ async def send_message_stream(
                         vault_key=_ws_mgr.project_vault_key(db, _session_project_id) or None,
                         agent_key=_ws_mgr.agent_vault_key(db, agent),
                     ))
-                    _materialize_agent_docs(agent, agent_workspace_root)
+                    _materialize_agent_docs(agent, agent_workspace_root, db=db)
                     use_deepagents = agent_config.get("use_deepagents", True)
                     if not use_deepagents:
                         from core.agents.factory import AgentFactory
