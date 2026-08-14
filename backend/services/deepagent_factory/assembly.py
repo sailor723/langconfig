@@ -191,7 +191,8 @@ class _DeepAgentAssemblyMixin:
         workflow_id: Optional[int] = None,
         custom_output_path: Optional[str] = None,
         workspace_root: Optional[str] = None,
-        user_message: Optional[str] = None  # First user message for skill routing
+        user_message: Optional[str] = None,  # First user message for skill routing
+        agent_id: Optional[int] = None,      # Agent id (for file/metadata association)
     ) -> Tuple[CompiledStateGraph, List[BaseTool], List[Any]]:
         """
         Create a DeepAgent with middleware, subagents, and backends.
@@ -243,6 +244,7 @@ class _DeepAgentAssemblyMixin:
             workflow_id=workflow_id,
             custom_output_path=custom_output_path,
             workspace_root=workspace_root,
+            agent_id=agent_id,
         )
 
         # Create middleware-specific tools

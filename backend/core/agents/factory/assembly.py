@@ -33,7 +33,9 @@ class _AgentAssemblyMixin:
         context: str,
         mcp_manager: Optional[Any] = None,
         vector_store: Optional[Any] = None,
-        agent_context: Optional[Dict[str, Any]] = None
+        agent_context: Optional[Dict[str, Any]] = None,
+        workspace_root: Optional[str] = None,
+        agent_id: Optional[int] = None,
     ) -> Tuple[CompiledStateGraph, List[BaseTool], List[Any]]:
         """
         Create a fully configured agent ready for execution.
@@ -184,6 +186,9 @@ class _AgentAssemblyMixin:
             "workflow_name": agent_config.get("workflow_name"),
             "execution_id": agent_config.get("execution_id"),
             "custom_output_path": agent_config.get("custom_output_path"),  # Custom output directory
+            # Per-agent workspace root: file-writing tools (write_file,
+            # save_document) land here when the caller provides it.
+            "workspace_root": workspace_root,
         }
 
         # Route memory tools from native_tools to the real SimpleMemory.
@@ -276,6 +281,43 @@ class _AgentAssemblyMixin:
                 workspace_context=workspace_context,
                 agent_context=agent_context,
             )
+
+        # 3d. Per-agent workspace document tool. Regular agents have no
+        # FilesystemMiddleware (deep agents get one via their backend), so
+        # without this tool a regular agent literally cannot persist a file —
+        # it will *claim* it saved a report while writing nothing (the "file
+        # missing from the Files panel" bug). Inject a workspace-scoped
+        # save_document tool whenever the caller provides a workspace root.
+        if workspace_root:
+            existing_names = {getattr(t, "name", "") for t in tools}
+            if "save_document" not in existing_names:
+                try:
+                    from langchain_core.tools import StructuredTool
+                    from tools.native_impl import _write_file_impl
+
+                    def _save_to_agent_workspace(file_path: str, content: str) -> str:
+                        return _write_file_impl(
+                            file_path,
+                            content,
+                            _workspace_context={"workspace_root": workspace_root},
+                            _agent_context={"agent_id": agent_id},
+                        )
+
+                    tools.append(StructuredTool.from_function(
+                        func=_save_to_agent_workspace,
+                        name="save_document",
+                        description=(
+                            "Persist a document (report.md / report.docx / "
+                            "report.pdf / report.html — format chosen by the "
+                            "file extension) into the agent's workspace so the "
+                            "user can see and download it in the Files panel. "
+                            "Use this whenever the user asks to save, persist, "
+                            "or export a document."
+                        ),
+                    ))
+                    logger.info(f"Added workspace-scoped save_document tool (root={workspace_root})")
+                except Exception as e:
+                    logger.warning(f"Failed to add workspace save_document tool: {e}")
 
         # 4. Check if structured output is enabled (v1.1: Support ProviderStrategy)
         structured_output_strategy = None

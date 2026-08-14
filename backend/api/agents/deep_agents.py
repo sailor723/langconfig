@@ -250,6 +250,7 @@ class CreateDeepAgentRequest(BaseModel):
     category: str
     config: DeepAgentConfig
     base_template_id: Optional[str] = None
+    workspace_path: Optional[str] = None  # User-defined workspace; None → default
 
 
 class UpdateDeepAgentRequest(BaseModel):
@@ -258,6 +259,7 @@ class UpdateDeepAgentRequest(BaseModel):
     description: Optional[str] = None
     config: Optional[DeepAgentConfig] = None
     lock_version: Optional[int] = None  # For optimistic locking
+    workspace_path: Optional[str] = None  # None → leave unchanged
 
 
 class DeepAgentResponse(BaseModel):
@@ -279,6 +281,8 @@ class DeepAgentResponse(BaseModel):
     chat_sessions_count: Optional[int] = 0  # Number of chat sessions for this agent
     created_at: str
     updated_at: str
+    # User-defined workspace path (None → default outputs/agents/agent_{id}/)
+    workspace_path: Optional[str] = None
     # Always true for DeepAgents - helps frontend identify this as a DeepAgent
     use_deepagents: bool = True
 
@@ -370,6 +374,7 @@ async def create_deepagent(
             description=request.description,
             category=request.category,
             base_template_id=request.base_template_id,
+            workspace_path=request.workspace_path,
             config=config_dict,
             middleware_config=[m.dict() for m in request.config.middleware],
             subagents_config=[s.dict() for s in request.config.subagents],
@@ -400,6 +405,7 @@ async def create_deepagent(
             version=agent.version,
             lock_version=agent.lock_version,
             is_public=agent.is_public,
+            workspace_path=agent.workspace_path,
             created_at=agent.created_at.isoformat(),
             updated_at=agent.updated_at.isoformat()
         )
@@ -571,6 +577,11 @@ async def update_deepagent(
         agent.backend_config = request.config.backend.dict()
         agent.guardrails_config = request.config.guardrails.dict()
 
+    # User-defined workspace path (None in the request → leave unchanged;
+    # empty string clears it back to the default).
+    if "workspace_path" in request.model_fields_set:
+        agent.workspace_path = request.workspace_path or None
+
     db.commit()
     db.refresh(agent)
 
@@ -593,6 +604,7 @@ async def update_deepagent(
         version=agent.version,
         lock_version=agent.lock_version,
         is_public=agent.is_public,
+        workspace_path=agent.workspace_path,
         created_at=agent.created_at.isoformat(),
         updated_at=agent.updated_at.isoformat()
     )

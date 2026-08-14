@@ -31,6 +31,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
 
 
+def _resolve_agent_workspace(session, db, ws_mgr):
+    """Resolve the agent workspace root from the DB.
+
+    Priority: the agent's user-defined ``workspace_path`` (persisted in
+    deep_agent_templates) → the default ``outputs/agents/agent_{id}/``
+    convention.
+    """
+    if session.agent_id:
+        agent = db.query(DeepAgentTemplate).filter(
+            DeepAgentTemplate.id == session.agent_id
+        ).first()
+        if agent is not None:
+            return ws_mgr.resolve_agent_workspace(agent)
+    return ws_mgr.get_agent_workspace(session.agent_id)
+
+
 async def index_session_document_background(document_id: int, agent_id: int):
     """
     Background task to index a session document with embeddings.
@@ -368,15 +384,16 @@ async def _process_single_chat_upload(
     file_path = file_storage.save_file(f"chat_sessions/{session_id}", file.filename, content)
 
     # Copy to sandbox workspace for agent access. Per-agent workspace root
-    # keeps uploads + generated files under one directory (outputs/agents/
-    # agent_{id}/), so the Files panel lists everything from a single root.
+    # keeps uploads + generated files under one directory (the agent's
+    # user-defined workspace_path when set, else outputs/agents/agent_{id}/),
+    # so the Files panel lists everything from a single root.
     sandbox_exts = ('.csv', '.pdf', '.docx', '.pptx', '.md', '.txt', '.json', '.py', '.js', '.ts', '.tsx', '.jsx')
     safe_name = Path(file.filename).name  # basename only — block path-traversal writes
     if file.filename.lower().endswith(sandbox_exts):
         try:
             from services.workspace_manager import get_workspace_manager
             ws_mgr = get_workspace_manager()
-            sandbox_path = ws_mgr.get_agent_workspace(session.agent_id) / safe_name
+            sandbox_path = _resolve_agent_workspace(session, db, ws_mgr) / safe_name
             sandbox_path.write_bytes(content)
             logger.info(f"File copied to agent workspace: {sandbox_path}")
             # If uploaded CSV, auto-generate companion .skill.md from the data.
@@ -553,7 +570,7 @@ async def list_session_generated_files(
     #    needed — every file here belongs to this agent (uploads are copied
     #    in on upload, generated files land here via the sandbox root).
     if session.agent_id:
-        agent_workspace = workspace_mgr.get_agent_workspace(session.agent_id)
+        agent_workspace = _resolve_agent_workspace(session, db, workspace_mgr)
         if agent_workspace.is_dir():
             for p in sorted(agent_workspace.rglob("*")):
                 if p.is_file() and "__pycache__" not in p.parts:

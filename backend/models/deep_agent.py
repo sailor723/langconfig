@@ -321,6 +321,11 @@ class DeepAgentTemplate(Base, OptimisticLockMixin):
     # References to base agent template (if extends one)
     base_template_id = Column(String(100), nullable=True, index=True)
 
+    # User-defined workspace path (PostgreSQL). When set, chat uploads and
+    # generated files for this agent live under this directory instead of the
+    # default outputs/agents/agent_{id}/ convention. Null → default.
+    workspace_path = Column(String(500), nullable=True)
+
     # DeepAgents configuration (stored as JSON)
     config = Column(JSON, nullable=False)
 

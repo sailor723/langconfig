@@ -273,7 +273,7 @@ async def send_message(
             # generated output) live under outputs/agents/agent_{id}/, so the
             # Files panel can list them from one root without heuristics.
             from services.workspace_manager import get_workspace_manager
-            agent_workspace_root = str(get_workspace_manager().get_agent_workspace(agent.id))
+            agent_workspace_root = str(get_workspace_manager().resolve_agent_workspace(agent))
             if not use_deepagents:
                 from core.agents.factory import AgentFactory
                 agent_instance, _tools, _callbacks = await AgentFactory.create_agent(
@@ -283,6 +283,9 @@ async def send_message(
                     context="",
                     mcp_manager=None,
                     vector_store=None,
+                    agent_context={"agent_id": agent.id},
+                    workspace_root=agent_workspace_root,
+                    agent_id=agent.id,
                 )
             else:
                 agent_instance, _tools, _callbacks = await DeepAgentFactory.create_deep_agent(
@@ -294,6 +297,7 @@ async def send_message(
                     vector_store=None,
                     user_message=request.message,
                     workspace_root=agent_workspace_root,
+                    agent_id=agent.id,
                 )
             cache_agent(
                 request.session_id,
@@ -750,6 +754,8 @@ async def send_message_stream(
                     # Create agent via appropriate factory.
                     # Regular agents (use_deepagents=False) → AgentFactory with _create_task_tool
                     # Deep agents → DeepAgentFactory with SubAgentMiddleware
+                    from services.workspace_manager import get_workspace_manager
+                    agent_workspace_root = str(get_workspace_manager().resolve_agent_workspace(agent))
                     use_deepagents = agent_config.get("use_deepagents", True)
                     if not use_deepagents:
                         from core.agents.factory import AgentFactory
@@ -760,11 +766,12 @@ async def send_message_stream(
                             context=all_context,
                             mcp_manager=None,
                             vector_store=None,
+                            agent_context={"agent_id": agent.id},
+                            workspace_root=agent_workspace_root,
+                            agent_id=agent.id,
                         )
                     else:
                         config = DeepAgentConfig(**agent_config)
-                        from services.workspace_manager import get_workspace_manager
-                        agent_workspace_root = str(get_workspace_manager().get_agent_workspace(agent.id))
                         agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
                             config=config,
                             project_id=project_id or 0,
@@ -774,6 +781,7 @@ async def send_message_stream(
                             vector_store=None,
                             user_message=request.message,
                             workspace_root=agent_workspace_root,
+                            agent_id=agent.id,
                         )
                     cache_agent(
                         request.session_id,
