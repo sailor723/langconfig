@@ -305,8 +305,10 @@ async def send_message(
             # outputs/projects/{id}/agents/agent_{id}/ → legacy default).
             from services.workspace_manager import get_workspace_manager
             _session_project_id = getattr(session, "project_id", None)
-            agent_workspace_root = str(get_workspace_manager().resolve_agent_workspace(
-                agent, _session_project_id
+            _ws_mgr = get_workspace_manager()
+            agent_workspace_root = str(_ws_mgr.resolve_agent_workspace(
+                agent, _session_project_id,
+                vault_key=_ws_mgr.project_vault_key(db, _session_project_id) or None,
             ))
             # Materialize the agent's instruction docs (AGENTS.md / CLAUDE.md…)
             # into the workspace so MemoryMiddleware + the Files panel see them.
@@ -793,8 +795,10 @@ async def send_message_stream(
                     # Deep agents → DeepAgentFactory with SubAgentMiddleware
                     from services.workspace_manager import get_workspace_manager
                     _session_project_id = getattr(session, "project_id", None) or project_id
-                    agent_workspace_root = str(get_workspace_manager().resolve_agent_workspace(
-                        agent, _session_project_id
+                    _ws_mgr = get_workspace_manager()
+                    agent_workspace_root = str(_ws_mgr.resolve_agent_workspace(
+                        agent, _session_project_id,
+                        vault_key=_ws_mgr.project_vault_key(db, _session_project_id) or None,
                     ))
                     _materialize_agent_docs(agent, agent_workspace_root)
                     use_deepagents = agent_config.get("use_deepagents", True)

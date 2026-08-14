@@ -36,7 +36,8 @@ def _resolve_agent_workspace(session, db, ws_mgr):
 
     Priority: the agent's user-defined ``workspace_path`` (persisted in
     deep_agent_templates) → vault-scoped default
-    ``outputs/projects/{project_id}/agents/agent_{id}/`` → legacy
+    ``outputs/projects/{vault_key}/agents/agent_{id}/`` (vault_key = the
+    project's user-visible ``number``, else its ``id``) → legacy
     ``outputs/agents/agent_{id}/``.
     """
     if session.agent_id:
@@ -44,8 +45,10 @@ def _resolve_agent_workspace(session, db, ws_mgr):
             DeepAgentTemplate.id == session.agent_id
         ).first()
         if agent is not None:
+            project_id = getattr(session, "project_id", None)
             return ws_mgr.resolve_agent_workspace(
-                agent, getattr(session, "project_id", None)
+                agent, project_id,
+                vault_key=ws_mgr.project_vault_key(db, project_id) or None,
             )
     return ws_mgr.get_agent_workspace(session.agent_id)
 
