@@ -58,8 +58,8 @@ class Settings(BaseSettings):
     default_llm_provider: str = "deepseek"
     default_model: str = "deepseek-chat"
     fallback_models: str = ""
-    default_temperature: float = 0.7
-    max_tokens: int = 4096
+    default_temperature: float = 0.0
+    max_tokens: int = 256000
     top_p: float = 1.0
     default_embedding_model: str = "ollama-nomic-embed-text:latest"
 
