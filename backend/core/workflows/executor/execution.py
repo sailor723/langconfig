@@ -159,8 +159,12 @@ class _WorkflowExecutionMixin:
                     logger.warning(f"Failed to build swarm graph, falling back to standard: {e}")
 
             # 2. Get checkpointer for state persistence
-            # Only use checkpointer if explicitly enabled in input_data
-            checkpointer_enabled = input_data.get("checkpointer_enabled", False)
+            # Enabled by default (durable execution + HITL support, per the
+            # architecture doc §12). Callers can opt out per-run with
+            # checkpointer_enabled=False; if the Postgres checkpointer is
+            # unavailable the graph still runs, just without persistence.
+            workflow_config = workflow.configuration or {}
+            checkpointer_enabled = input_data.get("checkpointer_enabled", True)
             from core.workflows.checkpointing.manager import get_checkpointer
             checkpointer = get_checkpointer() if checkpointer_enabled else None
 
@@ -175,10 +179,24 @@ class _WorkflowExecutionMixin:
                     logger.info(f"[CACHE] Cache backend enabled for workflow '{workflow.name}'")
 
                 if checkpointer:
-                    logger.info(f"Compiling workflow '{workflow.name}' with checkpointing enabled")
+                    # HITL: interrupt BEFORE each APPROVAL_NODE so LangGraph
+                    # actually pauses the run for human approval. Without
+                    # interrupt_before, the node's interrupt() call is a no-op
+                    # and the approval flow silently degrades to "informational".
+                    interrupt_before = [
+                        n.get("node_id")
+                        for n in workflow_config.get("nodes", [])
+                        if n.get("node_type") == "APPROVAL_NODE"
+                    ]
+                    if not interrupt_before:
+                        interrupt_before = input_data.get("interrupt_before", []) or []
+                    logger.info(
+                        f"Compiling workflow '{workflow.name}' with checkpointing enabled"
+                        f" (interrupt_before={interrupt_before})"
+                    )
                     compiled_graph = graph.compile(
                         checkpointer=checkpointer,
-                        interrupt_before=[],  # Can add APPROVAL_NODE here for HITL
+                        interrupt_before=interrupt_before,
                         **compile_kwargs,
                     )
                 else:

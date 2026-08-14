@@ -137,6 +137,21 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
 
+def register_all_models() -> None:
+    """Import every models.* module so its tables land on Base.metadata.
+
+    models/__init__.py does not import all modules (some are imported only
+    lazily), so a bare `import models` misses tables. Both init_db() and
+    async_init_db() must call this before create_all — otherwise the app
+    startup path silently creates a different schema than the seed path.
+    """
+    import importlib
+    import pkgutil
+    import models as _models_pkg
+    for _mod in pkgutil.iter_modules(_models_pkg.__path__):
+        importlib.import_module(f"models.{_mod.name}")
+
+
 def init_db():
     """
     Initialize PostgreSQL database (sync version).
@@ -149,11 +164,7 @@ def init_db():
         # The app does this via `import models` in main.py, but standalone
         # scripts (bootstrap, tests, one-off DB jobs) only import
         # db.database — so import every models.* module explicitly here.
-        import importlib
-        import pkgutil
-        import models as _models_pkg
-        for _mod in pkgutil.iter_modules(_models_pkg.__path__):
-            importlib.import_module(f"models.{_mod.name}")
+        register_all_models()
         # Enable PostgreSQL extensions
         with engine.begin() as connection:
             connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
@@ -210,10 +221,22 @@ async def async_init_db():
 
     Creates pgvector extension and all SQLAlchemy tables asynchronously.
     Use this from FastAPI lifespan or other async contexts.
+
+    NOTE: must mirror ``init_db()`` exactly — register ALL ORM models
+    (pkgutil) and enable BOTH extensions — otherwise the app startup path
+    creates a different schema than the seed path (missing tables such as
+    ``conversation_archives``/``user_profiles``/``storage_objects`` and a
+    missing ``vector`` extension).
     """
     try:
-        # Enable PostgreSQL extensions
+        # Register ALL ORM models with Base before create_all, exactly like
+        # the sync init_db() (models/__init__ does not import every module).
+        register_all_models()
+
+        # Enable PostgreSQL extensions (vector is required for pgvector
+        # columns created via llama_index / legacy vector_documents).
         async with async_engine.begin() as connection:
+            await connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             await connection.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))
             logger.info("✓ PostgreSQL extensions enabled (async)")
 
