@@ -59,7 +59,13 @@ class _WorkflowNodesMixin:
                 # Get model with fallback - treat "none" as missing (control nodes use this)
                 model = agent_config.get("model")
                 if not model or model == "none":
-                    model = "gpt-4o-mini"  # Default fallback
+                    # Use the app-wide default model (root .env DEFAULT_MODEL)
+                    # instead of a hardcoded one.
+                    try:
+                        from config import settings as app_settings
+                        model = app_settings.default_model or "gpt-4o-mini"
+                    except Exception:
+                        model = "gpt-4o-mini"  # last resort
                 temperature = agent_config.get("temperature", 0.7)
                 system_prompt = agent_config.get("system_prompt", f"You are a {agent_type} agent.")
 

@@ -111,8 +111,15 @@ def initialize_llama_index_settings(
         # Configure LLM for HyDE if proxy details are provided
         if litellm_proxy_url and litellm_api_key:
             logger.info(f"Configuring LLM with LiteLLM proxy: {litellm_proxy_url}")
+            # Use the app-wide default model (root .env DEFAULT_MODEL) instead
+            # of a hardcoded one.
+            try:
+                from config import settings as app_settings
+                llm_model = app_settings.default_model or "gpt-4o-mini"
+            except Exception:
+                llm_model = "gpt-4o-mini"
             Settings.llm = OpenAI(
-                model="gpt-4o-mini",
+                model=llm_model,
                 api_base=f"{litellm_proxy_url}/v1",
                 api_key=litellm_api_key
             )
