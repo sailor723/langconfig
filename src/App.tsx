@@ -29,6 +29,7 @@ import PromptHomePage from './components/layout2/PromptHomePage';
 import SkillHomePage from './components/layout2/SkillHomePage';
 import KnowledgeHomePage from './components/layout2/KnowledgeHomePage';
 import HomePage from './pages/HomePage';
+import ProjectHomePage from './pages/ProjectHomePage';
 import DeepAgentHomePage from './components/layout2/DeepAgentHomePage';
 import AgentHomePage from './components/layout2/AgentHomePage';
 import ModelHomePage from './components/layout2/ModelHomePage';
@@ -55,7 +56,7 @@ import GraphStudioPage from './features/graph-studio/GraphStudioPage';
 import GraphStudioSidebar from './features/graph-studio/GraphStudioSidebar';
 import GraphHomePage from './features/graph-studio/GraphHomePage';
 
-type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search' | 'chat' | 'learning' | 'graph';
+type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search' | 'chat' | 'learning' | 'graph' | 'project';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -153,6 +154,7 @@ interface SelectedNodeData {
 // Map route path → View
 const ROUTE_TO_VIEW: Record<string, View> = {
   '/': 'home', '/home': 'home',
+  '/project': 'project',
   '/studio': 'studio', '/results': 'studio',
   '/graph': 'graph',
   '/agents': 'agents', '/deepagents': 'deepagents',
@@ -173,6 +175,7 @@ const ROUTE_TO_VIEW: Record<string, View> = {
 // Map View → route path
 const VIEW_ROUTE: Record<View, string> = {
   home: '/home', studio: '/studio',
+  project: '/project',
   graph: '/graph',
   agents: '/agents', deepagents: '/deepagents', skills: '/skills',
   knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
@@ -187,6 +190,7 @@ const VIEW_ROUTE: Record<View, string> = {
 // Map View → ActivityId
 const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   home: null,
+  project: null,
   studio: 'workflows',
   graph: 'graph',
   agents: 'agents',
@@ -288,6 +292,16 @@ function AppContent() {
     };
     window.addEventListener('da:navigate-skills', handler);
     return () => window.removeEventListener('da:navigate-skills', handler);
+  }, [navigate]);
+
+  // Project home → open a workflow in the Studio (preloaded)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ workflowId: number }>;
+      if (ce.detail?.workflowId) handleWorkflowOpen(ce.detail.workflowId);
+    };
+    window.addEventListener('workflow:open', handler);
+    return () => window.removeEventListener('workflow:open', handler);
   }, [navigate]);
 
   // Graph activity: show the LangGraph landing page until the user enters the
@@ -436,6 +450,7 @@ function AppContent() {
   const renderCurrentPage = () => {
     switch (currentView) {
       case 'home': return <HomePage />;
+      case 'project': return <ProjectHomePage />;
       case 'studio': return (
         <WorkflowStudioPage
           ref={workflowStudioRef}
@@ -483,7 +498,11 @@ function AppContent() {
           if (view) handleViewChange(view);
         }} />
 
-        {/* Sidebar: WorkflowStudioSidebar in studio, default TreeView otherwise */}
+        {/* Sidebar: WorkflowStudioSidebar in studio, default TreeView otherwise.
+            Hidden on the home launcher (create/select project) and the project
+            home page — neither is a browsing context, so no explorer/browser
+            chrome should be shown there. */}
+        {currentView !== 'home' && currentView !== 'project' && (
         <LeftSidebar>
           {currentView === 'studio' && (
             <WorkflowStudioSidebar
@@ -497,6 +516,7 @@ function AppContent() {
           )}
           {currentView === 'graph' && graphEntered && <GraphStudioSidebar />}
         </LeftSidebar>
+        )}
 
         {/* Center column */}
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 }}>

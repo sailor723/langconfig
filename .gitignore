@@ -28,6 +28,10 @@ src-tauri/target/
 _data_analysis_sandbox/
 _analysis_output/
 backend/outputs/
+
+# Runtime materialized workspace (DB is the source of truth; files are
+# materialized here at chat build time)
+backend/.workspace_data/
 .DS_Store
 
 # Database
