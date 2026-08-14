@@ -1,10 +1,10 @@
 """
 Focused tests for DB-backed model runtime configuration.
 
-These tests protect the GraphIndex/Playground model path so it reads:
-- default model from PostgreSQL settings
-- provider API keys from PostgreSQL settings
-- no silent fallback to environment variables for runtime model config
+These tests protect the Playground model path:
+- default model resolution (config-driven, explicit model wins, missing → 400)
+- provider API keys resolved via the config seam (`_get_decrypted_setting_value`)
+- missing key → 400, never a silent wrong-key invocation
 """
 
 from types import SimpleNamespace
@@ -16,37 +16,34 @@ from fastapi import HTTPException
 from api.models import routes
 
 
-def test_resolve_model_name_uses_db_default():
-    """When no model is provided, the DB default model must be used."""
-    fake_settings = SimpleNamespace(default_model="deepseek-chat", api_keys={})
+def test_resolve_model_name_uses_default(monkeypatch):
+    """When no model is provided, the configured default model must be used."""
+    from config import settings as app_settings
 
-    db = MagicMock()
-    routes_result = MagicMock()
-    routes_result.filter.return_value.first.return_value = fake_settings
-    db.query.return_value = routes_result
-
-    assert routes._resolve_model_name(None, db) == "deepseek-chat"
+    monkeypatch.setattr(app_settings, "default_model", "deepseek-chat")
+    assert routes._resolve_model_name(None, MagicMock()) == "deepseek-chat"
 
 
-def test_resolve_model_name_raises_without_db_default():
-    """Missing DB default_model should fail instead of falling back to gpt-4o."""
-    fake_settings = SimpleNamespace(default_model=None, api_keys={})
+def test_resolve_model_name_explicit_model_wins(monkeypatch):
+    """An explicit model must win over the default."""
+    from config import settings as app_settings
 
-    db = MagicMock()
-    routes_result = MagicMock()
-    routes_result.filter.return_value.first.return_value = fake_settings
-    db.query.return_value = routes_result
+    monkeypatch.setattr(app_settings, "default_model", "fallback-model")
+    assert routes._resolve_model_name("gpt-4o-mini", MagicMock()) == "gpt-4o-mini"
 
+
+def test_resolve_model_name_raises_without_default(monkeypatch):
+    """Missing default model should fail instead of silently falling back."""
+    from config import settings as app_settings
+
+    monkeypatch.setattr(app_settings, "default_model", None)
     with pytest.raises(HTTPException, match="Default model is not configured"):
-        routes._resolve_model_name(None, db)
+        routes._resolve_model_name(None, MagicMock())
 
 
-def test_create_llm_uses_db_api_key(monkeypatch: pytest.MonkeyPatch):
-    """Provider API keys must come from PostgreSQL settings."""
-    fake_settings = SimpleNamespace(
-        default_model="gpt-4o-mini",
-        api_keys={"openai": "enc-openai-key"},
-    )
+def test_create_llm_uses_provider_api_key(monkeypatch):
+    """The playground LLM must be built with the provider API key."""
+    fake_settings = SimpleNamespace()
     fake_model = SimpleNamespace(
         model_id="gpt-4o-mini",
         provider="openai",
@@ -59,9 +56,9 @@ def test_create_llm_uses_db_api_key(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(routes, "_get_settings_row", lambda db: fake_settings)
     monkeypatch.setattr(routes, "_get_active_model_row", lambda db, model_name: fake_model)
     monkeypatch.setattr(
-        routes.encryption_service,
-        "decrypt",
-        lambda value: "db-openai-key" if value == "enc-openai-key" else None,
+        routes,
+        "_get_decrypted_setting_value",
+        lambda settings_row, key: "resolved-openai-key" if key == "openai" else None,
     )
 
     def fake_init_chat_model(**kwargs):
@@ -77,14 +74,14 @@ def test_create_llm_uses_db_api_key(monkeypatch: pytest.MonkeyPatch):
         db=MagicMock(),
     )
 
-    assert captured_kwargs["api_key"] == "db-openai-key"
+    assert captured_kwargs["api_key"] == "resolved-openai-key"
     assert captured_kwargs["model"] == "gpt-4o-mini"
     assert captured_kwargs["model_provider"] == "openai"
 
 
-def test_create_llm_does_not_fallback_to_env_api_key(monkeypatch: pytest.MonkeyPatch):
-    """An env var must not satisfy runtime model config when DB key is missing."""
-    fake_settings = SimpleNamespace(default_model="gpt-4o-mini", api_keys={})
+def test_create_llm_raises_without_api_key(monkeypatch):
+    """A missing provider key must 400, never invoke with a wrong key."""
+    fake_settings = SimpleNamespace()
     fake_model = SimpleNamespace(
         model_id="gpt-4o-mini",
         provider="openai",
@@ -93,10 +90,10 @@ def test_create_llm_does_not_fallback_to_env_api_key(monkeypatch: pytest.MonkeyP
         api_model_name=None,
     )
 
-    monkeypatch.setenv("OPENAI_API_KEY", "env-only-key")
     monkeypatch.setattr(routes, "_get_settings_row", lambda db: fake_settings)
     monkeypatch.setattr(routes, "_get_active_model_row", lambda db, model_name: fake_model)
-    monkeypatch.setattr(routes.encryption_service, "decrypt", lambda value: None)
+    monkeypatch.setattr(routes, "_get_decrypted_setting_value", lambda settings_row, key: None)
+    monkeypatch.setenv("OPENAI_API_KEY", "env-only-key")  # must NOT satisfy the path
 
     with pytest.raises(HTTPException, match="Add it in Settings > API Keys"):
         routes._create_llm_for_playground(

@@ -154,7 +154,7 @@ Or use Settings > API Keys to configure a new provider. No code changes needed.
 
 ## Skills Library
 
-- 17 builtin + user-created skills stored in PostgreSQL
+- 15 builtin + 20 personal/user-created skills stored in PostgreSQL (35 total on disk)
 - Skills synced to agent sandbox at creation time (progressive disclosure)
 - Agent reads `SKILL.md` on demand — meta-skill `skill-generator` can create new skills
 
