@@ -15,6 +15,37 @@ changing the public API.
 | 3b — Engine splits | `core/workflows/executor.py`, `events/emitter.py`, `core/tools/factory.py`, `services/deepagent_factory.py` → mixin packages | `1410bc0`, `06abe27`, `82de6e2`, `f5402dc` | ✅ done |
 | 3c — Large god-modules | `api/knowledge/rag.py`, `core/agents/factory.py` → route/mixin packages | `d94bf4e`, `7fc2078` | ✅ done |
 | Test cleanup | Fixed 4 pytest collection errors from stale tests | `0ff16d1` | ✅ done |
+| **4 — Security & correctness pass** | Encryption key source, python_function `exec` sandbox, path-traversal/SSRF guards, safe expression eval, checkpointing defaults, DB-driven model registry | *(uncommitted, working tree)* | ✅ done (see below) |
+
+---
+
+## Phase 4 — Security & correctness pass (uncommitted)
+
+Fixes from the architecture review (each ships with regression tests in
+`backend/tests/`; suite went from 200 → ~313 passing with zero new failures):
+
+| Area | Fix |
+|---|---|
+| Secrets at rest | `services/encryption.py` now reads the documented `API_KEY_ENCRYPTION_KEY` (was the never-set `APP_ENCRYPTION_KEY` → public default key used); refuses the dev fallback in production; `decrypt()` raises on key-rotation mismatch instead of returning ciphertext |
+| `python_function` tools | Trust boundary in `core/tools/factory/builders.py`: built-in (git-reviewed) rows keep full exec power; user/agent/bundle tools get AST validation + restricted namespace (no `__import__`/`open`/`eval`, no `os`/`sys`/`pathlib`/`io`/`subprocess`, runtime import gate) |
+| Path traversal | `skill_review.py` `csv_stem` sanitized + resolved-path containment; `WorkspaceManager` prefix checks → `Path.is_relative_to` (was `task_1`⊂`task_10`); `FileStorage` hierarchy segments validated |
+| SSRF | docx-export image fetch SSRF-guarded + moved off the event loop |
+| `eval()` sandbox escapes | new `core/utils/safe_eval.py` (AST-validated; dunder/call allowlists) used by workflow CONDITIONAL/LOOP nodes and emitted by the codegen (with `repr()` escaping) |
+| DeepAgent fallback | `assembly.py` only falls back to a regular agent on `ImportError`; other build failures surface with full traceback |
+| Guardrails / HITL | removed the always-TypeError `guardrails=` pass-through (deepagents 0.7.1 has no such param); fixed the `_model_str` NameError (harness-profile key now derived from the resolved model) |
+| Schema init | `async_init_db()` now registers all ORM models + the `vector` extension, matching sync `init_db()` (was missing 3 tables) |
+| Tool scoping | `tool_loader.load_custom` filters by `project_id` (global/same-project/builtin/public only) |
+| Specialist agents | `state_modifier=` → v1 `system_prompt` (sql/json agents); `langchain_experimental` import made lazy (pandas agent) |
+| Workflow checkpointing | enabled by default in the executor; `interrupt_before` derived from `APPROVAL_NODE`s (real HITL pauses) |
+| Model registry | `core/models/registry.py` augments the hardcoded fallback with rows from the `models` table (DB is source of truth, §16.1) |
+| Duplicate middleware | assembly drops its instrumented FilesystemMiddleware when a disk backend is active (the SDK injects its own) |
+| Checkpoint utils | `checkpointing/utils.py` rewritten on the `AsyncPostgresSaver` API — the old SQL queried non-existent columns (`checkpoint_namespace`, `created_at`) on the sync engine; also added the module-level `delete_thread_checkpoints` that `api/chat/session.py` imports |
+| SQL agent dialect | `langgraph/sql_agent.py` generate-query prompt says `postgresql` (was `sqlite`) |
+
+**Known remaining items** (from the review, not yet fixed): `api/chat/skill_review` companions
+have no dedicated tests; frontend raw-fetch consolidation (~20 files); the 
+`checkpointing` full-table scans (`get_checkpoint_count` etc.) are O(N) over the whole
+`checkpoints` table and could be pushed into SQL later.
 
 ---
 
@@ -172,14 +203,32 @@ collection. Fixed:
 
 ## Current test suite
 
-`51 failed, 156 passed, 2 skipped, 16 errors` — the suite **collects cleanly**
-(227 tests). Remaining failures are pre-existing and environmental:
+As of the docs-truth pass: `15 failed, 196 passed, 3 skipped, 10 errors` (224 tests
+collected, 6.8s). Two migration-test bugs were fixed in the pass (async
+`TEST_DATABASE_URL` forwarded to the sync alembic subprocess; `import alembic.env`
+can never resolve — the local `backend/alembic/` dir is not a package), so the
+non-destructive migration tests now pass. Remaining failures are pre-existing and
+fall into four buckets:
 
-- **PostgreSQL not running** — DB-dependent tests (`test_critical_safety.py`,
-  `test_models_db_refactor.py`, etc.).
-- **pytest-asyncio not configured** — async tests in some files.
-- **3 stale mongodb tests** — call removed `ToolFactory._validate_mongodb_query`.
-- **`groq` package not installed** — `scripts/test_groq.py` (now skips gracefully).
+- **Destructive migration-cycle tests** (`test_migrations.py`:
+  `test_migration_upgrade_head` / `_downgrade_one` / `_idempotency` /
+  `_full_cycle`) — the `001_initial_schema` chain is **not replayable on an empty
+  database** (documented in `docs/system-architecture.md` §4a: the project uses
+  `create_all` + `alembic stamp head`, never replay). These tests downgrade/upgrade
+  the shared `langconfig_test` DB and are inherently incompatible with that model.
+- **Stale tests for removed Phase 5/6 API** (`test_db_backed_model_runtime.py`,
+  `test_models_db_refactor.py`) — reference `routes.encryption_service`,
+  `api.system.settings.get_available_models`, and `SUPPORTED_MODELS`/model IDs that
+  no longer exist after the DB-driven model + `.env`-key migrations (README Phase
+  5/6). Per this file's earlier stale-test policy (commit `0ff16d1`), they should be
+  deleted or rewritten against the current API.
+- **SQLite-vs-JSONB fixture mismatch** (`test_critical_safety.py`, 10 errors) — the
+  `db_engine` fixture uses `sqlite:///:memory:` but the ORM models use Postgres
+  `JSONB`, which SQLite cannot render. The fixture needs a Postgres test DB or a
+  JSONB type variant.
+- **One integration assertion drift** (`test_agent_factory_refactor.py`:
+  `test_interrupt_configuration_custom_nodes`) — expects an `agent` node name that
+  the current langchain `create_agent` graph no longer exposes.
 
 None of these touch the refactored modules.
 

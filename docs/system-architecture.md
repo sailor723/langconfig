@@ -50,7 +50,7 @@ Each layer has a **strict responsibility**:
 
 1. **UI** — renders canvas/editors, never talks to the DB; only calls the typed API clients in `src/lib/api/`.
 2. **API** — FastAPI routers are thin *controllers*: validate input, delegate to services, stream SSE. They contain almost no business logic.
-3. **Service** — *builders* (`AgentFactory`, `DeepAgentFactory`), *exporters* (`ExportService`), workspace/memory/scheduler managers.
+3. **Service** — *builders* (`AgentFactory`, `DeepAgentFactory`), *exporters* (codegen in `api/agents/deep_agents.py` + bundle in `services/agent_bundle.py`), workspace/memory/scheduler managers.
 4. **Core engines** — reusable engines: workflow executor, checkpointing, events, codegen, skills registry, middleware, context management.
 5. **Data & runtime** — PostgreSQL tables and the external SDKs the services orchestrate.
 
@@ -472,7 +472,7 @@ closed software on your hardware).
 
 - **Over Doubao** — Doubao is closed: you cannot change its orchestration, choose its model,
   self-host it, or own the data it touches. LangGraph gives you explicit, checkpointed control
-  flow; you pick any provider (this repo defaults to DeepSeek); and you ship runnable code
+  flow; you pick any provider (the shipped `DEFAULT_MODEL` is Claude Haiku 4.5, with DeepSeek available); and you ship runnable code
   instead of renting a feature.
 - **Over OpenClaw / Hermes** — those are single-user personal agents wired to *one machine* and
   its chat apps. The LangChain stack is engineered for *systems*: durable state that survives
@@ -562,7 +562,7 @@ flowchart TB
         A3["API clients<br/>lib/api/ (typed)"]
     end
 
-    subgraph API["2 · API LAYER — FastAPI · 41 routers (main.py)"]
+    subgraph API["2 · API LAYER — FastAPI · 43 routers (main.py)"]
         direction LR
         R1["agents + deepagents<br/>CRUD · prompt-preview · export"]
         R2["chat + workflows<br/>SSE · orchestration · hitl"]
@@ -575,7 +575,7 @@ flowchart TB
         direction LR
         F1["AgentFactory<br/>core/agents/factory"]
         F2["DeepAgentFactory<br/>services/deepagent_factory"]
-        E1["ExportService<br/>services/export_service"]
+        E1["export codegen<br/>api/agents/deep_agents.py + agent_bundle.py"]
         W1["WorkspaceManager<br/>+ 20 support services"]
     end
 
@@ -660,7 +660,7 @@ export by itself; it:
 | ------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------ |
 | `POST/GET /api/deepagents/`, `GET /api/deepagents/{id}`, `GET /templates` | DeepAgent CRUD + built-in templates    | `models.deep_agent` (DB)                                   |
 | `POST /api/deepagents/prompt-preview`                                         | System-prompt assembly preview         | deepagents harness profiles (`_harness_profile_for_model`) |
-| `/export`, `/code`                                                          | Export`.py` CLI / langconfig bundles | `services/export_service.py` (`ExportService`)           |
+| `/export`, `/code`                                                          | Export`.py` CLI / langconfig bundles | `api/agents/deep_agents.py` (codegen) + `services/agent_bundle.py` |
 
 The actual builders are `core/agents/factory/` (normal agents) and
 `services/deepagent_factory/` (deep agents) — `deep_agents.py` only exposes them over HTTP.
@@ -710,8 +710,11 @@ workflow design.
 
 `agents.ts`, `chat.ts`, `workflows.ts`, `tools.ts`, `skills.ts`, `documents.ts`, `files.ts`,
 `projects.ts`, `schedules.ts`, `settings.ts`, `triggers.ts`, `backgroundTasks.ts` — one thin
-fetch wrapper per backend domain. **No component talks to the backend directly**; everything
-goes through these clients, which keeps the API surface testable and consistent.
+fetch wrapper per backend domain. **The intended rule is that no component talks to the
+backend directly**; everything should go through these clients, which keeps the API surface
+testable and consistent. (Known drift: ~20 files still use raw `fetch`/`EventSource` outside
+`lib/`, and `GoogleOAuthButton.tsx` / `usePresentationJob.ts` hardcode `localhost:8765` —
+consolidating these into clients is tracked as a cleanup item.)
 
 ```mermaid
 flowchart LR
@@ -736,21 +739,22 @@ flowchart LR
 
 ---
 
-## 8. Backend API layer — the 41 routers
+## 8. Backend API layer — the 43 routers
 
-`backend/main.py` registers **41 routers** on the FastAPI app. They are thin controllers:
+`backend/main.py` registers **43 routers** on the FastAPI app. They are thin controllers:
 parse the request, delegate to a service/factory, and stream the result.
 
 | Group                | Routers (in`main.py` order)                                                                               | Purpose                                                                                                                   |
 | -------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Health & debug       | `health`, `debug`                                                                                       | Liveness + dev-only diagnostics                                                                                           |
-| Agents               | `agents` (templates), `agent_generator`, `action_presets`, `images`                                 | Normal-agent CRUD, AI agent generation, action presets, image storage                                                     |
+| Agents               | `agents` (templates), `agent_generator`, `action_presets`, `images`                                 | Agent-template CRUD, AI agent generation, action presets, image storage — normal agents live in `deep_agent_templates` via `/api/deepagents/` |
 | DeepAgents           | `deepagents`, `chat`                                                                                    | DeepAgent CRUD/export + DeepAgent chat testing                                                                            |
 | Workflows            | `workflows`, `orchestration`, `hitl`, `checkpoints`                                                 | Workflow CRUD/execute, simplified orchestration, human-in-the-loop approvals, checkpoint restore                          |
 | Graph Engineering    | `graph_studio`                                                                                    | Code-defined graph hosting (`backend/langgraph/*.py`): introspection, threads, SSE runs, target-DB switching, run interrupt — see §13 |
 | Chat & memory        | `memory`, `store`, `agents_md_router`, `chat_skill_review`                                          | Agent memory, long-term store, AGENTS.md (MemoryMiddleware), data-skill review                                            |
 | Knowledge / RAG      | `rag`, `graphindex_chat`, `doc_chat`, `kv`, `analysis`                                            | RAG ingestion/search, graph-index chat, folder-based doc-chat, KV store, CSV→SQLite→charts                              |
 | Tools & skills       | `custom_tools`, `tool_registry`, `skills`                                                             | User tools, native tool registry (single source of truth), skills system                                                  |
+| Docs & classic graph | `agent_documents`, `classic_graph`                                                                     | DB-mode document library; classic LangGraph builder API                                                                   |
 | Workspace & projects | `projects`, `tasks`, `workspace`, `background_tasks`                                                | Projects, task workspaces, file trees, background job queue                                                               |
 | Models & settings    | `settings`, `search_providers`, `local_models`, `model_capabilities`, `model_routes`, `schemas` | Config, search-provider keys, local models, capability profiles, model invocation (Playground), structured-output schemas |
 | Automation & extras  | `schedules`, `triggers`, `webhooks`, `notebooks`, `presentations`, `google_auth`                | Cron scheduling, file-watch triggers, webhook receivers, notebooks, presentation generation + OAuth                       |
@@ -786,7 +790,7 @@ own the filesystem, workspaces, and side effects.
 | `core/agents/factory/assembly.py`                          | `AgentFactory.create_agent()` (L29)                           | Normal agent via langchain V1`create_agent`              |
 | `services/deepagent_factory/assembly.py`                   | `DeepAgentFactory.create_deep_agent()` (L29)                  | DeepAgent via`deepagents.create_deep_agent`              |
 | `services/deepagent_factory/{preflight,shared,support}.py` | helpers                                                         | Config validation, shared wiring, SDK compatibility guards |
-| `services/export_service.py`                               | `ExportService.export_standalone()` / `export_langconfig()` | Standalone`.py` repo or import/export bundle             |
+| `api/agents/deep_agents.py` (codegen)                        | `export_deepagent()` / `download_agent_code()` | Standalone`.py` CLI or import/export bundle (`services/agent_bundle.py`) |
 
 ### Managers & support services
 
@@ -870,9 +874,9 @@ Both agent types are compiled on every chat/execution from their stored JSON con
 4. **Load base tools** — native + custom + MCP + vector store (`_load_base_tools`).
 5. **Middleware tools** — from configured middleware types (`DeepAgentsMiddlewareFactory.create_all_tools`).
 6. **Subagents** — compiled separately with workspace context for file-writing tools.
-7. **Middleware instances** — MemoryMiddleware (AGENTS.md via FilesystemBackend), FilesystemMiddleware (scoped to task workspace), SummarizationMiddleware (token trigger), SubAgentMiddleware (adds the `task` tool).
+7. **Middleware instances** — MemoryMiddleware (AGENTS.md via FilesystemBackend), FilesystemMiddleware (scoped to task workspace; skipped when a disk backend is active because the SDK injects its own), SummarizationMiddleware (token trigger), SubAgentMiddleware (auto-created by the SDK — adds the `task` tool).
 8. **Checkpointer** — PostgreSQL conversation persistence (`get_checkpointer()`).
-9. **Skills staging** — equip configured skills by copying them into `<workspace>/skills/` and pointing `SkillsMiddleware` at them with a `FilesystemBackend`.
+9. **Skills staging** — stage the full skill catalog (builtin + personal roots) into `<workspace>/skills/` (config.skills only *pins* availability; discovery is metadata-driven) and point `SkillsMiddleware` at it with a `FilesystemBackend`.
 10. **Sandbox** — optional `LocalShellBackend` for an `execute` shell tool.
 11. **`deepagents.create_deep_agent(...)`** → compiled `LangGraph CompiledStateGraph` ready to stream.
 
@@ -911,20 +915,20 @@ then executed by this engine.
 
 ```mermaid
 flowchart TB
-    subgraph HTTP["API (api/workflows/)"]
-        H1["POST /api/workflows/{id}/execute"]
-        H2["POST /api/workflows/execute<br/>(execution.py)"]
-        H3["GET /api/workflows/{id}/stream<br/>(SSE)"]
+    subgraph HTTP["API (api/workflows/ + api/orchestration/)"]
+        H1["POST /api/orchestration/execute"]
+        H2["GET /api/orchestration/workflows/{id}/stream<br/>(SSE)"]
+        H3["GET /api/orchestration/workflows/{id}/events"]
         H4["GET /api/workflows/{id}/events<br/>GET /tasks/{id}/events"]
     end
 
     subgraph ENGINE["core/workflows/"]
-        E1["graph.py · graph_state.py<br/>Build StateGraph from stored nodes"]
+        E1["executor/builder.py<br/>Build StateGraph from stored nodes"]
         E2["executor/execution.py<br/>Run + persist execution state"]
-        E3["checkpointing/manager.py<br/>PostgresSaver checkpoints"]
+        E3["checkpointing/manager.py<br/>AsyncPostgresSaver checkpoints"]
         E4["events/emitter/<br/>progress + callback events"]
-        E5["supervisor.py · swarm.py<br/>Multi-agent topologies"]
-        E6["runner.py · nodes.py<br/>Node dispatch (agent / tool / deepagent / llm)"]
+        E5["supervisor.py · swarm.py · official_patterns.py<br/>Multi-agent topologies"]
+        E6["executor/nodes.py<br/>Node dispatch (agent / tool / deepagent / llm)"]
     end
 
     H1 --> E1
@@ -943,10 +947,12 @@ flowchart TB
 Key mechanics:
 
 - **Node dispatch** — each workflow node can be an LLM call, a tool, a normal agent, a
-  DeepAgent node (resolved by the `use_deepagents` flag, `crud.py:285-334`), or a
+  DeepAgent node (resolved by the `use_deepagents` flag, `executor/nodes.py:237-245`), or a
   supervisor/swarm pattern.
-- **Checkpointing** — every execution step is checkpointed to Postgres, so executions can be
-  paused, resumed, and restored (`api/workflows/checkpoints.py`).
+- **Checkpointing** — enabled by default; every execution step is checkpointed to Postgres
+  via the `AsyncPostgresSaver`, so executions can be paused, resumed, and restored
+  (`api/workflows/checkpoints.py` → `checkpointing/utils.py`). HITL `interrupt_before` is
+  wired from `APPROVAL_NODE`s at compile time.
 - **Event streaming** — the emitter pushes progress + callback events over SSE; the UI
   subscribes via `useWorkflowStream` to update the canvas live.
 - **Orchestration & HITL** — `orchestration` routes drive multi-step runs; `hitl` routes
@@ -965,21 +971,23 @@ with live SSE streaming.
 ### Backend — native graph hosting
 
 `backend/api/graph_studio/routes.py` registers one router (`/api/graph-studio`, mounted in
-`main.py`) exposing 11 endpoints:
+`main.py`) exposing 13 endpoints (11 documented here plus the two marked †):
 
 | Endpoint                                             | Purpose                                                            |
 | ---------------------------------------------------- | ------------------------------------------------------------------ |
 | `POST /assistants/search`                           | List code-defined assistants (registry)                            |
 | `GET /assistants/{id}/graph`                        | Introspect nodes + edges (`compiled.get_graph()`) for the canvas   |
 | `GET /assistants/{id}/schemas`                      | input / state / output jsonschemas (`get_*_jsonschema()`)          |
+| `GET /assistants/{id}/code` †                       | Raw source of a code-defined assistant                             |
 | `POST /threads/search`                              | List in-memory threads (filter by `graph_id`)                      |
 | `POST /threads`                                     | Create a thread (uuid-hex id, status `idle`)                       |
 | `GET /threads/{id}/state`                           | Checkpointed state via `compiled.aget_state(config)`               |
 | `GET /threads/{id}/runs`                            | Run history for a thread                                           |
 | `POST /threads/{id}/runs/stream`                    | SSE run — `messages/partial` · `values` · `updates`                |
-| `GET /databases`                                    | List the Postgres databases the SQL tools can target + the active one |
-| `POST /databases/select`                            | Switch the SQL tools' target database at runtime (no `.env` edit)   |
 | `POST /threads/{id}/runs/cancel`                    | Interrupt an in-flight run (stops at the next SSE event boundary)   |
+| `GET /databases`                                    | List the Postgres databases the SQL tools can target + the active one |
+| `GET /databases/summary` †                          | LLM-generated business summary of the active database              |
+| `POST /databases/select`                            | Switch the SQL tools' target database at runtime (no `.env` edit)   |
 
 Key mechanics:
 
@@ -1079,7 +1087,7 @@ flowchart LR
 | MemoryMiddleware        | deepagents SDK                | Loads project`AGENTS.md` into the system prompt (cache-controlled for Anthropic)                          |
 | FilesystemMiddleware    | deepagents SDK                | File read/write scoped to the task workspace                                                                |
 | SummarizationMiddleware | deepagents SDK                | Auto-compresses history past a token threshold (langchain ≥1.3.14 renamed kind`"token"` → `"tokens"`) |
-| SubAgentMiddleware      | added by assembly             | Provides the`task` tool so the main agent can delegate to subagents                                       |
+| SubAgentMiddleware      | auto-created by the SDK when `subagents=` is passed | Provides the`task` tool so the main agent can delegate to subagents                                       |
 | Custom middleware       | `core/middleware/deep.py`   | Self-contained TodoListMiddleware + others (guarded imports keep SDK compat)                                |
 | Sandbox                 | optional`LocalShellBackend` | `execute` tool for shell/python in the workspace                                                          |
 
@@ -1087,10 +1095,9 @@ flowchart LR
 
 ## 15. Export subsystem (ship it)
 
-The "develop in the IDE, run anywhere" story. `ExportService` (`services/export_service.py`)
-produces two artifact kinds:
+The "develop in the IDE, run anywhere" story. Export lives in two places: the **standalone codegen** endpoint `download_agent_code()` in `api/agents/deep_agents.py` (which inlines tool sources, skills, and LLM init into a single runnable `.py`), and the **`.langconfig` bundle** endpoints (`/export`, `build_agent_bundle`/`import_agent_bundle` in `services/agent_bundle.py`) for re-import into another LangConfig instance.
 
-### `ExportService.export_standalone()` — a runnable repository
+### `download_agent_code()` — a runnable repository
 
 Generates a **zip containing a complete standalone agent project**:
 
@@ -1111,7 +1118,7 @@ deepagent_export/
 └── ui/ (index.html, chat.js, styles.css)  # optional chat UI
 ```
 
-### `ExportService.export_langconfig()` — an interchange bundle
+### `build_agent_bundle()` — an interchange bundle
 
 Exports a **langconfig bundle** (JSON + assets) that can be re-imported into another
 LangConfig instance — the "package for re-use" format.
@@ -1121,7 +1128,7 @@ LangConfig instance — the "package for re-use" format.
 ```mermaid
 flowchart LR
     U1["DeepAgentStudio → Export .py"] --> U2["POST /api/deepagents/{id}/export<br/>(or /code)"]
-    U2 --> U3["ExportService.export_standalone()"]
+    U2 --> U3["download_agent_code()<br/>(api/agents/deep_agents.py)"]
     U3 --> U4["Generate standalone project<br/>(langchain create_agent + PostgresSaver)"]
     U4 --> U5["Download zip / backend/outputs/exports/*.py"]
     U5 --> U6["Run by CLI:<br/>uv run python demo2.py \"query\""]
@@ -1153,7 +1160,7 @@ SQLAlchemy models in `backend/models/` map to these tables:
 
 ### 16.1 The unified `models` table — cloud + local LLMs in one place
 
-The `models` table is the single source of truth for every model the app can call. It replaces the legacy hardcoded enum (`constants/models.py`) and the now-removed `local_models` split. Both managed cloud entries and user-added local entries share one schema, distinguished by `source`.
+The `models` table is the single source of truth for every model the app can call. It replaces the legacy hardcoded enum (`constants/models.py`). Both managed cloud entries and user-added local entries share one schema, distinguished by `source`. The legacy `local_models` table and `/api/local-models` routes remain for local-server configuration (Ollama, LM Studio, vLLM) and surface alongside cloud rows in the unified model listing.
 
 **Schema** (`backend/models/model.py`):
 
@@ -1196,7 +1203,7 @@ The `models` table is the single source of truth for every model the app can cal
 
 **Reads** go through `GET /api/settings/models` which returns both cloud and validated local models with full metadata. The chat + workflow engines call this once at startup.
 
-**The provider→key mapping** is independent of `models`: cloud providers' API keys live in `settings.api_keys.{provider}_api_key` (encrypted at rest), and resolution is DB-first, `.env` fallback. See §16.2.
+**The provider→key mapping** is independent of `models`: cloud providers' API keys live in the root `.env` (canonical) with an encrypted-at-rest fallback in `settings.api_keys.{provider}_api_key`; resolution is **`.env`-first, DB fallback** (`config.get_api_key_from_db`). See §16.2.
 
 ---
 | `user_profile.py`                                                       | User profile                                                                                                             |
@@ -1437,7 +1444,7 @@ tool works transparently against the DB.
 | What builds a normal agent?   | `core/agents/factory/assembly.py` → `AgentFactory.create_agent`                                                  |
 | What builds a DeepAgent?      | `services/deepagent_factory/assembly.py` → `DeepAgentFactory.create_deep_agent`                                  |
 | What is`deep_agents.py`?    | The REST controller (CRUD + prompt-preview + export) — not the builder                                               |
-| Where is export code?         | `services/export_service.py` (`ExportService`)                                                                    |
+| Where is export code?         | `api/agents/deep_agents.py` (`download_agent_code`/`export_deepagent`) + `services/agent_bundle.py` |
 | Where do agents persist?      | `deep_agent_templates` table (flag `config.use_deepagents`)                                                       |
 | How does chat stream?         | `POST /api/chat/message/stream` → SSE via `useChatStreaming` / `streamChatEvents.ts`                           |
 | How do workflows run?         | `core/workflows/` executor + Postgres checkpointer, streamed over SSE                                               |
