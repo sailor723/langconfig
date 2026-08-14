@@ -79,7 +79,7 @@ def get_ddg_search():
     return _ddg_search
 
 @tool
-async def web_search(query: str, max_results: int = 5) -> str:
+async def web_search(query: str, max_results: int = 8) -> str:
     """
     Search the web using DuckDuckGo's HTML API (async-safe, no event loop conflicts).
 
@@ -209,7 +209,7 @@ async def web_search(query: str, max_results: int = 5) -> str:
             logger.warning(f"Yahoo fallback also failed: {fallback_e}")
             return f"Error performing web search: {str(e)}"
 
-async def _yahoo_search_fallback(query: str, max_results: int = 5) -> Optional[str]:
+async def _yahoo_search_fallback(query: str, max_results: int = 8) -> Optional[str]:
     """Fallback search using Yahoo."""
     try:
         from bs4 import BeautifulSoup

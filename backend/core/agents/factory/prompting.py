@@ -151,6 +151,24 @@ You have the 'save_document' tool for persisting the FINAL deliverable of this t
             custom_guardrails=agent_config.get("guardrails"),
         )
 
+        # 2b. Web-research efficiency hints. Without these, research questions
+        # can loop through dozens of one-at-a-time web_search calls (observed:
+        # 42 searches for one stock-market question, with rate-limit retries).
+        _tool_names = {getattr(t, "name", "") for t in tools}
+        if _tool_names & {"web_search", "tavily_search", "web_fetch", "ddg_search"}:
+            system_prompt_str += (
+                "\n\n# Web research efficiency\n"
+                "- Batch independent searches: when you need several facts, "
+                "issue multiple search tool calls in ONE parallel round.\n"
+                "- Never re-search the same fact — reuse results already "
+                "returned this conversation.\n"
+                "- Prefer fewer, broader queries: aim to finish research "
+                "within ~8 search calls; use web_fetch only for a promising "
+                "page.\n"
+                "- If a search is rate-limited or returns nothing, move on — "
+                "do not retry variations of the same query."
+            )
+
         # 3. Optionally inject skills.
         if agent_config.get("enable_skills", False):
             explicit_skills = agent_config.get("skills", [])
