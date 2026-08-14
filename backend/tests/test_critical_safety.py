@@ -35,11 +35,21 @@ from api.workflows.routes import create_workflow_version, create_workflow_execut
 
 @pytest.fixture
 def db_engine():
-    """Create test database engine."""
-    # Use in-memory SQLite for tests
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    """Create test database engine.
 
-    # Create tables
+    Uses the dedicated PostgreSQL test DB (TEST_DATABASE_URL) — SQLite cannot
+    render the models' Postgres JSONB columns, which made every test here
+    error out.
+    """
+    import os
+    url = os.getenv(
+        "TEST_DATABASE_URL",
+        "postgresql+asyncpg://langconfig:langconfig_dev@localhost:5432/langconfig_test",
+    )
+    engine = create_engine(url.replace("postgresql+asyncpg://", "postgresql://"), echo=False)
+
+    # Ensure the tables exist (create_all is idempotent; the conftest session
+    # fixture already migrates the test DB).
     from models.workflow import Base
     Base.metadata.create_all(engine)
 
@@ -51,20 +61,36 @@ def db_engine():
 
 @pytest.fixture
 def db_session(db_engine):
-    """Create test database session."""
+    """Create test database session.
+
+    The Postgres test DB is shared across tests, so each test gets a clean
+    slate via TRUNCATE on teardown (equivalent to SQLite in-memory isolation).
+    """
     SessionLocal = sessionmaker(bind=db_engine)
     session = SessionLocal()
 
     yield session
 
+    # Clean up all rows touched by these tests so fixed workflow names like
+    # "Workflow 1" / "Metrics Test" don't collide with the next test.
+    try:
+        session.execute(text(
+            "TRUNCATE workflow_executions, workflow_versions, workflow_profiles "
+            "RESTART IDENTITY CASCADE"
+        ))
+        session.commit()
+    except Exception:
+        session.rollback()
     session.close()
 
 
 @pytest.fixture
 def test_workflow(db_session):
-    """Create a test workflow."""
+    """Create a test workflow (unique name — the Postgres test DB is shared,
+    so a fixed name would collide with rows left by earlier tests)."""
+    import uuid
     workflow = WorkflowProfile(
-        name="Test Workflow",
+        name=f"Test Workflow {uuid.uuid4().hex[:8]}",
         configuration={"nodes": [], "edges": []},
         blueprint={"nodes": [], "edges": []}
     )

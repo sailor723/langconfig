@@ -111,10 +111,20 @@ class TransactionContext:
                         "committed": True
                     }
                 )
+                # Record metrics directly — the structured log events have no
+                # listener, so without this the counters never move.
+                try:
+                    transaction_metrics.record_commit(duration_ms)
+                except Exception:
+                    pass
             except Exception as e:
                 logger.error(f"Transaction commit failed: {self.name} - {e}")
                 self.session.rollback()
                 self.committed = False
+                try:
+                    transaction_metrics.record_rollback(duration_ms)
+                except Exception:
+                    pass
                 raise
         else:
             # Exception occurred - rollback transaction
@@ -136,6 +146,11 @@ class TransactionContext:
                     "error_message": str(exc_val)
                 }
             )
+            # Record metrics directly (see commit path above).
+            try:
+                transaction_metrics.record_rollback(duration_ms)
+            except Exception:
+                pass
 
         self._in_transaction = False
 

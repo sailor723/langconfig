@@ -72,6 +72,9 @@ except ImportError:
 
 # Global Playwright browser instance (lazy-loaded)
 _playwright_browser = None
+# Single-flight lock so concurrent get_playwright_browser() calls can't launch
+# two browser instances simultaneously (race condition).
+_playwright_init_lock = asyncio.Lock()
 
 
 # =============================================================================
@@ -201,7 +204,10 @@ def memory_store(key: str, value: str, context: str = "general") -> str:
         f"memory_store fallback used (key={key}). "
         f"Real implementation is in SimpleMemory."
     )
-    return f"Stored memory: {key} in context '{context}'"
+    # Return an explicit failure instead of a fake success — the agent must not
+    # believe its memory was persisted when it wasn't.
+    return (f"⚠️ memory_store is unavailable: SimpleMemory is not configured "
+            f"(fallback stub active). Memory '{key}' was NOT stored.")
 
 
 @tool
@@ -221,7 +227,8 @@ def memory_recall(key: str, context: str = "general") -> str:
         f"memory_recall fallback used (key={key}). "
         f"Real implementation is in SimpleMemory."
     )
-    return f"Memory lookup for '{key}' - Not yet implemented (use PostgreSQL checkpointer)"
+    return (f"⚠️ memory_recall is unavailable: SimpleMemory is not configured "
+            f"(fallback stub active). No memory found for '{key}'.")
 
 
 WRITE_TODOS_DESCRIPTION = """Create and manage structured task lists for tracking progress through complex workflows.
@@ -399,6 +406,11 @@ def vfs_read_file(
     if file_path not in files:
         return f"Error: File '{file_path}' not found"
 
+    if offset < 0:
+        return f"Error: offset must be >= 0 (got {offset})"
+    if limit < 1:
+        return f"Error: limit must be >= 1 (got {limit})"
+
     content = files[file_path]
     if not content:
         return "System reminder: File exists but has empty contents"
@@ -436,7 +448,10 @@ def vfs_write_file(
     Returns:
         Command to update agent state with new file content
     """
-    files = state.get("files", {})
+    # Copy-on-write: don't mutate the shared state dict in place — the previous
+    # behaviour (files[file_path] = content) leaked changes into the caller's
+    # state object even if the Command update were later discarded.
+    files = dict(state.get("files", {}))
     files[file_path] = content
     return Command(
         update={
@@ -478,37 +493,38 @@ async def get_playwright_browser():
     - Solution: Run sync Playwright in a separate thread (no event loop)
     """
     global _playwright_browser
-    if _playwright_browser is None:
-        logger.info("Initializing Playwright browser (headless mode)...")
-        try:
-            if sys.platform == 'win32':
-                # Windows: Run sync Playwright in thread to avoid event loop conflicts
-                logger.info("Windows detected: Using sync Playwright in thread pool")
-                import concurrent.futures
+    async with _playwright_init_lock:
+        if _playwright_browser is None:
+            logger.info("Initializing Playwright browser (headless mode)...")
+            try:
+                if sys.platform == 'win32':
+                    # Windows: Run sync Playwright in thread to avoid event loop conflicts
+                    logger.info("Windows detected: Using sync Playwright in thread pool")
+                    import concurrent.futures
 
-                # Execute in thread pool - the thread has no event loop,
-                # so sync_playwright can create its own subprocess handling
-                loop = asyncio.get_event_loop()
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    _playwright_browser = await loop.run_in_executor(
-                        executor,
-                        _init_sync_playwright
-                    )
-                logger.info("✓ Playwright browser initialized successfully (thread mode)")
-            else:
-                # Unix: Use async Playwright directly
-                from playwright.async_api import async_playwright
+                    # Execute in thread pool - the thread has no event loop,
+                    # so sync_playwright can create its own subprocess handling
+                    loop = asyncio.get_event_loop()
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                        _playwright_browser = await loop.run_in_executor(
+                            executor,
+                            _init_sync_playwright
+                        )
+                    logger.info("✓ Playwright browser initialized successfully (thread mode)")
+                else:
+                    # Unix: Use async Playwright directly
+                    from playwright.async_api import async_playwright
 
-                playwright = await async_playwright().start()
-                _playwright_browser = await playwright.chromium.launch(headless=True)
+                    playwright = await async_playwright().start()
+                    _playwright_browser = await playwright.chromium.launch(headless=True)
 
-                logger.info("✓ Playwright browser initialized successfully")
+                    logger.info("✓ Playwright browser initialized successfully")
 
-        except Exception as e:
-            logger.error(f"Failed to initialize Playwright browser: {e}")
-            logger.error("Make sure you ran: playwright install chromium")
-            logger.exception("Full traceback:")
-            raise
+            except Exception as e:
+                logger.error(f"Failed to initialize Playwright browser: {e}")
+                logger.error("Make sure you ran: playwright install chromium")
+                logger.exception("Full traceback:")
+                raise
     return _playwright_browser
 
 
