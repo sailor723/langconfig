@@ -57,11 +57,26 @@ class WorkspaceManager:
         if base_dir is None:
             # Default to backend/outputs, overridable via WORKSPACE_BASE_DIR
             # in the root .env (config.workspace_base_dir). Relative values
-            # resolve against the repo root (backend/..).
+            # resolve against the repo root (backend/..). The user-chosen
+            # workspace path from Settings / first-run setup (settings row,
+            # workspace_path) wins over the .env default when set.
             backend_dir = Path(__file__).parent.parent  # services/ -> backend/
             try:
                 from config import settings
                 configured = getattr(settings, "workspace_base_dir", None) or "backend/outputs"
+                try:
+                    from db.database import SessionLocal
+                    from models.settings import Settings as SettingsModel
+                    _db = SessionLocal()
+                    try:
+                        _row = _db.query(SettingsModel).filter(SettingsModel.id == 1).first()
+                        _ws = (_row.workspace_path or "").strip() if _row else ""
+                        if _ws:
+                            configured = _ws
+                    finally:
+                        _db.close()
+                except Exception:
+                    pass
             except Exception:
                 configured = "backend/outputs"
             p = Path(configured).expanduser()
@@ -874,3 +889,11 @@ def get_workspace_manager() -> WorkspaceManager:
     if _workspace_manager is None:
         _workspace_manager = WorkspaceManager()
     return _workspace_manager
+
+
+def reset_workspace_manager() -> None:
+    """Drop the cached singleton so the next get_workspace_manager() call
+    re-resolves the base dir. Call after the user changes the workspace path
+    (Settings / first-run setup) so the new root takes effect immediately."""
+    global _workspace_manager
+    _workspace_manager = None

@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLayoutTokens } from './tokens';
 import { useTheme, type ThemeName } from '../../lib/themes';
 import { useTranslation } from 'react-i18next';
-import { Check, Sun, Moon, Flame, FolderOpen, Database } from 'lucide-react';
+import { Check, Sun, Moon, Flame, FolderOpen, Database, Sparkles } from 'lucide-react';
 import apiClient from '../../lib/api-client';
 
 interface SystemSettingsPopoverProps {
@@ -381,6 +381,26 @@ export default function SystemSettingsPopover({ anchorRef, onClose }: SystemSett
           </div>
         </div>
       )}
+
+      {/* ── Footer: re-run first-time setup ── */}
+      <div style={{ padding: '6px 8px', borderTop: `1px solid ${tk.border}` }}>
+        <button
+          onClick={() => {
+            onClose();
+            window.dispatchEvent(new CustomEvent('setup:open'));
+          }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+            padding: '6px 10px', background: 'transparent', border: 'none',
+            borderRadius: 3, cursor: 'pointer', color: tk.textMuted, fontSize: 12, textAlign: 'left',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = tk.bgHover; e.currentTarget.style.color = tk.textPrimary; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = tk.textMuted; }}
+        >
+          <Sparkles size={13} strokeWidth={1.5} />
+          Re-run setup wizard
+        </button>
+      </div>
     </div>
   );
 }

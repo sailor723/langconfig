@@ -21,6 +21,10 @@ class Settings(Base):
 
     id = Column(Integer, primary_key=True, default=1)  # Always 1
 
+    # First-run onboarding: set to True once the user completes the setup
+    # wizard (API key + workspace). False → the app shows the wizard on boot.
+    setup_complete = Column(Boolean, default=False)
+
     # API Keys (encrypted in production)
     # Note: Should be moved to OS keychain via Tauri for security
     api_keys = Column(JSON, default=dict)  # {"openai": "sk-...", "anthropic": "sk-ant-..."}
