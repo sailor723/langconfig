@@ -69,16 +69,14 @@ DEFAULT_AGENTS_MD = """# Project {project_id} Conventions
 
 
 def _project_vault_key(project_id: int) -> str:
-    """Folder key for a project: its user-visible ``number`` when set, else
-    the DB ``id`` (consistent with WorkspaceManager.project_vault_key)."""
+    """Folder key for a project: its sanitized name (users can find it), else
+    the DB id — consistent with WorkspaceManager.project_vault_key."""
     try:
         from db.database import SessionLocal
-        from models.core import Project
+        from services.workspace_manager import WorkspaceManager
         db = SessionLocal()
         try:
-            row = db.get(Project, project_id)
-            if row is not None and row.number:
-                return str(row.number)
+            return WorkspaceManager.project_vault_key(db, project_id) or str(project_id)
         finally:
             db.close()
     except Exception:

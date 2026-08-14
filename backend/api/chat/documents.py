@@ -49,6 +49,7 @@ def _resolve_agent_workspace(session, db, ws_mgr):
             return ws_mgr.resolve_agent_workspace(
                 agent, project_id,
                 vault_key=ws_mgr.project_vault_key(db, project_id) or None,
+                agent_key=ws_mgr.agent_vault_key(db, agent),
             )
     return ws_mgr.get_agent_workspace(session.agent_id)
 

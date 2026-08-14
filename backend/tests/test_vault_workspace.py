@@ -93,3 +93,122 @@ def test_materialize_rejects_unsafe_doc_name(tmp_path):
     ws.mkdir()
     _materialize_agent_docs(agent, str(ws))
     assert not (ws.parent / "etc" / "pwn.md").exists()
+
+
+# ── name-based vault folder keys ────────────────────────────────────
+
+class _FakeDb:
+    def __init__(self, rows, name):
+        self.rows = rows
+        self._current_id = None
+
+    def get(self, model, project_id):
+        self._current_id = project_id
+        return next((r for r in self.rows if r.id == project_id), None)
+
+    def query(self, model):
+        return self
+
+    def filter(self, *a, **kw):
+        return self
+
+    def all(self):
+        # Mirrors the real `Project.id != project_id` collision query.
+        return [r for r in self.rows if r.id != self._current_id]
+
+
+class _Row:
+    def __init__(self, id, name):
+        self.id = id
+        self.name = name
+
+
+def test_vault_key_is_sanitized_project_name():
+    from services.workspace_manager import WorkspaceManager
+    db = _FakeDb([_Row(2, "my-project"), _Row(7, "my demo project 1")], None)
+    assert WorkspaceManager.project_vault_key(db, 2) == "my-project"
+    assert WorkspaceManager.project_vault_key(db, 7) == "my-demo-project-1"
+
+
+def test_vault_key_cjk_names_kept():
+    from services.workspace_manager import WorkspaceManager
+    db = _FakeDb([_Row(9, "我的项目")], None)
+    assert WorkspaceManager.project_vault_key(db, 9) == "我的项目"
+
+
+def test_vault_key_falls_back_to_id():
+    from services.workspace_manager import WorkspaceManager
+    assert WorkspaceManager.project_vault_key(None, 42) == "42"
+
+
+def test_vault_key_collision_appends_id():
+    from services.workspace_manager import WorkspaceManager
+    db = _FakeDb([_Row(2, "My Project"), _Row(3, "my-project")], None)
+    assert WorkspaceManager.project_vault_key(db, 3) == "my-project-3"
+
+
+def test_slugify_safe():
+    from services.workspace_manager import WorkspaceManager
+    assert WorkspaceManager._slugify("My Demo Project! / 1") == "my-demo-project-1"
+    assert WorkspaceManager._slugify("") == "project"
+    assert "/" not in WorkspaceManager._slugify("a/b/c")
+    assert ".." not in WorkspaceManager._slugify("..")
+
+
+# ── name-based agent folder keys ────────────────────────────────────
+
+class _FakeAgentRow:
+    def __init__(self, id, name):
+        self.id = id
+        self.name = name
+
+
+class _AgentDb:
+    def __init__(self, rows):
+        self.rows = rows
+        self._current_id = None
+
+    def query(self, model):
+        return self
+
+    def filter(self, *a, **kw):
+        return self
+
+    def all(self):
+        return [r for r in self.rows if r.id != self._current_id]
+
+
+def test_agent_vault_key_is_sanitized_name():
+    from services.workspace_manager import WorkspaceManager
+    db = _AgentDb([_FakeAgentRow(159, "hello"), _FakeAgentRow(160, "My Research Agent")])
+    db._current_id = 159
+    assert WorkspaceManager.agent_vault_key(db, _FakeAgentRow(159, "hello")) == "hello"
+    db._current_id = 160
+    assert WorkspaceManager.agent_vault_key(db, _FakeAgentRow(160, "My Research Agent")) == "my-research-agent"
+
+
+def test_agent_vault_key_collision_appends_id():
+    from services.workspace_manager import WorkspaceManager
+    db = _AgentDb([_FakeAgentRow(159, "hello"), _FakeAgentRow(160, "Hello")])
+    db._current_id = 160
+    assert WorkspaceManager.agent_vault_key(db, _FakeAgentRow(160, "Hello")) == "hello-160"
+
+
+def test_agent_vault_key_falls_back_to_id_without_name():
+    from services.workspace_manager import WorkspaceManager
+    class NoName:
+        id = 7
+    assert WorkspaceManager.agent_vault_key(None, NoName()) == "agent_7"
+
+
+def test_resolve_uses_agent_key_folder():
+    from services.workspace_manager import WorkspaceManager
+    from pathlib import Path
+    import tempfile
+    tmp = Path(tempfile.mkdtemp()).resolve()
+    m = WorkspaceManager(base_dir=str(tmp))
+    ws = m.resolve_agent_workspace(_FakeAgent(159), project_id=2, vault_key="my-project", agent_key="hello")
+    assert str(ws.relative_to(tmp)) == "projects/my-project/agents/hello"
+    # legacy fallback without keys stays agent_{id}
+    ws2 = m.resolve_agent_workspace(_FakeAgent(159), project_id=2)
+    assert str(ws2.relative_to(tmp)) == "projects/2/agents/agent_159"
