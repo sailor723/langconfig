@@ -116,7 +116,10 @@ export function useLayoutState(): LayoutState {
 }
 
 export function LayoutProvider({ children }: { children: ReactNode }) {
-  const [activeActivity, setActiveActivity] = useState<ActivityId>('workflows');
+  // Default to 'vault' (project anchor, sidebar hidden) — the app boots to the
+  // create/select-project launcher, which must not show any browser chrome
+  // (e.g. the workflow browser) before a project is opened.
+  const [activeActivity, setActiveActivity] = useState<ActivityId>('vault');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(260);
   const [tabs, setTabs] = useState<Tab[]>([]);

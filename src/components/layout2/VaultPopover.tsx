@@ -5,6 +5,7 @@
  * (vaults) and lets the user select one. Closes on selection or outside click.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLayoutTokens } from './tokens';
 import { useProject } from '../../contexts/ProjectContext';
 import { Folder, CheckCircle, Loader, Plus, X } from 'lucide-react';
@@ -17,6 +18,7 @@ interface VaultPopoverProps {
 
 export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) {
   const t = useLayoutTokens();
+  const navigate = useNavigate();
   const { activeProjectId, projects, setActiveProjectId, refreshProjects, loading } = useProject();
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const [creating, setCreating] = useState(false);
@@ -52,6 +54,7 @@ export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) 
   const handleSelect = (id: number) => {
     setActiveProjectId(id);
     onClose();
+    navigate('/project');
   };
 
   const handleCreate = async () => {
@@ -68,6 +71,7 @@ export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) 
       setActiveProjectId(newProject.id);
       setNewName('');
       onClose();
+      navigate('/project');
     } catch (err: any) {
       const detail = err?.response?.data?.detail ?? err?.message ?? 'Failed to create project';
       setError(typeof detail === 'string' ? detail : 'Failed to create project');

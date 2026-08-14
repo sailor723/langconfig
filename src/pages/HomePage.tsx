@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FolderPlus, FolderOpen } from 'lucide-react';
 import { useProject } from '../contexts/ProjectContext';
@@ -20,11 +20,9 @@ export default function HomePage() {
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [createForm, setCreateForm] = useState({
     name: '',
-    description: '',
-    directory_path: ''
+    description: ''
   });
   const [creating, setCreating] = useState(false);
-  const directoryInputRef = useRef<HTMLInputElement>(null);
 
   const handleCreateProject = async () => {
     if (!createForm.name.trim()) {
@@ -36,10 +34,7 @@ export default function HomePage() {
     try {
       const response = await apiClient.createProject({
         name: createForm.name,
-        description: createForm.description || undefined,
-        configuration: {
-          directory_path: createForm.directory_path || undefined
-        }
+        description: createForm.description || undefined
       });
 
       // Axios throws on error by default, so if we get here it's success
@@ -47,8 +42,8 @@ export default function HomePage() {
       await refreshProjects();
       setActiveProjectId(newProject.id);
       setShowCreateModal(false);
-      setCreateForm({ name: '', description: '', directory_path: '' });
-      navigate('/studio');
+      setCreateForm({ name: '', description: '' });
+      navigate('/project');
     } catch (error) {
       console.error('Failed to create project:', error);
       alert('Failed to create project. Check console for details.');
@@ -60,25 +55,7 @@ export default function HomePage() {
   const handleOpenProject = (projectId: number) => {
     setActiveProjectId(projectId);
     setShowOpenModal(false);
-    navigate('/studio');
-  };
-
-  const handleDirectorySelect = () => {
-    if (directoryInputRef.current) {
-      directoryInputRef.current.click();
-    }
-  };
-
-  const handleDirectoryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      // Get the directory path from the first file
-      const firstFile = files[0];
-      // Extract directory path (remove filename)
-      const fullPath = firstFile.webkitRelativePath || firstFile.name;
-      const directoryPath = fullPath.split('/')[0];
-      setCreateForm(prev => ({ ...prev, directory_path: directoryPath }));
-    }
+    navigate('/project');
   };
 
   return (
@@ -302,49 +279,6 @@ export default function HomePage() {
                     style={{
                       color: 'var(--color-text-primary)'
                     }}
-                  />
-                </div>
-
-                {/* Directory Path */}
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: 'var(--color-text-primary)' }}
-                  >
-                    Link to Directory (Optional)
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={createForm.directory_path}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, directory_path: e.target.value }))}
-                      placeholder="No directory selected"
-                      readOnly
-                      className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-border-dark bg-gray-100 dark:bg-background-dark"
-                      style={{
-                        color: 'var(--color-text-muted)'
-                      }}
-                    />
-                    <button
-                      onClick={handleDirectorySelect}
-                      className="px-4 py-2 rounded-lg border transition-all hover:bg-white/5"
-                      style={{
-                        borderColor: 'var(--color-border-dark)',
-                        color: 'var(--color-text-primary)'
-                      }}
-                    >
-                      Browse
-                    </button>
-                  </div>
-                  <input
-                    ref={directoryInputRef}
-                    type="file"
-                    // @ts-ignore
-                    webkitdirectory=""
-                    directory=""
-                    multiple
-                    onChange={handleDirectoryChange}
-                    className="hidden"
                   />
                 </div>
               </div>
