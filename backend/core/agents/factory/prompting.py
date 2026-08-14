@@ -89,6 +89,7 @@ You have the 'save_document' tool for persisting the FINAL deliverable of this t
 - Call save_document(title=..., content=..., doc_type=...) with the COMPLETE final document once you have finished it
 - Use a clear, descriptive title (e.g. 'Q3 Market Analysis Report') and the full final content
 - Use write_file only for working files (scratch, todos, intermediate artifacts) — never for the final deliverable
+- Both tools write into the agent workspace's 'generated' folder, which is where the user looks for your output
 """
 
         system_message_content = f"""{guardrails}

@@ -801,17 +801,21 @@ def _write_file_impl(
                         f"workspace output folder instead (e.g. '{filename}').")
 
         # Always use organized workspace for better file management
-        from services.workspace_manager import get_workspace_manager
+        from services.workspace_manager import get_workspace_manager, AGENT_GENERATED_DIR
 
         workspace_mgr = get_workspace_manager()
 
         # If workspace context provided, use it; otherwise use a default workspace
         if _workspace_context:
             # Per-agent workspace root takes precedence: used as-is, no
-            # workflow/task subdirectories appended.
+            # workflow/task subdirectories appended. Generated deliverables
+            # land in the dedicated "generated" subfolder (uploads live in
+            # "knowledge-base", instruction docs at the root).
             workspace_root = _workspace_context.get('workspace_root')
             if workspace_root:
                 workspace = Path(workspace_root).resolve()
+                workspace.mkdir(parents=True, exist_ok=True)
+                workspace = workspace / AGENT_GENERATED_DIR
                 workspace.mkdir(parents=True, exist_ok=True)
             else:
                 # Use custom output path if configured for this workflow
@@ -1276,16 +1280,17 @@ def _save_document_impl(
             db.close()
 
         # Write-through: also drop a file copy into the agent's workspace
-        # (workspace_root) so the Files panel — which lists workspace files —
-        # shows this document. The DB row remains the versioned source of
-        # truth; the copy is for visibility/download convenience.
+        # generated/ subfolder so the Files panel — which lists workspace
+        # files — shows this document. The DB row remains the versioned source
+        # of truth; the copy is for visibility/download convenience.
         ws_copy = None
         ws_root = (_workspace_context or {}).get("workspace_root")
         if ws_root:
             try:
                 from pathlib import Path as _Path
+                from services.workspace_manager import AGENT_GENERATED_DIR
                 safe_title = _Path(title).name or "document"
-                target = _Path(ws_root).resolve() / f"{safe_title}.md"
+                target = _Path(ws_root).resolve() / AGENT_GENERATED_DIR / f"{safe_title}.md"
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(content, encoding="utf-8")
                 ws_copy = str(target)
