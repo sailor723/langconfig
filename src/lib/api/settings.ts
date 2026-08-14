@@ -97,6 +97,9 @@ export interface SettingsApi {
     auto_detect_git?: boolean;
     backup_before_edit?: boolean;
   }): Promise<any>;
+  validateWorkspacePath(path: string): Promise<any>;
+  getSetupStatus(): Promise<any>;
+  completeSetup(): Promise<any>;
   getModelDefaults(): Promise<any>;
   updateModelDefaults(data: {
     primary_model?: string;
@@ -317,6 +320,18 @@ export const settingsApi: SettingsApi = {
     backup_before_edit?: boolean;
   }) {
     return this.post('/api/settings/workspace', data);
+  },
+
+  async validateWorkspacePath(this: APIClient, path: string) {
+    return this.post('/api/settings/workspace/validate', { path });
+  },
+
+  async getSetupStatus(this: APIClient) {
+    return this.get('/api/settings/setup-status');
+  },
+
+  async completeSetup(this: APIClient) {
+    return this.post('/api/settings/setup-complete');
   },
 
   async getModelDefaults(this: APIClient) {

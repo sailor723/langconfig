@@ -41,6 +41,8 @@ import { ChatProvider } from './features/chat/state/ChatContext';
 import GlobalChatModal from './features/chat/ui/GlobalChatModal';
 import ChatPage from './features/chat/ui/ChatPage';
 import apiClient from './lib/api-client';
+import { useProject } from './contexts/ProjectContext';
+import SetupWizard from './components/layout2/SetupWizard';
 
 // Layout2 components
 import { LayoutProvider, useLayoutState, type ActivityId } from './components/layout2/useLayout';
@@ -230,8 +232,27 @@ const ACTIVITY_TO_VIEW: Partial<Record<ActivityId, View>> = {
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { activeProjectId } = useProject();
   const workflowCanvasRef = useRef<WorkflowCanvasRef>(null);
   const saveWorkflowTimeoutRef = useRef<number | null>(null);
+
+  // ── First-run setup wizard ──────────────────────────────
+  // While the setup status is unknown we render nothing (avoids a flash of
+  // the IDE); if setup is needed, the wizard replaces the whole shell until
+  // the user finishes it. Re-openable via the 'setup:open' window event.
+  const [setupChecked, setSetupChecked] = useState(false);
+  const [setupNeeded, setSetupNeeded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient.getSetupStatus()
+      .then((r: any) => { if (!cancelled) setSetupNeeded(!!r.data?.needs_setup); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setSetupChecked(true); });
+    const handler = () => setSetupNeeded(true);
+    window.addEventListener('setup:open', handler);
+    return () => { cancelled = true; window.removeEventListener('setup:open', handler); };
+  }, []);
 
   const [selectedRecipe, setSelectedRecipe] = useState<WorkflowRecipe | null>(null);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<number | null>(null);
@@ -485,6 +506,20 @@ function AppContent() {
 
   // Chat is a standalone full-page view — render without layout chrome.
   // Returned here, after all hooks, to satisfy the Rules of Hooks.
+  if (!setupChecked) {
+    // Setup status not known yet — blank screen avoids a flash of the IDE.
+    return null;
+  }
+  if (setupNeeded) {
+    return (
+      <SetupWizard
+        onComplete={() => {
+          setSetupNeeded(false);
+          navigate(activeProjectId ? '/project' : '/');
+        }}
+      />
+    );
+  }
   if (currentView === 'chat') {
     return <ChatPage />;
   }

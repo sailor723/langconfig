@@ -57,6 +57,7 @@ class APIKeyResponse(BaseModel):
     masked_key: Optional[str] = None
     connected: Optional[bool] = None
     connected_message: Optional[str] = None
+    kind: str = "chat"  # "chat" | "search" — lets the UI group providers
 
 
 class SettingsUpdate(BaseModel):
@@ -106,6 +107,26 @@ class WorkspaceSettings(BaseModel):
     require_approval: Optional[bool] = True
     auto_detect_git: Optional[bool] = True
     backup_before_edit: Optional[bool] = True
+
+
+class WorkspaceValidateRequest(BaseModel):
+    path: str
+
+
+class WorkspaceValidateResponse(BaseModel):
+    valid: bool
+    resolved_path: Optional[str] = None
+    exists: bool = False
+    writable: bool = False
+    error: Optional[str] = None
+
+
+class SetupStatusResponse(BaseModel):
+    needs_setup: bool
+    completed: bool
+    has_api_key: bool
+    has_workspace: bool
+    default_workspace_path: str
 
 
 class ModelDefaultsSettings(BaseModel):
@@ -331,14 +352,18 @@ async def get_api_keys(db: Session = Depends(get_db)):
     db_keys = _db_api_keys(db)
     results = []
     for provider in providers:
-        # DB-first (encrypted at rest) → .env fallback
+        # DB-first (encrypted at rest) → .env fallback. A stored key that
+        # can't be decrypted (encryption key rotated) is treated as unset.
         key = None
         field = API_PROVIDER_KEY_FIELDS.get(provider)
         if field:
             db_val = db_keys.get(field)
             if db_val:
                 from services.encryption import encryption_service
-                key = encryption_service.decrypt(db_val)
+                try:
+                    key = encryption_service.decrypt(db_val)
+                except Exception:
+                    key = None
         if not key:
             key = _get_env_key_for_provider(provider)
         results.append(
@@ -348,6 +373,7 @@ async def get_api_keys(db: Session = Depends(get_db)):
                 masked_key=mask_api_key(key) if key else None,
                 connected=None,
                 connected_message=None,
+                kind="search" if provider in SEARCH_PROVIDERS else "chat",
             )
         )
 
@@ -853,13 +879,58 @@ async def get_workspace_settings(db: Session = Depends(get_db)):
     )
 
 
+def _validate_workspace_path(path: str) -> WorkspaceValidateResponse:
+    """Check a workspace path is usable: resolvable, exists (or creatable),
+    and writable."""
+    from pathlib import Path
+    import os
+    try:
+        p = Path(path).expanduser().resolve()
+    except Exception as e:
+        return WorkspaceValidateResponse(valid=False, error=f"Invalid path: {e}")
+    try:
+        p.mkdir(parents=True, exist_ok=True)
+        exists = p.is_dir()
+        writable = os.access(p, os.W_OK)
+        if not writable:
+            return WorkspaceValidateResponse(
+                valid=False, resolved_path=str(p), exists=exists,
+                writable=False, error="Directory is not writable",
+            )
+        return WorkspaceValidateResponse(
+            valid=True, resolved_path=str(p), exists=exists, writable=True,
+        )
+    except Exception as e:
+        return WorkspaceValidateResponse(
+            valid=False, resolved_path=str(p), exists=False,
+            writable=False, error=str(e),
+        )
+
+
+@router.post("/workspace/validate", response_model=WorkspaceValidateResponse)
+async def validate_workspace_path(payload: WorkspaceValidateRequest):
+    """Validate a candidate workspace path without saving it."""
+    return _validate_workspace_path(payload.path)
+
+
 @router.post("/workspace", response_model=WorkspaceSettings)
 async def update_workspace_settings(workspace: WorkspaceSettings, db: Session = Depends(get_db)):
     """Update workspace configuration"""
+    from services.workspace_manager import reset_workspace_manager
     settings = get_or_create_settings(db)
 
     if workspace.workspace_path is not None:
-        settings.workspace_path = workspace.workspace_path
+        path = (workspace.workspace_path or "").strip()
+        if path:
+            check = _validate_workspace_path(path)
+            if not check.valid:
+                raise HTTPException(status_code=400, detail=check.error or "Invalid workspace path")
+            settings.workspace_path = check.resolved_path
+            # The workspace root changed — drop the cached manager so the new
+            # path is used immediately.
+            reset_workspace_manager()
+        else:
+            settings.workspace_path = ""
     if workspace.allow_read is not None:
         settings.workspace_allow_read = workspace.allow_read
     if workspace.allow_write is not None:
@@ -882,6 +953,71 @@ async def update_workspace_settings(workspace: WorkspaceSettings, db: Session = 
         auto_detect_git=settings.workspace_auto_detect_git,
         backup_before_edit=settings.workspace_backup_before_edit
     )
+
+
+# First-run setup endpoints
+def _default_workspace_path() -> str:
+    """The workspace root the app would use with no user override (resolved)."""
+    from pathlib import Path
+    backend_dir = Path(__file__).resolve().parent.parent.parent  # api/system -> backend
+    from config import settings as cfg
+    configured = getattr(cfg, "workspace_base_dir", None) or "backend/outputs"
+    p = Path(configured).expanduser()
+    if not p.is_absolute():
+        p = backend_dir.parent / p
+    return str(p.resolve())
+
+
+def _has_any_chat_api_key(db: Session) -> bool:
+    """True when at least one chat provider has a usable key (DB or .env).
+
+    A stored DB key that can't be decrypted (e.g. the encryption key was
+    rotated) counts as not-set — the user can re-enter it in the setup.
+    """
+    db_keys = _db_api_keys(db)
+    from services.encryption import encryption_service
+    for provider in _active_providers(db):
+        field = API_PROVIDER_KEY_FIELDS.get(provider)
+        if field:
+            db_val = db_keys.get(field)
+            if db_val:
+                try:
+                    if encryption_service.decrypt(db_val):
+                        return True
+                except Exception:
+                    continue  # undecryptable stored key → treat as not set
+        if _get_env_key_for_provider(provider):
+            return True
+    return False
+
+
+@router.get("/setup-status", response_model=SetupStatusResponse)
+async def get_setup_status(db: Session = Depends(get_db)):
+    """First-run onboarding status.
+
+    ``needs_setup`` is true until the user has completed the setup wizard AND
+    configured at least one provider key AND chosen a workspace path.
+    """
+    settings = get_or_create_settings(db)
+    completed = bool(getattr(settings, "setup_complete", False))
+    has_api_key = _has_any_chat_api_key(db)
+    has_workspace = bool((settings.workspace_path or "").strip())
+    return SetupStatusResponse(
+        needs_setup=not completed and (not has_api_key or not has_workspace),
+        completed=completed,
+        has_api_key=has_api_key,
+        has_workspace=has_workspace,
+        default_workspace_path=_default_workspace_path(),
+    )
+
+
+@router.post("/setup-complete")
+async def complete_setup(db: Session = Depends(get_db)):
+    """Mark the first-run setup as finished (wizard dismissed)."""
+    settings = get_or_create_settings(db)
+    settings.setup_complete = True
+    db.commit()
+    return {"ok": True, "needs_setup": False}
 
 
 # Model Defaults Settings Endpoints (persisted in PostgreSQL)
