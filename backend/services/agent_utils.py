@@ -28,9 +28,12 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 # Default Configuration Constants
-DEFAULT_MODEL = "claude-haiku-4-5-20251015"
-DEFAULT_TEMPERATURE = 0.5
-DEFAULT_MAX_TOKENS = 1_000_000
+# Single source of truth: the root .env via config.Settings (DEFAULT_MODEL,
+# DEFAULT_TEMPERATURE, MAX_TOKENS). The literals below are only the fallback
+# when settings are unavailable at import time.
+DEFAULT_MODEL = settings.default_model or "deepseek-chat"
+DEFAULT_TEMPERATURE = settings.default_temperature
+DEFAULT_MAX_TOKENS = settings.max_tokens
 
 # Validation Bounds Constants
 MIN_TEMPERATURE = 0.0

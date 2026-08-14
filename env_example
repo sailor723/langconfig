@@ -106,8 +106,8 @@ DEFAULT_MODEL=claude-haiku-4-5
 FALLBACK_MODELS=local-ollama-qwen25-14b
 
 # Model defaults
-DEFAULT_TEMPERATURE=0.7
-MAX_TOKENS=4096
+DEFAULT_TEMPERATURE=0
+MAX_TOKENS=256000
 TOP_P=1.0
 
 # Embedding model for RAG
