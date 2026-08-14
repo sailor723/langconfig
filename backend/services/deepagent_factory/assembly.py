@@ -427,6 +427,24 @@ class _DeepAgentAssemblyMixin:
             prompt_parts.append(config.custom_suffix)
         final_system_prompt = "\n\n".join(prompt_parts)
 
+        # Web-research efficiency hints (same as regular agents): without
+        # these, research questions loop through dozens of one-at-a-time
+        # web_search calls with rate-limit retries.
+        _tool_names = {getattr(t, "name", "") for t in all_tools}
+        if _tool_names & {"web_search", "tavily_search", "web_fetch", "ddg_search"}:
+            final_system_prompt += (
+                "\n\n# Web research efficiency\n"
+                "- Batch independent searches: when you need several facts, "
+                "issue multiple search tool calls in ONE parallel round.\n"
+                "- Never re-search the same fact — reuse results already "
+                "returned this conversation.\n"
+                "- Prefer fewer, broader queries: aim to finish research "
+                "within ~8 search calls; use web_fetch only for a promising "
+                "page.\n"
+                "- If a search is rate-limited or returns nothing, move on — "
+                "do not retry variations of the same query."
+            )
+
         # Initialize LocalShellBackend if sandbox mode is enabled.
         # This gives the agent an `execute` tool for running shell commands / Python scripts
         # scoped to the task workspace directory on the host machine.
