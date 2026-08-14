@@ -337,3 +337,13 @@ STORAGE_MODE=local
 # =============================================================================
 BUILTIN_SKILLS_ROOT=./backend/skills/builtin
 PERSONAL_SKILLS_ROOT=./backend/skills
+
+# =============================================================================
+# Filesystem Roots (workspace / documents / workspace_data)
+# =============================================================================
+# backend/outputs — agent + workflow output files (WorkspaceManager)
+WORKSPACE_BASE_DIR=backend/outputs
+# ./data/documents — uploaded documents (FileStorage)
+DOCUMENTS_BASE_DIR=./data/documents
+# backend/.workspace_data — project AGENTS.md etc. (agents_md_service)
+LANGCONFIG_WORKSPACE_ROOT=backend/.workspace_data

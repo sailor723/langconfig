@@ -30,9 +30,20 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Default workspace root - can be overridden via env var
-WORKSPACE_ROOT = Path(
-    os.getenv("LANGCONFIG_WORKSPACE_ROOT", "/Users/weiping/dev/Learn/langchain-ai/langconfig/backend/.workspace_data")
-).resolve()
+# LANGCONFIG_WORKSPACE_ROOT (default: backend/.workspace_data). Like the
+# BUILTIN_SKILLS_ROOT / PERSONAL_SKILLS_ROOT env vars, a relative value is
+# anchored at the project root (repo root), not the process CWD.
+_BACKEND_DIR = Path(__file__).resolve().parent.parent  # services/ -> backend/
+_PROJECT_ROOT = _BACKEND_DIR.parent
+
+_env_workspace_root = os.getenv("LANGCONFIG_WORKSPACE_ROOT")
+if _env_workspace_root:
+    _p = Path(_env_workspace_root).expanduser()
+    if not _p.is_absolute():
+        _p = _PROJECT_ROOT / _p
+    WORKSPACE_ROOT = _p.resolve()
+else:
+    WORKSPACE_ROOT = _BACKEND_DIR / ".workspace_data"
 
 # Default content for a new AGENTS.md
 DEFAULT_AGENTS_MD = """# Project {project_id} Conventions

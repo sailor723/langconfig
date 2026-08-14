@@ -48,9 +48,19 @@ class WorkspaceManager:
             base_dir: Base directory for all outputs. If None, uses backend/outputs.
         """
         if base_dir is None:
-            # Default to backend/outputs relative to this file's location
+            # Default to backend/outputs, overridable via WORKSPACE_BASE_DIR
+            # in the root .env (config.workspace_base_dir). Relative values
+            # resolve against the repo root (backend/..).
             backend_dir = Path(__file__).parent.parent  # services/ -> backend/
-            self.base_dir = backend_dir / "outputs"
+            try:
+                from config import settings
+                configured = getattr(settings, "workspace_base_dir", None) or "backend/outputs"
+            except Exception:
+                configured = "backend/outputs"
+            p = Path(configured).expanduser()
+            if not p.is_absolute():
+                p = backend_dir.parent / p
+            self.base_dir = p.resolve()
         else:
             self.base_dir = Path(base_dir).resolve()
 
