@@ -58,6 +58,13 @@ class ModelProvider(str, Enum):
     ANTHROPIC = "anthropic"
     OPENAI = "openai"
     GOOGLE = "google"
+    DEEPSEEK = "deepseek"
+    GLM = "glm"
+    MINIMAX = "minimax"
+    QWEN = "qwen"
+    KIMI = "kimi"
+    AGNES = "agnes"
+    OLLAMA = "ollama"
     LOCAL = "local"
 
 
@@ -373,6 +380,62 @@ class ModelRegistry:
         ))
 
         logger.info(f"✓ Model registry initialized with {len(self._models)} models")
+
+        # The PostgreSQL `models` table is the source of truth (architecture
+        # doc §16.1). DB rows override/complete the hardcoded fallback above
+        # so the registry stays correct as the catalog evolves without code
+        # changes. Best-effort: if the DB is unavailable, keep the fallback.
+        try:
+            self._load_db_models()
+        except Exception as e:
+            logger.warning(f"Could not load models from DB (using hardcoded fallback): {e}")
+
+    def _load_db_models(self) -> None:
+        """Register models from the PostgreSQL `models` table."""
+        from db.database import SessionLocal
+        from models.model import Model
+
+        db = SessionLocal()
+        try:
+            rows = db.query(Model).filter(Model.is_active == True).all()  # noqa: E712
+        finally:
+            db.close()
+
+        loaded = 0
+        for row in rows:
+            try:
+                provider = ModelProvider(row.provider)
+            except ValueError:
+                provider = ModelProvider.LOCAL
+
+            caps: set = set()
+            capabilities = row.capabilities or {}
+            for key, enabled in capabilities.items():
+                if enabled:
+                    try:
+                        caps.add(ModelCapability(key))
+                    except ValueError:
+                        pass
+
+            pricing = row.capabilities or {}
+            cost_in = float(pricing.get("price_per_1m_input", 0.0) or 0.0)
+            cost_out = float(pricing.get("price_per_1m_output", 0.0) or 0.0)
+
+            self.register(ModelInfo(
+                model_id=row.model_id,
+                provider=provider,
+                display_name=row.display_name or row.model_id,
+                capabilities=caps,
+                max_context_tokens=int(
+                    (row.capabilities or {}).get("max_context", 200000)
+                ),
+                cost_per_1m_input=cost_in,
+                cost_per_1m_output=cost_out,
+            ))
+            loaded += 1
+
+        if loaded:
+            logger.info(f"✓ Model registry synced with {loaded} models from the DB")
 
     def register(self, model: ModelInfo):
         """Register a new model or update existing."""
