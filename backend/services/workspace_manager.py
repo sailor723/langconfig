@@ -24,6 +24,19 @@ import shutil
 logger = logging.getLogger(__name__)
 
 
+def _is_within(path: Path, root: Path) -> bool:
+    """True if the resolved `path` is strictly inside `root`.
+
+    Uses Path.is_relative_to, NOT a string prefix check: a prefix check
+    without a trailing separator lets sibling paths through (e.g.
+    ``task_1`` vs ``task_10``), enabling cross-task/cross-tenant access.
+    """
+    try:
+        return path.resolve().is_relative_to(root.resolve())
+    except (ValueError, OSError):
+        return False
+
+
 class WorkspaceManager:
     """Manages workspace directories for project/workflow/task outputs"""
 
@@ -236,7 +249,7 @@ class WorkspaceManager:
         file_path = (workspace / filename).resolve()
 
         # Security: Ensure file is within workspace
-        if not str(file_path).startswith(str(workspace)):
+        if not _is_within(file_path, workspace):
             logger.warning(f"Path traversal attempt blocked: {filename}")
             return None
 
@@ -255,7 +268,7 @@ class WorkspaceManager:
         file_path = (default_dir / filename).resolve()
 
         # Security: Ensure file is within default directory
-        if not str(file_path).startswith(str(default_dir)):
+        if not _is_within(file_path, default_dir):
             logger.warning(f"Path traversal attempt blocked: {filename}")
             return None
 
@@ -373,9 +386,9 @@ class WorkspaceManager:
         new_path = (default_dir / new_name).resolve()
 
         # Security checks
-        if not str(old_path).startswith(str(default_dir)):
+        if not _is_within(old_path, default_dir):
             return False
-        if not str(new_path).startswith(str(default_dir)):
+        if not _is_within(new_path, default_dir):
             return False
 
         if not old_path.exists():
@@ -417,10 +430,10 @@ class WorkspaceManager:
         new_path = (workspace / new_name).resolve()
 
         # Security: Ensure both paths are within workspace
-        if not str(old_path).startswith(str(workspace)):
+        if not _is_within(old_path, workspace):
             logger.warning(f"Path traversal attempt blocked (old): {old_name}")
             return False
-        if not str(new_path).startswith(str(workspace)):
+        if not _is_within(new_path, workspace):
             logger.warning(f"Path traversal attempt blocked (new): {new_name}")
             return False
 

@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -592,6 +593,27 @@ async def get_workflow_cost_metrics(
     )
 
 
+async def _add_image_to_doc(doc, image_url: str) -> None:
+    """Download an image from a task-content URL and embed it in the docx.
+
+    SSRF-guarded: image URLs come from execution content and may be
+    attacker-controlled, so private/local/metadata endpoints are rejected
+    before any fetch (same policy as the tool factory). The blocking HTTP
+    call is moved off the event loop.
+    """
+    from docx.shared import Inches
+    from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+    from core.tools.factory import ToolFactory
+
+    ToolFactory._validate_url_ssrf(image_url)
+    response = await asyncio.to_thread(requests.get, image_url, timeout=10)
+    if response.status_code == 200:
+        image_stream = io.BytesIO(response.content)
+        doc.add_picture(image_stream, width=Inches(5))
+        caption = doc.add_paragraph()
+        caption.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+
 @router.get("/executions/{execution_id}/export/docx")
 async def export_execution_to_word(
     execution_id: int,
@@ -719,14 +741,7 @@ async def export_execution_to_word(
                     if match:
                         image_url = match.group(1)
                         try:
-                            # Download image
-                            response = requests.get(image_url, timeout=10)
-                            if response.status_code == 200:
-                                image_stream = io.BytesIO(response.content)
-                                doc.add_picture(image_stream, width=Inches(5))
-                                # Add caption
-                                caption = doc.add_paragraph()
-                                caption.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                            await _add_image_to_doc(doc, image_url)
                         except Exception as e:
                             logger.warning(f"Failed to download image {image_url}: {e}")
                             doc.add_paragraph(f"[Image: {image_url}]")

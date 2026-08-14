@@ -160,7 +160,23 @@ class FileStorage:
             for key in ("industry", "player", "sub_category", "sub_department"):
                 segment = hierarchy.get(key)
                 if segment and not str(segment).startswith("."):
-                    project_dir = project_dir / str(segment)
+                    # Each segment must be a single, safe path component:
+                    # no separators, no traversal, no absolute paths.
+                    # (a "../x" segment would start with "." and is already
+                    # rejected above; a segment like "a/../../etc" or an
+                    # absolute "/etc" would otherwise escape project_dir.)
+                    segment = str(segment)
+                    if (
+                        "/" in segment
+                        or "\\" in segment
+                        or segment in (".", "..")
+                        or segment != segment.strip()
+                    ):
+                        raise ValueError(
+                            f"Unsafe hierarchy segment {segment!r} for {key!r}: "
+                            "must be a plain folder name"
+                        )
+                    project_dir = project_dir / segment
         project_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate unique filename to avoid collisions. Use only the

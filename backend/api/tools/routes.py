@@ -493,7 +493,9 @@ async def test_custom_tool(
             "template_type": tool.template_type.value if tool.template_type else None,
             "implementation_config": tool.implementation_config,
             "input_schema": tool.input_schema,
-            "output_format": tool.output_format
+            "output_format": tool.output_format,
+            # Trust boundary: builtin rows keep full exec power.
+            "is_builtin": bool(tool.is_builtin),
         }
 
         # Create the tool instance
