@@ -309,6 +309,7 @@ async def send_message(
             agent_workspace_root = str(_ws_mgr.resolve_agent_workspace(
                 agent, _session_project_id,
                 vault_key=_ws_mgr.project_vault_key(db, _session_project_id) or None,
+                agent_key=_ws_mgr.agent_vault_key(db, agent),
             ))
             # Materialize the agent's instruction docs (AGENTS.md / CLAUDE.md…)
             # into the workspace so MemoryMiddleware + the Files panel see them.
@@ -799,6 +800,7 @@ async def send_message_stream(
                     agent_workspace_root = str(_ws_mgr.resolve_agent_workspace(
                         agent, _session_project_id,
                         vault_key=_ws_mgr.project_vault_key(db, _session_project_id) or None,
+                        agent_key=_ws_mgr.agent_vault_key(db, agent),
                     ))
                     _materialize_agent_docs(agent, agent_workspace_root)
                     use_deepagents = agent_config.get("use_deepagents", True)

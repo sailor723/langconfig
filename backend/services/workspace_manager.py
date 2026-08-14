@@ -181,7 +181,11 @@ class WorkspaceManager:
         return workspace
 
     def resolve_agent_workspace(
-        self, agent, project_id: Optional[int] = None, vault_key: Optional[str] = None
+        self,
+        agent,
+        project_id: Optional[int] = None,
+        vault_key: Optional[str] = None,
+        agent_key: Optional[str] = None,
     ) -> Path:
         """Resolve an agent's workspace root.
 
@@ -193,14 +197,14 @@ class WorkspaceManager:
              (``outputs/projects/{vault_key}/``) when a project is bound,
              else against ``base_dir``.
           2. Vault-scoped default ``outputs/projects/{vault_key}/agents/
-             agent_{id}/`` when a project is bound.
+             {agent_key}/`` when a project is bound.
           3. Legacy default ``outputs/agents/agent_{id}/`` when neither is
              available.
 
-        ``vault_key`` is the project's user-visible ``number`` (or its ``id``
-        when the number is unset) — pass it when you have the project row;
-        callers without a DB handle may pass just ``project_id`` and the raw
-        id is used as the key.
+        ``vault_key`` is the project's sanitized name (or its id) and
+        ``agent_key`` the agent's sanitized name (or ``agent_{id}``) — pass
+        them when you have the rows; callers without a DB handle may pass
+        just the ids and the raw ids are used as keys.
 
         The directory is created if missing so uploads + generated files
         always have a home.
@@ -208,6 +212,7 @@ class WorkspaceManager:
         key = vault_key if vault_key is not None else (
             str(project_id) if project_id is not None else None
         )
+        agent_folder = agent_key or f"agent_{getattr(agent, 'id', 'unknown')}"
         custom = getattr(agent, "workspace_path", None)
         if custom and str(custom).strip():
             p = Path(str(custom).strip()).expanduser()
@@ -220,7 +225,7 @@ class WorkspaceManager:
             logger.info(f"Agent workspace (custom): {p}")
             return p
         if key is not None:
-            vault_root = self.base_dir / "projects" / key / "agents" / f"agent_{agent.id}"
+            vault_root = self.base_dir / "projects" / key / "agents" / agent_folder
             vault_root.mkdir(parents=True, exist_ok=True)
             logger.info(f"Agent workspace (vault-scoped): {vault_root}")
             return vault_root
@@ -228,23 +233,77 @@ class WorkspaceManager:
 
     @staticmethod
     def project_vault_key(db, project_id: Optional[int]) -> str:
-        """Folder key for a project: its user-visible ``number`` when set,
-        else the DB ``id``.
+        """Folder key for a project: its sanitized NAME (so users can find
+        it), falling back to the DB id when the row is missing.
 
-        Pass the request DB session (or any session) so the project row can
-        be read; falls back to the raw id when the row is missing or the
-        session is unavailable (tests, non-DB callers).
+        e.g. project 'my-project' → 'my-project'; 'my demo project 1' →
+        'my-demo-project-1'. Slugs are unique among projects; on a collision
+        the id is appended. Pass the request DB session (or any session);
+        falls back to the raw id when the row is missing or the session is
+        unavailable (tests, non-DB callers).
         """
         if project_id is None:
             return ""
         try:
             from models.core import Project
             row = db.get(Project, project_id) if db is not None else None
-            if row is not None and row.number:
-                return str(row.number)
+            if row is not None:
+                slug = WorkspaceManager._slugify(row.name)
+                # Collision guard: another project with the same slug?
+                clash = (
+                    db.query(Project)
+                    .filter(Project.id != project_id)
+                    .all()
+                    if db is not None else []
+                )
+                for other in clash:
+                    if WorkspaceManager._slugify(other.name) == slug:
+                        return f"{slug}-{project_id}"
+                return slug
         except Exception:
             pass
         return str(project_id)
+
+    @staticmethod
+    def _slugify(name: str) -> str:
+        """Filesystem-safe folder key from a project name.
+
+        Lowercases, keeps ASCII word chars + CJK + '-' and turns everything
+        else (spaces, '/'…) into single dashes. Never empty.
+        """
+        import re
+        import unicodedata
+        s = unicodedata.normalize("NFKC", name or "")
+        s = re.sub(r"[^\w\u4e00-\u9fff-]+", "-", s.lower(), flags=re.UNICODE)
+        s = re.sub(r"-+", "-", s).strip("-")
+        return s or "project"
+
+    @staticmethod
+    def agent_vault_key(db, agent) -> str:
+        """Folder key for an agent: its sanitized NAME (so users can find
+        it), falling back to ``agent_{id}`` when the row/name is missing.
+
+        e.g. agent 'hello' → 'hello'; 'My Research Agent' →
+        'my-research-agent'. Collision-guarded across all agents (id appended
+        on a duplicate slug). Pass the request DB session.
+        """
+        name = getattr(agent, "name", None)
+        if not name:
+            return f"agent_{getattr(agent, 'id', 'unknown')}"
+        try:
+            from models.deep_agent import DeepAgentTemplate
+            agent_id = getattr(agent, "id", None)
+            slug = WorkspaceManager._slugify(name)
+            if db is not None and agent_id is not None:
+                others = db.query(DeepAgentTemplate).filter(
+                    DeepAgentTemplate.id != agent_id
+                ).all()
+                for other in others:
+                    if WorkspaceManager._slugify(other.name or "") == slug:
+                        return f"{slug}-{agent_id}"
+            return slug
+        except Exception:
+            return f"agent_{getattr(agent, 'id', 'unknown')}"
 
     def persist_output(self, file_path: Path, content: bytes, mime_type: Optional[str] = None) -> Optional[str]:
         """

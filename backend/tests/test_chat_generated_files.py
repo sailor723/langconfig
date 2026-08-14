@@ -44,7 +44,14 @@ class _FakeWorkspaceManager:
             return ""
         return str(getattr(db, "project_number", None) or project_id)
 
-    def resolve_agent_workspace(self, agent, project_id=None, vault_key=None) -> Path:
+    def agent_vault_key(self, db, agent):
+        """Mirror the real resolver: a fake agent's sanitized name, else id."""
+        name = getattr(agent, "name", None)
+        if name:
+            return str(name).lower().replace(" ", "-")
+        return f"agent_{getattr(agent, 'id', 'unknown')}"
+
+    def resolve_agent_workspace(self, agent, project_id=None, vault_key=None, agent_key=None) -> Path:
         """Mirror the real resolver: custom workspace_path wins, else vault-
         scoped default, else legacy default."""
         custom = getattr(agent, "workspace_path", None)
