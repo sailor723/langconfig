@@ -5,22 +5,23 @@ Visual platform for building LangChain agents and LangGraph workflows.
 ## Stack
 
 - **Frontend:** React 19 + TypeScript + Tailwind CSS 4 + ReactFlow (`src/`)
-- **Backend:** Python 3.11 + FastAPI + LangChain v1.0 + LangGraph (`backend/`)
+- **Backend:** Python 3.13 + FastAPI + LangChain v1.0 + LangGraph + deepagents 0.7.1 (`backend/`)
 - **Database:** PostgreSQL 16 + pgvector + Alembic
 
 ## Commands
 
 ```bash
 # Start development
-cd backend && python main.py      # API server :8765
-npm run dev                        # Frontend :1420
+bash start.sh                      # One-shot launcher: backend :8765 + frontend :1421
+cd backend && uv run python main.py  # API server only :8765
+npm run dev                        # Frontend only :1421
 
 # Database
-docker-compose up -d postgres      # Start PostgreSQL
-cd backend && alembic upgrade head # Run migrations
+docker-compose up -d postgres      # Start PostgreSQL (or native on :5432)
+cd backend && uv run alembic upgrade head # Run migrations
 
 # Testing
-cd backend && pytest               # Backend tests
+cd backend && uv run pytest        # Backend tests
 npm run build                      # Frontend build check
 ```
 
@@ -28,9 +29,10 @@ npm run build                      # Frontend build check
 
 | Path | Purpose |
 |------|---------|
-| `backend/core/workflows/executor.py` | Workflow execution engine |
-| `backend/core/agents/factory.py` | Agent creation |
-| `backend/api/` | REST API routes |
+| `backend/core/workflows/executor/` | Workflow execution engine (mixin package: `execution.py`, `builder.py`, `nodes.py`) |
+| `backend/core/agents/factory/` | Normal-agent creation (`AgentFactory.create_agent`) |
+| `backend/services/deepagent_factory/` | DeepAgent creation (`DeepAgentFactory.create_deep_agent`) |
+| `backend/api/` | REST API routes (43 routers registered in `main.py`) |
 | `backend/models/` | SQLAlchemy ORM models |
 | `backend/services/` | Business logic services |
 | `src/features/workflows/` | Workflow canvas UI |
@@ -48,27 +50,24 @@ npm run build                      # Frontend build check
 
 ## Shell Commands (Important!)
 
-This is a **Windows** environment but the shell uses **bash syntax** (Git Bash/WSL), NOT CMD or PowerShell.
+Development happens on **macOS** or **WSL2 + Ubuntu** with **bash syntax** (Git Bash/WSL on Windows, plain bash on macOS).
 
 ```bash
 # CORRECT (bash syntax)
-test -f backend/.env && echo "exists" || echo "missing"
-ls -la backend/.env 2>/dev/null
+test -f .env && echo "exists" || echo "missing"
+ls -la .env 2>/dev/null
 grep "PATTERN" file.txt
 cat file.txt | head -20
-
-# WRONG (Windows CMD syntax - will fail)
-if exist backend\.env (echo exists)
-dir backend\.env
-findstr "PATTERN" file.txt
-type file.txt
 ```
 
-**Python commands:** Always use the full Python 3.12 path for consistency:
+**Python commands:** Always use the project venv for consistency:
+
 ```bash
-cd backend && "C:\Users\Cade\AppData\Local\Programs\Python\Python312\python.exe" -m pip install package
-cd backend && "C:\Users\Cade\AppData\Local\Programs\Python\Python312\python.exe" -c "import module"
+cd backend && .venv/bin/python -m pip install package
+cd backend && .venv/bin/python -c "import module"
 ```
+
+Or with uv: `cd backend && uv run python -c "import module"`
 
 **Environment files:** There is ONE `.env` file:
 - `/.env` - Project root. Used by frontend, docker, AND backend (FastAPI loads it via `backend/config.py` → `load_dotenv(../../.env)` + pydantic-settings `env_file`).
@@ -77,14 +76,13 @@ All API keys and infrastructure config live in the root `.env`. The previous `ba
 
 ## Detailed Docs
 
-See `.Codex/docs/` for task-specific guidance:
+See `docs/` for architecture and design documentation:
 
 | File | Contents |
 |------|----------|
-| `architecture.md` | System design, components, project structure |
-| `workflows.md` | LangGraph patterns, node types, execution flow |
-| `agents.md` | Agent system, middleware, tools, delegation |
-| `api.md` | REST endpoints, error codes, streaming |
-| `database.md` | PostgreSQL, Alembic, checkpointing |
-| `troubleshooting.md` | Common issues and solutions |
-| `contributing.md` | Development setup, code style, PR process |
+| `docs/system-architecture.md` | System design, five-layer model, agent landscape, storage strategy |
+| `REFACTORING.md` | Backend refactor status (god-module splits, verification methodology) |
+| `docs/plans/` | SaaS design + implementation plans |
+| `docs/OKF_MINIMAL_PROFILE.md` | OKF knowledge-bundle profile |
+| `docs/PAGEINDEX_OKF_DESIGN.md` | PageIndex + OKF knowledge design note |
+| `backend/README.md` | Backend-specific setup |
