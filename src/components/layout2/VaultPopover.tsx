@@ -4,10 +4,11 @@
  * Anchored to the vault button in the ActivityBar. Lists all projects
  * (vaults) and lets the user select one. Closes on selection or outside click.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLayoutTokens } from './tokens';
 import { useProject } from '../../contexts/ProjectContext';
-import { Folder, CheckCircle, Loader } from 'lucide-react';
+import { Folder, CheckCircle, Loader, Plus, X } from 'lucide-react';
+import apiClient from '../../lib/api-client';
 
 interface VaultPopoverProps {
   anchorRef: React.RefObject<HTMLElement | null>;
@@ -16,8 +17,11 @@ interface VaultPopoverProps {
 
 export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) {
   const t = useLayoutTokens();
-  const { activeProjectId, projects, setActiveProjectId, loading } = useProject();
+  const { activeProjectId, projects, setActiveProjectId, refreshProjects, loading } = useProject();
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   // Close on outside click
   useEffect(() => {
@@ -48,6 +52,27 @@ export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) 
   const handleSelect = (id: number) => {
     setActiveProjectId(id);
     onClose();
+  };
+
+  const handleCreate = async () => {
+    const name = newName.trim();
+    // NOTE: `creating` is true while the form is open, so it must not gate
+    // the submit — only an empty name blocks it.
+    if (!name) return;
+    setCreating(true);
+    setError(null);
+    try {
+      const res = await apiClient.createProject({ name });
+      const newProject = res.data;
+      await refreshProjects();
+      setActiveProjectId(newProject.id);
+      setNewName('');
+      onClose();
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail ?? err?.message ?? 'Failed to create project';
+      setError(typeof detail === 'string' ? detail : 'Failed to create project');
+      setCreating(false);
+    }
   };
 
   return (
@@ -135,6 +160,62 @@ export default function VaultPopover({ anchorRef, onClose }: VaultPopoverProps) 
               </button>
             );
           })
+        )}
+      </div>
+
+      {/* New project */}
+      <div style={{ padding: '8px 10px', borderTop: `1px solid ${t.border}` }}>
+        {creating ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input
+              autoFocus
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { setCreating(false); setNewName(''); } }}
+              placeholder="Project name…"
+              style={{
+                flex: 1, height: 24, padding: '0 6px',
+                background: t.bgContent, border: `1px solid ${t.border}`,
+                borderRadius: 4, color: t.textPrimary, fontSize: 12, outline: 'none',
+              }}
+            />
+            <button
+              onClick={handleCreate}
+              disabled={!newName.trim()}
+              title="Create project"
+              style={{
+                height: 24, padding: '0 10px', border: 'none', borderRadius: 4,
+                background: t.accent, color: '#fff', fontSize: 11, fontWeight: 600,
+                cursor: newName.trim() ? 'pointer' : 'not-allowed', opacity: newName.trim() ? 1 : 0.5,
+              }}
+            >
+              Create
+            </button>
+            <button
+              onClick={() => { setCreating(false); setNewName(''); }}
+              title="Cancel"
+              style={{
+                height: 24, width: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: 'none', borderRadius: 4, background: 'transparent', color: t.textMuted, cursor: 'pointer',
+              }}
+            >
+              <X size={13} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setCreating(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+              padding: '6px 8px', borderRadius: 4, border: 'none',
+              background: 'transparent', color: t.accent, cursor: 'pointer', fontSize: 12, fontWeight: 500,
+            }}
+          >
+            <Plus size={13} /> New Project
+          </button>
+        )}
+        {error && (
+          <div style={{ fontSize: 10, color: '#ef4444', marginTop: 4 }}>{error}</div>
         )}
       </div>
     </div>

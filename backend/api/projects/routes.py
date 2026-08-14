@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -11,6 +13,8 @@ from pydantic import BaseModel
 from db.database import get_db
 from models.core import Project, ProjectStatus, IndexingStatus
 from services.workspace_manager import get_workspace_manager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -189,7 +193,6 @@ async def delete_project(
         from models.core import Task
         from models.execution_event import ExecutionEvent
         from sqlalchemy import text, create_engine
-        from config import app_settings
 
         # Get all workflow IDs for this project
         workflow_ids = [w.id for w in db.query(WorkflowProfile).filter(
@@ -231,6 +234,7 @@ async def delete_project(
 
         # 7. Drop the project's vector index table if it exists
         try:
+            from config import settings as app_settings
             engine = create_engine(app_settings.database_url)
             table_name = f"data_project_index_{project_id}"
             with engine.connect() as conn:
