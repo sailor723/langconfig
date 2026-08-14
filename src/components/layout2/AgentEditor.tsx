@@ -58,6 +58,14 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const [editableCategory, setEditableCategory] = useState(agent.category || 'general');
   const [editableModel, setEditableModel] = useState(config.model || '');
   const [editableTemp, setEditableTemp] = useState(config.temperature ?? 0.7);
+  // User-defined workspace path (persisted in PostgreSQL; empty → default)
+  const [workspacePath, setWorkspacePath] = useState<string>(agent.workspace_path || '');
+  // Agent instruction docs (AGENTS.md / CLAUDE.md …)
+  const [docsDraft, setDocsDraft] = useState<Record<string, string>>(() => ({
+    ...((agent.agent_docs as Record<string, string>) || {}),
+  }));
+  const [docsSaving, setDocsSaving] = useState(false);
+  const [docsMsg, setDocsMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [editableMaxTokens, setEditableMaxTokens] = useState(config.max_tokens ?? (isNew ? 4096 : ''));
   const [editablePrompt, setEditablePrompt] = useState(
     config.system_prompt || (isNew
@@ -307,6 +315,8 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           name: trimmedName,
           description: editableDesc.trim() || null,
           config: fullConfig,
+          workspace_path: workspacePath.trim() || null,
+          agent_docs: docsDraft,
         });
       } else {
         const res = await apiClient.createDeepAgent({
@@ -314,6 +324,8 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           description: editableDesc.trim() || undefined,
           category: editableCategory,
           config: fullConfig,
+          workspace_path: workspacePath.trim() || undefined,
+          agent_docs: docsDraft,
         });
         const newAgent = res.data;
         setLocalAgentId(newAgent.id);
@@ -388,6 +400,38 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           onChange={e => { setEditableDesc(e.target.value); updateTopField('description', e.target.value); }}
           style={inputStyle}
         />
+      </div>
+      {/* Workspace path — user-defined per-agent directory (PostgreSQL) */}
+      <div style={compactCardStyle}>
+        <div style={labelStyle}>Workspace Path (optional)</div>
+        <input
+          value={workspacePath}
+          onChange={e => setWorkspacePath(e.target.value)}
+          placeholder="e.g. outputs/projects/my-vault/agents/my-agent (empty = default)"
+          style={inputStyle}
+        />
+        <div style={{ fontSize: 10, color: t.textMuted, marginTop: 3 }}>
+          Uploads + generated files live here (absolute, or relative to the active vault).
+        </div>
+      </div>
+      {/* Agent docs (AGENTS.md / CLAUDE.md — this agent only) */}
+      <div style={compactCardStyle}>
+        <div style={labelStyle}>Agent Docs (AGENTS.md / CLAUDE.md)</div>
+        {['AGENTS.md', 'CLAUDE.md'].map(name => (
+          <div key={name} style={{ marginBottom: 6 }}>
+            <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 2 }}>{name}</div>
+            <textarea
+              value={docsDraft[name] ?? ''}
+              onChange={e => setDocsDraft(prev => ({ ...prev, [name]: e.target.value }))}
+              placeholder={`Instructions specific to ${editableName || 'this agent'}…`}
+              spellCheck={false}
+              style={{ ...inputStyle, minHeight: 90, fontFamily: 'ui-monospace, Menlo, monospace', resize: 'vertical' }}
+            />
+          </div>
+        ))}
+        <div style={{ fontSize: 10, color: t.textMuted }}>
+          Saved with the agent (PostgreSQL); written to the workspace on each chat run.
+        </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
         <div style={compactCardStyle}>

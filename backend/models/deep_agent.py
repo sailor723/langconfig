@@ -326,6 +326,12 @@ class DeepAgentTemplate(Base, OptimisticLockMixin):
     # default outputs/agents/agent_{id}/ convention. Null → default.
     workspace_path = Column(String(500), nullable=True)
 
+    # User-authored agent instruction docs — e.g. {"AGENTS.md": "...",
+    # "CLAUDE.md": "..."}. PostgreSQL is the source of truth; the files are
+    # materialized into the agent workspace at chat build time so
+    # MemoryMiddleware and the Files panel can use them.
+    agent_docs = Column(JSON, nullable=True)
+
     # DeepAgents configuration (stored as JSON)
     config = Column(JSON, nullable=False)
 
@@ -382,6 +388,10 @@ class ChatSession(Base):
 
     # Reference to agent
     agent_id = Column(Integer, ForeignKey("deep_agent_templates.id"), nullable=False, index=True)
+
+    # Reference to the vault (project) this session runs in — scopes the
+    # agent workspace (uploads + generated files) per (vault, agent).
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
 
     # Session metadata
     session_id = Column(String(100), unique=True, nullable=False, index=True)

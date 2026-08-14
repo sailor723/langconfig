@@ -6,7 +6,7 @@
 import type { APIClient } from '../api-client';
 
 export interface ChatApi {
-  startChatSession(agentId: number): Promise<any>;
+  startChatSession(agentId: number, projectId?: number | null): Promise<any>;
   endChatSession(sessionId: string): Promise<any>;
   getChatSessions(): Promise<any>;
   getChatHistory(sessionId: string): Promise<any>;
@@ -24,8 +24,11 @@ export interface ChatApi {
 
 export const chatApi: ChatApi = {
   // Chat
-  async startChatSession(this: APIClient, agentId: number) {
-    return this.post('/api/chat/start', { agent_id: agentId });
+  async startChatSession(this: APIClient, agentId: number, projectId?: number | null) {
+    return this.post('/api/chat/start', {
+      agent_id: agentId,
+      project_id: projectId ?? undefined, // active vault scopes the agent workspace
+    });
   },
 
   async endChatSession(this: APIClient, sessionId: string) {

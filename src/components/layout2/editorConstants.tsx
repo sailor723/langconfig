@@ -5,9 +5,9 @@
  * adding/removing a section only requires updating one file.
  */
 import type { ReactNode } from 'react';
-import { Info, FileText, Wrench, Award, Users, Layers, Shield, Code } from 'lucide-react';
+import { Info, FileText, Wrench, Award, Users, Layers, Shield, Code, BookOpen } from 'lucide-react';
 
-export type SectionId = 'overview' | 'prompt' | 'tools' | 'skills' | 'subagents' | 'middleware' | 'guardrails' | 'json';
+export type SectionId = 'overview' | 'prompt' | 'tools' | 'skills' | 'subagents' | 'middleware' | 'guardrails' | 'docs' | 'json';
 
 export const SECTIONS: { id: SectionId; label: string; icon: ReactNode }[] = [
   { id: 'overview',   label: 'Overview',   icon: <Info size={13} /> },
@@ -17,5 +17,6 @@ export const SECTIONS: { id: SectionId; label: string; icon: ReactNode }[] = [
   { id: 'subagents',  label: 'Subagents',  icon: <Users size={13} /> },
   { id: 'middleware', label: 'Middleware', icon: <Layers size={13} /> },
   { id: 'guardrails', label: 'Guardrails', icon: <Shield size={13} /> },
+  { id: 'docs',       label: 'Docs',       icon: <BookOpen size={13} /> },
   { id: 'json',       label: 'JSON',       icon: <Code size={13} /> },
 ];

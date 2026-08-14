@@ -32,18 +32,21 @@ router = APIRouter(tags=["chat"])
 
 
 def _resolve_agent_workspace(session, db, ws_mgr):
-    """Resolve the agent workspace root from the DB.
+    """Resolve the agent workspace root from the DB, scoped to the vault.
 
     Priority: the agent's user-defined ``workspace_path`` (persisted in
-    deep_agent_templates) → the default ``outputs/agents/agent_{id}/``
-    convention.
+    deep_agent_templates) → vault-scoped default
+    ``outputs/projects/{project_id}/agents/agent_{id}/`` → legacy
+    ``outputs/agents/agent_{id}/``.
     """
     if session.agent_id:
         agent = db.query(DeepAgentTemplate).filter(
             DeepAgentTemplate.id == session.agent_id
         ).first()
         if agent is not None:
-            return ws_mgr.resolve_agent_workspace(agent)
+            return ws_mgr.resolve_agent_workspace(
+                agent, getattr(session, "project_id", None)
+            )
     return ws_mgr.get_agent_workspace(session.agent_id)
 
 

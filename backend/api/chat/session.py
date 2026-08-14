@@ -62,6 +62,7 @@ async def start_chat_session(
             session_id=session_id,
             agent_id=agent.id,
             user_id=request.user_id,
+            project_id=request.project_id,  # vault scope for the agent workspace
             messages=[],
             metrics={
                 "total_tokens": 0,
@@ -84,6 +85,7 @@ async def start_chat_session(
             session_id=session.session_id,
             agent_id=agent.id,
             agent_name=agent.name,
+            project_id=session.project_id,
             is_active=session.is_active,
             message_count=len(session.messages or []),
             created_at=session.created_at.isoformat(),
