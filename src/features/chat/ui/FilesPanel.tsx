@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { File, FolderOpen, Download, X, Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { File, FolderOpen, Download, X, Loader2, CheckCircle, AlertCircle, Clock, RefreshCw } from 'lucide-react';
 import type { SessionDocument } from '../types/chat';
 import apiClient from '../../../lib/api-client';
 import { downloadFile } from '../utils/downloadFile';
@@ -70,6 +70,12 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
     }
   };
 
+  // Manual reload of both lists (uploaded + generated files).
+  const handleRefresh = () => {
+    loadDocuments();
+    loadGeneratedFiles();
+  };
+
   const statusIcon = (status: string) => {
     switch (status) {
       case 'ready': return <CheckCircle className="w-3 h-3" style={{ color: '#10b981' }} />;
@@ -86,9 +92,18 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
           <FolderOpen className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
           Files
         </span>
-        <button onClick={onClose} className="p-1 rounded hover:bg-black/5 transition-colors" title="Close">
-          <X className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleRefresh}
+            className="p-1 rounded hover:bg-black/5 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button onClick={onClose} className="p-1 rounded hover:bg-black/5 transition-colors" title="Close">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
