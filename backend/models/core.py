@@ -65,6 +65,10 @@ class Project(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
+    # User-visible project number — the vault folder key
+    # (outputs/projects/{number}/…). Backfilled to id; renumbering is
+    # allowed (unique). All DB references keep using `id`.
+    number = Column(Integer, unique=True, nullable=True)
     status = Column(Enum(ProjectStatus, values_callable=lambda x: [e.value for e in x]), default=ProjectStatus.IDLE)
 
     # Configuration

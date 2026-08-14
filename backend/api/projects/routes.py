@@ -28,10 +28,12 @@ class ProjectUpdate(BaseModel):
     status: Optional[ProjectStatus] = None
     configuration: Optional[dict] = None
     workflow_profile_id: Optional[int] = None
+    number: Optional[int] = None  # user-visible project number (vault folder key)
 
 
 class ProjectResponse(BaseModel):
     id: int
+    number: Optional[int] = None  # user-visible project number (vault folder key)
     name: str
     description: Optional[str]
     status: ProjectStatus
@@ -105,12 +107,15 @@ async def create_project(
     # Set default configuration if not provided
     config = project.configuration or {"default_model": "gpt-4o"}
 
+    from sqlalchemy import func as sa_func
+    next_number = (db.query(sa_func.max(Project.number)).scalar() or 0) + 1
     db_project = Project(
         name=project.name,
         description=project.description,
         configuration=config,
         status=ProjectStatus.IDLE,
-        indexing_status=IndexingStatus.NOT_INDEXED
+        indexing_status=IndexingStatus.NOT_INDEXED,
+        number=next_number,
     )
     db.add(db_project)
     db.commit()
@@ -141,6 +146,17 @@ async def update_project(
 
     # Update only provided fields
     update_data = project.model_dump(exclude_unset=True)
+    # Renumbering: the project number is unique — reject collisions.
+    if "number" in update_data and update_data["number"] is not None:
+        clash = db.query(Project).filter(
+            Project.number == update_data["number"],
+            Project.id != project_id,
+        ).first()
+        if clash:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Project number {update_data['number']} is already in use by project {clash.name!r}",
+            )
     for key, value in update_data.items():
         setattr(db_project, key, value)
 

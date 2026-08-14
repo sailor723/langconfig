@@ -68,12 +68,30 @@ DEFAULT_AGENTS_MD = """# Project {project_id} Conventions
 """
 
 
+def _project_vault_key(project_id: int) -> str:
+    """Folder key for a project: its user-visible ``number`` when set, else
+    the DB ``id`` (consistent with WorkspaceManager.project_vault_key)."""
+    try:
+        from db.database import SessionLocal
+        from models.core import Project
+        db = SessionLocal()
+        try:
+            row = db.get(Project, project_id)
+            if row is not None and row.number:
+                return str(row.number)
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return str(project_id)
+
+
 def get_agents_md_path(project_id: int) -> Path:
     """Get the filesystem path for a project's AGENTS.md.
 
     Does NOT create the file. Use ensure_agents_md_exists() for that.
     """
-    return WORKSPACE_ROOT / "projects" / str(project_id) / "AGENTS.md"
+    return WORKSPACE_ROOT / "projects" / _project_vault_key(project_id) / "AGENTS.md"
 
 
 def ensure_agents_md_exists(project_id: int) -> Path:
