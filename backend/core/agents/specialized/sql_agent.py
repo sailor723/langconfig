@@ -184,14 +184,18 @@ async def create_sql_agent(
             agent = create_agent(
                 model=model_fn,
                 tools=tools,
-                state_modifier=prompt_template  # v1.0: use state_modifier
+                # langchain v1 create_agent takes system_prompt (a string),
+                # not the removed `state_modifier` param.
+                system_prompt=SQL_AGENT_PROMPT,
             )
         else:
             # Static model (recommended for SQL) - v1.0: no pre-binding
             agent = create_agent(
                 model=llm,  # v1.0: Pass unbound model
                 tools=tools,
-                state_modifier=prompt_template  # v1.0: use state_modifier
+                # langchain v1 create_agent takes system_prompt (a string),
+                # not the removed `state_modifier` param.
+                system_prompt=SQL_AGENT_PROMPT,
             )
 
         logger.info("✓ SQL agent created successfully")

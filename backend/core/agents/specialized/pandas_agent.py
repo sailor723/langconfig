@@ -29,7 +29,11 @@ Example:
 import logging
 from typing import Optional, Dict, Any, Union
 import pandas as pd
-from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
+# langchain_experimental is NOT a project dependency; importing it at module
+# top-level made this whole module unimportable (a landmine). It is now
+# loaded lazily inside create_dataframe_agent with a clear error, so the
+# rest of the module stays importable and only the actual use fails loudly.
+# from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
 
@@ -154,8 +158,20 @@ async def create_dataframe_agent(
 
         logger.info(f"✓ Using LLM: {llm_model} (temperature={temperature})")
 
-        # Create pandas dataframe agent
-        # Note: This uses the experimental pandas agent from LangChain
+        # Create pandas dataframe agent. langchain_experimental is not a
+        # project dependency — load it lazily and fail loudly with install
+        # guidance instead of crashing at module import time.
+        try:
+            from langchain_experimental.agents.agent_toolkits import (
+                create_pandas_dataframe_agent,
+            )
+        except ImportError as e:
+            raise ValueError(
+                "The pandas agent requires the optional 'langchain-experimental' "
+                "package (not installed in this project). Install it with "
+                "'uv pip install langchain-experimental' to use this agent."
+            ) from e
+
         agent = create_pandas_dataframe_agent(
             llm=llm,
             df=df,
