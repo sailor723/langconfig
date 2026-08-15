@@ -22,6 +22,8 @@ resolve entirely from their schema defaults.
 
 from __future__ import annotations
 
+import os
+
 
 def _fallback_list(value: str) -> list[str]:
     return [m.strip() for m in (value or "").split(",") if m.strip()]
@@ -44,7 +46,9 @@ def get_defaults() -> dict[str, dict]:
             "base_dir": "backend/outputs",
         },
         "storage": {
-            "mode": "local",
+            # STORAGE_MODE is a kept optional override (runtime base default) —
+            # honor it so a fresh seed preserves the operator's choice.
+            "mode": os.getenv("STORAGE_MODE") or "local",
             "base_dir": "./data/storage",
             "documents_base_dir": "./data/documents",
         },
