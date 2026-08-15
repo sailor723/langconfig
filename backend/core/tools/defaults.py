@@ -63,7 +63,9 @@ DEFAULT_NATIVE_TOOLS: List[str] = [
     "bash",
     # skills (progressive disclosure on demand)
     "skill",
-    # deliverables
+    # deliverables — write_file generates format-aware documents (.md/.html/
+    # .pdf/.docx); save_document persists the final deliverable to the versioned
+    # document library (agent_documents table + workspace copy).
     "save_document",
     # database — read-only (pg_execute stays opt-in)
     "pg_list_tables",

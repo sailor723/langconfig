@@ -223,13 +223,7 @@ class FilesystemMiddleware:
         try:
             from tools.native_tools import FILESYSTEM_TOOLS
             from core.agents.tool_loader import ToolLoader
-            # inject_save_document=False: the agent's base tool load already
-            # provides a workspace-context-wrapped save_document; injecting an
-            # unwrapped duplicate here makes the unwrapped one win the
-            # same-name dedup and saves documents with project=unset.
-            fs_tools = await ToolLoader.load_native(
-                FILESYSTEM_TOOLS, inject_save_document=False
-            )
+            fs_tools = await ToolLoader.load_native(FILESYSTEM_TOOLS)
             tools.extend(fs_tools)
             logger.info(f"Loaded {len(fs_tools)} filesystem tools: {FILESYSTEM_TOOLS}")
         except Exception as e:
