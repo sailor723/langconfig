@@ -52,17 +52,21 @@ export function useAvailableTools(): UseAvailableToolsResult {
   const fetchTools = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    // The registry is required; the defaults endpoint is optional (older
+    // backends may not expose it) — a failure there must never wipe the tools.
     try {
-      const [registryRes, defaultsRes] = await Promise.all([
-        apiClient.listToolRegistry(),
-        apiClient.getToolRegistryDefaults(),
-      ]);
-      setTools((registryRes.data || []) as ToolOption[]);
-      setDefaultToolIds((defaultsRes.data?.tool_ids || []) as string[]);
+      const response = await apiClient.listToolRegistry();
+      setTools((response.data || []) as ToolOption[]);
     } catch (err: any) {
       const message = err?.response?.data?.detail || err?.message || 'Failed to load tool registry';
       setError(message);
       setTools([]);
+    }
+    try {
+      const defaultsRes = await apiClient.getToolRegistryDefaults();
+      setDefaultToolIds((defaultsRes.data?.tool_ids || []) as string[]);
+    } catch {
+      setDefaultToolIds([]);
     } finally {
       setIsLoading(false);
     }
