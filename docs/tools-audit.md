@@ -108,25 +108,30 @@ No consolidation needed once this split is documented; the model guidance
 > **Batch 4 (Code Mode) ✅** — `run_code` + generated Python SDK (Phase C, see tools-refactor.md).
 > **Batch 5 (skill + search backends) ✅** — on-demand `skill` reader; `web_search` prefers a configured Tavily/Serper key (settings documents) over DDG.
 
-## Default tool set (assign to all agents)
+## Default tool set (assign to all agents — refined, 35 tools)
 
-Every agent / deep agent now receives a curated **20-tool default base**
+Every agent / deep agent receives a **refined 35-tool default base**
 (`core/tools/defaults.py::DEFAULT_NATIVE_TOOLS`) when its config lists no
 native tools — no user configuration needed:
 
-- reasoning: `think_tool`, `reasoning_chain`
-- planning: `write_todos`, `read_todos`
-- web: `web_search`, `web_fetch`
-- filesystem: `ls`, `read_file`, `read_image`, `write_file`, `edit_file`,
+- **reasoning** `think_tool`, `reasoning_chain` · **planning** `write_todos`,
+  `read_todos` · **memory** `memory_store`, `memory_recall` (→ SimpleMemory)
+- **web** `web_search`, `web_fetch`
+- **filesystem** `ls`, `read_file`, `read_image`, `write_file`, `edit_file`,
   `glob`, `grep`, `delete_file`, `rename_file`, `move_file`, `mkdir`
-- shell: `bash` · skills: `skill` · deliverables: `save_document`
+- **shell** `bash` · **skills** `skill` · **document** `save_document`
+- **database (read-only)** `pg_list_tables`, `pg_describe_table`, `pg_query`,
+  `pg_list_agents`, `pg_get_agent`, `pg_list_projects`
+- **analysis** `sqlite_execute`, `sqlite_load_csv`, `python_execute`,
+  `save_analysis_result`
+- **retrieval** `graphindex_search`, `graphindex_load`, `doc_index_list`
 
-Excluded by design (opt-in): database/graph-RAG families, code-execution
-sandboxes, meta tools (create_*), key-gated `tavily_search`/`browser`,
-memory (behind `enable_memory`), `task` (subagents). An explicit
-`native_tools` list wins; `enable_default_tools: False` opts out
-(specialists). Wired at every load choke point: `AgentFactory.create_agent`,
-`ToolLoader.load_all`, `load_agent_tools` (deep-agent path).
+Excluded by design (opt-in): `pg_execute` (DB writes), `browser` (heavy),
+neo4j graph ops + doc-index detail viewers, meta tools (`create_*`, `task`),
+key-gated `tavily_search`, `gen_pptx`, custom tools. An explicit
+`native_tools` list wins; `enable_default_tools: False` opts out. Wired at
+every load choke point and materialized into agent configs (Postgres) at
+create/update — the UI shows the stored set.
 
 ## 6. Suggested next steps — seeded `sqlite_load_csv`; added
 > `delete_file`/`rename_file`/`move_file`/`mkdir`; memory stubs now route to
