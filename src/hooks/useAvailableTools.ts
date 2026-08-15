@@ -35,6 +35,8 @@ export interface ToolOption {
  */
 export interface UseAvailableToolsResult {
   tools: ToolOption[];
+  /** Default native-tool ids (pre-checked for agents with no configured tools). */
+  defaultToolIds: string[];
   isLoading: boolean;
   error: string | null;
   groupedByCategory: Record<string, ToolOption[]>;
@@ -43,6 +45,7 @@ export interface UseAvailableToolsResult {
 
 export function useAvailableTools(): UseAvailableToolsResult {
   const [tools, setTools] = useState<ToolOption[]>([]);
+  const [defaultToolIds, setDefaultToolIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,9 +53,12 @@ export function useAvailableTools(): UseAvailableToolsResult {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await apiClient.listToolRegistry();
-      const data = (response.data || []) as ToolOption[];
-      setTools(data);
+      const [registryRes, defaultsRes] = await Promise.all([
+        apiClient.listToolRegistry(),
+        apiClient.getToolRegistryDefaults(),
+      ]);
+      setTools((registryRes.data || []) as ToolOption[]);
+      setDefaultToolIds((defaultsRes.data?.tool_ids || []) as string[]);
     } catch (err: any) {
       const message = err?.response?.data?.detail || err?.message || 'Failed to load tool registry';
       setError(message);
@@ -75,7 +81,7 @@ export function useAvailableTools(): UseAvailableToolsResult {
     return acc;
   }, {});
 
-  return { tools, isLoading, error, groupedByCategory, refetch: fetchTools };
+  return { tools, defaultToolIds, isLoading, error, groupedByCategory, refetch: fetchTools };
 }
 
 /**

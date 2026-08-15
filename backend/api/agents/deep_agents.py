@@ -325,6 +325,11 @@ async def create_deepagent(
     try:
         config_dict = request.config.dict()
         config_dict["model"] = config_dict.get("model") or _resolve_model(request.config, db)
+        # Default tool set: agents with no configured tools get the universal
+        # base materialized into their Postgres config (docs/tools-audit.md).
+        if not config_dict.get("native_tools"):
+            from core.tools.defaults import DEFAULT_NATIVE_TOOLS
+            config_dict["native_tools"] = list(DEFAULT_NATIVE_TOOLS)
 
         agent = DeepAgentTemplate(
             name=request.name,
@@ -521,6 +526,11 @@ async def update_deepagent(
         # Merge: start from existing config, apply only the provided fields
         merged_config = dict(old_config)
         merged_config.update(new_config)
+        # Default tool set: an agent saved without tools gets the universal base
+        # materialized into Postgres (docs/tools-audit.md), matching the runtime.
+        if not merged_config.get("native_tools"):
+            from core.tools.defaults import DEFAULT_NATIVE_TOOLS
+            merged_config["native_tools"] = list(DEFAULT_NATIVE_TOOLS)
         agent.config = merged_config
 
         # Merge back prompt assembly fields
