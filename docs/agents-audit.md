@@ -70,3 +70,29 @@ the live tool registry, the `models` table, and the `skills` table.
   `browser`, graphindex family).
 - Custom: only hello (1: `current_time`) and Research Agent (1: `current_time`).
 - Skills: deep agents carry 1–7 skills; the 3 dead ids are the only gaps.
+
+## Live curl test (2026-08-15) — all 34 agents, one by one
+
+Method: `POST /api/chat/start` → `POST /api/chat/message/stream` (message
+"Reply with exactly: OK") → `POST /api/chat/{session_id}/end`.
+
+| Result | Count | Agents |
+|---|---|---|
+| ✅ **OK** (replies "OK") | 15 | all `deepseek-chat`/`deepseek-v4-pro`/`deepseek-v4-flash` agents: 35, 37, 38, 47, 69, 73, 112, 125, 159, 161, 162, 163, 165, 172, 173 |
+| 🔑 **KEY-MISSING** (clean error, key not configured) | 19 | claude-sonnet-4-5 (1, 2, 3, 4, 164), gemini-2.5-pro (120), minimax-m3 (45, 76, 82, 103, 108, 111, 115, 124, 129, 136, 137, 138), gpt-4o (119) |
+
+Findings from the run:
+
+- **Bug found & fixed**: `services/agent_utils.py` referenced `settings.*`
+  (`MINIMAX_API_BASE`, `AGNES_BASE_URL`, `KIMI_API_BASE`, `QWEN_API_BASE`,
+  `GLM_API_BASE`, `OPENAI_API_BASE`) without importing `settings` → every
+  non-deepseek/non-claude/gemini model raised
+  `NameError: name 'settings' is not defined` at agent build time
+  (13 agents: 12× minimax-m3 + gpt-4o). Fixed by importing `settings` from
+  `config`. After the fix all 13 reach the API-key check and fail cleanly.
+- Remaining KEY-MISSING is expected: only `deepseek_api_key` is configured in
+  the settings documents (wizard-only keys; claude/minimax/gemini/gpt keys
+  would need to be added in Settings > Models).
+- graphindex_builder (103) reaches the model check but is **not yet functional**:
+  its 4 graphindex tools are still unseeded (F6, deferred).
+
