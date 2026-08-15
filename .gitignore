@@ -130,6 +130,7 @@ docs/*
 !docs/tools-refactor.md
 !docs/tools-audit.md
 !docs/agents-audit.md
+!docs/deepagent-vs-dsh.md
 !docs/SETUP.md
 langconfig/
 
