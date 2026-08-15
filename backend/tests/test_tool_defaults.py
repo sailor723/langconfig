@@ -12,15 +12,22 @@ def test_default_set_is_curated():
     d = DEFAULT_NATIVE_TOOLS
     # universal base present
     for tool in ("think_tool", "reasoning_chain", "write_todos", "read_todos",
-                 "web_search", "web_fetch", "read_file", "write_file", "edit_file",
-                 "ls", "glob", "grep", "delete_file", "rename_file", "move_file",
-                 "mkdir", "bash", "skill", "save_document"):
+                 "memory_store", "memory_recall", "web_search", "web_fetch",
+                 "read_file", "write_file", "edit_file", "ls", "glob", "grep",
+                 "delete_file", "rename_file", "move_file", "mkdir", "bash",
+                 "skill", "save_document"):
         assert tool in d, tool
-    # specialized/opt-in tools excluded
-    for tool in ("pg_query", "pg_execute", "python_execute", "sqlite_execute",
-                 "neo4j_query", "graphindex_search", "create_deepagent",
-                 "create_skill", "tavily_search", "browser", "memory_store",
-                 "memory_recall", "task", "gen_pptx"):
+    # db/analysis/retrieval categories present (read-only db; no pg_execute)
+    for tool in ("pg_list_tables", "pg_describe_table", "pg_query",
+                 "sqlite_execute", "sqlite_load_csv", "python_execute",
+                 "save_analysis_result", "graphindex_search", "graphindex_load",
+                 "doc_index_list"):
+        assert tool in d, f"{tool} should be default"
+    # excluded: db writes, heavy, meta, key-gated, graph ops, custom
+    for tool in ("pg_execute", "browser", "neo4j_query", "neo4j_upsert_doc",
+                 "graphindex_ingest", "create_deepagent", "create_skill",
+                 "update_skill", "delete_skill", "task", "tavily_search",
+                 "gen_pptx"):
         assert tool not in d, f"{tool} should not be default"
 
 
