@@ -108,6 +108,26 @@ No consolidation needed once this split is documented; the model guidance
 > **Batch 4 (Code Mode) ✅** — `run_code` + generated Python SDK (Phase C, see tools-refactor.md).
 > **Batch 5 (skill + search backends) ✅** — on-demand `skill` reader; `web_search` prefers a configured Tavily/Serper key (settings documents) over DDG.
 
+## Default tool set (assign to all agents)
+
+Every agent / deep agent now receives a curated **20-tool default base**
+(`core/tools/defaults.py::DEFAULT_NATIVE_TOOLS`) when its config lists no
+native tools — no user configuration needed:
+
+- reasoning: `think_tool`, `reasoning_chain`
+- planning: `write_todos`, `read_todos`
+- web: `web_search`, `web_fetch`
+- filesystem: `ls`, `read_file`, `read_image`, `write_file`, `edit_file`,
+  `glob`, `grep`, `delete_file`, `rename_file`, `move_file`, `mkdir`
+- shell: `bash` · skills: `skill` · deliverables: `save_document`
+
+Excluded by design (opt-in): database/graph-RAG families, code-execution
+sandboxes, meta tools (create_*), key-gated `tavily_search`/`browser`,
+memory (behind `enable_memory`), `task` (subagents). An explicit
+`native_tools` list wins; `enable_default_tools: False` opts out
+(specialists). Wired at every load choke point: `AgentFactory.create_agent`,
+`ToolLoader.load_all`, `load_agent_tools` (deep-agent path).
+
 ## 6. Suggested next steps — seeded `sqlite_load_csv`; added
 > `delete_file`/`rename_file`/`move_file`/`mkdir`; memory stubs now route to
 > SimpleMemory (never fake-fail); retrieval-stack split documented above.
