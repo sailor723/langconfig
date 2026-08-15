@@ -82,8 +82,8 @@ Method: `POST /api/chat/start` → `POST /api/chat/message/stream` (message
 
 | Result | Count | Agents |
 |---|---|---|
-| ✅ **OK** (replies "OK") | 15 | all `deepseek-chat`/`deepseek-v4-pro`/`deepseek-v4-flash` agents: 35, 37, 38, 47, 69, 73, 112, 125, 159, 161, 162, 163, 165, 172, 173 |
-| 🔑 **KEY-MISSING** (clean error, key not configured) | 19 | claude-sonnet-4-5 (1, 2, 3, 4, 164), gemini-2.5-pro (120), minimax-m3 (45, 76, 82, 103, 108, 111, 115, 124, 129, 136, 137, 138), gpt-4o (119) |
+| ✅ **OK** (replies "OK") | 27 | deepseek agents (35, 37, 38, 47, 69, 73, 112, 125, 159, 161, 162, 163, 165, 172, 173) + minimax-m3 agents (45, 76, 82, 103, 108, 111, 115, 124, 129, 136, 137, 138) |
+| 🔑 **KEY-MISSING** (clean error, key not configured) | 7 | claude-sonnet-4-5 (1, 2, 3, 4, 164), gemini-2.5-pro (120), gpt-4o (119) |
 
 Findings from the run:
 
@@ -94,9 +94,10 @@ Findings from the run:
   `NameError: name 'settings' is not defined` at agent build time
   (13 agents: 12× minimax-m3 + gpt-4o). Fixed by importing `settings` from
   `config`. After the fix all 13 reach the API-key check and fail cleanly.
-- Remaining KEY-MISSING is expected: only `deepseek_api_key` is configured in
-  the settings documents (wizard-only keys; claude/minimax/gemini/gpt keys
-  would need to be added in Settings > Models).
-- graphindex_builder (103) reaches the model check; its 4 graphindex build
-  tools are now seeded (F6 fixed) — only a `minimax_api_key` is missing to run.
+- After the user added `minimax_api_key` in Settings > Models, all 12
+  minimax-m3 agents passed (incl. graphindex_builder 103, which also
+  successfully called `doc_index_list` and had its 4 graphindex build tools
+  attached — F6).
+- Remaining 7 KEY-MISSING: claude (1, 2, 3, 4, 164), gemini (120), gpt-4o
+  (119) — those keys are still not configured in Settings > Models.
 
