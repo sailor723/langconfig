@@ -129,6 +129,7 @@ docs/*
 !docs/settings-refactor.md
 !docs/tools-refactor.md
 !docs/tools-audit.md
+!docs/agents-audit.md
 !docs/SETUP.md
 langconfig/
 
