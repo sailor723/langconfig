@@ -319,6 +319,16 @@ class _AgentAssemblyMixin:
                 except Exception as e:
                     logger.warning(f"Failed to add workspace save_document tool: {e}")
 
+        # 3e. DSH-style execution pipeline (Phase B, docs/tools-refactor.md):
+        # wrap tools whose declarative definition requests enforcement
+        # (approval guard, timeout, output schema). Additive — tools without
+        # enforcement pass through unchanged.
+        try:
+            from core.tools.pipeline import apply_tool_pipeline
+            tools = apply_tool_pipeline(tools)
+        except Exception as e:
+            logger.warning(f"Tool pipeline wrap failed (non-fatal): {e}")
+
         # 4. Check if structured output is enabled (v1.1: Support ProviderStrategy)
         structured_output_strategy = None
         if enable_structured_output and output_schema:

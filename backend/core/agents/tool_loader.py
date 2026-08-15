@@ -274,6 +274,7 @@ class ToolLoader:
                     # Trust boundary: platform-seeded rows keep full exec
                     # power; user/agent/bundle rows get the restricted sandbox.
                     "is_builtin": bool(getattr(row, "is_builtin", False)),
+                    "definition": getattr(row, "definition", None),
                 }
                 try:
                     tools.append(await ToolFactory.create_tool(tool_config))
@@ -481,6 +482,7 @@ class ToolLoader:
                             # Trust boundary: only platform-seeded rows get
                             # full exec power; everything else is sandboxed.
                             "is_builtin": bool(custom_tool.is_builtin),
+                            "definition": getattr(custom_tool, "definition", None),
                         }
 
                         # Create the tool using ToolFactory

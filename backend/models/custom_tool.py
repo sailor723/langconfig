@@ -76,6 +76,9 @@ class CustomTool(Base):
     input_schema = Column(JSON, nullable=False)  # JSON Schema for inputs
     output_format = Column(String(50), nullable=True, default="string")  # string, json, url
     validation_rules = Column(JSON, nullable=True)  # Additional validation rules
+    # DSH-style declarative definition (docs/tools-refactor.md §3): category,
+    # prompt order, timeout, concurrency, output schema, guards, presentation.
+    definition = Column(JSON, nullable=True)
 
     # Mode tracking
     is_template_based = Column(Boolean, default=True, nullable=False)  # Template vs Advanced mode

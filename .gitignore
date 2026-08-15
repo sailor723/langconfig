@@ -126,6 +126,8 @@ client_secret*.json
 docs/*
 !docs/.gitkeep
 !docs/GOOGLE_OAUTH_SETUP.md
+!docs/settings-refactor.md
+!docs/tools-refactor.md
 !docs/SETUP.md
 langconfig/
 

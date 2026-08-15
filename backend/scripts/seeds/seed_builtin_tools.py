@@ -91,6 +91,24 @@ SEEDABLE_TOOL_META = {
     "save_document": ("Save Document", "document", None),
 }
 
+# Display category -> DSH-style definition category (core/tools/definition.py).
+# Categories not listed fall back to "custom".
+_DEFINITION_CATEGORY = {
+    "web": "web",
+    "filesystem": "filesystem",
+    "reasoning": "reasoning",
+    "skills": "skills",
+    "database": "database",
+    "delegation": "agents",
+    "agent_management": "agents",
+    "data_analysis": "analysis",
+    "data": "analysis",
+    "presentation": "presentation",
+    "retrieval": "graph",
+    "document": "document",
+}
+
+
 # StructuredTool wrapper names in tools/native_impl.py that carry richer
 # input schemas (per-arg descriptions) than the bare plain functions they
 # wrap. The seeder uses them for schema derivation; the embedded row code
@@ -339,7 +357,7 @@ def _schema_from_signature(fn) -> tuple[dict, list]:
     return properties, required
 
 
-def _build_row(tool_name: str, tool_obj, meta: tuple) -> dict:
+def _build_row(tool_name: str, tool_obj, meta: tuple, order: int = 500) -> dict:
     """Build the CustomTool payload for one built-in tool.
 
     ``input_schema`` keeps the faithful JSON Schema (LLM-facing) while
@@ -404,6 +422,19 @@ def _build_row(tool_name: str, tool_obj, meta: tuple) -> dict:
         "category": category,
         "requires_api_key": requires_api_key,
         "tags": ["builtin", category],
+        # DSH-style declarative definition (docs/tools-refactor.md §3).
+        "definition": {
+            "category": _DEFINITION_CATEGORY.get(category, "custom"),
+            "order": order,
+            "section": None,
+            "is_concurrency_safe": True,
+            "output_schema": None,
+            "guard": {"approval": False, "confirmation": False},
+            "presentation": (
+                {"requires_api_key": requires_api_key}
+                if requires_api_key else {}
+            ),
+        },
     }
 
 
@@ -414,6 +445,7 @@ def main(refresh: bool = False) -> int:
     import tools.native_impl as native_impl
 
     seed_names = list(SEEDABLE_TOOL_META)
+    seed_index = 0
     logger.info(f"Seeding {len(seed_names)} built-in tools (self-contained code embedded in rows)")
 
     # Capture each tool's real LLM-facing description + args schema from the
@@ -428,7 +460,8 @@ def main(refresh: bool = False) -> int:
             continue
         meta = SEEDABLE_TOOL_META.get(name, (name, "misc", None))
         try:
-            rows_by_name[name] = _build_row(name, tool_obj, meta)
+            rows_by_name[name] = _build_row(name, tool_obj, meta, order=seed_index)
+            seed_index += 1
         except Exception as exc:  # pragma: no cover — defensive
             logger.error(f"  x Failed to build '{name}': {exc}")
             continue
