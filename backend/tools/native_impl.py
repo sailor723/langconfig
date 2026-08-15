@@ -3321,7 +3321,7 @@ def _get_project_id() -> Optional[int]:
     return None
 
 
-# Note: print_hello has been moved to a custom tool (DB-backed, editable in UI).
+# Note: the demo 'print_hello' custom tool was removed (tools audit).
 # See backend/create_print_hello_tool.py for how it was registered.
 # The native implementation was removed to keep a single source of truth.
 
