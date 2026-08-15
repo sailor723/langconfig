@@ -326,6 +326,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         await apiClient.updateDeepAgent(localAgentId, {
           name: trimmedName,
           description: editableDesc.trim() || null,
+          category: editableCategory,
           config: fullConfig,
           workspace_path: workspacePath.trim() || null,
           agent_docs: docsDraft,

@@ -670,9 +670,16 @@ export default function AgentHomePage() {
     abortRef.current = abort;
     setLoading(true);
     setError(null);
-    apiClient.apiFetch(`${apiClient.baseURL}/api/agents/templates`, { signal: abort.signal })
-      .then((res: any) => {
-        const tpl = ((res as any[]) || []).map((t: any) => ({
+    // Load built-in system templates + user-created regular agents
+    // (use_deepagents=false) so the Agents browser shows editable custom builds.
+    Promise.all([
+      apiClient.apiFetch(`${apiClient.baseURL}/api/agents/templates`, { signal: abort.signal }),
+      apiClient.listDeepAgents({ public_only: false, signal: abort.signal }),
+    ])
+      .then(([tplRes, dbRes]: any) => {
+        if (abort.signal.aborted) return; // superseded by a newer request
+        const tplData = (tplRes as any)?.data ?? tplRes ?? [];
+        const tpl = (Array.isArray(tplData) ? tplData : []).map((t: any) => ({
           id: t.id,
           name: t.name,
           description: t.description || '',
@@ -684,7 +691,29 @@ export default function AgentHomePage() {
           native_tools: t.mcp_tools || t.native_tools || [],
           is_builtin: true,
         }));
-        if (!abort.signal.aborted) setTemplates(tpl);
+
+        // User-created REGULAR agents (use_deepagents=false) live in the same
+        // deep_agent_templates table; surface them here with numeric ids so
+        // the Edit button works.
+        const dbData = (dbRes as any)?.data ?? dbRes ?? [];
+        const userCreated = (Array.isArray(dbData) ? dbData : [])
+          .filter((a: any) => a.config?.use_deepagents === false)
+          .map((a: any) => ({
+            id: a.id,
+            name: a.name,
+            description: a.description || '',
+            category: 'custom',
+            tags: a.tags || [],
+            system_prompt: a.config?.system_prompt,
+            model: a.config?.model,
+            temperature: a.config?.temperature,
+            native_tools: a.config?.native_tools || [],
+            is_builtin: false,
+          }));
+
+        // Built-in first, then user-created (dedup by name)
+        const seen = new Set(tpl.map((t: any) => t.name));
+        setTemplates([...tpl, ...userCreated.filter((c: any) => !seen.has(c.name))]);
       })
       .catch(err => {
         if (abort.signal.aborted) return; // superseded by a newer request
