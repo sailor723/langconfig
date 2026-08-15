@@ -19,7 +19,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.tools import BaseTool
 from langchain_core.language_models import BaseLanguageModel, BaseChatModel
 from langchain.chat_models import init_chat_model
-from config import get_api_key_from_db
+from config import get_api_key_from_db, settings
 
 logger = logging.getLogger(__name__)
 
