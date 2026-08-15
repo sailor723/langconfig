@@ -13,8 +13,7 @@ def test_default_set_is_curated():
     # universal base present
     for tool in ("think_tool", "reasoning_chain", "write_todos", "read_todos",
                  "memory_store", "memory_recall", "web_search", "web_fetch",
-                 "read_file", "write_file", "edit_file", "ls", "glob", "grep",
-                 "delete_file", "rename_file", "move_file", "mkdir", "bash",
+                 "rename_file", "move_file", "mkdir", "bash",
                  "skill", "save_document"):
         assert tool in d, tool
     # db/analysis/retrieval categories present (read-only db; no pg_execute)
@@ -29,6 +28,12 @@ def test_default_set_is_curated():
                  "update_skill", "delete_skill", "task", "tavily_search",
                  "gen_pptx"):
         assert tool not in d, f"{tool} should not be default"
+    # filesystem tools are provided by the deepagents SDK FilesystemMiddleware
+    # (default for all agents, format-aware via FormatAwareBackend); only tools
+    # the SDK lacks (rename/move/mkdir) stay native.
+    for tool in ("ls", "read_file", "write_file", "edit_file", "glob", "grep",
+                 "delete_file", "read_image"):
+        assert tool not in d, f"{tool} should not be default (SDK provides it)"
 
 
 def test_resolve_configured_wins():

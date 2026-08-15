@@ -410,6 +410,31 @@ class _AgentAssemblyMixin:
             task_id=task_id,
         )
 
+        # Filesystem middleware — default for regular agents too (deep agents
+        # get the SDK's own via their backend). Rooted at the agent workspace so
+        # write_file/read_file land in the Files panel, with the format-aware
+        # backend wrap for .html/.pdf/.docx/.pptx (multi-format documents).
+        try:
+            from deepagents.middleware.filesystem import FilesystemMiddleware
+            from deepagents.backends.filesystem import FilesystemBackend
+            from services.format_backend import FormatAwareBackend
+
+            _fs_root = workspace_root
+            if not _fs_root:
+                from services.workspace_manager import get_workspace_manager
+                _ws_mgr = get_workspace_manager()
+                _fs_root = str(_ws_mgr.get_task_workspace_with_override(
+                    project_id=project_id, workflow_id=None, task_id=task_id,
+                ))
+            Path(_fs_root).mkdir(parents=True, exist_ok=True)
+            fs_mw = FilesystemMiddleware(
+                backend=FormatAwareBackend(FilesystemBackend(root_dir=_fs_root)),
+            )
+            middleware = list(middleware or []) + [fs_mw]
+            logger.info(f"✓ Filesystem middleware added (regular agent) root={_fs_root}")
+        except Exception as e:
+            logger.warning(f"Filesystem middleware not available for regular agent: {e}")
+
         # 6c. Setup Callbacks (e.g., LangFuse Tracing, Token Tracking)
         callbacks = AgentFactory._configure_callbacks(
             project_id=project_id,

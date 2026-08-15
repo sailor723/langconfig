@@ -566,18 +566,36 @@ class _DeepAgentAssemblyMixin:
             # - db mode + skills: DbBackend serves /skills from storage; when a
             #   sandbox is active, a CompositeBackend routes /skills/ to storage
             #   and keeps everything else (incl. `execute`) in the sandbox.
+            #   Without a sandbox we now default to the agent workspace
+            #   filesystem (writes land on disk → Files panel) and route only
+            #   /skills/ to storage — previously the bare DbBackend made every
+            #   file write invisible (stored in the DB seam).
             # - sandbox only: LocalShellBackend (execute tool).
             # - local mode + staged skills: FilesystemBackend over the workspace.
             if db_skills_backend is not None:
+                from deepagents.backends.composite import CompositeBackend
+                from deepagents.backends.filesystem import FilesystemBackend
+                from services.storage import DbBackend
                 if local_sandbox_backend is not None:
-                    from deepagents.backends.composite import CompositeBackend
-                    from services.storage import DbBackend
                     agent_kwargs["backend"] = CompositeBackend(
                         default=local_sandbox_backend,
                         routes={"/skills/": DbBackend(storage_prefix="skills")},
                     )
                 else:
-                    agent_kwargs["backend"] = db_skills_backend
+                    # Default filesystem root: the agent workspace (chat) or the
+                    # staged skills root (workflow). Agent files must land on
+                    # disk so the Files panel can show them.
+                    _fs_root = workspace_root or (
+                        str(skills_staging_root) if skills_staging_root else None
+                    )
+                    if _fs_root:
+                        Path(_fs_root).mkdir(parents=True, exist_ok=True)
+                        agent_kwargs["backend"] = CompositeBackend(
+                            default=FilesystemBackend(root_dir=_fs_root),
+                            routes={"/skills/": DbBackend(storage_prefix="skills")},
+                        )
+                    else:
+                        agent_kwargs["backend"] = db_skills_backend
                 agent_kwargs["skills"] = skills_sources
             elif local_sandbox_backend is not None:
                 # Pass LocalShellBackend so the agent gains the `execute` tool for
@@ -593,6 +611,15 @@ class _DeepAgentAssemblyMixin:
                 # Relative sources: <root>/skills is a container of personal skill
                 # dirs; <root>/skills/builtin is the container of builtin skills.
                 agent_kwargs["skills"] = skills_sources
+
+            # Multi-format documents: wrap whatever backend was selected so the
+            # SDK's write_file/read_file render/extract .html/.pdf/.docx/.pptx
+            # (docs/tools-refactor.md — native format-aware renderers reused).
+            try:
+                from services.format_backend import FormatAwareBackend
+                agent_kwargs["backend"] = FormatAwareBackend(agent_kwargs["backend"])
+            except Exception as e:
+                logger.warning(f"FormatAwareBackend wrap failed (non-fatal): {e}")
 
             # Try to pass guardrails if supported
             try:
