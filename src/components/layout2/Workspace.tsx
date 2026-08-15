@@ -9,7 +9,7 @@
 import { useRef } from 'react';
 import { useLayoutState, type Tab } from './useLayout';
 import { useLayoutTokens } from './tokens';
-import { X, File, User, BookOpen, BarChart3, Brain, Sparkles, Globe, Wrench, Database, Award, FileText } from 'lucide-react';
+import { X, File, User, BookOpen, BarChart3, Brain, Globe, Wrench, Database, Award, FileText } from 'lucide-react';
 import FileEditor from './FileEditor';
 import DeepAgentEditor from './DeepAgentEditor';
 import DeepAgentCreator from './DeepAgentCreator';
@@ -17,8 +17,6 @@ import AgentEditor from './AgentEditor';
 import ToolCategoryTab from './ToolCategoryTab';
 import ToolEditor from './ToolEditor';
 import CustomToolBuilderTab from './CustomToolBuilderTab';
-import ModelCardsGridTab from './ModelCardsGridTab';
-import ModelViewerTab from './ModelViewerTab';
 import SearchProviderDetailTab from './SearchProviderDetailTab';
 import KnowledgeView from './KnowledgeView';
 import SkillView from './SkillView';
@@ -34,8 +32,6 @@ const VIEW_ICONS: Record<string, React.ReactNode> = {
   'tool-category':      <Wrench size={13} />,
   'tool-editor':          <Wrench size={13} />,
   'custom-tool-builder':  <Wrench size={13} />,
-  'model-cards':          <Sparkles size={13} />,
-  'model-viewer':       <Sparkles size={13} />,
   'search-provider-detail': <Globe size={13} />,
   'knowledge-view':      <Database size={13} />,
   skill:               <Award size={13} />,
@@ -58,8 +54,6 @@ const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
   'tool-category':      ToolCategoryTab,
   'tool-editor':          ToolEditor,
   'custom-tool-builder':  CustomToolBuilderTab,
-  'model-cards':          ModelCardsGridTab,
-  'model-viewer':       ModelViewerTab,
   'search-provider-detail': SearchProviderDetailTab,
   'knowledge-view':      KnowledgeView,
   skill:               SkillView,
