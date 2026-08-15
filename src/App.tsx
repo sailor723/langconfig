@@ -554,7 +554,8 @@ function AppContent() {
           <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
             <Workspace fallback={renderCurrentPage()} />
           </div>
-          <BottomPanel />
+          {/* Hide the terminal/log panel on the Settings page (clean DSH-style view) */}
+          {currentView !== 'settings' && <BottomPanel />}
         </div>
 
         {/* Right panel: NodeConfigPanel when node selected, Chat otherwise */}

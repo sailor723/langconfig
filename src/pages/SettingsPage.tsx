@@ -5,834 +5,707 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+/**
+ * SettingsView — DSH-style settings page (mirrors the DeepSeek Harness GUI).
+ *
+ * A slim left nav + clean "label → control" rows. No card galleries.
+ * Sections:
+ *   General          — language, theme, app behavior toggles
+ *   Models           — default/fallback model dropdowns + provider list with
+ *                      Edit dialogs (API key, base URL, model rows) + Add provider
+ *   Search Providers — simple provider list with key edit / test / delete
+ *   Workspace        — workspace path + permission toggles
+ *   Storage          — storage mode
+ *   About            — version info + re-run setup
+ */
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import apiClient from '../lib/api-client';
 import { themes, useTheme, type ThemeName } from '../lib/themes';
-import LanguageSwitcher from '../i18n/LanguageSwitcher';
-import SettingsLayout, { SettingsCategory } from "../features/settings/ui/SettingsLayout";
-import LocalWorkspaceSettings from "../features/settings/ui/LocalWorkspaceSettings";
-import ModelDefaultsSettings from '../features/settings/ui/ModelDefaultsSettings';
-import ModelCardsSettings from '../features/settings/ui/ModelCardsSettings';
-import EmbeddingSettings from '../features/settings/ui/EmbeddingSettings';
-import SearchProvidersSettings from '../features/settings/ui/SearchProvidersSettings';
-import SettingsSection, { SettingsInput } from '../features/settings/ui/SettingsSection';
+import apiClient from '../lib/api-client';
+
+type SectionId = 'general' | 'models' | 'search' | 'workspace' | 'storage' | 'about';
+
+const SECTIONS: { id: SectionId; label: string; icon: string }[] = [
+  { id: 'general', label: 'General', icon: 'tune' },
+  { id: 'models', label: 'Models', icon: 'smart_toy' },
+  { id: 'search', label: 'Search Providers', icon: 'travel_explore' },
+  { id: 'workspace', label: 'Workspace', icon: 'folder_open' },
+  { id: 'storage', label: 'Storage', icon: 'storage' },
+  { id: 'about', label: 'About', icon: 'info' },
+];
+
+// Provider name → APIKeySet field (matches backend API_PROVIDER_KEY_FIELDS).
+const PROVIDER_FIELD: Record<string, string> = {
+  openai: 'openai_api_key', anthropic: 'anthropic_api_key', google: 'google_api_key',
+  cohere: 'cohere_api_key', replicate: 'replicate_api_key', deepseek: 'deepseek_api_key',
+  glm: 'glm_api_key', minimax: 'minimax_api_key', qwen: 'qwen_api_key', kimi: 'kimi_api_key',
+  agnes: 'agnes_api_key', tavily: 'tavily_api_key', serper: 'serper_api_key',
+};
+
+const PROVIDER_BASE_FIELD: Record<string, string> = {
+  openai: 'openai_base_url', anthropic: 'anthropic_base_url', google: 'google_base_url',
+  cohere: 'cohere_base_url', replicate: 'replicate_base_url', deepseek: 'deepseek_api_base',
+  glm: 'glm_api_base', minimax: 'minimax_api_base', qwen: 'qwen_api_base', kimi: 'kimi_api_base',
+  agnes: 'agnes_base_url',
+};
+
+const PROVIDER_LABEL: Record<string, string> = {
+  openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google', deepseek: 'DeepSeek',
+  glm: 'GLM', minimax: 'MiniMax', qwen: 'Qwen', kimi: 'Kimi', cohere: 'Cohere',
+  replicate: 'Replicate', agnes: 'Agnes', tavily: 'Tavily', serper: 'Serper',
+};
+
+const label = (p: string) => PROVIDER_LABEL[p] || (p.charAt(0).toUpperCase() + p.slice(1));
+
+// ── Small presentational helpers ───────────────────────────────────
+
+function SectionTitle({ title, desc }: { title: string; desc?: string }) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <h2 style={{ fontSize: 17, fontWeight: 650, margin: 0, color: 'var(--color-text-primary)' }}>{title}</h2>
+      {desc && <p style={{ fontSize: 12.5, color: 'var(--color-text-muted)', margin: '4px 0 0 0', lineHeight: 1.5 }}>{desc}</p>}
+    </div>
+  );
+}
+
+function Row({ label: rowLabel, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>{rowLabel}</div>
+        {hint && <div style={{ fontSize: 11.5, color: 'var(--color-text-muted)', marginTop: 2 }}>{hint}</div>}
+      </div>
+      <div style={{ flexShrink: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      style={{
+        width: 36, height: 20, borderRadius: 999, border: 'none', cursor: 'pointer', position: 'relative',
+        background: checked ? 'var(--color-primary)' : 'var(--color-border-dark)', transition: 'background 0.15s', flexShrink: 0,
+      }}
+    >
+      <span style={{
+        position: 'absolute', top: 2, left: checked ? 18 : 2, width: 16, height: 16, borderRadius: '50%',
+        background: '#fff', transition: 'left 0.15s',
+      }} />
+    </button>
+  );
+}
+
+function Select({ value, onChange, options, width = 220 }: {
+  value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; width?: number;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      style={{
+        width, padding: '6px 10px', borderRadius: 6, fontSize: 13,
+        border: '1px solid var(--color-border-dark)', background: 'var(--color-input-background, #fff)',
+        color: 'var(--color-text-primary)', outline: 'none', cursor: 'pointer',
+      }}
+    >
+      {options.map(o => <option key={'key' in o ? (o as any).key : o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  );
+}
+
+function TextInput({ value, onChange, placeholder, mono = false, width = 280 }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; mono?: boolean; width?: number;
+}) {
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={{
+        width, padding: '6px 10px', borderRadius: 6, fontSize: 13,
+        border: '1px solid var(--color-border-dark)', background: 'var(--color-input-background, #fff)',
+        color: 'var(--color-text-primary)', outline: 'none',
+        fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit',
+      }}
+    />
+  );
+}
+
+function Btn({ children, onClick, variant = 'ghost', disabled }: {
+  children: React.ReactNode; onClick?: () => void; variant?: 'primary' | 'ghost' | 'danger'; disabled?: boolean;
+}) {
+  const base: React.CSSProperties = {
+    padding: '5px 12px', borderRadius: 6, fontSize: 12.5, fontWeight: 500, cursor: disabled ? 'not-allowed' : 'pointer',
+    border: '1px solid var(--color-border-dark)', opacity: disabled ? 0.5 : 1, whiteSpace: 'nowrap',
+  };
+  if (variant === 'primary') {
+    Object.assign(base, { background: 'var(--color-primary)', borderColor: 'var(--color-primary)', color: '#fff' });
+  } else if (variant === 'danger') {
+    Object.assign(base, { color: '#e5484d', borderColor: 'var(--color-border-dark)', background: 'transparent' });
+  } else {
+    Object.assign(base, { background: 'transparent', color: 'var(--color-text-primary)' });
+  }
+  return <button style={base} onClick={onClick} disabled={disabled}>{children}</button>;
+}
+
+// ── Settings page ──────────────────────────────────────────────────
 
 export default function SettingsView() {
-  const { t } = useTranslation('chat');
+  const { i18n } = useTranslation();
   const { theme: activeTheme, setTheme } = useTheme();
-  const [currentCategory, setCurrentCategory] = useState<SettingsCategory>('general');
-  const [isLoading, setIsLoading] = useState(true);
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Theme state
-
-  // Type definitions for settings
-  interface LocalModelsSettings {
-    provider: string;
-    baseUrl: string;
-    modelName: string;
-    apiKey: string;
-  }
-
-  interface WorkspaceSettings {
-    workspacePath: string;
-    allowRead: boolean;
-    allowWrite: boolean;
-    requireApproval: boolean;
-    autoDetectGit: boolean;
-    backupBeforeEdit: boolean;
-  }
-
-  interface ModelDefaultsSettings {
-    primaryModel: string;
-    fallbackModels: string[];
-    temperature: number;
-    maxTokens: number;
-    topP: number;
-    routingStrategy: string;
-    dailyTokenLimit: number;
-    monthlyTokenLimit: number;
-    alertThreshold: number;
-  }
-
-  interface GeneralSettings {
-    appName: string;
-    storagePath: string;
-    language: string;
-    autoSave: boolean;
-    autoSaveInterval: number;
-    confirmBeforeDelete: boolean;
-    showNotifications: boolean;
-    checkUpdates: boolean;
-    telemetry: boolean;
-    logLevel: string;
-  }
-
-  interface RagSettings {
-    embeddingModel: string;
-    chunkSize: number;
-    chunkOverlap: number;
-  }
-
-  // Local Models state - start with null, load from backend
-  const [localModelsSettings, setLocalModelsSettings] = useState<LocalModelsSettings | null>(null);
-
-  // Local Workspace state - start with null, load from backend
-  const [workspaceSettings, setWorkspaceSettings] = useState<WorkspaceSettings | null>(null);
-
-  // Model Defaults state - start with null, load from backend
-  const [modelDefaultsSettings, setModelDefaultsSettings] = useState<ModelDefaultsSettings | null>(null);
-
-  // General settings state - start with null, load from backend
-  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
-    appName: 'LangConfig',
-    language: 'en',
-    autoSave: true,
-    autoSaveInterval: 300,
-    confirmBeforeDelete: true,
-    showNotifications: true,
-    checkUpdates: true,
-    telemetry: false,
-    logLevel: 'info',
-    storagePath: ''
-  });
-
-  // RAG settings state - start with null, load from backend
-  const [ragSettings, setRagSettings] = useState<RagSettings | null>(null);
-
-  // Storage mode (docs/system-architecture.md §15, Phase 5)
-  const [storageMode, setStorageMode] = useState<'local' | 'db'>('local');
-  const [storageSource, setStorageSource] = useState<'env' | 'db'>('env');
-
-  useEffect(() => {
-    const abortController = new AbortController();
-
-    loadSettings();
-
-    return () => {
-      abortController.abort();
-    };
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      // Load general settings
-      try {
-        const generalResponse = await apiClient.getGeneralSettings();
-        const generalData = generalResponse.data;
-        setGeneralSettings({
-          appName: generalData.app_name || 'LangConfig',
-          language: generalData.language || 'en',
-          autoSave: generalData.auto_save ?? true,
-          autoSaveInterval: generalData.auto_save_interval || 300,
-          confirmBeforeDelete: generalData.confirm_before_delete ?? true,
-          showNotifications: generalData.show_notifications ?? true,
-          checkUpdates: generalData.check_updates ?? true,
-          telemetry: generalData.telemetry ?? false,
-          logLevel: generalData.log_level || 'info',
-          storagePath: generalData.storage_path || ''
-        });
-        // Load theme from backend (overrides localStorage)
-        if (generalData.theme && themes[generalData.theme as ThemeName]) {
-          const themeName = generalData.theme as ThemeName;
-          setTheme(themeName);
-        }
-      } catch (error) {
-      }
-
-      // Load local models settings
-      try {
-        const localModelsResponse = await apiClient.getLocalModelsSettings();
-        const localModelsData = localModelsResponse.data;
-        setLocalModelsSettings({
-          provider: localModelsData.provider || 'ollama',
-          baseUrl: localModelsData.base_url || 'http://localhost:11434/v1',
-          modelName: localModelsData.model_name || 'llama3.2:latest',
-          apiKey: localModelsData.api_key || ''
-        });
-      } catch (error) {
-      }
-
-      // Load workspace settings
-      try {
-        const workspaceResponse = await apiClient.getWorkspaceSettings();
-        const workspaceData = workspaceResponse.data;
-        setWorkspaceSettings({
-          workspacePath: workspaceData.workspace_path || '',
-          allowRead: workspaceData.allow_read ?? true,
-          allowWrite: workspaceData.allow_write ?? true,
-          requireApproval: workspaceData.require_approval ?? true,
-          autoDetectGit: workspaceData.auto_detect_git ?? true,
-          backupBeforeEdit: workspaceData.backup_before_edit ?? true
-        });
-      } catch (error) {
-      }
-
-      // Load model defaults settings
-      try {
-        const modelDefaultsResponse = await apiClient.getModelDefaults();
-        const modelDefaultsData = modelDefaultsResponse.data;
-        setModelDefaultsSettings({
-          primaryModel: modelDefaultsData.primary_model || 'gpt-4o',
-          fallbackModels: modelDefaultsData.fallback_models || ['claude-sonnet-4-5'],
-          temperature: modelDefaultsData.temperature ?? 0.7,
-          maxTokens: modelDefaultsData.max_tokens || 4096,
-          topP: modelDefaultsData.top_p ?? 1.0,
-          routingStrategy: modelDefaultsData.routing_strategy || 'balanced',
-          dailyTokenLimit: modelDefaultsData.daily_token_limit || 0,
-          monthlyTokenLimit: modelDefaultsData.monthly_token_limit || 0,
-          alertThreshold: modelDefaultsData.alert_threshold || 80
-        });
-      } catch (error) {
-      }
-
-      // Load RAG settings from main settings endpoint
-      try {
-        const settingsResponse = await apiClient.getSettings();
-        const settingsData = settingsResponse.data;
-        setRagSettings({
-          embeddingModel: settingsData.embedding_model || 'text-embedding-3-small',
-          chunkSize: settingsData.chunk_size || 1000,
-          chunkOverlap: settingsData.chunk_overlap || 200
-        });
-      } catch (error) {
-        console.error('Failed to load RAG settings:', error);
-      }
-
-      // Note: available embedding models are now loaded by the
-      // <EmbeddingSettings> child component (it owns its own UI state).
-
-      // Load storage mode
-      try {
-        const storageResponse = await apiClient.getStorageMode();
-        const storageData = storageResponse.data;
-        if (storageData.mode === 'local' || storageData.mode === 'db') {
-          setStorageMode(storageData.mode);
-        }
-        if (storageData.source === 'db' || storageData.source === 'env') {
-          setStorageSource(storageData.source);
-        }
-      } catch (error) {
-        console.error('Failed to load storage mode:', error);
-      }
-
-    } catch (error) {
-      // Ignore abort errors
-      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'CanceledError')) {
-        return;
-      }
-      console.error('Failed to load settings:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Debounced autosave function
-  const autoSave = useCallback((category: SettingsCategory) => {
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Set new timeout to save after 1 second of no changes
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        switch (category) {
-          case 'general':
-            if (!generalSettings) return;
-            await apiClient.updateGeneralSettings({
-              app_name: generalSettings.appName,
-              language: generalSettings.language,
-              auto_save: generalSettings.autoSave,
-              auto_save_interval: generalSettings.autoSaveInterval,
-              confirm_before_delete: generalSettings.confirmBeforeDelete,
-              show_notifications: generalSettings.showNotifications,
-              check_updates: generalSettings.checkUpdates,
-              telemetry: generalSettings.telemetry,
-              log_level: generalSettings.logLevel
-            });
-            // Also save RAG settings to main settings endpoint
-            if (ragSettings) {
-              await apiClient.updateSettings({
-                embedding_model: ragSettings.embeddingModel,
-                chunk_size: ragSettings.chunkSize,
-                chunk_overlap: ragSettings.chunkOverlap
-              });
-            }
-            break;
-
-          case 'local-workspace':
-            if (!workspaceSettings) return;
-            await apiClient.updateWorkspaceSettings({
-              workspace_path: workspaceSettings.workspacePath,
-              allow_read: workspaceSettings.allowRead,
-              allow_write: workspaceSettings.allowWrite,
-              require_approval: workspaceSettings.requireApproval,
-              auto_detect_git: workspaceSettings.autoDetectGit,
-              backup_before_edit: workspaceSettings.backupBeforeEdit
-            });
-            break;
-
-          case 'embedding':
-            if (!ragSettings) return;
-            await apiClient.updateSettings({
-              embedding_model: ragSettings.embeddingModel,
-              chunk_size: ragSettings.chunkSize,
-              chunk_overlap: ragSettings.chunkOverlap
-            });
-            break;
-
-          case 'model-defaults':
-            if (!modelDefaultsSettings) return;
-            await apiClient.updateModelDefaultsSettings({
-              primary_model: modelDefaultsSettings.primaryModel,
-              fallback_models: modelDefaultsSettings.fallbackModels,
-              temperature: modelDefaultsSettings.temperature,
-              max_tokens: modelDefaultsSettings.maxTokens,
-              top_p: modelDefaultsSettings.topP,
-              routing_strategy: modelDefaultsSettings.routingStrategy,
-              daily_token_limit: modelDefaultsSettings.dailyTokenLimit,
-              monthly_token_limit: modelDefaultsSettings.monthlyTokenLimit,
-              alert_threshold: modelDefaultsSettings.alertThreshold
-            });
-            break;
-        }
-      } catch (error) {
-        console.error('Failed to autosave settings:', error);
-      }
-    }, 1000); // 1 second debounce
-  }, [generalSettings, ragSettings, localModelsSettings, workspaceSettings, modelDefaultsSettings]);
-
-  const handleThemeChange = (themeName: ThemeName) => {
-    setTheme(themeName);
-    // Save to backend DB
-    try {
-      apiClient.updateGeneralSettings({ theme: themeName });
-    } catch {}
-  };
-
-  // Storage mode switch — takes effect immediately on the backend
-  // (reset_storage() drops the cached backend), and persists the choice.
-  const handleStorageModeChange = async (mode: 'local' | 'db') => {
-    if (mode === storageMode) return;
-    try {
-      const resp = await apiClient.updateStorageMode({ mode });
-      setStorageMode(resp.data.mode);
-      setStorageSource('db');
-    } catch (error) {
-      console.error('Failed to switch storage mode:', error);
-    }
-  };
-
-  const renderCategoryContent = () => {
-    switch (currentCategory) {
-      case 'general':
-        return (
-          <div>
-            <SettingsSection
-              title={t('settings_application')}
-              description={t('settings_application_desc')}
-              icon="tune"
-            >
-              <div className="space-y-4">
-                <div className="border-t border-gray-200 dark:border-border-dark pt-3 mt-3">
-                  <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    {t('settings_auto_save')}
-                  </h4>
-                  <div className="space-y-2.5">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={generalSettings.autoSave}
-                        onChange={(e) => {
-                          setGeneralSettings({ ...generalSettings, autoSave: e.target.checked });
-                          autoSave('general');
-                        }}
-                        className="w-4 h-4 text-primary bg-white dark:bg-background-dark border-gray-300 dark:border-border-dark rounded focus:ring-2 focus:ring-primary"
-                      />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                          {t('settings_auto_save_enable')}
-                        </span>
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          {t('settings_auto_save_desc')}
-                        </p>
-                      </div>
-                    </label>
-
-                    {generalSettings.autoSave && (
-                      <SettingsInput
-                        label="Auto-save interval (seconds)"
-                        type="number"
-                        value={generalSettings.autoSaveInterval.toString()}
-                        onChange={(value) => {
-                          setGeneralSettings({ ...generalSettings, autoSaveInterval: parseInt(value) || 60 });
-                          autoSave('general');
-                        }}
-                        description="How often to automatically save (minimum 30 seconds)"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 dark:border-border-dark pt-3 mt-3">
-                  <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    Notifications & Confirmations
-                  </h4>
-                  <div className="space-y-2.5">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={generalSettings.confirmBeforeDelete}
-                        onChange={(e) => {
-                          setGeneralSettings({ ...generalSettings, confirmBeforeDelete: e.target.checked });
-                          autoSave('general');
-                        }}
-                        className="w-4 h-4 text-primary bg-white dark:bg-background-dark border-gray-300 dark:border-border-dark rounded focus:ring-2 focus:ring-primary"
-                      />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                          Confirm before deleting
-                        </span>
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          Show confirmation dialog before deleting workflows or agents
-                        </p>
-                      </div>
-                    </label>
-
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={generalSettings.showNotifications}
-                        onChange={(e) => {
-                          setGeneralSettings({ ...generalSettings, showNotifications: e.target.checked });
-                          autoSave('general');
-                        }}
-                        className="w-4 h-4 text-primary bg-white dark:bg-background-dark border-gray-300 dark:border-border-dark rounded focus:ring-2 focus:ring-primary"
-                      />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                          Show notifications
-                        </span>
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          Display system notifications for workflow completion and errors
-                        </p>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 dark:border-border-dark pt-3 mt-3">
-                  <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    {t('settings_updates')}
-                  </h4>
-                  <div className="space-y-2.5">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={generalSettings.checkUpdates}
-                        onChange={(e) => {
-                          setGeneralSettings({ ...generalSettings, checkUpdates: e.target.checked });
-                          autoSave('general');
-                        }}
-                        className="w-4 h-4 text-primary bg-white dark:bg-background-dark border-gray-300 dark:border-border-dark rounded focus:ring-2 focus:ring-primary"
-                      />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                          {t('settings_check_updates')}
-                        </span>
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          {t('settings_check_updates_desc')}
-                        </p>
-                      </div>
-                    </label>
-
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={generalSettings.telemetry}
-                        onChange={(e) => {
-                          setGeneralSettings({ ...generalSettings, telemetry: e.target.checked });
-                          autoSave('general');
-                        }}
-                        className="w-4 h-4 text-primary bg-white dark:bg-background-dark border-gray-300 dark:border-border-dark rounded focus:ring-2 focus:ring-primary"
-                      />
-                      <div className="flex-1">
-                        <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                          {t('settings_telemetry')}
-                        </span>
-                        <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                          {t('settings_telemetry_desc')}
-                        </p>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 dark:border-border-dark pt-3 mt-3">
-                  <h4 className="text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                  {t('settings_language')}
-                </h4>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                    {t('settings_language_label')}
-                  </span>
-                    <LanguageSwitcher />
-                  </div>
-                </div>
-              </div>
-            </SettingsSection>
-          </div>
-        );
-
-      case 'model-cards':
-        return <ModelCardsSettings />;
-
-      case 'search-providers':
-        return <SearchProvidersSettings />;
-
-      case 'embedding':
-        return <EmbeddingSettings />;
-
-      case 'storage':
-        return (
-          <SettingsSection
-            title="Storage Mode"
-            description="Where documents, skills, and outputs are durably stored. Switch takes effect immediately; data migration is done via CLI/batch scripts."
-            icon="storage"
-          >
-            <div className="grid grid-cols-2 gap-3">
-              {([
-                { value: 'local' as const, name: 'Local disk', desc: 'Files on the local filesystem (default). Best for development and single-user setups.', icon: 'folder_open' },
-                { value: 'db' as const, name: 'PostgreSQL (BYTEA)', desc: 'Blobs in the storage_objects table. Durable, enterprise home; survives filesystem loss.', icon: 'database' },
-              ]).map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => handleStorageModeChange(opt.value)}
-                  className="p-4 rounded-lg border-2 transition-all text-left hover:border-primary/50"
-                  style={{
-                    borderColor: storageMode === opt.value
-                      ? 'var(--color-primary)'
-                      : 'var(--color-border-dark)',
-                    backgroundColor: storageMode === opt.value
-                      ? 'var(--color-primary)' + '10'
-                      : 'transparent'
-                  }}
-                >
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="material-symbols-outlined text-lg" style={{ color: 'var(--color-primary)' }}>
-                      {opt.icon}
-                    </span>
-                    <span className="font-medium text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                      {opt.name}
-                    </span>
-                  </div>
-                  <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-muted)' }}>
-                    {opt.desc}
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-3 p-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg">
-              <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-xl">info</span>
-              <div className="text-xs text-blue-700 dark:text-blue-400/80">
-                <p className="font-semibold mb-1">
-                  Source: {storageSource === 'db' ? 'persisted in database (overrides .env)' : '.env / default'}
-                </p>
-                <p>
-                  Switching modes does <strong>not</strong> move existing data. Use the CLI/batch migration
-                  scripts to backfill or copy documents between backends.
-                </p>
-              </div>
-            </div>
-          </SettingsSection>
-        );
-
-      case 'local-workspace':
-        if (!workspaceSettings) return null;
-        return (
-          <LocalWorkspaceSettings
-            settings={workspaceSettings}
-            onSettingsChange={(newSettings: WorkspaceSettings) => {
-              setWorkspaceSettings(newSettings);
-              autoSave('local-workspace');
-            }}
-          />
-        );
-
-      case 'model-defaults':
-        if (!modelDefaultsSettings) return null;
-        return (
-          <div>
-            <ModelDefaultsSettings
-              settings={modelDefaultsSettings}
-              onSettingsChange={(newSettings: ModelDefaultsSettings) => {
-                setModelDefaultsSettings(newSettings);
-                autoSave('model-defaults');
-              }}
-            />
-            <SettingsSection
-              title="Override Behavior"
-              icon="info"
-            >
-              <div className="flex gap-3 p-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 rounded-lg">
-                <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-xl">
-                  info
-                </span>
-                <div>
-                  <h5 className="text-sm font-semibold text-blue-800 dark:text-blue-400 mb-1">
-                    Settings Hierarchy
-                  </h5>
-                  <p className="text-xs text-blue-700 dark:text-blue-400/80">
-                    These are <strong>default settings</strong> used when creating new agents or workflows.
-                    Each agent node can override these settings individually. Agent-specific configurations always take precedence over these defaults.
-                  </p>
-                </div>
-              </div>
-            </SettingsSection>
-          </div>
-        );
-
-      case 'appearance':
-        return (
-          <SettingsSection
-              title={t('settings_appearance_title')}
-              description={t('settings_appearance_desc')}
-            icon="palette"
-          >
-            <div>
-              <label className="text-sm font-medium mb-3 block" style={{ color: 'var(--color-text-primary)' }}>
-                {t('settings_color_theme')}
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {Object.values(themes).map((theme) => (
-                  <button
-                    key={theme.name}
-                    onClick={() => handleThemeChange(theme.name)}
-                    className="p-4 rounded-lg border-2 transition-all text-left hover:border-primary/50"
-                    style={{
-                      borderColor: activeTheme.name === theme.name
-                        ? 'var(--color-primary)'
-                        : 'var(--color-border-dark)',
-                      backgroundColor: activeTheme.name === theme.name
-                        ? 'var(--color-primary)' + '10'
-                        : 'transparent'
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex gap-1">
-                        <div
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: theme.colors.primary }}
-                        />
-                        <div
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: theme.colors.backgroundDark }}
-                        />
-                        <div
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: theme.colors.panelDark }}
-                        />
-                      </div>
-                      <span className="font-medium text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                        {theme.displayName}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </SettingsSection>
-        );
-
-      case 'about':
-        return (
-          <div>
-            <SettingsSection
-              title={t('settings_about_title')}
-              icon="info"
-            >
-              <div className="space-y-4">
-                {/* App Header */}
-                <div className="flex items-center gap-4 p-4 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg">
-                  <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <span className="material-symbols-outlined text-3xl text-primary">account_tree</span>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                      LangConfig
-                    </h3>
-                    <p className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>
-                      Powered by LangChain & LangGraph
-                    </p>
-                    <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                      Version 0.1.0 (Alpha)
-                    </p>
-                  </div>
-                </div>
-
-                {/* Built With */}
-                <div className="p-4 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg">
-                  <h4 className="text-sm font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                    Built with LangChain & LangGraph
-                  </h4>
-                  <p className="text-sm mb-3" style={{ color: 'var(--color-text-muted)' }}>
-                    LangConfig is a visual interface for LangGraph. Every workflow you build is a real LangGraph state graph under the hood. We use these frameworks because they're excellent for building production AI applications.
-                  </p>
-                  <div className="flex gap-2">
-                    <a
-                      href="https://www.langchain.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-white dark:bg-panel-dark border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-                      style={{ color: 'var(--color-text-primary)' }}
-                    >
-                      <span className="material-symbols-outlined text-sm">open_in_new</span>
-                      LangChain
-                    </a>
-                    <a
-                      href="https://langchain-ai.github.io/langgraph/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-white dark:bg-panel-dark border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-                      style={{ color: 'var(--color-text-primary)' }}
-                    >
-                      <span className="material-symbols-outlined text-sm">open_in_new</span>
-                      LangGraph
-                    </a>
-                  </div>
-                </div>
-
-                {/* What You're Building With */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="material-symbols-outlined text-lg text-primary">settings_suggest</span>
-                      <h5 className="text-xs font-bold" style={{ color: 'var(--color-text-primary)' }}>LangGraph Workflows</h5>
-                    </div>
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      State graphs with checkpointing
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="material-symbols-outlined text-lg text-primary">smart_toy</span>
-                      <h5 className="text-xs font-bold" style={{ color: 'var(--color-text-primary)' }}>LangChain Agents</h5>
-                    </div>
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      Tools, memory, and chains
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="material-symbols-outlined text-lg text-primary">description</span>
-                      <h5 className="text-xs font-bold" style={{ color: 'var(--color-text-primary)' }}>LangChain RAG</h5>
-                    </div>
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      Vector stores and retrievers
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="material-symbols-outlined text-lg text-primary">code</span>
-                      <h5 className="text-xs font-bold" style={{ color: 'var(--color-text-primary)' }}>Export to Code</h5>
-                    </div>
-                    <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      Production LangGraph Python
-                    </p>
-                  </div>
-                </div>
-
-                {/* Mission */}
-                <div>
-                  <h4 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                    Our Mission
-                  </h4>
-                  <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-                    Making LangChain and LangGraph accessible to everyone through visual, no-code workflows. We believe these frameworks are the future of AI development, and everyone should be able to learn and use them - whether you're a developer, product manager, researcher, or just curious about AI agents.
-                  </p>
-                </div>
-              </div>
-            </SettingsSection>
-
-            {/* Tech Stack - Compact */}
-            <SettingsSection
-              title="Built With"
-              icon="layers"
-            >
-              <div className="text-sm space-y-2" style={{ color: 'var(--color-text-muted)' }}>
-                <p><strong style={{ color: 'var(--color-text-primary)' }}>Frontend:</strong> React 19, TypeScript, Tailwind CSS, ReactFlow, Tauri 2</p>
-                <p><strong style={{ color: 'var(--color-text-primary)' }}>Backend:</strong> Python 3.11, FastAPI, LangChain v1.0, LangGraph, DeepAgents</p>
-                <p><strong style={{ color: 'var(--color-text-primary)' }}>Database:</strong> PostgreSQL 16 with pgvector for LangChain vector stores</p>
-                <p><strong style={{ color: 'var(--color-text-primary)' }}>AI:</strong> OpenAI, Anthropic, Google models via LangChain integrations</p>
-              </div>
-            </SettingsSection>
-
-            {/* Links and License */}
-            <SettingsSection
-              title="Resources"
-              icon="link"
-            >
-              <div className="space-y-4">
-                <div className="flex gap-2 flex-wrap">
-                  <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white dark:bg-background-dark border border-gray-300 dark:border-border-dark rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition-colors" style={{ color: 'var(--color-text-primary)' }}>
-                    <span className="material-symbols-outlined text-base">code</span>
-                    GitHub
-                  </button>
-                </div>
-
-                <hr className="border-gray-200 dark:border-border-dark" />
-
-                <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                  <p className="font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>License</p>
-                  <p>MIT License © 2025</p>
-                  <p className="mt-2">Making agentic AI accessible to everyone.</p>
-                </div>
-              </div>
-            </SettingsSection>
-          </div>
-        );
-
-      default:
-        return (
-          <SettingsSection
-            title="Coming Soon"
-            icon="construction"
-          >
-            <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
-              This settings category is under development and will be available soon.
-            </p>
-          </SettingsSection>
-        );
-    }
-  };
-
-  // Show loading state while fetching settings from backend
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-          <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading settings...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render if core settings haven't loaded yet (others get fallback defaults)
-  if (!generalSettings) return null;
+  const [section, setSection] = useState<SectionId>('general');
 
   return (
-    <SettingsLayout
-      currentCategory={currentCategory}
-      onCategoryChange={setCurrentCategory}
-    >
-      {renderCategoryContent()}
-    </SettingsLayout>
+    <div style={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden', background: 'var(--color-background-light, #f7f7f7)' }} className="dark:bg-background-dark">
+      {/* ── Left nav ── */}
+      <aside style={{ width: 210, flexShrink: 0, borderRight: '1px solid var(--color-border)', background: 'var(--color-panel-dark, #1e1e1e)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '18px 16px 12px', fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>settings</span>
+          Settings
+        </div>
+        <nav style={{ flex: 1, overflowY: 'auto', padding: '4px 8px' }}>
+          {SECTIONS.map(s => {
+            const active = section === s.id;
+            return (
+              <button
+                key={s.id}
+                onClick={() => setSection(s.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 10px', marginBottom: 2,
+                  borderRadius: 6, border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 13,
+                  background: active ? 'var(--color-primary, #007acc)22' : 'transparent',
+                  color: active ? 'var(--color-primary, #007acc)' : 'var(--color-text-muted)',
+                  fontWeight: active ? 600 : 400,
+                }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{s.icon}</span>
+                {s.label}
+              </button>
+            );
+          })}
+        </nav>
+        <div style={{ padding: '10px 16px', borderTop: '1px solid var(--color-border)', fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
+          Configuration lives in <code style={{ fontFamily: 'monospace' }}>.env</code> + Settings (PostgreSQL).
+        </div>
+      </aside>
+
+      {/* ── Content ── */}
+      <div style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
+        <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 36px 64px' }}>
+          {section === 'general' && <GeneralSection i18n={i18n} activeTheme={activeTheme.name} setTheme={setTheme} />}
+          {section === 'models' && <ModelsSection />}
+          {section === 'search' && <SearchSection />}
+          {section === 'workspace' && <WorkspaceSection />}
+          {section === 'storage' && <StorageSection />}
+          {section === 'about' && <AboutSection />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── General ────────────────────────────────────────────────────────
+
+function GeneralSection({ i18n, activeTheme, setTheme }: {
+  i18n: any; activeTheme: string; setTheme: (t: ThemeName) => void;
+}) {
+  const [gen, setGen] = useState<any>(null);
+  const [language, setLanguage] = useState(i18n.language);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiClient.getGeneralSettings();
+      setGen(res.data || {});
+    } catch { /* backend may not have general settings yet */ }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const update = async (patch: Record<string, any>) => {
+    setGen((prev: any) => ({ ...(prev || {}), ...patch }));
+    try { await apiClient.updateGeneralSettings(patch as any); } catch { /* noop */ }
+  };
+
+  const changeLanguage = async (lang: string) => {
+    setLanguage(lang);
+    i18n.changeLanguage(lang);
+    await update({ language: lang });
+  };
+
+  const changeTheme = async (name: ThemeName) => {
+    setTheme(name);
+    await update({ theme: name });
+  };
+
+  return (
+    <>
+      <SectionTitle title="General" desc="Applies to the whole application." />
+      <div style={{ background: 'var(--color-panel-dark, #fff)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '4px 20px', marginBottom: 16 }}>
+        <Row label="Language" hint="Interface language">
+          <Select value={language} onChange={changeLanguage} options={[{ value: 'en', label: 'English' }, { value: 'zh', label: '中文' }]} />
+        </Row>
+        <Row label="Appearance" hint="Color theme">
+          <Select
+            value={activeTheme}
+            onChange={v => changeTheme(v as ThemeName)}
+            options={Object.values(themes).map(th => ({ value: th.name, label: th.displayName }))}
+          />
+        </Row>
+        <Row label="Auto-save" hint="Automatically save workflows at regular intervals">
+          <Toggle checked={gen?.auto_save ?? true} onChange={v => update({ auto_save: v })} />
+        </Row>
+        <Row label="Confirm before deleting" hint="Show a confirmation dialog before deleting workflows or agents">
+          <Toggle checked={gen?.confirm_before_delete ?? true} onChange={v => update({ confirm_before_delete: v })} />
+        </Row>
+        <Row label="Show notifications" hint="Display system notifications for workflow completion and errors">
+          <Toggle checked={gen?.show_notifications ?? true} onChange={v => update({ show_notifications: v })} />
+        </Row>
+        <Row label="Anonymous usage statistics" hint="Help improve LangConfig by sharing anonymous usage data">
+          <Toggle checked={gen?.telemetry ?? false} onChange={v => update({ telemetry: v })} />
+        </Row>
+      </div>
+    </>
+  );
+}
+
+// ── Models ─────────────────────────────────────────────────────────
+
+interface ModelInfo { model_id: string; display_name?: string; provider: string; capabilities?: Record<string, any>; }
+
+function ModelsSection() {
+  const [keys, setKeys] = useState<{ provider: string; is_set: boolean; masked_key?: string | null; kind?: string }[]>([]);
+  const [models, setModels] = useState<{ cloud: ModelInfo[]; local: ModelInfo[] }>({ cloud: [], local: [] });
+  const [defaults, setDefaults] = useState<any>({ primary_model: '', fallback_models: [], temperature: 0, max_tokens: 0 });
+  const [editing, setEditing] = useState<string | null>(null);   // provider being edited
+  const [adding, setAdding] = useState(false);                    // Add provider dialog
+  const [keyInput, setKeyInput] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [newProviderName, setNewProviderName] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [testMsg, setTestMsg] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [keysRes, modelsRes, defaultsRes] = await Promise.all([
+        apiClient.getApiKeys(),
+        apiClient.listAvailableModels(),
+        apiClient.getModelDefaults(),
+      ]);
+      setKeys(keysRes.data || []);
+      setModels({
+        cloud: modelsRes.data?.cloud_models || [],
+        local: modelsRes.data?.local_models || [],
+      });
+      setDefaults(defaultsRes.data || {});
+    } catch (err) {
+      console.error('Failed to load models settings:', err);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const allModels: { value: string; label: string; key: string }[] = [
+    ...models.cloud.map(m => ({ value: m.model_id, label: `${label(m.provider)} — ${m.display_name || m.model_id}`, key: `cloud-${m.provider}-${m.model_id}` })),
+    ...models.local.map(m => ({ value: m.model_id, label: `Local — ${m.display_name || m.model_id}`, key: `local-${m.model_id}` })),
+  ];
+
+  const keySet = (provider: string) => keys.find(k => k.provider === provider)?.is_set ?? false;
+
+  const saveKey = async (provider: string, key: string, base: string) => {
+    const field = PROVIDER_FIELD[provider];
+    const baseField = PROVIDER_BASE_FIELD[provider];
+    if (!field) return;
+    const payload: Record<string, string> = { [field]: key.trim() };
+    if (base.trim() && baseField) payload[baseField] = base.trim();
+    await apiClient.setApiKeys(payload as any);
+  };
+
+  const handleEditSave = async (provider: string) => {
+    try {
+      await saveKey(provider, keyInput, baseUrl);
+      setEditing(null);
+      setKeyInput(''); setBaseUrl(''); setTestMsg(null);
+      await load();
+    } catch (err: any) {
+      setTestMsg({ ok: false, msg: err?.response?.data?.detail || 'Failed to save' });
+    }
+  };
+
+  const handleTest = async (provider: string) => {
+    setTesting(true); setTestMsg(null);
+    try {
+      const res = await apiClient.testApiKey(provider, keyInput || undefined);
+      setTestMsg({ ok: !!res.data?.success, msg: res.data?.message || (res.data?.success ? '✓ Connected' : '✗ Failed') });
+    } catch {
+      setTestMsg({ ok: false, msg: '✗ Connection failed' });
+    } finally { setTesting(false); }
+  };
+
+  const handleAddProvider = async () => {
+    const name = newProviderName.trim().toLowerCase();
+    if (!name) return;
+    const field = PROVIDER_FIELD[name];
+    if (!field) { setTestMsg({ ok: false, msg: `Unknown provider '${name}'. Use one of: ${Object.keys(PROVIDER_FIELD).join(', ')}` }); return; }
+    try {
+      await saveKey(name, keyInput, baseUrl);
+      setAdding(false); setNewProviderName(''); setKeyInput(''); setBaseUrl(''); setTestMsg(null);
+      await load();
+    } catch (err: any) {
+      setTestMsg({ ok: false, msg: err?.response?.data?.detail || 'Failed' });
+    }
+  };
+
+  return (
+    <>
+      <SectionTitle title="Models" desc="Default model and API keys for the model providers." />
+
+      {/* Default model */}
+      <div style={{ background: 'var(--color-panel-dark, #fff)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '4px 20px', marginBottom: 16 }}>
+        <Row label="Default model" hint="Used for agents and chat unless overridden">
+          <Select
+            value={defaults.primary_model || ''}
+            onChange={async v => { setDefaults((p: any) => ({ ...p, primary_model: v })); try { await apiClient.updateModelDefaultsSettings({ primary_model: v }); } catch {} }}
+            options={[{ value: '', label: '— not set —' }, ...allModels]}
+            width={320}
+          />
+        </Row>
+        <Row label="Fallback model" hint="Used when the default model fails">
+          <Select
+            value={(defaults.fallback_models?.[0]) || ''}
+            onChange={async v => { setDefaults((p: any) => ({ ...p, fallback_models: [v] })); try { await apiClient.updateModelDefaultsSettings({ fallback_models: [v] }); } catch {} }}
+            options={[{ value: '', label: '— none —' }, ...allModels]}
+            width={320}
+          />
+        </Row>
+        <Row label="Default temperature" hint="Sampling temperature (0 = deterministic)">
+          <input
+            type="number" step="0.1" min="0" max="2"
+            value={defaults.temperature ?? 0}
+            onChange={async e => {
+              const v = parseFloat(e.target.value) || 0;
+              setDefaults((p: any) => ({ ...p, temperature: v }));
+              try { await apiClient.updateModelDefaultsSettings({ temperature: v }); } catch {}
+            }}
+            style={{ width: 100, padding: '6px 10px', borderRadius: 6, fontSize: 13, border: '1px solid var(--color-border-dark)', background: 'var(--color-input-background, #fff)', color: 'var(--color-text-primary)', outline: 'none' }}
+          />
+        </Row>
+        <Row label="Max tokens" hint="Maximum output length per call">
+          <input
+            type="number" step="1000" min="0"
+            value={defaults.max_tokens ?? 0}
+            onChange={async e => {
+              const v = parseInt(e.target.value, 10) || 0;
+              setDefaults((p: any) => ({ ...p, max_tokens: v }));
+              try { await apiClient.updateModelDefaultsSettings({ max_tokens: v }); } catch {}
+            }}
+            style={{ width: 140, padding: '6px 10px', borderRadius: 6, fontSize: 13, border: '1px solid var(--color-border-dark)', background: 'var(--color-input-background, #fff)', color: 'var(--color-text-primary)', outline: 'none' }}
+          />
+        </Row>
+      </div>
+
+      {/* Providers */}
+      <SectionTitle title="API keys" desc="Enter your API keys to use models from the following providers." />
+      <div style={{ background: 'var(--color-panel-dark, #fff)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '6px 0', marginBottom: 16 }}>
+        {keys.length === 0 && <div style={{ padding: '14px 20px', fontSize: 12.5, color: 'var(--color-text-muted)' }}>Loading providers…</div>}
+        {keys.filter(k => k.kind !== 'search').map(k => (
+          <div key={k.provider} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '9px 20px', borderBottom: '1px solid var(--color-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>{label(k.provider)}</span>
+              {k.is_set
+                ? <span style={{ fontSize: 11, color: '#22c55e' }}>✓ {k.masked_key || 'Key set'}</span>
+                : <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>No key</span>}
+            </div>
+            <Btn onClick={() => { setEditing(k.provider); setKeyInput(''); setBaseUrl(''); setTestMsg(null); }}>Edit</Btn>
+          </div>
+        ))}
+        <div style={{ padding: '10px 20px', display: 'flex', gap: 8 }}>
+          <Btn onClick={() => { setAdding(true); setKeyInput(''); setBaseUrl(''); setNewProviderName(''); setTestMsg(null); }}>Add provider</Btn>
+        </div>
+      </div>
+
+      {/* Edit dialog */}
+      {editing && (
+        <Dialog title={label(editing)} onClose={() => setEditing(null)}>
+          <Field label="Provider">
+            <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>{editing}</div>
+          </Field>
+          <Field label="API key">
+            <TextInput value={keyInput} onChange={setKeyInput} placeholder="sk-… (leave empty to keep current)" mono />
+          </Field>
+          <Field label="Customized settings">
+            <TextInput value={baseUrl} onChange={setBaseUrl} placeholder="https://api.example.com (optional)" mono />
+          </Field>
+          <Field label="Models">
+            <div style={{ maxHeight: 120, overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 6, fontSize: 12, color: 'var(--color-text-muted)' }}>
+              {models.cloud.filter(m => m.provider.toLowerCase() === editing).map(m => (
+                <div key={m.model_id} style={{ padding: '5px 10px', borderBottom: '1px solid var(--color-border)' }}>
+                  <span style={{ color: 'var(--color-text-primary)' }}>{m.display_name || m.model_id}</span>
+                  <span style={{ fontFamily: 'monospace', marginLeft: 8, fontSize: 11 }}>{m.model_id}</span>
+                </div>
+              ))}
+              {models.cloud.filter(m => m.provider.toLowerCase() === editing).length === 0 && (
+                <div style={{ padding: '8px 10px' }}>No models registered for this provider.</div>
+              )}
+            </div>
+          </Field>
+          {testMsg && <div style={{ fontSize: 12, color: testMsg.ok ? '#22c55e' : '#ef4444' }}>{testMsg.msg}</div>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+            <Btn onClick={() => handleTest(editing)} disabled={testing}>{testing ? 'Testing…' : 'Test'}</Btn>
+            <Btn onClick={() => setEditing(null)}>Cancel</Btn>
+            <Btn variant="primary" onClick={() => handleEditSave(editing)}>Apply</Btn>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Add-provider dialog */}
+      {adding && (
+        <Dialog title="Add provider" onClose={() => setAdding(false)}>
+          <Field label="Provider name">
+            <TextInput value={newProviderName} onChange={setNewProviderName} placeholder="e.g. openai, deepseek, anthropic" />
+          </Field>
+          <Field label="API key">
+            <TextInput value={keyInput} onChange={setKeyInput} placeholder="sk-…" mono />
+          </Field>
+          <Field label="Base URL (optional)">
+            <TextInput value={baseUrl} onChange={setBaseUrl} placeholder="https://api.example.com" mono />
+          </Field>
+          {testMsg && <div style={{ fontSize: 12, color: testMsg.ok ? '#22c55e' : '#ef4444' }}>{testMsg.msg}</div>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+            <Btn onClick={() => setAdding(false)}>Cancel</Btn>
+            <Btn variant="primary" onClick={handleAddProvider}>Save</Btn>
+          </div>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
+function Dialog({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  return (
+    <>
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 90 }} onClick={onClose} />
+      <div style={{
+        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 91,
+        width: 460, maxWidth: 'calc(100vw - 32px)', maxHeight: '80vh', overflowY: 'auto',
+        background: 'var(--color-panel-dark, #fff)', border: '1px solid var(--color-border-dark)', borderRadius: 10,
+        boxShadow: '0 16px 48px rgba(0,0,0,0.35)', padding: '20px 22px',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 650, margin: 0, color: 'var(--color-text-primary)' }}>{title}</h3>
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 16 }}>✕</button>
+        </div>
+        {children}
+      </div>
+    </>
+  );
+}
+
+function Field({ label: lbl, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: 5 }}>{lbl}</div>
+      {children}
+    </div>
+  );
+}
+
+// ── Search Providers ──────────────────────────────────────────────
+
+function SearchSection() {
+  const [providers, setProviders] = useState<any[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [keyInput, setKeyInput] = useState('');
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiClient.listSearchProviders();
+      setProviders(res.data?.providers || []);
+    } catch { /* noop */ }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (id: string) => {
+    try {
+      await apiClient.setSearchProviderKey(id, keyInput.trim());
+      setEditingId(null); setKeyInput('');
+      setMsg({ ok: true, text: 'API key saved ✓' });
+      await load();
+      setTimeout(() => setMsg(null), 2500);
+    } catch (err: any) {
+      setMsg({ ok: false, text: err?.response?.data?.detail || 'Failed to save' });
+    }
+  };
+
+  const remove = async (id: string) => {
+    try {
+      await apiClient.deleteSearchProviderKey(id);
+      setMsg({ ok: true, text: 'API key removed' });
+      await load();
+      setTimeout(() => setMsg(null), 2500);
+    } catch { /* noop */ }
+  };
+
+  return (
+    <>
+      <SectionTitle title="Search Providers" desc="API keys for web search providers used by agents." />
+      <div style={{ background: 'var(--color-panel-dark, #fff)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '6px 0' }}>
+        {providers.map(p => (
+          <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '9px 20px', borderBottom: '1px solid var(--color-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>{p.name || p.id}</span>
+              {p.has_api_key
+                ? <span style={{ fontSize: 11, color: '#22c55e' }}>✓ Key set</span>
+                : <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>No key</span>}
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {editingId === p.id ? (
+                <>
+                  <input
+                    type="password" value={keyInput} onChange={e => setKeyInput(e.target.value)}
+                    placeholder="API key"
+                    autoFocus
+                    style={{ width: 160, padding: '5px 8px', borderRadius: 6, fontSize: 12, border: '1px solid var(--color-border-dark)', background: 'var(--color-input-background, #fff)', color: 'var(--color-text-primary)', outline: 'none' }}
+                  />
+                  <Btn variant="primary" onClick={() => save(p.id)}>Save</Btn>
+                  <Btn onClick={() => setEditingId(null)}>Cancel</Btn>
+                </>
+              ) : (
+                <>
+                  <Btn onClick={() => { setEditingId(p.id); setKeyInput(''); }}>Edit</Btn>
+                  {p.has_api_key && <Btn variant="danger" onClick={() => remove(p.id)}>Remove</Btn>}
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+        {providers.length === 0 && <div style={{ padding: '14px 20px', fontSize: 12.5, color: 'var(--color-text-muted)' }}>No search providers.</div>}
+        {msg && <div style={{ padding: '8px 20px', fontSize: 12, color: msg.ok ? '#22c55e' : '#ef4444' }}>{msg.text}</div>}
+      </div>
+    </>
+  );
+}
+
+// ── Workspace ──────────────────────────────────────────────────────
+
+function WorkspaceSection() {
+  const [ws, setWs] = useState<any>(null);
+  const [path, setPath] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await apiClient.getWorkspaceSettings();
+      setWs(res.data || {});
+      setPath(res.data?.workspace_path || '');
+    } catch { /* noop */ }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (patch: Record<string, any>) => {
+    setSaved(false);
+    try {
+      await apiClient.updateWorkspaceSettings(patch as any);
+      setWs((prev: any) => ({ ...(prev || {}), ...patch }));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || 'Failed to save workspace settings');
+    }
+  };
+
+  const setField = (key: string, value: any) => save({ [key]: value });
+
+  return (
+    <>
+      <SectionTitle title="Workspace" desc="Where your projects, agents, uploads and generated files live." />
+      <div style={{ background: 'var(--color-panel-dark, #fff)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '4px 20px' }}>
+        <Row label="Workspace path" hint="The root folder for all project and agent data">
+          <div style={{ display: 'flex', gap: 6 }}>
+            <TextInput value={path} onChange={setPath} mono placeholder="/path/to/workspace" width={300} />
+            <Btn variant="primary" onClick={() => save({ workspace_path: path })}>{saved ? 'Saved ✓' : 'Save'}</Btn>
+          </div>
+        </Row>
+        <Row label="Allow read" hint="Agents may read files inside the workspace">
+          <Toggle checked={ws?.allow_read ?? true} onChange={v => setField('allow_read', v)} />
+        </Row>
+        <Row label="Allow write" hint="Agents may write files inside the workspace">
+          <Toggle checked={ws?.allow_write ?? true} onChange={v => setField('allow_write', v)} />
+        </Row>
+        <Row label="Require approval for edits" hint="Ask before the agent modifies files">
+          <Toggle checked={ws?.require_approval ?? true} onChange={v => setField('require_approval', v)} />
+        </Row>
+        <Row label="Backup before edit" hint="Keep a backup copy before the agent edits a file">
+          <Toggle checked={ws?.backup_before_edit ?? true} onChange={v => setField('backup_before_edit', v)} />
+        </Row>
+        <Row label="Auto-detect Git" hint="Detect repositories inside the workspace">
+          <Toggle checked={ws?.auto_detect_git ?? true} onChange={v => setField('auto_detect_git', v)} />
+        </Row>
+      </div>
+    </>
+  );
+}
+
+// ── Storage ────────────────────────────────────────────────────────
+
+function StorageSection() {
+  const [mode, setMode] = useState<'local' | 'db'>('local');
+  const [source, setSource] = useState<'env' | 'db'>('env');
+
+  useEffect(() => {
+    apiClient.getStorageMode().then((res: any) => {
+      setMode(res.data?.mode || 'local');
+      setSource(res.data?.source || 'env');
+    }).catch(() => {});
+  }, []);
+
+  const switchMode = async (next: 'local' | 'db') => {
+    setMode(next);
+    try { await apiClient.updateStorageMode({ mode: next }); } catch { /* noop */ }
+  };
+
+  return (
+    <>
+      <SectionTitle title="Storage" desc="Where files are persisted." />
+      <div style={{ background: 'var(--color-panel-dark, #fff)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '4px 20px' }}>
+        <Row label="Storage mode" hint={`Source: ${source === 'db' ? 'persisted (overrides .env)' : '.env / default'}`}>
+          <Select value={mode} onChange={v => switchMode(v as 'local' | 'db')} options={[
+            { value: 'local', label: 'Local disk (backend/outputs)' },
+            { value: 'db', label: 'PostgreSQL (BYTEA)' },
+          ]} width={280} />
+        </Row>
+        <p style={{ fontSize: 11.5, color: 'var(--color-text-muted)', padding: '8px 0 12px', margin: 0 }}>
+          Switching modes does not migrate data — use the CLI/batch scripts for that.
+        </p>
+      </div>
+    </>
+  );
+}
+
+// ── About ──────────────────────────────────────────────────────────
+
+function AboutSection() {
+  return (
+    <>
+      <SectionTitle title="About LangConfig" desc="Visual platform for building LangChain agents and LangGraph workflows." />
+      <div style={{ background: 'var(--color-panel-dark, #fff)', border: '1px solid var(--color-border)', borderRadius: 10, padding: '4px 20px' }}>
+        <Row label="Version"><span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>0.1.0</span></Row>
+        <Row label="Configuration" hint="API keys and settings are stored in PostgreSQL (encrypted); the rest lives in .env">
+          <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>See .env</span>
+        </Row>
+        <Row label="First-time setup" hint="Re-open the setup wizard (API key + workspace)">
+          <Btn variant="primary" onClick={() => window.dispatchEvent(new CustomEvent('setup:open'))}>Re-run setup wizard</Btn>
+        </Row>
+      </div>
+    </>
   );
 }
