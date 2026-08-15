@@ -18,7 +18,7 @@ the DSH tool catalog, and an add/revise recommendation per tool. See
 | `ls` · `read_file` (PDF/docx/pptx text extraction) · `write_file` (md/html/pdf/docx render) · `edit_file` (old_string→new_string, unique match) · `glob` · `grep` | | **Revise** — `glob`/`grep` are pure-Python (O(n) scans); DSH uses **ripgrep**. **Missing**: `delete_file`/`rename_file`/`move_file`/`mkdir` (neither LangConfig nor DSH has them — an enhancement beyond DSH). `read_file` has no image support (no `read_image`). |
 
 ### Virtual FS (3 legacy — state-based, notebook-2.2 parity)
-| `vfs_ls` · `vfs_read_file` · `vfs_write_file` | files in agent state, not disk | **Revise** — duplicates the disk `read_file`/`write_file` concept; the prompt even demands `vfs_write_file` first. Keep only if the VFS is genuinely needed; otherwise consolidate so models don't confuse the two worlds. |
+| ~~`vfs_ls` · `vfs_read_file` · `vfs_write_file`~~ | files in agent state, not disk | **Removed** — duplicated the disk `read_file`/`write_file` concept and confused models; the disk fs tools + `save_document` + workspace roots cover file work. State `files` field kept for schema stability. |
 
 ### Reasoning / Todo / Memory (2 + 2 + 2)
 | `think_tool` · `reasoning_chain` | strategic reflection | Keep |

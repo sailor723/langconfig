@@ -44,9 +44,6 @@ _LEGACY_DEFINITIONS: Dict[str, tuple] = {
     "memory_recall": ("memory", 31),
     "write_todos": ("todo", 40),
     "read_todos": ("todo", 41),
-    "vfs_ls": ("filesystem", 50),
-    "vfs_read_file": ("filesystem", 51),
-    "vfs_write_file": ("filesystem", 52),
 }
 
 

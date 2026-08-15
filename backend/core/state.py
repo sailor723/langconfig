@@ -7,7 +7,7 @@
 
 Mirrors the DeepAgentState from the deep_agent_0530 reference notebooks:
 - module-2/2.1_todo.ipynb (TODO tracking via write_todos / read_todos)
-- module-2/2.2_files.ipynb (VFS via vfs_ls / vfs_read_file / vfs_write_file)
+- module-2 TODO/VFS harness state (todos; files field kept for schema stability)
 
 Passed as ``state_schema=DeepAgentState`` to ``create_agent()`` so that tools
 using ``InjectedState`` can access ``todos`` and ``files`` fields.

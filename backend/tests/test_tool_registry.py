@@ -40,7 +40,7 @@ def test_registry_lists_legacy_definitions_ordered():
     ids = [e["tool_id"] for e in entries]
     # the 9 legacy-only tools are always present
     for legacy in ("browser", "think_tool", "memory_store", "memory_recall",
-                   "write_todos", "read_todos", "vfs_ls", "vfs_read_file", "vfs_write_file"):
+                   "write_todos", "read_todos"):
         assert legacy in ids
     # ordered by definition.order
     orders = [e["order"] for e in entries]
