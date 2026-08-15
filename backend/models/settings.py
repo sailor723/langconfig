@@ -52,9 +52,11 @@ class Settings(Base):
     chunk_overlap = Column(Integer, default=200)
 
     # Model Defaults
-    default_model = Column(String, default="gpt-4o")
-    default_temperature = Column(Float, default=0.7)
-    max_tokens = Column(Integer, default=4096)
+    # NULL = "use .env" (config.Settings is the single source of truth).
+    # The settings UI only overrides these when the user explicitly sets them.
+    default_model = Column(String, default=None)
+    default_temperature = Column(Float, default=None)
+    max_tokens = Column(Integer, default=None)
 
     # Local Models Settings
     local_provider = Column(String, default="ollama")
@@ -70,11 +72,11 @@ class Settings(Base):
     workspace_auto_detect_git = Column(Boolean, default=True)
     workspace_backup_before_edit = Column(Boolean, default=True)
 
-    # Model Defaults Advanced
-    primary_model = Column(String, default="gpt-4o")
+    # Model Defaults Advanced (NULL = fall back to .env / config defaults)
+    primary_model = Column(String, default=None)
     fallback_models = Column(JSON, default=lambda: ["claude-sonnet-4-5"])
-    temperature = Column(Float, default=0.7)
-    max_tokens_default = Column(Integer, default=4096)
+    temperature = Column(Float, default=None)
+    max_tokens_default = Column(Integer, default=None)
     top_p = Column(Float, default=1.0)
     routing_strategy = Column(String, default="balanced")
     daily_token_limit = Column(Integer, default=0)  # 0 = unlimited
