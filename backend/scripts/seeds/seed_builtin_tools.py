@@ -387,7 +387,11 @@ def _build_row(tool_name: str, tool_obj, meta: tuple, order: int = 500) -> dict:
     is_plain_function = not hasattr(tool_obj, "description")
 
     if is_plain_function:
-        description = (getattr(tool_obj, "__doc__", "") or "").split("\n")[0]
+        # First NON-EMPTY line of the docstring (docstrings often start with a
+        # blank line, which would otherwise produce an empty description and
+        # fall back to the useless "Built-in tool: X" placeholder).
+        _doc_lines = [ln.strip() for ln in (getattr(tool_obj, "__doc__", "") or "").splitlines() if ln.strip()]
+        description = _doc_lines[0] if _doc_lines else ""
         properties, required = _schema_from_signature(tool_obj)
     else:
         description = tool_obj.description

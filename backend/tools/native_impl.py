@@ -1362,21 +1362,23 @@ save_document = StructuredTool.from_function(
     func=_save_document_impl,
     name="save_document",
     args_schema=SaveDocumentArgs,
-    description="""Save a FORMAL document into the project document library (database).
+    description="""Archive a document into the project document library (database).
 
-Use this for the FINAL deliverable of a task: reports, analyses, plans,
-release notes — anything the user will view/manage in the Workbench.
-Saving with the same title creates a new version instead of overwriting.
+OPTIONAL ARCHIVAL TOOL — this does NOT produce the deliverable file. The
+document file itself must be generated with write_file (which supports
+.md/.docx/.pdf/.html by extension). Call this AFTER write_file only when the
+user wants the final document ALSO saved to the versioned document library
+for browsing in the Workbench. Saving with the same title bumps the version.
 
 REQUIRED PARAMETERS:
 1. title (str): A clear document title, e.g. 'Q3 Market Analysis Report'
-2. content (str): The COMPLETE final content (markdown/text) — do not truncate
+2. content (str): The COMPLETE final content (markdown/text)
 
 OPTIONAL:
 3. doc_type (str): report (default), notes, data, plan, code
 
-Prefer this over write_file for the task's final document; use write_file for
-working files (scratch, todos, intermediate artifacts).""",
+Rule: write_file produces the file; save_document only archives a copy.
+Never use save_document INSTEAD of write_file.""",
 )
 
 

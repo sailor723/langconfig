@@ -1291,6 +1291,43 @@ def create_middleware_from_config(middleware_config: Dict[str, Any]) -> AgentMid
                 keep_last_n_messages=middleware_config.get("keep_last_n_messages", 5)
             )
 
+    elif middleware_type == "todo_list" or middleware_type == "todo":
+        # LangChain TodoListMiddleware — write_todos/update_todo_status/get_todos
+        try:
+            from langchain.agents.middleware import TodoListMiddleware
+            return TodoListMiddleware()
+        except ImportError:
+            logger.warning("TodoListMiddleware not available")
+            raise ValueError("todo_list middleware requires langchain >= 1.0")
+
+    elif middleware_type == "filesystem":
+        # SDK filesystem middleware (deepagents) — provides ls/read_file/
+        # write_file/edit_file/glob/grep/delete, rooted at the given
+        # workspace_root (or a default). Multi-format docs (.docx/.pdf/.html)
+        # via FormatAwareBackend, with tool descriptions that tell the model
+        # about the multi-format capability.
+        try:
+            from deepagents.middleware.filesystem import FilesystemMiddleware as SDKFilesystemMiddleware
+            from deepagents.backends.filesystem import FilesystemBackend
+            from services.format_backend import FormatAwareBackend
+            from services.fs_tool_descriptions import filesystem_tool_descriptions
+
+            fs_root = (
+                middleware_config.get("workspace_root")
+                or middleware_config.get("root")
+                or (middleware_config.get("config") or {}).get("workspace_root")
+                or "outputs"
+            )
+            from pathlib import Path
+            Path(fs_root).mkdir(parents=True, exist_ok=True)
+            return SDKFilesystemMiddleware(
+                backend=FormatAwareBackend(FilesystemBackend(root_dir=str(fs_root))),
+                custom_tool_descriptions=filesystem_tool_descriptions(),
+            )
+        except ImportError:
+            logger.warning("deepagents FilesystemMiddleware not available")
+            raise ValueError("filesystem middleware requires the deepagents package")
+
     else:
         raise ValueError(f"Unknown middleware type: {middleware_type}")
 

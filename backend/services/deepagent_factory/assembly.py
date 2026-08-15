@@ -703,6 +703,31 @@ class _DeepAgentAssemblyMixin:
                     except Exception as e:
                         logger.warning(f"Failed to register harness profile: {e}")
 
+                # Register a harness profile that documents the multi-format
+                # write_file/read_file capability (the SDK's default tool
+                # descriptions say only "Writes content to a file" — the model
+                # never learns .docx/.pdf/.html are supported unless told).
+                # Registered for every deep agent so the SDK's injected
+                # FilesystemMiddleware uses our descriptions.
+                try:
+                    from deepagents import (
+                        HarnessProfile as _HP, register_harness_profile as _rhp,
+                    )
+                    from deepagents._models import (
+                        get_model_identifier as _gmi, get_model_provider as _gmp,
+                    )
+                    from services.fs_tool_descriptions import filesystem_tool_descriptions
+                    _mk = f"{_gmp(main_chat_model)}:{_gmi(main_chat_model)}"
+                    _rhp(
+                        _mk,
+                        _HP(tool_description_overrides=filesystem_tool_descriptions()),
+                    )
+                    logger.info(
+                        f"Registered multi-format tool descriptions for {_mk}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to register multi-format descriptions: {e}")
+
                 # deepagents 0.7.x has NO `guardrails=` parameter (verified
                 # signature) — passing it always raised TypeError and the
                 # guardrails config was silently dropped. Only `interrupts`
