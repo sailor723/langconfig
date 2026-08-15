@@ -147,7 +147,6 @@ class ToolLoader:
         native_tool_names: List[str],
         workspace_context: Optional[Dict[str, Any]] = None,
         agent_context: Optional[Dict[str, Any]] = None,
-        inject_save_document: bool = True,
     ) -> List[BaseTool]:
         """
         Load native Python tools.
@@ -181,21 +180,6 @@ class ToolLoader:
             )
 
             canonical_names = [TOOL_NAME_MAP.get(n, n) for n in native_tool_names]
-
-            # DB mode: agents always get save_document so their final
-            # deliverables land in the agent_documents table (dedicated doc
-            # library) instead of loose files. FS mode keeps the legacy flow.
-            # Only inject on the agent's own tool load — the middleware
-            # filesystem load (create_tools) must NOT inject an unwrapped
-            # save_document, or two same-named tools exist and the unwrapped
-            # one wins, saving with project=unset.
-            if (
-                inject_save_document
-                and _is_db_storage_mode()
-                and "save_document" not in canonical_names
-            ):
-                canonical_names.append("save_document")
-                logger.info("STORAGE_MODE=db: injecting save_document built-in tool")
 
             # Check if browser tools are requested (requires special async handling)
             browser_requested = "browser" in canonical_names
