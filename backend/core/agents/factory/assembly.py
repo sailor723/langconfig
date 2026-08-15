@@ -67,7 +67,11 @@ class _AgentAssemblyMixin:
         enable_streaming = agent_config.get("streaming", True)  # Enable by default for SSE streaming
 
         base_system_prompt = agent_config.get("system_prompt", "You are a helpful AI assistant.")
-        native_tool_names = agent_config.get("native_tools", [])
+        from core.tools.defaults import resolve_native_tools
+        native_tool_names = resolve_native_tools(
+            agent_config.get("native_tools"),
+            enable_default_tools=agent_config.get("enable_default_tools", True),
+        )
         # Merge mcp_tools into native_tools (they're the same thing, mcp_tools is legacy name)
         # This ensures tools from both lists are loaded
         mcp_tool_names = agent_config.get("mcp_tools", [])

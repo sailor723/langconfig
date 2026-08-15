@@ -588,6 +588,11 @@ async def load_agent_tools(
         List of loaded BaseTool instances
     """
     from core.agents.tool_loader import ToolLoader
+    from core.tools.defaults import resolve_native_tools
+
+    # Empty native_tools -> the default tool set (universal base for every
+    # agent; specialists opt out via enable_default_tools=False).
+    native_tool_names = resolve_native_tools(native_tool_names, enable_default_tools=True)
     tools: List[BaseTool] = []
 
     # Separate memory tools from regular native tools
