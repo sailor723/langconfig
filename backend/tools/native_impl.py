@@ -734,28 +734,57 @@ def _add_pdf_font(pdf) -> str:
     text renders correctly; falls back to the built-in Latin-1 ``Helvetica``
     when none is available. ``FPDF`` is imported lazily by the caller, so the
     parameter is deliberately unannotated.
+
+    NOTE: fpdf2's ``add_font`` API changed — older versions accepted
+    ``font_index=`` (positional index inside a .ttc collection); 2.8.x renamed
+    it to ``collection_font_number=``. A plain ``.ttf`` (e.g. Arial Unicode)
+    needs no index at all and is tried first. Passing the old kwarg on 2.8.x
+    raised ``TypeError``, every candidate failed, and the fallback
+    ``Helvetica`` (Latin-1 only) then threw ``FPDFUnicodeEncodingException``
+    for CJK text.
     """
     import os as _os
 
-    candidates = [
-        ("/System/Library/Fonts/Supplemental/Arial Unicode.ttf", 0),
-        ("/System/Library/Fonts/PingFang.ttc", 0),
-        ("/System/Library/Fonts/STHeiti Light.ttc", 0),
-        ("/System/Library/Fonts/Hiragino Sans GB.ttc", 0),
-        ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 0),
-        ("/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc", 0),
-        ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 0),
-        ("C:/Windows/Fonts/msyh.ttc", 0),
-        ("C:/Windows/Fonts/arial.ttf", 0),
+    # Plain .ttf candidates first (no collection index needed).
+    ttf_candidates = [
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/msyh.ttf",
     ]
-    for path, index in candidates:
+    for path in ttf_candidates:
         if not _os.path.isfile(path):
             continue
         try:
-            # Register once for regular and once for bold (same file, so bold
-            # renders as regular — avoids fpdf2's "undefined font" error).
-            pdf.add_font("DocFont", "", path, font_index=index)
-            pdf.add_font("DocFont", "B", path, font_index=index)
+            pdf.add_font("DocFont", "", path)
+            pdf.add_font("DocFont", "B", path)
+            return "DocFont"
+        except Exception:
+            continue
+
+    # .ttc collections (face 0) — try the current kwarg first, then the old
+    # spelling, then no index (some fpdf2 builds default to face 0).
+    ttc_candidates = [
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+    ]
+    for path in ttc_candidates:
+        if not _os.path.isfile(path):
+            continue
+        for kw in ("collection_font_number", "font_index"):
+            try:
+                pdf.add_font("DocFont", "", path, **{kw: 0})
+                pdf.add_font("DocFont", "B", path, **{kw: 0})
+                return "DocFont"
+            except Exception:
+                continue
+        try:
+            pdf.add_font("DocFont", "", path)
+            pdf.add_font("DocFont", "B", path)
             return "DocFont"
         except Exception:
             continue
