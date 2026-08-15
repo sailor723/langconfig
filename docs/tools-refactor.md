@@ -74,13 +74,13 @@ disclosure (metadata in prompt, SKILL.md on demand via read_file).
   (light validation, enforced gradually). Wired into `AgentFactory.create_agent`
   after tool assembly; additive — tools without enforcement pass through.
 
-### Phase C — Code Mode (opt-in)
+### Phase C — Code Mode (opt-in) ✅
 
-- `run_code` tool: executes a Python program body; dispatches registry tools
-  via a **generated Python SDK** (`await tools.web_search(...)`) from the
-  definitions (schemas + docstrings → typed callable stubs). Sub-dispatches
-  logged (SSE) but only the curated output enters history. Agent flag
-  `code_mode: bool`, off by default; reuses the `python_execute` sandbox.
+- `core/tools/code_mode.py` — `run_code` tool + generated Python SDK
+  (`await tools.name(**kwargs)` stubs from the compiled tools), in-process with
+  a restricted namespace + AST validation; sub-dispatches run the compiled
+  tools, only curated output (print/return) enters history. Agent flag
+  `code_mode: bool`, off by default; wired into `AgentFactory.create_agent`.
 
 ### Phase D — Prompt assembly + packages
 

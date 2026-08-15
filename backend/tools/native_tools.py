@@ -201,13 +201,12 @@ def memory_store(key: str, value: str, context: str = "general") -> str:
         context: Optional context/category (default: "general")
     """
     logger.warning(
-        f"memory_store fallback used (key={key}). "
-        f"Real implementation is in SimpleMemory."
+        f"memory_store fallback used (key={key}) — memory is not enabled "
+        f"for this agent; the real implementation is SimpleMemory."
     )
-    # Return an explicit failure instead of a fake success — the agent must not
-    # believe its memory was persisted when it wasn't.
-    return (f"⚠️ memory_store is unavailable: SimpleMemory is not configured "
-            f"(fallback stub active). Memory '{key}' was NOT stored.")
+    return (f"⚠️ memory is not enabled for this agent — enable memory in the "
+            f"agent config (enable_memory) so 'memory_store' persists to "
+            f"SimpleMemory. Memory '{key}' was NOT stored.")
 
 
 @tool
@@ -224,11 +223,12 @@ def memory_recall(key: str, context: str = "general") -> str:
         context: Optional context/category (default: "general")
     """
     logger.warning(
-        f"memory_recall fallback used (key={key}). "
-        f"Real implementation is in SimpleMemory."
+        f"memory_recall fallback used (key={key}) — memory is not enabled "
+        f"for this agent; the real implementation is SimpleMemory."
     )
-    return (f"⚠️ memory_recall is unavailable: SimpleMemory is not configured "
-            f"(fallback stub active). No memory found for '{key}'.")
+    return (f"⚠️ memory is not enabled for this agent — enable memory in the "
+            f"agent config (enable_memory) so 'memory_recall' reads from "
+            f"SimpleMemory. No memory found for '{key}'.")
 
 
 WRITE_TODOS_DESCRIPTION = """Create and manage structured task lists for tracking progress through complex workflows.
@@ -723,6 +723,12 @@ def load_legacy_native_tools(tool_names) -> List[StructuredTool]:
         canonical = TOOL_NAME_MAP.get(name, name)
         if canonical == "browser":
             logger.info("Browser tools are loaded via load_playwright_tools(); skipping")
+            continue
+        if canonical in ("memory_store", "memory_recall"):
+            logger.info(
+                f"'{canonical}' is routed to SimpleMemory (core/agents/memory.py) "
+                "when the agent has memory enabled; skipping the fallback stub"
+            )
             continue
         tool_obj = _LEGACY_ONLY_TOOLS.get(canonical)
         if tool_obj is not None:

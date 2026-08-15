@@ -40,6 +40,7 @@ TOOL_CATEGORIES = {
     "notification", # slack/discord/wordpress
     "presentation", # gen_pptx
     "document",     # save_document (agent document library)
+    "shell",        # bash (agent terminal)
     "custom",       # user-defined (default)
 }
 
