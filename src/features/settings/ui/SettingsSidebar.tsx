@@ -75,6 +75,18 @@ export default function SettingsSidebar({
           );
         })}
       </nav>
+
+      {/* Footer: re-run the first-time setup wizard */}
+      <div style={{ padding: '8px 10px', borderTop: '1px solid var(--color-border-dark)' }}>
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('setup:open'))}
+          className="w-full flex items-center gap-3 px-2 py-2 text-sm font-medium transition-colors hover:bg-gray-50 dark:hover:bg-white/5 rounded"
+          style={{ color: 'var(--color-text-muted)' }}
+        >
+          <span className="material-symbols-outlined text-base">rocket_launch</span>
+          <span>{t('settings_rerun_setup')}</span>
+        </button>
+      </div>
     </aside>
   );
 }

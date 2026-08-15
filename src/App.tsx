@@ -32,8 +32,8 @@ import HomePage from './pages/HomePage';
 import ProjectHomePage from './pages/ProjectHomePage';
 import DeepAgentHomePage from './components/layout2/DeepAgentHomePage';
 import AgentHomePage from './components/layout2/AgentHomePage';
-import ModelHomePage from './components/layout2/ModelHomePage';
 import AnalysisPage from './pages/AnalysisPage';
+import SettingsView from './pages/SettingsPage';
 import { ThemeProvider } from './lib/themes';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { ToastProvider, ToastContainer } from './hooks/useToast';
@@ -58,7 +58,7 @@ import GraphStudioPage from './features/graph-studio/GraphStudioPage';
 import GraphStudioSidebar from './features/graph-studio/GraphStudioSidebar';
 import GraphHomePage from './features/graph-studio/GraphHomePage';
 
-type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'models' | 'search' | 'chat' | 'learning' | 'graph' | 'project';
+type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'search' | 'chat' | 'learning' | 'graph' | 'project';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -165,9 +165,9 @@ const ROUTE_TO_VIEW: Record<string, View> = {
   '/tools': 'tools',
   '/prompt': 'prompt',
   '/analysis': 'analysis',
-  // settings → popover only, no route
+  '/settings': 'settings',
+  // settings → full Settings page (route /settings)
   '/playground': 'playground',
-  '/models': 'models',
   '/search': 'search',
   '/deepagent-studio': 'deepagent-studio',
   '/chat': 'chat',
@@ -183,7 +183,6 @@ const VIEW_ROUTE: Record<View, string> = {
   knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
   playground: '/playground', tools: '/tools', prompt: '/prompt',
   'deepagent-studio': '/deepagent-studio',
-  models: '/models',
   search: '/search',
   chat: '/chat',
   learning: '/learning',
@@ -205,7 +204,6 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   settings: 'settings',
   playground: 'workflows',
   'deepagent-studio': 'studio',
-  models: 'models',
   search: 'search',
   chat: null,
   learning: 'learning',
@@ -220,7 +218,6 @@ const ACTIVITY_TO_VIEW: Partial<Record<ActivityId, View>> = {
   prompt: 'prompt',
   tools: 'tools',
   knowledge: 'knowledge',
-  models: 'models',
   search: 'search',
   analysis: 'analysis',
   skills: 'skills',
@@ -494,10 +491,9 @@ function AppContent() {
       case 'skills': return <SkillHomePage />;
       case 'tools': return <ToolHomePage />;
       case 'prompt': return <PromptHomePage />;
-      case 'models': return <ModelHomePage />;
       case 'knowledge': return <KnowledgeHomePage />;
       case 'analysis': return <AnalysisPage />;
-      // settings → popover only, no full-page view
+      case 'settings': return <SettingsView />;
       case 'playground': return <PlaygroundPage />;
       case 'deepagent-studio': return <DeepAgentStudioPage />;
       default: return <HomePage />;

@@ -11,12 +11,12 @@
  * Vault opens a popover (Obsidian-style vault switcher) instead of navigating.
  */
 import { useState, useRef, Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLayoutState, ACTIVITIES, type ActivityDef, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
-  GitBranch, Brain, Users, BarChart3, Network, Settings, Sparkles, Globe, Wrench, Database, Award, MessageSquare, Archive, FileText, BookOpen, Workflow, type LucideIcon,
+  GitBranch, Brain, Users, BarChart3, Network, Settings, Globe, Wrench, Database, Award, MessageSquare, Archive, FileText, BookOpen, Workflow, type LucideIcon,
 } from 'lucide-react';
-import SystemSettingsPopover from './SystemSettingsPopover';
 import VaultPopover from './VaultPopover';
 
 const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
@@ -30,7 +30,6 @@ const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
   skills:     Award,
   knowledge:  Database,
   analysis:   BarChart3,
-  models:     Sparkles,
   search:     Globe,
   studio:     Network,
   learning:   BookOpen,
@@ -42,7 +41,7 @@ const SECTION_GROUPS: ActivityId[][] = [
   ['vault', 'deepagents', 'agents', 'graph'],
   ['prompt', 'tools', 'skills'],
   ['knowledge', 'analysis', 'learning'],
-  ['models', 'search'],
+  ['search'],
 ];
 
 interface ActivityButtonProps {
@@ -105,9 +104,8 @@ interface ActivityBarProps {
 export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
   const { activeActivity, setActiveActivity, sidebarOpen, toggleSidebar, rightPanelOpen, toggleRightPanel } = useLayoutState();
   const t = useLayoutTokens();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const navigate = useNavigate();
   const [vaultOpen, setVaultOpen] = useState(false);
-  const settingsBtnRef = useRef<HTMLButtonElement | null>(null);
   const vaultBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const handleActivityClick = (id: ActivityId) => {
@@ -192,11 +190,11 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
 
       <div style={{ flex: 1 }} />
 
-      {/* Settings gear — pinned to bottom, opens popover (no navigation) */}
+      {/* Settings gear — opens the full Settings page (Models, theme,
+          language, workspace, storage, search providers, …) */}
       <button
-        ref={settingsBtnRef}
         title="Settings"
-        onClick={() => setSettingsOpen(v => !v)}
+        onClick={() => navigate('/settings')}
         style={{
           width: 48,
           height: 48,
@@ -204,35 +202,16 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
           alignItems: 'center',
           justifyContent: 'center',
           background: 'transparent',
-          color: settingsOpen ? t.activityBarActive : t.activityBarInactive,
+          color: t.activityBarInactive,
           border: 'none',
           cursor: 'pointer',
           position: 'relative',
         }}
-        onMouseEnter={e => { if (!settingsOpen) e.currentTarget.style.background = t.activityBarHover; }}
-        onMouseLeave={e => { if (!settingsOpen) e.currentTarget.style.background = 'transparent'; }}
+        onMouseEnter={e => { e.currentTarget.style.background = t.activityBarHover; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
       >
-        {settingsOpen && (
-          <span
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 8,
-              bottom: 8,
-              width: 2,
-              background: t.activityBarActive,
-            }}
-          />
-        )}
-        <Settings size={20} strokeWidth={settingsOpen ? 2 : 1.5} />
+        <Settings size={20} strokeWidth={1.5} />
       </button>
-
-      {settingsOpen && (
-        <SystemSettingsPopover
-          anchorRef={settingsBtnRef as React.RefObject<HTMLElement | null>}
-          onClose={() => setSettingsOpen(false)}
-        />
-      )}
 
       {/* Toggle right panel (Chat) — opens a dedicated window */}
       <button

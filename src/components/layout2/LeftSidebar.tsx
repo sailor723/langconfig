@@ -15,7 +15,6 @@ import { useSidebarData } from './useSidebarData';
 import { IconButton } from './ui-system';
 import SearchPanel from './SearchPanel';
 import { Plus, RefreshCw, Search, Loader } from 'lucide-react';
-import ModelCardsSidebar from './ModelCardsSidebar';
 import SearchProvidersSidebar from './SearchProvidersSidebar';
 import ToolBrowserSidebar from './ToolBrowserSidebar';
 import KnowledgeSidebar from './KnowledgeSidebar';
@@ -176,7 +175,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
             >
               <Search size={14} />
             </IconButton>
-            {!isSearch && activeActivity !== 'models' && (
+            {!isSearch && (
               <IconButton onClick={handleRefresh} title="Refresh" t={t}>
                 <RefreshCw size={14} />
               </IconButton>
@@ -190,9 +189,6 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
             <SearchPanel onClose={() => setSidebarView('explorer')} />
           ) : Children.toArray(children).length > 0 ? (
             <div style={{ height: '100%', overflow: 'auto' }}>{children}</div>
-          ) : activeActivity === 'models' ? (
-            /* Models activity renders the dedicated ModelCardsSidebar */
-            <ModelCardsSidebar />
           ) : activeActivity === 'search' ? (
             /* Search activity renders the dedicated SearchProvidersSidebar */
             <SearchProvidersSidebar />
