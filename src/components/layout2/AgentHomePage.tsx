@@ -15,7 +15,7 @@ import {
   Brain, Sparkles, Cpu, Search, Code, Layers, Plus, Loader,
   BookOpen, RefreshCw, GitBranch, Shield, Workflow, Puzzle,
   Database, Lightbulb, ArrowRight, Rocket, FileText,
-  Sliders, Bot, MessagesSquare,
+  Sliders, Bot, MessagesSquare, Pencil,
 } from 'lucide-react';
 
 // ── Template data ────────────────────────────────────────────
@@ -346,52 +346,76 @@ function StepCard({ num, title, desc }: { num: number; title: string; desc: stri
 
 // ── Template card ────────────────────────────────────────────
 
-function TemplateCard({ agent, onClick }: { agent: TemplateAgent; onClick: () => void }) {
+function TemplateCard({ agent, onClick, onEdit }: {
+  agent: TemplateAgent;
+  onClick: () => void;
+  /** Open the editor with the FULL agent loaded (user-created agents only). */
+  onEdit?: (e: React.MouseEvent) => void;
+}) {
   const t = useLayoutTokens();
   const c = useContent();
   const catCfg = getCategoryConfig(agent.category || '');
   const CatIcon = catCfg.icon;
 
   return (
-    <div
-      onClick={onClick}
-      style={{
-        padding: 14, borderRadius: 8, cursor: 'pointer',
-        background: t.bgContent, border: `1px solid ${t.border}`,
-        transition: 'border-color 0.15s',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <div style={{
-          width: 28, height: 28, borderRadius: 6,
-          background: `${catCfg.color}18`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <CatIcon size={14} color={catCfg.color} />
-        </div>
-        <span style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {agent.name}
-        </span>
-      </div>
-
-      <p style={{ fontSize: 11, color: t.textDim, margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-        {agent.description || c.tplNoDesc}
-      </p>
-
-      {agent.tags && agent.tags.length > 0 && (
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
-          {agent.tags.slice(0, 3).map(tag => (
-            <span key={tag} style={{
-              fontSize: 9, padding: '2px 6px', borderRadius: 4,
-              background: t.bgHover, color: t.textDim,
-            }}>
-              {tag}
-            </span>
-          ))}
-        </div>
+    <div style={{ position: 'relative' }}>
+      {onEdit && (
+        <button
+          onClick={e => { e.stopPropagation(); onEdit(e); }}
+          title="Edit agent"
+          style={{
+            position: 'absolute', top: 8, right: 8, zIndex: 2,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 26, height: 26, borderRadius: 5,
+            background: t.bgContent, color: t.textMuted,
+            border: `1px solid ${t.border}`, cursor: 'pointer',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; e.currentTarget.style.color = t.textPrimary; }}
+          onMouseLeave={e => { e.currentTarget.style.background = t.bgContent; e.currentTarget.style.color = t.textMuted; }}
+        >
+          <Pencil size={13} />
+        </button>
       )}
+      <div
+        onClick={onClick}
+        style={{
+          padding: 14, paddingRight: onEdit ? 40 : 14, borderRadius: 8, cursor: 'pointer',
+          background: t.bgContent, border: `1px solid ${t.border}`,
+          transition: 'border-color 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 6,
+            background: `${catCfg.color}18`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <CatIcon size={14} color={catCfg.color} />
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {agent.name}
+          </span>
+        </div>
+
+        <p style={{ fontSize: 11, color: t.textDim, margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {agent.description || c.tplNoDesc}
+        </p>
+
+        {agent.tags && agent.tags.length > 0 && (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 8 }}>
+            {agent.tags.slice(0, 3).map(tag => (
+              <span key={tag} style={{
+                fontSize: 9, padding: '2px 6px', borderRadius: 4,
+                background: t.bgHover, color: t.textDim,
+              }}>
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -708,6 +732,25 @@ export default function AgentHomePage() {
     });
   };
 
+  /** Open the editor with the FULL agent record (user-created agents only), so
+   * Save persists every field instead of the card's partial config skeleton. */
+  const handleEditClick = async (agent: TemplateAgent) => {
+    if (typeof agent.id !== 'number') return; // built-in presets have string ids
+    try {
+      const res: any = await apiClient.getDeepAgent(agent.id);
+      const full = (res as any)?.data ?? res;
+      openTab({
+        id: `agent-edit-${agent.id}`,
+        label: agent.name,
+        viewType: 'agent',
+        data: full,
+      });
+    } catch (err: any) {
+      console.error('Failed to load full agent for editing:', err);
+      handleTemplateClick(agent);
+    }
+  };
+
   // Group templates by category
   const grouped = templates.reduce<Record<string, TemplateAgent[]>>((acc, t) => {
     const cat = t.category || 'other';
@@ -845,7 +888,12 @@ export default function AgentHomePage() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
               {filtered.map(a => (
-                <TemplateCard key={a.id} agent={a} onClick={() => handleTemplateClick(a)} />
+                <TemplateCard
+                  key={a.id}
+                  agent={a}
+                  onClick={() => handleTemplateClick(a)}
+                  onEdit={typeof a.id === 'number' ? () => handleEditClick(a) : undefined}
+                />
               ))}
             </div>
           )}

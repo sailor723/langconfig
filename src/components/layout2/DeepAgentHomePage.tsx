@@ -17,7 +17,7 @@ import {
   Network, FileText, Sliders, Bot, ListTodo, FolderOpen,
   MessagesSquare, GanttChartSquare, UserCheck,
   RefreshCw, AlertTriangle, ScrollText, Terminal,
-  Globe, Box, Bug,
+  Globe, Box, Bug, Pencil,
 } from 'lucide-react';
 
 // ── CSS visual components (replace unavailable images) ───────
@@ -1190,59 +1190,84 @@ function HeroCard({ onNewAgent }: { onNewAgent: () => void }) {
 
 // ── Template card ────────────────────────────────────────────
 
-function TemplateCard({ agent, onClick }: { agent: TemplateAgent; onClick: () => void }) {
+function TemplateCard({ agent, onClick, onEdit }: {
+  agent: TemplateAgent;
+  onClick: () => void;
+  /** Open the editor with the FULL agent loaded (user-created agents only). */
+  onEdit?: (e: React.MouseEvent) => void;
+}) {
   const t = useLayoutTokens();
   const c = useContent();
   const cfg = getCategoryConfig(agent.category || '');
   const Icon = cfg.icon;
 
   return (
-    <button
-      onClick={onClick}
-      style={{
-        display: 'flex', flexDirection: 'column', gap: 8,
-        padding: 14, borderRadius: 8,
-        background: t.bgContent,
-        border: `1px solid ${t.border}`,
-        cursor: 'pointer',
-        textAlign: 'left',
-        transition: 'border-color 0.15s, box-shadow 0.15s',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.borderColor = t.accent;
-        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.borderColor = t.border;
-        e.currentTarget.style.boxShadow = 'none';
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ width: 28, height: 28, borderRadius: 6, background: `${cfg.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon size={14} color={cfg.color} />
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {agent.name}
-          </div>
-          <div style={{ fontSize: 10, color: t.textMuted }}>{cfg.labelEn}</div>
-        </div>
-      </div>
-
-      <p style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.4, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-        {agent.description || c.tplNoDesc}
-      </p>
-
-      {agent.tags && agent.tags.length > 0 && (
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {agent.tags.slice(0, 3).map(tag => (
-            <span key={tag} style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: `${t.accent}10`, color: t.textMuted }}>
-              {tag}
-            </span>
-          ))}
-        </div>
+    <div style={{ position: 'relative' }}>
+      {onEdit && (
+        <button
+          onClick={e => { e.stopPropagation(); onEdit(e); }}
+          title="Edit agent"
+          style={{
+            position: 'absolute', top: 8, right: 8, zIndex: 2,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 26, height: 26, borderRadius: 5,
+            background: t.bgContent, color: t.textMuted,
+            border: `1px solid ${t.border}`, cursor: 'pointer',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = t.bgHover; e.currentTarget.style.color = t.textPrimary; }}
+          onMouseLeave={e => { e.currentTarget.style.background = t.bgContent; e.currentTarget.style.color = t.textMuted; }}
+        >
+          <Pencil size={13} />
+        </button>
       )}
-    </button>
+      <button
+        onClick={onClick}
+        style={{
+          display: 'flex', flexDirection: 'column', gap: 8,
+          padding: 14, paddingRight: onEdit ? 40 : 14, borderRadius: 8,
+          background: t.bgContent,
+          border: `1px solid ${t.border}`,
+          cursor: 'pointer',
+          textAlign: 'left',
+          width: '100%',
+          transition: 'border-color 0.15s, box-shadow 0.15s',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.borderColor = t.accent;
+          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.borderColor = t.border;
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 6, background: `${cfg.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon size={14} color={cfg.color} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {agent.name}
+            </div>
+            <div style={{ fontSize: 10, color: t.textMuted }}>{cfg.labelEn}</div>
+          </div>
+        </div>
+
+        <p style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.4, margin: 0, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+          {agent.description || c.tplNoDesc}
+        </p>
+
+        {agent.tags && agent.tags.length > 0 && (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {agent.tags.slice(0, 3).map(tag => (
+              <span key={tag} style={{ fontSize: 9, padding: '1px 6px', borderRadius: 4, background: `${t.accent}10`, color: t.textMuted }}>
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -1356,6 +1381,27 @@ export default function DeepAgentHomePage() {
         },
       },
     });
+  };
+
+  /** Open the editor with the FULL agent record (user-created agents only), so
+   * Save persists every field (guardrails/middleware/subagents/backend) instead
+   * of the card's partial config skeleton. */
+  const handleEditClick = async (agent: TemplateAgent) => {
+    if (typeof agent.id !== 'number') return; // built-in presets have string ids
+    try {
+      const res: any = await apiClient.getDeepAgent(agent.id);
+      const full = (res as any)?.data ?? res;
+      openTab({
+        id: `deepagent-edit-${agent.id}`,
+        label: agent.name,
+        viewType: 'deepagent',
+        data: full,
+      });
+    } catch (err: any) {
+      console.error('Failed to load full agent for editing:', err);
+      // Fall back to the card skeleton so the user can at least open it.
+      handleTemplateClick(agent);
+    }
   };
 
   // Group templates by category
@@ -1515,7 +1561,12 @@ export default function DeepAgentHomePage() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
               {filtered.map(a => (
-                <TemplateCard key={a.id} agent={a} onClick={() => handleTemplateClick(a)} />
+                <TemplateCard
+                  key={a.id}
+                  agent={a}
+                  onClick={() => handleTemplateClick(a)}
+                  onEdit={typeof a.id === 'number' ? () => handleEditClick(a) : undefined}
+                />
               ))}
             </div>
           )}
