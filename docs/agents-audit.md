@@ -59,9 +59,13 @@ the live tool registry, the `models` table, and the `skills` table.
 - ✅ **F5** — dropped the dead `execute` tool; expanded the `data analysis` prompt.
 - ✅ **F7** — `Current Time` → `current_time`.
 - ✅ **F9** — hello's prompt rewritten (no more arithmetic-tool references).
-- ⏸️ **F6** — **deferred**: graphindex_builder still references the 4 unseeded
-  graphindex tools (`graphindex_ingest/rebuild_one/rebuild_project/show`);
-  seed them later so the builder works.
+- ✅ **F6** — **fixed**: seeded the 4 graphindex build tools
+  (`graphindex_ingest`, `graphindex_rebuild_one`, `graphindex_rebuild_project`,
+  `graphindex_show`) into `custom_tools` (added to `SEEDABLE_TOOL_META`,
+  `seed_builtin_tools.py` — now 55 seedable). All 4 materialize via
+  ToolFactory with correct args; `graphindex_builder` (103) tool wiring is
+  complete. Agent still needs a `minimax_api_key` in Settings to run
+  (only `deepseek_api_key` is configured).
 - ◻️ **F8** — optional: rename `2.3 VFS Demo` / refresh its prompt (kept per request).
 
 ## Tool coverage per agent
@@ -93,6 +97,6 @@ Findings from the run:
 - Remaining KEY-MISSING is expected: only `deepseek_api_key` is configured in
   the settings documents (wizard-only keys; claude/minimax/gemini/gpt keys
   would need to be added in Settings > Models).
-- graphindex_builder (103) reaches the model check but is **not yet functional**:
-  its 4 graphindex tools are still unseeded (F6, deferred).
+- graphindex_builder (103) reaches the model check; its 4 graphindex build
+  tools are now seeded (F6 fixed) — only a `minimax_api_key` is missing to run.
 
