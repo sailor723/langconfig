@@ -76,17 +76,17 @@ async def lifespan(app: FastAPI):
         raise
 
     # Apply the persisted storage-mode override (Settings UI runtime switch,
-    # docs/system-architecture.md §15 Phase 5): a value in the settings table
-    # wins over the .env STORAGE_MODE default.
+    # docs/system-architecture.md §15 Phase 5): a value in the storage settings
+    # document wins over the .env STORAGE_MODE default.
     try:
-        from api.system.settings import get_or_create_settings
+        from core.settings import store as _settings_store
         from db.database import SessionLocal as _sync_session_local
         from config import settings as _app_settings
 
         db = _sync_session_local()
         try:
-            row = get_or_create_settings(db)
-            persisted_mode = getattr(row, "storage_mode", None)
+            _settings_store.ensure_table(db)
+            persisted_mode = _settings_store.get_document(db, "storage").get("mode")
             if persisted_mode:
                 _app_settings.storage_mode = persisted_mode
                 logger.info("Storage mode: %s (persisted override)", persisted_mode)
@@ -96,6 +96,17 @@ async def lifespan(app: FastAPI):
             db.close()
     except Exception as e:
         logger.warning(f"Failed to apply storage-mode override (non-fatal): {e}")
+
+    # Settings documents auto-seed (DSH-style namespaces, docs/settings-refactor.md).
+    # Idempotent: writes default documents only for namespaces that have no row
+    # yet; never touches the legacy settings row or existing documents.
+    try:
+        from core.settings.seed import ensure_settings_seeded
+        written = ensure_settings_seeded()
+        if written:
+            logger.info("Settings documents seeded (%d default document(s))", written)
+    except Exception as e:
+        logger.warning(f"Settings documents auto-seed failed (non-fatal): {e}")
 
     # Initialize LangGraph checkpointing for workflow persistence and HITL
     try:
@@ -529,6 +540,7 @@ from api.knowledge import graphindex_chat  # Phase 9 / Step K
 from api.knowledge import doc_chat  # Simplified doc chat (folder-based, no RAG/Neo4j)
 from api.knowledge import kv  # Simple KV document store (no DB dependencies)
 from api.system import settings, health, debug, background_tasks, search_providers
+from api.system import settings_documents  # DSH-style describe/mutate wire API
 from api.models import local as local_models
 from api.models import capabilities as model_capabilities
 from api.models import routes as model_routes
@@ -577,6 +589,7 @@ app.include_router(background_tasks.router)  # Background task queue management
 app.include_router(workspace.router)  # Workspace file management
 app.include_router(agent_documents.router)  # DB-mode document library
 app.include_router(settings.router)
+app.include_router(settings_documents.router)  # describe/mutate (new settings wire API)
 app.include_router(search_providers.router)  # Search provider cards + API key mgmt
 app.include_router(local_models.router, prefix="/api/local-models", tags=["local-models"])  # Local model configurations
 app.include_router(model_capabilities.router, prefix="/api/models", tags=["models"])  # Model capability profiles

@@ -381,7 +381,7 @@ self-hosted LangChain stack and the hosted consumer products.
 |---|---|---|---|---|---|---|
 | Where data lives | your PostgreSQL + your infra; `STORAGE_MODE=db` puts even skills/files in the DB | your local machine | your VPS | Tencent Cloud (Chinese jurisdiction); enterprise tier private/VPC deploy | ByteDance cloud (Chinese jurisdiction) |
 | Transparency | open source (MIT) — fully auditable | open source (MIT) | open source | closed source | closed source, black box |
-| Secrets | encrypted at rest (`encryption.py`, `settings.api_keys`) | env keys on disk | env keys on disk | managed by Tencent Cloud | managed by ByteDance |
+| Secrets | encrypted at rest (`encryption.py`, settings documents `models.api_keys`, §16.2) | env keys on disk | env keys on disk | managed by Tencent Cloud | managed by ByteDance |
 | Action safety | sandboxed shell, workspace-scoped filesystem, HITL approval gates, audit log | broad system access — permissions are on you | skills need review + container isolation | sandbox + Ask/Plan/Craft gates; enterprise permission & audit admin | platform-managed, no per-org policy |
 | Auditability | `execution_events` + `audit_logs` (Postgres), Langfuse/LangSmith tracing | session transcripts on disk | local logs | enterprise admin console (usage, member stats, audit) | vendor-side, limited export |
 | Compliance | deploy in your region, you own retention (GDPR, HIPAA…) | personal tool (n/a) | personal tool (n/a) | hosted in China; private tier for data residency | vendor compliance; jurisdiction questions for enterprises |
@@ -1156,7 +1156,8 @@ SQLAlchemy models in `backend/models/` map to these tables:
 | `execution_event.py`                                                    | Streamed execution events                                                                                                |
 | `background_task.py`                                                    | Background job queue                                                                                                     |
 | `workspace_file.py`, `file_version.py`                                | Workspace files + version history                                                                                        |
-| `local_model.py`, `model.py`, `search_provider.py`, `settings.py` | Model/local-model/search-provider/settings config                                                                        |
+| `local_model.py`, `model.py`, `search_provider.py`, `settings.py` | Model/local-model/search-provider/settings config |
+| `core/settings/store.py` (`SettingsDocument`)                    | **`settings_documents`** — DSH-style per-namespace settings (ns PK, JSON document, revision); the settings source of truth (§16.2) |                                                                        |
 
 ### 16.1 The unified `models` table — cloud + local LLMs in one place
 
@@ -1175,7 +1176,7 @@ The `models` table is the single source of truth for every model the app can cal
 | `is_active` | BOOL | soft-delete flag |
 | `base_url` | VARCHAR NULL | local-only: endpoint URL |
 | `api_model_name` | VARCHAR NULL | local-only: provider's internal name (e.g. `llama3.2:latest`) |
-| `api_key` | VARCHAR NULL | local-only: optional per-model key (rarely used — global keys live in `settings.api_keys`) |
+| `api_key` | VARCHAR NULL | local-only: optional per-model key (rarely used — global keys live in the settings documents, `models.api_keys`, §16.2) |
 | `is_validated`, `last_validated_at`, `validation_error` | bool/tz/varchar | local-only: connection-test result |
 | `usage_count`, `last_used_at` | int/tz | usage tracking |
 | `tags` | JSONB | categorization |
@@ -1203,7 +1204,101 @@ The `models` table is the single source of truth for every model the app can cal
 
 **Reads** go through `GET /api/settings/models` which returns both cloud and validated local models with full metadata. The chat + workflow engines call this once at startup.
 
-**The provider→key mapping** is independent of `models`: cloud providers' API keys live in the root `.env` (canonical) with an encrypted-at-rest fallback in `settings.api_keys.{provider}_api_key`; resolution is **`.env`-first, DB fallback** (`config.get_api_key_from_db`). See §16.2.
+**The provider→key mapping** is independent of `models`: cloud providers' API keys are
+**wizard-only** (Phase 5, §16.2) — entered in the first-run wizard / Settings → Models and
+stored Fernet-encrypted in the `models` settings document (`models.api_keys`). Resolution is
+`.env` fallback → settings document (`config.get_api_key_from_db` → `core/settings`), so no
+`.env` key is required. See §16.2.
+### 16.2 Settings & configuration — DSH-style documents (Phase 5)
+
+> Full design + migration record: `docs/settings-refactor.md` · status: ✅ done
+> (`core/settings/` engine, describe/mutate API, `.env` shrink, `env_example` removed).
+
+**What was already there (before the Phase-5 refactor):**
+
+- The root `.env` was the canonical source for ~100 keys — API keys, LLM defaults
+  (`DEFAULT_MODEL`/`DEFAULT_TEMPERATURE`/`MAX_TOKENS`), storage/workspace roots,
+  the local-LLM endpoint, RAG chunking, and infra knobs. `backend/config.py`
+  (pydantic-settings) read it, and ~32 modules consumed `config.Settings` fields.
+- A single-row `settings` table (`id=1`, `backend/models/settings.py`) held user
+  preferences, UI-set API keys (Fernet-encrypted in the `settings.api_keys`
+  JSONB column), workspace permissions, model-defaults overrides, and first-run
+  state. The legacy router `api/system/settings.py` (~26 endpoints) read/wrote it.
+- Model management was already DB-driven (`models` table, §16.1) — that predates
+  the refactor.
+
+**What the refactor changed:**
+
+- **Engine** — `backend/core/settings/`: namespaces (`models`, `general`,
+  `workspace`, `storage`, `rag`, `search`, `onboarding`) with pydantic schemas;
+  resolution = *schema defaults → user document*; secret fields are Fernet-
+  encrypted at rest and redacted at the wire (UI only ever sees set/missing dots).
+- **Store** — new `settings_documents` table (`ns` PK, `document` JSON, `revision`
+  int) created by alembic `028_create_settings_documents`, backfilled once from
+  the legacy `settings` row + the old `.env` values (existing installs keep
+  their effective configuration).
+- **Wire API** — `GET /api/settings/describe` (every namespace: JSON Schema,
+  resolved value, user section, revision, secret positions) and
+  `POST /api/settings/mutate` (path ops `set`/`unset` with an optimistic
+  `expected_revision` → `409` on stale writes). The legacy settings-document
+  endpoints were deleted; only utilities remain (model registry, key test,
+  setup status/complete, storage-mode runtime switch, workspace-path validate,
+  guardrails, directory browser).
+- **Runtime accessors** — `core/settings/runtime.py` (`runtime_get`,
+  `local_llm_config`) replace direct `config.Settings` reads across ~13 consumer
+  modules (agent factory, workflow executor, doc-chat, model routes, storage,
+  workspace manager, local-model service, llama config, langgraph SQL agent, …),
+  with seed-default fallbacks so behavior is identical pre/post migration.
+- **Bootstrap** — `seed_all.py` gains a `seed_settings` step and the backend
+  boot runs idempotent `ensure_settings_seeded()`; defaults come from
+  `core/settings/defaults.py::get_defaults()` (mirrors the old `.env` values).
+- **`.env` shrunk to bootstrap** — `POSTGRES_*` + `API_KEY_ENCRYPTION_KEY`
+  (+ optional `ENVIRONMENT` and infra overrides). `env_example` was **deleted**;
+  `scripts/setup.py` now **generates** the minimal `.env` (with a randomly
+  generated encryption key).
+- **API keys are wizard-only** — entered in the first-run wizard /
+  Settings → Models, stored encrypted in `models.api_keys`; resolution is
+  `.env` fallback → settings document (`config.get_api_key_from_db` → engine).
+- The legacy single-row `settings` table remains as an inert shim (its data was
+  consumed by the 028 backfill; the new API never writes it).
+
+**The end-state model:**
+
+```
+resolved value  =  pydantic schema defaults  →  DB user document (namespace)
+consumers read via core/settings/runtime.py (runtime_get / local_llm_config)
+.env            =  POSTGRES_* + API_KEY_ENCRYPTION_KEY (+ optional infra)
+first boot      =  seed_all / ensure_settings_seeded → documents
+first browser   =  wizard (API key + workspace) → Settings (everything else)
+```
+
+**Namespaces (v1):**
+
+| ns | Schema | Contents |
+|----|--------|----------|
+| `models` | `ModelsSettings` | `api_keys` (13 providers, `role='secret'`), default_model, default_temperature, max_tokens, primary_model, fallback_models, top_p, routing_strategy, token limits, local-LLM endpoint |
+| `general` | `GeneralSettings` | app_name, language, theme, auto_save, toggles |
+| `workspace` | `WorkspaceSettings` | workspace_path, permissions, base_dir |
+| `storage` | `StorageSettings` | mode (local/db), base_dir, documents_base_dir |
+| `rag` | `RagSettings` | embedding_model, chunk_size, chunk_overlap |
+| `search` | `SearchSettings` | tavily/serper keys (`role='secret'`) |
+| `onboarding` | `OnboardingSettings` | setup_complete, api_key_set, workspace_set |
+
+**Wire format (abridged):**
+
+```json
+GET /api/settings/describe
+→ { "namespaces": [{ "ns": "models", "schema": {…}, "value": {…},
+                     "user": {…}, "revision": 2, "writable": true,
+                     "secrets": [{ "path": ["api_keys","deepseek_api_key"], "set": true }] }] }
+
+POST /api/settings/mutate
+{ "ns": "models",
+  "ops": [{ "op": "set", "path": ["api_keys","deepseek_api_key"], "value": "sk-…" }],
+  "expected_revision": 2 }
+→ 200 { "ns": "models", "value": {…redacted…}, "revision": 3, "secrets": […] } | 409 on stale
+```
+
 
 ---
 | `user_profile.py`                                                       | User profile                                                                                                             |
@@ -1221,6 +1316,7 @@ flowchart TB
         T4["agent_memories (pgvector) · conversation_archives"]
         T5["execution_events · background_tasks · audit_logs"]
         T6["workspace_files · file_versions · local_models · settings · storage_objects"]
+        T7["settings_documents<br/>(DSH-style namespace settings, §16.2)"]
     end
     T1 --> T2
     T1 --> T3
@@ -1282,8 +1378,10 @@ sequenceDiagram
 
 ## 18. Development topology
 
-Two long-running processes + one database, all driven by the root `.env` (FastAPI loads it via
-`backend/config.py`, so ports and API keys are consistent everywhere).
+Two long-running processes + one database. The root `.env` (loaded by `backend/config.py`)
+is **minimal after Phase 5** (§16.2): `POSTGRES_*` + `API_KEY_ENCRYPTION_KEY` (+ optional
+infra overrides). Everything user-facing — LLM defaults, API keys, storage/workspace roots,
+RAG — lives in PostgreSQL settings documents; the database drives the app, not the env file.
 
 ```mermaid
 flowchart LR
@@ -1311,9 +1409,10 @@ cwd that's `load_dotenv("../.env")`, or better, derive the path from `__file__` 
 `UndefinedColumn` errors.
 
 **Gotcha (Graph Studio):** the `backend/langgraph/*.py` modules build their chat model with
-`init_chat_model(...)`, which validates `DEEPSEEK_API_KEY` at import time. `start.sh` unsets
-shell-exported provider keys, so the key must live in the root `.env` — otherwise the
-`/api/graph-studio` introspection endpoints fail with a pydantic `ValidationError` (HTTP 500).
+`init_chat_model(...)`. Since Phase 5 the key resolves via `config.get_api_key_from_db`
+(`.env` fallback → settings document, §16.2), so a key entered in Settings works without
+`.env`; until one is entered, `/api/graph-studio` introspection can still fail with a
+pydantic `ValidationError` (HTTP 500).
 
 ---
 
@@ -1324,6 +1423,11 @@ shell-exported provider keys, so the key must live in the root `.env` — otherw
 > (deepagents `DbBackend`, skills 100% DB-managed in `STORAGE_MODE=db`), and Phase 4
 > (FS→DB migration tool). `storage_objects`, `services/storage/`, and `STORAGE_MODE`
 > are all live; flip `STORAGE_MODE=db` after running `uv run python -m tools.migrate_storage`.
+>
+> **Phase 5 update:** the storage mode is now also a settings-document value
+> (`storage.mode`, §16.2) — the Settings UI runtime switch persists there and
+> overrides the `.env`/config default at boot; `STORAGE_MODE` in `.env` is only
+> the base default.
 
 ### The vision
 

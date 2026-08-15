@@ -30,7 +30,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from config import settings
+from core.settings import runtime_get
 from services.agent_utils import resolve_model
 from services.file_storage import file_storage
 
@@ -195,7 +195,7 @@ async def _resolve_llm(request: DocChatRequest):
     so Doc Chat honors the same LLM settings as everywhere else: DB-stored
     API keys, local Ollama models served with the 128K context window, etc.
     """
-    model_name = request.model or settings.default_model or "deepseek-chat"
+    model_name = request.model or runtime_get("models", "default_model") or "deepseek-chat"
     return await resolve_model(
         model_name,
         temperature=request.temperature,

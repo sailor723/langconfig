@@ -4,7 +4,7 @@ Tracks the multi-phase cleanup of the LangConfig backend. Goal: eliminate
 god-modules, delete dead code, and make the core engine maintainable without
 changing the public API.
 
-**Status: Phases 0–3 complete** (committed on `codex-chat-ui-refactor`).
+**Status: Phases 0–4 complete** (committed on `codex-chat-ui-refactor`).
 
 | Phase | Work | Commits | Status |
 |-------|------|---------|--------|
@@ -15,7 +15,8 @@ changing the public API.
 | 3b — Engine splits | `core/workflows/executor.py`, `events/emitter.py`, `core/tools/factory.py`, `services/deepagent_factory.py` → mixin packages | `1410bc0`, `06abe27`, `82de6e2`, `f5402dc` | ✅ done |
 | 3c — Large god-modules | `api/knowledge/rag.py`, `core/agents/factory.py` → route/mixin packages | `d94bf4e`, `7fc2078` | ✅ done |
 | Test cleanup | Fixed 4 pytest collection errors from stale tests | `0ff16d1` | ✅ done |
-| **4 — Security & correctness pass** | Encryption key source, python_function `exec` sandbox, path-traversal/SSRF guards, safe expression eval, checkpointing defaults, DB-driven model registry | *(uncommitted, working tree)* | ✅ done (see below) |
+| 4 — Security & correctness pass | Encryption key source, python_function `exec` sandbox, path-traversal/SSRF guards, safe expression eval, checkpointing defaults, DB-driven model registry | `d954134`, `0b23ce0`, `62d88c0`, `5138ff2` | ✅ done |
+| 5 — Settings refactor (DSH-style) | `core/settings/` engine + describe/mutate wire API + legacy endpoint cleanup + `.env`/`config.py` shrink + team zip script — see `docs/settings-refactor.md` | *(in progress on branch)* | ✅ done (engine/API/frontend/cleanup + 5b `.env` shrink) |
 
 ---
 

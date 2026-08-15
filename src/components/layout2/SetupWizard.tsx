@@ -79,11 +79,17 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
     apiClient.getSetupStatus()
       .then((r: any) => setDefaultWs(r.data?.default_workspace_path || ''))
       .catch(() => {});
-    apiClient.getApiKeys()
+    // Providers come from the DSH-style describe: models.api_keys secret
+    // positions (set/missing dots) — key values never cross the wire.
+    apiClient.describeSettings()
       .then((r: any) => {
-        const list: ProviderInfo[] = Array.isArray(r.data) ? r.data : [];
+        const ns = (r.data?.namespaces || []).find((n: any) => n.ns === 'models');
+        const secrets: { path: string[]; set: boolean }[] = ns?.secrets || [];
+        const list: ProviderInfo[] = secrets
+          .filter(s => s.path[0] === 'api_keys')
+          .map(s => ({ provider: s.path[1].replace(/_api_key$/, ''), is_set: s.set }));
         setProviders(list);
-        const chat = list.filter(p => p.kind !== 'search');
+        const chat = list.filter(p => PROVIDER_FIELD[p.provider] && !p.provider.includes('tavily') && !p.provider.includes('serper'));
         const already = chat.find(p => p.is_set);
         setSelected(already?.provider ?? chat[0]?.provider ?? null);
       })
@@ -120,12 +126,15 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
     try {
       const field = PROVIDER_FIELD[selected];
       if (!field) return;
-      await apiClient.setApiKeys({ [field]: apiKey.trim() } as any);
+      await apiClient.mutateSettings({
+        ns: 'models',
+        ops: [{ op: 'set', path: ['api_keys', field], value: apiKey.trim() }],
+      });
       setKeySaved(true);
       setTestResult(null);
-      // reflect the saved state in the list
+      // reflect the saved state in the list (value stays server-side only)
       setProviders(prev => prev.map(p =>
-        p.provider === selected ? { ...p, is_set: true, masked_key: `••••${apiKey.trim().slice(-4)}` } : p
+        p.provider === selected ? { ...p, is_set: true } : p
       ));
     } finally {
       setSavingKey(false);
@@ -158,7 +167,10 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
       if (saveWorkspace) {
         const path = wsMode === 'custom' ? customPath.trim() : defaultWs;
         if (path) {
-          await apiClient.updateWorkspaceSettings({ workspace_path: path });
+          await apiClient.mutateSettings({
+            ns: 'workspace',
+            ops: [{ op: 'set', path: ['workspace_path'], value: path }],
+          });
         }
       }
       await apiClient.completeSetup();
@@ -275,7 +287,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                     {PROVIDER_LABEL[selected] || selected} API key
                     {selectedInfo?.is_set && (
                       <span style={{ color: '#22c55e', fontWeight: 500, marginLeft: 8 }}>
-                        <Check size={11} style={{ display: 'inline', verticalAlign: -1 }} /> configured {selectedInfo.masked_key ? `(${selectedInfo.masked_key})` : ''}
+                        <Check size={11} style={{ display: 'inline', verticalAlign: -1 }} /> configured
                       </span>
                     )}
                   </div>

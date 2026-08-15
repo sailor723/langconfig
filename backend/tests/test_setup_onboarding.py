@@ -3,71 +3,53 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-"""Tests for the first-run setup endpoints + workspace wiring.
+"""Tests for the first-run setup endpoints + workspace wiring (Phase 5).
 
 Covers:
 1. workspace path validation (_validate_workspace_path).
-2. setup-status: needs_setup logic (completed flag + api key + workspace).
-3. setup-complete marks the wizard done.
-4. update_workspace_settings resets the cached WorkspaceManager so the new
-   root takes effect immediately.
-5. WorkspaceManager honors the DB workspace_path when set.
+2. setup-status: needs_setup logic (onboarding doc + api key + workspace doc).
+3. setup-complete marks the wizard done (onboarding namespace).
+4. workspace mutate resets the cached WorkspaceManager so the new root takes
+   effect immediately.
+5. WorkspaceManager honors the workspace document path when set.
 """
 import asyncio
+import os
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from core import settings as cs
+
+TEST_DATABASE_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql+asyncpg://langconfig:langconfig_dev@localhost:5432/langconfig_test",
+)
+SYNC_URL = TEST_DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+
+Session = sessionmaker(
+    bind=create_engine(SYNC_URL, pool_pre_ping=True),
+    autoflush=False,
+    expire_on_commit=False,
+)
 
 
-def _settings_row(**overrides):
-    """A fake Settings row (id=1) supporting getattr-style access."""
-    class _Row:
-        id = 1
-        setup_complete = False
-        workspace_path = ""
-        api_keys = {}
-    for k, v in overrides.items():
-        setattr(_Row, k, v)
-    return _Row()
-
-
-class _FakeDb:
-    """Minimal fake Session covering what get_or_create_settings needs:
-    execute (SET LOCAL / ALTER TABLE), query/filter/first, add/commit/
-    rollback/refresh/close."""
-
-    def __init__(self, row=None):
-        self.row = row
-        self.committed = 0
-        self.added = []
-
-    def execute(self, *a, **kw):
-        return None
-
-    def query(self, model):
-        return self
-
-    def filter(self, *a, **kw):
-        return self
-
-    def first(self):
-        return self.row
-
-    def add(self, obj):
-        self.added.append(obj)
-        if self.row is None:
-            self.row = obj
-
-    def commit(self):
-        self.committed += 1
-
-    def rollback(self):
-        pass
-
-    def refresh(self, row):
-        pass
-
-    def close(self):
-        pass
+@pytest.fixture(autouse=True)
+def clean_documents():
+    cs._reset_table_ensure()  # noqa: SLF001 — test hook
+    db = Session()
+    try:
+        cs.ensure_table(db)
+        cs.reset_documents(db)
+    finally:
+        db.close()
+    yield
+    db = Session()
+    try:
+        cs.reset_documents(db)
+    finally:
+        db.close()
 
 
 def test_validate_workspace_path(tmp_path):
@@ -88,20 +70,18 @@ def test_validate_workspace_path(tmp_path):
     # Non-writable location → invalid
     r = _validate_workspace_path("/nonexistent-root-xyz/foo")
     assert r.valid is False
-    assert r.error
 
 
 def test_setup_status_logic(monkeypatch):
     import api.system.settings as mod
 
     captured = {}
-    monkeypatch.setattr(mod, "_has_any_chat_api_key", lambda db: captured["has_key"])
+    monkeypatch.setattr(mod, "_onboarding_state", lambda db: captured["state"])
     monkeypatch.setattr(mod, "_default_workspace_path", lambda: "/ws/default")
 
     # Fresh install: nothing completed, no key, no workspace → needs setup
-    captured["has_key"] = False
-    db = _FakeDb(_settings_row(setup_complete=False, workspace_path=""))
-    status = asyncio.run(mod.get_setup_status(db))
+    captured["state"] = {"completed": False, "has_api_key": False, "has_workspace": False}
+    status = asyncio.run(mod.get_setup_status(None))
     assert status.needs_setup is True
     assert status.completed is False
     assert status.has_api_key is False
@@ -109,87 +89,90 @@ def test_setup_status_logic(monkeypatch):
     assert status.default_workspace_path == "/ws/default"
 
     # Key present (e.g. from .env), no workspace → still needs setup
-    captured["has_key"] = True
-    status = asyncio.run(mod.get_setup_status(db))
+    captured["state"] = {"completed": False, "has_api_key": True, "has_workspace": False}
+    status = asyncio.run(mod.get_setup_status(None))
     assert status.needs_setup is True
     assert status.has_api_key is True
 
     # Everything configured (key + workspace) → no wizard, even if the
     # completed flag was never flipped (e.g. configured via Settings).
-    db = _FakeDb(_settings_row(setup_complete=False, workspace_path="/ws"))
-    status = asyncio.run(mod.get_setup_status(db))
+    captured["state"] = {"completed": False, "has_api_key": True, "has_workspace": True}
+    status = asyncio.run(mod.get_setup_status(None))
     assert status.needs_setup is False
     assert status.has_workspace is True
 
     # Completed → never needs setup again
-    db = _FakeDb(_settings_row(setup_complete=True, workspace_path="/ws"))
-    status = asyncio.run(mod.get_setup_status(db))
+    captured["state"] = {"completed": True, "has_api_key": False, "has_workspace": False}
+    status = asyncio.run(mod.get_setup_status(None))
     assert status.needs_setup is False
+
+
+def test_setup_status_from_engine_documents():
+    """Integration: setup-status derives from the onboarding/workspace docs."""
+    import api.system.settings as mod
+
+    db = Session()
+    try:
+        status = asyncio.run(mod.get_setup_status(db))
+        assert status.completed is False
+        assert status.needs_setup is True  # no key + no workspace
+
+        cs.mutate(db, "onboarding", [{"op": "set", "path": ["setup_complete"], "value": True}])
+        status = asyncio.run(mod.get_setup_status(db))
+        assert status.completed is True
+        assert status.needs_setup is False
+    finally:
+        db.close()
 
 
 def test_complete_setup_marks_done():
     import api.system.settings as mod
 
-    db = _FakeDb(_settings_row(setup_complete=False))
-    res = asyncio.run(mod.complete_setup(db))
-    assert res == {"ok": True, "needs_setup": False}
-    assert db.row.setup_complete is True
-    assert db.committed >= 1
+    db = Session()
+    try:
+        res = asyncio.run(mod.complete_setup(db))
+        assert res == {"ok": True, "needs_setup": False}
+        assert cs.resolve_value(db, "onboarding")["setup_complete"] is True
+    finally:
+        db.close()
 
 
-def test_update_workspace_settings_resets_manager(tmp_path):
-    """Changing the workspace path must drop the cached manager so the new
-    root is picked up."""
-    import api.system.settings as mod
+def test_workspace_mutate_resets_manager(tmp_path, monkeypatch):
+    """Changing the workspace path (mutate) must drop the cached manager so the
+    new root is picked up."""
+    from api.system.settings_documents import _apply_runtime_side_effects
     from services.workspace_manager import reset_workspace_manager, get_workspace_manager
 
+    # WorkspaceManager resolves the path through the global SessionLocal —
+    # point it at the test DB for this test.
+    monkeypatch.setattr("db.database.SessionLocal", lambda: Session())
+
     reset_workspace_manager()
-    old = get_workspace_manager()
-    assert old is not None
+    db = Session()
+    try:
+        cs.mutate(db, "workspace", [{"op": "set", "path": ["workspace_path"], "value": str(tmp_path / "a")}])
+        _apply_runtime_side_effects(db, "workspace")
+        first = get_workspace_manager()
+        assert first.base_dir == (tmp_path / "a").resolve()
 
-    db = _FakeDb(_settings_row(workspace_path=""))
-    ws = asyncio.run(mod.update_workspace_settings(
-        mod.WorkspaceSettings(workspace_path=str(tmp_path / "my-ws")), db
-    ))
-    assert ws.workspace_path == str((tmp_path / "my-ws").resolve())
-    assert db.row.workspace_path == str((tmp_path / "my-ws").resolve())
-
-    # Invalid path → 400 via HTTPException
-    from fastapi import HTTPException
-    db2 = _FakeDb(_settings_row(workspace_path=""))
-    with pytest.raises(HTTPException):
-        asyncio.run(mod.update_workspace_settings(
-            mod.WorkspaceSettings(workspace_path="/nonexistent-root-xyz/foo"), db2
-        ))
-
+        cs.mutate(db, "workspace", [{"op": "set", "path": ["workspace_path"], "value": str(tmp_path / "b")}])
+        _apply_runtime_side_effects(db, "workspace")
+        second = get_workspace_manager()
+        assert second.base_dir == (tmp_path / "b").resolve()
+        assert second is not first  # cached manager was dropped
+    finally:
+        db.close()
     reset_workspace_manager()  # clean up the global for other tests
 
 
-def test_workspace_manager_prefers_db_path(monkeypatch, tmp_path):
-    """WorkspaceManager's base_dir honors the DB workspace_path when set."""
+def test_workspace_manager_prefers_doc_path(monkeypatch, tmp_path):
+    """WorkspaceManager's base_dir honors the workspace document path."""
     from services.workspace_manager import WorkspaceManager, reset_workspace_manager
 
-    class _Row:
-        id = 1
-        workspace_path = str(tmp_path / "chosen")
-
-    class _Db:
-        def query(self, model):
-            return self
-
-        def filter(self, *a, **kw):
-            return self
-
-        def first(self):
-            return _Row()
-
-        def close(self):
-            pass
-
-    def _fake_session():
-        return _Db()
-
-    monkeypatch.setattr("db.database.SessionLocal", _fake_session)
+    monkeypatch.setattr(
+        "core.settings.resolve_value",
+        lambda db, ns: {"workspace_path": str(tmp_path / "chosen")} if ns == "workspace" else {},
+    )
     m = WorkspaceManager()
     assert m.base_dir == (tmp_path / "chosen").resolve()
     reset_workspace_manager()

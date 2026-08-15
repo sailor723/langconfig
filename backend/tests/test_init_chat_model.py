@@ -4,7 +4,16 @@ Test: init_chat_model works for all model providers used in the app.
 This test verifies that LangChain's init_chat_model can replace ChatOpenAI
 for DeepSeek, OpenAI, and other providers. Tests configuration only (no API calls).
 """
+import os
+
 import pytest
+
+
+def _require_deepseek_key():
+    """init_chat_model without an explicit api_key reads DEEPSEEK_API_KEY from
+    the environment — wizard-only after Phase 5b, so skip when absent."""
+    if not os.getenv("DEEPSEEK_API_KEY"):
+        pytest.skip("DEEPSEEK_API_KEY not set (enter it in Settings → Models)")
 
 
 class TestInitChatModel:
@@ -16,6 +25,7 @@ class TestInitChatModel:
         assert init_chat_model is not None
 
     def test_init_chat_model_deepseek(self):
+        _require_deepseek_key()
         """Test init_chat_model with deepseek provider (langchain-deepseek)."""
         from langchain.chat_models import init_chat_model
 
@@ -54,6 +64,7 @@ class TestInitChatModel:
         assert llm is not None
 
     def test_init_chat_model_deepseek_structured_output(self):
+        _require_deepseek_key()
         """Test deepseek + structured output (used by metadata_extractor)."""
         from langchain.chat_models import init_chat_model
         from pydantic import BaseModel, Field
@@ -70,6 +81,7 @@ class TestInitChatModel:
         assert structured is not None
 
     def test_init_chat_model_with_max_tokens(self):
+        _require_deepseek_key()
         """Test passing max_tokens and streaming kwargs."""
         from langchain.chat_models import init_chat_model
 

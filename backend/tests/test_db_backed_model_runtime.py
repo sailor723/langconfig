@@ -16,27 +16,29 @@ from fastapi import HTTPException
 from api.models import routes
 
 
+def _patch_default_model(monkeypatch, value):
+    """Route `_resolve_model_name`'s default through the settings documents
+    (Phase 5b: `core.settings.runtime_get`), mirroring the old .env default."""
+    import core.settings as cs
+
+    monkeypatch.setattr(cs, "runtime_get", lambda ns, field, fallback=None: value if ns == "models" and field == "default_model" else fallback)
+
+
 def test_resolve_model_name_uses_default(monkeypatch):
     """When no model is provided, the configured default model must be used."""
-    from config import settings as app_settings
-
-    monkeypatch.setattr(app_settings, "default_model", "deepseek-chat")
+    _patch_default_model(monkeypatch, "deepseek-chat")
     assert routes._resolve_model_name(None, MagicMock()) == "deepseek-chat"
 
 
 def test_resolve_model_name_explicit_model_wins(monkeypatch):
     """An explicit model must win over the default."""
-    from config import settings as app_settings
-
-    monkeypatch.setattr(app_settings, "default_model", "fallback-model")
+    _patch_default_model(monkeypatch, "fallback-model")
     assert routes._resolve_model_name("gpt-4o-mini", MagicMock()) == "gpt-4o-mini"
 
 
 def test_resolve_model_name_raises_without_default(monkeypatch):
     """Missing default model should fail instead of silently falling back."""
-    from config import settings as app_settings
-
-    monkeypatch.setattr(app_settings, "default_model", None)
+    _patch_default_model(monkeypatch, None)
     with pytest.raises(HTTPException, match="Default model is not configured"):
         routes._resolve_model_name(None, MagicMock())
 

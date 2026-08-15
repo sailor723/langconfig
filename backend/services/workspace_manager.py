@@ -55,22 +55,24 @@ class WorkspaceManager:
             base_dir: Base directory for all outputs. If None, uses backend/outputs.
         """
         if base_dir is None:
-            # Default to backend/outputs, overridable via WORKSPACE_BASE_DIR
-            # in the root .env (config.workspace_base_dir). Relative values
-            # resolve against the repo root (backend/..). The user-chosen
-            # workspace path from Settings / first-run setup (settings row,
-            # workspace_path) wins over the .env default when set.
+            # Default to backend/outputs, overridable via the workspace settings
+            # document (base_dir, seeded from the old WORKSPACE_BASE_DIR).
+            # Relative values resolve against the repo root (backend/..). The
+            # user-chosen workspace path from Settings / first-run setup
+            # (workspace.workspace_path) wins over the base default when set.
             backend_dir = Path(__file__).parent.parent  # services/ -> backend/
             try:
-                from config import settings
-                configured = getattr(settings, "workspace_base_dir", None) or "backend/outputs"
+                from core.settings import runtime_get
+                configured = runtime_get("workspace", "base_dir") or "backend/outputs"
                 try:
+                    # User-chosen workspace path from Settings / first-run setup
+                    # (settings documents, workspace.workspace_path) wins over the
+                    # base default when set.
+                    from core.settings import resolve_value
                     from db.database import SessionLocal
-                    from models.settings import Settings as SettingsModel
                     _db = SessionLocal()
                     try:
-                        _row = _db.query(SettingsModel).filter(SettingsModel.id == 1).first()
-                        _ws = (_row.workspace_path or "").strip() if _row else ""
+                        _ws = (resolve_value(_db, "workspace").get("workspace_path") or "").strip()
                         if _ws:
                             configured = _ws
                     finally:

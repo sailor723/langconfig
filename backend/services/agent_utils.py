@@ -19,7 +19,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.tools import BaseTool
 from langchain_core.language_models import BaseLanguageModel, BaseChatModel
 from langchain.chat_models import init_chat_model
-from config import settings, get_api_key_from_db
+from config import get_api_key_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -27,19 +27,28 @@ logger = logging.getLogger(__name__)
 # Constants
 # =============================================================================
 
-# Default Configuration Constants
-# Single source of truth: the root .env via config.Settings (DEFAULT_MODEL,
-# DEFAULT_TEMPERATURE, MAX_TOKENS). The literals below are only the fallback
-# when settings are unavailable at import time.
-DEFAULT_MODEL = settings.default_model or "deepseek-chat"
-DEFAULT_TEMPERATURE = settings.default_temperature
-DEFAULT_MAX_TOKENS = settings.max_tokens
-
 # Validation Bounds Constants
 MIN_TEMPERATURE = 0.0
 MAX_TEMPERATURE = 2.0
 MIN_MAX_TOKENS = 1
 MAX_MAX_TOKENS = 1_000_000
+
+# Default model/temperature/max-tokens fallbacks. Phase 5b: the effective
+# values now come from the settings documents (core/settings.runtime_get,
+# seeded from the old .env); these literals are only the last-resort fallback.
+DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_TEMPERATURE = 0.0
+DEFAULT_MAX_TOKENS = 256000
+
+
+def runtime_defaults() -> dict:
+    """Effective LLM defaults from the settings documents (models namespace)."""
+    from core.settings import runtime_get
+    return {
+        "default_model": runtime_get("models", "default_model") or DEFAULT_MODEL,
+        "default_temperature": runtime_get("models", "default_temperature") or DEFAULT_TEMPERATURE,
+        "max_tokens": runtime_get("models", "max_tokens") or DEFAULT_MAX_TOKENS,
+    }
 
 # Supported Models Registry (for validation) — loaded from DB models table
 # Fallback kept for bootstrapping if DB is not available
@@ -99,21 +108,22 @@ def validate_agent_config(agent_config: Dict[str, Any]) -> List[str]:
         errors.append("model is required")
 
     # 2. Validate temperature bounds
-    temperature = agent_config.get("temperature", DEFAULT_TEMPERATURE)
+    _defaults = runtime_defaults()
+    temperature = agent_config.get("temperature", _defaults["default_temperature"])
     if not isinstance(temperature, (int, float)):
         errors.append(f"temperature must be a number, got {type(temperature).__name__}")
     elif not (MIN_TEMPERATURE <= temperature <= MAX_TEMPERATURE):
         errors.append(f"temperature must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE}, got {temperature}")
 
     # 3. Validate max_tokens bounds
-    max_tokens = agent_config.get("max_tokens", DEFAULT_MAX_TOKENS)
+    max_tokens = agent_config.get("max_tokens", _defaults["max_tokens"])
     if not isinstance(max_tokens, int):
         errors.append(f"max_tokens must be an integer, got {type(max_tokens).__name__}")
     elif not (MIN_MAX_TOKENS <= max_tokens <= MAX_MAX_TOKENS):
         errors.append(f"max_tokens must be between {MIN_MAX_TOKENS} and {MAX_MAX_TOKENS}, got {max_tokens}")
 
     # 4. Validate model name (warn if not in registry, don't fail)
-    model_name = agent_config.get("model", DEFAULT_MODEL)
+    model_name = agent_config.get("model", _defaults["default_model"])
     supported = get_supported_models()
     if model_name and model_name not in supported:
         logger.warning(f"Model '{model_name}' not in supported registry. Supported: {sorted(supported)}")

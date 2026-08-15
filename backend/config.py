@@ -54,21 +54,6 @@ class Settings(BaseSettings):
     tavily_api_key: Optional[str] = None
     serper_api_key: Optional[str] = None
 
-    # ── Default Model Settings ──
-    default_llm_provider: str = "deepseek"
-    default_model: str = "deepseek-chat"
-    fallback_models: str = ""
-    default_temperature: float = 0.0
-    max_tokens: int = 256000
-    top_p: float = 1.0
-    default_embedding_model: str = "ollama-nomic-embed-text:latest"
-
-    # ── Local LLM ──
-    local_llm_provider: str = "ollama"
-    local_llm_base_url: str = "http://localhost:11434/v1"
-    local_llm_model: str = "llama3.2:latest"
-    local_llm_api_key: Optional[str] = None
-
     # ── Ollama Embedding ──
     ollama_base_url: str = "http://localhost:11434"
     ollama_embed_model: str = "nomic-embed-text:latest"
@@ -98,21 +83,13 @@ class Settings(BaseSettings):
     # Chat timeout (seconds) — shorter than dashboard gen.
     analysis_chat_timeout: int = 120
 
-    # ── RAG ──
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
-
     # ── Storage (docs/system-architecture.md §15) ──
-    # Where durable artifacts live: local (disk, personal default) |
-    # db (Postgres BYTEA, enterprise) | s3 (object store, future).
+    # Runtime storage backend: 'local' (disk, default) | 'db' (Postgres BYTEA).
+    # The process-wide value is overridden at boot by the storage settings
+    # document (Settings UI runtime switch) — .env STORAGE_MODE is only the
+    # base default. The storage roots (base_dir/documents_base_dir) live in
+    # the storage settings document (core/settings).
     storage_mode: str = "local"
-    storage_base_dir: str = "./data/storage"
-
-    # ── Filesystem roots (all overridable via .env) ──
-    # backend/outputs — agent + workflow output files (WorkspaceManager)
-    workspace_base_dir: str = "backend/outputs"
-    # ./data/documents — uploaded documents (FileStorage)
-    documents_base_dir: str = "./data/documents"
 
     # ── Uppercase aliases for convenience ──
     # UI-editable providers: DB-first (DB keys are encrypted at rest, decrypted
@@ -210,27 +187,28 @@ class Settings(BaseSettings):
 
 
 # ── DB-first helpers ──
-# Read encrypted DB key directly (skipping get_api_key_from_db's .env-first
-# logic) and fall back to the .env value. Used by uppercase property aliases
-# above so runtime resolution honors what the user saved in Settings UI.
+# Read UI-set keys from the DSH-style settings documents (models.api_keys,
+# decrypted) and fall back to the .env value. Used by uppercase property
+# aliases above so runtime resolution honors what the user saved in Settings.
 def _db_api_key_only(key_name: str) -> Optional[str]:
-    """Read just the DB value (decrypted). Returns None if absent."""
+    """Read just the DB value (decrypted). Returns None if absent.
+
+    Phase 5: reads the ``models`` settings document (core/settings) — the
+    legacy single-row ``settings.api_keys`` column is no longer written.
+    Read-only: never creates the table; a missing table (pre-migration DB)
+    resolves to None so the caller falls back to .env.
+    """
     try:
+        from core.settings import store
         from db.database import SessionLocal
-        from models.settings import Settings as SettingsModel
-        from services.encryption import encryption_service
         db = SessionLocal()
         try:
-            row = db.query(SettingsModel).filter(SettingsModel.id == 1).first()
-            if row and row.api_keys:
-                val = row.api_keys.get(key_name)
-                if val:
-                    return encryption_service.decrypt(val)
+            doc = store.get_document(db, "models")
+            return (doc.get("api_keys") or {}).get(key_name) or None
         finally:
             db.close()
     except Exception:
-        pass
-    return None
+        return None
 
 
 # Global settings instance
@@ -242,7 +220,8 @@ def get_api_key_from_db(key_name: str) -> Optional[str]:
 
     Resolution order:
     1. .env file (via pydantic-settings) — canonical source of truth
-    2. DB `settings.api_keys` JSONB column — set via the Settings UI at runtime
+    2. Settings documents (core/settings `models.api_keys`) — set via the
+       Settings UI at runtime
 
     The DB fallback allows API keys to be configured through the Settings UI
     when .env is not available or incomplete. .env always takes precedence.
@@ -255,22 +234,11 @@ def get_api_key_from_db(key_name: str) -> Optional[str]:
     except Exception:
         pass
 
-    # Fallback: try the DB settings.api_keys JSONB column (single row, id=1)
+    # Fallback: UI-set key from the settings documents (models.api_keys).
     try:
-        from db.database import SessionLocal
-        from models.settings import Settings as SettingsModel
-        db = SessionLocal()
-        try:
-            row = db.query(SettingsModel).filter(SettingsModel.id == 1).first()
-            if row and row.api_keys:
-                val = row.api_keys.get(key_name)
-                if val:
-                    # Keys are Fernet-encrypted at rest; decrypt before use.
-                    # decrypt() returns the value unchanged if not encrypted.
-                    from services.encryption import encryption_service
-                    return encryption_service.decrypt(val)
-        finally:
-            db.close()
+        db_val = _db_api_key_only(key_name)
+        if db_val:
+            return db_val
     except Exception:
         pass
 

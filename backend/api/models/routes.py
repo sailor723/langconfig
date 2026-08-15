@@ -72,17 +72,18 @@ def _get_settings_row(db: Session) -> SettingsModel:
 
 
 def _resolve_model_name(model_name: Optional[str], db: Session) -> str:
-    """Resolve the explicit model or the default model from .env."""
+    """Resolve the explicit model or the default model from settings documents."""
     if model_name:
         return model_name
 
-    from config import settings as app_settings
-    if app_settings.default_model:
-        return app_settings.default_model
+    from core.settings import runtime_get
+    default = runtime_get("models", "default_model")
+    if default:
+        return default
 
     raise HTTPException(
         status_code=400,
-        detail="Default model is not configured in .env (DEFAULT_MODEL).",
+        detail="Default model is not configured (set it in Settings → Models).",
     )
 
 
