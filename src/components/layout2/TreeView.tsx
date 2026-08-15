@@ -39,6 +39,11 @@ interface TreeViewProps {
    */
   onFolderRefresh?: (node: TreeNode) => void;
   /**
+   * Optional callback fired when a leaf row's Edit (pencil) button is clicked.
+   * When set, leaf rows render a small pencil button on the right side.
+   */
+  onNodeEdit?: (node: TreeNode) => void;
+  /**
    * Optional search value — when set, the top-level folder row renders
    * a compact search input inline with the label and action buttons.
    */
@@ -56,6 +61,7 @@ interface CMState {
 
 export default function TreeView({
   nodes, onFileOpen, onRename, onDelete, onNewFile, onNewFolder, onFolderAction, onFolderRefresh,
+  onNodeEdit,
   folderSearchValue, onFolderSearchChange, level = 0,
 }: TreeViewProps) {
   const t = useLayoutTokens();
@@ -73,6 +79,7 @@ export default function TreeView({
           onNewFolder={onNewFolder}
           onFolderAction={onFolderAction}
           onFolderRefresh={onFolderRefresh}
+          onNodeEdit={onNodeEdit}
           folderSearchValue={folderSearchValue}
           onFolderSearchChange={onFolderSearchChange}
           level={level}
@@ -84,6 +91,7 @@ export default function TreeView({
 
 function TreeNodeItem({
   node, onFileOpen, onRename, onDelete, onNewFile, onNewFolder, onFolderAction, onFolderRefresh,
+  onNodeEdit,
   folderSearchValue, onFolderSearchChange, level,
 }: {
   node: TreeNode;
@@ -94,6 +102,7 @@ function TreeNodeItem({
   onNewFolder?: (parent?: TreeNode) => void;
   onFolderAction?: (node: TreeNode) => void;
   onFolderRefresh?: (node: TreeNode) => void;
+  onNodeEdit?: (node: TreeNode) => void;
   folderSearchValue?: string;
   onFolderSearchChange?: (value: string) => void;
   level: number;
@@ -267,6 +276,36 @@ function TreeNodeItem({
           </span>
         )}
 
+        {/* Leaf Edit button (pencil) — for agents/deepagents rows */}
+        {!isFolder && !renaming && onNodeEdit && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onNodeEdit(node);
+            }}
+            title="Edit"
+            style={{
+              width: 18,
+              height: 18,
+              padding: 0,
+              background: 'transparent',
+              border: 'none',
+              borderRadius: 3,
+              color: t.textDim,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = t.bgHover; e.currentTarget.style.color = t.textPrimary; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textDim; }}
+          >
+            <Pencil size={12} />
+          </button>
+        )}
+
         {/* Folder refresh button (↻) */}
         {isFolder && !renaming && onFolderRefresh && (
           <button
@@ -339,6 +378,7 @@ function TreeNodeItem({
           onNewFolder={onNewFolder}
           onFolderAction={onFolderAction}
           onFolderRefresh={onFolderRefresh}
+          onNodeEdit={onNodeEdit}
           level={level + 1}
         />
       )}

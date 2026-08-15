@@ -10,7 +10,7 @@
  *   - Guardrails   token limits, eviction
  *   - JSON         raw config
  */
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useLayoutTokens } from './tokens';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { Tab } from './useLayout';
@@ -47,6 +47,14 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // Editable JSON text for the JSON tab
   const [jsonEdit, setJsonEdit] = useState(() => JSON.stringify(agent, null, 2));
+
+  // Live view of jsonEdit — the form fields read from here so edits reflect
+  // immediately (and Save persists exactly what's shown).
+  const live = useMemo(() => {
+    try { return JSON.parse(jsonEdit) || {}; } catch { return agent || {}; }
+  }, [jsonEdit]); // eslint-disable-line react-hooks/exhaustive-deps
+  const liveConfig = live.config || {};
+  const liveGuardrails = liveConfig.guardrails || agent.guardrails_config || {};
   // User-defined workspace path (persisted in PostgreSQL; empty → default
   // outputs/agents/agent_{id}/)
   const [workspacePath, setWorkspacePath] = useState<string>(agent.workspace_path || '');
@@ -68,6 +76,11 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
 
   // Editable model — synced from config, falls back to stored default
   const [editableModel, setEditableModel] = useState(config.model || localStorage.getItem('langconfig.defaultModel') || '');
+
+  // Editable system prompt — synced from config, updated in the Prompt tab and
+  // written into jsonEdit so the Save button persists it (the Prompt tab used
+  // to be a read-only <pre>; now it's a real textarea).
+  const [promptDraft, setPromptDraft] = useState(config.system_prompt || '');
 
   // ── Skills state (interactive picker) ──
   const [availableSkills, setAvailableSkills] = useState<any[]>([]);
@@ -141,6 +154,61 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       }
     });
   }, []);
+
+  /** Edit the system prompt in the Prompt tab; sync into jsonEdit so Save persists it. */
+  const handlePromptChange = useCallback((value: string) => {
+    setPromptDraft(value);
+    setJsonEdit(prev => {
+      try {
+        const parsed = JSON.parse(prev);
+        if (!parsed.config) parsed.config = {};
+        parsed.config.system_prompt = value;
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return prev;
+      }
+    });
+  }, []);
+
+  /** Generic: mutate the parsed jsonEdit object, then re-serialize (used by the
+   * editable Overview/Guardrails fields so every change survives Save). */
+  const patchJson = useCallback((mutate: (parsed: any) => void) => {
+    setJsonEdit(prev => {
+      try {
+        const parsed = JSON.parse(prev);
+        if (!parsed.config) parsed.config = {};
+        mutate(parsed);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return prev;
+      }
+    });
+  }, []);
+
+  /** Edit a top-level field (name/description/category) in the agent JSON. */
+  const handleFieldChange = useCallback((field: string, value: string) => {
+    patchJson(p => { p[field] = value; });
+  }, [patchJson]);
+
+  /** Edit a config-level field (temperature/max_tokens/…) in the agent JSON. */
+  const handleConfigFieldChange = useCallback((field: string, value: any) => {
+    patchJson(p => { p.config[field] = value; });
+  }, [patchJson]);
+
+  /** Edit a guardrails field (enable_auto_eviction / enable_summarization /
+   * long_term_memory / token_limits.*) — synced into config.guardrails so the
+   * backend PUT persists it via request.config.guardrails. */
+  const handleGuardrailChange = useCallback((path: string[], value: any) => {
+    patchJson(p => {
+      if (!p.config.guardrails) p.config.guardrails = {};
+      let cur: any = p.config.guardrails;
+      for (const key of path.slice(0, -1)) {
+        if (typeof cur[key] !== 'object' || cur[key] === null) cur[key] = {};
+        cur = cur[key];
+      }
+      cur[path[path.length - 1]] = value;
+    });
+  }, [patchJson]);
 
   const handleRun = async () => {
     if (!localAgentId || running) return;
@@ -321,28 +389,57 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     fontSize: 13,
     color: t.textPrimary,
   };
+  const editableInputStyle: React.CSSProperties = {
+    width: '100%',
+    height: 26,
+    padding: '0 6px',
+    background: t.bgContent,
+    border: `1px solid ${t.border}`,
+    borderRadius: 3,
+    color: t.textPrimary,
+    fontSize: 12,
+    fontFamily: 'inherit',
+    outline: 'none',
+    boxSizing: 'border-box',
+  };
 
-  // ── Overview section ──
+  // ── Overview section — editable fields ──
   const renderOverview = () => (
     <div style={{ padding: 4 }}>
       <div style={compactCardStyle}>
         <div style={labelStyle}>Name</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ ...valueStyle, fontSize: 18, fontWeight: 600 }}>{agent.name || '—'}</span>
-          {localAgentId && (
-            <span style={{
-              fontSize: 11, color: t.textMuted, fontFamily: 'monospace',
-              background: t.bgHover, padding: '1px 6px', borderRadius: 3,
-              border: `1px solid ${t.border}`,
-            }}>
-              #{agent.id}
-            </span>
-          )}
-        </div>
+        <input
+          value={live.name || ''}
+          onChange={e => handleFieldChange('name', e.target.value)}
+          style={editableInputStyle}
+        />
+        {localAgentId && (
+          <span style={{
+            fontSize: 11, color: t.textMuted, fontFamily: 'monospace',
+            background: t.bgHover, padding: '1px 6px', borderRadius: 3,
+            border: `1px solid ${t.border}`, marginLeft: 6,
+          }}>
+            #{agent.id}
+          </span>
+        )}
       </div>
       <div style={compactCardStyle}>
         <div style={labelStyle}>Description</div>
-        <div style={valueStyle}>{agent.description || '—'}</div>
+        <textarea
+          value={live.description || ''}
+          onChange={e => handleFieldChange('description', e.target.value)}
+          spellCheck={false}
+          rows={2}
+          style={{ ...editableInputStyle, height: 'auto', minHeight: 48, resize: 'vertical', fontFamily: 'inherit', fontSize: 12 }}
+        />
+      </div>
+      <div style={compactCardStyle}>
+        <div style={labelStyle}>Category</div>
+        <input
+          value={live.category || ''}
+          onChange={e => handleFieldChange('category', e.target.value)}
+          style={editableInputStyle}
+        />
       </div>
       {/* Workspace path — user-defined per-agent directory (PostgreSQL) */}
       <div style={compactCardStyle}>
@@ -444,11 +541,26 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         </div>
         <div style={compactCardStyle}>
           <div style={labelStyle}>Temperature</div>
-          <div style={{ ...valueStyle, fontSize: 12 }}>{config.temperature ?? '—'}</div>
+          <input
+            type="number"
+            step="0.1"
+            min={0}
+            max={2}
+            value={liveConfig.temperature ?? ''}
+            onChange={e => handleConfigFieldChange('temperature', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+            style={editableInputStyle}
+          />
         </div>
         <div style={compactCardStyle}>
           <div style={labelStyle}>Max Tokens</div>
-          <div style={{ ...valueStyle, fontSize: 12 }}>{config.max_tokens ?? '—'}</div>
+          <input
+            type="number"
+            step={1}
+            min={1}
+            value={liveConfig.max_tokens ?? ''}
+            onChange={e => handleConfigFieldChange('max_tokens', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+            style={editableInputStyle}
+          />
         </div>
         <div style={compactCardStyle}>
           <div style={labelStyle}>Version</div>
@@ -552,22 +664,37 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     );
   };
 
-  // ── System prompt section ──
+  // ── System prompt section — editable textarea ──
   const renderPrompt = () => (
     <div style={{ padding: 4 }}>
       <div style={cardStyle}>
-        <div style={labelStyle}>System Prompt ({config.system_prompt?.length ?? 0} chars)</div>
-        <pre style={{
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          fontFamily: '"SF Mono", "Fira Code", monospace',
-          fontSize: 12,
-          color: t.textPrimary,
-          lineHeight: 1.5,
-          margin: 0,
-        }}>
-          {config.system_prompt || '(empty)'}
-        </pre>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <div style={labelStyle}>System Prompt ({promptDraft.length} chars)</div>
+          <span style={{ fontSize: 10, color: t.textMuted }}>
+            Saved with the Save button
+          </span>
+        </div>
+        <textarea
+          value={promptDraft}
+          onChange={e => handlePromptChange(e.target.value)}
+          spellCheck={false}
+          placeholder="Enter the agent's system prompt…"
+          style={{
+            width: '100%',
+            minHeight: 280,
+            padding: 10,
+            boxSizing: 'border-box',
+            background: t.bgInput,
+            border: `1px solid ${t.border}`,
+            borderRadius: 4,
+            color: t.textPrimary,
+            fontFamily: '"SF Mono", "Fira Code", monospace',
+            fontSize: 12,
+            lineHeight: 1.5,
+            outline: 'none',
+            resize: 'vertical',
+          }}
+        />
       </div>
     </div>
   );
@@ -696,35 +823,76 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     );
   };
 
-  // ── Guardrails section ──
+  // ── Guardrails section — editable toggles + token inputs ──
   const renderGuardrails = () => {
-    const g = agent.guardrails_config || config.guardrails || {};
+    const g = liveGuardrails;
     const tl = g.token_limits || {};
+    const toggle = (checked: boolean, on: () => void, off: () => void) => (
+      <button
+        onClick={() => (checked ? off() : on())}
+        style={{
+          padding: '3px 10px', borderRadius: 12, cursor: 'pointer',
+          border: `1px solid ${checked ? t.accent : t.border}`,
+          background: checked ? `${t.accent}18` : 'transparent',
+          color: checked ? t.accent : t.textMuted,
+          fontSize: 11, fontWeight: 500,
+        }}
+      >
+        {checked ? 'Enabled' : 'Disabled'}
+      </button>
+    );
+    const numInput = (path: string[], value: any) => (
+      <input
+        type="number"
+        step={1}
+        min={0}
+        value={value ?? ''}
+        onChange={e => handleGuardrailChange(path, e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+        style={{ ...editableInputStyle, width: 120, fontFamily: 'monospace' }}
+      />
+    );
     return (
       <div style={{ padding: 4 }}>
-        <div style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={labelStyle}>Auto Eviction</div>
-          <div style={valueStyle}>{g.enable_auto_eviction ? 'Enabled' : 'Disabled'}</div>
+          {toggle(Boolean(g.enable_auto_eviction),
+            () => handleGuardrailChange(['enable_auto_eviction'], true),
+            () => handleGuardrailChange(['enable_auto_eviction'], false))}
         </div>
-        <div style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
           <div style={labelStyle}>Summarization</div>
-          <div style={valueStyle}>{g.enable_summarization ? 'Enabled' : 'Disabled'}</div>
+          {toggle(Boolean(g.enable_summarization),
+            () => handleGuardrailChange(['enable_summarization'], true),
+            () => handleGuardrailChange(['enable_summarization'], false))}
         </div>
-        <div style={cardStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
           <div style={labelStyle}>Long-Term Memory</div>
-          <div style={valueStyle}>{g.long_term_memory ? 'Enabled' : 'Disabled'}</div>
+          {toggle(Boolean(g.long_term_memory),
+            () => handleGuardrailChange(['long_term_memory'], true),
+            () => handleGuardrailChange(['long_term_memory'], false))}
         </div>
-        <div style={cardStyle}>
+        <div style={compactCardStyle}>
           <div style={labelStyle}>Token Limits</div>
-          <div style={{ fontFamily: 'monospace', fontSize: 12, color: t.textPrimary }}>
-            <div>max_total: {tl.max_total_tokens?.toLocaleString() ?? '—'}</div>
-            <div>eviction_threshold: {tl.eviction_threshold?.toLocaleString() ?? '—'}</div>
-            <div>summarization_threshold: {tl.summarization_threshold?.toLocaleString() ?? '—'}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>max_total_tokens</span>
+              {numInput(['token_limits', 'max_total_tokens'], tl.max_total_tokens)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>eviction_threshold</span>
+              {numInput(['token_limits', 'eviction_threshold'], tl.eviction_threshold)}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>summarization_threshold</span>
+              {numInput(['token_limits', 'summarization_threshold'], tl.summarization_threshold)}
+            </div>
           </div>
         </div>
-        <div style={cardStyle}>
+        <div style={compactCardStyle}>
           <div style={labelStyle}>Backend</div>
-          <div style={valueStyle}>{agent.backend_config?.type ?? '—'}</div>
+          <div style={{ fontSize: 11, color: t.textMuted }}>
+            {agent.backend_config?.type ?? 'state'} — set automatically at build time
+          </div>
         </div>
       </div>
     );

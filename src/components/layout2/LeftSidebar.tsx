@@ -14,6 +14,7 @@ import TreeView, { type TreeNode } from './TreeView';
 import { useSidebarData } from './useSidebarData';
 import { IconButton } from './ui-system';
 import SearchPanel from './SearchPanel';
+import apiClient from '../../lib/api-client';
 import { Plus, RefreshCw, Search, Loader } from 'lucide-react';
 import SearchProvidersSidebar from './SearchProvidersSidebar';
 import ToolBrowserSidebar from './ToolBrowserSidebar';
@@ -76,6 +77,30 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
       data: { ...node.data, content, onSave: (id: string, c: string) => saveNodeContent(node, c) },
     });
   }, [activeActivity, openTab, getNodeContent, saveNodeContent]);
+
+  /** Edit button on agent/deepagent tree rows: open the editor with the FULL
+   * agent record fetched fresh from the API, so Save persists every field. */
+  const handleNodeEdit = useCallback(async (node: TreeNode) => {
+    if (node.children || node.viewType === 'empty') return;
+    const agentId = node.data?.agentId ?? node.data?.id;
+    if (typeof agentId !== 'number') {
+      handleFileOpen(node);
+      return;
+    }
+    try {
+      const res: any = await apiClient.getDeepAgent(agentId);
+      const full = (res as any)?.data ?? res;
+      openTab({
+        id: `edit-${node.id}`,
+        label: `✏️ ${node.label}`,
+        viewType: node.viewType ?? activeActivity,
+        data: full,
+      });
+    } catch (err: any) {
+      console.error('Failed to load full agent for editing:', err);
+      handleFileOpen(node);
+    }
+  }, [activeActivity, openTab, handleFileOpen]);
 
   const handleNewFile = useCallback(() => {
     const id = `new-${Date.now()}`;
@@ -224,6 +249,7 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
                 onNewFile={handleNewFile}
                 onFolderAction={handleFolderAction}
                 onFolderRefresh={handleRefresh}
+                onNodeEdit={handleNodeEdit}
                 folderSearchValue={activeActivity === 'deepagents' || activeActivity === 'agents' ? searchQuery : undefined}
                 onFolderSearchChange={activeActivity === 'deepagents' || activeActivity === 'agents' ? setSearchQuery : undefined}
               />
