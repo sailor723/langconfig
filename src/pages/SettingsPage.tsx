@@ -20,13 +20,13 @@ import apiClient from '../lib/api-client'
 
 type SectionId = 'general' | 'models' | 'search' | 'workspace' | 'storage' | 'about'
 
-const SECTIONS: { id: SectionId; label: string; icon: string }[] = [
-  { id: 'general', label: 'General', icon: 'tune' },
-  { id: 'models', label: 'Models', icon: 'smart_toy' },
-  { id: 'search', label: 'Search Providers', icon: 'travel_explore' },
-  { id: 'workspace', label: 'Workspace', icon: 'folder_open' },
-  { id: 'storage', label: 'Storage', icon: 'storage' },
-  { id: 'about', label: 'About', icon: 'info' },
+const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
+  { id: 'general', labelKey: 'settings_general', icon: 'tune' },
+  { id: 'models', labelKey: 'settings_models', icon: 'smart_toy' },
+  { id: 'search', labelKey: 'settings_search_providers', icon: 'travel_explore' },
+  { id: 'workspace', labelKey: 'settings_workspace', icon: 'folder_open' },
+  { id: 'storage', labelKey: 'settings_storage', icon: 'storage' },
+  { id: 'about', labelKey: 'settings_about', icon: 'info' },
 ]
 
 const PROVIDER_FIELD: Record<string, string> = {
@@ -167,7 +167,7 @@ function Dot({ state }: { state: 'configured' | 'missing' }) {
 // ── The modal shell ───────────────────────────────────────────────
 
 export default function SettingsModal({ onClose }: { onClose: () => void }) {
-  const { i18n } = useTranslation()
+  const { i18n, t } = useTranslation('chat')
   const { theme: activeTheme, setTheme } = useTheme()
   const [section, setSection] = useState<SectionId>('general')
 
@@ -191,7 +191,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
       >
         {/* Nav rail (188px) */}
         <nav style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 18, width: 188, padding: '22px 12px 0', boxSizing: 'border-box' }}>
-          <div style={{ padding: '0 12px', fontSize: 16, lineHeight: '24px', fontWeight: 500, color: tok.labelPrimary }}>Settings</div>
+          <div style={{ padding: '0 12px', fontSize: 16, lineHeight: '24px', fontWeight: 500, color: tok.labelPrimary }}>{t('settings_title')}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {SECTIONS.map(s => {
               const active = section === s.id
@@ -208,7 +208,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                   onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 16, flex: 'none' }}>{s.icon}</span>
-                  <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{s.label}</span>
+                  <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{t(s.labelKey)}</span>
                 </button>
               )
             })}
@@ -247,6 +247,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
 function GeneralSection({ i18n, activeTheme, setTheme }: {
   i18n: any; activeTheme: string; setTheme: (t: ThemeName) => void;
 }) {
+  const { t } = useTranslation('chat')
   const [gen, setGen] = useState<any>(null)
   const [language, setLanguage] = useState(i18n.language)
 
@@ -264,22 +265,22 @@ function GeneralSection({ i18n, activeTheme, setTheme }: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-      <Row label="Language" hint="Interface language">
+      <Row label={t('settings_language')} hint={t('settings_language_label')}>
         <Select value={language} onChange={changeLanguage} options={[{ value: 'en', label: 'English' }, { value: 'zh', label: '中文' }]} />
       </Row>
-      <Row label="Appearance" hint="Color theme">
+      <Row label={t('settings_appearance')} hint={t('settings_color_theme')}>
         <Select value={activeTheme} onChange={v => changeTheme(v as ThemeName)} options={Object.values(themes).map(th => ({ value: th.name, label: th.displayName }))} />
       </Row>
-      <Row label="Auto-save" hint="Automatically save workflows at regular intervals">
+      <Row label={t('settings_auto_save')} hint={t('settings_auto_save_desc')}>
         <Toggle checked={gen?.auto_save ?? true} onChange={v => update({ auto_save: v })} />
       </Row>
-      <Row label="Confirm before deleting" hint="Show a confirmation dialog before deleting workflows or agents">
+      <Row label={t('settings_confirm_before_delete')} hint={t('settings_confirm_before_delete_hint')}>
         <Toggle checked={gen?.confirm_before_delete ?? true} onChange={v => update({ confirm_before_delete: v })} />
       </Row>
-      <Row label="Show notifications" hint="Display system notifications for workflow completion and errors">
+      <Row label={t('settings_show_notifications')} hint={t('settings_show_notifications_hint')}>
         <Toggle checked={gen?.show_notifications ?? true} onChange={v => update({ show_notifications: v })} />
       </Row>
-      <Row label="Anonymous usage statistics" hint="Help improve LangConfig by sharing anonymous usage data">
+      <Row label={t('settings_telemetry')} hint={t('settings_telemetry_desc')}>
         <Toggle checked={gen?.telemetry ?? false} onChange={v => update({ telemetry: v })} />
       </Row>
     </div>
@@ -291,6 +292,7 @@ function GeneralSection({ i18n, activeTheme, setTheme }: {
 interface ModelInfo { model_id: string; display_name?: string; provider: string; capabilities?: Record<string, any> }
 
 function ModelsSection() {
+  const { t } = useTranslation('chat')
   const [keys, setKeys] = useState<{ provider: string; is_set: boolean; masked_key?: string | null; kind?: string }[]>([])
   const [models, setModels] = useState<{ cloud: ModelInfo[]; local: ModelInfo[] }>({ cloud: [], local: [] })
   const [defaults, setDefaults] = useState<any>({ primary_model: '', fallback_models: [], temperature: 0, max_tokens: 0 })
@@ -354,7 +356,7 @@ function ModelsSection() {
     const name = newProviderName.trim().toLowerCase()
     if (!name) return
     const field = PROVIDER_FIELD[name]
-    if (!field) { setTestMsg({ ok: false, msg: `Unknown provider '${name}'. Use one of: ${Object.keys(PROVIDER_FIELD).join(', ')}` }); return }
+    if (!field) { setTestMsg({ ok: false, msg: t('settings_unknown_provider', { name, list: Object.keys(PROVIDER_FIELD).join(', ') }) }); return }
     try {
       await saveKey(name, keyInput, baseUrl)
       setAdding(false); setNewProviderName(''); setKeyInput(''); setBaseUrl(''); setTestMsg(null)
@@ -364,33 +366,33 @@ function ModelsSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-      <SectionTitle title="Models" desc="Default model and API keys for the model providers." />
+      <SectionTitle title={t('settings_models_title')} desc={t('settings_models_desc')} />
 
       {/* Default model rows */}
-      <Row label="Default model" hint="Used for agents and chat unless overridden">
+      <Row label={t('settings_default_model')} hint={t('settings_default_model_hint')}>
         <Select
           value={defaults.primary_model || ''} width={280}
           onChange={async v => { setDefaults((p: any) => ({ ...p, primary_model: v })); try { await apiClient.updateModelDefaultsSettings({ primary_model: v }) } catch {} }}
-          options={[{ value: '', label: '— not set —' }, ...allModels]}
+          options={[{ value: '', label: t('settings_not_set') }, ...allModels]}
         />
       </Row>
-      <Row label="Fallback model" hint="Used when the default model fails">
+      <Row label={t('settings_fallback_model')} hint={t('settings_fallback_model_hint')}>
         <Select
           value={defaults.fallback_models?.[0] || ''} width={280}
           onChange={async v => { setDefaults((p: any) => ({ ...p, fallback_models: [v] })); try { await apiClient.updateModelDefaultsSettings({ fallback_models: [v] }) } catch {} }}
-          options={[{ value: '', label: '— none —' }, ...allModels]}
+          options={[{ value: '', label: t('settings_none') }, ...allModels]}
         />
       </Row>
       <div style={{ display: 'flex', gap: 24 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Temperature</span>
+          <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_temperature')}</span>
           <Input
             value={String(defaults.temperature ?? 0)} type="number" width={110}
             onChange={async v => { const n = parseFloat(v) || 0; setDefaults((p: any) => ({ ...p, temperature: n })); try { await apiClient.updateModelDefaultsSettings({ temperature: n }) } catch {} }}
           />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Max tokens</span>
+          <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_max_tokens')}</span>
           <Input
             value={String(defaults.max_tokens ?? 0)} type="number" width={140}
             onChange={async v => { const n = parseInt(v, 10) || 0; setDefaults((p: any) => ({ ...p, max_tokens: n })); try { await apiClient.updateModelDefaultsSettings({ max_tokens: n }) } catch {} }}
@@ -398,11 +400,11 @@ function ModelsSection() {
         </div>
       </div>
 
-      <SectionTitle title="API keys" desc="Enter your API keys to use models from the following providers." />
+      <SectionTitle title={t('settings_api_keys_heading')} desc={t('settings_models_keys_desc')} />
 
       {/* Provider rows (outlined cards + credential dot) */}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {keys.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary, padding: '8px 0' }}>Loading providers…</li>}
+        {keys.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary, padding: '8px 0' }}>{t('settings_loading_providers')}</li>}
         {keys.filter(k => k.kind !== 'search').map(k => (
           <li key={k.provider} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -411,7 +413,7 @@ function ModelsSection() {
                 <Dot state={k.is_set ? 'configured' : 'missing'} />
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
-                <Btn dense onClick={() => { setEditing(k.provider); setKeyInput(''); setBaseUrl(''); setTestMsg(null) }}>Edit</Btn>
+                <Btn dense onClick={() => { setEditing(k.provider); setKeyInput(''); setBaseUrl(''); setTestMsg(null) }}>{t('settings_edit')}</Btn>
               </span>
             </div>
             {editing === k.provider && (
@@ -421,15 +423,15 @@ function ModelsSection() {
                   <span style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary }}>{k.provider}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>API key</span>
+                  <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_api_key')}</span>
                   <Input value={keyInput} onChange={setKeyInput} placeholder="sk-… (leave empty to keep current)" mono width="100%" />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Customized settings</span>
+                  <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_customized_settings')}</span>
                   <Input value={baseUrl} onChange={setBaseUrl} placeholder="https://api.example.com (optional)" mono width="100%" />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Models</span>
+                  <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_models_list')}</span>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {models.cloud.filter(m => m.provider.toLowerCase() === k.provider).map(m => (
                       <div key={m.model_id} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 8, padding: '6px', display: 'grid', gridTemplateColumns: 'minmax(0,1.4fr) minmax(0,1fr)', gap: 6, alignItems: 'center' }}>
@@ -438,15 +440,15 @@ function ModelsSection() {
                       </div>
                     ))}
                     {models.cloud.filter(m => m.provider.toLowerCase() === k.provider).length === 0 && (
-                      <div style={{ padding: 12, border: `1px dashed ${tok.borderL3}`, borderRadius: 8, textAlign: 'center', fontSize: 12, color: tok.labelTertiary }}>No models registered for this provider.</div>
+                      <div style={{ padding: 12, border: `1px dashed ${tok.borderL3}`, borderRadius: 8, textAlign: 'center', fontSize: 12, color: tok.labelTertiary }}>{t('settings_no_models')}</div>
                     )}
                   </div>
                 </div>
                 {testMsg && <div style={{ fontSize: 12, lineHeight: '18px', color: testMsg.ok ? tok.success : tok.error }}>{testMsg.msg}</div>}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                  <Btn onClick={() => handleTest(k.provider)} disabled={testing}>{testing ? 'Testing…' : 'Test'}</Btn>
-                  <Btn onClick={() => setEditing(null)}>Cancel</Btn>
-                  <Btn variant="primary" onClick={() => handleEditSave(k.provider)}>Apply</Btn>
+                  <Btn onClick={() => handleTest(k.provider)} disabled={testing}>{testing ? t('settings_testing') : t('settings_test')}</Btn>
+                  <Btn onClick={() => setEditing(null)}>{t('settings_cancel')}</Btn>
+                  <Btn variant="primary" onClick={() => handleEditSave(k.provider)}>{t('settings_apply')}</Btn>
                 </div>
               </div>
             )}
@@ -458,7 +460,7 @@ function ModelsSection() {
       {adding ? (
         <div style={{ borderRadius: 12, background: tok.module, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Provider name</span>
+            <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_provider_name')}</span>
             <Input value={newProviderName} onChange={setNewProviderName} placeholder="e.g. openai, deepseek, anthropic" width="100%" />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -466,13 +468,13 @@ function ModelsSection() {
             <Input value={keyInput} onChange={setKeyInput} placeholder="sk-…" mono width="100%" />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Base URL (optional)</span>
+            <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_base_url_optional')}</span>
             <Input value={baseUrl} onChange={setBaseUrl} placeholder="https://api.example.com" mono width="100%" />
           </div>
           {testMsg && <div style={{ fontSize: 12, lineHeight: '18px', color: testMsg.ok ? tok.success : tok.error }}>{testMsg.msg}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Btn onClick={() => setAdding(false)}>Cancel</Btn>
-            <Btn variant="primary" onClick={handleAddProvider}>Save</Btn>
+            <Btn onClick={() => setAdding(false)}>{t('settings_cancel')}</Btn>
+            <Btn variant="primary" onClick={handleAddProvider}>{t('settings_save')}</Btn>
           </div>
         </div>
       ) : (
@@ -489,7 +491,7 @@ function ModelsSection() {
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
-            Add provider
+            {t('settings_add_provider')}
           </button>
         </div>
       )}
@@ -500,6 +502,7 @@ function ModelsSection() {
 // ── Search Providers ──────────────────────────────────────────────
 
 function SearchSection() {
+  const { t } = useTranslation('chat')
   const [providers, setProviders] = useState<any[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [keyInput, setKeyInput] = useState('')
@@ -523,7 +526,7 @@ function SearchSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-      <SectionTitle title="Search Providers" desc="API keys for web search providers used by agents." />
+      <SectionTitle title={t('settings_search_providers')} desc={t('settings_search_providers_desc')} />
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {providers.map(p => (
           <li key={p.id} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -535,22 +538,22 @@ function SearchSection() {
               {editingId === p.id ? (
                 <>
                   <input
-                    type="password" value={keyInput} onChange={e => setKeyInput(e.target.value)} placeholder="API key" autoFocus
+                    type="password" value={keyInput} onChange={e => setKeyInput(e.target.value)} placeholder={t('settings_api_key')} autoFocus
                     style={{ width: 170, boxSizing: 'border-box', height: 28, padding: '0 10px', borderRadius: 14, fontSize: 12, lineHeight: '18px', border: `1px solid ${tok.borderL2}`, background: `var(--color-input-background, ${tok.layer1})`, color: tok.labelPrimary, outline: 'none' }}
                   />
-                  <Btn dense variant="primary" onClick={() => save(p.id)}>Save</Btn>
-                  <Btn dense onClick={() => setEditingId(null)}>Cancel</Btn>
+                  <Btn dense variant="primary" onClick={() => save(p.id)}>{t('settings_save')}</Btn>
+                  <Btn dense onClick={() => setEditingId(null)}>{t('settings_cancel')}</Btn>
                 </>
               ) : (
                 <>
-                  <Btn dense onClick={() => { setEditingId(p.id); setKeyInput('') }}>Edit</Btn>
-                  {p.has_api_key && <Btn dense variant="danger" onClick={() => remove(p.id)}>Remove</Btn>}
+                  <Btn dense onClick={() => { setEditingId(p.id); setKeyInput('') }}>{t('settings_edit')}</Btn>
+                  {p.has_api_key && <Btn dense variant="danger" onClick={() => remove(p.id)}>{t('settings_remove')}</Btn>}
                 </>
               )}
             </span>
           </li>
         ))}
-        {providers.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary }}>No search providers.</li>}
+        {providers.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary }}>{t('settings_no_search_providers')}</li>}
       </ul>
       {msg && <div style={{ fontSize: 12, lineHeight: '18px', color: msg.ok ? tok.success : tok.error }}>{msg.text}</div>}
     </div>
@@ -560,6 +563,7 @@ function SearchSection() {
 // ── Workspace ─────────────────────────────────────────────────────
 
 function WorkspaceSection() {
+  const { t } = useTranslation('chat')
   const [ws, setWs] = useState<any>(null)
   const [path, setPath] = useState('')
   const [saved, setSaved] = useState(false)
@@ -580,18 +584,18 @@ function WorkspaceSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-      <SectionTitle title="Workspace" desc="Where your projects, agents, uploads and generated files live." />
-      <Row label="Workspace path" hint="The root folder for all project and agent data">
+      <SectionTitle title={t('settings_workspace_title')} desc={t('settings_workspace_desc')} />
+      <Row label={t('settings_workspace_path')} hint={t('settings_workspace_path_hint')}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <Input value={path} onChange={setPath} mono placeholder="/path/to/workspace" width={300} />
-          <Btn variant="primary" onClick={() => save({ workspace_path: path })}>{saved ? 'Saved ✓' : 'Save'}</Btn>
+          <Btn variant="primary" onClick={() => save({ workspace_path: path })}>{saved ? t('settings_saved') : t('settings_save')}</Btn>
         </div>
       </Row>
-      <Row label="Allow read" hint="Agents may read files inside the workspace"><Toggle checked={ws?.allow_read ?? true} onChange={v => setField('allow_read', v)} /></Row>
-      <Row label="Allow write" hint="Agents may write files inside the workspace"><Toggle checked={ws?.allow_write ?? true} onChange={v => setField('allow_write', v)} /></Row>
-      <Row label="Require approval for edits" hint="Ask before the agent modifies files"><Toggle checked={ws?.require_approval ?? true} onChange={v => setField('require_approval', v)} /></Row>
-      <Row label="Backup before edit" hint="Keep a backup copy before the agent edits a file"><Toggle checked={ws?.backup_before_edit ?? true} onChange={v => setField('backup_before_edit', v)} /></Row>
-      <Row label="Auto-detect Git" hint="Detect repositories inside the workspace"><Toggle checked={ws?.auto_detect_git ?? true} onChange={v => setField('auto_detect_git', v)} /></Row>
+      <Row label={t('settings_local_workspace_allow_read')} hint={t('settings_local_workspace_allow_read_desc')}><Toggle checked={ws?.allow_read ?? true} onChange={v => setField('allow_read', v)} /></Row>
+      <Row label={t('settings_local_workspace_allow_write')} hint={t('settings_local_workspace_allow_write_desc')}><Toggle checked={ws?.allow_write ?? true} onChange={v => setField('allow_write', v)} /></Row>
+      <Row label={t('settings_local_workspace_require_approval')} hint={t('settings_local_workspace_require_approval_desc')}><Toggle checked={ws?.require_approval ?? true} onChange={v => setField('require_approval', v)} /></Row>
+      <Row label={t('settings_local_workspace_backup')} hint={t('settings_local_workspace_backup_desc')}><Toggle checked={ws?.backup_before_edit ?? true} onChange={v => setField('backup_before_edit', v)} /></Row>
+      <Row label={t('settings_local_workspace_auto_detect')} hint={t('settings_local_workspace_auto_detect_desc')}><Toggle checked={ws?.auto_detect_git ?? true} onChange={v => setField('auto_detect_git', v)} /></Row>
     </div>
   )
 }
@@ -599,6 +603,7 @@ function WorkspaceSection() {
 // ── Storage ───────────────────────────────────────────────────────
 
 function StorageSection() {
+  const { t } = useTranslation('chat')
   const [mode, setMode] = useState<'local' | 'db'>('local')
   const [source, setSource] = useState<'env' | 'db'>('env')
 
@@ -610,15 +615,15 @@ function StorageSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-      <SectionTitle title="Storage" desc="Where files are persisted." />
-      <Row label="Storage mode" hint={`Source: ${source === 'db' ? 'persisted (overrides .env)' : '.env / default'}`}>
+      <SectionTitle title={t('settings_storage_title')} desc={t('settings_storage_desc')} />
+      <Row label={t('settings_storage_mode')} hint={`Source: ${source === 'db' ? 'persisted (overrides .env)' : '.env / default'}`}>
         <Select value={mode} onChange={v => switchMode(v as 'local' | 'db')} width={280} options={[
-          { value: 'local', label: 'Local disk (backend/outputs)' },
-          { value: 'db', label: 'PostgreSQL (BYTEA)' },
+          { value: 'local', label: t('settings_local_disk') },
+          { value: 'db', label: t('settings_postgres') },
         ]} />
       </Row>
       <p style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary, margin: '8px 0 0' }}>
-        Switching modes does not migrate data — use the CLI/batch scripts for that.
+        {t('settings_storage_note')}
       </p>
     </div>
   )
@@ -627,15 +632,16 @@ function StorageSection() {
 // ── About ─────────────────────────────────────────────────────────
 
 function AboutSection() {
+  const { t } = useTranslation('chat')
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-      <SectionTitle title="About LangConfig" desc="Visual platform for building LangChain agents and LangGraph workflows." />
-      <Row label="Version"><span style={{ fontSize: 14, color: tok.labelTertiary }}>0.1.0</span></Row>
-      <Row label="Configuration" hint="API keys and settings are stored in PostgreSQL (encrypted); the rest lives in .env">
-        <span style={{ fontSize: 14, color: tok.labelTertiary }}>See .env</span>
+      <SectionTitle title={t('settings_about_title')} desc={t('settings_about_desc')} />
+      <Row label={t('settings_version')}><span style={{ fontSize: 14, color: tok.labelTertiary }}>0.1.0</span></Row>
+      <Row label={t('settings_configuration')} hint={t('settings_configuration_hint')}>
+        <span style={{ fontSize: 14, color: tok.labelTertiary }}>{t('settings_see_env')}</span>
       </Row>
-      <Row label="First-time setup" hint="Re-open the setup wizard (API key + workspace)">
-        <Btn variant="primary" onClick={() => window.dispatchEvent(new CustomEvent('setup:open'))}>Re-run setup wizard</Btn>
+      <Row label={t('settings_first_time_setup')} hint={t('settings_first_time_setup_hint')}>
+        <Btn variant="primary" onClick={() => window.dispatchEvent(new CustomEvent('setup:open'))}>{t('settings_rerun_setup')}</Btn>
       </Row>
     </div>
   )
