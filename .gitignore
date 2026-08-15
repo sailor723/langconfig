@@ -128,6 +128,7 @@ docs/*
 !docs/GOOGLE_OAUTH_SETUP.md
 !docs/settings-refactor.md
 !docs/tools-refactor.md
+!docs/tools-audit.md
 !docs/SETUP.md
 langconfig/
 

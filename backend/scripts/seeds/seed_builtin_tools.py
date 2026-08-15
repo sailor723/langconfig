@@ -51,15 +51,22 @@ SEEDABLE_TOOL_META = {
     "web_fetch": ("Web Fetch", "web", None),
     "ls": ("List Directory", "filesystem", None),
     "read_file": ("Read File", "filesystem", None),
+    "read_image": ("Read Image (OCR)", "filesystem", None),
     "write_file": ("Write File", "filesystem", None),
     "edit_file": ("Edit File", "filesystem", None),
     "glob": ("Glob", "filesystem", None),
     "grep": ("Grep", "filesystem", None),
+    "delete_file": ("Delete File", "filesystem", None),
+    "rename_file": ("Rename File", "filesystem", None),
+    "move_file": ("Move File", "filesystem", None),
+    "mkdir": ("Create Directory", "filesystem", None),
+    "bash": ("Bash Shell", "shell", None),
     "reasoning_chain": ("Reasoning Chain", "reasoning", None),
     "task": ("Task (Subagent)", "delegation", None),
     "save_analysis_result": ("Save Analysis Result", "data_analysis", None),
     "gen_pptx": ("Generate PPTX", "presentation", None),
     "create_skill": ("Create Skill", "skills", None),
+    "skill": ("Read Skill", "skills", None),
     "update_skill": ("Update Skill", "skills", None),
     "delete_skill": ("Delete Skill", "skills", None),
     "create_deepagent": ("Create DeepAgent", "agent_management", None),
@@ -87,6 +94,7 @@ SEEDABLE_TOOL_META = {
     "graphindex_list_docs": ("GraphIndex - List Documents", "retrieval", None),
     "graphindex_multi_doc_load": ("GraphIndex - Multi-Doc Load", "retrieval", None),
     "sqlite_execute": ("SQLite Execute", "data", None),
+    "sqlite_load_csv": ("SQLite Load CSV", "data", None),
     "python_execute": ("Python Execute", "data", None),
     "save_document": ("Save Document", "document", None),
 }
@@ -106,6 +114,7 @@ _DEFINITION_CATEGORY = {
     "presentation": "presentation",
     "retrieval": "graph",
     "document": "document",
+    "shell": "shell",
 }
 
 

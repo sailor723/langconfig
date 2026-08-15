@@ -71,6 +71,53 @@ except ImportError:
 
 _ddg_search = None
 
+async def _try_configured_search_provider(query: str, max_results: int):
+    """Pluggable search backends (tools-audit \u00a74): use a configured
+    provider key (Settings \u2192 Search, stored in settings documents) when
+    present; returns formatted results or None to fall back to DDG."""
+    try:
+        from core.settings import runtime_get
+        search = runtime_get("search")
+        tavily_key = (search.get("tavily_api_key") or "").strip()
+        serper_key = (search.get("serper_api_key") or "").strip()
+    except Exception:
+        return None
+    import httpx as _httpx
+
+    if tavily_key:
+        try:
+            async with _httpx.AsyncClient(timeout=15) as client:
+                r = await client.post(
+                    "https://api.tavily.com/search",
+                    json={"api_key": tavily_key, "query": query, "max_results": max_results},
+                )
+                results = r.json().get("results", [])
+            if results:
+                return "\n\n".join(
+                    f"{i + 1}. {res.get('title', '')}\n   {res.get('url', '')}\n   {res.get('content', '')}"
+                    for i, res in enumerate(results[:max_results])
+                )
+        except Exception:
+            pass
+    if serper_key:
+        try:
+            async with _httpx.AsyncClient(timeout=15) as client:
+                r = await client.post(
+                    "https://google.serper.dev/search",
+                    json={"q": query, "num": max_results},
+                    headers={"X-API-KEY": serper_key},
+                )
+                results = r.json().get("organic", [])
+            if results:
+                return "\n\n".join(
+                    f"{i + 1}. {res.get('title', '')}\n   {res.get('link', '')}\n   {res.get('snippet', '')}"
+                    for i, res in enumerate(results[:max_results])
+                )
+        except Exception:
+            pass
+    return None
+
+
 def get_ddg_search():
     """Get or create the DuckDuckGo search tool instance."""
     global _ddg_search
@@ -101,6 +148,11 @@ async def web_search(query: str, max_results: int = 8) -> str:
     import random
 
     try:
+        # Pluggable search backends: prefer a configured provider key.
+        provider_results = await _try_configured_search_provider(query, max_results)
+        if provider_results is not None:
+            return provider_results
+
         logger.info(f"Web search (DuckDuckGo HTML): {query}")
 
         # Use DuckDuckGo's HTML search (no JavaScript, no new event loops)
@@ -1517,6 +1569,21 @@ def glob(pattern: str, path: str = ".") -> str:
         if not base_path.exists():
             return f"Error: Path not found: {path}"
 
+        # ripgrep fast path when available (rg is much faster on large trees).
+        import shutil as _shutil
+        import subprocess as _subprocess
+        if _shutil.which("rg") is not None and base_path.is_dir():
+            try:
+                proc = _subprocess.run(
+                    ["rg", "--files", "-g", pattern, "."],
+                    cwd=str(base_path), capture_output=True, text=True, timeout=30,
+                )
+                out = (proc.stdout or "").strip()
+                if out:
+                    return "\n".join(out.splitlines()[:200])
+            except Exception:
+                pass  # fall back to the Python implementation
+
         matches = list(base_path.glob(pattern))
 
         if not matches:
@@ -1568,6 +1635,29 @@ def grep(pattern: str, path: str = ".", file_pattern: str = None) -> str:
 
         if not base_path.exists():
             return f"Error: Path not found: {path}"
+
+        # ripgrep fast path when available (much faster on large trees).
+        import shutil as _shutil
+        import subprocess as _subprocess
+        if _shutil.which("rg") is not None and base_path.is_dir():
+            try:
+                cmd = ["rg", "-n", "--no-heading", "-S", pattern]
+                if file_pattern:
+                    cmd += ["-g", file_pattern]
+                cmd.append(".")
+                proc = _subprocess.run(
+                    cmd, cwd=str(base_path), capture_output=True, text=True, timeout=30,
+                )
+                out = (proc.stdout or "").strip()
+                if out:
+                    lines_out = out.splitlines()
+                    capped = lines_out[:100]
+                    text = "\n".join(capped)
+                    if len(lines_out) > 100:
+                        text += f"\n... and {len(lines_out) - 100} more matches"
+                    return text
+            except Exception:
+                pass  # fall back to the Python implementation
 
         # Compile regex
         try:
@@ -1626,6 +1716,233 @@ def grep(pattern: str, path: str = ".", file_pattern: str = None) -> str:
     except Exception as e:
         logger.error(f"Error searching with pattern {pattern}: {e}")
         return f"Error searching: {str(e)}"
+
+
+# =============================================================================
+# File management (delete / rename / move / mkdir) — sandbox-contained
+# =============================================================================
+# Added in the tools audit (docs/tools-audit.md §4): agents previously had no
+# way to delete/rename/move/create files — only read/write/edit. All four
+# respect _resolve_sandbox_path (the same containment as read/write/edit).
+
+@tool
+def delete_file(file_path: str) -> str:
+    """Delete a file (or an empty directory) inside the workspace sandbox.
+
+    Use when the user asks to remove or clean up a file. Refuses to delete
+    non-empty directories — there is no recursive delete by design.
+
+    Args:
+        file_path: Path to the file to delete (relative to the workspace or absolute)
+    """
+    resolved, error = _resolve_sandbox_path(file_path)
+    if error:
+        return error
+    if not resolved.exists():
+        return f"Error: '{file_path}' not found"
+    if resolved.is_dir():
+        try:
+            resolved.rmdir()
+            return f"Removed empty directory '{file_path}'"
+        except OSError:
+            return (f"Error: '{file_path}' is a non-empty directory — "
+                    f"refusing recursive delete")
+    resolved.unlink()
+    return f"Deleted file '{file_path}'"
+
+
+@tool
+def rename_file(old_path: str, new_path: str) -> str:
+    """Rename a file or directory to a new name (same location).
+
+    Args:
+        old_path: Current path of the file/directory
+        new_path: New name/path (the destination must not already exist)
+    """
+    src, error = _resolve_sandbox_path(old_path)
+    if error:
+        return error
+    dst, error = _resolve_sandbox_path(new_path)
+    if error:
+        return error
+    if not src.exists():
+        return f"Error: '{old_path}' not found"
+    if dst.exists():
+        return f"Error: destination '{new_path}' already exists"
+    src.rename(dst)
+    return f"Renamed '{old_path}' → '{new_path}'"
+
+
+@tool
+def move_file(source: str, destination: str) -> str:
+    """Move a file or directory to a new location.
+
+    When the destination is an existing directory, the source moves into it;
+    otherwise the destination is the target path.
+
+    Args:
+        source: Path to move from
+        destination: Target path, or an existing directory to move into
+    """
+    src, error = _resolve_sandbox_path(source)
+    if error:
+        return error
+    dst, error = _resolve_sandbox_path(destination)
+    if error:
+        return error
+    if not src.exists():
+        return f"Error: source '{source}' not found"
+    if dst.is_dir():
+        dst = dst / src.name
+    elif dst.exists():
+        return f"Error: destination '{destination}' already exists"
+    src.rename(dst)
+    return f"Moved '{source}' → '{destination}'"
+
+
+@tool
+def mkdir(directory_path: str) -> str:
+    """Create a directory (and any missing parents) inside the workspace sandbox.
+
+    Args:
+        directory_path: Path of the directory to create
+    """
+    resolved, error = _resolve_sandbox_path(directory_path)
+    if error:
+        return error
+    resolved.mkdir(parents=True, exist_ok=True)
+    return f"Created directory '{directory_path}'"
+
+
+# =============================================================================
+# read_image (OCR) — docs/tools-audit.md ADD #2
+# =============================================================================
+@tool
+def read_image(file_path: str) -> str:
+    """Read an image file: return its dimensions/format plus OCR-extracted text.
+
+    Use when the user references or attaches an image (screenshot, scan,
+    diagram, chart) and you need its text content. OCR runs through the
+    system tesseract binary when available; otherwise the image metadata is
+    returned so the model knows what was referenced.
+
+    Args:
+        file_path: Path to the image file (PNG/JPEG/WebP/GIF)
+    """
+    resolved, error = _resolve_sandbox_path(file_path)
+    if error:
+        return error
+    if not resolved.exists():
+        return f"Error: file '{file_path}' not found"
+    try:
+        from PIL import Image
+        with Image.open(resolved) as img:
+            fmt = img.format or "unknown"
+            dims = f"{img.width}x{img.height}"
+    except Exception as e:
+        return f"Error: '{file_path}' is not a readable image: {e}"
+    header = f"Image: {resolved.name} ({fmt}, {dims})"
+    import shutil
+    import subprocess
+    if shutil.which("tesseract") is None:
+        return f"{header}\n(no OCR available — tesseract binary not installed)"
+    try:
+        proc = subprocess.run(
+            ["tesseract", str(resolved), "stdout"],
+            capture_output=True, text=True, timeout=60,
+        )
+        text = (proc.stdout or "").strip()
+    except Exception as e:
+        return f"{header}\n(OCR failed: {e})"
+    if not text:
+        return f"{header}\n(no text detected in image)"
+    return f"{header}\n{text}"
+
+
+# =============================================================================
+# Bash shell (sandbox-contained, bounded) — docs/tools-audit.md ADD #1
+# =============================================================================
+# The biggest capability gap: agents had no way to run commands. The command
+# runs with a sandbox root as its working directory, a bounded timeout, and a
+# capped output size. Built-in trust boundary: it is a full shell by design.
+
+@tool
+def bash(command: str, timeout: int = 30, cwd: str = None) -> str:
+    """Execute a bash shell command inside the workspace sandbox.
+
+    Use for running commands, scripts, git operations, package installs,
+    listing processes, or any terminal work the user asks for. The command
+    runs with the workspace outputs directory as its working directory (or
+    the given cwd, which must be inside the sandbox). Output is capped.
+
+    Args:
+        command: The shell command to run (bash syntax; pipes/redirects allowed)
+        timeout: Timeout in seconds (default 30, max 120)
+        cwd: Working directory for the command (must be inside the sandbox)
+    """
+    import subprocess
+
+    timeout = max(1, min(int(timeout or 30), 120))
+    if cwd:
+        resolved_cwd, error = _resolve_sandbox_path(cwd)
+        if error:
+            return error
+        run_cwd = str(resolved_cwd)
+    else:
+        roots = _sandbox_roots()
+        run_cwd = str(roots[0]) if roots else "."
+    try:
+        proc = subprocess.run(
+            command, shell=True, cwd=run_cwd,
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return f"⚠️ Command timed out after {timeout}s: {command[:200]}"
+    out = (proc.stdout or "") + (proc.stderr or "")
+    if not out.strip():
+        return f"(no output; exit code {proc.returncode})"
+    max_chars = 100_000
+    if len(out) > max_chars:
+        out = out[:max_chars] + f"\n… output truncated at {max_chars} chars"
+    return f"$ {command}\n{out.strip()}\n(exit {proc.returncode})"
+
+
+# =============================================================================
+# skill (progressive disclosure on demand) — docs/tools-audit.md ADD #5
+# =============================================================================
+@tool
+async def skill(skill_id: str) -> str:
+    """Fetch a skill's full instructions by its id.
+
+    Use when the user asks about a topic that a skill covers but the skill was
+    not pre-injected into your context. Reads the skill from the library on
+    demand (progressive disclosure).
+
+    Args:
+        skill_id: The skill's id (e.g. "web-search", "text-summarizer")
+    """
+    try:
+        from core.skills.registry import get_skill_registry
+        registry = get_skill_registry()
+        if not registry._initialized:
+            await registry.initialize()
+        found = registry.get_skill(skill_id)
+        if found is None:
+            available = ", ".join(sorted(s.skill_id for s in registry.list_all())) or "none"
+            return f"Error: skill '{skill_id}' not found. Available skills: {available}"
+        parts = [
+            f"# Skill: {found.name}",
+            f"**Description:** {found.description}",
+            "",
+            found.instructions,
+        ]
+        if found.examples:
+            parts += ["", "**Examples:**", found.examples]
+        if found.allowed_tools:
+            parts += ["", f"**Allowed tools:** {', '.join(found.allowed_tools)}"]
+        return "\n".join(parts)
+    except Exception as e:
+        return f"Error loading skill '{skill_id}': {e}"
 
 
 # =============================================================================

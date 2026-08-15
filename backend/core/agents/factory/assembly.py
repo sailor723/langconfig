@@ -329,6 +329,21 @@ class _AgentAssemblyMixin:
         except Exception as e:
             logger.warning(f"Tool pipeline wrap failed (non-fatal): {e}")
 
+        # 3f. Code Mode (Phase C, docs/tools-refactor.md): when enabled, expose
+        # ONLY `run_code`; the agent's other tools become the generated Python
+        # SDK surface the program calls. Off by default — opt-in per agent.
+        if agent_config.get("code_mode") and tools:
+            try:
+                from core.tools.code_mode import create_run_code_tool
+                sdk_tool_count = len(tools)
+                tools = [create_run_code_tool(tools)]
+                logger.info(
+                    "Code Mode enabled: agent calls run_code (SDK exposes %d tools)",
+                    sdk_tool_count,
+                )
+            except Exception as e:
+                logger.warning(f"Code Mode setup failed (non-fatal): {e}")
+
         # 4. Check if structured output is enabled (v1.1: Support ProviderStrategy)
         structured_output_strategy = None
         if enable_structured_output and output_schema:
