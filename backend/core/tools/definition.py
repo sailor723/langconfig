@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict
 # are allowed, but UI pickers and prompt sections key off these.
 TOOL_CATEGORIES = {
     "web",          # web_search, web_fetch, tavily_search, browser
-    "filesystem",   # read_file, write_file, edit_file, ls, glob, grep, vfs_*
+    "filesystem",   # read_file, write_file, edit_file, ls, glob, grep, delete/rename/move/mkdir
     "database",     # pg_*, sqlite_*
     "graph",        # neo4j_*, doc_index_*, graphindex_*
     "analysis",     # python_execute, sqlite_load_csv, save_analysis_result

@@ -78,7 +78,7 @@ _CODEGEN_SIMPLE_TOOLS: Dict[str, str] = {
     ),
 }
 
-# Stateful harness tools (write_todos / read_todos / vfs_*) that have no
+# Stateful harness tools (write_todos / read_todos) that have no
 # custom_tools row either. They operate on agent state via InjectedState and
 # Command — the same machinery the backend uses in
 # backend/tools/native_tools.py — so the generated script must define the
@@ -114,52 +114,6 @@ _CODEGEN_FS_TOOLS: Dict[str, str] = {
         '        )\n'
         '        result += f"{i}. {emoji} {todo[\'content\']} ({todo[\'status\']})\\n"\n'
         '    return result.strip()\n'
-    ),
-    "vfs_ls": (
-        'def vfs_ls(state: Annotated[DeepAgentState, InjectedState]) -> list[str]:\n'
-        '    """List all files in the virtual filesystem stored in agent state."""\n'
-        '    return list(state.get("files", {}).keys())\n'
-    ),
-    "vfs_read_file": (
-        'def vfs_read_file(\n'
-        '    file_path: str,\n'
-        '    state: Annotated[DeepAgentState, InjectedState],\n'
-        '    offset: int = 0,\n'
-        '    limit: int = 2000,\n'
-        ') -> str:\n'
-        '    """Read content from a file in the virtual filesystem with optional pagination."""\n'
-        '    files = state.get("files", {})\n'
-        '    if file_path not in files:\n'
-        '        return f"Error: File \'{file_path}\' not found"\n'
-        '    content = files[file_path]\n'
-        '    if not content:\n'
-        '        return "System reminder: File exists but has empty contents"\n'
-        '    lines = content.splitlines()\n'
-        '    start_idx = offset\n'
-        '    end_idx = min(start_idx + limit, len(lines))\n'
-        '    if start_idx >= len(lines):\n'
-        '        return f"Error: Line offset {offset} exceeds file length ({len(lines)} lines)"\n'
-        '    result_lines = []\n'
-        '    for i in range(start_idx, end_idx):\n'
-        '        result_lines.append(f"{i + 1:6d}\\t{lines[i][:2000]}")\n'
-        '    return "\\n".join(result_lines)\n'
-    ),
-    "vfs_write_file": (
-        'def vfs_write_file(\n'
-        '    file_path: str,\n'
-        '    content: str,\n'
-        '    state: Annotated[DeepAgentState, InjectedState],\n'
-        '    tool_call_id: Annotated[str, InjectedToolCallId],\n'
-        ') -> Command:\n'
-        '    """Create a new file or completely overwrite an existing file in the virtual filesystem."""\n'
-        '    files = state.get("files", {})\n'
-        '    files[file_path] = content\n'
-        '    return Command(\n'
-        '        update={\n'
-        '            "files": files,\n'
-        '            "messages": [ToolMessage(f"Updated file {file_path}", tool_call_id=tool_call_id)],\n'
-        '        }\n'
-        '    )\n'
     ),
 }
 
@@ -1331,7 +1285,7 @@ llm = ChatOpenAI(
         )
 
     def _emit_fs_tool(tool_id: str) -> str:
-        """Emit a stateful harness tool (write_todos / read_todos / vfs_*).
+        """Emit a stateful harness tool (write_todos / read_todos).
 
         These operate on DeepAgentState via InjectedState/Command, exactly like
         the backend's native_tools.py. Only used in the LangGraph build path.
@@ -1388,7 +1342,7 @@ agent = create_agent(
 '''
 
     # The state schema must be defined BEFORE the harness tool defs below
-    # (write_todos / read_todos / vfs_*) because their annotations reference
+    # (write_todos / read_todos) because their annotations reference
     # DeepAgentState eagerly (Annotated[...] evaluates its arguments at def
     # time). Deep agents build via create_deep_agent and skip this section.
     if is_deep:
@@ -1396,7 +1350,7 @@ agent = create_agent(
     else:
         state_section = (
             '# ── Agent state schema + tool runtime imports ────────────────────\n'
-            '# The harness tools below (write_todos / read_todos / vfs_*) operate\n'
+            '# The harness tools below (write_todos / read_todos) operate\n'
             '# on agent state via InjectedState/Command — the same machinery the\n'
             '# backend uses. Todo lists and scratch files are TRANSIENT (they live\n'
             '# only in this run\'s state, i.e. the file system during execution);\n'

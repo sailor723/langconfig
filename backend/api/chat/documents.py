@@ -605,7 +605,7 @@ async def list_session_generated_files(
     default_dir = workspace_mgr.base_dir / "default"
     legacy_roots = [r for r in (chat_workspace_dir, default_dir) if r is not None]
 
-    write_tools = {"write_file", "file_write", "vfs_write_file", "write"}
+    write_tools = {"write_file", "file_write", "write"}
     for tool_call in session.tool_calls or []:
         tool_name = tool_call.get("tool_name", "") or ""
         if tool_name not in write_tools:

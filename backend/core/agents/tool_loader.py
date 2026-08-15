@@ -231,7 +231,7 @@ class ToolLoader:
         Returns ``None`` when the built-in seed has not been run (empty or
         unmigrated table), signalling the caller to fall back to the legacy
         in-module loader. Names that are not seeded (e.g. harness tools like
-        ``write_todos`` / ``vfs_*`` that need injected args) are appended from
+        ``write_todos`` / ``read_todos`` that need injected args) are appended from
         the legacy loader so behavior is unchanged.
         """
         if not names:
@@ -284,7 +284,7 @@ class ToolLoader:
                     logger.error(f"Failed to build built-in tool '{row.tool_id}' from DB: {exc}")
                     missing.append(row.tool_id)
 
-            # Harness-only tools (write_todos, read_todos, vfs_*) and broken
+            # Harness-only tools (write_todos, read_todos) and broken
             # rows keep the legacy path.
             if missing:
                 tools.extend(_legacy_load(missing))

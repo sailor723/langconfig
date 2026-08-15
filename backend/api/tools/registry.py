@@ -5,7 +5,7 @@ Phase 3 of the native -> DB tool refactor: the registry is DB-primary.
 Seeded built-in tools (custom_tools rows with ``is_builtin``) carry their
 display metadata (name, category, requires_api_key) in the row itself and are
 the source of truth; legacy-only tools that cannot be seeded (browser,
-write_todos/read_todos, vfs_*, memory_*, think_tool) still
+write_todos/read_todos, memory_*, think_tool) still
 come from TOOL_REGISTRY in tools/native_tools.py so the UI pickers never lose
 an option.
 """
@@ -45,7 +45,7 @@ async def get_registry() -> List[Dict[str, Any]]:
 
     Seeded built-in tools are read from the ``custom_tools`` table (the DB is
     the source of truth for the 43 seedable tools); the remaining legacy-only
-    tools (browser, write_todos/read_todos, vfs_*, memory_*,
+    tools (browser, write_todos/read_todos, memory_*,
     think_tool) come from TOOL_REGISTRY in tools/native_tools.py.
     The frontend should group these by `category` and render a checkbox
     (or selection control) for each tool.
