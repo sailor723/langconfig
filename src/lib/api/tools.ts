@@ -8,6 +8,7 @@ import type { APIClient } from '../api-client';
 export interface ToolsApi {
   listCustomTools(config?: { project_id?: number; template_type?: string; tool_type?: string; signal?: AbortSignal }): Promise<any>;
   listToolRegistry(config?: { signal?: AbortSignal }): Promise<any>;
+  getToolRegistryDefaults(): Promise<any>;
   getToolDetails(toolId: string, config?: { signal?: AbortSignal }): Promise<any>;
   getCustomTool(toolId: string, config?: { signal?: AbortSignal }): Promise<any>;
   createCustomTool(data: any): Promise<any>;
@@ -31,6 +32,10 @@ export const toolsApi: ToolsApi = {
   },
 
   // Native Tool Registry (single source of truth for UI tool pickers)
+  async getToolRegistryDefaults(this: APIClient) {
+    return this.get('/api/tools/registry/defaults');
+  },
+
   async listToolRegistry(this: APIClient, config?: { signal?: AbortSignal }) {
     return this.get('/api/tools/registry', config);
   },

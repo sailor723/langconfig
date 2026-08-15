@@ -19,6 +19,17 @@ from tools.native_tools import get_tool_registry, load_legacy_native_tools
 router = APIRouter(prefix="/api/tools", tags=["tools"])
 
 
+@router.get("/registry/defaults")
+async def get_registry_defaults() -> Dict[str, List[str]]:
+    """The default native-tool set applied to agents with no configured tools.
+
+    The UI pre-checks these in the tool picker so what an agent gets at runtime
+    (core/tools/defaults.py) is visible before saving.
+    """
+    from core.tools.defaults import DEFAULT_NATIVE_TOOLS
+    return {"tool_ids": DEFAULT_NATIVE_TOOLS}
+
+
 def _load_db_rows() -> List[Any]:
     """Load all custom_tools rows (built-in and user-defined)."""
     from db.database import SessionLocal

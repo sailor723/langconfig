@@ -51,7 +51,7 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   const t = useLayoutTokens();
   const { closeTab, openTab } = useLayoutState();
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
-  const { isLoading: nativeToolsLoading, groupedByCategory } = useAvailableTools();
+  const { isLoading: nativeToolsLoading, groupedByCategory, defaultToolIds } = useAvailableTools();
 
   // Section state
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
@@ -97,7 +97,15 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   const [availableCustomTools, setAvailableCustomTools] = useState<
     { id: number; tool_id: string; name: string; description: string }[]
   >([]);
-  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>([]);
+  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(defaultToolIds);
+  // Apply the default tool set once loaded (async hook) when nothing is
+  // selected yet — new agents start with the universal base pre-checked.
+  useEffect(() => {
+    if (defaultToolIds.length && selectedNativeTools.length === 0) {
+      setSelectedNativeTools(defaultToolIds);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultToolIds]);
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>([]);
   const [showAllTools, setShowAllTools] = useState(true);
 

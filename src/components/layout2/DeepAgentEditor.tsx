@@ -88,11 +88,20 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   }, []);
 
   // ── Tools state (interactive picker) ──
-  const { isLoading: toolsLoading, groupedByCategory } = useAvailableTools();
+  const { isLoading: toolsLoading, groupedByCategory, defaultToolIds } = useAvailableTools();
   const [availableCustomTools, setAvailableCustomTools] = useState<
     { id: number; tool_id: string; name: string; description: string }[]
   >([]);
-  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(toToolIdList(config.native_tools));
+  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(
+    toToolIdList(config.native_tools).length ? toToolIdList(config.native_tools) : defaultToolIds);
+  // Apply the default tool set once loaded (async hook) when the agent has no
+  // configured tools yet — new agents start with the universal base pre-checked.
+  useEffect(() => {
+    if (defaultToolIds.length && selectedNativeTools.length === 0) {
+      setSelectedNativeTools(defaultToolIds);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultToolIds]);
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(toToolIdList(config.custom_tools));
   const [showAllTools, setShowAllTools] = useState(true);
 
