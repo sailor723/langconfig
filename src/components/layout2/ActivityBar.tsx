@@ -11,7 +11,6 @@
  * Vault opens a popover (Obsidian-style vault switcher) instead of navigating.
  */
 import { useState, useRef, Fragment } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useLayoutState, ACTIVITIES, type ActivityDef, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
@@ -104,7 +103,6 @@ interface ActivityBarProps {
 export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
   const { activeActivity, setActiveActivity, sidebarOpen, toggleSidebar, rightPanelOpen, toggleRightPanel } = useLayoutState();
   const t = useLayoutTokens();
-  const navigate = useNavigate();
   const [vaultOpen, setVaultOpen] = useState(false);
   const vaultBtnRef = useRef<HTMLButtonElement | null>(null);
 
@@ -190,11 +188,10 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
 
       <div style={{ flex: 1 }} />
 
-      {/* Settings gear — opens the full Settings page (Models, theme,
-          language, workspace, storage, search providers, …) */}
+      {/* Settings gear — opens the DSH-style settings modal (centered panel) */}
       <button
         title="Settings"
-        onClick={() => navigate('/settings')}
+        onClick={() => window.dispatchEvent(new CustomEvent('settings:open'))}
         style={{
           width: 48,
           height: 48,

@@ -33,7 +33,7 @@ import ProjectHomePage from './pages/ProjectHomePage';
 import DeepAgentHomePage from './components/layout2/DeepAgentHomePage';
 import AgentHomePage from './components/layout2/AgentHomePage';
 import AnalysisPage from './pages/AnalysisPage';
-import SettingsView from './pages/SettingsPage';
+import SettingsModal from './pages/SettingsPage';
 import { ThemeProvider } from './lib/themes';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { ToastProvider, ToastContainer } from './hooks/useToast';
@@ -249,6 +249,17 @@ function AppContent() {
     const handler = () => setSetupNeeded(true);
     window.addEventListener('setup:open', handler);
     return () => { cancelled = true; window.removeEventListener('setup:open', handler); };
+  }, []);
+
+  // ── Settings modal (DSH-style centered panel) ────────────
+  // Opened by the activity-bar gear via the 'settings:open' event; renders as
+  // an overlay over the current view (the app stays visible behind the mask).
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setSettingsOpen(true);
+    window.addEventListener('settings:open', handler);
+    return () => window.removeEventListener('settings:open', handler);
   }, []);
 
   const [selectedRecipe, setSelectedRecipe] = useState<WorkflowRecipe | null>(null);
@@ -493,7 +504,6 @@ function AppContent() {
       case 'prompt': return <PromptHomePage />;
       case 'knowledge': return <KnowledgeHomePage />;
       case 'analysis': return <AnalysisPage />;
-      case 'settings': return <SettingsView />;
       case 'playground': return <PlaygroundPage />;
       case 'deepagent-studio': return <DeepAgentStudioPage />;
       default: return <HomePage />;
@@ -521,6 +531,7 @@ function AppContent() {
   }
 
   return (
+    <>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', overflow: 'hidden' }}>
       {/* Main row */}
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
@@ -554,8 +565,7 @@ function AppContent() {
           <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
             <Workspace fallback={renderCurrentPage()} />
           </div>
-          {/* Hide the terminal/log panel on the Settings page (clean DSH-style view) */}
-          {currentView !== 'settings' && <BottomPanel />}
+          <BottomPanel />
         </div>
 
         {/* Right panel: NodeConfigPanel when node selected, Chat otherwise */}
@@ -585,6 +595,17 @@ function AppContent() {
 
       <Footer />
     </div>
+
+    {/* Settings modal (DSH-style centered panel) — over the app */}
+    {(settingsOpen || currentView === 'settings') && (
+      <SettingsModal
+        onClose={() => {
+          setSettingsOpen(false);
+          if (currentView === 'settings') navigate('/');
+        }}
+      />
+    )}
+    </>
   );
 }
 
