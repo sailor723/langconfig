@@ -68,6 +68,10 @@ async def get_registry() -> List[Dict[str, Any]]:
             "description": (row.description or "")[:140],
             "category": row.category or "misc",
             "requires_api_key": row.requires_api_key,
+            # DSH-style declarative definition (Phase A): category/order/
+            # timeout/output_schema/guards/presentation for prompt assembly
+            # and the UI.
+            "definition": row.definition,
         })
         db_ids.add(row.tool_id)
 

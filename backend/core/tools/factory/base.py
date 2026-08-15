@@ -60,23 +60,45 @@ class _ToolFactoryBaseMixin:
         tool_type = tool_config.get("tool_type", "api")
         template_type = tool_config.get("template_type", "custom")
 
+        # DSH-style declarative definition (docs/tools-refactor.md §3): parse
+        # once, attach as tool metadata for the registry / prompt assembly.
+        from core.tools.definition import ToolDefinition
+        definition = ToolDefinition.from_row(tool_config.get("definition"))
+
         logger.info(f"Creating custom tool: {tool_config['name']} (type: {tool_type})")
 
         # Route to appropriate tool creator based on type
         if tool_type == ToolTypes.API:
-            return await ToolFactory._create_api_tool(tool_config, project_id)
+            tool = await ToolFactory._create_api_tool(tool_config, project_id)
         elif tool_type == ToolTypes.NOTIFICATION:
-            return await ToolFactory._create_notification_tool(tool_config, project_id)
+            tool = await ToolFactory._create_notification_tool(tool_config, project_id)
         elif tool_type == ToolTypes.IMAGE_VIDEO:
-            return await ToolFactory._create_image_video_tool(tool_config, project_id)
+            tool = await ToolFactory._create_image_video_tool(tool_config, project_id)
         elif tool_type == ToolTypes.DATABASE:
-            return await ToolFactory._create_database_tool(tool_config, project_id)
+            tool = await ToolFactory._create_database_tool(tool_config, project_id)
         elif tool_type == ToolTypes.DATA_TRANSFORM:
-            return await ToolFactory._create_data_transform_tool(tool_config, project_id)
+            tool = await ToolFactory._create_data_transform_tool(tool_config, project_id)
         elif tool_type == ToolTypes.PYTHON_FUNCTION or tool_type == "python_function":
-            return await ToolFactory._create_python_function_tool(tool_config, project_id)
+            tool = await ToolFactory._create_python_function_tool(tool_config, project_id)
         else:
             raise NotImplementedError(f"Tool type '{tool_type}' is not yet implemented")
+
+        return ToolFactory._attach_definition(tool, definition)
+
+    @staticmethod
+    def _attach_definition(tool: BaseTool, definition: Any) -> BaseTool:
+        """Attach the declarative definition as tool metadata (Phase A).
+
+        Enforcement of timeout/guards/output-schema lands in Phase B; the
+        metadata already surfaces in the registry and future prompt assembly.
+        """
+        meta = dict(getattr(tool, "metadata", None) or {})
+        meta["definition"] = definition.to_metadata()
+        try:
+            tool.metadata = meta
+        except Exception:  # noqa: BLE001 — metadata is advisory, never fatal
+            pass
+        return tool
 
     @staticmethod
     def validate_tool_config(tool_config: Dict[str, Any]) -> ValidationResult:

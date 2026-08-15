@@ -71,34 +71,44 @@ class TestMetadataExtractionIntegration:
         """Test extracting user metadata from a short conversation."""
         from core.agents.memory import SimpleMemory
         from db.database import AsyncSessionLocal
+        from models.core import Project
 
-        # Simulate: agent stores memory, then we extract metadata
+        # agent_memories FKs to projects — create our own project so the test
+        # is self-contained on any (fresh) test database.
         session = AsyncSessionLocal()
-        mem = SimpleMemory(project_id=1, agent_id="task_meta_test", db_session=session)
+        project = Project(name="summarization-test")
+        session.add(project)
+        await session.commit()
+        await session.refresh(project)
+        try:
+            mem = SimpleMemory(project_id=project.id, agent_id="task_meta_test", db_session=session)
 
-        # Store user info (simulating what the LLM would do with memory_store)
-        store_result = await mem.save_to_memory(
-            memory_content="User's name is Weiping",
-            memory_type="fact",
-            importance=8,
-            tags=["user_info"],
-        )
-        assert "error" not in store_result.lower()
+            # Store user info (simulating what the LLM would do with memory_store)
+            store_result = await mem.save_to_memory(
+                memory_content="User's name is Weiping",
+                memory_type="fact",
+                importance=8,
+                tags=["user_info"],
+            )
+            assert "error" not in store_result.lower()
 
-        # Store preference
-        await mem.save_to_memory(
-            memory_content="User likes the color blue",
-            memory_type="fact",
-            importance=5,
-            tags=["preference"],
-        )
+            # Store preference
+            await mem.save_to_memory(
+                memory_content="User likes the color blue",
+                memory_type="fact",
+                importance=5,
+                tags=["preference"],
+            )
 
-        # Recall all memories to simulate metadata extraction
-        all_memories = await mem.recall_memory()
-        assert "Weiping" in all_memories
-        assert "blue" in all_memories
-
-        await session.close()
+            # Recall all memories to simulate metadata extraction
+            all_memories = await mem.recall_memory()
+            assert "Weiping" in all_memories
+            assert "blue" in all_memories
+        finally:
+            # Clean up (memories cascade on project delete).
+            await session.delete(project)
+            await session.commit()
+            await session.close()
 
     def test_conversation_turn_logging(self):
         """Test that conversation turns can be logged to checkpointer."""

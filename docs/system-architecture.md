@@ -848,7 +848,10 @@ Reusable engines that both agent types and workflows share.
 ### `core/tools/` — `factory/` (base, builders, models), `adapters/llamaindex.py`,
 
 `templates/` (api/cms/data/database/image/notification/python/social/video), `bigtool_registry.py`,
-`execution_wrapper.py`, `seed.py`
+`execution_wrapper.py`, `seed.py`, and the DSH-shaped tool surface (§16.3):
+`definition.py` (declarative `ToolDefinition`), `registry.py` (DB-backed
+`ToolRegistry` + ordering + `resolve_for_agent`), `pipeline.py`
+(`apply_tool_pipeline` — approval guard / timeout / output-schema normalization)
 
 ### `core/models/` — `registry.py`, `router.py`, `selector.py`, `hooks.py` (model routing/capabilities)
 
@@ -1148,7 +1151,7 @@ SQLAlchemy models in `backend/models/` map to these tables:
 | Model (file)                                                              | Table purpose                                                                                                            |
 | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `deep_agent.py` (`DeepAgentTemplate` / `DeepAgentConfig`)           | **`deep_agent_templates`** — both normal agents *and* deep agents, distinguished by `config.use_deepagents` |
-| `custom_tool.py`                                                        | **`custom_tools`** — user tools + built-in seeds (`is_builtin=True`)                                          |
+| `custom_tool.py`                                                        | **`custom_tools`** — user tools + built-in seeds (`is_builtin=True`), each carrying code + input schema + a DSH-style `definition` JSONB (category/order/timeout/guards/output-schema, §16.3) |
 | `skill.py`                                                              | **`skills`** — skill catalog                                                                                    |
 | `workflow.py`, `workflow_schedule.py`, `workflow_trigger.py`        | Workflows + cron schedules + event triggers                                                                              |
 | `agent_memory.py`                                                       | Long-term agent memories (pgvector)                                                                                      |
@@ -1298,6 +1301,51 @@ POST /api/settings/mutate
   "expected_revision": 2 }
 → 200 { "ns": "models", "value": {…redacted…}, "revision": 3, "secrets": […] } | 409 on stale
 ```
+
+### 16.3 Tools — DSH-shaped definitions on the compile model (Phase 6)
+
+> Full design + phase record: `docs/tools-refactor.md` · status: ✅ Phases A+B.
+
+LangConfig's tool system compiles **DB rows → runnable tools** at runtime
+(`custom_tools` → `ToolFactory` codegen → `StructuredTool`), and the tool source
+is split between the seed-time implementations (`tools/native_impl.py`, baked
+into rows by `seed_builtin_tools.py`) and the 9 legacy-only harness tools
+(`tools/native_tools.py`: injected-state, Playwright, TODO/VFS helpers).
+Phases A+B added the DSH-style declarative surface on top of that compile model:
+
+- **`ToolDefinition`** (`core/tools/definition.py`) — the DSH `defineTool`
+  analog: `category`, `order`, `section`, `timeout_ms`, `is_concurrency_safe`,
+  `output_schema`, `guard` (approval/confirmation), `presentation`
+  (icon/requires_api_key/hidden). Stored as a `definition` JSONB column on
+  `custom_tools` (alembic `029`), populated for every built-in by the seeder
+  (category + seed order) and attached as `tool.metadata["definition"]` by
+  `ToolFactory.create_tool`.
+- **`ToolRegistry`** (`core/tools/registry.py`) — the single surface for
+  definitions + ordering: `list_definitions()` merges DB rows (built-in +
+  project-scoped custom) with the 9 legacy tools (synthesized definitions),
+  ordered by `definition.order`; `resolve_for_agent()` returns the ordered,
+  deduplicated, alias-resolved tool set an agent config selects (native + cli +
+  custom + memory/rag). `run_code` is reserved for Code Mode (Phase C).
+- **Execution pipeline** (`core/tools/pipeline.py`) — `apply_tool_pipeline()`
+  wraps every compiled tool whose definition requests enforcement, wired into
+  `AgentFactory.create_agent` after tool assembly: **guard.approval** (blocked
+  until `ApprovalGate.grant()` — HITL seam), **timeout_ms** (`asyncio.wait_for`),
+  **output_schema** (declared now, enforced gradually). Additive — tools without
+  enforcement pass through untouched.
+
+```
+custom_tools rows (code + input_schema + definition JSONB)   tools/native_tools.py (9 legacy)
+        │ ToolFactory.create_tool() (compiles row → StructuredTool)   │ synthesized definitions
+        │ attaches definition metadata                               ▼
+        ▼                                          ToolRegistry.list_definitions() (ordered)
+   ToolLoader (native/custom/cli/memory/rag)
+        │
+        ▼
+   apply_tool_pipeline(tools)  →  AgentFactory.create_agent() → CompiledStateGraph
+```
+
+Registry + definitions are the surface Phase C (Code-Mode `run_code` + generated
+Python SDK) and Phase D (ordered prompt guidance, tool packages) build on.
 
 
 ---
