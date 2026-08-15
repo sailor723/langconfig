@@ -59,11 +59,11 @@ class _WorkflowNodesMixin:
                 # Get model with fallback - treat "none" as missing (control nodes use this)
                 model = agent_config.get("model")
                 if not model or model == "none":
-                    # Use the app-wide default model (root .env DEFAULT_MODEL)
+                    # Use the app-wide default model (settings documents)
                     # instead of a hardcoded one.
                     try:
-                        from config import settings as app_settings
-                        model = app_settings.default_model or "gpt-4o-mini"
+                        from core.settings import runtime_get
+                        model = runtime_get("models", "default_model") or "gpt-4o-mini"
                     except Exception:
                         model = "gpt-4o-mini"  # last resort
                 temperature = agent_config.get("temperature", 0.7)
@@ -1362,8 +1362,8 @@ When your work is complete, deliver the final result and END."""
         if not model_name:
             # Fall back to the app-wide default model instead of a hardcoded one
             try:
-                from config import settings as app_settings
-                model_name = app_settings.default_model
+                from core.settings import runtime_get
+                model_name = runtime_get("models", "default_model")
             except Exception:
                 model_name = "gpt-4o-mini"
         temperature = agent_config.get("temperature", 0.7)

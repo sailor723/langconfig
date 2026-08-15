@@ -66,6 +66,11 @@ def test_resolver_falls_back_when_empty_string(tmp_path):
 async def test_regular_agent_gets_workspace_save_document_tool(tmp_path, monkeypatch):
     """A regular agent built with workspace_root must expose save_document
     and writing through it lands a file in the workspace."""
+    import os
+    import pytest
+
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY not set (enter it in Settings → Models)")
     from core.agents.factory import AgentFactory
 
     m = _make_manager(tmp_path)

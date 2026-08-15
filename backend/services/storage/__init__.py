@@ -30,6 +30,7 @@ def get_storage() -> StorageBackend:
     global _storage
     if _storage is None:
         from config import settings
+        from core.settings import runtime_get
         mode = (settings.storage_mode or "local").lower()
         if mode == "db":
             _storage = DbStorageBackend()
@@ -39,8 +40,9 @@ def get_storage() -> StorageBackend:
                 "STORAGE_MODE=s3 requires ObjectStorageBackend (future phase)"
             )
         else:
-            _storage = LocalStorageBackend(settings.storage_base_dir or "./data/storage")
-            logger.info(f"StorageBackend: local ({settings.storage_base_dir})")
+            base_dir = runtime_get("storage", "base_dir") or "./data/storage"
+            _storage = LocalStorageBackend(base_dir)
+            logger.info(f"StorageBackend: local ({base_dir})")
     return _storage
 
 

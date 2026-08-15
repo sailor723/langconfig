@@ -102,11 +102,18 @@ def build_chat_model(
             client_kwargs={"timeout": 600},
         )
 
+    # Phase 5b: keys are wizard-only (settings documents, encrypted at rest).
+    # get_api_key_from_db resolves .env first, then the models.api_keys document
+    # — so a key entered in Settings works here without .env.
+    from config import get_api_key_from_db
+    api_key = get_api_key_from_db("deepseek_api_key") or os.environ.get("DEEPSEEK_API_KEY")
+    base_url = os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com"
+
     return init_chat_model(
         model=model_name,
         model_provider=os.environ.get("DEFAULT_LLM_PROVIDER") or "deepseek",
-        api_key=os.environ.get("DEEPSEEK_API_KEY"),
-        base_url=os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com",
+        api_key=api_key,
+        base_url=base_url,
         temperature=temperature,
         max_tokens=max_tokens,
         streaming=True,

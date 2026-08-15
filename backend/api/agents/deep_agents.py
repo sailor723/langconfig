@@ -354,12 +354,12 @@ async def list_builtin_deep_templates() -> List[Dict[str, Any]]:
 # =============================================================================
 
 def _resolve_model(config: DeepAgentConfig, db: Session) -> Optional[str]:
-    """Resolve model from config or read default_model from DB settings (PostgreSQL)."""
+    """Resolve model from config or read default_model from the settings
+    documents (models namespace, seeded from .env)."""
     if config.model:
         return config.model
-    from models.settings import Settings
-    settings = db.query(Settings).filter(Settings.id == 1).first()
-    return settings.default_model if settings else None
+    from core.settings import resolve_value
+    return resolve_value(db, "models").get("default_model")
 
 
 @router.post("/", response_model=DeepAgentResponse)

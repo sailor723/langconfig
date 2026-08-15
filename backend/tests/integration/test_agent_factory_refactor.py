@@ -22,6 +22,7 @@ TokenTrackingCallback, ExecutionEventCallbackHandler, and SimpleWorkflowExecutor
 
 import pytest
 import asyncio
+import os
 from typing import List, Dict, Any
 import logging
 
@@ -33,6 +34,13 @@ from models.agent_config_schema import (
     ConfigNormalizer
 )
 from core.models.registry import model_registry
+
+
+def _require_anthropic_key():
+    """These integration tests build real Claude LLMs. API keys are wizard-only
+    (Settings → Models, stored encrypted in the DB) — skip when no key is set."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY not set (enter it in Settings → Models)")
 from core.middleware.routing import ModelRouter, TaskComplexity, analyze_task_complexity
 
 
@@ -103,6 +111,7 @@ class TestCriticalFixes:
 
     @pytest.mark.asyncio
     async def test_streaming_configuration_passed(self, basic_agent_config):
+        _require_anthropic_key()
         """Test that streaming flag is properly passed to create_agent."""
         agent_graph, tools, callbacks = await AgentFactory.create_agent(
             agent_config=basic_agent_config,
@@ -139,6 +148,7 @@ class TestCriticalFixes:
 
     @pytest.mark.asyncio
     async def test_tool_binding_verification(self, basic_agent_config):
+        _require_anthropic_key()
         """Test that tools are bound and verified."""
         agent_graph, tools, callbacks = await AgentFactory.create_agent(
             agent_config=basic_agent_config,
@@ -153,6 +163,7 @@ class TestCriticalFixes:
 
     @pytest.mark.asyncio
     async def test_interrupt_configuration_custom_nodes(self, complex_agent_config):
+        _require_anthropic_key()
         """A complex agent config (without invalid interrupt node names) must
         build successfully. HITL interrupt wiring lives in the workflow
         executor (APPROVAL_NODE), not in per-agent interrupt_before lists."""
@@ -351,6 +362,7 @@ class TestModelRouting:
 
     @pytest.mark.asyncio
     async def test_routing_integration_in_agent_factory(self, routing_agent_config):
+        _require_anthropic_key()
         """Test model routing integration in agent factory."""
         agent_graph, tools, callbacks = await AgentFactory.create_agent(
             agent_config=routing_agent_config,
@@ -388,6 +400,7 @@ class TestWorkflowIntegration:
 
     @pytest.mark.asyncio
     async def test_agent_with_multiple_tools(self):
+        _require_anthropic_key()
         """Test agent creation with multiple tools for parallel execution."""
         config = {
             "model": "claude-haiku-4-5-20251015",

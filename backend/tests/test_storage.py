@@ -395,13 +395,19 @@ def test_storage_mode_api_switches_and_persists(tmp_path, monkeypatch):
     from models.settings import Settings as SettingsModel
     from services import storage as storage_mod
 
-    # sqlite DB hosting the settings table, shared across threads.
+    # sqlite DB hosting the settings table + settings_documents, shared across
+    # threads. The engine's ensure-table flag is process-global, so reset it and
+    # create the documents table explicitly on this engine.
     engine = create_engine(
         "sqlite:///:memory:",
         poolclass=StaticPool,
         connect_args={"check_same_thread": False},
     )
     SettingsModel.__table__.create(engine)
+    from core.settings import SettingsDocument as _SettingsDocument
+    from core import settings as _cs
+    _cs._reset_table_ensure()  # noqa: SLF001 — test hook
+    _SettingsDocument.__table__.create(engine)
     Session = sessionmaker(bind=engine)
 
     app = FastAPI()
@@ -438,9 +444,9 @@ def test_storage_mode_api_switches_and_persists(tmp_path, monkeypatch):
     # Runtime effects: process-wide setting mutated + cache cleared.
     assert app_settings.storage_mode == "db"
     assert storage_mod._storage is None
-    # Persisted in the settings table.
-    row = Session().query(SettingsModel).first()
-    assert row.storage_mode == "db"
+    # Persisted in the storage settings document (Phase 5 — no legacy column).
+    from core.settings import get_document
+    assert get_document(Session(), "storage")["mode"] == "db"
 
     resp = client.get("/api/settings/storage-mode")
     assert resp.json()["mode"] == "db"

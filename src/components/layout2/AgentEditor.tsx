@@ -150,13 +150,15 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     );
   }, []);
 
-  // For new agents, fetch default model from DB settings
+  // For new agents, fetch default model from settings (describe → models ns)
   useEffect(() => {
     if (!isNew || config.model) return;
     let cancelled = false;
-    apiClient.getSettings().then((res: any) => {
-      if (!cancelled && res?.data?.default_model) {
-        setEditableModel(res.data.default_model);
+    apiClient.describeSettings().then((res: any) => {
+      const ns = (res?.data?.namespaces || []).find((n: any) => n.ns === 'models');
+      const model = ns?.value?.default_model;
+      if (!cancelled && model) {
+        setEditableModel(model);
       }
     }).catch(() => {
       // Fallback: try localStorage cache

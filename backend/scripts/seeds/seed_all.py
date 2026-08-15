@@ -10,14 +10,15 @@ What it does (every step is idempotent):
     1. init_server()            -> create the PostgreSQL role + database if missing
     2. init_db()                -> create all 50 tables + pgvector extension
     3. alembic stamp head       -> record the migration version (no replay needed)
-    4. seed_models.py           -> 28 cloud LLM providers (models table)
-    5. seed_search_providers.py -> 6 search backends
-    6. custom_tools_dump.sql    -> 53 tools incl. your 10 custom ones (restore if empty;
+    4. seed_settings.py         -> default settings documents (models/general/etc.)
+    5. seed_models.py           -> 28 cloud LLM providers (models table)
+    6. seed_search_providers.py -> 6 search backends
+    7. custom_tools_dump.sql    -> 53 tools incl. your 10 custom ones (restore if empty;
                                    otherwise seed_builtin_tools keeps the 43 built-ins in sync)
-    7. deep_agents_dump.sql     -> 42 deep agents incl. your custom ones (restore if empty
+    8. deep_agents_dump.sql     -> 42 deep agents incl. your custom ones (restore if empty
                                    or under-populated — fewer rows than the dump)
-    8. skills FS -> DB sync     -> upsert all SKILL.md files from backend/skills/ (33 total)
-    9. chinook (best-effort)    -> create the sample DB + restore 11 tables for Graph Studio
+    9. skills FS -> DB sync     -> upsert all SKILL.md files from backend/skills/ (33 total)
+   10. chinook (best-effort)    -> create the sample DB + restore 11 tables for Graph Studio
 
 No full DB dump is needed: the role/database are created fresh by step 1 and only
 data-only dumps are reloaded, so machine-specific state (API keys, local models,
@@ -167,7 +168,7 @@ def _table_count(table: str) -> int:
 # ---------------------------------------------------------------------------
 def step_init_server() -> None:
     """Create the PostgreSQL role + database if they don't exist (idempotent)."""
-    print("\n[1/8] init_server  (create role + database if missing)")
+    print("\n[1/10] init_server  (create role + database if missing)")
     url = make_url(engine.url.render_as_string(hide_password=False))
     user = url.username or "langconfig"
     dbname = url.database or "langconfig"
@@ -198,29 +199,34 @@ def step_init_server() -> None:
 
 
 def step_init_db() -> None:
-    print("\n[2/9] init_db()  (tables + pgvector)")
+    print("\n[2/10] init_db()  (tables + pgvector)")
     init_db()
 
 
 def step_stamp_head() -> None:
-    print("\n[3/9] alembic stamp head")
+    print("\n[3/10] alembic stamp head")
     # Fresh DBs cannot replay the 001..021 migration chain; stamping records the
     # version so future alembic operations (e.g. `alembic upgrade head`) work.
     subprocess.run([sys.executable, "-m", "alembic", "stamp", "head"], cwd=str(BACKEND_DIR), check=True)
 
 
+def step_settings() -> None:
+    print("\n[4/10] seed_settings.py  (default settings documents)")
+    _run_python(["scripts/seeds/seed_settings.py"])
+
+
 def step_models() -> None:
-    print("\n[4/9] seed_models.py  (28 cloud providers)")
+    print("\n[5/10] seed_models.py  (28 cloud providers)")
     _run_python(["scripts/seeds/seed_models.py"], {"MODELS_CSV": str(SEEDS_DIR / "models_seed.csv")})
 
 
 def step_search_providers() -> None:
-    print("\n[5/9] seed_search_providers.py  (6 search backends)")
+    print("\n[6/10] seed_search_providers.py  (6 search backends)")
     _run_python(["scripts/seeds/seed_search_providers.py"])
 
 
 def step_custom_tools(replace: bool) -> None:
-    print("\n[6/9] custom_tools  (53 tools incl. custom)")
+    print("\n[7/10] custom_tools  (53 tools incl. custom)")
     count = _table_count("custom_tools")
     if count == 0 or replace:
         if replace and count:
@@ -232,7 +238,7 @@ def step_custom_tools(replace: bool) -> None:
 
 
 def step_deep_agents(replace: bool) -> None:
-    print("\n[7/9] deep_agents  (42 agents incl. custom)")
+    print("\n[8/10] deep_agents  (42 agents incl. custom)")
     count = _table_count("deep_agent_templates")
     dump_count = _dump_row_count("deep_agents_dump.sql")
     if count == 0 or replace:
@@ -261,7 +267,7 @@ def step_skills() -> None:
     builtin folder, so this step is what makes personal skills appear on a fresh
     install. Mirrors the startup mtime-based upsert (never deletes).
     """
-    print("\n[8/9] skills  (FS -> DB sync)")
+    print("\n[9/10] skills  (FS -> DB sync)")
     from datetime import datetime, timezone
 
     from core.skills.sync import (
@@ -305,7 +311,7 @@ def step_skills() -> None:
 
 
 def step_chinook() -> None:
-    print("\n[9/9] chinook sample DB (Graph Studio SQL agent, best-effort)")
+    print("\n[10/10] chinook sample DB (Graph Studio SQL agent, best-effort)")
     try:
         owner = make_url(engine.url.render_as_string(hide_password=False)).username or "langconfig"
         if _psql("SELECT 1 FROM pg_database WHERE datname='chinook'", dbname="postgres") != "1":
@@ -330,7 +336,7 @@ def summary() -> None:
         ("skills", "skills"),
     ):
         print(f"  {label:<20} {_table_count(table)}")
-    print("  local_models/API keys  stay per-machine (.env / Settings)")
+    print("  local_models/API keys  configured per-machine in the Settings UI (DB)")
 
 
 def main() -> int:
@@ -346,6 +352,7 @@ def main() -> int:
     step_init_server()
     step_init_db()
     step_stamp_head()
+    step_settings()
     step_models()
     step_search_providers()
     step_custom_tools(replace=args.replace)

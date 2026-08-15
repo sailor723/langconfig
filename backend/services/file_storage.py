@@ -26,42 +26,49 @@ class FileStorage:
 
         Args:
             base_dir: Base directory for document storage. Defaults to
-                config.documents_base_dir (DOCUMENTS_BASE_DIR in the root
-                .env, else ./data/documents); a DB settings.storage_path
-                override wins at runtime.
+                ./data/documents; the storage settings document
+                (documents_base_dir, seeded from the old DOCUMENTS_BASE_DIR)
+                wins at runtime via ``_resolve_documents_base_dir``.
         """
         if base_dir is None:
-            try:
-                from config import settings
-                base_dir = getattr(settings, "documents_base_dir", None) or "./data/documents"
-            except Exception:
-                base_dir = "./data/documents"
+            base_dir = "./data/documents"
         self._default_base_dir = base_dir
         self._base_dir = None
         self._init_storage()
     
     def _init_storage(self):
-        """Initialize storage directory from settings."""
-        try:
-            from api.system.settings import _settings
-            base_dir = _settings.get("storage_path", self._default_base_dir)
-        except:
-            base_dir = self._default_base_dir
-        
+        """Initialize storage directory from the settings documents (storage
+        namespace → documents_base_dir; falls back to the .env default)."""
+        base_dir = self._resolve_documents_base_dir()
         self._base_dir = Path(base_dir)
         self._base_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"File storage initialized at {self._base_dir.absolute()}")
-    
+
+    def _resolve_documents_base_dir(self) -> str:
+        """Resolve the documents root: settings document > .env default."""
+        try:
+            from core.settings import resolve_value
+            from db.database import SessionLocal
+            db = SessionLocal()
+            try:
+                value = resolve_value(db, "storage").get("documents_base_dir")
+            finally:
+                db.close()
+            if value:
+                return value
+        except Exception:
+            pass
+        return self._default_base_dir
+
     @property
     def base_dir(self) -> Path:
         """Get current base directory, refreshing from settings if needed."""
         try:
-            from api.system.settings import _settings
-            current_path = _settings.get("storage_path", self._default_base_dir)
+            current_path = self._resolve_documents_base_dir()
             if str(self._base_dir) != current_path:
                 self._base_dir = Path(current_path)
                 self._base_dir.mkdir(parents=True, exist_ok=True)
-        except:
+        except Exception:
             pass
         return self._base_dir
 

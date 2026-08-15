@@ -287,18 +287,20 @@ def get_legacy_local_model(db: Session) -> Optional[LocalModelConfig]:
     Get local model config from .env (app_settings).
 
     Returns:
-        LocalModelConfig based on .env values, or None if not configured.
+        LocalModelConfig from the settings documents (models namespace), or
+        None if not configured.
     """
-    from config import settings as app_settings
+    from core.settings import local_llm_config
 
-    if not app_settings.local_llm_provider:
+    cfg = local_llm_config()
+    if not cfg["provider"]:
         return None
 
     return LocalModelConfig(
-        provider=app_settings.local_llm_provider,
-        base_url=app_settings.local_llm_base_url,
-        model_name=app_settings.local_llm_model,
-        api_key=app_settings.local_llm_api_key,
+        provider=cfg["provider"],
+        base_url=cfg["base_url"],
+        model_name=cfg["model_name"],
+        api_key=cfg["api_key"],
         timeout=600
     )
 

@@ -68,6 +68,40 @@ const tok = {
   error: '#e5484d',
 }
 
+// ── DSH-style settings wire helpers (docs/settings-refactor.md §6) ─────────
+
+interface SettingsNs {
+  ns: string
+  schema: any
+  value: Record<string, any>
+  user: Record<string, any>
+  revision: number
+  writable: boolean
+  secrets: { path: string[]; set: boolean }[]
+}
+
+type MutateOp = { op: 'set' | 'unset'; path: string[]; value?: any }
+
+async function describeNs(ns: string): Promise<SettingsNs | undefined> {
+  try {
+    const res = await apiClient.describeSettings()
+    return (res.data?.namespaces || []).find((n: any) => n.ns === ns)
+  } catch {
+    return undefined
+  }
+}
+
+/** Optimistic write helper: returns true on success, false on conflict/error
+ * (callers re-read from describe to recover the server truth). */
+async function mutateNs(ns: string, ops: MutateOp[]): Promise<boolean> {
+  try {
+    await apiClient.mutateSettings({ ns, ops })
+    return true
+  } catch {
+    return false
+  }
+}
+
 // ── Small presentational pieces (DSH vocabulary) ──────────────────
 
 function SectionTitle({ title, desc }: { title: string; desc?: string }) {
@@ -252,13 +286,14 @@ function GeneralSection({ i18n, activeTheme, setTheme }: {
   const [language, setLanguage] = useState(i18n.language)
 
   const load = useCallback(async () => {
-    try { const res = await apiClient.getGeneralSettings(); setGen(res.data || {}) } catch { /* noop */ }
+    try { const ns = await describeNs('general'); setGen(ns?.value || {}) } catch { /* noop */ }
   }, [])
   useEffect(() => { load() }, [load])
 
   const update = async (patch: Record<string, any>) => {
     setGen((prev: any) => ({ ...(prev || {}), ...patch }))
-    try { await apiClient.updateGeneralSettings(patch as any) } catch { /* noop */ }
+    const ok = await mutateNs('general', Object.entries(patch).map(([k, v]) => ({ op: 'set', path: [k], value: v })))
+    if (!ok) await load()  // conflict/error — re-read the server truth
   }
   const changeLanguage = async (lang: string) => { setLanguage(lang); i18n.changeLanguage(lang); await update({ language: lang }) }
   const changeTheme = async (name: ThemeName) => { setTheme(name); await update({ theme: name }) }
@@ -293,7 +328,7 @@ interface ModelInfo { model_id: string; display_name?: string; provider: string;
 
 function ModelsSection() {
   const { t } = useTranslation('chat')
-  const [keys, setKeys] = useState<{ provider: string; is_set: boolean; masked_key?: string | null; kind?: string }[]>([])
+  const [keys, setKeys] = useState<{ provider: string; is_set: boolean }[]>([])
   const [models, setModels] = useState<{ cloud: ModelInfo[]; local: ModelInfo[] }>({ cloud: [], local: [] })
   const [defaults, setDefaults] = useState<any>({ primary_model: '', fallback_models: [], temperature: 0, max_tokens: 0 })
   const [editing, setEditing] = useState<string | null>(null)
@@ -306,12 +341,24 @@ function ModelsSection() {
 
   const load = useCallback(async () => {
     try {
-      const [keysRes, modelsRes, defaultsRes] = await Promise.all([
-        apiClient.getApiKeys(), apiClient.listAvailableModels(), apiClient.getModelDefaults(),
+      const [descRes, modelsRes] = await Promise.all([
+        apiClient.describeSettings(), apiClient.listAvailableModels(),
       ])
-      setKeys(keysRes.data || [])
+      const ns: SettingsNs | undefined = (descRes.data?.namespaces || []).find((n: any) => n.ns === 'models')
+      const value = ns?.value || {}
+      // Provider rows derive from the redacted secret positions (DSH dots):
+      // models.api_keys.* fields, no values ever cross the wire.
+      const providers = (ns?.secrets || [])
+        .filter(s => s.path[0] === 'api_keys')
+        .map(s => ({ provider: s.path[1].replace(/_api_key$/, ''), is_set: s.set }))
+      setKeys(providers)
+      setDefaults({
+        primary_model: value.primary_model || '',
+        fallback_models: value.fallback_models || [],
+        temperature: value.default_temperature ?? 0,
+        max_tokens: value.max_tokens ?? 0,
+      })
       setModels({ cloud: modelsRes.data?.cloud_models || [], local: modelsRes.data?.local_models || [] })
-      setDefaults(defaultsRes.data || {})
     } catch (err) { console.error('Failed to load models settings:', err) }
   }, [])
   useEffect(() => { load() }, [load])
@@ -325,15 +372,28 @@ function ModelsSection() {
     }),
   ]
 
-  const keySet = (provider: string) => keys.find(k => k.provider === provider)?.is_set ?? false
-
   const saveKey = async (provider: string, key: string, base: string) => {
     const field = PROVIDER_FIELD[provider]
     const baseField = PROVIDER_BASE_FIELD[provider]
     if (!field) return
-    const payload: Record<string, string> = { [field]: key.trim() }
-    if (base.trim() && baseField) payload[baseField] = base.trim()
-    await apiClient.setApiKeys(payload as any)
+    const ops: MutateOp[] = []
+    const k = key.trim()
+    if (k) ops.push({ op: 'set', path: ['api_keys', field], value: k })
+    else ops.push({ op: 'unset', path: ['api_keys', field] })
+    const b = base.trim()
+    if (b && baseField) ops.push({ op: 'set', path: ['api_keys', baseField], value: b })
+    await mutateNs('models', ops)
+  }
+
+  /** Optimistic update of one model-defaults field (temperature → the models
+   * namespace's default_temperature). */
+  const updateDefault = async (patch: Record<string, any>) => {
+    setDefaults((p: any) => ({ ...p, ...patch }))
+    const ops: MutateOp[] = Object.entries(patch).map(([k, v]) => ({
+      op: 'set', path: [k === 'temperature' ? 'default_temperature' : k], value: v,
+    }))
+    const ok = await mutateNs('models', ops)
+    if (!ok) await load()
   }
 
   const handleEditSave = async (provider: string) => {
@@ -372,14 +432,14 @@ function ModelsSection() {
       <Row label={t('settings_default_model')} hint={t('settings_default_model_hint')}>
         <Select
           value={defaults.primary_model || ''} width={280}
-          onChange={async v => { setDefaults((p: any) => ({ ...p, primary_model: v })); try { await apiClient.updateModelDefaultsSettings({ primary_model: v }) } catch {} }}
+          onChange={v => updateDefault({ primary_model: v })}
           options={[{ value: '', label: t('settings_not_set') }, ...allModels]}
         />
       </Row>
       <Row label={t('settings_fallback_model')} hint={t('settings_fallback_model_hint')}>
         <Select
           value={defaults.fallback_models?.[0] || ''} width={280}
-          onChange={async v => { setDefaults((p: any) => ({ ...p, fallback_models: [v] })); try { await apiClient.updateModelDefaultsSettings({ fallback_models: [v] }) } catch {} }}
+          onChange={v => updateDefault({ fallback_models: [v] })}
           options={[{ value: '', label: t('settings_none') }, ...allModels]}
         />
       </Row>
@@ -388,14 +448,14 @@ function ModelsSection() {
           <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_temperature')}</span>
           <Input
             value={String(defaults.temperature ?? 0)} type="number" width={110}
-            onChange={async v => { const n = parseFloat(v) || 0; setDefaults((p: any) => ({ ...p, temperature: n })); try { await apiClient.updateModelDefaultsSettings({ temperature: n }) } catch {} }}
+            onChange={v => { const n = parseFloat(v) || 0; updateDefault({ temperature: n }) }}
           />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_max_tokens')}</span>
           <Input
             value={String(defaults.max_tokens ?? 0)} type="number" width={140}
-            onChange={async v => { const n = parseInt(v, 10) || 0; setDefaults((p: any) => ({ ...p, max_tokens: n })); try { await apiClient.updateModelDefaultsSettings({ max_tokens: n }) } catch {} }}
+            onChange={v => { const n = parseInt(v, 10) || 0; updateDefault({ max_tokens: n }) }}
           />
         </div>
       </div>
@@ -405,7 +465,7 @@ function ModelsSection() {
       {/* Provider rows (outlined cards + credential dot) */}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {keys.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary, padding: '8px 0' }}>{t('settings_loading_providers')}</li>}
-        {keys.filter(k => k.kind !== 'search').map(k => (
+        {keys.map(k => (
           <li key={k.provider} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -569,15 +629,21 @@ function WorkspaceSection() {
   const [saved, setSaved] = useState(false)
 
   const load = useCallback(async () => {
-    try { const res = await apiClient.getWorkspaceSettings(); setWs(res.data || {}); setPath(res.data?.workspace_path || '') } catch { /* noop */ }
+    try {
+      const ns = await describeNs('workspace')
+      const value = ns?.value || {}
+      setWs(value); setPath(value.workspace_path || '')
+    } catch { /* noop */ }
   }, [])
   useEffect(() => { load() }, [load])
 
   const save = async (patch: Record<string, any>) => {
     setSaved(false)
     try {
-      await apiClient.updateWorkspaceSettings(patch as any)
-      setWs((prev: any) => ({ ...(prev || {}), ...patch })); setSaved(true); setTimeout(() => setSaved(false), 2000)
+      const ok = await mutateNs('workspace', Object.entries(patch).map(([k, v]) => ({ op: 'set', path: [k], value: v })))
+      setWs((prev: any) => ({ ...(prev || {}), ...patch }))
+      if (!ok) await load()
+      setSaved(true); setTimeout(() => setSaved(false), 2000)
     } catch (err: any) { alert(err?.response?.data?.detail || 'Failed to save workspace settings') }
   }
   const setField = (key: string, value: any) => save({ [key]: value })
