@@ -47,15 +47,10 @@ DEFAULT_NATIVE_TOOLS: List[str] = [
     # web
     "web_search",
     "web_fetch",
-    # filesystem (deep agents get the SDK's set via middleware — deduped)
-    "ls",
-    "read_file",
-    "read_image",
-    "write_file",
-    "edit_file",
-    "glob",
-    "grep",
-    "delete_file",
+    # filesystem — the deepagents SDK provides ls/read_file/write_file/edit_file/
+    # glob/grep/delete via FilesystemMiddleware (default for all agents, with
+    # the format-aware backend wrap for multi-format documents). Only tools the
+    # SDK lacks stay native: rename_file, move_file, mkdir.
     "rename_file",
     "move_file",
     "mkdir",
