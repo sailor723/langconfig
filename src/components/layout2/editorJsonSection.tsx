@@ -21,6 +21,7 @@ export default function JsonEditorSection({ value, onChange, t }: JsonEditorSect
         spellCheck={false}
         style={{
           width: '100%',
+          height: 'calc(100vh - 210px)', // fill the editor panel height
           background: t.bgContent,
           border: `1px solid ${t.border}`,
           borderRadius: 4,
@@ -33,6 +34,7 @@ export default function JsonEditorSection({ value, onChange, t }: JsonEditorSect
           resize: 'vertical',
           outline: 'none',
           lineHeight: 1.5,
+          boxSizing: 'border-box',
         }}
       />
     </div>
