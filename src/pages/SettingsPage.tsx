@@ -659,6 +659,10 @@ function LocalModelsSection() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [serverModels, setServerModels] = useState<string[]>([])
+  // Per-row test state: only the row being tested shows the spinner and its
+  // own result — other rows stay interactive.
+  const [testingId, setTestingId] = useState<number | null>(null)
+  const [rowMsg, setRowMsg] = useState<{ id: number; ok: boolean; text: string } | null>(null)
 
   const load = useCallback(async () => {
     try { const res = await apiClient.listLocalModels(); setModels(Array.isArray(res.data) ? res.data : []) } catch { /* noop */ }
@@ -732,13 +736,13 @@ function LocalModelsSection() {
   }
 
   const test = async (id: number) => {
-    setBusy(true); setMsg(null)
+    setTestingId(id); setRowMsg(null)
     try {
       // Real LLM call to the SPECIFIC model (like the SaaS provider test).
       const res = await apiClient.testLocalModel(id)
       const d = res.data || {}
-      setMsg({ ok: !!d.success, text: d.success ? `✓ ${d.message}\n→ "${d.response}"` : `✗ ${d.message}` })
-    } catch { setMsg({ ok: false, text: '✗ Connection failed' }) } finally { setBusy(false) }
+      setRowMsg({ id, ok: !!d.success, text: d.success ? `✓ ${d.message} → "${d.response}"` : `✗ ${d.message}` })
+    } catch { setRowMsg({ id, ok: false, text: '✗ Connection failed' }) } finally { setTestingId(null) }
   }
 
   /** Fetch the model list from the server (Ollama /models) to fill the dropdown. */
@@ -773,26 +777,26 @@ function LocalModelsSection() {
       <SectionTitle title={t('settings_local_models')} desc="Local model servers (Ollama, LM Studio, vLLM, LiteLLM)." />
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {models.map(m => (
-          <li key={m.id} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-              <span style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>{m.display_name || m.name}</span>
-              <Dot state={m.is_validated ? 'configured' : 'missing'} />
-              <span style={{ fontSize: 11, lineHeight: '16px', color: tok.labelTertiary, fontFamily: 'monospace' }}>{m.provider} · {m.model_name}</span>
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-              <Btn dense onClick={() => test(m.id)} disabled={busy}>{busy ? t('settings_testing') : t('settings_test')}</Btn>
-              <Btn dense onClick={() => edit(m)}>{t('settings_edit')}</Btn>
-              <Btn dense variant="danger" onClick={() => remove(m.id)}>{t('settings_remove')}</Btn>
-            </span>
+          <li key={m.id} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                <span style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>{m.display_name || m.name}</span>
+                <Dot state={m.is_validated ? 'configured' : 'missing'} />
+                <span style={{ fontSize: 11, lineHeight: '16px', color: tok.labelTertiary, fontFamily: 'monospace' }}>{m.provider} · {m.model_name}</span>
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+                <Btn dense onClick={() => test(m.id)} disabled={testingId === m.id}>{testingId === m.id ? t('settings_testing') : t('settings_test')}</Btn>
+                <Btn dense onClick={() => edit(m)}>{t('settings_edit')}</Btn>
+                <Btn dense variant="danger" onClick={() => remove(m.id)}>{t('settings_remove')}</Btn>
+              </span>
+            </div>
+            {rowMsg && rowMsg.id === m.id && (
+              <div style={{ fontSize: 12, lineHeight: '18px', color: rowMsg.ok ? tok.success : tok.error }}>{rowMsg.text}</div>
+            )}
           </li>
         ))}
         {models.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary }}>No local models yet — add Ollama below.</li>}
       </ul>
-
-      {/* Test result — always visible, even outside the add form */}
-      {msg && !adding && (
-        <div style={{ fontSize: 12, lineHeight: '18px', color: msg.ok ? tok.success : tok.error, padding: '0 2px' }}>{msg.text}</div>
-      )}
 
       {adding && (
         <div style={{ borderRadius: 12, background: tok.module, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
