@@ -18,12 +18,13 @@ import { useTranslation } from 'react-i18next'
 import { themes, useTheme, type ThemeName } from '../lib/themes'
 import apiClient from '../lib/api-client'
 
-type SectionId = 'general' | 'models' | 'webapi' | 'workspace' | 'storage' | 'about'
+type SectionId = 'general' | 'models' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'about'
 
 const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
   { id: 'general', labelKey: 'settings_general', icon: 'tune' },
   { id: 'models', labelKey: 'settings_models', icon: 'smart_toy' },
   { id: 'webapi', labelKey: 'settings_search_providers', icon: 'travel_explore' },
+  { id: 'localmodels', labelKey: 'settings_local_models', icon: 'terminal' },
   { id: 'workspace', labelKey: 'settings_workspace', icon: 'folder_open' },
   { id: 'storage', labelKey: 'settings_storage', icon: 'storage' },
   { id: 'about', labelKey: 'settings_about', icon: 'info' },
@@ -269,6 +270,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               {section === 'general' && <GeneralSection i18n={i18n} activeTheme={activeTheme.name} setTheme={setTheme} />}
               {section === 'models' && <ModelsSection />}
               {section === 'webapi' && <SearchSection />}
+              {section === 'localmodels' && <LocalModelsSection />}
               {section === 'workspace' && <WorkspaceSection />}
               {section === 'storage' && <StorageSection />}
               {section === 'about' && <AboutSection />}
@@ -637,6 +639,140 @@ function SearchSection() {
         {providers.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary }}>{t('settings_no_search_providers')}</li>}
       </ul>
       {testMsg && <div style={{ fontSize: 12, lineHeight: '18px', color: testMsg.ok ? tok.success : tok.error }}>{testMsg.text}</div>}
+    </div>
+  )
+}
+
+// ── Local Models (Ollama / LM Studio / vLLM) ──────────────────────
+
+interface LocalModelRow {
+  id: number; name: string; display_name: string; provider: string;
+  base_url: string; model_name: string; is_validated: boolean; validation_error?: string | null;
+}
+
+function LocalModelsSection() {
+  const { t } = useTranslation('chat')
+  const [models, setModels] = useState<LocalModelRow[]>([])
+  const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [form, setForm] = useState({ name: '', display_name: '', provider: 'ollama', base_url: '', model_name: '', api_key: '' })
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const load = useCallback(async () => {
+    try { const res = await apiClient.listLocalModels(); setModels(Array.isArray(res.data) ? res.data : []) } catch { /* noop */ }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const set = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const save = async () => {
+    if (!form.name.trim() || !form.base_url.trim() || !form.model_name.trim()) {
+      setMsg({ ok: false, text: 'name, base URL and model name are required' }); return
+    }
+    setBusy(true); setMsg(null)
+    try {
+      if (editingId !== null) {
+        await apiClient.updateLocalModel(editingId, {
+          display_name: form.display_name, base_url: form.base_url, model_name: form.model_name,
+          ...(form.api_key.trim() ? { api_key: form.api_key.trim() } : {}),
+        })
+      } else {
+        await apiClient.createLocalModel({
+          name: form.name.trim(), display_name: form.display_name.trim() || form.name.trim(),
+          provider: form.provider, base_url: form.base_url.trim(), model_name: form.model_name.trim(),
+          ...(form.api_key.trim() ? { api_key: form.api_key.trim() } : {}),
+        })
+      }
+      setAdding(false); setEditingId(null); setForm({ name: '', display_name: '', provider: 'ollama', base_url: '', model_name: '', api_key: '' })
+      setMsg({ ok: true, text: 'Saved ✓' }); await load(); setTimeout(() => setMsg(null), 2500)
+    } catch (err: any) { setMsg({ ok: false, text: err?.response?.data?.detail || 'Failed to save' }) }
+    finally { setBusy(false) }
+  }
+
+  const test = async (id: number) => {
+    setBusy(true); setMsg(null)
+    try {
+      const res = await apiClient.validateLocalModel(id)
+      setMsg({ ok: !!res.data?.success, text: res.data?.message || (res.data?.success ? '✓ Connected' : '✗ Failed') })
+    } catch { setMsg({ ok: false, text: '✗ Connection failed' }) } finally { setBusy(false) }
+  }
+
+  const remove = async (id: number) => {
+    try { await apiClient.deleteLocalModel(id); await load() } catch { /* noop */ }
+  }
+
+  const edit = (m: LocalModelRow) => {
+    setEditingId(m.id); setAdding(true)
+    setForm({ name: m.name, display_name: m.display_name, provider: m.provider, base_url: m.base_url, model_name: m.model_name, api_key: '' })
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
+      <SectionTitle title={t('settings_local_models')} desc="Local model servers (Ollama, LM Studio, vLLM, LiteLLM)." />
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {models.map(m => (
+          <li key={m.id} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              <span style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>{m.display_name || m.name}</span>
+              <Dot state={m.is_validated ? 'configured' : 'missing'} />
+              <span style={{ fontSize: 11, lineHeight: '16px', color: tok.labelTertiary, fontFamily: 'monospace' }}>{m.provider} · {m.model_name}</span>
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+              <Btn dense onClick={() => test(m.id)} disabled={busy}>{busy ? t('settings_testing') : t('settings_test')}</Btn>
+              <Btn dense onClick={() => edit(m)}>{t('settings_edit')}</Btn>
+              <Btn dense variant="danger" onClick={() => remove(m.id)}>{t('settings_remove')}</Btn>
+            </span>
+          </li>
+        ))}
+        {models.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary }}>No local models yet — add Ollama below.</li>}
+      </ul>
+
+      {adding && (
+        <div style={{ borderRadius: 12, background: tok.module, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+              <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Name</span>
+              <Input value={form.name} onChange={set('name')} placeholder="e.g. ollama-qwen3 (no 'local-' prefix)" mono width="100%" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+              <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Provider</span>
+              <Select value={form.provider} onChange={v => set('provider')(String(v))} options={[
+                { value: 'ollama', label: 'Ollama' }, { value: 'lmstudio', label: 'LM Studio' },
+                { value: 'vllm', label: 'vLLM' }, { value: 'litellm', label: 'LiteLLM' }, { value: 'custom', label: 'Custom' },
+              ]} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 2 }}>
+              <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Base URL (ends with /v1)</span>
+              <Input value={form.base_url} onChange={set('base_url')} placeholder="http://localhost:11434/v1" mono width="100%" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+              <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Model name</span>
+              <Input value={form.model_name} onChange={set('model_name')} placeholder="llama3.2:latest" mono width="100%" />
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>API key (optional)</span>
+            <Input value={form.api_key} onChange={set('api_key')} placeholder="(leave empty for Ollama)" mono width="100%" />
+          </div>
+          {msg && <div style={{ fontSize: 12, lineHeight: '18px', color: msg.ok ? tok.success : tok.error }}>{msg.text}</div>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Btn onClick={() => { setAdding(false); setEditingId(null) }}>{t('settings_cancel')}</Btn>
+            <Btn variant="primary" onClick={save} disabled={busy}>{busy ? t('settings_testing') : (editingId !== null ? t('settings_apply') : t('settings_save'))}</Btn>
+          </div>
+        </div>
+      )}
+
+      {!adding && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <button type="button" onClick={() => { setAdding(true); setEditingId(null); setForm({ name: '', display_name: '', provider: 'ollama', base_url: 'http://localhost:11434/v1', model_name: '', api_key: '' }) }}
+            style={{ flex: '1 1 0', minWidth: 180, gap: 6, height: 44, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 22, border: `1px dashed ${tok.borderL3}`, background: 'transparent', cursor: 'pointer', color: tok.labelPrimary, fontSize: 14, lineHeight: '22px', fontFamily: 'inherit' }}>
+            <span style={{ fontSize: 16 }}>+</span> {t('settings_add_local_model')}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
