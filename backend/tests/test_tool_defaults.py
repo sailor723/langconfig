@@ -13,7 +13,7 @@ def test_default_set_is_curated():
     # universal base present
     for tool in ("think_tool", "reasoning_chain", "write_todos", "read_todos",
                  "memory_store", "memory_recall", "web_search", "web_fetch",
-                 "rename_file", "move_file", "mkdir", "bash",
+                 "tavily_search", "rename_file", "move_file", "mkdir", "bash",
                  "skill", "save_document"):
         assert tool in d, tool
     # db/analysis/retrieval categories present (read-only db; no pg_execute)
@@ -22,11 +22,11 @@ def test_default_set_is_curated():
                  "save_analysis_result", "graphindex_search", "graphindex_load",
                  "doc_index_list"):
         assert tool in d, f"{tool} should be default"
-    # excluded: db writes, heavy, meta, key-gated, graph ops, custom
+    # excluded: db writes, heavy, meta, graph ops, custom (tavily_search is now
+    # a default web tool — AI-optimized search, key-gated, graceful without key)
     for tool in ("pg_execute", "browser", "neo4j_query", "neo4j_upsert_doc",
                  "graphindex_ingest", "create_deepagent", "create_skill",
-                 "update_skill", "delete_skill", "task", "tavily_search",
-                 "gen_pptx"):
+                 "update_skill", "delete_skill", "task", "gen_pptx"):
         assert tool not in d, f"{tool} should not be default"
     # filesystem tools are provided by the deepagents SDK FilesystemMiddleware
     # (default for all agents, format-aware via FormatAwareBackend); only tools

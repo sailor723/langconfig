@@ -960,7 +960,10 @@ async def send_message_stream(
                     config={
                         "configurable": {"thread_id": session_id},
                         "callbacks": [event_handler],
-                        "recursion_limit": 500  # Increased from default 25 for complex tool chains
+                        # Hard iteration cap: one agent run may perform at most
+                        # 200 model/tool steps. Prevents runaway loops on long
+                        # research/report pipelines (the SDK default is 9,999).
+                        "recursion_limit": 200
                     },
                     version="v2"
                 ):

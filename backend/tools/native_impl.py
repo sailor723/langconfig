@@ -125,6 +125,35 @@ def get_ddg_search():
         _ddg_search = DuckDuckGoSearchRun()
     return _ddg_search
 
+# Hard retry cap for web_search: after this many FAILED attempts on the SAME
+# query, the tool refuses to run again (hard stop) so an agent cannot burn the
+# whole run retrying one search. Counters are process-local and keyed by the
+# normalized query; a successful search resets the counter.
+WEB_SEARCH_MAX_RETRIES = 3
+_web_search_failures: "dict[str, int]" = {}
+
+
+def _web_search_key(query: str) -> str:
+    """Normalize a query to a stable retry-counter key."""
+    return " ".join(query.lower().split())
+
+
+def _web_search_record_failure(query: str) -> None:
+    """Increment the failure count for a query (used only on failure paths)."""
+    key = _web_search_key(query)
+    _web_search_failures[key] = _web_search_failures.get(key, 0) + 1
+
+
+def _web_search_record_success(query: str) -> None:
+    """Reset the failure count for a query (used on a successful result)."""
+    _web_search_failures.pop(_web_search_key(query), None)
+
+
+def _web_search_blocked(query: str) -> bool:
+    """True when a query has failed WEB_SEARCH_MAX_RETRIES times already."""
+    return _web_search_failures.get(_web_search_key(query), 0) >= WEB_SEARCH_MAX_RETRIES
+
+
 @tool
 async def web_search(query: str, max_results: int = 8) -> str:
     """
@@ -132,6 +161,10 @@ async def web_search(query: str, max_results: int = 8) -> str:
 
     Perfect for finding current information, news, articles, and general knowledge.
     Uses simple HTTP requests instead of the problematic DuckDuckGo library.
+
+    HARD LIMIT: the same query is attempted at most 3 times. After 3 failed
+    attempts (timeout / rate-limit / no results) this tool returns a hard-stop
+    message; do not call it again with the same query — move on or rephrase.
 
     Args:
         query: The search query
@@ -148,9 +181,18 @@ async def web_search(query: str, max_results: int = 8) -> str:
     import random
 
     try:
+        # HARD LIMIT: if this query already failed 3 times, refuse to run.
+        if _web_search_blocked(query):
+            return (
+                f"Web search for '{query}' has already failed "
+                f"{WEB_SEARCH_MAX_RETRIES} times. HARD STOP: do NOT retry this "
+                f"query again. Move on with current knowledge or a new query."
+            )
+
         # Pluggable search backends: prefer a configured provider key.
         provider_results = await _try_configured_search_provider(query, max_results)
         if provider_results is not None:
+            _web_search_record_success(query)
             return provider_results
 
         logger.info(f"Web search (DuckDuckGo HTML): {query}")
@@ -187,83 +229,114 @@ async def web_search(query: str, max_results: int = 8) -> str:
             # Check for CAPTCHA/rate limiting (DuckDuckGo returns 202 with anomaly challenge)
             if response.status_code == 202 or 'anomaly' in html.lower() or 'challenge' in html.lower():
                 logger.warning(f"DuckDuckGo CAPTCHA/rate limit detected for query: {query}")
+                _web_search_record_failure(query)
+                remaining = WEB_SEARCH_MAX_RETRIES - _web_search_failures.get(_web_search_key(query), 0)
                 return (
                     f"Web search is temporarily unavailable (rate limited by DuckDuckGo). "
                     f"The search provider has blocked requests from this IP address. "
-                    f"CRITICAL: Do NOT retry this search. Proceed with your current knowledge or other tools."
+                    f"CRITICAL: Do NOT retry this search — proceed with your current "
+                    f"knowledge or other tools. ({remaining} attempt(s) left for this "
+                    f"query before hard stop.)"
                 )
 
             results = []
 
-            # Method 1: Extract snippets using regex (more robust than line-based)
-            # DuckDuckGo HTML uses class="result__snippet" for search result snippets
-            snippet_pattern = r'class="result__snippet"[^>]*>([^<]+(?:<b>[^<]+</b>[^<]*)*)</'
-            matches = re.findall(snippet_pattern, html, re.IGNORECASE)
+            # Extract result blocks: each DDG result is a div containing
+            # result__a (title+URL) and result__snippet (summary). Capture
+            # title / URL / snippet together so the agent can cite sources
+            # and judge domain reliability — snippets alone are not enough.
+            block_pattern = (
+                r'<div class="result[^"]*"[^>]*>.*?'
+                r'class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>'
+                r'(?:.*?class="result__snippet"[^>]*>(.*?))?</div>'
+            )
+            blocks = re.findall(block_pattern, html, re.DOTALL | re.IGNORECASE)
 
-            for match in matches[:max_results]:
-                # Clean up the snippet
-                snippet = re.sub(r'<[^>]+>', '', match)  # Remove any HTML tags
-                snippet = snippet.replace('&quot;', '"').replace('&amp;', '&')
-                snippet = snippet.replace('&lt;', '<').replace('&gt;', '>')
-                snippet = snippet.replace('&#x27;', "'").replace('&nbsp;', ' ')
-                snippet = snippet.strip()
-                if snippet and len(snippet) > 10:
-                    results.append(snippet)
+            for url, title_raw, snippet_raw in blocks[:max_results]:
+                title = _html_to_text(title_raw)
+                snippet = _html_to_text(snippet_raw) if snippet_raw else ""
+                if not title:
+                    continue
+                if len(snippet) > 400:
+                    snippet = snippet[:400] + "…"
+                results.append({"title": title, "url": url, "snippet": snippet})
 
-            # Method 2: Fallback - try to extract from result__a (titles) if no snippets
+            # Method 2: Fallback — extract from result__a (titles) if no
+            # full blocks parsed (markup drift on the DDG side).
             if not results:
-                title_pattern = r'class="result__a"[^>]*>([^<]+)</a>'
+                title_pattern = r'class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>'
                 title_matches = re.findall(title_pattern, html, re.IGNORECASE)
-                for match in title_matches[:max_results]:
-                    title = match.strip()
+                for url, title_raw in title_matches[:max_results]:
+                    title = _html_to_text(title_raw).strip()
                     if title and len(title) > 5:
-                        results.append(f"[Title] {title}")
+                        results.append({"title": title, "url": url, "snippet": ""})
 
-            # Method 3: Last resort - extract any text between result divs
+            # Method 3: Last resort — extract any text between result divs.
             if not results:
-                # Look for result blocks
                 result_blocks = re.findall(r'<div class="result[^"]*"[^>]*>(.*?)</div>', html, re.DOTALL | re.IGNORECASE)
                 for block in result_blocks[:max_results]:
-                    # Extract text content
-                    text = re.sub(r'<[^>]+>', ' ', block)
-                    text = ' '.join(text.split())  # Normalize whitespace
+                    text = _html_to_text(block)
                     if text and len(text) > 20:
-                        results.append(text[:300])  # Limit length
+                        results.append({"title": text[:300], "url": "", "snippet": ""})
 
             if not results:
                 logger.warning(f"No DuckDuckGo results found - attempting Yahoo Search as fallback")
                 yahoo_results = await _yahoo_search_fallback(query, max_results)
                 if yahoo_results:
+                    _web_search_record_success(query)
                     return yahoo_results
                 
                 logger.warning(f"No results found for: {query}")
                 # Log a sample of the HTML for debugging
                 logger.debug(f"HTML sample (first 1000 chars): {html[:1000]}")
-                return f"No search results found for: {query}. Try a different search query."
+                _web_search_record_failure(query)
+                remaining = WEB_SEARCH_MAX_RETRIES - _web_search_failures.get(_web_search_key(query), 0)
+                return (f"No search results found for: {query}. "
+                        f"({remaining} attempt(s) left for this query before hard stop).")
 
-            # Format results
+            # Format results — title + URL + snippet so the agent can verify
+            # the source's reliability and cite it inline.
             result_text = f"Search results for '{query}' (via DuckDuckGo):\n\n"
-            for i, snippet in enumerate(results, 1):
-                result_text += f"{i}. {snippet}\n\n"
+            for i, res in enumerate(results, 1):
+                result_text += f"{i}. {res['title']}\n"
+                if res.get("url"):
+                    result_text += f"   URL: {res['url']}\n"
+                if res.get("snippet"):
+                    result_text += f"   {res['snippet']}\n"
+                result_text += "\n"
 
             logger.info(f"Web search returned {len(results)} results for: {query}")
+            _web_search_record_success(query)
             return result_text
 
     except httpx.TimeoutException:
         logger.error(f"Web search timeout for: {query}")
-        return f"Search timed out. Please try again with a simpler query."
+        _web_search_record_failure(query)
+        remaining = WEB_SEARCH_MAX_RETRIES - _web_search_failures.get(_web_search_key(query), 0)
+        return (f"Search timed out. ({remaining} attempt(s) left for this query before "
+                f"hard stop — if 0, do NOT retry this query.)")
     except Exception as e:
         logger.error(f"Web search failed: {e}")
+        _web_search_record_failure(query)
         # Try Yahoo fallback on ANY failure
         try:
-            return await _yahoo_search_fallback(query, max_results)
+            yahoo_results = await _yahoo_search_fallback(query, max_results)
+            if yahoo_results:
+                _web_search_record_success(query)
+                return yahoo_results
+            remaining = WEB_SEARCH_MAX_RETRIES - _web_search_failures.get(_web_search_key(query), 0)
+            return (f"Error performing web search: {str(e)} "
+                    f"({remaining} attempt(s) left for this query before hard stop).")
         except Exception as fallback_e:
             logger.warning(f"Yahoo fallback also failed: {fallback_e}")
-            return f"Error performing web search: {str(e)}"
+            remaining = WEB_SEARCH_MAX_RETRIES - _web_search_failures.get(_web_search_key(query), 0)
+            return (f"Error performing web search: {str(e)} "
+                    f"({remaining} attempt(s) left for this query before hard stop).")
 
 async def _yahoo_search_fallback(query: str, max_results: int = 8) -> Optional[str]:
     """Fallback search using Yahoo."""
     try:
+        import re as _re
         from bs4 import BeautifulSoup
         
         # Format query for Yahoo with proper percent-encoding.
@@ -280,23 +353,46 @@ async def _yahoo_search_fallback(query: str, max_results: int = 8) -> Optional[s
                 return None
                 
             soup = BeautifulSoup(response.text, 'html.parser')
-            
+
             results = []
-            # Yahoo search result snippet class (compText covers description)
-            for div in soup.select('.compText.aAbs, .compText, .st'):
-                snippet = div.get_text().strip()
-                if len(snippet) > 20 and snippet not in results:
-                    results.append(snippet)
+            # Yahoo real results live in div.algo containers (each holds a
+            # title anchor + description); nav links live elsewhere.
+            for algo in soup.select('div.algo, div.dd.algo')[: max_results]:
+                a = algo.find('a', href=True)
+                if not a:
+                    continue
+                url = a.get('href', '')
+                # Decode the Yahoo redirect wrapper to the target URL so the
+                # agent can verify the real domain (and cite it cleanly).
+                # Yahoo encodes the target in the path as /RU=<urlencoded>.
+                if 'r.search.yahoo.com' in url or url.startswith('/'):
+                    _ru = _re.search(r'/RU=([^/]+)', url)
+                    if _ru:
+                        from urllib.parse import unquote as _unquote
+                        real = _unquote(_ru.group(1))
+                        if real.startswith(('http://', 'https://')):
+                            url = real
+                title = a.get_text().strip()
+                snippet_el = algo.select_one('.compText, .st, .compText.aAbs, p')
+                snippet = snippet_el.get_text().strip() if snippet_el else ''
+                if not title and not snippet:
+                    continue
+                results.append({"title": title, "url": url, "snippet": snippet[:400]})
                 if len(results) >= max_results:
                     break
-            
+
             if not results:
                 return None
-                
+
             result_text = f"Search results for '{query}' (via Yahoo):\n\n"
-            for i, snippet in enumerate(results, 1):
-                result_text += f"{i}. {snippet}\n\n"
-            
+            for i, res in enumerate(results, 1):
+                result_text += f"{i}. {res['title']}\n"
+                if res.get("url"):
+                    result_text += f"   URL: {res['url']}\n"
+                if res.get("snippet"):
+                    result_text += f"   {res['snippet']}\n"
+                result_text += "\n"
+
             return result_text
     except Exception as e:
         logger.warning(f"Yahoo fallback failed: {e}")
@@ -328,19 +424,72 @@ def _validate_fetch_url(url: str):
     return None
 
 
+# Max characters of CLEAN text returned by web_fetch — caps what enters the
+# LLM context so one heavy page cannot blow the token budget. Raw HTML is
+# stripped to text first (see _html_to_text), so this cap is on real content.
+WEB_FETCH_MAX_TEXT_CHARS = 20_000
+
+
+def _html_to_text(raw: str) -> str:
+    """Strip markup from a fetched HTML page down to readable text.
+
+    Removes script/style/template blocks first (they carry no readable
+    content), then tags, then collapses whitespace. HTML entities are
+    unescaped (e.g. &amp; -> &). This is a cheap, dependency-free cleaner —
+    NOT a full readability/boilerplate extractor — so navigation menus may
+    still leak through; the caller (agent + prompt) is told to prefer
+    article/primary content.
+
+    Args:
+        raw: Raw HTML document text as fetched.
+
+    Returns:
+        Cleaned plain-text approximation of the page.
+    """
+    import html as _html
+    import re as _re
+
+    # Drop non-content blocks entirely (scripts, styles, templates, SVG).
+    text = _re.sub(
+        r"<(script|style|template|noscript|svg|head|nav|footer|form)[^>]*>.*?</\1>",
+        " ",
+        raw,
+        flags=_re.IGNORECASE | _re.DOTALL,
+    )
+    # Replace block-level tags with newlines so paragraphs survive.
+    text = _re.sub(
+        r"</(p|div|h[1-6]|li|tr|br|section|article|header)>",
+        "\n",
+        text,
+        flags=_re.IGNORECASE,
+    )
+    # Strip every remaining tag.
+    text = _re.sub(r"<[^>]+>", " ", text)
+    # Unescape entities (&amp; &lt; &nbsp; …).
+    text = _html.unescape(text)
+    # Collapse runs of whitespace / blank lines.
+    text = _re.sub(r"[ \t\r\f\v]+", " ", text)
+    text = _re.sub(r"\n[ \t]+", "\n", text)
+    text = _re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
 @tool
 async def web_fetch(url: str, timeout: int = 10) -> str:
-    """
-    Fetch the content of a webpage.
+    """Fetch the content of a webpage as clean text.
 
-    Useful for reading articles, documentation, and web pages.
+    HTML markup is stripped automatically and the result is capped at
+    20000 chars — this keeps token usage low. For long-form articles the
+    returned text may be truncated; prefer fetching specific article URLs
+    over landing/home pages, and fetch several pages rather than one huge
+    page.
 
     Args:
         url: The URL to fetch
         timeout: Request timeout in seconds (default: 10)
 
     Returns:
-        The text content of the webpage
+        The text content of the webpage (HTML tags removed, length-capped)
 
     Example:
         >>> await web_fetch("https://example.com/article")
@@ -375,8 +524,17 @@ async def web_fetch(url: str, timeout: int = 10) -> str:
                                     f"{MAX_BODY // (1024 * 1024)}MB size limit")
                     content_type = response.headers.get("content-type", "")
                     if "text" in content_type or "html" in content_type:
-                        text = b"".join(chunks).decode("utf-8", errors="replace")
-                        logger.info(f"Fetched {len(text)} characters from {url}")
+                        raw = b"".join(chunks).decode("utf-8", errors="replace")
+                        logger.info(f"Fetched {len(raw)} chars from {url}")
+                        # Token saver: strip HTML markup so only readable text
+                        # enters the LLM context, then cap the length so one
+                        # heavy page cannot blow the agent's token budget.
+                        text = _html_to_text(raw) if "html" in content_type else raw
+                        if len(text) > WEB_FETCH_MAX_TEXT_CHARS:
+                            text = text[:WEB_FETCH_MAX_TEXT_CHARS] + (
+                                "\n\n...[truncated: page exceeds "
+                                f"{WEB_FETCH_MAX_TEXT_CHARS} chars]"
+                            )
                         return text
                     return f"Content type '{content_type}' is not text-based"
         return "Error fetching URL: too many redirects"

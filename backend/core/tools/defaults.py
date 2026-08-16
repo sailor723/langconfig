@@ -44,9 +44,11 @@ DEFAULT_NATIVE_TOOLS: List[str] = [
     # memory (routes to SimpleMemory; enables memory for the agent)
     "memory_store",
     "memory_recall",
-    # web
+    # web — web_search/web_fetch (free DDG) + tavily_search (AI-optimized,
+    # key-gated: gracefully reports when TAVILY_API_KEY is unset).
     "web_search",
     "web_fetch",
+    "tavily_search",
     # filesystem — the deepagents SDK provides ls/read_file/write_file/edit_file/
     # glob/grep/delete via FilesystemMiddleware (default for all agents, with
     # the format-aware backend wrap for multi-format documents). Only tools the
