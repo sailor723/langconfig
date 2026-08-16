@@ -587,23 +587,41 @@ async def tavily_search(query: str, max_results: int = 5) -> str:
             )
 
         if not TAVILY_AVAILABLE:
-            return (
-                "Tavily package not installed.\n\n"
-                "Install with: pip install langchain-community tavily-python"
-            )
+            # langchain_community is always present in LangConfig; the flag
+            # guards environments where it is missing. We call Tavily's REST
+            # API directly below (no wrapper dependency), so this is only a
+            # soft guard.
+            pass
 
         logger.info(f"Tavily search: {query}")
 
-        tavily = TavilySearchResults(api_key=api_key, max_results=max_results)
-        results = await tavily.ainvoke({"query": query})
+        # Call the Tavily REST API directly — the langchain wrapper's
+        # parameter names keep changing across versions (api_key vs
+        # tavily_api_key) and it wants an env var in some versions. Direct
+        # HTTP is stable and returns the same structured content.
+        import httpx as _httpx
 
+        async with _httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                "https://api.tavily.com/search",
+                json={
+                    "api_key": api_key,
+                    "query": query,
+                    "max_results": max_results,
+                    "include_answer": False,
+                },
+            )
+            r.raise_for_status()
+            data = r.json()
+
+        results = data.get("results") or []
         if not results:
             return f"No results found for: {query}"
 
         result_text = f"Search results for '{query}' (via Tavily):\n\n"
-        for i, r in enumerate(results, 1):
-            content = r.get("content", "")
-            url = r.get("url", "")
+        for i, r_item in enumerate(results, 1):
+            content = r_item.get("content", "")
+            url = r_item.get("url", "")
             if url:
                 result_text += f"{i}. {content}\n   Source: {url}\n\n"
             else:
