@@ -677,14 +677,15 @@ function LocalModelsSection() {
     custom: '',
   }
 
-  const changeProvider = async (p: string) => {
-    setForm(f => ({ ...f, provider: p, base_url: f.base_url || PROVIDER_DEFAULT_URL[p] || '', model_name: '' }))
+  const changeProvider = async (p: string, explicitBaseUrl?: string) => {
+    const url = explicitBaseUrl || PROVIDER_DEFAULT_URL[p] || ''
+    setForm(f => ({ ...f, provider: p, base_url: url, model_name: '' }))
     setServerModels([])
-    if (PROVIDER_DEFAULT_URL[p]) {
-      // Auto-load the model list for the new provider's default URL.
+    if (url) {
+      // Auto-load the model list for the provider's base URL.
       setBusy(true); setMsg(null)
       try {
-        const res = await apiClient.validateLocalConfig(PROVIDER_DEFAULT_URL[p])
+        const res = await apiClient.validateLocalConfig(url)
         const list: string[] = res.data?.models || []
         setServerModels(list)
         if (list.length) {
@@ -698,7 +699,14 @@ function LocalModelsSection() {
   }
 
   const save = async () => {
-    if (!form.name.trim() || !form.base_url.trim() || !form.model_name.trim()) {
+    // Auto-generate the name from provider + model when the user left it
+    // blank (e.g. "ollama" + "qwen3.6:27b" -> "ollama-qwen3.6-27b").
+    let name = form.name.trim()
+    if (!name && form.model_name.trim()) {
+      name = `${form.provider}-${form.model_name.trim().replace(/[^a-zA-Z0-9_.-]/g, '-')}`
+      setForm(f => ({ ...f, name }))
+    }
+    if (!name || !form.base_url.trim() || !form.model_name.trim()) {
       setMsg({ ok: false, text: 'name, base URL and model name are required' }); return
     }
     setBusy(true); setMsg(null)
@@ -710,7 +718,7 @@ function LocalModelsSection() {
         })
       } else {
         await apiClient.createLocalModel({
-          name: form.name.trim(), display_name: form.display_name.trim() || form.name.trim(),
+          name, display_name: form.display_name.trim() || name,
           provider: form.provider, base_url: form.base_url.trim(), model_name: form.model_name.trim(),
           ...(form.api_key.trim() ? { api_key: form.api_key.trim() } : {}),
         })
@@ -793,7 +801,7 @@ function LocalModelsSection() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
               <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Provider</span>
-              <Select value={form.provider} onChange={v => changeProvider(String(v))} options={[
+              <Select value={form.provider} onChange={v => changeProvider(String(v), form.base_url || undefined)} options={[
                 { value: 'ollama', label: 'Ollama' }, { value: 'lmstudio', label: 'LM Studio' },
                 { value: 'vllm', label: 'vLLM' }, { value: 'litellm', label: 'LiteLLM' }, { value: 'custom', label: 'Custom' },
               ]} />
@@ -834,7 +842,7 @@ function LocalModelsSection() {
 
       {!adding && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          <button type="button" onClick={() => { setAdding(true); setEditingId(null); setForm({ name: '', display_name: '', provider: 'ollama', base_url: 'http://localhost:11434/v1', model_name: '', api_key: '' }); changeProvider('ollama') }}
+          <button type="button" onClick={() => { setAdding(true); setEditingId(null); setForm({ name: '', display_name: '', provider: 'ollama', base_url: 'http://localhost:11434/v1', model_name: '', api_key: '' }); changeProvider('ollama', 'http://localhost:11434/v1') }}
             style={{ flex: '1 1 0', minWidth: 180, gap: 6, height: 44, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 22, border: `1px dashed ${tok.borderL3}`, background: 'transparent', cursor: 'pointer', color: tok.labelPrimary, fontSize: 14, lineHeight: '22px', fontFamily: 'inherit' }}>
             <span style={{ fontSize: 16 }}>+</span> {t('settings_add_local_model')}
           </button>
