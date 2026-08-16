@@ -258,6 +258,17 @@ class DeepAgentConfig(BaseModel):
                     "Skills are synced to the sandbox filesystem at agent creation time "
                     "and loaded via create_deep_agent(skills=[...]) for progressive disclosure."
     )
+    # Plugins (LangChain-style declarative plugins, backend/plugins/<name>).
+    # Each plugin contributes skills (+ optional MCP servers / hooks) that are
+    # mounted into this agent at build time. Plugin skills are staged into the
+    # same skill catalog as builtin/personal skills (progressive disclosure).
+    plugins: List[str] = Field(
+        default_factory=list,
+        description="Plugin names/ids to mount into this agent (e.g. 'meeting-minutes' "
+                    "or 'meeting-minutes@langconfig-builtin'). Plugin skills become "
+                    "discoverable skills; plugin MCP servers / hooks are applied when "
+                    "the corresponding seams are enabled."
+    )
     skill_router_model: Optional[str] = Field(
         default=None,
         description="Optional separate model for skill routing. If set, this model is "

@@ -193,6 +193,39 @@ You have the 'save_document' tool for persisting the FINAL deliverable of this t
                 max_skills=agent_config.get("max_skills", 3),
             )
 
+        # 3b. Mount plugin skills (LangChain-style declarative plugins,
+        # backend/plugins/<name>). Regular agents have no SkillsMiddleware
+        # (deep agents get progressive disclosure via their staged catalog),
+        # so plugin SKILL.md bodies are appended directly to the system
+        # prompt as an authoritative capability section. opt-in via
+        # agent_config["plugins"] = ["meeting-minutes", ...].
+        plugin_names = agent_config.get("plugins", [])
+        if plugin_names:
+            try:
+                from core.plugins import get_plugin_loader
+
+                loader = get_plugin_loader()
+                plugin_skill_texts = []
+                for plugin in loader.resolve_many(plugin_names):
+                    for skill_dir in plugin.skill_dirs:
+                        md = skill_dir / "SKILL.md"
+                        if md.is_file():
+                            plugin_skill_texts.append(
+                                f"## Plugin skill: {plugin.name}/{skill_dir.name}\n\n"
+                                + md.read_text(encoding="utf-8")
+                            )
+                if plugin_skill_texts:
+                    system_prompt_str += (
+                        "\n\n# Mounted plugins\n\n"
+                        + "\n\n".join(plugin_skill_texts)
+                    )
+                    logger.info(
+                        "Mounted %d plugin skill(s) into system prompt (plugins=%s)",
+                        len(plugin_skill_texts), plugin_names,
+                    )
+            except Exception as exc:  # noqa: BLE001 — plugins must never break agent build
+                logger.warning(f"Plugin skill mount failed (non-fatal): {exc}")
+
         # 4. Set up middleware (v1.0) or fall back to legacy hooks.
         middleware: Optional[List] = None
         hook_manager: Optional[Any] = None

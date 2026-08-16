@@ -568,6 +568,7 @@ from api.notebooks import routes as notebooks
 from api.agent_documents import routes as agent_documents
 from api.classic_graph import routes as classic_graph
 from api.graph_studio import routes as graph_studio
+from api.plugins import router as plugins
 
 # Health check endpoints
 app.include_router(health.router)
@@ -616,6 +617,7 @@ app.include_router(webhooks)  # Webhook receiver endpoints
 app.include_router(notebooks.router)  # Educational notebooks viewer
 app.include_router(classic_graph.router)  # Classic LangGraph builder API
 app.include_router(graph_studio.router)  # Graph Engineering Studio (code-defined graphs)
+app.include_router(plugins)  # LangChain-style declarative plugins (marketplace + components)
 
 if __name__ == "__main__":
     import sys

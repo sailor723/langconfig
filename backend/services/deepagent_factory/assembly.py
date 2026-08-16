@@ -103,9 +103,24 @@ def _stage_skill_catalog(
                 normalize_source_type(getattr(s, "source_type", "builtin"))
                 for s in skill_records
             })
-            skills_sources = [f"/skills/{t}" for t in types]
+            # Plugins (LangChain-style, backend/plugins/<name>): their skills
+            # are filesystem SKILL.md dirs, not DB rows — persist them under
+            # the same storage keys so DbBackend serves them alongside the
+            # catalog. Each plugin gets its OWN source path
+            # (/skills/plugins/<plugin>) because the SkillsMiddleware expects
+            # source/<skill-name>/SKILL.md (one level of skill dirs below the
+            # source); the plugin name is the namespace.
+            plugin_sources = _stage_plugin_skills_to_storage(
+                getattr(config, "plugins", None) or [],
+                storage,
+                skill_storage_key,
+            )
+            skills_sources = [f"/skills/{t}" for t in types] + [
+                f"/skills/plugins/{p}" for p in plugin_sources
+            ]
             logger.info(
-                f"Registered {len(skill_records)} skill(s) from storage "
+                f"Registered {len(skill_records)} skill(s) from storage + "
+                f"{len(plugin_sources)} plugin source(s) "
                 f"(progressive disclosure via DbBackend, sources={skills_sources})"
             )
             return None, skills_sources, DbBackend()
@@ -145,6 +160,41 @@ def _stage_skill_catalog(
                 staged += 1
         skills_sources = ["skills/builtin", "skills"]
 
+        # Plugins (LangChain-style, backend/plugins/<name>): stage their skills
+        # into the same catalog. Each plugin's skills land under
+        # skills/plugins/<plugin>/<skill>/SKILL.md and the plugin namespace dir
+        # becomes its own source ("skills/plugins/<plugin>") so the
+        # SkillsMiddleware sees source/<skill-name>/SKILL.md — one level of
+        # skill dirs below each source, exactly what it expects.
+        plugin_names = getattr(config, "plugins", None) or []
+        if plugin_names:
+            try:
+                from core.plugins import get_plugin_loader
+
+                loader = get_plugin_loader()
+                plugins = loader.resolve_many(plugin_names)
+                staged_paths = loader.stage_plugin_skills(
+                    plugins,
+                    skills_dir,
+                    namespace="plugins",
+                )
+                plugin_sources = []
+                for p in plugins:
+                    if any(
+                        f"plugins/{p.name}/" in sp for sp in staged_paths
+                    ):
+                        plugin_sources.append(f"skills/plugins/{p.name}")
+                if plugin_sources:
+                    staged += len(staged_paths)
+                    skills_sources = skills_sources + plugin_sources
+                    logger.info(
+                        "Staged %d plugin skill(s) from plugins=%s into %s "
+                        "(sources=%s)",
+                        len(staged_paths), plugin_names, skills_dir, plugin_sources,
+                    )
+            except Exception as exc:  # noqa: BLE001 — plugins must never break agent build
+                logger.warning(f"Plugin skill staging failed (non-fatal): {exc}")
+
         # Optional pins: any config.skills entry living outside the global
         # roots is staged additionally (custom-location or DB-only skills).
         pinned = getattr(config, "skills", None) or []
@@ -177,6 +227,48 @@ def _stage_skill_catalog(
     except Exception as e:
         logger.warning(f"Failed to register skills: {e}")
         return None, None, None
+
+
+def _stage_plugin_skills_to_storage(
+    plugin_names: List[str],
+    storage: Any,
+    skill_storage_key,
+) -> List[str]:
+    """Persist plugin skills (filesystem SKILL.md dirs) into DB storage.
+
+    DbBackend serves ``/skills/<source>/...`` from storage. Plugin skills are
+    not DB rows, so we write them under ``skills/plugins/<plugin>/<skill>/``
+    keys. The SKILL.md body is stored; bundled scripts are referenced from
+    SKILL.md but not persisted (same limitation as DB-synced skills).
+
+    Returns the list of plugin names that staged at least one skill (each
+    becomes a separate /skills/plugins/<plugin> source for the middleware).
+    """
+    try:
+        from core.plugins import get_plugin_loader
+
+        loader = get_plugin_loader()
+        plugins = loader.resolve_many(plugin_names)
+        staged_plugins: List[str] = []
+        for plugin in plugins:
+            staged_any = False
+            for skill_dir in plugin.skill_dirs:
+                md = skill_dir / "SKILL.md"
+                if not md.is_file():
+                    continue
+                rel = f"skills/plugins/{plugin.name}/{skill_dir.name}/SKILL.md"
+                storage.save(rel, md.read_bytes(), "text/markdown")
+                staged_any = True
+            if staged_any:
+                staged_plugins.append(plugin.name)
+        if staged_plugins:
+            logger.info(
+                f"Persisted plugin skill(s) to storage for plugins={staged_plugins}"
+            )
+        return staged_plugins
+    except Exception as exc:  # noqa: BLE001 — plugins must never break agent build
+        logger.warning(f"Plugin skill storage staging failed (non-fatal): {exc}")
+        return []
 
 
 class _DeepAgentAssemblyMixin:

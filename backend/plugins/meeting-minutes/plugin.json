@@ -1,0 +1,8 @@
+{
+  "name": "meeting-minutes",
+  "version": "1.0.0",
+  "description": "Turn raw meeting transcripts into structured minutes: decisions, action items, owners, and deadlines.",
+  "author": "LangConfig",
+  "display_name": "Meeting Minutes",
+  "skills": "./skills"
+}
