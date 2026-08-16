@@ -658,6 +658,7 @@ function LocalModelsSection() {
   const [form, setForm] = useState({ name: '', display_name: '', provider: 'ollama', base_url: '', model_name: '', api_key: '' })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [serverModels, setServerModels] = useState<string[]>([])
 
   const load = useCallback(async () => {
     try { const res = await apiClient.listLocalModels(); setModels(Array.isArray(res.data) ? res.data : []) } catch { /* noop */ }
@@ -698,6 +699,24 @@ function LocalModelsSection() {
     } catch { setMsg({ ok: false, text: '✗ Connection failed' }) } finally { setBusy(false) }
   }
 
+  /** Fetch the model list from the server (Ollama /models) to fill the dropdown. */
+  const loadServerModels = async () => {
+    if (!form.base_url.trim()) { setMsg({ ok: false, text: 'Enter a base URL first (e.g. http://localhost:11434/v1)' }); return }
+    setBusy(true); setMsg(null)
+    try {
+      const res = await apiClient.validateLocalConfig(form.base_url.trim(), form.api_key.trim() || undefined)
+      const list: string[] = res.data?.models || []
+      setServerModels(list)
+      if (list.length) {
+        setMsg({ ok: true, text: `Found ${list.length} model(s) — pick one below.` })
+        // Auto-fill the first model when none chosen yet.
+        setForm(f => ({ ...f, model_name: f.model_name || list[0] || '' }))
+      } else {
+        setMsg({ ok: !!res.data?.success, text: res.data?.message || 'Connected, but no models found.' })
+      }
+    } catch { setMsg({ ok: false, text: '✗ Could not reach the server' }) } finally { setBusy(false) }
+  }
+
   const remove = async (id: number) => {
     try { await apiClient.deleteLocalModel(id); await load() } catch { /* noop */ }
   }
@@ -728,6 +747,11 @@ function LocalModelsSection() {
         {models.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary }}>No local models yet — add Ollama below.</li>}
       </ul>
 
+      {/* Test result — always visible, even outside the add form */}
+      {msg && !adding && (
+        <div style={{ fontSize: 12, lineHeight: '18px', color: msg.ok ? tok.success : tok.error, padding: '0 2px' }}>{msg.text}</div>
+      )}
+
       {adding && (
         <div style={{ borderRadius: 12, background: tok.module, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', gap: 10 }}>
@@ -750,8 +774,19 @@ function LocalModelsSection() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
               <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Model name</span>
-              <Input value={form.model_name} onChange={set('model_name')} placeholder="llama3.2:latest" mono width="100%" />
+              <Select
+                value={form.model_name} onChange={v => set('model_name')(String(v))}
+                options={serverModels.length
+                  ? serverModels.map(m => ({ value: m, label: m }))
+                  : (form.model_name ? [{ value: form.model_name, label: form.model_name }] : [{ value: '', label: '(load models →)' }])}
+              />
             </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Btn dense onClick={loadServerModels} disabled={busy}>{busy ? t('settings_testing') : 'Load models from server'}</Btn>
+            {serverModels.length > 0 && (
+              <span style={{ fontSize: 12, lineHeight: '22px', color: tok.labelTertiary }}>{serverModels.length} available</span>
+            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>API key (optional)</span>
