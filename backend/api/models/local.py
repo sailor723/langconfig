@@ -41,9 +41,14 @@ class LocalModelCreate(BaseModel):
 
     @validator('name')
     def validate_name(cls, v):
-        """Validate name format"""
-        if not v or not v.replace('-', '').replace('_', '').isalnum():
-            raise ValueError("Name must be alphanumeric with hyphens/underscores only")
+        """Validate name format.
+
+        Allows alphanumerics plus ``-``, ``_`` and ``.`` — dots are common in
+        model identifiers (``qwen3.6``, ``gpt-4o``), so the auto-generated
+        entry name (provider + model) must be allowed to keep them.
+        """
+        if not v or not v.replace('-', '').replace('_', '').replace('.', '').isalnum():
+            raise ValueError("Name must be alphanumeric with hyphens/underscores/dots only")
         return v.lower()
 
     @validator('base_url')
