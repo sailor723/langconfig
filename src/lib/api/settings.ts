@@ -37,6 +37,18 @@ export interface SettingsApi {
   setSearchProviderKey(providerId: string, apiKey: string): Promise<any>;
   deleteSearchProviderKey(providerId: string): Promise<any>;
   testSearchProvider(providerId: string): Promise<any>;
+  // Local models (Ollama / LM Studio / vLLM / LiteLLM)
+  listLocalModels(): Promise<any>;
+  createLocalModel(data: {
+    name: string; display_name: string; description?: string;
+    provider: string; base_url: string; model_name: string; api_key?: string; tags?: string[];
+  }): Promise<any>;
+  updateLocalModel(id: number, data: Partial<{
+    display_name: string; description?: string; base_url: string; model_name: string; api_key?: string; tags?: string[];
+  }>): Promise<any>;
+  deleteLocalModel(id: number): Promise<any>;
+  validateLocalModel(id: number): Promise<any>;
+  validateLocalConfig(baseUrl: string, apiKey?: string): Promise<any>;
   // First-run setup
   getSetupStatus(): Promise<any>;
   completeSetup(): Promise<any>;
@@ -110,6 +122,36 @@ export const settingsApi: SettingsApi = {
 
   async testSearchProvider(this: APIClient, providerId: string) {
     return this.post(`/api/search-providers/${providerId}/test`);
+  },
+
+  // Local models (Ollama / LM Studio / vLLM / LiteLLM)
+  async listLocalModels(this: APIClient) {
+    return this.get('/api/local-models/');
+  },
+
+  async createLocalModel(this: APIClient, data: {
+    name: string; display_name: string; description?: string;
+    provider: string; base_url: string; model_name: string; api_key?: string; tags?: string[];
+  }) {
+    return this.post('/api/local-models/', data);
+  },
+
+  async updateLocalModel(this: APIClient, id: number, data: Partial<{
+    display_name: string; description?: string; base_url: string; model_name: string; api_key?: string; tags?: string[];
+  }>) {
+    return this.patch(`/api/local-models/${id}`, data);
+  },
+
+  async deleteLocalModel(this: APIClient, id: number) {
+    return this.delete(`/api/local-models/${id}`);
+  },
+
+  async validateLocalModel(this: APIClient, id: number) {
+    return this.post(`/api/local-models/${id}/validate`);
+  },
+
+  async validateLocalConfig(this: APIClient, baseUrl: string, apiKey?: string) {
+    return this.post(`/api/local-models/validate-config?base_url=${encodeURIComponent(baseUrl)}${apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : ''}`);
   },
 
   // First-run setup
