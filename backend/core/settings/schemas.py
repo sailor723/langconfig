@@ -73,6 +73,8 @@ class ApiKeys(BaseModel):
     kimi_api_base: Optional[str] = None
     tavily_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
     serper_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
+    exa_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
+    brave_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
     agnes_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
     agnes_base_url: Optional[str] = None
 
