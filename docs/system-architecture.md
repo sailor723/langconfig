@@ -1373,6 +1373,62 @@ flowchart TB
     T4 --> T5
 ```
 
+### 16.4 Seeding principle — one-time bootstrap, then the DB is authoritative
+
+**Invariant:** seeding runs **once** (first install / explicit `--replace`). After
+that the PostgreSQL database is the single source of truth for user state —
+agents, tools, API keys, and settings — and the runtime reads from it live.
+Seeding is a **setup/migration tool, never part of the runtime path**.
+
+**One-time seeding:**
+
+| Seed | Entry point | Behavior |
+|------|-------------|----------|
+| Settings documents | `core/settings/seed.py::ensure_settings_seeded()` (runs on every boot) | Writes a default document **only for namespaces with no row** (`row_exists`); existing documents are never touched |
+| Built-in tools | `scripts/seeds/seed_builtin_tools.py` (setup only) | Creates missing `custom_tools` rows; existing built-in rows are **updated only with an explicit `--refresh`**; user-owned rows with the same id are never touched |
+| Agents / tools dumps | `scripts/seeds/seed_all.py` (setup only, `--replace` opt-in) | Seeds tables only when **empty** (`count == 0`); `--replace` truncates before restoring dumps — documented as destructive |
+
+`main.py` boot runs **only** `ensure_settings_seeded()` (idempotent) — no
+tool/agent seeding happens at runtime.
+
+**After first-time setup, the DB is authoritative and the runtime reads live:**
+
+- **Agents** — `deep_agent_templates.config` JSON is the source of truth;
+  every chat rebuilds the agent from the stored config (prompt, tools, skills,
+  subagents, middleware, plugins). User edits persist; nothing re-seeds.
+- **API keys** — single table: the `models` settings document's `api_keys`
+  field (Fernet-encrypted, §16.2). Tools read it **live on every call** via
+  `config.get_api_key_from_db` (`tavily_search`, `web_search`'s provider path,
+  LLM `resolve_model`). An adhoc Settings save is picked up on the next call —
+  no re-seed, no restart. Keys are never part of seeding.
+- **Built-in tools** — loaded **DB-first** (`ToolLoader._load_builtin_from_db`):
+  the row's self-contained code is authoritative; the seed source
+  (`tools/native_impl.py`) only supplies it at seed/refresh time. Tool code
+  reads keys from the DB at runtime, so a user's key change needs no tool
+  refresh.
+
+```
+first install  =  seed_all / seed_builtin_tools / ensure_settings_seeded  (once)
+after that     =  DB is authoritative
+runtime        =  agent builds from deep_agent_templates.config
+                 tools load from custom_tools rows (DB-first)
+                 API keys read live from models.api_keys per call
+                 settings read from settings_documents per namespace
+```
+
+**Operational notes:**
+
+- `seed_all.py --replace` truncates `deep_agent_templates` / `custom_tools` —
+  a deliberate force-reload. Do not run it casually; it discards user edits.
+- The `step_deep_agents` catch-up branch reloads the agent dump when the table
+  has **fewer rows than the dump** (partial install). If you intentionally
+  delete agents, run `seed_all` afterwards only with awareness that this
+  branch can re-add the canonical set; to fully honor "user edits win", that
+  branch should fire only when the table is empty (see `scripts/seeds/seed_all.py`).
+- To propagate a `tools/native_impl.py` code fix into existing built-in rows,
+  run `seed_builtin_tools.py --refresh` once (setup step) — runtime never
+  re-seeds.
+
 ---
 
 ## 17. Request lifecycle — sequence diagrams
