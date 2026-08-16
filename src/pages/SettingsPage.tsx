@@ -667,6 +667,36 @@ function LocalModelsSection() {
 
   const set = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }))
 
+  // Per-provider default base URL, applied when the provider changes so the
+  // model dropdown can be loaded automatically.
+  const PROVIDER_DEFAULT_URL: Record<string, string> = {
+    ollama: 'http://localhost:11434/v1',
+    lmstudio: 'http://localhost:1234/v1',
+    vllm: 'http://localhost:8000/v1',
+    litellm: 'http://localhost:4000/v1',
+    custom: '',
+  }
+
+  const changeProvider = async (p: string) => {
+    setForm(f => ({ ...f, provider: p, base_url: f.base_url || PROVIDER_DEFAULT_URL[p] || '', model_name: '' }))
+    setServerModels([])
+    if (PROVIDER_DEFAULT_URL[p]) {
+      // Auto-load the model list for the new provider's default URL.
+      setBusy(true); setMsg(null)
+      try {
+        const res = await apiClient.validateLocalConfig(PROVIDER_DEFAULT_URL[p])
+        const list: string[] = res.data?.models || []
+        setServerModels(list)
+        if (list.length) {
+          setForm(f => ({ ...f, model_name: f.model_name || list[0] || '' }))
+          setMsg({ ok: true, text: `Found ${list.length} model(s) on ${p}.` })
+        } else {
+          setMsg({ ok: !!res.data?.success, text: res.data?.message || 'Connected, but no models found.' })
+        }
+      } catch { setMsg({ ok: false, text: '✗ Could not reach the server' }) } finally { setBusy(false) }
+    }
+  }
+
   const save = async () => {
     if (!form.name.trim() || !form.base_url.trim() || !form.model_name.trim()) {
       setMsg({ ok: false, text: 'name, base URL and model name are required' }); return
@@ -694,8 +724,10 @@ function LocalModelsSection() {
   const test = async (id: number) => {
     setBusy(true); setMsg(null)
     try {
-      const res = await apiClient.validateLocalModel(id)
-      setMsg({ ok: !!res.data?.success, text: res.data?.message || (res.data?.success ? '✓ Connected' : '✗ Failed') })
+      // Real LLM call to the SPECIFIC model (like the SaaS provider test).
+      const res = await apiClient.testLocalModel(id)
+      const d = res.data || {}
+      setMsg({ ok: !!d.success, text: d.success ? `✓ ${d.message}\n→ "${d.response}"` : `✗ ${d.message}` })
     } catch { setMsg({ ok: false, text: '✗ Connection failed' }) } finally { setBusy(false) }
   }
 
@@ -761,7 +793,7 @@ function LocalModelsSection() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
               <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Provider</span>
-              <Select value={form.provider} onChange={v => set('provider')(String(v))} options={[
+              <Select value={form.provider} onChange={v => changeProvider(String(v))} options={[
                 { value: 'ollama', label: 'Ollama' }, { value: 'lmstudio', label: 'LM Studio' },
                 { value: 'vllm', label: 'vLLM' }, { value: 'litellm', label: 'LiteLLM' }, { value: 'custom', label: 'Custom' },
               ]} />
@@ -802,7 +834,7 @@ function LocalModelsSection() {
 
       {!adding && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          <button type="button" onClick={() => { setAdding(true); setEditingId(null); setForm({ name: '', display_name: '', provider: 'ollama', base_url: 'http://localhost:11434/v1', model_name: '', api_key: '' }) }}
+          <button type="button" onClick={() => { setAdding(true); setEditingId(null); setForm({ name: '', display_name: '', provider: 'ollama', base_url: 'http://localhost:11434/v1', model_name: '', api_key: '' }); changeProvider('ollama') }}
             style={{ flex: '1 1 0', minWidth: 180, gap: 6, height: 44, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 22, border: `1px dashed ${tok.borderL3}`, background: 'transparent', cursor: 'pointer', color: tok.labelPrimary, fontSize: 14, lineHeight: '22px', fontFamily: 'inherit' }}>
             <span style={{ fontSize: 16 }}>+</span> {t('settings_add_local_model')}
           </button>

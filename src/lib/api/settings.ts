@@ -48,6 +48,7 @@ export interface SettingsApi {
   }>): Promise<any>;
   deleteLocalModel(id: number): Promise<any>;
   validateLocalModel(id: number): Promise<any>;
+  testLocalModel(id: number): Promise<any>;
   validateLocalConfig(baseUrl: string, apiKey?: string): Promise<any>;
   // First-run setup
   getSetupStatus(): Promise<any>;
@@ -148,6 +149,10 @@ export const settingsApi: SettingsApi = {
 
   async validateLocalModel(this: APIClient, id: number) {
     return this.post(`/api/local-models/${id}/validate`);
+  },
+
+  async testLocalModel(this: APIClient, id: number) {
+    return this.post(`/api/local-models/${id}/test`);
   },
 
   async validateLocalConfig(this: APIClient, baseUrl: string, apiKey?: string) {

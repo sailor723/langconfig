@@ -512,3 +512,72 @@ async def validate_config_without_saving(
     )
 
     return validation_result
+
+
+class LocalModelTestResult(BaseModel):
+    """Result of invoking a specific local model (real LLM call)."""
+    success: bool
+    message: str
+    response: Optional[str] = None
+    model_name: Optional[str] = None
+    error_details: Optional[str] = None
+
+
+@router.post("/{model_id}/test", response_model=LocalModelTestResult)
+async def test_local_model(model_id: int, db: Session = Depends(get_db)):
+    """
+    Test a SPECIFIC local model by making a real LLM call (like the SaaS
+    provider test). Sends a minimal prompt and returns the model's actual
+    response — proving the model itself works, not just that the server
+    is reachable.
+    """
+    model = db.query(LocalModel).filter(
+        LocalModel.id == model_id,
+        LocalModel.is_active == True
+    ).first()
+    if not model:
+        raise HTTPException(status_code=404, detail=f"Local model with ID {model_id} not found")
+
+    # Reuse the same config resolution the agent/playground path uses.
+    try:
+        from services.local_model_service import LocalModelService
+        from services.agent_utils import build_local_chat_model
+        from langchain_core.messages import HumanMessage
+
+        local_config = LocalModelService.get_local_model_config(model.name, db=db)
+        if not local_config:
+            return LocalModelTestResult(
+                success=False,
+                message=f"Local model '{model.name}' not found or not validated.",
+                model_name=model.model_name,
+            )
+
+        llm = build_local_chat_model(
+            local_config,
+            temperature=0.0,
+            max_tokens=24,
+            streaming=False,
+        )
+        resp = llm.invoke([HumanMessage(content="Reply with exactly: OK")])
+        text = getattr(resp, "content", "")
+        if isinstance(text, list):
+            text = " ".join(str(c) for c in text)
+
+        model.usage_count = (model.usage_count or 0) + 1
+        model.last_used_at = datetime.utcnow()
+        db.commit()
+
+        return LocalModelTestResult(
+            success=True,
+            message=f"Model '{model.model_name}' responded.",
+            response=str(text)[:200],
+            model_name=model.model_name,
+        )
+    except Exception as e:
+        logger.error(f"Local model test failed for {model.name}: {e}")
+        return LocalModelTestResult(
+            success=False,
+            message=f"Model '{model.model_name}' failed: {str(e)[:200]}",
+            model_name=model.model_name,
+            error_details=str(e),
+        )
