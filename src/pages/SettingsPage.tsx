@@ -18,12 +18,12 @@ import { useTranslation } from 'react-i18next'
 import { themes, useTheme, type ThemeName } from '../lib/themes'
 import apiClient from '../lib/api-client'
 
-type SectionId = 'general' | 'models' | 'search' | 'workspace' | 'storage' | 'about'
+type SectionId = 'general' | 'models' | 'webapi' | 'workspace' | 'storage' | 'about'
 
 const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
   { id: 'general', labelKey: 'settings_general', icon: 'tune' },
   { id: 'models', labelKey: 'settings_models', icon: 'smart_toy' },
-  { id: 'search', labelKey: 'settings_search_providers', icon: 'travel_explore' },
+  { id: 'webapi', labelKey: 'settings_search_providers', icon: 'travel_explore' },
   { id: 'workspace', labelKey: 'settings_workspace', icon: 'folder_open' },
   { id: 'storage', labelKey: 'settings_storage', icon: 'storage' },
   { id: 'about', labelKey: 'settings_about', icon: 'info' },
@@ -33,8 +33,12 @@ const PROVIDER_FIELD: Record<string, string> = {
   openai: 'openai_api_key', anthropic: 'anthropic_api_key', google: 'google_api_key',
   cohere: 'cohere_api_key', replicate: 'replicate_api_key', deepseek: 'deepseek_api_key',
   glm: 'glm_api_key', minimax: 'minimax_api_key', qwen: 'qwen_api_key', kimi: 'kimi_api_key',
-  agnes: 'agnes_api_key', tavily: 'tavily_api_key', serper: 'serper_api_key',
+  agnes: 'agnes_api_key',
 }
+
+// Web API providers (search engines etc.) — shown in their own Settings
+// section ("Web API"), NOT mixed into the LLM Models list.
+const WEB_API_PROVIDERS = new Set(['tavily', 'serper'])
 
 const PROVIDER_BASE_FIELD: Record<string, string> = {
   openai: 'openai_base_url', anthropic: 'anthropic_base_url', google: 'google_base_url',
@@ -264,7 +268,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
             <div style={{ maxWidth: 720 }}>
               {section === 'general' && <GeneralSection i18n={i18n} activeTheme={activeTheme.name} setTheme={setTheme} />}
               {section === 'models' && <ModelsSection />}
-              {section === 'search' && <SearchSection />}
+              {section === 'webapi' && <SearchSection />}
               {section === 'workspace' && <WorkspaceSection />}
               {section === 'storage' && <StorageSection />}
               {section === 'about' && <AboutSection />}
@@ -347,10 +351,13 @@ function ModelsSection() {
       const ns: SettingsNs | undefined = (descRes.data?.namespaces || []).find((n: any) => n.ns === 'models')
       const value = ns?.value || {}
       // Provider rows derive from the redacted secret positions (DSH dots):
-      // models.api_keys.* fields, no values ever cross the wire.
+      // models.api_keys.* fields, no values ever cross the wire. Web API
+      // providers (tavily/serper) are excluded here — they live in the
+      // dedicated "Web API" settings section.
       const providers = (ns?.secrets || [])
         .filter(s => s.path[0] === 'api_keys')
         .map(s => ({ provider: s.path[1].replace(/_api_key$/, ''), is_set: s.set }))
+        .filter(p => !WEB_API_PROVIDERS.has(p.provider))
       setKeys(providers)
       setDefaults({
         primary_model: value.primary_model || '',
