@@ -72,14 +72,17 @@ except ImportError:
 _ddg_search = None
 
 async def _try_configured_search_provider(query: str, max_results: int):
-    """Pluggable search backends (tools-audit \u00a74): use a configured
-    provider key (Settings \u2192 Search, stored in settings documents) when
-    present; returns formatted results or None to fall back to DDG."""
+    """Pluggable search backends (tools-audit §4): use a configured provider
+    key when present; returns formatted results or None to fall back to DDG.
+
+    Keys are read LIVE from the single api-key table (models.api_keys) via
+    the same get_api_key_from_db the LLM + tavily_search tools use — a user's
+    adhoc Settings save is picked up on the next call, no seeding involved.
+    """
     try:
-        from core.settings import runtime_get
-        search = runtime_get("search")
-        tavily_key = (search.get("tavily_api_key") or "").strip()
-        serper_key = (search.get("serper_api_key") or "").strip()
+        from config import get_api_key_from_db
+        tavily_key = (get_api_key_from_db("tavily_api_key") or "").strip()
+        serper_key = (get_api_key_from_db("serper_api_key") or "").strip()
     except Exception:
         return None
     import httpx as _httpx
