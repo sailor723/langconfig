@@ -58,7 +58,7 @@ import GraphStudioPage from './features/graph-studio/GraphStudioPage';
 import GraphStudioSidebar from './features/graph-studio/GraphStudioSidebar';
 import GraphHomePage from './features/graph-studio/GraphHomePage';
 
-type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'search' | 'chat' | 'learning' | 'graph' | 'project';
+type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'chat' | 'learning' | 'graph' | 'project';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -168,7 +168,6 @@ const ROUTE_TO_VIEW: Record<string, View> = {
   '/settings': 'settings',
   // settings → full Settings page (route /settings)
   '/playground': 'playground',
-  '/search': 'search',
   '/deepagent-studio': 'deepagent-studio',
   '/chat': 'chat',
   '/learning': 'learning',
@@ -183,7 +182,6 @@ const VIEW_ROUTE: Record<View, string> = {
   knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
   playground: '/playground', tools: '/tools', prompt: '/prompt',
   'deepagent-studio': '/deepagent-studio',
-  search: '/search',
   chat: '/chat',
   learning: '/learning',
 };
@@ -204,7 +202,6 @@ const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
   settings: 'settings',
   playground: 'workflows',
   'deepagent-studio': 'studio',
-  search: 'search',
   chat: null,
   learning: 'learning',
 };
@@ -218,7 +215,6 @@ const ACTIVITY_TO_VIEW: Partial<Record<ActivityId, View>> = {
   prompt: 'prompt',
   tools: 'tools',
   knowledge: 'knowledge',
-  search: 'search',
   analysis: 'analysis',
   skills: 'skills',
   settings: 'settings',

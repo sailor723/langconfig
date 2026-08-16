@@ -14,7 +14,7 @@ import { useState, useRef, Fragment } from 'react';
 import { useLayoutState, ACTIVITIES, type ActivityDef, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
-  GitBranch, Brain, Users, BarChart3, Network, Settings, Globe, Wrench, Database, Award, MessageSquare, Archive, FileText, BookOpen, Workflow, type LucideIcon,
+  GitBranch, Brain, Users, BarChart3, Network, Settings, Wrench, Database, Award, MessageSquare, Archive, FileText, BookOpen, Workflow, type LucideIcon,
 } from 'lucide-react';
 import VaultPopover from './VaultPopover';
 
@@ -29,7 +29,6 @@ const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
   skills:     Award,
   knowledge:  Database,
   analysis:   BarChart3,
-  search:     Globe,
   studio:     Network,
   learning:   BookOpen,
   settings:   Settings,
@@ -40,7 +39,6 @@ const SECTION_GROUPS: ActivityId[][] = [
   ['vault', 'deepagents', 'agents', 'graph'],
   ['prompt', 'tools', 'skills'],
   ['knowledge', 'analysis', 'learning'],
-  ['search'],
 ];
 
 interface ActivityButtonProps {

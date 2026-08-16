@@ -16,7 +16,6 @@ import { IconButton } from './ui-system';
 import SearchPanel from './SearchPanel';
 import apiClient from '../../lib/api-client';
 import { Plus, RefreshCw, Search, Loader } from 'lucide-react';
-import SearchProvidersSidebar from './SearchProvidersSidebar';
 import ToolBrowserSidebar from './ToolBrowserSidebar';
 import KnowledgeSidebar from './KnowledgeSidebar';
 import SkillBrowserSidebar from './SkillBrowserSidebar';
@@ -214,9 +213,6 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
             <SearchPanel onClose={() => setSidebarView('explorer')} />
           ) : Children.toArray(children).length > 0 ? (
             <div style={{ height: '100%', overflow: 'auto' }}>{children}</div>
-          ) : activeActivity === 'search' ? (
-            /* Search activity renders the dedicated SearchProvidersSidebar */
-            <SearchProvidersSidebar />
           ) : activeActivity === 'tools' ? (
             /* Tools activity renders the dedicated ToolBrowserSidebar */
             <ToolBrowserSidebar />
