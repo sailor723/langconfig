@@ -402,6 +402,25 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     outline: 'none',
     boxSizing: 'border-box',
   };
+  const inputStyle: React.CSSProperties = { ...editableInputStyle };
+  const textareaStyle: React.CSSProperties = {
+    ...editableInputStyle,
+    height: 'auto',
+    minHeight: 56,
+    padding: '6px',
+    resize: 'vertical',
+    lineHeight: 1.4,
+  };
+  const smallBtnStyle: React.CSSProperties = {
+    fontSize: 11,
+    padding: '3px 8px',
+    background: t.bgHover,
+    border: `1px solid ${t.border}`,
+    borderRadius: 3,
+    color: t.textPrimary,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  };
 
   // ── Overview section — editable fields ──
   const renderOverview = () => (
@@ -712,75 +731,174 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     />
   );
 
-  // ── Subagents section ──
-  const renderSubagents = () => {
-    // Try multiple data locations (DB-level, normalized config, etc.)
-    const subs =
-      agent.subagents ||
-      agent.subagents_config ||
-      agent.config?.subagents ||
-      [];
-    if (subs.length === 0) {
-      return (
-        <div style={{ padding: 4 }}>
-          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic' }}>(no subagents / skills)</div>
-        </div>
-      );
+  // ── Subagents section — editable: add / edit / remove subagent cards ──
+  const [subagentDraft, setSubagentDraft] = useState<{
+    name: string; description: string; model: string; system_prompt: string; tools: string;
+  }>({ name: '', description: '', model: '', system_prompt: '', tools: '' });
+  const [subagentEditIdx, setSubagentEditIdx] = useState<number | null>(null);
+
+  const readSubagents = useCallback((): any[] => {
+    try {
+      const parsed = JSON.parse(jsonEdit);
+      // Backend update endpoint persists request.config.subagents; the
+      // top-level subagents_config in the GET response is derived from it.
+      return Array.isArray(parsed.config?.subagents) ? parsed.config.subagents : [];
+    } catch { return []; }
+  }, [jsonEdit]);
+
+  const startAddSubagent = () => {
+    setSubagentDraft({ name: '', description: '', model: '', system_prompt: '', tools: '' });
+    setSubagentEditIdx(null);
+  };
+
+  const startEditSubagent = (idx: number) => {
+    const subs = readSubagents();
+    const sa = subs[idx] || {};
+    setSubagentDraft({
+      name: sa.name || '',
+      description: sa.description || '',
+      model: sa.model || '',
+      system_prompt: sa.system_prompt || '',
+      tools: Array.isArray(sa.tools) ? sa.tools.join(', ') : '',
+    });
+    setSubagentEditIdx(idx);
+  };
+
+  const saveSubagentDraft = () => {
+    if (!subagentDraft.name.trim()) {
+      setSaveMsg({ ok: false, text: 'Subagent needs a name' });
+      return;
     }
+    const sa: any = {
+      name: subagentDraft.name.trim(),
+      description: subagentDraft.description.trim(),
+      system_prompt: subagentDraft.system_prompt,
+    };
+    if (subagentDraft.model.trim()) sa.model = subagentDraft.model.trim();
+    if (subagentDraft.tools.trim()) {
+      sa.tools = subagentDraft.tools.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    patchJson(p => {
+      if (!p.config) p.config = {};
+      if (!Array.isArray(p.config.subagents)) p.config.subagents = [];
+      if (subagentEditIdx !== null && subagentEditIdx < p.config.subagents.length) {
+        p.config.subagents[subagentEditIdx] = sa;
+      } else {
+        p.config.subagents.push(sa);
+      }
+    });
+    startAddSubagent();
+    setSaveMsg({ ok: true, text: subagentEditIdx !== null ? 'Subagent updated' : 'Subagent added' });
+    setTimeout(() => setSaveMsg(null), 2500);
+  };
+
+  const removeSubagent = (idx: number) => {
+    patchJson(p => {
+      if (p.config && Array.isArray(p.config.subagents)) {
+        p.config.subagents = p.config.subagents.filter((_: any, i: number) => i !== idx);
+      }
+    });
+    if (subagentEditIdx === idx) startAddSubagent();
+    setSaveMsg({ ok: true, text: 'Subagent removed' });
+    setTimeout(() => setSaveMsg(null), 2500);
+  };
+
+  const renderSubagents = () => {
+    const subs = readSubagents();
     return (
       <div style={{ padding: 4 }}>
+        <button onClick={startAddSubagent} style={{
+          ...compactCardStyle, cursor: 'pointer', color: t.textPrimary, fontWeight: 600,
+          display: 'flex', alignItems: 'center', gap: 6, border: `1px dashed ${t.accent}`,
+        }}>
+          <span style={{ fontSize: 15 }}>+</span> Add subagent
+        </button>
+
+        {subs.length === 0 && (
+          <div style={{ ...valueStyle, color: t.textMuted, fontStyle: 'italic', marginTop: 8 }}>
+            (no subagents — add one above)
+          </div>
+        )}
+
         {subs.map((sa: any, i: number) => {
-          // Normalize: if it's a string (skill name), wrap it
           const sa_obj = typeof sa === 'string' ? { name: sa } : sa;
           const open = expandedSubs[i];
+          const isEditing = subagentEditIdx === i;
           return (
-            <div key={i} style={cardStyle}>
-              <div
-                onClick={() => setExpandedSubs(prev => ({ ...prev, [i]: !prev[i] }))}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}
-              >
-                {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                <div style={{ ...valueStyle, fontWeight: 600 }}>{sa_obj.name || sa_obj.prompt || `Subagent #${i + 1}`}</div>
-                <div style={{ ...valueStyle, color: t.textMuted, fontSize: 11, marginLeft: 8 }}>
-                  {sa_obj.description?.slice(0, 60)}
+            <div key={i} style={{ ...cardStyle, marginTop: 8 }}>
+              {isEditing ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <input value={subagentDraft.name} onChange={e => setSubagentDraft(d => ({ ...d, name: e.target.value }))}
+                    placeholder="Name (e.g. researcher)" style={inputStyle} />
+                  <input value={subagentDraft.description} onChange={e => setSubagentDraft(d => ({ ...d, description: e.target.value }))}
+                    placeholder="Description — what this subagent does" style={inputStyle} />
+                  <input value={subagentDraft.model} onChange={e => setSubagentDraft(d => ({ ...d, model: e.target.value }))}
+                    placeholder="Model override (optional, e.g. deepseek-chat)" style={inputStyle} />
+                  <textarea value={subagentDraft.system_prompt} onChange={e => setSubagentDraft(d => ({ ...d, system_prompt: e.target.value }))}
+                    placeholder="System prompt for this subagent" rows={3} style={textareaStyle} />
+                  <input value={subagentDraft.tools} onChange={e => setSubagentDraft(d => ({ ...d, tools: e.target.value }))}
+                    placeholder="Tools (comma-separated, optional)" style={inputStyle} />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={saveSubagentDraft} style={{ ...smallBtnStyle, background: t.accent, color: '#fff' }}>
+                      {subagentEditIdx !== null ? 'Update' : 'Add'}
+                    </button>
+                    <button onClick={startAddSubagent} style={smallBtnStyle}>Cancel</button>
+                  </div>
                 </div>
-              </div>
-              {open && (
-                <div style={{ marginTop: 10, paddingLeft: 20 }}>
-                  <div style={labelStyle}>Description</div>
-                  <div style={{ ...valueStyle, marginBottom: 8 }}>{sa_obj.description || '—'}</div>
-                  {sa_obj.model && (
-                    <>
-                      <div style={labelStyle}>Model</div>
-                      <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.model}</div>
-                    </>
+              ) : (
+                <>
+                  <div
+                    onClick={() => setExpandedSubs(prev => ({ ...prev, [i]: !prev[i] }))}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                    <div style={{ ...valueStyle, fontWeight: 600 }}>{sa_obj.name || sa_obj.prompt || `Subagent #${i + 1}`}</div>
+                    <div style={{ ...valueStyle, color: t.textMuted, fontSize: 11, marginLeft: 8, flex: 1 }}>
+                      {sa_obj.description?.slice(0, 60)}
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); startEditSubagent(i); }}
+                      style={smallBtnStyle}>Edit</button>
+                    <button onClick={(e) => { e.stopPropagation(); removeSubagent(i); }}
+                      style={{ ...smallBtnStyle, color: '#e5484d' }}>Remove</button>
+                  </div>
+                  {open && (
+                    <div style={{ marginTop: 10, paddingLeft: 20 }}>
+                      <div style={labelStyle}>Description</div>
+                      <div style={{ ...valueStyle, marginBottom: 8 }}>{sa_obj.description || '—'}</div>
+                      {sa_obj.model && (
+                        <>
+                          <div style={labelStyle}>Model</div>
+                          <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.model}</div>
+                        </>
+                      )}
+                      {sa_obj.tools && sa_obj.tools.length > 0 && (
+                        <>
+                          <div style={labelStyle}>Tools ({sa_obj.tools.length})</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                            {sa_obj.tools.map((tool: string, j: number) => (
+                              <span key={j} style={{
+                                fontSize: 11, padding: '2px 6px',
+                                background: t.bgHover, borderRadius: 3,
+                                color: t.textPrimary, fontFamily: 'monospace',
+                              }}>{tool}</span>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                      {sa_obj.system_prompt && (
+                        <>
+                          <div style={labelStyle}>System Prompt</div>
+                          <pre style={{
+                            whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                            fontFamily: '"SF Mono", monospace', fontSize: 11,
+                            color: t.textMuted, lineHeight: 1.5, margin: 0,
+                            maxHeight: 200, overflow: 'auto',
+                          }}>{sa_obj.system_prompt}</pre>
+                        </>
+                      )}
+                    </div>
                   )}
-                  {sa_obj.tools && sa_obj.tools.length > 0 && (
-                    <>
-                      <div style={labelStyle}>Tools ({sa_obj.tools.length})</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-                        {sa_obj.tools.map((tool: string, j: number) => (
-                          <span key={j} style={{
-                            fontSize: 11, padding: '2px 6px',
-                            background: t.bgHover, borderRadius: 3,
-                            color: t.textPrimary, fontFamily: 'monospace',
-                          }}>{tool}</span>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  {sa_obj.system_prompt && (
-                    <>
-                      <div style={labelStyle}>System Prompt</div>
-                      <pre style={{
-                        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                        fontFamily: '"SF Mono", monospace', fontSize: 11,
-                        color: t.textMuted, lineHeight: 1.5, margin: 0,
-                        maxHeight: 200, overflow: 'auto',
-                      }}>{sa_obj.system_prompt}</pre>
-                    </>
-                  )}
-                </div>
+                </>
               )}
             </div>
           );
