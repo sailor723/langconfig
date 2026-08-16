@@ -599,7 +599,7 @@ function SearchSection() {
           <li key={p.id} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
               <span style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>{p.name || p.id}</span>
-              <Dot state={p.has_api_key ? 'configured' : 'missing'} />
+              <Dot state={p.has_key ? 'configured' : 'missing'} />
             </span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
               {editingId === p.id ? (
@@ -614,7 +614,7 @@ function SearchSection() {
               ) : (
                 <>
                   <Btn dense onClick={() => { setEditingId(p.id); setKeyInput('') }}>{t('settings_edit')}</Btn>
-                  {p.has_api_key && <Btn dense variant="danger" onClick={() => remove(p.id)}>{t('settings_remove')}</Btn>}
+                  {p.has_key && <Btn dense variant="danger" onClick={() => remove(p.id)}>{t('settings_remove')}</Btn>}
                 </>
               )}
             </span>
