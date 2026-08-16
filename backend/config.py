@@ -218,13 +218,14 @@ settings = Settings()
 def get_api_key_from_db(key_name: str) -> Optional[str]:
     """Read an API key from .env (pydantic-settings), falling back to the DB.
 
-    Resolution order:
+    Resolution order (SINGLE api-key table):
     1. .env file (via pydantic-settings) — canonical source of truth
-    2. Settings documents (core/settings `models.api_keys`) — set via the
-       Settings UI at runtime
+    2. The ``models`` settings document's ``api_keys`` field
+       (core/settings — the one table every API key lives in, set via the
+       Settings UI; secrets encrypted at rest)
 
-    The DB fallback allows API keys to be configured through the Settings UI
-    when .env is not available or incomplete. .env always takes precedence.
+    The legacy ``settings.api_keys`` JSONB column was migrated into the
+    models document and is no longer read.
     """
     # Try .env first via settings
     try:
@@ -234,7 +235,7 @@ def get_api_key_from_db(key_name: str) -> Optional[str]:
     except Exception:
         pass
 
-    # Fallback: UI-set key from the settings documents (models.api_keys).
+    # Fallback: UI-set key from the single models.api_keys document.
     try:
         db_val = _db_api_key_only(key_name)
         if db_val:

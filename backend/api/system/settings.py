@@ -296,7 +296,8 @@ def _document_api_keys(db: Session) -> dict:
 
 
 def _resolve_api_key(db: Session, provider: str) -> Optional[str]:
-    """Resolve a provider's key for testing: UI-set document key first, then .env."""
+    """Resolve a provider's key for testing: the single models.api_keys
+    document first, then .env (legacy settings.api_keys is no longer used)."""
     field = API_PROVIDER_KEY_FIELDS.get(provider)
     if field:
         key = _document_api_keys(db).get(field)
