@@ -700,10 +700,12 @@ function LocalModelsSection() {
 
   const save = async () => {
     // Auto-generate the name from provider + model when the user left it
-    // blank (e.g. "ollama" + "qwen3.6:27b" -> "ollama-qwen3.6-27b").
+    // blank. Backend rule: alphanumeric + hyphens/underscores only (no dots,
+    // colons, etc.) — sanitize aggressively so names like qwen2.5:14b become
+    // 'ollama-qwen2-5-14b'.
     let name = form.name.trim()
     if (!name && form.model_name.trim()) {
-      name = `${form.provider}-${form.model_name.trim().replace(/[^a-zA-Z0-9_.-]/g, '-')}`
+      name = `${form.provider}-${form.model_name.trim().replace(/[^a-zA-Z0-9_-]/g, '-')}`
       setForm(f => ({ ...f, name }))
     }
     if (!name || !form.base_url.trim() || !form.model_name.trim()) {
