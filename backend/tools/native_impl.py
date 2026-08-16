@@ -105,12 +105,14 @@ async def _try_configured_search_provider(query: str, max_results: int):
     if serper_key:
         try:
             async with _httpx.AsyncClient(timeout=15) as client:
-                r = await client.post(
-                    "https://google.serper.dev/search",
-                    json={"q": query, "num": max_results},
-                    headers={"X-API-KEY": serper_key},
+                # SerpAPI (serpapi.com) — NOT Serper.dev. These are different
+                # services with different keys; the provider row + user key are
+                # SerpAPI, so the search call must use serpapi.com/search.
+                r = await client.get(
+                    "https://serpapi.com/search",
+                    params={"q": query, "num": max_results, "api_key": serper_key},
                 )
-                results = r.json().get("organic", [])
+                results = r.json().get("organic_results") or r.json().get("organic", [])
             if results:
                 return "\n\n".join(
                     f"{i + 1}. {res.get('title', '')}\n   {res.get('link', '')}\n   {res.get('snippet', '')}"
