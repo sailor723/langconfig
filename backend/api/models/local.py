@@ -109,6 +109,10 @@ class ValidationResult(BaseModel):
     success: bool
     message: str
     model_count: Optional[int] = None
+    models: Optional[List[str]] = Field(
+        default_factory=list,
+        description="Model identifiers available on the local server (e.g. Ollama /models names).",
+    )
     capabilities: Optional[dict] = None
     error_details: Optional[str] = None
 
@@ -157,6 +161,15 @@ class LocalModelValidator:
                 data = response.json()
                 models = data.get("data", []) or data.get("models", [])
 
+                # Model identifiers: OpenAI-compatible /models returns
+                # [{id, ...}]; Ollama returns [{name, ...}]. Capture both so
+                # the UI can offer a dropdown of available models.
+                model_ids: List[str] = []
+                for m in models:
+                    mid = m.get("id") or m.get("name") or m.get("model") if isinstance(m, dict) else str(m)
+                    if mid:
+                        model_ids.append(str(mid))
+
                 # Try to infer capabilities
                 capabilities = {
                     "streaming": True,  # Most local servers support streaming
@@ -168,6 +181,7 @@ class LocalModelValidator:
                     success=True,
                     message=f"Connected successfully! Found {len(models)} model(s).",
                     model_count=len(models),
+                    models=model_ids,
                     capabilities=capabilities
                 )
 
