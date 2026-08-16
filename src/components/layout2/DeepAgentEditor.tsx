@@ -700,6 +700,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           placeholder="Enter the agent's system prompt…"
           style={{
             width: '100%',
+            height: 'calc(100vh - 210px)', // fill the editor panel height
             minHeight: 280,
             padding: 10,
             boxSizing: 'border-box',
