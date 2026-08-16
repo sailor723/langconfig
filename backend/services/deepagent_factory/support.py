@@ -130,7 +130,28 @@ class _DeepAgentSupportMixin:
                     subagent["tools"] = subagent_tools
 
                 if sub_config.model:
-                    subagent["model"] = sub_config.model
+                    # Resolve the model string to a BaseChatModel instance via
+                    # LangConfig's DB-aware resolve_model (reads API keys from
+                    # settings documents, not just env). The deepagents SDK's
+                    # own resolve_model (graph.py) builds string models from
+                    # env vars only, so a bare string here fails for
+                    # DB-stored keys (e.g. "DEEPSEEK_API_KEY must be set").
+                    # Passing an instance is respected: SDK resolve_model
+                    # returns BaseChatModel unchanged.
+                    try:
+                        from services.agent_utils import resolve_model as _resolve_lc_model
+                        subagent["model"] = await _resolve_lc_model(
+                            sub_config.model,
+                            temperature=0.0,
+                            max_tokens=None,
+                            config={"streaming": True},
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to resolve model for subagent '{sub_config.name}': {e} "
+                            "(falling back to string; subagent may fail to build)"
+                        )
+                        subagent["model"] = sub_config.model
 
                 if sub_config.interrupt_on:
                     subagent["interrupt_on"] = sub_config.interrupt_on
