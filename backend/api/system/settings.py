@@ -263,17 +263,16 @@ def _test_search_connection(provider: str, api_key: str) -> dict:
                 return {"success": False, "message": f"✗ Tavily error: {detail}"}
 
         elif provider == "serper":
-            resp = httpx.post(
-                "https://google.serper.dev/search",
-                json={"q": "test", "num": 1},
-                headers={"X-API-KEY": api_key},
+            resp = httpx.get(
+                "https://serpapi.com/search",
+                params={"q": "test", "num": 1, "api_key": api_key},
                 timeout=10,
             )
             if resp.status_code == 200:
-                return {"success": True, "message": "✓ Serper API key is valid"}
+                return {"success": True, "message": "✓ SerpAPI key is valid"}
             else:
                 detail = resp.text[:200]
-                return {"success": False, "message": f"✗ Serper error: {detail}"}
+                return {"success": False, "message": f"✗ SerpAPI error: {detail}"}
 
         return {"success": False, "message": f"Unknown search provider: {provider}"}
     except Exception as e:
