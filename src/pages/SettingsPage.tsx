@@ -340,7 +340,7 @@ function ModelsSection() {
   const [keyInput, setKeyInput] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
   const [newProviderName, setNewProviderName] = useState('')
-  const [testing, setTesting] = useState(false)
+  const [testingProvider, setTestingProvider] = useState<string | null>(null)
   const [testMsg, setTestMsg] = useState<{ ok: boolean; msg: string } | null>(null)
 
   const load = useCallback(async () => {
@@ -412,11 +412,13 @@ function ModelsSection() {
   }
 
   const handleTest = async (provider: string) => {
-    setTesting(true); setTestMsg(null)
+    setTestingProvider(provider); setTestMsg(null)
     try {
-      const res = await apiClient.testApiKey(provider, keyInput || undefined)
+      // Test the DRAFT key when one is entered, else the SAVED key (none →
+      // backend resolves the stored models.api_keys value).
+      const res = await apiClient.testApiKey(provider, keyInput.trim() || undefined)
       setTestMsg({ ok: !!res.data?.success, msg: res.data?.message || (res.data?.success ? '✓ Connected' : '✗ Failed') })
-    } catch { setTestMsg({ ok: false, msg: '✗ Connection failed' }) } finally { setTesting(false) }
+    } catch { setTestMsg({ ok: false, msg: '✗ Connection failed' }) } finally { setTestingProvider(null) }
   }
 
   const handleAddProvider = async () => {
@@ -480,6 +482,9 @@ function ModelsSection() {
                 <Dot state={k.is_set ? 'configured' : 'missing'} />
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+                <Btn dense onClick={() => handleTest(k.provider)} disabled={testingProvider === k.provider}>
+                  {testingProvider === k.provider ? t('settings_testing') : t('settings_test')}
+                </Btn>
                 <Btn dense onClick={() => { setEditing(k.provider); setKeyInput(''); setBaseUrl(''); setTestMsg(null) }}>{t('settings_edit')}</Btn>
               </span>
             </div>
@@ -513,7 +518,7 @@ function ModelsSection() {
                 </div>
                 {testMsg && <div style={{ fontSize: 12, lineHeight: '18px', color: testMsg.ok ? tok.success : tok.error }}>{testMsg.msg}</div>}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                  <Btn onClick={() => handleTest(k.provider)} disabled={testing}>{testing ? t('settings_testing') : t('settings_test')}</Btn>
+                  <Btn onClick={() => handleTest(k.provider)} disabled={testingProvider === k.provider}>{testingProvider === k.provider ? t('settings_testing') : t('settings_test')}</Btn>
                   <Btn onClick={() => setEditing(null)}>{t('settings_cancel')}</Btn>
                   <Btn variant="primary" onClick={() => handleEditSave(k.provider)}>{t('settings_apply')}</Btn>
                 </div>
@@ -573,7 +578,8 @@ function SearchSection() {
   const [providers, setProviders] = useState<any[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [keyInput, setKeyInput] = useState('')
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [testingId, setTestingId] = useState<string | null>(null)
+  const [testMsg, setTestMsg] = useState<{ id: string | null; ok: boolean; text: string } | null>(null)
 
   const load = useCallback(async () => {
     try { const res = await apiClient.listSearchProviders(); setProviders(res.data?.providers || []) } catch { /* noop */ }
@@ -584,11 +590,18 @@ function SearchSection() {
     try {
       await apiClient.setSearchProviderKey(id, keyInput.trim())
       setEditingId(null); setKeyInput('')
-      setMsg({ ok: true, text: 'API key saved ✓' }); await load(); setTimeout(() => setMsg(null), 2500)
-    } catch (err: any) { setMsg({ ok: false, text: err?.response?.data?.detail || 'Failed to save' }) }
+      setTestMsg({ id: null, ok: true, text: 'API key saved ✓' }); await load(); setTimeout(() => setTestMsg(null), 2500)
+    } catch (err: any) { setTestMsg({ id: null, ok: false, text: err?.response?.data?.detail || 'Failed to save' }) }
   }
   const remove = async (id: string) => {
-    try { await apiClient.deleteSearchProviderKey(id); setMsg({ ok: true, text: 'API key removed' }); await load(); setTimeout(() => setMsg(null), 2500) } catch { /* noop */ }
+    try { await apiClient.deleteSearchProviderKey(id); setTestMsg({ id: null, ok: true, text: 'API key removed' }); await load(); setTimeout(() => setTestMsg(null), 2500) } catch { /* noop */ }
+  }
+  const test = async (id: string) => {
+    setTestingId(id); setTestMsg(null)
+    try {
+      const res = await apiClient.testSearchProvider(id)
+      setTestMsg({ id, ok: !!res.data?.success, text: res.data?.message || (res.data?.success ? '✓ Connected' : '✗ Failed') })
+    } catch { setTestMsg({ id, ok: false, text: '✗ Connection failed' }) } finally { setTestingId(null) }
   }
 
   return (
@@ -613,6 +626,7 @@ function SearchSection() {
                 </>
               ) : (
                 <>
+                  <Btn dense onClick={() => test(p.id)} disabled={testingId === p.id}>{testingId === p.id ? t('settings_testing') : t('settings_test')}</Btn>
                   <Btn dense onClick={() => { setEditingId(p.id); setKeyInput('') }}>{t('settings_edit')}</Btn>
                   {p.has_key && <Btn dense variant="danger" onClick={() => remove(p.id)}>{t('settings_remove')}</Btn>}
                 </>
@@ -622,7 +636,7 @@ function SearchSection() {
         ))}
         {providers.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary }}>{t('settings_no_search_providers')}</li>}
       </ul>
-      {msg && <div style={{ fontSize: 12, lineHeight: '18px', color: msg.ok ? tok.success : tok.error }}>{msg.text}</div>}
+      {testMsg && <div style={{ fontSize: 12, lineHeight: '18px', color: testMsg.ok ? tok.success : tok.error }}>{testMsg.text}</div>}
     </div>
   )
 }
