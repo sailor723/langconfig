@@ -7,12 +7,15 @@
  *
  * Chat is handled by the bottom panel, not embedded in this view.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useLayoutTokens } from './tokens';
 import PdfViewer from './PdfViewer';
 import type { Tab } from './useLayout';
+// OfficeViewer pulls in docx-preview + pptxviewjs (~1MB) — lazy-load it so
+// the initial bundle stays lean; it only loads when a .docx/.pptx is opened.
+const OfficeViewer = lazy(() => import('./OfficeViewer'));
 import { Database, FileText, Loader, Download, AlertCircle, List } from 'lucide-react';
 
 /* ── In-page anchor support ─────────────────────────────
@@ -110,6 +113,10 @@ const TEXT_EXTENSIONS = new Set(['md', 'txt', 'json', 'csv', 'yaml', 'yml', 'xml
 const PDF_EXTENSIONS = new Set(['pdf']);
 const HTML_EXTENSIONS = new Set(['html', 'htm']);
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']);
+// Office formats: the browser can't render the binary directly, so the
+// backend extracts text (`GET /api/kv/documents/{id}/content`) and we
+// render the returned markdown/rows inline.
+const OFFICE_EXTENSIONS = new Set(['docx', 'pptx']);
 
 type DocStatus = 'loading' | 'loaded' | 'error';
 
@@ -149,13 +156,16 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
     setContent(null);
 
     const ext = docName.split('.').pop()?.toLowerCase() || '';
-    const isBinary = !TEXT_EXTENSIONS.has(ext) && !PDF_EXTENSIONS.has(ext) && !IMAGE_EXTENSIONS.has(ext);
+    const isOffice = OFFICE_EXTENSIONS.has(ext);
+    const isBinary = !TEXT_EXTENSIONS.has(ext) && !PDF_EXTENSIONS.has(ext) && !IMAGE_EXTENSIONS.has(ext) && !isOffice;
 
     if (isBinary) {
       setStatus('loaded');
       return;
     }
-    if (PDF_EXTENSIONS.has(ext) || HTML_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext)) {
+    // PDF / HTML / image / office render natively from the raw file URL —
+    // no content fetch needed here (OfficeViewer fetches the binary itself).
+    if (PDF_EXTENSIONS.has(ext) || HTML_EXTENSIONS.has(ext) || IMAGE_EXTENSIONS.has(ext) || isOffice) {
       setStatus('loaded');
       return;
     }
@@ -188,6 +198,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
   const isHtml = HTML_EXTENSIONS.has(ext);
   const isImage = IMAGE_EXTENSIONS.has(ext);
   const isText = TEXT_EXTENSIONS.has(ext);
+  const isOffice = OFFICE_EXTENSIONS.has(ext);
   const isMarkdown = ext === 'md';
 
   // ── Table of contents (markdown only) ────────────────
@@ -394,6 +405,17 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
           /* PDF: render with pdf.js (PdfViewer) so Safari's PDFKit can't
            * garble subsetted fonts — output is identical in every browser. */
           <PdfViewer url={fileUrl!} />
+        ) : isOffice ? (
+          /* Office: native client-side render of the real binary
+           * (docx-preview / pptxviewjs) — no server conversion. */
+          <Suspense fallback={
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: t.textMuted, fontSize: 13 }}>
+              <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
+              Loading office viewer...
+            </div>
+          }>
+            <OfficeViewer url={fileUrl!} fileName={docName} ext={ext as 'docx' | 'pptx'} />
+          </Suspense>
         ) : isHtml ? (
           /* HTML: keep iframe so it renders as a document */
           <iframe

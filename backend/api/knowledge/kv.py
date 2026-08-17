@@ -13,6 +13,7 @@ Endpoints:
   POST   /api/kv/ingest-folder      — server-side folder walk
   DELETE /api/kv/documents/{id}     — delete a document
   GET    /api/kv/documents/{id}/file — serve raw file bytes
+  GET    /api/kv/documents/{id}/content — extracted text (docx/pptx/xlsx/...)
 """
 
 from __future__ import annotations
@@ -707,3 +708,56 @@ async def get_document_file(doc_id: str, project_id: int, request: Request):
         raise HTTPException(status_code=404, detail="File not found on disk")
 
     return _serve_file_bytes(content, doc.original_filename, doc.mime_type, request.headers.get("range"))
+
+
+@router.get("/documents/{doc_id}/content")
+async def get_document_content(doc_id: str, project_id: int):
+    """Return extracted text/markdown for inline viewing.
+
+    Mirrors the RAG content endpoint (`/api/rag/documents/{id}/content`) for
+    KV-store documents: binary Office formats (.docx via python-docx, .pptx
+    via python-pptx, .xlsx via openpyxl) are parsed into text on the server
+    so the Knowledge panel can render them inline instead of downloading.
+
+    The response matches `DocumentContentResponse` (rag/schemas.py):
+    {kind, content, rows, sheet_names, sheet_rows, truncated}.
+    """
+    from api.knowledge.rag.helpers import _extract_text_for_viewer
+
+    store = KVStore(project_id)
+    doc = store.get_doc(doc_id)
+
+    if doc:
+        file_path = Path(doc.storage_path)
+        content = file_storage.read_bytes(file_path)
+        if content is None:
+            raise HTTPException(status_code=404, detail="File not found on disk")
+        ext = file_path.suffix.lower() or Path(doc.original_filename).suffix.lower()
+        # The extractor reads from disk; in STORAGE_MODE=db the durable copy
+        # may live only in storage_objects, so materialize a temp file.
+        if file_path.exists():
+            return _extract_text_for_viewer(file_path, ext)
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = Path(tmp.name)
+        try:
+            return _extract_text_for_viewer(tmp_path, ext)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+    # DB mode: docs listed from storage_objects have no .kvmeta record.
+    resolved = _storage_doc(project_id, doc_id)
+    if resolved is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    from services.storage import get_storage
+    content = get_storage().read(resolved["key"])
+    ext = Path(resolved["original_filename"]).suffix.lower()
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+    try:
+        return _extract_text_for_viewer(tmp_path, ext)
+    finally:
+        tmp_path.unlink(missing_ok=True)
