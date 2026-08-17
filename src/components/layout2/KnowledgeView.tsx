@@ -7,13 +7,99 @@
  *
  * Chat is handled by the bottom panel, not embedded in this view.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useLayoutTokens } from './tokens';
 import PdfViewer from './PdfViewer';
 import type { Tab } from './useLayout';
-import { Database, FileText, Loader, Download, AlertCircle } from 'lucide-react';
+import { Database, FileText, Loader, Download, AlertCircle, List } from 'lucide-react';
+
+/* ── In-page anchor support ─────────────────────────────
+ * The app shell runs inside a HashRouter, so a plain
+ * `<a href="#section">` click would change the URL hash and
+ * be interpreted as a route change — unmounting this view.
+ * We render headings with GitHub-style slug ids and intercept
+ * `#...` links to scroll in place instead of navigating.
+ */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    // Keep unicode letters/numbers/underscores/spaces/hyphens; strip the rest
+    // (matches GitHub-slugger so common TOC anchors resolve)
+    .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+    .trim()
+    .replace(/[\s]+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+/** Flatten React children (headings may contain inline code etc.) to text. */
+function nodeToText(node: React.ReactNode): string {
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(nodeToText).join('');
+  if (node && typeof node === 'object' && 'props' in node) {
+    const props = (node as { props?: { children?: React.ReactNode } }).props;
+    return nodeToText(props?.children);
+  }
+  return '';
+}
+
+/* ── Table of contents ─────────────────────────────────
+ * Headings are parsed from the raw markdown (ATX `#` form,
+ * skipping fenced code blocks). The id is the same
+ * GitHub-style slug used for the rendered heading element,
+ * so clicking a TOC entry scrolls to the right section.
+ * Duplicate heading text maps to the same id (both scroll to
+ * the first occurrence) — simple and always aligned with the
+ * rendered headings, which use the same slug derivation.
+ */
+interface TocEntry {
+  level: number;
+  text: string;
+  id: string;
+}
+
+/** Strip inline markdown from a heading line for TOC display. */
+function cleanHeadingText(raw: string): string {
+  return raw
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1') // ![alt](url) -> alt
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')   // [text](url) -> text
+    .replace(/`([^`]*)`/g, '$1')               // `code` -> code
+    .replace(/\*\*([^*]+)\*\*/g, '$1')         // **bold**
+    .replace(/__([^_]+)__/g, '$1')             // __bold__
+    .replace(/\*([^*]+)\*/g, '$1')             // *italic*
+    .replace(/_([^_]+)_/g, '$1')               // _italic_
+    .replace(/~~([^~]+)~~/g, '$1')             // ~~strike~~
+    .replace(/<[^>]*>/g, '')                   // inline HTML
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractToc(markdown: string): TocEntry[] {
+  const entries: TocEntry[] = [];
+  let inFence = false;
+
+  for (const line of markdown.split('\n')) {
+    // Fenced code blocks: `#` inside them is not a heading.
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+
+    const m = /^(#{1,6})\s+(.+)$/.exec(line);
+    if (!m) continue;
+
+    let text = cleanHeadingText(m[2]);
+    // CommonMark: trailing hashes are only stripped when preceded by a space.
+    text = text.replace(/\s+#+$/, '');
+    if (!text) continue;
+
+    entries.push({ level: m[1].length, text, id: slugify(text) });
+  }
+
+  return entries;
+}
 
 interface KnowledgeViewProps {
   tab: Tab;
@@ -46,6 +132,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
     setContent(null);
     setStatus('loading');
     setErrorMsg(null);
+    setActiveId(null);
   }, [docId]);
 
   // Fetch document content
@@ -103,11 +190,99 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
   const isText = TEXT_EXTENSIONS.has(ext);
   const isMarkdown = ext === 'md';
 
+  // ── Table of contents (markdown only) ────────────────
+  const toc = useMemo(() => (isMarkdown && content ? extractToc(content) : []), [isMarkdown, content]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  /** Scroll a heading into view (used by TOC clicks and in-page anchors). */
+  const scrollToHeading = useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setActiveId(id);
+    }
+  }, []);
+
+  /** Scroll-spy: mark the section currently at the top of the viewer. */
+  const updateActive = useCallback(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    // Near the top: highlight the first section by default.
+    if (container.scrollTop < 24 && toc.length > 0) {
+      setActiveId(toc[0].id);
+      return;
+    }
+    const containerTop = container.getBoundingClientRect().top + 12;
+    let current: string | null = null;
+    for (const entry of toc) {
+      const el = document.getElementById(entry.id);
+      if (!el) continue;
+      if (el.getBoundingClientRect().top <= containerTop) current = entry.id;
+      else break;
+    }
+    setActiveId(current);
+  }, [toc]);
+
+  // Re-run scroll-spy after content renders (ids exist only then).
+  useEffect(() => {
+    if (status === 'loaded' && isMarkdown) {
+      const raf = requestAnimationFrame(updateActive);
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [status, isMarkdown, updateActive]);
+
+  /**
+   * react-markdown components: headings get the SAME slug id as the parsed
+   * TOC entry (looked up by rendered text so ids stay stable across
+   * re-renders), and in-page `#...` links scroll instead of navigating
+   * (the shell uses HashRouter — a hash change would unmount this view).
+   */
+  const mdComponents = useMemo(() => {
+    const idByText = new Map<string, string>();
+    for (const entry of toc) {
+      if (!idByText.has(entry.text)) idByText.set(entry.text, entry.id);
+    }
+    const makeHeading = (level: 1 | 2 | 3 | 4 | 5 | 6) => {
+      const Tag = `h${level}` as const;
+      return ({ children }: { children?: React.ReactNode }) => {
+        const text = nodeToText(children);
+        // Fall back to slugifying the rendered text for headings the parser
+        // didn't see (e.g. setext `===` headings).
+        const id = idByText.get(text) ?? slugify(text);
+        return <Tag id={id}>{children}</Tag>;
+      };
+    };
+    return {
+      h1: makeHeading(1),
+      h2: makeHeading(2),
+      h3: makeHeading(3),
+      h4: makeHeading(4),
+      h5: makeHeading(5),
+      h6: makeHeading(6),
+      a: ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+        <a
+          href={href}
+          onClick={(e) => {
+            if (href && href.startsWith('#')) {
+              e.preventDefault();
+              scrollToHeading(href.slice(1));
+            }
+          }}
+        >
+          {children}
+        </a>
+      ),
+    };
+  }, [toc, scrollToHeading]);
+
   const cardStyle: React.CSSProperties = {
     background: t.bgContent,
     border: `1px solid ${t.border}`,
     borderRadius: 6,
   };
+
+  const showToc = isMarkdown && !!content && toc.length > 0;
 
   return (
     <div
@@ -144,18 +319,19 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
         )}
       </div>
 
-      {/* ── Document viewer ──────────────────────────── */}
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative', // anchor for the absolutely-filled PDF embed
-          ...cardStyle,
-        }}
-      >
+      {/* ── Document viewer + TOC ─────────────────────── */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 10 }}>
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative', // anchor for the absolutely-filled PDF embed
+            ...cardStyle,
+          }}
+        >
         {!docId ? (
           /* Empty state */
           <div style={{
@@ -243,14 +419,18 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
           </div>
         ) : isMarkdown && content ? (
           /* Markdown: render with react-markdown */
-          <div style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: '16px 24px',
-            fontSize: 14,
-            lineHeight: 1.6,
-            color: t.textPrimary,
-          }}>
+          <div
+            ref={scrollRef}
+            onScroll={updateActive}
+            style={{
+              flex: 1,
+              overflow: 'auto',
+              padding: '16px 24px',
+              fontSize: 14,
+              lineHeight: 1.6,
+              color: t.textPrimary,
+            }}
+          >
             <div className="markdown-body" style={{ maxWidth: 800 }}>
               <style>{`
                 .markdown-body h1 { font-size: 1.6em; font-weight: 700; margin: 0.8em 0 0.4em; padding-bottom: 0.3em; border-bottom: 1px solid ${t.border}; }
@@ -269,8 +449,12 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
                 .markdown-body th { background: ${t.bgBase}; font-weight: 600; }
                 .markdown-body hr { border: none; border-top: 1px solid ${t.border}; margin: 1em 0; }
                 .markdown-body img { max-width: 100%; }
+                .markdown-body h1, .markdown-body h2, .markdown-body h3,
+                .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+                  scroll-margin-top: 12px;
+                }
               `}</style>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
                 {content}
               </ReactMarkdown>
             </div>
@@ -330,6 +514,74 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
               </a>
             )}
           </div>
+        )}
+      </div>
+
+        {/* ── TOC panel (right of the viewer) ─────────── */}
+        {showToc && (
+          <aside
+            style={{
+              width: 220,
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              ...cardStyle,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 12px',
+                borderBottom: `1px solid ${t.border}`,
+                flexShrink: 0,
+              }}
+            >
+              <List size={13} style={{ color: '#a855f7' }} />
+              <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: t.textMuted }}>
+                Contents
+              </span>
+              <span style={{ fontSize: 11, color: t.textMuted, marginLeft: 'auto' }}>
+                {toc.length}
+              </span>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '6px 4px' }}>
+              {toc.map((entry) => {
+                const isActive = entry.id === activeId;
+                return (
+                  <button
+                    key={entry.id}
+                    title={entry.text}
+                    onClick={() => scrollToHeading(entry.id)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      border: 'none',
+                      background: isActive ? t.bgHover : 'transparent',
+                      color: isActive ? '#a855f7' : t.textMuted,
+                      fontSize: 12,
+                      fontWeight: isActive ? 600 : 400,
+                      cursor: 'pointer',
+                      borderRadius: 3,
+                      padding: '3px 8px',
+                      paddingLeft: 8 + (entry.level - 1) * 12,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      lineHeight: 1.4,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = t.bgHover; }}
+                    onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    {entry.text}
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
         )}
       </div>
     </div>
