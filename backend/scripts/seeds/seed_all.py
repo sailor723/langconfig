@@ -259,6 +259,24 @@ def step_deep_agents(replace: bool) -> None:
     print("  -> already has user agents; skipping dump (re-run with --replace to reset)")
 
 
+def step_identity() -> None:
+    """[8.5] Bake real agent identity (id + workspace + AGENTS.md/CLAUDE.md).
+
+    The deep_agents dump is machine-agnostic (WORKSPACE_BASE/ placeholders);
+    after restoring it we re-resolve each agent's workspace under the target
+    machine's root (or a user-provided --workspace-root) and bake real values
+    into system_prompt + agent_docs. Idempotent.
+    """
+    print("\n[8.5/10] identity backfill  (real id + workspace + docs)")
+    import argparse as _ap
+    _ns, _rest = _ap.ArgumentParser().parse_known_args()
+    cmd = [sys.executable, "scripts/backfill_agent_identity.py"]
+    ws_root = os.environ.get("WORKSPACE_ROOT", "").strip()
+    if ws_root:
+        cmd += ["--workspace-root", ws_root]
+    subprocess.run(cmd, cwd=str(BACKEND_DIR), check=True)
+
+
 def step_skills() -> None:
     """Sync SKILL.md files from backend/skills/ into the skills table (FS -> DB).
 
@@ -357,6 +375,7 @@ def main() -> int:
     step_search_providers()
     step_custom_tools(replace=args.replace)
     step_deep_agents(replace=args.replace)
+    step_identity()
     step_skills()
     step_chinook()
     summary()

@@ -42,9 +42,24 @@ from core.agents.identity import (
 _DEFAULT_TEMPLATE_SIGNATURE = "## Path map"
 
 
-def _resolve_workspace(agent) -> str:
+def _resolve_workspace(agent, override_root: str = "") -> str:
     from services.workspace_manager import get_workspace_manager
     ws_mgr = get_workspace_manager()
+    if override_root:
+        # Team install: the workspace root is defined by the user (seed step),
+        # so resolve each agent's folder under that root.
+        from pathlib import Path as _Path
+        root = _Path(override_root).resolve()
+        agent_folder = f"agent_{getattr(agent, 'id', 'unknown')}"
+        custom = getattr(agent, "workspace_path", None)
+        if custom and str(custom).strip():
+            p = _Path(str(custom).strip()).expanduser()
+            if not p.is_absolute():
+                p = root / p
+        else:
+            p = root / "agents" / agent_folder
+        p.mkdir(parents=True, exist_ok=True)
+        return str(p)
     return str(ws_mgr.resolve_agent_workspace(
         agent, None, vault_key=None, agent_key=None,
     ))
@@ -65,6 +80,11 @@ def _build_docs(agent, workspace_root: str) -> dict:
 
 def main() -> int:
     dry_run = "--dry-run" in sys.argv
+    override_root = ""
+    if "--workspace-root" in sys.argv:
+        idx = sys.argv.index("--workspace-root")
+        if idx + 1 < len(sys.argv):
+            override_root = sys.argv[idx + 1]
     db = SessionLocal()
     try:
         agents = db.query(DeepAgentTemplate).order_by(DeepAgentTemplate.id).all()
@@ -74,7 +94,7 @@ def main() -> int:
             cfg = dict(agent.config or {})
             stored_prompt = cfg.get("system_prompt", "") or ""
             base_prompt = _strip_identity_block(stored_prompt)
-            ws_root = _resolve_workspace(agent)
+            ws_root = _resolve_workspace(agent, override_root)
             docs = _build_docs(agent, ws_root)
             new_prompt = build_identity_system_prompt(
                 base_prompt, agent.id, ws_root, docs
