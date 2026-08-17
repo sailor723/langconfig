@@ -134,6 +134,7 @@ docs/*
 !docs/SETUP.md
 !docs/TEAM_INSTALL.md
 !docs/TEAM_INSTALL.zh-CN.md
+!docs/TEAM_INSTALL.zh-CN.pdf
 langconfig/
 
 # Private/unreleased features (uncomment before pushing to public)
