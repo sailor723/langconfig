@@ -133,6 +133,7 @@ docs/*
 !docs/deepagent-vs-dsh.md
 !docs/SETUP.md
 !docs/TEAM_INSTALL.md
+!docs/TEAM_INSTALL.zh-CN.md
 langconfig/
 
 # Private/unreleased features (uncomment before pushing to public)
