@@ -132,6 +132,7 @@ docs/*
 !docs/agents-audit.md
 !docs/deepagent-vs-dsh.md
 !docs/SETUP.md
+!docs/TEAM_INSTALL.md
 langconfig/
 
 # Private/unreleased features (uncomment before pushing to public)
