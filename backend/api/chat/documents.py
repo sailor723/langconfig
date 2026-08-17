@@ -391,7 +391,7 @@ async def _process_single_chat_upload(
     file_path = file_storage.save_file(f"chat_sessions/{session_id}", file.filename, content)
 
     # Copy to sandbox workspace for agent access. Uploads land in the agent
-    # workspace's dedicated knowledge-base subfolder (AGENT_UPLOADS_DIR), kept
+    # workspace's dedicated upload subfolder (AGENT_UPLOADS_DIR), kept
     # separate from agent-generated files (generated/) and the instruction docs
     # (AGENTS.md / CLAUDE.md at the root). The agent's filesystem tools are
     # scoped to the workspace root, so it can still read uploads.
@@ -557,43 +557,55 @@ async def list_session_generated_files(
     seen = set()
     generated = []
 
-    def add_file(path: Path):
-        """Record a file into the result set (dedup by resolved path)."""
+    def _collect_file_info(path: Path) -> Optional[dict]:
+        """Build the file-info dict for a path (None if already seen)."""
         key = str(path.resolve())
         if key in seen:
-            return
+            return None
         seen.add(key)
         stat = path.stat()
         size_human = (
             f"{stat.st_size / 1024:.1f} KB" if stat.st_size >= 1024
             else f"{stat.st_size} B"
         )
-        generated.append({
+        return {
             "filename": path.name,
             "path": str(path.resolve().relative_to(workspace_mgr.base_dir)),
             "size_bytes": stat.st_size,
             "size_human": size_human,
             "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-        })
+        }
+
+    def add_file(path: Path, folder: Optional[str] = None):
+        """Record a file into the result set (dedup by resolved path)."""
+        _file = _collect_file_info(path)
+        if _file is not None:
+            if folder:
+                _file["folder"] = folder
+            generated.append(_file)
 
     # ── Primary root: the agent's own workspace. No time-window heuristic
-    #    needed — every file here belongs to this agent. Uploads (knowledge-base/)
-    #    and the instruction docs (AGENTS.md / CLAUDE.md) are excluded — uploads
-    #    are listed from the session-documents table, and the docs are not
-    #    generated output.
+    #    needed — every file here belongs to this agent. Instruction docs
+    #    (AGENTS.md / CLAUDE.md) are not generated output, so they are
+    #    excluded. Each file is tagged with its top-level workspace folder
+    #    (generated/ · upload/ · skills/ · other/) so the UI can render a
+    #    cascading (nested) view instead of one flat list.
     if session.agent_id:
         agent_workspace = _resolve_agent_workspace(session, db, workspace_mgr)
         if agent_workspace.is_dir():
-            from services.workspace_manager import AGENT_UPLOADS_DIR
             for p in sorted(agent_workspace.rglob("*")):
                 if not p.is_file() or "__pycache__" in p.parts:
                     continue
-                if p.name in ("AGENTS.md", "CLAUDE.md"):
+                if p.name in ("AGENTS.md", "CLAUDE.md", ".gitkeep"):
                     continue
                 rel = p.relative_to(agent_workspace)
-                if AGENT_UPLOADS_DIR in rel.parts[:-1]:
-                    continue
-                add_file(p)
+                # Top-level folder of the workspace (relative path first part,
+                # falling back to the workspace root itself).
+                folder = rel.parts[0] if len(rel.parts) > 1 else "workspace"
+                _file = _collect_file_info(p)
+                if _file is not None:
+                    _file["folder"] = folder
+                    generated.append(_file)
 
     # ── Legacy roots: sessions that ran before per-agent workspaces wrote
     #    to standalone/workflow_None/task_0 or default/. Resolve write-tool

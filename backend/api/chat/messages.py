@@ -64,50 +64,12 @@ def _default_agent_docs(agent, workspace_root: str) -> dict:
     AGENTS.md into the system prompt and the Files panel lists them next to
     uploads + generated files. The defaults are stored back to the DB row so
     the Docs tab in the editor shows the same content (editable).
+
+    The stored copy carries the real agent id + workspace root baked in
+    (same as the system prompt identity block).
     """
-    name = getattr(agent, "name", None) or f"Agent {getattr(agent, 'id', '')}".strip()
-    description = getattr(agent, "description", None) or "An AI agent."
-    agents_md = (
-        f"# {name}\n\n"
-        f"{description}\n\n"
-        f"## Workspace\n\n"
-        f"Your workspace directory is:\n\n"
-        f"    {workspace_root}\n\n"
-        f"- **Generated files** — save every deliverable you produce (reports, "
-        f"documents, exports) into the `generated/` subfolder, e.g. via "
-        f"`save_document` or file-writing tools, so the user can find them in "
-        f"the Files panel.\n"
-        f"- **Uploaded files** — documents the user uploads appear in the "
-        f"`knowledge-base/` subfolder; read them from there when a task needs "
-        f"their data.\n"
-        f"- **Your instructions** — AGENTS.md (this file) and CLAUDE.md sit at "
-        f"the workspace root.\n"
-        f"- Keep all files inside the workspace — do not write outside it.\n\n"
-        f"## Working conventions\n\n"
-        f"- Before generating a file, match the format the user asked for "
-        f"(Markdown, DOCX, CSV, HTML, …) and save it with a descriptive "
-        f"filename inside `generated/`.\n"
-        f"- After producing a deliverable, summarize what you created and "
-        f"where it was saved.\n"
-        f"- If a task needs data from uploaded files, read them from "
-        f"`knowledge-base/` first.\n\n"
-        f"## Agent docs\n\n"
-        f"- This file (AGENTS.md) is loaded into your context as instructions "
-        f"on every chat run.\n"
-        f"- CLAUDE.md (next to this file) mirrors these instructions.\n"
-    )
-    claude_md = (
-        f"# {name} — CLAUDE.md\n\n"
-        f"Mirror of AGENTS.md — see that file in the same folder for the "
-        f"agent's full operating instructions.\n\n"
-        f"## Quick reference\n\n"
-        f"- Workspace: `{workspace_root}`\n"
-        f"- Save generated deliverables into `generated/`; user uploads appear "
-        f"in `knowledge-base/`.\n"
-        f"- After producing a deliverable, summarize what you created and "
-        f"where it was saved.\n"
-    )
-    return {"AGENTS.md": agents_md, "CLAUDE.md": claude_md}
+    from core.agents.identity import default_agent_docs
+    return default_agent_docs(agent, workspace_root)
 
 
 def _materialize_agent_docs(agent, workspace_root: str, db=None) -> None:
@@ -121,9 +83,24 @@ def _materialize_agent_docs(agent, workspace_root: str, db=None) -> None:
     Agents without authored docs get sensible defaults materialized, and (when
     a DB session is available) those defaults are stored back onto the row so
     the editor's Docs tab stays consistent.
+
+    Also ensures the standard workspace skeleton exists
+    (upload/ + generated/ + skills/ + other/), so every agent workspace has
+    the same shape from its first chat.
     """
     if not workspace_root:
         return
+    try:
+        from services.workspace_manager import ensure_agent_workspace_layout
+        from pathlib import Path as _Path
+        root = _Path(workspace_root)
+        ensure_agent_workspace_layout(root)
+        for sub in ("upload", "generated", "other"):
+            gitkeep = root / sub / ".gitkeep"
+            if not gitkeep.exists():
+                gitkeep.write_text("")
+    except Exception as e:  # never fail a chat because skeleton creation failed
+        logger.warning(f"Failed to ensure workspace skeleton: {e}")
     docs = getattr(agent, "agent_docs", None) or {}
     if not docs:
         docs = _default_agent_docs(agent, workspace_root)
@@ -146,6 +123,8 @@ def _materialize_agent_docs(agent, workspace_root: str, db=None) -> None:
     root = Path(workspace_root)
     try:
         root.mkdir(parents=True, exist_ok=True)
+        # Docs are stored with the real agent id + workspace root baked in at
+        # creation/backfill, so write them as-is.
         for name, content in docs.items():
             if not name or not isinstance(content, str):
                 continue
@@ -164,6 +143,47 @@ def _materialize_agent_docs(agent, workspace_root: str, db=None) -> None:
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
+def sanitize_tool_call_history(messages):
+    """Ensure every ``AIMessage.tool_calls`` has its ``ToolMessage`` responses.
+
+    A crashed/aborted run (stream timeout, client cancel, worker kill) can leave
+    an ``AIMessage`` with ``tool_calls`` but no ``ToolMessage`` results in the
+    checkpointed state. OpenAI-compatible APIs (DeepSeek) reject such history
+    with 400: "An assistant message with 'tool_calls' must be followed by tool
+    messages responding to each 'tool_call_id'". This strips orphaned tool_calls
+    (keeping any text content) and drops empty orphaned tool-call messages.
+
+    Returns the original list when nothing changed, else the cleaned list.
+    """
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    msgs = list(messages)
+    answered = {
+        m.tool_call_id
+        for m in msgs
+        if isinstance(m, ToolMessage) and getattr(m, "tool_call_id", None)
+    }
+    changed = False
+    out = []
+    for m in msgs:
+        if isinstance(m, AIMessage) and getattr(m, "tool_calls", None):
+            orphaned = [tc for tc in m.tool_calls if tc.get("id") not in answered]
+            if orphaned:
+                kept = [tc for tc in m.tool_calls if tc.get("id") in answered]
+                if kept:
+                    m = m.model_copy(update={"tool_calls": kept})
+                    changed = True
+                elif getattr(m, "content", None):
+                    m = m.model_copy(update={"tool_calls": []})
+                    changed = True
+                else:
+                    # Empty orphaned tool-call message (a run died mid-call) → drop.
+                    changed = True
+                    continue
+        out.append(m)
+    return out if changed else messages
+
 
 def make_json_safe(obj):
     """
@@ -390,6 +410,17 @@ async def send_message(
             # into the workspace so MemoryMiddleware + the Files panel see them.
             # Agents without authored docs get defaults seeded + materialized.
             _materialize_agent_docs(agent, agent_workspace_root, db=db)
+            # First message of a fresh session: ask the agent to introduce
+            # itself and report its workspace status so the user gets a good
+            # starting view. Identity (id + workspace) is already baked into
+            # the stored system prompt at creation time.
+            if (session.messages or []) and len(session.messages) == 1:
+                from core.agents.identity import first_chat_greeting
+                _greeting = first_chat_greeting(agent_workspace_root)
+                _safe_config["system_prompt"] = (
+                    (_safe_config.get("system_prompt") or "") + _greeting
+                )
+                config.system_prompt = (config.system_prompt or "") + _greeting
             if not use_deepagents:
                 from core.agents.factory import AgentFactory
                 agent_instance, _tools, _callbacks = await AgentFactory.create_agent(
@@ -425,6 +456,27 @@ async def send_message(
         # Create new user message (checkpointer will load previous messages automatically)
         from langchain_core.messages import HumanMessage
         new_message = HumanMessage(content=request.message)
+
+        # Sanitize checkpointed history before invoking: a previous run that
+        # died mid-tool-call (timeout/cancel) leaves an AIMessage.tool_calls
+        # with no ToolMessage results, which OpenAI-compatible APIs reject
+        # with 400. Strip orphans so the graph resumes cleanly.
+        try:
+            checkpointer = getattr(agent_instance, "checkpointer", None)
+            if checkpointer is not None and hasattr(checkpointer, "aget_state"):
+                _cfg = {"configurable": {"thread_id": session.session_id}}
+                _st = await checkpointer.aget_state(_cfg)
+                if _st is not None and _st.values:
+                    _msgs = list(_st.values.get("messages", []) or [])
+                    _cleaned = sanitize_tool_call_history(_msgs)
+                    if _cleaned is not _msgs and hasattr(checkpointer, "aupdate_state"):
+                        await checkpointer.aupdate_state(_cfg, {"messages": _cleaned})
+                        logger.info(
+                            f"Sanitized orphaned tool_calls in history for session "
+                            f"{session.session_id} ({len(_msgs) - len(_cleaned)} dropped)"
+                        )
+        except Exception as e:
+            logger.warning(f"History sanitize failed (non-fatal): {e}")
 
         # Invoke agent with thread_id for conversation persistence
         # The checkpointer automatically loads and saves conversation history
@@ -879,6 +931,15 @@ async def send_message_stream(
                         agent_key=_ws_mgr.agent_vault_key(db, agent),
                     ))
                     _materialize_agent_docs(agent, agent_workspace_root, db=db)
+                    # First message of a fresh session: ask the agent to
+                    # introduce itself and report its workspace status (same
+                    # rule as the first chat entry point).
+                    if (fresh_session.messages or []) and len(fresh_session.messages) == 1:
+                        from core.agents.identity import first_chat_greeting
+                        _greeting = first_chat_greeting(agent_workspace_root)
+                        agent_config["system_prompt"] = (
+                            (agent_config.get("system_prompt") or "") + _greeting
+                        )
                     use_deepagents = agent_config.get("use_deepagents", True)
                     if not use_deepagents:
                         from core.agents.factory import AgentFactory

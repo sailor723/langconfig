@@ -27,8 +27,32 @@ logger = logging.getLogger(__name__)
 # Per-agent workspace subfolders: uploaded files and agent-generated files are
 # kept in separate, clearly-named folders inside each agent's workspace so the
 # Files panel and the on-disk layout stay organized.
-AGENT_UPLOADS_DIR = "knowledge-base"   # files the user uploads (RAG knowledge)
+AGENT_UPLOADS_DIR = "upload"   # files the user uploads (RAG knowledge)
 AGENT_GENERATED_DIR = "generated"      # files the agent produces
+# Skills are staged into <workspace>/skills/ by the deepagents SDK staging step
+# (the SDK's SkillsMiddleware hardcodes the plural "/skills/..." virtual path).
+# "other" is the documented scratch/misc folder for anything that is neither an
+# upload, a deliverable, nor a skill.
+AGENT_OTHER_DIR = "other"
+AGENT_SKILLS_DIR = "skills"
+
+# The canonical per-agent subfolder layout (in display order).
+AGENT_WORKSPACE_SUBDIRS = (
+    AGENT_UPLOADS_DIR,
+    AGENT_GENERATED_DIR,
+    AGENT_SKILLS_DIR,
+    AGENT_OTHER_DIR,
+)
+
+
+def ensure_agent_workspace_layout(root: Path) -> Path:
+    """Create the canonical subfolder layout (upload/ generated/ skills/ other/)
+    inside an agent workspace root. Returns the root. Idempotent."""
+    root = Path(root)
+    root.mkdir(parents=True, exist_ok=True)
+    for sub in AGENT_WORKSPACE_SUBDIRS:
+        (root / sub).mkdir(parents=True, exist_ok=True)
+    return root
 
 
 def _is_within(path: Path, root: Path) -> bool:
@@ -200,7 +224,7 @@ class WorkspaceManager:
         replacing the shared standalone/workflow_None/task_0 default.
         """
         workspace = self.base_dir / "agents" / f"agent_{agent_id}"
-        workspace.mkdir(parents=True, exist_ok=True)
+        ensure_agent_workspace_layout(workspace)
         logger.info(f"Agent workspace: {workspace}")
         return workspace
 
@@ -245,12 +269,12 @@ class WorkspaceManager:
                     p = self.base_dir / "projects" / key / p
                 else:
                     p = self.base_dir / p
-            p.mkdir(parents=True, exist_ok=True)
+            ensure_agent_workspace_layout(p)
             logger.info(f"Agent workspace (custom): {p}")
             return p
         if key is not None:
             vault_root = self.base_dir / "projects" / key / "agents" / agent_folder
-            vault_root.mkdir(parents=True, exist_ok=True)
+            ensure_agent_workspace_layout(vault_root)
             logger.info(f"Agent workspace (vault-scoped): {vault_root}")
             return vault_root
         return self.get_agent_workspace(agent.id)

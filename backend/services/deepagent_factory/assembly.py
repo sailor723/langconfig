@@ -429,6 +429,9 @@ class _DeepAgentAssemblyMixin:
             try:
                 from deepagents.middleware.filesystem import FilesystemMiddleware
                 from deepagents.backends.filesystem import FilesystemBackend
+                from services.workspace_filesystem_backend import (
+                    WorkspaceFilesystemBackend,
+                )
                 from services.workspace_manager import get_workspace_manager
 
                 # Get task workspace for file storage (with custom path override if configured)
@@ -446,8 +449,13 @@ class _DeepAgentAssemblyMixin:
                         custom_output_path=custom_output_path
                     )
 
-                # Use FilesystemBackend with task workspace as root (files persist to disk)
-                fs_backend = FilesystemBackend(root_dir=str(workspace_path))
+                # Use WorkspaceFilesystemBackend with task workspace as root:
+                # same disk persistence as FilesystemBackend, but re-bases
+                # absolute paths that fall inside the workspace so an agent
+                # that passes its full workspace path (from the identity
+                # block) writes into the workspace instead of creating a
+                # nested <workspace>/Users/... tree.
+                fs_backend = WorkspaceFilesystemBackend(root_dir=str(workspace_path))
                 fs_middleware = FilesystemMiddleware(backend=fs_backend)
                 instrumented_fs = instrument_deepagents_middleware(
                     fs_middleware,
@@ -682,8 +690,11 @@ class _DeepAgentAssemblyMixin:
                     )
                     if _fs_root:
                         Path(_fs_root).mkdir(parents=True, exist_ok=True)
+                        from services.workspace_filesystem_backend import (
+                            WorkspaceFilesystemBackend,
+                        )
                         agent_kwargs["backend"] = CompositeBackend(
-                            default=FilesystemBackend(root_dir=_fs_root),
+                            default=WorkspaceFilesystemBackend(root_dir=_fs_root),
                             routes={"/skills/": DbBackend(storage_prefix="skills")},
                         )
                     else:
@@ -696,8 +707,10 @@ class _DeepAgentAssemblyMixin:
             elif skills_staging_root is not None:
                 # Skills need a disk-backed backend (StateBackend is in-memory)
                 # so SkillsMiddleware can list the staged SKILL.md files.
-                from deepagents.backends.filesystem import FilesystemBackend
-                agent_kwargs["backend"] = FilesystemBackend(
+                from services.workspace_filesystem_backend import (
+                    WorkspaceFilesystemBackend,
+                )
+                agent_kwargs["backend"] = WorkspaceFilesystemBackend(
                     root_dir=str(skills_staging_root)
                 )
                 # Relative sources: <root>/skills is a container of personal skill

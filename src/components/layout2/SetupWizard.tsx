@@ -374,7 +374,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 650, color: t.textPrimary }}>Workspace</div>
                   <div style={{ fontSize: 11, color: t.textMuted }}>
-                    Where your projects, agents, uploads (knowledge-base) and generated files live
+                    Where your projects, agents, uploads (upload) and generated files live
                   </div>
                 </div>
               </div>

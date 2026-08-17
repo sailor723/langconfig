@@ -52,12 +52,18 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         setActiveProjectIdState(firstRealProject.id);
         localStorage.setItem('activeProjectId', firstRealProject.id.toString());
       } else if (activeProjectId) {
-        // Verify the stored project still exists
+        // Verify the stored project still exists. If it was deleted (or the
+        // list is empty), clear the stale id — otherwise the UI shows a
+        // phantom "current project" with no created_at ("Invalid Date").
         const stillExists = projectList.some((p: Project) => p.id === activeProjectId);
-        if (!stillExists && projectList.length > 0) {
-          const firstRealProject = projectList.find((p: Project) => p.id > 0) || projectList[0];
-          setActiveProjectIdState(firstRealProject.id);
-          localStorage.setItem('activeProjectId', firstRealProject.id.toString());
+        if (!stillExists) {
+          setActiveProjectIdState(null);
+          localStorage.removeItem('activeProjectId');
+          if (projectList.length > 0) {
+            const firstRealProject = projectList.find((p: Project) => p.id > 0) || projectList[0];
+            setActiveProjectIdState(firstRealProject.id);
+            localStorage.setItem('activeProjectId', firstRealProject.id.toString());
+          }
         }
       }
     } catch (error) {

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
+from datetime import datetime
 
 from db.database import get_db
 from models.core import Project, ProjectStatus, IndexingStatus
@@ -43,6 +44,10 @@ class ProjectResponse(BaseModel):
     indexing_status: IndexingStatus
     workflow_profile_id: Optional[int]
     project_path: Optional[str] = None
+    # Timestamps — the frontend renders created_at on project cards;
+    # omitting them made every card show "Invalid Date".
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

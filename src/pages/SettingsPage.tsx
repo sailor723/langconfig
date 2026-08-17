@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { themes, useTheme, type ThemeName } from '../lib/themes'
 import apiClient from '../lib/api-client'
+import { useProject } from '../contexts/ProjectContext'
 
 type SectionId = 'general' | 'models' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'about'
 
@@ -862,6 +863,7 @@ function LocalModelsSection() {
 
 function WorkspaceSection() {
   const { t } = useTranslation('chat')
+  const { activeProject, activeProjectId } = useProject()
   const [ws, setWs] = useState<any>(null)
   const [path, setPath] = useState('')
   const [saved, setSaved] = useState(false)
@@ -889,6 +891,18 @@ function WorkspaceSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
       <SectionTitle title={t('settings_workspace_title')} desc={t('settings_workspace_desc')} />
+      <Row label={t('settings_current_project')} hint={t('settings_current_project_hint')}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {activeProject ? (
+            <>
+              <span style={{ fontWeight: 600 }}>{activeProject.name}</span>
+              <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>#{activeProject.id}</span>
+            </>
+          ) : (
+            <span style={{ color: 'var(--color-text-muted)' }}>{t('settings_current_project_none')}</span>
+          )}
+        </div>
+      </Row>
       <Row label={t('settings_workspace_path')} hint={t('settings_workspace_path_hint')}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <Input value={path} onChange={setPath} mono placeholder="/path/to/workspace" width={300} />

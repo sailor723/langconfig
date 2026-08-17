@@ -38,6 +38,7 @@ Usage (from AgentFactory):
 """
 
 import logging
+import asyncio
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -309,6 +310,24 @@ class ToolLoader:
             _save_document_impl, SaveDocumentArgs,
         )
 
+        # Workspace-aware path routing: bare filenames (no separators) are
+        # auto-routed so agents never need to ls/glob to find folders —
+        # read_file → <workspace>/upload/, write_file → <workspace>/generated/.
+        workspace_root = (workspace_context or {}).get("workspace_root")
+        from pathlib import Path as _Path
+        upload_root = _Path(workspace_root) / "upload" if workspace_root else None
+        gen_root = _Path(workspace_root) / "generated" if workspace_root else None
+
+        def _route_path(path: str, base: _Path) -> str:
+            """Route a bare filename to base; leave absolute/relative paths as-is."""
+            if (
+                isinstance(path, str) and path and base is not None
+                and not path.startswith(("/", ".", "~"))
+                and "/" not in path and "\\" not in path and ".." not in path
+            ):
+                return str(base / path)
+            return path
+
         wrapped_tools: List[BaseTool] = []
 
         for tool in tools:
@@ -316,17 +335,17 @@ class ToolLoader:
                 # Get the original implementation function AND args schema
 
                 # Create a new function with context pre-bound
-                def create_bound_write_file(ws_ctx, ag_ctx):
+                def create_bound_write_file(ws_ctx, ag_ctx, g_root):
                     def bound_write_file(file_path: str, content: str) -> str:
                         return _write_file_impl(
-                            file_path=file_path,
+                            file_path=_route_path(file_path, g_root),
                             content=content,
                             _workspace_context=ws_ctx,
                             _agent_context=ag_ctx,
                         )
                     return bound_write_file
 
-                bound_func = create_bound_write_file(workspace_context, agent_context)
+                bound_func = create_bound_write_file(workspace_context, agent_context, gen_root)
 
                 # Create new StructuredTool with the bound function.
                 # CRITICAL: Include args_schema to enforce both parameters are required!
@@ -343,6 +362,30 @@ class ToolLoader:
                     f"Wrapped write_file tool with context: "
                     f"workspace={workspace_context}, agent={agent_context}"
                 )
+            elif tool.name == "read_file":
+                # Wrap read_file so a bare filename resolves inside upload/.
+                orig_coro = tool.coroutine or tool.func
+
+                async def routed_read_file(**kwargs):
+                    if "file_path" in kwargs:
+                        kwargs["file_path"] = _route_path(kwargs["file_path"], upload_root)
+                    elif "path" in kwargs:
+                        kwargs["path"] = _route_path(kwargs["path"], upload_root)
+                    if orig_coro is not None:
+                        res = orig_coro(**kwargs)
+                        if asyncio.iscoroutine(res):
+                            res = await res
+                        return res
+                    return await tool.ainvoke(kwargs)
+
+                wrapped_tool = StructuredTool.from_function(
+                    coroutine=routed_read_file,
+                    name="read_file",
+                    description=tool.description,
+                    args_schema=tool.args_schema,
+                )
+                wrapped_tools.append(wrapped_tool)
+                logger.debug(f"Wrapped read_file tool with upload/ routing: {workspace_root}")
             elif tool.name == "save_document":
                 # DB-mode formal document persistence — pre-bind the execution
                 # context (project/agent/execution ids) for the agent_documents

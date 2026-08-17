@@ -1308,7 +1308,6 @@ def create_middleware_from_config(middleware_config: Dict[str, Any]) -> AgentMid
         # about the multi-format capability.
         try:
             from deepagents.middleware.filesystem import FilesystemMiddleware as SDKFilesystemMiddleware
-            from deepagents.backends.filesystem import FilesystemBackend
             from services.format_backend import FormatAwareBackend
             from services.fs_tool_descriptions import filesystem_tool_descriptions
 
@@ -1320,8 +1319,13 @@ def create_middleware_from_config(middleware_config: Dict[str, Any]) -> AgentMid
             )
             from pathlib import Path
             Path(fs_root).mkdir(parents=True, exist_ok=True)
+            from services.workspace_filesystem_backend import (
+                WorkspaceFilesystemBackend,
+            )
             return SDKFilesystemMiddleware(
-                backend=FormatAwareBackend(FilesystemBackend(root_dir=str(fs_root))),
+                backend=FormatAwareBackend(
+                    WorkspaceFilesystemBackend(root_dir=str(fs_root))
+                ),
                 custom_tool_descriptions=filesystem_tool_descriptions(),
             )
         except ImportError:
