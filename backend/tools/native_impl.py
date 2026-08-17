@@ -1072,7 +1072,7 @@ def _write_file_impl(
             # Per-agent workspace root takes precedence: used as-is, no
             # workflow/task subdirectories appended. Generated deliverables
             # land in the dedicated "generated" subfolder (uploads live in
-            # "knowledge-base", instruction docs at the root).
+            # "upload", instruction docs at the root).
             workspace_root = _workspace_context.get('workspace_root')
             if workspace_root:
                 workspace = Path(workspace_root).resolve()

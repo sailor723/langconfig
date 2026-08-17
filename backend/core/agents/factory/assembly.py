@@ -425,7 +425,9 @@ class _AgentAssemblyMixin:
         if not _has_fs_mw:
             try:
                 from deepagents.middleware.filesystem import FilesystemMiddleware
-                from deepagents.backends.filesystem import FilesystemBackend
+                from services.workspace_filesystem_backend import (
+                    WorkspaceFilesystemBackend,
+                )
                 from services.format_backend import FormatAwareBackend
 
                 _fs_root = workspace_root
@@ -436,8 +438,13 @@ class _AgentAssemblyMixin:
                         project_id=project_id, workflow_id=None, task_id=task_id,
                     ))
                 Path(_fs_root).mkdir(parents=True, exist_ok=True)
+                # WorkspaceFilesystemBackend re-bases absolute paths that fall
+                # inside the workspace (so write_file with the full workspace
+                # path lands in the workspace, not a nested <ws>/Users/...).
                 fs_mw = FilesystemMiddleware(
-                    backend=FormatAwareBackend(FilesystemBackend(root_dir=_fs_root)),
+                    backend=FormatAwareBackend(
+                        WorkspaceFilesystemBackend(root_dir=_fs_root)
+                    ),
                 )
                 middleware = list(middleware or []) + [fs_mw]
                 logger.info(f"✓ Filesystem middleware added (regular agent) root={_fs_root}")

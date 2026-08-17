@@ -155,16 +155,24 @@ def test_legacy_roots_still_scoped_to_session(tmp_path):
 
 
 def test_folder_separation_uploads_excluded_generated_included(tmp_path):
-    """Generated files (generated/) are listed; uploads (knowledge-base/) and
-    the instruction docs (AGENTS.md / CLAUDE.md) are not."""
+    """Files are tagged with their workspace folder (generated/ · upload/ ·
+    skills/ · other/ · workspace root) for the cascading view; the instruction
+    docs (AGENTS.md / CLAUDE.md) are not listed."""
     agent_dir = tmp_path / "agents" / "agent_9"
     gen_dir = agent_dir / "generated"
-    kb_dir = agent_dir / "knowledge-base"
+    kb_dir = agent_dir / "upload"
+    skills_dir = agent_dir / "skills"
     gen_dir.mkdir(parents=True)
     kb_dir.mkdir(parents=True)
+    skills_dir.mkdir(parents=True)
     (gen_dir / "industry_report.md").write_text("report", encoding="utf-8")
     (kb_dir / "upload.pdf").write_bytes(b"pdf")
     (kb_dir / "data.csv").write_text("a,b\n", encoding="utf-8")
+    (skills_dir / "my-skill").mkdir(parents=True, exist_ok=True)
+    (skills_dir / "my-skill" / "SKILL.md").write_text("skill", encoding="utf-8")
+    # .gitkeep placeholders are never shown.
+    (gen_dir / ".gitkeep").write_text("", encoding="utf-8")
+    (kb_dir / ".gitkeep").write_text("", encoding="utf-8")
     (agent_dir / "AGENTS.md").write_text("instructions", encoding="utf-8")
     (agent_dir / "CLAUDE.md").write_text("instructions", encoding="utf-8")
     # Legacy root-level generated file still surfaces (not a doc / upload).
@@ -183,7 +191,16 @@ def test_folder_separation_uploads_excluded_generated_included(tmp_path):
 
     result = asyncio.run(run())
     names = {f["filename"] for f in result["files"]}
-    assert names == {"industry_report.md", "legacy_note.md"}
-    paths = {f["filename"]: f["path"] for f in result["files"]}
-    assert paths["industry_report.md"] == "agents/agent_9/generated/industry_report.md"
-    assert paths["legacy_note.md"] == "agents/agent_9/legacy_note.md"
+    assert names == {
+        "industry_report.md",
+        "legacy_note.md",
+        "upload.pdf",
+        "data.csv",
+        "SKILL.md",
+    }
+    by_name = {f["filename"]: f for f in result["files"]}
+    assert by_name["industry_report.md"]["folder"] == "generated"
+    assert by_name["upload.pdf"]["folder"] == "upload"
+    assert by_name["data.csv"]["folder"] == "upload"
+    assert by_name["SKILL.md"]["folder"] == "skills"
+    assert by_name["legacy_note.md"]["folder"] == "workspace"

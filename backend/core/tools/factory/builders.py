@@ -1822,6 +1822,14 @@ class _ToolBuildersMixin:
         else:
             _validate_untrusted_python(code_str, function_name)
             tool_ns = _untrusted_tool_namespace()
+        # Provide a real __file__ so self-contained builtin tool rows that
+        # compute Path(__file__).resolve().parent.parent (=> backend/) work
+        # under exec (the exec namespace has no __file__ by default →
+        # NameError at call time, e.g. read_file/ls sandbox roots).
+        tool_ns.setdefault(
+            "__file__",
+            os.path.join(os.path.dirname(__file__), "..", "..", "..", "tools", "_builtin_tool_stub.py"),
+        )
         try:
             exec(code_str, tool_ns)
         except Exception as e:

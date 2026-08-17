@@ -349,6 +349,26 @@ async def create_deepagent(
         db.commit()
         db.refresh(agent)
 
+        # Bake identity into the persisted system prompt so the agent always
+        # knows who it is and where its workspace is (real values, resolved at
+        # creation). Also embed the instruction docs (AGENTS.md / CLAUDE.md)
+        # inline so the agent can quickly compile its role, workspace, and
+        # rules from the prompt alone — and persist the docs to the DB row.
+        from core.agents.identity import build_identity_system_prompt, default_agent_docs
+        from services.workspace_manager import get_workspace_manager
+        _ws_root = str(get_workspace_manager().resolve_agent_workspace(
+            agent, None, vault_key=None, agent_key=None,
+        ))
+        _docs = request.agent_docs or default_agent_docs(agent, _ws_root)
+        config_dict["system_prompt"] = build_identity_system_prompt(
+            config_dict.get("system_prompt", ""), agent.id, _ws_root, _docs
+        )
+        agent.config = config_dict
+        agent.agent_docs = _docs
+        flag_modified(agent, "config")
+        flag_modified(agent, "agent_docs")
+        db.commit()
+
         logger.info(f"Created DeepAgent: {agent.name} (id={agent.id})")
 
         cfg = _ensure_deep_agent_config(agent.config, db=db)
@@ -702,6 +722,24 @@ async def create_from_agent_creator(
         db.commit()
         db.refresh(agent)
 
+        # Bake identity (real agent id + resolved workspace root) and embed the
+        # instruction docs (AGENTS.md / CLAUDE.md) into the persisted system
+        # prompt, and persist the docs to the DB row (see create_deepagent).
+        from core.agents.identity import build_identity_system_prompt, default_agent_docs
+        from services.workspace_manager import get_workspace_manager
+        _ws_root = str(get_workspace_manager().resolve_agent_workspace(
+            agent, None, vault_key=None, agent_key=None,
+        ))
+        _docs = default_agent_docs(agent, _ws_root)
+        full_config.system_prompt = build_identity_system_prompt(
+            full_config.system_prompt, agent.id, _ws_root, _docs
+        )
+        agent.config = full_config.dict()
+        agent.agent_docs = _docs
+        flag_modified(agent, "config")
+        flag_modified(agent, "agent_docs")
+        db.commit()
+
         # Remove the temp file
         _os.remove(CREATOR_OUTPUT_PATH)
 
@@ -775,6 +813,25 @@ async def quick_create_agent(
         db.add(agent)
         db.commit()
         db.refresh(agent)
+
+        # Bake identity (real agent id + resolved workspace root) and embed the
+        # instruction docs (AGENTS.md / CLAUDE.md) into the persisted system
+        # prompt, and persist the docs to the DB row (see create_deepagent).
+        from core.agents.identity import build_identity_system_prompt, default_agent_docs
+        from services.workspace_manager import get_workspace_manager
+        _ws_root = str(get_workspace_manager().resolve_agent_workspace(
+            agent, None, vault_key=None, agent_key=None,
+        ))
+        _docs = default_agent_docs(agent, _ws_root)
+        cfg.system_prompt = build_identity_system_prompt(
+            cfg.system_prompt, agent.id, _ws_root, _docs
+        )
+        agent.config = cfg.dict()
+        agent.agent_docs = _docs
+        flag_modified(agent, "config")
+        flag_modified(agent, "agent_docs")
+        db.commit()
+
         logger.info(f"Quick-create DeepAgent: {agent.name} (id={agent.id})")
         return {
             "status": "success",

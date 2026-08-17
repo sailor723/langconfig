@@ -12,6 +12,7 @@ former monolithic deepagent_factory.py.
 """
 
 from typing import Any, List, Optional, Tuple
+from pathlib import Path
 
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
@@ -161,7 +162,8 @@ class _DeepAgentSupportMixin:
                     try:
                         resolved_middleware = await DeepAgentFactory._resolve_subagent_middleware(
                             sub_config.middleware,
-                            sub_config.name
+                            sub_config.name,
+                            workspace_root=workspace_root,
                         )
                         subagent["middleware"] = resolved_middleware
                     except Exception as e:
@@ -234,7 +236,8 @@ class _DeepAgentSupportMixin:
     @staticmethod
     async def _resolve_subagent_middleware(
         middleware_names: List[str],
-        subagent_name: str
+        subagent_name: str,
+        workspace_root: Optional[str] = None,
     ) -> list:
         """
         Resolve middleware string names to actual middleware instances for subagents.
@@ -242,6 +245,9 @@ class _DeepAgentSupportMixin:
         Args:
             middleware_names: List of middleware names (e.g. ['todo_list', 'filesystem'])
             subagent_name: Subagent name for logging
+            workspace_root: Optional agent workspace root — scopes the
+                subagent's filesystem middleware (and re-bases absolute paths
+                inside the workspace) instead of the SDK cwd default.
 
         Returns:
             List of middleware instances
@@ -263,8 +269,16 @@ class _DeepAgentSupportMixin:
                     )
             elif name == 'filesystem':
                 from deepagents.middleware.filesystem import FilesystemMiddleware
-                from deepagents.backends.filesystem import FilesystemBackend
-                resolved.append(FilesystemMiddleware(backend=FilesystemBackend()))
+                from services.workspace_filesystem_backend import (
+                    WorkspaceFilesystemBackend,
+                )
+                if workspace_root:
+                    _root = str(Path(workspace_root).resolve())
+                    Path(_root).mkdir(parents=True, exist_ok=True)
+                    backend = WorkspaceFilesystemBackend(root_dir=_root)
+                else:
+                    backend = FilesystemBackend()
+                resolved.append(FilesystemMiddleware(backend=backend))
                 logger.info(f"  Subagent '{subagent_name}': added FilesystemMiddleware")
             else:
                 logger.warning(f"  Subagent '{subagent_name}': unknown middleware '{name}', skipping")
