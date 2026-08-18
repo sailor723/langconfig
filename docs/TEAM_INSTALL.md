@@ -175,49 +175,37 @@ LOG_ALL_REQUESTS=false
 # above is the Fernet master key that encrypts them at rest.
 ```
 
-### Workspace parameter
+### Workspace parameter — where the per-agent folder lives
 
-The LangConfig identity system re-bakes each agent's workspace path into its
-system prompt on creation / backfill. Two ways to set it for the seed:
+The workspace the team actually wants to know about is the **per-agent output
+folder** (where agents write files): `<some-root>/agents/agent_{id}/`. The seed
+seeds 44 agents with no `workspace_path` set, so on first start every agent
+defaults to `<repo>/backend/outputs/agents/agent_{id}/` (where `<repo>` is the
+LangConfig repo root). The team can change this in three ways:
 
-**A) Environment variable (recommended for team):**
-```bash
-export WORKSPACE_ROOT=/Users/<you>/langconfig/backend/outputs
-```
-Agents resolve to `<WORKSPACE_ROOT>/agents/agent_{id}/` (custom `workspace_path`
-agents use their own folder under the root).
+1. **Per-agent `workspace_path` in the DB** (the canonical path). Set
+   `deep_agent_templates.workspace_path` to an absolute path (or a path
+   relative to the workspace settings document's `langconfig_workspace_root`).
+   Editable from the Settings panel for each agent, or in bulk via the
+   Settings → Runtime → `langconfig_workspace_root` (set the global base, then
+   each agent's resolved workspace = base + agent_vault_key).
 
-**B) Or let it default** — with no override, the workspace manager resolves to
-`<repo>/backend/outputs/agents/agent_{id}/` automatically.
+2. **Bulk-update via the backfill script** (`scripts/backfill_agent_identity.py`):
+   sets each agent's resolved workspace under the given root with the correct
+   `agent_{id}/` segment. This is the only way to change the resolved
+   filesystem layout for every agent at once.
 
-> The value in `.env` (LANGCONFIG_WORKSPACE_ROOT) is the bootstrap default; the
-> Settings panel lets the team override it at runtime. After the seed runs,
-> the value used is the one in `.env` (or `.env` default if unset) — the team
-> can change it later via the Settings panel.
+3. **`.env` value `LANGCONFIG_WORKSPACE_ROOT`** is **NOT** the per-agent root.
+   It's read by `services/agents_md_service.py` to locate the project-level
+   `AGENTS.md` directory (under `<root>/projects/{project_id}/`). It is *not*
+   used by the per-agent workspace resolution, the seed, or the backfill.
 
-### Per-model token caps (context window ≠ max output)
+**In short**: the answer to "do I set it in `.env` with seed_all.py?" is **no** —
+the seed always uses the legacy default unless you explicitly set the per-agent
+`workspace_path` column. The first-time setup is "do nothing special; let the
+legacy defaults apply; the team can override at runtime via the Settings panel".
 
-When the team reads "1M context support" for a model like `minimax-m3` or
-`deepseek-v4-flash`, that's the **input + output** token budget per call —
-the *context window*. The per-message **output** cap (what `agent.config.max_tokens`
-and `config.max_tokens` in the LLM call are) is a **separate, lower** number.
-Confusing the two sends `max_tokens > N` errors from the API. Verified limits
-(curl today 2026-08-18):
-
-| Model | Context window (`max_context`) | Per-message output cap (`max_output`) |
-|---|---|---|
-| `minimax-m3` (MiniMax-M3) | 1,048,576 | **524,288** |
-| `deepseek-v4-flash` | 1,048,576 | **393,216** |
-| `deepseek-v4-pro` | 1,048,576 | 32,768 |
-| `deepseek-chat` | 1,048,576 | 8,192 |
-
-The `models` settings document now carries both `max_context` and `max_output`
-for the models the team uses. When you set `agent.config.max_tokens` in the
-Settings UI, do **not** exceed the model's per-message cap or the API will
-reject the call. The settings field name (`max_tokens`) is the per-message
-output cap; the registry's `max_context` is for memory/context-window
-management (separate concern).
-
+---
 ---
 
 ## 6. Apply LLM API keys (in the DB, not in `.env`)
