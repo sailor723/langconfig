@@ -197,7 +197,7 @@ LangConfig repo root). The team can change this in three ways:
 
 3. **`.env` value `LANGCONFIG_WORKSPACE_ROOT`** is **NOT** the per-agent root.
    It's read by `services/agents_md_service.py` to locate the project-level
-   `AGENTS.md` directory (under `<root>/projects/{project_id}/`). It is *not*
+   `AGENTS.md` directory (under `<root>/{project_id}/`). It is *not*
    used by the per-agent workspace resolution, the seed, or the backfill.
 
 **In short**: the answer to "do I set it in `.env` with seed_all.py?" is **no** —
