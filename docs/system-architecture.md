@@ -1458,6 +1458,28 @@ runtime        =  agent builds from deep_agent_templates.config
   run `seed_builtin_tools.py --refresh` once (setup step) — runtime never
   re-seeds.
 
+### 16.9 AGENTS.md — two layers, one filename (clarification)
+
+The codebase has **two distinct things** both named `AGENTS.md`. They are
+different concerns and live in different places — only one of them travels
+with the agent.
+
+| Layer | Storage | Scope | Loaded by | Editable via |
+|---|---|---|---|---|
+| **Agent's own AGENTS.md / CLAUDE.md** | `deep_agent_templates.agent_docs` (JSON, e.g. `{"AGENTS.md": "...", "CLAUDE.md": "..."}`) | **per-agent** — travels with the agent regardless of which project it's bound to | baked into the agent's `system_prompt` at seed time + materialized into the agent's workspace at chat time (`api/chat/messages.py:_materialize_agent_docs`) | the agent editor's "Docs" tab |
+| **Per-project AGENTS.md** | `<workspace>/projects/<vault_key>/AGENTS.md` (filesystem file) | **per-project** — only loaded when an agent joins that project | `deepagents.MemoryMiddleware` (if `disable_memory_middleware=False`) | `api/agents_md/routes.py` (project-level) |
+
+**Product rule: AGENTS.md and CLAUDE.md belong to the agent** — they describe
+the agent's identity and instructions. The per-project filesystem file is a
+*separate* thing (shared project context / team conventions) that happens to
+share the filename for compatibility with `MemoryMiddleware`. The two do not
+conflict; the per-project file is additional context, not a replacement for
+the agent's own docs.
+
+When the team reads "the agent's AGENTS.md", they should think of the DB
+column. When the team reads "the project's AGENTS.md", they should think of
+the filesystem file at `<root>/projects/<vault_key>/AGENTS.md`.
+
 ---
 
 ## 17. Request lifecycle — sequence diagrams
