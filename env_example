@@ -1,0 +1,74 @@
+# LangConfig .env — split by who owns the value.
+#
+# (1) OPERATOR-ONLY: infrastructure the user must NOT touch. Read once at
+#     server boot. Edit only when redeploying.
+# (2) USER-ADJUSTABLE: kept here only as a one-shot bootstrap default. The
+#     backend reads the equivalent field from the `workspace` / `general` /
+#     `models` / etc. settings document (see Settings panel + docs/TEAM_INSTALL.md).
+#     Override the value here to change the bootstrap default; otherwise edit
+#     via the UI and the DB value wins.
+# (3) API KEYS: every secret lives in PostgreSQL (encrypted via Fernet using
+#     API_KEY_ENCRYPTION_KEY below). Use the first-run wizard or
+#     Settings → Models to add them; nothing in this file is read for keys.
+#
+# The old full file (incl. API keys) is preserved at .env.full.bak.
+
+# ════ OPERATOR-ONLY (infrastructure) ════
+
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5433
+POSTGRES_DB=langconfig
+POSTGRES_USER=langconfig
+POSTGRES_PASSWORD=langconfig_dev
+API_KEY_ENCRYPTION_KEY=change-this-in-production-use-openssl-rand-hex-32
+ENVIRONMENT=development
+TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5433/langconfig_test
+SQL_POSTGRES_DB=chinook
+GOOGLE_REDIRECT_URI=http://localhost:8765/api/auth/google/callback
+OLLAMA_BASE_URL=http://localhost:11434
+SQL_ECHO=false
+RATE_LIMIT_CLEANUP_INTERVAL=300
+
+# ════ USER-ADJUSTABLE (bootstrap defaults; UI overrides at runtime) ════
+
+# Workspace
+LANGCONFIG_WORKSPACE_ROOT=backend/.workspace_data
+
+# Storage
+STORAGE_MODE=db
+
+# Local embeddings
+OLLAMA_EMBED_MODEL=nomic-embed-text:latest
+
+# Tracing (LangSmith — the api_key is in DB; the toggle + project name are env)
+LANGSMITH_TRACING=true
+LANGSMITH_PROJECT=langconfig
+
+# Backups
+BACKUP_DIR=./backups
+
+# Rate limiting
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_REQUESTS_PER_MINUTE=1000
+
+# Performance / observability
+PERFORMANCE_MONITORING_ENABLED=true
+SLOW_REQUEST_THRESHOLD_MS=1000
+LOG_SLOW_QUERIES=true
+SLOW_QUERY_THRESHOLD=1.0
+LOG_ALL_REQUESTS=false
+
+# DB pool tuning
+DB_POOL_SIZE=10
+DB_MAX_OVERFLOW=20
+
+# Agent runtime / analysis
+ANALYSIS_RECURSION_LIMIT=1000
+ANALYSIS_DASHBOARD_TIMEOUT=600
+ANALYSIS_CHAT_TIMEOUT=120
+
+# Execution history
+MAX_EXECUTION_HISTORY_PER_WORKFLOW=100
+EXECUTION_HISTORY_RETENTION_DAYS=90
+AUTO_CLEANUP_EXECUTION_HISTORY=true
+

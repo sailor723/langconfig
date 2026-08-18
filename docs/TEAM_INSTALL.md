@@ -118,30 +118,67 @@ uv run python -c "import fastapi, langgraph, deepagents; print('deps OK')"
 
 ---
 
-## 5. Configure `.env` (including workspace) BEFORE seeding
+## 5. Configure `.env` BEFORE seeding — split by who owns the value
 
-Create the root `.env` (single source of truth — the backend, seeds, docker and
-frontend all read it). Minimal template:
+`.env` is the **bootstrap default** (read once at first boot). User-adjustable
+runtime settings and API keys live in the DB, editable from the Settings panel.
+Three sections, in order:
 
 ```bash
 # backend/../.env  (repo root)
-ENVIRONMENT=development
+# Start from env_example (committed template), then edit three sections:
 
-# ── Secrets at rest (generate once:  openssl rand -hex 32) ──
-API_KEY_ENCRYPTION_KEY=REPLACE_WITH_64_HEX
-
-# ── PostgreSQL (match step 1) ──
+# ════ OPERATOR-ONLY (infrastructure — don't let users touch) ════
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5433          # docker; use 5432 for native
 POSTGRES_DB=langconfig
 POSTGRES_USER=langconfig
 POSTGRES_PASSWORD=langconfig_dev
+API_KEY_ENCRYPTION_KEY=replace-me-with-`openssl-rand-hex-32`-output
+ENVIRONMENT=development
+TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5433/langconfig_test
+SQL_POSTGRES_DB=chinook
+GOOGLE_REDIRECT_URI=http://localhost:8765/api/auth/google/callback
+OLLAMA_BASE_URL=http://localhost:11434
+SQL_ECHO=false
+RATE_LIMIT_CLEANUP_INTERVAL=300
+
+# ════ USER-ADJUSTABLE (bootstrap defaults — UI overrides at runtime) ════
+# The values here seed the 'runtime' settings namespace on first boot.
+# Edit here to change the bootstrap default; the Settings panel edits the
+# live DB value and always wins once the team has set anything.
+LANGCONFIG_WORKSPACE_ROOT=backend/.workspace_data
+STORAGE_MODE=db
+OLLAMA_EMBED_MODEL=nomic-embed-text:latest
+LANGSMITH_TRACING=true
+LANGSMITH_PROJECT=langconfig
+BACKUP_DIR=./backups
+DB_POOL_SIZE=10
+DB_MAX_OVERFLOW=20
+ANALYSIS_RECURSION_LIMIT=1000
+ANALYSIS_DASHBOARD_TIMEOUT=600
+ANALYSIS_CHAT_TIMEOUT=120
+MAX_EXECUTION_HISTORY_PER_WORKFLOW=100
+EXECUTION_HISTORY_RETENTION_DAYS=90
+AUTO_CLEANUP_EXECUTION_HISTORY=true
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_REQUESTS_PER_MINUTE=1000
+PERFORMANCE_MONITORING_ENABLED=true
+SLOW_REQUEST_THRESHOLD_MS=1000
+LOG_SLOW_QUERIES=true
+SLOW_QUERY_THRESHOLD=1.0
+LOG_ALL_REQUESTS=false
+
+# ════ API KEYS — DO NOT PUT IN .env ════
+# All secrets live in the encrypted models.api_keys settings document
+# (Settings → Models, or via the first-run wizard). API_KEY_ENCRYPTION_KEY
+# above is the Fernet master key that encrypts them at rest.
 ```
 
-### The workspace parameter — how to pass it to seeds
+### Workspace parameter
 
-Every agent needs a real workspace folder on **this** machine (their identity
-block + AGENTS.md/CLAUDE.md get re-baked with it at seed time). Two ways:
+The LangConfig identity system re-bakes each agent's workspace path into its
+system prompt on creation / backfill. Two ways to set it for the seed:
 
 **A) Environment variable (recommended for team):**
 ```bash
@@ -153,28 +190,40 @@ agents use their own folder under the root).
 **B) Or let it default** — with no override, the workspace manager resolves to
 `<repo>/backend/outputs/agents/agent_{id}/` automatically.
 
+> The value in `.env` (LANGCONFIG_WORKSPACE_ROOT) is the bootstrap default; the
+> Settings panel lets the team override it at runtime. After the seed runs,
+> the value used is the one in `.env` (or `.env` default if unset) — the team
+> can change it later via the Settings panel.
+
 ---
 
-## 6. Apply LLM API keys
+## 6. Apply LLM API keys (in the DB, not in `.env`)
 
-API keys are resolved at runtime in this order (`config.py::get_api_key_from_db`):
+**All API keys live in the database** (`models.api_keys` settings document),
+encrypted at rest with `API_KEY_ENCRYPTION_KEY` (the Fernet master key in
+`.env` above). `.env` is no longer a source for API keys — the Settings panel
+(or the first-run wizard) is the only edit path.
 
-1. **`.env` file** (pydantic-settings) — **canonical source of truth**
-2. **PostgreSQL** — the `models` settings document's `api_keys` field (set via
-   the Settings UI, encrypted at rest with `API_KEY_ENCRYPTION_KEY`)
+Resolution order (`config.py::get_api_key_from_db`):
+1. **PostgreSQL** — the `models.api_keys` field (set via Settings → Models).
+2. **`.env`** — kept only as the bootstrap default on first boot (deprecated).
 
-So you can add keys **either** way; if both are set, `.env` wins. For a team
-install, the Settings UI (DB) is the most convenient — no file editing:
+For a team install, the Settings UI is the only path:
 
 1. **First-run wizard in the UI** — open `http://localhost:1421` after startup,
    the Setup wizard prompts for API key + workspace.
 2. **Settings → Models** after boot — add provider keys (OpenAI / Anthropic /
    DeepSeek / Google / MiniMax / Tavily …).
 
+> The shipped `env_example` has no API keys (per the "API KEYS — DO NOT PUT IN
+> `.env`" section above). For a legacy `.env` containing old keys, run the
+> one-shot migration to move them to the DB: `uv run python
+> scripts/import_api_keys_to_db.py` (idempotent, dry-run supported).
+>
 > Which key(s) you need depends on the models your agents use. The seeded agents
 > default to Anthropic (`claude-sonnet-4-5`) / DeepSeek models — at minimum add
 > the provider key matching your default model, e.g. `ANTHROPIC_API_KEY` or
-> `DEEPSEEK_API_KEY` (in `.env` **or** Settings → Models).
+> `DEEPSEEK_API_KEY` (Settings → Models).
 
 ---
 
