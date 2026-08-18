@@ -4,6 +4,7 @@ Reads all API keys and infrastructure settings from .env (pydantic-settings).
 Database settings table is used only for user preferences (theme, language, etc.).
 """
 from pydantic_settings import BaseSettings
+from pydantic import model_validator
 from typing import Optional
 import os
 from dotenv import load_dotenv
@@ -87,13 +88,36 @@ class Settings(BaseSettings):
     # Chat timeout (seconds) — shorter than dashboard gen.
     analysis_chat_timeout: int = 120
 
-    # ── Storage (docs/system-architecture.md §15) ──
-    # Runtime storage backend: 'local' (disk, default) | 'db' (Postgres BYTEA).
-    # The process-wide value is overridden at boot by the storage settings
-    # document (Settings UI runtime switch) — .env STORAGE_MODE is only the
-    # base default. The storage roots (base_dir/documents_base_dir) live in
-    # the storage settings document (core/settings).
+    # ── Runtime settings (user-adjustable via Settings panel) ──
+    # These are loaded from .env on cold start (bootstrap default). The
+    # _apply_runtime_overrides model_validator below reads the `runtime`
+    # settings document and overrides each field with the DB value, so the
+    # Settings panel always wins once the team changes a value.
+    # Workspace / backups
+    langconfig_workspace_root: str = "backend/.workspace_data"
+    backup_dir: str = "./backups"
     storage_mode: str = "local"
+    # Local embeddings
+    ollama_embed_model: str = "nomic-embed-text:latest"
+    # Tracing
+    langsmith_tracing: bool = False
+    langsmith_project: str = "langconfig"
+    # DB pool
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+    # Rate limiting
+    rate_limit_enabled: bool = True
+    rate_limit_requests_per_minute: int = 1000
+    # Performance
+    performance_monitoring_enabled: bool = True
+    slow_request_threshold_ms: int = 1000
+    log_slow_queries: bool = True
+    slow_query_threshold: float = 1.0
+    log_all_requests: bool = False
+    # Execution history
+    max_execution_history_per_workflow: int = 100
+    execution_history_retention_days: int = 90
+    auto_cleanup_execution_history: bool = True
 
     # ── Uppercase aliases for convenience ──
     # UI-editable providers: DB-first (DB keys are encrypted at rest, decrypted
@@ -183,6 +207,42 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.environment.lower() == "development"
+
+    def _runtime_override(self):
+        """Read the `runtime` settings document; values in DB override .env
+        (which only acts as the bootstrap default on first boot).
+
+        Called once via a model_validator after .env is loaded. Pydantic's
+        env_file is still required to handle secrets and operator-only
+        settings; this only layers DB-first on top of the runtime fields.
+        """
+        try:
+            from core.settings.runtime import runtime_value
+            values = runtime_value("runtime")
+            for field in (
+                "langconfig_workspace_root", "backup_dir",
+                "storage_mode",
+                "ollama_embed_model",
+                "langsmith_tracing", "langsmith_project",
+                "db_pool_size", "db_max_overflow",
+                "analysis_recursion_limit", "analysis_dashboard_timeout", "analysis_chat_timeout",
+                "rate_limit_enabled", "rate_limit_requests_per_minute",
+                "performance_monitoring_enabled", "slow_request_threshold_ms",
+                "log_slow_queries", "slow_query_threshold", "log_all_requests",
+                "max_execution_history_per_workflow", "execution_history_retention_days",
+                "auto_cleanup_execution_history",
+            ):
+                v = values.get(field)
+                if v is not None:
+                    setattr(self, field, v)
+        except Exception:
+            # Pre-migration DB or transient error — keep env-loaded values.
+            pass
+
+    @model_validator(mode="after")
+    def _apply_runtime_overrides(self):
+        self._runtime_override()
+        return self
 
     class Config:
         env_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")

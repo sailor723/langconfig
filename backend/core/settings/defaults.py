@@ -55,4 +55,30 @@ def get_defaults() -> dict[str, dict]:
         "rag": {
             "embedding_model": "ollama-nomic-embed-text:latest",
         },
+        # Runtime user-adjustable settings (was the long list of overrides in
+        # backend/config.py + the root .env — now the Settings panel owns
+        # the values; this seed is the bootstrap default on first boot).
+        "runtime": {
+            "langconfig_workspace_root": os.getenv("LANGCONFIG_WORKSPACE_ROOT") or "backend/.workspace_data",
+            "backup_dir": os.getenv("BACKUP_DIR") or "./backups",
+            "storage_mode": os.getenv("STORAGE_MODE") or "local",
+            "ollama_embed_model": os.getenv("OLLAMA_EMBED_MODEL") or "nomic-embed-text:latest",
+            "langsmith_tracing": (os.getenv("LANGSMITH_TRACING") or "false").lower() == "true",
+            "langsmith_project": os.getenv("LANGSMITH_PROJECT") or "langconfig",
+            "db_pool_size": int(os.getenv("DB_POOL_SIZE") or "10"),
+            "db_max_overflow": int(os.getenv("DB_MAX_OVERFLOW") or "20"),
+            "analysis_recursion_limit": int(os.getenv("ANALYSIS_RECURSION_LIMIT") or "1000"),
+            "analysis_dashboard_timeout": int(os.getenv("ANALYSIS_DASHBOARD_TIMEOUT") or "600"),
+            "analysis_chat_timeout": int(os.getenv("ANALYSIS_CHAT_TIMEOUT") or "120"),
+            "rate_limit_enabled": (os.getenv("RATE_LIMIT_ENABLED") or "true").lower() == "true",
+            "rate_limit_requests_per_minute": int(os.getenv("RATE_LIMIT_REQUESTS_PER_MINUTE") or "1000"),
+            "performance_monitoring_enabled": (os.getenv("PERFORMANCE_MONITORING_ENABLED") or "true").lower() == "true",
+            "slow_request_threshold_ms": int(os.getenv("SLOW_REQUEST_THRESHOLD_MS") or "1000"),
+            "log_slow_queries": (os.getenv("LOG_SLOW_QUERIES") or "true").lower() == "true",
+            "slow_query_threshold": float(os.getenv("SLOW_QUERY_THRESHOLD") or "1.0"),
+            "log_all_requests": (os.getenv("LOG_ALL_REQUESTS") or "false").lower() == "true",
+            "max_execution_history_per_workflow": int(os.getenv("MAX_EXECUTION_HISTORY_PER_WORKFLOW") or "100"),
+            "execution_history_retention_days": int(os.getenv("EXECUTION_HISTORY_RETENTION_DAYS") or "90"),
+            "auto_cleanup_execution_history": (os.getenv("AUTO_CLEANUP_EXECUTION_HISTORY") or "true").lower() == "true",
+        },
     }

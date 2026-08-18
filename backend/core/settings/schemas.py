@@ -180,6 +180,57 @@ class OnboardingSettings(BaseModel):
     workspace_set: bool = False
 
 
+class RuntimeSettings(BaseModel):
+    """User-adjustable runtime settings (was a long list of `.env` overrides
+    in ``backend/config.py`` — the Settings panel is now the source of truth,
+    with the values seeded from ``.env`` on first boot).
+
+    The DB doc ``runtime`` is the live source. ``.env`` is only the bootstrap
+    default (read by pydantic-settings into ``config.Settings`` on cold start).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Workspace / backups
+    langconfig_workspace_root: str = "backend/.workspace_data"
+    backup_dir: str = "./backups"
+
+    # Storage
+    storage_mode: str = "local"
+
+    # Local embeddings
+    ollama_embed_model: str = "nomic-embed-text:latest"
+
+    # Tracing (LangSmith key is a secret in models.api_keys; toggle + project are runtime)
+    langsmith_tracing: bool = False
+    langsmith_project: str = "langconfig"
+
+    # DB pool tuning
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+
+    # Agent runtime / analysis
+    analysis_recursion_limit: int = 1000
+    analysis_dashboard_timeout: int = 600
+    analysis_chat_timeout: int = 120
+
+    # Rate limiting
+    rate_limit_enabled: bool = True
+    rate_limit_requests_per_minute: int = 1000
+
+    # Performance / observability
+    performance_monitoring_enabled: bool = True
+    slow_request_threshold_ms: int = 1000
+    log_slow_queries: bool = True
+    slow_query_threshold: float = 1.0
+    log_all_requests: bool = False
+
+    # Execution history
+    max_execution_history_per_workflow: int = 100
+    execution_history_retention_days: int = 90
+    auto_cleanup_execution_history: bool = True
+
+
 # ── registry of v1 namespaces ────────────────────────────────────────────────
 NAMESPACE_SCHEMAS: dict[str, type[BaseModel]] = {
     "general": GeneralSettings,
@@ -189,4 +240,5 @@ NAMESPACE_SCHEMAS: dict[str, type[BaseModel]] = {
     "rag": RagSettings,
     "search": SearchSettings,
     "onboarding": OnboardingSettings,
+    "runtime": RuntimeSettings,
 }
