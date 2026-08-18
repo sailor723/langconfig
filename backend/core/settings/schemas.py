@@ -78,6 +78,15 @@ class ApiKeys(BaseModel):
     agnes_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
     agnes_base_url: Optional[str] = None
 
+    # Non-LLM-provider credentials (kept here for one-encrypted-store semantics).
+    # All are stripped from wire responses (json_schema_extra={"role":"secret"})
+    # unless overridden below.
+    langsmith_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
+    google_client_id: Optional[str] = Field(None)
+    google_client_secret: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
+    slack_webhook_url: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
+    discord_webhook_url: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
+
 
 class ModelsSettings(BaseModel):
     """LLM defaults + provider credentials + local-model config.
