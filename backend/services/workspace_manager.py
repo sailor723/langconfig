@@ -123,27 +123,34 @@ class WorkspaceManager:
     ) -> Path:
         """
         Get workspace directory for a specific task.
-        
-        Creates directory structure: outputs/project_{id}/workflow_{id}/task_{id}/
+
+        Creates directory structure: outputs/{slug}/workflow_{id}/task_{id}/
         If project_id is None, uses "standalone" as the project folder.
-        
+        For consistency with resolve_agent_workspace, the project folder
+        is the slugified project name (falls back to ``project_<id>``
+        when the row is missing).
+
         Args:
             project_id: Project ID (can be None for standalone workflows)
             workflow_id: Workflow ID
             task_id: Task ID
-            
+
         Returns:
             Path to task workspace directory
         """
         # Handle standalone workflows (no project)
-        project_folder = f"project_{project_id}" if project_id else "standalone"
-        
-        # Build path: outputs/project_X/workflow_Y/task_Z/
+        if project_id:
+            slug = self.project_vault_key(project_id)
+            project_folder = slug or f"project_{project_id}"
+        else:
+            project_folder = "standalone"
+
+        # Build path: outputs/<slug>/workflow_Y/task_Z/
         workspace = self.base_dir / project_folder / f"workflow_{workflow_id}" / f"task_{task_id}"
-        
+
         # Create directory if it doesn't exist
         workspace.mkdir(parents=True, exist_ok=True)
-        
+
         logger.info(f"Task workspace: {workspace}")
         return workspace
 
@@ -203,14 +210,21 @@ class WorkspaceManager:
     def get_project_workspace(self, project_id: int) -> Path:
         """
         Get workspace directory for all workflows in a project.
-        
+
         Args:
             project_id: Project ID
-            
+
         Returns:
-            Path to project workspace directory
+            Path to project workspace directory. Uses the project's
+            slugified name (consistent with ``resolve_agent_workspace``'s
+            vault-scoped default), falling back to ``project_<id>`` when
+            the project row is missing.
         """
-        workspace = self.base_dir / f"project_{project_id}"
+        slug = self.project_vault_key(project_id)
+        if slug:
+            workspace = self.base_dir / slug
+        else:
+            workspace = self.base_dir / f"project_{project_id}"
         workspace.mkdir(parents=True, exist_ok=True)
         return workspace
 
