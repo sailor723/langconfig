@@ -18,6 +18,10 @@ from enum import Enum
 
 # Platform-specific command
 NPX_CMD = "npx.cmd" if platform.system() == "Windows" else "npx"
+# `uvx` ships with `uv` (https://github.com/astral-sh/uv) and runs Python
+# packages in an ephemeral venv — used for Python-native MCP servers
+# (e.g. `mcp-neo4j`) that don't publish an npm package. Same on all platforms.
+UV_CMD = "uvx"
 
 
 class MCPServerType(str, Enum):
@@ -29,6 +33,7 @@ class MCPServerType(str, Enum):
     GITLAB = "gitlab"
     ATLASSIAN = "atlassian"
     DATABASE = "database"
+    GRAPH = "graph"                  # Neo4j, Memgraph, etc.
     BROWSER = "browser"
     SEARCH = "search"
     TIME = "time"
@@ -272,6 +277,28 @@ BUILTIN_MCP_SERVERS = {
         env_vars={},
         enabled=False,  # Needs database connection config
         capabilities=[]
+    ),
+
+    # Neo4j graph database (runs via `uvx mcp-neo4j` — no Neo4j cloud / API key,
+    # just connects to a local Neo4j Bolt endpoint on NEO4J_URI). The official
+    # server by Neo4j Labs (https://github.com/neo4j-contrib/mcp-neo4j) exposes
+    # get_schema + read/write Cypher tools against the database named in
+    # NEO4J_DATABASE. `uvx` runs the Python package in an ephemeral venv, so
+    # no project install is required.
+    "neo4j": MCPServerConfig(
+        server_type=MCPServerType.GRAPH,
+        server_id="neo4j",
+        display_name="Neo4j Graph Database",
+        npm_package=None,
+        command=[UV_CMD, "mcp-neo4j"],
+        env_vars={
+            "NEO4J_URI": "bolt://localhost:7687",
+            "NEO4J_USERNAME": "neo4j",
+            "NEO4J_PASSWORD": "neo4j",
+            "NEO4J_DATABASE": "neo4j",
+        },
+        enabled=True,
+        capabilities=[],  # discovered at runtime
     ),
 
     # Brave Search (web search with API)

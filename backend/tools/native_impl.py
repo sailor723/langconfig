@@ -3102,6 +3102,7 @@ def _get_neo4j_idx():
         base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
         username=os.environ.get("NEO4J_USER", "neo4j"),
         password=os.environ.get("NEO4J_PASSWORD", "password"),
+        database=os.environ.get("NEO4J_DATABASE", "neo4j"),
     )
     idx.ensure_constraints()
     return idx
@@ -3564,6 +3565,7 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
             base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
             username=os.environ.get("NEO4J_USER", "neo4j"),
             password=os.environ.get("NEO4J_PASSWORD", "password"),
+        database=os.environ.get("NEO4J_DATABASE", "neo4j"),
         )
         idx.ensure_constraints()
 
@@ -3772,6 +3774,7 @@ def graphindex_list_docs(project_id: Optional[int] = None) -> str:
             base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
             username=os.environ.get("NEO4J_USER", "neo4j"),
             password=os.environ.get("NEO4J_PASSWORD", "password"),
+        database=os.environ.get("NEO4J_DATABASE", "neo4j"),
         )
         idx.ensure_constraints()
         rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE.get() or "all")
@@ -3827,6 +3830,7 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
             base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
             username=os.environ.get("NEO4J_USER", "neo4j"),
             password=os.environ.get("NEO4J_PASSWORD", "password"),
+        database=os.environ.get("NEO4J_DATABASE", "neo4j"),
         )
         idx.ensure_constraints()
         docs = idx.list_documents(project_id=project_id)
@@ -3872,6 +3876,7 @@ def _make_neo4j_index():
         base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
         username=os.environ.get("NEO4J_USER", "neo4j"),
         password=os.environ.get("NEO4J_PASSWORD", "password"),
+        database=os.environ.get("NEO4J_DATABASE", "neo4j"),
     )
     idx.ensure_constraints()
     return idx
