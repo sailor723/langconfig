@@ -35,6 +35,7 @@ from models.deep_agent import ChatSession, DeepAgentConfig, DeepAgentTemplate, S
 from models.core import IndexingStatus
 from services.conversation_context import ConversationContextService
 from services.deepagent_factory import DeepAgentFactory
+from services.mcp_manager import get_mcp_manager
 
 # Phase 9 / graphindex — stateful streaming filter that strips
 # `<think>...</think>` and `<tool_call>...</tool_call>` XML emitted
@@ -428,7 +429,7 @@ async def send_message(
                     project_id=_session_project_id or 0,
                     task_id=0,
                     context="",
-                    mcp_manager=None,
+                    mcp_manager=await get_mcp_manager(),
                     vector_store=None,
                     agent_context={"agent_id": agent.id},
                     workspace_root=agent_workspace_root,
@@ -440,7 +441,7 @@ async def send_message(
                     project_id=_session_project_id or 0,
                     task_id=0,
                     context="",
-                    mcp_manager=None,
+                    mcp_manager=await get_mcp_manager(),
                     vector_store=None,
                     user_message=request.message,
                     workspace_root=agent_workspace_root,
@@ -948,7 +949,7 @@ async def send_message_stream(
                             project_id=_session_project_id or 0,
                             task_id=0,
                             context=all_context,
-                            mcp_manager=None,
+                            mcp_manager=await get_mcp_manager(),
                             vector_store=None,
                             agent_context={"agent_id": agent.id},
                             workspace_root=agent_workspace_root,
@@ -961,7 +962,7 @@ async def send_message_stream(
                             project_id=_session_project_id or 0,
                             task_id=0,
                             context=all_context,
-                            mcp_manager=None,
+                            mcp_manager=await get_mcp_manager(),
                             vector_store=None,
                             user_message=request.message,
                             workspace_root=agent_workspace_root,
