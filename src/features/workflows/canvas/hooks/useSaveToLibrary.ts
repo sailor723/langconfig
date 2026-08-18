@@ -8,6 +8,7 @@
 import { useState, useCallback } from 'react';
 import { Node } from 'reactflow';
 import apiClient from '@/lib/api-client';
+import { useProject } from '@/contexts/ProjectContext';
 
 interface NodeData {
   label: string;
@@ -67,6 +68,7 @@ export function useSaveToLibrary({
   showSuccess,
   logError,
 }: UseSaveToLibraryOptions): UseSaveToLibraryReturn {
+  const { activeProjectId } = useProject();
   const [showSaveToLibraryModal, setShowSaveToLibraryModal] = useState(false);
   const [saveToLibraryData, setSaveToLibraryData] = useState<SaveToLibraryData | null>(null);
   const [agentLibraryName, setAgentLibraryName] = useState('');
@@ -140,7 +142,8 @@ export function useSaveToLibrary({
           name: agentLibraryName.trim(),
           description: agentLibraryDescription.trim() || 'Custom agent template',
           category: 'workflow',
-          config: configPayload
+          config: configPayload,
+          project_id: activeProjectId ?? undefined,
         };
 
         const response = await apiClient.createDeepAgent(agentTemplate);
