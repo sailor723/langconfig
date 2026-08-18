@@ -207,6 +207,11 @@ class CreateDeepAgentRequest(BaseModel):
     workspace_path: Optional[str] = None
     agent_docs: Optional[Dict[str, str]] = None  # User-defined workspace; None → default
     agent_docs: Optional[Dict[str, str]] = None  # {"AGENTS.md": "...", "CLAUDE.md": "..."}
+    # Initial project binding — used at creation time to bake the agent's
+    # identity block (so the system_prompt mentions the right workspace path).
+    # NOT stored long-term: the agent is project-agnostic; chat sessions
+    # carry the actual project binding (chat_sessions.project_id).
+    project_id: Optional[int] = None
 
 
 class UpdateDeepAgentRequest(BaseModel):
@@ -354,10 +359,18 @@ async def create_deepagent(
         # creation). Also embed the instruction docs (AGENTS.md / CLAUDE.md)
         # inline so the agent can quickly compile its role, workspace, and
         # rules from the prompt alone — and persist the docs to the DB row.
+        # The workspace path reflects request.project_id at creation time
+        # (so the agent starts with a sensible home). The chat path re-bakes
+        # on every turn with the session's project_id, so the agent's
+        # identity stays correct even if the session moves to a different
+        # project later. The agent itself is project-agnostic — no FK is
+        # stored on deep_agent_templates.
         from core.agents.identity import build_identity_system_prompt, default_agent_docs
         from services.workspace_manager import get_workspace_manager
         _ws_root = str(get_workspace_manager().resolve_agent_workspace(
-            agent, None, vault_key=None, agent_key=None,
+            agent, request.project_id,
+            vault_key=WorkspaceManager.project_vault_key(db, request.project_id) or None,
+            agent_key=None,
         ))
         _docs = request.agent_docs or default_agent_docs(agent, _ws_root)
         config_dict["system_prompt"] = build_identity_system_prompt(
