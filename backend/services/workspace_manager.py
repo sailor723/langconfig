@@ -242,10 +242,10 @@ class WorkspaceManager:
           1. ``agent.workspace_path`` (deep_agent_templates.workspace_path) —
              a user-defined directory. Absolute paths are used as-is;
              relative paths resolve against the vault root
-             (``outputs/projects/{vault_key}/``) when a project is bound,
-             else against ``base_dir``.
-          2. Vault-scoped default ``outputs/projects/{vault_key}/agents/
-             {agent_key}/`` when a project is bound.
+             (``outputs/{vault_key}/``) when a project is bound, else
+             against ``base_dir``.
+          2. Vault-scoped default ``outputs/{vault_key}/agents/{agent_key}/``
+             when a project is bound.
           3. Legacy default ``outputs/agents/agent_{id}/`` when neither is
              available.
 
@@ -266,14 +266,14 @@ class WorkspaceManager:
             p = Path(str(custom).strip()).expanduser()
             if not p.is_absolute():
                 if key is not None:
-                    p = self.base_dir / "projects" / key / p
+                    p = self.base_dir / key / p
                 else:
                     p = self.base_dir / p
             ensure_agent_workspace_layout(p)
             logger.info(f"Agent workspace (custom): {p}")
             return p
         if key is not None:
-            vault_root = self.base_dir / "projects" / key / "agents" / agent_folder
+            vault_root = self.base_dir / key / "agents" / agent_folder
             ensure_agent_workspace_layout(vault_root)
             logger.info(f"Agent workspace (vault-scoped): {vault_root}")
             return vault_root
