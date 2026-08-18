@@ -266,10 +266,20 @@ def step_identity() -> None:
     after restoring it we re-resolve each agent's workspace under the target
     machine's root (or a user-provided --workspace-root) and bake real values
     into system_prompt + agent_docs. Idempotent.
+
+    Runs the drop_projects_segment migration first (also idempotent) so a
+    legacy install with files under <base>/projects/ moves them to the new
+    <base>/<slug>/ layout before the identity backfill runs. On a fresh
+    install this is a no-op.
     """
     print("\n[8.5/10] identity backfill  (real id + workspace + docs)")
-    import argparse as _ap
-    _ns, _rest = _ap.ArgumentParser().parse_known_args()
+    # First, drop the legacy 'projects/' segment if it exists (no-op on a
+    # fresh install; safe to run on every seed).
+    subprocess.run(
+        [sys.executable, "scripts/drop_projects_segment.py"],
+        cwd=str(BACKEND_DIR),
+    )
+    # Then the identity backfill.
     cmd = [sys.executable, "scripts/backfill_agent_identity.py"]
     ws_root = os.environ.get("WORKSPACE_ROOT", "").strip()
     if ws_root:
