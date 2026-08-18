@@ -279,23 +279,26 @@ BUILTIN_MCP_SERVERS = {
         capabilities=[]
     ),
 
-    # Neo4j graph database (runs via `uvx neo4j-mcp` — no Neo4j cloud / API key,
-    # just connects to a local Neo4j Bolt endpoint on NEO4J_URI). The official
-    # server by Neo4j Labs (PyPI: https://pypi.org/project/neo4j-mcp) exposes
-    # get_schema + read/write Cypher tools against the database named in
-    # NEO4J_DATABASE. `uvx` runs the Python package in an ephemeral venv, so
-    # no project install is required.
+    # Neo4j graph database (runs via `uvx neo4j-mcp start` — no Neo4j cloud / API
+    # key, just connects to a local Neo4j Bolt endpoint on NEO4J_MCP_URI). The
+    # server is by lesleslie (PyPI: https://pypi.org/project/neo4j-mcp, v0.2.1,
+    # requires Python >=3.13) and exposes run_cypher / create_node / get_node /
+    # delete_node / find_nodes / create_relationship / delete_relationship /
+    # find_paths / get_schema tools against the database named in
+    # NEO4J_MCP_DATABASE. Note the env vars are namespaced NEO4J_MCP_* (not
+    # NEO4J_*). `uvx` runs the package in an ephemeral venv, so no project
+    # install is required. The `start` subcommand boots the stdio MCP server.
     "neo4j": MCPServerConfig(
         server_type=MCPServerType.GRAPH,
         server_id="neo4j",
         display_name="Neo4j Graph Database",
         npm_package=None,
-        command=[UV_CMD, "neo4j-mcp"],
+        command=[UV_CMD, "neo4j-mcp", "start"],
         env_vars={
-            "NEO4J_URI": "bolt://localhost:7687",
-            "NEO4J_USERNAME": "neo4j",
-            "NEO4J_PASSWORD": "password",
-            "NEO4J_DATABASE": "neo4j",
+            "NEO4J_MCP_URI": "bolt://localhost:7687",
+            "NEO4J_MCP_USER": "neo4j",
+            "NEO4J_MCP_PASSWORD": "password",
+            "NEO4J_MCP_DATABASE": "neo4j",
         },
         enabled=True,
         capabilities=[],  # discovered at runtime
