@@ -14,6 +14,7 @@ export interface AgentsApi {
     base_template_id?: string;
     workspace_path?: string; // user-defined per-agent workspace directory
     agent_docs?: Record<string, string>; // {"AGENTS.md": "...", "CLAUDE.md": "..."}
+    project_id?: number | null; // active vault — bakes identity at creation
   }): Promise<any>;
   getAgentDocs(id: number): Promise<any>;
   updateAgentDocs(id: number, docs: Record<string, string>): Promise<any>;
@@ -48,6 +49,7 @@ export const agentsApi: AgentsApi = {
     base_template_id?: string;
     workspace_path?: string;
     agent_docs?: Record<string, string>;
+    project_id?: number | null;
   }) {
     return this.post('/api/deepagents/', data);
   },
