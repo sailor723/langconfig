@@ -58,6 +58,12 @@ class ChatStoreImpl {
   private sessionId: string | null = null;
   /** Currently active deep agent id (for follow-up messages) */
   private agentId: number | null = null;
+  /** Currently active project (vault) id — the UI's project picker writes
+   *  this; chat/start and chat/message/stream read it so the workspace
+   *  resolves to <base>/<slug>/agents/<agent-slug>/. Set by the
+   *  DeepAgentEditor on mount + on activeProjectId change (see
+   *  setCurrentProjectId below). */
+  private currentProjectId: number | null = null;
   private listeners = new Set<() => void>();
 
   /** AbortController for the current in-flight stream */
@@ -81,6 +87,18 @@ class ChatStoreImpl {
 
   getAgentId(): number | null {
     return this.agentId;
+  }
+
+  getCurrentProjectId(): number | null {
+    return this.currentProjectId;
+  }
+
+  /** Set the active project — called from DeepAgentEditor on mount + when
+   *  the UI's project picker changes. The next chat/start + chat/message/stream
+   *  pick up the new value. Setting to null clears the binding (the
+   *  chat path falls back to the legacy default workspace). */
+  setCurrentProjectId(id: number | null): void {
+    this.currentProjectId = id ?? null;
   }
 
   isStreaming(): boolean {
@@ -166,10 +184,17 @@ class ChatStoreImpl {
     let sessionId = this.sessionId;
     if (!sessionId) {
       try {
+        // Forward the active project so the chat session binds to it
+        // (chat_sessions.project_id). The same agent can run in different
+        // projects across its sessions — the binding is per-session.
+        const startBody: Record<string, unknown> = { agent_id: agentId };
+        if (this.currentProjectId != null) {
+          startBody.project_id = this.currentProjectId;
+        }
         const res = await fetch(`${apiClient.baseURL}/api/chat/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agent_id: agentId }),
+          body: JSON.stringify(startBody),
         });
         if (!res.ok) throw new Error(`Start session failed: ${res.status}`);
         const data = await res.json();
@@ -211,9 +236,17 @@ class ChatStoreImpl {
 
       // Shared SSE transport — fetch + `data:` parsing live in
       // streamChatEvents (same transport as useChatStreaming).
+      // Forward the active project so the backend's chat path can also
+      // persist it onto the session row for follow-up turns (the request
+      // handler in api/chat/messages.py reads request.project_id and
+      // writes it to chat_sessions.project_id when it differs).
+      const streamBody: Record<string, unknown> = { session_id: sessionId, message: prompt };
+      if (this.currentProjectId != null) {
+        streamBody.project_id = this.currentProjectId;
+      }
       const events = streamChatEvents(
         '/api/chat/message/stream',
-        { session_id: sessionId, message: prompt },
+        streamBody,
         this.abortController.signal,
       );
       for await (const payload of events) {
