@@ -195,6 +195,29 @@ agents use their own folder under the root).
 > the value used is the one in `.env` (or `.env` default if unset) — the team
 > can change it later via the Settings panel.
 
+### Per-model token caps (context window ≠ max output)
+
+When the team reads "1M context support" for a model like `minimax-m3` or
+`deepseek-v4-flash`, that's the **input + output** token budget per call —
+the *context window*. The per-message **output** cap (what `agent.config.max_tokens`
+and `config.max_tokens` in the LLM call are) is a **separate, lower** number.
+Confusing the two sends `max_tokens > N` errors from the API. Verified limits
+(curl today 2026-08-18):
+
+| Model | Context window (`max_context`) | Per-message output cap (`max_output`) |
+|---|---|---|
+| `minimax-m3` (MiniMax-M3) | 1,048,576 | **524,288** |
+| `deepseek-v4-flash` | 1,048,576 | **393,216** |
+| `deepseek-v4-pro` | 1,048,576 | 32,768 |
+| `deepseek-chat` | 1,048,576 | 8,192 |
+
+The `models` settings document now carries both `max_context` and `max_output`
+for the models the team uses. When you set `agent.config.max_tokens` in the
+Settings UI, do **not** exceed the model's per-message cap or the API will
+reject the call. The settings field name (`max_tokens`) is the per-message
+output cap; the registry's `max_context` is for memory/context-window
+management (separate concern).
+
 ---
 
 ## 6. Apply LLM API keys (in the DB, not in `.env`)
