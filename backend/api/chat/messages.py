@@ -36,10 +36,13 @@ from models.core import IndexingStatus
 from services.conversation_context import ConversationContextService
 from services.deepagent_factory import DeepAgentFactory
 
-# Phase 9 / graphindex — stateful streaming filter that strips
-# `<think>...</think>` and `<tool_call>...</tool_call>` XML emitted
-# by Minimax M3 as raw text in model content. 22/22 tests pass.
-from think_filter import ThinkFilter as StreamingFilter
+# NOTE: the chat streaming path uses a local `StreamingFilter` class defined
+# below (search for `class StreamingFilter`). An earlier version imported an
+# external equivalent from `learning/phase9/think_filter.py` — that directory
+# is intentionally excluded from the team-install zip (see
+# `scripts/make_team_zip.sh`), so the import crashed team deployments with
+# `ModuleNotFoundError: No module named 'think_filter'`. The local class is
+# the authoritative implementation; we just deleted the stale import.
 
 from .schemas import (
     ChatHistoryResponse,
