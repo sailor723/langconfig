@@ -23,6 +23,7 @@ import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
 import SkillsPicker from './editorSkillsPicker';
 import EditorSectionNav from './editorSectionNav';
+import { useProject } from '../../contexts/ProjectContext';
 
 interface AgentEditorProps {
   tab: Tab;
@@ -44,6 +45,9 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
   const isNew = agent.new === true || typeof agent.id !== 'number';
+  // Active vault (project) — forwarded to createDeepAgent so the agent's
+  // identity is baked with the right workspace at creation time.
+  const { activeProjectId } = useProject();
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [testPrompt, setTestPrompt] = useState('Hello, please introduce yourself.');
@@ -339,6 +343,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           config: fullConfig,
           workspace_path: workspacePath.trim() || undefined,
           agent_docs: docsDraft,
+          project_id: activeProjectId ?? undefined,
         });
         const newAgent = res.data;
         setLocalAgentId(newAgent.id);

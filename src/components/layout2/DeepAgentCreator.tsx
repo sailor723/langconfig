@@ -15,6 +15,7 @@ import apiClient from '../../lib/api-client';
 import { Loader, Plus, X } from 'lucide-react';
 import { SectionId as _SectionId, SECTIONS } from './editorConstants';
 import SkillsPicker from './editorSkillsPicker';
+import { useProject } from '../../contexts/ProjectContext';
 
 const CATEGORIES = ['research', 'coding', 'analysis', 'general', 'custom'];
 
@@ -50,6 +51,9 @@ const BACKEND_TYPES = [
 export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   const t = useLayoutTokens();
   const { closeTab, openTab } = useLayoutState();
+  // Active vault (project) — forwarded to createDeepAgent so the agent's
+  // identity is baked with the right workspace at creation time.
+  const { activeProjectId } = useProject();
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
   const { isLoading: nativeToolsLoading, groupedByCategory, defaultToolIds } = useAvailableTools();
 
@@ -199,6 +203,7 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
         description: description.trim() || undefined,
         category,
         config: buildConfig(),
+        project_id: activeProjectId ?? undefined,
       });
 
       const agent = res.data;
