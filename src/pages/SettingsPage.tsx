@@ -19,7 +19,7 @@ import { themes, useTheme, type ThemeName } from '../lib/themes'
 import apiClient from '../lib/api-client'
 import { useProject } from '../contexts/ProjectContext'
 
-type SectionId = 'general' | 'models' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'about'
+type SectionId = 'general' | 'models' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'runtime' | 'about'
 
 const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
   { id: 'general', labelKey: 'settings_general', icon: 'tune' },
@@ -28,6 +28,7 @@ const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
   { id: 'localmodels', labelKey: 'settings_local_models', icon: 'terminal' },
   { id: 'workspace', labelKey: 'settings_workspace', icon: 'folder_open' },
   { id: 'storage', labelKey: 'settings_storage', icon: 'storage' },
+  { id: 'runtime', labelKey: 'settings_section_runtime', icon: 'tune' },
   { id: 'about', labelKey: 'settings_about', icon: 'info' },
 ]
 
@@ -274,6 +275,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               {section === 'localmodels' && <LocalModelsSection />}
               {section === 'workspace' && <WorkspaceSection />}
               {section === 'storage' && <StorageSection />}
+              {section === 'runtime' && <RuntimeSection />}
               {section === 'about' && <AboutSection />}
             </div>
           </div>
@@ -866,6 +868,7 @@ function WorkspaceSection() {
   const { activeProject, activeProjectId } = useProject()
   const [ws, setWs] = useState<any>(null)
   const [path, setPath] = useState('')
+  const [maxIter, setMaxIter] = useState('')
   const [saved, setSaved] = useState(false)
 
   const load = useCallback(async () => {
@@ -873,6 +876,7 @@ function WorkspaceSection() {
       const ns = await describeNs('workspace')
       const value = ns?.value || {}
       setWs(value); setPath(value.workspace_path || '')
+      setMaxIter(value.agent_max_iterations ? String(value.agent_max_iterations) : '')
     } catch { /* noop */ }
   }, [])
   useEffect(() => { load() }, [load])
@@ -914,6 +918,12 @@ function WorkspaceSection() {
       <Row label={t('settings_local_workspace_require_approval')} hint={t('settings_local_workspace_require_approval_desc')}><Toggle checked={ws?.require_approval ?? true} onChange={v => setField('require_approval', v)} /></Row>
       <Row label={t('settings_local_workspace_backup')} hint={t('settings_local_workspace_backup_desc')}><Toggle checked={ws?.backup_before_edit ?? true} onChange={v => setField('backup_before_edit', v)} /></Row>
       <Row label={t('settings_local_workspace_auto_detect')} hint={t('settings_local_workspace_auto_detect_desc')}><Toggle checked={ws?.auto_detect_git ?? true} onChange={v => setField('auto_detect_git', v)} /></Row>
+      <Row label={t('settings_agent_max_iterations')} hint={t('settings_agent_max_iterations_hint')}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Input value={maxIter} onChange={v => setMaxIter(v.replace(/\D/g, ''))} type="number" placeholder="1000" width={120} />
+          <Btn variant="primary" onClick={() => { const n = parseInt(maxIter, 10); if (Number.isFinite(n) && n > 0) save({ agent_max_iterations: n }) }}>{saved ? t('settings_saved') : t('settings_save')}</Btn>
+        </div>
+      </Row>
     </div>
   )
 }
@@ -943,6 +953,155 @@ function StorageSection() {
       <p style={{ fontSize: 12, lineHeight: '18px', color: tok.labelTertiary, margin: '8px 0 0' }}>
         {t('settings_storage_note')}
       </p>
+    </div>
+  )
+}
+
+// ── Runtime ────────────────────────────────────────────────────────
+
+function RuntimeSection() {
+  const { t } = useTranslation('chat')
+  const [rt, setRt] = useState<any>(null)
+
+  const load = useCallback(async () => {
+    try { const ns = await describeNs('runtime'); setRt(ns?.value || {}) } catch { /* noop */ }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const update = async (patch: Record<string, any>) => {
+    setRt((prev: any) => ({ ...(prev || {}), ...patch }))
+    const ok = await mutateNs('runtime', Object.entries(patch).map(([k, v]) => ({ op: 'set', path: [k], value: v })))
+    if (!ok) await load()
+  }
+
+  // Save helpers that also strip non-numeric chars for number inputs.
+  const numField = (key: string, width = 110) => ({
+    value: rt?.[key] != null ? String(rt[key]) : '',
+    onChange: (v: string) => update({ [key]: parseInt(v.replace(/\D/g, ''), 10) || 0 }),
+    type: 'number',
+    width,
+  })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+      <SectionTitle title={t('settings_runtime_title')} desc={t('settings_runtime_desc')} />
+
+      {/* Workspace / backups */}
+      <Row label={t('settings_runtime_langconfig_workspace_root')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Input value={rt?.langconfig_workspace_root ?? ''}
+               onChange={v => update({ langconfig_workspace_root: v })}
+               width={300} />
+      </Row>
+      <Row label={t('settings_runtime_backup_dir')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Input value={rt?.backup_dir ?? ''}
+               onChange={v => update({ backup_dir: v })}
+               width={300} />
+      </Row>
+
+      {/* Storage (display only; editable under storage_mode endpoint) */}
+      <Row label={t('settings_runtime_storage_mode')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <code style={{ fontSize: 12, color: tok.labelTertiary }}>{rt?.storage_mode ?? 'local'}</code>
+      </Row>
+
+      {/* Integrations */}
+      <SectionTitle title={t('settings_runtime_integration_section')} />
+      <Row label={t('settings_runtime_langsmith_tracing')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Toggle checked={rt?.langsmith_tracing ?? false}
+                onChange={v => update({ langsmith_tracing: v })} />
+      </Row>
+      <Row label={t('settings_runtime_langsmith_project')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Input value={rt?.langsmith_project ?? 'langconfig'}
+               onChange={v => update({ langsmith_project: v })}
+               width={240} />
+      </Row>
+      <Row label={t('settings_runtime_ollama_embed_model')}
+           hint={t('settings_runtime_ollama_embed_model_hint')}>
+        <Input value={rt?.ollama_embed_model ?? 'nomic-embed-text:latest'}
+               onChange={v => update({ ollama_embed_model: v })}
+               mono width={280} />
+      </Row>
+
+      {/* Performance / DB pool */}
+      <SectionTitle title={t('settings_runtime_perf_section')} />
+      <Row label={t('settings_runtime_db_pool_size')}
+           hint={t('settings_runtime_db_pool_size_hint')}>
+        <Input {...numField('db_pool_size', 110)} placeholder="10" />
+      </Row>
+      <Row label={t('settings_runtime_db_max_overflow')}
+           hint={t('settings_runtime_db_max_overflow_hint')}>
+        <Input {...numField('db_max_overflow', 110)} placeholder="20" />
+      </Row>
+      <Row label={t('settings_runtime_rate_limit_enabled')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Toggle checked={rt?.rate_limit_enabled ?? true}
+                onChange={v => update({ rate_limit_enabled: v })} />
+      </Row>
+      <Row label={t('settings_runtime_rate_limit_requests_per_minute')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Input {...numField('rate_limit_requests_per_minute', 110)} placeholder="1000" />
+      </Row>
+      <Row label={t('settings_runtime_perf_monitoring_enabled')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Toggle checked={rt?.performance_monitoring_enabled ?? true}
+                onChange={v => update({ performance_monitoring_enabled: v })} />
+      </Row>
+      <Row label={t('settings_runtime_slow_request_threshold_ms')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Input {...numField('slow_request_threshold_ms', 110)} placeholder="1000" />
+      </Row>
+      <Row label={t('settings_runtime_log_slow_queries')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Toggle checked={rt?.log_slow_queries ?? true}
+                onChange={v => update({ log_slow_queries: v })} />
+      </Row>
+      <Row label={t('settings_runtime_slow_query_threshold')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Input {...{ value: rt?.slow_query_threshold != null ? String(rt.slow_query_threshold) : '',
+                    onChange: (v: string) => update({ slow_query_threshold: parseFloat(v.replace(/[^\d.]/g, '')) || 0 }),
+                    type: 'number', width: 110 }}
+               placeholder="1.0" />
+      </Row>
+      <Row label={t('settings_runtime_log_all_requests')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Toggle checked={rt?.log_all_requests ?? false}
+                onChange={v => update({ log_all_requests: v })} />
+      </Row>
+
+      {/* Agent / analysis */}
+      <SectionTitle title={t('settings_runtime_analysis_section')} />
+      <Row label={t('settings_agent_max_iterations')}
+           hint={t('settings_agent_max_iterations_hint')}>
+        <Input {...numField('analysis_recursion_limit', 120)} placeholder="1000" />
+      </Row>
+      <Row label={t('settings_runtime_analysis_dashboard_timeout')}
+           hint={t('settings_runtime_analysis_dashboard_timeout_hint')}>
+        <Input {...numField('analysis_dashboard_timeout', 110)} placeholder="600" />
+      </Row>
+      <Row label={t('settings_runtime_analysis_chat_timeout')}
+           hint={t('settings_runtime_analysis_chat_timeout_hint')}>
+        <Input {...numField('analysis_chat_timeout', 110)} placeholder="120" />
+      </Row>
+
+      {/* Execution history */}
+      <SectionTitle title={t('settings_runtime_history_section')} />
+      <Row label={t('settings_runtime_max_execution_history')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Input {...numField('max_execution_history_per_workflow', 110)} placeholder="100" />
+      </Row>
+      <Row label={t('settings_runtime_execution_history_retention_days')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Input {...numField('execution_history_retention_days', 110)} placeholder="90" />
+      </Row>
+      <Row label={t('settings_runtime_auto_cleanup_execution_history')}
+           hint={t('settings_runtime_value_unchanged')}>
+        <Toggle checked={rt?.auto_cleanup_execution_history ?? true}
+                onChange={v => update({ auto_cleanup_execution_history: v })} />
+      </Row>
     </div>
   )
 }
