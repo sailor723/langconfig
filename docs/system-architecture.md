@@ -1279,13 +1279,14 @@ first browser   =  wizard (API key + workspace) → Settings (everything else)
 
 | ns | Schema | Contents |
 |----|--------|----------|
-| `models` | `ModelsSettings` | `api_keys` (13 providers, `role='secret'`), default_model, default_temperature, max_tokens, primary_model, fallback_models, top_p, routing_strategy, token limits, local-LLM endpoint |
+| `models` | `ModelsSettings` | `api_keys` (13 providers + langsmith_/google_/slack_/discord_, `role='secret'`), default_model, default_temperature, max_tokens, primary_model, fallback_models, top_p, routing_strategy, token limits, local-LLM endpoint |
 | `general` | `GeneralSettings` | app_name, language, theme, auto_save, toggles |
 | `workspace` | `WorkspaceSettings` | workspace_path, permissions, base_dir |
 | `storage` | `StorageSettings` | mode (local/db), base_dir, documents_base_dir |
 | `rag` | `RagSettings` | embedding_model, chunk_size, chunk_overlap |
 | `search` | `SearchSettings` | tavily/serper keys (`role='secret'`) |
 | `onboarding` | `OnboardingSettings` | setup_complete, api_key_set, workspace_set |
+| `runtime` | `RuntimeSettings` | User-adjustable runtime knobs (mirror the legacy `.env` overrides — see "Config architecture" below): workspace root, backup dir, storage mode, ollama embed model, langsmith tracing/project, db pool size / max overflow, rate-limit on/off + r/min, performance monitoring + slow thresholds + log toggles, analysis recursion limit + dashboard / chat timeouts, execution history rows / retention days / auto-cleanup |
 
 **Wire format (abridged):**
 
@@ -1301,6 +1302,34 @@ POST /api/settings/mutate
   "expected_revision": 2 }
 → 200 { "ns": "models", "value": {…redacted…}, "revision": 3, "secrets": […] } | 409 on stale
 ```
+
+#### Config architecture — three tiers (operator / runtime / secrets)
+
+The root `.env` is split into three tiers; each lives where it belongs:
+
+| Tier | What | Where | Source of truth at runtime |
+|---|---|---|---|
+| **Operator-only** | Infrastructure the user must not touch: `POSTGRES_*`, `API_KEY_ENCRYPTION_KEY`, `ENVIRONMENT`, `TEST_DATABASE_URL`, `SQL_POSTGRES_DB`, `GOOGLE_REDIRECT_URI`, `OLLAMA_BASE_URL`, `SQL_ECHO`, `RATE_LIMIT_CLEANUP_INTERVAL` | `.env` (read once at boot) | `.env` |
+| **User-adjustable runtime** | Team-tunable knobs: workspace path, backup dir, storage mode, ollama embed model, langsmith tracing/project, db pool size / max overflow, rate-limit on/off + r/min, performance monitoring + slow thresholds + log toggles, analysis recursion limit + dashboard / chat timeouts, execution history rows / retention days / auto-cleanup | `.env` (bootstrap default) → DB `runtime` namespace → Settings panel UI | `runtime` settings document; `.env` is read only as the first-boot seed |
+| **API keys (secrets)** | OpenAI / Anthropic / Google / DeepSeek / MiniMax / Qwen / Kimi / GLM / Cohere / Replicate / Tavily / Serper / Agnes + LangSmith + Google OAuth client + Slack + Discord webhooks | DB `models.api_keys` field (Fernet-encrypted) → Settings → Models UI | DB; `.env` is only an emergency bootstrap for legacy upgrades |
+
+Three concurrent sources for the same value is intentional:
+1. **Operator-only** stays in `.env` because it must exist before the DB is reachable
+   (e.g. the very first `start.sh --be` boot).
+2. **User-adjustable runtime** reads `.env` at pydantic-settings init, then a
+   `model_validator(mode="after")` in `config.Settings` overrides every field with
+   `runtime_get("runtime", field, fallback)` so the DB always wins once the
+   team has set anything. The Settings panel calls `mutateNs("runtime", ops)`
+   to update values — backend restart not required (the field is read per-`Settings()`
+   instantiation in consumer modules).
+3. **API keys** are in the DB only. Legacy `.env` keys can be imported once via
+   `backend/scripts/import_api_keys_to_db.py` (idempotent). After that the DB
+   is the single source — `.env` has no `*_API_KEY` lines at all.
+
+The `env_example` template (committed) is split into the same three sections
+with explicit `OPERATOR-ONLY` / `USER-ADJUSTABLE` / `API KEYS — DO NOT PUT IN
+.env` headers so the team can copy it as their `.env` and know which lines
+matter for which tier.
 
 ### 16.3 Tools — DSH-shaped definitions on the compile model (Phase 6)
 

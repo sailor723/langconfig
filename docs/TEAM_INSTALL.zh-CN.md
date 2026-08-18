@@ -114,30 +114,65 @@ uv run python -c "import fastapi, langgraph, deepagents; print('deps OK')"
 
 ---
 
-## 5. 配置 `.env`（含工作区）——必须在种子之前
+## 5. 配置 `.env`（含工作区）——必须在种子之前，按所有者划分
 
-创建根目录 `.env`（唯一事实来源——后端、种子脚本、docker 和前端都读取它）。
-最小模板：
+`.env` 是**引导默认值**（首次启动时读取一次）。用户可调的运行时设置和所有
+API Key 都在数据库中，可通过 Settings 面板修改。三个分区，按顺序如下：
 
 ```bash
 # backend/../.env  （仓库根目录）
-ENVIRONMENT=development
+# 从仓库里的 env_example 模板开始（已提交），再修改以下三个分区：
 
-# ── 静态加密密钥（生成一次：  openssl rand -hex 32） ──
-API_KEY_ENCRYPTION_KEY=REPLACE_WITH_64_HEX
-
-# ── PostgreSQL（与第 1 步一致） ──
+# ════ OPERATOR-ONLY（基础设施 — 不要让用户改） ════
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5433          # docker；原生用 5432
 POSTGRES_DB=langconfig
 POSTGRES_USER=langconfig
 POSTGRES_PASSWORD=langconfig_dev
+API_KEY_ENCRYPTION_KEY=用 `openssl rand -hex 32` 的输出替换
+ENVIRONMENT=development
+TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5433/langconfig_test
+SQL_POSTGRES_DB=chinook
+GOOGLE_REDIRECT_URI=http://localhost:8765/api/auth/google/callback
+OLLAMA_BASE_URL=http://localhost:11434
+SQL_ECHO=false
+RATE_LIMIT_CLEANUP_INTERVAL=300
+
+# ════ USER-ADJUSTABLE（引导默认值 — UI 启动时会覆盖） ════
+# 这些值会在首次启动时种入 'runtime' 命名空间。改这里等于改默认值；
+# 团队一旦在 Settings 面板里设了值，UI 始终胜出。
+LANGCONFIG_WORKSPACE_ROOT=backend/.workspace_data
+STORAGE_MODE=db
+OLLAMA_EMBED_MODEL=nomic-embed-text:latest
+LANGSMITH_TRACING=true
+LANGSMITH_PROJECT=langconfig
+BACKUP_DIR=./backups
+DB_POOL_SIZE=10
+DB_MAX_OVERFLOW=20
+ANALYSIS_RECURSION_LIMIT=1000
+ANALYSIS_DASHBOARD_TIMEOUT=600
+ANALYSIS_CHAT_TIMEOUT=120
+MAX_EXECUTION_HISTORY_PER_WORKFLOW=100
+EXECUTION_HISTORY_RETENTION_DAYS=90
+AUTO_CLEANUP_EXECUTION_HISTORY=true
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_REQUESTS_PER_MINUTE=1000
+PERFORMANCE_MONITORING_ENABLED=true
+SLOW_REQUEST_THRESHOLD_MS=1000
+LOG_SLOW_QUERIES=true
+SLOW_QUERY_THRESHOLD=1.0
+LOG_ALL_REQUESTS=false
+
+# ════ API KEYS — 不要放进 .env ════
+# 所有密钥都在加密的 models.api_keys 设置文档里
+# （Settings → Models，或首次启动向导）。上方的 API_KEY_ENCRYPTION_KEY
+# 是静态加密这些密钥的 Fernet 主密钥。
 ```
 
-### 工作区参数——如何传给种子脚本
+### 工作区参数
 
-每个智能体在**本机**上都需要一个真实的工作区文件夹（它们的身份块和
-AGENTS.md/CLAUDE.md 会在种子时用它重新烘焙）。两种方式：
+LangConfig 身份系统会在创建/回填时把每个智能体的工作区路径重新烘焙进系统
+提示。给种子脚本传值有两种方式：
 
 **A) 环境变量（团队推荐）：**
 ```bash
@@ -149,28 +184,36 @@ export WORKSPACE_ROOT=/Users/<you>/langconfig/backend/outputs
 **B) 或使用默认值**——不传时，工作区管理器自动解析为
 `<repo>/backend/outputs/agents/agent_{id}/`。
 
+> `.env` 中的 `LANGCONFIG_WORKSPACE_ROOT` 是引导默认值；Settings 面板可让
+> 团队在运行时覆盖。种子跑完后使用的就是 `.env` 里的值（或默认值）——
+> 之后可以在 Settings 面板里改。
+
 ---
 
-## 6. 配置 LLM API Key
+## 6. 配置 LLM API Key（在数据库里，不在 `.env` 里）
 
-API Key 在运行时按以下顺序解析（`config.py::get_api_key_from_db`）：
+**所有 API Key 都在数据库里**（`models.api_keys` 设置文档），用
+`.env` 上面的 `API_KEY_ENCRYPTION_KEY` 静态加密存储。`.env` 不再是 API
+Key 的来源——Settings 面板（或首次启动向导）是唯一的编辑路径。
 
-1. **`.env` 文件**（pydantic-settings）——**权威事实来源**
-2. **PostgreSQL**——`models` 设置文档中的 `api_keys` 字段（通过 Settings UI
-   设置，使用 `API_KEY_ENCRYPTION_KEY` 静态加密存储）
+解析顺序（`config.py::get_api_key_from_db`）：
+1. **PostgreSQL** — `models.api_keys` 字段（通过 Settings → Models 设置）
+2. **`.env`** — 仅作为首次启动的引导默认值（已不推荐）
 
-所以两种方式都可以添加 Key；如果两者都设置了，**`.env` 优先**。团队安装建议
-用 Settings UI（数据库），无需编辑文件：
+团队安装建议用 Settings UI：
 
 1. **首次启动向导**——启动后打开 `http://localhost:1421`，Setup 向导会提示
    输入 API Key + 工作区路径。
 2. **启动后 Settings → Models**——添加各提供商 Key（OpenAI / Anthropic /
    DeepSeek / Google / MiniMax / Tavily 等）。
 
+> 仓库的 `env_example` 不含任何 API Key（遵循上方 "API KEYS — 不要放进
+> `.env`" 分区）。如果是迁移旧的 `.env`，跑一次性脚本把 Key 移进数据库：
+> `uv run python scripts/import_api_keys_to_db.py`（幂等，支持 --dry-run）。
+>
 > 你需要哪些 Key 取决于智能体使用的模型。种子智能体默认使用 Anthropic
 > （`claude-sonnet-4-5`）/ DeepSeek 模型——至少添加与你默认模型匹配的提供商
-> Key，例如 `ANTHROPIC_API_KEY` 或 `DEEPSEEK_API_KEY`（`.env` **或**
-> Settings → Models 均可）。
+> Key，例如 `ANTHROPIC_API_KEY` 或 `DEEPSEEK_API_KEY`（Settings → Models）。
 
 ---
 
