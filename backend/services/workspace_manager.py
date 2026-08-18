@@ -140,7 +140,12 @@ class WorkspaceManager:
         """
         # Handle standalone workflows (no project)
         if project_id:
-            slug = self.project_vault_key(project_id)
+            from db.database import SessionLocal
+            _db = SessionLocal()
+            try:
+                slug = WorkspaceManager.project_vault_key(_db, project_id)
+            finally:
+                _db.close()
             project_folder = slug or f"project_{project_id}"
         else:
             project_folder = "standalone"
@@ -220,7 +225,12 @@ class WorkspaceManager:
             vault-scoped default), falling back to ``project_<id>`` when
             the project row is missing.
         """
-        slug = self.project_vault_key(project_id)
+        from db.database import SessionLocal
+        _db = SessionLocal()
+        try:
+            slug = WorkspaceManager.project_vault_key(_db, project_id)
+        finally:
+            _db.close()
         if slug:
             workspace = self.base_dir / slug
         else:
