@@ -15,6 +15,7 @@ rm -f "$OUT"
 zip -r "$OUT" \
   .gitignore .python-version \
   AGENTS.md CLAUDE.md CODE_OF_CONDUCT.md CONTRIBUTING.md LICENSE README.md REFACTORING.md \
+  env_example \
   docker-compose.yml \
   package.json package-lock.json index.html postcss.config.js \
   tsconfig.json tsconfig.node.json \
