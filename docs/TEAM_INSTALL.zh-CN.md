@@ -169,45 +169,35 @@ LOG_ALL_REQUESTS=false
 # 是静态加密这些密钥的 Fernet 主密钥。
 ```
 
-### 工作区参数
+### 工作区参数——每个智能体的文件夹到底在哪
 
-LangConfig 身份系统会在创建/回填时把每个智能体的工作区路径重新烘焙进系统
-提示。给种子脚本传值有两种方式：
+团队真正关心的工作区是**每个智能体的输出目录**（智能体往这里写文件）：
+`<某个根>/agents/agent_{id}/`。种子会写入 44 个智能体的 `workspace_path`
+为空，因此首次启动时每个智能体都默认在
+`<repo>/backend/outputs/agents/agent_{id}/`（`<repo>` 是 LangConfig 仓库根
+目录）。团队可以用下面三种方式修改：
 
-**A) 环境变量（团队推荐）：**
-```bash
-export WORKSPACE_ROOT=/Users/<you>/langconfig/backend/outputs
-```
-智能体解析为 `<WORKSPACE_ROOT>/agents/agent_{id}/`（有自定义 `workspace_path`
-的智能体使用根目录下自己的文件夹）。
+1. **DB 里每个智能体的 `workspace_path`**（推荐路径）。把
+   `deep_agent_templates.workspace_path` 设为绝对路径（或者相对于 Settings
+   文档里 `langconfig_workspace_root` 的相对路径）。在 Settings 面板对每个智
+   能体单独设置，或通过 Settings → Runtime → `langconfig_workspace_root`
+   统一设置全局基础（每个智能体的最终路径 = 基础 + agent_vault_key）。
 
-**B) 或使用默认值**——不传时，工作区管理器自动解析为
-`<repo>/backend/outputs/agents/agent_{id}/`。
+2. **回填脚本批量更新**（`scripts/backfill_agent_identity.py`）：在给定根目录下
+   为每个智能体设置正确的 `agent_{id}/` 子目录。这是一次性调整所有智能体文件
+   系统布局的唯一方式。
 
-> `.env` 中的 `LANGCONFIG_WORKSPACE_ROOT` 是引导默认值；Settings 面板可让
-> 团队在运行时覆盖。种子跑完后使用的就是 `.env` 里的值（或默认值）——
-> 之后可以在 Settings 面板里改。
+3. **`.env` 里的 `LANGCONFIG_WORKSPACE_ROOT` 不是智能体根目录**。这个变量只
+   在 `services/agents_md_service.py` 里被读取，用来定位项目级的 `AGENTS.md` 目录
+   （在 `<root>/projects/{project_id}/` 下）。它**不**用于智能体级 workspace 解析、
+   种子或回填。
 
-### 模型 token 上限（上下文 ≠ 单次输出）
+**简单说**：回答"是否需要在 `.env` 里设 `LANGCONFIG_WORKSPACE_ROOT` 然后跑
+seed_all.py？"这个问题的答案是**不需要**——种子总是用默认值，除非你显式设置
+每个智能体的 `workspace_path` 列。首次安装就是"什么都不用做，让默认生效，团队
+后面在 Settings 面板改"。
 
-当团队看到 `minimax-m3` 或 `deepseek-v4-flash` 的 "1M 上下文支持" 时，那是指
-**输入 + 输出** 总预算——即 *上下文窗口*。而 `agent.config.max_tokens` 和
-LLM 调用中的 `config.max_tokens` 是**单次回复输出上限**——一个独立的、
-更小的数字。混淆两者会导致 API 报 `max_tokens > N` 错误。今天 curl 实测
-(2026-08-18) 的实际限制：
-
-| 模型 | 上下文窗口（`max_context`） | 单次输出上限（`max_output`） |
-|---|---|---|
-| `minimax-m3` (MiniMax-M3) | 1,048,576 | **524,288** |
-| `deepseek-v4-flash` | 1,048,576 | **393,216** |
-| `deepseek-v4-pro` | 1,048,576 | 32,768 |
-| `deepseek-chat` | 1,048,576 | 8,192 |
-
-`models` 设置文档现在同时携带 `max_context` 和 `max_output` 两个字段。在
-Settings 面板里设置 `agent.config.max_tokens` 时，**不要超过**模型单次输出上限，
-否则 API 会拒绝。设置字段名（`max_tokens`）是单次输出上限；registry 里的
-`max_context` 是给 memory/上下文管理用的——两件事分开。
-
+---
 ---
 
 ## 6. 配置 LLM API Key（在数据库里，不在 `.env` 里）
