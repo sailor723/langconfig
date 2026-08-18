@@ -482,10 +482,16 @@ async def send_message(
             logger.warning(f"History sanitize failed (non-fatal): {e}")
 
         # Invoke agent with thread_id for conversation persistence
-        # The checkpointer automatically loads and saves conversation history
+        # The checkpointer automatically loads and saves conversation history.
+        # recursion_limit is shared with the analysis agent (config.py) so
+        # both paths honour the same per-team override via .env.
+        from config import settings as _app_settings
         result = await agent_instance.ainvoke(
             {"messages": [new_message]},
-            config={"configurable": {"thread_id": session.session_id}}
+            config={
+                "configurable": {"thread_id": session.session_id},
+                "recursion_limit": _app_settings.analysis_recursion_limit,
+            }
         )
 
         # Extract response — iterate backwards for the last non-empty text.
@@ -1017,6 +1023,9 @@ async def send_message_stream(
                 new_message = HumanMessage(content=augmented_content)
 
                 # Use astream_events for token-by-token streaming
+                # recursion_limit is shared with the analysis agent (config.py)
+                # so both paths honour the same per-team override via .env.
+                from config import settings as _app_settings
                 tool_calls_count = 0
                 collected_tool_names = []  # Track tool names for DB persistence and skill detection
                 async for event in agent_instance.astream_events(
@@ -1024,10 +1033,7 @@ async def send_message_stream(
                     config={
                         "configurable": {"thread_id": session_id},
                         "callbacks": [event_handler],
-                        # Hard iteration cap: one agent run may perform at most
-                        # 200 model/tool steps. Prevents runaway loops on long
-                        # research/report pipelines (the SDK default is 9,999).
-                        "recursion_limit": 200
+                        "recursion_limit": _app_settings.analysis_recursion_limit,
                     },
                     version="v2"
                 ):
