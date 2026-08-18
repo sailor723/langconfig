@@ -569,8 +569,6 @@ async def load_agent_tools(
     project_id: Optional[int] = None,
     task_id: Optional[int] = None,
     agent_context: Optional[Dict[str, Any]] = None,
-    mcp_manager: Optional[Any] = None,
-    mcp_tool_names: Optional[List[str]] = None,
 ) -> List[BaseTool]:
     """
     Load tools from config, handling memory tool routing automatically.
@@ -639,83 +637,5 @@ async def load_agent_tools(
             logger.info(f"✓ Loaded {len(memory_tools)} memory tools (PG-backed, {memory_system.memory_count} cached)")
         except Exception as e:
             logger.error(f"Failed to add memory tools: {e}. Proceeding without them.")
-
-    # Load MCP tools — resolve each requested name against the running MCP
-    # servers' discovered capabilities, then wrap as StructuredTool that
-    # proxies the call through MCPManager.invoke_tool().
-    if mcp_manager is not None and mcp_tool_names:
-        try:
-            from langchain_core.tools import StructuredTool
-            from schemas.mcp_tools import MCPToolInvocation
-
-            # Build name -> (server_id, MCPToolCapability) index from running servers.
-            index: Dict[str, Tuple[str, Any]] = {}
-            logger.info(
-                f"MCP tool loading: mcp_manager={mcp_manager!r} "
-                f"server_count={len(mcp_manager.servers or {})} "
-                f"servers={list((mcp_manager.servers or {}).keys())} "
-                f"requested={mcp_tool_names}"
-            )
-            for sid, server in (mcp_manager.servers or {}).items():
-                for cap in getattr(server, "capabilities", []):
-                    name = cap.name if hasattr(cap, "name") else cap.get("name")
-                    if name:
-                        index[name] = (sid, cap)
-
-            mcp_tools_loaded: List[BaseTool] = []
-            for tool_name in mcp_tool_names:
-                if tool_name not in index:
-                    logger.warning(
-                        f"MCP tool '{tool_name}' not found in any running server "
-                        f"(available: {sorted(index.keys())})"
-                    )
-                    continue
-                server_id, cap = index[tool_name]
-                desc = cap.description if hasattr(cap, "description") else cap.get("description", "")
-
-                async def _run(tool_name=tool_name, server_id=server_id, **kwargs):
-                    res = await mcp_manager.invoke_tool(
-                        MCPToolInvocation(
-                            server_id=server_id,
-                            tool_name=tool_name,
-                            arguments=kwargs or {},
-                        )
-                    )
-                    if not res.success:
-                        raise RuntimeError(res.error or "MCP tool call failed")
-                    # Unwrap MCP content blocks to plain text where possible.
-                    for block in (res.content_blocks or []):
-                        if block.get("text"):
-                            return block["text"]
-                    return res.result
-
-                schema = (
-                    cap.input_schema
-                    if hasattr(cap, "input_schema")
-                    else (cap.get("inputSchema") or cap.get("input_schema") or {})
-                ) or {
-                    "type": "object",
-                    "properties": {
-                        k: {"type": "string"}
-                        for k in []
-                    },
-                }
-
-                wrapped = StructuredTool.from_function(
-                    func=None,
-                    coroutine=_run,
-                    name=tool_name,
-                    description=desc or f"MCP tool '{tool_name}' (server {server_id})",
-                    args_schema=schema,
-                )
-                mcp_tools_loaded.append(wrapped)
-            if mcp_tools_loaded:
-                tools.extend(mcp_tools_loaded)
-                logger.info(
-                    f"Loaded {len(mcp_tools_loaded)} MCP tools: "
-                    f"{[t.name for t in mcp_tools_loaded]}"
-                )
-        except Exception as e:
-            logger.error(f"Failed to load MCP tools: {e}. Proceeding without them.")
 
     return tools

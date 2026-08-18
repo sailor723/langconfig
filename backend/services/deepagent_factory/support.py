@@ -53,8 +53,6 @@ class _DeepAgentSupportMixin:
             project_id=project_id,
             task_id=task_id,
             agent_context={"agent_id": agent_id} if agent_id is not None else None,
-            mcp_manager=mcp_manager,
-            mcp_tool_names=getattr(config, "mcp_tools", None),
         )
 
     @staticmethod
