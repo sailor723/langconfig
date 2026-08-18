@@ -392,6 +392,30 @@ async def send_message(
                     _safe_config[_list_key] = []
             if _safe_config.get('guardrails') is None:
                 _safe_config['guardrails'] = {"input": [], "output": []}
+            # Re-bake the agent's identity block on every chat so the
+            # workspace path matches the SESSION's current project (not the
+            # one captured at agent creation). The agent is project-agnostic;
+            # the binding lives on chat_sessions.project_id. Strip the stale
+            # baked-in identity, resolve the new one, splice it back in.
+            _session_project_id = getattr(session, "project_id", None)
+            if _session_project_id is not None:
+                from core.agents.identity import (
+                    _strip_identity_block,
+                    build_identity_system_prompt,
+                )
+                from services.workspace_manager import get_workspace_manager
+                _ws_mgr = get_workspace_manager()
+                _re_ws_root = str(_ws_mgr.resolve_agent_workspace(
+                    agent, _session_project_id,
+                    vault_key=_ws_mgr.project_vault_key(db, _session_project_id) or None,
+                    agent_key=_ws_mgr.agent_vault_key(db, agent),
+                ))
+                _re_base = _strip_identity_block(
+                    _safe_config.get("system_prompt", "") or ""
+                )
+                _safe_config["system_prompt"] = build_identity_system_prompt(
+                    _re_base, agent.id, _re_ws_root, agent.agent_docs or {}
+                )
             config = DeepAgentConfig(**_safe_config)
             if lang_instruction:
                 config.system_prompt = (config.system_prompt or "") + lang_instruction
@@ -770,6 +794,18 @@ async def send_message_stream(
         if not session.is_active:
             raise HTTPException(status_code=400, detail="Session is not active")
 
+        # Persist the UI-supplied project_id onto the chat session. The
+        # workspace resolver (line ~405) reads chat_sessions.project_id, not
+        # request.project_id — without this persist the UI's project picker
+        # has no effect on the per-agent vault path. The agent itself stays
+        # project-agnostic (no FK on deep_agent_templates); the binding is
+        # per-chat-session, so the same agent can run in different projects
+        # across its sessions.
+        if request.project_id is not None and session.project_id != request.project_id:
+            session.project_id = request.project_id
+            db.commit()
+            db.refresh(session)
+
         # Get agent
         agent = db.query(DeepAgentTemplate).filter(
             DeepAgentTemplate.id == session.agent_id
@@ -834,8 +870,14 @@ async def send_message_stream(
                 logger.info(f"✓ User message saved to DB: session={session_id}, total_messages={len(fresh_session.messages)}")
 
                 # Build agent via DeepAgentFactory (standard path)
-                # Use the UI's active project if the agent doesn't have one
-                project_id = agent_project_id or request.project_id
+                # Use the chat session's project binding (persisted from the
+                # UI's project picker in the request handler above) as the
+                # authoritative source. Falls back to request.project_id for
+                # the first message of a fresh session before persistence.
+                project_id = (
+                    getattr(fresh_session, "project_id", None)
+                    or request.project_id
+                )
                 all_context = ""
 
                 # Check the compiled-agent cache first. Follow-up turns skip the
