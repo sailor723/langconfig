@@ -119,25 +119,10 @@ async def lifespan(app: FastAPI):
         logger.error("Workflows will still execute but state will not be saved")
         # Don't fail startup - workflows can still run without checkpointing
 
-    # Initialize MCP Manager + auto-start every enabled builtin. Builtin
-    # servers are registered in lazy mode by default; eagerly starting the
-    # ones we know are present (filesystem / neo4j / etc.) avoids the agent
-    # having to wait on first-use. Transport=stdio servers get spawned as
-    # subprocesses; transport=streamable_http servers just connect to the
-    # pre-running URL — both are best-effort and never fail startup.
-    from services.mcp_manager import get_mcp_manager
-    from schemas.mcp_tools import BUILTIN_MCP_SERVERS
+    # Initialize MCP Manager
     try:
-        manager = await get_mcp_manager()
+        await get_mcp_manager()
         logger.info("MCP Manager initialized successfully")
-        for server_id, cfg in BUILTIN_MCP_SERVERS.items():
-            if not cfg.enabled:
-                continue
-            started = await manager.add_server(cfg)
-            if started:
-                logger.info(f"✓ MCP server ready: {cfg.display_name} ({cfg.transport})")
-            else:
-                logger.warning(f"⚠ MCP server failed to start: {cfg.display_name} ({cfg.transport})")
     except Exception as e:
         logger.warning(f"MCP Manager initialization failed: {e}. MCP tools may not be available.")
 

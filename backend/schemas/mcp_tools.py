@@ -61,71 +61,56 @@ class BlockchainConfig(BaseModel):
 
 class MCPServerConfig(BaseModel):
     """Configuration for an MCP server instance"""
-
+    
     server_type: MCPServerType = Field(..., description="Type of MCP server")
-
+    
     server_id: str = Field(
-        ...,
+        ..., 
         description="Unique identifier for this server instance",
         example="gala-chain-launchpad-1"
     )
-
+    
     display_name: str = Field(
         ...,
         description="Human-readable name",
         example="Gala Chain Launchpad"
     )
-
+    
     npm_package: Optional[str] = Field(
         None,
         description="NPM package name if applicable",
         example="@gala-chain/launchpad-mcp-server"
     )
-
+    
     command: List[str] = Field(
         ...,
-        description="Command to start the MCP server (only used when transport=stdio)",
+        description="Command to start the MCP server",
         example=["npx", "-y", "@gala-chain/launchpad-mcp-server"]
     )
-
+    
     env_vars: Dict[str, str] = Field(
         default_factory=dict,
         description="Environment variables for the server"
     )
-
+    
     config: Dict[str, Any] = Field(
         default_factory=dict,
         description="Server-specific configuration"
     )
-
+    
     enabled: bool = Field(
         default=True,
         description="Whether this server is active"
     )
-
+    
     capabilities: List[MCPToolCapability] = Field(
         default_factory=list,
         description="Available tools from this server"
     )
-
+    
     blockchain_config: Optional[BlockchainConfig] = Field(
         None,
         description="Blockchain-specific configuration if applicable"
-    )
-
-    # Transport: "stdio" (default — mcp_manager spawns the server as a subprocess
-    # and speaks stdio), or "streamable_http" (mcp_manager connects to a server
-    # already running at `url` — typically the server was started manually /
-    # by docker compose, and LangConfig just consumes it).
-    transport: Literal["stdio", "streamable_http"] = Field(
-        default="stdio",
-        description="MCP transport — stdio spawns the server, streamable_http connects",
-    )
-
-    url: Optional[str] = Field(
-        default=None,
-        description="HTTP endpoint of the MCP server (only used when transport=streamable_http)",
-        example="http://localhost:3046/mcp",
     )
 
 
@@ -295,26 +280,21 @@ BUILTIN_MCP_SERVERS = {
         capabilities=[]
     ),
 
-    # Neo4j graph database (connected via streamable_http transport — the MCP
-    # server runs standalone on NEO4J_MCP_URL, and LangConfig just consumes it).
-    # The server is the official Neo4j-contrib stdio MCP server (PyPI:
+    # Neo4j graph database (runs via `uvx mcp-neo4j-cypher` — no Neo4j cloud /
+    # API key, just connects to a local Neo4j Bolt endpoint). The official
+    # Neo4j-contrib stdio MCP server (PyPI:
     # https://pypi.org/project/mcp-neo4j-cypher, v0.6.0, requires Python
-    # >=3.10). It exposes three tools: `read_neo4j_cypher` (read queries),
+    # >=3.10) exposes three tools: `read_neo4j_cypher` (read queries),
     # `write_neo4j_cypher` (writes — guarded by NEO4J_READ_ONLY env), and
     # `get_neo4j_schema` (labels, attributes, relationships; needs APOC).
-    # The user starts the server once with:
-    #   uvx mcp-neo4j-cypher --transport streamable-http --port 3046
-    # and LangConfig connects to the URL below. No Neo4j cloud / API key —
-    # just connects to a local Neo4j Bolt endpoint via NEO4J_URI/USER/
-    # PASSWORD/DATABASE env on the *server* side.
+    # `uvx` runs the server in an ephemeral venv so no project install is
+    # required; LangConfig's mcp_manager spawns it as a stdio subprocess.
     "neo4j": MCPServerConfig(
         server_type=MCPServerType.GRAPH,
         server_id="neo4j",
         display_name="Neo4j Graph Database",
         npm_package=None,
-        command=[],  # not used for streamable_http; server runs standalone
-        transport="streamable_http",
-        url="http://127.0.0.1:3046/mcp",
+        command=[UV_CMD, "mcp-neo4j-cypher", "--transport", "stdio"],
         env_vars={
             "NEO4J_URI": "bolt://localhost:7687",
             "NEO4J_USERNAME": "neo4j",
