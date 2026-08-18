@@ -443,17 +443,18 @@ async def _business_summary(dbname: str, tables: List[Dict[str, Any]], lang: str
     if key in _BUSINESS_SUMMARY_CACHE:
         return _BUSINESS_SUMMARY_CACHE[key]
 
-    # Resolve the configured default model + max_tokens (Settings -> Models).
+    # Resolve the configured default model (Settings -> Models -> default
+    # model) so the summary follows the team's chosen LLM. Falls back to
+    # DEFAULT_MODEL (deepseek-chat) when the settings document is empty or
+    # the settings engine is unavailable (pre-migration DB / import error).
     from services.agent_utils import DEFAULT_MODEL, resolve_model
-    from config import settings as _cfg
 
-    model_name = _cfg.models_default_model if hasattr(_cfg, "models_default_model") else None
-    if not model_name:
-        try:
-            from core.settings import runtime_get
-            model_name = runtime_get("models", "default_model") or DEFAULT_MODEL
-        except Exception:
-            model_name = DEFAULT_MODEL
+    model_name = DEFAULT_MODEL
+    try:
+        from core.settings import runtime_get
+        model_name = runtime_get("models", "default_model") or DEFAULT_MODEL
+    except Exception:
+        pass
     max_tokens = 1024  # the inventory is small; cap the summary call
 
     lines = [f"Database: {dbname}"]
