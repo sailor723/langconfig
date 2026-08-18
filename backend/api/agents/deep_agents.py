@@ -366,7 +366,7 @@ async def create_deepagent(
         # project later. The agent itself is project-agnostic — no FK is
         # stored on deep_agent_templates.
         from core.agents.identity import build_identity_system_prompt, default_agent_docs
-        from services.workspace_manager import get_workspace_manager
+        from services.workspace_manager import get_workspace_manager, WorkspaceManager
         _ws_root = str(get_workspace_manager().resolve_agent_workspace(
             agent, request.project_id,
             vault_key=WorkspaceManager.project_vault_key(db, request.project_id) or None,
