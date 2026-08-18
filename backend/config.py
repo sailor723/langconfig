@@ -70,9 +70,13 @@ class Settings(BaseSettings):
     execution_history_retention_days: int = 90
     auto_cleanup_execution_history: bool = True
 
-    # ── Analysis Agent ──
-    # Max recursion depth for the analysis deep agent (dashboard gen + chat).
-    # Read by api/analysis/routes.py and skills/sql-analyst/9_erp_dashboard.py.
+    # ── Agent recursion limit (shared) ──
+    # Max recursion depth for deep-agent graph execution. Used by:
+    #  - api/analysis/routes.py (dashboard generation)
+    #  - api/chat/messages.py (both streaming and non-streaming chat paths)
+    # Override via .env's ANALYSIS_RECURSION_LIMIT=N if your team needs
+    # longer pipelines. The SDK default of 9,999 is usually too high for
+    # our deployment profile.
     analysis_recursion_limit: int = 1000
 
     # Wall-clock timeout (seconds) for dashboard auto-generation.
