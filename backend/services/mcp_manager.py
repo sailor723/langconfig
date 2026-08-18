@@ -23,6 +23,7 @@ import os
 import time
 from typing import Dict, List, Optional, Any, Tuple
 from pathlib import Path
+from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from schemas.mcp_tools import (
@@ -30,8 +31,12 @@ from schemas.mcp_tools import (
     MCPToolInvocation,
     MCPToolResult,
     MCPToolCapability,
-    BUILTIN_MCP_SERVERS
+    BUILTIN_MCP_SERVERS,
 )
+
+# HTTP MCP transport (optional — only used when a server config requests
+# transport="streamable_http"). Imported lazily inside start() so the stdio-only
+# path doesn't pay the import cost.
 
 logger = logging.getLogger(__name__)
 
@@ -216,9 +221,80 @@ class MCPServer:
     def __init__(self, config: MCPServerConfig):
         self.config = config
         self.process: Optional[asyncio.subprocess.Process] = None
+        # HTTP transport handles (only populated when config.transport == "streamable_http")
+        self._http_ctx = None            # async-context-manager from streamablehttp_client()
+        self._http_session: Optional[Any] = None   # mcp.ClientSession
+        self._http_read: Optional[Any] = None      # the inbound stream
         self.is_running = False
         self.capabilities: List[MCPToolCapability] = config.capabilities.copy()
-        
+
+    async def _start_streamable_http(self) -> bool:
+        """Connect to an MCP server already running at `config.url` over HTTP.
+
+        Uses the official `mcp` SDK's streamablehttp_client + ClientSession so
+        we get a typed interface instead of raw JSON-RPC over stdin/stdout.
+        The server is expected to be already running (LangConfig does not
+        start it). On success, `self._http_session` is set; on failure we
+        retry up to 3 times with exponential backoff.
+        """
+        from mcp import ClientSession
+        from mcp.client.streamable_http import streamablehttp_client
+
+        url = self.config.url
+        if not url:
+            logger.error(f"MCP server {self.config.server_id}: streamable_http requires `url`")
+            return False
+
+        # Inject credentials from auth service if any.
+        headers: Dict[str, str] = {}
+        # (no user_id / db here — streamable_http is a standalone server, no
+        # per-request credential injection. The server reads its own env vars.)
+
+        max_retries = 3
+        retry_delay = 1.0
+        last_err: Optional[str] = None
+        for attempt in range(max_retries):
+            try:
+                if attempt > 0:
+                    logger.info(f"Retry {attempt}/{max_retries} for MCP server: {self.config.display_name}")
+                else:
+                    logger.info(f"Connecting to MCP server: {self.config.display_name} at {url}")
+
+                self._http_ctx = streamablehttp_client(url=url, headers=headers or None)
+                # Enter the context manager and keep both the streams and the
+                # cleanup task alive for the lifetime of the server.
+                self._http_read, self._http_write, _get_session_id = await self._http_ctx.__aenter__()
+                self._http_session = ClientSession(self._http_read, self._http_write)
+                await self._http_session.initialize()
+                # Probe the server so we fail fast if it returns an error.
+                await self._http_session.list_tools()
+                self.is_running = True
+                logger.info(f"✓ MCP server {self.config.server_id} connected (streamable_http at {url})")
+                return True
+            except Exception as e:
+                last_err = str(e)
+                logger.warning(f"Attempt {attempt + 1}/{max_retries} failed for {self.config.server_id}: {e}")
+                # Clean up partial state
+                if self._http_session is not None:
+                    try:
+                        await self._http_session.close()
+                    except Exception:
+                        pass
+                    self._http_session = None
+                if self._http_ctx is not None:
+                    try:
+                        await self._http_ctx.__aexit__(None, None, None)
+                    except Exception:
+                        pass
+                    self._http_ctx = None
+                self._http_read = None
+                self._http_write = None
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2
+        logger.error(f"Failed to connect to MCP server {self.config.server_id} at {url}: {last_err}")
+        return False
+
     async def start(self, use_cache: bool = True, user_id: Optional[int] = None, db: Optional[AsyncSession] = None) -> bool:
         """
         Start the MCP server process with health check and retry logic.
@@ -231,6 +307,15 @@ class MCPServer:
         if self.is_running:
             logger.warning(f"MCP server {self.config.server_id} is already running")
             return True
+
+        # ── HTTP transport: connect to a server already running at `url`. ──
+        # The user starts the server once (e.g. via uvx, docker compose, or a
+        # daemon) and LangConfig just consumes it. We use the official `mcp`
+        # SDK's streamablehttp_client + ClientSession to get a high-level
+        # interface instead of the raw JSON-RPC over stdin/stdout that
+        # stdio uses.
+        if self.config.transport == "streamable_http":
+            return await self._start_streamable_http()
 
         max_retries = 3
         retry_delay = 1.0  # Start with 1 second
@@ -354,13 +439,41 @@ class MCPServer:
         ]
     
     async def stop(self):
-        """Stop the MCP server process"""
-        if not self.is_running or not self.process:
+        """Stop the MCP server process (or close HTTP session)"""
+        if not self.is_running:
             return
-            
+
+        # HTTP transport: close the streamable-http client + session.
+        if self._http_session is not None or self._http_ctx is not None:
+            try:
+                logger.info(f"Closing MCP HTTP session: {self.config.display_name}")
+                if self._http_session is not None:
+                    try:
+                        await self._http_session.close()
+                    except Exception as e:
+                        logger.debug(f"session.close() error: {e}")
+            except Exception as e:
+                logger.warning(f"Error closing HTTP session for {self.config.server_id}: {e}")
+            finally:
+                self._http_session = None
+            try:
+                if self._http_ctx is not None:
+                    await self._http_ctx.__aexit__(None, None, None)
+            except Exception as e:
+                logger.debug(f"http_ctx.__aexit__ error: {e}")
+            finally:
+                self._http_ctx = None
+                self._http_read = None
+                self._http_write = None
+                self.is_running = False
+            return
+
+        # stdio transport: terminate the subprocess.
+        if not self.process:
+            return
         try:
             logger.info(f"Stopping MCP server: {self.config.display_name}")
-            
+
             # Check if process is still running before attempting to terminate
             if self.process.returncode is None:
                 self.process.terminate()
@@ -383,11 +496,27 @@ class MCPServer:
     async def _discover_capabilities(self):
         """Discover available tools from the MCP server"""
         try:
-            # Give servers more time to initialize (especially GalaChain with 37+ tools)
+            # HTTP transport: use the high-level SDK call directly.
+            if self._http_session is not None:
+                logger.debug(f"Listing tools over HTTP from {self.config.server_id}")
+                result = await self._http_session.list_tools()
+                tools = result.tools
+                self.capabilities = [
+                    MCPToolCapability(
+                        name=tool.name,
+                        description=tool.description or "",
+                        input_schema=tool.inputSchema or {},
+                        category="discovered",
+                    )
+                    for tool in tools
+                ]
+                logger.info(f"Discovered {len(self.capabilities)} tools from {self.config.server_id} (HTTP)")
+                return
+
+            # stdio transport: give servers more time to initialize.
             await asyncio.sleep(1)
-            
             logger.debug(f"Sending tools/list request to {self.config.server_id}")
-            
+
             # Send initialization request to discover tools (longer timeout for large toolsets)
             response = await self._send_request({
                 "jsonrpc": "2.0",
@@ -395,11 +524,11 @@ class MCPServer:
                 "method": "tools/list",
                 "params": {}
             }, timeout=60)  # 60 second timeout for tool discovery
-            
+
             if response and "result" in response:
                 tools = response["result"].get("tools", [])
                 logger.debug(f"Raw response from {self.config.server_id}: {len(tools)} tools")
-                
+
                 self.capabilities = [
                     MCPToolCapability(
                         name=tool["name"],
@@ -412,12 +541,20 @@ class MCPServer:
                 logger.info(f"Discovered {len(self.capabilities)} tools from {self.config.server_id}")
             else:
                 logger.warning(f"No tools/list result from {self.config.server_id}, response: {response}")
-                
+
         except Exception as e:
             logger.warning(f"Could not discover capabilities for {self.config.server_id}: {e}")
     
     async def _send_request_raw(self, request: Dict[str, Any], timeout: int = 30) -> Optional[Dict[str, Any]]:
-        """Send a raw JSON-RPC request to the MCP server (internal use)"""
+        """Send a raw JSON-RPC request to the MCP server (stdio only)."""
+        # The HTTP transport path uses the high-level SDK session directly
+        # (see _discover_capabilities / invoke_tool). If a caller hits this
+        # method on an HTTP server, fall back to a clear error.
+        if self.config.transport == "streamable_http" or self._http_session is not None:
+            raise RuntimeError(
+                f"MCP server {self.config.server_id}: _send_request_raw is stdio-only; "
+                "use the HTTP session (invoke_tool / _discover_capabilities) instead."
+            )
         if not self.process:
             raise RuntimeError(f"MCP server {self.config.server_id} process not available")
 
@@ -458,7 +595,54 @@ class MCPServer:
         start_time = time.time()
 
         try:
-            # Send tool invocation request
+            # HTTP transport: use the high-level SDK call directly.
+            if self._http_session is not None:
+                result = await self._http_session.call_tool(
+                    invocation.tool_name, invocation.arguments or {}
+                )
+                execution_time = time.time() - start_time
+
+                # Build a dict-shaped result the same way stdio's
+                # jsonrpc response is shaped, so downstream `_parse_mcp_content_blocks`
+                # works for both.
+                content_dicts = []
+                for block in (result.content or []):
+                    item = {"type": getattr(block, "type", "text")}
+                    if hasattr(block, "text"):
+                        item["text"] = block.text
+                    content_dicts.append(item)
+                raw_result = {
+                    "content": content_dicts,
+                    "isError": bool(getattr(result, "isError", False)),
+                }
+                if result.isError:
+                    err_text = ""
+                    for item in content_dicts:
+                        if item.get("text"):
+                            err_text += item["text"]
+                    return MCPToolResult(
+                        success=False,
+                        tool_name=invocation.tool_name,
+                        error=err_text or "Unknown error",
+                        execution_time=execution_time,
+                    )
+
+                content_blocks, artifacts, has_multimodal = _parse_mcp_content_blocks(raw_result)
+                return MCPToolResult(
+                    success=True,
+                    tool_name=invocation.tool_name,
+                    result=raw_result,
+                    execution_time=execution_time,
+                    metadata={
+                        "server_id": self.config.server_id,
+                        "server_type": self.config.server_type,
+                    },
+                    content_blocks=content_blocks,
+                    artifacts=artifacts,
+                    has_multimodal=has_multimodal,
+                )
+
+            # stdio transport: build a raw JSON-RPC request and send it.
             request = {
                 "jsonrpc": "2.0",
                 "id": int(time.time() * 1000),
