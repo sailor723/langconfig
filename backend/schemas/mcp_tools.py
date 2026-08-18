@@ -20,7 +20,8 @@ from enum import Enum
 NPX_CMD = "npx.cmd" if platform.system() == "Windows" else "npx"
 # `uvx` ships with `uv` (https://github.com/astral-sh/uv) and runs Python
 # packages in an ephemeral venv — used for Python-native MCP servers
-# (e.g. `neo4j-mcp`) that don't publish an npm package. Same on all platforms.
+# (e.g. `mcp-neo4j-cypher`) that don't publish an npm package. Same on all
+# platforms.
 UV_CMD = "uvx"
 
 
@@ -279,26 +280,26 @@ BUILTIN_MCP_SERVERS = {
         capabilities=[]
     ),
 
-    # Neo4j graph database (runs via `uvx neo4j-mcp start` — no Neo4j cloud / API
-    # key, just connects to a local Neo4j Bolt endpoint on NEO4J_MCP_URI). The
-    # server is by lesleslie (PyPI: https://pypi.org/project/neo4j-mcp, v0.2.1,
-    # requires Python >=3.13) and exposes run_cypher / create_node / get_node /
-    # delete_node / find_nodes / create_relationship / delete_relationship /
-    # find_paths / get_schema tools against the database named in
-    # NEO4J_MCP_DATABASE. Note the env vars are namespaced NEO4J_MCP_* (not
-    # NEO4J_*). `uvx` runs the package in an ephemeral venv, so no project
-    # install is required. The `start` subcommand boots the stdio MCP server.
+    # Neo4j graph database (runs via `uvx mcp-neo4j-cypher` — no Neo4j cloud /
+    # API key, just connects to a local Neo4j Bolt endpoint). The official
+    # Neo4j-contrib stdio MCP server (PyPI:
+    # https://pypi.org/project/mcp-neo4j-cypher, v0.6.0, requires Python
+    # >=3.10) exposes three tools: `read_neo4j_cypher` (read queries),
+    # `write_neo4j_cypher` (writes — guarded by NEO4J_READ_ONLY env), and
+    # `get_neo4j_schema` (labels, attributes, relationships; needs APOC).
+    # `uvx` runs the server in an ephemeral venv so no project install is
+    # required; LangConfig's mcp_manager spawns it as a stdio subprocess.
     "neo4j": MCPServerConfig(
         server_type=MCPServerType.GRAPH,
         server_id="neo4j",
         display_name="Neo4j Graph Database",
         npm_package=None,
-        command=[UV_CMD, "neo4j-mcp", "start"],
+        command=[UV_CMD, "mcp-neo4j-cypher", "--transport", "stdio"],
         env_vars={
-            "NEO4J_MCP_URI": "bolt://localhost:7687",
-            "NEO4J_MCP_USER": "neo4j",
-            "NEO4J_MCP_PASSWORD": "password",
-            "NEO4J_MCP_DATABASE": "neo4j",
+            "NEO4J_URI": "bolt://localhost:7687",
+            "NEO4J_USERNAME": "neo4j",
+            "NEO4J_PASSWORD": "password",
+            "NEO4J_DATABASE": "neo4j",
         },
         enabled=True,
         capabilities=[],  # discovered at runtime
