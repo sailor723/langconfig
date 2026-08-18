@@ -234,17 +234,8 @@ class MCPServer:
         Uses the official `mcp` SDK's streamablehttp_client + ClientSession so
         we get a typed interface instead of raw JSON-RPC over stdin/stdout.
         The server is expected to be already running (LangConfig does not
-        start it).
-
-        Implementation note: ``streamablehttp_client`` returns an
-        async-generator context manager whose ``__aenter__`` spawns an anyio
-        task group. Calling ``__aenter__`` and ``__aexit__`` from different
-        async tasks raises ``RuntimeError: Attempted to exit cancel scope in a
-        different task than it was entered in``. The fix is to drive the
-        context manager from a single background task that holds the streams
-        open; the task is cancelled in ``stop()`` to tear down. The session
-        is stashed on ``self._http_session`` so ``invoke_tool`` /
-        ``_discover_capabilities`` can use it.
+        start it). On success, `self._http_session` is set; on failure we
+        retry up to 3 times with exponential backoff.
         """
         from mcp import ClientSession
         from mcp.client.streamable_http import streamablehttp_client
@@ -254,64 +245,50 @@ class MCPServer:
             logger.error(f"MCP server {self.config.server_id}: streamable_http requires `url`")
             return False
 
+        # Inject credentials from auth service if any.
+        headers: Dict[str, str] = {}
+        # (no user_id / db here — streamable_http is a standalone server, no
+        # per-request credential injection. The server reads its own env vars.)
+
         max_retries = 3
         retry_delay = 1.0
         last_err: Optional[str] = None
         for attempt in range(max_retries):
-            task: Optional[asyncio.Task] = None
-            ready_evt = asyncio.Event()
-            error_box: Dict[str, Any] = {}
             try:
                 if attempt > 0:
                     logger.info(f"Retry {attempt}/{max_retries} for MCP server: {self.config.display_name}")
                 else:
                     logger.info(f"Connecting to MCP server: {self.config.display_name} at {url}")
 
-                async def _driver():
-                    """Single task that owns the streamablehttp_client ctx +
-                    the ClientSession. Stash the session in a shared box and
-                    park forever so the streams stay open."""
-                    try:
-                        async with streamablehttp_client(url=url, headers=None) as (r, w, _):
-                            # Inner async with keeps the session scoped to
-                            # the same task group as the streams.
-                            async with ClientSession(r, w) as session:
-                                await session.initialize()
-                                await session.list_tools()  # probe — fail fast
-                                self._http_read = r
-                                self._http_write = w
-                                self._http_session = session
-                                ready_evt.set()
-                                # Park here — parent cancels us in stop().
-                                await asyncio.Event().wait()
-                    except Exception as e:
-                        error_box["error"] = e
-                        ready_evt.set()
-
-                task = asyncio.create_task(_driver())
-                # Wait for the driver to either succeed or fail.
-                try:
-                    await asyncio.wait_for(ready_evt.wait(), timeout=15)
-                except asyncio.TimeoutError:
-                    error_box["error"] = TimeoutError("driver did not finish in time")
-                    ready_evt.set()
-
-                if "error" in error_box:
-                    raise error_box["error"]
-
-                self._http_task = task
+                self._http_ctx = streamablehttp_client(url=url, headers=headers or None)
+                # Enter the context manager and keep both the streams and the
+                # cleanup task alive for the lifetime of the server.
+                self._http_read, self._http_write, _get_session_id = await self._http_ctx.__aenter__()
+                self._http_session = ClientSession(self._http_read, self._http_write)
+                await self._http_session.initialize()
+                # Probe the server so we fail fast if it returns an error.
+                await self._http_session.list_tools()
                 self.is_running = True
                 logger.info(f"✓ MCP server {self.config.server_id} connected (streamable_http at {url})")
                 return True
             except Exception as e:
                 last_err = str(e)
                 logger.warning(f"Attempt {attempt + 1}/{max_retries} failed for {self.config.server_id}: {e}")
-                if task is not None and not task.done():
-                    task.cancel()
+                # Clean up partial state
+                if self._http_session is not None:
                     try:
-                        await task
+                        await self._http_session.close()
                     except Exception:
                         pass
+                    self._http_session = None
+                if self._http_ctx is not None:
+                    try:
+                        await self._http_ctx.__aexit__(None, None, None)
+                    except Exception:
+                        pass
+                    self._http_ctx = None
+                self._http_read = None
+                self._http_write = None
                 if attempt < max_retries - 1:
                     await asyncio.sleep(retry_delay)
                     retry_delay *= 2
