@@ -48,6 +48,14 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   // Active vault (project) — forwarded to createDeepAgent so the agent's
   // identity is baked with the right workspace at creation time.
   const { activeProjectId } = useProject();
+  // Also sync it into the chat store so the Run button's chat session
+  // (POST /api/chat/start) carries the project binding. Without this, the
+  // session is created with project_id=NULL and the workspace resolver
+  // falls back to the legacy default even though the agent's identity
+  // block is correct.
+  useEffect(() => {
+    chatStore.setCurrentProjectId(activeProjectId ?? null);
+  }, [activeProjectId]);
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [testPrompt, setTestPrompt] = useState('Hello, please introduce yourself.');
