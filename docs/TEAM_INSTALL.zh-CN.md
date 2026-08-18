@@ -188,6 +188,26 @@ export WORKSPACE_ROOT=/Users/<you>/langconfig/backend/outputs
 > 团队在运行时覆盖。种子跑完后使用的就是 `.env` 里的值（或默认值）——
 > 之后可以在 Settings 面板里改。
 
+### 模型 token 上限（上下文 ≠ 单次输出）
+
+当团队看到 `minimax-m3` 或 `deepseek-v4-flash` 的 "1M 上下文支持" 时，那是指
+**输入 + 输出** 总预算——即 *上下文窗口*。而 `agent.config.max_tokens` 和
+LLM 调用中的 `config.max_tokens` 是**单次回复输出上限**——一个独立的、
+更小的数字。混淆两者会导致 API 报 `max_tokens > N` 错误。今天 curl 实测
+(2026-08-18) 的实际限制：
+
+| 模型 | 上下文窗口（`max_context`） | 单次输出上限（`max_output`） |
+|---|---|---|
+| `minimax-m3` (MiniMax-M3) | 1,048,576 | **524,288** |
+| `deepseek-v4-flash` | 1,048,576 | **393,216** |
+| `deepseek-v4-pro` | 1,048,576 | 32,768 |
+| `deepseek-chat` | 1,048,576 | 8,192 |
+
+`models` 设置文档现在同时携带 `max_context` 和 `max_output` 两个字段。在
+Settings 面板里设置 `agent.config.max_tokens` 时，**不要超过**模型单次输出上限，
+否则 API 会拒绝。设置字段名（`max_tokens`）是单次输出上限；registry 里的
+`max_context` 是给 memory/上下文管理用的——两件事分开。
+
 ---
 
 ## 6. 配置 LLM API Key（在数据库里，不在 `.env` 里）
