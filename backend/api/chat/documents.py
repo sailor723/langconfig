@@ -36,7 +36,7 @@ def _resolve_agent_workspace(session, db, ws_mgr):
 
     Priority: the agent's user-defined ``workspace_path`` (persisted in
     deep_agent_templates) → vault-scoped default
-    ``outputs/projects/{vault_key}/agents/agent_{id}/`` (vault_key = the
+    ``outputs/{vault_key}/agents/agent_{id}/`` (vault_key = the
     project's user-visible ``number``, else its ``id``) → legacy
     ``outputs/agents/agent_{id}/``.
     """

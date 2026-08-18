@@ -10,7 +10,7 @@ The deepagents library's MemoryMiddleware loads AGENTS.md files (per the
 agents.md spec) and injects them into the system prompt. Each project gets
 its own AGENTS.md file stored on the filesystem at:
 
-    {WORKSPACE_ROOT}/projects/{project_id}/AGENTS.md
+    {WORKSPACE_ROOT}/{project_id}/AGENTS.md
 
 Files are git-friendly Markdown. Agents can read/edit them via the
 `read_file` / `edit_file` tools (provided by FilesystemMiddleware).
@@ -89,7 +89,7 @@ def get_agents_md_path(project_id: int) -> Path:
 
     Does NOT create the file. Use ensure_agents_md_exists() for that.
     """
-    return WORKSPACE_ROOT / "projects" / _project_vault_key(project_id) / "AGENTS.md"
+    return WORKSPACE_ROOT / _project_vault_key(project_id) / "AGENTS.md"
 
 
 def ensure_agents_md_exists(project_id: int) -> Path:
