@@ -382,7 +382,11 @@ async def create_deepagent(
         flag_modified(agent, "agent_docs")
         db.commit()
 
-        logger.info(f"Created DeepAgent: {agent.name} (id={agent.id})")
+        logger.info(
+            f"Created DeepAgent: {agent.name} (id={agent.id}, "
+            f"project_id={request.project_id}, "
+            f"workspace_root={_ws_root})"
+        )
 
         cfg = _ensure_deep_agent_config(agent.config, db=db)
         merged_subs = cfg.get("subagents", [])
