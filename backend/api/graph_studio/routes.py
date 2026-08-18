@@ -35,6 +35,7 @@ import asyncio
 import importlib.util
 import inspect
 import json
+import logging
 import os
 import sys
 import time
@@ -45,6 +46,8 @@ from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/graph-studio", tags=["graph-studio"])
 
@@ -423,26 +426,35 @@ def select_database(payload: SelectDatabaseRequest) -> Dict[str, Any]:
 _BUSINESS_SUMMARY_CACHE: Dict[Tuple[str, str], str] = {}
 
 
-def _business_summary(dbname: str, tables: List[Dict[str, Any]], lang: str) -> Optional[str]:
+async def _business_summary(dbname: str, tables: List[Dict[str, Any]], lang: str) -> Optional[str]:
     """Describe the database in business terms (<=3 lines) via the LLM.
 
     Best-effort: any failure (missing API key, network, model error) yields
     None so the UI can fall back to the raw table counts. The inventory
     (table -> row count -> columns) is compact enough for a small model call.
+
+    The model is resolved from the ``models`` settings document's
+    ``default_model`` (the same setting the rest of the app uses — see
+    Settings -> Models -> default model). This makes the summary follow the
+    team's chosen LLM instead of a hardcoded ``deepseek-chat``. Falls back
+    to ``deepseek-chat`` when no default is configured.
     """
     key = (dbname, lang)
     if key in _BUSINESS_SUMMARY_CACHE:
         return _BUSINESS_SUMMARY_CACHE[key]
 
-    from langchain.chat_models import init_chat_model
+    # Resolve the configured default model + max_tokens (Settings -> Models).
+    from services.agent_utils import DEFAULT_MODEL, resolve_model
+    from config import settings as _cfg
 
-    model = init_chat_model(
-        "deepseek-chat",
-        model_provider="deepseek",
-        api_key=os.environ.get("DEEPSEEK_API_KEY"),
-        base_url=os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com",
-        temperature=0,
-    )
+    model_name = _cfg.models_default_model if hasattr(_cfg, "models_default_model") else None
+    if not model_name:
+        try:
+            from core.settings import runtime_get
+            model_name = runtime_get("models", "default_model") or DEFAULT_MODEL
+        except Exception:
+            model_name = DEFAULT_MODEL
+    max_tokens = 1024  # the inventory is small; cap the summary call
 
     lines = [f"Database: {dbname}"]
     for t in tables:
@@ -460,7 +472,10 @@ def _business_summary(dbname: str, tables: List[Dict[str, Any]], lang: str) -> O
     )
 
     try:
-        response = model.invoke(
+        model = await resolve_model(
+            model_name, 0.0, max_tokens, {"model": model_name}
+        )
+        response = await model.ainvoke(
             [
                 {"role": "system", "content": "You are a helpful data analyst."},
                 {"role": "user", "content": prompt},
@@ -468,7 +483,8 @@ def _business_summary(dbname: str, tables: List[Dict[str, Any]], lang: str) -> O
         )
         summary = (response.content or "").strip()
     except Exception as exc:  # noqa: BLE001 - LLM failures are non-fatal
-        print(f"[graph-studio] business summary failed for '{dbname}': {exc}")
+        logger.warning(f"[graph-studio] business summary failed for '{dbname}' "
+                       f"(model={model_name}): {exc}")
         return None
 
     if not summary:
@@ -478,7 +494,7 @@ def _business_summary(dbname: str, tables: List[Dict[str, Any]], lang: str) -> O
 
 
 @router.get("/databases/summary")
-def database_summary(lang: str = "en") -> Dict[str, Any]:
+async def database_summary(lang: str = "en") -> Dict[str, Any]:
     """Summarize the *active* target database for the canvas header.
 
     Lists every public table of the database the SQL tools are currently
@@ -528,7 +544,7 @@ def database_summary(lang: str = "en") -> Dict[str, Any]:
         "table_count": len(tables),
         "row_count": sum(t["rows"] for t in tables if t["rows"] is not None),
         "tables": [{"name": t["name"], "rows": t["rows"]} for t in tables],
-        "summary": _business_summary(dbname, tables, lang),
+        "summary": await _business_summary(dbname, tables, lang),
     }
 
 
