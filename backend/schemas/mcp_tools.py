@@ -303,11 +303,8 @@ BUILTIN_MCP_SERVERS = {
     # `write_neo4j_cypher` (writes — guarded by NEO4J_READ_ONLY env), and
     # `get_neo4j_schema` (labels, attributes, relationships; needs APOC).
     # The user starts the server once with:
-    #   uvx mcp-neo4j-cypher --transport http --server-port 3046
-    # (note: mcp-neo4j-cypher v0.6.0 uses the older MCP transport names — `http`
-    # not `streamable-http`; path defaults to `/mcp/`. LangConfig's mcp_manager
-    # uses the modern SDK's streamablehttp_client under the hood, which speaks
-    # both.) and LangConfig connects to the URL below. No Neo4j cloud / API key —
+    #   uvx mcp-neo4j-cypher --transport streamable-http --port 3046
+    # and LangConfig connects to the URL below. No Neo4j cloud / API key —
     # just connects to a local Neo4j Bolt endpoint via NEO4J_URI/USER/
     # PASSWORD/DATABASE env on the *server* side.
     "neo4j": MCPServerConfig(
@@ -317,7 +314,7 @@ BUILTIN_MCP_SERVERS = {
         npm_package=None,
         command=[],  # not used for streamable_http; server runs standalone
         transport="streamable_http",
-        url="http://127.0.0.1:3046/mcp/",  # trailing slash matches the server's default path
+        url="http://127.0.0.1:3046/mcp",
         env_vars={
             "NEO4J_URI": "bolt://localhost:7687",
             "NEO4J_USERNAME": "neo4j",
