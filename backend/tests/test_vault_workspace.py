@@ -6,7 +6,8 @@
 """Regression tests for the vault-scoped agent workspace + per-agent docs.
 
 1. resolve_agent_workspace: user-defined path → vault-scoped default
-   (outputs/projects/{id}/agents/agent_{id}) → legacy default.
+   (outputs/{id}/agents/agent_{id}) → vault-scoped default.
+   (outputs/agents/agent_{id}) → legacy default.
 2. Agent instruction docs (AGENTS.md / CLAUDE.md) live on the specific agent
    row in PostgreSQL and are materialized into the workspace at chat build.
 """
@@ -39,7 +40,7 @@ def _make_manager(tmp_path):
 def test_resolver_vault_scoped_default(tmp_path):
     m = _make_manager(tmp_path)
     resolved = m.resolve_agent_workspace(_FakeAgent(159), project_id=7)
-    assert resolved == (tmp_path / "projects" / "7" / "agents" / "agent_159").resolve()
+    assert resolved == (tmp_path / "7" / "agents" / "agent_159").resolve()
     assert resolved.is_dir()
 
 
@@ -62,7 +63,7 @@ def test_resolver_relative_custom_path_anchored_to_vault(tmp_path):
     resolved = m.resolve_agent_workspace(
         _FakeAgent(159, "agents/my-agent"), project_id=7
     )
-    assert resolved == (tmp_path / "projects" / "7" / "agents" / "my-agent").resolve()
+    assert resolved == (tmp_path / "7" / "agents" / "my-agent").resolve()
 
 
 # ── agent docs materialization ──────────────────────────────────────
@@ -230,7 +231,7 @@ def test_resolve_uses_agent_key_folder():
     tmp = Path(tempfile.mkdtemp()).resolve()
     m = WorkspaceManager(base_dir=str(tmp))
     ws = m.resolve_agent_workspace(_FakeAgent(159), project_id=2, vault_key="my-project", agent_key="hello")
-    assert str(ws.relative_to(tmp)) == "projects/my-project/agents/hello"
+    assert str(ws.relative_to(tmp)) == "my-project/agents/hello"
     # legacy fallback without keys stays agent_{id}
     ws2 = m.resolve_agent_workspace(_FakeAgent(159), project_id=2)
-    assert str(ws2.relative_to(tmp)) == "projects/2/agents/agent_159"
+    assert str(ws2.relative_to(tmp)) == "2/agents/agent_159"
