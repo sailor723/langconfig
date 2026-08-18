@@ -1467,7 +1467,7 @@ with the agent.
 | Layer | Storage | Scope | Loaded by | Editable via |
 |---|---|---|---|---|
 | **Agent's own AGENTS.md / CLAUDE.md** | `deep_agent_templates.agent_docs` (JSON, e.g. `{"AGENTS.md": "...", "CLAUDE.md": "..."}`) | **per-agent** — travels with the agent regardless of which project it's bound to | baked into the agent's `system_prompt` at seed time + materialized into the agent's workspace at chat time (`api/chat/messages.py:_materialize_agent_docs`) | the agent editor's "Docs" tab |
-| **Per-project AGENTS.md** | `<workspace>/projects/<vault_key>/AGENTS.md` (filesystem file) | **per-project** — only loaded when an agent joins that project | `deepagents.MemoryMiddleware` (if `disable_memory_middleware=False`) | `api/agents_md/routes.py` (project-level) |
+| **Per-project AGENTS.md** | `<workspace>/<vault_key>/AGENTS.md` (filesystem file) | **per-project** — only loaded when an agent joins that project | `deepagents.MemoryMiddleware` (if `disable_memory_middleware=False`) | `api/agents_md/routes.py` (project-level) |
 
 **Product rule: AGENTS.md and CLAUDE.md belong to the agent** — they describe
 the agent's identity and instructions. The per-project filesystem file is a
@@ -1478,7 +1478,7 @@ the agent's own docs.
 
 When the team reads "the agent's AGENTS.md", they should think of the DB
 column. When the team reads "the project's AGENTS.md", they should think of
-the filesystem file at `<root>/projects/<vault_key>/AGENTS.md`.
+the filesystem file at `<root>/<vault_key>/AGENTS.md`.
 
 ---
 

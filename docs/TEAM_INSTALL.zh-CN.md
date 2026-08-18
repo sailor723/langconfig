@@ -189,7 +189,7 @@ LOG_ALL_REQUESTS=false
 
 3. **`.env` 里的 `LANGCONFIG_WORKSPACE_ROOT` 不是智能体根目录**。这个变量只
    在 `services/agents_md_service.py` 里被读取，用来定位项目级的 `AGENTS.md` 目录
-   （在 `<root>/projects/{project_id}/` 下）。它**不**用于智能体级 workspace 解析、
+   （在 `<root>/{project_id}/` 下）。它**不**用于智能体级 workspace 解析、
    种子或回填。
 
 **简单说**：回答"是否需要在 `.env` 里设 `LANGCONFIG_WORKSPACE_ROOT` 然后跑
