@@ -357,6 +357,12 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           category: payload.category || agent.category || 'Custom',
           config: payload.config || {},
           workspace_path: workspacePath.trim() || undefined,
+          // Forward the active project so the agent's identity is baked
+          // with the right vault at creation time (AGENTS.md/CLAUDE.md
+          // system_prompt mentions the correct workspace path from the
+          // start). The chat path also re-bakes per-turn, but this means
+          // even the first message's identity block is correct.
+          project_id: _activeProjectId ?? undefined,
         });
         const newAgent = res.data;
         setLocalAgentId(newAgent.id);
