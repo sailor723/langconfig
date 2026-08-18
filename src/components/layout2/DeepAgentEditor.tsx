@@ -26,6 +26,7 @@ import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
 import SkillsPicker from './editorSkillsPicker';
 import EditorSectionNav from './editorSectionNav';
+import { useProject } from '../../contexts/ProjectContext';
 
 interface DeepAgentEditorProps {
   tab: Tab;
@@ -73,6 +74,15 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   useEffect(() => {
     setLocalAgentId(typeof agent.id === 'number' ? agent.id : null);
   }, [tab.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync the active project (vault) into the chat store so the next chat
+  // sends project_id in both /api/chat/start and /api/chat/message/stream.
+  // Without this, the chat session is created with project_id=NULL and the
+  // workspace resolver falls back to the legacy default path.
+  const { activeProjectId: _activeProjectId } = useProject();
+  useEffect(() => {
+    chatStore.setCurrentProjectId(_activeProjectId ?? null);
+  }, [_activeProjectId]);
 
   // Editable model — synced from config, falls back to stored default
   const [editableModel, setEditableModel] = useState(config.model || localStorage.getItem('langconfig.defaultModel') || '');
