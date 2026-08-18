@@ -206,6 +206,10 @@ class DeepAgentConfig(BaseModel):
     native_tools: List[str] = Field(default_factory=list, description="Native Python tool categories")
     cli_tools: List[str] = Field(default_factory=list, description="CLI tool categories")
     custom_tools: List[str] = Field(default_factory=list, description="User-created custom tools")
+    mcp_tools: List[str] = Field(
+        default_factory=list,
+        description="Names of MCP tools to attach (resolved against running MCP servers)",
+    )
 
     # DeepAgents-specific
     use_deepagents: bool = Field(
