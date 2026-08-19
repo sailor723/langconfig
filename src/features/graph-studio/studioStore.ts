@@ -209,6 +209,9 @@ export const studio = {
     setState({ graph, schemas, direction: 'lr', runPath: [], liveMap: {} });
 
     await studio.loadThreads(assistant.graph_id);
+    // Refresh the canvas-header summary for the new assistant type
+    // (SQL summary vs Neo4j summary are different endpoints).
+    await studio.loadDatabaseSummary();
   },
 
   async loadThreads(graphId?: string) {
