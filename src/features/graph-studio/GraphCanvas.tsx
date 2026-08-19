@@ -185,7 +185,16 @@ function iconButtonStyle(t: ReturnType<typeof useLayoutTokens>): CSSProperties {
  *  interface language setting. Falls back to raw table counts if the LLM fails. */
 function DatabaseSummaryBox() {
   const t = useLayoutTokens();
-  const { dbSummary, activeDatabase } = useStudioState();
+  const {
+    dbSummary,
+    activeAssistantId,
+    activeSqlDatabase, activeNeo4jDatabase,
+  } = useStudioState();
+  // The header shows the active DB for the current assistant type. Falls
+  // back to SQL then to the summary's database field.
+  const activeDatabase = activeAssistantId.startsWith('neo4j_')
+    ? activeNeo4jDatabase
+    : activeSqlDatabase;
   const { t: tr, i18n } = useTranslation('chat');
   const zh = i18n.language?.toLowerCase().startsWith('zh') ?? false;
   const mountedRef = useRef(false);

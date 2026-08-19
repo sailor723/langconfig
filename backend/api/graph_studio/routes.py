@@ -41,7 +41,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+from typing import Any, AsyncGenerator, Dict, List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse, StreamingResponse
@@ -401,36 +401,78 @@ def _list_databases() -> List[str]:
 
 @router.get("/databases")
 def list_databases() -> Dict[str, Any]:
-    """List the databases the SQL tools can target, plus the active one."""
-    try:
-        databases = _list_databases()
-    except Exception as exc:  # noqa: BLE001 - surface connection errors
-        raise HTTPException(500, f"cannot list databases: {exc}")
+    """List the databases the tools can target, grouped by type.
+
+    Returns both Postgres DBs (for SQL agents) and Neo4j DBs (for Neo4j
+    agents), plus the currently-active target for each type. The frontend
+    uses this to populate the dropdown that swaps source based on which
+    assistant the user selected.
+    """
     sqlmod = _sql_setup_module()
-    return {"databases": databases, "active": sqlmod.get_target_database()}
+    out: Dict[str, Any] = {
+        "active_sql": sqlmod.get_target_database(),
+        "active_neo4j": _neo4j_setup_module().get_target_database(),
+    }
+    # Postgres DBs (for SQL agents)
+    try:
+        out["sql"] = _list_databases()
+    except Exception as exc:  # noqa: BLE001 - don't fail the whole call
+        out["sql"] = []
+        out["sql_error"] = str(exc)
+    # Neo4j DBs (for Neo4j agents)
+    try:
+        out["neo4j"] = [d["name"] for d in _neo4j_setup_module()._list_neo4j_databases()]
+    except Exception as exc:  # noqa: BLE001
+        out["neo4j"] = []
+        out["neo4j_error"] = str(exc)
+    return out
+
+
+def _neo4j_setup_module() -> Any:
+    """Import backend/langgraph/neo4j_setup_db.py (the Neo4j tools' module).
+
+    Mirrors _sql_setup_module() above. The langgraph dir must be on
+    sys.path so the cross-module `from llm import ...` chain resolves when
+    neo4j_setup_db is loaded.
+    """
+    if str(_LANGGRAPH_DIR) not in sys.path:
+        sys.path.insert(0, str(_LANGGRAPH_DIR))
+    import neo4j_setup_db
+
+    return neo4j_setup_db
 
 
 class SelectDatabaseRequest(BaseModel):
     database: str
+    type: Literal["sql", "neo4j"] = "sql"  # default to SQL for backwards compat
 
 
 @router.post("/databases/select")
 def select_database(payload: SelectDatabaseRequest) -> Dict[str, Any]:
-    """Point the SQL tools at another database (runtime only, no .env edit).
+    """Point the tools at another database (runtime only, no .env edit).
 
-    The next run uses the new target; the change lasts for the process
-    lifetime and resets to the .env value on backend restart.
+    `type` selects which set of tools to retarget (sql / neo4j). The change
+    lasts for the process lifetime and resets to the .env value on backend
+    restart.
     """
+    if payload.type == "neo4j":
+        available = [d["name"] for d in _neo4j_setup_module()._list_neo4j_databases()]
+        if payload.database not in available:
+            raise HTTPException(404, f"unknown neo4j database '{payload.database}'")
+        neo4jmod = _neo4j_setup_module()
+        neo4jmod.set_target_database(payload.database)
+        return {"active_neo4j": payload.database, "active_sql": _sql_setup_module().get_target_database()}
+
+    # Default: SQL
     try:
-        databases = _list_databases()
+        available = _list_databases()
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"cannot list databases: {exc}")
-    if payload.database not in databases:
+    if payload.database not in available:
         raise HTTPException(404, f"unknown database '{payload.database}'")
-
     sqlmod = _sql_setup_module()
     sqlmod.set_target_database(payload.database)
-    return {"databases": databases, "active": payload.database}
+    return {"active_sql": payload.database, "active_neo4j": _neo4j_setup_module().get_target_database()}
 
 
 # LLM business summaries are cached per (database, language); schemas change

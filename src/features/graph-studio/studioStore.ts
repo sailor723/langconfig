@@ -32,8 +32,12 @@ export interface StudioState {
   graph: GraphSpec | null;
   schemas: AssistantSchemas | null;
   direction: Direction;
-  databases: string[];
-  activeDatabase: string;
+  /** DBs split by type so the dropdown swaps source based on the active assistant. */
+  sqlDatabases: string[];
+  neo4jDatabases: string[];
+  /** Currently-selected DB per type. Used by the type-aware dropdown. */
+  activeSqlDatabase: string;
+  activeNeo4jDatabase: string;
   /** Live summary of the active database (canvas header). */
   dbSummary: DatabaseSummary | null;
   threads: Thread[];
@@ -56,8 +60,10 @@ const initialState: StudioState = {
   graph: null,
   schemas: null,
   direction: 'lr',
-  databases: [],
-  activeDatabase: '',
+  sqlDatabases: [],
+  neo4jDatabases: [],
+  activeSqlDatabase: '',
+  activeNeo4jDatabase: '',
   dbSummary: null,
   threads: [],
   currentThreadId: '',
@@ -118,11 +124,18 @@ export const studio = {
     await studio.selectAssistant(active ?? assistants[0] ?? null);
   },
 
-  /** Load the databases the SQL tools can target. */
+  /** Load the databases the tools can target (split by SQL / Neo4j). */
   async loadDatabases() {
     try {
       const info = await api.loadDatabases();
-      setState({ databases: info.databases, activeDatabase: info.active });
+      // Backwards-compat: the old API returned a flat {databases, active}.
+      // The new API returns {sql, neo4j, active_sql, active_neo4j}.
+      setState({
+        sqlDatabases: info.sql ?? info.databases ?? [],
+        neo4jDatabases: info.neo4j ?? [],
+        activeSqlDatabase: info.active_sql ?? info.active ?? '',
+        activeNeo4jDatabase: info.active_neo4j ?? '',
+      });
     } catch (err) {
       console.error('[graph-studio] loadDatabases failed', err);
     }
@@ -141,12 +154,21 @@ export const studio = {
     }
   },
 
-  /** Switch which database the SQL tools query (runtime, no .env edit). */
-  async selectDatabase(name: string) {
-    if (!name || name === state.activeDatabase) return;
+  /** Switch which database the tools query (runtime, no .env edit).
+   *  `type` selects the target set; the dropdown's active assistant decides
+   *  the right type but callers can override (e.g. manual switching). */
+  async selectDatabase(name: string, type: 'sql' | 'neo4j' = 'sql') {
+    if (!name) return;
+    const currentActive = type === 'sql' ? state.activeSqlDatabase : state.activeNeo4jDatabase;
+    if (name === currentActive) return;
     try {
-      const info = await api.selectDatabase(name);
-      setState({ databases: info.databases, activeDatabase: info.active });
+      const info = await api.selectDatabase(name, type);
+      setState({
+        sqlDatabases: info.sql ?? state.sqlDatabases,
+        neo4jDatabases: info.neo4j ?? state.neo4jDatabases,
+        activeSqlDatabase: info.active_sql ?? state.activeSqlDatabase,
+        activeNeo4jDatabase: info.active_neo4j ?? state.activeNeo4jDatabase,
+      });
     } catch (err) {
       console.error('[graph-studio] selectDatabase failed', err);
     }

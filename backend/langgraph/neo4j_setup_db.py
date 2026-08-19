@@ -164,6 +164,29 @@ def _format_rows(rows: List[dict]) -> str:
 # ---------------------------------------------------------------------------
 # Sanity check
 # ---------------------------------------------------------------------------
+def _list_neo4j_databases() -> list[dict[str, str]]:
+    """List every non-system Neo4j database (SHOW DATABASES).
+
+    Mirrors sql_setup_db._list_databases(): returns a list of dicts with
+    `name` + `type` so the UI can tell system DBs from user DBs.
+
+    Uses the SYSTEM database (which always exists) to enumerate; falls back
+    to an empty list if the cluster doesn't support SHOW DATABASES.
+    """
+    drv = _driver()
+    try:
+        with drv.session(database="system") as s:
+            rows = s.run("SHOW DATABASES").data()
+        # Filter out internal/system DBs; user DBs have type='standard'
+        return [
+            {"name": r["name"], "type": r.get("type", "standard")}
+            for r in rows
+            if r.get("type") == "standard"
+        ]
+    except Exception:
+        return []
+
+
 def ensure_neo4j_db() -> dict[str, Any]:
     """Verify the Neo4j server is reachable. Returns connection metadata.
 
