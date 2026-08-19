@@ -27,8 +27,21 @@ function threadTime(iso: string): string {
 export default function GraphStudioSidebar() {
   const t = useLayoutTokens();
   const { t: tr } = useTranslation('chat');
-  const { assistants, activeAssistantId, threads, currentThreadId, databases, activeDatabase, dbSummary } =
-    useStudioState();
+  const {
+    assistants, activeAssistantId, threads, currentThreadId,
+    sqlDatabases, neo4jDatabases, activeSqlDatabase, activeNeo4jDatabase,
+    dbSummary,
+  } = useStudioState();
+
+  // The dropdown swaps source based on the active assistant's DB type.
+  // Convention: assistant_id starts with 'sql_' or 'neo4j_'. Falls back to
+  // SQL if the assistant id doesn't match (e.g. legacy agents).
+  const dbType: 'sql' | 'neo4j' = activeAssistantId.startsWith('neo4j_')
+    ? 'neo4j'
+    : 'sql';
+  const databases = dbType === 'neo4j' ? neo4jDatabases : sqlDatabases;
+  const activeDatabase = dbType === 'neo4j' ? activeNeo4jDatabase : activeSqlDatabase;
+  const dbTypeLabel = dbType === 'neo4j' ? 'Neo4j DB' : 'SQL DB';
 
   const sectionTitle: React.CSSProperties = {
     fontSize: 10.5,
@@ -51,14 +64,25 @@ export default function GraphStudioSidebar() {
         overflow: 'hidden',
       }}
     >
-      {/* Target database: the DB the SQL tools query */}
-      <div style={sectionTitle}>Database</div>
+      {/* Target database: the DB the active assistant's tools query.
+       *  Source swaps with the assistant type (SQL DBs vs Neo4j DBs). */}
+      <div style={{ ...sectionTitle, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span>Database</span>
+        <span style={{
+          fontSize: 9.5, padding: '1px 5px', borderRadius: 3,
+          background: dbType === 'neo4j' ? 'rgba(24,144,255,0.18)' : 'rgba(127,127,127,0.18)',
+          color: dbType === 'neo4j' ? '#1890ff' : t.textMuted,
+          fontFamily: 'monospace', fontWeight: 500,
+        }}>
+          {dbTypeLabel}
+        </span>
+      </div>
       <div style={{ padding: '0 8px 2px' }}>
         <select
           value={activeDatabase}
-          onChange={(e) => void studio.selectDatabase(e.target.value)}
+          onChange={(e) => void studio.selectDatabase(e.target.value, dbType)}
           disabled={databases.length === 0}
-          title="Target database for the SQL tools"
+          title={`Target database for the ${dbTypeLabel} tools`}
           style={{
             width: '100%',
             padding: '4px 6px',

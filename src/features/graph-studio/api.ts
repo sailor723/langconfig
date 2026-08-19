@@ -53,8 +53,19 @@ export interface AssistantSchemas {
   output_schema?: unknown;
 }
 
-/** Databases the SQL tools can target (list + current selection). */
+/** Databases the tools can target, split by type (SQL / Neo4j) plus the
+ *  active target for each. Backwards-compat fields (databases / active) are
+ *  preserved so old code keeps reading the SQL list without surprises. */
 export interface DatabaseInfo {
+  /** Postgres databases available to SQL agents. */
+  sql: string[];
+  /** Neo4j databases available to Neo4j agents. */
+  neo4j: string[];
+  /** Currently-active Postgres DB (for SQL agents). */
+  active_sql: string;
+  /** Currently-active Neo4j DB (for Neo4j agents). */
+  active_neo4j: string;
+  /** Backwards-compat: flat list (= sql[]) and current SQL selection. */
   databases: string[];
   active: string;
 }
@@ -164,10 +175,10 @@ export const api = {
     return request('/databases');
   },
 
-  async selectDatabase(name: string): Promise<DatabaseInfo> {
+  async selectDatabase(name: string, type: 'sql' | 'neo4j' = 'sql'): Promise<DatabaseInfo> {
     return request('/databases/select', {
       method: 'POST',
-      body: JSON.stringify({ database: name }),
+      body: JSON.stringify({ database: name, type }),
     });
   },
 
