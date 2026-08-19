@@ -210,29 +210,61 @@ function DatabaseSummaryBox() {
   }, [i18n.language]);
 
   const dbName = dbSummary?.database || activeDatabase || '—';
-  const counts = dbSummary
-    ? zh
-      ? `${dbSummary.table_count} 张表 · ${dbSummary.row_count.toLocaleString()} 行`
-      : `${dbSummary.table_count} tables · ${dbSummary.row_count.toLocaleString()} rows`
-    : '—';
+  const isNeo4j = dbSummary?.type === 'neo4j' || activeAssistantId.startsWith('neo4j_');
 
-  // Preferred: the LLM business summary. Fallback: a technical one-liner.
+  // Counts line on the right — picks the right field set per type.
+  const counts = (() => {
+    if (!dbSummary) return '—';
+    if (isNeo4j) {
+      return zh
+        ? `${dbSummary.labels?.length ?? 0} 种标签 · ${dbSummary.node_count?.toLocaleString() ?? 0} 节点 · ${dbSummary.edge_count?.toLocaleString() ?? 0} 边`
+        : `${dbSummary.labels?.length ?? 0} labels · ${dbSummary.node_count?.toLocaleString() ?? 0} nodes · ${dbSummary.edge_count?.toLocaleString() ?? 0} edges`;
+    }
+    return zh
+      ? `${dbSummary.table_count ?? 0} 张表 · ${(dbSummary.row_count ?? 0).toLocaleString()} 行`
+      : `${dbSummary.table_count ?? 0} tables · ${(dbSummary.row_count ?? 0).toLocaleString()} rows`;
+  })();
+
+  // Preferred: the LLM business summary. Fallback: a technical one-liner
+  // that matches the active DB type.
   let body = dbSummary?.summary ?? null;
   if (!body && dbSummary) {
-    const top = [...dbSummary.tables]
-      .filter((x) => x.rows != null)
-      .sort((a, b) => (b.rows ?? 0) - (a.rows ?? 0))
-      .slice(0, 3)
-      .map((x) => (zh ? `${x.name}（${x.rows!.toLocaleString()}）` : `${x.name} (${x.rows!.toLocaleString()})`))
-      .join(zh ? '、' : ', ');
-    if (dbSummary.table_count === 0) {
-      body = zh ? `数据库 ${dbName} 目前没有表。` : `Database ${dbName} has no tables yet.`;
-    } else if (top.length === 0) {
-      body = zh ? '无法获取各表的行数。' : 'Table row counts are unavailable.';
+    if (isNeo4j) {
+      const topLabels = [...(dbSummary.labels ?? [])]
+        .sort((a, b) => (b.nodes ?? 0) - (a.nodes ?? 0))
+        .slice(0, 3)
+        .map((x) => (zh ? `${x.name}（${x.nodes.toLocaleString()}）` : `${x.name} (${x.nodes.toLocaleString()})`))
+        .join(zh ? '、' : ', ');
+      const topRels = [...(dbSummary.rels ?? [])]
+        .sort((a, b) => (b.edges ?? 0) - (a.edges ?? 0))
+        .slice(0, 3)
+        .map((x) => (zh ? `:${x.name}（${x.edges.toLocaleString()}）` : `:${x.name} (${x.edges.toLocaleString()})`))
+        .join(zh ? '、' : ', ');
+      if ((dbSummary.labels?.length ?? 0) === 0) {
+        body = zh ? `图数据库 ${dbName} 目前没有节点。` : `Graph ${dbName} has no nodes yet.`;
+      } else if (topLabels.length === 0) {
+        body = zh ? '无法获取节点/边统计。' : 'Node/edge counts are unavailable.';
+      } else {
+        body = zh
+          ? `共 ${dbSummary.labels?.length ?? 0} 种标签、${dbSummary.node_count?.toLocaleString() ?? 0} 节点、${dbSummary.edge_count?.toLocaleString() ?? 0} 边。主要标签：${topLabels}；主要关系：${topRels}。`
+          : `${dbSummary.labels?.length ?? 0} labels, ${dbSummary.node_count?.toLocaleString() ?? 0} nodes, ${dbSummary.edge_count?.toLocaleString() ?? 0} edges. Top labels: ${topLabels}. Top rels: ${topRels}.`;
+      }
     } else {
-      body = zh
-        ? `共 ${dbSummary.table_count} 张表、${dbSummary.row_count.toLocaleString()} 行数据。最大的表：${top}。`
-        : `${dbSummary.table_count} tables, ${dbSummary.row_count.toLocaleString()} rows in total. Largest: ${top}.`;
+      const top = [...(dbSummary.tables ?? [])]
+        .filter((x) => x.rows != null)
+        .sort((a, b) => (b.rows ?? 0) - (a.rows ?? 0))
+        .slice(0, 3)
+        .map((x) => (zh ? `${x.name}（${x.rows!.toLocaleString()}）` : `${x.name} (${x.rows!.toLocaleString()})`))
+        .join(zh ? '、' : ', ');
+      if ((dbSummary.table_count ?? 0) === 0) {
+        body = zh ? `数据库 ${dbName} 目前没有表。` : `Database ${dbName} has no tables yet.`;
+      } else if (top.length === 0) {
+        body = zh ? '无法获取各表的行数。' : 'Table row counts are unavailable.';
+      } else {
+        body = zh
+          ? `共 ${dbSummary.table_count ?? 0} 张表、${(dbSummary.row_count ?? 0).toLocaleString()} 行数据。最大的表：${top}。`
+          : `${dbSummary.table_count ?? 0} tables, ${(dbSummary.row_count ?? 0).toLocaleString()} rows in total. Largest: ${top}.`;
+      }
     }
   }
 

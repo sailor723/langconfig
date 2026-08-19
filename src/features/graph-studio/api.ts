@@ -76,14 +76,29 @@ export interface TableSummary {
   rows: number | null;
 }
 
-/** Summary of the active target database, rendered in the canvas header. */
+/** Summary of the active target database, rendered in the canvas header.
+ *  Shared shape for SQL (tables/rows) and Neo4j (labels/edges); the renderer
+ *  picks the fields that exist on whichever type was returned. */
 export interface DatabaseSummary {
   database: string;
-  table_count: number;
-  row_count: number;
-  tables: TableSummary[];
+  /** SQL: number of tables. Neo4j: number of node labels. */
+  table_count?: number;
+  /** SQL: total row count. Neo4j: total node count. */
+  row_count?: number;
+  /** SQL: per-table stats. */
+  tables?: TableSummary[];
+  /** Neo4j: per-label stats. */
+  labels?: Array<{ name: string; nodes: number }>;
+  /** Neo4j: per-rel-type stats. */
+  rels?: Array<{ name: string; edges: number }>;
+  /** Neo4j: total edge count (mirrors SQL row_count for symmetry). */
+  edge_count?: number;
+  /** Neo4j: total node count. */
+  node_count?: number;
   /** LLM-written business description (<=3 lines) in the requested language; null on failure. */
   summary: string | null;
+  /** Backend tag: 'sql' or 'neo4j'. Used by the renderer to pick the right field set. */
+  type?: 'sql' | 'neo4j';
 }
 
 export interface Thread {
@@ -185,6 +200,11 @@ export const api = {
   async loadDatabaseSummary(lang?: 'en' | 'zh'): Promise<DatabaseSummary> {
     const qs = lang ? `?lang=${lang}` : '';
     return request(`/databases/summary${qs}`);
+  },
+
+  async loadNeo4jSummary(lang?: 'en' | 'zh'): Promise<DatabaseSummary> {
+    const qs = lang ? `?lang=${lang}` : '';
+    return request(`/databases/neo4j-summary${qs}`);
   },
 
   async loadThreads(metadata: Record<string, unknown> = {}): Promise<Thread[]> {
