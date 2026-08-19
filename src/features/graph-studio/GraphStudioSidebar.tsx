@@ -155,10 +155,10 @@ export default function GraphStudioSidebar() {
         }}
       >
         {!dbSummary && <span style={{ color: t.textDim, padding: '2px 8px', fontSize: 11 }}>—</span>}
-        {dbSummary && dbSummary.tables.length === 0 && (
+        {dbSummary && (dbSummary.tables ?? []).length === 0 && (
           <span style={{ color: t.textDim, padding: '2px 8px', fontSize: 11 }}>no tables</span>
         )}
-        {dbSummary?.tables.map((tbl) => (
+        {dbSummary?.tables?.map((tbl) => (
           <div
             key={tbl.name}
             style={{

@@ -143,11 +143,17 @@ export const studio = {
   },
 
   /** Refresh the canvas-header summary of the active database.
-   *  The business-summary text follows the current UI language (en | zh). */
+   *  The business-summary text follows the current UI language (en | zh).
+   *  Picks the right endpoint based on the active assistant's db type. */
   async loadDatabaseSummary() {
     const lang = i18n.language?.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+    const dbType: 'sql' | 'neo4j' = state.activeAssistantId.startsWith('neo4j_')
+      ? 'neo4j'
+      : 'sql';
     try {
-      const dbSummary = await api.loadDatabaseSummary(lang);
+      const dbSummary = dbType === 'neo4j'
+        ? await api.loadNeo4jSummary(lang)
+        : await api.loadDatabaseSummary(lang);
       setState({ dbSummary });
     } catch (err) {
       console.error('[graph-studio] loadDatabaseSummary failed', err);

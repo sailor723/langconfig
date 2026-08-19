@@ -596,10 +596,137 @@ async def database_summary(lang: str = "en") -> Dict[str, Any]:
 
     return {
         "database": dbname,
+        "type": "sql",
         "table_count": len(tables),
         "row_count": sum(t["rows"] for t in tables if t["rows"] is not None),
         "tables": [{"name": t["name"], "rows": t["rows"]} for t in tables],
         "summary": await _business_summary(dbname, tables, lang),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Neo4j summary — mirror of the SQL summary for graph databases.
+# Same shape so the UI can render either kind with one renderer.
+# ---------------------------------------------------------------------------
+_NEO4J_SUMMARY_CACHE: Dict[Tuple[str, str], str] = {}
+
+
+async def _neo4j_business_summary(dbname: str, inventory: str, lang: str) -> Optional[str]:
+    """Describe the Neo4j graph in business terms (<=3 lines) via the LLM.
+
+    Best-effort: returns None on any failure so the UI can fall back to the
+    raw label/rel counts. The inventory is a small text block (labels +
+    relationship types + node/edge counts) which is well within a 1K
+    token call. Reuses the same model resolution as the SQL summary
+    (Settings -> Models -> default model).
+    """
+    key = (dbname, lang)
+    if key in _NEO4J_SUMMARY_CACHE:
+        return _NEO4J_SUMMARY_CACHE[key]
+
+    from services.agent_utils import DEFAULT_MODEL, resolve_model
+
+    model_name = DEFAULT_MODEL
+    try:
+        from core.settings import runtime_get
+        model_name = runtime_get("models", "default_model") or DEFAULT_MODEL
+    except Exception:
+        pass
+    max_tokens = 1024
+
+    language_note = "回答必须使用中文。" if lang.startswith("zh") else "Respond in English."
+    prompt = (
+        "You are a data analyst. Write a concise BUSINESS summary of the graph database below:\n"
+        f"{inventory}\n\n"
+        "Describe what business domain or processes the graph covers and any interesting "
+        f"scale signals. Keep it to AT MOST 3 short lines, plain text, no markdown. {language_note}"
+    )
+
+    try:
+        model = await resolve_model(
+            model_name, 0.0, max_tokens, {"model": model_name}
+        )
+        response = await model.ainvoke(
+            [
+                {"role": "system", "content": "You are a helpful data analyst."},
+                {"role": "user", "content": prompt},
+            ]
+        )
+        summary = (response.content or "").strip()
+    except Exception as exc:  # noqa: BLE001 - LLM failures are non-fatal
+        logger.warning(f"[graph-studio] neo4j business summary failed for '{dbname}' "
+                       f"(model={model_name}): {exc}")
+        return None
+
+    if not summary:
+        return None
+    _NEO4J_SUMMARY_CACHE[key] = summary
+    return summary
+
+
+@router.get("/databases/neo4j-summary")
+async def neo4j_database_summary(lang: str = "en") -> Dict[str, Any]:
+    """Summarize the *active* target Neo4j database for the canvas header.
+
+    Lists every node label + relationship type of the database the Neo4j
+    tools are currently pointed at, plus exact node/edge counts (small dev
+    databases; count(*) is fine). A `summary` field holds an LLM-written
+    business description (<=3 lines) in the requested language
+    (`lang` = en | zh). The response changes as the user switches
+    databases, so the header stays in sync with the studio's DB dropdown.
+    """
+    neo4jmod = _neo4j_setup_module()
+    dbname = neo4jmod.get_target_database()
+    try:
+        drv = neo4jmod._driver()
+    except Exception as exc:  # noqa: BLE001 - surface connection errors
+        raise HTTPException(500, f"cannot connect to neo4j: {exc}")
+
+    labels: List[Dict[str, Any]] = []
+    rels: List[Dict[str, Any]] = []
+    total_nodes = 0
+    total_edges = 0
+    try:
+        with drv.session(database=dbname) as s:
+            label_rows = s.run(
+                "MATCH (n) RETURN labels(n)[0] AS label, count(*) AS n "
+                "ORDER BY n DESC"
+            ).data()
+            for r in label_rows:
+                labels.append({"name": r["label"], "nodes": r["n"]})
+                total_nodes += r["n"] or 0
+            rel_rows = s.run(
+                "MATCH ()-[r]->() RETURN type(r) AS rel, count(*) AS n "
+                "ORDER BY n DESC"
+            ).data()
+            for r in rel_rows:
+                rels.append({"name": r["rel"], "edges": r["n"]})
+                total_edges += r["n"] or 0
+    except Exception as exc:  # noqa: BLE001 - keep going so the header still renders
+        logger.warning(f"[graph-studio] neo4j summary query failed for '{dbname}': {exc}")
+        raise HTTPException(500, f"neo4j query failed for '{dbname}': {exc}")
+
+    # Build the inventory text the LLM reads (compact, well under 1K tokens).
+    inv_lines = [f"Graph database: {dbname}"]
+    inv_lines.append(f"Total: {total_nodes:,} nodes, {total_edges:,} edges")
+    if labels:
+        inv_lines.append("\nNode labels:")
+        for lab in labels[:30]:
+            inv_lines.append(f"  - {lab['name']}  ({lab['nodes']:,})")
+    if rels:
+        inv_lines.append("\nRelationship types:")
+        for r in rels[:30]:
+            inv_lines.append(f"  - :{r['name']}  ({r['edges']:,})")
+    inventory = "\n".join(inv_lines)
+
+    return {
+        "database": dbname,
+        "type": "neo4j",
+        "node_count": total_nodes,
+        "edge_count": total_edges,
+        "labels": [{"name": l["name"], "nodes": l["nodes"]} for l in labels],
+        "rels": [{"name": r["name"], "edges": r["edges"]} for r in rels],
+        "summary": await _neo4j_business_summary(dbname, inventory, lang),
     }
 
 
