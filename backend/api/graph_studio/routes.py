@@ -71,6 +71,12 @@ _ASSISTANT_REGISTRY: List[Dict[str, Any]] = [
         "name": "SQL Agent (HITL)",
         "description": "SQL agent with human-in-the-loop query approval",
     },
+    {
+        "assistant_id": "neo4j_agent",
+        "graph_id": "neo4j_agent",
+        "name": "Neo4j Graph Agent",
+        "description": "Custom Neo4j graph agent with memory (Cypher queries)",
+    },
 ]
 
 _GRAPH_CACHE: Dict[str, Any] = {}
