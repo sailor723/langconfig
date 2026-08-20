@@ -42,10 +42,13 @@ docker compose up -d postgres
 # 健康检查：docker ps   →  "langconfig-postgres  0.0.0.0:5433->5432/tcp"
 ```
 
+> **pgvector**：已内置在 `pgvector/pgvector:pg16` 镜像中，无需单独安装。
+> 应用启动时会自动启用该扩展（`CREATE EXTENSION IF NOT EXISTS vector`）。
+
 ### 方案 B — 原生 PostgreSQL 16（macOS Homebrew）
 
 ```bash
-brew install postgresql@16
+brew install postgresql@16 pgvector   # pgvector 用于向量嵌入，必需
 brew services start postgresql@16
 # 端口 :5432；创建角色 + 数据库（或让 seed_all.py 自动创建——当应用用户
 # 能以超级用户连接时它会自动建库）：
@@ -61,6 +64,24 @@ sudo service postgresql start
 sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB;"
 sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
 ```
+
+### 方案 D — 原生 PostgreSQL 16（RHEL / Rocky / Alma / CentOS Stream / Fedora，dnf）
+
+```bash
+# RHEL 9 / Rocky / Alma / CentOS Stream 9（RHEL 8 系列改用 EL-8）：
+sudo dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+sudo dnf -qy module disable postgresql
+sudo dnf install -y postgresql16-server postgresql16 pgvector_16   # pgvector_16 = PG16 的 pgvector
+sudo /usr/pgsql-16/bin/postgresql-16-setup initdb
+sudo systemctl enable --now postgresql-16
+# 端口 :5432；创建角色 + 数据库（或让 seed_all.py 自动创建）：
+sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB;"
+sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
+```
+
+> Fedora 自带 PostgreSQL 16 + `pgvector`：
+> `sudo dnf install -y postgresql16-server postgresql16 pgvector`（跳过 PGDG 仓库
+> 步骤；initdb 与 systemctl 步骤相同）。
 
 > 角色需要 `CREATEDB` 权限，因为 `seed_all.py` 第 1 步会在数据库缺失时创建它，
 > 第 10 步会为 Graph Studio 创建 `chinook` 示例数据库。
@@ -171,21 +192,31 @@ LOG_ALL_REQUESTS=false
 
 ### 工作区参数——每个智能体的文件夹到底在哪
 
-团队真正关心的工作区是**每个智能体的输出目录**（智能体往这里写文件）：
-`<某个根>/agents/agent_{id}/`。种子会写入 44 个智能体的 `workspace_path`
-为空，因此首次启动时每个智能体都默认在
-`<repo>/backend/outputs/agents/agent_{id}/`（`<repo>` 是 LangConfig 仓库根
-目录）。团队可以用下面三种方式修改：
+团队真正关心的目录是**每个智能体的输出目录**（智能体往这里写文件）。它在
+**每次聊天会话时**解析（`WorkspaceManager.resolve_agent_workspace`），优先级如下：
 
-1. **DB 里每个智能体的 `workspace_path`**（推荐路径）。把
-   `deep_agent_templates.workspace_path` 设为绝对路径（或者相对于 Settings
-   文档里 `langconfig_workspace_root` 的相对路径）。在 Settings 面板对每个智
-   能体单独设置，或通过 Settings → Runtime → `langconfig_workspace_root`
-   统一设置全局基础（每个智能体的最终路径 = 基础 + agent_vault_key）。
+1. **用户自定义**——`deep_agent_templates.workspace_path`（每个智能体单独设置）；
+   绝对路径直接使用，相对路径锚定到 vault 根目录。
+2. **Vault 作用域**（会话绑定到项目，`chat_sessions.project_id`）——
+   `{workspace_base}/{vault_key}/agents/{agent_key}/`，其中 `vault_key` 是项目
+   名的 slug，`agent_key` 是智能体名的 slug。
+3. **旧版默认**——会话没有项目绑定时，使用
+   `{workspace_base}/agents/agent_{id}/`。
+
+身份信息（system prompt + AGENTS.md/CLAUDE.md）会在**每次聊天时用会话解析出的
+根目录重新烘焙**（docs/system-architecture.md §16.10），因此绑定到项目的智能体
+会报告 vault 作用域路径。种子和回填脚本都是与项目无关的，所以它们烘焙的是
+旧版默认值，除非你设置了 `workspace_path`。
+
+团队可以通过三种方式调整布局：
+
+1. **DB 里每个智能体的 `workspace_path`**（推荐覆盖方式）。把
+   `deep_agent_templates.workspace_path` 设为绝对路径（或相对于 Settings 文档
+   基础目录的相对路径）。在 Settings 面板对每个智能体单独设置。
 
 2. **回填脚本批量更新**（`scripts/backfill_agent_identity.py`）：在给定根目录下
-   为每个智能体设置正确的 `agent_{id}/` 子目录。这是一次性调整所有智能体文件
-   系统布局的唯一方式。
+   重新烘焙每个智能体的身份 + 文档，带 `agent_{id}/` 子目录——这是同时调整所有
+   智能体文件系统布局的唯一方式（无项目绑定 → 该根目录下的旧版布局）。
 
 3. **`.env` 里的 `LANGCONFIG_WORKSPACE_ROOT` 不是智能体根目录**。这个变量只
    在 `services/agents_md_service.py` 里被读取，用来定位项目级的 `AGENTS.md` 目录
@@ -194,8 +225,9 @@ LOG_ALL_REQUESTS=false
 
 **简单说**：回答"是否需要在 `.env` 里设 `LANGCONFIG_WORKSPACE_ROOT` 然后跑
 seed_all.py？"这个问题的答案是**不需要**——种子总是用默认值，除非你显式设置
-每个智能体的 `workspace_path` 列。首次安装就是"什么都不用做，让默认生效，团队
-后面在 Settings 面板改"。
+每个智能体的 `workspace_path` 列。运行时，绑定到项目的会话会自动解析为
+vault 作用域目录（`{vault_key}/agents/{agent_key}/`，§16.10）；如需覆盖，设置
+`workspace_path` 或重新运行回填脚本。
 
 ---
 ---
@@ -328,7 +360,8 @@ bash start.sh --fe    # 仅前端
 
 | 症状 | 修复 |
 |---|---|
-| `psycopg ... connection refused :5432/:5433` | Postgres 未启动 → 第 1 步（`docker compose up -d postgres` / `brew services start postgresql@16`） |
+| `psycopg ... connection refused :5432/:5433` | Postgres 未启动 → 第 1 步（`docker compose up -d postgres` / `brew services start postgresql@16` / `sudo systemctl enable --now postgresql-16`） |
+| `extension "vector" is not available` / 嵌入报错 | 操作系统未安装 pgvector → 按第 1 步对应方案安装（Docker 已内置；原生：`brew install pgvector`、`apt install postgresql-16-pgvector`、`dnf install pgvector_16`） |
 | 种子第 1 步打印手动 CREATE ROLE 说明 | 应用用户无法以超级用户连接 → 运行它打印的两条 `psql` 命令，然后重新运行 `seed_all.py` |
 | 健康检查后 `deep agents: 0` | 运行第 7 步；确认 `WORKSPACE_ROOT` 已导出 |
 | 智能体 prompt 中出现 `WORKSPACE_BASE/` 或 `{{...}}` | 回填未运行 → `uv run python scripts/backfill_agent_identity.py --workspace-root <根目录>` |

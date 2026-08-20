@@ -45,10 +45,14 @@ docker compose up -d postgres
 # health: docker ps   →  "langconfig-postgres  0.0.0.0:5433->5432/tcp"
 ```
 
+> **pgvector**: bundled in the `pgvector/pgvector:pg16` image — no separate
+> install needed. The extension is enabled by the app at boot
+> (`CREATE EXTENSION IF NOT EXISTS vector`).
+
 ### Option B — Native PostgreSQL 16 (macOS Homebrew)
 
 ```bash
-brew install postgresql@16
+brew install postgresql@16 pgvector   # pgvector required for embeddings
 brew services start postgresql@16
 # on :5432; create the role + database once (or let seed_all.py do it — it
 # auto-creates role/db when the app user can connect as superuser):
@@ -64,6 +68,24 @@ sudo service postgresql start
 sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB;"
 sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
 ```
+
+### Option D — Native PostgreSQL 16 (RHEL / Rocky / Alma / CentOS Stream / Fedora, dnf)
+
+```bash
+# RHEL 9 / Rocky / Alma / CentOS Stream 9 (use EL-8 for RHEL 8-family):
+sudo dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+sudo dnf -qy module disable postgresql
+sudo dnf install -y postgresql16-server postgresql16 pgvector_16   # pgvector_16 = pgvector for PG16
+sudo /usr/pgsql-16/bin/postgresql-16-setup initdb
+sudo systemctl enable --now postgresql-16
+# on :5432; create the role + database once (or let seed_all.py do it):
+sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB;"
+sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
+```
+
+> Fedora ships PostgreSQL 16 + `pgvector` natively:
+> `sudo dnf install -y postgresql16-server postgresql16 pgvector` (skip the PGDG
+> repo step; initdb + systemctl steps are the same).
 
 > The role needs `CREATEDB` because `seed_all.py` step 1 creates the DB if
 > missing, and step 10 creates the `chinook` sample DB for Graph Studio.
@@ -177,23 +199,36 @@ LOG_ALL_REQUESTS=false
 
 ### Workspace parameter — where the per-agent folder lives
 
-The workspace the team actually wants to know about is the **per-agent output
-folder** (where agents write files): `<some-root>/agents/agent_{id}/`. The seed
-seeds 44 agents with no `workspace_path` set, so on first start every agent
-defaults to `<repo>/backend/outputs/agents/agent_{id}/` (where `<repo>` is the
-LangConfig repo root). The team can change this in three ways:
+The folder the team actually cares about is the **per-agent output folder**
+(where agents write files). It is resolved **per chat session**
+(`WorkspaceManager.resolve_agent_workspace`), in priority order:
 
-1. **Per-agent `workspace_path` in the DB** (the canonical path). Set
-   `deep_agent_templates.workspace_path` to an absolute path (or a path
-   relative to the workspace settings document's `langconfig_workspace_root`).
-   Editable from the Settings panel for each agent, or in bulk via the
-   Settings → Runtime → `langconfig_workspace_root` (set the global base, then
-   each agent's resolved workspace = base + agent_vault_key).
+1. **User-defined** — `deep_agent_templates.workspace_path` (per agent);
+   absolute paths used as-is, relative paths anchored to the vault root.
+2. **Vault-scoped** (session bound to a project, `chat_sessions.project_id`) —
+   `{workspace_base}/{vault_key}/agents/{agent_key}/`, where `vault_key` is the
+   project's slugified name and `agent_key` the agent's slugified name.
+3. **Legacy default** — `{workspace_base}/agents/agent_{id}/` when the session
+   has no project binding.
+
+The identity (system prompt + AGENTS.md/CLAUDE.md) is **re-baked with the
+session's resolved root on every chat** (docs/system-architecture.md §16.10),
+so an agent bound to a project reports the vault-scoped path. The seed and the
+backfill run project-agnostic, so they bake the legacy default unless you set
+`workspace_path`.
+
+The team can steer the layout in three ways:
+
+1. **Per-agent `workspace_path` in the DB** (the canonical override). Set
+   `deep_agent_templates.workspace_path` to an absolute path (or a relative
+   path anchored to the workspace settings document's base). Editable from the
+   Settings panel for each agent.
 
 2. **Bulk-update via the backfill script** (`scripts/backfill_agent_identity.py`):
-   sets each agent's resolved workspace under the given root with the correct
-   `agent_{id}/` segment. This is the only way to change the resolved
-   filesystem layout for every agent at once.
+   re-bakes every agent's identity + docs under a given root with the
+   `agent_{id}/` segment — the only way to change the resolved filesystem
+   layout for all agents at once (no project binding → legacy layout under
+   that root).
 
 3. **`.env` value `LANGCONFIG_WORKSPACE_ROOT`** is **NOT** the per-agent root.
    It's read by `services/agents_md_service.py` to locate the project-level
@@ -202,8 +237,9 @@ LangConfig repo root). The team can change this in three ways:
 
 **In short**: the answer to "do I set it in `.env` with seed_all.py?" is **no** —
 the seed always uses the legacy default unless you explicitly set the per-agent
-`workspace_path` column. The first-time setup is "do nothing special; let the
-legacy defaults apply; the team can override at runtime via the Settings panel".
+`workspace_path` column. At runtime, sessions bound to a project automatically
+resolve the vault-scoped folder (`{vault_key}/agents/{agent_key}/`, §16.10);
+override via `workspace_path` or re-run the backfill.
 
 ---
 ---
@@ -339,7 +375,8 @@ identity baked into agents points at the same folders the runtime uses.
 
 | Symptom | Fix |
 |---|---|
-| `psycopg ... connection refused :5432/:5433` | Postgres not started → step 1 (`docker compose up -d postgres` / `brew services start postgresql@16`) |
+| `psycopg ... connection refused :5432/:5433` | Postgres not started → step 1 (`docker compose up -d postgres` / `brew services start postgresql@16` / `sudo systemctl enable --now postgresql-16`) |
+| `extension "vector" is not available` / embedding errors | pgvector not installed on the OS → install it per the matching option in step 1 (Docker bundles it; native: `brew install pgvector`, `apt install postgresql-16-pgvector`, `dnf install pgvector_16`) |
 | Seed step 1 prints manual CREATE ROLE instructions | App user can't connect as superuser → run the two `psql` commands it prints, then re-run `seed_all.py` |
 | `deep agents: 0` after health check | Run step 7; verify `WORKSPACE_ROOT` was exported |
 | `WORKSPACE_BASE/` or `{{...}}` visible in an agent's prompt | Backfill didn't run → `uv run python scripts/backfill_agent_identity.py --workspace-root <root>` |

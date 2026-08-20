@@ -1775,7 +1775,7 @@ LangConfig runs as two processes — a **FastAPI backend** (:8765) and a **Vite/
 | uv | Python package manager — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | PostgreSQL 16 + pgvector | native install **or** Docker (`docker compose up -d postgres`) — see step 3 |
 | Docker | only needed for Docker Postgres mode |
-| Git / build tools | `brew install git` or `sudo apt install -y git build-essential` |
+| Git / build tools | `brew install git` / `sudo apt install -y git build-essential` / `sudo dnf install -y git gcc make` |
 
 macOS:
 
@@ -1846,6 +1846,24 @@ sudo service postgresql start && sudo pg_isready
 docker compose up -d postgres
 docker inspect langconfig-postgres --format '{{.State.Health.Status}}'   # healthy
 ```
+
+### 3d. Native on :5432 — RHEL / Rocky / Alma / CentOS Stream / Fedora (dnf)
+
+Add the PGDG yum repo (gives Postgres **16** + the `pgvector_16` extension
+package), disable the distro's older `postgresql` module, then initdb + start:
+
+```bash
+sudo dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm   # EL-8 for RHEL 8 family
+sudo dnf -qy module disable postgresql
+sudo dnf install -y postgresql16-server postgresql16 pgvector_16
+sudo /usr/pgsql-16/bin/postgresql-16-setup initdb
+sudo systemctl enable --now postgresql-16
+sudo -u postgres pg_isready                                        # expect "accepting connections"
+```
+
+> Fedora ships PostgreSQL 16 + `pgvector` natively:
+> `sudo dnf install -y postgresql16-server postgresql16 pgvector` (skip the
+> PGDG repo step; initdb + systemctl steps are the same).
 
 Create the app role + databases (native only — Docker does it automatically from `POSTGRES_USER`/`POSTGRES_DB`), then run the bootstrap script:
 
