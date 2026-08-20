@@ -1,1 +1,0 @@
-{"db_path": "/Users/weiping/dev/Learn/langchain-ai/langconfig/data/analysis_dbs/erp_data.db", "table_name": "balance_sheet", "columns": ["id", "company_id", "period", "cash", "accounts_receivable", "inventory", "property_plant_equipment", "total_assets", "accounts_payable", "short_term_debt", "long_term_debt", "total_liabilities", "retained_earnings", "shareholders_equity"]}
