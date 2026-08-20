@@ -1,9 +1,0 @@
-A test document for sanity-checking the knowledge-panel upload endpoint.
-Topic: cooking recipes and culinary techniques.
-Content covers:
-- Pasta preparation
-- Knife skills
-- Flavor balancing
-- Stock and sauce making
-
-This file is intentionally distinct from any existing doc.

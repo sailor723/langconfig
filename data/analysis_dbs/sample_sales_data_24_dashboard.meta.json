@@ -1,1 +1,0 @@
-{"db_path": "/Users/weiping/dev/Learn/langchain-ai/langconfig/data/analysis_dbs/sample_sales_data_24.db", "table_name": "sample_sales_data", "columns": ["Date", "Product", "Category", "Units Sold", "Unit Price", "Revenue", "Region", "Sales Rep"]}
