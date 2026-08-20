@@ -209,7 +209,9 @@ def test_workspace_persist_output_db_mode(db_mode, tmp_path, monkeypatch):
     out = wm.get_task_workspace(1, 2, 3) / "report.txt"
 
     key = wm.persist_output(out, b"data")
-    assert key == "outputs/project_1/workflow_2/task_3/report.txt"
+    # get_task_workspace uses the project's slugified name as the folder key
+    # (5e0cf9e); with no project row the slug falls back to the raw id.
+    assert key == "outputs/1/workflow_2/task_3/report.txt"
     assert db_mode.read(key) == b"data"
 
     # Local mode: no-op, storage untouched.

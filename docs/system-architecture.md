@@ -1466,7 +1466,7 @@ with the agent.
 
 | Layer | Storage | Scope | Loaded by | Editable via |
 |---|---|---|---|---|
-| **Agent's own AGENTS.md / CLAUDE.md** | `deep_agent_templates.agent_docs` (JSON, e.g. `{"AGENTS.md": "...", "CLAUDE.md": "..."}`) | **per-agent** — travels with the agent regardless of which project it's bound to | baked into the agent's `system_prompt` at seed time + materialized into the agent's workspace at chat time (`api/chat/messages.py:_materialize_agent_docs`) | the agent editor's "Docs" tab |
+| **Agent's own AGENTS.md / CLAUDE.md** | `deep_agent_templates.agent_docs` (JSON, e.g. `{"AGENTS.md": "...", "CLAUDE.md": "..."}`) | **per-agent** — travels with the agent regardless of which project it's bound to | baked into the agent's `system_prompt` at seed time + materialized into the agent's workspace at chat time (`api/chat/messages.py:_materialize_agent_docs`) — **re-baked with the session's workspace root each chat** (§16.10) | the agent editor's "Docs" tab |
 | **Per-project AGENTS.md** | `<workspace>/<vault_key>/AGENTS.md` (filesystem file) | **per-project** — only loaded when an agent joins that project | `deepagents.MemoryMiddleware` (if `disable_memory_middleware=False`) | `api/agents_md/routes.py` (project-level) |
 
 **Product rule: AGENTS.md and CLAUDE.md belong to the agent** — they describe
@@ -1479,6 +1479,50 @@ the agent's own docs.
 When the team reads "the agent's AGENTS.md", they should think of the DB
 column. When the team reads "the project's AGENTS.md", they should think of
 the filesystem file at `<root>/<vault_key>/AGENTS.md`.
+
+### 16.10 Agent workspaces — vault-scoped roots + per-session identity re-bake
+
+Every agent gets a persistent filesystem workspace; the root is resolved per
+chat session by
+`services/workspace_manager.py::WorkspaceManager.resolve_agent_workspace`:
+
+| # | Condition | Root |
+|---|---|---|
+| 1 | `agent.workspace_path` set (user-defined, `deep_agent_templates.workspace_path`) | used as-is (absolute) or anchored to the vault root (relative) |
+| 2 | session bound to a project (`chat_sessions.project_id`) | `{base}/{vault_key}/agents/{agent_key}/` |
+| 3 | neither | legacy `{base}/agents/agent_{id}/` |
+
+- `vault_key` = the project's **slugified name** (`my-project` → `my-project`;
+  collision → `-{id}`; fallback = raw id); `agent_key` = the agent's
+  **slugified name** (CJK preserved; fallback `agent_{id}`).
+- Every root carries the canonical skeleton — `upload/` (user knowledge),
+  `generated/` (deliverables), `skills/` (staged catalog), `other/` (scratch) —
+  plus `AGENTS.md` / `CLAUDE.md` at the root.
+- The agent's filesystem tools are scoped to the root.
+  `services/workspace_filesystem_backend.py` (`WorkspaceFilesystemBackend`)
+  re-bases an absolute workspace path the agent learned from its identity back
+  to a virtual relative path, so it writes into the workspace instead of a
+  nested `<workspace>/Users/…` tree.
+
+**Identity is re-baked per session.** The workspace root is project-bound, but
+the stored identity (`config.system_prompt` + `agent_docs`) is per-agent and
+was baked at creation with the legacy root (agents are created
+project-agnostic; the binding lives on `chat_sessions.project_id`). Both chat
+entry points in `api/chat/messages.py` (non-streaming `POST /message` and
+streaming `POST /message/stream`) therefore:
+
+1. resolve the root from the session's `project_id` (+ `vault_key`/`agent_key`);
+2. strip the stale identity block from the system prompt and rebuild it with
+   the resolved root, embedding re-baked docs
+   (`core/agents/identity.py::build_identity_system_prompt`);
+3. materialize AGENTS.md / CLAUDE.md into the resolved root with the root
+   re-baked inside (`refresh_doc_identity`), so MemoryMiddleware and the Files
+   panel see the correct path — the DB row stays the canonical authored copy.
+
+Files stranded in nested `Users/` trees by the pre-fix absolute-path bug are
+rescued by the one-shot `backend/scripts/rescue_stranded_workspace_files.py`
+(run `--dry-run` first; moves each file into the agent's current vault-scoped
+`generated/`/`upload`/`other` and prunes the empty trees).
 
 ---
 
@@ -1700,6 +1744,7 @@ tool works transparently against the DB.
 
 | Question                      | Answer                                                                                                                |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Where does an agent's workspace live? | `WorkspaceManager.resolve_agent_workspace` — user `workspace_path` → `{base}/{vault_key}/agents/{agent_key}/` (vault-scoped, per session `project_id`) → legacy `agents/agent_{id}/`; identity + docs re-baked per session (§16.10) |
 | What builds a normal agent?   | `core/agents/factory/assembly.py` → `AgentFactory.create_agent`                                                  |
 | What builds a DeepAgent?      | `services/deepagent_factory/assembly.py` → `DeepAgentFactory.create_deep_agent`                                  |
 | What is`deep_agents.py`?    | The REST controller (CRUD + prompt-preview + export) — not the builder                                               |
