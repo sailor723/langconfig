@@ -3099,9 +3099,9 @@ def _get_neo4j_idx():
     """Create a Neo4jDocumentIndex from environment variables."""
     from services.neo4j_document_index import Neo4jDocumentIndex
     idx = Neo4jDocumentIndex(
-        base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
-        username=os.environ.get("NEO4J_USER", "neo4j"),
-        password=os.environ.get("NEO4J_PASSWORD", "password"),
+        base_url=NEO4J_HTTP_URL,
+        username=NEO4J_HTTP_USER,
+        password=NEO4J_HTTP_PASSWORD,
     )
     idx.ensure_constraints()
     return idx
@@ -3561,9 +3561,9 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
         from learning.phase9.graphindex.index_build import Neo4jDocumentIndex  # noqa: E402
 
         idx = Neo4jDocumentIndex(
-            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
-            username=os.environ.get("NEO4J_USER", "neo4j"),
-            password=os.environ.get("NEO4J_PASSWORD", "password"),
+            base_url=NEO4J_HTTP_URL,
+            username=NEO4J_HTTP_USER,
+            password=NEO4J_HTTP_PASSWORD,
         )
         idx.ensure_constraints()
 
@@ -3769,9 +3769,9 @@ def graphindex_list_docs(project_id: Optional[int] = None) -> str:
         from learning.phase9.graphindex.index_build import Neo4jDocumentIndex  # noqa: E402
 
         idx = Neo4jDocumentIndex(
-            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
-            username=os.environ.get("NEO4J_USER", "neo4j"),
-            password=os.environ.get("NEO4J_PASSWORD", "password"),
+            base_url=NEO4J_HTTP_URL,
+            username=NEO4J_HTTP_USER,
+            password=NEO4J_HTTP_PASSWORD,
         )
         idx.ensure_constraints()
         rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE.get() or "all")
@@ -3824,9 +3824,9 @@ def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> s
         from learning.phase9.graphindex.index_build import Neo4jDocumentIndex  # noqa: E402
 
         idx = Neo4jDocumentIndex(
-            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
-            username=os.environ.get("NEO4J_USER", "neo4j"),
-            password=os.environ.get("NEO4J_PASSWORD", "password"),
+            base_url=NEO4J_HTTP_URL,
+            username=NEO4J_HTTP_USER,
+            password=NEO4J_HTTP_PASSWORD,
         )
         idx.ensure_constraints()
         docs = idx.list_documents(project_id=project_id)
@@ -3869,9 +3869,9 @@ def _make_neo4j_index():
     """Create a Neo4jDocumentIndex from env vars."""
     from learning.phase9.graphindex.index_build import Neo4jDocumentIndex
     idx = Neo4jDocumentIndex(
-        base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
-        username=os.environ.get("NEO4J_USER", "neo4j"),
-        password=os.environ.get("NEO4J_PASSWORD", "password"),
+        base_url=NEO4J_HTTP_URL,
+        username=NEO4J_HTTP_USER,
+        password=NEO4J_HTTP_PASSWORD,
     )
     idx.ensure_constraints()
     return idx
@@ -4213,6 +4213,15 @@ import sys as _sys
 import subprocess as _subprocess
 import tempfile as _tempfile
 import textwrap as _textwrap
+
+# Single source of truth for Neo4j HTTP connection config — read from
+# the project-root .env via the centralized connection module.
+from langgraph.connection import (
+    NEO4J_HTTP_URL,
+    NEO4J_HTTP_USER,
+    NEO4J_HTTP_PASSWORD,
+)
+
 
 TOOL_PYTHON_EXECUTE_DESCRIPTION = """Execute Python code for data analysis and visualization.
 

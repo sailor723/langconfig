@@ -10,6 +10,10 @@ Stores all user preferences and configuration in PostgreSQL
 from sqlalchemy import Column, Integer, String, Boolean, JSON, DateTime, Float
 from db.database import Base
 import datetime
+import os
+
+# Single source of truth: OLLAMA_BASE_URL in .env. No hardcoded default.
+from langgraph.connection import OLLAMA_BASE_URL
 
 
 class Settings(Base):
@@ -60,7 +64,9 @@ class Settings(Base):
 
     # Local Models Settings
     local_provider = Column(String, default="ollama")
-    local_base_url = Column(String, default="http://localhost:11434/v1")
+    # Source of truth: OLLAMA_BASE_URL in .env (or LOCAL_LLM_BASE_URL).
+    # The +"/v1" suffix is added by the caller that consumes this URL.
+    local_base_url = Column(String, default=os.getenv("OLLAMA_BASE_URL", OLLAMA_BASE_URL) + "/v1")
     local_model_name = Column(String, default="llama3.2:latest")
     local_api_key = Column(String, nullable=True)
 

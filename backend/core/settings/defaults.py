@@ -39,7 +39,11 @@ def get_defaults() -> dict[str, dict]:
             "fallback_models": _fallback_list("local-ollama-qwen25-14b"),
             "primary_model": "deepseek-chat",
             "local_provider": "ollama",
-            "local_base_url": "http://localhost:11434/v1",
+            # Source of truth: OLLAMA_BASE_URL / LOCAL_LLM_BASE_URL in .env.
+            # No hardcoded port here: the centralized connection module
+            # provides the fallback when the seeded runtime block is empty.
+            "local_base_url": os.getenv("LOCAL_LLM_BASE_URL")
+                or os.getenv("OLLAMA_BASE_URL", "") + "/v1",
             "local_model_name": "llama3.2:latest",
         },
         "workspace": {

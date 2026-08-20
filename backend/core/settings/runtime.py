@@ -71,10 +71,11 @@ def runtime_workspace() -> dict:
 
 def local_llm_config() -> dict:
     """Local LLM endpoint config (was config.local_llm_* from .env)."""
+    from langgraph.connection import OLLAMA_BASE_URL
     models = runtime_value("models")
     return {
         "provider": models.get("local_provider") or "ollama",
-        "base_url": models.get("local_base_url") or "http://localhost:11434/v1",
+        "base_url": models.get("local_base_url") or (OLLAMA_BASE_URL + "/v1"),
         "model_name": models.get("local_model_name") or "llama3.2:latest",
         "api_key": models.get("local_api_key"),
     }

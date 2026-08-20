@@ -20,6 +20,12 @@ from typing import Any
 import psycopg2
 import psycopg2.extras
 from dotenv import load_dotenv
+
+# Single source of truth for Postgres connection config — read from
+# the project-root .env via the centralized connection module.
+from langgraph.connection import (
+    POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD,
+)
 from langchain.tools import tool
 
 # Best-effort: pick up the repo-root .env so SQL_* vars flow through.
@@ -52,12 +58,14 @@ def _connection_params() -> dict[str, Any]:
     if explicit:
         return {"dsn": explicit}
 
+    # Single source of truth: POSTGRES_* env vars in .env (read by
+    # backend/langgraph/connection.py). No hardcoded literals here.
     return {
-        "host": os.getenv("SQL_POSTGRES_HOST", os.getenv("POSTGRES_HOST", "localhost")),
-        "port": int(os.getenv("SQL_POSTGRES_PORT", os.getenv("POSTGRES_PORT", "5432"))),
+        "host": os.getenv("SQL_POSTGRES_HOST", os.getenv("POSTGRES_HOST", POSTGRES_HOST)),
+        "port": int(os.getenv("SQL_POSTGRES_PORT", os.getenv("POSTGRES_PORT", str(POSTGRES_PORT)))),
         "dbname": get_target_database(),
-        "user": os.getenv("SQL_POSTGRES_USER", os.getenv("POSTGRES_USER", "langconfig")),
-        "password": os.getenv("SQL_POSTGRES_PASSWORD", os.getenv("POSTGRES_PASSWORD", "langconfig_dev")),
+        "user": os.getenv("SQL_POSTGRES_USER", os.getenv("POSTGRES_USER", POSTGRES_USER)),
+        "password": os.getenv("SQL_POSTGRES_PASSWORD", os.getenv("POSTGRES_PASSWORD", POSTGRES_PASSWORD)),
     }
 
 

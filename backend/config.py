@@ -32,7 +32,12 @@ class Settings(BaseSettings):
     api_key_encryption_key: Optional[str] = None
 
     # ── Database ──
-    database_url: str = "postgresql://langconfig:langconfig_dev@localhost:5432/langconfig"
+    # No hardcoded URL: the only legitimate defaults are the parts
+    # (host/port/user/password/dbname) read from the POSTGRES_* env
+    # block by compose_db_url() above. If those env vars are also
+    # missing, raise so the operator notices instead of silently
+    # connecting to localhost:5432.
+    database_url: str = ""
     database_url_async: Optional[str] = None
 
     # ── LLM API Keys (directly from .env, no DB fallback) ──
@@ -56,8 +61,11 @@ class Settings(BaseSettings):
     serper_api_key: Optional[str] = None
 
     # ── Ollama Embedding ──
-    ollama_base_url: str = "http://localhost:11434"
-    ollama_embed_model: str = "nomic-embed-text:latest"
+    # Source of truth: OLLAMA_BASE_URL / OLLAMA_EMBED_MODEL in .env.
+    # Defer to runtime resolution so the value reflects the latest .env
+    # at request time (and so we don't ship a hardcoded default).
+    ollama_base_url: str = ""
+    ollama_embed_model: str = ""
 
     # ── LangSmith (optional) ──
     langsmith_api_key: Optional[str] = None
@@ -241,6 +249,20 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _apply_runtime_overrides(self):
+        # If .env didn't provide DATABASE_URL, fall back to a URL
+        # composed from the POSTGRES_* env parts (single source of truth).
+        # No hardcoded localhost:5432 fallback — if those env vars are
+        # also missing, the operator sees a clear error from DB-side
+        # connection failures, not a silent localhost connection.
+        if not self.database_url:
+            from db.db_url import compose_db_url
+            self.database_url = compose_db_url()
+        # Same idea for the local LLM endpoints: read once from .env at
+        # model-load time. Operators edit .env, not this file.
+        if not self.ollama_base_url:
+            self.ollama_base_url = os.getenv("OLLAMA_BASE_URL", "")
+        if not self.ollama_embed_model:
+            self.ollama_embed_model = os.getenv("OLLAMA_EMBED_MODEL", "")
         self._runtime_override()
         return self
 

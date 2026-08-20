@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 # ── general ──────────────────────────────────────────────────────────────────
@@ -115,10 +115,20 @@ class ModelsSettings(BaseModel):
     alert_threshold: int = 80  # percentage
 
     # Local models
+    # Defaults are sourced from .env (OLLAMA_BASE_URL / LOCAL_LLM_BASE_URL).
+    # No hardcoded port: the centralized connection module is the source
+    # of truth, so changing the host/port is a single-file .env edit.
     local_provider: str = "ollama"
-    local_base_url: str = "http://localhost:11434/v1"
+    local_base_url: str = ""
     local_model_name: str = "llama3.2:latest"
     local_api_key: Optional[str] = Field(None, json_schema_extra={"role": "secret"})
+
+    @model_validator(mode="after")
+    def _fill_local_defaults(self):
+        if not self.local_base_url:
+            from langgraph.connection import OLLAMA_BASE_URL
+            self.local_base_url = OLLAMA_BASE_URL + "/v1"
+        return self
 
 
 # ── workspace ────────────────────────────────────────────────────────────────
