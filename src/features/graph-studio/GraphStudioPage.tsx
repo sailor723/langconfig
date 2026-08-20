@@ -13,6 +13,7 @@ import { api } from './api';
 import { GraphCanvas } from './GraphCanvas';
 import RunConsole from './RunConsole';
 import Inspector from './Inspector';
+import { useToast } from '../../hooks/useToast';
 
 // Rail width clamp (chat console + inspector).
 const RAIL_MIN = 240;
@@ -22,11 +23,23 @@ const RAIL_DEFAULT = 300;
 export default function GraphStudioPage() {
   const t = useLayoutTokens();
   const { assistants, activeAssistantId, apiOnline, running } = useStudioState();
+  // Toast hook for surfacing DB-switch errors (the studioStore can't
+  // call this directly because it's a hook, not a zustand store; the
+  // store dispatches a DOM event that we listen for here).
+  const { showToast } = useToast();
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ message: string; type: 'error' | 'warning' }>).detail;
+      if (detail?.message) {
+        showToast(detail.message, detail.type || 'error');
+      }
+    };
+    window.addEventListener('graph-studio:toast', handler);
+    return () => window.removeEventListener('graph-studio:toast', handler);
+  }, [showToast]);
   // Resizable right rail width (px).
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT);
   const railDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
-
-  // Drag the rail divider: dragging left widens the rail (width = start - dx).
   const onRailResizeStart = (e: ReactMouseEvent) => {
     e.preventDefault();
     railDragRef.current = { startX: e.clientX, startWidth: railWidth };

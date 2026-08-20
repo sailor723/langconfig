@@ -99,6 +99,109 @@ export interface DatabaseSummary {
   summary: string | null;
   /** Backend tag: 'sql' or 'neo4j'. Used by the renderer to pick the right field set. */
   type?: 'sql' | 'neo4j';
+  /** SQL: which Postgres schema was introspected (defaults to first non-empty). */
+  schema?: string;
+  /** SQL: full ER diagram (columns + FKs). Null if introspection failed or DB unreachable. */
+  er_diagram?: ErDiagram | null;
+  /** Neo4j: label supernodes + rel-type edges. Null if introspection failed or DB unreachable. */
+  network_diagram?: Neo4jNetworkDiagram | null;
+}
+
+// ---------------------------------------------------------------------------
+// Schema-diagram payloads (returned by the same /databases/summary and
+// /databases/neo4j-summary endpoints — null on introspection failure).
+// Generic shapes: no hardcoded table or label names; whatever the active
+// Postgres / Neo4j database exposes.
+// ---------------------------------------------------------------------------
+
+/** One column of a Postgres table, with PK / nullable flags. */
+export interface TableColumn {
+  name: string;
+  type: string;
+  nullable: boolean;
+  pk: boolean;
+}
+
+/** One base table of the active Postgres schema. */
+export interface TableNode {
+  name: string;
+  /** Live row count; null when COUNT(*) failed for this table (e.g. permissions). */
+  row_count: number | null;
+  columns: TableColumn[];
+}
+
+/** One foreign key between two tables in the active schema. */
+export interface ForeignKey {
+  from_table: string;
+  from_column: string;
+  to_table: string;
+  to_column: string;
+  constraint_name: string;
+  on_update: string;
+  on_delete: string;
+}
+
+/** ER-diagram payload: tables + the FK edges between them. */
+export interface ErDiagram {
+  schema: string;
+  tables: TableNode[];
+  foreign_keys: ForeignKey[];
+}
+
+/** One node label of the active Neo4j graph. */
+export interface LabelNode {
+  name: string;
+  /** Number of nodes with this label. */
+  count: number;
+  /** Property keys observed on nodes with this label. */
+  properties: string[];
+}
+
+/** One (label_a)-[:REL_TYPE]->(label_b) edge group. */
+export interface RelEdge {
+  type: string;
+  from_label: string;
+  to_label: string;
+  count: number;
+}
+
+/** Network-diagram payload: label supernodes + rel-type edges between labels. */
+export interface Neo4jNetworkDiagram {
+  label_nodes: LabelNode[];
+  rel_edges: RelEdge[];
+}
+
+// ---------------------------------------------------------------------------
+// Full Neo4j graph (node-per-instance) — mirrors `db.schema.visualization()`
+// ---------------------------------------------------------------------------
+// Re-exported here so the typed API client can use them; the canvas
+// currently uses the supernode view above and the full-graph endpoint
+// stays available for future use.
+export interface FullGraphNode {
+  id: string;
+  labels: string[];
+  primary_label: string | null;
+  display_name: string;
+  degree: number;
+  properties: Record<string, string>;
+}
+
+export interface FullGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+}
+
+export interface Neo4jFullGraph {
+  database: string;
+  node_cap: number;
+  edge_cap: number;
+  nodes: FullGraphNode[];
+  edges: FullGraphEdge[];
+  truncated: boolean;
+  total_nodes_in_db?: number;
+  error?: string;
 }
 
 export interface Thread {
@@ -205,6 +308,21 @@ export const api = {
   async loadNeo4jSummary(lang?: 'en' | 'zh'): Promise<DatabaseSummary> {
     const qs = lang ? `?lang=${lang}` : '';
     return request(`/databases/neo4j-summary${qs}`);
+  },
+
+  /**
+   * Full Neo4j graph (node-per-instance, edge-per-relationship),
+   * like `CALL db.schema.visualization()`. Capped to keep the canvas
+   * usable on large graphs. Used by the "Network" view mode of the
+   * Neo4j schema tab.
+   */
+  async loadNeo4jFullGraph(
+    nodeCap = 200,
+    edgeCap = 600,
+  ): Promise<Neo4jFullGraph> {
+    return request(
+      `/databases/neo4j-full-graph?node_cap=${nodeCap}&edge_cap=${edgeCap}`
+    );
   },
 
   async loadThreads(metadata: Record<string, unknown> = {}): Promise<Thread[]> {

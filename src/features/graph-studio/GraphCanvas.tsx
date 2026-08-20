@@ -32,6 +32,10 @@ import { useTranslation } from 'react-i18next';
 import { useLayoutTokens, type LayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState, type Direction } from './studioStore';
 import type { GraphSpec } from './api';
+import SchemaViewToolbar from './SchemaViewToolbar';
+import { ErDiagram } from './ErDiagram';
+import { Neo4jNetwork } from './Neo4jNetwork';
+import { SchemaNodePopup } from './SchemaNodePopup';
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 40;
@@ -179,6 +183,67 @@ function iconButtonStyle(t: ReturnType<typeof useLayoutTokens>): CSSProperties {
   };
 }
 
+/** Segmented [Flow | Schema] control that drives the canvas view mode. */
+function ViewModeToggle() {
+  const t = useLayoutTokens();
+  const { viewMode } = useStudioState();
+  const wrapStyle: CSSProperties = {
+    display: 'inline-flex',
+    border: `1px solid ${t.border}`,
+    borderRadius: 4,
+    background: t.bgSidebar,
+    overflow: 'hidden',
+  };
+  const item = (label: string, value: 'flow' | 'schema'): CSSProperties => ({
+    padding: '3px 10px',
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: 'pointer',
+    background: viewMode === value ? t.accent : 'transparent',
+    color: viewMode === value ? '#ffffff' : t.textDim,
+    borderRight: value === 'flow' ? `1px solid ${t.border}` : 'none',
+    userSelect: 'none',
+  });
+  return (
+    <div style={wrapStyle} title="Toggle view mode">
+      <span style={item('flow', 'flow')} onClick={() => studio.setViewMode('flow')}>
+        Flow
+      </span>
+      <span style={item('schema', 'schema')} onClick={() => studio.setViewMode('schema')}>
+        Schema
+      </span>
+    </div>
+  );
+}
+
+/** Bottom-left legend for the schema view — DB-type-aware. */
+function SchemaLegend() {
+  const t = useLayoutTokens();
+  const { dbSummary } = useStudioState();
+  const isNeo4j = dbSummary?.type === 'neo4j';
+  const row = (color: string, label: string) => (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ width: 10, height: 6, borderRadius: 1, background: color }} />
+      {label}
+    </span>
+  );
+  return (
+    <>
+      {isNeo4j ? (
+        <>
+          {row(t.accent, 'label supernode')}
+          {row('#22c55e', 'relationship edge')}
+        </>
+      ) : (
+        <>
+          {row(t.accent, 'PK column')}
+          {row('#22c55e', 'foreign-key edge')}
+        </>
+      )}
+    </>
+  );
+}
+
 /** Text box at the top of the canvas: a live, bilingual BUSINESS summary of the
  *  active target database (LLM-generated, <=3 lines). Re-renders on DB switch
  *  (store) and on language change (i18next), so the text always matches the
@@ -317,7 +382,7 @@ function DatabaseSummaryBox() {
 function GraphCanvasInner() {
   const t = useLayoutTokens();
   const { fitView } = useReactFlow();
-  const { graph, direction, runPath, running, activeNodeId } = useStudioState();
+  const { graph, viewMode, direction, runPath, running, activeNodeId } = useStudioState();
   const [nodes, setNodes, onNodesChange] = useNodesState<GraphNodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<StudioEdgeData>([]);
 
@@ -407,41 +472,97 @@ function GraphCanvasInner() {
   return (
     <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
       <DatabaseSummaryBox />
-      {graph ? (
-        <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            nodeTypes={nodeTypes}
-            onNodeClick={(_, node) => studio.selectNode(node.id)}
-            fitView
-            minZoom={0.2}
-            maxZoom={2}
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background color={t.border} gap={24} variant={BackgroundVariant.Dots} style={{ opacity: 0.35 }} />
-            <Controls showInteractive={false} />
-          </ReactFlow>
+      {viewMode === 'flow' ? (
+        graph ? (
+          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              nodeTypes={nodeTypes}
+              onNodeClick={(_, node) => studio.selectNode(node.id)}
+              fitView
+              minZoom={0.2}
+              maxZoom={2}
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background color={t.border} gap={24} variant={BackgroundVariant.Dots} style={{ opacity: 0.35 }} />
+              <Controls showInteractive={false} />
+            </ReactFlow>
 
-          {/* Overlay: direction toggle + run status + legend */}
-          <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button style={iconButtonStyle(t)} onClick={studio.toggleDirection} title="Toggle layout direction">
-              <ArrowLeftRight size={14} />
-            </button>
-            <span
+            {/* Overlay: view-mode toggle + direction toggle (flow only) + run status */}
+            <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 5, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ViewModeToggle />
+              <button style={iconButtonStyle(t)} onClick={studio.toggleDirection} title="Toggle layout direction">
+                <ArrowLeftRight size={14} />
+              </button>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: t.textDim,
+                  background: t.bgSidebar,
+                  border: `1px solid ${t.border}`,
+                  borderRadius: 4,
+                  padding: '3px 8px',
+                }}
+              >
+                {running ? '● running' : '○ idle'}
+              </span>
+            </div>
+            <div
               style={{
+                position: 'absolute',
+                bottom: 10,
+                left: 10,
+                zIndex: 5,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
                 fontSize: 11,
                 color: t.textDim,
                 background: t.bgSidebar,
                 border: `1px solid ${t.border}`,
-                borderRadius: 4,
-                padding: '3px 8px',
+                borderRadius: 6,
+                padding: '6px 10px',
               }}
             >
-              {running ? '● running' : '○ idle'}
-            </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: t.accent }} /> executing
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: CONDITIONAL_COLOR }} /> conditional edge
+              </span>
+            </div>
+
+            {/* Node detail popup (floating overlay — deliberately not a dock) */}
+            {activeNodeId && <NodePopup />}
+          </div>
+        ) : (
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: t.textDim,
+              fontSize: 13,
+            }}
+          >
+            Select an assistant to view its graph.
+          </div>
+        )
+      ) : (
+        <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          {/* Overlay: view-mode toggle only — schema view has its own toolbar */}
+          <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 5 }}>
+            <ViewModeToggle />
+          </div>
+          <SchemaViewToolbar />
+          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+            <ErDiagramOrNeo4j />
+            {/* Schema-view popup (separate from the Flow NodePopup) */}
+            {activeNodeId && <SchemaNodePopup />}
           </div>
           <div
             style={{
@@ -460,33 +581,20 @@ function GraphCanvasInner() {
               padding: '6px 10px',
             }}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: t.accent }} /> executing
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: CONDITIONAL_COLOR }} /> conditional edge
-            </span>
+            <SchemaLegend />
           </div>
-
-          {/* Node detail popup (floating overlay — deliberately not a dock) */}
-          {activeNodeId && <NodePopup />}
-        </div>
-      ) : (
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: t.textDim,
-            fontSize: 13,
-          }}
-        >
-          Select an assistant to view its graph.
         </div>
       )}
     </div>
   );
+}
+
+/** Pick the right schema-view component based on the active assistant's
+ *  DB type. Falls back to ErDiagram if dbSummary hasn't loaded yet
+ *  (which renders its own "loading / unavailable" placeholder). */
+function ErDiagramOrNeo4j() {
+  const { dbSummary } = useStudioState();
+  return dbSummary?.type === 'neo4j' ? <Neo4jNetwork /> : <ErDiagram />;
 }
 
 // ---------------------------------------------------------------------------
