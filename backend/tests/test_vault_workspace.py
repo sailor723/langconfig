@@ -235,3 +235,66 @@ def test_resolve_uses_agent_key_folder():
     # legacy fallback without keys stays agent_{id}
     ws2 = m.resolve_agent_workspace(_FakeAgent(159), project_id=2)
     assert str(ws2.relative_to(tmp)) == "2/agents/agent_159"
+
+
+# ── identity / doc re-bake ──────────────────────────────────────────
+
+
+def test_refresh_doc_identity_rebakes_all_forms():
+    from core.agents.identity import refresh_doc_identity
+    content = (
+        "## Identity\n\n- **Agent ID**: 115\n"
+        "- **Workspace**: /old/outputs/agents/agent_115\n\n"
+        "## Workspace\n\nYour workspace directory is:\n\n"
+        "    /old/outputs/agents/agent_115\n\n"
+        "## Quick reference\n\n"
+        "- Workspace: `/old/outputs/agents/agent_115`\n"
+        "- Keep everything else intact.\n"
+    )
+    out = refresh_doc_identity(content, 115, "/new/my-project/agents/hello")
+    assert "- **Workspace**: /new/my-project/agents/hello" in out
+    assert "    /new/my-project/agents/hello" in out
+    assert "- Workspace: `/new/my-project/agents/hello`" in out
+    assert "/old/" not in out
+    assert "- **Agent ID**: 115" in out
+    assert "- Keep everything else intact." in out
+
+
+def test_build_identity_system_prompt_embeds_rebaked_docs():
+    from core.agents.identity import build_identity_system_prompt
+    docs = {
+        "AGENTS.md": "## Identity\n\n- **Workspace**: /old/outputs/agents/agent_115\n",
+        "CLAUDE.md": "- Workspace: `/old/outputs/agents/agent_115`\n",
+    }
+    out = build_identity_system_prompt("Base.", 115, "/new/my-project/agents/hello", docs)
+    assert "/old/" not in out
+    assert "## Identity\n\n- **Agent ID**: 115" in out or "- **Agent ID**: 115" in out
+    assert "/new/my-project/agents/hello" in out
+
+
+def test_materialize_rebakes_baked_workspace_root(tmp_path):
+    """Docs authored with a legacy baked workspace root are re-baked at
+    materialization so the on-disk copy references the session's workspace."""
+    agent = _FakeAgent(115, agent_docs={
+        "AGENTS.md": (
+            "## Identity\n\n- **Agent ID**: 115\n"
+            "- **Workspace**: /legacy/outputs/agents/agent_115\n\n"
+            "## Workspace\n\nYour workspace directory is:\n\n"
+            "    /legacy/outputs/agents/agent_115\n"
+        ),
+        "CLAUDE.md": (
+            "## Identity\n\n- **Agent ID**: 115\n"
+            "- **Workspace**: /legacy/outputs/agents/agent_115\n"
+            "- Workspace: `/legacy/outputs/agents/agent_115`\n"
+        ),
+    })
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    _materialize_agent_docs(agent, str(ws))
+    for name in ("AGENTS.md", "CLAUDE.md"):
+        text = (ws / name).read_text(encoding="utf-8")
+        assert "/legacy/" not in text, f"{name} still carries the legacy path"
+        assert str(ws) in text, f"{name} missing the resolved root"
+        assert f"- **Workspace**: {ws}" in text
+        if name == "CLAUDE.md":
+            assert f"- Workspace: `{ws}`" in text

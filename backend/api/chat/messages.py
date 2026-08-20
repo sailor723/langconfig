@@ -127,7 +127,14 @@ def _materialize_agent_docs(agent, workspace_root: str, db=None) -> None:
     try:
         root.mkdir(parents=True, exist_ok=True)
         # Docs are stored with the real agent id + workspace root baked in at
-        # creation/backfill, so write them as-is.
+        # creation/backfill, so the stored copy is the canonical content. The
+        # baked root, however, may predate the current session's project
+        # binding (creation happens project-agnostic → legacy
+        # outputs/agents/agent_{id}/), so each materialized copy is re-baked
+        # with THIS session's resolved workspace root — the doc analogue of
+        # the system-prompt identity re-bake above.
+        from core.agents.identity import refresh_doc_identity
+        _agent_id = getattr(agent, "id", None)
         for name, content in docs.items():
             if not name or not isinstance(content, str):
                 continue
@@ -137,7 +144,10 @@ def _materialize_agent_docs(agent, workspace_root: str, db=None) -> None:
             if not target.is_relative_to(root.resolve()):
                 logger.warning(f"Skipping agent doc with unsafe name: {name!r}")
                 continue
-            target.write_text(content, encoding="utf-8")
+            target.write_text(
+                refresh_doc_identity(content, _agent_id, str(root)),
+                encoding="utf-8",
+            )
         logger.info(f"Materialized {len(docs)} agent doc(s) into {root}")
     except Exception as e:
         logger.warning(f"Failed to materialize agent docs into {workspace_root}: {e}")
@@ -981,6 +991,26 @@ async def send_message_stream(
                         vault_key=_ws_mgr.project_vault_key(db, _session_project_id) or None,
                         agent_key=_ws_mgr.agent_vault_key(db, agent),
                     ))
+                    # Re-bake the identity block in the system prompt so it
+                    # matches THIS session's workspace (same rule as the
+                    # non-streaming entry point). The stored prompt carries
+                    # the creation-time (legacy) root; without this the agent
+                    # reports the wrong workspace even though the greeting
+                    # below names the resolved root.
+                    if _session_project_id is not None:
+                        from core.agents.identity import (
+                            _strip_identity_block,
+                            build_identity_system_prompt,
+                        )
+                        _base_prompt = _strip_identity_block(
+                            agent_config.get("system_prompt") or ""
+                        )
+                        agent_config["system_prompt"] = build_identity_system_prompt(
+                            _base_prompt,
+                            agent.id,
+                            agent_workspace_root,
+                            agent.agent_docs or {},
+                        )
                     _materialize_agent_docs(agent, agent_workspace_root, db=db)
                     # First message of a fresh session: ask the agent to
                     # introduce itself and report its workspace status (same

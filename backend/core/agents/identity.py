@@ -28,6 +28,8 @@ for agents without a project binding or custom ``workspace_path``).
 # prompts that already carry a block).
 IDENTITY_MARKER = "## Identity"
 
+import re
+
 # Tokens from earlier block versions that must be upgraded away (v1 carried
 # {{category}} + {{agent_name}}; v2 carried {{description}} + {{agent_name}};
 # placeholder versions carried {{agent_id}} / {{workspace_root}}).
@@ -64,12 +66,17 @@ def build_identity_system_prompt(
     instruction docs (AGENTS.md / CLAUDE.md) embedded inline, so the agent can
     quickly compile its role, workspace, and operating rules from the prompt
     alone — no need to read files first.
+
+    The docs are re-baked with the resolved workspace root before embedding
+    (``refresh_doc_identity``): the stored copies may carry the creation-time
+    (legacy) path, which would otherwise contradict the identity block.
     """
     parts = [base_prompt or ""]
     parts.append(identity_block(agent_id, workspace_root))
     for name in ("AGENTS.md", "CLAUDE.md"):
         content = (docs or {}).get(name)
         if content:
+            content = refresh_doc_identity(content, agent_id, workspace_root)
             parts.append(f"## {name} (embedded)\n\n{content}")
     return "\n\n".join(p for p in parts if p and p.strip())
 
@@ -87,6 +94,44 @@ def first_chat_greeting(workspace_root: str) -> str:
         "in `skills/`).\n"
         "- Keep it concise and in the user's language.\n"
     )
+
+
+def refresh_doc_identity(content: str, agent_id, workspace_root: str) -> str:
+    """Re-bake the workspace root inside an agent instruction doc (AGENTS.md /
+    CLAUDE.md) so the materialized copy matches the CURRENT session's resolved
+    workspace.
+
+    Stored docs (``deep_agent_templates.agent_docs``) are authored once — often
+    at creation, when no project is bound, so the legacy root
+    ``outputs/agents/agent_{id}/`` is baked in. The workspace root is
+    project-bound and changes per session, so the on-disk copy must be
+    refreshed at materialization time — the doc analogue of the system-prompt
+    identity re-bake (``api/chat/messages.py``).
+
+    Only the two lines the default docs emit are rewritten: the identity
+    ``- **Workspace**:`` line and the indented absolute-path code block under
+    ``## Workspace``. All other content (user-authored instructions, relative
+    path map, …) is preserved verbatim. Idempotent and safe on docs without a
+    baked root.
+    """
+    if not content or not workspace_root:
+        return content
+    out = re.sub(
+        r"(?m)^- \*\*Workspace\*\*: .*$",
+        f"- **Workspace**: {workspace_root}",
+        content,
+    )
+    out = re.sub(
+        r"(?m)^- Workspace: `.*`$",
+        f"- Workspace: `{workspace_root}`",
+        out,
+    )
+    out = re.sub(
+        r"(?m)^    (?:/|[A-Za-z]:[\\/]).*$",
+        f"    {workspace_root}",
+        out,
+    )
+    return out
 
 
 def _strip_identity_block(system_prompt: str) -> str:
