@@ -78,6 +78,9 @@ def get_cache_backend(settings: Dict[str, Any]) -> Optional[Any]:
     if backend == "disabled":
         return None
     if backend == "redis" and REDIS_CACHE_AVAILABLE:
-        redis_url = settings.get("cache_redis_url", "redis://localhost:6379")
+        # Single source of truth: REDIS_URL in .env. The cache_redis_url
+        # settings-doc override (DSH-style) wins if present.
+        from langgraph.connection import REDIS_URL
+        redis_url = settings.get("cache_redis_url") or REDIS_URL
         return RedisCache(url=redis_url)
     return InMemoryCache()

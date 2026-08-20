@@ -51,6 +51,15 @@ from pydantic import BaseModel, Field  # noqa: E402
 
 # Logger
 import logging  # noqa: E402
+
+# Single source of truth for Neo4j HTTP connection config — read
+# from the project-root .env via the centralized connection module.
+from langgraph.connection import (
+    NEO4J_HTTP_URL,
+    NEO4J_HTTP_USER,
+    NEO4J_HTTP_PASSWORD,
+)
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/graphindex", tags=["graphindex-chat"])
@@ -188,9 +197,9 @@ def _resolve_scope(project_id: int, scope):
         from learning.phase9.graphindex.route import fetch_catalog
         try:
             idx = Neo4jDocumentIndex(
-                base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
-                username=os.environ.get("NEO4J_USER", "neo4j"),
-                password=os.environ.get("NEO4J_PASSWORD", "password"),
+                base_url=NEO4J_HTTP_URL,
+                username=NEO4J_HTTP_USER,
+                password=NEO4J_HTTP_PASSWORD,
             )
             idx.ensure_constraints()
             rows = fetch_catalog(idx, project_id)
@@ -204,9 +213,9 @@ def _resolve_scope(project_id: int, scope):
     from learning.phase9.graphindex.route import fetch_catalog
     try:
         idx = Neo4jDocumentIndex(
-            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
-            username=os.environ.get("NEO4J_USER", "neo4j"),
-            password=os.environ.get("NEO4J_PASSWORD", "password"),
+            base_url=NEO4J_HTTP_URL,
+            username=NEO4J_HTTP_USER,
+            password=NEO4J_HTTP_PASSWORD,
         )
         idx.ensure_constraints()
         rows = fetch_catalog(idx, project_id)

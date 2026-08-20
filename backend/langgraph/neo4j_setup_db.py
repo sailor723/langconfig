@@ -48,14 +48,24 @@ _DRIVER: Any = None
 
 
 def _driver() -> Any:
-    """Lazy singleton driver; reads NEO4J_URI/USER/PASSWORD from env."""
+    """Lazy singleton driver; reads connection config from the
+    centralized connection module (env-driven, no hardcoded fallbacks)."""
     global _DRIVER
     if _DRIVER is None:
         from neo4j import GraphDatabase
-        uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        user = os.getenv("NEO4J_USER", "neo4j")
-        password = os.getenv("NEO4J_PASSWORD", "password")
-        _DRIVER = GraphDatabase.driver(uri, auth=(user, password))
+        # All connection params come from backend/langgraph/connection.py,
+        # which reads them from the project-root .env. No literals here.
+        from langgraph.connection import (
+            NEO4J_URI,
+            NEO4J_USER,
+            NEO4J_PASSWORD,
+            NEO4J_ENCRYPTED,
+        )
+        _DRIVER = GraphDatabase.driver(
+            NEO4J_URI,
+            auth=(NEO4J_USER, NEO4J_PASSWORD),
+            encrypted=NEO4J_ENCRYPTED,
+        )
     return _DRIVER
 
 
@@ -73,7 +83,8 @@ def set_target_database(name: str) -> None:
 
 def get_target_database() -> str:
     """Return the database the Neo4j tools are currently pointed at."""
-    return _DB_OVERRIDE or os.getenv("NEO4J_DATABASE", "neo4j")
+    from langgraph.connection import NEO4J_DATABASE  # env-driven default
+    return _DB_OVERRIDE or os.getenv("NEO4J_DATABASE") or NEO4J_DATABASE
 
 
 # ---------------------------------------------------------------------------
@@ -204,8 +215,9 @@ def ensure_neo4j_db() -> dict[str, Any]:
                 f"Neo4j database '{get_target_database()}' has no nodes — "
                 "load some data before invoking the agent."
             )
+    from langgraph.connection import NEO4J_URI  # centralized
     return {
-        "uri": os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        "uri": NEO4J_URI,
         "database": get_target_database(),
         "labels": [r["label"] for r in labels],
     }

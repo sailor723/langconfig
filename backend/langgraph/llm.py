@@ -23,6 +23,14 @@ from langchain.chat_models import init_chat_model
 # Model ids routed to an OpenAI-compatible local endpoint
 _LOCAL_PREFIXES = ("local-", "ollama-", "lmstudio-", "vllm-", "litellm-")
 
+# Reuse the centralized connection module so OLLAMA_BASE_URL comes from
+# the project-root .env (single source of truth).
+from langgraph.connection import (
+    OLLAMA_BASE_URL,
+    LOCAL_LLM_BASE_URL,
+)
+from config import settings
+
 
 def _db_default_model() -> Optional[str]:
     """The model chosen in Settings > Model Cards ("Set Default").
@@ -93,7 +101,7 @@ def build_chat_model(
         return ChatOllama(
             model=local_model,
             base_url=normalize_ollama_base_url(
-                os.environ.get("LOCAL_LLM_BASE_URL") or "http://localhost:11434/v1"
+                os.environ.get("LOCAL_LLM_BASE_URL") or OLLAMA_BASE_URL + "/v1"
             ),
             temperature=temperature,
             num_ctx=OLLAMA_CONTEXT_TOKENS,
@@ -107,7 +115,9 @@ def build_chat_model(
     # — so a key entered in Settings works here without .env.
     from config import get_api_key_from_db
     api_key = get_api_key_from_db("deepseek_api_key") or os.environ.get("DEEPSEEK_API_KEY")
-    base_url = os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com"
+    # DEEPSEEK_BASE_URL lives in .env (or the settings document via
+    # get_api_key_from_db). No hardcoded fallback.
+    base_url = os.environ.get("DEEPSEEK_BASE_URL") or settings.deepseek_api_base
 
     return init_chat_model(
         model=model_name,

@@ -492,7 +492,13 @@ async def get_embedding_models():
     # Local embedding models from Ollama
     try:
         import httpx
-        base_url = app_settings.ollama_base_url.rstrip("/") or "http://localhost:11434"
+        # Single source of truth: OLLAMA_BASE_URL in .env. If unset, the
+        # /api/tags fetch will fail and we fall through to the empty
+        # list. No localhost literal.
+        from config import settings as _settings
+        base_url = (app_settings.ollama_base_url or _settings.ollama_base_url or "").rstrip("/")
+        if not base_url:
+            return []  # no Ollama configured — return empty list
         resp = httpx.get(f"{base_url}/api/tags", timeout=3.0)
         if resp.status_code == 200:
             for tag in resp.json().get("models", []):

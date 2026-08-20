@@ -24,8 +24,12 @@ from typing import Any, Optional
 
 import httpx
 
-OLLAMA_DEFAULT_URL = "http://localhost:11434"
-OLLAMA_DEFAULT_MODEL = "nomic-embed-text:latest"
+# Single source of truth: OLLAMA_BASE_URL / OLLAMA_EMBED_MODEL in .env.
+# No hardcoded URL or model literal.
+from langgraph.connection import OLLAMA_BASE_URL
+import os
+OLLAMA_DEFAULT_URL = os.getenv("OLLAMA_BASE_URL") or OLLAMA_BASE_URL
+OLLAMA_DEFAULT_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text:latest")
 EMBED_DIM = 768  # nomic-embed-text dimension
 
 # nomic-embed-text retrieval prefixes (docs vs queries).

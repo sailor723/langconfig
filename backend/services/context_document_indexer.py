@@ -512,7 +512,10 @@ class ContextDocumentIndexer:
             logger.info(f"Configuring embed model: {embed_model_name}")
 
             # Strip /v1 suffix if present (Ollama uses root API path, not /v1)
-            local = runtime_get("models", "local_base_url") or "http://localhost:11434"
+            # Single source of truth: OLLAMA_BASE_URL in .env (or the
+            # `models.local_base_url` runtime override).
+            from langgraph.connection import OLLAMA_BASE_URL
+            local = runtime_get("models", "local_base_url") or OLLAMA_BASE_URL
             base_url_raw = local.rstrip("/")
             base_url_ollama = base_url_raw.replace("/v1", "").rstrip("/")
 

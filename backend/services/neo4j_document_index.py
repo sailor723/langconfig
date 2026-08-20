@@ -16,6 +16,14 @@ import json
 import re
 from typing import Any, Optional
 
+# Single source of truth for Neo4j HTTP defaults (NEO4J_URL etc. in .env).
+from langgraph.connection import (
+    NEO4J_HTTP_URL,
+    NEO4J_HTTP_USER,
+    NEO4J_HTTP_PASSWORD,
+    NEO4J_DATABASE,
+)
+
 import httpx
 
 COMMON_QUERY_STOPWORDS = {
@@ -259,10 +267,10 @@ class Neo4jDocumentIndex:
 
     def __init__(
         self,
-        base_url: str = "http://localhost:7474",
-        username: str = "neo4j",
-        password: str = "password",
-        database: str = "neo4j",
+        base_url: str = NEO4J_HTTP_URL,
+        username: str = NEO4J_HTTP_USER,
+        password: str = NEO4J_HTTP_PASSWORD,
+        database: str = NEO4J_DATABASE,
         timeout_seconds: float = 10.0,
     ):
         self.base_url = base_url.rstrip("/")

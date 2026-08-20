@@ -27,6 +27,15 @@ from services.document_type import resolve_document_type
 from .schemas import DocumentUploadResponse
 from .shared import logger
 
+# Single source of truth for Neo4j HTTP connection config — read
+# from the project-root .env via the centralized connection module.
+from langgraph.connection import (
+    NEO4J_HTTP_URL,
+    NEO4J_HTTP_USER,
+    NEO4J_HTTP_PASSWORD,
+)
+
+
 router = APIRouter(tags=["rag"])
 
 
@@ -163,9 +172,9 @@ async def upload_document(
 
     try:
         idx = Neo4jDocumentIndex(
-            base_url=_os.environ.get("NEO4J_URL", "http://localhost:7474"),
-            username=_os.environ.get("NEO4J_USER", "neo4j"),
-            password=_os.environ.get("NEO4J_PASSWORD", "password"),
+            base_url=_NEO4J_HTTP_URL,
+            username=_NEO4J_HTTP_USER,
+            password=_NEO4J_HTTP_PASSWORD,
         )
         idx.ensure_constraints()
         llm = make_llm()
@@ -402,9 +411,9 @@ async def _process_single_file_for_bulk(
 
     try:
         idx = Neo4jDocumentIndex(
-            base_url=_os.environ.get("NEO4J_URL", "http://localhost:7474"),
-            username=_os.environ.get("NEO4J_USER", "neo4j"),
-            password=_os.environ.get("NEO4J_PASSWORD", "password"),
+            base_url=_NEO4J_HTTP_URL,
+            username=_NEO4J_HTTP_USER,
+            password=_NEO4J_HTTP_PASSWORD,
         )
         idx.ensure_constraints()
         llm = make_llm()
@@ -675,9 +684,9 @@ async def ingest_folder_from_path(
     )
 
     idx = Neo4jDocumentIndex(
-        base_url=_os.environ.get("NEO4J_URL", "http://localhost:7474"),
-        username=_os.environ.get("NEO4J_USER", "neo4j"),
-        password=_os.environ.get("NEO4J_PASSWORD", "password"),
+        base_url=_NEO4J_HTTP_URL,
+        username=_NEO4J_HTTP_USER,
+        password=_NEO4J_HTTP_PASSWORD,
     )
     idx.ensure_constraints()
     llm = make_llm()

@@ -17,6 +17,15 @@ from models.core import ContextDocument, IndexingStatus
 from .schemas import DocumentContentResponse
 from .shared import logger
 
+# Single source of truth for Neo4j HTTP connection config — read
+# from the project-root .env via the centralized connection module.
+from langgraph.connection import (
+    NEO4J_HTTP_URL,
+    NEO4J_HTTP_USER,
+    NEO4J_HTTP_PASSWORD,
+)
+
+
 SUPPORTED_GRAPHINDEX_EXTS: set[str] = {
     ".pdf", ".txt", ".md", ".html", ".csv", ".json",
     ".xml", ".yaml", ".yml", ".py", ".js", ".ts",
@@ -42,9 +51,9 @@ def _queue_graphindex_ingest(file_path: str, project_id: int = 1) -> None:
             make_llm, cmd_ingest, Neo4jDocumentIndex,
         )
         index = Neo4jDocumentIndex(
-            base_url=_os.environ.get("NEO4J_URL", "http://localhost:7474"),
-            username=_os.environ.get("NEO4J_USER", "neo4j"),
-            password=_os.environ.get("NEO4J_PASSWORD", "password"),
+            base_url=_NEO4J_HTTP_URL,
+            username=_NEO4J_HTTP_USER,
+            password=_NEO4J_HTTP_PASSWORD,
         )
         index.ensure_constraints()
         llm = make_llm()
