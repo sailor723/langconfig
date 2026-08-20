@@ -25,6 +25,10 @@ import type {
 
 export type Direction = 'lr' | 'tb';
 
+/** Currently active visualization: flow chart of the assistant's runtime,
+ *  or schema network of the underlying database. Defaults to 'flow'. */
+export type ViewMode = 'flow' | 'schema';
+
 export interface StudioState {
   apiOnline: boolean;
   assistants: Assistant[];
@@ -32,6 +36,8 @@ export interface StudioState {
   graph: GraphSpec | null;
   schemas: AssistantSchemas | null;
   direction: Direction;
+  /** Which visualization the canvas renders. */
+  viewMode: ViewMode;
   /** DBs split by type so the dropdown swaps source based on the active assistant. */
   sqlDatabases: string[];
   neo4jDatabases: string[];
@@ -60,6 +66,7 @@ const initialState: StudioState = {
   graph: null,
   schemas: null,
   direction: 'lr',
+  viewMode: 'flow',
   sqlDatabases: [],
   neo4jDatabases: [],
   activeSqlDatabase: '',
@@ -175,8 +182,25 @@ export const studio = {
         activeSqlDatabase: info.active_sql ?? state.activeSqlDatabase,
         activeNeo4jDatabase: info.active_neo4j ?? state.activeNeo4jDatabase,
       });
-    } catch (err) {
-      console.error('[graph-studio] selectDatabase failed', err);
+    } catch (err: any) {
+      // Surface friendly messages when the user picks a DB that doesn't
+      // exist on the server (404). Without this, the dropdown silently
+      // stays on the old value and the user thinks "nothing happened".
+      const detail = err?.response?.data?.detail || err?.message || 'Unknown error';
+      const status = err?.response?.status;
+      const message = status === 404
+        ? `Database "${name}" not found on the ${type === 'neo4j' ? 'Neo4j' : 'Postgres'} server.`
+        : `Failed to switch database: ${detail}`;
+      // studioStore isn't a React component, so we can't call useToast
+      // directly. Dispatch a DOM CustomEvent that the ToastContainer
+      // (mounted by the app shell) listens for.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('graph-studio:toast', {
+          detail: { message, type: 'error' },
+        }));
+      } else {
+        console.error('[graph-studio] selectDatabase failed', err);
+      }
     }
     await studio.loadDatabaseSummary();
   },
@@ -318,7 +342,18 @@ export const studio = {
     setState({ direction: state.direction === 'lr' ? 'tb' : 'lr' });
   },
 
-  /** Interrupt the in-flight run (chat "stop" button). */
+  /** Switch between Graph Flow and Schema Network visualization.
+   *  When switching to schema, the active assistant's DB-type drives the
+   *  renderer (SQL → ErDiagram, Neo4j → Neo4jNetwork). The schema payload
+   *  is already in dbSummary — no extra fetch needed. */
+  setViewMode(mode: ViewMode) {
+    if (state.viewMode === mode) return;
+    setState({ viewMode: mode, activeNodeId: null });
+    // Drop transient graph-flow state so the new view starts clean.
+    setState({ runPath: [], liveMap: {} });
+  },
+
+  /** Switch which database the tools query (runtime, no .env edit). */
   async cancel() {
     if (!state.running || !state.currentThreadId) return;
     try {

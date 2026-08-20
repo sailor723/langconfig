@@ -479,6 +479,12 @@ def select_database(payload: SelectDatabaseRequest) -> Dict[str, Any]:
 # rarely, so regenerating on every request would just waste tokens.
 _BUSINESS_SUMMARY_CACHE: Dict[Tuple[str, str], str] = {}
 
+# Cached ER / network payloads, keyed on the introspection input only — language
+# changes don't trigger a re-introspection. Same lifetime as the business
+# summary cache: process-local, reset on backend restart.
+_ER_DIAGRAM_CACHE: Dict[Tuple[str, str], Optional[Dict[str, Any]]] = {}
+_NEO4J_NETWORK_CACHE: Dict[str, Optional[Dict[str, Any]]] = {}
+
 
 async def _business_summary(dbname: str, tables: List[Dict[str, Any]], lang: str) -> Optional[str]:
     """Describe the database in business terms (<=3 lines) via the LLM.
@@ -548,16 +554,269 @@ async def _business_summary(dbname: str, tables: List[Dict[str, Any]], lang: str
     return summary
 
 
+def _er_diagram_payload(dbname: str, schema: str) -> Optional[Dict[str, Any]]:
+    """Introspect any Postgres database and return tables + columns + FKs.
+
+    The payload is what the frontend needs to render an ER diagram:
+
+        {
+            "schema": "public",
+            "tables": [
+                {
+                    "name": "album",
+                    "row_count": 347,    # null if COUNT(*) failed
+                    "columns": [
+                        {"name": "id", "type": "integer",
+                         "nullable": false, "pk": True},
+                        ...
+                    ],
+                },
+                ...
+            ],
+            "foreign_keys": [
+                {
+                    "from_table": "album", "from_column": "artist_id",
+                    "to_table": "artist", "to_column": "id",
+                    "constraint_name": "fk_album_artist_id",
+                    "on_update": "NO ACTION", "on_delete": "NO ACTION",
+                },
+                ...
+            ],
+        }
+
+    Generic: works on any Postgres DB the user connects to. No schema-specific
+    (chinook, etc.) logic.
+
+    Returns None if the connection fails or any introspection step raises.
+    Callers should omit the field from the response rather than 500.
+
+    Cross-schema FKs (rare) are filtered out and logged at DEBUG; the diagram
+    stays coherent and the log line is the only clue for the curious.
+    """
+    cache_key = (dbname, schema)
+    if cache_key in _ER_DIAGRAM_CACHE:
+        return _ER_DIAGRAM_CACHE[cache_key]
+
+    payload: Dict[str, Any] = {
+        "schema": schema,
+        "tables": [],
+        "foreign_keys": [],
+    }
+
+    try:
+        sqlmod = _sql_setup_module()
+    except Exception as exc:
+        logger.warning(
+            f"[graph-studio] ER diagram: cannot import sql_setup_db: {exc}"
+        )
+        _ER_DIAGRAM_CACHE[cache_key] = None
+        return None
+
+    try:
+        import psycopg2
+        from psycopg2 import sql as _pg_sql
+        from psycopg2.extras import RealDictCursor
+
+        conn = psycopg2.connect(**sqlmod._connection_params())
+    except Exception as exc:
+        logger.warning(
+            f"[graph-studio] ER diagram connect failed for '{dbname}' "
+            f"(schema={schema}): {exc}"
+        )
+        _ER_DIAGRAM_CACHE[cache_key] = None
+        return None
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # 1. List base tables in the schema (skip views).
+            cur.execute(
+                """
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = %s AND table_type = 'BASE TABLE'
+                ORDER BY table_name
+                """,
+                (schema,),
+            )
+            table_names = [r["table_name"] for r in cur.fetchall()]
+            if not table_names:
+                # Schema exists but is empty — still cache the empty payload
+                # so we don't keep poking the DB.
+                _ER_DIAGRAM_CACHE[cache_key] = payload
+                return payload
+
+            # 2. Per-table columns with PK flag. PK detection uses pg_index /
+            # pg_attribute (the source of truth) joined back to column names;
+            # information_schema has no is_primary_key column on its own.
+            # Single query for all tables — much faster than N round trips.
+            cur.execute(
+                """
+                SELECT
+                    c.table_name,
+                    c.column_name,
+                    c.data_type,
+                    c.is_nullable,
+                    c.column_default,
+                    EXISTS (
+                        SELECT 1
+                        FROM pg_index i
+                        JOIN pg_attribute a
+                          ON a.attrelid = i.indrelid
+                         AND a.attnum = ANY(i.indkey)
+                        WHERE i.indrelid = (
+                            SELECT c2.oid
+                            FROM pg_class c2
+                            JOIN pg_namespace n ON n.oid = c2.relnamespace
+                            WHERE c2.relname = c.table_name
+                              AND n.nspname = c.table_schema
+                        )
+                          AND i.indisprimary
+                          AND a.attname = c.column_name
+                    ) AS is_pk
+                FROM information_schema.columns c
+                WHERE c.table_schema = %s AND c.table_name = ANY(%s)
+                ORDER BY c.table_name, c.ordinal_position
+                """,
+                (schema, table_names),
+            )
+
+            table_columns: Dict[str, List[Dict[str, Any]]] = {
+                name: [] for name in table_names
+            }
+            for r in cur.fetchall():
+                table_columns[r["table_name"]].append(
+                    {
+                        "name": r["column_name"],
+                        "type": r["data_type"],
+                        "nullable": r["is_nullable"] == "YES",
+                        "pk": bool(r["is_pk"]),
+                    }
+                )
+
+            # 3. Per-table row counts. COUNT(*) is fine for dev databases
+            # (chinook is ~15k rows total). For larger DBs we'd swap in
+            # pg_stat_user_tables.n_live_tup estimates; deferred until the
+            # perf actually matters.
+            table_rows: Dict[str, Optional[int]] = {}
+            for name in table_names:
+                try:
+                    cur.execute(
+                        _pg_sql.SQL("SELECT count(*) FROM {}.{}").format(
+                            _pg_sql.Identifier(schema),
+                            _pg_sql.Identifier(name),
+                        )
+                    )
+                    table_rows[name] = int(cur.fetchone()[0])
+                except Exception as exc:
+                    # One bad table (e.g. permissions) must not sink the diagram.
+                    logger.debug(
+                        f"[graph-studio] count(*) failed for {schema}.{name}: {exc}"
+                    )
+                    table_rows[name] = None
+
+            # 4. Foreign keys across all tables in the schema.
+            # information_schema already gives us everything we need;
+            # no pg_* joins required.
+            cur.execute(
+                """
+                SELECT
+                    tc.table_name           AS from_table,
+                    kcu.column_name         AS from_column,
+                    ccu.table_name          AS to_table,
+                    ccu.column_name         AS to_column,
+                    tc.constraint_name      AS constraint_name,
+                    rc.update_rule          AS on_update,
+                    rc.delete_rule          AS on_delete
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.key_column_usage kcu
+                  ON tc.constraint_name = kcu.constraint_name
+                 AND tc.table_schema = kcu.table_schema
+                JOIN information_schema.referential_constraints rc
+                  ON tc.constraint_name     = rc.constraint_name
+                 AND tc.constraint_schema   = rc.constraint_schema
+                JOIN information_schema.constraint_column_usage ccu
+                  ON rc.unique_constraint_name = ccu.constraint_name
+                 AND rc.constraint_schema = ccu.constraint_schema
+                WHERE tc.constraint_type = 'FOREIGN KEY'
+                  AND tc.table_schema    = %s
+                ORDER BY tc.table_name, kcu.column_name
+                """,
+                (schema,),
+            )
+
+            fks: List[Dict[str, Any]] = []
+            valid_tables = set(table_names)
+            for r in cur.fetchall():
+                # Skip FKs that touch tables outside the requested schema.
+                # Cross-schema FKs are technically valid but visually noisy
+                # in the diagram; log at DEBUG for the curious.
+                if r["from_table"] not in valid_tables:
+                    logger.debug(
+                        f"[graph-studio] skipping FK {r['constraint_name']}: "
+                        f"from_table '{r['from_table']}' not in schema"
+                    )
+                    continue
+                fks.append(
+                    {
+                        "from_table": r["from_table"],
+                        "from_column": r["from_column"],
+                        "to_table": r["to_table"],
+                        "to_column": r["to_column"],
+                        "constraint_name": r["constraint_name"],
+                        "on_update": r["on_update"],
+                        "on_delete": r["on_delete"],
+                    }
+                )
+
+            payload["tables"] = [
+                {
+                    "name": n,
+                    "row_count": table_rows.get(n),
+                    "columns": table_columns.get(n, []),
+                }
+                for n in table_names
+            ]
+            payload["foreign_keys"] = fks
+    except Exception as exc:
+        # Generic catch-all: any failure here must not break the existing
+        # database_summary response. Cache None so we don't keep retrying
+        # the same broken DB on every language switch.
+        logger.warning(
+            f"[graph-studio] ER diagram introspection failed for '{dbname}' "
+            f"(schema={schema}): {exc}"
+        )
+        _ER_DIAGRAM_CACHE[cache_key] = None
+        return None
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    _ER_DIAGRAM_CACHE[cache_key] = payload
+    return payload
+
+
 @router.get("/databases/summary")
-async def database_summary(lang: str = "en") -> Dict[str, Any]:
+async def database_summary(
+    lang: str = "en",
+    schema: Optional[str] = None,
+) -> Dict[str, Any]:
     """Summarize the *active* target database for the canvas header.
 
-    Lists every public table of the database the SQL tools are currently
-    pointed at, plus exact row counts (small dev databases; count(*) is fine).
+    Lists every table of the database the SQL tools are currently pointed
+    at (defaulting to the first non-empty schema when `schema` is omitted),
+    plus exact row counts (small dev databases; count(*) is fine).
     A `summary` field holds an LLM-written business description (<=3 lines)
-    in the requested language (`lang` = en | zh). The response changes as the
-    user switches databases, so the header stays in sync with the studio's
-    Database dropdown.
+    in the requested language (`lang` = en | zh). The response changes as
+    the user switches databases, so the header stays in sync with the
+    studio's Database dropdown.
+
+    The response also carries an `er_diagram` field with the per-table
+    columns and foreign keys needed to render an ER diagram in the canvas
+    schema view. `schema` defaults to the first non-empty schema in the
+    target DB (usually `public`) for users on DBs that organize tables
+    across multiple schemas.
     """
     import psycopg2
     from psycopg2 import sql
@@ -570,37 +829,69 @@ async def database_summary(lang: str = "en") -> Dict[str, Any]:
         raise HTTPException(500, f"cannot connect to database '{dbname}': {exc}")
 
     tables: List[Dict[str, Any]] = []
+    resolved_schema: Optional[str] = schema
     try:
         with conn.cursor() as cur:
+            # If the caller didn't pin a schema, pick the first one that
+            # has any user-visible table. Fall back to 'public' when none
+            # are found so the original behavior is preserved for empty
+            # databases.
+            if not resolved_schema:
+                cur.execute(
+                    """
+                    SELECT table_schema
+                    FROM information_schema.tables
+                    WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+                      AND table_type = 'BASE TABLE'
+                    GROUP BY table_schema
+                    ORDER BY table_schema
+                    LIMIT 1
+                    """
+                )
+                row = cur.fetchone()
+                resolved_schema = row[0] if row else "public"
+
             cur.execute(
                 "SELECT table_name FROM information_schema.tables "
-                "WHERE table_schema = 'public' ORDER BY table_name"
+                "WHERE table_schema = %s ORDER BY table_name",
+                (resolved_schema,),
             )
             for (name,) in cur.fetchall():
                 try:
-                    cur.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(name)))
+                    cur.execute(
+                        sql.SQL("SELECT count(*) FROM {}.{}").format(
+                            sql.Identifier(resolved_schema), sql.Identifier(name)
+                        )
+                    )
                     rows = cur.fetchone()[0]
                 except Exception:  # noqa: BLE001 - one bad table must not sink the summary
                     rows = None
                 # Column names feed the LLM so it can infer the business purpose.
                 cur.execute(
                     "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_schema = 'public' AND table_name = %s "
+                    "WHERE table_schema = %s AND table_name = %s "
                     "ORDER BY ordinal_position LIMIT 12",
-                    (name,),
+                    (resolved_schema, name),
                 )
                 columns = [row[0] for row in cur.fetchall()]
                 tables.append({"name": name, "rows": rows, "columns": columns})
     finally:
         conn.close()
 
+    # ER diagram payload — reuses the connection-pool-free helper. Opens its
+    # own short-lived connection because the `conn` above was closed in the
+    # finally block. Four small queries against information_schema / pg_index.
+    er_diagram = _er_diagram_payload(dbname, resolved_schema or "public")
+
     return {
         "database": dbname,
         "type": "sql",
+        "schema": resolved_schema,
         "table_count": len(tables),
         "row_count": sum(t["rows"] for t in tables if t["rows"] is not None),
         "tables": [{"name": t["name"], "rows": t["rows"]} for t in tables],
         "summary": await _business_summary(dbname, tables, lang),
+        "er_diagram": er_diagram,
     }
 
 
@@ -662,6 +953,133 @@ async def _neo4j_business_summary(dbname: str, inventory: str, lang: str) -> Opt
         return None
     _NEO4J_SUMMARY_CACHE[key] = summary
     return summary
+
+
+def _neo4j_network_payload(dbname: str) -> Optional[Dict[str, Any]]:
+    """Introspect any Neo4j database and return label nodes + rel-type edges.
+
+    The payload is what the frontend needs to render a network diagram:
+
+        {
+            "label_nodes": [
+                {"name": "Person", "count": 50,
+                 "properties": ["name", "born"]},
+                ...
+            ],
+            "rel_edges": [
+                {"type": "ACTED_IN", "from_label": "Person",
+                 "to_label": "Movie", "count": 30},
+                ...
+            ],
+        }
+
+    Generic: works on any Neo4j DB. No label-name whitelist.
+
+    Property keys per label are pulled via pure-Cypher aggregation (no APOC
+    dependency, works on any Neo4j version). Rel-type edges group by
+    (from_label, type, to_label) — the unit the diagram renders.
+
+    Returns None on any failure; callers omit the field.
+    """
+    if dbname in _NEO4J_NETWORK_CACHE:
+        return _NEO4J_NETWORK_CACHE[dbname]
+
+    payload: Dict[str, Any] = {"label_nodes": [], "rel_edges": []}
+
+    try:
+        neo4jmod = _neo4j_setup_module()
+    except Exception as exc:
+        logger.warning(
+            f"[graph-studio] Neo4j network: cannot import neo4j_setup_db: {exc}"
+        )
+        _NEO4J_NETWORK_CACHE[dbname] = None
+        return None
+
+    try:
+        drv = neo4jmod._driver()
+    except Exception as exc:
+        logger.warning(
+            f"[graph-studio] Neo4j network connect failed for '{dbname}': {exc}"
+        )
+        _NEO4J_NETWORK_CACHE[dbname] = None
+        return None
+
+    try:
+        with drv.session(database=dbname) as s:
+            # 1. Per-label node counts.
+            label_rows = s.run(
+                """
+                MATCH (n)
+                WITH labels(n)[0] AS label, count(*) AS n
+                RETURN label, n
+                ORDER BY n DESC
+                """
+            ).data()
+            valid_labels = {r["label"] for r in label_rows if r["label"]}
+
+            # 2. Per-label property keys (distinct, no cap).
+            prop_rows = s.run(
+                """
+                MATCH (n)
+                WITH labels(n)[0] AS label, keys(n) AS ks
+                WITH label, ks
+                UNWIND ks AS k
+                WITH label, collect(DISTINCT k) AS props
+                RETURN label, props
+                """
+            ).data()
+            props_by_label = {r["label"]: r["props"] for r in prop_rows}
+
+            payload["label_nodes"] = [
+                {
+                    "name": r["label"],
+                    "count": r["n"],
+                    "properties": props_by_label.get(r["label"], []),
+                }
+                for r in label_rows
+                if r["label"]
+            ]
+
+            # 3. Per-rel-type edges grouped by (from_label, type, to_label).
+            # LIMIT 500 keeps response size bounded for very dense graphs.
+            rel_rows = s.run(
+                """
+                MATCH (a)-[r]->(b)
+                WITH labels(a)[0] AS from_label,
+                     type(r)     AS rel_type,
+                     labels(b)[0] AS to_label,
+                     count(*)    AS n
+                RETURN from_label, rel_type, to_label, n
+                ORDER BY n DESC
+                LIMIT 500
+                """
+            ).data()
+            for r in rel_rows:
+                # Defensive: skip edges that reference a label that didn't
+                # appear in the label scan (could happen on inconsistent
+                # graphs where a node has zero labels).
+                if r["from_label"] not in valid_labels:
+                    continue
+                if r["to_label"] not in valid_labels:
+                    continue
+                payload["rel_edges"].append(
+                    {
+                        "type": r["rel_type"],
+                        "from_label": r["from_label"],
+                        "to_label": r["to_label"],
+                        "count": r["n"],
+                    }
+                )
+    except Exception as exc:
+        logger.warning(
+            f"[graph-studio] Neo4j network introspection failed for "
+            f"'{dbname}': {exc}"
+        )
+        _NEO4J_NETWORK_CACHE[dbname] = None
+        return None
+
+    _NEO4J_NETWORK_CACHE[dbname] = payload
+    return payload
 
 
 @router.get("/databases/neo4j-summary")
@@ -727,12 +1145,15 @@ async def neo4j_database_summary(lang: str = "en") -> Dict[str, Any]:
         "labels": [{"name": l["name"], "nodes": l["nodes"]} for l in labels],
         "rels": [{"name": r["name"], "edges": r["edges"]} for r in rels],
         "summary": await _neo4j_business_summary(dbname, inventory, lang),
+        "network_diagram": _neo4j_network_payload(dbname),
     }
 
 
 # ---------------------------------------------------------------------------
 # Threads (in-memory registry for the studio session)
 # ---------------------------------------------------------------------------
+# Threads and runs live in memory for the process lifetime. The compiled
+# graphs keep their own checkpointer (thread-scoped history) + store (memory).
 _THREADS: Dict[str, Dict[str, Any]] = {}
 _RUNS: Dict[str, List[Dict[str, Any]]] = {}
 # Per-thread cancellation flags: an in-flight SSE run checks the flag between
