@@ -302,7 +302,15 @@ function GeneralSection({ i18n, activeTheme, setTheme }: {
   const update = async (patch: Record<string, any>) => {
     setGen((prev: any) => ({ ...(prev || {}), ...patch }))
     const ok = await mutateNs('general', Object.entries(patch).map(([k, v]) => ({ op: 'set', path: [k], value: v })))
-    if (!ok) await load()  // conflict/error — re-read the server truth
+    if (!ok) {
+      await load()  // conflict/error — re-read the server truth
+      return
+    }
+    // Notify other in-app listeners (useDisplayMode, etc.) so they
+    // refetch and pick up the change without requiring a page reload.
+    window.dispatchEvent(new CustomEvent('settings:updated', {
+      detail: { ns: 'general', patch },
+    }))
   }
   const changeLanguage = async (lang: string) => { setLanguage(lang); i18n.changeLanguage(lang); await update({ language: lang }) }
   const changeTheme = async (name: ThemeName) => { setTheme(name); await update({ theme: name }) }
@@ -314,6 +322,16 @@ function GeneralSection({ i18n, activeTheme, setTheme }: {
       </Row>
       <Row label={t('settings_appearance')} hint={t('settings_color_theme')}>
         <Select value={activeTheme} onChange={v => changeTheme(v as ThemeName)} options={Object.values(themes).map(th => ({ value: th.name, label: th.displayName }))} />
+      </Row>
+      <Row label={t('settings_display_mode')} hint={t('settings_display_mode_hint')}>
+        <Select
+          value={gen?.display_mode ?? 'verbose'}
+          onChange={v => update({ display_mode: v })}
+          options={[
+            { value: 'verbose', label: t('settings_display_mode_verbose') },
+            { value: 'direct',  label: t('settings_display_mode_direct') },
+          ]}
+        />
       </Row>
       <Row label={t('settings_auto_save')} hint={t('settings_auto_save_desc')}>
         <Toggle checked={gen?.auto_save ?? true} onChange={v => update({ auto_save: v })} />

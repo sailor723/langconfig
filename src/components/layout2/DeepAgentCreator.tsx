@@ -17,7 +17,14 @@ import { SectionId as _SectionId, SECTIONS } from './editorConstants';
 import SkillsPicker from './editorSkillsPicker';
 import { useProject } from '../../contexts/ProjectContext';
 
-const CATEGORIES = ['research', 'coding', 'analysis', 'general', 'custom'];
+// Mirrors the categories used by the built-in templates in
+// backend/core/templates/deep_agent.py so pre-fills don't silently
+// fall back to the first option when the template's category isn't
+// in the dropdown.
+const CATEGORIES = [
+  'research', 'architecture', 'debugging', 'documentation', 'testing',
+  'coding', 'analysis', 'general', 'custom',
+];
 
 interface DeepAgentCreatorProps {
   tab: Tab;
@@ -60,16 +67,32 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   // Section state
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
 
-  // Form state
+  // Form state — when opened from the TemplatePicker (direct mode), the
+  // template's config is pre-applied so the user starts from a real
+  // baseline instead of an empty form. tab.data.config holds the same
+  // shape as DeepAgentConfig (subset: system_prompt / model / temperature
+  // / native_tools). The user can still edit every field before saving.
+  const prefill = tab?.data?.config ?? {};
+  const prefillMeta = tab?.data ?? {};
+
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('general');
+  const [description, setDescription] = useState(prefillMeta.description ?? '');
+  const [category, setCategory] = useState(
+    // Guard against template categories that aren't in the dropdown list
+    // (e.g. a user-built template may have any string). Fall back to the
+    // first CATEGORIES entry as a sane default in that case.
+    (CATEGORIES.includes(prefillMeta.category) ? prefillMeta.category : 'general'),
+  );
   const [systemPrompt, setSystemPrompt] = useState(
-    'You are a helpful AI assistant. Be concise and accurate.',
+    prefill.system_prompt ?? 'You are a helpful AI assistant. Be concise and accurate.',
   );
   // Use the globally stored default model from localStorage, if set
-  const [model, setModel] = useState(() => localStorage.getItem('langconfig.defaultModel') || '');
-  const [temperature, setTemperature] = useState(0.7);
+  const [model, setModel] = useState(() =>
+    prefill.model || localStorage.getItem('langconfig.defaultModel') || '',
+  );
+  const [temperature, setTemperature] = useState(
+    typeof prefill.temperature === 'number' ? prefill.temperature : 0.7,
+  );
   const [maxTokens, setMaxTokens] = useState<number | ''>('');
 
   // Tools (native via useAvailableTools hook above + custom below)
@@ -101,11 +124,22 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   const [availableCustomTools, setAvailableCustomTools] = useState<
     { id: number; tool_id: string; name: string; description: string }[]
   >([]);
-  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(defaultToolIds);
+  const [selectedNativeTools, setSelectedNativeTools] = useState<string[]>(
+    // Template-supplied native tools win over the universal defaults so
+    // the form matches what the template designer chose (e.g. a code-
+    // analysis template shouldn't pre-check web search tools).
+    Array.isArray(prefill.native_tools) && prefill.native_tools.length > 0
+      ? prefill.native_tools
+      : defaultToolIds,
+  );
   // Apply the default tool set once loaded (async hook) when nothing is
   // selected yet — new agents start with the universal base pre-checked.
   useEffect(() => {
-    if (defaultToolIds.length && selectedNativeTools.length === 0) {
+    if (
+      defaultToolIds.length &&
+      selectedNativeTools.length === 0 &&
+      !(Array.isArray(prefill.native_tools) && prefill.native_tools.length > 0)
+    ) {
       setSelectedNativeTools(defaultToolIds);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

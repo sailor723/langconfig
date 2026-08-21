@@ -20,7 +20,7 @@ document and a seeded document resolve identically.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -41,6 +41,12 @@ class GeneralSettings(BaseModel):
     telemetry: bool = False
     log_level: str = "info"
     theme: str = "langconfig"
+    # UI display mode for catalog activities (Tools, Agents, DeepAgents,
+    # Skills, Knowledge, Prompt). 'verbose' shows the marketing-rich
+    # HomePage on entry; 'direct' jumps straight into the most-recent
+    # (or first) item's editor tab, hiding the catalog grid until the
+    # user explicitly clicks back.
+    display_mode: Literal["verbose", "direct"] = "verbose"
 
 
 # ── models ───────────────────────────────────────────────────────────────────
