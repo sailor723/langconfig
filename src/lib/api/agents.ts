@@ -31,7 +31,7 @@ export interface AgentsApi {
    * (GET /api/deepagents/{id}/code — returns `agent.py` as text).
    */
   getAgentCode(id: number): Promise<any>;
-  importDeepAgent(langconfig: object): Promise<any>;
+  importDeepAgent(langconfig: object, opts?: { projectId?: number | null }): Promise<any>;
   /**
    * Download a self-contained .langconfig (v1.1) bundle for an agent
    * (GET /api/deepagents/{id}/export — full config + custom tools + skills).
@@ -135,8 +135,17 @@ export const agentsApi: AgentsApi = {
    * mutating axios's baseURL after construction has no effect on the
    * already-created AxiosInstance.
    */
-  async importDeepAgent(this: APIClient, langconfig: object) {
-    const body = { langconfig_content: JSON.stringify(langconfig) };
+  async importDeepAgent(this: APIClient, langconfig: object, opts?: { projectId?: number | null }) {
+    // Forward the active project so the new agent's workspace is
+    // project-scoped (e.g. <vault>/projects/<slug>/agents/agent_<id>)
+    // instead of the legacy <output>/agents/agent_<id>/ fallback. The
+    // backend's project_vault_key is derived from the project name.
+    const body: { langconfig_content: string; project_id?: number } = {
+      langconfig_content: JSON.stringify(langconfig),
+    };
+    if (opts?.projectId != null) {
+      body.project_id = opts.projectId;
+    }
     const directUrl = `${this.baseURL || ''}/api/deepagents/import`;
     const fallbackUrl = `${window.location.origin}/api/deepagents/import`;
 

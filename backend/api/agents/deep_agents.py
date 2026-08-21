@@ -1024,6 +1024,13 @@ async def save_agent_prompt(
 class ImportRequest(BaseModel):
     """Request to import a .langconfig file."""
     langconfig_content: str
+    # Optional project binding — when the user is in /project/{id}/* and
+    # clicks Import, the active project is forwarded here so the new
+    # agent's workspace is project-scoped (e.g.
+    # <vault>/projects/<slug>/agents/agent_<id>) rather than the legacy
+    # fallback <output>/agents/agent_<id>. The chat path can still re-bind
+    # the agent to a different project on every session.
+    project_id: Optional[int] = None
 
 
 @router.post("/import", response_model=DeepAgentResponse)
@@ -1037,10 +1044,20 @@ async def import_langconfig(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format")
 
+    # Persist the import-time project binding on the audit log so the
+    # chain of custody records which project the user was in when they
+    # imported. The agent itself is project-agnostic — no FK on
+    # deep_agent_templates; this is purely informational.
+    if request.project_id is not None:
+        logger.info(
+            f"Importing .langconfig with project_id={request.project_id} "
+            f"(binds workspace for the freshly created agent)"
+        )
+
     # v1.1 bundles also create any embedded custom tools + skills (reusing
     # same-name ones) before the agent row; all in one transaction.
     try:
-        agent = import_agent_bundle(langconfig, db)
+        agent = import_agent_bundle(langconfig, db, project_id=request.project_id)
     except HTTPException:
         db.rollback()
         raise

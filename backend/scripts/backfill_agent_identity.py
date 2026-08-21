@@ -4,12 +4,20 @@ For every ``deep_agent_templates`` row this:
   1. resolves the agent's real workspace root (same rule as creation:
      ``WorkspaceManager.resolve_agent_workspace`` — custom ``workspace_path``
      first, then vault-scoped, then legacy ``outputs/agents/agent_{id}/``);
-  2. builds AGENTS.md / CLAUDE.md with the REAL agent id + workspace baked in
-     (user-authored docs are preserved; old default-template docs and empty
-     docs are regenerated with real values);
-  3. rebuilds the system prompt = original base prompt + identity block
-     (real id + workspace) + AGENTS.md/CLAUDE.md embedded inline;
-  4. persists BOTH ``config.system_prompt`` and ``agent_docs`` to PostgreSQL.
+  2. calls the shared ``rebake_agent_identity`` helper which:
+     - strips the stale ``## Identity`` block (and any legacy
+       ``{{agent_id}}`` / ``{{workspace_root}}`` placeholders) from
+       ``config.system_prompt``;
+     - regenerates ``agent_docs`` when they look like the default template
+       (or are empty); preserves user-authored docs verbatim, refreshing
+       only the workspace-root lines via ``refresh_doc_identity``;
+     - rebuilds the system prompt = original base + identity + AGENTS.md +
+       CLAUDE.md embedded inline;
+  3. persists BOTH ``config.system_prompt`` and ``agent_docs`` to PostgreSQL.
+
+This script is a thin wrapper around ``core.agents.identity.rebake_agent_identity``,
+which is also called by ``services/agent_bundle.import_agent_bundle`` so
+imported agents never carry the source agent's id baked into their prompt.
 
 Idempotent: an agent is skipped when its stored prompt and docs already match
 what the backfill would produce (re-running reports 0 changes).
@@ -31,15 +39,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from db.database import SessionLocal
 from models.deep_agent import DeepAgentTemplate
-from core.agents.identity import (
-    build_identity_system_prompt,
-    default_agent_docs,
-    _strip_identity_block,
-)
-
-# Signature of the OLD default-template docs (regenerable with real values).
-# User-authored docs that do NOT match this shape are preserved.
-_DEFAULT_TEMPLATE_SIGNATURE = "## Path map"
+from core.agents.identity import rebake_agent_identity
 
 
 def _resolve_workspace(agent, override_root: str = "") -> str:
@@ -65,19 +65,6 @@ def _resolve_workspace(agent, override_root: str = "") -> str:
     ))
 
 
-def _is_old_default_docs(docs: dict) -> bool:
-    ag = (docs or {}).get("AGENTS.md") or ""
-    return _DEFAULT_TEMPLATE_SIGNATURE in ag
-
-
-def _build_docs(agent, workspace_root: str) -> dict:
-    """Keep user-authored docs; regenerate old defaults/empty with real values."""
-    existing = agent.agent_docs or {}
-    if existing and not _is_old_default_docs(existing):
-        return dict(existing)
-    return default_agent_docs(agent, workspace_root)
-
-
 def main() -> int:
     dry_run = "--dry-run" in sys.argv
     override_root = ""
@@ -91,31 +78,21 @@ def main() -> int:
         updated = 0
         skipped = 0
         for agent in agents:
-            cfg = dict(agent.config or {})
-            stored_prompt = cfg.get("system_prompt", "") or ""
-            base_prompt = _strip_identity_block(stored_prompt)
             ws_root = _resolve_workspace(agent, override_root)
-            docs = _build_docs(agent, ws_root)
-            new_prompt = build_identity_system_prompt(
-                base_prompt, agent.id, ws_root, docs
-            )
-            docs_changed = (agent.agent_docs or {}) != docs
-            if new_prompt == stored_prompt and not docs_changed:
+            docs_were_empty = not (agent.agent_docs or {})
+            if rebake_agent_identity(agent, ws_root):
+                flag_modified(agent, "config")
+                flag_modified(agent, "agent_docs")
+                if not dry_run:
+                    db.commit()
+                updated += 1
+                print(
+                    f"{'[dry-run] ' if dry_run else ''}"
+                    f"id={agent.id} name={agent.name!r} workspace={ws_root}"
+                    f" -> prompt+docs {'regenerated' if docs_were_empty else 'identity refreshed'}"
+                )
+            else:
                 skipped += 1
-                continue
-            cfg["system_prompt"] = new_prompt
-            agent.config = cfg
-            agent.agent_docs = docs
-            flag_modified(agent, "config")
-            flag_modified(agent, "agent_docs")
-            if not dry_run:
-                db.commit()
-            updated += 1
-            print(
-                f"{'[dry-run] ' if dry_run else ''}"
-                f"id={agent.id} name={agent.name!r} workspace={ws_root}"
-                f" -> prompt+docs {'regenerated' if docs_changed else 'identity refreshed'}"
-            )
         print(f"\n{'DRY-RUN: ' if dry_run else ''}{updated} agent(s) would be/"
               f" updated, {skipped} already current.")
         return 0

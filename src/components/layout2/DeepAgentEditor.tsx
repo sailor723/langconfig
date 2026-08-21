@@ -36,7 +36,7 @@ type SectionId = _SectionId;
 
 export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const t = useLayoutTokens();
-  const { setRightPanelTab, openRightPanel } = useLayoutState();
+  const { setRightPanelTab, openRightPanel, closeTab } = useLayoutState();
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
@@ -322,15 +322,52 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     if (!imported?.id) return;
     setLocalAgentId(typeof imported.id === 'number' ? imported.id : null);
     setJsonEdit(JSON.stringify(imported, null, 2));
-    // Sync tool + skill pickers with the imported config.
+    // Sync ALL editable fields with the imported config — not just the
+    // JSON view. The Prompt tab reads `promptDraft`, so without this the
+    // textarea keeps whatever the editor was initialized with (often the
+    // one-sentence default) while the JSON tab shows the real prompt.
     const c = imported.config || {};
+    setEditableModel(c.model || '');
+    setPromptDraft(c.system_prompt || '');
     setSelectedNativeTools(toToolIdList(c.native_tools));
     setSelectedCustomTools(toToolIdList(c.custom_tools));
     setSelectedSkills(Array.isArray(c.skills) ? c.skills : []);
     setActiveSection('json');
     setSaveMsg({ ok: true, text: `Imported as "${imported.name}"` });
     setTimeout(() => setSaveMsg(null), 4000);
-  }, [setLocalAgentId, setJsonEdit, setSelectedNativeTools, setSelectedCustomTools, setSelectedSkills, setActiveSection, setSaveMsg]);
+  }, [setLocalAgentId, setJsonEdit, setEditableModel, setPromptDraft, setSelectedNativeTools, setSelectedCustomTools, setSelectedSkills, setActiveSection, setSaveMsg]);
+
+  /** Two-step destructive delete: first confirm irreversibility, then a
+   *  second hard confirm before the API call. On success, close the tab. */
+  const handleDelete = async () => {
+    const id = localAgentId;
+    const name = agent.name || `DeepAgent ${id ?? '?'}`;
+    if (!id) return;
+    const step1 = window.confirm(
+      `Delete DeepAgent "${name}" (id=${id})? Its chat sessions and workspace ` +
+      `directory will be removed. This action cannot be undone.`,
+    );
+    if (!step1) return;
+    const step2 = window.confirm(
+      `Last warning — permanently delete "${name}" (id=${id})? ` +
+      `There is no undo for this action.`,
+    );
+    if (!step2) return;
+    try {
+      setSaving(true);
+      await apiClient.deleteDeepAgent(id);
+      setSaveMsg({ ok: true, text: `Deleted "${name}"` });
+      window.setTimeout(() => closeTab(tab.id), 400);
+    } catch (err: any) {
+      console.error('[DeepAgentEditor] Delete error:', err);
+      setSaveMsg({
+        ok: false,
+        text: `Delete failed: ${err?.response?.data?.detail ?? err?.message ?? 'unknown error'}`,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   /** Parse the JSON textarea and PUT the updated agent back to the backend */
   const handleSave = async () => {
@@ -1071,6 +1108,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
         agentId={localAgentId ?? (typeof agent.id === 'number' ? agent.id : null)}
         agentName={agent.name}
         onImported={handleImported}
+        onDelete={handleDelete}
         canRun={!!localAgentId}
         saveDisabled={!localAgentId}
         saveMsg={saveMsg}
