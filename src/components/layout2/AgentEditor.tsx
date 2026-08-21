@@ -41,7 +41,7 @@ const SECTIONS: { id: SectionId; label: string; icon: React.ReactNode }[] = [
 
 export default function AgentEditor({ tab }: AgentEditorProps) {
   const t = useLayoutTokens();
-  const { setRightPanelTab, openRightPanel } = useLayoutState();
+  const { setRightPanelTab, openRightPanel, closeTab } = useLayoutState();
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
   const isNew = agent.new === true || typeof agent.id !== 'number';
@@ -273,14 +273,62 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     if (!imported?.id) return;
     setLocalAgentId(typeof imported.id === 'number' ? imported.id : null);
     setJsonEdit(JSON.stringify(imported, null, 2));
+    // Sync ALL editable fields with the imported config — not just the
+    // JSON view. The Overview + Prompt tabs read editableName / editableDesc
+    // / editablePrompt / editableModel / editableTemp / editableMaxTokens,
+    // so without this they keep whatever the editor was initialized with
+    // (often the one-sentence default) while the JSON tab shows the real
+    // imported values.
     const c = imported.config || {};
+    setEditableName(imported.name || '');
+    setEditableDesc(imported.description || '');
+    setEditableCategory(imported.category || 'general');
+    setEditableModel(c.model || '');
+    setEditableTemp(typeof c.temperature === 'number' ? c.temperature : 0.7);
+    setEditableMaxTokens(c.max_tokens ?? (isNew ? 4096 : ''));
+    setEditablePrompt(c.system_prompt || '');
     setSelectedNativeTools(toToolIdList(c.native_tools));
     setSelectedCustomTools(toToolIdList(c.custom_tools));
     setSelectedSkills(Array.isArray(c.skills) ? c.skills : []);
     setActiveSection('json');
     setSaveMsg({ ok: true, text: `Imported as "${imported.name}"` });
     setTimeout(() => setSaveMsg(null), 4000);
-  }, [setLocalAgentId, setJsonEdit, setSelectedNativeTools, setSelectedCustomTools, setSelectedSkills, setActiveSection, setSaveMsg]);
+  }, [setLocalAgentId, setJsonEdit, setEditableName, setEditableDesc, setEditableCategory, setEditableModel, setEditableTemp, setEditableMaxTokens, setEditablePrompt, setSelectedNativeTools, setSelectedCustomTools, setSelectedSkills, setActiveSection, setSaveMsg, isNew]);
+
+  /** Two-step destructive delete: first confirm irreversibility, then a
+   *  second hard confirm before the API call. On success, close the tab.
+   *  The editor is an Agent (use_deepagents=false) but shares the same
+   *  deep_agent_templates table, so the same DELETE endpoint applies. */
+  const handleDelete = async () => {
+    const id = localAgentId;
+    const name = agent.name || `Agent ${id ?? '?'}`;
+    if (!id) return;
+    const step1 = window.confirm(
+      `Delete agent "${name}" (id=${id})? Its chat sessions and workspace ` +
+      `directory will be removed. This action cannot be undone.`,
+    );
+    if (!step1) return;
+    const step2 = window.confirm(
+      `Last warning — permanently delete "${name}" (id=${id})? ` +
+      `There is no undo for this action.`,
+    );
+    if (!step2) return;
+    try {
+      setSaving(true);
+      await apiClient.deleteDeepAgent(id);
+      setSaveMsg({ ok: true, text: `Deleted "${name}"` });
+      // Close the editor tab after a short delay so the message is visible.
+      window.setTimeout(() => closeTab(tab.id), 400);
+    } catch (err: any) {
+      console.error('[AgentEditor] Delete error:', err);
+      setSaveMsg({
+        ok: false,
+        text: `Delete failed: ${err?.response?.data?.detail ?? err?.message ?? 'unknown error'}`,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     if (saving) return;
@@ -631,6 +679,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         agentId={localAgentId}
         agentName={agent.name}
         onImported={handleImported}
+        onDelete={handleDelete}
         t={t}
       />
 

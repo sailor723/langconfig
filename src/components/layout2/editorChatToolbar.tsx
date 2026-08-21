@@ -7,12 +7,17 @@
  *   - saveDisabled  : AgentEditor -> saving, DeepAgentEditor -> saving || !id
  *   - statusLabel   : pre-formatted right-hand status line
  *
- * Also hosts the agent share actions (Export .langconfig / Import .langconfig).
+ * Hosts the agent share actions (Export / Import / View code / Delete).
+ * Imports forward the currently-active project so the new agent's
+ * workspace is project-scoped. Delete is destructive and requires
+ * a two-step confirmation in the caller (see AgentEditor.handleDelete
+ * and DeepAgentEditor.handleDelete).
  */
 import { useRef } from 'react';
 import type { LayoutTokens } from './tokens';
-import { Loader, Play, Square, Save, Eye, Download, Upload } from 'lucide-react';
+import { Loader, Play, Square, Save, Eye, Download, Upload, Trash2 } from 'lucide-react';
 import apiClient from '../../lib/api-client';
+import { useProject } from '../../contexts/ProjectContext';
 
 export interface SaveMessage {
   ok: boolean;
@@ -36,12 +41,15 @@ interface ChatTestToolbarProps {
   saveMsg: SaveMessage | null;
   statusLabel: string;
   t: LayoutTokens;
-  /** Current agent id (enables Export). */
+  /** Current agent id (enables Export + Delete). */
   agentId: number | null;
-  /** Agent display name (used for the export filename). */
+  /** Agent display name (used for the export filename + delete confirm). */
   agentName: string;
   /** Called after a .langconfig import succeeds with the imported agent. */
   onImported?: (agent: any) => void;
+  /** Called when the user clicks Delete. The caller is responsible for
+   *  the two-step confirmation + the actual API call + tab close. */
+  onDelete?: () => void;
 }
 
 export default function ChatTestToolbar({
@@ -61,8 +69,10 @@ export default function ChatTestToolbar({
   agentId,
   agentName,
   onImported,
+  onDelete,
 }: ChatTestToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { activeProjectId } = useProject();
 
   /** Download the agent as a self-contained .langconfig (v1.1) bundle. */
   const handleExport = async () => {
@@ -84,12 +94,15 @@ export default function ChatTestToolbar({
     }
   };
 
-  /** Import an agent from a .langconfig file (v1.0 / v1.1). */
+  /** Import an agent from a .langconfig file (v1.0 / v1.1). Forwards
+   *  the active project so the new agent's workspace is project-scoped. */
   const handleImport = async (file: File) => {
     try {
       const text = await file.text();
       const langconfig = JSON.parse(text);
-      const res = await apiClient.importDeepAgent(langconfig);
+      const res = await apiClient.importDeepAgent(langconfig, {
+        projectId: activeProjectId,
+      });
       const imported = res?.data ?? res;
       onImported?.(imported);
     } catch (err: any) {
@@ -282,6 +295,40 @@ export default function ChatTestToolbar({
           {saveMsg.text}
         </span>
       )}
+
+      {/* Destructive action — visually separated from Save so it's not
+          clicked by accident. The caller runs the two-step confirm. */}
+      {onDelete && (
+        <>
+          <div style={{ width: 1, height: 16, background: t.border, margin: '0 8px' }} />
+          <button
+            onClick={onDelete}
+            disabled={!agentId}
+            title="Delete this agent permanently"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              height: 24,
+              padding: '0 10px',
+              background: 'transparent',
+              color: agentId ? '#ef5350' : t.textDim,
+              border: `1px solid ${agentId ? '#ef535055' : t.border}`,
+              borderRadius: 3,
+              fontSize: 12,
+              cursor: agentId ? 'pointer' : 'not-allowed',
+              opacity: agentId ? 1 : 0.6,
+              transition: 'background 0.12s',
+            }}
+            onMouseEnter={e => { if (agentId) e.currentTarget.style.background = '#ef535018'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <Trash2 size={12} />
+            Delete
+          </button>
+        </>
+      )}
+
       <div style={{ flex: 1 }} />
       <span style={{ fontSize: 11, color: t.textDim }}>
         {statusLabel}

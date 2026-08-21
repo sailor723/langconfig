@@ -323,13 +323,34 @@ def _unique_agent_name(name: str, db: Session) -> str:
     return candidate
 
 
-def import_agent_bundle(langconfig: Dict[str, Any], db: Session) -> DeepAgentTemplate:
+def import_agent_bundle(
+    langconfig: Dict[str, Any],
+    db: Session,
+    project_id: Optional[int] = None,
+) -> DeepAgentTemplate:
     """
     Import a .langconfig bundle (v1.0 or v1.1) as a new DeepAgent.
 
     Creates any embedded custom tools and skills first (reusing same-name
     ones), then the agent with its full config restored and a unique name.
     All mutations share one transaction — committed once at the end.
+
+    ``project_id`` is the active project at import time, forwarded by
+    the API layer (``ImportRequest.project_id``). When set, the new
+    agent's workspace is resolved under that project's vault (so
+    e.g. ``<vault>/projects/<slug>/agents/agent_<id>``) rather than the
+    legacy fallback ``<output>/agents/agent_<id>``. The chat path can
+    still re-bind to a different project on every session via
+    ``chat_sessions.project_id``.
+
+    After the row is inserted (and ``db.refresh`` has populated its real id),
+    we resolve the new agent's workspace and re-bake the identity block
+    in both ``config.system_prompt`` and ``agent_docs`` via
+    ``rebake_agent_identity``. Without this step the imported agent would
+    carry the SOURCE agent's id baked into its prompt + AGENTS.md +
+    CLAUDE.md, which surfaces on the next chat ("I'm Agent 159" — wrong,
+    the agent is now 187). The re-bake mutates in place and we commit
+    once at the end so the fix is atomic with the import.
     """
     version = langconfig.get("version")
     if version not in ("1.0", "1.1") or langconfig.get("export_type") != "deepagent":
@@ -372,4 +393,27 @@ def import_agent_bundle(langconfig: Dict[str, Any], db: Session) -> DeepAgentTem
     db.commit()
     db.refresh(agent)
     logger.info(f"Imported DeepAgent: {agent.name} (id={agent.id})")
+
+    # 4) Re-bake the identity block with the NEW agent's id + workspace.
+    # Must run after db.refresh so agent.id is populated. The helper
+    # mutates agent.config + agent.agent_docs in place and returns True
+    # when it actually changed something.
+    from core.agents.identity import rebake_agent_identity
+    from services.workspace_manager import WorkspaceManager, get_workspace_manager
+    from sqlalchemy.orm.attributes import flag_modified
+    ws_mgr = get_workspace_manager()
+    ws_root = str(ws_mgr.resolve_agent_workspace(
+        agent,
+        project_id,
+        vault_key=WorkspaceManager.project_vault_key(db, project_id) or None,
+        agent_key=None,
+    ))
+    if rebake_agent_identity(agent, ws_root):
+        flag_modified(agent, "config")
+        flag_modified(agent, "agent_docs")
+        db.commit()
+        logger.info(
+            f"Re-baked identity for imported agent "
+            f"{agent.name!r} (id={agent.id}, workspace={ws_root})"
+        )
     return agent

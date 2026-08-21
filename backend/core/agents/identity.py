@@ -134,6 +134,95 @@ def refresh_doc_identity(content: str, agent_id, workspace_root: str) -> str:
     return out
 
 
+# Signature of the OLD default-template docs (regenerable with real values).
+# User-authored docs that do NOT match this shape are preserved verbatim
+# (only the workspace-root lines are rewritten via refresh_doc_identity).
+_DEFAULT_TEMPLATE_SIGNATURE = "## Path map"
+
+
+def _is_default_template_docs(docs: dict) -> bool:
+    """True when ``AGENTS.md`` was produced by ``default_agent_docs``.
+
+    The legacy default template always contains a ``## Path map`` section
+    (see ``default_agent_docs`` below). Imported bundles carry the source
+    agent's own docs, which may be user-edited or may still be the default
+    template — both are fine to regenerate with the NEW agent's id/workspace
+    so the imported copy never carries the old agent's identity.
+    """
+    ag = (docs or {}).get("AGENTS.md") or ""
+    return _DEFAULT_TEMPLATE_SIGNATURE in ag
+
+
+def rebake_agent_identity(agent, workspace_root: str) -> bool:
+    """
+    Re-bake an agent's identity block + AGENTS.md/CLAUDE.md so the stored
+    copy matches the agent's CURRENT id and resolved workspace.
+
+    Used after import / clone / any operation that creates a new agent row
+    from a bundle authored for a different agent. Idempotent for agents
+    that already have the right id+workspace baked in.
+
+    What changes:
+    - ``config.system_prompt``: the trailing ``## Identity`` block (and any
+      legacy placeholders like ``{{agent_id}}`` / ``{{workspace_root}}``)
+      are stripped and rebuilt with the new id+workspace. AGENTS.md and
+      CLAUDE.md are then re-embedded at the end so the chat-time copy
+      shows the NEW identity, not the old source's.
+    - ``agent_docs``: when the docs look like the legacy default template
+      (or are empty), they are regenerated with the new identity. When
+      they look user-authored, they are preserved verbatim — only the
+      ``**Workspace**:`` line and the absolute-path code block under
+      ``## Workspace`` are rewritten via ``refresh_doc_identity``.
+
+    Returns True if anything on the agent row was changed (callers can
+    commit), False if the stored values already match the resolved
+    identity.
+    """
+    if not workspace_root:
+        return False
+    cfg = dict(agent.config or {})
+    stored_prompt = cfg.get("system_prompt", "") or ""
+
+    # 1) Strip the baked identity from the stored prompt so we can re-bake
+    #    with the NEW agent's id+workspace. Removes both the marker block
+    #    AND any legacy placeholder tokens the source agent may have used
+    #    (older versions stored `{{agent_id}}` directly in the prompt).
+    base_prompt = _strip_identity_block(stored_prompt)
+    for legacy in _LEGACY_TOKENS:
+        base_prompt = base_prompt.replace(legacy, str(agent.id))
+
+    # 2) Decide whether the imported agent_docs are user-authored or
+    #    auto-generated defaults. Defaults are regenerated so the
+    #    embedded identity matches the new agent; user-authored docs are
+    #    preserved (only the workspace-root line is refreshed).
+    existing_docs = agent.agent_docs or {}
+    if not existing_docs or _is_default_template_docs(existing_docs):
+        docs = default_agent_docs(agent, workspace_root)
+    else:
+        docs = {
+            name: refresh_doc_identity(content, agent.id, workspace_root)
+            for name, content in existing_docs.items()
+        }
+
+    # 3) Rebuild the full system prompt (base + identity + embedded docs).
+    new_prompt = build_identity_system_prompt(
+        base_prompt, agent.id, workspace_root, docs
+    )
+
+    # 4) Compare to the stored state — skip the DB write when nothing
+    #    actually changed (idempotent for agents that were already
+    #    baked with their current id).
+    prompt_changed = new_prompt != stored_prompt
+    docs_changed = (agent.agent_docs or {}) != docs
+    if not prompt_changed and not docs_changed:
+        return False
+
+    cfg["system_prompt"] = new_prompt
+    agent.config = cfg
+    agent.agent_docs = docs
+    return True
+
+
 def _strip_identity_block(system_prompt: str) -> str:
     """Remove any existing identity block (from ``## Identity`` to the end).
 
