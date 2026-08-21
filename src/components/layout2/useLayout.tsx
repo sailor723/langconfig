@@ -59,6 +59,70 @@ export interface Tab {
   /** Optional data passed to the view component */
   data?: any;
   dirty?: boolean;
+  /**
+   * Activity this tab belongs to. Used by App.tsx to close the previous
+   * activity's tabs when the user switches activities in the ActivityBar.
+   * Tabs without an `activity` (file/library/notebook/global tabs) are
+   * preserved across activity switches.
+   */
+  activity?: ActivityId | 'global';
+}
+
+/**
+ * Map a tab's viewType to its owning ActivityId. Tabs whose viewType
+ * doesn't belong to any single activity (e.g. workflow editor, file
+ * library, notebooks, analysis) return undefined — these are
+ * "global" tabs that survive activity switches.
+ *
+ * Centralized here so the Workspace's VIEWS registry (which knows
+ * every viewType) and App.tsx's close-on-switch logic share the same
+ * mapping — adding a new activity only requires editing this table.
+ */
+export function viewTypeToActivity(viewType: string): ActivityId | undefined {
+  switch (viewType) {
+    // Workflow studio (global — keep across all activity switches)
+    case 'workflow':
+      return undefined;
+    // LangGraph studio
+    case 'graph':
+      return 'graph';
+    // DeepAgents
+    case 'deepagent':
+    case 'deepagent-create':
+    case 'template-picker':
+      // The picker is opened in direct mode by DeepAgents AND by Agents /
+      // Skills / Prompt. We rely on the explicit `activity` field set by
+      // the directModeTabFor helper in App.tsx — fall through here for
+      // safety only.
+      return 'deepagents';
+    // Agents (regular)
+    case 'agent':
+      return 'agents';
+    // Tools
+    case 'tool-category':
+    case 'tool-editor':
+    case 'custom-tool-builder':
+      return 'tools';
+    // Skills
+    case 'skill':
+    case 'skill-editor':
+      return 'skills';
+    // Knowledge
+    case 'knowledge-view':
+      return 'knowledge';
+    // Prompt
+    case 'prompt-detail':
+      return 'prompt';
+    // Search providers (part of settings, not an activity)
+    case 'search-provider-detail':
+      return undefined;
+    // Notebooks (Learning)
+    case 'notebook':
+    case 'analysis':
+      return undefined;
+    default:
+      return undefined;
+  }
 }
 
 // ── Layout context ────────────────────────────────────────
@@ -82,6 +146,12 @@ export interface LayoutState {
   activeTabId: string | null;
   openTab: (tab: Tab) => void;
   closeTab: (id: string) => void;
+  /** Close every tab whose `activity` field is set and is NOT in `keep`.
+   *  Tabs without an `activity` (file/library/notebook/global) are never
+   *  closed by this call — they're preserved across activity switches.
+   *  Used by App.tsx when the user clicks a different activity in the
+   *  ActivityBar. */
+  closeTabsByActivity: (keep: ActivityId | 'global') => void;
   setActiveTab: (id: string) => void;
   setTabDirty: (id: string, dirty: boolean) => void;
   moveTab: (fromIndex: number, toIndex: number) => void;
@@ -130,14 +200,21 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const [sidebarView, setSidebarView] = useState<'explorer' | 'search'>('explorer');
 
   const openTab = useCallback((tab: Tab) => {
+    // Auto-tag the tab with its owning activity (if any) so App.tsx's
+    // close-on-switch logic works without every caller remembering to
+    // pass `activity`. The explicit field wins; the viewType heuristic
+    // is a fallback.
+    const inferred = tab.activity ?? viewTypeToActivity(tab.viewType) ?? undefined;
+    const normalized: Tab = inferred ? { ...tab, activity: inferred } : tab;
+
     setTabs(prev => {
-      const exists = prev.find(t => t.id === tab.id);
+      const exists = prev.find(t => t.id === normalized.id);
       if (exists) {
-        return prev.map(t => t.id === tab.id ? { ...t, ...tab } : t);
+        return prev.map(t => t.id === normalized.id ? { ...t, ...normalized } : t);
       }
-      return [...prev, tab];
+      return [...prev, normalized];
     });
-    setActiveTabId(tab.id);
+    setActiveTabId(normalized.id);
   }, []);
 
   // Use a ref to track activeTabId so closeTab's functional updater always
@@ -155,6 +232,25 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         setActiveTabId(next[newIdx].id);
       } else if (next.length === 0) {
         setActiveTabId(null);
+      }
+      return next;
+    });
+  }, []);
+
+  /**
+   * Close every tab whose `activity` is set AND not equal to `keep`. Tabs
+   * without an `activity` field are preserved (file/library/global tabs).
+   * If closing the active tab empties the tab list, `activeTabId` becomes
+   * null (Workspace falls back to the route's default content).
+   */
+  const closeTabsByActivity = useCallback((keep: ActivityId | 'global') => {
+    setTabs(prev => {
+      const next = prev.filter(t => !t.activity || t.activity === keep);
+      if (next.length !== prev.length) {
+        const stillActive = next.some(t => t.id === activeTabIdRef.current);
+        if (!stillActive) {
+          setActiveTabId(next.length > 0 ? next[next.length - 1].id : null);
+        }
       }
       return next;
     });
@@ -208,6 +304,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     activeTabId,
     openTab,
     closeTab,
+    closeTabsByActivity,
     setActiveTab,
     setTabDirty,
     moveTab,

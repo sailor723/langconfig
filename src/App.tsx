@@ -236,6 +236,9 @@ function directModeTabFor(view: View): Tab | null {
         id: 'direct-deepagents',
         label: 'Quick build · DeepAgents',
         viewType: 'template-picker',
+        // Explicit activity (template-picker is shared by 4 activities
+        // so the viewTypeToActivity heuristic can't disambiguate).
+        activity: 'deepagents',
         data: { activity: 'deepagents' },
       };
     case 'agents':
@@ -243,6 +246,7 @@ function directModeTabFor(view: View): Tab | null {
         id: 'direct-agents',
         label: 'Quick build · Agent',
         viewType: 'template-picker',
+        activity: 'agents',
         data: { activity: 'agents' },
       };
     case 'skills':
@@ -250,6 +254,7 @@ function directModeTabFor(view: View): Tab | null {
         id: 'direct-skills',
         label: 'Quick build · Skill',
         viewType: 'template-picker',
+        activity: 'skills',
         data: { activity: 'skills' },
       };
     case 'tools':
@@ -260,6 +265,7 @@ function directModeTabFor(view: View): Tab | null {
         id: 'direct-tools',
         label: 'New Tool',
         viewType: 'custom-tool-builder',
+        activity: 'tools',
         data: { new: true },
       };
     case 'prompt':
@@ -267,6 +273,7 @@ function directModeTabFor(view: View): Tab | null {
         id: 'direct-prompt',
         label: 'Quick build · Prompt',
         viewType: 'template-picker',
+        activity: 'prompt',
         data: { activity: 'prompt' },
       };
     case 'knowledge':
@@ -283,7 +290,7 @@ function AppContent() {
   const location = useLocation();
   const { activeProjectId } = useProject();
   const { displayMode } = useDisplayMode();
-  const { openTab } = useLayoutState();
+  const { openTab, closeTabsByActivity } = useLayoutState();
   const workflowCanvasRef = useRef<WorkflowCanvasRef>(null);
   const saveWorkflowTimeoutRef = useRef<number | null>(null);
 
@@ -445,6 +452,21 @@ function AppContent() {
         );
         if (confirmLeave) return;
       }
+    }
+    // Close tabs that belong to the previous activity. Tabs without an
+    // `activity` field (file/library/notebook/global) are preserved so the
+    // user keeps any cross-activity context open (e.g. a code file open
+    // while editing an agent). When `view` has no associated activity
+    // (home / project / chat / settings) we close the previous activity's
+    // tabs but keep global ones — same behavior.
+    const newActivity = VIEW_TO_ACTIVITY[view];
+    if (newActivity) {
+      closeTabsByActivity(newActivity);
+    } else {
+      // Special "leaving an activity" case: home / chat / settings.
+      // Pass 'global' so EVERY activity-scoped tab is closed; only
+      // global (no-activity) tabs remain.
+      closeTabsByActivity('global');
     }
     navigate(VIEW_ROUTE[view]);
   };
