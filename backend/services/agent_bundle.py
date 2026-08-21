@@ -77,7 +77,13 @@ def _known_config_fields() -> Set[str]:
 # =============================================================================
 
 def _tool_bundle_dict(tool: CustomTool) -> Dict[str, Any]:
-    """Serialize a custom tool row for the bundle (secrets redacted)."""
+    """Serialize a custom tool row for the bundle (secrets redacted).
+
+    Carries every metadata flag that matters for the tool's behavior so a
+    round-trip reconstructs the tool faithfully: ``requires_api_key`` (the
+    env-var hint — the key VALUE stays local), ``is_builtin``, the DSH-style
+    ``definition`` block (category/order/presentation), mode flags, etc.
+    """
     return {
         "tool_id": tool.tool_id,
         "name": tool.name,
@@ -89,9 +95,13 @@ def _tool_bundle_dict(tool: CustomTool) -> Dict[str, Any]:
         "output_format": tool.output_format,
         "validation_rules": tool.validation_rules,
         "is_template_based": tool.is_template_based,
+        "is_advanced_mode": tool.is_advanced_mode,
         "category": tool.category,
         "tags": list(tool.tags or []),
         "version": tool.version,
+        "requires_api_key": tool.requires_api_key,
+        "is_builtin": tool.is_builtin,
+        "definition": tool.definition,
     }
 
 
@@ -223,9 +233,16 @@ def _import_custom_tool(tool_id: str, tool_data: Dict[str, Any], db: Session) ->
         output_format=tool_data.get("output_format", "string"),
         validation_rules=tool_data.get("validation_rules"),
         is_template_based=tool_data.get("is_template_based", True),
+        is_advanced_mode=tool_data.get("is_advanced_mode", False),
         category=tool_data.get("category"),
         tags=tool_data.get("tags", []),
         version=tool_data.get("version", "1.0.0"),
+        # Preserve the API-key hint (the KEY VALUE is redacted on export and
+        # never crosses the wire — the user must re-enter it locally) and the
+        # builtin/mode flags so the imported tool behaves like the source.
+        requires_api_key=tool_data.get("requires_api_key"),
+        is_builtin=tool_data.get("is_builtin", False),
+        definition=tool_data.get("definition") or None,
     ))
     return True
 
