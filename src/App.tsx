@@ -45,7 +45,8 @@ import { useProject } from './contexts/ProjectContext';
 import SetupWizard from './components/layout2/SetupWizard';
 
 // Layout2 components
-import { LayoutProvider, useLayoutState, type ActivityId } from './components/layout2/useLayout';
+import { LayoutProvider, useLayoutState, type ActivityId, type Tab } from './components/layout2/useLayout';
+import { DisplayModeProvider, useDisplayMode } from './components/layout2/useDisplayMode';
 import ActivityBar from './components/layout2/ActivityBar';
 import LeftSidebar from './components/layout2/LeftSidebar';
 import Workspace from './components/layout2/Workspace';
@@ -56,7 +57,6 @@ import WorkflowStudioPage, { type WorkflowStudioRef, type StudioNodeConfig } fro
 import WorkflowStudioSidebar from './components/layout2/WorkflowStudioSidebar';
 import GraphStudioPage from './features/graph-studio/GraphStudioPage';
 import GraphStudioSidebar from './features/graph-studio/GraphStudioSidebar';
-import GraphHomePage from './features/graph-studio/GraphHomePage';
 
 type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'chat' | 'learning' | 'graph' | 'project';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
@@ -222,12 +222,90 @@ const ACTIVITY_TO_VIEW: Partial<Record<ActivityId, View>> = {
   learning: 'learning',
 };
 
+// ── Direct-mode "default tab" lookup ────────────────────────────
+// When displayMode === 'direct', the user skips the catalog HomePage
+// and lands on a starter tab. For activities with meaningful template
+// collections (DeepAgents, Agents, Skills, Prompt) we open the
+// TemplatePicker — a card grid the user clicks to in order to open the
+// editor pre-filled. For Tools the "new" tool builder is the only
+// sensible default; for Knowledge there's no per-item editor.
+function directModeTabFor(view: View): Tab | null {
+  switch (view) {
+    case 'deepagents':
+      return {
+        id: 'direct-deepagents',
+        label: 'Quick build · DeepAgents',
+        viewType: 'template-picker',
+        data: { activity: 'deepagents' },
+      };
+    case 'agents':
+      return {
+        id: 'direct-agents',
+        label: 'Quick build · Agent',
+        viewType: 'template-picker',
+        data: { activity: 'agents' },
+      };
+    case 'skills':
+      return {
+        id: 'direct-skills',
+        label: 'Quick build · Skill',
+        viewType: 'template-picker',
+        data: { activity: 'skills' },
+      };
+    case 'tools':
+      // Tools has category cards, not templates, on its HomePage; the
+      // picker pattern doesn't fit. Fall back to opening the new-tool
+      // builder so the user is one click away from creating one.
+      return {
+        id: 'direct-tools',
+        label: 'New Tool',
+        viewType: 'custom-tool-builder',
+        data: { new: true },
+      };
+    case 'prompt':
+      return {
+        id: 'direct-prompt',
+        label: 'Quick build · Prompt',
+        viewType: 'template-picker',
+        data: { activity: 'prompt' },
+      };
+    case 'knowledge':
+      // Knowledge has no per-item editor; render an empty workspace
+      // (Workspace.fallback) so the user can still navigate to it.
+      return null;
+    default:
+      return null;
+  }
+}
+
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const { activeProjectId } = useProject();
+  const { displayMode } = useDisplayMode();
+  const { openTab } = useLayoutState();
   const workflowCanvasRef = useRef<WorkflowCanvasRef>(null);
   const saveWorkflowTimeoutRef = useRef<number | null>(null);
+
+  // Current view from route
+  const currentView: View = ROUTE_TO_VIEW[location.pathname] ?? 'home';
+
+  // ── Direct-mode auto-open ───────────────────────────────
+  // When displayMode === 'direct' and the user lands on a catalog
+  // activity, skip the HomePage (which renders the "what is X..."
+  // hero + template grid) and jump straight to the activity's natural
+  // studio / "new item" tab. Verbose mode is unchanged — HomePages
+  // render as before.
+  useEffect(() => {
+    if (displayMode !== 'direct') return;
+    const tab = directModeTabFor(currentView);
+    if (!tab) return;
+    openTab(tab);
+    // currentView + displayMode are the reactive inputs. openTab is
+    // stable; we deliberately don't depend on it to avoid re-running on
+    // every tab state update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentView, displayMode]);
 
   // ── First-run setup wizard ──────────────────────────────
   // While the setup status is unknown we render nothing (avoids a flash of
@@ -330,16 +408,8 @@ function AppContent() {
   }, [navigate]);
 
   // Graph activity: show the LangGraph landing page until the user enters the
-  // studio (via "Open Studio" or picking an assistant on the home page).
-  const [graphEntered, setGraphEntered] = useState(false);
-
-  // Current view from route
-  const currentView: View = ROUTE_TO_VIEW[location.pathname] ?? 'home';
-
-  // Returning to the Graph activity always starts at the home page.
-  useEffect(() => {
-    if (currentView !== 'graph') setGraphEntered(false);
-  }, [currentView]);
+  // (Intentionally no `currentView` re-declaration here — already computed
+  //  above for the direct-navigation hook.)
 
   // Sync ActivityBar with current view
   useEffect(() => {
@@ -472,6 +542,16 @@ function AppContent() {
   const selectedNodeConfig = selectedNodeId ? nodeConfigs[selectedNodeId] : null;
 
   // ── Render current page for Workspace fallback ──────────
+  // In direct mode the 6 catalog activities (Tools / Agents / DeepAgents /
+  // Skills / Knowledge / Prompt) skip their HomePage; the Workspace
+  // renders nothing and the auto-opened default tab (see
+  // `directModeTabFor`) is the only content. Verbose mode keeps the
+  // HomePage (hero + catalog) as before.
+  const directCatalogViews: ReadonlySet<View> = new Set<View>([
+    'tools', 'agents', 'deepagents', 'skills', 'knowledge', 'prompt',
+  ]);
+  const skipHomeForDirect = displayMode === 'direct' && directCatalogViews.has(currentView);
+
   const renderCurrentPage = () => {
     switch (currentView) {
       case 'home': return <HomePage />;
@@ -492,13 +572,22 @@ function AppContent() {
           onWorkflowSelect={setSelectedWorkflowId}
         />
       );
-      case 'graph': return graphEntered ? <GraphStudioPage /> : <GraphHomePage onEnterStudio={() => setGraphEntered(true)} />;
-      case 'deepagents': return <DeepAgentHomePage />;
-      case 'agents': return <AgentHomePage />;
-      case 'skills': return <SkillHomePage />;
-      case 'tools': return <ToolHomePage />;
-      case 'prompt': return <PromptHomePage />;
-      case 'knowledge': return <KnowledgeHomePage />;
+      case 'graph': return <GraphStudioPage />;
+      case 'deepagents':
+        return skipHomeForDirect ? null : <DeepAgentHomePage />;
+      case 'agents':
+        return skipHomeForDirect ? null : <AgentHomePage />;
+      case 'skills':
+        return skipHomeForDirect ? null : <SkillHomePage />;
+      case 'tools':
+        return skipHomeForDirect ? null : <ToolHomePage />;
+      case 'prompt':
+        return skipHomeForDirect ? null : <PromptHomePage />;
+      case 'knowledge':
+        // Knowledge has no per-item "studio" — in direct mode the
+        // Workspace just renders empty. The user can click back to
+        // verbose via Settings if they want the catalog back.
+        return skipHomeForDirect ? null : <KnowledgeHomePage />;
       case 'analysis': return <AnalysisPage />;
       case 'playground': return <PlaygroundPage />;
       case 'deepagent-studio': return <DeepAgentStudioPage />;
@@ -552,7 +641,7 @@ function AppContent() {
               }}
             />
           )}
-          {currentView === 'graph' && graphEntered && <GraphStudioSidebar />}
+          {currentView === 'graph' && <GraphStudioSidebar />}
         </LeftSidebar>
         )}
 
@@ -620,10 +709,12 @@ function App() {
         <HashRouter>
           <ProjectProvider>
             <ChatProvider>
-              <LayoutProvider>
-                <AppContent />
-                <GlobalChatModalWrapper />
-              </LayoutProvider>
+              <DisplayModeProvider>
+                <LayoutProvider>
+                  <AppContent />
+                  <GlobalChatModalWrapper />
+                </LayoutProvider>
+              </DisplayModeProvider>
             </ChatProvider>
           </ProjectProvider>
         </HashRouter>

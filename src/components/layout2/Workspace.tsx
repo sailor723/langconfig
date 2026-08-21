@@ -9,7 +9,7 @@
 import { useRef } from 'react';
 import { useLayoutState, type Tab } from './useLayout';
 import { useLayoutTokens } from './tokens';
-import { X, File, User, BookOpen, BarChart3, Brain, Globe, Wrench, Database, Award, FileText } from 'lucide-react';
+import { X, File, User, BookOpen, BarChart3, Brain, Globe, Wrench, Database, Award, FileText, LayoutGrid } from 'lucide-react';
 import FileEditor from './FileEditor';
 import DeepAgentEditor from './DeepAgentEditor';
 import DeepAgentCreator from './DeepAgentCreator';
@@ -23,11 +23,13 @@ import SkillView from './SkillView';
 import SkillEditorTab from './SkillEditorTab';
 import PromptDetailTab from './PromptDetailTab';
 import NotebookViewer from './NotebookViewer';
+import TemplatePicker from './TemplatePicker';
 
 const VIEW_ICONS: Record<string, React.ReactNode> = {
   workflow:            <File size={13} />,
   deepagent:           <Brain size={13} />,
   'deepagent-create':  <Brain size={13} />,
+  'template-picker':   <LayoutGrid size={13} />,
   agent:               <User size={13} />,
   'tool-category':      <Wrench size={13} />,
   'tool-editor':          <Wrench size={13} />,
@@ -50,6 +52,7 @@ const VIEWS: Record<string, React.FC<ViewComponentProps>> = {
   workflow:            FileEditor,
   deepagent:           DeepAgentEditor,
   'deepagent-create':  DeepAgentCreator,
+  'template-picker':   TemplatePicker,
   agent:               AgentEditor,
   'tool-category':      ToolCategoryTab,
   'tool-editor':          ToolEditor,

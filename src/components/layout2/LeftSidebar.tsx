@@ -28,6 +28,7 @@ interface LeftSidebarProps {
 
 const SIDEBAR_MIN_WIDTH = 200;
 const SIDEBAR_MAX_WIDTH = 600;
+const SIDEBAR_DEFAULT_WIDTH = 260;
 
 export default function LeftSidebar({ children }: LeftSidebarProps) {
   const { activeActivity, sidebarOpen, sidebarView, setSidebarView, openTab, sidebarWidth, setSidebarWidth } = useLayoutState();
@@ -38,20 +39,32 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
 
   const isSearch = sidebarView === 'search';
 
-  // Resize drag
+  // Resize drag — VS Code-style: drag the divider to resize. The drag listeners
+  // are attached to `document` so the resize keeps following the cursor even
+  // when it briefly leaves the thin handle element. A separate `dragging` state
+  // drives the visible "active" color of the handle (matching VS Code's
+  // highlighted-divider behavior). Double-click resets to default width.
+  const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     dragRef.current = { startX: e.clientX, startWidth: sidebarWidth };
+    setIsDragging(true);
+
     const handleMove = (ev: MouseEvent) => {
       if (!dragRef.current) return;
       const dx = ev.clientX - dragRef.current.startX;
-      const next = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, dragRef.current.startWidth + dx));
+      const next = Math.max(
+        SIDEBAR_MIN_WIDTH,
+        Math.min(SIDEBAR_MAX_WIDTH, dragRef.current.startWidth + dx),
+      );
       setSidebarWidth(next);
     };
     const handleUp = () => {
       dragRef.current = null;
+      setIsDragging(false);
       document.removeEventListener('mousemove', handleMove);
       document.removeEventListener('mouseup', handleUp);
       document.body.style.cursor = '';
@@ -62,6 +75,10 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
     document.body.style.cursor = 'ew-resize';
     document.body.style.userSelect = 'none';
   }, [sidebarWidth, setSidebarWidth]);
+
+  const handleResizeReset = useCallback(() => {
+    setSidebarWidth(SIDEBAR_DEFAULT_WIDTH);
+  }, [setSidebarWidth]);
 
   // ── Callbacks (must be before early return — React hook ordering) ──
   const handleFileOpen = useCallback(async (node: TreeNode) => {
@@ -273,19 +290,43 @@ export default function LeftSidebar({ children }: LeftSidebarProps) {
         )}
       </div>
 
-      {/* Resize handle */}
+      {/* Resize handle — VS Code-style: 8px hit area wrapping a 1px visible
+          divider line. The line is always subtly visible (so users know
+          the divider exists), brightens on hover, and turns accent-blue
+          while dragging. Double-click resets to the default width. */}
       <div
         onMouseDown={handleResizeStart}
-        title="Drag to resize"
+        onDoubleClick={handleResizeReset}
+        title="Drag to resize — double-click to reset"
         style={{
-          width: 4,
+          width: 8,
           cursor: 'ew-resize',
           background: 'transparent',
           flexShrink: 0,
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'center',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = t.border; }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-      />
+        onMouseEnter={(e) => {
+          // Brighten the inner line on hover via the data attribute so the
+          // CSS transition (defined inline below) animates smoothly.
+          const line = e.currentTarget.firstElementChild as HTMLElement | null;
+          if (line && !isDragging) line.style.background = t.accent;
+        }}
+        onMouseLeave={(e) => {
+          const line = e.currentTarget.firstElementChild as HTMLElement | null;
+          if (line && !isDragging) line.style.background = t.border;
+        }}
+      >
+        <div
+          style={{
+            width: 1,
+            background: isDragging ? t.accent : t.border,
+            transition: 'background 120ms ease',
+          }}
+        />
+      </div>
     </div>
   );
 }

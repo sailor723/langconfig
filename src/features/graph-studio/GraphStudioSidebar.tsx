@@ -1,15 +1,24 @@
 /**
  * Graph Engineering sidebar — the left rail for the studio.
  *
- * Lists the code-defined assistants and their studio threads. Selecting an
- * assistant loads its graph into the canvas; selecting a thread loads its
- * checkpointed state into the inspector.
+ * Lists the code-defined assistants grouped by type (SQL Agents / Neo4j
+ * Agents) plus their studio threads. Selecting an assistant loads its
+ * graph into the canvas; selecting a thread loads its checkpointed state
+ * into the inspector.
+ *
+ * The grouping mirrors the two agent flavors registered in the backend:
+ *   backend/langgraph/sql_agent*.py    →  SQL Agents
+ *   backend/langgraph/neo4j_agent*.py →  Neo4j Agents
+ *
+ * The "type" of each assistant is inferred from its `assistant_id` prefix
+ * (the same convention used by studioStore.ts to pick SQL vs Neo4j
+ * endpoints) so the grouping stays consistent with the canvas header.
  */
-import { Plus } from 'lucide-react';
+import { Plus, Database, Network, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState } from './studioStore';
-import type { Thread } from './api';
+import type { Assistant, Thread } from './api';
 
 const STATUS_COLORS: Record<Thread['status'], string> = {
   idle: '#9ca3af',
@@ -19,10 +28,33 @@ const STATUS_COLORS: Record<Thread['status'], string> = {
 };
 
 function threadTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso.slice(11, 19);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const d2 = new Date(iso);
+  if (Number.isNaN(d2.getTime())) return iso.slice(11, 19);
+  return d2.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
+
+/** Group assistants by their inferred DB type. The same convention is used
+ *  in studioStore.ts to dispatch SQL vs Neo4j API endpoints. */
+type AgentType = 'sql' | 'neo4j';
+
+function agentType(a: Assistant): AgentType {
+  return a.assistant_id.startsWith('neo4j_') ? 'neo4j' : 'sql';
+}
+
+interface TypeGroup {
+  type: AgentType;
+  /** Short label rendered as the section heading. */
+  label: string;
+  /** Accent color for the active row + group icon. */
+  accent: string;
+  /** Lucide icon for the group header. */
+  Icon: typeof Database;
+}
+
+const TYPE_GROUPS: TypeGroup[] = [
+  { type: 'sql',   label: 'SQL Agents',   accent: '#4aa3ff', Icon: Database },
+  { type: 'neo4j', label: 'Neo4j Agents', accent: '#8b5cf6', Icon: Network },
+];
 
 export default function GraphStudioSidebar() {
   const t = useLayoutTokens();
@@ -106,36 +138,86 @@ export default function GraphStudioSidebar() {
         </select>
       </div>
 
-      {/* Assistants */}
+      {/* Assistants — grouped by DB type (SQL Agents / Neo4j Agents).
+        *  Matches the studioStore convention (assistant_id prefix). The
+        *  type determines which /databases/* API the canvas header talks
+        *  to, so grouping them visually keeps the relationship obvious. */}
       <div style={sectionTitle}>Assistants</div>
-      <div style={{ flexShrink: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1, padding: '0 6px' }}>
+      <div style={{
+        flexShrink: 0,
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        padding: '0 6px',
+      }}>
         {assistants.length === 0 && (
           <span style={{ color: t.textDim, padding: '2px 8px', fontSize: 11 }}>No assistants found.</span>
         )}
-        {assistants.map((a) => {
-          const active = a.assistant_id === activeAssistantId;
+        {TYPE_GROUPS.map((group) => {
+          const groupItems = assistants.filter((a) => agentType(a) === group.type);
+          if (groupItems.length === 0) return null;
+          const Icon = group.Icon;
           return (
-            <button
-              key={a.assistant_id}
-              onClick={() => void studio.selectAssistant(a)}
-              style={{
+            <div key={group.type} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {/* Group header (clickable to expand/collapse — collapses by
+               *  default for groups with more than 2 items so the sidebar
+               *  stays compact; always expanded for small groups). */}
+              <div style={{
                 display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                gap: 2,
-                padding: '5px 8px',
-                border: 'none',
-                borderRadius: 6,
-                background: active ? t.bgSelected : 'transparent',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              <span style={{ color: active ? t.textWhite : t.textPrimary, fontSize: 12, fontWeight: 500 }}>
-                {a.name}
-              </span>
-              <span style={{ color: t.textDim, fontSize: 10, fontFamily: 'monospace' }}>{a.graph_id}</span>
-            </button>
+                alignItems: 'center',
+                gap: 5,
+                padding: '4px 8px 2px',
+                fontSize: 10,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                color: group.accent,
+              }}>
+                <Icon size={11} />
+                <span>{group.label}</span>
+                <span style={{ marginLeft: 'auto', color: t.textDim, fontWeight: 500, fontSize: 10 }}>
+                  {groupItems.length}
+                </span>
+              </div>
+              {groupItems.map((a) => {
+                const active = a.assistant_id === activeAssistantId;
+                return (
+                  <button
+                    key={a.assistant_id}
+                    onClick={() => void studio.selectAssistant(a)}
+                    title={a.description ?? a.name}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      gap: 2,
+                      padding: '5px 8px 5px 22px', // indent under the group header
+                      border: 'none',
+                      borderRadius: 6,
+                      background: active ? t.bgSelected : 'transparent',
+                      borderLeft: active ? `2px solid ${group.accent}` : '2px solid transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%',
+                    }}
+                  >
+                    <span style={{
+                      color: active ? t.textWhite : t.textPrimary,
+                      fontSize: 12,
+                      fontWeight: active ? 600 : 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}>
+                      {active && <ChevronRight size={10} color={group.accent} />}
+                      {a.name}
+                    </span>
+                    <span style={{ color: t.textDim, fontSize: 10, fontFamily: 'monospace' }}>{a.graph_id}</span>
+                  </button>
+                );
+              })}
+            </div>
           );
         })}
       </div>
