@@ -12,6 +12,7 @@ These tests ensure that migrations can be applied, rolled back, and are idempote
 import pytest
 import subprocess
 import os
+import sys
 
 
 def run_alembic_command(command_args, env_vars=None):
@@ -41,8 +42,13 @@ def run_alembic_command(command_args, env_vars=None):
     # Set DATABASE_URL for alembic
     env["DATABASE_URL"] = test_db_url
 
+    # Resolve alembic through the interpreter running pytest so the venv does
+    # not need to be activated / on PATH (`python -m alembic` guarantees the
+    # exact environment that runs the suite).
+    alembic_cmd = [sys.executable, "-m", "alembic"]
+
     result = subprocess.run(
-        ["alembic"] + command_args,
+        alembic_cmd + command_args,
         cwd=os.path.join(os.path.dirname(__file__), ".."),
         capture_output=True,
         text=True,

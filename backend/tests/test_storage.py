@@ -205,13 +205,22 @@ def test_workspace_persist_output_db_mode(db_mode, tmp_path, monkeypatch):
     from config import settings
     from services.workspace_manager import WorkspaceManager
 
+    # Pin the project folder key so the assertion does not depend on live
+    # project rows (slug logic is covered separately in test_vault_workspace.py).
+    # get_task_workspace still exercises the real path-building flow:
+    # outputs/<slug>/workflow_<id>/task_<id>/.
+    monkeypatch.setattr(
+        WorkspaceManager,
+        "project_vault_key",
+        staticmethod(lambda db, project_id: "my-project"),
+    )
+
     wm = WorkspaceManager(str(tmp_path / "outputs"))
     out = wm.get_task_workspace(1, 2, 3) / "report.txt"
 
     key = wm.persist_output(out, b"data")
-    # get_task_workspace uses the project's slugified name as the folder key
-    # (5e0cf9e); with no project row the slug falls back to the raw id.
-    assert key == "outputs/1/workflow_2/task_3/report.txt"
+    # Key mirrors the on-disk path relative to the workspace base.
+    assert key == "outputs/my-project/workflow_2/task_3/report.txt"
     assert db_mode.read(key) == b"data"
 
     # Local mode: no-op, storage untouched.
