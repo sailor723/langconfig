@@ -72,6 +72,12 @@ _ASSISTANT_REGISTRY: List[Dict[str, Any]] = [
         "description": "SQL agent with human-in-the-loop query approval",
     },
     {
+        "assistant_id": "sql_agent_advanced",
+        "graph_id": "sql_agent_advanced",
+        "name": "SQL Agent (Advanced)",
+        "description": "Planner-based SQL agent: analyzes the question, plans multi-hop queries, monitors progress (Chinook DB)",
+    },
+    {
         "assistant_id": "neo4j_agent",
         "graph_id": "neo4j_agent",
         "name": "Neo4j Graph Agent",
@@ -82,6 +88,12 @@ _ASSISTANT_REGISTRY: List[Dict[str, Any]] = [
         "graph_id": "neo4j_agent_hitl",
         "name": "Neo4j Graph Agent (HITL)",
         "description": "Neo4j graph agent with human-in-the-loop Cypher approval",
+    },
+    {
+        "assistant_id": "neo4j_agent_advanced",
+        "graph_id": "neo4j_agent_advanced",
+        "name": "Neo4j Graph Agent (Advanced)",
+        "description": "Planner-based Neo4j agent: analyzes the question, plans multi-hop Cypher queries, monitors progress (any connected graph)",
     },
 ]
 
