@@ -293,14 +293,22 @@ export const studio = {
     if (!state.currentThreadId) {
       await studio.createThread();
     }
-    const threadId = state.currentThreadId;
+    let threadId = state.currentThreadId;
     const assistantId = state.activeAssistantId;
     if (!threadId || !assistantId) return;
 
     setState({ running: true, runError: null, runPath: [], inspectorTab: 'messages' });
 
     try {
-      const res = await api.streamRun(threadId, assistantId, input);
+      let res = await api.streamRun(threadId, assistantId, input);
+      // Studio threads are in-memory (process-lifetime): after a backend
+      // restart the browser can hold a stale thread id that no longer exists.
+      // Auto-create a fresh thread and retry once instead of failing with 404.
+      if (!res.ok && res.status === 404) {
+        await studio.createThread();
+        threadId = state.currentThreadId;
+        res = await api.streamRun(threadId, assistantId, input);
+      }
       if (!res.ok) {
         throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`);
       }
