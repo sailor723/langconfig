@@ -121,9 +121,19 @@ class TerminalSession:
                 await self._finish()
 
     def _on_master_readable(self) -> None:
-        """PTY master callback: read available bytes and forward them."""
+        """PTY master callback: read available bytes and forward them.
+
+        The reader may fire after ``_finish``/``close`` already nulled
+        ``master_fd`` (the reader is removed only in ``_run``'s finally, up to
+        200ms later) — guard and treat that as EOF instead of crashing with
+        ``os.read(None, ...)``.
+        """
+        fd = self.master_fd
+        if fd is None:
+            # Session already torn down — nothing left to read.
+            return
         try:
-            data = os.read(self.master_fd, 65536)
+            data = os.read(fd, 65536)
         except OSError:
             data = b""
         if not data:
