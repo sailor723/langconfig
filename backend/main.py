@@ -308,15 +308,18 @@ from fastapi.responses import FileResponse
 
 @app.get("/api/files/{filename:path}")
 async def serve_output_file(filename: str):
-    """Serve generated files (charts, reports, etc.) from the outputs directory.
-
-    The agent can reference files in chat responses using markdown image syntax:
-      ![chart](/api/files/sales_analysis_chart.png)
-
-    Files are served from backend/outputs/default/ (chat sessions) or from
-    project/workflow/task subdirectories under backend/outputs/.
-    """
+    """Serve generated files (charts, reports, dashboards) from outputs/ and data/ dirs."""
+    from pathlib import Path
     from services.workspace_manager import get_workspace_manager
+
+    # First, check if it's in data/analysis_dbs/ (for analysis dashboards)
+    # Use absolute path from repo root since python_execute saves there
+    analysis_dir = Path(__file__).resolve().parent.parent / "data" / "analysis_dbs"
+    if analysis_dir.exists():
+        analysis_match = list(analysis_dir.rglob(filename))
+        if analysis_match:
+            return FileResponse(str(analysis_match[0]))
+
     workspace_mgr = get_workspace_manager()
 
     # Try default dir first (chat sessions)
@@ -345,6 +348,7 @@ from api.workflows import routes as workflows
 from api.projects import routes as projects
 from api.tasks import routes as tasks
 from api.knowledge import rag, store
+from api.knowledge import graphindex_chat  # Phase 9 / Step K
 from api.system import settings, health, debug, background_tasks, search_providers
 from api.models import local as local_models
 from api.models import capabilities as model_capabilities
@@ -352,6 +356,7 @@ from api.models import routes as model_routes
 from api.workflows import execution as orchestration, checkpoints
 from api.agents import deep_agents as deepagents, routes as agents, generator as agent_generator
 from api.chat import routes as chat
+from api.analysis import routes as analysis
 from api.hitl import routes as hitl
 from api.tools import routes as custom_tools
 from api.tools import registry as tool_registry
@@ -381,6 +386,7 @@ app.include_router(agents_md_router.router)  # AGENTS.md (MemoryMiddleware) mana
 app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(rag.router)
+app.include_router(graphindex_chat.router)  # Phase 9 / Step K — graphindex_chat agent API
 app.include_router(background_tasks.router)  # Background task queue management
 app.include_router(workspace.router)  # Workspace file management
 app.include_router(settings.router)
@@ -396,6 +402,7 @@ app.include_router(skills.router)  # Skills system - modular, context-aware capa
 app.include_router(images.router)  # Image storage and serving (for AI-generated images)
 app.include_router(deepagents.router)  # DeepAgents configuration and export
 app.include_router(chat.router)  # DeepAgents chat testing
+app.include_router(analysis.router)  # Data analysis: CSV→SQLite→Agent charts
 app.include_router(agent_generator.router)  # AI-powered agent generation
 app.include_router(debug.router)  # Debug endpoints for development
 

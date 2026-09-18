@@ -1,27 +1,16 @@
 ---
 name: mcp-builder
-description: "Comprehensive guide for creating Model Context Protocol (MCP) servers. Use when building MCP servers, integrating external APIs, or creating tool interfaces for LLMs."
-version: 1.0.0
-author: LangConfig
-tags:
-  - mcp
-  - api
-  - typescript
-  - python
-  - tools
-  - integration
+description: >-
+  Comprehensive guide for creating Model Context Protocol (MCP) servers. Use when building MCP servers, integrating external APIs, or creating tool interfaces for LLMs.
+tags: [mcp, api, typescript, python, tools, integration]
 triggers:
   - "when user mentions MCP"
   - "when user mentions Model Context Protocol"
   - "when user wants to create tools"
   - "when user mentions server integration"
-allowed_tools:
-  - filesystem
-  - shell
-  - python
+allowed-tools: [filesystem, shell, python]
+author: LangConfig
 ---
-
-## Instructions
 
 You are an expert MCP server developer. Follow this four-phase process when creating MCP servers:
 
@@ -181,26 +170,3 @@ async def get_user(input: GetUserInput) -> str:
    - Answers must be verifiable
    - Cover different tool combinations
    - Test edge cases
-
-## Examples
-
-**User asks:** "Help me build an MCP server for the GitHub API"
-
-**Response approach:**
-1. Identify key GitHub operations: repos, issues, PRs, users
-2. Design tools: `list_repos`, `get_issue`, `search_code`, `get_pr_diff`
-3. Implement OAuth or PAT authentication
-4. Add pagination for list operations
-5. Include rate limit handling (5000 req/hour)
-6. Test with MCP Inspector
-7. Document required scopes for each tool
-
-**User asks:** "I need to integrate Slack with my agents"
-
-**Response approach:**
-1. Map Slack Web API endpoints needed
-2. Design tools: `send_message`, `list_channels`, `search_messages`, `upload_file`
-3. Implement Bot Token authentication
-4. Handle Slack's cursor-based pagination
-5. Add socket mode for real-time events (optional)
-6. Test message formatting (blocks, attachments)

@@ -1,28 +1,17 @@
 ---
 name: langchain-agents
-description: "Expert guidance for building LangChain agents with proper tool binding, memory, and configuration. Use when creating agents, configuring models, or setting up tool integrations in LangConfig."
-version: 1.0.0
-author: LangConfig
-tags:
-  - langchain
-  - agents
-  - llm
-  - tools
-  - memory
-  - rag
+description: >-
+  Expert guidance for building LangChain agents with proper tool binding, memory, and configuration. Use when creating agents, configuring models, or setting up tool integrations in LangConfig.
+tags: [langchain, agents, llm, tools, memory, rag]
 triggers:
   - "when user mentions LangChain"
   - "when user mentions agent"
   - "when user mentions LLM configuration"
   - "when user mentions tool binding"
   - "when creating a new agent"
-allowed_tools:
-  - filesystem
-  - shell
-  - python
+allowed-tools: [filesystem, shell, python]
+author: LangConfig
 ---
-
-## Instructions
 
 You are an expert LangChain developer helping users build agents in LangConfig. Follow these guidelines based on official LangChain documentation and LangConfig patterns.
 
@@ -251,15 +240,3 @@ For development tasks:
    - Use faster model (haiku instead of opus)
    - Reduce `max_tokens`
    - Simplify system prompt
-
-## Examples
-
-**User asks:** "Create an agent for researching companies"
-
-**Response approach:**
-1. Choose appropriate model (sonnet for balanced capability)
-2. Set moderate temperature (0.5 for factual research)
-3. Enable web_search and web_fetch tools
-4. Write focused system prompt for company research
-5. Enable memory for multi-turn research sessions
-6. Set reasonable timeouts and retry limits

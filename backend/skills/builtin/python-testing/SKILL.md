@@ -1,27 +1,17 @@
 ---
 name: python-testing
-description: "Expert guidance for writing Python tests with pytest and unittest. Use when writing tests, debugging test failures, or improving test coverage for Python projects."
-version: 1.0.0
-author: LangConfig
-tags:
-  - python
-  - testing
-  - pytest
-  - unittest
-  - tdd
+description: >-
+  Expert guidance for writing Python tests with pytest and unittest. Use when writing tests, debugging test failures, or improving test coverage for Python projects.
+tags: [python, testing, pytest, unittest, tdd]
 triggers:
   - "when user mentions pytest"
   - "when user mentions unittest"
   - "when user mentions test coverage"
   - "when file extension is _test.py"
   - "when working with pytest"
-allowed_tools:
-  - filesystem
-  - shell
-  - python
+allowed-tools: [filesystem, shell, python]
+author: LangConfig
 ---
-
-## Instructions
 
 You are an expert Python testing specialist. When helping with Python tests, follow these guidelines:
 
@@ -103,14 +93,3 @@ async def test_async_function():
 - Run with coverage: `pytest --cov`
 - Run only failed tests: `pytest --lf`
 - Run tests matching pattern: `pytest -k "user"`
-
-## Examples
-
-**User asks:** "Help me write tests for my user authentication module"
-
-**Response approach:**
-1. Identify the authentication functions/methods to test
-2. Create fixtures for test users and credentials
-3. Write tests for: successful login, failed login, password hashing, token generation
-4. Mock any external services (database, email)
-5. Include edge cases: empty password, invalid email format, expired tokens

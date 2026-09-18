@@ -1,0 +1,188 @@
+import json
+
+notebook_3_content = {
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 知识架构系列 3：对话归档 —— 从碎片信息到事实图谱\n",
+    "### *Alex 的进化：拥有长期记忆的智能体*\n",
+    "\n",
+    "Alex 意识到，一个合格的分析师不应该复读所有的会议纪要，而应该能说出：“经过三次变更，目前最新的结论是 X”。  \n",
+    "\n",
+    "**本章核心：使用 Graphiti 进行上下文归档**\n",
+    "1. **Episode 驱动归档**：将 Notebook 2 中的三次关键决策（Day 1, Day 10, Day 20）分别存入 Graphiti。\n",
+    "2. **双时序（Bi-temporal）管理**：观察 Graphiti 如何自动识别 `CYBER-TIGER` 项目状态的演进，并标记旧事实为“无效”。\n",
+    "3. **清理上下文窗口**：演示如何通过“查询图谱”代替“全量堆叠对话历史”，从而腾出 LLM 的注意力空间。"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# 提示：请确保已安装依赖: pip install graphiti-core neo4j\n",
+    "\n",
+    "import asyncio\n",
+    "import os\n",
+    "from datetime import datetime, timezone\n",
+    "from dotenv import load_dotenv\n",
+    "from graphiti_core import Graphiti\n",
+    "from graphiti_core.nodes import EpisodeType\n",
+    "from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient\n",
+    "from graphiti_core.llm_client import LLMConfig\n",
+    "\n",
+    "load_dotenv(override=True)\n",
+    "\n",
+    "# 1. 配置符合 DeepAgent 标准的 LLM 客户端\n",
+    "llm_client = OpenAIGenericClient(\n",
+    "    config=LLMConfig(\n",
+    "        api_key=os.getenv(\"AGNES_API_KEY\"),\n",
+    "        model=\"agnes-2.0-flash\",\n",
+    "        base_url=os.getenv(\"AGNES_BASE_URL\"),\n",
+    "        temperature=0\n",
+    "    ),\n",
+    "    structured_output_mode='json_object'\n",
+    ")\n",
+    "\n",
+    "# 2. 初始化 Graphiti (连接到你的 Neo4j)\n",
+    "brain = Graphiti(\n",
+    "    uri=os.environ.get('NEO4J_URI', 'bolt://localhost:7687'),\n",
+    "    user=os.environ.get('NEO4J_USER', 'neo4j'),\n",
+    "    password=os.environ.get('NEO4J_PASSWORD', 'password'),\n",
+    "    llm_client=llm_client\n",
+    ")\n",
+    "\n",
+    "print(\"✅ 企业大脑 (Graphiti) 已上线。\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 1. 模拟时序归档过程\n",
+    "我们将 Notebook 2 中那 200 轮混乱对话里的“珍珠”提取出来，按照时间顺序喂给 Graphiti。  \n",
+    "注意：我们为每个片段指定了 `reference_time`，模拟真实世界的时间流逝。"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "async def archive_conversations():\n",
+    "    # --- 归档阶段 1：初始状态 ---\n",
+    "    print(\"正在归档 Day 1 决策...\")\n",
+    "    await brain.add_episode(\n",
+    "        name=\"cyber-tiger-v1\",\n",
+    "        episode_body=\"CYBER-TIGER 项目确认为跨境业务，适用 35% 罚金。\",\n",
+    "        source=EpisodeType.message,\n",
+    "        reference_time=datetime(2025, 1, 1, tzinfo=timezone.utc)\n",
+    "    )\n",
+    "\n",
+    "    # --- 归档阶段 2：第一次修正 ---\n",
+    "    print(\"正在归档 Day 10 修正...\")\n",
+    "    await brain.add_episode(\n",
+    "        name=\"cyber-tiger-v2\",\n",
+    "        episode_body=\"重要更新：CYBER-TIGER 变更为全境内业务，之前 35% 的罚金规则废弃，当前罚金为 0%。\",\n",
+    "        source=EpisodeType.message,\n",
+    "        reference_time=datetime(2025, 1, 10, tzinfo=timezone.utc)\n",
+    "    )\n",
+    "\n",
+    "    # --- 归档阶段 3：最终定稿 ---\n",
+    "    print(\"正在归档 Day 20 终审...\")\n",
+    "    await brain.add_episode(\n",
+    "        name=\"cyber-tiger-v3\",\n",
+    "        episode_body=\"最终定稿：CYBER-TIGER 定义为特区准跨境业务，罚金标准固定为 10%。这是目前的最终有效版本。\",\n",
+    "        source=EpisodeType.message,\n",
+    "        reference_time=datetime(2025, 1, 20, tzinfo=timezone.utc)\n",
+    "    )\n",
+    "\n",
+    "    print(\"\\n✨ 对话归档完成。200 轮废话已被过滤，核心业务逻辑已存入图谱。\")\n",
+    "\n",
+    "await archive_conversations()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 2. 验证：图谱如何处理“事实冲突”？\n",
+    "Graphiti 最强大的地方在于：当它读到“罚金从 35% 变为 0% 再变为 10%”时，它不会产生幻觉，它会利用 Neo4j 节点上的时间属性，确保查询时只返回**在查询时间点有效**的事实。"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from graphiti_core.search.search_config_recipes import COMBINED_HYBRID_SEARCH_CROSS_ENCODER\n",
+    "\n",
+    "async def final_audit_query():\n",
+    "    query = \"CYBER-TIGER 项目现在的罚金标准是多少？依据是什么？\"\n",
+    "    \n",
+    "    # 从图谱中搜索（这将只检索当前有效的 Edge）\n",
+    "    search_results = await brain.search_(query, config=COMBINED_HYBRID_SEARCH_CROSS_ENCODER)\n",
+    "    \n",
+    "    # 提取图谱事实\n",
+    "    facts = \"\\n\".join([e.fact for e in search_results.edges])\n",
+    "    \n",
+    "    print(f\"--- 从图谱中检索到的核心事实 ---\\n{facts}\\n\")\n",
+    "    \n",
+    "    # 让 LLM 基于精简后的“事实图谱”进行回答\n",
+    "    from langchain.chat_models import init_chat_model\n",
+    "    from langchain_core.messages import HumanMessage\n",
+    "    \n",
+    "    model = init_chat_model(model=\"agnes-2.0-flash\", model_provider=\"openai\")\n",
+    "    \n",
+    "    prompt = f\"你是一个审计助手。以下是从我们的‘企业长期记忆（图谱）’中提取的归档事实。请根据这些事实回答问题。\\n\\n事实：\\n{facts}\\n\\n用户问题：{query}\"\n",
+    "    \n",
+    "    response = model.invoke([HumanMessage(content=prompt)])\n",
+    "    return response.content\n",
+    "\n",
+    "answer = await final_audit_query()\n",
+    "print(\"--- 基于图谱归档的 AI 最终决策 ---\\n\")\n",
+    "print(answer)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 3. 本章复盘：归档的商业价值\n",
+    "\n",
+    "| 维度 | Notebook 2 (全量堆叠) | Notebook 3 (Graphiti 归档) |\n",
+    "| :--- | :--- | :--- |\n",
+    "| **输入长度** | 400+ 条消息 (巨额 Token) | 几条核心事实 (极低 Token) |\n",
+    "| **准确性** | 受时序冲突干扰，易产生幻觉 | 自动失效旧事实，始终保持最新 |\n",
+    "| **推理压力** | 模型需从噪声中筛选信息 | 模型直接基于“真理”进行判断 |\n",
+    "| **可扩展性** | 对话越长性能越差 | 随对话增长，图谱愈发稳健 |\n",
+    "\n",
+    "### Alex 的新架构\n",
+    "Alex 确立了一个公式：**Agent 效能 = KV (文档知识) + Graphiti (对话归档事实)**。  \n",
+    "这种架构让上下文窗口始终保持清爽，因为 90% 的废话在归档后都被“扔掉”了，只留下了精华。\n",
+    "\n",
+    "--- \n",
+    "### 下一章预告\n",
+    "归档解决了“长效记忆”的问题。但 Alex 发现，他有时需要更细粒度的控制：例如区分哪些记忆是“用户偏好”，哪些是“硬性业务规定”。  \n",
+    "\n",
+    "在 **Notebook 4** 中，我们将引入 **新颖性门控 (Novelty Gate)** 和 **实体分类 (Custom Entities)**，教你如何像整理图书馆一样精细化管理你的图谱记忆。"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": { "display_name": ".venv", "language": "python", "name": "python3" },
+  "language_info": { "codemirror_mode": { "name": "ipython", "version": 3 }, "file_extension": ".py", "mimetype": "text/x-python", "name": "python", "nbconvert_exporter": "python", "pygments_lexer": "ipython3", "version": "3.13.12" }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
+
+with open("03_对话归档与图谱转化.ipynb", "w", encoding="utf-8") as f:
+    json.dump(notebook_3_content, f, ensure_ascii=False, indent=1)
+
+print("✅ Notebook 3 已成功生成！Alex 的‘企业大脑’架构已经初步成型。")

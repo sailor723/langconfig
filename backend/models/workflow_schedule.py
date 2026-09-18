@@ -14,6 +14,7 @@ ScheduledRunLog: Tracks individual scheduled execution attempts.
 
 import datetime
 import enum
+from typing import Optional
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -219,7 +220,7 @@ class ScheduledRunLog(Base):
         )
 
     @property
-    def duration(self) -> float | None:
+    def duration(self) -> Optional[float]:
         """Calculate execution duration in seconds."""
         if not self.started_at or not self.completed_at:
             return None

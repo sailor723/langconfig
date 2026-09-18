@@ -33,7 +33,7 @@ class ModelInvokeRequest(BaseModel):
     message: str = Field(..., description="User message to send to the model")
     system_prompt: Optional[str] = Field(None, description="Optional system prompt")
     temperature: float = Field(0.7, ge=0.0, le=2.0, description="Temperature for generation")
-    max_tokens: Optional[int] = Field(None, ge=1, le=500000, description="Max tokens to generate")
+    max_tokens: Optional[int] = Field(1_000_000, ge=1, le=1_000_000, description="Max tokens to generate (1M default for MiniMax M3)")
     top_p: Optional[float] = Field(None, ge=0.0, le=1.0, description="Nucleus sampling — only consider tokens with top_p cumulative probability")
     frequency_penalty: Optional[float] = Field(None, ge=-2.0, le=2.0, description="Penalize tokens by their frequency so far")
     presence_penalty: Optional[float] = Field(None, ge=-2.0, le=2.0, description="Penalize tokens that already appeared")

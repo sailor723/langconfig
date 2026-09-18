@@ -1,0 +1,26 @@
+order_id,customer_name,customer_tier,customer_country,product_name,category,order_date,status,quantity,total_amount,sales_region
+1,Alice Wang,gold,China,AI-Powered Analytics Pro,Software,2025-01-05,completed,2,599.98,east
+2,Alice Wang,gold,China,Smart Dashboard Lite,Software,2025-01-05,completed,1,99.99,east
+3,Bob Smith,silver,Japan,Cloud Data Pipeline,Software,2025-02-10,completed,1,199.99,west
+4,Carol Li,platinum,China,Neural Network Starter Kit,Hardware,2025-03-15,completed,1,499.99,north
+5,Carol Li,platinum,China,Enterprise Security Suite,Software,2025-03-15,completed,1,1499.99,north
+6,Eve Zhang,gold,China,AI-Powered Analytics Pro,Software,2025-03-20,completed,1,299.99,east
+7,Eve Zhang,gold,China,Automated ML Pipeline,Software,2025-03-20,completed,2,799.98,east
+8,Frank Liu,silver,China,IoT Sensor Array,Hardware,2025-04-01,completed,5,1249.95,south
+9,Henry Kim,gold,Korea,GPU Computing Cluster,Hardware,2025-04-15,completed,1,4999.99,west
+10,Alice Wang,gold,China,Neural Network Starter Kit,Hardware,2025-04-20,completed,1,499.99,east
+11,Ivy Tanaka,silver,Japan,Cloud Data Pipeline,Software,2025-05-01,completed,1,199.99,west
+12,Ivy Tanaka,silver,Japan,Smart Dashboard Lite,Software,2025-05-01,completed,3,299.97,west
+13,Jack Park,bronze,Korea,Data Lake Storage 1TB,Infrastructure,2025-05-10,completed,10,599.9,south
+14,Bob Smith,silver,Japan,Enterprise Security Suite,Software,2025-05-15,completed,1,1499.99,west
+15,Carol Li,platinum,China,AI-Powered Analytics Pro,Software,2025-06-01,completed,3,899.97,north
+16,Eve Zhang,gold,China,IoT Sensor Array,Hardware,2025-06-10,completed,2,499.98,east
+17,Frank Liu,silver,China,Automated ML Pipeline,Software,2025-06-15,pending,1,399.99,south
+18,Alice Wang,gold,China,Data Lake Storage 1TB,Infrastructure,2025-06-20,pending,5,299.95,east
+19,David Chen,bronze,Korea,AI-Powered Analytics Pro,Software,2025-06-25,completed,1,299.99,north
+20,Henry Kim,gold,Korea,Neural Network Starter Kit,Hardware,2025-07-01,completed,2,999.98,west
+21,Jack Park,bronze,Korea,Cloud Data Pipeline,Software,2025-07-05,completed,1,199.99,south
+22,Alice Wang,gold,China,Enterprise Security Suite,Software,2025-07-10,cancelled,1,1499.99,east
+23,Carol Li,platinum,China,Automated ML Pipeline,Software,2025-07-15,completed,1,399.99,north
+24,Eve Zhang,gold,China,Quantum Computing Simulator,Software,2025-07-20,completed,1,999.99,east
+25,Ivy Tanaka,silver,Japan,IoT Sensor Array,Hardware,2025-07-25,pending,3,749.97,west

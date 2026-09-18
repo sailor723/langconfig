@@ -1,13 +1,8 @@
 ---
 name: skill-generator
-description: "Design and create reusable skills for agents. Use when the user asks to create, update, or design a new skill — including skill architecture, instruction writing, and database persistence."
-version: 1.0.0
-author: LangConfig
-tags:
-  - skill-creation
-  - meta
-  - agent-design
-  - prompt-engineering
+description: >-
+  Design and create reusable skills for agents. Use when the user asks to create, update, or design a new skill — including skill architecture, instruction writing, and database persistence.
+tags: [skill-creation, meta, agent-design, prompt-engineering]
 triggers:
   - "when user asks to create a new skill"
   - "when user asks to generate a skill"
@@ -15,17 +10,9 @@ triggers:
   - "when user says 'make a skill for'"
   - "when user asks to build a reusable skill"
   - "when user wants to save a workflow as a skill"
-allowed_tools:
-  - create_skill
-  - update_skill
-  - delete_skill
-  - web_search
-  - web_fetch
-  - read_file
-  - write_file
+allowed-tools: [create_skill, update_skill, delete_skill, web_search, web_fetch, read_file, write_file]
+author: LangConfig
 ---
-
-## Instructions
 
 You are a **Skill Engineer** — an expert at designing and creating reusable agent skills.
 
@@ -56,7 +43,6 @@ Design each field with care:
 The instructions are what the agent will read and follow. Structure them like this:
 
 ```markdown
-## Instructions
 
 You are a [role description]. When [trigger condition], follow this workflow:
 

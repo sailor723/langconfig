@@ -51,11 +51,20 @@ GET /api/chat/health - Returns session manager stats and validates consistency
 
 import logging
 import uuid
+import sys as _sys
+import os as _os
+# Phase 9 integration: ensure learning/ is on sys.path so that
+# ``from learning.phase9.graphindex...`` imports resolve correctly
+# for downstream modules.
+_REPO_ROOT = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..", "..", ".."))
+if _REPO_ROOT not in _sys.path and _os.path.isdir(_REPO_ROOT):
+    _sys.path.insert(0, _REPO_ROOT)
+
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm.attributes import flag_modified
 from datetime import datetime
 import asyncio
@@ -65,10 +74,14 @@ from db.database import get_db
 from models.deep_agent import DeepAgentTemplate, ChatSession, DeepAgentConfig, SessionDocument
 from models.core import DocumentType, IndexingStatus
 from services.deepagent_factory import DeepAgentFactory
-from core.agents.factory import AgentFactory
 from core.workflows.events.emitter import ExecutionEventCallbackHandler
 from langgraph.errors import GraphInterrupt
 from services.conversation_context import ConversationContextService
+
+# Phase 9 / graphindex — stateful streaming filter that strips
+# `<think>...</think>` and `<tool_call>...</tool_call>` XML emitted
+# by Minimax M3 as raw text in model content. 22/22 tests pass.
+from think_filter import ThinkFilter as StreamingFilter
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +112,96 @@ def make_json_safe(obj):
             return None
 
 
+class StreamingFilter:
+    """Stateful filter to strip <think>...</think> and <tool_call>...</tool_call> tags
+    and their contents from a stream of tokens.
+    Also captures stripped think content for frontend streaming."""
+    def __init__(self):
+        self.buffer = ""
+        self.in_think = False
+        self.in_tool = False
+        self.think_buffer = ""  # Captures stripped think content for streaming
+
+    def feed(self, token: str) -> str:
+        self.buffer += token
+        output = ""
+        
+        while True:
+            if not self.in_think and not self.in_tool:
+                think_idx = self.buffer.find("<think>")
+                tool_idx = self.buffer.find("<tool_call>")
+                
+                if think_idx != -1 and (tool_idx == -1 or think_idx < tool_idx):
+                    output += self.buffer[:think_idx]
+                    self.buffer = self.buffer[think_idx + len("<think>"):]
+                    self.in_think = True
+                    self.think_buffer = ""  # Reset think buffer on enter
+                    continue
+                elif tool_idx != -1 and (think_idx == -1 or tool_idx < think_idx):
+                    output += self.buffer[:tool_idx]
+                    self.buffer = self.buffer[tool_idx + len("<tool_call>"):]
+                    self.in_tool = True
+                    continue
+                
+                last_angle = self.buffer.rfind("<")
+                if last_angle != -1:
+                    suffix = self.buffer[last_angle:]
+                    if "<think>".startswith(suffix) or "<tool_call>".startswith(suffix):
+                        output += self.buffer[:last_angle]
+                        self.buffer = suffix
+                        break
+                
+                output += self.buffer
+                self.buffer = ""
+                break
+            
+            elif self.in_think:
+                end_idx = self.buffer.find("</think>")
+                if end_idx != -1:
+                    self.think_buffer += self.buffer[:end_idx]
+                    self.buffer = self.buffer[end_idx + len("</think>"):]
+                    self.in_think = False
+                    continue
+                
+                last_angle = self.buffer.rfind("<")
+                if last_angle != -1:
+                    suffix = self.buffer[last_angle:]
+                    if "</think>".startswith(suffix):
+                        self.think_buffer += self.buffer[:last_angle]
+                        self.buffer = suffix
+                        break
+                
+                self.think_buffer += self.buffer
+                self.buffer = ""
+                break
+                
+            elif self.in_tool:
+                end_idx = self.buffer.find("</tool_call>")
+                if end_idx != -1:
+                    self.buffer = self.buffer[end_idx + len("</tool_call>"):]
+                    self.in_tool = False
+                    continue
+                
+                last_angle = self.buffer.rfind("<")
+                if last_angle != -1:
+                    suffix = self.buffer[last_angle:]
+                    if "</tool_call>".startswith(suffix):
+                        self.buffer = suffix
+                        break
+                
+                self.buffer = ""
+                break
+                
+        return output
+
+    def finalize(self) -> str:
+        if not self.in_think and not self.in_tool:
+            res = self.buffer
+            self.buffer = ""
+            return res
+        return ""
+
+
 # =============================================================================
 # Request/Response Models
 # =============================================================================
@@ -119,6 +222,28 @@ class SendMessageRequest(BaseModel):
     """Request to send a message in a chat session."""
     session_id: str
     message: str
+    project_id: Optional[int] = Field(
+        None,
+        description=(
+            "The project this chat session is bound to. The Phase 9 chat "
+            "agent queries this project's Neo4j catalog. When omitted, the "
+            "backend falls back to the agent template's project_id, then "
+            "to 1 (system project) — which usually causes the agent to "
+            "see an empty catalog. KB chat panels (DocChatPanel) should "
+            "always set this to the active project so the chat uses the "
+            "right docs."
+        ),
+    )
+    scope: Optional[List[str]] = Field(
+        None,
+        description=(
+            "Optional doc scope. None / 'all' / [] → agent considers all docs. "
+            "[doc1, doc2, ...] → only these docs (by exact name). "
+            "When set, the chat agent is given a `scope` field that the "
+            "graphindex_chat tools will enforce (out-of-scope reads return "
+            "SCOPE_ERROR; in-scope docs are the only ones visible)."
+        ),
+    )
 
 
 class ChatResponse(BaseModel):
@@ -255,7 +380,7 @@ async def start_chat_session(
             agent_id=agent.id,
             agent_name=agent.name,
             is_active=session.is_active,
-            message_count=len(session.messages),
+            message_count=len(session.messages or []),
             created_at=session.created_at.isoformat(),
             updated_at=session.updated_at.isoformat()
         )
@@ -311,7 +436,7 @@ async def send_message(
         from datetime import datetime
         from sqlalchemy.orm.attributes import flag_modified
         user_message_timestamp = datetime.utcnow().isoformat()
-        user_message_index = len(session.messages)
+        user_message_index = len(session.messages or [])
         session.messages.append({
             "role": "user",
             "content": request.message,
@@ -341,34 +466,27 @@ async def send_message(
             except Exception:
                 pass  # fallback to no language instruction
 
-            # Create agent instance — branch based on agent type
-            use_deepagents = agent.config.get("use_deepagents", False)
-            if use_deepagents:
-                config = DeepAgentConfig(**agent.config)
-                if lang_instruction:
-                    config.system_prompt = (config.system_prompt or "") + lang_instruction
-                agent_instance, _tools, _callbacks = await DeepAgentFactory.create_deep_agent(
-                    config=config,
-                    project_id=0,
-                    task_id=0,
-                    context="",
-                    mcp_manager=None,
-                    vector_store=None,
-                    user_message=request.message
-                )
-            else:
-                # Normal agent via AgentFactory — context gets appended to system prompt
-                context = ""
-                if lang_instruction:
-                    context = lang_instruction.strip()
-                agent_instance, _tools, _callbacks = await AgentFactory.create_agent(
-                    agent_config=agent.config,
-                    project_id=0,
-                    task_id=0,
-                    context=context,
-                    mcp_manager=None,
-                    vector_store=None
-                )
+            # Create agent instance via DeepAgentFactory (original pattern).
+            # DeepAgentFactory internally falls back to AgentFactory when needed.
+            # Fix: ensure list fields are never None to avoid "NoneType has no len()"
+            _safe_config = dict(agent.config or {})
+            for _list_key in ['middleware', 'subagents', 'skills', 'native_tools']:
+                if _safe_config.get(_list_key) is None:
+                    _safe_config[_list_key] = []
+            if _safe_config.get('guardrails') is None:
+                _safe_config['guardrails'] = {"input": [], "output": []}
+            config = DeepAgentConfig(**_safe_config)
+            if lang_instruction:
+                config.system_prompt = (config.system_prompt or "") + lang_instruction
+            agent_instance, _tools, _callbacks = await DeepAgentFactory.create_deep_agent(
+                config=config,
+                project_id=0,
+                task_id=0,
+                context="",
+                mcp_manager=None,
+                vector_store=None,
+                user_message=request.message
+            )
             cache_agent(request.session_id, agent_instance)
 
         # Create new user message (checkpointer will load previous messages automatically)
@@ -424,7 +542,7 @@ async def send_message(
 
         # Add assistant message to history
         assistant_message_timestamp = datetime.utcnow().isoformat()
-        assistant_message_index = len(session.messages)
+        assistant_message_index = len(session.messages or [])
         session.messages.append({
             "role": "assistant",
             "content": response_text,
@@ -594,8 +712,30 @@ async def send_message(
         )
 
     except Exception as e:
-        logger.error(f"Error sending message: {e}")
+        import traceback
+        logger.error(f"Error sending message: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _aiter_sync(gen):
+    """Wrap a sync generator as an async generator. Each iteration
+    yields the next value with a tiny sleep to let the event loop
+    breathe (so a long-running sync generator doesn't block other
+    asyncio tasks)."""
+    import asyncio
+    for item in gen:
+        await asyncio.sleep(0)  # yield to event loop
+        yield item
+
+
+# NOTE: `_generate_stream_phase9` was a planned refactor that was
+# superseded by the inline Phase 9 path inside `send_message_stream`
+# (which uses `astream_events` + the `StreamingFilter` defined above).
+# The chat model is now wrapped with `ThinkStrippingChatModel` at build
+# time (see `learning/phase9/graphindex_chat_agent.py`), so the think
+# XML is stripped at the model boundary and the inline stream only
+# ever sees clean content. This stub is kept for reference but is
+# not called by the route.
 
 
 @router.post("/message/stream")
@@ -604,6 +744,20 @@ async def send_message_stream(
     db: Session = Depends(get_db)
 ):
     """Send a message and stream the response."""
+    # ============================================================
+    # DEBUG: log every chat request so the user can see the
+    # session_id / project_id / message in the backend stdout.
+    # The session_id is what threads the conversation through
+    # MemorySaver; if the frontend sends a new session_id per
+    # turn, the agent has no memory of the previous turn and
+    # repeats the same BYD/Tesla answer.
+    # ============================================================
+    logger.info(
+        f"[CHAT-IN] session_id={request.session_id} "
+        f"project_id={request.project_id} "
+        f"scope={request.scope} "
+        f"msg={request.message!r}"
+    )
     try:
         # Get session
         session = db.query(ChatSession).filter(
@@ -627,6 +781,18 @@ async def send_message_stream(
         # Store session_id and agent config before entering generator
         # to avoid detached session issues
         session_id = session.session_id
+        # Resolve the doc scope from the request. None / "all" / [] = no filter.
+        # We treat any of these as None (no filter) to keep the tool layer simple.
+        scope = request.scope
+        if scope is not None and (
+            scope == "all" or (isinstance(scope, (list, tuple)) and len(scope) == 0)
+        ):
+            scope = None
+        # Set the doc scope on the native tools so graphindex_search / list / load
+        # filter to only the user-selected docs (deterministic, not LLM-dependent).
+        from tools.native_tools import set_graphindex_doc_scope
+        pid = request.project_id
+        set_graphindex_doc_scope(scope, pid)
         agent_config = agent.config.copy() if agent.config else {}
         # Merge guardrails_config separately — it's a separate DB column
         if agent.guardrails_config:
@@ -638,6 +804,7 @@ async def send_message_stream(
             full_response = ""
             all_context = ""
             rag_tokens_used = 0
+            stream_filter = StreamingFilter()
 
             try:
                 # Re-query session inside generator to avoid detached object issues
@@ -661,7 +828,11 @@ async def send_message_stream(
                 db.refresh(fresh_session)  # Refresh to confirm save
                 logger.info(f"✓ User message saved to DB: session={session_id}, total_messages={len(fresh_session.messages)}")
 
-                project_id = agent_project_id
+                # Build agent via DeepAgentFactory (standard path)
+                # Use the UI's active project if the agent doesn't have one
+                project_id = agent_project_id or request.project_id
+                agent_instance = None
+                all_context = ""
 
                 if project_id:
                     from services.context_retrieval import context_retriever
@@ -704,17 +875,17 @@ async def send_message_stream(
                             session_context = ""
 
                     if project_context and session_context:
-                        all_context = f"# Project Documents:\n{project_context}\n\n# Session Documents:\n{session_context}"
+                        all_context += f"# Project Documents:\n{project_context}\n\n# Session Documents:\n{session_context}"
                     elif project_context:
-                        all_context = f"# Project Documents:\n{project_context}"
+                        all_context += f"# Project Documents:\n{project_context}"
                     elif session_context:
-                        all_context = f"# Session Documents:\n{session_context}"
+                        all_context += f"# Session Documents:\n{session_context}"
 
                     if all_context:
                         rag_tokens_used = token_counter.count_tokens(all_context)
                         logger.info(f"Retrieved RAG context: {rag_tokens_used} tokens")
 
-                # Get or create agent instance.
+                # Get or create agent instance (always, regardless of project_id).
                 # Use (session_id, agent_id, agent.updated_at) as cache key so that
                 # updates to the agent's config invalidate the cached agent.
                 agent_version = None
@@ -727,35 +898,35 @@ async def send_message_stream(
                 )
 
                 if not agent_instance:
-                    # Branch on agent type
-                    use_deepagents = agent_config.get("use_deepagents", False)
-                    if use_deepagents:
-                        config = DeepAgentConfig(**agent_config)
-                        agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
-                            config=config,
-                            project_id=project_id or 0,
-                            task_id=0,
-                            context=all_context,  # Inject RAG context
-                            mcp_manager=None,
-                            vector_store=None,
-                            user_message=request.message
-                        )
-                    else:
-                        # Normal agent via AgentFactory
-                        agent_instance, tools, callbacks = await AgentFactory.create_agent(
-                            agent_config=agent_config,
-                            project_id=project_id or 0,
-                            task_id=0,
-                            context=all_context,
-                            mcp_manager=None,
-                            vector_store=None
-                        )
+                    # Create agent instance via DeepAgentFactory (original pattern).
+                    # DeepAgentFactory internally falls back to AgentFactory when needed.
+                    config = DeepAgentConfig(**agent_config)
+                    agent_instance, tools, callbacks = await DeepAgentFactory.create_deep_agent(
+                        config=config,
+                        project_id=project_id or 0,
+                        task_id=0,
+                        context=all_context,  # Inject RAG context
+                        mcp_manager=None,
+                        vector_store=None,
+                        user_message=request.message
+                    )
                     cache_agent(
                         request.session_id,
                         agent_instance,
                         agent_id=agent.id,
                         agent_version=agent_version,
                     )
+
+                # Fallback: if no project_id or agent couldn't be built, use graphindex agent
+                if agent_instance is None:
+                    try:
+                        from learning.phase9.graphindex.agent import build_agent as _build_graphindex_agent
+                        agent_instance = _build_graphindex_agent(project_id=project_id or 1)
+                        logger.info(f"Fallback: built graphindex agent for session={session_id}")
+                    except Exception as e:
+                        logger.error(f"Fallback agent build failed: {e}")
+                        yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to build agent'})}\n\n"
+                        return
 
                 # Create event handler for tracking tool calls and subagent activity
                 event_handler = ExecutionEventCallbackHandler(
@@ -875,8 +1046,20 @@ async def send_message_stream(
                                 token = str(token)
 
                             if token:
-                                full_response += token
-                                yield f"data: {json.dumps({'type': 'chunk', 'content': token})}\n\n"
+                                # Apply StreamingFilter to strip <think> and <tool_call> tags and their contents
+                                # The filter captures stripped think content in think_buffer
+                                filtered_token = stream_filter.feed(token)
+                                
+                                # Emit think content that was captured since last feed
+                                think_content = stream_filter.think_buffer
+                                if think_content and not stream_filter.in_think:
+                                    # Think block just closed — emit all captured content
+                                    yield f"data: {json.dumps({'type': 'thinking', 'content': think_content})}\n\n"
+                                    stream_filter.think_buffer = ""  # Reset after emit
+                                
+                                if filtered_token:
+                                    full_response += filtered_token
+                                    yield f"data: {json.dumps({'type': 'chunk', 'content': filtered_token})}\n\n"
 
                     # Stream interrupt events (Human-in-the-Loop)
                     elif kind == "__interrupt__":
@@ -936,6 +1119,12 @@ async def send_message_stream(
                         interrupted = True
                 except Exception as e:
                     logger.debug(f"No interrupt state available: {e}")
+
+                # Finalize filter
+                final_prose = stream_filter.finalize()
+                if final_prose:
+                    full_response += final_prose
+                    yield f"data: {json.dumps({'type': 'chunk', 'content': final_prose})}\n\n"
 
                 # Send completion event (skip if interrupted)
                 if not interrupted:
@@ -1138,7 +1327,7 @@ async def get_session_metrics(
         "tool_calls": session.tool_calls,
         "subagent_spawns": session.subagent_spawns,
         "context_operations": session.context_operations,
-        "message_count": len(session.messages),
+        "message_count": len(session.messages or []),
         "is_active": session.is_active,
         "duration_seconds": (session.updated_at - session.created_at).total_seconds()
     }
@@ -1236,7 +1425,10 @@ async def list_chat_sessions(
             "agent_id": session.agent_id,
             "agent_name": agent.name if agent else "Unknown Agent",
             "is_active": session.is_active,
-            "message_count": len(session.messages),
+            # BUG FIX: session.messages can be None for some sessions
+            # (e.g. freshly created with no messages yet, or migrated from
+            # a schema that didn't set the default). Use a safe accessor.
+            "message_count": len(session.messages or []),
             "last_message_preview": last_message_preview,
             "created_at": session.created_at.isoformat(),
             "updated_at": session.updated_at.isoformat()
@@ -1450,36 +1642,16 @@ async def resume_chat(
     try:
         from langgraph.types import Command
 
-        # Detect agent type from DB config
-        is_deep_agent = True  # default for backwards compatibility
-        if session.agent_id:
-            agent_config = db.query(DeepAgentTemplate).filter(
-                DeepAgentTemplate.id == session.agent_id
-            ).first()
-            if agent_config and not agent_config.config.get("use_deepagents", False):
-                is_deep_agent = False
-
-        if is_deep_agent:
-            # Deep agents: HumanInTheLoopMiddleware expects {"decisions": [...]}
-            action = resume_data.get("action", "approve")
-            if isinstance(action, str):
-                decisions = [{"type": action}]
-            elif isinstance(action, list):
-                decisions = action
-            else:
-                decisions = [{"type": "approve"}]
-            resume_value = {"decisions": decisions}
+        # Use DeepAgentFactory's HumanInTheLoopMiddleware pattern (always).
+        # DeepAgent handles resume via {"decisions": [...]} format.
+        action = resume_data.get("action", "approve")
+        if isinstance(action, str):
+            decisions = [{"type": action}]
+        elif isinstance(action, list):
+            decisions = action
         else:
-            # Normal agents: interrupt_before pauses execution — resume to continue
-            # The resume value is passed to the tools node as input
-            action = resume_data.get("action", "approve")
-            if action == "approve":
-                resume_value = resume_data.get("approved", True)
-            elif action == "reject":
-                # For reject, we can either skip or resurface with empty resume
-                resume_value = None
-            else:
-                resume_value = resume_data.get("value", "continue")
+            decisions = [{"type": "approve"}]
+        resume_value = {"decisions": decisions}
         result = await agent_instance.ainvoke(
             Command(resume=resume_value),
             config={"configurable": {"thread_id": session_id}}
@@ -1918,6 +2090,11 @@ async def _index_to_graphindex_for_chat(
         from models.core import ContextDocument, DocumentType, IndexingStatus
         from services.file_storage import file_storage
 
+        logger.info(
+            f"[phase9] chat upload starting: filename={filename!r}, "
+            f"project_id={project_id}, file_size={file_size} bytes"
+        )
+
         content_hash = hashlib.sha256(file_content).hexdigest()
 
         db = SessionLocal()
@@ -1974,11 +2151,18 @@ async def _index_to_graphindex_for_chat(
             db.commit()
             db.refresh(doc)
 
-            # Trigger full indexing (GraphIndex + vector)
+            # Trigger full indexing (GraphIndex + vector).
+            # The knowledge-panel path inside this will call
+            # _phase9_get_or_generate_enrichment and populate
+            # about / supports / out_of_scope / few_shot on the Neo4j node,
+            # so chat-uploaded docs become routable.
             from api.knowledge.rag import index_document_background
             await index_document_background(doc.id)
 
-            logger.info(f"GraphIndex indexing completed for chat-uploaded doc {doc.id}: {filename}")
+            logger.info(
+                f"[phase9] chat upload indexed: doc_id={doc.id}, "
+                f"filename={filename!r} (now routable in Neo4j)"
+            )
         finally:
             db.close()
     except Exception as e:

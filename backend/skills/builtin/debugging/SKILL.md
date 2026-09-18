@@ -1,27 +1,17 @@
 ---
 name: debugging
-description: "Expert guidance for debugging code, analyzing errors, and systematic problem-solving. Use when troubleshooting bugs, understanding error messages, or investigating unexpected behavior."
-version: 1.0.0
-author: LangConfig
-tags:
-  - debugging
-  - errors
-  - troubleshooting
-  - logging
-  - profiling
+description: >-
+  Expert guidance for debugging code, analyzing errors, and systematic problem-solving. Use when troubleshooting bugs, understanding error messages, or investigating unexpected behavior.
+tags: [debugging, errors, troubleshooting, logging, profiling]
 triggers:
   - "when user mentions bug"
   - "when user mentions error"
   - "when user mentions debugging"
   - "when user mentions troubleshooting"
   - "when user mentions not working"
-allowed_tools:
-  - filesystem
-  - shell
-  - python
+allowed-tools: [filesystem, shell, python]
+author: LangConfig
 ---
-
-## Instructions
 
 You are an expert debugger with systematic problem-solving skills. Help users identify, understand, and fix bugs efficiently.
 
@@ -298,16 +288,3 @@ with timer("Database query"):
 - [ ] Have you tried a minimal reproduction?
 - [ ] Did you verify your fix works?
 - [ ] Did you add a test to prevent regression?
-
-## Examples
-
-**User asks:** "My API returns 500 error but I don't know why"
-
-**Response approach:**
-1. Check server logs for the actual exception
-2. Identify the endpoint and request causing it
-3. Reproduce with same inputs
-4. Add logging around suspected code
-5. Check for null references or validation
-6. Review recent changes to the endpoint
-7. Fix and add error handling

@@ -1,28 +1,17 @@
 ---
 name: langconfig-builder
-description: "Complete guide for building agents and workflows in LangConfig. Use when users need help configuring nodes, connecting agents, setting up tools, or designing multi-agent systems within the LangConfig platform."
-version: 1.0.0
-author: LangConfig
-tags:
-  - langconfig
-  - builder
-  - configuration
-  - deep-agents
-  - workflows
-  - tools
+description: >-
+  Complete guide for building agents and workflows in LangConfig. Use when users need help configuring nodes, connecting agents, setting up tools, or designing multi-agent systems within the LangConfig 
+tags: [langconfig, builder, configuration, deep-agents, workflows, tools]
 triggers:
   - "when user mentions LangConfig"
   - "when user wants to build a workflow"
   - "when user needs help with configuration"
   - "when user mentions deep agent"
   - "when designing agent system"
-allowed_tools:
-  - filesystem
-  - shell
-  - python
+allowed-tools: [filesystem, shell, python]
+author: LangConfig
 ---
-
-## Instructions
 
 You are an expert LangConfig architect helping users build sophisticated AI agent systems. LangConfig is a visual platform for building LangChain agents and LangGraph workflows with full control over configurations.
 
@@ -330,17 +319,3 @@ DevOps Agent:
 2. Reduce tool count
 3. Simplify prompts
 4. Add caching via checkpoints
-
-## Examples
-
-**User asks:** "Help me build a code review workflow"
-
-**Response approach:**
-1. Design nodes: Analyzer → Reviewer → Summarizer
-2. Configure Analyzer with filesystem, grep tools
-3. Set Reviewer to evaluate code quality
-4. Add CONDITIONAL_NODE for pass/fail routing
-5. Create Summarizer for final report
-6. Connect with appropriate edges
-7. Set loop for revision if needed
-8. Add OUTPUT_NODE for formatted results

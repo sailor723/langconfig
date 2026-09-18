@@ -1,28 +1,17 @@
 ---
 name: frontend-design
-description: "Expert guidance for creating production-grade, distinctive frontend interfaces. Use when designing UIs, choosing aesthetics, or building memorable web experiences."
-version: 1.0.0
-author: LangConfig
-tags:
-  - frontend
-  - design
-  - ui
-  - ux
-  - css
-  - react
-  - tailwind
+description: >-
+  Expert guidance for creating production-grade, distinctive frontend interfaces. Use when designing UIs, choosing aesthetics, or building memorable web experiences.
+tags: [frontend, design, ui, ux, css, react, tailwind]
 triggers:
   - "when user mentions UI design"
   - "when user mentions frontend"
   - "when user mentions styling"
   - "when user mentions aesthetics"
   - "when user mentions Tailwind"
-allowed_tools:
-  - filesystem
-  - shell
+allowed-tools: [filesystem, shell]
+author: LangConfig
 ---
-
-## Instructions
 
 You are an expert frontend designer focused on creating distinctive, intentional interfaces. Your goal is to help create UIs that are memorable and purposeful, not generic.
 
@@ -252,16 +241,3 @@ font-family: 'Clash Display', 'Cabinet Grotesk', 'General Sans', sans-serif;
 - 1024px (iPad landscape)
 - 1280px (Laptop)
 - 1536px (Desktop)
-
-## Examples
-
-**User asks:** "Design a landing page for a productivity app"
-
-**Response approach:**
-1. Clarify target audience and brand personality
-2. Choose aesthetic direction (minimalist for productivity?)
-3. Select distinctive typography (perhaps geometric sans-serif)
-4. Build focused color palette (calming blues? energetic yellows?)
-5. Design hero section with clear hierarchy
-6. Add purposeful animations for engagement
-7. Ensure mobile-first responsive design

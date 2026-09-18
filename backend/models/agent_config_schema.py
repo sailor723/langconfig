@@ -245,8 +245,8 @@ class AgentConfigV2(BaseModel):
     @classmethod
     def validate_max_tokens(cls, v):
         """Validate max_tokens is reasonable."""
-        if v is not None and not (1 <= v <= 500000):
-            raise ValueError(f"max_tokens must be between 1 and 500000, got {v}")
+        if v is not None and not (1 <= v <= 1_000_000):
+            raise ValueError(f"max_tokens must be between 1 and 1000000, got {v}")
         return v
 
     @field_validator('enable_structured_output')

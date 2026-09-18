@@ -1,0 +1,4 @@
+region,gross_revenue,tax_rate,tax_amount,net_revenue,performance_flag
+EMEA,2500.0,0.15,375.0,2125.0,OK
+LATAM,2100.0,0.0,0.0,2100.0,OK
+US,10000.0,0.08,800.0,9200.0,OK

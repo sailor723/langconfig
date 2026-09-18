@@ -28,6 +28,20 @@ from langchain_community.tools import DuckDuckGoSearchRun
 import httpx
 import os
 
+# ---------------------------------------------------------------------------
+# Phase 9 integration: prefer Phase 9 LLM-semantic query system over the
+# legacy base string-matching. Phase 9 lives at langconfig/learning/phase9/;
+# ensure it's importable from this file along with the backend root.
+# ---------------------------------------------------------------------------
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _REPO_ROOT not in sys.path and os.path.isdir(_REPO_ROOT):
+    sys.path.insert(0, _REPO_ROOT)
+_PHASE9_DIR = os.path.abspath(
+    os.path.join(_REPO_ROOT, "learning", "phase9")
+)
+if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):
+    sys.path.insert(0, _PHASE9_DIR)
+
 logger = logging.getLogger(__name__)
 
 # Playwright imports - conditional to avoid import errors if not available
@@ -91,6 +105,10 @@ TOOL_NAME_MAP = {
     "memory_store": "memory_store",
     "memory_recall": "memory_recall",
 
+    # SQL/data tools
+    "sqlite_execute": "sqlite_execute",
+    "python_execute": "python_execute",
+
     # Reasoning tools
     "sequential_thinking": "reasoning_chain",
     "thinking": "reasoning_chain",
@@ -106,6 +124,27 @@ TOOL_NAME_MAP = {
     "create_skill": "create_skill",
     "update_skill": "update_skill",
     "delete_skill": "delete_skill",
+    # Agent management tools
+    "create_deepagent": "create_deepagent",
+    # PostgreSQL schema tools
+    "pg_list_tables": "pg_list_tables",
+    "pg_describe_table": "pg_describe_table",
+    "pg_query": "pg_query",
+    "pg_execute": "pg_execute",
+    # PostgreSQL domain tools
+    "pg_list_agents": "pg_list_agents",
+    "pg_get_agent": "pg_get_agent",
+    "pg_list_skills": "pg_list_skills",
+    "search_skills": "search_skills",
+    "pg_list_projects": "pg_list_projects",
+    "pg_list_documents": "pg_list_documents",
+    "pg_list_custom_tools": "pg_list_custom_tools",
+    # Neo4j tools
+    "neo4j_list_docs": "neo4j_list_docs",
+    "neo4j_get_doc": "neo4j_get_doc",
+    "neo4j_query": "neo4j_query",
+    "neo4j_upsert_doc": "neo4j_upsert_doc",
+    "neo4j_delete_doc": "neo4j_delete_doc",
 }
 
 
@@ -1541,6 +1580,849 @@ def delete_skill(skill_id: str) -> str:
 
 
 # =============================================================================
+# Agent Management Tools (direct PostgreSQL write)
+# =============================================================================
+
+@tool
+def create_deepagent(name: str,
+                     system_prompt: str,
+                     native_tools: list[str],
+                     skills: list[str] | None = None,
+                     description: str | None = None,
+                     category: str | None = None,
+                     model: str | None = None,
+                     temperature: float | None = None) -> str:
+    """Create a new DeepAgent in the database. The agent will immediately appear in the DeepAgent Studio.
+
+    Use this tool when the user wants to SAVE a designed agent configuration permanently.
+
+    Args:
+        name: Agent name (e.g. '市场研究助手')
+        system_prompt: The COMPLETE system prompt defining the agent's behavior
+        native_tools: List of tool names the agent should have (e.g. ['web_search', 'web_fetch', 'reasoning_chain'])
+        skills: List of skill IDs (e.g. ['web-search', 'text-summarizer'])
+        description: Short 1-2 sentence description of what the agent does
+        category: Agent category (e.g. 'Research', 'Coding', 'Custom')
+        model: Model name (default: 'minimax-m3')
+        temperature: Model temperature 0.0-1.0 (default: 0.7)
+    """
+    from db.database import SessionLocal
+    from models.deep_agent import (
+        DeepAgentTemplate,
+        DeepAgentConfig,
+        create_default_middleware_config,
+        create_default_backend_config,
+        create_default_guardrails_config,
+    )
+    import json
+
+    db = SessionLocal()
+    try:
+        cfg = DeepAgentConfig(
+            model=model or "minimax-m3",
+            system_prompt=system_prompt.strip(),
+            native_tools=native_tools or [],
+            skills=skills or [],
+            tools=[],
+            cli_tools=[],
+            custom_tools=[],
+            temperature=temperature if temperature is not None else 0.7,
+            use_deepagents=True,
+            middleware=create_default_middleware_config(),
+            subagents=[],
+            backend=create_default_backend_config(),
+            guardrails=create_default_guardrails_config(),
+        )
+
+        agent = DeepAgentTemplate(
+            name=name.strip(),
+            description=(description or "").strip(),
+            category=category or "Custom",
+            config=cfg.dict(),
+            middleware_config=[m.dict() for m in cfg.middleware],
+            subagents_config=[],
+            backend_config=cfg.backend.dict(),
+            guardrails_config=cfg.guardrails.dict(),
+        )
+
+        db.add(agent)
+        db.commit()
+        db.refresh(agent)
+
+        return (
+            f"✅ Agent '{name}' (id={agent.id}) created successfully!\n\n"
+            f"Agent is now available in the DeepAgent Studio. The user can:\n"
+            f"1. Select it from the agent dropdown to see its topology\n"
+            f"2. Click 'Test' to start a conversation with it\n"
+            f"3. Click 'Edit' to modify its configuration"
+        )
+    except Exception as e:
+        db.rollback()
+        return f"❌ Failed to create agent: {e}"
+    finally:
+        db.close()
+
+
+# =============================================================================
+# PostgreSQL Tools (direct DB read/write)
+# =============================================================================
+
+def _get_pg_session():
+    """Get a sync PostgreSQL session via SessionLocal."""
+    from db.database import SessionLocal
+    return SessionLocal()
+
+
+@tool
+def pg_list_tables(schema: str = "public") -> str:
+    """
+    List all tables and views in a PostgreSQL schema with row counts.
+
+    Use this to discover what tables exist in the database before querying.
+
+    Args:
+        schema: Schema name to list (default: 'public')
+
+    Returns:
+        Formatted table list with type (table/view) and estimated row count
+
+    Example:
+        >>> pg_list_tables()
+        >>> pg_list_tables(schema="public")
+    """
+    import sqlalchemy as sa
+    db = _get_pg_session()
+    try:
+        conn = db.connection()
+        # pg_stat_user_tables uses relname; fall back to information_schema for reliability
+        result = conn.execute(sa.text(
+            """
+            SELECT
+                relname AS name,
+                'table' AS type,
+                n_live_tup AS estimated_rows
+            FROM pg_catalog.pg_stat_user_tables
+            WHERE schemaname = :schema
+            UNION ALL
+            SELECT
+                viewname AS name,
+                'view' AS type,
+                0 AS estimated_rows
+            FROM pg_catalog.pg_views
+            WHERE schemaname = :schema
+            ORDER BY name
+            """
+        ), {"schema": schema})
+        rows = result.fetchall()
+        if not rows:
+            return f"No tables found in schema '{schema}'."
+        lines = [f"## Tables in schema '{schema}'", ""]
+        for r in rows:
+            lines.append(f"- **{r.name}** ({r.type}, ~{r.estimated_rows} rows)")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing tables: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_describe_table(table_name: str, schema: str = "public") -> str:
+    """
+    Show column details for a PostgreSQL table: name, type, nullable, default, constraints.
+
+    Use this to understand a table's schema before querying or inserting data.
+
+    Args:
+        table_name: Name of the table to describe
+        schema: Schema name (default: 'public')
+
+    Returns:
+        Formatted column list with type, nullable, default, and constraint info
+
+    Example:
+        >>> pg_describe_table("deep_agent_templates")
+        >>> pg_describe_table("skills", schema="public")
+    """
+    import sqlalchemy as sa
+    db = _get_pg_session()
+    try:
+        conn = db.connection()
+        result = conn.execute(sa.text(
+            """
+            SELECT
+                c.column_name AS name,
+                c.data_type || COALESCE('(' || c.character_maximum_length::text || ')', '') AS data_type,
+                c.is_nullable,
+                c.column_default AS default_value,
+                CASE WHEN pk.column_name IS NOT NULL THEN 'PRIMARY KEY' ELSE '' END AS constraint_type
+            FROM information_schema.columns c
+            LEFT JOIN (
+                SELECT ku.column_name
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.key_column_usage ku
+                    ON tc.constraint_name = ku.constraint_name
+                    AND tc.table_schema = ku.table_schema
+                WHERE tc.constraint_type = 'PRIMARY KEY'
+                    AND tc.table_name = :table_name
+                    AND tc.table_schema = :schema
+            ) pk ON pk.column_name = c.column_name
+            WHERE c.table_name = :table_name AND c.table_schema = :schema
+            ORDER BY c.ordinal_position
+            """
+        ), {"table_name": table_name, "schema": schema})
+        rows = result.fetchall()
+        if not rows:
+            return f"Table '{schema}.{table_name}' not found."
+        lines = [f"## Columns of '{schema}.{table_name}'", ""]
+        for r in rows:
+            nullable = "NULL" if r.is_nullable == "YES" else "NOT NULL"
+            default = f" default={r.default_value}" if r.default_value else ""
+            pk = " 🔑" if r.constraint_type == "PRIMARY KEY" else ""
+            lines.append(f"- **{r.name}**  `{r.data_type}`  {nullable}{default}{pk}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error describing table: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_query(sql: str) -> str:
+    """
+    Run a read-only SQL SELECT query against PostgreSQL and return results as a table.
+
+    SAFETY: Only SELECT statements are allowed. INSERT/UPDATE/DELETE are rejected.
+    Use pg_execute for write operations.
+
+    Args:
+        sql: The SELECT SQL query to run (e.g. 'SELECT * FROM deep_agent_templates LIMIT 5')
+
+    Returns:
+        Query results formatted as a markdown table
+
+    Example:
+        >>> pg_query("SELECT id, name, category FROM deep_agent_templates ORDER BY created_at DESC LIMIT 10")
+        >>> pg_query("SELECT count(*) AS total FROM skills")
+    """
+    import sqlalchemy as sa
+    sql_stripped = sql.strip().lower()
+    if not sql_stripped.startswith("select"):
+        return "❌ Only SELECT queries are allowed. Use pg_execute for write operations."
+
+    db = _get_pg_session()
+    try:
+        conn = db.connection()
+        result = conn.execute(sa.text(sql))
+        rows = result.fetchall()
+        if not rows:
+            return "Query returned no rows."
+        col_names = result.keys()
+        lines = ["| " + " | ".join(col_names) + " |"]
+        lines.append("| " + " | ".join("---" for _ in col_names) + " |")
+        for row in rows:
+            vals = []
+            for v in row:
+                s = str(v) if v is not None else "NULL"
+                if len(s) > 200:
+                    s = s[:200] + "…"
+                vals.append(s)
+            lines.append("| " + " | ".join(vals) + " |")
+        lines.append(f"\n*{len(rows)} row(s) returned*")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Query error: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_execute(sql: str) -> str:
+    """
+    Execute a write SQL statement (INSERT, UPDATE, DELETE) against PostgreSQL.
+
+    WARNING: This modifies database data. Use with caution.
+
+    Args:
+        sql: The SQL statement to execute (e.g. "UPDATE deep_agent_templates SET name='New Name' WHERE id=1")
+
+    Returns:
+        Confirmation message with number of rows affected
+
+    Example:
+        >>> pg_execute("UPDATE deep_agent_templates SET is_public=false WHERE id=1")
+        >>> pg_execute("DELETE FROM chat_sessions WHERE is_active=false")
+    """
+    import sqlalchemy as sa
+    sql_stripped = sql.strip().lower()
+    allowed_keywords = ("insert", "update", "delete", "create", "alter", "drop", "truncate")
+    if not any(sql_stripped.startswith(kw) for kw in allowed_keywords):
+        return "❌ Only write statements are allowed (INSERT, UPDATE, DELETE, etc.). Use pg_query for SELECT."
+
+    db = _get_pg_session()
+    try:
+        conn = db.connection()
+        result = conn.execute(sa.text(sql))
+        db.commit()
+        return f"✅ Statement executed successfully. {result.rowcount} row(s) affected."
+    except Exception as e:
+        db.rollback()
+        return f"❌ Execute error: {e}"
+    finally:
+        db.close()
+
+
+# =============================================================================
+# PostgreSQL Domain-Specific Tools (read entity configs)
+# These provide structured access to application entities rather than raw SQL.
+# =============================================================================
+
+@tool
+def pg_list_agents(category: str | None = None) -> str:
+    """
+    List all DeepAgent templates from the database with name, category, and config summary.
+
+    Use this to browse available agent configurations before selecting one.
+
+    Args:
+        category: Optional category filter (e.g. 'Research', 'Coding', 'Custom')
+
+    Returns:
+        Formatted list of agents with id, name, category, model, and tool count
+
+    Example:
+        >>> pg_list_agents()
+        >>> pg_list_agents(category="Research")
+    """
+    from models.deep_agent import DeepAgentTemplate
+    db = _get_pg_session()
+    try:
+        query = db.query(DeepAgentTemplate).order_by(DeepAgentTemplate.updated_at.desc())
+        if category:
+            query = query.filter(DeepAgentTemplate.category == category)
+        agents = query.all()
+        if not agents:
+            return "No agents found." if not category else f"No agents found in category '{category}'."
+        lines = [f"## DeepAgent Templates ({len(agents)} total)", ""]
+        for a in agents:
+            cfg = a.config or {}
+            tools = cfg.get("native_tools", [])
+            skills = cfg.get("skills", [])
+            model = cfg.get("model", "not set")
+            lines.append(
+                f"- **{a.name}** (id={a.id})  "
+                f"`{a.category}`  model=`{model}`  "
+                f"tools={len(tools)}  skills={len(skills)}"
+            )
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing agents: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_get_agent(agent_id: int) -> str:
+    """
+    Get the full configuration of a DeepAgent by its ID.
+
+    Returns system prompt, tools, skills, model, temperature, subagents, and middleware config.
+
+    Args:
+        agent_id: The numeric ID of the agent (use pg_list_agents to find IDs)
+
+    Returns:
+        Complete agent configuration in a readable format
+
+    Example:
+        >>> pg_get_agent(agent_id=1)
+    """
+    from models.deep_agent import DeepAgentTemplate
+    db = _get_pg_session()
+    try:
+        agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
+        if not agent:
+            return f"❌ Agent with id={agent_id} not found."
+        cfg = agent.config or {}
+        lines = [
+            f"## Agent: {agent.name} (id={agent.id})",
+            f"**Description**: {agent.description or '(no description)'}",
+            f"**Category**: {agent.category}",
+            f"**Model**: {cfg.get('model', 'not set')}",
+            f"**Temperature**: {cfg.get('temperature', 0.7)}",
+            f"**Use DeepAgents**: {cfg.get('use_deepagents', True)}",
+            "",
+            "### System Prompt",
+            "```",
+            cfg.get("system_prompt", "(empty)")[:2000],
+            "```" if len(cfg.get("system_prompt", "")) <= 2000 else "```\n*...truncated*",
+            "",
+            "### Tools",
+            f"- Native tools: {cfg.get('native_tools', [])}",
+            f"- Skills: {cfg.get('skills', [])}",
+            f"- Custom tools: {cfg.get('custom_tools', [])}",
+            "",
+            "### Subagents",
+        ]
+        subagents = cfg.get("subagents", []) or agent.subagents_config or []
+        if subagents:
+            for s in subagents:
+                name = s.get("name") if isinstance(s, dict) else getattr(s, "name", "?")
+                desc = s.get("description") if isinstance(s, dict) else getattr(s, "description", "")
+                lines.append(f"- **{name}**: {desc}")
+        else:
+            lines.append("(none)")
+        lines.append("")
+        lines.append(f"**Version**: {agent.version} | **Public**: {agent.is_public} | **Usage**: {agent.usage_count}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error getting agent: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_list_skills() -> str:
+    """
+    List all skills in the database with their IDs, descriptions, tags, and usage counts.
+
+    Skills define reusable capabilities that agents can auto-discover and invoke.
+
+    Returns:
+        Formatted list of available skills
+
+    Example:
+        >>> pg_list_skills()
+    """
+    from models.skill import Skill
+    db = _get_pg_session()
+    try:
+        skills = db.query(Skill).order_by(Skill.usage_count.desc()).all()
+        if not skills:
+            return "No skills found in the database."
+        lines = [f"## Skills ({len(skills)} total)", ""]
+        for s in skills:
+            tags = ", ".join(s.tags or []) if s.tags else ""
+            tag_str = f"  tags=[{tags}]" if tags else ""
+            lines.append(
+                f"- **{s.name}** (`{s.skill_id}`){tag_str}\n"
+                f"  {s.description[:120]}{'…' if len(s.description) > 120 else ''}\n"
+                f"  used {s.usage_count}x | source={s.source_type.value}"
+            )
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing skills: {e}"
+    finally:
+        db.close()
+
+
+def search_skills(query: str) -> str:
+    """
+    Search skills by name, description, or tags.
+
+    Useful for an agent to find relevant skills for a given task.
+    Returns matching skills with their ID, name, description, tags, and triggers.
+
+    Args:
+        query: Search keyword (e.g., 'stock', 'database', 'research')
+
+    Returns:
+        Formatted list of matching skills
+
+    Example:
+        >>> search_skills("stock market")
+    """
+    from models.skill import Skill
+    db = _get_pg_session()
+    try:
+        query_lower = query.lower()
+        skills = db.query(Skill).order_by(Skill.usage_count.desc()).all()
+        matches = []
+        for s in skills:
+            if (query_lower in s.name.lower() or
+                query_lower in (s.description or "").lower() or
+                any(query_lower in t.lower() for t in (s.tags or [])) or
+                any(query_lower in t.lower() for t in (s.triggers or []))):
+                matches.append(s)
+        if not matches:
+            return f"No skills found matching '{query}'."
+        lines = [f"## Matching skills for '{query}' ({len(matches)} found)", ""]
+        for s in matches:
+            tags = ", ".join(s.tags or [])
+            triggers = "; ".join((s.triggers or [])[:3])
+            lines.append(f"### {s.name} (`{s.skill_id}`)")
+            lines.append(f"  Description: {s.description or 'N/A'}")
+            lines.append(f"  Tags: {tags}")
+            lines.append(f"  Triggers: {triggers}")
+            lines.append(f"  Used: {s.usage_count}x")
+            lines.append("")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error searching skills: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_list_projects() -> str:
+    """
+    List all projects with their IDs, names, document count, and indexing status.
+
+    Projects group documents and workflows together.
+
+    Returns:
+        Formatted list of projects
+
+    Example:
+        >>> pg_list_projects()
+    """
+    from models.core import Project, ContextDocument
+    from sqlalchemy import func
+    db = _get_pg_session()
+    try:
+        projects = db.query(
+            Project,
+            func.count(ContextDocument.id).label("doc_count")
+        ).outerjoin(
+            ContextDocument, ContextDocument.project_id == Project.id
+        ).group_by(Project.id).order_by(Project.updated_at.desc()).all()
+        if not projects:
+            return "No projects found."
+        lines = ["## Projects", ""]
+        for proj, doc_count in projects:
+            lines.append(
+                f"- **{proj.name}** (id={proj.id})  "
+                f"status=`{proj.status.value}`  "
+                f"docs={doc_count}  "
+                f"index={proj.indexing_status.value}"
+            )
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing projects: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_list_documents(project_id: int | None = None) -> str:
+    """
+    List all context documents (uploaded files) with their metadata.
+
+    Documents are the source files uploaded for RAG/GraphIndex processing.
+    Each document has a file_path on disk and may be indexed in Neo4j.
+
+    Args:
+        project_id: Optional project ID to filter by
+
+    Returns:
+        Formatted list of documents with metadata
+
+    Example:
+        >>> pg_list_documents()
+        >>> pg_list_documents(project_id=1)
+    """
+    from models.core import ContextDocument
+    db = _get_pg_session()
+    try:
+        query = db.query(ContextDocument).order_by(ContextDocument.updated_at.desc())
+        if project_id is not None:
+            query = query.filter(ContextDocument.project_id == project_id)
+        docs = query.all()
+        if not docs:
+            return "No documents found." if project_id is None else f"No documents found for project_id={project_id}."
+        lines = [f"## Documents ({len(docs)} total)", ""]
+        for d in docs:
+            lines.append(
+                f"- **{d.filename}** (id={d.id})  "
+                f"type={d.document_type.value}  "
+                f"size={d.file_size}B  "
+                f"index={d.indexing_status.value}  "
+                f"project={d.project_id}"
+            )
+            if d.description:
+                lines.append(f"  {d.description[:150]}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing documents: {e}"
+    finally:
+        db.close()
+
+
+@tool
+def pg_list_custom_tools(tool_type: str | None = None) -> str:
+    """
+    List all custom (user-created) tools with their type, description, and usage stats.
+
+    Custom tools extend agent capabilities with API integrations, database connectors,
+    image generators, and custom Python functions.
+
+    Args:
+        tool_type: Optional filter by type (api, notification, image_video, database, data_transform, python_function)
+
+    Returns:
+        Formatted list of custom tools
+
+    Example:
+        >>> pg_list_custom_tools()
+        >>> pg_list_custom_tools(tool_type="database")
+    """
+    from models.custom_tool import CustomTool
+    db = _get_pg_session()
+    try:
+        query = db.query(CustomTool).order_by(CustomTool.usage_count.desc())
+        if tool_type:
+            query = query.filter(CustomTool.tool_type == tool_type)
+        tools = query.all()
+        if not tools:
+            return "No custom tools found." if not tool_type else f"No custom tools of type '{tool_type}' found."
+        lines = [f"## Custom Tools ({len(tools)} total)", ""]
+        for t in tools:
+            lines.append(
+                f"- **{t.name}** (`{t.tool_id}`)  "
+                f"type={t.tool_type.value}  "
+                f"template={t.template_type.value if t.template_type else 'custom'}  "
+                f"used={t.usage_count}x"
+            )
+            if t.description:
+                lines.append(f"  {t.description[:150]}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing custom tools: {e}"
+    finally:
+        db.close()
+
+
+# =============================================================================
+# Neo4j Tools (Document Index metadata)
+# =============================================================================
+
+def _get_neo4j_idx():
+    """Create a Neo4jDocumentIndex from environment variables."""
+    from services.neo4j_document_index import Neo4jDocumentIndex
+    idx = Neo4jDocumentIndex(
+        base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+        username=os.environ.get("NEO4J_USER", "neo4j"),
+        password=os.environ.get("NEO4J_PASSWORD", "password"),
+    )
+    idx.ensure_constraints()
+    return idx
+
+
+@tool
+def neo4j_list_docs(project_id: int) -> str:
+    """
+    List all Document nodes in Neo4j for a project with their metadata.
+
+    Neo4j stores document routing metadata (summary, supported queries, tags, file path).
+    Use this to discover what documents are indexed before searching.
+
+    Args:
+        project_id: Project ID to list documents for
+
+    Returns:
+        Formatted list of documents with enriched metadata
+
+    Example:
+        >>> neo4j_list_docs(project_id=1)
+    """
+    try:
+        idx = _get_neo4j_idx()
+        docs = idx.list_documents(project_id)
+        if not docs:
+            return f"No documents indexed in Neo4j for project_id={project_id}."
+        lines = [f"## Neo4j Documents (project {project_id}, {len(docs)} total)", ""]
+        for d in docs:
+            q_count = len(d.supported_queries or [])
+            lines.append(
+                f"- **{d.doc_name}** (`{d.name}`)  "
+                f"pages={d.page_count}  "
+                f"queries={q_count}"
+            )
+            about = d.what_this_document_is_about or d.description or ""
+            if about:
+                lines.append(f"  {about[:200]}")
+            if d.file_path:
+                lines.append(f"  path: `{d.file_path}`")
+            lines.append("")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing Neo4j documents: {e}"
+
+
+@tool
+def neo4j_get_doc(project_id: int, name: str) -> str:
+    """
+    Get full metadata for one Document node from Neo4j by project_id and name.
+
+    Returns enriched metadata: description, supported queries, file path, tags, etc.
+    Use the returned file_path with read_file to get the actual document content.
+
+    Args:
+        project_id: Project ID
+        name: Document name in Neo4j (use neo4j_list_docs to find names)
+
+    Returns:
+        Complete document metadata
+
+    Example:
+        >>> neo4j_get_doc(project_id=1, name="cfd711e3_report.pdf")
+    """
+    try:
+        idx = _get_neo4j_idx()
+        doc = idx.get_document(project_id, name)
+        if not doc:
+            return f"❌ Document '{name}' not found in Neo4j for project_id={project_id}."
+        lines = [
+            f"## Document: {doc.doc_name}",
+            f"**Name**: `{doc.name}`",
+            f"**File Path**: `{doc.file_path}`",
+            f"**Context Doc ID**: {doc.context_doc_id}",
+            f"**Doc Index ID**: {doc.doc_index_id or '(not set)'}",
+            f"**Page Count**: {doc.page_count}",
+            f"**Description**: {doc.description or '(none)'}",
+            "",
+            "### What this document is about",
+            doc.what_this_document_is_about or "(no enrichment)",
+            "",
+            "### Supported Queries",
+        ]
+        if doc.supported_queries:
+            for q in doc.supported_queries:
+                lines.append(f"- {q}")
+        else:
+            lines.append("(none)")
+        lines.append("")
+        lines.append("### Tags")
+        lines.append(f"{', '.join(doc.tags) if doc.tags else '(none)'}")
+        lines.append("")
+        lines.append("### File Path (for read_file)")
+        lines.append(f"`{doc.file_path}`")
+        lines.append("")
+        lines.append("*Use `read_file` with the file path above to get the full document content.*")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error getting Neo4j document: {e}"
+
+
+@tool
+def neo4j_query(cypher: str, parameters: dict | None = None) -> str:
+    """
+    Run an arbitrary Cypher query against Neo4j and return results.
+
+    Use this for custom graph queries beyond the built-in document tools.
+    The query runs against the document index Neo4j database.
+
+    Args:
+        cypher: The Cypher query string (e.g. 'MATCH (d:Document {project_id: $pid}) RETURN d.name, d.page_count')
+        parameters: Optional dict of query parameters (e.g. {"pid": 1})
+
+    Returns:
+        Query results as formatted text
+
+    Example:
+        >>> neo4j_query("MATCH (d:Document {project_id: $pid}) RETURN d.name, d.page_count ORDER BY d.page_count DESC LIMIT 5", {"pid": 1})
+    """
+    try:
+        idx = _get_neo4j_idx()
+        rows = idx._run_cypher(cypher, parameters or {})
+        if not rows:
+            return "Query returned no results."
+        col_names = list(rows[0].keys())
+        lines = ["## Cypher Results", ""]
+        lines.append("| " + " | ".join(col_names) + " |")
+        lines.append("| " + " | ".join("---" for _ in col_names) + " |")
+        for row in rows:
+            vals = []
+            for c in col_names:
+                v = row.get(c)
+                s = str(v) if v is not None else "NULL"
+                if len(s) > 200:
+                    s = s[:200] + "…"
+                vals.append(s)
+            lines.append("| " + " | ".join(vals) + " |")
+        lines.append(f"\n*{len(rows)} row(s) returned*")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Cypher error: {e}"
+
+
+@tool
+def neo4j_upsert_doc(project_id: int, name: str, file_path: str,
+                     description: str = "",
+                     tags: list[str] | None = None,
+                     doc_name: str | None = None) -> str:
+    """
+    Create or update a Document node in Neo4j.
+
+    Registers a document in the graph index so it becomes discoverable
+    via graphindex_search / neo4j_list_docs. The actual file content
+    should already exist on disk at file_path.
+
+    Args:
+        project_id: Project ID this document belongs to
+        name: Unique document name (e.g. hash-prefixed filename)
+        file_path: Absolute path to the document on disk
+        description: Short description of what this document is
+        tags: List of categorization tags
+        doc_name: Optional display name (defaults to name)
+
+    Returns:
+        Confirmation message
+
+    Example:
+        >>> neo4j_upsert_doc(project_id=1, name="my_report.pdf", file_path="/data/my_report.pdf", description="Q3 financial analysis", tags=["finance", "quarterly"])
+    """
+    try:
+        idx = _get_neo4j_idx()
+        from services.neo4j_document_index import build_document_node_properties
+        props = build_document_node_properties(
+            project_id=project_id,
+            context_doc_id=0,
+            doc_index_id=None,
+            name=name,
+            file_path=file_path,
+            description=description,
+            tags=tags or [],
+        )
+        if doc_name:
+            props["doc_name"] = doc_name
+        idx.upsert_document(project_id, name, file_path, properties=props)
+        display = doc_name or name
+        return f"✅ Document '{display}' upserted in Neo4j for project {project_id}."
+    except Exception as e:
+        return f"❌ Error upserting document: {e}"
+
+
+@tool
+def neo4j_delete_doc(project_id: int, name: str) -> str:
+    """
+    Delete a Document node from Neo4j by project_id and name.
+
+    Removes the document from the graph index so it no longer appears
+    in search results. The actual file on disk is NOT deleted.
+
+    Args:
+        project_id: Project ID
+        name: Document name in Neo4j
+
+    Returns:
+        Confirmation message
+
+    Example:
+        >>> neo4j_delete_doc(project_id=1, name="cfd711e3_report.pdf")
+    """
+    try:
+        idx = _get_neo4j_idx()
+        deleted = idx.delete_document(project_id, name)
+        if deleted:
+            return f"✅ Document '{name}' deleted from Neo4j (project {project_id})."
+        else:
+            return f"❌ Document '{name}' not found in Neo4j (project {project_id})."
+    except Exception as e:
+        return f"❌ Error deleting document: {e}"
+
+
+# =============================================================================
 # DocIndex Tools (Vectorless RAG)
 # =============================================================================
 
@@ -1703,8 +2585,23 @@ _doc_index_pages_tool = StructuredTool.from_function(
 # GraphIndex Tools (vectorless RAG for PDF Chat)
 # =============================================================================
 
+# GraphIndex tools — doc scope filter and default project_id.
+# Set by the chat route before calling the agent when the user has
+# selected specific docs. None = all docs visible.
+_GRAPHINDEX_DOC_SCOPE: Optional[List[str]] = None
+_GRAPHINDEX_PROJECT_ID: Optional[int] = None
+
+def set_graphindex_doc_scope(scope: Optional[List[str]], project_id: Optional[int] = None) -> None:
+    """Set the doc scope filter for graphindex tools. Pass None for 'all'."""
+    global _GRAPHINDEX_DOC_SCOPE, _GRAPHINDEX_PROJECT_ID
+    _GRAPHINDEX_DOC_SCOPE = scope
+    _GRAPHINDEX_PROJECT_ID = project_id
+
+
 def _get_project_id() -> Optional[int]:
-    """Get the current project ID from environment (set during agent execution)."""
+    """Get the current project ID from module-level var (set during agent execution)."""
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        return _GRAPHINDEX_PROJECT_ID
     pid = os.environ.get("GRAPHINDEX_PROJECT_ID")
     if pid:
         try:
@@ -1714,53 +2611,78 @@ def _get_project_id() -> Optional[int]:
     return None
 
 
+# Note: print_hello has been moved to a custom tool (DB-backed, editable in UI).
+# See backend/create_print_hello_tool.py for how it was registered.
+# The native implementation was removed to keep a single source of truth.
+
+
 def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
+    """Search project documents using GraphIndex with LLM semantic routing.
+
+    Uses the canonical Phase 9 graphindex modules (learning.phase9.graphindex):
+      - route.fetch_catalog to list all docs
+      - route.route_by_llm for LLM-based routing
+      - index_build.make_llm for the routing LLM
+
+    Returns matching documents with name, type, domain, and supporting list.
     """
-    Search project documents using GraphIndex (vectorless retrieval).
-
-    Uses keyword/term matching against document metadata, filenames, and content
-    previews stored in Neo4j. No embeddings needed.
-
-    Returns matching documents with their context_doc_id, name, type, and page count.
-    Use the context_doc_id with graphindex_load() to get full document content.
-
-    Args:
-        query: Natural language search query (e.g., "department survey", "Q1 report")
-        project_id: Optional project ID. If not provided, uses the current project.
-    """
-    if not project_id:
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
         project_id = _get_project_id()
     if not project_id:
-        project_id = 1  # Default to project 1
+        return ("ERROR: no project_id provided. Either pass project_id "
+                "explicitly or set the GRAPHINDEX_PROJECT_ID env var.")
 
     try:
-        from api.knowledge.rag import (
-            _get_neo4j_document_index,
-            _try_graphindex_search_via_neo4j,
-            _get_doc_index_client,
-        )
+        from learning.phase9.graphindex.route import fetch_catalog, route_by_llm, route_by_string  # noqa: E402
+        from learning.phase9.graphindex.index_build import Neo4jDocumentIndex, make_llm  # noqa: E402
 
-        client = _get_doc_index_client()
-        result = _try_graphindex_search_via_neo4j(
-            project_id=project_id,
-            query=query,
-            top_k=5,
-            client=client,
+        idx = Neo4jDocumentIndex(
+            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+            username=os.environ.get("NEO4J_USER", "neo4j"),
+            password=os.environ.get("NEO4J_PASSWORD", "password"),
         )
+        idx.ensure_constraints()
+        rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE or "all")
 
-        if not result or not result.documents:
+        # PG fallback: if Neo4j is empty (indexing still in progress),
+        # try PostgreSQL ContextDocument table instead.
+        if not rows:
+            pg_result = _search_pg_fallback(query, project_id)
+            if pg_result:
+                return pg_result
             return f"No documents found matching '{query}' in project {project_id}."
 
+        llm = make_llm()
+        decision, cache_read = route_by_llm(query, rows, llm)
+
+        if not decision.documents:
+            primary_name = route_by_string(query, rows)
+            if not primary_name:
+                return (f"No documents found matching '{query}' in project {project_id}. "
+                        f"Reasoning: {decision.reasoning if decision.reasoning else 'N/A'}")
+            return (f"## GraphIndex Search Results for: '{query}'\n\n"
+                    f"**Fallback**: LLM returned null; used string-match.\n\n"
+                    f"**[{1}] {primary_name}**\n")
+
         lines = [f"## GraphIndex Search Results for: '{query}'", ""]
-        for i, doc in enumerate(result.documents, 1):
-            lines.append(f"**[{i}] {doc.doc_name}**")
-            lines.append(f"   - Context Doc ID: `{doc.context_doc_id}`")
-            lines.append(f"   - Type: {doc.type}")
-            lines.append(f"   - Pages: {doc.page_count}")
-            if doc.structure:
-                toc = [s.get("title", "") for s in doc.structure[:5] if s.get("title")]
-                if toc:
-                    lines.append(f"   - Sections: {', '.join(toc[:3])}")
+        lines.append(f"_routing: llm-semantic (cache_read={cache_read:,} tokens)_")
+        if decision.reasoning:
+            lines.append(f"_reasoning: {decision.reasoning}_")
+        lines.append("")
+
+        # Primary (first doc = best match)
+        primary = decision.documents[0]
+        lines.append(f"**[1] {primary.name}** (PRIMARY, confidence={primary.confidence:.2f})")
+        lines.append("")
+
+        # Supporting (rest of the list)
+        for i, doc in enumerate(decision.documents[1:], 2):
+            lines.append(f"**[{i}] {doc.name}** (SUPPORTING, confidence={doc.confidence:.2f})")
+            if doc.reason:
+                lines.append(f"   - Reason: {doc.reason}")
             lines.append("")
 
         return "\n".join(lines)
@@ -1768,26 +2690,20 @@ def graphindex_search(query: str, project_id: Optional[int] = None) -> str:
         return f"❌ Error searching GraphIndex: {e}"
 
 
-def graphindex_load(context_doc_id: int) -> str:
-    """
-    Load the full content of a document by its context_doc_id.
+def graphindex_load(context_doc_id: int, max_chars: int = 10_000_000) -> str:
+    """Load the full content of a document by its context_doc_id.
 
-    Retrieves the complete document text from GraphIndex (or falls back to
-    file-based loading). Use this to get the full content after finding
-    a document via graphindex_search().
+    Uses the canonical Phase 9 graphindex modules:
+      1. Lookup ContextDocument from DB by context_doc_id
+      2. Read full text via route._read_doc_text
 
     Args:
-        context_doc_id: The document's context_doc_id (from graphindex_search results)
+        context_doc_id: The document's context_doc_id (from graphindex_search results).
+        max_chars: Hard cap on returned characters (default 10M = no cap).
     """
     try:
-        from api.knowledge.rag import (
-            _load_full_content_for_kv,
-            _get_doc_index_client,
-        )
         from db.database import SessionLocal
         from models.core import ContextDocument
-
-        client = _get_doc_index_client()
 
         db = SessionLocal()
         try:
@@ -1798,37 +2714,388 @@ def graphindex_load(context_doc_id: int) -> str:
             db.close()
 
         if not context_doc:
-            return f"❌ Document with context_doc_id={context_doc_id} not found."
+            return f"❌ Document with context_doc_id={context_doc_id} not found in either Postgres or Neo4j."
 
-        doc_id_str, doc_name, page_count, full_content = _load_full_content_for_kv(
-            context_doc, client
+        from learning.phase9.graphindex.route import _read_doc_text  # noqa: E402
+        full_content = _read_doc_text(
+            context_doc.file_path or "",
+            max_chars=max_chars,
         )
+        if not full_content:
+            return (f"❌ Could not extract text from {context_doc.filename} "
+                    f"(file_path={context_doc.file_path})")
 
-        return (
-            f"## Document: {doc_name}\n"
-            f"Source: GraphIndex (vectorless retrieval)\n"
-            f"Pages: {page_count}\n"
-            f"Total characters: {len(full_content):,}\n"
-            f"\n"
-            f"--- Document Content ---\n"
-            f"{full_content}\n"
-            f"--- End of Document ---\n"
-        )
+        return (f"## Document: {context_doc.filename}\n"
+                f"Source: GraphIndex (Phase 9 read path)\n"
+                f"Pages: {full_content.count('--- Page ')}\n"
+                f"Total characters: {len(full_content):,}\n\n"
+                f"--- Document Content ---\n"
+                f"{full_content}\n--- End of Document ---\n")
     except Exception as e:
         return f"❌ Error loading document {context_doc_id}: {e}"
 
 
+# ---------------------------------------------------------------------------
+# PostgreSQL fallback — when Neo4j hasn't been enriched yet (upload still
+# indexing), query ContextDocument directly from Postgres + read from disk.
+# This lets the user chat about a just-uploaded doc while Neo4j indexing
+# runs in the background.
+# ---------------------------------------------------------------------------
+def _list_docs_from_pg(project_id: int) -> list:
+    """Query ContextDocument from PostgreSQL as a fallback catalog.
+
+    Returns list of dicts with keys: name, about, id, file_path, filename.
+    """
+    try:
+        from db.database import SessionLocal
+        from models.core import ContextDocument
+
+        db = SessionLocal()
+        try:
+            docs = db.query(ContextDocument).filter(
+                ContextDocument.project_id == project_id,
+            ).all()
+            return [
+                {
+                    "name": d.filename or f"doc_{d.id}",
+                    "about": d.description or "(no description yet — indexing in progress)",
+                    "id": d.id,
+                    "file_path": d.file_path or "",
+                    "filename": d.filename or f"doc_{d.id}",
+                }
+                for d in docs
+            ]
+        finally:
+            db.close()
+    except Exception:
+        return []
+
+
+def _search_pg_fallback(query: str, project_id: int) -> str:
+    """Fallback search: list ContextDocuments from PostgreSQL and match
+    by filename. Returns a formatted result string the agent can use."""
+    docs = _list_docs_from_pg(project_id)
+    if not docs:
+        return ""
+
+    # Simple match: find docs whose filename contains query keywords
+    keywords = query.lower().split()
+    matched = []
+    for d in docs:
+        name_lower = d["name"].lower()
+        score = sum(1 for kw in keywords if kw in name_lower)
+        if score > 0:
+            matched.append((score, d))
+
+    matched.sort(key=lambda x: -x[0])
+
+    # If nothing matched by keyword, return the first few docs as suggestions
+    if not matched:
+        lines = [
+            f"No exact match for '{query}' — showing {min(len(docs), 5)}"
+            f" most recently uploaded docs:",
+            "",
+        ]
+        for d in docs[:5]:
+            lines.append(f"**{d['name']}** (id={d['id']}, {d['about'][:60]})")
+        lines.append("")
+        lines.append("Use `graphindex_load` with the `id` to read a document.")
+        return "\n".join(lines)
+
+    lines = [
+        f"## GraphIndex Search Results for: '{query}' (PostgreSQL fallback — Neo4j enrichment may still be in progress)",
+        "",
+    ]
+    for i, (score, d) in enumerate(matched, 1):
+        label = "PRIMARY" if i == 1 else "SUPPORTING"
+        lines.append(f"**[{i}] {d['name']}** ({label})")
+        lines.append(f"   - Context Doc ID: {d['id']}")
+        lines.append(f"   - {d['about']}")
+        lines.append("")
+
+    lines.append("Use `graphindex_load(id)` to read the full content.")
+    return "\n".join(lines)
+
+
+# --- Phase 9 helpers -------------------------------------------------------
+
+def graphindex_list_docs(project_id: Optional[int] = None) -> str:
+    """List all documents available in the project.
+
+    First tries Neo4j (``learning.phase9.graphindex.route.fetch_catalog``).
+    If empty (indexing still in progress), falls back to PostgreSQL
+    ContextDocument table.
+
+    Args:
+        project_id: Optional project ID. If not provided, uses the
+            current project (from GRAPHINDEX_PROJECT_ID env var).
+            Returns an error if neither is set.
+    """
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        return ("ERROR: no project_id provided. Either pass project_id "
+                "explicitly or set the GRAPHINDEX_PROJECT_ID env var.")
+
+    try:
+        from learning.phase9.graphindex.route import fetch_catalog  # noqa: E402
+        from learning.phase9.graphindex.index_build import Neo4jDocumentIndex  # noqa: E402
+
+        idx = Neo4jDocumentIndex(
+            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+            username=os.environ.get("NEO4J_USER", "neo4j"),
+            password=os.environ.get("NEO4J_PASSWORD", "password"),
+        )
+        idx.ensure_constraints()
+        rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE or "all")
+
+        if not rows:
+            # Fallback: PostgreSQL ContextDocuments (not yet Neo4j-indexed)
+            pg_docs = _list_docs_from_pg(project_id)
+            if not pg_docs:
+                return f"No documents in project {project_id}."
+            rows = pg_docs
+
+        lines = [f"## Documents in project {project_id} ({len(rows)} total)", ""]
+        for i, r in enumerate(rows, 1):
+            about = (r.get("about") or r.get("description") or "(no enrichment)")[:80]
+            lines.append(f"**[{i}] {r['name']}**")
+            lines.append(f"   {about}…")
+            lines.append("")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"❌ Error listing docs: {e}"
+
+
+def graphindex_multi_doc_load(query: str, project_id: Optional[int] = None) -> str:
+    """One-shot: route a query to the best primary document, then load primary
+    + 0-3 supporting documents as a combined context string.
+
+    Uses ``learning.phase9.graphindex.route`` (route_by_llm + load_doc_context).
+
+    Args:
+        query: Natural language query (e.g., "compare Nike strategy with industry trends")
+        project_id: Optional project ID. Uses GRAPHINDEX_PROJECT_ID env var if not set.
+    """
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        return ("ERROR: no project_id provided. Either pass project_id "
+                "explicitly or set the GRAPHINDEX_PROJECT_ID env var.")
+
+    try:
+        from learning.phase9.graphindex.route import (  # noqa: E402
+            fetch_catalog, route_by_llm, load_doc_context,
+        )
+        from learning.phase9.graphindex.index_build import (  # noqa: E402
+            Neo4jDocumentIndex, make_llm,
+        )
+
+        idx = Neo4jDocumentIndex(
+            base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+            username=os.environ.get("NEO4J_USER", "neo4j"),
+            password=os.environ.get("NEO4J_PASSWORD", "password"),
+        )
+        idx.ensure_constraints()
+        rows = fetch_catalog(idx, project_id, doc_scope=_GRAPHINDEX_DOC_SCOPE or "all")
+        if not rows:
+            return f"No documents in project {project_id}."
+
+        llm = make_llm()
+        decision, _ = route_by_llm(query, rows, llm)
+        if not decision.documents:
+            return (f"No document matched '{query}'. "
+                    f"Reasoning: {decision.reasoning if decision.reasoning else 'N/A'}")
+
+        # Use load_doc_context from graphindex lib to read matched docs
+        from learning.phase9.graphindex.route import load_doc_context  # noqa: E402
+        context = load_doc_context(idx, project_id, decision.documents)
+        primary = decision.documents[0]
+        header = (
+            f"## Multi-doc context for: '{query}'\n"
+            f"primary: {primary.name}"
+            f" (confidence={primary.confidence:.2f})\n"
+        )
+        if len(decision.documents) > 1:
+            names = ", ".join(d.name for d in decision.documents[1:])
+            header += f"supporting: {names}\n"
+        return header + context
+    except Exception as e:
+        return f"❌ Error in multi-doc load: {e}"
+
+
+def _run_capturing_stdout(fn, *args, **kwargs):
+    """Run a function and capture its stdout.
+
+    Some cmd_* functions print reports to stdout. We redirect stdout
+    into a buffer so the result shows in the agent's tool output.
+    """
+    import io
+    import contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = fn(*args, **kwargs)
+    return rc, buf.getvalue().rstrip()
+
+
+def _make_neo4j_index():
+    """Create a Neo4jDocumentIndex from env vars."""
+    from learning.phase9.graphindex.index_build import Neo4jDocumentIndex
+    idx = Neo4jDocumentIndex(
+        base_url=os.environ.get("NEO4J_URL", "http://localhost:7474"),
+        username=os.environ.get("NEO4J_USER", "neo4j"),
+        password=os.environ.get("NEO4J_PASSWORD", "password"),
+    )
+    idx.ensure_constraints()
+    return idx
+
+
+def graphindex_rebuild_one(name: str, project_id: Optional[int] = None) -> str:
+    """Re-enrich ONE existing document in the graphindex.
+
+    Uses ``learning.phase9.graphindex.index_build.cmd_rebuild_one``.
+
+    Args:
+        name: Exact document filename (use graphindex_list_docs to find names).
+        project_id: Optional project ID.
+    """
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        return ("ERROR: no project_id provided.")
+
+    try:
+        from learning.phase9.graphindex.index_build import cmd_rebuild_one, make_llm
+        idx = _make_neo4j_index()
+        llm = make_llm()
+        rc, captured = _run_capturing_stdout(cmd_rebuild_one, idx, llm, name, project_id=project_id)
+        return captured or f"## Rebuild one: {name}\nreturn code: {rc}"
+    except Exception as e:
+        return f"❌ Error rebuilding {name}: {e}"
+
+
+def graphindex_ingest(file_path: str, project_id: Optional[int] = None,
+                      target_dir: Optional[str] = None) -> str:
+    """Ingest a file into the graphindex: hash → dedup → enrich → upsert.
+
+    Uses ``learning.phase9.graphindex.index_build.cmd_ingest``.
+
+    Args:
+        file_path: Absolute path to the file on disk.
+        project_id: Optional project ID.
+        target_dir: Optional override for the target directory.
+    """
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        return ("ERROR: no project_id provided.")
+
+    try:
+        from learning.phase9.graphindex.index_build import cmd_ingest, make_llm
+        idx = _make_neo4j_index()
+        llm = make_llm()
+        rc, captured = _run_capturing_stdout(cmd_ingest, idx, llm, file_path,
+                                              target_dir=target_dir, project_id=project_id)
+        return captured or f"## Ingest: {file_path}\nreturn code: {rc}"
+    except Exception as e:
+        return f"❌ Error ingesting {file_path}: {e}"
+
+
+def graphindex_rebuild_project(project_id: Optional[int] = None) -> str:
+    """Re-enrich EVERY document in the project.
+
+    Uses ``learning.phase9.graphindex.index_build.cmd_rebuild_project``.
+    WARNING: slow! ~15s per document.
+
+    Args:
+        project_id: Optional project ID.
+    """
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        return ("ERROR: no project_id provided.")
+
+    try:
+        from learning.phase9.graphindex.index_build import cmd_rebuild_project, make_llm
+        idx = _make_neo4j_index()
+        llm = make_llm()
+        rc, captured = _run_capturing_stdout(cmd_rebuild_project, idx, llm, project_id=project_id)
+        return captured or f"## Rebuild project (project_id={project_id})\nreturn code: {rc}"
+    except Exception as e:
+        return f"❌ Error rebuilding project {project_id}: {e}"
+
+
+def graphindex_show(name: str, project_id: Optional[int] = None) -> str:
+    """Show one document's metadata from Neo4j.
+
+    Uses ``learning.phase9.graphindex.index_build.cmd_show``.
+
+    Args:
+        name: Exact document filename.
+        project_id: Optional project ID.
+    """
+    # Module-level override (set by chat route) takes precedence over LLM-provided arg.
+    if _GRAPHINDEX_PROJECT_ID is not None:
+        project_id = _GRAPHINDEX_PROJECT_ID
+    elif not project_id:
+        project_id = _get_project_id()
+    if not project_id:
+        return ("ERROR: no project_id provided.")
+
+    try:
+        from learning.phase9.graphindex.index_build import cmd_show
+        idx = _make_neo4j_index()
+        rc, captured = _run_capturing_stdout(cmd_show, idx, name, project_id=project_id)
+        # cmd_show returns () → but it's used for its print output
+        return captured or f"## Show: {name}\nreturn code: {rc}"
+    except Exception as e:
+        return f"❌ Error showing {name}: {e}"
+
+
 # StructuredTool wrappers
+# Note: _print_hello_tool removed — print_hello is now a custom tool (DB-backed).
+# Note: _graphindex_rebuild_one_tool, _graphindex_ingest_tool,
+#       _graphindex_rebuild_project_tool, _graphindex_show_tool removed —
+#       these tools have been moved to custom tools (DB-backed, editable in UI).
 _graphindex_search_tool = StructuredTool.from_function(
     func=graphindex_search,
     name="graphindex_search",
-    description="Search project documents using GraphIndex vectorless retrieval. Returns matching documents with context_doc_id, name, type, and page count. Use the context_doc_id with graphindex_load to get full content.",
+    description="Search project documents using GraphIndex with LLM semantic routing. Returns matching documents with context_doc_id, name, type, page count, primary_domain, and supporting list. Use context_doc_id with graphindex_load to get full content.",
 )
 _graphindex_load_tool = StructuredTool.from_function(
     func=graphindex_load,
     name="graphindex_load",
-    description="Load the full content of a document by its context_doc_id (obtained from graphindex_search). Returns the complete document text for the agent to read.",
+    description="Load the full content of a document by its context_doc_id (obtained from graphindex_search). Returns the complete document text for the agent to read. Default is 10M chars (effectively no cap — full doc in one call). Pass max_chars to limit.",
 )
+_graphindex_list_docs_tool = StructuredTool.from_function(
+    func=graphindex_list_docs,
+    name="graphindex_list_docs",
+    description="List all documents in the project with their about-preview. Use this to discover what docs exist before calling graphindex_search.",
+)
+_graphindex_multi_doc_load_tool = StructuredTool.from_function(
+    func=graphindex_multi_doc_load,
+    name="graphindex_multi_doc_load",
+    description="One-shot: route a query to the best primary document, then load primary + 0-3 supporting documents as a combined context string. Equivalent to calling graphindex_search + multiple graphindex_load in one step.",
+)
+
+# Note: _graphindex_rebuild_one_tool, _graphindex_ingest_tool,
+# _graphindex_rebuild_project_tool, _graphindex_show_tool removed —
+# these are now custom tools (DB-backed, editable in Studio UI).
 
 
 # =============================================================================
@@ -1889,13 +3156,44 @@ def load_native_tools(tool_names: List[str]) -> List[StructuredTool]:
         "create_skill": create_skill,
         "update_skill": update_skill,
         "delete_skill": delete_skill,
+        # Agent management tools
+        "create_deepagent": create_deepagent,
+        # PostgreSQL schema tools
+        "pg_list_tables": pg_list_tables,
+        "pg_describe_table": pg_describe_table,
+        "pg_query": pg_query,
+        "pg_execute": pg_execute,
+        # PostgreSQL domain tools
+        "pg_list_agents": pg_list_agents,
+        "pg_get_agent": pg_get_agent,
+        "pg_list_skills": pg_list_skills,
+        "search_skills": search_skills,
+        "pg_list_projects": pg_list_projects,
+        "pg_list_documents": pg_list_documents,
+        "pg_list_custom_tools": pg_list_custom_tools,
+        # Neo4j tools
+        "neo4j_list_docs": neo4j_list_docs,
+        "neo4j_get_doc": neo4j_get_doc,
+        "neo4j_query": neo4j_query,
+        "neo4j_upsert_doc": neo4j_upsert_doc,
+        "neo4j_delete_doc": neo4j_delete_doc,
+        # SQL/data tools
+        "sqlite_execute": sqlite_execute,
+        "python_execute": python_execute,
         # DocIndex tools
         "doc_index_list": _doc_index_list_tool,
         "doc_index_structure": _doc_index_structure_tool,
         "doc_index_pages": _doc_index_pages_tool,
+        # Note: print_hello is now a custom tool (DB-backed), not in native factory
         # GraphIndex tools (vectorless RAG for PDF Chat)
         "graphindex_search": _graphindex_search_tool,
         "graphindex_load": _graphindex_load_tool,
+        "graphindex_list_docs": _graphindex_list_docs_tool,
+        "graphindex_multi_doc_load": _graphindex_multi_doc_load_tool,
+        # Note: graphindex_rebuild_one / graphindex_ingest / graphindex_rebuild_project
+        # / graphindex_show have been moved to custom tools (DB-backed, editable in UI).
+        # The native Python functions are still defined above, but the StructuredTool
+        # wrappers are no longer registered in the factory dict.
         # Note: Playwright tools are loaded separately via get_playwright_tools()
         # because they require async initialization
     }
@@ -1966,10 +3264,257 @@ def get_available_tool_names() -> List[str]:
         "doc_index_list",
         "doc_index_structure",
         "doc_index_pages",
-        # GraphIndex tools (vectorless RAG for PDF Chat)
+        # Note: print_hello is now a custom tool (DB-backed), not in native available list
+        # GraphIndex tools (vectorless RAG for PDF Chat) — Phase 9 backed
         "graphindex_search",
         "graphindex_load",
+        "graphindex_list_docs",
+        "graphindex_multi_doc_load",
+        # Note: graphindex_rebuild_one / graphindex_ingest / graphindex_rebuild_project
+        # / graphindex_show have been moved to custom tools (DB-backed, editable in UI)
+        # Agent management tools
+        "create_deepagent",
+        # PostgreSQL schema tools
+        "pg_list_tables",
+        "pg_describe_table",
+        "pg_query",
+        "pg_execute",
+        # PostgreSQL domain tools
+        "pg_list_agents",
+        "pg_get_agent",
+        "pg_list_skills",
+        "pg_list_projects",
+        "pg_list_documents",
+        "pg_list_custom_tools",
+        # Neo4j tools
+        "neo4j_list_docs",
+        "neo4j_get_doc",
+        "neo4j_query",
+        "neo4j_upsert_doc",
+        "neo4j_delete_doc",
+        # SQL/data tools
+        "sqlite_execute",
+        "python_execute",
     ]
+
+
+# =============================================================================
+# SQLite Execution Tool
+# =============================================================================
+
+import sqlite3 as _sqlite3
+import csv as _csv
+import io as _io
+import os as _os
+
+TOOL_SQLITE_EXECUTE_DESCRIPTION = """Execute a read-only SQL query on a SQLite database.
+
+IMPORTANT: Only SELECT queries are allowed. DDL/DML statements are blocked.
+
+Use cases:
+- Validate generated SQL against mock data
+- Explore database schema (.tables, PRAGMA table_info)
+- Test query correctness before production use
+
+Args:
+    sql: The SELECT SQL query to execute
+    db_path: Path to a SQLite database file. If ":memory:", creates a temporary
+             in-memory database. To load CSV data, use the csv_to_sqlite utility first.
+
+Returns:
+    Query results as formatted text (rows + column headers), or error message.
+
+Examples:
+    sqlite_execute("SELECT * FROM sqlite_master WHERE type='table'")
+    sqlite_execute("PRAGMA table_info(orders)")
+    sqlite_execute("SELECT COUNT(*) FROM customers")
+"""
+
+
+def sqlite_execute(sql: str, db_path: str = ":memory:") -> str:
+    """
+    Execute a read-only SQL query on a SQLite database.
+
+    Useful for the sql-skill-generator agent to validate generated SQL queries
+    against mock data before saving them as few-shot examples in a skill.
+
+    Args:
+        sql: SELECT SQL query to execute.
+        db_path: Path to SQLite DB file or ":memory:" (default).
+
+    Returns:
+        Formatted query results or error message.
+    """
+    # Safety: block all non-SELECT statements
+    sql_stripped = sql.strip().strip(";").strip()
+    sql_lower = sql_stripped.lower()
+    blocked_keywords = ["insert", "update", "delete", "drop", "alter",
+                        "create", "replace", "truncate", "exec", "pragma"]
+
+    first_word = sql_lower.split()[0] if sql_lower.split() else ""
+    if first_word in blocked_keywords and first_word != "pragma":
+        return f"❌ BLOCKED: Only SELECT queries are allowed. Got: '{sql_stripped[:100]}'"
+
+    try:
+        conn = _sqlite3.connect(db_path)
+        conn.row_factory = _sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT * FROM ({sql_stripped}) LIMIT 200")
+        rows = cursor.fetchall()
+        col_names = [desc[0] for desc in cursor.description] if cursor.description else []
+
+        if not rows:
+            conn.close()
+            return "✅ Query executed. No rows returned (empty result)."
+
+        # Format output as aligned table
+        widths = [len(c) for c in col_names]
+        for row in rows:
+            for i, val in enumerate(row):
+                widths[i] = max(widths[i], len(str(val)))
+
+        header = " | ".join(c.ljust(w) for c, w in zip(col_names, widths))
+        sep = "-+-".join("-" * w for w in widths)
+        body = "\n".join(
+            " | ".join(str(v).ljust(w) for v, w in zip(row, widths))
+            for row in rows[:50]  # Max 50 rows in output
+        )
+
+        summary = f"✅ {len(rows)} row(s) returned"
+        conn.close()
+        return f"{summary}\n\n{header}\n{sep}\n{body}"
+
+    except Exception as e:
+        return f"❌ SQL Error: {e}"
+
+
+def sqlite_load_csv(csv_content: str, table_name: str, db_path: str = ":memory:") -> str:
+    """
+    Load CSV data into a SQLite database.
+    Utility function — infers column names from CSV header.
+
+    Args:
+        csv_content: CSV content as string (with header row)
+        table_name: Name of the table to create
+        db_path: Path to SQLite DB file or ":memory:"
+
+    Returns:
+        Status message with row count.
+    """
+    try:
+        reader = _csv.DictReader(_io.StringIO(csv_content))
+        rows = list(reader)
+        if not rows:
+            return "❌ CSV has no data rows."
+
+        col_names = list(rows[0].keys())
+        col_defs = ", ".join(f'"{c}" TEXT' for c in col_names)
+        placeholders = ", ".join("?" for _ in col_names)
+
+        conn = _sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(f"DROP TABLE IF EXISTS \"{table_name}\"")
+        cursor.execute(f'CREATE TABLE "{table_name}" ({col_defs})')
+
+        for row in rows:
+            values = [row.get(c, "") for c in col_names]
+            col_list = ', '.join(f'"{c}"' for c in col_names)
+            cursor.execute(f'INSERT INTO "{table_name}" ({col_list}) VALUES ({placeholders})', values)
+
+        conn.commit()
+        conn.close()
+        return f"✅ Loaded {len(rows)} rows into table '{table_name}' ({len(col_names)} columns: {', '.join(col_names)})"
+    except Exception as e:
+        return f"❌ CSV Load Error: {e}"
+
+
+# =============================================================================
+# Python Execution Tool
+# =============================================================================
+
+import sys as _sys
+import subprocess as _subprocess
+import tempfile as _tempfile
+import textwrap as _textwrap
+
+TOOL_PYTHON_EXECUTE_DESCRIPTION = """Execute Python code for data analysis and visualization.
+
+Use with caution — code runs in a restricted sandbox with limited filesystem access.
+
+Available libraries: pandas, matplotlib, numpy, json, csv, statistics, math, datetime, collections.
+
+Use cases:
+- Data analysis with pandas
+- Chart generation with matplotlib
+- Statistical calculations
+- Data transformation
+
+Args:
+    code: Python code to execute (use print() to see output)
+    timeout: Maximum execution time in seconds (default: 30)
+
+Returns:
+    stdout/stderr from the execution.
+
+Examples:
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    data = {'x': [1,2,3], 'y': [4,5,6]}
+    df = pd.DataFrame(data)
+    print(df.describe())
+    plt.plot(df['x'], df['y'])
+    plt.savefig('/tmp/chart.png')
+    print('Chart saved to /tmp/chart.png')
+"""
+
+
+def python_execute(code: str, timeout: int = 30) -> str:
+    """
+    Execute Python code and return stdout + stderr.
+
+    WARNING: Code runs in the same process. Only trusted agents should call this.
+
+    Args:
+        code: Python code to execute
+        timeout: Max execution time in seconds
+
+    Returns:
+        Combined stdout and stderr output.
+    """
+    try:
+        # Wrap code to capture stdout
+        wrapper_code = (
+            "import sys, io, traceback\n"
+            "_buffer = io.StringIO()\n"
+            "sys.stdout = _buffer\n"
+            "sys.stderr = _buffer\n"
+            "try:\n"
+            + _textwrap.indent(code, '    ') + "\n"
+            "except Exception:\n"
+            "    traceback.print_exc()\n"
+            "finally:\n"
+            "    sys.stdout = sys.__stdout__\n"
+            "    sys.stderr = sys.__stderr__\n"
+            "    print(_buffer.getvalue(), end='')\n"
+        )
+        result = _subprocess.run(
+            [_sys.executable, "-c", wrapper_code],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env={k: v for k, v in _os.environ.items() if k in ("PATH", "HOME", "TEMP", "TMPDIR")}
+        )
+        output = result.stdout or ""
+        if result.stderr:
+            output += f"\n--- stderr ---\n{result.stderr}"
+        if result.returncode != 0 and not output:
+            output = f"❌ Exit code: {result.returncode}"
+        return output if output else "✅ Code executed (no output)"
+    except _subprocess.TimeoutExpired:
+        return f"❌ Timed out after {timeout}s"
+    except Exception as e:
+        return f"❌ Execution Error: {e}"
+
 
 # Registry of filesystem tools for DeepAgents harness
 FILESYSTEM_TOOLS = ["ls", "read_file", "write_file", "edit_file", "glob", "grep"]
@@ -2124,6 +3669,129 @@ TOOL_REGISTRY = [
         "category": "skills",
         "requires_api_key": None,
     },
+    # Agent management tools
+    {
+        "id": "create_deepagent",
+        "name": "Create DeepAgent",
+        "description": "Create a new DeepAgent in the database. Writes agent config (name, system prompt, tools, skills) directly to PostgreSQL.",
+        "category": "agent_management",
+        "requires_api_key": None,
+    },
+    # PostgreSQL schema tools
+    {
+        "id": "pg_list_tables",
+        "name": "PG - List Tables",
+        "description": "List all tables and views in a PostgreSQL schema with estimated row counts.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_describe_table",
+        "name": "PG - Describe Table",
+        "description": "Show column details for a PostgreSQL table: name, type, nullable, defaults, constraints.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_query",
+        "name": "PG - Query (SELECT)",
+        "description": "Run a read-only SELECT query against PostgreSQL. Returns results as a markdown table.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_execute",
+        "name": "PG - Execute (INSERT/UPDATE/DELETE)",
+        "description": "Execute write SQL statements (INSERT, UPDATE, DELETE) against PostgreSQL. Use with caution.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    # PostgreSQL domain tools
+    {
+        "id": "pg_list_agents",
+        "name": "PG - List Agents",
+        "description": "List all DeepAgent templates with name, category, model, tool/skill counts.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_get_agent",
+        "name": "PG - Get Agent Config",
+        "description": "Get the full configuration of a DeepAgent by ID: system prompt, tools, skills, subagents, model.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_list_skills",
+        "name": "PG - List Skills",
+        "description": "List all skills in the database with descriptions, tags, and usage counts.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "search_skills",
+        "name": "Search Skills",
+        "description": "Search skills by name, description, tags, or triggers. Useful for finding relevant skills for a task.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_list_projects",
+        "name": "PG - List Projects",
+        "description": "List all projects with names, document counts, and indexing status.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_list_documents",
+        "name": "PG - List Documents",
+        "description": "List all context documents (uploaded files) with metadata: type, size, indexing status.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    {
+        "id": "pg_list_custom_tools",
+        "name": "PG - List Custom Tools",
+        "description": "List all custom/user-created tools with type, description, and usage stats.",
+        "category": "database",
+        "requires_api_key": None,
+    },
+    # Neo4j tools
+    {
+        "id": "neo4j_list_docs",
+        "name": "Neo4j - List Documents",
+        "description": "List all Document nodes in Neo4j for a project with enriched metadata (summary, queries, tags).",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "neo4j_get_doc",
+        "name": "Neo4j - Get Document Metadata",
+        "description": "Get full metadata for one Document node: description, supported queries, file path, tags. Use the file_path with read_file for content.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "neo4j_query",
+        "name": "Neo4j - Cypher Query",
+        "description": "Run an arbitrary Cypher query against Neo4j and return results as a table.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "neo4j_upsert_doc",
+        "name": "Neo4j - Upsert Document",
+        "description": "Create or update a Document node in Neo4j. Registers a doc for discovery via graphindex_search.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "neo4j_delete_doc",
+        "name": "Neo4j - Delete Document",
+        "description": "Delete a Document node from Neo4j by project_id and name. Does NOT delete the file on disk.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
     # Document Index tools (vectorless RAG)
     {
         "id": "doc_index_list",
@@ -2146,11 +3814,13 @@ TOOL_REGISTRY = [
         "category": "retrieval",
         "requires_api_key": None,
     },
-    # GraphIndex tools (vectorless RAG for PDF Chat)
+    # Note: print_hello has been moved to a custom tool (DB-backed, editable in UI).
+    # See backend/create_print_hello_tool.py for the registration.
+    # GraphIndex tools
     {
         "id": "graphindex_search",
         "name": "GraphIndex - Search Documents",
-        "description": "Search project documents using GraphIndex vectorless retrieval. Returns matching docs with context_doc_id.",
+        "description": "Search project documents using GraphIndex with LLM semantic routing. Returns matching docs (primary + 0-3 supporting).",
         "category": "retrieval",
         "requires_api_key": None,
     },
@@ -2159,6 +3829,40 @@ TOOL_REGISTRY = [
         "name": "GraphIndex - Load Document Content",
         "description": "Load the full content of a document by its context_doc_id (from graphindex_search). Returns complete document text.",
         "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "graphindex_list_docs",
+        "name": "GraphIndex - List Documents",
+        "description": "List all documents available in the project with their about-preview. Use this to discover what docs exist before calling graphindex_search.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    {
+        "id": "graphindex_multi_doc_load",
+        "name": "GraphIndex - Multi-Doc Load",
+        "description": "One-shot: route a query to the best primary document, then load primary + 0-3 supporting documents as a combined context string.",
+        "category": "retrieval",
+        "requires_api_key": None,
+    },
+    # Note: graphindex_ingest / graphindex_rebuild_one / graphindex_rebuild_project /
+    # graphindex_show have been moved to custom tools (DB-backed, editable in UI).
+    # See backend/create_graphindex_workflow_tools.py and rename_studio_tools.py.
+    # The native Python functions are still defined in this file (above) and
+    # imported by the custom tools' inline code.
+    # SQL/data tools
+    {
+        "id": "sqlite_execute",
+        "name": "SQLite Execute",
+        "description": "Execute a read-only SQL SELECT query on a SQLite database (in-memory or file). Safe for query validation.",
+        "category": "data",
+        "requires_api_key": None,
+    },
+    {
+        "id": "python_execute",
+        "name": "Python Execute",
+        "description": "Execute Python code for data analysis and visualization (pandas, matplotlib, numpy supported).",
+        "category": "data",
         "requires_api_key": None,
     },
 ]

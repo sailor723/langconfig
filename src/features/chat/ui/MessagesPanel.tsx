@@ -6,15 +6,17 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
-import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot, Brain, ChevronDown, ChevronRight, Wrench } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot, Brain, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { ChatMessage, SessionDocument, CustomEventPayload, ToolCall } from '../types/chat';
+import type { ChatMessage, CustomEventPayload, ToolCall } from '../types/chat';
 import MessageInput from './MessageInput';
+import CodexMessageInput from './CodexMessageInput';
 import SessionDocumentsPanel from './SessionDocumentsPanel';
 import ThinkingBlock from './ThinkingBlock';
+import AnalysisPanel from './AnalysisPanel';
 import type { ThinkingStep } from './ThinkingBlock';
 import { ContentBlockRenderer } from '@/components/common/ContentBlockRenderer';
 import { ProgressCard, StatusBadge, FileOperationCard } from '@/features/workflows/execution/CustomEventCards';
@@ -33,6 +35,8 @@ interface MessagesPanelProps {
   customEvents?: Map<string, CustomEventPayload>;
   thinkingTraces?: ThinkingStep[][];
   thinkingBuffer?: string;
+  /** Optional agent name shown in composer footer (Codex style) */
+  agentName?: string;
 }
 
 export default function MessagesPanel({
@@ -48,11 +52,20 @@ export default function MessagesPanel({
   customEvents = new Map(),
   thinkingTraces = [],
   thinkingBuffer = '',
+  agentName,
 }: MessagesPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
   const [showThinking, setShowThinking] = useState(false);
+  // Analysis panel state — dashboard auto-generated after CSV upload
+  const [dashboardUrl, setDashboardUrl] = useState('');
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [analysisMeta, setAnalysisMeta] = useState<{rowCount: number; colCount: number} | null>(null);
+  const [csvUploading, setCsvUploading] = useState(false);
+
+  // Derive project name for Codex empty state heading
+  const projectName = agentName || 'my workspace';
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -65,11 +78,84 @@ export default function MessagesPanel({
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  // ── CSV upload handler — calls /api/analysis/init + shows dashboard ─
+  const handleCsvUpload = (filename: string) => {
+    setShowAnalysis(false);
+    setCsvUploading(true);
+    const csvPath = `outputs/default/${filename}`;
+    fetch('/api/analysis/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        csv_path: csvPath,
+        table_name: filename.replace(/\.csv$/i, '').replace(/[^a-zA-Z0-9_]/g, '_'),
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setDashboardUrl(data.dashboard_file || '');
+        setAnalysisMeta({ rowCount: data.row_count, colCount: data.col_count });
+        setShowAnalysis(true);
+        setCsvUploading(false);
+        if (onSendMessage) {
+          onSendMessage(
+            `I loaded ${filename} (${data.row_count} rows, ${data.col_count} columns). ` +
+              `Here's a quick overview: what columns and data types does it have? ` +
+              `Then summarize the key metrics.`
+          );
+        }
+      })
+      .catch((err) => {
+        console.error('Analysis init failed:', err);
+        setCsvUploading(false);
+        if (onSendMessage) {
+          onSendMessage(
+            `I loaded ${filename}. ` +
+              `Here's a quick overview: what columns and data types does it have? ` +
+              `Then summarize the key metrics.`
+          );
+        }
+      });
+  };
+
+  // ── Empty state ───────────────────────────────────────────────
+  // Toggle Codex-style layout — true by default for new sessions
+  const useCodexLayout = true; // messages.length === 0;
+
   return (
     <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: 'var(--color-background-light)' }}>
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
-        {messages.length === 0 && !disabled ? (
+        {messages.length === 0 && !disabled && useCodexLayout ? (
+          // Codex-style empty state: centered heading + composer
+          <div className="flex flex-col items-center justify-center h-full min-h-full px-6">
+            <div className="w-full max-w-xl">
+              <h1 className="text-2xl font-semibold mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>
+                What should we build in <span className="font-bold">{projectName}</span>?
+              </h1>
+              <p className="text-sm mb-6 text-center" style={{ color: 'var(--color-text-muted)' }}>
+                Ask anything — code, data analysis, document Q&A, or just chat
+              </p>
+              <CodexMessageInput
+                onSendMessage={onSendMessage}
+                disabled={disabled}
+                isStreaming={isStreaming}
+                placeholder={disabled ? "Select an agent first..." : "Do anything"}
+                sessionId={sessionId}
+                projectId={projectId}
+                onFileUploaded={(file) => {
+                  handleCsvUpload(file.filename);
+                  onSendMessage(
+                    `A new document "${file.filename}" has been uploaded. Please read it and provide a briefing.`
+                  );
+                }}
+                agentName={agentName}
+              />
+            </div>
+          </div>
+        ) : messages.length === 0 && !disabled ? (
+          // Original empty state
           <div
             className="flex items-center justify-center h-full min-h-full"
             style={{ color: 'var(--color-text-muted)' }}
@@ -85,11 +171,13 @@ export default function MessagesPanel({
               >
                 ✦
               </div>
-              <p className="text-lg font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+              <p className="text-base font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
                 Start a conversation
               </p>
-              <p className="text-sm leading-relaxed">
-                Ask anything — I can help with research, analysis, coding, and more.
+              <p className="text-xs leading-relaxed">
+                Ask anything about your documents — graphindex routes your
+                query to the right ones, loads them, and answers from their
+                content.
               </p>
             </div>
           </div>
@@ -125,7 +213,7 @@ export default function MessagesPanel({
                 <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-6xl'}`}>
                   {message.role === 'system' ? (
                     <div
-                      className="text-sm px-4 py-2 rounded-lg inline-block"
+                      className="text-xs px-3 py-1.5 rounded-lg inline-block"
                       style={{
                         color: 'var(--color-text-muted)',
                         backgroundColor: '#e5e7eb',
@@ -137,7 +225,7 @@ export default function MessagesPanel({
                     <>
                       {/* Message Bubble */}
                       <div
-                        className={`rounded-2xl px-4 py-2.5 ${
+                        className={`rounded-2xl px-3.5 py-2 ${
                           message.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'
                         }`}
                         style={{
@@ -151,8 +239,8 @@ export default function MessagesPanel({
                           className="prose prose-xs max-w-none"
                           style={{
                             color: message.role === 'user' ? 'white' : 'inherit',
-                            lineHeight: '1.65',
-                            fontSize: '0.81rem',
+                            lineHeight: '1.55',
+                            fontSize: '0.75rem',
                           }}
                         >
                           <ReactMarkdown
@@ -161,15 +249,15 @@ export default function MessagesPanel({
                               code({ node, inline, className, children, ...props }: any) {
                                 const match = /language-(\w+)/.exec(className || '');
                                 return !inline && match ? (
-                                  <div className="relative group my-3">
+                                  <div className="relative group my-2">
                                     <SyntaxHighlighter
                                       style={vscDarkPlus}
                                       language={match[1]}
                                       PreTag="div"
                                       customStyle={{
                                         margin: 0,
-                                        borderRadius: '0.5rem',
-                                        fontSize: '0.875rem',
+                                        borderRadius: '0.375rem',
+                                        fontSize: '0.7rem',
                                       }}
                                       {...props}
                                     >
@@ -178,7 +266,7 @@ export default function MessagesPanel({
                                   </div>
                                 ) : (
                                   <code
-                                    className={`${className} px-1.5 py-0.5 rounded text-sm`}
+                                    className={`${className} px-1 py-0.5 rounded text-[0.7rem]`}
                                     style={{
                                       backgroundColor: message.role === 'user' ? 'rgba(255,255,255,0.2)' : '#f3f4f6',
                                       color: message.role === 'user' ? 'white' : '#1f2937',
@@ -191,34 +279,34 @@ export default function MessagesPanel({
                                 );
                               },
                               p({ children }) {
-                                return <p style={{ marginBottom: '0.75rem', marginTop: '0.75rem' }}>{children}</p>;
+                                return <p style={{ marginBottom: '0.5rem', marginTop: '0.5rem' }}>{children}</p>;
                               },
                               ul({ children }) {
-                                return <ul style={{ marginLeft: '1.25rem', marginBottom: '0.75rem' }}>{children}</ul>;
+                                return <ul style={{ marginLeft: '1.1rem', marginBottom: '0.5rem' }}>{children}</ul>;
                               },
                               ol({ children }) {
-                                return <ol style={{ marginLeft: '1.25rem', marginBottom: '0.75rem' }}>{children}</ol>;
+                                return <ol style={{ marginLeft: '1.1rem', marginBottom: '0.5rem' }}>{children}</ol>;
                               },
                               h1({ children }) {
-                                return <h1 style={{ fontSize: '1.5rem', fontWeight: '600', marginTop: '1rem', marginBottom: '0.5rem' }}>{children}</h1>;
+                                return <h1 style={{ fontSize: '0.95rem', fontWeight: '600', marginTop: '0.6rem', marginBottom: '0.3rem' }}>{children}</h1>;
                               },
                               h2({ children }) {
-                                return <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginTop: '0.875rem', marginBottom: '0.5rem' }}>{children}</h2>;
+                                return <h2 style={{ fontSize: '0.875rem', fontWeight: '600', marginTop: '0.55rem', marginBottom: '0.3rem' }}>{children}</h2>;
                               },
                               h3({ children }) {
-                                return <h3 style={{ fontSize: '1.125rem', fontWeight: '600', marginTop: '0.75rem', marginBottom: '0.5rem' }}>{children}</h3>;
+                                return <h3 style={{ fontSize: '0.8rem', fontWeight: '600', marginTop: '0.5rem', marginBottom: '0.3rem' }}>{children}</h3>;
                               },
                               // Table components for GFM tables
                               table({ children }) {
                                 return (
-                                  <div className="overflow-x-auto my-3">
+                                  <div className="overflow-x-auto my-2">
                                     <table
                                       style={{
                                         width: '100%',
                                         borderCollapse: 'collapse',
-                                        fontSize: '0.875rem',
+                                        fontSize: '0.7rem',
                                         border: '1px solid #e5e7eb',
-                                        borderRadius: '0.5rem',
+                                        borderRadius: '0.375rem',
                                         overflow: 'hidden',
                                       }}
                                     >
@@ -248,7 +336,7 @@ export default function MessagesPanel({
                                 return (
                                   <th
                                     style={{
-                                      padding: '0.75rem 1rem',
+                                      padding: '0.35rem 0.5rem',
                                       textAlign: 'left',
                                       fontWeight: '600',
                                       color: '#374151',
@@ -263,7 +351,7 @@ export default function MessagesPanel({
                                 return (
                                   <td
                                     style={{
-                                      padding: '0.75rem 1rem',
+                                      padding: '0.35rem 0.5rem',
                                       color: '#4b5563',
                                     }}
                                   >
@@ -562,17 +650,51 @@ export default function MessagesPanel({
       {/* Session Documents Panel */}
       <SessionDocumentsPanel sessionId={sessionId} refreshKey={documentsRefreshKey} />
 
-      {/* Input Area */}
-      <div
-        className="p-4"
-      >
-        <MessageInput
+      {/* Data Analysis Button — generate interactive dashboard via current agent */}
+      {typeof onSendMessage === 'function' && (
+        <div className="px-4 pb-2">
+          {csvUploading && (
+            <div className="flex items-center justify-center gap-2 py-3 text-sm text-gray-400">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Processing CSV &amp; generating dashboard...
+            </div>
+          )}
+          {showAnalysis && dashboardUrl !== '' && (
+            <AnalysisPanel
+              sessionId={sessionId || ''}
+              dashboardUrl={dashboardUrl}
+              rowCount={analysisMeta?.rowCount}
+              colCount={analysisMeta?.colCount}
+              onClose={() => setShowAnalysis(false)}
+            />
+          )}
+          {showAnalysis && dashboardUrl === '' && !csvUploading && (
+            <button
+              onClick={() => {
+                setShowAnalysis(false);
+                setTimeout(() => setShowAnalysis(true), 100);
+              }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 
+                         bg-blue-50 border border-blue-200 text-blue-700 
+                         rounded-lg text-sm font-medium hover:bg-blue-100 transition-all"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Dashboard (regenerate)
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Input Area — Codex-style composer */}
+      <div className="px-4 pb-4">
+        <CodexMessageInput
           onSendMessage={onSendMessage}
           disabled={disabled}
           isStreaming={isStreaming}
-          placeholder={disabled ? "Select an agent first..." : "Type your message..."}
+          placeholder={disabled ? "Select an agent first..." : "Do anything"}
           sessionId={sessionId}
           projectId={projectId}
+          agentName={agentName}
           onFileUploaded={(file) => {
             console.log('File uploaded:', file);
             setDocumentsRefreshKey(k => k + 1);
@@ -587,17 +709,48 @@ export default function MessagesPanel({
               }, 500);
             }
             // Auto-trigger data analysis after CSV upload
-            if (docExt === 'csv' && onSendMessage) {
-              setTimeout(() => {
-                onSendMessage(
-                  `I just uploaded ${file.filename}. Please run the auto-analysis workflow: ` +
-                  `1) read the CSV to understand columns and data, ` +
-                  `2) generate 10 key metrics overview, ` +
-                  `3) identify top 3 findings, ` +
-                  `4) provide detailed analysis with charts, ` +
-                  `5) save results.`
-                );
-              }, 500);
+            if (docExt === 'csv') {
+              setShowAnalysis(false); // reset if previously open
+              setCsvUploading(true);
+              // File was saved to sandbox by FileUploadButton
+              // Call /api/analysis/init to convert + auto-generate dashboard
+              const csvPath = `outputs/default/${file.filename}`;
+              fetch('/api/analysis/init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  session_id: sessionId,
+                  csv_path: csvPath,
+                  table_name: file.filename.replace(/\.csv$/i, '').replace(/[^a-zA-Z0-9_]/g, '_'),
+                }),
+              })
+                .then(res => res.json())
+                .then(data => {
+                  setDashboardUrl(data.dashboard_file || '');
+                  setAnalysisMeta({ rowCount: data.row_count, colCount: data.col_count });
+                  setShowAnalysis(true);
+                  setCsvUploading(false);
+                  // Send a message to the chat agent for schema overview
+                  if (onSendMessage) {
+                    onSendMessage(
+                      `I loaded ${file.filename} (${data.row_count} rows, ${data.col_count} columns). ` +
+                      `Here's a quick overview: what columns and data types does it have? ` +
+                      `Then summarize the key metrics.`
+                    );
+                  }
+                })
+                .catch(err => {
+                  console.error('Analysis init failed:', err);
+                  setCsvUploading(false);
+                  // Fall back — agent analyzes from sandbox
+                  if (onSendMessage) {
+                    onSendMessage(
+                      `I loaded ${file.filename}. ` +
+                      `Here's a quick overview: what columns and data types does it have? ` +
+                      `Then summarize the key metrics.`
+                    );
+                  }
+                });
             }
           }}
         />

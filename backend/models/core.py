@@ -147,6 +147,25 @@ class ContextDocument(Base):
     tags = Column(JSON, default=lambda: [])
     content_preview = Column(Text, nullable=True)
 
+    # Hierarchy metadata (Step N+1).
+    # Derived from the on-disk folder path during bulk ingest
+    # (e.g. reports_new/electric_vehicle_industry/tesla/marketing/
+    #      → industry="electric_vehicle_industry"
+    #        player="tesla"
+    #        sub_category="marketing"
+    #        sub_department=NULL).
+    # Used by the folder/tree view in the KB sidebar and by the
+    # scope-filter dropdown ("scope to all Tesla marketing docs").
+    # Nullable because not all docs come from a hierarchical source —
+    # single uploads set these to NULL.
+    industry = Column(String(100), nullable=True, index=True)
+    player = Column(String(100), nullable=True, index=True)
+    sub_category = Column(String(100), nullable=True, index=True)
+    # Optional 4th level — used for reports_new/<industry>/<player>/
+    # strategic_consensus/<department>/. Lets the tree view keep
+    # departments as a sub-folder without flattening the hierarchy.
+    sub_department = Column(String(100), nullable=True, index=True)
+
     # Project association
     project_id = Column(Integer, ForeignKey('projects.id'), nullable=True, index=True)
 

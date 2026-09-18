@@ -15,14 +15,14 @@ import WorkflowLibraryView from './features/workflows/library/WorkflowLibraryVie
 import NodeConfigPanel from './features/workflows/node-config/NodeConfigPanel';
 import SettingsView from './pages/SettingsPage';
 import PlaygroundPage from './pages/PlaygroundPage';
-import DeepAgentStudioPage from './features/deepagent-studio/StudioPage';
+import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
 import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
 import AgentLoadouts from './features/agents/ui/AgentLoadouts';
 import ToolLibrary from './features/tools/ToolLibrary';
 import PromptAssemblyPage from './pages/PromptAssemblyPage';
 import { SkillLibrary } from './features/skills';
 import HomePage from './pages/HomePage';
-import CommunityPage from './pages/CommunityPage';
+import AnalysisPage from './pages/AnalysisPage';
 import { initializeTheme } from './lib/themes';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { ToastProvider, ToastContainer } from './hooks/useToast';
@@ -30,7 +30,7 @@ import { ChatProvider } from './features/chat/state/ChatContext';
 import GlobalChatModal from './features/chat/ui/GlobalChatModal';
 import apiClient from './lib/api-client';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'community' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
+type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -63,6 +63,20 @@ interface NodeConfig {
   temperature: number;
   tools: string[];
   native_tools: string[];
+  // TOOL_NODE fields (added to support graphindex_* custom tools)
+  // Keep these in sync with the canonical NodeConfig in
+  // src/features/workflows/node-config/NodeConfigPanel.tsx
+  data?: any;  // BUG FIX: full data blob so panel can read selectedNode.data.config
+  custom_tools?: string[];
+  middleware?: any[];
+  subagents?: any[];
+  use_deepagents?: boolean;
+  condition?: string;
+  max_iterations?: number;
+  exit_condition?: string;
+  tool_type?: string;
+  tool_id?: string;
+  tool_params?: Record<string, any>;
 }
 
 interface SelectedNodeData {
@@ -190,7 +204,7 @@ function AppContent() {
     if (path === '/skills') return 'skills';
     if (path === '/tools') return 'tools';
     if (path === '/prompt') return 'prompt';
-    if (path === '/community') return 'community';
+    if (path === '/analysis') return 'analysis';
     if (path === '/settings') return 'settings';
     if (path === '/playground') return 'playground';
     if (path === '/deepagent-studio') return 'deepagent-studio';
@@ -241,7 +255,7 @@ function AppContent() {
       agents: '/agents',
       skills: '/skills',
       knowledge: '/knowledge',
-      community: '/community',
+      analysis: '/analysis',
       settings: '/settings',
       playground: '/playground',
       tools: '/tools',
@@ -257,7 +271,12 @@ function AppContent() {
   }, []);
 
   const handleSave = () => {
-    setWorkflowStatus('saved');
+    // BUG FIX: call the actual saveWorkflow on the canvas ref. The previous
+    // implementation was a no-op that only updated local React state without
+    // ever calling the API, so the top Save button didn't persist anything.
+    if (workflowCanvasRef.current) {
+      workflowCanvasRef.current.saveWorkflow(false);  // not silent: show success message
+    }
   };
 
   const handleWorkflowNameChange = (name: string) => {
@@ -456,7 +475,7 @@ function AppContent() {
           {currentView === 'tools' && <ToolLibrary />}
           {currentView === 'prompt' && <PromptAssemblyPage />}
           {currentView === 'knowledge' && <KnowledgeBaseView />}
-          {currentView === 'community' && <CommunityPage />}
+          {currentView === 'analysis' && <AnalysisPage />}
           {currentView === 'settings' && <SettingsView />}
           {currentView === 'playground' && <PlaygroundPage />}
           {currentView === 'deepagent-studio' && <DeepAgentStudioPage />}
@@ -482,6 +501,16 @@ function AppContent() {
               condition: selectedNodeData.condition || selectedNodeData.config?.condition,
               max_iterations: selectedNodeData.max_iterations || selectedNodeData.config?.max_iterations,
               exit_condition: selectedNodeData.exit_condition || selectedNodeData.config?.exit_condition,
+              // BUG FIX: pass the full data blob so the panel can read
+              // selectedNode.data.config (e.g. tool_type, tool_id) and the
+              // complete config. Without this, the dropdowns showed empty
+              // even when the DB had the values saved.
+              data: selectedNodeData,
+              // Tool node specific fields (TOOL_NODE) — pass at top level too
+              // for backward compatibility with code that reads selectedNode.tool_type.
+              tool_type: (selectedNodeData as any).tool_type || selectedNodeData.config?.tool_type,
+              tool_id: (selectedNodeData as any).tool_id || selectedNodeData.config?.tool_id,
+              tool_params: (selectedNodeData as any).tool_params || selectedNodeData.config?.tool_params,
               // DeepAgent subagents
               subagents: (selectedNodeData as any).subagents || selectedNodeData.config?.subagents || [],
               use_deepagents: (selectedNodeData as any).use_deepagents || selectedNodeData.config?.use_deepagents || false

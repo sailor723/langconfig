@@ -97,33 +97,33 @@ export default function SearchHistoryLog({ projectId, onRerun, className = '' }:
     <div className={`bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg ${className}`}>
       {/* Header */}
       <div
-        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+        className="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center gap-2">
-          <Search className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+        <div className="flex items-center gap-1.5">
+          <Search className="w-3.5 h-3.5" style={{ color: 'var(--color-primary)' }} />
+          <h3 className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
             Search History
           </h3>
-          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            ({history.length} {history.length === 1 ? 'search' : 'searches'})
+          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+            ({history.length})
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={(e) => {
               e.stopPropagation();
               loadHistory();
             }}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-white/10 rounded transition-colors"
+            className="p-0.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded transition-colors"
             title="Refresh"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} style={{ color: 'var(--color-text-muted)' }} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} style={{ color: 'var(--color-text-muted)' }} />
           </button>
           {expanded ? (
-            <ChevronUp className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+            <ChevronUp className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
           ) : (
-            <ChevronDown className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+            <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
           )}
         </div>
       </div>
@@ -132,74 +132,74 @@ export default function SearchHistoryLog({ projectId, onRerun, className = '' }:
       {expanded && (
         <div className="border-t border-gray-200 dark:border-border-dark">
           {loading ? (
-            <div className="p-8 text-center">
-              <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" style={{ color: 'var(--color-primary)' }} />
-              <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>Loading history...</p>
+            <div className="p-4 text-center">
+              <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" style={{ color: 'var(--color-primary)' }} />
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Loading history...</p>
             </div>
           ) : history.length === 0 ? (
-            <div className="p-8 text-center">
-              <Search className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--color-text-muted)', opacity: 0.5 }} />
-              <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>No search history yet</p>
-              <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>Run a search to see metrics here</p>
+            <div className="p-4 text-center">
+              <Search className="w-6 h-6 mx-auto mb-2" style={{ color: 'var(--color-text-muted)', opacity: 0.5 }} />
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>No search history yet</p>
+              <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-muted)' }}>Run a search to see metrics here</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200 dark:divide-border-dark max-h-96 overflow-y-auto">
+            <div className="divide-y divide-gray-200 dark:divide-border-dark max-h-[500px] overflow-y-auto">
               {history.map((item) => (
                 <div
                   key={item.id}
-                  className="p-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                  className="px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
                 >
                   {/* Query & Time */}
-                  <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-start justify-between mb-1">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                      <p className="text-xs font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
                         "{item.query}"
                       </p>
-                      <div className="flex items-center gap-2 mt-1 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                        <Clock className="w-3 h-3" />
+                      <div className="flex items-center gap-1 mt-0.5 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                        <Clock className="w-2.5 h-2.5" />
                         <span>{formatDate(item.created_at)}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 ml-2">
+                    <div className="flex items-center gap-0.5 ml-1">
                       {item.use_hyde && (
-                        <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 rounded text-xs">
-                          HyDE
+                        <span className="px-1 py-0.5 bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 rounded text-[9px]">
+                          H
                         </span>
                       )}
                       {item.use_toon && (
-                        <span className="px-1.5 py-0.5 bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 rounded text-xs">
-                          TOON
+                        <span className="px-1 py-0.5 bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 rounded text-[9px]">
+                          T
                         </span>
                       )}
                     </div>
                   </div>
 
                   {/* Metrics Grid */}
-                  <div className="grid grid-cols-4 gap-3 mb-2">
+                  <div className="grid grid-cols-4 gap-1.5">
                     <div className="flex flex-col">
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Results</span>
-                      <span className="text-sm font-semibold flex items-center gap-1" style={{ color: 'var(--color-text-primary)' }}>
-                        <Hash className="w-3 h-3" />
+                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>Results</span>
+                      <span className="text-xs font-semibold flex items-center gap-0.5" style={{ color: 'var(--color-text-primary)' }}>
+                        <Hash className="w-2.5 h-2.5" />
                         {item.results_count}
                       </span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Tokens</span>
-                      <span className="text-sm font-semibold flex items-center gap-1" style={{ color: 'var(--color-text-primary)' }}>
-                        <Activity className="w-3 h-3" />
+                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>Tokens</span>
+                      <span className="text-xs font-semibold flex items-center gap-0.5" style={{ color: 'var(--color-text-primary)' }}>
+                        <Activity className="w-2.5 h-2.5" />
                         {item.total_context_tokens}
                       </span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Time</span>
-                      <span className="text-sm font-semibold flex items-center gap-1" style={{ color: 'var(--color-text-primary)' }}>
-                        <Clock className="w-3 h-3" />
+                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>Time</span>
+                      <span className="text-xs font-semibold flex items-center gap-0.5" style={{ color: 'var(--color-text-primary)' }}>
+                        <Clock className="w-2.5 h-2.5" />
                         {item.retrieval_duration_ms.toFixed(0)}ms
                       </span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Similarity</span>
-                      <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                      <span className="text-[9px]" style={{ color: 'var(--color-text-muted)' }}>Similarity</span>
+                      <span className="text-xs font-semibold" style={{ color: 'var(--color-text-primary)' }}>
                         {formatScore(item.avg_similarity)}
                       </span>
                     </div>
@@ -207,17 +207,17 @@ export default function SearchHistoryLog({ projectId, onRerun, className = '' }:
 
                   {/* Actions */}
                   {onRerun && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 mt-1">
                       <button
                         onClick={() => onRerun(item.query, item.use_hyde, item.use_toon)}
-                        className="text-xs px-2 py-1 bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors"
+                        className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary hover:bg-primary/20 rounded transition-colors"
                       >
                         Re-run
                       </button>
                       {!item.use_toon && (
                         <button
                           onClick={() => onRerun(item.query, item.use_hyde, true)}
-                          className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-500/30 rounded transition-colors"
+                          className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-500/30 rounded transition-colors"
                         >
                           Compare with TOON
                         </button>
@@ -231,10 +231,10 @@ export default function SearchHistoryLog({ projectId, onRerun, className = '' }:
 
           {/* Load More */}
           {history.length >= limit && (
-            <div className="p-3 border-t border-gray-200 dark:border-border-dark text-center">
+            <div className="p-2 border-t border-gray-200 dark:border-border-dark text-center">
               <button
                 onClick={() => setLimit(limit + 20)}
-                className="text-xs hover:opacity-70 font-medium"
+                className="text-[10px] hover:opacity-70 font-medium"
                 style={{ color: 'var(--color-primary)' }}
               >
                 Load More

@@ -18,6 +18,9 @@ interface NodeConfig {
   id: string;
   name?: string;  // Display name for the agent node
   agentType: string;
+  // BUG FIX: the full data blob from the parent (React Flow shape)
+  // so we can read selectedNode.data.config.tool_type etc.
+  data?: any;
   model: string;
   system_prompt: string;
   temperature: number;
@@ -452,10 +455,12 @@ const NodeConfigPanel = ({
   useEffect(() => {
     if (selectedNode) {
       // Ensure arrays are initialized
-      // CRITICAL FIX: Check both top-level and nested config for tools
-      // WorkflowCanvas stores tools in node.data.config.native_tools
-      // But NodeConfigPanel expects them at node.data.native_tools
-      const nodeConfig = (selectedNode as any).config || {};
+      // CRITICAL FIX: Read from selectedNode.data.config (where React Flow
+      // actually stores the data) — not selectedNode.config (which is undefined).
+      // The workflow data shape is:
+      //   { id, type, data: { label, agentType, config: { tool_type, tool_id, ... } } }
+      const nodeData = (selectedNode as any).data || {};
+      const nodeConfig = nodeData.config || (selectedNode as any).config || {};
       let nativeToolsList =
         (selectedNode as any).native_tools ||
         (selectedNode as any).nativeTools ||
@@ -549,14 +554,16 @@ const NodeConfigPanel = ({
 
       // Tool Node configuration (instance-specific to this node)
       if (selectedNode.agentType === 'TOOL_NODE') {
-        setSelectedToolType(selectedNode.tool_type || null);
-        setSelectedToolId(selectedNode.tool_id || null);
+        // BUG FIX: read from nodeConfig (selectedNode.config) — the tool_type
+        // and tool_id are stored inside data.config, not at the top level of data.
+        setSelectedToolType(nodeConfig.tool_type || null);
+        setSelectedToolId(nodeConfig.tool_id || null);
 
         // Also initialize config with tool_params if they exist
-        if (selectedNode.tool_params) {
+        if (nodeConfig.tool_params) {
           setConfig(prev => ({
             ...prev!,
-            tool_params: selectedNode.tool_params
+            tool_params: nodeConfig.tool_params
           }));
         }
       }
@@ -582,13 +589,17 @@ const NodeConfigPanel = ({
 
   // Load tool schema when both selectedNode and availableCustomTools are ready
   useEffect(() => {
+    // BUG FIX: read tool_type and tool_id from selectedNode.data.config
+    // (where React Flow actually stores the data) — not selectedNode.config.
+    const nodeData = (selectedNode as any)?.data;
+    const cfg = nodeData?.config || (selectedNode as any)?.config;
     if (selectedNode?.agentType === 'TOOL_NODE' &&
-      selectedNode.tool_type &&
-      selectedNode.tool_id &&
+      cfg?.tool_type &&
+      cfg?.tool_id &&
       availableCustomTools.length > 0) {
-      loadToolSchema(selectedNode.tool_type, selectedNode.tool_id);
+      loadToolSchema(cfg.tool_type, cfg.tool_id);
     }
-  }, [selectedNode?.tool_id, availableCustomTools.length]);
+  }, [(selectedNode as any)?.data?.config?.tool_id, availableCustomTools.length]);
 
   if (!selectedNode || !config) {
     return (
@@ -1248,7 +1259,69 @@ const NodeConfigPanel = ({
                   )}
                 </div>
 
-                {/* Tool Parameters - Show for MCP/CLI tools (Custom uses modal) */}
+                {/* Tool Parameters - Dynamic form fields (ALL tool types, including custom) */}
+                {selectedToolId && toolInputSchema && toolInputSchema.properties && Object.keys(toolInputSchema.properties).length > 0 && (
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>
+                      Tool Parameters
+                    </label>
+                    {Object.entries(toolInputSchema.properties).map(([propName, propSchema]: [string, any]) => {
+                      const isRequired = (toolInputSchema.required || []).includes(propName);
+                      const currentValue = config.tool_params?.[propName] ?? propSchema.default ?? '';
+                      const inputType = propSchema.type === 'integer' || propSchema.type === 'number' ? 'number' :
+                                        propSchema.type === 'boolean' ? 'checkbox' : 'text';
+                      return (
+                        <div key={propName}>
+                          <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-primary)' }}>
+                            {propName}{isRequired && <span style={{ color: '#ef4444' }}> *</span>}
+                          </label>
+                          {inputType === 'checkbox' ? (
+                            <input
+                              type="checkbox"
+                              checked={Boolean(currentValue)}
+                              onChange={(e) => {
+                                setConfig({
+                                  ...config,
+                                  tool_params: { ...(config.tool_params || {}), [propName]: e.target.checked }
+                                });
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onWheel={(e) => e.stopPropagation()}
+                            />
+                          ) : (
+                            <input
+                              type={inputType}
+                              value={currentValue}
+                              placeholder={propSchema.description || propSchema.examples?.[0] || ''}
+                              onChange={(e) => {
+                                const val = inputType === 'number' ? Number(e.target.value) : e.target.value;
+                                setConfig({
+                                  ...config,
+                                  tool_params: { ...(config.tool_params || {}), [propName]: val }
+                                });
+                              }}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onWheel={(e) => e.stopPropagation()}
+                              className="w-full px-3 py-2 border rounded-lg text-sm"
+                              style={{
+                                backgroundColor: 'var(--color-input-background)',
+                                borderColor: 'var(--color-border-dark)',
+                                color: 'var(--color-text-primary)'
+                              }}
+                            />
+                          )}
+                          {propSchema.description && (
+                            <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
+                              {propSchema.description}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Tool Parameters - JSON textarea (fallback for MCP/CLI) */}
                 {selectedToolId && selectedToolType !== 'custom' && (
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-text-primary)' }}>

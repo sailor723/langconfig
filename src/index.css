@@ -17,7 +17,52 @@
   --font-family-sans: Manrope, system-ui, -apple-system, sans-serif;
 }
 
-/* Global resets */
+/* ── Codex Dark Gray Theme ───────────────────────────────────────
+ * Apply class "theme-codex-dark" to any container (e.g. <html>, <body>,
+ * or the chat modal) to activate Codex-style dark gray coloring.
+ * Components that use var(--color-*) will pick up these values automatically.
+ ────────────────────────────────────────────────────────────────── */
+.theme-codex-dark {
+  --color-primary: #4a9eff;
+  --color-background-light: #1e1e1e;
+  --color-background-dark: #252525;
+  --color-panel: #252525;
+  --color-panel-dark: #1a1a1a;
+  --color-panel-darker: #151515;
+  --color-border-dark: #333333;
+  --color-border: #3a3a3a;
+  --color-text-muted: #8b8b8b;
+  --color-text-primary: #e0e0e0;
+  --color-input-background: #2a2a2a;
+  --color-canvas-bg: #1e1e1e;
+  --color-category-background: #2a2a2a;
+
+  /* override Tailwind bg shades used by components */
+  --color-white: #1e1e1e;
+}
+
+.theme-codex-dark .frosted-glass {
+  background-color: rgba(37, 37, 37, 0.7);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 32px 0 rgba(0, 0, 0, 0.4),
+    inset 1px 1px 0px rgba(255, 255, 255, 0.06),
+    inset -1px -1px 0px rgba(0, 0, 0, 0.3);
+}
+
+.theme-codex-dark ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+.theme-codex-dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+.theme-codex-dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Global resets ─────────────────────────────────────────────── */
 html,
 body,
 #root {
@@ -248,6 +293,18 @@ select {
 
 .dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* Thick scrollbar for agent detail panel */
+.thick-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+/* Scrollbar for system prompt modals */
+.xwide-scrollbar::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
 }
 
 /* React Flow overrides */

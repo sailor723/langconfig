@@ -144,9 +144,46 @@ def init_db():
         # Create all tables
         Base.metadata.create_all(bind=engine)
         logger.info("✓ PostgreSQL database initialized successfully")
+
+        # Step N+1: idempotent column additions for the hierarchy
+        # metadata (industry/player/sub_category/sub_department).
+        # create_all() only creates new tables — it does NOT alter
+        # existing ones — so we run ALTER TABLE IF NOT EXISTS for
+        # each new column. This is safe to run on every startup.
+        _add_hierarchy_columns_if_missing(engine)
     except Exception as e:
         logger.error(f"Failed to initialize PostgreSQL: {e}")
         raise
+
+
+def _add_hierarchy_columns_if_missing(sync_engine) -> None:
+    """Add the Step N+1 hierarchy metadata columns to context_documents
+    if they don't already exist. Idempotent — runs on every init_db().
+    """
+    hierarchy_cols = [
+        ("industry",        "VARCHAR(100)"),
+        ("player",          "VARCHAR(100)"),
+        ("sub_category",    "VARCHAR(100)"),
+        ("sub_department",  "VARCHAR(100)"),
+    ]
+    try:
+        with sync_engine.begin() as conn:
+            for col_name, col_type in hierarchy_cols:
+                # Use IF NOT EXISTS so re-running this is a no-op.
+                conn.execute(text(
+                    f"ALTER TABLE context_documents "
+                    f"ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+                ))
+            # Indexes for fast folder-view queries and scope filtering.
+            for col_name, _ in hierarchy_cols:
+                conn.execute(text(
+                    f"CREATE INDEX IF NOT EXISTS idx_cd_{col_name} "
+                    f"ON context_documents ({col_name})"
+                ))
+        logger.info("✓ hierarchy columns ensured on context_documents")
+    except Exception as e:
+        logger.warning(f"Could not ensure hierarchy columns: {e}")
+
 
 async def async_init_db():
     """
@@ -166,9 +203,38 @@ async def async_init_db():
         async with async_engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)
         logger.info("✓ PostgreSQL database initialized successfully (async)")
+
+        # Step N+1: hierarchy columns (same as sync path, async).
+        await _add_hierarchy_columns_if_missing_async(async_engine)
     except Exception as e:
         logger.error(f"Failed to initialize PostgreSQL (async): {e}")
         raise
+
+
+async def _add_hierarchy_columns_if_missing_async(async_sync_engine) -> None:
+    """Async version of _add_hierarchy_columns_if_missing for the
+    FastAPI lifespan path."""
+    hierarchy_cols = [
+        ("industry",        "VARCHAR(100)"),
+        ("player",          "VARCHAR(100)"),
+        ("sub_category",    "VARCHAR(100)"),
+        ("sub_department",  "VARCHAR(100)"),
+    ]
+    try:
+        async with async_sync_engine.begin() as conn:
+            for col_name, col_type in hierarchy_cols:
+                await conn.execute(text(
+                    f"ALTER TABLE context_documents "
+                    f"ADD COLUMN IF NOT EXISTS {col_name} {col_type}"
+                ))
+            for col_name, _ in hierarchy_cols:
+                await conn.execute(text(
+                    f"CREATE INDEX IF NOT EXISTS idx_cd_{col_name} "
+                    f"ON context_documents ({col_name})"
+                ))
+        logger.info("✓ hierarchy columns ensured on context_documents (async)")
+    except Exception as e:
+        logger.warning(f"Could not ensure hierarchy columns (async): {e}")
 
 async def check_db_health() -> dict:
     """

@@ -1,0 +1,4 @@
+tx_id,Region,Product_Category,Quantity,Unit_Price,Discount,Total_Revenue,Net_Revenue,Tax_Rate,Tax_Amount,After_Tax_Revenue
+MKT_999,US,Software,20,500.0,100.0,10000.0,9900.0,0.08,792.0,9108.0
+MKT_1000,EMEA,Hardware,2,1250.0,10.0,2500.0,2490.0,0.15,373.5,2116.5
+MKT_1001,LATAM,Services,1,2100.0,50.0,2100.0,2050.0,0.0,0.0,2050.0

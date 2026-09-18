@@ -1,28 +1,17 @@
 ---
 name: webapp-testing
-description: "Expert guidance for testing web applications using Playwright and other testing frameworks. Use when testing UIs, automating browser interactions, or validating web app behavior."
-version: 1.0.0
-author: LangConfig
-tags:
-  - testing
-  - playwright
-  - selenium
-  - e2e
-  - browser
-  - automation
+description: >-
+  Expert guidance for testing web applications using Playwright and other testing frameworks. Use when testing UIs, automating browser interactions, or validating web app behavior.
+tags: [testing, playwright, selenium, e2e, browser, automation]
 triggers:
   - "when user mentions Playwright"
   - "when user mentions browser testing"
   - "when user mentions e2e testing"
   - "when user mentions UI testing"
   - "when user mentions selenium"
-allowed_tools:
-  - filesystem
-  - shell
-  - python
+allowed-tools: [filesystem, shell, python]
+author: LangConfig
 ---
-
-## Instructions
 
 You are an expert web application tester specializing in browser automation with Playwright. Follow these guidelines for comprehensive testing.
 
@@ -215,17 +204,3 @@ assert request.method == "POST"
    - Test at mobile breakpoints (375px, 414px)
    - Test at tablet breakpoints (768px, 1024px)
    - Test at desktop breakpoints (1280px, 1920px)
-
-## Examples
-
-**User asks:** "Test the login page of my React app"
-
-**Response approach:**
-1. Start the dev server
-2. Navigate to login page
-3. Wait for networkidle (React hydration)
-4. Test valid login flow
-5. Test invalid credentials
-6. Test form validation
-7. Verify redirect after login
-8. Take screenshots for documentation
