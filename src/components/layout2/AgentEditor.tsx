@@ -8,7 +8,7 @@
  *   - Tools      native_tools / cli_tools / custom_tools
  *   - JSON       raw config
  */
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLayoutTokens } from './tokens';
 import { Award, Info, FileText, Wrench, Code } from 'lucide-react';
 import type { Tab } from './useLayout';
@@ -21,6 +21,7 @@ import CodeViewerModal from './CodeViewerModal';
 import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
+import ToolInspectModal from './ToolInspectModal';
 import SkillsPicker from './editorSkillsPicker';
 import EditorSectionNav from './editorSectionNav';
 import { useProject } from '../../contexts/ProjectContext';
@@ -63,6 +64,20 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [jsonEdit, setJsonEdit] = useState(() => JSON.stringify(agent, null, 2));
+  // Live view of jsonEdit — the tool-inspect modal reads tool_params from
+  // here (the immutable `agent` prop would show the stale pre-save value
+  // until a reload). Mirrors DeepAgentEditor's live/liveConfig.
+  const live = useMemo(() => {
+    try { return JSON.parse(jsonEdit) || {}; } catch { return agent || {}; }
+  }, [jsonEdit]); // eslint-disable-line react-hooks/exhaustive-deps
+  const liveConfig = live.config || {};
+  // Always-current mirror of jsonEdit — lets async handlers (e.g. the tool
+  // inspect modal's Save -> main save) read the latest JSON after a state
+  // flush instead of a stale render closure.
+  const jsonEditRef = useRef(jsonEdit);
+  useEffect(() => { jsonEditRef.current = jsonEdit; }, [jsonEdit]);
+  // Tool card click -> inspect/edit panel (per-agent tool_params, e.g. database)
+  const [inspectTool, setInspectTool] = useState<{ id: string; name: string; description: string } | null>(null);
   // ── Editable fields (synced to jsonEdit for Save) ──
   // For new agents, provide sensible defaults — user can tweak later
   const [editableName, setEditableName] = useState(agent.name || '');
@@ -350,7 +365,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     try {
       let payload: any;
       try {
-        payload = JSON.parse(jsonEdit);
+        payload = JSON.parse(jsonEditRef.current);
       } catch {
         setSaveMsg({ ok: false, text: 'Invalid JSON — fix errors and try again' });
         setSaving(false);
@@ -653,6 +668,7 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         toolsLoading={toolsLoading}
         groupedByCategory={groupedByCategory}
         availableCustomTools={availableCustomTools}
+        onInspect={setInspectTool}
         t={t}
       />
     ),
@@ -697,6 +713,43 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
           filename={codeModal.filename}
           code={codeModal.code}
           onClose={() => setCodeModal(null)}
+        />
+      )}
+
+      {inspectTool && (
+        <ToolInspectModal
+          tool={inspectTool}
+          toolParams={liveConfig.tool_params}
+          onClose={() => setInspectTool(null)}
+          onSave={(toolId, params) => {
+            // Build the updated payload synchronously from the CURRENT jsonEdit
+            // and write BOTH state and ref — handleSave below must not read a
+            // stale ref (the useEffect that syncs the ref runs after commit,
+            // racing the setTimeout below).
+            let updated: any = null;
+            try {
+              updated = JSON.parse(jsonEdit);
+              if (!updated.config) updated.config = {};
+              if (!updated.config.tool_params) updated.config.tool_params = {};
+              updated.config.tool_params[toolId] = params;
+            } catch { /* invalid JSON — leave updated null */ }
+            if (updated) {
+              const json = JSON.stringify(updated, null, 2);
+              setJsonEdit(json);
+              jsonEditRef.current = json;
+              if (localAgentId) {
+                setTimeout(() => { handleSave(); }, 0);
+              } else {
+                setSaveMsg({ ok: true, text: `Tool params saved for ${toolId} (draft — click Save to create the agent)` });
+                setTimeout(() => setSaveMsg(null), 3000);
+              }
+            } else {
+              setSaveMsg({ ok: false, text: 'Invalid JSON — tool params not saved' });
+              setTimeout(() => setSaveMsg(null), 3000);
+            }
+            setInspectTool(null);
+          }}
+          t={t}
         />
       )}
     </div>

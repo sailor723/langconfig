@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Literal
+from typing import Literal, NotRequired
 
 from dotenv import load_dotenv
-from langchain.messages import AIMessage
+from langchain.messages import AIMessage, ToolMessage
 from langchain.tools import tool
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
@@ -31,6 +31,17 @@ from neo4j_setup_db import (
     neo4j_graph_schema,
     neo4j_graph_schema_details,
 )
+
+
+class Neo4jAgentState(MessagesState):
+    """MessagesState + per-call Neo4j target (database + optional connection).
+
+    Mirrors neo4j_agent.Neo4jAgentState; the HITL graph uses the same schema so
+    the tools' InjectedState params resolve in both graphs.
+    """
+
+    neo4j_database: NotRequired[str]
+    neo4j_connection: NotRequired[dict]
 
 # Best-effort: pick up the repo-root .env if the keys live there.
 load_dotenv(
@@ -91,7 +102,7 @@ run_query_node = ToolNode([run_query_with_review], name="run_query")
 
 
 # ── 4. Application steps (dedicated nodes) ───────────────────────────
-def list_labels(state: MessagesState):
+def list_labels(state: Neo4jAgentState):
     """Predetermined tool call: force a compact schema dump (labels + rels)."""
     tool_call = {
         "name": "neo4j_graph_schema",
@@ -102,7 +113,18 @@ def list_labels(state: MessagesState):
     tool_call_message = AIMessage(content="", tool_calls=[tool_call])
 
     list_labels_tool = next(t for t in tools if t.name == "neo4j_graph_schema")
-    tool_message = list_labels_tool.invoke(tool_call)
+    invoke_kwargs: dict = {}
+    if state.get("neo4j_database"):
+        invoke_kwargs["database"] = state["neo4j_database"]
+    if state.get("neo4j_connection"):
+        invoke_kwargs["connection"] = state["neo4j_connection"]
+    tool_message = list_labels_tool.invoke(invoke_kwargs)
+    # Plain-kwargs invoke returns the raw content string (not a ToolMessage,
+    # unlike a full tool_call dict) — normalize so history stays well-formed.
+    if not hasattr(tool_message, "content"):
+        tool_message = ToolMessage(
+            content=str(tool_message), tool_call_id=tool_call["id"]
+        )
     response = AIMessage(f"Available schema:\n{tool_message.content}")
 
     return {"messages": [tool_call_message, tool_message, response]}
@@ -152,7 +174,7 @@ def should_continue(state: MessagesState) -> Literal[END, "run_query"]:
     return END if not last_message.tool_calls else "run_query"
 
 
-builder = StateGraph(MessagesState)
+builder = StateGraph(Neo4jAgentState)
 builder.add_node(list_labels)
 builder.add_node(call_get_schema_details)
 builder.add_node(get_schema_node, "get_schema")

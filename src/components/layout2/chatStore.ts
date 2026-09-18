@@ -270,8 +270,17 @@ class ChatStoreImpl {
               });
               assistantAdded = true;
             } else {
+              // Update thinking on EVERY chunk (not just the first): the
+              // backend streams reasoning as plain chunks, so freezing
+              // `thinking` at the first token left the "Thinking" toggle
+              // showing a single char (often a newline/space) — "click to
+              // see nothing". Mirrors useChatStreaming's per-chunk
+              // onThinkingUpdate so the reasoning grows live. After the
+              // first tool_start, fullThinking stops growing and stays at
+              // the accumulated pre-tool text.
               this._updateMessage(assistantId, {
                 text: fullText,
+                thinking: fullThinking || undefined,
                 streaming: true,
               });
             }

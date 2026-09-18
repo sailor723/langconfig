@@ -488,7 +488,9 @@ function GraphCanvasInner() {
               proOptions={{ hideAttribution: true }}
             >
               <Background color={t.border} gap={24} variant={BackgroundVariant.Dots} style={{ opacity: 0.35 }} />
-              <Controls showInteractive={false} />
+              {/* Place the ReactFlow zoom controls on the bottom-right so they
+                  don't overlap with the SchemaLegend in the bottom-left. */}
+              <Controls showInteractive={false} position="bottom-right" />
             </ReactFlow>
 
             {/* Overlay: view-mode toggle + direction toggle (flow only) + run status */}

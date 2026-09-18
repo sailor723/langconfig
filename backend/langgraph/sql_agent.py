@@ -16,11 +16,11 @@ Memory:
 Run:  python backend/langgraph/sql_agent.py
 """
 import os
-from typing import Literal
+from typing import Literal, NotRequired
 from uuid import uuid4
 
 from dotenv import load_dotenv
-from langchain.messages import AIMessage
+from langchain.messages import AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
@@ -29,6 +29,19 @@ from langgraph.store.memory import InMemoryStore
 
 from llm import build_chat_model
 from sql_setup_db import ensure_chinook_db, sql_db_list_tables, sql_db_schema, sql_db_query
+
+
+class SqlAgentState(MessagesState):
+    """MessagesState + per-call SQL target.
+
+    ``sql_database`` selects the target database for this run (the tools read
+    it via ``InjectedState``); ``sql_connection`` optionally overrides the
+    server connection (dsn or host/port/dbname/user/password). Both fall back
+    to the studio override / env when left empty.
+    """
+
+    sql_database: NotRequired[str]
+    sql_connection: NotRequired[dict]
 
 # Best-effort: pick up the repo-root .env if the keys live there.
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"))
@@ -95,8 +108,11 @@ memory_tool_node = ToolNode([store_memory, search_memories], name="memory_tools"
 
 
 # ── 3. Application steps (dedicated nodes) ───────────────────────────
-def list_tables(state: MessagesState):
-    """Predetermined tool call: force listing the available tables."""
+def list_tables(state: SqlAgentState):
+    """Predetermined tool call: force listing the available tables.
+
+    The per-call database / connection are forwarded from the state.
+    """
     tool_call = {
         "name": "sql_db_list_tables",
         "args": {},
@@ -106,7 +122,18 @@ def list_tables(state: MessagesState):
     tool_call_message = AIMessage(content="", tool_calls=[tool_call])
 
     list_tables_tool = next(t for t in tools if t.name == "sql_db_list_tables")
-    tool_message = list_tables_tool.invoke(tool_call)
+    invoke_kwargs: dict = {}
+    if state.get("sql_database"):
+        invoke_kwargs["database"] = state["sql_database"]
+    if state.get("sql_connection"):
+        invoke_kwargs["connection"] = state["sql_connection"]
+    tool_message = list_tables_tool.invoke(invoke_kwargs)
+    # Plain-kwargs invoke returns the raw content string (not a ToolMessage,
+    # unlike a full tool_call dict) — normalize so history stays well-formed.
+    if not hasattr(tool_message, "content"):
+        tool_message = ToolMessage(
+            content=str(tool_message), tool_call_id=tool_call["id"]
+        )
     response = AIMessage(f"Available tables: {tool_message.content}")
 
     return {"messages": [tool_call_message, tool_message, response]}
@@ -209,7 +236,7 @@ def should_preamble(state: MessagesState) -> Literal["list_tables", "generate_qu
     return "generate_query" if has_schema else "list_tables"
 
 
-builder = StateGraph(MessagesState)
+builder = StateGraph(SqlAgentState)
 builder.add_node(list_tables)
 builder.add_node(call_get_schema)
 builder.add_node(get_schema_node, "get_schema")

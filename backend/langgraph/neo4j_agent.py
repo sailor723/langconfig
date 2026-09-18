@@ -18,11 +18,11 @@ Run:  python backend/langgraph/neo4j_agent.py
 from __future__ import annotations
 
 import os
-from typing import Literal
+from typing import Literal, NotRequired
 from uuid import uuid4
 
 from dotenv import load_dotenv
-from langchain.messages import AIMessage
+from langchain.messages import AIMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
@@ -36,6 +36,19 @@ from neo4j_setup_db import (
     neo4j_graph_schema,
     neo4j_graph_schema_details,
 )
+
+
+class Neo4jAgentState(MessagesState):
+    """MessagesState + per-call Neo4j target.
+
+    ``neo4j_database`` selects the target database for this run (the tools
+    read it via ``InjectedState``); ``neo4j_connection`` optionally overrides
+    the server connection (uri / user / password / encrypted). Both fall back
+    to the studio override / env when left empty.
+    """
+
+    neo4j_database: NotRequired[str]
+    neo4j_connection: NotRequired[dict]
 
 # Best-effort: pick up the repo-root .env if the keys live there.
 load_dotenv(
@@ -106,11 +119,12 @@ memory_tool_node = ToolNode([store_memory, search_memories], name="memory_tools"
 
 
 # ── 3. Application steps (dedicated nodes) ───────────────────────────
-def list_labels(state: MessagesState):
+def list_labels(state: Neo4jAgentState):
     """Predetermined tool call: force a compact schema dump (labels + rels).
 
     Mirrors sql_agent.list_tables — fixed tool call so the LLM doesn't
-    have to decide on its own to call the schema tool first.
+    have to decide on its own to call the schema tool first. The per-call
+    database / connection are forwarded from the state.
     """
     tool_call = {
         "name": "neo4j_graph_schema",
@@ -121,7 +135,18 @@ def list_labels(state: MessagesState):
     tool_call_message = AIMessage(content="", tool_calls=[tool_call])
 
     list_labels_tool = next(t for t in tools if t.name == "neo4j_graph_schema")
-    tool_message = list_labels_tool.invoke(tool_call)
+    invoke_kwargs: dict = {}
+    if state.get("neo4j_database"):
+        invoke_kwargs["database"] = state["neo4j_database"]
+    if state.get("neo4j_connection"):
+        invoke_kwargs["connection"] = state["neo4j_connection"]
+    tool_message = list_labels_tool.invoke(invoke_kwargs)
+    # Plain-kwargs invoke returns the raw content string (not a ToolMessage,
+    # unlike a full tool_call dict) — normalize so history stays well-formed.
+    if not hasattr(tool_message, "content"):
+        tool_message = ToolMessage(
+            content=str(tool_message), tool_call_id=tool_call["id"]
+        )
     response = AIMessage(f"Available schema:\n{tool_message.content}")
 
     return {"messages": [tool_call_message, tool_message, response]}
@@ -237,7 +262,7 @@ def should_preamble(state: MessagesState) -> Literal["list_labels", "generate_qu
     return "generate_query" if has_schema else "list_labels"
 
 
-builder = StateGraph(MessagesState)
+builder = StateGraph(Neo4jAgentState)
 builder.add_node(list_labels)
 builder.add_node(call_get_schema_details)
 builder.add_node(get_schema_node, "get_schema")

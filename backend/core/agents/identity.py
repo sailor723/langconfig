@@ -81,19 +81,39 @@ def build_identity_system_prompt(
     return "\n\n".join(p for p in parts if p and p.strip())
 
 
-def first_chat_greeting(workspace_root: str) -> str:
+# Tools that let an agent actually inspect a workspace — if the agent has
+# none of these, asking it to "report workspace status" just makes it try
+# (and fail) to call filesystem tools it doesn't have.
+FS_STATUS_TOOLS = frozenset({"ls", "read_file", "glob", "grep", "bash"})
+
+
+def has_workspace_status_tools(native_tools: list | tuple | set | None) -> bool:
+    """True when the agent's native toolset can inspect a workspace."""
+    return bool(native_tools and FS_STATUS_TOOLS.intersection(native_tools))
+
+
+def first_chat_greeting(
+    workspace_root: str,
+    include_workspace_status: bool = True,
+) -> str:
     """Instruction appended to the system prompt on the first message of a
-    new chat session: introduce yourself + report workspace status."""
-    return (
-        "\n\n## First message — introduce yourself\n\n"
+    new chat session: introduce yourself (+ report workspace status only when
+    the agent has filesystem tools — otherwise it would try to call `ls`
+    etc. that aren't bound)."""
+    lines = [
+        "\n\n## First message — introduce yourself\n\n",
         "This is the first message of a new chat session. Before answering "
-        "the user's request, briefly:\n"
-        "- Introduce yourself (agent name and id).\n"
-        f"- Report the current workspace status: what is in `{workspace_root}` "
-        "(uploads in `upload/`, existing deliverables in `generated/`, skills "
-        "in `skills/`).\n"
-        "- Keep it concise and in the user's language.\n"
-    )
+        "the user's request, briefly:\n",
+        "- Introduce yourself (agent name and id).\n",
+    ]
+    if include_workspace_status:
+        lines.append(
+            f"- Report the current workspace status: what is in `{workspace_root}` "
+            "(uploads in `upload/`, existing deliverables in `generated/`, skills "
+            "in `skills/`).\n"
+        )
+    lines.append("- Keep it concise and in the user's language.\n")
+    return "".join(lines)
 
 
 def refresh_doc_identity(content: str, agent_id, workspace_root: str) -> str:

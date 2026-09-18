@@ -7,11 +7,19 @@
 
 ## 0. 你会收到什么
 
-`langconfig.zip`（约 12 MB）包含完整源码，不含密钥/构建产物（无 `.env`、
+`langconfig.zip`（约 31 MB）包含完整源码，不含密钥/构建产物（无 `.env`、
 `node_modules`、`.venv`、`data`、`backend/outputs`、git 历史）。数据库种子会
 恢复一个**与机器无关的基线**：44 个深度智能体、28 个 LLM 模型、58 个工具、
 19 个技能。**你的工作区路径和 API Key 在下面步骤中本地添加——zip 里不包含
 任何机器相关的信息。**
+
+### 前置依赖——Ubuntu（22.04 / 24.04）
+
+全新 Ubuntu 服务器在开始以下步骤前需要一些基础工具：
+
+```bash
+sudo apt update && sudo apt install -y unzip git curl ca-certificates
+```
 
 ---
 
@@ -42,6 +50,12 @@ docker compose up -d postgres
 # 健康检查：docker ps   →  "langconfig-postgres  0.0.0.0:5433->5432/tcp"
 ```
 
+> **Ubuntu 还没装 Docker？**
+> ```bash
+> curl -fsSL https://get.docker.com | sudo sh      # 安装 docker engine + compose 插件
+> sudo usermod -aG docker $USER                    # 然后重新登录（或执行：newgrp docker）
+> ```
+
 > **pgvector**：已内置在 `pgvector/pgvector:pg16` 镜像中，无需单独安装。
 > 应用启动时会自动启用该扩展（`CREATE EXTENSION IF NOT EXISTS vector`）。
 
@@ -52,16 +66,33 @@ brew install postgresql@16 pgvector   # pgvector 用于向量嵌入，必需
 brew services start postgresql@16
 # 端口 :5432；创建角色 + 数据库（或让 seed_all.py 自动创建——当应用用户
 # 能以超级用户连接时它会自动建库）：
-psql postgres -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB;"
+psql postgres -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB SUPERUSER;"
 psql postgres -c "CREATE DATABASE langconfig OWNER langconfig;"
 ```
 
 ### 方案 C — 原生 PostgreSQL 16（Ubuntu / WSL2）
 
+**Ubuntu 24.04** —— 发行版仓库自带 PostgreSQL 16 + pgvector：
+
 ```bash
 sudo apt install -y postgresql-16 postgresql-16-pgvector   # pgvector 用于向量嵌入
 sudo service postgresql start
-sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB;"
+sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB SUPERUSER;"
+sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
+```
+
+**Ubuntu 22.04** —— 自带 PostgreSQL 14 且没有 pgvector 包，需要先添加官方
+PGDG apt 仓库（提供 Postgres 16 + `postgresql-16-pgvector`），再执行与上面
+相同的命令：
+
+```bash
+sudo install -d /usr/share/postgresql-common/pgdg
+sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+sudo apt update
+sudo apt install -y postgresql-16 postgresql-16-pgvector
+sudo service postgresql start
+sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB SUPERUSER;"
 sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
 ```
 
@@ -75,7 +106,7 @@ sudo dnf install -y postgresql16-server postgresql16 pgvector_16   # pgvector_16
 sudo /usr/pgsql-16/bin/postgresql-16-setup initdb
 sudo systemctl enable --now postgresql-16
 # 端口 :5432；创建角色 + 数据库（或让 seed_all.py 自动创建）：
-sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB;"
+sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB SUPERUSER;"
 sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
 ```
 
@@ -83,8 +114,100 @@ sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
 > `sudo dnf install -y postgresql16-server postgresql16 pgvector`（跳过 PGDG 仓库
 > 步骤；initdb 与 systemctl 步骤相同）。
 
+### Neo4j —— 可选，用于 Cypher 智能体 / Graph Studio
+
+`neo4j_agent`（Graph Studio）通过 **Bolt** 协议查询 Neo4j 图数据库。如果团队
+只用 SQL 智能体，可以跳过本节。
+
+**方式 1 —— Docker（本地，免费）：**
+
+```bash
+docker run -d --name langconfig-neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/password \
+  neo4j:5-community
+# Web 界面：http://localhost:7474   ·   Bolt：bolt://localhost:7687
+```
+
+**方式 2 —— Neo4j Aura（云端，免费额度）：** 在 Aura 控制台创建实例，使用它
+提供的 Bolt URI 和凭据。
+
+**.env —— NEO4J_\* 配置块**（`env_example` 已含这些值；把它们加进你的 `.env`）：
+
+```bash
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password
+NEO4J_DATABASE=neo4j
+NEO4J_ENCRYPTED=false
+NEO4J_URL=http://localhost:7474   # HTTP 端点（文档索引相关工具）
+```
+
+> **Aura**：使用 Aura 提供的 URI，并把 `NEO4J_ENCRYPTED=true`。
+
+**加载示例图**（智能体的 e2e 测试使用 Movies 图——在 Web 界面执行 `:play
+movies` 可加载完整数据集；下面是最小种子，用于快速验证）：
+
+```bash
+docker exec langconfig-neo4j cypher-shell -u neo4j -p password <<'CYPHER'
+CREATE (m1:Movie {title:'The Matrix', released:1999}),
+       (m2:Movie {title:'The Matrix Reloaded', released:2003}),
+       (k:Person {name:'Keanu Reeves', born:1964}),
+       (l:Person {name:'Lana Wachowski', born:1965}),
+       (k)-[:ACTED_IN {roles:['Neo']}]->(m1),
+       (k)-[:ACTED_IN {roles:['Neo']}]->(m2),
+       (l)-[:DIRECTED]->(m1), (l)-[:DIRECTED]->(m2)
+CYPHER
+```
+
+**验证：**
+
+```bash
+cd backend && uv run python langgraph/test_neo4j_agent.py unit
+# 然后打开 Graph Studio → neo4j 智能体 → 数据库下拉框会显示图的标签
+```
+
+**团队种子 —— 企业 HR 图谱**（随本包分发：
+`backend/scripts/seeds/neo4j-hr/neo4j.dump`，约 19 MB——`neo4j_agent` 演示用的
+知识图谱：Person / Skill / Job / Domain / WorkType + KNOWS / BUILT / LED …）。
+把它恢复到全新的 Neo4j 容器：
+
+```bash
+# 1. 启动 Neo4j 容器（与源版本一致 —— 企业版镜像）：
+docker run -d --name langconfig-neo4j-hr \
+  -p 17475:7474 -p 7688:7687 \
+  -e NEO4J_AUTH=neo4j/password \
+  -e NEO4J_ACCEPT_LICENSE_AGREEMENT=yes \
+  -v neo4j-hr-data:/data \
+  neo4j:2025.10.1-enterprise
+
+# 2. 停止 → 用 dump 覆盖默认数据库 → 重新启动：
+docker stop langconfig-neo4j-hr
+docker run --rm -e NEO4J_ACCEPT_LICENSE_AGREEMENT=yes \
+  -v neo4j-hr-data:/data -v "$(pwd)/backend/scripts/seeds/neo4j-hr":/dumps \
+  neo4j:2025.10.1-enterprise \
+  neo4j-admin database load neo4j --from-path=/dumps --overwrite-destination=true
+docker start langconfig-neo4j-hr
+
+# 3. 让 LangConfig 指向它并验证：
+#   NEO4J_URI=bolt://localhost:7688   （其余 NEO4J_* 配置不变）
+cd backend && uv run python langgraph/test_neo4j_agent.py unit
+#   → Graph Studio 会显示 Person/Skill/Job/Domain/WorkType 标签
+```
+
+> **版本兼容性（重要）：** Neo4j 的 dump 只能恢复到**相同或更新**版本的服务器。
+> 该 HR dump 来自 **2025.10.1**，因此容器必须使用 `neo4j:2025.10.1-enterprise`
+> （或更新版本）。较旧的 `neo4j:5.x`（5.26）镜像会拒绝它，报错：
+> *"The loaded database is of a newer version than the current binaries.
+> Downgrade is not supported."*
+
+> 要做 SQL 与 Cypher 的对照演示，可以用同样的方式把 Northwind 图（或 Neo4j
+> 欺诈演示数据集）加载进来——使用你自己的 Cypher 文件或 Aura 备份。
+
 > 角色需要 `CREATEDB` 权限，因为 `seed_all.py` 第 1 步会在数据库缺失时创建它，
-> 第 10 步会为 Graph Studio 创建 `chinook` 示例数据库。
+> 第 10 步会为 Graph Studio 创建 `chinook` 示例数据库。还需要 **`SUPERUSER`**
+> 权限，应用才能执行 `CREATE EXTENSION IF NOT EXISTS vector`（pgvector 扩展）——
+> Docker 镜像会自动授予 `POSTGRES_USER` 该权限，因此下面的原生安装必须显式加上。
 
 ---
 
@@ -133,6 +256,19 @@ uv run python -c "import fastapi, langgraph, deepagents; print('deps OK')"
 > （`pip install -r requirements.txt`），但 **`uv sync` 是标准路径**。
 > 前端依赖是独立的：`cd .. && npm install`（仅 UI 需要；纯后端 API 不需要）。
 
+### Node.js —— 前端 UI 必需
+
+UI 需要 Node **20.19+**（Vite 7 要求）。通过 nvm 安装：
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm install 22
+node --version && npm --version    # 验证（node ≥ 20.19，npm ≥ 10）
+```
+
+然后在仓库根目录执行 `npm install`（一次性）——前端启动（第 9 步）前需要它。
+
 ---
 
 ## 5. 配置 `.env`（含工作区）——必须在种子之前，按所有者划分
@@ -150,7 +286,8 @@ POSTGRES_PORT=5433          # docker；原生用 5432
 POSTGRES_DB=langconfig
 POSTGRES_USER=langconfig
 POSTGRES_PASSWORD=langconfig_dev
-API_KEY_ENCRYPTION_KEY=用 `openssl rand -hex 32` 的输出替换
+# 用命令  openssl rand -hex 32  生成一次，然后把 64 位十六进制输出粘贴到这里
+API_KEY_ENCRYPTION_KEY=粘贴-OPENSSL-RAND-生成的-64位十六进制输出
 ENVIRONMENT=development
 TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5433/langconfig_test
 SQL_POSTGRES_DB=chinook
@@ -158,6 +295,12 @@ GOOGLE_REDIRECT_URI=http://localhost:8765/api/auth/google/callback
 OLLAMA_BASE_URL=http://localhost:11434
 SQL_ECHO=false
 RATE_LIMIT_CLEANUP_INTERVAL=300
+# Neo4j（可选 —— Cypher 智能体 / Graph Studio；见第 1 步 "Neo4j"）：
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password
+NEO4J_DATABASE=neo4j
+NEO4J_ENCRYPTED=false
 
 # ════ USER-ADJUSTABLE（引导默认值 — UI 启动时会覆盖） ════
 # 这些值会在首次启动时种入 'runtime' 命名空间。改这里等于改默认值；
@@ -261,13 +404,22 @@ Key 的来源——Settings 面板（或首次启动向导）是唯一的编辑�
 
 ## 7. 运行数据库种子
 
+> ⚠️ 必须先完成**第 4 步（`uv sync`）**。如果报错
+> `ModuleNotFoundError: No module named 'sqlalchemy'`，说明 venv 缺失或已过期——
+> 在 `backend/` 下执行 `rm -rf .venv && uv sync` 后重试。
+
 在 `backend/` 目录下执行：
 
 ```bash
 cd backend
-WORKSPACE_ROOT=/Users/<you>/langconfig/backend/outputs \
-  uv run python scripts/seeds/seed_all.py
+uv run python scripts/seeds/seed_all.py
 ```
+
+> `WORKSPACE_ROOT` 是**可选的**——它只决定身份回填（第 8.5 步）烘焙进智能体的
+> 目录。省略则使用旧版默认路径；如需指定请用真实路径，例如 Ubuntu/WSL：
+> `WORKSPACE_ROOT="$HOME/langconfig/backend/outputs" uv run python scripts/seeds/seed_all.py`
+> （**不要**照抄 `WORKSPACE_ROOT=/Users/<you>/...`——那个 macOS 占位符会报
+> `-bash: you: No such file or directory`）。
 
 它会做什么（10 步，全部幂等）：
 
@@ -362,7 +514,11 @@ bash start.sh --fe    # 仅前端
 |---|---|
 | `psycopg ... connection refused :5432/:5433` | Postgres 未启动 → 第 1 步（`docker compose up -d postgres` / `brew services start postgresql@16` / `sudo systemctl enable --now postgresql-16`） |
 | `extension "vector" is not available` / 嵌入报错 | 操作系统未安装 pgvector → 按第 1 步对应方案安装（Docker 已内置；原生：`brew install pgvector`、`apt install postgresql-16-pgvector`、`dnf install pgvector_16`） |
+| `npm: command not found` / 前端无法启动 | 未安装 Node → 用 nvm 安装（第 4 步 → "Node.js —— 前端 UI 必需"），然后 `npm install` |
+| `neo4j ... could not connect` / 认证失败 / Graph Studio 无标签 | Neo4j 未运行或凭据错误 → 启动容器（第 1 步 → "Neo4j"），检查 `.env` 中的 `NEO4J_*` 配置块（Aura：设 `NEO4J_ENCRYPTED=true` 并使用 Aura URI），然后 `uv run python langgraph/test_neo4j_agent.py unit` |
 | 种子第 1 步打印手动 CREATE ROLE 说明 | 应用用户无法以超级用户连接 → 运行它打印的两条 `psql` 命令，然后重新运行 `seed_all.py` |
+| `column custom_tools.definition does not exist` | 数据库 schema 来自较早的一次种子运行（`custom_tools` 建表早于 tools 重构）→ 删除数据库重新播种：`sudo -u postgres psql -c "DROP DATABASE IF EXISTS langconfig;"`，然后重新运行 `uv run python scripts/seeds/seed_all.py` |
+| `permission denied to create extension "vector"` | `langconfig` 角色缺少超级用户权限（原生安装只创建了 `CREATEDB`）→ `sudo -u postgres psql -c "ALTER ROLE langconfig SUPERUSER;"`，然后重新运行种子 |
 | 健康检查后 `deep agents: 0` | 运行第 7 步；确认 `WORKSPACE_ROOT` 已导出 |
 | 智能体 prompt 中出现 `WORKSPACE_BASE/` 或 `{{...}}` | 回填未运行 → `uv run python scripts/backfill_agent_identity.py --workspace-root <根目录>` |
 | 前端 :1421 空白页 | `npm install` 然后 `bash start.sh --fe` |

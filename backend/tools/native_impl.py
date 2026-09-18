@@ -54,7 +54,14 @@ if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):
 
 logger = logging.getLogger(__name__)
 
-from tools.presentation_tools import gen_pptx
+from tools.presentation_tools import (
+    gen_pptx,
+    gen_html_deck,
+    gen_pdf_deck,
+    doc_to_deck,
+    doc_to_slides_outline,
+    list_deck_templates,
+)
 
 # Tavily search - conditional to avoid import errors if not installed
 try:
@@ -4307,3 +4314,118 @@ def python_execute(code: str, timeout: int = 30) -> str:
         return f"❌ Timed out after {timeout}s"
     except Exception as e:
         return f"❌ Execution Error: {e}"
+
+
+@tool
+def sql_agent_tool(question: str, database: str = "") -> str:
+    """
+    Ask a natural-language question and get an answer from a PostgreSQL
+    database (read-only).
+
+    Runs the hand-built LangGraph SQL agent: discovers tables, reads schemas,
+    generates a PostgreSQL query, double-checks it, executes it read-only, and
+    explains the result. Handles joins, aggregations, and multi-table questions.
+    Use for questions like "how many employees are there", "which artist has
+    the most albums", or "average track length per genre".
+
+    Args:
+        question: The natural-language SQL question to answer.
+        database: Optional PostgreSQL database name to query. Empty uses the
+            default (env SQL_POSTGRES_DB, else POSTGRES_DB, else chinook).
+
+    Returns:
+        The final answer text (not raw query results).
+
+    Example:
+        >>> sql_agent_tool("Which genre has the longest average track?", database="chinook")
+    """
+    from langgraph.tool_adapters import run_sql_agent
+    return run_sql_agent(question, database=database or None)
+
+
+@tool
+def advanced_sql_agent_tool(question: str, database: str = "") -> str:
+    """
+    Ask a natural-language question and get an answer from a PostgreSQL
+    database (read-only), with automatic planning for complex questions.
+
+    Runs the planner-based LangGraph SQL agent: it analyzes the question
+    against the schema first — simple questions are answered with one query,
+    while multi-hop / analytical questions are decomposed into a step-by-step
+    plan, each step executed and monitored, then synthesized into the final
+    answer. Handles joins, aggregations, multi-step and comparison questions.
+
+    Args:
+        question: The natural-language SQL question to answer.
+        database: Optional PostgreSQL database name to query. Empty uses the
+            default (env SQL_POSTGRES_DB, else POSTGRES_DB, else chinook).
+
+    Returns:
+        The final answer text (not raw query results).
+
+    Example:
+        >>> advanced_sql_agent_tool(
+        ...     "List the top 3 artists by revenue, then for the top artist "
+        ...     "name their 3 longest tracks.", database="chinook")
+    """
+    from langgraph.tool_adapters import run_sql_agent_advanced
+    return run_sql_agent_advanced(question, database=database or None)
+
+
+@tool
+def neo4j_agent_tool(question: str, database: str = "") -> str:
+    """
+    Ask a natural-language question and get an answer from the Neo4j graph
+    database (read-only).
+
+    Runs the hand-built LangGraph Neo4j agent: discovers labels and
+    relationships, reads schema details, generates a Cypher query,
+    double-checks it, executes it read-only, and explains the result.
+    Use for questions about nodes and relationships in the graph, e.g. "how
+    many people have a Python skill" or "which skills are most common".
+
+    Args:
+        question: The natural-language Cypher/graph question to answer.
+        database: Optional Neo4j database name to query. Empty uses the
+            default (env NEO4J_DATABASE or the studio-selected database).
+
+    Returns:
+        The final answer text (not raw query results).
+
+    Example:
+        >>> neo4j_agent_tool("Which 3 skills are most common?", database="neo4j")
+    """
+    from langgraph.tool_adapters import run_neo4j_agent
+    return run_neo4j_agent(question, database=database or None)
+
+
+@tool
+def neo4j_agent_advanced_tool(question: str, database: str = "") -> str:
+    """
+    Ask a natural-language question and get an answer from the connected
+    Neo4j graph database (read-only), with automatic planning for complex
+    questions.
+
+    Runs the planner-based LangGraph Neo4j agent: it analyzes the question
+    against the graph schema first — simple questions are answered with one
+    Cypher query, while multi-hop / analytical questions are decomposed into
+    a step-by-step plan, each step executed and monitored, then synthesized
+    into the final answer. Works against ANY connected graph: node labels,
+    relationship types and properties are discovered from the schema at
+    runtime.
+
+    Args:
+        question: The natural-language graph question to answer.
+        database: Optional Neo4j database name to query. Empty uses the
+            default (env NEO4J_DATABASE or the studio-selected database).
+
+    Returns:
+        The final answer text (not raw query results).
+
+    Example:
+        >>> neo4j_agent_advanced_tool(
+        ...     "Which nodes are most connected, and which relationships "
+        ...     "connect them to the rest of the graph?")
+    """
+    from langgraph.tool_adapters import run_neo4j_agent_advanced
+    return run_neo4j_agent_advanced(question, database=database or None)

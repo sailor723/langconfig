@@ -49,6 +49,8 @@ interface ToolsPickerProps {
   toolsLoading: boolean;
   groupedByCategory: Record<string, NativeTool[]>;
   availableCustomTools: CustomTool[];
+  /** Clicking a tool card body opens the inspect/edit panel (never toggles). */
+  onInspect?: (tool: { id: string; name: string; description: string }) => void;
   t: LayoutTokens;
 }
 
@@ -62,6 +64,7 @@ export default function ToolsPicker({
   toolsLoading,
   groupedByCategory,
   availableCustomTools,
+  onInspect,
   t,
 }: ToolsPickerProps) {
   const cardStyle: React.CSSProperties = {
@@ -88,30 +91,46 @@ export default function ToolsPicker({
   const totalCount = nativeCount + customCount;
   const allNativeLoaded = Object.values(groupedByCategory).flat();
 
-  // Reusable tool card (matches ModelCardsGridTab style)
+  // Reusable tool card (matches ModelCardsGridTab style).
+  // NOTE: the card is a div, NOT a <label> — a <label> makes ANY click toggle
+  // the checkbox (which previously removed the tool from the selection when
+  // the user merely wanted to inspect it). Only the checkbox toggles; clicking
+  // the card body opens the inspect/edit panel.
   const toolCard = (
     tool: { id: string; name: string; description: string },
     checked: boolean,
     onToggle: () => void,
   ) => (
-    <label
+    <div
       key={tool.id}
+      onClick={() => onInspect?.(tool)}
+      title={onInspect ? 'Click to view / edit this tool' : undefined}
       style={{
         display: 'flex', flexDirection: 'column', gap: 6,
-        padding: 10, borderRadius: 6, cursor: 'pointer',
-        border: `1px solid ${t.border}`,
+        padding: 10, borderRadius: 6, cursor: onInspect ? 'pointer' : 'default',
+        border: `1px solid ${checked ? t.accent : t.border}`,
         background: t.bgSidebar,
         minHeight: 80,
         boxSizing: 'border-box',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={onToggle}
-          style={{ accentColor: t.accent, flexShrink: 0, marginTop: 2 }}
-        />
+        <span
+          // Only stop propagation here so the card body click opens
+          // inspect — the actual toggle is driven by the input's onChange
+          // below. Calling onToggle from this span onClick too fires it
+          // twice per click (state flips A->B->A) and the tool appears
+          // impossible to deselect.
+          onClick={(e) => e.stopPropagation()}
+          style={{ display: 'inline-flex', flexShrink: 0, marginTop: 2 }}
+        >
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={() => onToggle()}
+            style={{ accentColor: t.accent, cursor: 'pointer' }}
+          />
+        </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             color: t.textPrimary, fontWeight: 600, fontSize: 12,
@@ -134,7 +153,7 @@ export default function ToolsPicker({
       }}>
         {tool.description}
       </div>
-    </label>
+    </div>
   );
 
   const toggleBtn = (label: string, active: boolean, onClick: () => void) => (

@@ -452,8 +452,16 @@ async def send_message(
             # starting view. Identity (id + workspace) is already baked into
             # the stored system prompt at creation time.
             if (session.messages or []) and len(session.messages) == 1:
-                from core.agents.identity import first_chat_greeting
-                _greeting = first_chat_greeting(agent_workspace_root)
+                from core.agents.identity import (
+                    first_chat_greeting,
+                    has_workspace_status_tools,
+                )
+                _greeting = first_chat_greeting(
+                    agent_workspace_root,
+                    include_workspace_status=has_workspace_status_tools(
+                        _safe_config.get("native_tools")
+                    ),
+                )
                 _safe_config["system_prompt"] = (
                     (_safe_config.get("system_prompt") or "") + _greeting
                 )
@@ -1016,8 +1024,16 @@ async def send_message_stream(
                     # introduce itself and report its workspace status (same
                     # rule as the first chat entry point).
                     if (fresh_session.messages or []) and len(fresh_session.messages) == 1:
-                        from core.agents.identity import first_chat_greeting
-                        _greeting = first_chat_greeting(agent_workspace_root)
+                        from core.agents.identity import (
+                            first_chat_greeting,
+                            has_workspace_status_tools,
+                        )
+                        _greeting = first_chat_greeting(
+                            agent_workspace_root,
+                            include_workspace_status=has_workspace_status_tools(
+                                agent_config.get("native_tools")
+                            ),
+                        )
                         agent_config["system_prompt"] = (
                             (agent_config.get("system_prompt") or "") + _greeting
                         )

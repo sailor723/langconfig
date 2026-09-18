@@ -8,12 +8,20 @@
 
 ## 0. What you receive
 
-`langconfig.zip` (≈12 MB) contains the full source tree minus secrets/build
+`langconfig.zip` (≈31 MB) contains the full source tree minus secrets/build
 artifacts (no `.env`, `node_modules`, `.venv`, `data`, `backend/outputs`, git
 history). The database seed restores a machine-agnostic baseline: 44 deep
 agents, 28 LLM models, 58 tools, 19 skills. **Your workspace paths and API keys
 are added locally in the steps below — nothing machine-specific ships in the
 zip.**
+
+### Prerequisites — Ubuntu (22.04 / 24.04)
+
+A fresh Ubuntu server needs a few base tools before the steps below:
+
+```bash
+sudo apt update && sudo apt install -y unzip git curl ca-certificates
+```
 
 ---
 
@@ -45,6 +53,12 @@ docker compose up -d postgres
 # health: docker ps   →  "langconfig-postgres  0.0.0.0:5433->5432/tcp"
 ```
 
+> **Docker not installed yet (Ubuntu)?**
+> ```bash
+> curl -fsSL https://get.docker.com | sudo sh      # installs docker engine + compose plugin
+> sudo usermod -aG docker $USER                    # then re-login (or: newgrp docker)
+> ```
+
 > **pgvector**: bundled in the `pgvector/pgvector:pg16` image — no separate
 > install needed. The extension is enabled by the app at boot
 > (`CREATE EXTENSION IF NOT EXISTS vector`).
@@ -56,16 +70,33 @@ brew install postgresql@16 pgvector   # pgvector required for embeddings
 brew services start postgresql@16
 # on :5432; create the role + database once (or let seed_all.py do it — it
 # auto-creates role/db when the app user can connect as superuser):
-psql postgres -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB;"
+psql postgres -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB SUPERUSER;"
 psql postgres -c "CREATE DATABASE langconfig OWNER langconfig;"
 ```
 
 ### Option C — Native PostgreSQL 16 (Ubuntu / WSL2)
 
+**Ubuntu 24.04** — PostgreSQL 16 + pgvector are in the distro repos:
+
 ```bash
 sudo apt install -y postgresql-16 postgresql-16-pgvector   # pgvector for embeddings
 sudo service postgresql start
-sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB;"
+sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB SUPERUSER;"
+sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
+```
+
+**Ubuntu 22.04** — ships PostgreSQL 14 and no pgvector package, so add the
+official PGDG apt repo first (Postgres 16 + `postgresql-16-pgvector`), then
+run the same commands as above:
+
+```bash
+sudo install -d /usr/share/postgresql-common/pgdg
+sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail https://www.postgresql.org/media/keys/ACCC4CF8.asc
+sudo sh -c 'echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+sudo apt update
+sudo apt install -y postgresql-16 postgresql-16-pgvector
+sudo service postgresql start
+sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB SUPERUSER;"
 sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
 ```
 
@@ -79,7 +110,7 @@ sudo dnf install -y postgresql16-server postgresql16 pgvector_16   # pgvector_16
 sudo /usr/pgsql-16/bin/postgresql-16-setup initdb
 sudo systemctl enable --now postgresql-16
 # on :5432; create the role + database once (or let seed_all.py do it):
-sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB;"
+sudo -u postgres psql -c "CREATE ROLE langconfig LOGIN PASSWORD 'langconfig_dev' CREATEDB SUPERUSER;"
 sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
 ```
 
@@ -87,8 +118,103 @@ sudo -u postgres psql -c "CREATE DATABASE langconfig OWNER langconfig;"
 > `sudo dnf install -y postgresql16-server postgresql16 pgvector` (skip the PGDG
 > repo step; initdb + systemctl steps are the same).
 
+### Neo4j — optional, for the Cypher agent / Graph Studio
+
+The `neo4j_agent` (Graph Studio) queries a Neo4j graph over **Bolt**. Skip this
+section if you only use the SQL agent.
+
+**Option 1 — Docker (local, free):**
+
+```bash
+docker run -d --name langconfig-neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/password \
+  neo4j:5-community
+# web UI: http://localhost:7474   ·   bolt: bolt://localhost:7687
+```
+
+**Option 2 — Neo4j Aura (cloud, free tier):** create an instance in the Aura
+console and use the Bolt URI + credentials it gives you.
+
+**.env — the NEO4J_\* block** (values are already in `env_example`; add them to
+your `.env`):
+
+```bash
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password
+NEO4J_DATABASE=neo4j
+NEO4J_ENCRYPTED=false
+NEO4J_URL=http://localhost:7474   # HTTP endpoint (document-index helpers)
+```
+
+> **Aura**: use the Aura-provided URI and set `NEO4J_ENCRYPTED=true`.
+
+**Load a sample graph** (the agent's e2e tests use the Movies graph — `:play
+movies` in the web UI loads the full dataset; a minimal seed for a quick check):
+
+```bash
+docker exec langconfig-neo4j cypher-shell -u neo4j -p password <<'CYPHER'
+CREATE (m1:Movie {title:'The Matrix', released:1999}),
+       (m2:Movie {title:'The Matrix Reloaded', released:2003}),
+       (k:Person {name:'Keanu Reeves', born:1964}),
+       (l:Person {name:'Lana Wachowski', born:1965}),
+       (k)-[:ACTED_IN {roles:['Neo']}]->(m1),
+       (k)-[:ACTED_IN {roles:['Neo']}]->(m2),
+       (l)-[:DIRECTED]->(m1), (l)-[:DIRECTED]->(m2)
+CYPHER
+```
+
+**Verify:**
+
+```bash
+cd backend && uv run python langgraph/test_neo4j_agent.py unit
+# then open Graph Studio → neo4j agent → the DB dropdown shows the graph's labels
+```
+
+**Team seed — enterprise HR graph** (ships with this package:
+`backend/scripts/seeds/neo4j-hr/neo4j.dump`, ≈19 MB — the knowledge graph the
+`neo4j_agent` demos use: Person / Skill / Job / Domain / WorkType + KNOWS /
+BUILT / LED …). Restore it into a fresh Neo4j container:
+
+```bash
+# 1. run the Neo4j container (match the source version — enterprise image):
+docker run -d --name langconfig-neo4j-hr \
+  -p 17475:7474 -p 7688:7687 \
+  -e NEO4J_AUTH=neo4j/password \
+  -e NEO4J_ACCEPT_LICENSE_AGREEMENT=yes \
+  -v neo4j-hr-data:/data \
+  neo4j:2025.10.1-enterprise
+
+# 2. stop it, load the dump over the default database, start again:
+docker stop langconfig-neo4j-hr
+docker run --rm -e NEO4J_ACCEPT_LICENSE_AGREEMENT=yes \
+  -v neo4j-hr-data:/data -v "$(pwd)/backend/scripts/seeds/neo4j-hr":/dumps \
+  neo4j:2025.10.1-enterprise \
+  neo4j-admin database load neo4j --from-path=/dumps --overwrite-destination=true
+docker start langconfig-neo4j-hr
+
+# 3. point LangConfig at it and verify:
+#   NEO4J_URI=bolt://localhost:7688   (rest of the NEO4J_* block unchanged)
+cd backend && uv run python langgraph/test_neo4j_agent.py unit
+#   → Graph Studio shows Person/Skill/Job/Domain/WorkType labels
+```
+
+> **Version compatibility (important):** a Neo4j dump only restores into the
+> **same or newer** server. The HR dump is from **2025.10.1**, so the container
+> must run `neo4j:2025.10.1-enterprise` (or newer). The older `neo4j:5.x`
+> (5.26) images reject it with *"The loaded database is of a newer version than
+> the current binaries. Downgrade is not supported."*
+
+> For the SQL-vs-Cypher side-by-side demo, load Northwind as a graph (or the
+> Neo4j fraud demo) the same way — from your own Cypher files or an Aura dump.
+
 > The role needs `CREATEDB` because `seed_all.py` step 1 creates the DB if
-> missing, and step 10 creates the `chinook` sample DB for Graph Studio.
+> missing, and step 10 creates the `chinook` sample DB for Graph Studio. It
+> also needs **`SUPERUSER`** so the app can run `CREATE EXTENSION IF NOT EXISTS
+> vector` (the pgvector extension) — the Docker image grants this to
+> `POSTGRES_USER` automatically, which is why the native installs below must
+> add it explicitly.
 
 ---
 
@@ -138,6 +264,20 @@ uv run python -c "import fastapi, langgraph, deepagents; print('deps OK')"
 > Frontend deps are separate: `cd .. && npm install` (only needed for the UI;
 > the backend API alone does not need it).
 
+### Node.js — required for the frontend UI
+
+The UI needs Node **20.19+** (Vite 7 requirement). Install via nvm:
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm install 22
+node --version && npm --version    # verify (node ≥ 20.19, npm ≥ 10)
+```
+
+Then, from the repo root: `npm install` (one-time) — needed before the
+frontend can start (step 9).
+
 ---
 
 ## 5. Configure `.env` BEFORE seeding — split by who owns the value
@@ -156,7 +296,8 @@ POSTGRES_PORT=5433          # docker; use 5432 for native
 POSTGRES_DB=langconfig
 POSTGRES_USER=langconfig
 POSTGRES_PASSWORD=langconfig_dev
-API_KEY_ENCRYPTION_KEY=replace-me-with-`openssl-rand-hex-32`-output
+# Generate once with:  openssl rand -hex 32   then paste the 64-hex output here
+API_KEY_ENCRYPTION_KEY=PASTE-THE-64-HEX-OUTPUT-OF-OPENSSL-RAND-HERE
 ENVIRONMENT=development
 TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5433/langconfig_test
 SQL_POSTGRES_DB=chinook
@@ -164,6 +305,12 @@ GOOGLE_REDIRECT_URI=http://localhost:8765/api/auth/google/callback
 OLLAMA_BASE_URL=http://localhost:11434
 SQL_ECHO=false
 RATE_LIMIT_CLEANUP_INTERVAL=300
+# Neo4j (optional — Cypher agent / Graph Studio; see step 1 "Neo4j"):
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password
+NEO4J_DATABASE=neo4j
+NEO4J_ENCRYPTED=false
 
 # ════ USER-ADJUSTABLE (bootstrap defaults — UI overrides at runtime) ════
 # The values here seed the 'runtime' settings namespace on first boot.
@@ -276,13 +423,23 @@ For a team install, the Settings UI is the only path:
 
 ## 7. Run the database seed
 
+> ⚠️ Requires **step 4 (`uv sync`)** to have completed first. If you see
+> `ModuleNotFoundError: No module named 'sqlalchemy'`, the venv is missing or
+> stale — run `rm -rf .venv && uv sync` from `backend/`, then retry.
+
 From `backend/`:
 
 ```bash
 cd backend
-WORKSPACE_ROOT=/Users/<you>/langconfig/backend/outputs \
-  uv run python scripts/seeds/seed_all.py
+uv run python scripts/seeds/seed_all.py
 ```
+
+> `WORKSPACE_ROOT` is **optional** — it only sets the folder the identity
+> backfill (step 8.5) bakes into agents. Omit it to use the legacy default, or
+> set it to your real path, e.g. on Ubuntu/WSL:
+> `WORKSPACE_ROOT="$HOME/langconfig/backend/outputs" uv run python scripts/seeds/seed_all.py`
+> (do **not** copy `WORKSPACE_ROOT=/Users/<you>/...` — that macOS placeholder
+> will fail with `-bash: you: No such file or directory`).
 
 What it does (10 steps, all idempotent):
 
@@ -377,7 +534,11 @@ identity baked into agents points at the same folders the runtime uses.
 |---|---|
 | `psycopg ... connection refused :5432/:5433` | Postgres not started → step 1 (`docker compose up -d postgres` / `brew services start postgresql@16` / `sudo systemctl enable --now postgresql-16`) |
 | `extension "vector" is not available` / embedding errors | pgvector not installed on the OS → install it per the matching option in step 1 (Docker bundles it; native: `brew install pgvector`, `apt install postgresql-16-pgvector`, `dnf install pgvector_16`) |
+| `npm: command not found` / frontend won't start | Node not installed → install via nvm (step 4 → "Node.js — required for the frontend UI"), then `npm install` |
+| `neo4j ... could not connect` / auth failed / no labels in Graph Studio | Neo4j not running or wrong credentials → start the container (step 1 → "Neo4j"), check the `NEO4J_*` block in `.env` (Aura: set `NEO4J_ENCRYPTED=true` and use the Aura URI), then `uv run python langgraph/test_neo4j_agent.py unit` |
 | Seed step 1 prints manual CREATE ROLE instructions | App user can't connect as superuser → run the two `psql` commands it prints, then re-run `seed_all.py` |
+| `column custom_tools.definition does not exist` | Stale schema from an earlier seed run (the `custom_tools` table predates the tools refactor) → drop the DB and re-seed: `sudo -u postgres psql -c "DROP DATABASE IF EXISTS langconfig;"` then re-run `uv run python scripts/seeds/seed_all.py` |
+| `permission denied to create extension "vector"` | The `langconfig` role lacks superuser (native installs create it with only `CREATEDB`) → `sudo -u postgres psql -c "ALTER ROLE langconfig SUPERUSER;"` then re-run the seed |
 | `deep agents: 0` after health check | Run step 7; verify `WORKSPACE_ROOT` was exported |
 | `WORKSPACE_BASE/` or `{{...}}` visible in an agent's prompt | Backfill didn't run → `uv run python scripts/backfill_agent_identity.py --workspace-root <root>` |
 | Frontend blank on :1421 | `npm install` then `bash start.sh --fe` |
