@@ -15,6 +15,18 @@ For the Docker path or macOS, see `docs/TEAM_INSTALL.md` instead.
 
 Versions this guide assumes: **Python 3.13**, **Node ≥ 20.19 or ≥ 22.12**, **PostgreSQL 16 + pgvector**.
 
+## Contents
+
+**Part 1 — install (do once)**
+1. Base tools · 2. Clone · 3. PostgreSQL 16 + pgvector · 4. Role + database · 5. `.env` ·
+6. Python dependencies · 7. Seed · 8. Verify · 9. Frontend dependencies · 10. Start everything ·
+11. Neo4j (optional) · 12. Troubleshooting · 13. Daily workflow
+
+**Part 2 — WSL platform notes**
+14. WSL tuning (`/etc/wsl.conf`, `.wslconfig`) · 15. Windows ↔ WSL integration ·
+16. Docker on WSL · 17. Disk space and the WSL VHDX · 18. Backups and restore ·
+19. Starting the stack automatically · 20. Playwright browsers · 21. SSH keys for git
+
 > ⚠️ **Put the repo on the Linux filesystem** (`~/langconfig`), **never** on a Windows
 > drive (`/mnt/c/...`). `uv` uses hardlinks and mmap, and the drvfs/9p filesystem
 > produces `bus error` (SIGBUS) during `uv sync`. Disk budget: the venv is ~2 GB and
@@ -324,3 +336,206 @@ kill $(cat /tmp/langconfig-be.pid) $(cat /tmp/langconfig-fe.pid)
 
 After a `git pull`: re-run `uv sync` (if `backend/pyproject.toml`/`uv.lock` changed)
 and `npm install` (if `package.json`/`package-lock.json` changed), then restart.
+
+---
+
+# Part 2 — WSL platform notes
+
+Everything below is WSL-specific (not needed on a plain Ubuntu server or macOS).
+
+## 14. WSL tuning (`/etc/wsl.conf`, `.wslconfig`)
+
+**Enable systemd** (gives you `systemctl`, and lets services start on their own):
+
+```bash
+sudo tee /etc/wsl.conf >/dev/null <<'EOF'
+[boot]
+systemd=true
+
+[interop]
+enabled=true
+
+[automount]
+options = "metadata,umask=22,fmask=11"
+EOF
+```
+
+Then, **from Windows** (PowerShell): `wsl --shutdown` and reopen the terminal.
+Verify: `systemctl is-system-running` → `running` (or `degraded`).
+
+**Cap WSL memory/CPU** from Windows at `C:\Users\<you>\.wslconfig` — WSL2 otherwise
+claims up to 50% of RAM, which matters because `uv sync` builds heavy wheels
+(torch, spacy, onnxruntime):
+
+```ini
+[wsl2]
+memory=8GB
+processors=4
+swap=2GB
+localhostForwarding=true      # keep true: Windows -> WSL localhost works
+```
+
+Apply with `wsl --shutdown` (all distros restart).
+
+Other WSL habits that prevent problems:
+
+```bash
+git config --global core.autocrlf input     # avoid CRLF in shell scripts
+sudo hwclock -s                             # fix clock drift (breaks TLS/HTTPS clones)
+```
+
+## 15. Windows ↔ WSL integration
+
+| Task | How |
+|---|---|
+| Open the UI from Windows | `http://localhost:1421` — WSL2 forwards `localhost` (needs `localhostForwarding=true`) |
+| Open the repo in Explorer | `explorer.exe .` (from inside the repo) or `\\wsl$\Ubuntu\home\<user>\langconfig` |
+| Edit in VS Code | install the **WSL** extension, then `code .` from the repo |
+| Paste into the terminal | Windows Terminal: `Ctrl+Shift+V` or right-click |
+| First backend start | Windows Firewall may prompt — allow **private** networks |
+
+> ⚠️ Do **not** work in the repo through `/mnt/c` or `\\wsl$\...` from Windows tools
+> that rewrite files (line-ending/attribute churn). Keep the working copy in `~/`.
+
+Reaching the app from **another device** (phone, LAN) is not supported by default:
+vite allows only `localhost`, and you would need the WSL IP plus a firewall rule.
+Start vite with `VITE_ALLOWED_HOSTS=*` and forward the port if you really must.
+
+## 16. Docker on WSL (only for the optional Neo4j, §11)
+
+**Option A — Docker Desktop:** install it on Windows, then
+*Settings → Resources → WSL integration → enable your Ubuntu distro*.
+`docker ps` works inside WSL afterwards.
+
+**Option B — engine inside WSL (no Desktop):**
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER      # then close/reopen the terminal
+sudo service docker start          # after each WSL restart (or enable systemd)
+docker ps                          # verify
+```
+
+Then run the Neo4j command from §11.
+
+## 17. Disk space and the WSL VHDX
+
+Sizes that surprise people (measured on a working install):
+
+| Directory | Size |
+|---|---|
+| `backend/.venv` | ~2 GB |
+| `~/.cache/uv` | up to several GB |
+| `node_modules` | ~0.5 GB |
+| Postgres data + `backend/data` uploads | grows with use |
+
+```bash
+df -h ~                                                    # free space
+du -sh ~/.cache/uv backend/.venv node_modules 2>/dev/null   # biggest consumers
+
+# reclaim
+uv cache clean                # ~/.cache/uv (re-downloads next sync)
+npm cache clean --force
+sudo apt clean
+docker system prune -af       # if you use Docker
+```
+
+The WSL disk image (VHDX) **only grows** — deleting files inside WSL does not shrink
+it. To reclaim on Windows:
+
+```powershell
+wsl --shutdown
+wsl --manage Ubuntu --set-sparse true     # WSL 2.0+ (distro name from: wsl -l -v)
+```
+
+Classic alternative: `diskpart` → `select vdisk file="…\ext4.vhdx"` → `attach vdisk readonly`
+→ `compact vdisk` → `detach vdisk`.
+
+> Rule of thumb: keep **≥ 8-10 GB free** inside WSL before a `uv sync`; running out of
+> space is one cause of `bus error` during install.
+
+## 18. Backups and restore
+
+`.env` holds the **Fernet master key** — back it up separately. If you lose it, every
+API key already stored in the database becomes unreadable.
+
+```bash
+# 1. secrets + config
+cp ~/langconfig/.env ~/langconfig.env.bak          # or copy to /mnt/c/Users/<you>/
+
+# 2. database (custom-format dump: compressed + restorable)
+pg_dump -h localhost -p 5432 -U langconfig -Fc langconfig > ~/langconfig-$(date +%F).dump
+
+# 3. restore (fresh machine or after a mistake)
+createdb -h localhost -p 5432 -U langconfig langconfig
+pg_restore -h localhost -p 5432 -U langconfig -d langconfig --clean --if-exists ~/langconfig-YYYY-MM-DD.dump
+```
+
+Also worth copying if you use them: `~/langconfig/backend/data/` (uploaded documents)
+and `~/langconfig/backend/outputs/` (generated artifacts). Neither is in git.
+A schema-only rebuild is also possible without a dump: `seed_all.py` + `alembic upgrade head`.
+
+## 19. Starting the stack automatically
+
+**With systemd enabled (§14)** — let Postgres manage itself, and optionally the app:
+
+```bash
+sudo systemctl enable postgresql
+```
+
+```ini
+# /etc/systemd/system/langconfig.service
+[Unit]
+Description=LangConfig (backend :8765 + frontend :1421)
+After=network-online.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=%i
+WorkingDirectory=/home/%i/langconfig
+ExecStart=/usr/bin/bash -lc 'cd /home/%i/langconfig && bash start.sh'
+ExecStop=/usr/bin/bash -lc 'kill $(cat /tmp/langconfig-be.pid) $(cat /tmp/langconfig-fe.pid)'
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now langconfig@$USER.service     # note: %i = your username
+```
+
+`Type=oneshot` is deliberate: `start.sh` backgrounds uvicorn/vite and exits, so a
+simple service type would consider it failed.
+
+**Without systemd** — Windows Task Scheduler, trigger *At log on*:
+
+```
+wsl.exe -d Ubuntu -u <user> bash -lc "cd ~/langconfig && bash start.sh"
+```
+
+Note that WSL only runs while a terminal/distro is alive; the stack stops when you
+`wsl --shutdown` (for an always-on server, run on a real Linux host instead).
+
+## 20. Playwright browsers (optional tools)
+
+`playwright` is a project dependency, but its browsers are downloaded separately. Only
+needed for the browser-automation tools:
+
+```bash
+cd ~/langconfig/backend
+uv run playwright install chromium
+# missing system libraries?
+uv run playwright install-deps chromium     # uses sudo
+```
+
+## 21. SSH keys for git
+
+```bash
+ssh-keygen -t ed25519 -C "wsl-langconfig"     # Enter to accept defaults
+cat ~/.ssh/id_ed25519.pub                     # paste into GitHub → Settings → SSH keys
+ssh -T git@github.com                         # → "Hi <user>! You've successfully authenticated"
+```
+
+No SSH? Use HTTPS with a personal access token instead (§2).
