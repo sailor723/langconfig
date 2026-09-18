@@ -25,6 +25,14 @@
 
 # ── PostgreSQL (main app DB + SQL agent / Chinook data) ──
 # Used by db/db_url.compose_db_url() to build DATABASE_URL when not set.
+#
+#   POSTGRES_PORT 5432 = NATIVE install (apt / brew / WSL2)   <- default below
+#   POSTGRES_PORT 5433 = DOCKER (docker-compose.yml maps host 5433 -> container 5432)
+#   Match whichever server you actually run — this block is the only thing to
+#   edit when switching between native and docker. Nothing else in this file
+#   changes.
+#   Do NOT also set DATABASE_URL: an explicit DATABASE_URL overrides this whole
+#   block (only use it for a remote/managed database).
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_DB=langconfig
@@ -37,6 +45,9 @@ REDIS_URL=redis://localhost:6379
 
 # ── Neo4j (Bolt driver) ──
 # Used by langgraph/neo4j_setup_db.py for the chat-time graph tools.
+# OPTIONAL: with no Neo4j running the rest of the app works normally — only the
+# Cypher agent and Graph Studio need it. (Same class of image as the app DB:
+# `docker run -d -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/password neo4j:2025.10.1`)
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=password
@@ -58,8 +69,14 @@ OLLAMA_BASE_URL=http://localhost:11434
 # Legacy alias for older callers that still expect LOCAL_LLM_*.
 LOCAL_LLM_BASE_URL=http://localhost:11434
 
-API_KEY_ENCRYPTION_KEY=change-this-in-production-use-openssl-rand-hex-32
+# REQUIRED before the first backend start. Generate once with:
+#     openssl rand -hex 32        (64 hex characters)  -> paste below
+# It is the Fernet master key for every API key stored in the DB (Settings ->
+# Models / first-run wizard). Keep it stable: changing it makes existing
+# encrypted keys unreadable.
+API_KEY_ENCRYPTION_KEY=PASTE-THE-64-HEX-OUTPUT-OF-OPENSSL-RAND-HEX-32
 ENVIRONMENT=development
+# Must use the SAME port as POSTGRES_PORT above (5432 native / 5433 docker).
 TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5432/langconfig_test
 SQL_POSTGRES_DB=chinook
 GOOGLE_REDIRECT_URI=http://localhost:8765/api/auth/google/callback
@@ -68,7 +85,12 @@ RATE_LIMIT_CLEANUP_INTERVAL=300
 
 # ════ (2) USER-ADJUSTABLE (bootstrap defaults; UI overrides at runtime) ════
 
-# Workspace
+# Workspace — directory holding the project-level AGENTS.md files, read by
+# services/agents_md_service.py as <root>/{project_id}/AGENTS.md.
+# NOTE: this is NOT the per-agent workspace root. The per-agent root comes from
+# the WORKSPACE_ROOT env var passed to scripts/seeds/seed_all.py, or from each
+# agent's `workspace_path` column — this value is not used by the seed.
+# A relative path here is anchored at the REPO root (not the process CWD).
 LANGCONFIG_WORKSPACE_ROOT=backend/.workspace_data
 
 # Storage
