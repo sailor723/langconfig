@@ -1,2 +1,0 @@
-Test doc 2: a deep learning research document.
-This is a sub-folder file for testing recursive folder upload.
