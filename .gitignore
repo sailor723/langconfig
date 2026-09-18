@@ -123,3 +123,7 @@ langconfig/
 # Private/unreleased features (uncomment before pushing to public)
 # backend/core/codegen/generators/streamlit_configurable.py
 langconfig/
+
+# Backend data — uploaded documents, chat attachments, generated storage.
+# main is code-only: this tree holds files >100 MB and must never be committed.
+backend/data/**
