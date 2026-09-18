@@ -24,7 +24,10 @@ interface DocumentContent {
 }
 
 interface DocumentViewerProps {
-  documentId: number;
+  /** Numeric ID for legacy rag/PG endpoints */
+  documentId?: number;
+  /** String ID for KV store endpoints */
+  kvDocId?: string;
   documentName: string;
   documentType: string;
   /** When set, the viewer routes file/content fetches through the
@@ -52,6 +55,7 @@ interface DocumentViewerProps {
  */
 export default function DocumentViewer({
   documentId,
+  kvDocId,
   documentName,
   documentType,
   projectId,
@@ -97,49 +101,50 @@ export default function DocumentViewer({
     setContent(null);
     setActiveSheet(0);
 
-    // Pick the right fetch path: Neo4j-by-name for orphan docs,
-    // id-based for normal docs. The two endpoints return slightly
-    // different shapes — we normalize the Neo4j response to match
-    // the id-based DocumentContent shape.
-    //
-    // NOTE: the Neo4j node's `name` is the ORIGINAL filename
-    // (no hash prefix), so we use `neo4jName` (the hash-stripped
-    // version of documentName) for the content API. The file
-    // endpoint (line 136) keeps the original `documentName`
-    // because it serves the actual on-disk file (which has the
-    // hash prefix).
-    const fetcher = projectId
-      ? apiClient.getNeo4jDocumentContent({ project_id: projectId, name: neo4jName })
-      : apiClient.getDocumentContent(documentId);
-    fetcher
-      .then((raw: any) => {
+    // Determine fetch path:
+    //   1. kvDocId → fetch from KV file endpoint (no DB)
+    //   2. projectId → Neo4j-by-name for orphan docs
+    //   3. documentId → id-based for normal Postgres docs
+    const fetchContent = async () => {
+      if (kvDocId) {
+        // KV store: fetch file bytes, infer kind from extension
+        const resp = await fetch(`/api/kv/documents/${kvDocId}/file?project_id=${projectId ?? 1}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        const text = await resp.text();
+        const ext = (documentName || '').split('.').pop()?.toLowerCase() || '';
+        const kind: DocKind =
+          ext === 'md'   ? 'markdown' :
+          ext === 'html' ? 'html'     :
+          ext === 'csv'  ? 'csv'      :
+          ext === 'json' || ext === 'yaml' || ext === 'yml' || ext === 'txt' || ext === 'xml' ? 'plain' :
+          'code';
+        return { kind, content: text, truncated: text.length >= 100_000 } as DocumentContent;
+      } else if (projectId) {
+        const raw = await apiClient.getNeo4jDocumentContent({ project_id: projectId, name: neo4jName });
+        const ext = (neo4jName || '').split('.').pop()?.toLowerCase() || '';
+        const kind: DocKind =
+          ext === 'md'   ? 'markdown' :
+          ext === 'html' ? 'html'     :
+          ext === 'csv'  ? 'csv'      :
+          ext === 'json' || ext === 'yaml' || ext === 'yml' || ext === 'txt' || ext === 'xml' ? 'plain' :
+          'code';
+        return { kind, content: raw.content, truncated: raw.char_count >= 100_000 } as DocumentContent;
+      } else if (documentId != null) {
+        const raw = await apiClient.getDocumentContent(documentId);
+        if (raw && 'kind' in raw) return raw as DocumentContent;
+        return { kind: 'plain', content: String(raw ?? ''), truncated: false } as DocumentContent;
+      }
+      throw new Error('No document ID provided');
+    };
+
+    fetchContent()
+      .then((data) => {
         if (cancelled) return;
-        // Normalize: id-based returns DocumentContent; Neo4j returns
-        // { doc_name, content, char_count, source, file_path }.
-        let data: DocumentContent;
-        if (raw && 'kind' in raw) {
-          data = raw as DocumentContent;
-        } else if (raw && 'content' in raw) {
-          // The Neo4j response — infer `kind` from the extension.
-          const ext = (neo4jName || '').split('.').pop()?.toLowerCase() || '';
-          const kind: DocKind =
-            ext === 'md'   ? 'markdown' :
-            ext === 'html' ? 'html'     :
-            ext === 'csv'  ? 'csv'      :
-            ext === 'json' || ext === 'yaml' || ext === 'yml' || ext === 'txt' || ext === 'xml' ? 'plain' :
-            'code';  // any other text-like doc
-          data = { kind, content: raw.content, truncated: raw.char_count >= 100_000 };
-        } else {
-          data = { kind: 'plain', content: String(raw ?? ''), truncated: false };
-        }
         setContent(data);
       })
       .catch((err: any) => {
         if (cancelled) return;
-        const detail =
-          err?.response?.data?.detail ||
-          err?.message ||
-          'Failed to load document content';
+        const detail = err?.response?.data?.detail || err?.message || 'Failed to load document content';
         setError(typeof detail === 'string' ? detail : JSON.stringify(detail));
       })
       .finally(() => {
@@ -150,12 +155,15 @@ export default function DocumentViewer({
     return () => {
       cancelled = true;
     };
-  }, [documentId, projectId, neo4jName, needsFetch]);
+  }, [documentId, kvDocId, projectId, neo4jName, needsFetch, documentName]);
 
   // ----- URL helpers -----
-  // For Neo4j-only docs, the file lives behind /api/graphindex/file.
+  // For KV docs, the file lives behind /api/kv/documents/{id}/file.
+  // For Neo4j-only docs, behind /api/graphindex/file.
   // For everything else, the standard /api/rag/documents/{id}/file.
-  const fileUrl = projectId
+  const fileUrl = kvDocId
+    ? `/api/kv/documents/${kvDocId}/file?project_id=${projectId ?? 1}`
+    : projectId
     ? `/api/graphindex/file?project_id=${projectId}&name=${encodeURIComponent(documentName)}`
     : `/api/rag/documents/${documentId}/file`;
 

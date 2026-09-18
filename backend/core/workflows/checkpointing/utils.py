@@ -11,25 +11,59 @@ This module provides tools for:
 - Resuming interrupted workflows
 - Recovering from crashes
 - Managing HITL workflows
+
+FIX (2026-08): the previous implementation queried the ``checkpoints``
+table directly with columns that do not exist in LangGraph's schema
+(``checkpoint_namespace``, ``created_at``) and used ``async with
+engine.begin()`` on the SYNC engine — every method raised and silently
+returned empty results. This rewrite goes through the ``AsyncPostgresSaver``
+API (``aget_tuple`` / ``alist`` / ``adelete_thread``), which handles
+serialization, and uses the real schema (``thread_id`` / ``checkpoint_ns`` /
+``checkpoint_id``) for the two raw-SQL deletions.
 """
 
 import logging
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from db import engine, get_db
+from db.database import async_engine
 from .manager import get_checkpointer
 from ..state import WorkflowState, WorkflowStatus
-from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver as PostgresSaver
 
 logger = logging.getLogger(__name__)
 
+_HITL_STATUSES = ("AWAITING_HITL", "HITL_REVIEWING")
+_FAILED_STATUSES = ("FAILED_EXECUTION", "FAILED_VALIDATION", "TERMINATED")
+_DONE_STATUSES = ("PASSED", "TERMINATED")
+
+
+def _channel_values(tup) -> Dict[str, Any]:
+    """Extract channel_values from a CheckpointTuple."""
+    return (tup.checkpoint or {}).get("channel_values", {}) or {}
+
+
+def _checkpoint_ts(tup) -> Optional[str]:
+    """ISO timestamp of the checkpoint (from the checkpoint blob)."""
+    return (tup.checkpoint or {}).get("ts")
+
+
+def _is_older_than(ts: Optional[str], delta: timedelta) -> bool:
+    """True if the checkpoint timestamp is older than `delta` from now."""
+    if not ts:
+        return False
+    try:
+        parsed = datetime.fromisoformat(ts)
+    except (ValueError, TypeError):
+        return False
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed < datetime.now(timezone.utc) - delta
+
 
 class CheckpointManager:
-    """Manager for workflow checkpoint operations."""
+    """Manager for workflow checkpoint operations (AsyncPostgresSaver-backed)."""
 
     def __init__(self):
         self.checkpointer = None
@@ -43,6 +77,14 @@ class CheckpointManager:
             logger.error(f"Failed to initialize CheckpointManager: {e}")
             raise
 
+    def _thread_config(self, thread_id: str, checkpoint_id: Optional[str] = None) -> Dict[str, Any]:
+        config = {"configurable": {"thread_id": thread_id}}
+        if checkpoint_id:
+            config["configurable"]["checkpoint_id"] = checkpoint_id
+        return config
+
+    # ── reads ────────────────────────────────────────────────────────
+
     async def get_workflow_state(
         self,
         thread_id: str,
@@ -52,52 +94,26 @@ class CheckpointManager:
         Retrieve the workflow state from a checkpoint.
 
         Args:
-            thread_id: The workflow thread ID (typically f"task_{task_id}")
+            thread_id: The workflow thread ID (e.g. ``workflow_<id>_task_<id>``)
             checkpoint_id: Optional specific checkpoint ID, defaults to latest
 
         Returns:
-            WorkflowState dictionary or None if not found
+            channel_values dict (WorkflowState) or None if not found
         """
+        if self.checkpointer is None:
+            logger.warning("Checkpointer not initialized — cannot read workflow state")
+            return None
         try:
-            async with engine.begin() as conn:
-                if checkpoint_id:
-                    # Get specific checkpoint
-                    result = await conn.execute(text("""
-                        SELECT checkpoint, metadata, created_at
-                        FROM checkpoints
-                        WHERE checkpoint_namespace = 'langconfig_workflows'
-                        AND checkpoint_id = :checkpoint_id
-                    """), {"checkpoint_id": checkpoint_id})
-                else:
-                    # Get latest checkpoint for this thread
-                    result = await conn.execute(text("""
-                        SELECT checkpoint, metadata, created_at
-                        FROM checkpoints
-                        WHERE checkpoint_namespace = 'langconfig_workflows'
-                        AND checkpoint_id LIKE :thread_pattern
-                        ORDER BY created_at DESC
-                        LIMIT 1
-                    """), {"thread_pattern": f"{thread_id}%"})
-
-                row = result.fetchone()
-                if row:
-                    checkpoint_data = row[0]  # JSONB column
-                    metadata = row[1]
-                    created_at = row[2]
-
-                    logger.info(f"Retrieved checkpoint for thread {thread_id} from {created_at}")
-
-                    # Extract the actual state from the checkpoint structure
-                    # LangGraph checkpoint format: {"channel_values": {...}, "channel_versions": {...}}
-                    if isinstance(checkpoint_data, dict):
-                        state = checkpoint_data.get("channel_values", {})
-                        return state
-
-                    return checkpoint_data
-                else:
-                    logger.debug(f"No checkpoint found for thread {thread_id}")
-                    return None
-
+            tup = await self.checkpointer.aget_tuple(
+                self._thread_config(thread_id, checkpoint_id)
+            )
+            if not tup:
+                logger.debug(f"No checkpoint found for thread {thread_id}")
+                return None
+            state = _channel_values(tup)
+            logger.info(f"Retrieved checkpoint for thread {thread_id} "
+                        f"(checkpoint {checkpoint_id or 'latest'})")
+            return state
         except Exception as e:
             logger.error(f"Failed to retrieve workflow state for {thread_id}: {e}")
             return None
@@ -119,52 +135,34 @@ class CheckpointManager:
         Returns:
             List of checkpoint summaries
         """
+        if self.checkpointer is None:
+            logger.warning("Checkpointer not initialized — cannot list checkpoints")
+            return []
         try:
-            async with engine.begin() as conn:
-                query = """
-                    SELECT
-                        checkpoint_id,
-                        checkpoint->'channel_values'->>'task_id' as task_id,
-                        checkpoint->'channel_values'->>'workflow_status' as workflow_status,
-                        checkpoint->'channel_values'->>'current_step' as current_step,
-                        checkpoint->'channel_values'->>'retry_count' as retry_count,
-                        created_at,
-                        metadata
-                    FROM checkpoints
-                    WHERE checkpoint_namespace = 'langconfig_workflows'
-                """
-
-                params = {}
-
-                if thread_id:
-                    query += " AND checkpoint_id LIKE :thread_pattern"
-                    params["thread_pattern"] = f"{thread_id}%"
-
-                if status:
-                    query += " AND checkpoint->'channel_values'->>'workflow_status' = :status"
-                    params["status"] = status.value
-
-                query += " ORDER BY created_at DESC LIMIT :limit"
-                params["limit"] = limit
-
-                result = await conn.execute(text(query), params)
-                rows = result.fetchall()
-
-                checkpoints = []
-                for row in rows:
-                    checkpoints.append({
-                        "checkpoint_id": row[0],
-                        "task_id": row[1],
-                        "workflow_status": row[2],
-                        "current_step": row[3],
-                        "retry_count": row[4],
-                        "created_at": row[5].isoformat() if row[5] else None,
-                        "metadata": row[6]
-                    })
-
-                logger.info(f"Found {len(checkpoints)} checkpoints")
-                return checkpoints
-
+            config = (
+                {"configurable": {"thread_id": thread_id}}
+                if thread_id else {}
+            )
+            rows: List[Dict[str, Any]] = []
+            async for tup in self.checkpointer.alist(config):
+                cv = _channel_values(tup)
+                if status and cv.get("workflow_status") != status.value:
+                    continue
+                cfg = tup.config.get("configurable", {})
+                rows.append({
+                    "checkpoint_id": cfg.get("checkpoint_id") or (tup.checkpoint or {}).get("id"),
+                    "thread_id": cfg.get("thread_id"),
+                    "task_id": cv.get("task_id"),
+                    "workflow_status": cv.get("workflow_status"),
+                    "current_step": cv.get("current_step"),
+                    "retry_count": cv.get("retry_count"),
+                    "created_at": _checkpoint_ts(tup),
+                    "metadata": tup.metadata,
+                })
+                if len(rows) >= limit:
+                    break
+            logger.info(f"Found {len(rows)} checkpoints")
+            return rows
         except Exception as e:
             logger.error(f"Failed to list checkpoints: {e}")
             return []
@@ -175,39 +173,35 @@ class CheckpointManager:
 
         Returns:
             List of workflows in AWAITING_HITL or HITL_REVIEWING status
+            (latest checkpoint per thread)
         """
+        if self.checkpointer is None:
+            logger.warning("Checkpointer not initialized — cannot list HITL workflows")
+            return []
         try:
-            async with engine.begin() as conn:
-                result = await conn.execute(text("""
-                    SELECT DISTINCT ON (checkpoint_id)
-                        checkpoint_id,
-                        checkpoint->'channel_values'->>'task_id' as task_id,
-                        checkpoint->'channel_values'->>'workflow_status' as workflow_status,
-                        checkpoint->'channel_values'->>'hitl_reason' as hitl_reason,
-                        checkpoint->'channel_values'->>'execution_plan' as execution_plan,
-                        created_at
-                    FROM checkpoints
-                    WHERE checkpoint_namespace = 'langconfig_workflows'
-                    AND checkpoint->'channel_values'->>'workflow_status' IN ('AWAITING_HITL', 'HITL_REVIEWING')
-                    ORDER BY checkpoint_id, created_at DESC
-                """))
-
-                rows = result.fetchall()
-
-                hitl_workflows = []
-                for row in rows:
-                    hitl_workflows.append({
-                        "checkpoint_id": row[0],
-                        "task_id": int(row[1]) if row[1] else None,
-                        "workflow_status": row[2],
-                        "hitl_reason": row[3],
-                        "execution_plan": row[4],
-                        "created_at": row[5].isoformat() if row[5] else None
-                    })
-
-                logger.info(f"Found {len(hitl_workflows)} workflows awaiting HITL")
-                return hitl_workflows
-
+            latest_per_thread: Dict[str, Dict[str, Any]] = {}
+            async for tup in self.checkpointer.alist({}):
+                cv = _channel_values(tup)
+                status = cv.get("workflow_status")
+                if status not in _HITL_STATUSES:
+                    continue
+                cfg = tup.config.get("configurable", {})
+                thread_id = cfg.get("thread_id", "")
+                row = {
+                    "checkpoint_id": cfg.get("checkpoint_id") or (tup.checkpoint or {}).get("id"),
+                    "thread_id": thread_id,
+                    "task_id": cv.get("task_id"),
+                    "workflow_status": status,
+                    "hitl_reason": cv.get("hitl_reason"),
+                    "execution_plan": cv.get("execution_plan"),
+                    "created_at": _checkpoint_ts(tup),
+                }
+                # Keep the newest checkpoint per thread.
+                if thread_id not in latest_per_thread:
+                    latest_per_thread[thread_id] = row
+            hitl = list(latest_per_thread.values())
+            logger.info(f"Found {len(hitl)} workflows awaiting HITL")
+            return hitl
         except Exception as e:
             logger.error(f"Failed to retrieve HITL pending workflows: {e}")
             return []
@@ -223,54 +217,52 @@ class CheckpointManager:
             hours: Look back this many hours
 
         Returns:
-            List of failed workflows
+            List of failed workflows (latest checkpoint per thread)
         """
+        if self.checkpointer is None:
+            logger.warning("Checkpointer not initialized — cannot list failed workflows")
+            return []
+        cutoff = timedelta(hours=hours)
         try:
-            async with engine.begin() as conn:
-                result = await conn.execute(text("""
-                    SELECT DISTINCT ON (checkpoint_id)
-                        checkpoint_id,
-                        checkpoint->'channel_values'->>'task_id' as task_id,
-                        checkpoint->'channel_values'->>'workflow_status' as workflow_status,
-                        checkpoint->'channel_values'->>'error_message' as error_message,
-                        checkpoint->'channel_values'->>'retry_count' as retry_count,
-                        checkpoint->'channel_values'->>'current_step' as current_step,
-                        created_at
-                    FROM checkpoints
-                    WHERE checkpoint_namespace = 'langconfig_workflows'
-                    AND checkpoint->'channel_values'->>'workflow_status' IN
-                        ('FAILED_EXECUTION', 'FAILED_VALIDATION', 'TERMINATED')
-                    AND created_at > NOW() - INTERVAL ':hours hours'
-                    ORDER BY checkpoint_id, created_at DESC
-                """), {"hours": hours})
-
-                rows = result.fetchall()
-
-                failed_workflows = []
-                for row in rows:
-                    failed_workflows.append({
-                        "checkpoint_id": row[0],
-                        "task_id": int(row[1]) if row[1] else None,
-                        "workflow_status": row[2],
-                        "error_message": row[3],
-                        "retry_count": int(row[4]) if row[4] else 0,
-                        "current_step": row[5],
-                        "created_at": row[6].isoformat() if row[6] else None
-                    })
-
-                logger.info(f"Found {len(failed_workflows)} failed workflows in last {hours} hours")
-                return failed_workflows
-
+            latest_per_thread: Dict[str, Dict[str, Any]] = {}
+            async for tup in self.checkpointer.alist({}):
+                cv = _channel_values(tup)
+                status = cv.get("workflow_status")
+                if status not in _FAILED_STATUSES:
+                    continue
+                # Failures *within* the window (ts >= now - hours), unlike
+                # cleanup which targets checkpoints older than the cutoff.
+                if _is_older_than(_checkpoint_ts(tup), cutoff):
+                    continue
+                cfg = tup.config.get("configurable", {})
+                thread_id = cfg.get("thread_id", "")
+                row = {
+                    "checkpoint_id": cfg.get("checkpoint_id") or (tup.checkpoint or {}).get("id"),
+                    "thread_id": thread_id,
+                    "task_id": cv.get("task_id"),
+                    "workflow_status": status,
+                    "error_message": cv.get("error_message"),
+                    "retry_count": cv.get("retry_count"),
+                    "current_step": cv.get("current_step"),
+                    "created_at": _checkpoint_ts(tup),
+                }
+                if thread_id not in latest_per_thread:
+                    latest_per_thread[thread_id] = row
+            failed = list(latest_per_thread.values())
+            logger.info(f"Found {len(failed)} failed workflows in last {hours} hours")
+            return failed
         except Exception as e:
             logger.error(f"Failed to retrieve failed workflows: {e}")
             return []
+
+    # ── deletes ──────────────────────────────────────────────────────
 
     async def delete_checkpoint(
         self,
         checkpoint_id: str
     ) -> bool:
         """
-        Delete a specific checkpoint.
+        Delete a specific checkpoint (by its globally-unique checkpoint ID).
 
         Args:
             checkpoint_id: The checkpoint ID to delete
@@ -279,22 +271,21 @@ class CheckpointManager:
             True if deleted successfully, False otherwise
         """
         try:
-            async with engine.begin() as conn:
-                result = await conn.execute(text("""
-                    DELETE FROM checkpoints
-                    WHERE checkpoint_namespace = 'langconfig_workflows'
-                    AND checkpoint_id = :checkpoint_id
-                    RETURNING checkpoint_id
-                """), {"checkpoint_id": checkpoint_id})
-
+            async with async_engine.begin() as conn:
+                result = await conn.execute(
+                    text("""
+                        DELETE FROM checkpoints
+                        WHERE checkpoint_id = :checkpoint_id
+                        RETURNING thread_id
+                    """),
+                    {"checkpoint_id": checkpoint_id},
+                )
                 deleted = result.fetchone()
                 if deleted:
                     logger.info(f"Deleted checkpoint {checkpoint_id}")
                     return True
-                else:
-                    logger.warning(f"Checkpoint {checkpoint_id} not found")
-                    return False
-
+                logger.warning(f"Checkpoint {checkpoint_id} not found")
+                return False
         except Exception as e:
             logger.error(f"Failed to delete checkpoint {checkpoint_id}: {e}")
             return False
@@ -310,23 +301,22 @@ class CheckpointManager:
             thread_id: The thread ID whose checkpoints to delete
 
         Returns:
-            Number of checkpoints deleted
+            Number of checkpoints deleted (approximation via RETURNING)
         """
         try:
-            async with engine.begin() as conn:
-                result = await conn.execute(text("""
-                    DELETE FROM checkpoints
-                    WHERE checkpoint_namespace = 'langconfig_workflows'
-                    AND checkpoint_id LIKE :thread_pattern
-                    RETURNING checkpoint_id
-                """), {"thread_pattern": f"{thread_id}%"})
-
-                deleted_rows = result.fetchall()
-                count = len(deleted_rows)
-
+            # Prefer the saver's own method (handles checkpoint_writes/blobs).
+            if self.checkpointer is not None:
+                await self.checkpointer.adelete_thread(thread_id)
+                logger.info(f"Deleted checkpoints for thread {thread_id} (via saver)")
+                return 1
+            async with async_engine.begin() as conn:
+                result = await conn.execute(
+                    text("DELETE FROM checkpoints WHERE thread_id = :thread_id RETURNING checkpoint_id"),
+                    {"thread_id": thread_id},
+                )
+                count = len(result.fetchall())
                 logger.info(f"Deleted {count} checkpoints for thread {thread_id}")
                 return count
-
         except Exception as e:
             logger.error(f"Failed to delete checkpoints for thread {thread_id}: {e}")
             return 0
@@ -338,27 +328,20 @@ class CheckpointManager:
         Returns:
             Dictionary with checkpoint counts by status
         """
+        if self.checkpointer is None:
+            logger.warning("Checkpointer not initialized — cannot count checkpoints")
+            return {"total": 0, "by_status": {}}
         try:
-            async with engine.begin() as conn:
-                result = await conn.execute(text("""
-                    SELECT
-                        checkpoint->'channel_values'->>'workflow_status' as status,
-                        COUNT(*) as count
-                    FROM checkpoints
-                    WHERE checkpoint_namespace = 'langconfig_workflows'
-                    GROUP BY checkpoint->'channel_values'->>'workflow_status'
-                """))
-
-                rows = result.fetchall()
-
-                stats = {
-                    "total": sum(row[1] for row in rows),
-                    "by_status": {row[0]: row[1] for row in rows if row[0]}
-                }
-
-                logger.debug(f"Checkpoint stats: {stats}")
-                return stats
-
+            total = 0
+            by_status: Dict[str, int] = {}
+            async for tup in self.checkpointer.alist({}):
+                total += 1
+                status = _channel_values(tup).get("workflow_status")
+                if status:
+                    by_status[status] = by_status.get(status, 0) + 1
+            stats = {"total": total, "by_status": by_status}
+            logger.debug(f"Checkpoint stats: {stats}")
+            return stats
         except Exception as e:
             logger.error(f"Failed to get checkpoint count: {e}")
             return {"total": 0, "by_status": {}}
@@ -401,32 +384,65 @@ async def list_pending_hitl_workflows() -> List[Dict[str, Any]]:
     return await manager.get_hitl_pending_workflows()
 
 
+async def delete_thread_checkpoints(thread_id: str) -> int:
+    """Delete all checkpoints for a thread (module-level convenience).
+
+    Also imported by api/chat/session.py for session cleanup.
+    """
+    manager = await get_checkpoint_manager()
+    return await manager.delete_thread_checkpoints(thread_id)
+
+
 async def cleanup_completed_workflows(days_old: int = 7) -> int:
     """
     Clean up checkpoints for completed workflows older than specified days.
 
     Args:
-        days_old: Delete checkpoints for workflows completed more than this many days ago
+        days_old: Delete checkpoints for workflows completed more than this
+                  many days ago
 
     Returns:
         Number of checkpoints deleted
     """
+    manager = await get_checkpoint_manager()
+    if manager.checkpointer is None:
+        logger.warning("Checkpointer not initialized — cannot clean up workflows")
+        return 0
+    cutoff = timedelta(days=days_old)
     try:
-        async with engine.begin() as conn:
-            result = await conn.execute(text("""
-                DELETE FROM checkpoints
-                WHERE checkpoint_namespace = 'langconfig_workflows'
-                AND checkpoint->'channel_values'->>'workflow_status' IN ('PASSED', 'TERMINATED')
-                AND created_at < NOW() - INTERVAL ':days days'
-                RETURNING checkpoint_id
-            """), {"days": days_old})
+        targets: List[str] = []
+        async for tup in manager.checkpointer.alist({}):
+            cv = _channel_values(tup)
+            if cv.get("workflow_status") not in _DONE_STATUSES:
+                continue
+            if not _is_older_than(_checkpoint_ts(tup), cutoff):
+                continue
+            cfg = tup.config.get("configurable", {})
+            cid = cfg.get("checkpoint_id") or (tup.checkpoint or {}).get("id")
+            if cid:
+                targets.append(cid)
 
-            deleted_rows = result.fetchall()
-            count = len(deleted_rows)
-
-            logger.info(f"Cleaned up {count} completed workflow checkpoints older than {days_old} days")
-            return count
-
+        if not targets:
+            return 0
+        # Delete in batches to keep the SQL parameter list bounded.
+        deleted = 0
+        batch_size = 500
+        for i in range(0, len(targets), batch_size):
+            batch = targets[i:i + batch_size]
+            async with async_engine.begin() as conn:
+                result = await conn.execute(
+                    text(
+                        "DELETE FROM checkpoints "
+                        "WHERE checkpoint_id = ANY(:ids) RETURNING checkpoint_id"
+                    ),
+                    {"ids": batch},
+                )
+                deleted += len(result.fetchall())
+        logger.info(
+            f"Cleaned up {deleted} completed workflow checkpoints "
+            f"older than {days_old} days"
+        )
+        return deleted
     except Exception as e:
         logger.error(f"Failed to cleanup completed workflows: {e}")
         return 0

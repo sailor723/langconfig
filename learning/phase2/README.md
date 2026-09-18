@@ -361,7 +361,7 @@ Key design:
 **Connection**:
 - Sync: SQLAlchemy `create_engine()` with `QueuePool` (pool_size=10, max_overflow=20)
 - Async: `create_async_engine()` with `asyncpg` driver
-- Config: `DATABASE_URL` env var, default `postgresql://langconfig:langconfig_dev@localhost:5433/langconfig`
+- Config: `DATABASE_URL` env var, default `postgresql://langconfig:langconfig_dev@localhost:5432/langconfig`
 
 **Key models**:
 

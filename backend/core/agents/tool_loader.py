@@ -38,12 +38,40 @@ Usage (from AgentFactory):
 """
 
 import logging
+import asyncio
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from langchain_core.tools import BaseTool, StructuredTool
 
 logger = logging.getLogger(__name__)
+
+
+def _custom_tool_scope_filter(project_id: int):
+    """SQLAlchemy predicate for cross-project custom-tool isolation.
+
+    A custom tool is loadable by an agent when it is global (project_id
+    NULL), belongs to the requesting project, is system-seeded (builtin),
+    or is public. Tools owned by other projects must never load.
+    """
+    from sqlalchemy import or_
+    from models.custom_tool import CustomTool
+
+    return or_(
+        CustomTool.project_id.is_(None),
+        CustomTool.project_id == project_id,
+        CustomTool.is_builtin.is_(True),
+        CustomTool.is_public.is_(True),
+    )
+
+
+def _is_db_storage_mode() -> bool:
+    """True when STORAGE_MODE=db (formal documents persist to agent_documents)."""
+    try:
+        from config import settings
+        return (settings.storage_mode or "local").lower() == "db"
+    except Exception:  # pragma: no cover - config is always importable in-app
+        return False
 
 
 class ToolLoader:
@@ -76,7 +104,11 @@ class ToolLoader:
         tools: List[BaseTool] = []
 
         # 1. Native tools by name
-        native_tool_names = agent_config.get("native_tools", [])
+        from core.tools.defaults import resolve_native_tools
+        native_tool_names = resolve_native_tools(
+            agent_config.get("native_tools"),
+            enable_default_tools=agent_config.get("enable_default_tools", True),
+        )
         if native_tool_names:
             agent_context = agent_config.get("agent_context")  # optional
             tools.extend(await ToolLoader.load_native(
@@ -120,6 +152,13 @@ class ToolLoader:
         """
         Load native Python tools.
 
+        Tools are materialized from the PostgreSQL ``custom_tools`` table
+        (``is_builtin`` rows seeded from ``tools/native_tools.py``) via the
+        same ``ToolFactory`` codegen path used for custom tools — agents
+        compile and run all tools uniformly from the DB. If the table is not
+        seeded yet, falls back to the legacy in-module loader so existing
+        agents keep working unchanged.
+
         Special handling for "browser" tool which uses Playwright (async).
         For write_file tool, binds workspace_context and agent_context for
         file metadata tracking.
@@ -134,17 +173,27 @@ class ToolLoader:
         if not native_tool_names:
             return []
         try:
-            all_tools: List[BaseTool] = []
+            # Resolve legacy aliases (TOOL_NAME_MAP) to canonical names before
+            # hitting the DB so old agent configs keep working.
+            from tools.native_tools import (
+                TOOL_NAME_MAP,
+                load_legacy_native_tools as _legacy_load,
+            )
+
+            canonical_names = [TOOL_NAME_MAP.get(n, n) for n in native_tool_names]
 
             # Check if browser tools are requested (requires special async handling)
-            browser_requested = "browser" in native_tool_names
-            non_browser_tools = [t for t in native_tool_names if t != "browser"]
+            browser_requested = "browser" in canonical_names
+            non_browser_tools = [t for t in canonical_names if t != "browser"]
 
-            # Load regular native tools (synchronous)
+            all_tools: List[BaseTool] = []
+
+            # Load native tools — DB-first (custom_tools rows), legacy fallback
             if non_browser_tools:
-                # Local import keeps module-load fast; the function is cheap to import
-                from tools.native_tools import load_native_tools
-                native_tools = load_native_tools(non_browser_tools)
+                native_tools = await ToolLoader._load_builtin_from_db(non_browser_tools)
+                if native_tools is None:
+                    # Table not seeded yet (migration/seed not run) → legacy loader
+                    native_tools = _legacy_load(non_browser_tools)
 
                 # Wrap write_file tool with context for file metadata tracking
                 if workspace_context or agent_context:
@@ -174,6 +223,76 @@ class ToolLoader:
             return []
 
     @staticmethod
+    async def _load_builtin_from_db(names: List[str]) -> Optional[List[BaseTool]]:
+        """Materialize built-in tools from ``custom_tools`` rows (``is_builtin``).
+
+        Returns ``None`` when the built-in seed has not been run (empty or
+        unmigrated table), signalling the caller to fall back to the legacy
+        in-module loader. Names that are not seeded (e.g. harness tools like
+        ``write_todos`` / ``read_todos`` that need injected args) are appended from
+        the legacy loader so behavior is unchanged.
+        """
+        if not names:
+            return []
+        try:
+            from core.tools.factory import ToolFactory
+            from models.custom_tool import CustomTool
+            from db.database import SessionLocal
+            from tools.native_tools import load_legacy_native_tools as _legacy_load
+
+            db = SessionLocal()
+            try:
+                rows = db.query(CustomTool).filter(
+                    CustomTool.tool_id.in_(names),
+                    CustomTool.is_builtin.is_(True),
+                ).all()
+            finally:
+                db.close()
+
+            if not rows:
+                return None
+
+            found = {row.tool_id: row for row in rows}
+            missing = [n for n in names if n not in found]
+
+            tools: List[BaseTool] = []
+            for row in rows:
+                tool_config = {
+                    "tool_id": row.tool_id,
+                    # Canonical name — matches the legacy StructuredTool names
+                    # (e.g. "web_search"); required by tool-name lookups like
+                    # the write_file context wrap below.
+                    "name": row.tool_id,
+                    "description": row.description,
+                    "tool_type": row.tool_type.value,
+                    "template_type": row.template_type.value if row.template_type else None,
+                    "implementation_config": row.implementation_config,
+                    "input_schema": row.input_schema,
+                    "output_format": row.output_format,
+                    # Trust boundary: platform-seeded rows keep full exec
+                    # power; user/agent/bundle rows get the restricted sandbox.
+                    "is_builtin": bool(getattr(row, "is_builtin", False)),
+                    "definition": getattr(row, "definition", None),
+                }
+                try:
+                    tools.append(await ToolFactory.create_tool(tool_config))
+                except Exception as exc:
+                    # A single broken built-in must not take down the agent;
+                    # fall back to the legacy loader for it.
+                    logger.error(f"Failed to build built-in tool '{row.tool_id}' from DB: {exc}")
+                    missing.append(row.tool_id)
+
+            # Harness-only tools (write_todos, read_todos) and broken
+            # rows keep the legacy path.
+            if missing:
+                tools.extend(_legacy_load(missing))
+
+            return tools
+        except Exception as e:
+            logger.error(f"DB built-in tool load failed ({e}); falling back to legacy loader")
+            return None
+
+    @staticmethod
     def _wrap_file_tools_with_context(
         tools: List[BaseTool],
         workspace_context: Optional[Dict[str, Any]],
@@ -188,7 +307,26 @@ class ToolLoader:
         """
         from tools.native_tools import (
             _write_file_impl, _write_file_error_handler, WriteFileArgs,
+            _save_document_impl, SaveDocumentArgs,
         )
+
+        # Workspace-aware path routing: bare filenames (no separators) are
+        # auto-routed so agents never need to ls/glob to find folders —
+        # read_file → <workspace>/upload/, write_file → <workspace>/generated/.
+        workspace_root = (workspace_context or {}).get("workspace_root")
+        from pathlib import Path as _Path
+        upload_root = _Path(workspace_root) / "upload" if workspace_root else None
+        gen_root = _Path(workspace_root) / "generated" if workspace_root else None
+
+        def _route_path(path: str, base: _Path) -> str:
+            """Route a bare filename to base; leave absolute/relative paths as-is."""
+            if (
+                isinstance(path, str) and path and base is not None
+                and not path.startswith(("/", ".", "~"))
+                and "/" not in path and "\\" not in path and ".." not in path
+            ):
+                return str(base / path)
+            return path
 
         wrapped_tools: List[BaseTool] = []
 
@@ -197,17 +335,17 @@ class ToolLoader:
                 # Get the original implementation function AND args schema
 
                 # Create a new function with context pre-bound
-                def create_bound_write_file(ws_ctx, ag_ctx):
+                def create_bound_write_file(ws_ctx, ag_ctx, g_root):
                     def bound_write_file(file_path: str, content: str) -> str:
                         return _write_file_impl(
-                            file_path=file_path,
+                            file_path=_route_path(file_path, g_root),
                             content=content,
                             _workspace_context=ws_ctx,
                             _agent_context=ag_ctx,
                         )
                     return bound_write_file
 
-                bound_func = create_bound_write_file(workspace_context, agent_context)
+                bound_func = create_bound_write_file(workspace_context, agent_context, gen_root)
 
                 # Create new StructuredTool with the bound function.
                 # CRITICAL: Include args_schema to enforce both parameters are required!
@@ -222,6 +360,58 @@ class ToolLoader:
                 wrapped_tools.append(wrapped_tool)
                 logger.debug(
                     f"Wrapped write_file tool with context: "
+                    f"workspace={workspace_context}, agent={agent_context}"
+                )
+            elif tool.name == "read_file":
+                # Wrap read_file so a bare filename resolves inside upload/.
+                orig_coro = tool.coroutine or tool.func
+
+                async def routed_read_file(**kwargs):
+                    if "file_path" in kwargs:
+                        kwargs["file_path"] = _route_path(kwargs["file_path"], upload_root)
+                    elif "path" in kwargs:
+                        kwargs["path"] = _route_path(kwargs["path"], upload_root)
+                    if orig_coro is not None:
+                        res = orig_coro(**kwargs)
+                        if asyncio.iscoroutine(res):
+                            res = await res
+                        return res
+                    return await tool.ainvoke(kwargs)
+
+                wrapped_tool = StructuredTool.from_function(
+                    coroutine=routed_read_file,
+                    name="read_file",
+                    description=tool.description,
+                    args_schema=tool.args_schema,
+                )
+                wrapped_tools.append(wrapped_tool)
+                logger.debug(f"Wrapped read_file tool with upload/ routing: {workspace_root}")
+            elif tool.name == "save_document":
+                # DB-mode formal document persistence — pre-bind the execution
+                # context (project/agent/execution ids) for the agent_documents
+                # row, exactly like write_file above.
+                def create_bound_save_document(ws_ctx, ag_ctx):
+                    def bound_save_document(title: str, content: str, doc_type: str = "report") -> str:
+                        return _save_document_impl(
+                            title=title,
+                            content=content,
+                            doc_type=doc_type,
+                            _workspace_context=ws_ctx,
+                            _agent_context=ag_ctx,
+                        )
+                    return bound_save_document
+
+                bound_save = create_bound_save_document(workspace_context, agent_context)
+
+                wrapped_tool = StructuredTool.from_function(
+                    func=bound_save,
+                    name="save_document",
+                    description=tool.description,
+                    args_schema=SaveDocumentArgs,
+                )
+                wrapped_tools.append(wrapped_tool)
+                logger.debug(
+                    f"Wrapped save_document tool with context: "
                     f"workspace={workspace_context}, agent={agent_context}"
                 )
             else:
@@ -302,9 +492,14 @@ class ToolLoader:
                     try:
                         logger.info(f"🔍 Attempting to load custom tool with ID: '{tool_id}'")
 
-                        # Fetch tool from database
+                        # Fetch tool from database — scoped to the requesting
+                        # project. A tool is loadable when it is global
+                        # (project_id NULL), belongs to the same project,
+                        # is system-seeded (builtin), or is public. Tools
+                        # owned by OTHER projects must never load here.
                         custom_tool = db.query(CustomTool).filter(
-                            CustomTool.tool_id == tool_id
+                            CustomTool.tool_id == tool_id,
+                            _custom_tool_scope_filter(project_id),
                         ).first()
 
                         if not custom_tool:
@@ -324,6 +519,10 @@ class ToolLoader:
                             "implementation_config": custom_tool.implementation_config,
                             "input_schema": custom_tool.input_schema,
                             "output_format": custom_tool.output_format,
+                            # Trust boundary: only platform-seeded rows get
+                            # full exec power; everything else is sandboxed.
+                            "is_builtin": bool(custom_tool.is_builtin),
+                            "definition": getattr(custom_tool, "definition", None),
                         }
 
                         # Create the tool using ToolFactory

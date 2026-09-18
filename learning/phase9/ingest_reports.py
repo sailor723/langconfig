@@ -57,7 +57,7 @@ logging.basicConfig(
 logger = logging.getLogger("ingest_reports")
 
 # Default source: the user's deep-agent reports corpus
-DEFAULT_SOURCE = Path("/Users/weiping/dev/Learn/langchain-ai/my-deep-agent/reports_new")
+DEFAULT_SOURCE = Path("/Users/weiping/dev/Learn/langchain-ai/agent-workspace/reports_new")
 # Default target: project 2 ("my deep agent project")
 DEFAULT_PROJECT_ID = 2
 

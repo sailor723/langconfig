@@ -9,15 +9,18 @@ AI Agent configuration platform with dynamic model management, skills library, a
 cd backend
 .venv/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 8765
 
-# Frontend
+# Frontend (port 1421 — layout2 VS Code-style shell)
 cd ..
 npx vite
+
+# Or use the start script
+bash start.sh
 ```
 
 ## Architecture
 
 ```
-UI (React/Vite) ──→ BE (FastAPI/uvicorn) ──→ PostgreSQL 5433
+UI (React/Vite) ──→ BE (FastAPI/uvicorn) ──→ PostgreSQL 5432
                         │
                    Agent Factory
                         │
@@ -26,6 +29,32 @@ UI (React/Vite) ──→ BE (FastAPI/uvicorn) ──→ PostgreSQL 5433
          Playground  LangChain  DeepAgent
         (model.invoke)  Agent    (skills+sandbox)
 ```
+
+## VS Code-Style IDE Shell (layout2)
+
+The UI has been refactored from a top-nav web layout to a **VS Code-inspired IDE shell**:
+
+```
+┌──────┬────────────┬───────────────────────┬──────────────┐
+│ Act  │ Side Bar   │ Editor                │ Right Panel  │
+│ Bar  │ (explorer/ │ (tabs + content)      │ Chat / Props │
+│      │  search)   ├───────────────────────┤              │
+│      │            │ Terminal / Exec / Results            │
+├──────┴────────────┴───────────────────────┴──────────────┤
+│ Status Bar (#007acc blue, full width)                    │
+└──────────────────────────────────────────────────────────┘
+```
+
+| Component | Description |
+|-----------|-------------|
+| ActivityBar | 48px left icon strip (#181818), 6 activities (Workflows, DeepAgents, Agents, Library, Analysis, Settings) |
+| LeftSidebar | Resizable (200-600px) file explorer + search panel |
+| Workspace | Tabbed editor (drag-reorder, middle-click close, dirty dot) |
+| NodeSidebar | Right panel (240-800px) — Chat + Properties tabs |
+| BottomPanel | Terminal / Execution / Results (collapsible, 200px) |
+| StatusBar | 22px blue (#007acc) bar with model + token + task info |
+
+Live at `http://localhost:1421`. See [`src/components/layout2/README.md`](src/components/layout2/README.md) for full details (Phases 1-12 implemented).
 
 ## 3 Agent Execution Modes
 
@@ -98,7 +127,7 @@ All model configuration is stored in PostgreSQL — no hardcoded enums.
 
 ```
 models table (unified)
-├── source='cloud'  → 21 models (seeded from seed_models.py)
+├── source='cloud'  → 21 models (seeded from scripts/seeds/seed_models.py)
 │   Providers: openai, anthropic, deepseek, google, agnes, glm, minimax
 └── source='local'  → user-configured (Ollama, LM Studio, vLLM, etc.)
     Added via Settings > Local Models UI
@@ -125,7 +154,7 @@ Or use Settings > API Keys to configure a new provider. No code changes needed.
 
 ## Skills Library
 
-- 17 builtin + user-created skills stored in PostgreSQL
+- 15 builtin + 20 personal/user-created skills stored in PostgreSQL (35 total on disk)
 - Skills synced to agent sandbox at creation time (progressive disclosure)
 - Agent reads `SKILL.md` on demand — meta-skill `skill-generator` can create new skills
 

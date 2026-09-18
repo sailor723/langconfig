@@ -3,34 +3,62 @@
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
+ *
+ * App — root component.
+ *
+ * VS Code-style layout:
+ * ┌──────┬──────────┬───────────────────┬──────────────┐
+ * │ Act  │ Side Bar │ Editor            │ Right Panel  │
+ * │ Bar  │ (explorer│ (tabs + content)  │ Chat / Props │
+ * │      │  /search)├───────────────────┤              │
+ * │      │          │ Terminal / Exec / Results         │
+ * ├──────┴──────────┴───────────────────┴──────────────┤
+ * │ Status Bar (#007acc blue, full width)               │
+ * └─────────────────────────────────────────────────────┘
  */
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import ModernHeader from './components/layout/ModernHeader';
-import ModernAgentLibrary from './features/agents/ui/ModernAgentLibrary';
 import WorkflowCanvas, { WorkflowCanvasRef, WorkflowRecipe } from './features/workflows/canvas/WorkflowCanvas';
 import { TaskHistoryEntry } from './features/workflows/canvas/types';
-import WorkflowLibraryView from './features/workflows/library/WorkflowLibraryView';
 import NodeConfigPanel from './features/workflows/node-config/NodeConfigPanel';
-import SettingsView from './pages/SettingsPage';
 import PlaygroundPage from './pages/PlaygroundPage';
 import DeepAgentStudioPage from './features/deepagent-studio-v2/ModernStudioPage';
-import KnowledgeBaseView from './features/knowledge/ui/KnowledgeBaseView';
-import AgentLoadouts from './features/agents/ui/AgentLoadouts';
-import ToolLibrary from './features/tools/ToolLibrary';
-import PromptAssemblyPage from './pages/PromptAssemblyPage';
-import { SkillLibrary } from './features/skills';
+
+import ToolHomePage from './components/layout2/ToolHomePage';
+import PromptHomePage from './components/layout2/PromptHomePage';
+import SkillHomePage from './components/layout2/SkillHomePage';
+import KnowledgeHomePage from './components/layout2/KnowledgeHomePage';
 import HomePage from './pages/HomePage';
+import ProjectHomePage from './pages/ProjectHomePage';
+import DeepAgentHomePage from './components/layout2/DeepAgentHomePage';
+import AgentHomePage from './components/layout2/AgentHomePage';
 import AnalysisPage from './pages/AnalysisPage';
-import { initializeTheme } from './lib/themes';
+import SettingsModal from './pages/SettingsPage';
+import { ThemeProvider } from './lib/themes';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { ToastProvider, ToastContainer } from './hooks/useToast';
 import { ChatProvider } from './features/chat/state/ChatContext';
 import GlobalChatModal from './features/chat/ui/GlobalChatModal';
+import ChatPage from './features/chat/ui/ChatPage';
 import apiClient from './lib/api-client';
+import { useProject } from './contexts/ProjectContext';
+import SetupWizard from './components/layout2/SetupWizard';
 
-type View = 'studio' | 'library' | 'settings' | 'knowledge' | 'agents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio';
+// Layout2 components
+import { LayoutProvider, useLayoutState, type ActivityId, type Tab } from './components/layout2/useLayout';
+import { DisplayModeProvider, useDisplayMode } from './components/layout2/useDisplayMode';
+import ActivityBar from './components/layout2/ActivityBar';
+import LeftSidebar from './components/layout2/LeftSidebar';
+import Workspace from './components/layout2/Workspace';
+import NodeSidebar from './components/layout2/NodeSidebar';
+import BottomPanel from './components/layout2/BottomPanel';
+import Footer from './components/layout2/Footer';
+import WorkflowStudioPage, { type WorkflowStudioRef, type StudioNodeConfig } from './components/layout2/WorkflowStudioPage';
+import WorkflowStudioSidebar from './components/layout2/WorkflowStudioSidebar';
+import GraphStudioPage from './features/graph-studio/GraphStudioPage';
+import GraphStudioSidebar from './features/graph-studio/GraphStudioSidebar';
+
+type View = 'studio' | 'settings' | 'knowledge' | 'agents' | 'deepagents' | 'skills' | 'home' | 'analysis' | 'playground' | 'tools' | 'prompt' | 'deepagent-studio' | 'chat' | 'learning' | 'graph' | 'project';
 type WorkflowStatus = 'draft' | 'saved' | 'running' | 'completed' | 'failed';
 
 interface Agent {
@@ -63,10 +91,7 @@ interface NodeConfig {
   temperature: number;
   tools: string[];
   native_tools: string[];
-  // TOOL_NODE fields (added to support graphindex_* custom tools)
-  // Keep these in sync with the canonical NodeConfig in
-  // src/features/workflows/node-config/NodeConfigPanel.tsx
-  data?: any;  // BUG FIX: full data blob so panel can read selectedNode.data.config
+  data?: any;
   custom_tools?: string[];
   middleware?: any[];
   subagents?: any[];
@@ -120,19 +145,204 @@ interface SelectedNodeData {
     max_iterations?: number;
     exit_condition?: string;
     name?: string;
-    // DeepAgent subagents
     subagents?: any[];
     use_deepagents?: boolean;
+    tool_type?: string;
+    tool_id?: string;
+    tool_params?: Record<string, any>;
   };
+}
+
+// Map route path → View
+const ROUTE_TO_VIEW: Record<string, View> = {
+  '/': 'home', '/home': 'home',
+  '/project': 'project',
+  '/studio': 'studio', '/results': 'studio',
+  '/graph': 'graph',
+  '/agents': 'agents', '/deepagents': 'deepagents',
+  '/knowledge': 'knowledge',
+  '/skills': 'skills',
+  '/tools': 'tools',
+  '/prompt': 'prompt',
+  '/analysis': 'analysis',
+  '/settings': 'settings',
+  // settings → full Settings page (route /settings)
+  '/playground': 'playground',
+  '/deepagent-studio': 'deepagent-studio',
+  '/chat': 'chat',
+  '/learning': 'learning',
+};
+
+// Map View → route path
+const VIEW_ROUTE: Record<View, string> = {
+  home: '/home', studio: '/studio',
+  project: '/project',
+  graph: '/graph',
+  agents: '/agents', deepagents: '/deepagents', skills: '/skills',
+  knowledge: '/knowledge', analysis: '/analysis', settings: '/settings',
+  playground: '/playground', tools: '/tools', prompt: '/prompt',
+  'deepagent-studio': '/deepagent-studio',
+  chat: '/chat',
+  learning: '/learning',
+};
+
+// Map View → ActivityId
+const VIEW_TO_ACTIVITY: Record<View, ActivityId | null> = {
+  home: null,
+  project: null,
+  studio: 'workflows',
+  graph: 'graph',
+  agents: 'agents',
+  deepagents: 'deepagents',
+  skills: 'skills',
+  tools: 'tools',
+  prompt: 'prompt',
+  knowledge: 'knowledge',
+  analysis: 'analysis',
+  settings: 'settings',
+  playground: 'workflows',
+  'deepagent-studio': 'studio',
+  chat: null,
+  learning: 'learning',
+};
+
+// Map ActivityId → View (for ActivityBar clicks)
+const ACTIVITY_TO_VIEW: Partial<Record<ActivityId, View>> = {
+  workflows:  'studio',
+  graph: 'graph',
+  deepagents: 'deepagents',
+  agents: 'agents',
+  prompt: 'prompt',
+  tools: 'tools',
+  knowledge: 'knowledge',
+  analysis: 'analysis',
+  skills: 'skills',
+  settings: 'settings',
+  studio: 'deepagent-studio',
+  learning: 'learning',
+};
+
+// ── Direct-mode "default tab" lookup ────────────────────────────
+// When displayMode === 'direct', the user skips the catalog HomePage
+// and lands on a starter tab. For activities with meaningful template
+// collections (DeepAgents, Agents, Skills, Prompt) we open the
+// TemplatePicker — a card grid the user clicks to in order to open the
+// editor pre-filled. For Tools the "new" tool builder is the only
+// sensible default; for Knowledge there's no per-item editor.
+function directModeTabFor(view: View): Tab | null {
+  switch (view) {
+    case 'deepagents':
+      return {
+        id: 'direct-deepagents',
+        label: 'Quick build · DeepAgents',
+        viewType: 'template-picker',
+        // Explicit activity (template-picker is shared by 4 activities
+        // so the viewTypeToActivity heuristic can't disambiguate).
+        activity: 'deepagents',
+        data: { activity: 'deepagents' },
+      };
+    case 'agents':
+      return {
+        id: 'direct-agents',
+        label: 'Quick build · Agent',
+        viewType: 'template-picker',
+        activity: 'agents',
+        data: { activity: 'agents' },
+      };
+    case 'skills':
+      return {
+        id: 'direct-skills',
+        label: 'Quick build · Skill',
+        viewType: 'template-picker',
+        activity: 'skills',
+        data: { activity: 'skills' },
+      };
+    case 'tools':
+      // Tools has category cards, not templates, on its HomePage; the
+      // picker pattern doesn't fit. Fall back to opening the new-tool
+      // builder so the user is one click away from creating one.
+      return {
+        id: 'direct-tools',
+        label: 'New Tool',
+        viewType: 'custom-tool-builder',
+        activity: 'tools',
+        data: { new: true },
+      };
+    case 'prompt':
+      return {
+        id: 'direct-prompt',
+        label: 'Quick build · Prompt',
+        viewType: 'template-picker',
+        activity: 'prompt',
+        data: { activity: 'prompt' },
+      };
+    case 'knowledge':
+      // Knowledge has no per-item editor; render an empty workspace
+      // (Workspace.fallback) so the user can still navigate to it.
+      return null;
+    default:
+      return null;
+  }
 }
 
 function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { activeProjectId } = useProject();
+  const { displayMode } = useDisplayMode();
+  const { openTab, closeTabsByActivity } = useLayoutState();
   const workflowCanvasRef = useRef<WorkflowCanvasRef>(null);
   const saveWorkflowTimeoutRef = useRef<number | null>(null);
 
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  // Current view from route
+  const currentView: View = ROUTE_TO_VIEW[location.pathname] ?? 'home';
+
+  // ── Direct-mode auto-open ───────────────────────────────
+  // When displayMode === 'direct' and the user lands on a catalog
+  // activity, skip the HomePage (which renders the "what is X..."
+  // hero + template grid) and jump straight to the activity's natural
+  // studio / "new item" tab. Verbose mode is unchanged — HomePages
+  // render as before.
+  useEffect(() => {
+    if (displayMode !== 'direct') return;
+    const tab = directModeTabFor(currentView);
+    if (!tab) return;
+    openTab(tab);
+    // currentView + displayMode are the reactive inputs. openTab is
+    // stable; we deliberately don't depend on it to avoid re-running on
+    // every tab state update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentView, displayMode]);
+
+  // ── First-run setup wizard ──────────────────────────────
+  // While the setup status is unknown we render nothing (avoids a flash of
+  // the IDE); if setup is needed, the wizard replaces the whole shell until
+  // the user finishes it. Re-openable via the 'setup:open' window event.
+  const [setupChecked, setSetupChecked] = useState(false);
+  const [setupNeeded, setSetupNeeded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient.getSetupStatus()
+      .then((r: any) => { if (!cancelled) setSetupNeeded(!!r.data?.needs_setup); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setSetupChecked(true); });
+    const handler = () => setSetupNeeded(true);
+    window.addEventListener('setup:open', handler);
+    return () => { cancelled = true; window.removeEventListener('setup:open', handler); };
+  }, []);
+
+  // ── Settings modal (DSH-style centered panel) ────────────
+  // Opened by the activity-bar gear via the 'settings:open' event; renders as
+  // an overlay over the current view (the app stays visible behind the mask).
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setSettingsOpen(true);
+    window.addEventListener('settings:open', handler);
+    return () => window.removeEventListener('settings:open', handler);
+  }, []);
+
   const [selectedRecipe, setSelectedRecipe] = useState<WorkflowRecipe | null>(null);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<number | null>(null);
   const [workflowName, setWorkflowName] = useState('Untitled Workflow');
@@ -142,16 +352,19 @@ function AppContent() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeData, setSelectedNodeData] = useState<SelectedNodeData | null>(null);
 
-  // Close node config panel when chat opens
   useEffect(() => {
     const handleChatOpened = () => {
       setSelectedNodeId(null);
       setSelectedNodeData(null);
     };
-
     window.addEventListener('chat:opened', handleChatOpened);
     return () => window.removeEventListener('chat:opened', handleChatOpened);
   }, []);
+
+  // Workflow Studio (layout2) state
+  const workflowStudioRef = useRef<WorkflowStudioRef>(null);
+  const [studioSelectedNode, setStudioSelectedNode] = useState<{ nodeId: string; config: StudioNodeConfig } | null>(null);
+
   const [nodeConfigs, setNodeConfigs] = useState<Record<string, NodeConfig>>({});
   const [tokenCostInfo, setTokenCostInfo] = useState<{
     totalTokens: number;
@@ -160,13 +373,13 @@ function AppContent() {
     costString: string;
   } | null>(null);
 
-  // Task history state (shared between WorkflowCanvas and ModernAgentLibrary)
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
   const [selectedHistoryTask, setSelectedHistoryTask] = useState<TaskHistoryEntry | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
-
-  // Sidebar panel state (agents vs history)
   const [sidebarPanel, setSidebarPanel] = useState<'agents' | 'history'>('agents');
+
+  // Layout state
+  const { setActiveActivity, sidebarView, setSidebarView, openRightPanel, closeRightPanel, rightPanelOpen } = useLayoutState();
 
   // Sync workflowTab with current route
   useEffect(() => {
@@ -178,13 +391,11 @@ function AppContent() {
   }, [location.pathname]);
 
   // DeepAgent Studio → navigate to Skill Library
-  // Triggered when user clicks 'Open in Builder' in SubAgentDetailModal
   useEffect(() => {
     const handler = (e: Event) => {
       const ce = e as CustomEvent<{ skillId?: string }>;
       console.log('[App] navigating to /skills', ce.detail);
       navigate('/skills');
-      // Pass skill id via window flag so SkillLibrary can auto-select on mount
       if (ce.detail?.skillId) {
         sessionStorage.setItem('da:pending-skill-select', ce.detail.skillId);
       }
@@ -193,29 +404,30 @@ function AppContent() {
     return () => window.removeEventListener('da:navigate-skills', handler);
   }, [navigate]);
 
-  // Map routes to views
-  const currentView: View = (() => {
-    const path = location.pathname;
-    if (path === '/' || path === '/home') return 'home';
-    if (path === '/studio' || path === '/results') return 'studio';
-    if (path === '/library') return 'library';
-    if (path === '/agents' || path === '/deepagents') return 'agents';
-    if (path === '/knowledge') return 'knowledge';
-    if (path === '/skills') return 'skills';
-    if (path === '/tools') return 'tools';
-    if (path === '/prompt') return 'prompt';
-    if (path === '/analysis') return 'analysis';
-    if (path === '/settings') return 'settings';
-    if (path === '/playground') return 'playground';
-    if (path === '/deepagent-studio') return 'deepagent-studio';
-    return 'home';
-  })();
+  // Project home → open a workflow in the Studio (preloaded)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ workflowId: number }>;
+      if (ce.detail?.workflowId) handleWorkflowOpen(ce.detail.workflowId);
+    };
+    window.addEventListener('workflow:open', handler);
+    return () => window.removeEventListener('workflow:open', handler);
+  }, [navigate]);
+
+  // Graph activity: show the LangGraph landing page until the user enters the
+  // (Intentionally no `currentView` re-declaration here — already computed
+  //  above for the direct-navigation hook.)
+
+  // Sync ActivityBar with current view
+  useEffect(() => {
+    const activity = VIEW_TO_ACTIVITY[currentView];
+    if (activity) setActiveActivity(activity);
+  }, [currentView, setActiveActivity]);
 
   // Handle tab changes within studio view
   const handleTabChange = useCallback((tab: 'studio' | 'results') => {
     setWorkflowTab(tab);
     navigate(tab === 'results' ? '/results' : '/studio');
-    // Auto-switch sidebar to history when going to results tab
     if (tab === 'results') {
       setSidebarPanel('history');
     }
@@ -224,67 +436,49 @@ function AppContent() {
   // Handle sidebar panel change (Agents/History tabs)
   const handleSidebarPanelChange = useCallback((panel: 'agents' | 'history') => {
     setSidebarPanel(panel);
-    // Switch to studio tab when clicking Agents tab
     if (panel === 'agents') {
       handleTabChange('studio');
     }
   }, [handleTabChange]);
 
   const handleViewChange = (view: View) => {
-    // Check for unsaved workflow changes before navigating
-    if (currentView === 'studio' && workflowCanvasRef.current) {
-      const hasUnsaved = workflowCanvasRef.current.hasUnsavedChanges();
-      if (hasUnsaved) {
+    if (currentView === 'studio') {
+      const canvas = workflowCanvasRef.current ?? workflowStudioRef.current;
+      if (canvas?.hasUnsavedChanges?.()) {
         const confirmLeave = window.confirm(
           'You have unsaved workflow changes. Do you want to save before leaving?\n\n' +
           'Click OK to stay and save your changes.\n' +
           'Click Cancel to leave without saving.'
         );
-        if (confirmLeave) {
-          // User wants to stay and save
-          return;
-        }
-        // User chose to leave without saving, proceed with navigation
+        if (confirmLeave) return;
       }
     }
-
-    const routes: Record<View, string> = {
-      home: '/home',
-      studio: '/studio',
-      library: '/library',
-      agents: '/agents',
-      skills: '/skills',
-      knowledge: '/knowledge',
-      analysis: '/analysis',
-      settings: '/settings',
-      playground: '/playground',
-      tools: '/tools',
-      prompt: '/prompt',
-      'deepagent-studio': '/deepagent-studio'
-    };
-    navigate(routes[view]);
+    // Close tabs that belong to the previous activity. Tabs without an
+    // `activity` field (file/library/notebook/global) are preserved so the
+    // user keeps any cross-activity context open (e.g. a code file open
+    // while editing an agent). When `view` has no associated activity
+    // (home / project / chat / settings) we close the previous activity's
+    // tabs but keep global ones — same behavior.
+    const newActivity = VIEW_TO_ACTIVITY[view];
+    if (newActivity) {
+      closeTabsByActivity(newActivity);
+    } else {
+      // Special "leaving an activity" case: home / chat / settings.
+      // Pass 'global' so EVERY activity-scoped tab is closed; only
+      // global (no-activity) tabs remain.
+      closeTabsByActivity('global');
+    }
+    navigate(VIEW_ROUTE[view]);
   };
 
-  // Initialize theme on app load
-  useEffect(() => {
-    initializeTheme();
-  }, []);
-
   const handleSave = () => {
-    // BUG FIX: call the actual saveWorkflow on the canvas ref. The previous
-    // implementation was a no-op that only updated local React state without
-    // ever calling the API, so the top Save button didn't persist anything.
-    if (workflowCanvasRef.current) {
-      workflowCanvasRef.current.saveWorkflow(false);  // not silent: show success message
-    }
+    const canvas = workflowCanvasRef.current ?? workflowStudioRef.current;
+    canvas?.saveWorkflow?.(false);
   };
 
   const handleWorkflowNameChange = (name: string) => {
     setWorkflowName(name);
-
-    // Save workflow name to backend if we have a selected workflow
     if (selectedWorkflowId) {
-      // Debounce could be added here, but for now direct update is fine
       apiClient.updateWorkflow(selectedWorkflowId, { name })
         .catch((err: any) => console.error("Failed to save workflow name:", err));
     }
@@ -298,24 +492,17 @@ function AppContent() {
   const handleNodeSelect = (nodeId: string | null, nodeData?: any) => {
     setSelectedNodeId(nodeId);
     if (nodeId && nodeData) {
-
-      // Normalize data structure: flatten nested config if it exists
-      // Some nodes (e.g., created by Claude Code agent) have config nested under nodeData.config
-      // NodeConfigPanel expects a flat structure with model, systemPrompt, etc. at top level
       let normalizedData;
       if (nodeData.config && typeof nodeData.config === 'object') {
-        // Flatten nested config while preserving top-level fields
         normalizedData = {
           id: nodeId,
           ...nodeData,
-          ...nodeData.config,  // Spread config fields to top level
-          // Preserve arrays from both levels
+          ...nodeData.config,
           tools: nodeData.config.tools || nodeData.tools || [],
           native_tools: nodeData.config.native_tools || nodeData.config.mcp_tools || nodeData.native_tools || [],
           custom_tools: nodeData.config.custom_tools || nodeData.custom_tools || [],
         };
       } else {
-        // Already flat structure
         normalizedData = {
           id: nodeId,
           ...nodeData,
@@ -324,224 +511,238 @@ function AppContent() {
           custom_tools: nodeData.custom_tools || [],
         };
       }
-
       setSelectedNodeData(normalizedData);
+      // Open right panel to Properties tab when node selected
+      openRightPanel('node-config');
     } else {
       setSelectedNodeData(null);
+      closeRightPanel();
     }
-  };
-
-  const handleAgentAdded = () => {
-    // Clear selected agent after it's been added to the canvas
-    setSelectedAgent(null);
   };
 
   const handleNodeConfigSave = (nodeId: string, fullConfig: any) => {
-
-    // Store config in state
-    setNodeConfigs(prev => ({
-      ...prev,
-      [nodeId]: fullConfig
-    }));
-
-    // Update the actual node in ReactFlow
+    setNodeConfigs(prev => ({ ...prev, [nodeId]: fullConfig }));
     if (workflowCanvasRef.current) {
       workflowCanvasRef.current.updateNodeConfig(nodeId, fullConfig);
     }
-
-    // Update selectedNodeData to reflect changes in real-time (keeps panel in sync)
     if (selectedNodeId === nodeId && selectedNodeData) {
       setSelectedNodeData({
         ...selectedNodeData,
         ...fullConfig,
-        config: fullConfig,  // Also store in nested config for compatibility
+        config: fullConfig,
         label: fullConfig.label || fullConfig.name || selectedNodeData.label,
         name: fullConfig.name || selectedNodeData.name
       });
     }
-
-    // Auto-save workflow to database after node config changes
-    // Clear any pending save to debounce rapid changes
     if (saveWorkflowTimeoutRef.current !== null) {
       clearTimeout(saveWorkflowTimeoutRef.current);
     }
-
-    // Schedule save for 800ms after last change
     saveWorkflowTimeoutRef.current = window.setTimeout(() => {
       if (workflowCanvasRef.current) {
-        workflowCanvasRef.current.saveWorkflow(true);  // silent = true (no success popup)
+        workflowCanvasRef.current.saveWorkflow(true);
       }
     }, 800);
   };
 
   const handleNodeDelete = (nodeId: string) => {
-    // Delete node from ReactFlow
     if (workflowCanvasRef.current) {
       workflowCanvasRef.current.deleteNode(nodeId);
     }
-
-    // Clear selection
     setSelectedNodeId(null);
     setSelectedNodeData(null);
-
-    // Remove from node configs
-    setNodeConfigs(prev => {
-      const newConfigs = { ...prev };
-      delete newConfigs[nodeId];
-      return newConfigs;
-    });
-
+    setNodeConfigs(prev => { const n = { ...prev }; delete n[nodeId]; return n; });
+    closeRightPanel();
   };
 
   const handleWorkflowOpen = (workflowId: number) => {
     setSelectedWorkflowId(workflowId);
     navigate('/studio');
-    // Load the workflow (it's already been created in the database)
     setWorkflowName(`Workflow ${workflowId}`);
     setWorkflowStatus('saved');
   };
 
   const selectedNodeConfig = selectedNodeId ? nodeConfigs[selectedNodeId] : null;
 
-  return (
-    <div className="relative flex h-screen w-full flex-col bg-background-light dark:bg-background-dark overflow-hidden">
-      {/* Modern Header */}
-      <ModernHeader
-        currentView={currentView}
-        onViewChange={handleViewChange}
-      />
+  // ── Render current page for Workspace fallback ──────────
+  // In direct mode the 6 catalog activities (Tools / Agents / DeepAgents /
+  // Skills / Knowledge / Prompt) skip their HomePage; the Workspace
+  // renders nothing and the auto-opened default tab (see
+  // `directModeTabFor`) is the only content. Verbose mode keeps the
+  // HomePage (hero + catalog) as before.
+  const directCatalogViews: ReadonlySet<View> = new Set<View>([
+    'tools', 'agents', 'deepagents', 'skills', 'knowledge', 'prompt',
+  ]);
+  const skipHomeForDirect = displayMode === 'direct' && directCatalogViews.has(currentView);
 
-      {/* Main Content */}
-      <main className="flex flex-row flex-1 overflow-x-auto overflow-y-hidden">
-        {/* Left Panel - Agent Library with Agents/History tabs (always visible in studio view) */}
-        {currentView === 'studio' && (
-          <ModernAgentLibrary
-            onSelectAgent={(agent) => {
-              setSelectedAgent(agent);
-              // Switch to studio tab when selecting an agent
-              handleTabChange('studio');
-            }}
-            onSelectRecipe={(recipe) => {
-              setSelectedRecipe(recipe);
-              // Switch to studio tab when selecting a recipe
-              handleTabChange('studio');
-            }}
-            taskHistory={taskHistory}
-            loadingHistory={loadingHistory}
-            selectedHistoryTask={selectedHistoryTask}
-            onSelectHistoryTask={(task) => {
-              setSelectedHistoryTask(task);
-              // Switch to results tab when selecting a task
-              if (task) {
-                handleTabChange('results');
-              }
-            }}
-            activePanel={sidebarPanel}
-            onPanelChange={handleSidebarPanelChange}
-          />
+  const renderCurrentPage = () => {
+    switch (currentView) {
+      case 'home': return <HomePage />;
+      case 'project': return <ProjectHomePage />;
+      case 'studio': return (
+        <WorkflowStudioPage
+          ref={workflowStudioRef}
+          workflowId={selectedWorkflowId}
+          onNodeSelectChange={(nodeId, config) => {
+            if (nodeId && config) {
+              setStudioSelectedNode({ nodeId, config });
+              openRightPanel('node-config');
+            } else {
+              setStudioSelectedNode(null);
+              closeRightPanel();
+            }
+          }}
+          onWorkflowSelect={setSelectedWorkflowId}
+        />
+      );
+      case 'graph': return <GraphStudioPage />;
+      case 'deepagents':
+        return skipHomeForDirect ? null : <DeepAgentHomePage />;
+      case 'agents':
+        return skipHomeForDirect ? null : <AgentHomePage />;
+      case 'skills':
+        return skipHomeForDirect ? null : <SkillHomePage />;
+      case 'tools':
+        return skipHomeForDirect ? null : <ToolHomePage />;
+      case 'prompt':
+        return skipHomeForDirect ? null : <PromptHomePage />;
+      case 'knowledge':
+        // Knowledge has no per-item "studio" — in direct mode the
+        // Workspace just renders empty. The user can click back to
+        // verbose via Settings if they want the catalog back.
+        return skipHomeForDirect ? null : <KnowledgeHomePage />;
+      case 'analysis': return <AnalysisPage />;
+      case 'playground': return <PlaygroundPage />;
+      case 'deepagent-studio': return <DeepAgentStudioPage />;
+      default: return <HomePage />;
+    }
+  };
+
+  // Chat is a standalone full-page view — render without layout chrome.
+  // Returned here, after all hooks, to satisfy the Rules of Hooks.
+  if (!setupChecked) {
+    // Setup status not known yet — blank screen avoids a flash of the IDE.
+    return null;
+  }
+  if (setupNeeded) {
+    return (
+      <SetupWizard
+        onComplete={() => {
+          setSetupNeeded(false);
+          navigate(activeProjectId ? '/project' : '/');
+        }}
+      />
+    );
+  }
+  if (currentView === 'chat') {
+    return <ChatPage />;
+  }
+
+  return (
+    <>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', overflow: 'hidden' }}>
+      {/* Main row */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <ActivityBar onClickActivity={(activity) => {
+          const view = ACTIVITY_TO_VIEW[activity];
+          if (view) handleViewChange(view);
+        }} />
+
+        {/* Sidebar: WorkflowStudioSidebar in studio, default TreeView otherwise.
+            Hidden on the home launcher (create/select project) and the project
+            home page — neither is a browsing context, so no explorer/browser
+            chrome should be shown there. */}
+        {currentView !== 'home' && currentView !== 'project' && (
+        <LeftSidebar>
+          {currentView === 'studio' && (
+            <WorkflowStudioSidebar
+              onLoadWorkflow={(id) => {
+                setSelectedWorkflowId(id);
+              }}
+              onLoadRecipe={(recipeId) => {
+                workflowStudioRef.current?.loadRecipe?.(recipeId);
+              }}
+            />
+          )}
+          {currentView === 'graph' && <GraphStudioSidebar />}
+        </LeftSidebar>
         )}
 
-        {/* Center Panel - Dynamic Content */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden" style={{ minWidth: '650px' }}>
-          {currentView === 'home' && <HomePage />}
-          {currentView === 'studio' && (
-            <WorkflowCanvas
-              ref={workflowCanvasRef}
-              selectedAgent={selectedAgent}
-              selectedRecipe={selectedRecipe}
-              onWorkflowSelect={setSelectedWorkflowId}
-              onNodeSelect={handleNodeSelect}
-              onNodeDelete={handleNodeDelete}
-              onExecutionStart={handleExecutionStart}
-              onAgentAdded={handleAgentAdded}
-              onRecipeInserted={() => setSelectedRecipe(null)}
-              workflowId={selectedWorkflowId}
-              onTabChange={handleTabChange}
-              initialTab={workflowTab}
-              onTokenCostUpdate={setTokenCostInfo}
-              onTaskHistoryUpdate={setTaskHistory}
-              onSelectedTaskChange={setSelectedHistoryTask}
-              externalSelectedTask={selectedHistoryTask}
-            />
-          )}
-          {currentView === 'library' && (
-            <WorkflowLibraryView
-              onWorkflowSelect={setSelectedWorkflowId}
-              onWorkflowOpen={handleWorkflowOpen}
-            />
-          )}
-          {currentView === 'agents' && <AgentLoadouts />}
-          {currentView === 'skills' && <SkillLibrary />}
-          {currentView === 'tools' && <ToolLibrary />}
-          {currentView === 'prompt' && <PromptAssemblyPage />}
-          {currentView === 'knowledge' && <KnowledgeBaseView />}
-          {currentView === 'analysis' && <AnalysisPage />}
-          {currentView === 'settings' && <SettingsView />}
-          {currentView === 'playground' && <PlaygroundPage />}
-          {currentView === 'deepagent-studio' && <DeepAgentStudioPage />}
+        {/* Center column */}
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+            <Workspace fallback={renderCurrentPage()} />
+          </div>
+          <BottomPanel />
         </div>
 
-        {/* Right Panel - Node Config (only in studio view on studio tab with selected node) */}
-        {currentView === 'studio' && workflowTab === 'studio' && selectedNodeId && selectedNodeData && (
-          <NodeConfigPanel
-            selectedNode={{
-              id: selectedNodeId,
-              name: selectedNodeData.label || selectedNodeData.name || selectedNodeData.config?.name || selectedNodeId,
-              agentType: selectedNodeData.agentType,
-              model: selectedNodeData.model || selectedNodeData.config?.model,
-              system_prompt: selectedNodeData.system_prompt || selectedNodeData.config?.system_prompt || '',
-              temperature: selectedNodeData.temperature ?? selectedNodeData.config?.temperature ?? 0.7,
-              max_tokens: selectedNodeData.max_tokens || selectedNodeData.config?.max_tokens || 4000,
-              max_retries: selectedNodeData.max_retries || selectedNodeData.config?.max_retries || 3,
-              recursion_limit: selectedNodeData.recursion_limit || selectedNodeData.config?.recursion_limit || 300,
-              tools: selectedNodeData.tools || selectedNodeData.config?.tools || [],
-              native_tools: selectedNodeData.native_tools || selectedNodeData.config?.native_tools || [],
-              custom_tools: selectedNodeData.custom_tools || selectedNodeData.config?.custom_tools || [],
-              middleware: selectedNodeData.middleware || selectedNodeData.config?.middleware || [],
-              condition: selectedNodeData.condition || selectedNodeData.config?.condition,
-              max_iterations: selectedNodeData.max_iterations || selectedNodeData.config?.max_iterations,
-              exit_condition: selectedNodeData.exit_condition || selectedNodeData.config?.exit_condition,
-              // BUG FIX: pass the full data blob so the panel can read
-              // selectedNode.data.config (e.g. tool_type, tool_id) and the
-              // complete config. Without this, the dropdowns showed empty
-              // even when the DB had the values saved.
-              data: selectedNodeData,
-              // Tool node specific fields (TOOL_NODE) — pass at top level too
-              // for backward compatibility with code that reads selectedNode.tool_type.
-              tool_type: (selectedNodeData as any).tool_type || selectedNodeData.config?.tool_type,
-              tool_id: (selectedNodeData as any).tool_id || selectedNodeData.config?.tool_id,
-              tool_params: (selectedNodeData as any).tool_params || selectedNodeData.config?.tool_params,
-              // DeepAgent subagents
-              subagents: (selectedNodeData as any).subagents || selectedNodeData.config?.subagents || [],
-              use_deepagents: (selectedNodeData as any).use_deepagents || selectedNodeData.config?.use_deepagents || false
-            }}
-            onClose={() => {
-              setSelectedNodeId(null);
-              setSelectedNodeData(null);
-            }}
-            onSave={handleNodeConfigSave}
-            onDelete={handleNodeDelete}
-            tokenCostInfo={tokenCostInfo || undefined}
-          />
+        {/* Right panel: NodeConfigPanel when node selected, Chat otherwise */}
+        {(rightPanelOpen || studioSelectedNode) && (
+        <NodeSidebar
+          onClose={() => { setStudioSelectedNode(null); closeRightPanel(); }}
+        >
+          {currentView === 'studio' && studioSelectedNode && (
+            <NodeConfigPanel
+              selectedNode={studioSelectedNode.config as any}
+              onClose={() => { setStudioSelectedNode(null); closeRightPanel(); }}
+              onSave={(nodeId, config) => {
+                // Route through the debounced save so right-panel edits persist
+                workflowStudioRef.current?.handleNodeConfigSave?.(nodeId, config);
+              }}
+              onDelete={(nodeId) => {
+                workflowStudioRef.current?.deleteNode?.(nodeId);
+                setStudioSelectedNode(null);
+                closeRightPanel();
+              }}
+              tokenCostInfo={tokenCostInfo || undefined}
+            />
+          )}
+        </NodeSidebar>
         )}
-      </main>
+      </div>
+
+      <Footer />
     </div>
+
+    {/* Settings modal (DSH-style centered panel) — over the app */}
+    {(settingsOpen || currentView === 'settings') && (
+      <SettingsModal
+        onClose={() => {
+          setSettingsOpen(false);
+          if (currentView === 'settings') navigate('/');
+        }}
+      />
+    )}
+    </>
   );
+}
+
+function GlobalChatModalWrapper() {
+  const location = useLocation();
+  // Don't render GlobalChatModal on the standalone chat page — ChatPage
+  // manages its own UI and would otherwise show a duplicate overlay.
+  if (location.pathname === '/chat') return null;
+  return <GlobalChatModal />;
 }
 
 function App() {
   return (
-    <ToastProvider>
-      <HashRouter>
-        <ProjectProvider>
-          <ChatProvider>
-            <AppContent />
-            <GlobalChatModal />
-          </ChatProvider>
-        </ProjectProvider>
-      </HashRouter>
-      <ToastContainer />
-    </ToastProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <HashRouter>
+          <ProjectProvider>
+            <ChatProvider>
+              <DisplayModeProvider>
+                <LayoutProvider>
+                  <AppContent />
+                  <GlobalChatModalWrapper />
+                </LayoutProvider>
+              </DisplayModeProvider>
+            </ChatProvider>
+          </ProjectProvider>
+        </HashRouter>
+        <ToastContainer />
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 

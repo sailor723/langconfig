@@ -41,7 +41,7 @@ class ExecutableWorkflowExporter:
     workflow_{name}_{id}/
     ├── README.md
     ├── requirements.txt
-    ├── .env.example
+    ├── env_example
     ├── main.py
     ├── streamlit_app.py        # Optional Streamlit UI
     ├── api_server.py           # Optional FastAPI server
@@ -188,7 +188,7 @@ class ExecutableWorkflowExporter:
                     self.include_ui,
                     self.include_api
                 ),
-                ".env.example": TemplateGenerators.generate_env_example(
+                "env_example": TemplateGenerators.generate_env_example(
                     self._used_models,
                     self._used_custom_tools,
                     self.workflow_name,

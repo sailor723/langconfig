@@ -2,7 +2,8 @@
 name: sql-analyst
 description: Analyzes SQLite/CSV data. Understands user's data, business context, and chart preferences — then writes SQL, runs queries, and generates charts or interactive dashboards automatically.
 tags: [sql, data-analysis, visualization, dashboard, csv, sqlite]
-triggers: When user says "analyze", "chart", "report", "dashboard", "visualize", "top N", "trend", "breakdown" with data
+triggers:
+  - When user says "analyze", "chart", "report", "dashboard", "visualize", "top N", "trend", or "breakdown" with data
 allowed-tools: [sqlite_execute, python_execute, web_search]
 version: 2.0
 author: system
@@ -27,7 +28,7 @@ author: system
 | customer_tier | TEXT | 客户等级：gold / silver / bronze | GROUP BY 分层分析 |
 | customer_country | TEXT | 客户国家：China / Korea / Japan | GROUP BY 区域分析 |
 | product_name | TEXT | 产品名称 | 明细分析 |
-| category | TEXT | 产品类别：Software / Hardware / Infrastructure | GROUP BY 品类分析 |
+| category | TEXT | 产品类别：Software / Hardware / Infrastructure | GROUP BY 品类分析 | 
 | order_date | TEXT (YYYY-MM-DD) | 订单日期 | 时间趋势、日期计算 |
 | status | TEXT | 订单状态：completed / pending / cancelled | **收入统计必须过滤 status='completed'** |
 | quantity | INTEGER | 购买数量 | SUM 总量、AVG 均量 |
@@ -160,13 +161,19 @@ ORDER BY order_date DESC;
 - **用户说"图表"/"可视化"/"看一下"** → 生成 PNG 图片（用 matplotlib）
 - **用户说"仪表盘"/"交互"/"自己看"/"探索"** → 生成交互式 HTML（用 Plotly）
 
-### 方式 A：生成 PNG 图表
+### 方式 A：生成 PNG 图表（在聊天中显示）
 
 用 `python_execute` 运行一个 Python 脚本。脚本里：
 - 用 sqlite3 从数据库取出数据
-- 用 matplotlib 画图
-- 用 `plt.savefig()` 保存
-- 最后 `print()` 告诉用户文件保存在哪里
+- 用 matplotlib 画图（使用中文字体 `plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']`）
+- 用 `plt.savefig()` 保存到临时文件
+- 将 PNG 文件用 base64 编码，`print()` 输出 base64 数据
+- **注意：不要在 base64 输出中添加额外的 print 内容，确保只有一个 clean 的 base64 字符串**
+
+然后在你（LLM）的回复中，用 markdown 图片语法嵌入：
+```
+![图表标题](data:image/png;base64,<python_execute 输出的 base64 数据>)
+```
 
 选择图表类型的简单规则：
 - 比较多和少 → 柱状图 (`plt.bar`)

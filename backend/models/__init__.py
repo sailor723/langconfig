@@ -16,7 +16,6 @@ from .core import (
 from .workflow import WorkflowProfile, WorkflowStrategy, WorkflowVersion, WorkflowExecution
 from .deep_agent import (
     DeepAgentTemplate,
-    AgentExport,
     ChatSession,
     DeepAgentConfig,
     SubAgentConfig,
@@ -45,6 +44,9 @@ from .presentation_job import PresentationJob, PresentationJobStatus, Presentati
 from .workflow_schedule import WorkflowSchedule, ScheduledRunLog, ScheduleRunStatus
 from .workflow_trigger import WorkflowTrigger, TriggerLog, TriggerType, TriggerStatus
 from .agent_memory import AgentMemory
+from .analysis_chat import AnalysisChatMessage
+from .agent_document import AgentDocument
+from .classic_graph import ClassicGraph, ClassicGraphRun
 
 __all__ = [
     "Project",
@@ -59,7 +61,6 @@ __all__ = [
     "IndexingStatus",
     "DocumentType",
     "DeepAgentTemplate",
-    "AgentExport",
     "ChatSession",
     "DeepAgentConfig",
     "SubAgentConfig",
@@ -94,4 +95,8 @@ __all__ = [
     "TriggerType",
     "TriggerStatus",
     "AgentMemory",
+    "AnalysisChatMessage",
+    "AgentDocument",
+    "ClassicGraph",
+    "ClassicGraphRun",
 ]

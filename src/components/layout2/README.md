@@ -1,0 +1,371 @@
+# Layout2 — VS Code-Style Agent IDE Shell
+
+Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspired IDE shell.
+
+## Refactoring Rules
+
+> **Frontend-only refactor.** These rules apply to all layout2 work:
+
+1. **Reuse existing backend APIs** — always call `/api/...` endpoints that already exist in the FastAPI backend (`/api/chat/*`, `/api/deepagents/*`, `/api/settings/models`, `/api/models/invoke`, etc.). Do not invent new endpoints.
+2. **NEVER modify backend files.** The backend (`backend/`) is 100% frozen — no edits, no new routes, no migrations, no new Python files. Zero exceptions.
+3. **If the backend test endpoint is a stub, leave it alone.** The frontend can call existing endpoints like `POST /api/settings/api-keys/test` which already do live validation for Tavily/Serper. Do not touch backend code to "fix" it.
+
+## Progress
+
+### ✅ Phase 1: Layout Shell (Complete)
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| `tokens.ts` | ✅ | Theme system mapping LangConfig → VS Code Dark Modern tokens |
+| `useLayout.tsx` | ✅ | Shared context for layout state (activity, sidebar, tabs, panels) |
+| `ActivityBar.tsx` | ✅ | 48px left icon strip (#181818 bg), left-edge white accent indicator, hover background |
+| `LeftSidebar.tsx` | ✅ | Unified sidebar shell — resizable (200-600px), title bar, status bar with item count |
+| `Workspace.tsx` | ✅ | Tab bar (35px, drag-reorder, middle-click close) + content area |
+| `NodeSidebar.tsx` | ✅ | Always-visible right panel with Chat tab (default) and Properties tab (on node select) |
+| `BottomPanel.tsx` | ✅ | VS Code-style panel with Terminal, Execution, Results tabs |
+| `StatusBar.tsx` | ✅ | 22px blue (#007acc) bar with white text, model + token count + task |
+
+### ✅ Phase 2: File Explorer
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| TreeView (folders/files) | ✅ | Recursive tree with expand/collapse |
+| Right-click context menu | ✅ | Rename, Delete, New File/Folder |
+| Inline rename | ✅ | Double-click or F2 |
+| Quick file picker (Cmd+P) | ✅ | Fuzzy search across all activity types |
+
+### ✅ Phase 3: Tab Improvements
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Keyboard shortcuts | ✅ | Ctrl+W close, Ctrl+Tab switch, Cmd+Shift+P palette, Cmd+Shift+F search |
+| Middle-click to close | ✅ | Middle-click on any tab closes it |
+| Tab tooltips | ✅ | Full file path shown on hover |
+| Tab drag-reorder | ✅ | HTML5 drag-and-drop tab reordering |
+| Open file from API | ✅ | Real content from backend |
+
+### ✅ Phase 4: Quick Actions
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Command palette (Cmd+Shift+P) | ✅ | 10+ commands: toggle panels, switch activities, new file, close tab |
+| Search across files (Cmd+Shift+F) | ✅ | Sidebar search panel with results grouped by file, match highlighting |
+
+### ✅ Phase 5: DeepAgents Sidebar + Structured Editor
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| DeepAgents activity (Brain icon) | ✅ | New ActivityBar entry — clicks show flat list of deep agents from `GET /api/deepagents/` |
+| Backend integration | ✅ | All deep agents loaded from PostgreSQL via Vite proxy (no CORS) |
+| Structured DeepAgent editor | ✅ | 7 sections: Overview / Prompt / Tools / Subagents / Middleware / Guardrails / JSON |
+
+### ✅ Phase 6: Resizable Sidebars
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| LeftSidebar resize | ✅ | Drag the right edge of the file browser to resize (200–600px, default 260px) |
+| NodeSidebar (right) resize | ✅ | Drag the left edge of the right panel to resize (240–800px, default 360px) |
+
+### ✅ Phase 7: Agent Test Runner (Editor Toolbar)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Run / Stop toolbar | ✅ | Each DeepAgent tab has a top toolbar (35px) with prompt input + ▶ Run + ■ Stop |
+| Live API call | ✅ | Run starts a chat session (`POST /api/chat/start`) and sends the test prompt (`POST /api/chat/message`) |
+| Session stored | ✅ | Session id saved on `chatStore` so follow-ups in the right chat panel reuse the same session |
+
+### ✅ Phase 8: Right-Sidebar Chat + Thinking + Actions
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Shared chat store | ✅ | [chatStore.ts](file:///Users/weiping/dev/Learn/langchain-ai/langconfig/src/components/layout2/chatStore.ts) — module-level singleton with subscribe pattern |
+| Session-aware send | ✅ | Chat input uses the active session id to send follow-ups to the same agent |
+| Thinking extraction | ✅ | Strips `<think>...</think>` blocks, displays collapsible reasoning trace in agent bubbles |
+| Copy / Save / Re-run | ✅ | Per assistant message: copy to clipboard, download as `.md`, re-run same prompt |
+| Multi-message conversation | ✅ | User + assistant bubbles with timestamps and tokens/tools/latency footer |
+| Free-form chat | ✅ | Right sidebar input lets you type any prompt without re-running from the toolbar |
+
+### ✅ Phase 9: Studio Activity + Subagent/Skill Data Merge
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Studio activity (Network icon) | ✅ | New ActivityBar entry — embeds the DeepAgent Studio canvas directly in the layout shell (no port-hopping) |
+| Subagent/Skill data merge | ✅ | DeepAgentEditor Subagents tab now reads from 4 fallback locations: `agent.subagents`, `agent.subagents_config`, `agent.config.subagents`, `agent.config.skills` |
+| String-array normalization | ✅ | When `skills` is a string list (just names), each entry gets wrapped as `{name: ...}` so the UI still renders |
+| Tab re-open fix | ✅ | LeftSidebar calls `openTab` twice for deep agents (immediately + on next tick) so the editor re-renders with the populated `agent` data after the async API call |
+
+### ✅ Phase 10: SSE Streaming Chat
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| chatStore streaming | ✅ | `sendStreamMessage()` matches `useChatStreaming` pattern — AbortController, thinking/tool phase tracking, SSE parsing |
+| DeepAgentEditor streaming | ✅ | Run button uses `/api/chat/message/stream` with incremental token display |
+| Stop button cancellation | ✅ | Stop button calls `chatStore.cancelStream()` which aborts the `AbortController` |
+| NodeSidebar streaming | ✅ | ChatSidebar prefers streaming when agent+session available, falls back to blocking POST |
+| Tool phase tracking | ✅ | Content before first `tool_start` event is tracked as "thinking" (reasoning trace) |
+
+### ✅ Phase 11: Bottom Panel Real Data
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Execution tab | ✅ | Shows real assistant/system messages from chatStore with streaming indicator |
+| Results tab | ✅ | Shows completed assistant responses with reasoning trace and latency markers |
+
+### ✅ Phase 12: Save DeepAgent Edits
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| JSON editor | ✅ | JSON section is now an editable textarea |
+| Save button | ✅ | Green Save button in toolbar calls `PUT /api/deepagents/{id}` |
+| Save feedback | ✅ | Success/error messages shown inline next to Save button
+
+### ✅ Phase 13: DeepAgent Creator (New Agent Form)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Creator form | ✅ | Name, description, category, system prompt, model, temperature |
+| Sidebar "New Agent" button | ✅ | Dashed-border button at TOP of tree view for deepagents activity |
+| Backend integration | ✅ | Submits via `POST /api/deepagents/`, auto-opens new agent in editor |
+| Default config | ✅ | Sanely defaults: memory backend, empty tools/subagents/middleware |
+
+### ✅ Phase 14: Theme Switcher (Dark / Warm / Light)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Theme selector | ✅ | Three color dots in StatusBar — Dark, Warm (Claude), Light (LangConfig) |
+| Persistence | ✅ | Uses existing `ThemeProvider`/`setTheme` from `lib/themes` |
+| Obsidian-style | ✅ | Click dots to instantly switch between 3 themes |
+
+### ✅ Phase 15: Models Sidebar (Out of Settings)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Models activity | ✅ | New ActivityBar icon (Sparkles) — replaces Model Cards section in Settings |
+| ModelCardsSidebar | ✅ | **Browser only** — list of providers with model counts; clicking a provider opens its cards in the editor area |
+| ModelCardsGridTab | ✅ | One provider per tab — grid of cards with capability badges, Test/Play/Set Default buttons, modality, pricing, speed |
+| ModelViewerTab (Play) | ✅ | Mirrors previous ModelPlaygroundModal: 8 preset chips, system prompt + 5 sliders + stop seqs, JSON/Tools/Stream toggles, image URL with live preview, animated typing dots, last-usage panel, Enter-to-send |
+| Internal scroll | ✅ | Chat scrolls inside the tab; latest message always visible at the bottom; tab header + BottomPanel never get clipped |
+| Test API Key | ✅ | Per-provider test button uses `/api/settings/api-keys/test` |
+| StatusBar integration | ✅ | StatusBar reads default from localStorage and shows active model |
+
+### ✅ Phase 16: Search Providers Activity (Out of Settings)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Search activity | ✅ | New ActivityBar icon (Globe) — replaces Search Providers section in Settings |
+| SearchProvidersSidebar | ✅ | **Browser only** — list of search providers (Tavily, DDG, Wikipedia, Exa, Brave, SerpAPI); clicking opens detail tab |
+| SearchProviderDetailTab | ✅ | Per-provider detail: description, capabilities, pricing, API key management (set/delete), Test Connection button, Docs link |
+| API key management | ✅ | Inline set/delete via encrypted `settings.api_keys` (same backend as chat providers) |
+
+### ✅ Phase 17: Agents Activity (Matching DeepAgents Pattern)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Agents activity (Users icon) | ✅ | New ActivityBar entry — sidebar lists agents from `deep_agent_templates` filtered by `use_deepagents: false` |
+| Structured Agent editor | ✅ | 4-section editor matching DeepAgent pattern: Overview / Prompt / Tools / JSON |
+| LLM model dropdown | ✅ | Defaults to model stored in `localStorage` under `langconfig.defaultModel` |
+| Unified builder pattern | ✅ | New agents initialized directly in editor tab (no separate creator form) |
+| Backend integration | ✅ | CRUD via existing `GET/PUT /api/deepagents/{id}` — same table, different filter flag |
+
+### ✅ Phase 18: Tools Activity (Full CRUD)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Tools activity (Wrench icon) | ✅ | New ActivityBar entry — sidebar lists tools from `GET /api/tools/registry` grouped by category |
+| ToolBrowserSidebar | ✅ | Category-grouped tree view with tool counts per category |
+| ToolCategoryTab | ✅ | Per-category detail: schema viewer, test runner, usage examples |
+| ToolEditor | ✅ | Full tool editor with inline test form and schema coercion |
+| CustomToolBuilderTab | ✅ | Create custom tools with name, description, schema, and implementation |
+| Test & validate | ✅ | Run tools inline and see results directly in the tab |
+
+### ✅ Phase 19: Interactive Tool Picker
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Tool picker in editors | ✅ | Both AgentEditor and DeepAgentEditor have an interactive tool picker to browse and select tools |
+| Tool call streaming | ✅ | Selected tools can be invoked and stream results directly within the editor |
+| Inline tool test | ✅ | Test individual tool calls without leaving the editor view |
+
+## Architecture
+
+```
+┌──────┬────────────┬───────────────────────┬──────────────┐
+│ Act  │ Side Bar   │ Editor                │ Right Panel  │
+│ Bar  │ (explorer/ │ (tabs + content)      │ Chat / Props │
+│      │  search)   ├───────────────────────┤              │
+│      │            │ Terminal / Exec / Results            │
+├──────┴────────────┴───────────────────────┴──────────────┤
+│ Status Bar (#007acc blue, full width)                    │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Layout / Flex Sizing Rules
+
+The whole layout uses a strict flex sizing chain so individual tabs can
+manage their own internal scroll without the page itself ever scrolling:
+
+```
+<div height:100vh, overflow:hidden>           ← App root (no page scroll)
+  <div flex:1, display:flex>                  ← main row
+    <div flex:1, flexDirection:column, minHeight:0>
+      <div flex:1, minHeight:0, display:flex> ← wraps Workspace
+        <Workspace>                            ← flex:1
+          <tab root: height:100%, overflow:hidden>
+            <tab header>                       ← flex-shrink:0
+            <tab body: flex:1, minHeight:0>   ← flex container
+              <chat col: flex:1, minHeight:0, overflow:hidden>
+                <scroll: flex:1, overflowY:auto, maxHeight:100%>
+                  ...messages
+                </scroll>
+              </chat col>
+            </tab body>
+            <tab input/presets: flex-shrink:0> ← fixed at bottom
+          </tab root>
+        </Workspace>
+      </div>
+      <BottomPanel>                            ← fixed
+    </div>
+  </div>
+</div>
+```
+
+**Critical rules** (any future tab MUST follow these):
+1. Every flex child needs `minHeight: 0` (or `minWidth: 0`) so the
+   flex sizing actually constrains it.
+2. Scroll containers must use `overflowY: auto` AND `maxHeight: 100%`
+   to guarantee they never break out of their parent.
+3. Tab roots must have `height: 100%, overflow: hidden` so each tab
+   manages its own scroll instead of pushing the page out.
+4. The auto-scroll must use `scrollIntoView({block:'end'})` on a
+   sentinel inside the chat — this only scrolls the nearest
+   scrollable ancestor (the chat container), not the page.
+
+### Activities (ActivityBar icons)
+
+| Icon | Activity | Sidebar Source | Notes |
+|------|----------|---------------|-------|
+| GitBranch | Workflows | `GET /api/workflows/` | Existing |
+| Brain | **DeepAgents** | `GET /api/deepagents/` | **Phase 5 — new** |
+| Users | **Agents** | `GET /api/deepagents/` filtered by `use_deepagents: false` | **Phase 17 — new** |
+| Sparkles | **Models** | `GET /api/agents/available-models` | **Phase 15 — new** |
+| Globe | **Search** | `GET /api/search-providers/` | **Phase 16 — new** |
+| BookOpen | Library (Knowledge) | `GET /api/rag/documents` — folder tree, upload, doc chat | Existing w/ simplified doc-chat backend |
+| Wrench | **Tools** | `GET /api/tools/registry` — grouped by category | **Phase 18 — new** |
+| BarChart3 | Analysis | TBD | Pending |
+| Settings | Settings | — | Hidden (no sidebar) |
+
+```
+App.tsx
+└── LayoutProvider (useLayout.tsx)
+    ├── ActivityBar (48px left, #181818)
+    │   ├── workflows   → /studio
+    │   ├── deepagents  → /deepagents       ← Phase 5
+    │   ├── agents      → /agents            ← Phase 17
+    │   ├── models      → /models            ← Phase 15
+    │   ├── search      → /search            ← Phase 16
+    │   ├── tools       → /tools             ← Phase 18
+    │   ├── library     → /library
+    │   ├── analysis    → /analysis
+    │   └── settings    → /settings
+    ├── [LeftSidebar (260px resizable)]
+    │   ├── Title bar: uppercase label + actions (search, new, refresh)
+    │   ├── SearchPanel (toggle: Cmd+Shift+F)
+    │   └── TreeView / ModernAgentLibrary / etc.
+    ├── [Center column] (flex 1)
+    │   ├── Workspace
+    │   │   ├── TabBar (35px, drag-reorder, middle-click close)
+    │   │   └── TabContentView → DeepAgentEditor (deepagent viewType)  ← Phase 5
+    │   │                      → AgentEditor     (agent viewType)      ← Phase 17
+    │   │                      → ToolEditor      (tool viewType)       ← Phase 18
+    │   │                      → FileEditor      (workflow viewType)
+    │   └── BottomPanel (collapsible)
+    │       ├── Terminal (terminal emulator)
+    │       ├── Execution (execution logs)
+    │       └── Results (execution output)
+    ├── [NodeSidebar (300px right)]
+    │   ├── Chat tab (always visible, default)
+    │   └── Properties tab (appears on node selection)
+    └── StatusBar (22px, #007acc blue)
+```
+
+## Layout Preview
+
+A standalone preview is available at `layout-preview.html`:
+
+```
+http://localhost:1421/layout-preview.html
+```
+
+The preview now defaults to the **DeepAgents** activity so you see real
+deep-agent data from PostgreSQL on load. Backend at `http://localhost:8765`,
+frontend at `http://localhost:1421`, Vite proxies `/api/*` to backend.
+
+## Phase 5 — DeepAgents Editor
+
+Clicking a deep agent in the sidebar opens [DeepAgentEditor.tsx](file:///Users/weiping/dev/Learn/langchain-ai/langconfig/src/components/layout2/DeepAgentEditor.tsx),
+a structured form-based view with a left-rail section nav:
+
+| Section | Content |
+|---------|---------|
+| **Overview** | Name, description, category, model, temperature, max_tokens, version, public, usage stats |
+| **Prompt** | `system_prompt` rendered as preformatted monospace text |
+| **Tools** | Native / CLI / Custom tools as colored chips |
+| **Subagents** | Collapsible cards — name, description, model, tools, system_prompt |
+| **Middleware** | List with ON/OFF badges + raw config JSON |
+| **Guardrails** | Auto-eviction, summarization, long-term memory, token limits, backend type |
+| **JSON** | Full raw agent config (power-user fallback) |
+
+The full agent object is fetched from `GET /api/deepagents/{id}` and cached
+on `tab.data.agent` so sections can read fields directly without re-fetching.
+
+## Key Decisions
+
+- **VS Code over Obsidian**: proper Agent IDE with dark theme (#181818 activity bar, #252526 sidebars, #1e1e1e editor, #007acc status bar)
+- **No Docker**: lightweight SPA + FastAPI, no containers
+- **Right sidebar always visible**: Chat by default, Properties tab on node selection
+- **Bottom panel inside center column**: only spans editor width, not across sidebars
+- **Both sidebars resizable**: VS Code-style drag-to-resize handles
+- **Unified sidebar shell**: LeftSidebar/NodeSidebar accept children — old components render inside the same shell
+- **Tab content from API**: sidebar loads real workflows from `GET /api/workflows/`, deep agents from `GET /api/deepagents/`, content from `GET /api/workflows/{id}/code` and `GET /api/deepagents/{id}`
+- **contentStore**: in-memory Map for session-persistent tab content
+- **chatStore**: module-level singleton for shared chat state (subscribe pattern, no Provider)
+- **ui-system.tsx**: shared UI primitives (IconButton, ToolbarButton, MenuButton, HeaderLabel, PanelHeader)
+- **Vite proxy for /api**: `VITE_API_BASE_URL` empty in dev so requests go through the same-origin proxy (no CORS)
+- **Port 1421 for layout shell**: original langconfig UI stays on 1420; layout shell + DeepAgents sidebar runs on 1421
+- **Thinking blocks**: optional `<think>...</think>` parsing from the LLM response, collapsible in the bubble. The model decides whether to emit them.
+
+## Phase 7 — DeepAgent Editor Toolbar
+
+Each DeepAgent tab has a 35px top action bar (VS Code run-toolbar style):
+
+```
+[ Test: <input prompt>    ] [▶ Run] [■ Stop]      ID: 1 · v1.0.0 · research
+```
+
+- Click **▶ Run** → `POST /api/chat/start` + `POST /api/chat/message` flow
+- The session id is stored on `chatStore`, so the right-sidebar chat panel
+  can send follow-ups without re-starting the session
+- The Run response is also pushed to `chatStore` as a user/assistant pair
+
+## Phase 8 — Right Sidebar Chat
+
+The NodeSidebar's Chat tab is the conversation window. It reads from
+`chatStore` and renders bubbles:
+
+| Bubble | Style | Actions |
+|--------|-------|---------|
+| User | blue, right-aligned | — |
+| Assistant | grey, left-aligned | Copy / Save / Re-run |
+| System | red, left-aligned | — |
+
+Assistant bubbles also expose a collapsible **🧠 Thinking (N chars)** button
+when the LLM emitted a `<think>...` block. The Save button downloads the
+full conversation as `.md`. Re-run resends the original user prompt and
+appends the new assistant reply.
+
+## Next Steps
+
+- Phase 20: Skills / Library sidebar categories (real backend integration)
+- Phase 21: Monaco editor for the JSON tab
+- Phase 22: Workflow canvas integration into Workspace
+- Phase 23: Real terminal emulator (xterm.js) for the Terminal tab

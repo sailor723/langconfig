@@ -9,7 +9,7 @@ REST API endpoints for managing local LLM configurations (Ollama, LM Studio, vLL
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, validator
 from typing import Optional, List
 from datetime import datetime
 import httpx
@@ -41,9 +41,14 @@ class LocalModelCreate(BaseModel):
 
     @validator('name')
     def validate_name(cls, v):
-        """Validate name format"""
-        if not v or not v.replace('-', '').replace('_', '').isalnum():
-            raise ValueError("Name must be alphanumeric with hyphens/underscores only")
+        """Validate name format.
+
+        Allows alphanumerics plus ``-``, ``_`` and ``.`` — dots are common in
+        model identifiers (``qwen3.6``, ``gpt-4o``), so the auto-generated
+        entry name (provider + model) must be allowed to keep them.
+        """
+        if not v or not v.replace('-', '').replace('_', '').replace('.', '').isalnum():
+            raise ValueError("Name must be alphanumeric with hyphens/underscores/dots only")
         return v.lower()
 
     @validator('base_url')
@@ -72,6 +77,7 @@ class LocalModelUpdate(BaseModel):
     model_name: Optional[str] = None
     api_key: Optional[str] = None
     tags: Optional[List[str]] = None
+    capabilities: Optional[dict] = None
 
     @validator('base_url')
     def validate_base_url(cls, v):
@@ -99,8 +105,8 @@ class LocalModelResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    # Pydantic V2 config: read from SQLAlchemy ORM objects.
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ValidationResult(BaseModel):
@@ -108,6 +114,10 @@ class ValidationResult(BaseModel):
     success: bool
     message: str
     model_count: Optional[int] = None
+    models: Optional[List[str]] = Field(
+        default_factory=list,
+        description="Model identifiers available on the local server (e.g. Ollama /models names).",
+    )
     capabilities: Optional[dict] = None
     error_details: Optional[str] = None
 
@@ -156,6 +166,15 @@ class LocalModelValidator:
                 data = response.json()
                 models = data.get("data", []) or data.get("models", [])
 
+                # Model identifiers: OpenAI-compatible /models returns
+                # [{id, ...}]; Ollama returns [{name, ...}]. Capture both so
+                # the UI can offer a dropdown of available models.
+                model_ids: List[str] = []
+                for m in models:
+                    mid = m.get("id") or m.get("name") or m.get("model") if isinstance(m, dict) else str(m)
+                    if mid:
+                        model_ids.append(str(mid))
+
                 # Try to infer capabilities
                 capabilities = {
                     "streaming": True,  # Most local servers support streaming
@@ -167,6 +186,7 @@ class LocalModelValidator:
                     success=True,
                     message=f"Connected successfully! Found {len(models)} model(s).",
                     model_count=len(models),
+                    models=model_ids,
                     capabilities=capabilities
                 )
 
@@ -357,6 +377,13 @@ async def update_local_model(
     if model_data.tags is not None:
         model.tags = model_data.tags
 
+    if model_data.capabilities is not None:
+        # Merge — keep capability flags (streaming/tools/...) and only replace
+        # the fields the client explicitly sends (e.g. max_context).
+        caps = dict(model.capabilities or {})
+        caps.update(model_data.capabilities)
+        model.capabilities = caps
+
     # Reset validation if connection details changed
     if connection_changed:
         model.is_validated = False
@@ -490,3 +517,72 @@ async def validate_config_without_saving(
     )
 
     return validation_result
+
+
+class LocalModelTestResult(BaseModel):
+    """Result of invoking a specific local model (real LLM call)."""
+    success: bool
+    message: str
+    response: Optional[str] = None
+    model_name: Optional[str] = None
+    error_details: Optional[str] = None
+
+
+@router.post("/{model_id}/test", response_model=LocalModelTestResult)
+async def test_local_model(model_id: int, db: Session = Depends(get_db)):
+    """
+    Test a SPECIFIC local model by making a real LLM call (like the SaaS
+    provider test). Sends a minimal prompt and returns the model's actual
+    response — proving the model itself works, not just that the server
+    is reachable.
+    """
+    model = db.query(LocalModel).filter(
+        LocalModel.id == model_id,
+        LocalModel.is_active == True
+    ).first()
+    if not model:
+        raise HTTPException(status_code=404, detail=f"Local model with ID {model_id} not found")
+
+    # Reuse the same config resolution the agent/playground path uses.
+    try:
+        from services.local_model_service import LocalModelService
+        from services.agent_utils import build_local_chat_model
+        from langchain_core.messages import HumanMessage
+
+        local_config = LocalModelService.get_local_model_config(model.name, db=db)
+        if not local_config:
+            return LocalModelTestResult(
+                success=False,
+                message=f"Local model '{model.name}' not found or not validated.",
+                model_name=model.model_name,
+            )
+
+        llm = build_local_chat_model(
+            local_config,
+            temperature=0.0,
+            max_tokens=24,
+            streaming=False,
+        )
+        resp = llm.invoke([HumanMessage(content="Reply with exactly: OK")])
+        text = getattr(resp, "content", "")
+        if isinstance(text, list):
+            text = " ".join(str(c) for c in text)
+
+        model.usage_count = (model.usage_count or 0) + 1
+        model.last_used_at = datetime.utcnow()
+        db.commit()
+
+        return LocalModelTestResult(
+            success=True,
+            message=f"Model '{model.model_name}' responded.",
+            response=str(text)[:200],
+            model_name=model.model_name,
+        )
+    except Exception as e:
+        logger.error(f"Local model test failed for {model.name}: {e}")
+        return LocalModelTestResult(
+            success=False,
+            message=f"Model '{model.model_name}' failed: {str(e)[:200]}",
+            model_name=model.model_name,
+            error_details=str(e),
+        )

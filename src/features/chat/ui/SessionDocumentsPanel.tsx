@@ -7,19 +7,30 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { File, Trash2, Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { File, Trash2, Loader2, CheckCircle, AlertCircle, Clock, Download } from 'lucide-react';
 import type { SessionDocument } from '../types/chat';
 import apiClient from '../../../lib/api-client';
+import { downloadFile } from '../utils/downloadFile';
 
 interface SessionDocumentsPanelProps {
   sessionId: string | null;
   refreshKey?: number;
 }
 
+interface GeneratedFile {
+  filename: string;
+  path: string;
+  size_bytes: number;
+  size_human?: string;
+  modified_at?: string;
+}
+
 export default function SessionDocumentsPanel({ sessionId, refreshKey }: SessionDocumentsPanelProps) {
   const { t } = useTranslation('chat');
   const [documents, setDocuments] = useState<SessionDocument[]>([]);
+  const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   useEffect(() => {
     if (sessionId) {
@@ -27,6 +38,7 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
     } else {
       setDocuments([]);
     }
+    loadGeneratedFiles();
   }, [sessionId, refreshKey]);
 
   const loadDocuments = async () => {
@@ -43,15 +55,28 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
     }
   };
 
-  const handleDelete = async (docId: number) => {
-    if (!window.confirm('Delete this document?')) return;
+  const loadGeneratedFiles = async () => {
+    if (!sessionId) {
+      setGeneratedFiles([]);
+      return;
+    }
+    try {
+      const response = await apiClient.get(`/api/chat/${sessionId}/generated-files`);
+      const files = Array.isArray(response.data?.files) ? response.data.files : [];
+      setGeneratedFiles(files);
+    } catch (error) {
+      console.error('Failed to load generated files:', error);
+    }
+  };
 
+  const handleDelete = async (docId: number) => {
     try {
       await apiClient.delete(`/api/chat/${sessionId}/documents/${docId}`);
       setDocuments(docs => docs.filter(d => d.id !== docId));
+      setDeleteConfirmId(null);
     } catch (error) {
       console.error('Failed to delete document:', error);
-      alert('Failed to delete document');
+      setDeleteConfirmId(null);
     }
   };
 
@@ -81,7 +106,7 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
     }
   };
 
-  if (!sessionId || documents.length === 0) return null;
+  if (!sessionId || (documents.length === 0 && generatedFiles.length === 0)) return null;
 
   return (
     <div
@@ -101,24 +126,45 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
       ) : (
         <div className="flex flex-wrap justify-center gap-1.5 max-h-24 overflow-y-auto">
           {documents.map(doc => (
-            <div
-              key={doc.id}
-              className="flex flex-col items-center gap-0.5 p-2 rounded-lg border relative"
-              style={{
-                backgroundColor: 'white',
-                borderColor: 'var(--color-border-dark)',
+          <div
+            key={doc.id}
+            className="flex flex-col items-center gap-0.5 p-2 rounded-lg border relative group"
+            style={{
+              backgroundColor: 'var(--color-background-light)',
+              borderColor: 'var(--color-border-dark)',
                 width: 'fit-content',
                 minWidth: '90px'
               }}
             >
               <button
-                onClick={() => handleDelete(doc.id)}
+                onClick={() => setDeleteConfirmId(doc.id)}
                 className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full transition-colors hover:bg-red-50"
                 title={t('delete_document')}
-                style={{ color: '#ef4444', backgroundColor: 'white', border: '1px solid var(--color-border-dark)' }}
+                style={{ color: '#ef4444', backgroundColor: 'var(--color-background-light)', border: '1px solid var(--color-border-dark)' }}
               >
                 <Trash2 className="w-2.5 h-2.5" />
               </button>
+              {deleteConfirmId === doc.id && (
+                <div className="absolute inset-0 rounded-lg flex items-center justify-center gap-1 z-10" style={{
+                  backgroundColor: 'rgba(255,255,255,0.95)',
+                }}>
+                  <span className="text-[10px] font-medium" style={{ color: 'var(--color-text-primary)' }}>Delete?</span>
+                  <button
+                    onClick={() => handleDelete(doc.id)}
+                    className="text-[10px] px-1.5 py-0.5 rounded font-medium text-white"
+                    style={{ backgroundColor: '#ef4444' }}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirmId(null)}
+                    className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                    style={{ backgroundColor: '#e5e7eb', color: 'var(--color-text-primary)' }}
+                  >
+                    No
+                  </button>
+                </div>
+              )}
               <div className="flex items-center justify-center gap-1 min-w-0">
                 <File className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
                 <span
@@ -130,6 +176,17 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
                 </span>
               </div>
               <div className="flex items-center justify-center gap-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                <button
+                  onClick={() => downloadFile(
+                    `/api/chat/${sessionId}/documents/${doc.id}/download`,
+                    undefined,
+                    doc.original_filename || doc.filename,
+                  )}
+                  className="p-0.5 rounded hover:bg-white/10"
+                  title="Download"
+                >
+                  <Download className="w-3 h-3" />
+                </button>
                 <span>{(doc.file_size / 1024).toFixed(0)}KB</span>
                 <span>•</span>
                 {getStatusIcon(doc.indexing_status)}
@@ -137,6 +194,57 @@ export default function SessionDocumentsPanel({ sessionId, refreshKey }: Session
             </div>
           ))}
         </div>
+      )}
+
+      {generatedFiles.length > 0 && (
+        <>
+          <h3
+            className="text-xs font-semibold mb-1.5"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
+            Generated Files ({generatedFiles.length})
+          </h3>
+          <div className="flex flex-wrap justify-center gap-1.5 max-h-32 overflow-y-auto">
+            {generatedFiles.map(file => (
+              <div
+                key={file.path}
+                className="flex flex-col items-center gap-0.5 p-2 rounded-lg border relative group"
+                style={{
+                  backgroundColor: 'var(--color-background-light)',
+                  borderColor: 'var(--color-border-dark)',
+                  width: 'fit-content',
+                  minWidth: '90px'
+                }}
+              >
+                <button
+                  onClick={() => downloadFile(
+                    '/api/workspace/by-path/download',
+                    { file_path: file.path },
+                    file.filename,
+                  )}
+                  className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full transition-colors hover:bg-white/10"
+                  title="Download"
+                  style={{ color: 'var(--color-primary)', backgroundColor: 'var(--color-background-light)', border: '1px solid var(--color-border-dark)' }}
+                >
+                  <Download className="w-2.5 h-2.5" />
+                </button>
+                <div className="flex items-center justify-center gap-1 min-w-0">
+                  <File className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
+                  <span
+                    className="text-[11px] font-medium truncate max-w-[80px]"
+                    style={{ color: 'var(--color-text-primary)' }}
+                    title={file.filename}
+                  >
+                    {file.filename}
+                  </span>
+                </div>
+                <div className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                  {file.size_human || `${(file.size_bytes / 1024).toFixed(0)}KB`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

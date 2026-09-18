@@ -244,7 +244,7 @@ def copy_to_project_dir_tool(source_path: str,
 @tool
 def upsert_doc_to_neo4j_tool(name: str, file_path: str,
                               about: str, supports: List[str],
-                              out_of_scope: List[str], few_shot: List[dict],
+                              few_shot: List[dict],
                               description: str = "", tags: Optional[List[str]] = None,
                               project_id: int = 1) -> str:
     """Upsert a Document node in Neo4j with LLM-enriched routing metadata.
@@ -257,7 +257,6 @@ def upsert_doc_to_neo4j_tool(name: str, file_path: str,
         file_path: Path to the file on disk.
         about: LLM-generated "what this document is about" (150-300 chars).
         supports: LLM-generated list of supported query strings.
-        out_of_scope: LLM-generated list of exact other-doc names.
         few_shot: LLM-generated list of {query, answer_hint} dicts.
         description: Optional description.
         tags: Optional list of tags.
@@ -272,7 +271,6 @@ def upsert_doc_to_neo4j_tool(name: str, file_path: str,
         enrichment = Neo4jDocumentEnrichment(
             what_this_document_is_about=about,
             supported_queries=supports,
-            out_of_scope=out_of_scope,
             few_shot=few_shot,
         )
         properties = build_document_node_properties(

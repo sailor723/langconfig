@@ -5,98 +5,24 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { X, GripVertical, BarChart3, FolderOpen } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
-import { useChatSession } from '../hooks/useChatSession';
-import { useChatStreaming } from '../hooks/useChatStreaming';
-import { useChatMetrics } from '../hooks/useChatMetrics';
+import { useChatController } from '../hooks/useChatController';
+import HitlInterruptModal from './HitlInterruptModal';
+import FilesPanel from './FilesPanel';
 import MetricsPanel from './MetricsPanel';
 import MessagesPanel from './MessagesPanel';
 import ChatHistorySidebar from './ChatHistorySidebar';
 import AgentSelector from './AgentSelector';
-import type { ChatSession, ChatStreamEvent, CustomEventPayload, InterruptData, ToolCall } from '../types/chat';
-import type { ThinkingStep } from './ThinkingBlock';
-import apiClient from '../../../lib/api-client';
-import { useProject } from '../../../contexts/ProjectContext';
+import SidePanel from './SidePanel';
 
 export default function GlobalChatModal() {
-  const { activeProjectId } = useProject();
-  const {
-    isOpen,
-    closeChat,
-    currentSessionId,
-    selectedAgentId,
-    hitlEnabled,
-    startSession,
-    switchSession,
-    endSession,
-    sessions
-  } = useChat();
+  const { isOpen, closeChat } = useChat();
+  // Shared chat controller (same logic as ChatPage) — modal shell only
+  const c = useChatController({ locale: 'zh', autoStart: isOpen });
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const [activeToolCalls, setActiveToolCalls] = useState<ToolCall[]>([]);
-  const [customEvents, setCustomEvents] = useState<Map<string, CustomEventPayload>>(new Map());
-  const [thinkingTraces, setThinkingTraces] = useState<ThinkingStep[][]>([]);
-  const [thinkingBuffer, setThinkingBuffer] = useState('');  // pre-tool-call thinking text
-  const tracesRef = useRef<ThinkingStep[]>([]);  // collect events during streaming
-
-  // HITL interrupt state
-  const [pendingInterrupt, setPendingInterrupt] = useState<InterruptData | null>(null);
-  const [isResuming, setIsResuming] = useState(false);
-
-  // Session management hook
-  const {
-    messages,
-    isLoading: isLoadingSession,
-    error: sessionError,
-    addMessage,
-    updateLastMessage,
-    loadHistory,
-    clearHistory,
-    setError: setSessionError
-  } = useChatSession(currentSessionId);
-
-  // Streaming hook
-  const {
-    sendMessage,
-    isStreaming,
-    error: streamingError,
-    clearError: clearStreamingError
-  } = useChatStreaming(currentSessionId, hitlEnabled);
-
-  // Metrics hook
-  const {
-    metrics,
-    toolCalls,
-    subagentActivity,
-    isLoading: isLoadingMetrics,
-    refresh: refreshMetrics
-  } = useChatMetrics(currentSessionId);
-
-  // Get current session details
-  const currentSession = sessions.find((s: ChatSession) => s.session_id === currentSessionId);
-
-  // Use selected agent name as fallback when session hasn't caught up yet
-  const [fallbackAgentName, setFallbackAgentName] = useState('');
-  useEffect(() => {
-    if (selectedAgentId) {
-      apiClient.listDeepAgents({ public_only: false }).then(res => {
-        const agents = res.data || [];
-        const agent = agents.find((a: any) => a.id === selectedAgentId);
-        if (agent) {
-          setFallbackAgentName(agent.name);
-          setAgentDescription(agent.description || '');
-        }
-      }).catch(() => {});
-    }
-  }, [selectedAgentId]);
-
-  const sessionMatchesSelected = currentSession && selectedAgentId && currentSession.agent_id === selectedAgentId;
-  const agentName = sessionMatchesSelected
-    ? (currentSession?.agent_name || fallbackAgentName || 'Agent')
-    : (fallbackAgentName || currentSession?.agent_name || 'Agent');
-  const [agentDescription, setAgentDescription] = useState('');
 
   // Handle ESC key
   useEffect(() => {
@@ -111,14 +37,6 @@ export default function GlobalChatModal() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, closeChat]);
-
-  // Auto-start session when modal opens with pre-selected agent
-  useEffect(() => {
-    if (isOpen && selectedAgentId && !currentSessionId) {
-      // Automatically start a session with the pre-selected agent
-      handleStartSession(selectedAgentId);
-    }
-  }, [isOpen, selectedAgentId, currentSessionId]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -140,193 +58,6 @@ export default function GlobalChatModal() {
     }
   };
 
-  // Handle starting a new session
-  const handleStartSession = async (agentId: number) => {
-    if (agentId !== 112) setSavedAgentId(null);
-    try {
-      await startSession(agentId);
-      // Fetch agent details and add welcome message
-      try {
-        const res = await apiClient.listDeepAgents({ public_only: false });
-        const agents = (res as any).data ?? [];
-        const agent = agents.find((a: any) => a.id === agentId);
-        const name = agent?.name || `Agent #${agentId}`;
-        const desc = agent?.description || '';
-        const welcome = desc
-          ? `👋 你好！我是 **${name}**。\n\n${desc}\n\n有什么我可以帮助你的吗？`
-          : `👋 你好！我是 **${name}**。有什么我可以帮助你的吗？`;
-        addMessage({
-          role: 'assistant',
-          content: welcome,
-          timestamp: new Date().toISOString(),
-        });
-      } catch {
-        // Silently fail — welcome message is optional
-      }
-    } catch (error) {
-      console.error('Failed to start session:', error);
-      setSessionError('Failed to start chat session');
-    }
-  };
-
-  // Handle starting a new session (from session selector)
-  const handleNewSession = async () => {
-    if (selectedAgentId) {
-      await handleStartSession(selectedAgentId);
-    }
-  };
-
-  // Handle sending a message
-  const handleSendMessage = async (message: string) => {
-    if (!currentSessionId) return;
-
-    // Clear any previous interrupt
-    setPendingInterrupt(null);
-
-    await sendMessage(
-      message,
-      addMessage,
-      updateLastMessage,
-      async () => {
-        // On complete: refresh metrics, save traces, clear active tools and custom events
-        await refreshMetrics();
-        setThinkingTraces(prev => [...prev, [...tracesRef.current]]);
-        tracesRef.current = [];
-        setActiveToolCalls([]);
-        setCustomEvents(new Map());
-        // Don't clear interrupt on complete (resume may also complete the stream)
-      },
-      (event: ChatStreamEvent) => {
-        // Handle tool events
-        if (event.type === 'tool_start' && event.tool_name) {
-          const skill_name = event.skill_name || null;
-          setActiveToolCalls(prev => [...prev, {
-            tool_name: event.tool_name!,
-            skill_name: skill_name,
-            arguments: event.data?.input || event.data?.args || {},
-            result: '',
-            timestamp: new Date().toISOString(),
-            status: 'running'
-          }]);
-          tracesRef.current = [...tracesRef.current, { type: 'tool_start', tool_name: event.tool_name, data: event.data }];
-        } else if (event.type === 'tool_end' && event.tool_name) {
-          const result = event.data?.output || '';
-          setActiveToolCalls(prev => prev.map(t =>
-            t.tool_name === event.tool_name && t.status === 'running'
-              ? { ...t, status: 'completed', result }
-              : t
-          ));
-          // Detect create_deepagent tool result → extract agent_id for Test/Tune buttons
-          if (event.tool_name === 'create_deepagent') {
-            const idMatch = result.match(/id=(\d+)/);
-            if (idMatch) {
-              setSavedAgentId(parseInt(idMatch[1], 10));
-            }
-          }
-          tracesRef.current = [...tracesRef.current, { type: 'tool_end', tool_name: event.tool_name, data: event.data }];
-        }
-      },
-      (event: ChatStreamEvent) => {
-        // Handle custom events (LangGraph-style progress, status, etc.)
-        if (event.type === 'custom_event' && event.data) {
-          const payload = event.data as CustomEventPayload;
-          const eventId = payload.event_id || `${payload.event_type}-${Date.now()}`;
-          setCustomEvents(prev => {
-            const next = new Map(prev);
-            next.set(eventId, payload);
-            return next;
-          });
-          tracesRef.current = [...tracesRef.current, { type: 'custom_event', tool_name: event.data?.tool_name, data: event.data }];
-        }
-      },
-      (event: ChatStreamEvent) => {
-        // Handle interrupt (HITL)
-        if (event.type === 'interrupt' && event.data) {
-          setPendingInterrupt(event.data as InterruptData);
-        }
-      },
-      (content: string) => {
-        // Handle thinking content (pre-tool-call text, not the final answer)
-        setThinkingBuffer(content);
-      }
-    );
-  };
-
-  // Resume from interrupt — approve/reject the tool call
-  const handleResume = async (action: 'approve' | 'reject' | 'edit' | 'respond', value?: string) => {
-    if (!currentSessionId) return;
-
-    setIsResuming(true);
-    try {
-      // Use raw fetch since apiClient doesn't have a resume method
-      const response = await fetch(`${apiClient.baseURL}/api/chat/${currentSessionId}/resume`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, value }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Resume failed: ${response.statusText}`);
-      }
-
-      // Clear interrupt state
-      setPendingInterrupt(null);
-
-      // Reload messages to show the resumed response
-      await loadHistory(currentSessionId);
-      await refreshMetrics();
-    } catch (err: any) {
-      console.error('Failed to resume:', err);
-    } finally {
-      setIsResuming(false);
-    }
-  };
-
-  // Handle ending the session
-  const handleEndSession = async () => {
-    if (!currentSessionId) return;
-
-    try {
-      await endSession(currentSessionId);
-      // Context will handle clearing currentSessionId
-    } catch (error) {
-      console.error('Failed to end session:', error);
-      setSessionError('Failed to end session');
-    }
-  };
-
-  const error = sessionError || streamingError;
-  const clearError = () => {
-    setSessionError(null);
-    clearStreamingError();
-  };
-
-  // ── Agent Creator workflow: Save / Test / Tune ─────────────
-  const isAgentCreator = currentSession?.agent_id === 112;
-  const [savedAgentId, setSavedAgentId] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  const handleSaveFromCreator = async () => {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      // Tell the Agent Creator to save the current design using create_deepagent tool
-      await handleSendMessage('请保存当前设计的 agent，使用 create_deepagent 工具写入数据库');
-      // The tool_end handler will detect the agent_id automatically
-      setSaving(false);
-    } catch (err: any) {
-      setSaveError(err?.message || 'Failed to send save request');
-      setSaving(false);
-    }
-  };
-
-  const handleTestNewAgent = () => {
-    if (savedAgentId) {
-      handleStartSession(savedAgentId);
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -338,72 +69,81 @@ export default function GlobalChatModal() {
         ref={modalRef}
         className="rounded-xl shadow-2xl w-full max-w-[95vw] h-[90vh] flex overflow-hidden"
         style={{
-          backgroundColor: 'white',
+          backgroundColor: 'var(--color-background-light)',
           border: '1px solid var(--color-border-dark)',
         }}
       >
-        {/* Left Sidebar - Conversation History (ChatGPT-style) */}
-        <ChatHistorySidebar onNewSession={handleNewSession} />
-
-        {/* Center + Right: Chat + Metrics */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Simple Header */}
+        {/* Left Sidebar + Resize Handle */}
+        <div className="flex flex-shrink-0" style={{ width: c.sidebarWidth }}>
+          <ChatHistorySidebar
+            onNewSession={c.handleNewSession}
+            onOpenFiles={() => c.togglePanel('files')}
+          />
+          {/* Resize Handle */}
           <div
-            className="flex items-center justify-between px-5 py-3"
+            onMouseDown={c.handleResizeStart}
+            className="w-2 cursor-col-resize flex items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors flex-shrink-0"
+            style={{
+              backgroundColor: c.isResizing ? 'var(--color-primary)' : 'transparent',
+            }}
           >
-            <div className="flex items-center gap-3">
-              {currentSessionId ? (
-                <div className="flex items-center gap-3">
-                  <AgentSelector
-                    selectedAgentId={selectedAgentId}
-                    onSelectAgent={handleStartSession}
-                    displayName={agentName}
-                  />
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <AgentSelector
-                    selectedAgentId={selectedAgentId}
-                    onSelectAgent={handleStartSession}
-                    displayName={agentName}
-                  />
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full"
-                    style={{
-                      backgroundColor: 'rgba(99,102,241,0.1)',
-                      color: 'var(--color-primary)',
-                    }}
-                  >
-                    Select an agent
-                  </span>
-                </div>
-              )}
-            </div>
+            <GripVertical className="w-3 h-3 opacity-30 hover:opacity-60 transition-opacity" />
+          </div>
+        </div>
+
+        {/* Center area: Chat */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Slim Header */}
+          <div className="flex items-center justify-between px-5 py-2 border-b" style={{ borderColor: 'var(--color-border-dark)' }}>
+            <AgentSelector
+              selectedAgentId={c.selectedAgentId}
+              onSelectAgent={c.handleStartSession}
+              displayName={c.agentName}
+            />
             <div className="flex items-center gap-1">
-              {/* Agent Creator workflow buttons */}
-              {isAgentCreator && currentSessionId && (
+              {/* Side panel toggles */}
+              {c.currentSessionId && (
                 <>
-                  {!savedAgentId ? (
+                  <button
+                    onClick={() => c.togglePanel('metrics')}
+                    className={`p-2 rounded-lg transition-colors ${c.showMetrics ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                    title={c.showMetrics ? 'Hide metrics' : 'Show metrics'}
+                  >
+                    <BarChart3 className="w-4 h-4" style={{ color: c.showMetrics ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
+                  </button>
+                  <button
+                    onClick={() => c.togglePanel('files')}
+                    className={`p-2 rounded-lg transition-colors ${c.showFiles ? 'bg-gray-100 dark:bg-gray-800' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+                    title={c.showFiles ? 'Hide files' : 'Show files'}
+                  >
+                    <FolderOpen className="w-4 h-4" style={{ color: c.showFiles ? 'var(--color-primary)' : 'var(--color-text-muted)' }} />
+                  </button>
+                </>
+              )}
+              {/* Agent Creator workflow buttons */}
+              {c.isAgentCreator && c.currentSessionId && (
+                <>
+                  {!c.savedAgentId ? (
                     <button
-                      onClick={handleSaveFromCreator}
-                      disabled={saving}
+                      onClick={c.handleSaveFromCreator}
+                      disabled={c.saving}
                       className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                       style={{
-                        background: saving
+                        background: c.saving
                           ? 'rgba(0, 109, 221, 0.5)'
                           : 'linear-gradient(135deg, #006DDD 0%, #7FC8FF 100%)',
                         color: '#FFFFFF',
-                        boxShadow: saving ? 'none' : '0 0 8px rgba(0, 109, 221, 0.3)',
-                        opacity: saving ? 0.7 : 1,
+                        boxShadow: c.saving ? 'none' : '0 0 8px rgba(0, 109, 221, 0.3)',
+                        opacity: c.saving ? 0.7 : 1,
                       }}
-                      title={saveError || 'Save designed agent to library'}
+                      title={c.saveError || 'Save designed agent to library'}
                     >
-                      {saving ? 'Saving...' : '💾 Save Agent'}
+                      {c.saving ? 'Saving...' : 'Save Agent'}
                     </button>
                   ) : (
                     <>
                       <button
-                        onClick={handleTestNewAgent}
+                        onClick={c.handleTestNewAgent}
                         className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                         style={{
                           background: 'linear-gradient(135deg, #006DDD 0%, #7FC8FF 100%)',
@@ -412,10 +152,10 @@ export default function GlobalChatModal() {
                         }}
                         title="Test with the newly created agent"
                       >
-                        🧪 Test New Agent
+                        Test New Agent
                       </button>
                       <button
-                        onClick={() => handleStartSession(112)}
+                        onClick={() => c.handleStartSession(112)}
                         className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                         style={{
                           background: 'rgba(99, 102, 241, 0.12)',
@@ -424,7 +164,7 @@ export default function GlobalChatModal() {
                         }}
                         title="Go back to Agent Creator for tuning"
                       >
-                        🔧 Tune
+                        Tune
                       </button>
                     </>
                   )}
@@ -442,158 +182,61 @@ export default function GlobalChatModal() {
 
           {/* Main Content */}
           <div className="flex flex-1 overflow-hidden">
-            {/* Messages Panel - Center */}
             <MessagesPanel
-              messages={messages}
-              isStreaming={isStreaming}
-              error={error}
-              onSendMessage={handleSendMessage}
-              onClearError={clearError}
-              disabled={!currentSessionId}
-              sessionId={currentSessionId}
-              projectId={activeProjectId}
-              activeToolCalls={activeToolCalls}
-              customEvents={customEvents}
-              thinkingTraces={thinkingTraces}
-              thinkingBuffer={thinkingBuffer}
-              agentName={agentName}
+              messages={c.messages}
+              isStreaming={c.isStreaming}
+              error={c.error}
+              onSendMessage={c.handleSendMessage}
+              onClearError={c.clearError}
+              disabled={!c.currentSessionId}
+              sessionId={c.currentSessionId}
+              projectId={c.activeProjectId}
+              activeToolCalls={c.activeToolCalls}
+              customEvents={c.customEvents}
+              thinkingTraces={c.thinkingTraces}
+              thinkingBuffer={c.thinkingBuffer}
+              agentName={c.agentName}
             />
-
-            {/* Metrics Panel - Right Sidebar */}
-            <MetricsPanel
-              metrics={metrics}
-              toolCalls={toolCalls}
-              activeToolCalls={activeToolCalls}
-              subagentActivity={subagentActivity}
-              isLoading={isLoadingMetrics}
-              agentName={agentName}
-              agentDescription={agentDescription}
-              sessionId={currentSessionId}
-            />
+            {c.currentSessionId && c.showMetrics && (
+              <SidePanel
+                width={c.panelWidth}
+                isResizing={c.isPanelResizing}
+                onResizeStart={c.handlePanelResizeStart}
+              >
+                <MetricsPanel
+                  metrics={c.metrics}
+                  toolCalls={c.toolCalls}
+                  activeToolCalls={c.activeToolCalls}
+                  subagentActivity={c.subagentActivity}
+                  isLoading={c.isLoadingMetrics}
+                  agentName={c.agentName}
+                  agentDescription={c.agentDescription}
+                  sessionId={c.currentSessionId}
+                />
+              </SidePanel>
+            )}
+            {c.currentSessionId && c.showFiles && (
+              <SidePanel
+                width={c.panelWidth}
+                isResizing={c.isPanelResizing}
+                onResizeStart={c.handlePanelResizeStart}
+              >
+                <FilesPanel
+                  sessionId={c.currentSessionId}
+                  onClose={() => c.togglePanel('files')}
+                />
+              </SidePanel>
+            )}
           </div>
         </div>
       </div>
-
       {/* HITL Interrupt Modal */}
-      {pendingInterrupt && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]"
-          onClick={() => {}}  // Don't close on backdrop click
-        >
-          <div
-            className="bg-white dark:bg-panel-dark rounded-xl w-full max-w-lg shadow-2xl border"
-            style={{ borderColor: 'var(--color-border-dark)' }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="px-5 py-3 rounded-t-xl" style={{ backgroundColor: '#f59e0b' }}>
-              <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                ⏸️ Human Approval Required
-              </h3>
-              <p className="text-xs text-white/80 mt-0.5">
-                An agent action needs your approval before proceeding
-              </p>
-            </div>
-
-            {/* Body */}
-            <div className="p-5 space-y-4">
-              {pendingInterrupt.action_requests?.map((req, i) => (
-                <div key={i} className="p-3 rounded-lg border" style={{
-                  borderColor: 'var(--color-border-dark)',
-                  backgroundColor: 'var(--color-background-light)'
-                }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                      {req.name}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-                      Tool Call
-                    </span>
-                  </div>
-                  <div className="text-xs space-y-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    {req.description && (
-                      <p className="italic">{req.description}</p>
-                    )}
-                    {req.args && Object.keys(req.args).length > 0 && (
-                      <pre className="mt-1 p-2 rounded text-xs font-mono overflow-x-auto" style={{
-                        backgroundColor: 'var(--color-background)',
-                        color: 'var(--color-text-primary)',
-                        maxHeight: '120px'
-                      }}>
-                        {JSON.stringify(req.args, null, 2)}
-                      </pre>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {(!pendingInterrupt.action_requests || pendingInterrupt.action_requests.length === 0) && (
-                <div className="p-3 rounded-lg border" style={{
-                  borderColor: 'var(--color-border-dark)',
-                  backgroundColor: 'var(--color-background-light)'
-                }}>
-                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                    Agent paused before executing actions.
-                  </p>
-                  {pendingInterrupt.tool_calls && pendingInterrupt.tool_calls.length > 0 && (
-                    <pre className="mt-2 p-2 rounded text-xs font-mono overflow-x-auto" style={{
-                      backgroundColor: 'var(--color-background)',
-                      color: 'var(--color-text-primary)',
-                      maxHeight: '120px'
-                    }}>
-                      {JSON.stringify(pendingInterrupt.tool_calls, null, 2)}
-                    </pre>
-                  )}
-                  {pendingInterrupt.next_nodes && (
-                    <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                      Next nodes: {pendingInterrupt.next_nodes.join(', ')}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="px-5 py-3 border-t flex items-center justify-end gap-2" style={{
-              borderColor: 'var(--color-border-dark)'
-            }}>
-              <button
-                onClick={() => handleResume('reject')}
-                disabled={isResuming}
-                className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
-                style={{
-                  borderColor: 'var(--color-border-dark)',
-                  color: 'var(--color-text-primary)',
-                  backgroundColor: 'var(--color-background-light)'
-                }}
-              >
-                Reject
-              </button>
-              {pendingInterrupt.review_configs?.[0]?.allowed_decisions?.includes('edit') && (
-                <button
-                  onClick={() => handleResume('edit')}
-                  disabled={isResuming}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
-                  style={{
-                    borderColor: 'var(--color-border-dark)',
-                    color: 'var(--color-text-primary)',
-                    backgroundColor: 'var(--color-background-light)'
-                  }}
-                >
-                  Edit
-                </button>
-              )}
-              <button
-                onClick={() => handleResume('approve')}
-                disabled={isResuming}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: '#16a34a' }}
-              >
-                {isResuming ? 'Resuming...' : 'Approve'}
-              </button>
-            </div>
-          </div>
-        </div>
+      {c.pendingInterrupt && (
+        <HitlInterruptModal
+          pendingInterrupt={c.pendingInterrupt}
+          isResuming={c.isResuming}
+          onResume={c.handleResume}
+        />
       )}
     </div>
   );

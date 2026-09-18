@@ -11,12 +11,66 @@ using Fernet symmetric encryption.
 """
 import os
 import base64
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Documented env var (root .env / env_example). Legacy name kept for
+# backward compatibility with deployments that set APP_ENCRYPTION_KEY.
+ENCRYPTION_KEY_ENV = "API_KEY_ENCRYPTION_KEY"
+ENCRYPTION_KEY_ENV_LEGACY = "APP_ENCRYPTION_KEY"
+# Dev-only fallback. Never used when ENVIRONMENT=production.
+DEV_FALLBACK_KEY = "langconfig-dev-insecure-key-change-me"
+
+# Fernet tokens always start with the version byte 0x80, base64-encoded as
+# "gAAAA". Used to distinguish encrypted values from legacy plaintext.
+_FERNET_PREFIX = "gAAAA"
+
+
+def _resolve_key_str() -> str:
+    """Resolve the Fernet key seed.
+
+    Priority: settings (pydantic, from .env) → documented env var →
+    legacy env var → dev fallback. In production the fallback is refused.
+    """
+    try:
+        from config import settings
+        configured = getattr(settings, "api_key_encryption_key", None)
+        if configured:
+            return configured
+    except Exception:
+        pass
+
+    key_str = os.getenv(ENCRYPTION_KEY_ENV) or os.getenv(ENCRYPTION_KEY_ENV_LEGACY)
+    if key_str:
+        return key_str
+
+    env = os.getenv("ENVIRONMENT", "development")
+    if env == "production":
+        raise RuntimeError(
+            f"{ENCRYPTION_KEY_ENV} must be set in production — refusing to "
+            "encrypt secrets with a well-known fallback key"
+        )
+    logger.warning(
+        "%s not set — using a DEV fallback encryption key. Set it in the "
+        "root .env before storing real secrets.", ENCRYPTION_KEY_ENV
+    )
+    return DEV_FALLBACK_KEY
+
+
+def _derive_fernet_key(key_str: str) -> bytes:
+    salt = b'langconfig_salt'  # Fixed salt for deterministic key derivation
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    return base64.urlsafe_b64encode(kdf.derive(key_str.encode()))
+
 
 class EncryptionService:
     _instance = None
@@ -28,28 +82,23 @@ class EncryptionService:
             cls._instance._initialize()
         return cls._instance
 
-    def _initialize(self):
-        """Initialize the encryption key from environment or generate a default."""
+    def _initialize(self, key_str: str = None):
+        """Initialize the encryption key from environment or a dev default.
+
+        key_str is only used by tests/reset; production always resolves from
+        the environment.
+        """
         try:
-            # Get encryption key from env or use a default (for dev/self-hosted)
-            # In production, this should be strictly managed
-            key_str = os.getenv("APP_ENCRYPTION_KEY", "langconfig-default-insecure-key-change-me")
-
-            # Derive a secure 32-byte key from the string
-            salt = b'langconfig_salt' # Fixed salt for deterministic key generation from the env var
-            kdf = PBKDF2HMAC(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=salt,
-                iterations=100000,
-            )
-            key = base64.urlsafe_b64encode(kdf.derive(key_str.encode()))
-
-            self._fernet = Fernet(key)
+            source = key_str if key_str is not None else _resolve_key_str()
+            self._fernet = Fernet(_derive_fernet_key(source))
             logger.info("Encryption service initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize encryption service: {e}")
             raise
+
+    def reset(self, key_str: str = None):
+        """Re-initialize the singleton with a specific key (tests only)."""
+        self._initialize(key_str=key_str)
 
     def encrypt(self, data: str) -> str:
         """Encrypt a string value."""
@@ -62,15 +111,34 @@ class EncryptionService:
             raise
 
     def decrypt(self, encrypted_data: str) -> str:
-        """Decrypt an encrypted string value."""
+        """Decrypt an encrypted string value.
+
+        Legacy plaintext values (not Fernet tokens) pass through unchanged for
+        backward compatibility. A Fernet-shaped value that fails to decrypt
+        raises instead of silently returning ciphertext — otherwise a key
+        rotation would feed undecryptable tokens to consumers as if they were
+        the real secrets.
+        """
         if not encrypted_data:
+            return encrypted_data
+        if not encrypted_data.startswith(_FERNET_PREFIX):
+            # Legacy plaintext (or an empty/malformed value) — pass through.
             return encrypted_data
         try:
             return self._fernet.decrypt(encrypted_data.encode()).decode()
+        except InvalidToken:
+            logger.error(
+                "Failed to decrypt Fernet token — the encryption key has "
+                "changed since this value was stored, or the value is corrupt"
+            )
+            raise ValueError(
+                "Stored secret cannot be decrypted with the current "
+                f"{ENCRYPTION_KEY_ENV}. If the key was rotated, re-encrypt the "
+                "stored secrets (or clear the affected DB rows)."
+            ) from None
         except Exception as e:
             logger.error(f"Decryption failed: {e}")
-            # Return original data if decryption fails (backward compatibility for unencrypted data)
-            return encrypted_data
+            raise
 
 # Global instance
 encryption_service = EncryptionService()

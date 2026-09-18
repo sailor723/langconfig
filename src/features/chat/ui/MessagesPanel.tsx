@@ -6,19 +6,16 @@
  */
 
 import { useRef, useEffect, useState } from 'react';
-import { Activity, Copy, CheckCircle, AlertCircle, X, User, Bot, Brain, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2 } from 'lucide-react';
+import { Activity, Copy, CheckCircle, AlertCircle, X, Brain, User, ChevronDown, ChevronRight, Wrench, BarChart3, Loader2, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { ChatMessage, CustomEventPayload, ToolCall } from '../types/chat';
-import MessageInput from './MessageInput';
 import CodexMessageInput from './CodexMessageInput';
-import SessionDocumentsPanel from './SessionDocumentsPanel';
-import ThinkingBlock from './ThinkingBlock';
 import AnalysisPanel from './AnalysisPanel';
-import type { ThinkingStep } from './ThinkingBlock';
 import { ContentBlockRenderer } from '@/components/common/ContentBlockRenderer';
+import type { ThinkingStep } from './ThinkingBlock';
 import { ProgressCard, StatusBadge, FileOperationCard } from '@/features/workflows/execution/CustomEventCards';
 import type { ProgressEvent, StatusEvent, FileStatusEvent } from '@/hooks/useCustomEvents';
 
@@ -56,8 +53,9 @@ export default function MessagesPanel({
 }: MessagesPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [documentsRefreshKey, setDocumentsRefreshKey] = useState(0);
   const [showThinking, setShowThinking] = useState(false);
+  const streamingStartRef = useRef<number>(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
   // Analysis panel state — dashboard auto-generated after CSV upload
   const [dashboardUrl, setDashboardUrl] = useState('');
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -67,8 +65,22 @@ export default function MessagesPanel({
   // Derive project name for Codex empty state heading
   const projectName = agentName || 'my workspace';
 
+  // Live timer for streaming thinking duration
+  useEffect(() => {
+    if (!isStreaming) {
+      setElapsedMs(0);
+      return;
+    }
+    if (streamingStartRef.current === 0) streamingStartRef.current = Date.now();
+    const interval = setInterval(() => {
+      setElapsedMs(Date.now() - streamingStartRef.current);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [isStreaming]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
+    if (isStreaming) return;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming]);
 
@@ -76,6 +88,16 @@ export default function MessagesPanel({
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
+  };
+  const downloadAsFile = (text: string, filename: string) => {
+    navigator.clipboard.writeText(text);
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // ── CSV upload handler — calls /api/analysis/init + shows dashboard ─
@@ -98,24 +120,10 @@ export default function MessagesPanel({
         setAnalysisMeta({ rowCount: data.row_count, colCount: data.col_count });
         setShowAnalysis(true);
         setCsvUploading(false);
-        if (onSendMessage) {
-          onSendMessage(
-            `I loaded ${filename} (${data.row_count} rows, ${data.col_count} columns). ` +
-              `Here's a quick overview: what columns and data types does it have? ` +
-              `Then summarize the key metrics.`
-          );
-        }
       })
       .catch((err) => {
         console.error('Analysis init failed:', err);
         setCsvUploading(false);
-        if (onSendMessage) {
-          onSendMessage(
-            `I loaded ${filename}. ` +
-              `Here's a quick overview: what columns and data types does it have? ` +
-              `Then summarize the key metrics.`
-          );
-        }
       });
   };
 
@@ -126,29 +134,26 @@ export default function MessagesPanel({
   return (
     <div className="flex-1 flex flex-col min-w-0" style={{ backgroundColor: 'var(--color-background-light)' }}>
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-6 pt-4 pb-2">
         {messages.length === 0 && !disabled && useCodexLayout ? (
           // Codex-style empty state: centered heading + composer
           <div className="flex flex-col items-center justify-center h-full min-h-full px-6">
             <div className="w-full max-w-xl">
-              <h1 className="text-2xl font-semibold mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>
+              <h1 className="text-xl font-semibold mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>
                 What should we build in <span className="font-bold">{projectName}</span>?
               </h1>
-              <p className="text-sm mb-6 text-center" style={{ color: 'var(--color-text-muted)' }}>
-                Ask anything — code, data analysis, document Q&A, or just chat
-              </p>
               <CodexMessageInput
                 onSendMessage={onSendMessage}
                 disabled={disabled}
                 isStreaming={isStreaming}
-                placeholder={disabled ? "Select an agent first..." : "Do anything"}
+                placeholder={disabled ? "No agent selected" : "Do anything"}
                 sessionId={sessionId}
                 projectId={projectId}
                 onFileUploaded={(file) => {
-                  handleCsvUpload(file.filename);
-                  onSendMessage(
-                    `A new document "${file.filename}" has been uploaded. Please read it and provide a briefing.`
-                  );
+                  // Data files trigger the analysis dashboard; other uploads stay silent
+                  if (/\.(csv|db|sqlite|sqlite3)$/i.test(file.filename)) {
+                    handleCsvUpload(file.filename);
+                  }
                 }}
                 agentName={agentName}
               />
@@ -166,7 +171,7 @@ export default function MessagesPanel({
                 style={{
                   backgroundColor: 'var(--color-primary)',
                   color: 'white',
-                  fontSize: '1.25rem',
+                  fontSize: '1rem',
                 }}
               >
                 ✦
@@ -182,34 +187,28 @@ export default function MessagesPanel({
             </div>
           </div>
         ) : (
-          <div className="w-full space-y-3 mx-8">
+          <div className="w-full space-y-3 px-8">
 
           {messages.map((message, index) => (
             <div
               key={index}
-              className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+              className="flex items-start gap-2 mb-4 group"
             >
-              {/* Avatar */}
-              {message.role !== 'system' && (
+              {/* AI avatar — left side */}
+              {message.role === 'assistant' && (
                 <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{
-                    backgroundColor: message.role === 'user' ? 'var(--color-primary)' : '#e5e7eb',
-                    color: message.role === 'user' ? 'white' : '#6b7280',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                    color: '#3b82f6',
+                    marginTop: 2,
                   }}
                 >
-                  {message.role === 'user' ? (
-                    <User className="w-4 h-4" />
-                  ) : (
-                    <Bot className="w-4 h-4" style={{ color: '#6b7280' }} />
-                  )}
+                  <Brain size={14} strokeWidth={2} />
                 </div>
               )}
 
-              {/* Message Content */}
-              <div className={`flex-1 ${message.role === 'user' ? 'flex justify-end' : ''}`}>
+              <div className={`min-w-0 ${message.role === 'user' ? 'max-w-[60%] ml-auto' : 'max-w-[80%]'}`}>
                 <div className={`${message.role === 'system' ? 'text-center w-full' : 'max-w-6xl'}`}>
                   {message.role === 'system' ? (
                     <div
@@ -223,22 +222,25 @@ export default function MessagesPanel({
                     </div>
                   ) : (
                     <>
-                      {/* Message Bubble */}
+                      {/* Message Content */}
                       <div
-                        className={`rounded-2xl px-3.5 py-2 ${
-                          message.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'
-                        }`}
-                        style={{
-                          backgroundColor: message.role === 'user' ? 'var(--color-primary)' : 'white',
-                          color: message.role === 'user' ? 'white' : 'var(--color-text-primary)',
-                          boxShadow: message.role === 'assistant' ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
-                          lineHeight: '1.5',
+                          style={{
+                            padding: message.role === 'user' ? '8px 12px' : '4px 0',
+                            marginLeft: message.role === 'user' ? '0' : '0',
+                            minWidth: 0,
+                            overflowWrap: 'anywhere',
+                            wordBreak: 'break-word',
+                            // User messages: subtle bg color, no border
+                            // AI messages: no bg, no border
+                            backgroundColor: message.role === 'user' ? 'var(--color-background-dark)' : 'transparent',
+                          border: 'none',
+                          borderRadius: message.role === 'user' ? '8px' : '0',
                         }}
                       >
                         <div
-                          className="prose prose-xs max-w-none"
+                          className="prose prose-sm max-w-none"
                           style={{
-                            color: message.role === 'user' ? 'white' : 'inherit',
+                            color: message.role === 'user' ? 'var(--color-text-primary)' : 'inherit',
                             lineHeight: '1.55',
                             fontSize: '0.75rem',
                           }}
@@ -249,7 +251,7 @@ export default function MessagesPanel({
                               code({ node, inline, className, children, ...props }: any) {
                                 const match = /language-(\w+)/.exec(className || '');
                                 return !inline && match ? (
-                                  <div className="relative group my-2">
+                                  <div className="relative group my-2" style={{ maxWidth: '100%', minWidth: 0, overflowX: 'auto' }}>
                                     <SyntaxHighlighter
                                       style={vscDarkPlus}
                                       language={match[1]}
@@ -266,10 +268,10 @@ export default function MessagesPanel({
                                   </div>
                                 ) : (
                                   <code
-                                    className={`${className} px-1 py-0.5 rounded text-[0.7rem]`}
+                                    className={`${className} px-1 py-0.5 rounded text-[0.75rem]`}
                                     style={{
-                                      backgroundColor: message.role === 'user' ? 'rgba(255,255,255,0.2)' : '#f3f4f6',
-                                      color: message.role === 'user' ? 'white' : '#1f2937',
+                                      backgroundColor: message.role === 'user' ? '#f1f5f9' : '#f3f4f6',
+                                      color: message.role === 'user' ? '#334155' : '#1f2937',
                                       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                                     }}
                                     {...props}
@@ -288,7 +290,7 @@ export default function MessagesPanel({
                                 return <ol style={{ marginLeft: '1.1rem', marginBottom: '0.5rem' }}>{children}</ol>;
                               },
                               h1({ children }) {
-                                return <h1 style={{ fontSize: '0.95rem', fontWeight: '600', marginTop: '0.6rem', marginBottom: '0.3rem' }}>{children}</h1>;
+                                return <h1 style={{ fontSize: '1rem', fontWeight: '600', marginTop: '0.6rem', marginBottom: '0.3rem' }}>{children}</h1>;
                               },
                               h2({ children }) {
                                 return <h2 style={{ fontSize: '0.875rem', fontWeight: '600', marginTop: '0.55rem', marginBottom: '0.3rem' }}>{children}</h2>;
@@ -304,7 +306,7 @@ export default function MessagesPanel({
                                       style={{
                                         width: '100%',
                                         borderCollapse: 'collapse',
-                                        fontSize: '0.7rem',
+                                        fontSize: '0.75rem',
                                         border: '1px solid #e5e7eb',
                                         borderRadius: '0.375rem',
                                         overflow: 'hidden',
@@ -381,171 +383,173 @@ export default function MessagesPanel({
                         )}
                       </div>
 
-                      {/* Thinking Block — show tool calls for this assistant message */}
-                      {message.role === 'assistant' && (() => {
-                        const aiIdx = messages.slice(0, index + 1).filter(m => m.role === 'assistant').length - 1;
-                        const trace = thinkingTraces[aiIdx] || [];
-                        return <ThinkingBlock steps={trace} />;
-                      })()}
-
-                      {/* During streaming: thinking toggle inside the last assistant message */}
-                      {isStreaming && message.role === 'assistant' && index === messages.length - 1 && (activeToolCalls.length > 0 || thinkingBuffer) && (
-                        <div className="mt-1 px-2">
+                      {/* Thinking & Tool Calls toggle */}
+                      {message.role === 'assistant' && index === messages.length - 1 && (isStreaming && (activeToolCalls.length > 0 || thinkingBuffer)) && (
+                        <div className="mt-2">
+                          {/* Toggle button */}
                           <button
                             onClick={() => setShowThinking(v => !v)}
-                            className="flex items-center gap-1 text-xs transition-colors rounded px-1.5 py-0.5 hover:bg-black/5"
+                            className="flex items-center gap-1.5 text-[11px] font-medium transition-colors rounded-md px-2 py-1 hover:bg-black/5"
                             style={{ color: 'var(--color-text-muted)' }}
                           >
                             {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
                             <Brain className="w-3 h-3" />
-                            <span>{showThinking ? 'Hide thinking' : `Show thinking (${activeToolCalls.length} active)`}</span>
+                            <span>Thinking ({activeToolCalls.length} step{activeToolCalls.length !== 1 ? 's' : ''})</span>
+                            <span className="text-[10px] ml-0.5">{(elapsedMs / 1000).toFixed(1)}s</span>
+                            {!showThinking && activeToolCalls.some(t => t.status === 'running') && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse ml-1" />
+                            )}
                           </button>
-                          {/* Expanded: show thinking text */}
-                          {showThinking && thinkingBuffer && (
-                            <div
-                              className="mt-1 rounded-lg border p-3 text-xs whitespace-pre-wrap"
+
+                          {/* Expanded content */}
+                          {showThinking && (
+                            <div className="mt-1.5 rounded-lg border-l-2 p-2.5 text-xs space-y-1.5"
                               style={{
-                                backgroundColor: 'rgba(99,102,241,0.04)',
+                                borderLeftColor: 'var(--color-primary)',
                                 borderColor: 'var(--color-border-dark, #e5e7eb)',
-                                color: 'var(--color-text-muted)',
+                                backgroundColor: 'var(--color-input-background, #f9fafb)',
                               }}
                             >
-                              {thinkingBuffer}
+                              {/* Thinking buffer (current work) */}
+                              {thinkingBuffer && (
+                                <div className="flex items-start gap-1.5">
+                                  <span className="text-muted flex-shrink-0 mt-0.5">💡</span>
+                                  <div style={{ color: 'var(--color-text-muted)' }} className="text-[11px] leading-relaxed">{thinkingBuffer}</div>
+                                </div>
+                              )}
+                              {/* Todo steps from planning */}
+                              {(() => {
+                                const steps = Array.from(customEvents.entries())
+                                  .filter(([_, ev]) => ev.event_type === 'progress' || ev.event_type === 'status')
+                                  .map(([id, ev]) => ({
+                                    id,
+                                    label: ev.payload.label || ev.event_type,
+                                    status: ev.event_type === 'progress'
+                                      ? (ev.payload.status || 'running')
+                                      : (ev.payload.status || 'pending'),
+                                    message: ev.payload.message || '',
+                                  }));
+                                if (steps.length === 0) return null;
+                                const runningCount = steps.filter(s => s.status === 'running').length;
+                                const doneCount = steps.filter(s => s.status === 'success').length;
+                                return (
+                                  <div className="space-y-0.5 mb-1">
+                                    <div className="text-[10px] font-medium mb-1" style={{ color: 'var(--color-text-muted)' }}>
+                                      Plan ({doneCount}/{steps.length})
+                                    </div>
+                                    {steps.map((step) => (
+                                      <div key={step.id} className="flex items-center gap-1.5 text-[11px]">
+                                        <span className="flex-shrink-0">
+                                          {step.status === 'success' ? '✅' :
+                                           step.status === 'running' ? '🔄' :
+                                           step.status === 'error' ? '❌' : '⏳'}
+                                        </span>
+                                        <span style={{ color: 'var(--color-text-primary)' }}>{step.label}</span>
+                                        {step.status === 'running' && (
+                                          <span className="text-blue-500 text-[10px] animate-pulse">in progress...</span>
+                                        )}
+                                        {step.message && step.status !== 'running' && (
+                                          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>{step.message}</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
+                              {/* Tool calls (action steps) */}
+                              {activeToolCalls.map((tc, i) => (
+                                <div key={i} className="flex items-start gap-1.5">
+                                  <span className="flex-shrink-0 mt-0.5">{tc.status === 'running' ? '🔧' : '✅'}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono font-medium text-xs" style={{ color: 'var(--color-text-primary)' }}>
+                                        {tc.tool_name}
+                                      </span>
+                                      {tc.status === 'running' ? (
+                                        <span className="text-blue-500 text-[10px] animate-pulse">running...</span>
+                                      ) : (
+                                        <span style={{ color: '#10b981' }} className="text-[10px]">done</span>
+                                      )}
+                                      <span className="text-[10px] ml-auto" style={{ color: 'var(--color-text-muted)' }}>
+                                        {tc.timestamp ? ((Date.now() - new Date(tc.timestamp).getTime()) / 1000).toFixed(1) + 's' : ''}
+                                      </span>
+                                    </div>
+                                    {tc.arguments && Object.keys(tc.arguments).length > 0 && Object.values(tc.arguments).some(v => v) && (
+                                      <div className="text-[10px] truncate mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                                        {JSON.stringify(tc.arguments).slice(0, 120)}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                              {/* Total elapsed */}
+                              <div className="text-[10px] pt-1 border-t" style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-border-dark)' }}>
+                                Total: {(elapsedMs / 1000).toFixed(1)}s
+                              </div>
                             </div>
                           )}
                         </div>
                       )}
 
                       {/* Message Footer */}
-                      <div className={`flex items-center gap-2 mt-2 px-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className="flex items-center gap-3 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <span
-                          className="text-xs"
+                          className="text-[11px]"
                           style={{ color: 'var(--color-text-muted)' }}
                         >
-                          {new Date(message.timestamp).toLocaleTimeString()}
+                          {message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Assistant' : 'System'} · {new Date(message.timestamp).toLocaleTimeString()}
                         </span>
-
                         <button
                           onClick={() => copyToClipboard(message.content, index)}
-                          className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+                          className="p-1 hover:bg-gray-200 rounded transition-colors"
                           title="Copy message"
                           style={{ color: 'var(--color-text-muted)' }}
                         >
                           {copiedIndex === index ? (
-                            <CheckCircle className="w-3.5 h-3.5" style={{ color: '#10b981' }} />
+                            <CheckCircle className="w-3 h-3" style={{ color: '#10b981' }} />
                           ) : (
-                            <Copy className="w-3.5 h-3.5" />
+                            <Copy className="w-3 h-3" />
                           )}
+                        </button>
+                        <button
+                          onClick={() => downloadAsFile(message.content, `${message.role === 'assistant' ? 'answer' : 'question'}-${index}.md`)}
+                          className="p-1 hover:bg-gray-200 rounded transition-colors"
+                          title="Download as file"
+                          style={{ color: 'var(--color-text-muted)' }}
+                        >
+                          <Download className="w-3 h-3" />
                         </button>
                       </div>
                     </>
                   )}
                 </div>
               </div>
-            </div>
-          ))}
 
-          {/* Streaming Indicator — minimal during tool phase */}
-          {isStreaming && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
-            <div className="flex gap-4">
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
-                style={{ backgroundColor: '#e5e7eb', color: '#6b7280' }}
-              >
-                <Bot className="w-4 h-4 animate-pulse" />
-              </div>
-              <div className="flex-1 min-w-0 pt-1.5">
-                {/* Compact toggle — no big bubble */}
-                <button
-                  onClick={() => setShowThinking(v => !v)}
-                  className="flex items-center gap-1.5 text-xs transition-colors rounded-md px-2 py-1 hover:bg-black/5"
-                  style={{ color: 'var(--color-text-muted)' }}
-                >
-                  {showThinking ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                  <Brain className="w-3 h-3" />
-                  <span>{showThinking ? 'Hide thinking' : `Show thinking (${activeToolCalls.length} active)`}</span>
-                  {!showThinking && activeToolCalls.length > 0 && <span className="ml-1 text-xs opacity-60 animate-pulse">Thinking...</span>}
-                  {!showThinking && activeToolCalls.length === 0 && <span className="ml-1 text-xs opacity-60 animate-pulse">Processing...</span>}
-                </button>
-
-                {/* Expanded: show thinking text + active tool calls */}
-                {showThinking && (
-                  <div className="mt-2">
-                    {thinkingBuffer && (
-                      <div
-                        className="rounded-lg border p-3 text-xs whitespace-pre-wrap mb-2"
-                        style={{
-                          backgroundColor: 'rgba(99,102,241,0.04)',
-                          borderColor: 'var(--color-border-dark, #e5e7eb)',
-                          color: 'var(--color-text-muted)',
-                        }}
-                      >
-                        {thinkingBuffer}
-                      </div>
-                    )}
-                    {activeToolCalls.length === 0 ? (
-                      !thinkingBuffer && (
-                        <div className="text-xs italic px-2" style={{ color: 'var(--color-text-muted)' }}>
-                          Waiting for tool calls...
-                        </div>
-                      )
-                    ) : (
-                      <div
-                        className="rounded-lg border text-xs font-mono overflow-hidden"
-                        style={{
-                          backgroundColor: 'var(--color-background-dark, #f9fafb)',
-                          borderColor: 'var(--color-border-dark, #e5e7eb)',
-                        }}
-                      >
-                        <div className="max-h-72 overflow-y-auto p-3 space-y-2">
-                          {activeToolCalls.map((tc, i) => (
-                            <div key={i} className="flex items-start gap-2">
-                              <Wrench className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                                  🔧 {tc.tool_name} <span className="text-xs opacity-60">{tc.status === 'running' ? '...' : '✓'}</span>
-                                </div>
-                                {tc.arguments && (
-                                  <pre className="mt-0.5 p-1.5 rounded text-[11px] whitespace-pre-wrap overflow-x-auto" style={{ backgroundColor: 'rgba(0,0,0,0.03)', color: 'var(--color-text-muted)' }}>
-                                    {JSON.stringify(tc.arguments, null, 2).slice(0, 200)}
-                                  </pre>
-                                )}
-                                {tc.result && (
-                                  <div className="mt-0.5 p-1.5 rounded text-[11px]" style={{ backgroundColor: 'rgba(16,185,129,0.06)', color: 'var(--color-text-muted)' }}>
-                                    {tc.result.slice(0, 200)}
-                                    {tc.result.length > 200 && '...'}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Custom Events (LangGraph-style progress, status, file operations) */}
-          {customEvents.size > 0 && (
-            <div className="flex gap-4">
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}
-              >
-                <Activity className="w-4 h-4" />
-              </div>
-              <div className="flex-1">
+              {/* User avatar — right side */}
+              {message.role === 'user' && (
                 <div
-                  className="rounded-2xl rounded-tl-sm px-5 py-3 space-y-2"
+                  className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{
-                    backgroundColor: 'white',
-                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-                    borderLeft: '3px solid var(--color-primary)'
+                    backgroundColor: 'rgba(156, 163, 175, 0.2)',
+                    color: '#6b7280',
+                    marginTop: 2,
                   }}
                 >
+                  <User size={14} strokeWidth={2} />
+                </div>
+              )}
+            </div>
+          ))}
+          {/* Custom Events (LangGraph-style progress, status, file operations) */}
+          {customEvents.size > 0 && (
+            <div className="flex-1">
+              <div
+                className="px-3 py-2 space-y-2"
+                style={{
+                  borderLeft: '2px solid var(--color-primary)',
+                  paddingLeft: '12px',
+                }}
+              >
                   {Array.from(customEvents.values()).map((event, idx) => {
                     const eventId = event.event_id || `custom-${idx}`;
 
@@ -616,7 +620,6 @@ export default function MessagesPanel({
                   })}
                 </div>
               </div>
-            </div>
           )}
 
           <div ref={messagesEndRef} />
@@ -646,9 +649,6 @@ export default function MessagesPanel({
           </div>
         </div>
       )}
-
-      {/* Session Documents Panel */}
-      <SessionDocumentsPanel sessionId={sessionId} refreshKey={documentsRefreshKey} />
 
       {/* Data Analysis Button — generate interactive dashboard via current agent */}
       {typeof onSendMessage === 'function' && (
@@ -685,43 +685,36 @@ export default function MessagesPanel({
         </div>
       )}
 
-      {/* Input Area — Codex-style composer */}
-      <div className="px-4 pb-4">
+      {(messages.length > 0 || disabled) && (
+      <div className="px-6 pt-4 pb-6">
         <CodexMessageInput
           onSendMessage={onSendMessage}
           disabled={disabled}
           isStreaming={isStreaming}
-          placeholder={disabled ? "Select an agent first..." : "Do anything"}
+          placeholder={disabled ? "No agent selected" : "Do anything"}
           sessionId={sessionId}
           projectId={projectId}
           agentName={agentName}
           onFileUploaded={(file) => {
             console.log('File uploaded:', file);
-            setDocumentsRefreshKey(k => k + 1);
-            // Auto-trigger briefing after document upload
+            // Auto-trigger data analysis after CSV or SQLite upload (no chat message)
             const docExt = file.filename.split('.').pop()?.toLowerCase() || '';
-            const briefingExts = ['pdf', 'md', 'txt', 'docx', 'pptx'];
-            if (briefingExts.includes(docExt) && onSendMessage) {
-              setTimeout(() => {
-                onSendMessage(
-                  `A new document "${file.filename}" has been uploaded. Please read it and provide a briefing.`
-                );
-              }, 500);
-            }
-            // Auto-trigger data analysis after CSV upload
-            if (docExt === 'csv') {
+            const isDataFile = ['csv', 'db', 'sqlite', 'sqlite3'].includes(docExt);
+            if (isDataFile) {
               setShowAnalysis(false); // reset if previously open
               setCsvUploading(true);
               // File was saved to sandbox by FileUploadButton
-              // Call /api/analysis/init to convert + auto-generate dashboard
-              const csvPath = `outputs/default/${file.filename}`;
+              // Call /api/analysis/init to convert (CSV) or use-as-is (SQLite), auto-generate dashboard
+              const filePath = `outputs/default/${file.filename}`;
+              // Strip any recognized extension to derive a safe table name
+              const stem = file.filename.replace(/\.(csv|db|sqlite|sqlite3)$/i, '').replace(/[^a-zA-Z0-9_]/g, '_');
               fetch('/api/analysis/init', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   session_id: sessionId,
-                  csv_path: csvPath,
-                  table_name: file.filename.replace(/\.csv$/i, '').replace(/[^a-zA-Z0-9_]/g, '_'),
+                  csv_path: filePath,
+                  table_name: stem,
                 }),
               })
                 .then(res => res.json())
@@ -730,31 +723,16 @@ export default function MessagesPanel({
                   setAnalysisMeta({ rowCount: data.row_count, colCount: data.col_count });
                   setShowAnalysis(true);
                   setCsvUploading(false);
-                  // Send a message to the chat agent for schema overview
-                  if (onSendMessage) {
-                    onSendMessage(
-                      `I loaded ${file.filename} (${data.row_count} rows, ${data.col_count} columns). ` +
-                      `Here's a quick overview: what columns and data types does it have? ` +
-                      `Then summarize the key metrics.`
-                    );
-                  }
                 })
                 .catch(err => {
                   console.error('Analysis init failed:', err);
                   setCsvUploading(false);
-                  // Fall back — agent analyzes from sandbox
-                  if (onSendMessage) {
-                    onSendMessage(
-                      `I loaded ${file.filename}. ` +
-                      `Here's a quick overview: what columns and data types does it have? ` +
-                      `Then summarize the key metrics.`
-                    );
-                  }
                 });
             }
           }}
         />
       </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Template Preview</title>
+<style>
+:root {
+  --primary: #1A2A4A; --accent: #C8A24A; --accent-l: #D8BD77;
+  --accent-d: #A8842F; --bg: #EEF0F5; --card: #FFFFFF;
+  --card-line: #E6E9F0; --body: #4A5570; --muted: #7A8398;
+  --dark-bg: #1A2A4A; --dark-text: #DBE2EF;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Calibri, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+       background: var(--bg); color: var(--primary); }
+.slide { display: none; width: 100vw; height: 100vh; padding: 5vh 6vw; position: relative;
+         overflow: hidden; }
+.slide.active { display: flex; flex-direction: column; }
+.slide.dark { background: var(--dark-bg); color: var(--dark-text); }
+.topbar { position: absolute; top: 0; left: 0; right: 0; height: 6px; display: flex; }
+.topbar i { flex: 1; } .topbar i:nth-child(1) { background: var(--accent-l); }
+.topbar i:nth-child(2) { background: var(--accent); }
+.topbar i:nth-child(3) { background: var(--accent-d); }
+h2 { font-size: 30px; margin-bottom: 8px; }
+.sub { color: var(--muted); font-size: 17px; margin-bottom: 18px; }
+.cards { display: flex; flex-wrap: wrap; gap: 18px; flex: 1; align-content: flex-start; }
+.card { background: var(--card); border: 1px solid var(--card-line); border-radius: 16px;
+         box-shadow: 0 6px 18px rgba(0,0,0,.08); padding: 22px; min-width: 240px; flex: 1;
+         display: flex; align-items: center; gap: 12px; }
+.card .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; }
+.card span { font-size: 18px; font-weight: 600; }
+.card.big span { font-size: 30px; font-weight: 800; color: var(--accent); }
+.cover { text-align: center; }
+.cover .title { font-size: 52px; color: var(--accent); letter-spacing: .04em; }
+.cover .sub { font-size: 20px; margin-top: 14px; }
+.cover .kicker { font-size: 13px; letter-spacing: .22em; color: var(--muted); margin-bottom: 18px; }
+.goldline { width: 120px; height: 3px; background: linear-gradient(90deg, var(--accent-l), var(--accent), var(--accent-d)); margin: 22px auto; }
+.nav { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+.navbtn { padding: 10px 22px; border-radius: 999px; background: var(--primary); color: #fff;
+          text-decoration: none; font-weight: 600; cursor: pointer; border: none; }
+.navbtn:hover { background: var(--accent); }
+.pageind { color: var(--muted); font-size: 14px; }
+.notes { margin-top: 12px; background: rgba(0,0,0,.04); border-left: 4px solid var(--accent);
+         border-radius: 10px; padding: 10px 14px; color: var(--muted); font-size: 13px; }
+.dark .notes { background: rgba(255,255,255,.06); color: var(--dark-text); }
+</style></head>
+<body>
+<section class="slide active dark"><div class="cover"><div class="kicker">BUSINESS / CORPORATE (NAVY + GOLD)</div><div class="title">Template Preview</div><div class="sub">Business deck — 12–15 pages, themed layouts</div><div class="goldline"></div></div><div class="nav"><button class="navbtn" onclick="go(-1)">← Prev</button><span class="pageind">1 / 8</span><button class="navbtn" onclick="go(1)">Next →</button></div></section><section class="slide"><div class="topbar"><i></i><i></i><i></i></div><h2>Agenda</h2><div class="cards"><div class="card><div class="dot"></div><span>Overview</span></div><div class="card><div class="dot"></div><span>Key Numbers</span></div><div class="card><div class="dot"></div><span>Roadmap</span></div><div class="card><div class="dot"></div><span>Conclusion</span></div></div><div class="nav"><button class="navbtn" onclick="go(-1)">← Prev</button><span class="pageind">2 / 8</span><button class="navbtn" onclick="go(1)">Next →</button></div></section><section class="slide"><div class="topbar"><i></i><i></i><i></i></div><h2>Core Idea</h2><div class="cards"><div class="card><div class="dot"></div><span>One core idea per slide, 3–5 bullets</span></div><div class="card big><div class="dot"></div><span>Revenue grew 42% this quarter</span></div><div class="card><div class="dot"></div><span>Every figure comes from the source document</span></div><div class="card><div class="dot"></div><span>Bullets are clamped to fit the layout</span></div></div><div class="nav"><button class="navbtn" onclick="go(-1)">← Prev</button><span class="pageind">3 / 8</span><button class="navbtn" onclick="go(1)">Next →</button></div></section><section class="slide"><div class="topbar"><i></i><i></i><i></i></div><h2>Key Numbers</h2><div class="cards"><div class="card><div class="dot"></div><span>42% growth</span></div><div class="card><div class="dot"></div><span>€1.2M revenue</span></div><div class="card><div class="dot"></div><span>3.4x ROI</span></div><div class="card><div class="dot"></div><span>18 new markets</span></div></div><div class="nav"><button class="navbtn" onclick="go(-1)">← Prev</button><span class="pageind">4 / 8</span><button class="navbtn" onclick="go(1)">Next →</button></div></section><section class="slide"><div class="topbar"><i></i><i></i><i></i></div><h2>Roadmap</h2><div class="cards"><div class="card><div class="dot"></div><span>Q1 — Research</span></div><div class="card><div class="dot"></div><span>Q2 — Pilot</span></div><div class="card><div class="dot"></div><span>Q3 — Launch</span></div><div class="card><div class="dot"></div><span>Q4 — Scale</span></div></div><div class="nav"><button class="navbtn" onclick="go(-1)">← Prev</button><span class="pageind">5 / 8</span><button class="navbtn" onclick="go(1)">Next →</button></div></section><section class="slide"><div class="topbar"><i></i><i></i><i></i></div><h2>“Clarity beats cleverness.”</h2><div class="nav"><button class="navbtn" onclick="go(-1)">← Prev</button><span class="pageind">6 / 8</span><button class="navbtn" onclick="go(1)">Next →</button></div></section><section class="slide"><div class="topbar"><i></i><i></i><i></i></div><h2>Conclusion</h2><div class="cards"><div class="card><div class="dot"></div><span>Controlled output, every run</span></div><div class="card><div class="dot"></div><span>Same deck in HTML and PPTX</span></div></div><div class="nav"><button class="navbtn" onclick="go(-1)">← Prev</button><span class="pageind">7 / 8</span><button class="navbtn" onclick="go(1)">Next →</button></div></section><section class="slide dark"><div class="cover"><div class="kicker">Template Preview</div><div class="title">Thank You</div><div class="sub">Generated with LangConfig</div><div class="goldline"></div></div><div class="nav"><button class="navbtn" onclick="go(-1)">← Prev</button><span class="pageind">8 / 8</span><button class="navbtn" onclick="go(1)">Next →</button></div></section>
+<script>
+var slides = document.querySelectorAll('.slide'); var i = 0;
+function show(n) { slides.forEach(function(s, k) { s.classList.toggle('active', k === n); }); }
+function go(d) { i = Math.min(Math.max(i + d, 0), slides.length - 1); show(i); }
+document.addEventListener('keydown', function(e) { if (e.key === 'ArrowRight') go(1); if (e.key === 'ArrowLeft') go(-1); });
+show(0);
+</script>
+</body></html>

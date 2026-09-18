@@ -109,11 +109,12 @@ class SkillLoader:
     def _default_personal_path(self) -> str:
         """Get default path for personal skills.
 
-        Personal skills live alongside builtin, in a sibling directory.
-        Both are relative to backend/skills/ so they can be git-tracked
-        and discovered together.
+        Personal skills live at the root of backend/skills/ (sibling of the
+        builtin/ subfolder). Both live under backend/skills/ so they can be
+        git-tracked and discovered together. The builtin/ entry itself is
+        skipped by _find_skill_dirs because it has no direct SKILL.md.
         """
-        return str(Path(__file__).parent.parent.parent / "skills" / "personal")
+        return str(Path(__file__).parent.parent.parent / "skills")
 
     def discover_all(self) -> List[SkillDiscoveryResult]:
         """
@@ -211,10 +212,14 @@ class SkillLoader:
                 skill_id=skill_id,
                 name=display_name,
                 description=frontmatter['description'],
-                version=frontmatter.get('version', '1.0.0'),
+                # DB version column is VARCHAR; YAML parses "1.0" as a float,
+                # so coerce to str before persisting.
+                version=str(frontmatter.get('version', '1.0.0')),
                 author=frontmatter.get('author'),
                 tags=frontmatter.get('tags', []),
-                triggers=frontmatter.get('triggers', []),
+                # SKILL.md is user-authored — tolerate a scalar `triggers:`
+                # by wrapping it, instead of letting a str fail List[str].
+                triggers=([frontmatter['triggers']] if isinstance(frontmatter.get('triggers'), str) else frontmatter.get('triggers', [])),
                 allowed_tools=frontmatter.get('allowed_tools'),
                 required_context=frontmatter.get('required_context', []),
                 instructions=instructions,
@@ -262,9 +267,15 @@ class SkillLoader:
         """
         Extract Instructions and Examples sections from body.
 
-        Only `## Instructions` and `## Examples` are top-level section
-        delimiters. Other `## X` headers are treated as subsections within
-        Instructions (use `### X` if you want visual subsections).
+        Supports two formats:
+
+        1. Classic progressive-disclosure format (Anthropic/deepagents): the
+           body itself IS the instructions. A `## Examples` header (if present)
+           still delimits the optional examples block.
+        2. Structured format: a literal `## Instructions` header starts the
+           instructions block and `## Examples` starts the examples block.
+           Other `## X` headers are treated as subsections of the running
+           section (use `### X` for visual subsections).
 
         Args:
             body: Markdown body after frontmatter
@@ -272,31 +283,41 @@ class SkillLoader:
         Returns:
             Tuple of (instructions, examples or None)
         """
-        instructions_lines = []
-        examples_lines = []
-
-        current_section = None
         lines = body.split('\n')
 
+        # Structured format: capture only after explicit delimiters.
+        if any(line.startswith('## Instructions') for line in lines):
+            instructions_lines = []
+            examples_lines = []
+            current_section = None
+            for line in lines:
+                if line.startswith('## Instructions'):
+                    current_section = 'instructions'
+                    continue
+                elif line.startswith('## Examples'):
+                    current_section = 'examples'
+                    continue
+                if current_section == 'instructions':
+                    instructions_lines.append(line)
+                elif current_section == 'examples':
+                    examples_lines.append(line)
+            instructions = '\n'.join(instructions_lines).strip()
+            examples = '\n'.join(examples_lines).strip() if examples_lines else None
+            return instructions, examples
+
+        # Classic format: everything before `## Examples` is the instructions.
+        instructions_lines = []
+        examples_lines = []
+        current_section = 'instructions'
         for line in lines:
-            # Check for top-level section headers (only these are delimiters)
-            if line.startswith('## Instructions'):
-                current_section = 'instructions'
-                continue
-            elif line.startswith('## Examples'):
+            if line.startswith('## Examples'):
                 current_section = 'examples'
                 continue
-            # Other `## X` headers are treated as subsections of current section
-            # (so they don't terminate the Instructions capture).
-
-            # Capture content for current section
             if current_section == 'instructions':
                 instructions_lines.append(line)
-            elif current_section == 'examples':
+            else:
                 examples_lines.append(line)
-
         instructions = '\n'.join(instructions_lines).strip()
         examples = '\n'.join(examples_lines).strip() if examples_lines else None
-
         return instructions, examples
 

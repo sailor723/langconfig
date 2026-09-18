@@ -8,9 +8,12 @@ Endpoints:
   DELETE /api/search-providers/{provider_id}/key   → remove API key
   POST /api/search-providers/{provider_id}/test    → test the key works
 
-Storage:
+Storage (SINGLE api-key table):
   - Metadata → `search_providers` table
-  - API keys → `settings.api_keys` JSONB (encrypted via Fernet, same as chat providers)
+  - API keys → the ``models`` settings document's ``api_keys`` field
+    (core/settings — the one table every API key lives in; secrets encrypted
+    at rest). The legacy ``settings.api_keys`` JSONB column was migrated into
+    it and is no longer read or written.
 """
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,8 +22,6 @@ from sqlalchemy.orm import Session
 
 from db.database import SessionLocal
 from models.search_provider import SearchProvider
-from models.settings import Settings
-from services.encryption import encryption_service
 
 router = APIRouter(prefix="/api/search-providers", tags=["search-providers"])
 
@@ -41,17 +42,19 @@ def _mask_key(key: str) -> str:
 
 
 def _get_decrypted_key(api_key_field: str, db: Session) -> Optional[str]:
-    """Look up + decrypt a search provider's API key from settings.api_keys."""
+    """Look up a search provider's API key from the SINGLE api-key table:
+    the ``models`` settings document's ``api_keys`` field (core/settings).
+
+    This is the one canonical location for every API key (LLM + search).
+    The legacy ``settings.api_keys`` JSONB column is no longer read or
+    written (migrated to the models document); see docs/settings-refactor.md.
+    """
     if not api_key_field:
         return None
-    settings = db.query(Settings).filter_by(id=1).first()
-    if not settings or not settings.api_keys:
-        return None
-    encrypted = settings.api_keys.get(api_key_field)
-    if not encrypted:
-        return None
     try:
-        return encryption_service.decrypt(encrypted)
+        from core.settings import get_document
+        doc = get_document(db, "models")
+        return (doc.get("api_keys") or {}).get(api_key_field)
     except Exception:
         return None
 
@@ -117,7 +120,10 @@ class SetKeyPayload(BaseModel):
 def set_search_provider_key(provider_id: str, payload: SetKeyPayload, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
     Set or update the API key for a search provider.
-    Key is encrypted before storage in settings.api_keys JSONB column.
+
+    Persists to the SINGLE api-key table: the ``models`` settings document's
+    ``api_keys`` field (core/settings — secrets encrypted at rest). The legacy
+    ``settings.api_keys`` JSONB column is no longer written.
     """
     p = db.query(SearchProvider).filter_by(id=provider_id).first()
     if not p:
@@ -129,19 +135,15 @@ def set_search_provider_key(provider_id: str, payload: SetKeyPayload, db: Sessio
     if not payload.api_key or not payload.api_key.strip():
         raise HTTPException(status_code=400, detail="API key cannot be empty")
 
-    settings = db.query(Settings).filter_by(id=1).first()
-    if not settings:
-        settings = Settings(id=1, api_keys={})
-        db.add(settings)
-        db.flush()
-
-    if not settings.api_keys:
-        settings.api_keys = {}
-
-    settings.api_keys[p.api_key_field] = encryption_service.encrypt(payload.api_key.strip())
-    from sqlalchemy.orm.attributes import flag_modified
-    flag_modified(settings, "api_keys")
-    db.commit()
+    try:
+        from core.settings import mutate
+        doc, _rev = mutate(
+            db,
+            "models",
+            [{"op": "set", "path": ["api_keys", p.api_key_field], "value": payload.api_key.strip()}],
+        )
+    except Exception as exc:  # noqa: BLE001 — surface a clear error to the UI
+        raise HTTPException(status_code=500, detail=f"Failed to store API key: {exc}") from exc
 
     return {
         "status": "saved",
@@ -153,62 +155,113 @@ def set_search_provider_key(provider_id: str, payload: SetKeyPayload, db: Sessio
 
 @router.delete("/{provider_id}/key")
 def delete_search_provider_key(provider_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """Remove the API key for a search provider."""
+    """Remove the API key for a search provider (from the models doc)."""
     p = db.query(SearchProvider).filter_by(id=provider_id).first()
     if not p:
         raise HTTPException(status_code=404, detail=f"Search provider '{provider_id}' not found")
     if not p.api_key_field:
         raise HTTPException(status_code=400, detail="Provider has no api_key_field")
 
-    settings = db.query(Settings).filter_by(id=1).first()
-    if settings and settings.api_keys and p.api_key_field in settings.api_keys:
-        del settings.api_keys[p.api_key_field]
-        from sqlalchemy.orm.attributes import flag_modified
-        flag_modified(settings, "api_keys")
-        db.commit()
+    try:
+        from core.settings import mutate
+        doc, _rev = mutate(
+            db,
+            "models",
+            [{"op": "unset", "path": ["api_keys", p.api_key_field]}],
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Failed to remove API key: {exc}") from exc
 
     return {"status": "deleted", "provider_id": provider_id}
 
 
+def _live_test_tavily(key: str) -> str:
+    import httpx
+    r = httpx.post("https://api.tavily.com/search",
+                   json={"query": "test", "max_results": 1, "api_key": key}, timeout=15)
+    if r.status_code == 200:
+        return "Tavily reachable — API key is valid"
+    raise Exception(f"Tavily HTTP {r.status_code}: {r.text[:100]}")
+
+def _live_test_duckduckgo() -> str:
+    import httpx, re
+    r = httpx.post("https://html.duckduckgo.com/html/", data={"q": "test"},
+                   headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
+    r.raise_for_status()
+    snippets = re.findall(r'class="result__snippet"[^>]*>([^<]+)', r.text)
+    return f"DuckDuckGo reachable — {len(snippets)} result(s)"
+
+def _live_test_wikipedia() -> str:
+    import httpx
+    r = httpx.get("https://en.wikipedia.org/api/rest_v1/page/summary/Python",
+                   headers={"User-Agent": "LangConfig/1.0"}, timeout=15)
+    if r.status_code == 200:
+        return f"Wikipedia reachable — found \"{r.json().get('title','')}\""
+    return f"Wikipedia HTTP {r.status_code}"
+
+def _live_test_exa(key: str) -> str:
+    import httpx
+    r = httpx.post("https://api.exa.ai/search",
+                   json={"query": "test", "numResults": 1},
+                   headers={"x-api-key": key, "Content-Type": "application/json"}, timeout=15)
+    if r.status_code == 200:
+        return "Exa API key is valid"
+    raise Exception(f"Exa HTTP {r.status_code}: {r.text[:100]}")
+
+def _live_test_brave(key: str) -> str:
+    import httpx
+    r = httpx.get("https://api.search.brave.com/res/v1/web/search",
+                   params={"q": "test", "count": 1},
+                   headers={"Accept": "application/json", "X-Subscription-Token": key}, timeout=15)
+    if r.status_code == 200:
+        return "Brave API key is valid"
+    raise Exception(f"Brave HTTP {r.status_code}: {r.text[:100]}")
+
+def _live_test_serpapi(key: str) -> str:
+    import httpx
+    r = httpx.get("https://serpapi.com/search",
+                   params={"q": "test", "api_key": key, "engine": "google", "num": 1}, timeout=15)
+    if r.status_code == 200:
+        return "SerpAPI key is valid"
+    raise Exception(f"SerpAPI HTTP {r.status_code}: {r.text[:100]}")
+
+_LIVE_TESTS = {
+    "tavily":     _live_test_tavily,
+    "duckduckgo": lambda _: _live_test_duckduckgo(),
+    "wikipedia":  lambda _: _live_test_wikipedia(),
+    "exa":        _live_test_exa,
+    "brave":      _live_test_brave,
+    "serpapi":    _live_test_serpapi,
+}
+
 @router.post("/{provider_id}/test")
 def test_search_provider(provider_id: str, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """
-    Test the search provider with a simple query.
+    Test the search provider with a live API call.
 
-    For keyless providers (DDG, Wikipedia), does a quick live lookup.
-    For keyed providers, requires the key to be set, then does a live lookup.
+    For keyless providers (DDG, Wikipedia), does a quick live HTTP fetch.
+    For keyed providers, makes a minimal API call to validate the stored key.
     """
     p = db.query(SearchProvider).filter_by(id=provider_id).first()
     if not p:
         raise HTTPException(status_code=404, detail=f"Search provider '{provider_id}' not found")
 
+    key = None
     if p.requires_api_key:
         key = _get_decrypted_key(p.api_key_field, db) if p.api_key_field else None
         if not key:
-            return {
-                "success": False,
-                "provider_id": provider_id,
-                "message": f"API key not set for {p.display_name}",
-            }
+            return {"success": False, "provider_id": provider_id, "message": f"API key not set for {p.display_name}"}
 
-    # Lightweight live test per provider (real HTTP call would go here)
+    tester = _LIVE_TESTS.get(provider_id)
+    if not tester:
+        return {"success": False, "provider_id": provider_id, "message": f"No live test for '{provider_id}'"}
+
     import time
     start = time.time()
     try:
-        # NOTE: real implementation would call each provider's API
-        # For now we just verify key presence + report config
+        msg = tester(key)  # All lambdas accept key arg (keyless ones ignore it)
         elapsed_ms = round((time.time() - start) * 1000, 1)
-        return {
-            "success": True,
-            "provider_id": provider_id,
-            "display_name": p.display_name,
-            "message": f"Config OK ({p.display_name} ready to use)",
-            "execution_time_ms": elapsed_ms,
-        }
+        return {"success": True, "provider_id": provider_id, "display_name": p.display_name, "message": msg, "execution_time_ms": elapsed_ms}
     except Exception as e:
-        return {
-            "success": False,
-            "provider_id": provider_id,
-            "message": str(e),
-            "execution_time_ms": round((time.time() - start) * 1000, 1),
-        }
+        elapsed_ms = round((time.time() - start) * 1000, 1)
+        return {"success": False, "provider_id": provider_id, "display_name": p.display_name, "message": str(e), "execution_time_ms": elapsed_ms}

@@ -1,0 +1,47 @@
+# Market Wizard — cleaning rules
+#
+# This file is the ONLY content-specific piece of the data-prep skill.
+# The actual wizard engine (backend/core/data_prep/wizard.py) is generic
+# and content-free — it just reads this YAML.
+#
+# Add new data sources by adding new rules.yaml files.
+# The schema (CleanedSalesRow) is the contract with finance_pro.
+
+schema: CleanedSalesRow              # Pydantic model from backend/schemas/sales.py
+# Paths are relative to this rules.yaml file's directory
+source: ../../notebooks/module-5/enterprise_data/modern_marketing.csv
+target: ../../notebooks/module-5/enterprise_data/cleaned_modern_marketing.csv
+
+mapping:
+  # transaction_id: take as-is (str)
+  - from: [tx_id, TransactionID]
+    to: transaction_id
+    type: str
+
+  # region: normalize to uppercase
+  - from: [market, Region]
+    to: region
+    type: str
+    transform: upper.strip
+
+  # product_category: as-is
+  - from: [prod_cat, Product_Category]
+    to: product_category
+    type: str
+
+  # quantity: numeric
+  - from: [qty, Quantity]
+    to: quantity
+    type: int
+
+  # unit_price: strip currency symbols, convert to float
+  - from: [price_per_unit, Unit_Price, "Unit Price"]
+    to: unit_price
+    type: float
+    transform: strip_dollar_comma
+
+  # discount: absolute USD amount (NOT percentage)
+  - from: [rebate, Discount]
+    to: discount
+    type: float
+    default: 0.0

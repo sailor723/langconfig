@@ -43,7 +43,7 @@ from models.core import Directive, Project, Task, ContextDocument, SearchHistory
 from models.workflow import WorkflowProfile, WorkflowVersion, WorkflowExecution
 
 # DeepAgent models
-from models.deep_agent import DeepAgentTemplate, AgentExport, ChatSession
+from models.deep_agent import DeepAgentTemplate, ChatSession
 
 # System models
 from models.audit_log import AuditLog
@@ -57,9 +57,12 @@ target_metadata = Base.metadata
 
 # Get database URL from environment variable
 # This allows us to use different databases for development, testing, and production
+# DATABASE_URL wins; otherwise compose it from the POSTGRES_* .env parts so
+# alembic always targets the same server as the app (native or docker).
+from db.database import compose_db_url
 database_url = os.getenv(
     'DATABASE_URL',
-    'postgresql://langconfig:langconfig_dev@localhost:5433/langconfig'  # Default from database.py
+    compose_db_url()  # built from POSTGRES_* (see db/database.py)
 )
 config.set_main_option('sqlalchemy.url', database_url)
 

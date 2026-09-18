@@ -64,7 +64,7 @@ CompiledStateGraph (runnable LangGraph agent)
 **File**: [`backend/constants/models.py`](../../backend/constants/models.py) — *intentionally empty placeholder*
 
 > **⚠️ Phase 5 drift (commit `ade43ad`):** Models moved from a Python enum to the PostgreSQL `models` table.
-> See `models/model.py` for the SQLAlchemy definition and `scripts/seed_models.py` for the seed data (23 cloud models).
+> See `models/model.py` for the SQLAlchemy definition and `scripts/seeds/seed_models.py` for the seed data (23 cloud models).
 > The old `ModelChoice` enum was removed; this file remains as a placeholder for legacy imports.
 
 - `ModelChoice` enum — **REMOVED in Phase 5**

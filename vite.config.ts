@@ -28,10 +28,13 @@ export default defineConfig(async () => ({
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
-    port: 1420,
+    port: 1421,
     strictPort: true,
     allowedHosts: [process.env.VITE_ALLOWED_HOSTS || "localhost"],
-    host: host || false,
+    // Bind to all interfaces (dual-stack `::` accepts both IPv4 127.0.0.1 and
+    // IPv6 ::1), so http://localhost:1421 and http://127.0.0.1:1421 both work.
+    // Tauri sets TAURI_DEV_HOST, which takes precedence as before.
+    host: host || "::",
     hmr: host
       ? {
         protocol: "ws",
@@ -49,6 +52,7 @@ export default defineConfig(async () => ({
         target: 'http://127.0.0.1:8765',
         changeOrigin: true,
         secure: false,
+        ws: true, // proxy WebSocket upgrades (terminal sessions)
       },
     },
   },

@@ -25,21 +25,26 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
-# Default skill roots (LangChain deepagents layout)
-DEFAULT_BUILTIN_SKILLS_ROOT = Path(
-    os.environ.get(
-        "BUILTIN_SKILLS_ROOT",
-        "/Users/weiping/dev/Learn/langchain-ai/langconfig/backend/skills/builtin",
-    )
-)
+# Default skill roots (LangChain deepagents layout).
+# Values come from the root .env (BUILTIN_SKILLS_ROOT / PERSONAL_SKILLS_ROOT).
+# Relative values are resolved against the project root so they work no matter
+# what the process CWD is; fallbacks keep the repo layout as-is.
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]  # backend/core/skills/ -> repo root
+
+
+def _resolve_skill_root(env_name: str, default_rel: str) -> Path:
+    """Resolve a skill root from env, or fall back to the repo-relative default."""
+    raw = os.environ.get(env_name)
+    if raw:
+        p = Path(raw).expanduser()
+        return p if p.is_absolute() else (_PROJECT_ROOT / p).resolve()
+    return (_PROJECT_ROOT / default_rel).resolve()
+
+
+DEFAULT_BUILTIN_SKILLS_ROOT = _resolve_skill_root("BUILTIN_SKILLS_ROOT", "backend/skills/builtin")
 # Personal/user-created skills live alongside builtin, in a sibling directory.
 # The library's FilesystemBackend reads SKILL.md from these real FS paths.
-PERSONAL_SKILLS_ROOT = Path(
-    os.environ.get(
-        "PERSONAL_SKILLS_ROOT",
-        str(DEFAULT_BUILTIN_SKILLS_ROOT.parent / "personal"),
-    )
-)
+PERSONAL_SKILLS_ROOT = _resolve_skill_root("PERSONAL_SKILLS_ROOT", "backend/skills/personal")
 
 
 def parse_skill_md(text: str) -> Tuple[Dict[str, Any], str]:
@@ -89,32 +94,13 @@ def serialize_skill_md(frontmatter: Dict[str, Any], body: str) -> str:
     return "\n".join(parts)
 
 
-def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
+def skill_row_to_markdown(skill_row) -> str:
     """
-    Write a DB skill row to its SKILL.md on the filesystem.
+    Render a DB skill row as the canonical SKILL.md text (frontmatter + body).
 
-    Returns the path to the SKILL.md file.
-
-    The skill directory is determined by:
-      1. skill_row.source_path if set (existing location)
-      2. Otherwise: skills_root / <source_type> / <skill_id>
+    Shared by ``db_row_to_fs`` (FS mirror) and the Phase 3 DbBackend wiring
+    (DB-only skills), so both write byte-identical content.
     """
-    root = skills_root or DEFAULT_BUILTIN_SKILLS_ROOT
-
-    # Determine target directory
-    source_type = getattr(skill_row, "source_type", "builtin")
-    if isinstance(source_type, str) and "." in source_type:
-        source_type = source_type.split(".")[-1].lower()
-
-    if hasattr(skill_row, "source_path") and skill_row.source_path:
-        skill_dir = Path(skill_row.source_path)
-    else:
-        skill_dir = root / source_type / skill_row.skill_id
-
-    skill_dir.mkdir(parents=True, exist_ok=True)
-    skill_md = skill_dir / "SKILL.md"
-
-    # Build frontmatter
     fm = {
         "name": skill_row.name,
         "description": skill_row.description,
@@ -146,9 +132,83 @@ def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
     else:
         body = f"## Instructions\n\n{body}"
 
-    content = serialize_skill_md(fm, body)
+    return serialize_skill_md(fm, body)
+
+
+def normalize_source_type(source_type: Any) -> str:
+    """Normalize a skill row's source_type to its canonical key segment.
+
+    Handles str-mixin enums (``SkillSourceType.PERSONAL`` -> ``"personal"``),
+    plain strings, and legacy dot paths (``"learning.phase5"`` -> ``"phase5"``);
+    missing/empty defaults to ``"builtin"``. Shared by ``skill_storage_key``
+    and ``db_row_to_fs`` so storage keys and FS dirs always agree.
+    """
+    if source_type is None or source_type == "":
+        return "builtin"
+    if not isinstance(source_type, str):
+        # str-mixin enum members are str subclasses whose f-string repr is
+        # "SkillSourceType.PERSONAL"; the actual value lives in `.value`.
+        source_type = getattr(source_type, "value", str(source_type))
+    if "." in source_type:
+        source_type = source_type.split(".")[-1]
+    return source_type.lower()
+
+
+def skill_storage_key(skill_row) -> str:
+    """
+    Canonical storage key for a skill: ``skills/<source_type>/<skill_id>/SKILL.md``.
+
+    Normalizes ``source_type`` via ``normalize_source_type`` so DB rows and
+    FS mirrors agree on the key.
+    """
+    source_type = normalize_source_type(getattr(skill_row, "source_type", "builtin"))
+    return f"skills/{source_type}/{skill_row.skill_id}/SKILL.md"
+
+
+def db_row_to_fs(skill_row, skills_root: Optional[Path] = None) -> Path:
+    """
+    Write a DB skill row to its SKILL.md on the filesystem.
+
+    Returns the path to the SKILL.md file.
+
+    The skill directory is determined by:
+      1. skill_row.source_path if set (existing location)
+      2. Otherwise: skills_root / <source_type> / <skill_id>
+    """
+    root = skills_root or DEFAULT_BUILTIN_SKILLS_ROOT
+
+    # Determine target directory
+    source_type = normalize_source_type(getattr(skill_row, "source_type", "builtin"))
+
+    if hasattr(skill_row, "source_path") and skill_row.source_path:
+        skill_dir = Path(skill_row.source_path)
+    else:
+        skill_dir = root / source_type / skill_row.skill_id
+
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_md = skill_dir / "SKILL.md"
+
+    content = skill_row_to_markdown(skill_row)
     skill_md.write_text(content, encoding="utf-8")
     logger.info(f"Wrote SKILL.md → {skill_md}")
+
+    # Phase 2 write-through (docs/system-architecture.md §15): when
+    # STORAGE_MODE=db, also persist the SKILL.md body to the storage
+    # backend so it survives independently of the git mirror. The FS
+    # mirror stays the operational view until Phase 3 DbBackend lands;
+    # local mode (default) is a no-op and behavior is unchanged.
+    try:
+        from config import settings
+        if settings.storage_mode == "db":
+            from services.storage import get_storage
+            get_storage().save(
+                skill_storage_key(skill_row),
+                content.encode("utf-8"),
+                "text/markdown",
+            )
+    except Exception as e:
+        logger.warning(f"Failed to persist SKILL.md to storage: {e}")
+
     return skill_md
 
 
@@ -164,11 +224,16 @@ def fs_to_db_dict(skill_md: Path) -> Dict[str, Any]:
     from datetime import timezone
     mtime = datetime.fromtimestamp(skill_md.stat().st_mtime, tz=timezone.utc)
 
+    # YAML parses `version: 1.0` as a float; Postgres then infers the whole
+    # bulk VALUES column as numeric and rejects string versions like "1.0.0".
+    # Always coerce to a string (empty/None fall back to the default).
+    version = fm.get("version") or "1.0.0"
+
     return {
         "skill_id": skill_id,
         "name": fm.get("name", skill_id),
         "description": fm.get("description", ""),
-        "version": fm.get("version", "1.0.0"),
+        "version": str(version),
         "author": fm.get("author"),
         "tags": fm.get("tags") or [],
         "triggers": fm.get("triggers") or [],

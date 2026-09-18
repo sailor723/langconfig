@@ -88,22 +88,11 @@ SESSION_START = time.time()
 
 CATALOG_CYPHER = """
 MATCH (d:Document {project_id: $pid})
-WITH d, coalesce(d.out_of_scope, []) AS ex_names
-UNWIND ex_names AS ex_name
-OPTIONAL MATCH (other:Document {name: ex_name})
-WITH d, collect({
-    name: other.name,
-    about: COALESCE(other.what_this_document_is_about,
-                    other.content_preview, ''),
-    supports: COALESCE(other.supported_queries,
-                       other.search_terms, [])
-}) AS excluded_full
 RETURN d.name AS name,
        coalesce(d.file_path, '') AS fp,
        coalesce(d.what_this_document_is_about,
                 d.content_preview, '') AS about,
        coalesce(d.supported_queries, d.search_terms, []) AS supports,
-       excluded_full AS excludes,
        coalesce(d.context_doc_id, 0) AS cid
 """
 
@@ -117,22 +106,10 @@ def format_catalog(rows: List[Dict[str, Any]], limit_chars: int = 200_000) -> st
     for i, r in enumerate(rows, 1):
         about = r["about"] or ""
         supports = list(r["supports"] or [])
-        excludes = list(r["excludes"] or [])
         parts.append(f"[{i}] {r['name']}")
         parts.append(f"  about: {about}")
         if supports:
             parts.append(f"  supports: {supports[:5]}")
-        if excludes:
-            parts.append(f"  excludes:")
-            for ex in excludes:
-                ex_about = ex.get("about") or ""
-                ex_supports = ex.get("supports") or []
-                if not ex.get("name"):
-                    continue
-                parts.append(f"    - {ex['name']}")
-                parts.append(f"      about: {ex_about[:200]}")
-                if ex_supports:
-                    parts.append(f"      supports: {ex_supports[:5]}")
     text = "\n".join(parts)
     if len(text) > limit_chars:
         text = text[:limit_chars] + f"\n... [truncated at {limit_chars:,} chars]"
@@ -146,7 +123,6 @@ ROUTING_SYSTEM_TEMPLATE = """You are a routing agent. Pick the best document for
 Use semantic understanding, not just keyword overlap. Consider:
 - What the document is about (about field)
 - What questions the document can answer (supports field)
-- What topics the document explicitly does NOT cover (excludes — note the about/supports of each excluded doc)
 
 Domain-awareness rules:
 - Group documents by semantic domain (e.g. "deep_learning_course", "philosophy_and_strategy", "financial_report", "scanned_handbook", "test_placeholder")
@@ -290,13 +266,12 @@ def route_by_llm(query: str, rows: List[Dict[str, Any]],
 def route_by_string(query: str, rows: List[Dict[str, Any]]) -> Optional[str]:
     records = []
     for r in rows:
-        excluded_names = [ex["name"] for ex in (r["excludes"] or []) if ex.get("name")]
         records.append(Neo4jDocumentRecord(
             project_id=PROJECT_ID, name=r["name"], file_path=r["fp"] or "",
             description="", tags=[],
             what_this_document_is_about=r["about"] or "",
             supported_queries=list(r["supports"] or []),
-            out_of_scope=excluded_names, search_terms=[],
+            search_terms=[],
             content_preview="", doc_index_id=None, context_doc_id=r["cid"] or 0,
         ))
     best = choose_best_document_match(query, records)

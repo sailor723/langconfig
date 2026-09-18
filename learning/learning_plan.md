@@ -8,11 +8,11 @@
 
 | Concept (LangChain/LangGraph) | LangConfig Implementation |
 |---|---|
-| `init_chat_model()` — unified model init across providers | [`backend/core/agents/factory.py`](../backend/core/agents/factory.py) — `AgentFactory.create_agent()` lines 150-299 |
-| `ChatOpenAI` / per-provider wrappers | [`backend/core/agents/factory.py`](../backend/core/agents/factory.py#L300-L450) — how it resolves model name -> provider + API key |
-| `BaseChatModel` abstraction | [`backend/core/agents/factory.py`](../backend/core/agents/factory.py#L30-L35) — type hints and fallback logic |
+| `init_chat_model()` — unified model init across providers | [`backend/core/agents/factory/assembly.py`](../backend/core/agents/factory/assembly.py) — `AgentFactory.create_agent()` |
+| `ChatOpenAI` / per-provider wrappers | [`backend/core/agents/factory/llm.py`](../backend/core/agents/factory/llm.py) — how it resolves model name -> provider + API key |
+| `BaseChatModel` abstraction | [`backend/core/agents/factory/assembly.py`](../backend/core/agents/factory/assembly.py) — type hints and fallback logic |
 | Agent configuration schema | [`backend/models/agent_config_schema.py`](../backend/models/agent_config_schema.py#L108) — `AgentConfigV2` full schema |
-| Config validation (bounds, mutual exclusion) | [`backend/core/agents/factory.py`](../backend/core/agents/factory.py#L100-L200) — `_validate_agent_config()` |
+| Config validation (bounds, mutual exclusion) | [`backend/core/agents/factory/validation.py`](../backend/core/agents/factory/validation.py) — `_validate_agent_config()` |
 
 **Goal**: Understand how LangConfig takes a config dict (model, temperature, tools) and produces a compiled LangGraph agent.
 
@@ -22,9 +22,9 @@
 
 | Concept (LangChain) | LangConfig Implementation |
 |---|---|
-| `BaseTool` / `StructuredTool` | [`backend/core/tools/factory.py`](../backend/core/tools/factory.py#L30-L60) — `ToolFactory` creates tools dynamically |
+| `BaseTool` / `StructuredTool` | [`backend/core/tools/factory/base.py`](../backend/core/tools/factory/base.py) — `ToolFactory` creates tools dynamically |
 | Tool type taxonomy | [`backend/models/custom_tool.py`](../backend/models/custom_tool.py#L16-L30) — `ToolType`, `ToolTemplateType` enums |
-| Tool templates (Slack, API, DB, etc.) | [`backend/core/tools/templates.py`](../backend/core/tools/templates.py#L30-L80) — 5 pre-built templates |
+| Tool templates (Slack, API, DB, etc.) | [`backend/core/tools/templates/`](../backend/core/tools/templates/) — per-category tool templates |
 | Tool execution wrapper (artifacts, error handling) | [`backend/core/tools/execution_wrapper.py`](../backend/core/tools/execution_wrapper.py) |
 | Native tools (file I/O, search, etc.) | [`backend/tools/native_tools.py`](../backend/tools/native_tools.py) |
 | Tool seeding / registry | [`backend/core/tools/seed.py`](../backend/core/tools/seed.py) |
@@ -54,7 +54,7 @@
 
 | Concept (LangGraph) | LangConfig Implementation |
 |---|---|
-| `interrupt_before` / `interrupt_after` nodes | [`backend/core/agents/factory.py`](../backend/core/agents/factory.py#L200-L210) — interrupt node config |
+| `interrupt_before` / `interrupt_after` nodes | [`backend/core/agents/factory/assembly.py`](../backend/core/agents/factory/assembly.py) — interrupt node config |
 | HITL approval/rejection API | [`backend/api/hitl/routes.py`](../backend/api/hitl/routes.py#L40-L80) — `POST /api/hitl/{id}/approve` |
 | HITL workflow nodes | [`backend/core/workflows/nodes.py`](../backend/core/workflows/nodes.py#L40-L80) — `handle_hitl_node` |
 | Checkpointing (resume after interrupt) | [`backend/core/workflows/checkpointing/`](../backend/core/workflows/checkpointing/) — `manager.py`, `cancellation.py` |
@@ -88,7 +88,7 @@
 | Workflow nodes (init, execute, critique, retry, complete) | [`backend/core/workflows/nodes.py`](../backend/core/workflows/nodes.py) |
 | Official LangGraph patterns (agent, supervisor, swarm) | [`backend/core/workflows/official_patterns.py`](../backend/core/workflows/official_patterns.py) |
 | Supervisor / swarm patterns | [`backend/core/workflows/supervisor.py`](../backend/core/workflows/supervisor.py), [`backend/core/workflows/swarm.py`](../backend/core/workflows/swarm.py) |
-| Workflow execution & runner | [`backend/core/workflows/executor.py`](../backend/core/workflows/executor.py), [`backend/core/workflows/runner.py`](../backend/core/workflows/runner.py) |
+| Workflow execution & runner | [`backend/core/workflows/executor/`](../backend/core/workflows/executor/), [`backend/core/workflows/runner.py`](../backend/core/workflows/runner.py) |
 
 **Goal**: Understand how LangConfig compiles and runs full LangGraph workflows with conditional routing, retry, and HITL.
 
@@ -129,9 +129,9 @@
 |---|---|
 | Agent vs Workflow concept | [`learning/phase6-ui/README.md`](phase6-ui/README.md) |
 | Studio (visual canvas) | [`src/features/workflows/canvas/WorkflowCanvas.tsx`](../src/features/workflows/canvas/WorkflowCanvas.tsx) |
-| Library (saved workflows browser) | [`src/features/workflows/library/WorkflowLibraryView.tsx`](../src/features/workflows/library/WorkflowLibraryView.tsx) |
-| Agent builder UI | [`src/features/agents/ui/AgentLoadouts.tsx`](../src/features/agents/ui/AgentLoadouts.tsx) |
-| Test Agent modal (streaming chat) | [`src/components/common/AgentChatTester.tsx`](../src/components/common/AgentChatTester.tsx) |
+| Library (saved workflows browser) | [`src/components/layout2/WorkflowStudioPage.tsx`](../src/components/layout2/WorkflowStudioPage.tsx) |
+| Agent builder UI | [`src/components/layout2/AgentEditor.tsx`](../src/components/layout2/AgentEditor.tsx), [`src/components/layout2/DeepAgentEditor.tsx`](../src/components/layout2/DeepAgentEditor.tsx) |
+| Test Agent modal (streaming chat) | [`src/features/chat/ui/ChatPage.tsx`](../src/features/chat/ui/ChatPage.tsx) |
 | Modern header / navigation | [`src/components/layout/ModernHeader.tsx`](../src/components/layout/ModernHeader.tsx) |
 
 **Goal**: Build a clear mental model of Agent vs Workflow, learn the UI lifecycle (Save → Library → Rename → Run → Results), and understand why Start/End control nodes are required.

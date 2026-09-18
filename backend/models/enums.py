@@ -17,6 +17,7 @@ class SubAgentType(str, Enum):
     """Type of subagent implementation."""
     DICTIONARY = "dictionary"  # Simple dictionary-based subagent
     COMPILED = "compiled"      # Workflow-based compiled subagent
+    LANGGRAPH = "langgraph"    # Code-defined LangGraph agent (backend/langgraph/<graph_id>.py)
 
 
 class MiddlewareType(str, Enum):

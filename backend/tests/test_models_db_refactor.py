@@ -30,7 +30,9 @@ class TestModelsTable:
         from db.database import SessionLocal
         db = SessionLocal()
         try:
-            gemini = db.query(Model).filter(Model.model_id == "gemini-3-pro-preview").first()
+            gemini = db.query(Model).filter(
+                Model.model_id.like("gemini-%"), Model.source == "cloud"
+            ).first()
             assert gemini is not None
             assert gemini.provider == "google"
         finally:
@@ -123,15 +125,40 @@ class TestAvailableModelsAPI:
     """Baseline: /api/settings/available-models returns expected structure."""
 
     def test_api_returns_expected_structure(self):
-        """The response should have 'models' list and 'local_models' list."""
-        from api.system.settings import get_available_models
-        # Just verify the function exists and has expected signature
-        assert callable(get_available_models)
+        """GET /api/settings/models returns cloud_models + local_models."""
+        from unittest.mock import MagicMock
+        from api.system.settings import list_available_models
 
-    def test_models_filtered_by_api_keys(self):
-        """Test that models are filtered by configured API keys."""
-        from api.system.settings import get_available_models
-        assert callable(get_available_models)
+        class _Row:
+            def __init__(self, model_id, display_name, provider, capabilities=None):
+                self.model_id = model_id
+                self.display_name = display_name
+                self.provider = provider
+                self.capabilities = capabilities or {}
+                self.is_active = True
+                self.id = 1
+                self.name = model_id
+                self.is_validated = True
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.order_by.return_value.all.return_value = [
+            _Row("deepseek-chat", "DeepSeek Chat", "deepseek"),
+            _Row("claude-haiku-4-5", "Claude Haiku", "anthropic"),
+        ]
+        # local models query (validated)
+        db.query.return_value.filter.return_value.all.return_value = [
+            _Row("local-ollama", "Ollama", "ollama"),
+        ]
+
+        import asyncio
+        response = asyncio.run(list_available_models(db))
+        body = response.body
+        import json
+        payload = json.loads(body)
+        assert "cloud_models" in payload
+        assert "local_models" in payload
+        assert len(payload["cloud_models"]) == 2
+        assert payload["cloud_models"][0]["provider"] == "deepseek"
 
 
 # =============================================================================

@@ -6,7 +6,9 @@
 """
 Debug API endpoints for development
 """
-from fastapi import APIRouter, Depends, HTTPException
+import asyncio
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Dict, Any
 import json
@@ -234,3 +236,77 @@ For visual workflow building with full control over agent interactions, LangConf
         "events_emitted": events_emitted,
         "message": f"Emitted {len(events_emitted)} test subagent event groups. Check the execution panel for workflow {workflow_id}."
     }
+
+
+@router.get("/logs/stream")
+async def stream_logs(request: Request):
+    """SSE stream of backend system logs for the bottom-panel Terminal tab.
+
+    Sends buffered history first so a freshly-opened terminal isn't empty,
+    then live log lines. Comment frames keep the connection alive so proxies
+    don't time it out during quiet periods.
+    """
+    from services.log_stream import hub, attach_log_stream
+
+    attach_log_stream()
+
+    async def event_gen():
+        for line in hub.snapshot():
+            yield f"data: {json.dumps({'type': 'log', 'line': line})}\n\n"
+
+        queue = hub.subscribe()
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    line = await asyncio.wait_for(queue.get(), timeout=15.0)
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+                    continue
+                yield f"data: {json.dumps({'type': 'log', 'line': line})}\n\n"
+        finally:
+            hub.unsubscribe(queue)
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream")
+
+
+@router.websocket("/terminal/ws")
+async def terminal_ws(websocket: WebSocket, terminal_id: str = "default"):
+    """Interactive shell terminal over WebSocket (VS Code-style).
+
+    One shell subprocess per connection. The client sends `input`/`resize`
+    frames and receives `ready`/`output`/`exit` frames — see
+    `services.terminal_service` for the wire protocol.
+    """
+    from services.terminal_service import TerminalSession, active_sessions
+
+    await websocket.accept()
+    session = TerminalSession(terminal_id, websocket)
+    active_sessions[terminal_id] = session
+    try:
+        try:
+            await session.start()
+        except Exception as exc:
+            await websocket.send_json({"type": "error", "message": f"Failed to start shell: {exc}"})
+            return
+
+        while True:
+            msg = await websocket.receive_json()
+            mtype = msg.get("type")
+            if mtype == "input":
+                await session.write(str(msg.get("data", "")))
+            elif mtype == "resize":
+                try:
+                    cols = int(msg.get("cols", 80))
+                    rows = int(msg.get("rows", 24))
+                except (TypeError, ValueError):
+                    cols, rows = 80, 24
+                await session.resize(cols, rows)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        await session.close()
+        active_sessions.pop(terminal_id, None)

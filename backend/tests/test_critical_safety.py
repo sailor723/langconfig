@@ -10,8 +10,6 @@ Tests for:
 - Transaction management framework
 - Race condition prevention in version creation
 - Foreign key validation for executions
-- Export status tracking
-- Auto-export transaction safety
 
 Run with: pytest tests/test_phase1_critical_safety.py -v
 """
@@ -37,11 +35,21 @@ from api.workflows.routes import create_workflow_version, create_workflow_execut
 
 @pytest.fixture
 def db_engine():
-    """Create test database engine."""
-    # Use in-memory SQLite for tests
-    engine = create_engine("sqlite:///:memory:", echo=False)
+    """Create test database engine.
 
-    # Create tables
+    Uses the dedicated PostgreSQL test DB (TEST_DATABASE_URL) — SQLite cannot
+    render the models' Postgres JSONB columns, which made every test here
+    error out.
+    """
+    import os
+    url = os.getenv(
+        "TEST_DATABASE_URL",
+        "postgresql+asyncpg://langconfig:langconfig_dev@localhost:5432/langconfig_test",
+    )
+    engine = create_engine(url.replace("postgresql+asyncpg://", "postgresql://"), echo=False)
+
+    # Ensure the tables exist (create_all is idempotent; the conftest session
+    # fixture already migrates the test DB).
     from models.workflow import Base
     Base.metadata.create_all(engine)
 
@@ -53,20 +61,36 @@ def db_engine():
 
 @pytest.fixture
 def db_session(db_engine):
-    """Create test database session."""
+    """Create test database session.
+
+    The Postgres test DB is shared across tests, so each test gets a clean
+    slate via TRUNCATE on teardown (equivalent to SQLite in-memory isolation).
+    """
     SessionLocal = sessionmaker(bind=db_engine)
     session = SessionLocal()
 
     yield session
 
+    # Clean up all rows touched by these tests so fixed workflow names like
+    # "Workflow 1" / "Metrics Test" don't collide with the next test.
+    try:
+        session.execute(text(
+            "TRUNCATE workflow_executions, workflow_versions, workflow_profiles "
+            "RESTART IDENTITY CASCADE"
+        ))
+        session.commit()
+    except Exception:
+        session.rollback()
     session.close()
 
 
 @pytest.fixture
 def test_workflow(db_session):
-    """Create a test workflow."""
+    """Create a test workflow (unique name — the Postgres test DB is shared,
+    so a fixed name would collide with rows left by earlier tests)."""
+    import uuid
     workflow = WorkflowProfile(
-        name="Test Workflow",
+        name=f"Test Workflow {uuid.uuid4().hex[:8]}",
         configuration={"nodes": [], "edges": []},
         blueprint={"nodes": [], "edges": []}
     )
@@ -338,79 +362,6 @@ class TestForeignKeyValidation:
         ).first()
 
         assert version_check is None, "Nonexistent version should not be found"
-
-
-# =============================================================================
-# Export Status Tracking Tests
-# =============================================================================
-
-class TestExportStatusTracking:
-    """Tests for export status tracking functionality."""
-
-    def test_export_status_columns_exist(self, db_session, test_workflow):
-        """Test that export status columns exist on WorkflowProfile."""
-        assert hasattr(test_workflow, 'export_status')
-        assert hasattr(test_workflow, 'export_error')
-        assert hasattr(test_workflow, 'last_export_at')
-
-    def test_export_status_pending(self, db_session, test_workflow):
-        """Test setting export status to pending."""
-        with managed_transaction(db_session, "set_pending"):
-            test_workflow.export_status = 'pending'
-            test_workflow.export_error = None
-
-        db_session.refresh(test_workflow)
-        assert test_workflow.export_status == 'pending'
-        assert test_workflow.export_error is None
-
-    def test_export_status_completed(self, db_session, test_workflow):
-        """Test setting export status to completed."""
-        with managed_transaction(db_session, "set_completed"):
-            test_workflow.export_status = 'completed'
-            test_workflow.export_error = None
-            test_workflow.last_export_at = datetime.utcnow()
-
-        db_session.refresh(test_workflow)
-        assert test_workflow.export_status == 'completed'
-        assert test_workflow.export_error is None
-        assert test_workflow.last_export_at is not None
-
-    def test_export_status_failed(self, db_session, test_workflow):
-        """Test setting export status to failed with error message."""
-        error_msg = "Export failed: Test error"
-
-        with managed_transaction(db_session, "set_failed"):
-            test_workflow.export_status = 'failed'
-            test_workflow.export_error = error_msg
-
-        db_session.refresh(test_workflow)
-        assert test_workflow.export_status == 'failed'
-        assert test_workflow.export_error == error_msg
-
-    def test_export_status_survives_workflow_update(self, db_session, test_workflow):
-        """Test that workflow update succeeds even if export fails."""
-        # Set initial export status
-        test_workflow.export_status = 'pending'
-        db_session.commit()
-
-        # Update workflow
-        with managed_transaction(db_session, "update_workflow") as tx:
-            test_workflow.name = "Updated Name"
-            test_workflow.export_status = 'pending'
-
-            # Simulate export failure in nested savepoint
-            try:
-                with tx.savepoint("export"):
-                    test_workflow.export_status = 'in_progress'
-                    raise Exception("Export failed")
-            except Exception:
-                test_workflow.export_status = 'failed'
-                test_workflow.export_error = "Export failed"
-
-        # Verify workflow update succeeded despite export failure
-        db_session.refresh(test_workflow)
-        assert test_workflow.name == "Updated Name"
-        assert test_workflow.export_status == 'failed'
 
 
 # =============================================================================
