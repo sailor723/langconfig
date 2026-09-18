@@ -87,7 +87,6 @@ def main() -> None:
         Neo4jDocumentEnrichment,
         Neo4jDocumentIndex,
         build_document_node_properties,
-        build_project_scope_names,
     )
 
     class FewShotExample(BaseModel):
@@ -97,7 +96,6 @@ def main() -> None:
     class DocumentEnrichmentOutput(BaseModel):
         what_this_document_is_about: str = Field(default="")
         supported_queries: list[str] = Field(default_factory=list)
-        out_of_scope: list[str] = Field(default_factory=list)
         few_shot: list[FewShotExample] = Field(default_factory=list)
 
     def extract_document_enrichment(
@@ -107,7 +105,6 @@ def main() -> None:
         tags: list[str],
         graphindex_meta: dict,
         content: str,
-        other_document_names: list[str],
     ) -> Neo4jDocumentEnrichment:
         """Use the LLM to create compact routing metadata for one document."""
         structured_llm = llm.with_structured_output(DocumentEnrichmentOutput)
@@ -121,16 +118,13 @@ def main() -> None:
             f"GraphIndex doc_name: {graphindex_meta.get('doc_name', '')}\n"
             f"GraphIndex page_count: {graphindex_meta.get('page_count', 0)}\n"
             f"GraphIndex content_preview: {graphindex_meta.get('content_preview', '')}\n"
-            f"GraphIndex search_terms: {graphindex_meta.get('search_terms', [])[:20]}\n"
-            f"Other documents in same project: {other_document_names}\n\n"
+            f"GraphIndex search_terms: {graphindex_meta.get('search_terms', [])[:20]}\n\n"
             "Return:\n"
             "1. what_this_document_is_about\n"
             "2. supported_queries\n"
-            "3. out_of_scope\n"
-            "4. few_shot\n\n"
+            "3. few_shot\n\n"
             "Rules:\n"
             "- Keep it concise and routing-oriented\n"
-            "- out_of_scope must be definitive where possible, using the other project documents as contrast\n"
             "- few_shot should be short examples of the kinds of questions this document can answer\n"
             "- Do not invent unsupported topics\n\n"
             f"Document excerpt:\n{content_excerpt}"
@@ -149,7 +143,6 @@ def main() -> None:
         return Neo4jDocumentEnrichment(
             what_this_document_is_about=result.what_this_document_is_about,
             supported_queries=result.supported_queries,
-            out_of_scope=result.out_of_scope,
             few_shot=[example.model_dump() for example in result.few_shot],
         )
 
@@ -190,8 +183,6 @@ def main() -> None:
             max_tokens=1024,
             db=db,
         )
-        all_document_names = [document.filename for document in documents]
-
         print(f"Rebuilding {len(documents)} document node(s) in Neo4j...")
         index.delete_project_documents(args.project_id)
         for document in documents:
@@ -207,7 +198,6 @@ def main() -> None:
                 tags=list(document.tags or []),
                 graphindex_meta=graphindex_meta,
                 content=content,
-                other_document_names=build_project_scope_names(document.filename, all_document_names),
             )
             properties = build_document_node_properties(
                 project_id=args.project_id,
@@ -255,8 +245,6 @@ def main() -> None:
             print(f"About: {matched.what_this_document_is_about}")
         if matched.supported_queries:
             print(f"Supported queries: {matched.supported_queries[:3]}")
-        if matched.out_of_scope:
-            print(f"Out of scope: {matched.out_of_scope[:3]}")
         response = llm.invoke(
             [
                 SystemMessage(

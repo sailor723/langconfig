@@ -1,0 +1,110 @@
+# LangConfig .env — single source of truth for runtime configuration.
+#
+# Copy this file to .env and edit as needed. .env is gitignored.
+#
+# Sections are split by who owns the value:
+#   (1) OPERATOR-ONLY: infrastructure the user must NOT touch. Read once at
+#       server boot. Edit only when redeploying.
+#   (2) USER-ADJUSTABLE: bootstrap defaults. The backend reads the equivalent
+#       field from the `workspace` / `general` / `models` / etc. settings
+#       document (see Settings panel + docs/TEAM_INSTALL.md). Override the
+#       value here to change the bootstrap default; otherwise edit via the
+#       UI and the DB value wins.
+#   (3) API KEYS: every secret lives in PostgreSQL (encrypted via Fernet
+#       using API_KEY_ENCRYPTION_KEY below). Use the first-run wizard or
+#       Settings → Models to add them; nothing in this file is read for keys.
+#
+# Connection vars follow this rule:
+#   - Backend reads from THIS file at startup.
+#   - backend/langgraph/connection.py is the single Python import that exposes
+#     these values as constants. Hardcoded Python literals are banned — every
+#     caller (Neo4j driver, RAG helpers, settings validators, etc.) imports
+#     from connection.py.
+
+# ════ (1) OPERATOR-ONLY (infrastructure) ════
+
+# ── PostgreSQL (main app DB + SQL agent / Chinook data) ──
+# Used by db/db_url.compose_db_url() to build DATABASE_URL when not set.
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=langconfig
+POSTGRES_USER=langconfig
+POSTGRES_PASSWORD=langconfig_dev
+
+# ── Redis (workflow cache backend) ──
+# Used by core/workflows/cache_config.py when CACHE_BACKEND=redis.
+REDIS_URL=redis://localhost:6379
+
+# ── Neo4j (Bolt driver) ──
+# Used by langgraph/neo4j_setup_db.py for the chat-time graph tools.
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=password
+NEO4J_DATABASE=neo4j
+NEO4J_ENCRYPTED=false
+
+# ── Neo4j (HTTP REST) ──
+# Used by Neo4jDocumentIndex helpers in tools/native_impl.py and
+# api/knowledge/rag/* for the document-index / vector-store API.
+# Both endpoints (Bolt + HTTP) are typically hosted on the same Neo4j
+# container, just different ports — change them together if you re-host.
+NEO4J_URL=http://localhost:7474
+# NEO4J_USER / NEO4J_PASSWORD are shared with the Bolt driver above.
+
+# ── Local LLM (Ollama) ──
+# Used by langgraph/llm.py, api/system/settings.py, and the local-model
+# settings UI. /v1 is appended automatically by the ChatOllama client.
+OLLAMA_BASE_URL=http://localhost:11434
+# Legacy alias for older callers that still expect LOCAL_LLM_*.
+LOCAL_LLM_BASE_URL=http://localhost:11434
+
+API_KEY_ENCRYPTION_KEY=change-this-in-production-use-openssl-rand-hex-32
+ENVIRONMENT=development
+TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5432/langconfig_test
+SQL_POSTGRES_DB=chinook
+GOOGLE_REDIRECT_URI=http://localhost:8765/api/auth/google/callback
+SQL_ECHO=false
+RATE_LIMIT_CLEANUP_INTERVAL=300
+
+# ════ (2) USER-ADJUSTABLE (bootstrap defaults; UI overrides at runtime) ════
+
+# Workspace
+LANGCONFIG_WORKSPACE_ROOT=backend/.workspace_data
+
+# Storage
+STORAGE_MODE=db
+
+# Local embeddings
+OLLAMA_EMBED_MODEL=nomic-embed-text:latest
+
+# Tracing (LangSmith — the api_key is in DB; the toggle + project name are env)
+LANGSMITH_TRACING=true
+LANGSMITH_PROJECT=langconfig
+
+# Backups
+BACKUP_DIR=./backups
+
+# Rate limiting
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_REQUESTS_PER_MINUTE=1000
+
+# Performance / observability
+PERFORMANCE_MONITORING_ENABLED=true
+SLOW_REQUEST_THRESHOLD_MS=1000
+LOG_SLOW_QUERIES=true
+SLOW_QUERY_THRESHOLD=1.0
+LOG_ALL_REQUESTS=false
+
+# DB pool tuning
+DB_POOL_SIZE=10
+DB_MAX_OVERFLOW=20
+
+# Agent runtime / analysis
+ANALYSIS_RECURSION_LIMIT=1000
+ANALYSIS_DASHBOARD_TIMEOUT=600
+ANALYSIS_CHAT_TIMEOUT=120
+
+# Execution history
+MAX_EXECUTION_HISTORY_PER_WORKFLOW=100
+EXECUTION_HISTORY_RETENTION_DAYS=90
+AUTO_CLEANUP_EXECUTION_HISTORY=true

@@ -15,9 +15,27 @@ Usage:
 
 import requests
 import json
+import pytest
 from datetime import datetime
 
 BASE_URL = "http://localhost:8765/api/workflows"
+
+
+def _backend_reachable(timeout: float = 2.0) -> bool:
+    """True if the live backend on :8765 responds quickly.
+
+    This test hits the real API (not hermetic); without a reachability check
+    a wedged/reloading backend makes the whole pytest run hang.
+    """
+    try:
+        return requests.get("http://localhost:8765/docs", timeout=timeout).status_code == 200
+    except Exception:
+        return False
+
+
+def _require_backend():
+    if not _backend_reachable():
+        pytest.skip("Live backend on :8765 not reachable — workflow-versioning API test requires it")
 
 def print_response(name, response):
     """Pretty print API response"""
@@ -59,7 +77,10 @@ def test_workflow_versioning():
         }
     }
 
-    response = requests.post(BASE_URL, json=workflow_data)
+    try:
+        response = requests.post(BASE_URL, json=workflow_data, timeout=5)
+    except requests.RequestException as e:
+        pytest.skip(f"Backend API on :8765 unavailable ({e}) — skipping live smoke test")
     print_response("Create Workflow", response)
 
     if response.status_code != 201:
@@ -77,7 +98,7 @@ def test_workflow_versioning():
         "created_by": "test_user"
     }
 
-    response = requests.post(f"{BASE_URL}/{workflow_id}/versions", json=version1_data)
+    response = requests.post(f"{BASE_URL}/{workflow_id}/versions", json=version1_data, timeout=5)
     print_response("Create Version 1", response)
 
     if response.status_code != 201:
@@ -106,7 +127,7 @@ def test_workflow_versioning():
         "created_by": "test_user"
     }
 
-    response = requests.post(f"{BASE_URL}/{workflow_id}/versions", json=version2_data)
+    response = requests.post(f"{BASE_URL}/{workflow_id}/versions", json=version2_data, timeout=5)
     print_response("Create Version 2", response)
 
     if response.status_code != 201:
@@ -119,7 +140,7 @@ def test_workflow_versioning():
 
     # Step 4: List all versions
     print("\n4. Listing all versions...")
-    response = requests.get(f"{BASE_URL}/{workflow_id}/versions")
+    response = requests.get(f"{BASE_URL}/{workflow_id}/versions", timeout=5)
     print_response("List Versions", response)
 
     if response.status_code == 200:
@@ -128,12 +149,12 @@ def test_workflow_versioning():
 
     # Step 5: Get specific version
     print("\n5. Getting Version 1 details...")
-    response = requests.get(f"{BASE_URL}/{workflow_id}/versions/1")
+    response = requests.get(f"{BASE_URL}/{workflow_id}/versions/1", timeout=5)
     print_response("Get Version 1", response)
 
     # Step 6: Compare versions
     print("\n6. Comparing Version 1 and Version 2...")
-    response = requests.get(f"{BASE_URL}/{workflow_id}/versions/1/compare/2")
+    response = requests.get(f"{BASE_URL}/{workflow_id}/versions/1/compare/2", timeout=5)
     print_response("Compare Versions", response)
 
     if response.status_code == 200:
@@ -165,7 +186,7 @@ def test_workflow_versioning():
         "status": "success"
     }
 
-    response = requests.post(f"{BASE_URL}/{workflow_id}/executions", json=execution_data)
+    response = requests.post(f"{BASE_URL}/{workflow_id}/executions", json=execution_data, timeout=5)
     print_response("Record Execution", response)
 
     if response.status_code == 201:
@@ -174,7 +195,7 @@ def test_workflow_versioning():
 
     # Step 8: List executions
     print("\n8. Listing all executions...")
-    response = requests.get(f"{BASE_URL}/{workflow_id}/executions")
+    response = requests.get(f"{BASE_URL}/{workflow_id}/executions", timeout=5)
     print_response("List Executions", response)
 
     if response.status_code == 200:
@@ -186,7 +207,7 @@ def test_workflow_versioning():
 
     # Step 9: List executions filtered by version
     print(f"\n9. Listing executions for Version 2 only...")
-    response = requests.get(f"{BASE_URL}/{workflow_id}/executions?version_id={version2_id}")
+    response = requests.get(f"{BASE_URL}/{workflow_id}/executions?version_id={version2_id}", timeout=5)
     print_response("List Executions (Filtered)", response)
 
     # Summary

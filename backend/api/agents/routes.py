@@ -53,7 +53,8 @@ async def get_agent_templates() -> List[Dict[str, Any]]:
                 "requires_human_approval": template.requires_human_approval,
                 "middleware": template.middleware,  # NEW: LangGraph v1.0 middleware
                 "tags": template.capabilities,
-                "category": template.category.value
+                "category": template.category.value,
+                "use_deepagents": False,  # Built-in templates are standard agents
             })
 
         return result

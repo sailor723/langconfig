@@ -5,7 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState } from 'react';
+import { useState, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { MessageSquare } from 'lucide-react';
 import { useProject } from "../../contexts/ProjectContext";
@@ -25,10 +26,34 @@ export default function ModernHeader({
   const { openChat } = useChat();
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [showAgentsMdEditor, setShowAgentsMdEditor] = useState(false);
+  const [showBuildDropdown, setShowBuildDropdown] = useState(false);
+  const [showStudioDropdown, setShowStudioDropdown] = useState(false);
+  const buildBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [buildBtnPos, setBuildBtnPos] = useState<{ left: number; top: number } | null>(null);
+  const studioBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [studioBtnPos, setStudioBtnPos] = useState<{ left: number; top: number } | null>(null);
   const { t } = useTranslation('chat');
 
+  // Capture Build button's screen position when dropdown opens, so the
+  // portal'd dropdown can anchor exactly under the button regardless of
+  // header layout / theme.
+  useLayoutEffect(() => {
+    if (showBuildDropdown && buildBtnRef.current) {
+      const r = buildBtnRef.current.getBoundingClientRect();
+      setBuildBtnPos({ left: r.left, top: r.bottom + 4 });
+    } else if (!showBuildDropdown) {
+      setBuildBtnPos(null);
+    }
+    if (showStudioDropdown && studioBtnRef.current) {
+      const r = studioBtnRef.current.getBoundingClientRect();
+      setStudioBtnPos({ left: r.left, top: r.bottom + 4 });
+    } else if (!showStudioDropdown) {
+      setStudioBtnPos(null);
+    }
+  }, [showBuildDropdown, showStudioDropdown]);
+
   return (
-    <header className="flex items-center justify-between whitespace-nowrap border-b px-4 py-4 z-20 shrink-0 h-20" style={{ backgroundColor: 'var(--color-primary)', borderBottomColor: 'var(--color-border-dark)' }}>
+    <header className="flex items-center justify-between whitespace-nowrap border-b px-4 py-4 z-20 shrink-0 h-20" style={{ backgroundColor: 'var(--color-header-background)', borderBottomColor: 'var(--color-border-dark)' }}>
       {/* Left: Logo - centered over agent library sidebar */}
       <div className="flex items-center h-full justify-center" style={{ width: '320px', marginLeft: '-16px' }}>
 
@@ -63,17 +88,18 @@ export default function ModernHeader({
               transform: 'rotate(-45deg)', // 45 degrees to the right
             }}
           />
-          {/* LangConfig Logo */}
+          {/* Carrier Logo */}
           <img
-            src="/langconfignewlogo.png"
-            alt="LangConfig"
+            src="/orca.png"
+            alt="Carrier Studio"
             style={{
-              height: '100px',
-              width: 'auto',
+              height: '52px',
+              width: '52px',
               display: 'block',
-              filter: 'brightness(0) invert(1)', // Makes the logo white
+              borderRadius: '10px',
+              objectFit: 'cover',
               margin: '0',
-              marginTop: '15px', // Shift logo down slightly
+              marginTop: '6px', // Shift logo down slightly
             }}
           />
         </button>
@@ -81,22 +107,57 @@ export default function ModernHeader({
 
       {/* Center: Navigation Tabs */}
       <nav className="flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
-        <button
-          onClick={() => onViewChange('studio')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'studio'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            } `}
-          style={{
-            textShadow: currentView === 'studio' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'studio' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">account_tree</span>
-            {t('nav_studio')}
-          </span>
-        </button>
+        <div className="relative">
+          <button
+            ref={studioBtnRef}
+            onClick={() => setShowStudioDropdown(!showStudioDropdown)}
+            className={`px-4 py-2 text-sm rounded-lg transition-all border flex items-center gap-2 ${
+              ['studio', 'deepagent-studio'].includes(currentView)
+                ? 'bg-white/30 text-white font-semibold border-white/40'
+                : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
+            }`}
+            style={{
+              textShadow: ['studio', 'deepagent-studio'].includes(currentView) ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
+              backdropFilter: ['studio', 'deepagent-studio'].includes(currentView) ? 'blur(8px)' : 'none'
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-base">account_tree</span>
+              Studio
+              <span className="material-symbols-outlined text-sm ml-1">{showStudioDropdown ? 'expand_less' : 'expand_more'}</span>
+            </span>
+          </button>
+          {showStudioDropdown && createPortal(
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowStudioDropdown(false)} />
+              <div
+                className="fixed w-44 rounded-lg shadow-lg border z-[60] overflow-hidden bg-white border-gray-200"
+                style={studioBtnPos
+                  ? { left: studioBtnPos.left, top: studioBtnPos.top }
+                  : { left: 9999, top: 9999 }}
+              >
+                {[
+                  { view: 'studio' as const, icon: 'account_tree', label: 'LangGraph' },
+                  { view: 'deepagent-studio' as const, icon: 'hub', label: 'DeepAgent' },
+                ].map(item => (
+                  <button
+                    key={item.view}
+                    onClick={() => { onViewChange(item.view); setShowStudioDropdown(false); }}
+                    className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-all font-medium text-gray-900 ${
+                      currentView === item.view
+                        ? 'bg-blue-50'
+                        : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">{item.icon}</span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </>,
+            document.body
+          )}
+        </div>
         <button
           onClick={() => onViewChange('agents')}
           className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'agents'
@@ -145,55 +206,59 @@ export default function ModernHeader({
             {t('nav_knowledge')}
           </span>
         </button>
-        <button
-          onClick={() => onViewChange('tools')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'tools'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
+                {/* Build dropdown */}
+        <div className="relative">
+          <button
+            ref={buildBtnRef}
+            onClick={() => setShowBuildDropdown(!showBuildDropdown)}
+            className={`px-4 py-2 text-sm rounded-lg transition-all border flex items-center gap-2 ${
+              ['tools', 'prompt', 'skills'].includes(currentView)
+                ? 'bg-white/30 text-white font-semibold border-white/40'
+                : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
             }`}
-          style={{
-            textShadow: currentView === 'tools' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'tools' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">build</span>
-            {t('nav_tools')}
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('prompt')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'prompt'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            } `}
-          style={{
-            textShadow: currentView === 'prompt' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'prompt' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">layers</span>
-            {t('nav_prompt')}
-          </span>
-        </button>
-        <button
-          onClick={() => onViewChange('skills')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'skills'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            } `}
-          style={{
-            textShadow: currentView === 'skills' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'skills' ? 'blur(8px)' : 'none'
-          }}
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">auto_awesome</span>
-            {t('nav_skills')}
-          </span>
-        </button>
-        <button
+            style={{
+              textShadow: ['tools', 'prompt', 'skills'].includes(currentView) ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
+              backdropFilter: ['tools', 'prompt', 'skills'].includes(currentView) ? 'blur(8px)' : 'none'
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-base">build</span>
+              Build
+              <span className="material-symbols-outlined text-sm ml-1">{showBuildDropdown ? 'expand_less' : 'expand_more'}</span>
+            </span>
+          </button>
+          {showBuildDropdown && createPortal(
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setShowBuildDropdown(false)} />
+              <div
+                className="fixed w-40 rounded-lg shadow-lg border z-[60] overflow-hidden bg-white border-gray-200"
+                style={buildBtnPos
+                  ? { left: buildBtnPos.left, top: buildBtnPos.top }
+                  : { left: 9999, top: 9999 } /* off-screen until measured */}
+              >
+                {[
+                  { view: 'skills' as const, icon: 'auto_awesome', label: t('nav_skills') },
+                  { view: 'tools' as const, icon: 'build', label: t('nav_tools') },
+                  { view: 'prompt' as const, icon: 'layers', label: t('nav_prompt') },
+                ].map(item => (
+                  <button
+                    key={item.view}
+                    onClick={() => { onViewChange(item.view); setShowBuildDropdown(false); }}
+                    className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition-all font-medium text-gray-900 ${
+                      currentView === item.view
+                        ? 'bg-blue-50'
+                        : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">{item.icon}</span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </>,
+            document.body
+          )}
+        </div><button
           onClick={() => onViewChange('analysis')}
           className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'analysis'
             ? 'bg-white/30 text-white font-semibold border-white/40'
@@ -209,23 +274,7 @@ export default function ModernHeader({
             Analysis
           </span>
         </button>
-        <button
-          onClick={() => onViewChange('deepagent-studio')}
-          className={`px-4 py-2 text-sm rounded-lg transition-all border ${currentView === 'deepagent-studio'
-            ? 'bg-white/30 text-white font-semibold border-white/40'
-            : 'text-white/90 font-medium hover:bg-white/15 hover:text-white border-transparent hover:border-white/20'
-            }`}
-          style={{
-            textShadow: currentView === 'deepagent-studio' ? '0 1px 2px rgba(0, 0, 0, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.15)',
-            backdropFilter: currentView === 'deepagent-studio' ? 'blur(8px)' : 'none'
-          }}
-          title="DeepAgent Studio — visualize any DeepAgent's structure"
-        >
-          <span className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">hub</span>
-            DeepAgent Studio
-          </span>
-        </button>
+        
       </nav>
 
       {/* Right: Project Selector & Action Buttons */}
@@ -233,13 +282,11 @@ export default function ModernHeader({
         {/* Chat Button */}
         <button
           onClick={() => openChat()}
-          className="flex items-center justify-center h-10 w-10 rounded-lg hover:bg-white/15 transition-all text-white/90 hover:text-white border border-transparent hover:border-white/20"
+          className="flex items-center gap-2 px-3 h-10 rounded-lg transition-all bg-white/15 text-white font-semibold hover:bg-white/25 border border-white/20"
           title={t('nav_chat')}
-          style={{
-            textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)'
-          }}
         >
-          <MessageSquare className="w-5 h-5" />
+          <MessageSquare className="w-4 h-4" />
+          <span className="text-sm">Chat</span>
         </button>
 
         {/* AGENTS.md Editor (project-level context for DeepAgent MemoryMiddleware) */}
@@ -340,22 +387,26 @@ export default function ModernHeader({
         </button>
       </div>
 
-      {/* AGENTS.md Editor Modal (DeepAgent MemoryMiddleware) */}
-      {showAgentsMdEditor && activeProject && (
+      {/* AGENTS.md Editor Modal (DeepAgent MemoryMiddleware)
+          Rendered via portal to escape the <header> parent's text-white
+          inheritance — keeps modal text truly dark. */}
+      {showAgentsMdEditor && activeProject && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
           onClick={() => setShowAgentsMdEditor(false)}
         >
           <div
-            className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl w-[800px] max-w-[95vw] h-[700px] max-h-[90vh] flex flex-col overflow-hidden"
+            className="rounded-lg shadow-2xl w-[900px] max-w-[95vw] h-[720px] max-h-[90vh] flex flex-col overflow-hidden border border-gray-300"
             onClick={(e) => e.stopPropagation()}
+            style={{ backgroundColor: '#ffffff', color: '#1f2937' }}
           >
             <AgentsMdEditor
               projectId={activeProject.id}
               onClose={() => setShowAgentsMdEditor(false)}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </header>
   );

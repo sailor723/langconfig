@@ -177,14 +177,21 @@ export function useVersionManagement({
             restoredAgentType = 'CONDITIONAL_NODE';
           }
 
+          // Merge the persisted top-level node config into data.config so
+          // control/tool node fields survive a version restore (same merge as
+          // the load path in useWorkflowManagement).
+          const persistedData = n.data || {};
+          const persistedConfig = n.config || {};
+
           return {
             id: n.id,
             type: 'custom',
             position: validPosition,
-            data: n.data || {
-              label: n.type,
+            data: {
+              label: persistedData.label ?? n.type,
+              ...persistedData,
               agentType: restoredAgentType,
-              config: n.config || {}
+              config: { ...(persistedData.config || {}), ...persistedConfig }
             }
           };
         });

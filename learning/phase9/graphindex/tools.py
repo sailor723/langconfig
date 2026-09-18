@@ -24,17 +24,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools import StructuredTool
 
-from learning.phase9.graphindex.index_build import Neo4jDocumentIndex
-from learning.phase9.graphindex.route import (
-    fetch_catalog,
-    load_doc_context,
-    make_routing_llm,
-    make_answer_llm,
-    MatchedDoc,
-    route_by_llm,
-    _file_path_for,
-    _read_doc_text,
-)
+from learning.phase9.graphindex.index_build import Neo4jDocumentIndex, load_doc_context, _file_path_for, load_document_content
 
 
 # ---------------------------------------------------------------------------
@@ -105,31 +95,23 @@ def tool_list_docs(project_id: int) -> str:
 
 
 def tool_query_docs(query: str, project_id: int) -> str:
-    """Find documents that match a query.
+    """Find the best document that matches a query using GraphIndex vector search.
 
-    Returns an ordered list of matched documents with confidence scores
-    and reasons why each document is relevant.
+    Returns the best matching document name with a short explanation.
     """
     idx = _build_neo4j_index(project_id)
-    rows = fetch_catalog(idx, project_id, doc_scope="all")
-    if not rows:
+    docs = idx.list_documents(project_id=project_id)
+    if not docs:
         return "No documents found in this project."
 
-    routing_llm = make_routing_llm()
-    decision, _ = route_by_llm(query, rows, routing_llm)
-    if not decision.documents:
+    best = idx.find_best_document(project_id=project_id, query=query)
+    if best is None:
         return "No relevant documents found for this query."
 
-    parts: List[str] = []
-    for i, doc in enumerate(decision.documents, start=1):
-        label = "BEST" if i == 1 else f"#{i}"
-        parts.append(
-            f"[{label}] {doc.name}  (confidence={doc.confidence:.2f})\n"
-            f"       Reason: {doc.reason}"
-        )
-    if decision.reasoning:
-        parts.append(f"\nStrategy: {decision.reasoning}")
-    return "\n".join(parts)
+    return (
+        f"[BEST] {best.name}\n"
+        f"       about: {(best.what_this_document_is_about or '')[:200]}"
+    )
 
 
 def tool_read_doc(name: str, project_id: int) -> str:
@@ -139,7 +121,7 @@ def tool_read_doc(name: str, project_id: int) -> str:
     if not path:
         return f"Document '{name}' not found in Neo4j."
     max_chars = int(os.getenv("GRAPHINDEX_PRIMARY_MAX_CHARS", "10000000"))
-    text = _read_doc_text(path, max_chars)
+    text = load_document_content(path, max_chars=max_chars)
     if not text:
         return f"Document '{name}' has no extractable text."
     return f"=== {name} ===\n{text}"
@@ -159,9 +141,9 @@ def tool_answer(query: str, doc_names: str, project_id: int) -> str:
     if not names:
         return "No document names provided."
 
-    docs = [MatchedDoc(name=n, confidence=1.0, reason="") for n in names]
-    context = load_doc_context(idx, project_id, docs)
-    answer_llm = make_answer_llm()
+    context = load_doc_context(idx, project_id, names)
+    from learning.phase9.graphindex.index_build import make_llm  # noqa: E402
+    answer_llm = make_llm()
     system = SystemMessage(
         content="You are a research analyst. Answer the user's query based "
                 "solely on the provided documents. Use citations like "

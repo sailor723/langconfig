@@ -13,7 +13,9 @@ interface AgentsMdEditorProps {
   onClose?: () => void;
 }
 
-const DEFAULT_CONTENT = `# Project Conventions
+const DEFAULT_CONTENT = `# Project {projectId} Conventions
+
+**Project ID: {projectId}**
 
 <!-- This file is loaded into every DeepAgent's system prompt via MemoryMiddleware. -->
 <!-- Edit it to share project-level context (build commands, code style, architecture, etc.) -->
@@ -50,8 +52,9 @@ export default function AgentsMdEditor({ projectId, onClose }: AgentsMdEditorPro
     try {
       const res = await apiClient.getAgentsMd(projectId);
       const data = res.data;
-      setContent(data.content || DEFAULT_CONTENT);
-      setOriginalContent(data.content || DEFAULT_CONTENT);
+      const _default = DEFAULT_CONTENT.split('{projectId}').join(String(projectId));
+      setContent(data.content || _default);
+      setOriginalContent(data.content || _default);
       setExists(!!data.exists);
     } catch (e: any) {
       setError(e?.message || 'Failed to load AGENTS.md');
@@ -106,7 +109,7 @@ export default function AgentsMdEditor({ projectId, onClose }: AgentsMdEditorPro
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" style={{ color: '#1f2937', backgroundColor: '#ffffff' }}>
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">AGENTS.md</span>
@@ -152,9 +155,16 @@ export default function AgentsMdEditor({ projectId, onClose }: AgentsMdEditorPro
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className="flex-1 w-full p-4 font-mono text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 resize-none focus:outline-none"
+          className="flex-1 w-full p-4 font-mono leading-relaxed rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Markdown content..."
           spellCheck={false}
+          style={{
+            minHeight: '520px',
+            fontSize: '15px',
+            color: '#1f2937',
+            backgroundColor: '#f9fafb',
+            caretColor: '#2563eb',
+          }}
         />
       )}
 

@@ -25,6 +25,7 @@ export interface KbTreeViewProps {
   scopeDocIds: Set<number>;
   toggleScopeDoc: (id: number) => void;
   setSelectedDocId: (id: number) => void;
+  onFolderSelect?: (path: string | null) => void;
   handleDelete: (id: number) => Promise<void>;
   t: (key: string) => string;
   formatFileSize: (bytes: number) => string;
@@ -133,16 +134,14 @@ function DocCardMini({
             aria-label={`Toggle ${doc.name} in chat scope`}
           />
         </label>
-        {!doc.neo4j_only && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-500/10"
-            style={{ color: 'var(--color-text-muted)' }}
-            title={t('kb_delete')}
-          >
-            <Trash2 className="w-2.5 h-2.5" />
-          </button>
-        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-500/10"
+          style={{ color: 'var(--color-text-muted)' }}
+          title={t('kb_delete')}
+        >
+          <Trash2 className="w-2.5 h-2.5" />
+        </button>
       </div>
     </button>
   );
@@ -165,6 +164,7 @@ function renderNode(
   scopeDocIds: Set<number>,
   toggleScopeDoc: (id: number) => void,
   setSelectedDocId: (id: number) => void,
+  onFolderSelect: ((path: string | null) => void) | undefined,
   handleDelete: (id: number) => Promise<void>,
   t: (key: string) => string,
   formatFileSize: (bytes: number) => string,
@@ -198,7 +198,10 @@ function renderNode(
       node={node}
       depth={depth}
       isExpanded={isExpanded}
-      onToggle={() => toggleFolder(node.path)}
+      onToggle={() => {
+        toggleFolder(node.path);
+        onFolderSelect?.(node.path);
+      }}
       childCount={childCount}
       docCount={docCount}
     />,
@@ -211,7 +214,7 @@ function renderNode(
           selectedDocId, highlightedDocId,
           expandedFolders, toggleFolder,
           scopeDocIds, toggleScopeDoc,
-          setSelectedDocId, handleDelete,
+          setSelectedDocId, onFolderSelect, handleDelete,
           t, formatFileSize,
         ),
       );
@@ -230,6 +233,7 @@ export default function KbTreeView(props: KbTreeViewProps) {
     scopeDocIds,
     toggleScopeDoc,
     setSelectedDocId,
+    onFolderSelect,
     handleDelete,
     t,
     formatFileSize,
@@ -253,7 +257,7 @@ export default function KbTreeView(props: KbTreeViewProps) {
           selectedDocId, highlightedDocId,
           expandedFolders, toggleFolder,
           scopeDocIds, toggleScopeDoc,
-          setSelectedDocId, handleDelete,
+          setSelectedDocId, onFolderSelect, handleDelete,
           t, formatFileSize,
         ),
       )}

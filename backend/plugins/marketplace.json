@@ -1,0 +1,11 @@
+{
+  "name": "langconfig-builtin",
+  "description": "Built-in LangConfig plugin marketplace",
+  "plugins": [
+    {
+      "name": "meeting-minutes",
+      "source": "./meeting-minutes",
+      "description": "Turn raw meeting transcripts into structured minutes: decisions, action items, owners, and deadlines."
+    }
+  ]
+}

@@ -502,17 +502,21 @@ class ContextDocumentIndexer:
             except ImportError:
                 OpenAIEmbedding = None
 
-            from config import settings as app_settings
+            from core.settings import runtime_get
 
-            embed_model_name = app_settings.default_embedding_model
+            embed_model_name = runtime_get("rag", "embedding_model")
             if not embed_model_name:
-                logger.warning("No embedding model configured in .env, skipping")
+                logger.warning("No embedding model configured (settings documents), skipping")
                 return
 
-            logger.info(f"Configuring embed model from .env: {embed_model_name}")
+            logger.info(f"Configuring embed model: {embed_model_name}")
 
             # Strip /v1 suffix if present (Ollama uses root API path, not /v1)
-            base_url_raw = (app_settings.local_llm_base_url or "http://localhost:11434").rstrip("/")
+            # Single source of truth: OLLAMA_BASE_URL in .env (or the
+            # `models.local_base_url` runtime override).
+            from langgraph.connection import OLLAMA_BASE_URL
+            local = runtime_get("models", "local_base_url") or OLLAMA_BASE_URL
+            base_url_raw = local.rstrip("/")
             base_url_ollama = base_url_raw.replace("/v1", "").rstrip("/")
 
             # Check if it's an Ollama model
@@ -525,6 +529,7 @@ class ContextDocumentIndexer:
                 logger.info(f"Configured Ollama embedding: {model_name} @ {base_url_ollama}")
             # Check if it's an OpenAI model
             elif embed_model_name.startswith("text-embedding-"):
+                from config import settings as app_settings
                 openai_key = app_settings.openai_api_key
                 if openai_key:
                     LlamaSettings.embed_model = OpenAIEmbedding(
@@ -543,30 +548,32 @@ class ContextDocumentIndexer:
                 )
                 logger.info(f"Configured generic Ollama embedding: {embed_model_name} @ {base_url_ollama}")
 
-            # Also configure LLM from .env if needed
-            if app_settings.default_model:
+            # Also configure LLM if needed
+            default_model = runtime_get("models", "default_model")
+            if default_model:
                 try:
-                    if app_settings.local_llm_provider == "ollama" or not app_settings.default_model.startswith("gpt"):
+                    if runtime_get("models", "local_provider") == "ollama" or not default_model.startswith("gpt"):
                         from llama_index.llms.ollama import Ollama
                         LlamaSettings.llm = Ollama(
-                            model=app_settings.default_model,
+                            model=default_model,
                             base_url=base_url_ollama,
                             request_timeout=120.0,
                         )
-                        logger.info(f"Configured Ollama LLM: {app_settings.default_model} @ {base_url_ollama}")
+                        logger.info(f"Configured Ollama LLM: {default_model} @ {base_url_ollama}")
                     else:
+                        from config import settings as app_settings
                         openai_key = app_settings.openai_api_key
                         if openai_key:
                             from llama_index.llms.openai import OpenAI
                             LlamaSettings.llm = OpenAI(
-                                model=app_settings.default_model,
+                                model=default_model,
                                 api_key=openai_key,
                             )
-                            logger.info(f"Configured OpenAI LLM: {app_settings.default_model}")
+                            logger.info(f"Configured OpenAI LLM: {default_model}")
                 except ImportError as ie:
-                    logger.warning(f"Could not configure LLM from .env (package not installed): {ie}")
+                    logger.warning(f"Could not configure LLM (package not installed): {ie}")
         except Exception as e:
-            logger.error(f"Failed to configure embed model from .env: {e}", exc_info=True)
+            logger.error(f"Failed to configure embed model: {e}", exc_info=True)
 
     async def _create_embeddings(
         self,

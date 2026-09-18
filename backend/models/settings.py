@@ -10,6 +10,10 @@ Stores all user preferences and configuration in PostgreSQL
 from sqlalchemy import Column, Integer, String, Boolean, JSON, DateTime, Float
 from db.database import Base
 import datetime
+import os
+
+# Single source of truth: OLLAMA_BASE_URL in .env. No hardcoded default.
+from langgraph.connection import OLLAMA_BASE_URL
 
 
 class Settings(Base):
@@ -20,6 +24,10 @@ class Settings(Base):
     __tablename__ = 'settings'
 
     id = Column(Integer, primary_key=True, default=1)  # Always 1
+
+    # First-run onboarding: set to True once the user completes the setup
+    # wizard (API key + workspace). False → the app shows the wizard on boot.
+    setup_complete = Column(Boolean, default=False)
 
     # API Keys (encrypted in production)
     # Note: Should be moved to OS keychain via Tauri for security
@@ -39,18 +47,26 @@ class Settings(Base):
 
     # RAG/Vector Database Settings
     storage_path = Column(String, nullable=True)
+    # Storage mode runtime override (docs/system-architecture.md §15): 'local'
+    # (disk, default) | 'db' (Postgres BYTEA). Nullable — None means "use the
+    # .env / default value". Set via Settings UI -> GET/PUT /api/settings/storage-mode.
+    storage_mode = Column(String, nullable=True)
     embedding_model = Column(String, default="text-embedding-3-small")
     chunk_size = Column(Integer, default=1000)
     chunk_overlap = Column(Integer, default=200)
 
     # Model Defaults
-    default_model = Column(String, default="gpt-4o")
-    default_temperature = Column(Float, default=0.7)
-    max_tokens = Column(Integer, default=4096)
+    # NULL = "use .env" (config.Settings is the single source of truth).
+    # The settings UI only overrides these when the user explicitly sets them.
+    default_model = Column(String, default=None)
+    default_temperature = Column(Float, default=None)
+    max_tokens = Column(Integer, default=None)
 
     # Local Models Settings
     local_provider = Column(String, default="ollama")
-    local_base_url = Column(String, default="http://localhost:11434/v1")
+    # Source of truth: OLLAMA_BASE_URL in .env (or LOCAL_LLM_BASE_URL).
+    # The +"/v1" suffix is added by the caller that consumes this URL.
+    local_base_url = Column(String, default=os.getenv("OLLAMA_BASE_URL", OLLAMA_BASE_URL) + "/v1")
     local_model_name = Column(String, default="llama3.2:latest")
     local_api_key = Column(String, nullable=True)
 
@@ -62,11 +78,11 @@ class Settings(Base):
     workspace_auto_detect_git = Column(Boolean, default=True)
     workspace_backup_before_edit = Column(Boolean, default=True)
 
-    # Model Defaults Advanced
-    primary_model = Column(String, default="gpt-4o")
+    # Model Defaults Advanced (NULL = fall back to .env / config defaults)
+    primary_model = Column(String, default=None)
     fallback_models = Column(JSON, default=lambda: ["claude-sonnet-4-5"])
-    temperature = Column(Float, default=0.7)
-    max_tokens_default = Column(Integer, default=4096)
+    temperature = Column(Float, default=None)
+    max_tokens_default = Column(Integer, default=None)
     top_p = Column(Float, default=1.0)
     routing_strategy = Column(String, default="balanced")
     daily_token_limit = Column(Integer, default=0)  # 0 = unlimited

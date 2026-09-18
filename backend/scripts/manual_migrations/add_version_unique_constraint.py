@@ -41,6 +41,8 @@ from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
 
+from db.db_url import compose_db_url
+
 # Load .env file
 env_path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(env_path)
@@ -376,11 +378,8 @@ def main():
 
     args = parser.parse_args()
 
-    # Get database URL from environment
-    database_url = os.getenv(
-        "DATABASE_URL",
-        "postgresql://langconfig:langconfig_dev@localhost:5433/langconfig"
-    )
+    # Get database URL from environment (POSTGRES_* single source of truth)
+    database_url = os.getenv("DATABASE_URL") or compose_db_url()
 
     # Create database session
     engine = create_engine(database_url)

@@ -22,11 +22,11 @@ TokenTrackingCallback, ExecutionEventCallbackHandler, and SimpleWorkflowExecutor
 
 import pytest
 import asyncio
+import os
 from typing import List, Dict, Any
 import logging
 
 from core.agents.factory import AgentFactory
-from core.utils.token_tracking import create_token_tracking_callback
 from models.agent_config_schema import (
     AgentConfigV2,
     ToolConfig,
@@ -34,6 +34,13 @@ from models.agent_config_schema import (
     ConfigNormalizer
 )
 from core.models.registry import model_registry
+
+
+def _require_anthropic_key():
+    """These integration tests build real Claude LLMs. API keys are wizard-only
+    (Settings → Models, stored encrypted in the DB) — skip when no key is set."""
+    if not os.getenv("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY not set (enter it in Settings → Models)")
 from core.middleware.routing import ModelRouter, TaskComplexity, analyze_task_complexity
 
 
@@ -74,8 +81,10 @@ def complex_agent_config():
         "enable_parallel_tools": True,
         "enable_memory": False,
         "fallback_models": ["claude-haiku-4-5-20251015"],
-        "interrupt_before": ["agent"],
-        "interrupt_after": ["tools"],
+        # interrupt_before/after with node names like "agent"/"tools" are no
+        # longer valid: langchain v1 create_agent validates the node names and
+        # raises "Interrupt node 'agent' not found". HITL wiring now happens
+        # via APPROVAL_NODE in the workflow executor.
     }
 
 
@@ -94,7 +103,7 @@ def routing_agent_config():
 
 
 # =============================================================================
-Critical Bug Fixes Tests
+# Critical Bug Fixes Tests
 # =============================================================================
 
 class TestCriticalFixes:
@@ -102,6 +111,7 @@ class TestCriticalFixes:
 
     @pytest.mark.asyncio
     async def test_streaming_configuration_passed(self, basic_agent_config):
+        _require_anthropic_key()
         """Test that streaming flag is properly passed to create_agent."""
         agent_graph, tools, callbacks = await AgentFactory.create_agent(
             agent_config=basic_agent_config,
@@ -117,6 +127,11 @@ class TestCriticalFixes:
     @pytest.mark.asyncio
     async def test_callbacks_integration(self, basic_agent_config):
         """Test that TokenTrackingCallback is properly integrated."""
+        # The token-tracking service module is not shipped with the repo
+        # (production guards this import with try/except); skip when absent,
+        # mirroring test_token_tracking_callback_creation below.
+        pytest.importorskip("core.utils.token_tracking")
+
         agent_graph, tools, callbacks = await AgentFactory.create_agent(
             agent_config=basic_agent_config,
             project_id=1,
@@ -133,6 +148,7 @@ class TestCriticalFixes:
 
     @pytest.mark.asyncio
     async def test_tool_binding_verification(self, basic_agent_config):
+        _require_anthropic_key()
         """Test that tools are bound and verified."""
         agent_graph, tools, callbacks = await AgentFactory.create_agent(
             agent_config=basic_agent_config,
@@ -147,8 +163,10 @@ class TestCriticalFixes:
 
     @pytest.mark.asyncio
     async def test_interrupt_configuration_custom_nodes(self, complex_agent_config):
-        """Test that interrupt configuration supports custom node lists."""
-        # Config has interrupt_before=["agent"] and interrupt_after=["tools"]
+        _require_anthropic_key()
+        """A complex agent config (without invalid interrupt node names) must
+        build successfully. HITL interrupt wiring lives in the workflow
+        executor (APPROVAL_NODE), not in per-agent interrupt_before lists."""
         agent_graph, tools, callbacks = await AgentFactory.create_agent(
             agent_config=complex_agent_config,
             project_id=1,
@@ -156,8 +174,7 @@ class TestCriticalFixes:
             context="Test context"
         )
 
-        assert agent_graph is not None, "Agent graph should be created with interrupts"
-        # Interrupt configuration is internal to LangGraph, verified via logs
+        assert agent_graph is not None, "Agent graph should be created"
 
     @pytest.mark.asyncio
     async def test_enhanced_validation(self):
@@ -176,7 +193,7 @@ class TestCriticalFixes:
         # Test invalid max_tokens
         invalid_config2 = {
             "model": "claude-haiku-4-5-20251015",
-            "max_tokens": 1000000,  # Invalid: > 500000
+            "max_tokens": 2000000,  # Invalid: > 1_000_000 (MAX_MAX_TOKENS)
             "system_prompt": "Test"
         }
 
@@ -207,7 +224,7 @@ class TestCriticalFixes:
 
 
 # =============================================================================
-Schema & Architecture Tests
+# Schema & Architecture Tests
 # =============================================================================
 
 class TestSchemaV2:
@@ -268,7 +285,7 @@ class TestSchemaV2:
 
 
 # =============================================================================
-Dynamic Model Routing Tests
+# Dynamic Model Routing Tests
 # =============================================================================
 
 class TestModelRouting:
@@ -281,7 +298,10 @@ class TestModelRouting:
         # Test getting a model
         haiku = model_registry.get_model("claude-haiku-4-5-20251015")
         assert haiku is not None, "Should find Haiku model"
-        assert haiku.display_name == "Claude Haiku 4.5", "Should have correct name"
+        # The registry is DB-driven (models table is the source of truth);
+        # the display name comes from the DB row, so assert the family, not
+        # an exact hardcoded string.
+        assert "Claude Haiku" in haiku.display_name, "Should have correct name"
 
     def test_task_complexity_analysis(self):
         """Test task complexity analysis."""
@@ -342,6 +362,7 @@ class TestModelRouting:
 
     @pytest.mark.asyncio
     async def test_routing_integration_in_agent_factory(self, routing_agent_config):
+        _require_anthropic_key()
         """Test model routing integration in agent factory."""
         agent_graph, tools, callbacks = await AgentFactory.create_agent(
             agent_config=routing_agent_config,
@@ -364,7 +385,10 @@ class TestWorkflowIntegration:
     @pytest.mark.asyncio
     async def test_token_tracking_callback_creation(self):
         """Test that TokenTrackingCallback can be created and works."""
-        callback = create_token_tracking_callback(
+        # The token-tracking service module is not shipped with the repo
+        # (production guards this import with try/except); skip when absent.
+        token_tracking = pytest.importorskip("core.utils.token_tracking")
+        callback = token_tracking.create_token_tracking_callback(
             agent_id="test_agent",
             project_id=1,
             task_id="test_task_1",
@@ -376,6 +400,7 @@ class TestWorkflowIntegration:
 
     @pytest.mark.asyncio
     async def test_agent_with_multiple_tools(self):
+        _require_anthropic_key()
         """Test agent creation with multiple tools for parallel execution."""
         config = {
             "model": "claude-haiku-4-5-20251015",
@@ -408,7 +433,7 @@ class TestValidationAndErrors:
 
         assert "claude-haiku-4-5-20251015" in SUPPORTED_MODELS, "Haiku should be supported"
         assert "claude-opus-4-5-20250514" in SUPPORTED_MODELS, "Opus should be supported"
-        assert "gpt-5-turbo" in SUPPORTED_MODELS, "GPT-5 Turbo should be supported"
+        assert "gpt-4o" in SUPPORTED_MODELS, "GPT-4o should be supported"
 
     def test_validation_catches_mutual_exclusivity(self):
         """Test that validation catches structured output + tools conflict."""

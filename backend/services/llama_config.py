@@ -67,7 +67,9 @@ def initialize_llama_index_settings(
     
     try:
         # Priority: Ollama > OpenAI > HuggingFace (local fallback)
-        ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        # Single source of truth: OLLAMA_BASE_URL / OLLAMA_EMBED_MODEL in .env.
+        from langgraph.connection import OLLAMA_BASE_URL
+        ollama_base_url = os.getenv("OLLAMA_BASE_URL") or OLLAMA_BASE_URL
         ollama_embed_model = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text:latest")
 
         # Check if Ollama is available
@@ -111,8 +113,15 @@ def initialize_llama_index_settings(
         # Configure LLM for HyDE if proxy details are provided
         if litellm_proxy_url and litellm_api_key:
             logger.info(f"Configuring LLM with LiteLLM proxy: {litellm_proxy_url}")
+            # Use the app-wide default model (settings documents) instead
+            # of a hardcoded one.
+            try:
+                from core.settings import runtime_get
+                llm_model = runtime_get("models", "default_model") or "gpt-4o-mini"
+            except Exception:
+                llm_model = "gpt-4o-mini"
             Settings.llm = OpenAI(
-                model="gpt-4o-mini",
+                model=llm_model,
                 api_base=f"{litellm_proxy_url}/v1",
                 api_key=litellm_api_key
             )

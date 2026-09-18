@@ -90,7 +90,6 @@ class DocEntry:
     file_path: str
     about: str
     supported: List[str]
-    out_of_scope: List[str]
     page_count: int
 
     @classmethod
@@ -100,7 +99,6 @@ class DocEntry:
             file_path=r["fp"] or "",
             about=r["about"] or "",
             supported=list(r["supports"] or []),
-            out_of_scope=[ex["name"] for ex in (r["excludes"] or []) if ex.get("name")],
             page_count=0,
         )
 
@@ -173,7 +171,6 @@ def _entry_to_record(e: DocEntry, project_id: int = int(os.getenv("GRAPHINDEX_DE
         tags=[],
         what_this_document_is_about=e.about,
         supported_queries=list(e.supported),
-        out_of_scope=list(e.out_of_scope),
         search_terms=[],
         content_preview="",
         doc_index_id=None,

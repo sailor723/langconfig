@@ -5,9 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ChatMessage, ChatStreamEvent } from '../types/chat';
-import apiClient from '../../../lib/api-client';
+import { streamChatEvents } from '../utils/streamChatEvents';
 
 interface UseChatStreamingResult {
   sendMessage: (
@@ -29,6 +29,8 @@ interface UseChatStreamingResult {
         empty and causes "no documents in project X"). */
     projectId?: number | null,
   ) => Promise<void>;
+  /** Abort the current in-flight stream (also called automatically on unmount) */
+  cancel: () => void;
   isStreaming: boolean;
   error: string | null;
   clearError: () => void;
@@ -108,145 +110,114 @@ export function useChatStreaming(
           requestBody.project_id = projectId;
         }
 
-        const response = await fetch(`${apiClient.baseURL}/api/chat/message/stream`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-          signal: abortControllerRef.current.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to send message: ${response.statusText}`);
-        }
-
-        // Read stream
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-
-        if (!reader) {
-          throw new Error('No reader available for response stream');
-        }
-
         let accumulatedContent = '';
         let assistantMessageAdded = false;
 
-        while (true) {
-          const { done, value } = await reader.read();
+        // Shared SSE transport — fetch + `data:` parsing live in
+        // streamChatEvents so this hook and chatStore don't each
+        // reimplement the reader loop.
+        const events = streamChatEvents('/api/chat/message/stream', requestBody, abortControllerRef.current.signal);
+        for await (const raw of events) {
+          const data = raw as ChatStreamEvent;
 
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data: ChatStreamEvent = JSON.parse(line.substring(6));
-
-                if (data.type === 'chunk') {
-                  // The LLM's content chunks go directly into the
-                  // assistant message. The backend already strips
-                  // <think>...</think> blocks before streaming
-                  // (see routes.py:778), so the chunks are the
-                  // LLM's final answer, not its private thinking.
-                  //
-                  // We previously buffered pre-tool chunks into a
-                  // separate "thinkingBufferRef" and only added the
-                  // assistant message after tool_start, relying on
-                  // a `complete` event for the no-tool case. The
-                  // Phase 9 backend only sends `done` (not
-                  // `complete`), so for greetings / identity
-                  // questions / small talk the assistant message
-                  // was never created and the user saw the previous
-                  // turn's content. The fix: use the LLM's chunks
-                  // directly and add the message on the first chunk,
-                  // matching the pre-64b638c behavior.
-                  //
-                  // We also keep `thinkingBufferRef` populated so
-                  // the "Show thinking" toggle in the UI still has
-                  // content to display. For the no-tool case, the
-                  // thinking equals the answer (which is fine — the
-                  // toggle is just a no-op visual element).
-                  accumulatedContent += data.content;
-                  if (!toolPhaseSeenRef.current) {
-                    thinkingBufferRef.current += data.content;
-                    if (onThinkingUpdate) {
-                      onThinkingUpdate(thinkingBufferRef.current);
-                    }
-                  }
-                  if (!assistantMessageAdded) {
-                    const assistantMessage: ChatMessage = {
-                      role: 'assistant',
-                      content: accumulatedContent,
-                      timestamp: new Date().toISOString(),
-                    };
-                    onMessageAdd(assistantMessage);
-                    assistantMessageAdded = true;
-                  } else {
-                    onMessageUpdate(accumulatedContent);
-                  }
-                } else if (data.type === 'complete') {
-                  // If the backend DOES send `complete` (legacy
-                  // path, or future Phase 9 path), use it as the
-                  // authoritative final content. The Phase 9 path
-                  // doesn't currently send `complete`, so this is
-                  // a no-op for that path — but it keeps the
-                  // handler robust if the backend adds it later.
-                  if (data.content && data.content !== accumulatedContent) {
-                    accumulatedContent = data.content;
-                    onMessageUpdate(accumulatedContent);
-                  }
-                } else if (data.type === 'thinking') {
-                  // Backend emits this for <think>...</think> blocks
-                  // (e.g., Minimax M3's reasoning) — separate from
-                  // the final answer text.
-                  thinkingBufferRef.current += data.content;
-                  if (onThinkingUpdate) {
-                    onThinkingUpdate(thinkingBufferRef.current);
-                  }
-                } else if (data.type === 'error') {
-                  setError(data.message || 'An error occurred during streaming');
-                } else if (data.type === 'tool_start') {
-                  // First tool call marks the end of thinking phase.
-                  // We do NOT reset accumulatedContent here — the
-                  // message is now the LLM's full response (pre-
-                  // + post-tool), and resetting would wipe it. The
-                  // tool-using case will keep streaming more
-                  // chunks after this, which will append to the
-                  // existing message.
-                  if (!toolPhaseSeenRef.current) {
-                    toolPhaseSeenRef.current = true;
-                  }
-                  toolPhaseCountRef.current += 1;
-                  toolPhaseActiveRef.current = true;
-                  if (onToolEvent) {
-                    onToolEvent(data);
-                  }
-                } else if (data.type === 'tool_end') {
-                  toolPhaseCountRef.current -= 1;
-                  if (toolPhaseCountRef.current <= 0) {
-                    toolPhaseCountRef.current = 0;
-                    toolPhaseActiveRef.current = false;
-                  }
-                  if (onToolEvent) {
-                    onToolEvent(data);
-                  }
-                } else if (data.type === 'custom_event') {
-                  // Pass custom events to callback (LangGraph-style progress, status, etc.)
-                  if (onCustomEvent) {
-                    onCustomEvent(data);
-                  }
-                } else if (data.type === 'interrupt') {
-                  // HITL interrupt: pause streaming and show approval UI
-                  // Don't mark streaming as done — user will resume
-                  if (onInterrupt) {
-                    onInterrupt(data);
-                  }
-                }
-              } catch (parseError) {
-                // Skip invalid JSON lines
-                console.warn('Failed to parse SSE data:', line);
+          if (data.type === 'chunk') {
+            // The LLM's content chunks go directly into the
+            // assistant message. The backend already strips
+            // <think>...</think> blocks before streaming
+            // (see routes.py:778), so the chunks are the
+            // LLM's final answer, not its private thinking.
+            //
+            // We previously buffered pre-tool chunks into a
+            // separate "thinkingBufferRef" and only added the
+            // assistant message after tool_start, relying on
+            // a `complete` event for the no-tool case. The
+            // Phase 9 backend only sends `done` (not
+            // `complete`), so for greetings / identity
+            // questions / small talk the assistant message
+            // was never created and the user saw the previous
+            // turn's content. The fix: use the LLM's chunks
+            // directly and add the message on the first chunk,
+            // matching the pre-64b638c behavior.
+            //
+            // We also keep `thinkingBufferRef` populated so
+            // the "Show thinking" toggle in the UI still has
+            // content to display. For the no-tool case, the
+            // thinking equals the answer (which is fine — the
+            // toggle is just a no-op visual element).
+            accumulatedContent += data.content;
+            if (!toolPhaseSeenRef.current) {
+              thinkingBufferRef.current += data.content;
+              if (onThinkingUpdate) {
+                onThinkingUpdate(thinkingBufferRef.current);
               }
+            }
+            if (!assistantMessageAdded) {
+              const assistantMessage: ChatMessage = {
+                role: 'assistant',
+                content: accumulatedContent,
+                timestamp: new Date().toISOString(),
+              };
+              onMessageAdd(assistantMessage);
+              assistantMessageAdded = true;
+            } else {
+              onMessageUpdate(accumulatedContent);
+            }
+          } else if (data.type === 'complete') {
+            // If the backend DOES send `complete` (legacy
+            // path, or future Phase 9 path), use it as the
+            // authoritative final content. The Phase 9 path
+            // doesn't currently send `complete`, so this is
+            // a no-op for that path — but it keeps the
+            // handler robust if the backend adds it later.
+            if (data.content && data.content !== accumulatedContent) {
+              accumulatedContent = data.content;
+              onMessageUpdate(accumulatedContent);
+            }
+          } else if (data.type === 'thinking') {
+            // Backend emits this for <think>...</think> blocks
+            // (e.g., Minimax M3's reasoning) — separate from
+            // the final answer text.
+            thinkingBufferRef.current += data.content;
+            if (onThinkingUpdate) {
+              onThinkingUpdate(thinkingBufferRef.current);
+            }
+          } else if (data.type === 'error') {
+            setError(data.message || 'An error occurred during streaming');
+          } else if (data.type === 'tool_start') {
+            // First tool call marks the end of thinking phase.
+            // We do NOT reset accumulatedContent here — the
+            // message is now the LLM's full response (pre-
+            // + post-tool), and resetting would wipe it. The
+            // tool-using case will keep streaming more
+            // chunks after this, which will append to the
+            // existing message.
+            if (!toolPhaseSeenRef.current) {
+              toolPhaseSeenRef.current = true;
+            }
+            toolPhaseCountRef.current += 1;
+            toolPhaseActiveRef.current = true;
+            if (onToolEvent) {
+              onToolEvent(data);
+            }
+          } else if (data.type === 'tool_end') {
+            toolPhaseCountRef.current -= 1;
+            if (toolPhaseCountRef.current <= 0) {
+              toolPhaseCountRef.current = 0;
+              toolPhaseActiveRef.current = false;
+            }
+            if (onToolEvent) {
+              onToolEvent(data);
+            }
+          } else if (data.type === 'custom_event') {
+            // Pass custom events to callback (LangGraph-style progress, status, etc.)
+            if (onCustomEvent) {
+              onCustomEvent(data);
+            }
+          } else if (data.type === 'interrupt') {
+            // HITL interrupt: pause streaming and show approval UI
+            // Don't mark streaming as done — user will resume
+            if (onInterrupt) {
+              onInterrupt(data);
             }
           }
         }
@@ -267,7 +238,8 @@ export function useChatStreaming(
     [sessionId, hitlEnabled, isStreaming]
   );
 
-  // Cleanup on unmount
+  // Cleanup on unmount — abort any in-flight stream so the aborted request
+  // can't keep writing into state after the component is gone
   const cancel = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -276,8 +248,11 @@ export function useChatStreaming(
     setIsStreaming(false);
   }, []);
 
+  useEffect(() => cancel, [cancel]);
+
   return {
     sendMessage,
+    cancel,
     isStreaming,
     error,
     clearError,

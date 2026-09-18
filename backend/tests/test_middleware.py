@@ -53,7 +53,7 @@ def test_middleware_imports():
 def test_deepagents_middleware_imports():
     """Test that DeepAgents middleware can be imported."""
     try:
-        from services.deepagents_middleware import (
+        from core.middleware.deep import (
             TodoListMiddleware,
             FilesystemMiddleware,
             SubAgentMiddleware,
@@ -117,7 +117,7 @@ def test_validation_middleware_creation():
 
 def test_deepagents_middleware_factory():
     """Test that DeepAgents middleware tools can be created."""
-    from services.deepagents_middleware import DeepAgentsMiddlewareFactory
+    from core.middleware.deep import DeepAgentsMiddlewareFactory
     from models.deep_agent import MiddlewareConfig
 
     # Create middleware configs

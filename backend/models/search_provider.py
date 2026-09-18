@@ -4,7 +4,7 @@ SearchProvider — config for web/encode search backends (Tavily, Wikipedia, DDG
 Mirrors the `models` table pattern (Phase 5): all search provider metadata in DB,
 API keys stored encrypted in `settings.api_keys` JSONB column.
 
-Seed data: backend/scripts/seed_search_providers.py
+Seed data: backend/scripts/seeds/seed_search_providers.py
 """
 from sqlalchemy import Column, String, Boolean, Integer, JSON, Text
 from db.database import Base

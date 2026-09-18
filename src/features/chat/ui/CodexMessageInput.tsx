@@ -12,7 +12,7 @@
  *   └──────────────────────────────────────────┘
  */
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
-import { Send, ChevronDown } from 'lucide-react';
+import { Send } from 'lucide-react';
 import FileUploadButton from './FileUploadButton';
 import type { SessionDocument } from '../types/chat';
 
@@ -69,10 +69,9 @@ export default function CodexMessageInput({
 
   return (
     <div
-      className="rounded-2xl border shadow-sm overflow-hidden transition-colors"
+      className="rounded-2xl transition-colors"
       style={{
         backgroundColor: 'var(--color-input-background, #ffffff)',
-        borderColor: 'var(--color-border-dark, #e5e7eb)',
       }}
     >
       {/* Textarea */}
@@ -103,18 +102,6 @@ export default function CodexMessageInput({
             onFileUploaded={onFileUploaded}
             disabled={disabled || isStreaming}
           />
-
-          <button
-            type="button"
-            disabled={disabled || isStreaming}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
-                       hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            style={{ color: 'var(--color-text-primary)' }}
-            title="Choose approval mode"
-          >
-            <span>Ask for approval</span>
-            <ChevronDown className="w-3 h-3 opacity-60" />
-          </button>
         </div>
 
         {/* Round send button */}
@@ -141,9 +128,8 @@ export default function CodexMessageInput({
       {/* Footer row (project badge, environment) */}
       {agentName && (
         <div
-          className="flex items-center gap-3 px-3 py-1.5 border-t text-[11px]"
+          className="flex items-center gap-3 px-3 py-1.5 text-[11px]"
           style={{
-            borderColor: 'var(--color-border-dark, #e5e7eb)',
             color: 'var(--color-text-muted)',
           }}
         >

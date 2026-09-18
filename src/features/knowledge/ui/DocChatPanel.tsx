@@ -1,346 +1,945 @@
 /**
- * Copyright (c) 2025 Cade Russell (Ghost Peony)
+ * DocChatPanel — Obsidian-style doc chat thread.
  *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
+ * Features:
+ *   - Conversation history dropdown
+ *   - ContextChip showing "Loaded N files · M chars"
+ *   - Citation rendering with clickable chips
+ *   - Message actions (copy, download, regenerate, edit-and-resend)
+ *   - Cancel button during streaming
+ *   - Auto-growing textarea
+ *
+ * Adapted from agent-workspace's DocChatPanel.
  */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  FolderOpen,
+  Bot,
+  User,
+  Send,
+  Square,
+  Copy,
+  Download,
+  RotateCcw,
+  Pencil,
+  History,
+  X,
+  Loader,
+  SlidersHorizontal,
+  Code2,
+} from 'lucide-react';
+import { useLayoutTokens } from '../../../components/layout2/tokens';
+import { useDocChat } from '../useDocChat';
+import type { DocChatMessage, DocChatLlmOptions } from '../../../lib/api-doc-chat';
+import { listDocChatFolders, getDocChatCode } from '../../../lib/api-doc-chat';
+import DocChatHistory from './DocChatHistory';
+import CodeViewerModal from '../../../components/layout2/CodeViewerModal';
+import { useAvailableModels } from '../../../hooks/useAvailableModels';
 
-import { useEffect, useRef, useState } from 'react';
-import { Loader, MessageCircle, Sparkles } from 'lucide-react';
-import apiClient from '../../../lib/api-client';
-import { useChat } from '../../chat/state/ChatContext';
-import { useChatSession } from '../../chat/hooks/useChatSession';
-import { useChatStreaming } from '../../chat/hooks/useChatStreaming';
-import MessagesPanel from '../../chat/ui/MessagesPanel';
-import { useToast } from '../../../hooks/useToast';
-import type { ChatStreamEvent } from '../../chat/types/chat';
+// ── Constants ─────────────────────────────────────────
+
+const INPUT_MAX_HEIGHT = 180;
+
+/** Regex that matches `[Source: filename.md]` (with optional trailing
+ *  punctuation) at the end of a sentence, or as a standalone token. */
+const CITATION_RE = /\[Source:\s*([^\]]+\.\w+)\]\s*/g;
+
+// ── Props ─────────────────────────────────────────────
 
 interface DocChatPanelProps {
-  projectId: number | null;
-  /** Called when the chat picks a doc (e.g. the LLM called
-      graphindex_multi_doc_load with primary=...). The parent uses
-      this to scroll/highlight/select the doc in the left column. */
-  onDocSelected?: (docName: string) => void;
-  /** Optional doc scope. When non-null and non-empty, the chat agent
-      will only consider / read these docs (by name). null = no filter. */
-  scope?: string[] | null;
-  /** Called when the LLM asks the user to clear the scope (e.g. when
-      the scope is wrong and the user agreed to "search all docs").
-      Currently the scope is just passed through; the parent owns state. */
-  onScopeChange?: (next: Set<number>) => void;
-  /** Notifies the parent whenever the chat panel's underlying agent
-      info changes (name + description, or null while loading/erroring).
-      The parent shows this in the Knowledge Base header so the user
-      always knows which agent the right-column chat is wired to. */
-  onAgentInfoChange?: (info: { name: string; description: string } | null) => void;
+  /** Folder path to scope the chat to (e.g. "industry/player"). */
+  folderPath: string;
+  projectId?: number | null;
+  /** Called when the user clicks a citation chip. */
+  onOpenDoc?: (docName: string) => void;
 }
 
-/**
- * Right-column chat panel for the Knowledge panel.
- *
- * Always uses the `graphindex_chat` deepagent (the Phase 9 template) — the
- * same agent that was previously offered via the "Use in agent builder"
- * button. The 4 graphindex_* tools (list / search / load / multi_doc_load)
- * let the LLM route the query to the right project document(s) and answer
- * from their content.
- *
- * Lifecycle:
- *   1. On mount + project_id change → look up the `graphindex_chat` agent
- *      id by name in the user's deepagent library. If missing, show a
- *      friendly placeholder asking the user to import it once.
- *   2. Auto-start a new chat session with that agent id.
- *   3. Drive messages via `useChatSession` + `useChatStreaming` from the
- *      existing chat module — no duplication of streaming logic.
- *
- * The panel does NOT add the chat to the global chat modal's history
- * automatically (we don't `openChat()` it). Each project gets its own
- * fresh session per panel-mount.
- */
+// ── Helper: render citations inline ───────────────────
+
+/** Render message content with clickable citation chips. */
+function renderCitations(
+  content: string,
+  onCitationClick?: (docName: string) => void,
+) {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  // Reset regex state (important for global exec)
+  CITATION_RE.lastIndex = 0;
+
+  while ((match = CITATION_RE.exec(content)) !== null) {
+    // Text before this citation
+    if (match.index > lastIndex) {
+      parts.push(content.slice(lastIndex, match.index));
+    }
+    // Citation chip
+    const docName = match[1];
+    parts.push(
+      <button
+        key={`cite-${match.index}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onCitationClick?.(docName);
+        }}
+        className="citation-chip"
+        style={{
+          display: 'inline',
+          background: '#a855f722',
+          border: '1px solid #a855f744',
+          borderRadius: 3,
+          color: '#c084fc',
+          cursor: 'pointer',
+          fontSize: 'inherit',
+          fontFamily: 'inherit',
+          padding: '0 4px',
+          margin: '0 1px',
+          whiteSpace: 'nowrap',
+        }}
+        title={`Open ${docName}`}
+      >
+        {docName}
+      </button>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Remaining text after last citation
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : content;
+}
+
+// ── Helper: download assistant message as a .md file ──
+
+function downloadAsMarkdown(content: string) {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `doc-chat-response-${Date.now()}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Helper: copy to clipboard ─────────────────────────
+
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text).catch(() => {
+    // Fallback: ignore
+  });
+}
+
+// ── Component ─────────────────────────────────────────
+
 export default function DocChatPanel({
+  folderPath,
   projectId,
-  onDocSelected,
-  scope,
-  onScopeChange,
-  onAgentInfoChange,
+  onOpenDoc,
 }: DocChatPanelProps) {
-  const { startSession, currentSessionId } = useChat();
-  const { showToast } = useToast();
-
-  // Lookup state — graphindex_chat agent id from the user's library
-  const [agentId, setAgentId] = useState<number | null>(null);
-  const [agentName, setAgentName] = useState<string>('graphindex_chat');
-  const [agentDescription, setAgentDescription] = useState<string>('');
-  const [lookupError, setLookupError] = useState<string | null>(null);
-
-  // Session hooks (only active when we have a session_id)
+  const t = useLayoutTokens();
   const {
     messages,
-    isLoading: isLoadingSession,
-    error: sessionError,
-    addMessage,
-    updateLastMessage,
-    loadHistory,
-    clearHistory,
-  } = useChatSession(currentSessionId);
-
-  const {
-    sendMessage,
+    conversationId,
     isStreaming,
-    error: streamingError,
-    clearError: clearStreamingError,
-  } = useChatStreaming(currentSessionId, false);
+    status,
+    error,
+    conversations,
+    send,
+    cancel,
+    regenerate,
+    editAndResend,
+    clearMessages,
+    loadConversation,
+    deleteConversation,
+    refreshConversations,
+  } = useDocChat();
 
-  // Track which agentId this panel started a session for, so we can
-  // detect stale sessions (e.g. after backend agent deletion/rebuild).
-  const sessionAgentRef = useRef<number | null>(null);
+  // Scope options derived from filesystem folder scanning
+  const [scopeOptions, setScopeOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [overrideScope, setOverrideScope] = useState<string | null>(null);
 
-  // Resolve the graphindex_chat agent id (and start a session) when
-  // projectId becomes available. We look it up by name in the user's
-  // deepagent library.
   useEffect(() => {
-    let cancelled = false;
-    if (!projectId) {
-      setAgentId(null);
-      setLookupError(null);
-      return;
-    }
-    setLookupError(null);
-    apiClient
-      .listDeepAgents({ public_only: false })
-      .then((res: any) => {
-        if (cancelled) return;
-        const agents: any[] = res.data || [];
-        const match = agents.find(
-          (a: any) =>
-            a.name === 'graphindex_chat' ||
-            a.name === 'GraphIndex Chat' ||
-            (a.tools || []).includes('graphindex_multi_doc_load')
-        );
-        if (match) {
-          setAgentId(match.id);
-          setAgentName(match.name);
-          setAgentDescription(match.description || '');
-        } else {
-          setLookupError(
-            'graphindex_chat agent not found in your library. Open the Knowledge panel once with the old banner to import it.'
-          );
-        }
-      })
-      .catch((err: any) => {
-        if (cancelled) return;
-        setLookupError(
-          err?.response?.data?.detail || err?.message || 'Failed to load agents'
-        );
-      });
-    return () => {
-      cancelled = true;
-    };
+    listDocChatFolders(projectId ?? 1).then((folderPaths) => {
+      const opts = folderPaths.map((p) => ({
+        value: p,
+        label: p.replace(/_/g, ' ').replace(/\//g, ' / '),
+      }));
+      setScopeOptions(opts);
+    });
   }, [projectId]);
 
-  // Once we know the agent id, start a fresh session for this project.
-  // If a session is already active but was created for a different agent
-  // (e.g. after backend agent deletion/rebuild), clear it first.
-  useEffect(() => {
-    if (!projectId || !agentId) return;
-    // If we already have a session for THIS agent, keep it.
-    if (currentSessionId && sessionAgentRef.current === agentId) return;
-    // Stale session — clear and start fresh.
-    if (currentSessionId) {
-      clearHistory();
-    }
-    sessionAgentRef.current = agentId;
-    startSession(agentId).catch((err: any) => {
-      showToast(
-        err?.response?.data?.detail || 'Failed to start chat session',
-        'error',
-        4000
-      );
-    });
-  }, [projectId, agentId, currentSessionId, startSession, showToast, clearHistory]);
+  // Active scope: overrideScope > folderPath
+  const activeScope = overrideScope ?? folderPath;
 
-  // Push agent info up to the parent so it can render the agent name +
-  // description in the Knowledge Base header (top right, next to the
-  // search button). Only push once we have a real agent id (not the
-  // placeholder "graphindex_chat" set during loading). Push null when
-  // lookup errors or when projectId changes so the header doesn't show
-  // stale info.
-  useEffect(() => {
-    if (!onAgentInfoChange) return;
-    if (!projectId) { onAgentInfoChange(null); return; }
-    if (agentId) {
-      onAgentInfoChange({ name: agentName, description: agentDescription });
-    } else if (lookupError) {
-      onAgentInfoChange(null);
-    }
-    // Reset to null on projectId change so we don't briefly show the
-    // previous project's agent name while the new one loads.
-    return () => { onAgentInfoChange(null); };
-  }, [agentId, agentName, agentDescription, projectId, lookupError, onAgentInfoChange]);
+  const [input, setInput] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
 
-  // Tool-event handler: detect when the LLM picks a doc and notify
-  // the parent. The chat agent can call either the langconfig native
-  // tools (graphindex_*) OR the Phase 9 path tools (route_query_tool,
-  // load_multi_doc_tool) — we handle both. Each reveals a doc name
-  // differently:
-  //   - graphindex_multi_doc_load / load_multi_doc_tool →
-  //     output_preview starts with
-  //     "=== Document 1 (PRIMARY): <doc_name> ==="
-  //   - graphindex_search → output_preview is a JSON with "results"
-  //     and each result has "name"
-  //   - route_query_tool → output_preview is JSON with "primary" and
-  //     "supporting" fields, each with a "name"
-  const handleToolEvent = (ev: ChatStreamEvent) => {
-    if (!onDocSelected) return;
-    if (ev.type !== 'tool_end') return;
-    const toolName = (ev as any).tool_name;
-    const preview: string = (ev as any).data?.output_preview || '';
-    // 1) Both flavors of the multi-doc-load tool: parse the header
-    //    "=== Document N (PRIMARY): name ===" from the preview.
-    if (toolName === 'graphindex_multi_doc_load' || toolName === 'load_multi_doc_tool') {
-      const m = preview.match(/=== Document \d+ \(PRIMARY\): (.+?) ===/);
-      if (m && m[1]) {
-        onDocSelected(m[1].trim());
-        return;
-      }
+  // ── LLM settings ──────────────────────────────────
+  // The model picker + params are sent to the backend on every request so
+  // Doc Chat honors the same LLM settings as the rest of the app.
+  const { models: availableModels } = useAvailableModels();
+  const [llmModel, setLlmModel] = useState<string>('');   // '' = app default model
+  const [temperature, setTemperature] = useState(0.0);
+  const [maxTokens, setMaxTokens] = useState<string>(''); // '' = model default
+  const [showParams, setShowParams] = useState(false);
+  const [codeModal, setCodeModal] = useState<{ filename: string; code: string } | null>(null);
+  const [loadingCode, setLoadingCode] = useState(false);
+
+  const llmOptions = useMemo<DocChatLlmOptions>(
+    () => ({
+      model: llmModel || undefined,
+      temperature,
+      max_tokens: maxTokens ? Number(maxTokens) : undefined,
+    }),
+    [llmModel, temperature, maxTokens],
+  );
+
+  // Scroll to bottom when new messages arrive
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Textarea auto-grow
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (ta) {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, INPUT_MAX_HEIGHT) + 'px';
     }
-    // 2) graphindex_search (langconfig): parse JSON "results"/"primary".
-    if (toolName === 'graphindex_search') {
-      try {
-        const txt = preview.trim();
-        const obj = JSON.parse(txt);
-        const first = obj?.results?.[0]?.name || obj?.primary?.name;
-        if (first) onDocSelected(String(first));
-      } catch {
-        // ignore — preview may not be JSON
+  }, [input]);
+
+  // ── Handlers ────────────────────────────────────────
+
+  const handleSend = useCallback(() => {
+    if (!input.trim() || !activeScope || isStreaming) return;
+    send(input.trim(), activeScope, projectId ?? undefined, llmOptions);
+    setInput('');
+  }, [input, activeScope, isStreaming, send, projectId, llmOptions]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
       }
+    },
+    [handleSend],
+  );
+
+  const handleCancel = useCallback(() => {
+    cancel();
+    setEditingMessageId(null);
+  }, [cancel]);
+
+  const handleRegenerate = useCallback(() => {
+    if (!activeScope) return;
+    regenerate(activeScope, projectId ?? undefined, llmOptions);
+  }, [activeScope, regenerate, projectId, llmOptions]);
+
+  const handleEditStart = useCallback((msg: DocChatMessage) => {
+    setEditingMessageId(msg.id);
+    setEditText(msg.content);
+  }, []);
+
+  const handleEditCancel = useCallback(() => {
+    setEditingMessageId(null);
+    setEditText('');
+  }, []);
+
+  const handleEditSubmit = useCallback(() => {
+    if (!editingMessageId || !activeScope) return;
+    editAndResend(editingMessageId, editText, activeScope, projectId ?? undefined, llmOptions);
+    setEditingMessageId(null);
+    setEditText('');
+  }, [editingMessageId, editText, activeScope, editAndResend, projectId, llmOptions]);
+
+  /** Fetch the backend doc-chat source and show it in the code viewer. */
+  const handleViewCode = useCallback(async () => {
+    if (loadingCode) return;
+    setLoadingCode(true);
+    try {
+      const { file, code } = await getDocChatCode();
+      setCodeModal({ filename: file, code });
+    } catch (err) {
+      console.error('Failed to load doc-chat code:', err);
+    } finally {
+      setLoadingCode(false);
     }
-    // 3) route_query_tool (Phase 9): same JSON shape — primary.name.
-    if (toolName === 'route_query_tool') {
-      try {
-        const txt = preview.trim();
-        const obj = JSON.parse(txt);
-        const first = obj?.primary?.name;
-        if (first) onDocSelected(String(first));
-      } catch {
-        // ignore
-      }
-    }
+  }, [loadingCode]);
+
+  // ── Derived status label ────────────────────────────
+
+  let statusLabel: string | null = null;
+  if (status.kind === 'reading') {
+    statusLabel = `Reading ${status.folderPath}...`;
+  } else if (status.kind === 'streaming') {
+    statusLabel = 'Thinking...';
+  }
+
+  // ── Render: Message actions row ─────────────────────
+
+  const MessageActions = ({ msg }: { msg: DocChatMessage }) => {
+    const [show, setShow] = useState(false);
+    return (
+      <div
+        style={{
+          display: 'flex',
+          gap: 4,
+          opacity: show ? 1 : 0,
+          transition: 'opacity 0.12s',
+          marginTop: 4,
+        }}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+      >
+        <button
+          title="Copy"
+          onClick={() => copyToClipboard(msg.content)}
+          style={btnMiniStyle(t)}
+        >
+          <Copy size={10} />
+        </button>
+        {msg.role === 'assistant' && (
+          <>
+            <button
+              title="Download"
+              onClick={() => downloadAsMarkdown(msg.content)}
+              style={btnMiniStyle(t)}
+            >
+              <Download size={10} />
+            </button>
+            <button
+              title="Regenerate"
+              onClick={handleRegenerate}
+              style={btnMiniStyle(t)}
+            >
+              <RotateCcw size={10} />
+            </button>
+          </>
+        )}
+        {msg.role === 'user' && (
+          <button
+            title="Edit and resend"
+            onClick={() => handleEditStart(msg)}
+            style={btnMiniStyle(t)}
+          >
+            <Pencil size={10} />
+          </button>
+        )}
+      </div>
+    );
   };
 
-  // ----- Render -----
+  // ── Render ──────────────────────────────────────────
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-panel-dark border border-gray-200 dark:border-border-dark rounded-lg overflow-hidden">
-      {/* Header — slim status bar.
-          The agent name + description used to live here, but the user
-          wanted them visible at the top of the Knowledge Base view, so
-          they've moved into the KB header pill (via onAgentInfoChange).
-          This row now just shows a small icon + the connection status
-          hint, keeping the chat panel visually distinct from the doc
-          viewer without duplicating the agent label. */}
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'hidden',
+        background: t.bgContent,
+      }}
+    >
+      {/* ── Header ──────────────────────────────────── */}
       <div
-        className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-200 dark:border-border-dark flex-shrink-0"
         style={{
-          backgroundImage: 'linear-gradient(135deg, rgba(168, 85, 247, 0.06), rgba(99, 102, 241, 0.06))',
+          height: 36,
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 10px',
+          borderBottom: `1px solid ${t.border}`,
+          background: t.bgBase,
+          gap: 8,
+          fontSize: 12,
+          color: t.textMuted,
+          flexShrink: 0,
         }}
-        title={agentDescription || agentName}
       >
-        <div
-          className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: 'rgba(168, 85, 247, 0.15)' }}
+        <FolderOpen size={12} style={{ color: '#a855f7', flexShrink: 0 }} />
+        <span style={{ fontSize: 11, flexShrink: 0 }}>Scope:</span>
+        {scopeOptions.length > 0 ? (
+          <select
+            value={activeScope}
+            onChange={(e) => setOverrideScope(e.target.value === folderPath ? null : e.target.value)}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              color: t.textPrimary,
+              fontSize: 12,
+              outline: 'none',
+              cursor: 'pointer',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+            title={activeScope}
+          >
+            {scopeOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        ) : (
+          <span
+            style={{
+              color: t.textPrimary,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: 1,
+              fontSize: 12,
+            }}
+            title={folderPath}
+          >
+            {folderPath || '(ungrouped)'}
+          </span>
+        )}
+        {/* Model picker — LLM used to answer ('' = app default model) */}
+        <select
+          value={llmModel}
+          onChange={(e) => setLlmModel(e.target.value)}
+          title="LLM model (Default = the app's default model)"
+          style={{
+            maxWidth: 120,
+            background: 'transparent',
+            border: 'none',
+            color: t.textPrimary,
+            fontSize: 12,
+            outline: 'none',
+            cursor: 'pointer',
+            flexShrink: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
         >
-          <Sparkles className="w-3 h-3" style={{ color: '#a855f7' }} />
-        </div>
-        <span
-          className="text-[10px] truncate flex-1"
-          style={{ color: 'var(--color-text-muted)' }}
-        >
-          {agentDescription || `${agentName} · Phase 9 / 4 GraphIndex tools`}
-        </span>
-      </div>
+          <option value="">Default</option>
+          {availableModels.map((m) => (
+            <option key={m.id} value={m.id}>{m.name}</option>
+          ))}
+        </select>
 
-      {/* Body — depends on state */}
-      {!projectId ? (
-        <EmptyHint icon={<MessageCircle className="w-6 h-6" />} text="Select a project to start chatting with your documents." />
-      ) : lookupError ? (
-        <EmptyHint icon={<MessageCircle className="w-6 h-6" />} text={lookupError} />
-      ) : !currentSessionId ? (
-        <div className="flex-1 flex items-center justify-center text-xs gap-2" style={{ color: 'var(--color-text-muted)' }}>
-          <Loader className="w-3.5 h-3.5 animate-spin" />
-          Starting chat session…
-        </div>
-      ) : (
-        <>
-          <div
-            className="flex-1 overflow-y-auto overflow-x-auto kb-chat-scroll"
-            // The kb-chat-scroll class gives the chat a custom scrollbar
-            // (see globals.css) so the user has both vertical and
-            // horizontal scroll for long content like code blocks or
-            // wide tables.
-            tabIndex={0}
-            onKeyDown={(e) => {
-              // Keyboard nav: PgUp/PgDn scroll the chat by one page.
-              // ArrowUp/ArrowDown scroll by 60px (one line). This
-              // gives the user fine control without leaving the chat.
-              const el = e.currentTarget;
-              if (e.key === 'PageUp') { el.scrollBy({ top: -el.clientHeight, behavior: 'smooth' }); e.preventDefault(); }
-              else if (e.key === 'PageDown') { el.scrollBy({ top: el.clientHeight, behavior: 'smooth' }); e.preventDefault(); }
-              else if (e.key === 'ArrowUp' && (e.metaKey || e.ctrlKey)) { el.scrollBy({ top: -60, behavior: 'smooth' }); e.preventDefault(); }
-              else if (e.key === 'ArrowDown' && (e.metaKey || e.ctrlKey)) { el.scrollBy({ top: 60, behavior: 'smooth' }); e.preventDefault(); }
-              else if (e.key === 'Home' && (e.metaKey || e.ctrlKey)) { el.scrollTo({ top: 0, behavior: 'smooth' }); e.preventDefault(); }
-              else if (e.key === 'End' && (e.metaKey || e.ctrlKey)) { el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); e.preventDefault(); }
+        {/* LLM params (temperature / max tokens) */}
+        <div style={{ position: 'relative' }}>
+          <button
+            title="LLM settings"
+            onClick={() => setShowParams((v) => !v)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: showParams ? '#a855f7' : t.textMuted,
+              cursor: 'pointer',
+              padding: 2,
+              display: 'flex',
+              alignItems: 'center',
             }}
           >
-            <MessagesPanel
-              messages={messages}
-              isStreaming={isStreaming}
-              error={streamingError || sessionError}
-              onSendMessage={(text) =>
-                sendMessage(
-                  text,
-                  addMessage,
-                  updateLastMessage,
-                  () => {
-                    // onComplete — streaming finished
-                  },
-                  handleToolEvent,  // <- detects when LLM picks a doc
-                  undefined,         // onCustomEvent
-                  undefined,         // onInterrupt
-                  undefined,         // onThinkingUpdate
-                  scope,             // pass the active doc scope (or null)
-                  projectId,         // pass the active project so the
-                                      // Phase 9 chat agent queries the
-                                      // right Neo4j catalog. Without
-                                      // this, the backend falls back
-                                      // to project 1 (often empty) and
-                                      // the LLM says "no documents".
-                ).catch(() => {})
-              }
-              onClearError={() => {
-                clearStreamingError();
+            <SlidersHorizontal size={13} />
+          </button>
+          {showParams && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 30,
+                right: 0,
+                zIndex: 30,
+                background: t.bgSidebar,
+                border: `1px solid ${t.border}`,
+                borderRadius: 6,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+                padding: 10,
+                width: 200,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
               }}
-              disabled={isStreaming || isLoadingSession}
-              sessionId={currentSessionId}
-              projectId={projectId}
-            />
+            >
+              <div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>
+                  Temperature
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={2}
+                  step={0.1}
+                  value={temperature}
+                  onChange={(e) => setTemperature(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: '#a855f7' }}
+                />
+                <div style={{ fontSize: 11, fontFamily: 'monospace', color: t.textPrimary, textAlign: 'right' }}>
+                  {temperature.toFixed(1)}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>
+                  Max tokens
+                </div>
+                <input
+                  type="number"
+                  min={0}
+                  step={256}
+                  value={maxTokens}
+                  placeholder="Model default"
+                  onChange={(e) => setMaxTokens(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: t.bgInput,
+                    border: `1px solid ${t.border}`,
+                    borderRadius: 4,
+                    padding: '3px 6px',
+                    fontSize: 12,
+                    color: t.textPrimary,
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* View code — shows the backend doc-chat implementation */}
+        <button
+          title="View code"
+          onClick={handleViewCode}
+          disabled={loadingCode}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: t.textMuted,
+            cursor: loadingCode ? 'default' : 'pointer',
+            padding: 2,
+            display: 'flex',
+            alignItems: 'center',
+            opacity: loadingCode ? 0.5 : 1,
+          }}
+        >
+          <Code2 size={13} />
+        </button>
+
+        <button
+          title="History"
+          onClick={() => setShowHistory((v) => !v)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: t.textMuted,
+            cursor: 'pointer',
+            padding: 2,
+            display: 'flex',
+            alignItems: 'center',
+            position: 'relative',
+          }}
+        >
+          <History size={13} />
+          {conversations.length > 0 && (
+            <span
+              style={{
+                position: 'absolute',
+                top: -4,
+                right: -4,
+                background: '#a855f7',
+                color: '#fff',
+                fontSize: 9,
+                borderRadius: 8,
+                width: 14,
+                height: 14,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {conversations.length}
+            </span>
+          )}
+        </button>
+        <button
+          title="New chat"
+          onClick={clearMessages}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: t.textMuted,
+            cursor: 'pointer',
+            padding: 2,
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <X size={12} />
+        </button>
+      </div>
+
+      {/* ── History drawer overlay ──────────────────── */}
+      {showHistory && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 36,
+            right: 10,
+            zIndex: 10,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          }}
+        >
+          <DocChatHistory
+            conversations={conversations}
+            activeConversationId={conversationId}
+            onLoad={(id) => {
+              loadConversation(id, activeScope);
+              setShowHistory(false);
+            }}
+            onDelete={deleteConversation}
+            onRefresh={refreshConversations}
+          />
+        </div>
+      )}
+
+      {/* ── Messages area ───────────────────────────── */}
+      <div
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '8px 10px',
+          position: 'relative',
+        }}
+      >
+        {/* Status banner */}
+        {statusLabel && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              padding: '4px 10px',
+              background: '#a855f722',
+              color: '#c084fc',
+              fontSize: 11,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              zIndex: 2,
+            }}
+          >
+            <Loader size={10} style={{ animation: 'spin 1s linear infinite' }} />
+            {statusLabel}
           </div>
-        </>
+        )}
+
+        {messages.length === 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              color: t.textMuted,
+              fontSize: 13,
+              textAlign: 'center',
+              gap: 8,
+            }}
+          >
+            <Bot size={24} style={{ opacity: 0.3 }} />
+            <p style={{ margin: 0 }}>
+              Ask a question about the documents in this folder.
+            </p>
+            <p style={{ margin: 0, fontSize: 11 }}>
+              The LLM will read matching files from{' '}
+              <code
+                style={{
+                  background: t.bgHover,
+                  padding: '1px 5px',
+                  borderRadius: 3,
+                  fontSize: 11,
+                }}
+              >
+                {folderPath}
+              </code>{' '}
+              and answer from context.
+            </p>
+          </div>
+        ) : (
+          messages.map((msg) => {
+            const isUser = msg.role === 'user';
+            const isAssistant = msg.role === 'assistant';
+            const isEditing = editingMessageId === msg.id;
+
+            return (
+              <div
+                key={msg.id}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: isUser ? 'flex-end' : 'flex-start',
+                  marginBottom: 12,
+                }}
+                onMouseEnter={(e) => {
+                  const actions = e.currentTarget.querySelector('.msg-actions') as HTMLElement;
+                  if (actions) actions.style.opacity = '1';
+                }}
+                onMouseLeave={(e) => {
+                  const actions = e.currentTarget.querySelector('.msg-actions') as HTMLElement;
+                  if (actions) actions.style.opacity = '0';
+                }}
+              >
+                {/* Role indicator */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 10,
+                    color: t.textMuted,
+                    marginBottom: 2,
+                    marginLeft: isUser ? 'auto' : 0,
+                    marginRight: isUser ? 0 : 'auto',
+                  }}
+                >
+                  {isAssistant && <Bot size={10} />}
+                  {isUser && <User size={10} />}
+                  <span>{isUser ? 'You' : 'Assistant'}</span>
+                </div>
+
+                {/* Context chip (assistant only) */}
+                {isAssistant && msg.contextChip && (
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: t.textMuted,
+                      background: t.bgHover,
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                      marginBottom: 4,
+                    }}
+                  >
+                    Loaded {msg.contextChip.fileCount} files · {msg.contextChip.charCount.toLocaleString()} chars
+                  </div>
+                )}
+
+                {/* Bubble */}
+                <div
+                  style={{
+                    maxWidth: '90%',
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    background: isUser ? '#a855f7' : t.bgBase,
+                    color: isUser ? '#fff' : t.textPrimary,
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    border: isUser ? 'none' : `1px solid ${t.border}`,
+                  }}
+                >
+                  {isEditing ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleEditSubmit();
+                          }
+                          if (e.key === 'Escape') handleEditCancel();
+                        }}
+                        autoFocus
+                        style={{
+                          width: '100%',
+                          minHeight: 60,
+                          background: t.bgInput,
+                          border: `1px solid ${t.border}`,
+                          borderRadius: 4,
+                          padding: '6px 8px',
+                          color: t.textPrimary,
+                          fontSize: 13,
+                          fontFamily: 'inherit',
+                          resize: 'vertical',
+                          outline: 'none',
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                        <button onClick={handleEditSubmit} style={btnSmallStyle(t)}>
+                          Save
+                        </button>
+                        <button onClick={handleEditCancel} style={btnSmallStyle(t)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {msg.content ? (
+                        isAssistant ? (
+                          renderCitations(msg.content, onOpenDoc)
+                        ) : (
+                          msg.content
+                        )
+                      ) : (
+                        msg.streaming && (
+                          <span className="typing-cursor" style={{ opacity: 0.6 }}>
+                            ▌
+                          </span>
+                        )
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Message actions (hover-revealed) */}
+                {!isEditing && !msg.streaming && (
+                  <div className="msg-actions" style={{ opacity: 0, transition: 'opacity 0.15s' }}>
+                    <MessageActions msg={msg} />
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Error banner */}
+      {error && (
+        <div
+          style={{
+            padding: '6px 10px',
+            background: '#e5484d22',
+            color: '#e5484d',
+            fontSize: 11,
+            borderTop: `1px solid #e5484d44`,
+            flexShrink: 0,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {/* ── Input row ───────────────────────────────── */}
+      <div
+        style={{
+          borderTop: `1px solid ${t.border}`,
+          padding: '8px 10px',
+          background: t.bgBase,
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about the documents..."
+            rows={1}
+            disabled={isStreaming}
+            style={{
+              flex: 1,
+              minHeight: 32,
+              maxHeight: INPUT_MAX_HEIGHT,
+              background: t.bgContent,
+              border: `1px solid ${t.border}`,
+              borderRadius: 6,
+              padding: '6px 10px',
+              color: t.textPrimary,
+              fontSize: 13,
+              fontFamily: 'inherit',
+              resize: 'none',
+              outline: 'none',
+              lineHeight: 1.4,
+            }}
+          />
+          {isStreaming ? (
+            <button
+              title="Cancel"
+              onClick={handleCancel}
+              style={{
+                height: 32,
+                width: 32,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#e5484d',
+                border: 'none',
+                borderRadius: 6,
+                color: '#fff',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              <Square size={12} />
+            </button>
+          ) : (
+            <button
+              title="Send"
+              onClick={handleSend}
+              disabled={!input.trim()}
+              style={{
+                height: 32,
+                width: 32,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: input.trim() ? '#a855f7' : t.textMuted,
+                border: 'none',
+                borderRadius: 6,
+                color: '#fff',
+                cursor: input.trim() ? 'pointer' : 'default',
+                opacity: input.trim() ? 1 : 0.4,
+                flexShrink: 0,
+              }}
+            >
+              <Send size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Code viewer modal ── */}
+      {codeModal && (
+        <CodeViewerModal
+          filename={codeModal.filename}
+          code={codeModal.code}
+          onClose={() => setCodeModal(null)}
+        />
       )}
     </div>
   );
 }
 
-function EmptyHint({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return (
-    <div className="flex-1 flex items-center justify-center p-4">
-      <div className="text-center max-w-xs">
-        <div className="mx-auto mb-2 opacity-40" style={{ color: 'var(--color-text-muted)' }}>
-          {icon}
-        </div>
-        <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-          {text}
-        </p>
-      </div>
-    </div>
-  );
+// ── Shared button styles ─────────────────────────────
+
+function btnMiniStyle(t: ReturnType<typeof useLayoutTokens>): React.CSSProperties {
+  return {
+    background: 'transparent',
+    border: 'none',
+    color: t.textMuted,
+    cursor: 'pointer',
+    padding: 2,
+    display: 'flex',
+    alignItems: 'center',
+  };
+}
+
+function btnSmallStyle(t: ReturnType<typeof useLayoutTokens>): React.CSSProperties {
+  return {
+    padding: '2px 8px',
+    fontSize: 11,
+    background: t.bgContent,
+    border: `1px solid ${t.border}`,
+    borderRadius: 4,
+    color: t.textPrimary,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  };
 }

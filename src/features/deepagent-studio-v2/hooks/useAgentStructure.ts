@@ -24,6 +24,59 @@ export function useAgentStructure(agentId: number | null) {
         const res: any = await apiClient.getDeepAgent(agentId);
         const agent = res?.data ?? res;
         const cfg = agent?.config || {};
+        // Get full subagent records first (they have prompt/system_prompt/etc.)
+        const rawSubagents: any[] = cfg.subagents || [];
+        const skillNames: string[] = cfg.skills || [];
+
+        // For each subagent record, also try to enrich with /api/skills/{name}
+        const subagents = await Promise.all(rawSubagents.map(async (sa: any, i: number) => {
+          let skillDetail: any = {};
+          if (sa.name) {
+            try {
+              const res = await fetch(`/api/skills/${sa.name}`);
+              if (res.ok) {
+                skillDetail = await res.json();
+              }
+            } catch {}
+          }
+          return {
+            id: `sub-${i}`,
+            name: sa.name || `Sub-agent ${i + 1}`,
+            skill_type: 'Skill',
+            description: sa.description || skillDetail.description,
+            prompt: sa.system_prompt || skillDetail.instructions,
+            tags: skillDetail.tags,
+            triggers: skillDetail.triggers,
+            allowed_tools: skillDetail.allowed_tools,
+            version: skillDetail.version,
+            author: skillDetail.author,
+          };
+        }));
+
+        // If no cfg.subagents existed but cfg.skills did, fall back to skills-only
+        if (subagents.length === 0 && skillNames.length > 0) {
+          for (let i = 0; i < skillNames.length; i++) {
+            const name = skillNames[i];
+            let skillDetail: any = {};
+            try {
+              const res = await fetch(`/api/skills/${name}`);
+              if (res.ok) skillDetail = await res.json();
+            } catch {}
+            subagents.push({
+              id: `skill-${i}`,
+              name,
+              skill_type: 'Skill',
+              description: cfg.skill_descriptions?.[name] || skillDetail.description,
+              prompt: skillDetail.instructions,
+              tags: skillDetail.tags,
+              triggers: skillDetail.triggers,
+              allowed_tools: skillDetail.allowed_tools,
+              version: skillDetail.version,
+              author: skillDetail.author,
+            });
+          }
+        }
+
         const normalized: AgentStructure = {
           id: agent?.id,
           name: agent?.name || 'Agent',
@@ -33,29 +86,8 @@ export function useAgentStructure(agentId: number | null) {
           native_tools: cfg.native_tools || [],
           custom_tools: cfg.custom_tools || [],
           tools: cfg.tools || cfg.cli_tools || [],
-          subagents: await Promise.all((cfg.skills || []).map(async (name: string, i: number) => {
-            // Fetch full skill detail from API
-            let skillDetail: any = {};
-            try {
-              const res = await fetch(`/api/skills/${name}`);
-              if (res.ok) {
-                skillDetail = await res.json();
-              }
-            } catch {}
-            return {
-              id: `skill-${i}`,
-              name,
-              skill_type: 'Skill',
-              description: cfg.skill_descriptions?.[name] || skillDetail.description,
-              prompt: skillDetail.instructions,  // Full SKILL.md instructions
-              tags: skillDetail.tags,
-              triggers: skillDetail.triggers,
-              allowed_tools: skillDetail.allowed_tools,
-              version: skillDetail.version,
-              author: skillDetail.author,
-            };
-          })),
-          skills: cfg.skills || [],
+          subagents,
+          skills: skillNames,
         };
         if (!cancelled) setStructure(normalized);
       } catch (e: any) {

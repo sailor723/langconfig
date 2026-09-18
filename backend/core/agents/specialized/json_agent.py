@@ -176,11 +176,12 @@ async def create_json_agent(
             MessagesPlaceholder(variable_name="messages"),
         ])
 
-        # Create agent (v1.0: no pre-binding)
+        # Create agent (v1.0: no pre-binding). langchain v1 create_agent
+        # takes system_prompt (a string), not the removed `state_modifier`.
         agent = create_agent(
             model=llm,  # v1.0: Pass unbound model
             tools=tools,
-            state_modifier=prompt_template  # v1.0: use state_modifier
+            system_prompt=JSON_AGENT_PROMPT,
         )
 
         logger.info("✓ JSON query agent created successfully")

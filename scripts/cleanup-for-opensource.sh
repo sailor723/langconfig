@@ -37,14 +37,14 @@ else
     echo "  ✅ No certificates tracked"
 fi
 
-# Verify .env.example exists
+# Verify env_example exists
 echo ""
-echo "📄 Checking .env.example..."
-if [ ! -f .env.example ]; then
-    echo "  ⚠️  WARNING: .env.example does not exist!"
+echo "📄 Checking env_example..."
+if [ ! -f env_example ]; then
+    echo "  ⚠️  WARNING: env_example does not exist!"
     echo "     Create it from .env with placeholder values"
 else
-    echo "  ✅ .env.example exists"
+    echo "  ✅ env_example exists"
 fi
 
 # Show current status

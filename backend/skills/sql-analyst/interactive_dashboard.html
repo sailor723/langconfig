@@ -1,230 +1,142 @@
 <!DOCTYPE html>
     <html lang="en">
     <head>
-      <meta charset="utf-8">
-      <title>Sales Dashboard</title>
-      <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-      <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 24px; font-family: Arial, sans-serif; background: #f5f7fa; color: #2c3e50; }
-        h1 { margin: 0 0 16px 0; font-size: 22px; }
-        .subtitle { color: #7f8c8d; font-size: 13px; margin-top: -8px; margin-bottom: 16px; }
-        .control-bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; background: #fff; padding: 14px 20px; border-radius: 10px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .control-bar label { font-size: 13px; color: #34495e; display: flex; align-items: center; gap: 6px; }
-        .control-bar select { padding: 6px 12px; border: 1px solid #dce4ec; border-radius: 6px; cursor: pointer; background: #fff; font-size: 13px; }
-        .reset-btn { padding: 6px 14px; background: #ecf0f1; border: 1px solid #dce4ec; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: auto; }
-        .reset-btn:hover { background: #d5dbdb; }
-        .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
-        .kpi { background: #fff; padding: 16px; border-radius: 10px; border-left: 4px solid #1f77b4; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .kpi.k2 { border-left-color: #2ca02c; }
-        .kpi.k3 { border-left-color: #ff7f0e; }
-        .kpi.k4 { border-left-color: #9467bd; }
-        .kpi .label { font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.5px; }
-        .kpi .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
-        .card { background: #fff; padding: 16px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .card h3 { margin: 0 0 8px 0; font-size: 14px; color: #34495e; }
-        .chart { width: 100%; height: 380px; }
-        .insight-box { background: #fff; padding: 16px 20px; border-radius: 10px; border-left: 4px solid #2ca02c; margin-top: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .insight-box h3 { margin: 0 0 8px 0; font-size: 14px; }
-        .insight-box ul { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.7; color: #34495e; }
-      </style>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Sales Dashboard</title>
+        <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+                min-height: 100vh;
+                padding: 32px 24px;
+                color: #1f2937;
+            }
+            .container { max-width: 1200px; margin: 0 auto; }
+            header {
+                text-align: center;
+                margin-bottom: 32px;
+            }
+            header h1 {
+                font-size: 28px;
+                font-weight: 700;
+                color: #111827;
+                margin-bottom: 6px;
+            }
+            header p {
+                font-size: 14px;
+                color: #6b7280;
+            }
+            .kpi-row {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 16px;
+                margin-bottom: 24px;
+            }
+            .kpi-card {
+                background: white;
+                border-radius: 10px;
+                padding: 18px 20px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+                border-left: 4px solid #1f77b4;
+            }
+            .kpi-card .label {
+                font-size: 12px;
+                color: #6b7280;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                font-weight: 600;
+                margin-bottom: 6px;
+            }
+            .kpi-card .value {
+                font-size: 22px;
+                font-weight: 700;
+                color: #111827;
+            }
+            .kpi-card .sub {
+                font-size: 12px;
+                color: #9ca3af;
+                margin-top: 2px;
+            }
+            .kpi-card.green { border-left-color: #2ca02c; }
+            .kpi-card.orange { border-left-color: #ff7f0e; }
+            .kpi-card.purple { border-left-color: #8b5cf6; }
+            .chart-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+            }
+            .chart-card {
+                background: white;
+                border-radius: 12px;
+                padding: 16px 20px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            }
+            @media (max-width: 900px) {
+                .chart-grid { grid-template-columns: 1fr; }
+                .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            }
+            footer {
+                text-align: center;
+                margin-top: 24px;
+                font-size: 12px;
+                color: #9ca3af;
+            }
+        </style>
     </head>
     <body>
-      <h1>Sales Dashboard</h1>
-      <div class="subtitle">Interactive view of top products and regional revenue &middot; 2025</div>
+        <div class="container">
+            <header>
+                <h1>Sales Performance Dashboard</h1>
+                <p>Completed orders only &middot; Source: sample_sales.db</p>
+            </header>
 
-      <div class="control-bar">
-        <label>Sales Region:
-          <select id="filterRegion" onchange="applyFilters()">
-            <option value="all">All</option>
-            <option value="east">East</option>
-        <option value="north">North</option>
-        <option value="south">South</option>
-        <option value="west">West</option>
-          </select>
-        </label>
-        <label>Order Status:
-          <select id="filterStatus" onchange="applyFilters()">
-            <option value="all">All</option>
-            <option value="cancelled">Cancelled</option>
-        <option value="completed">Completed</option>
-        <option value="pending">Pending</option>
-          </select>
-        </label>
-        <button class="reset-btn" onclick="resetFilters()">&#x21BB; Reset</button>
-      </div>
+            <div class="kpi-row">
+                <div class="kpi-card">
+                    <div class="label">Total Revenue</div>
+                    <div class="value">$17,649.58</div>
+                    <div class="sub">All regions, completed</div>
+                </div>
+                <div class="kpi-card green">
+                    <div class="label">Top Product</div>
+                    <div class="value">$4,999.99</div>
+                    <div class="sub">GPU Computing Cluster</div>
+                </div>
+                <div class="kpi-card orange">
+                    <div class="label">Top Region</div>
+                    <div class="value">West</div>
+                    <div class="sub">46.5% of total revenue</div>
+                </div>
+                <div class="kpi-card purple">
+                    <div class="label">Top 3 Combined</div>
+                    <div class="value">$10,099.90</div>
+                    <div class="sub">57.2% of total revenue</div>
+                </div>
+            </div>
 
-      <div class="kpi-row">
-        <div class="kpi"><div class="label">Total Revenue</div><div class="value" id="kpiRevenue">$0</div></div>
-        <div class="kpi k2"><div class="label">Total Orders</div><div class="value" id="kpiOrders">0</div></div>
-        <div class="kpi k3"><div class="label">Avg Order Value</div><div class="value" id="kpiAov">$0</div></div>
-        <div class="kpi k4"><div class="label">Top Region</div><div class="value" id="kpiTopRegion">-</div></div>
-      </div>
+            <div class="chart-grid">
+                <div class="chart-card">
+                    <div id="bar-chart"></div>
+                </div>
+                <div class="chart-card">
+                    <div id="pie-chart"></div>
+                </div>
+            </div>
 
-      <div class="grid">
-        <div class="card"><h3>Top 3 Products by Total Revenue</h3><div id="chartBar" class="chart"></div></div>
-        <div class="card"><h3>Revenue Distribution by Sales Region</h3><div id="chartPie" class="chart"></div></div>
-      </div>
+            <footer>
+                Generated with Plotly &middot; Interactive hover enabled on all charts
+            </footer>
+        </div>
 
-      <div class="insight-box"><h3>Key Insights</h3><ul id="insightList"></ul></div>
+        <script>
+            var barData = {"data":[{"hovertemplate":"\u003cb\u003e%{x}\u003c\u002fb\u003e\u003cbr\u003eRevenue: $%{y:,.2f}\u003cextra\u003e\u003c\u002fextra\u003e","marker":{"color":["#1f77b4","#2ca02c","#ff7f0e"],"line":{"color":"rgba(0,0,0,0.2)","width":1}},"text":["$4,999.99","$2,999.98","$2,099.93"],"textposition":"outside","x":["GPU Computing Cluster","Enterprise Security Suite","AI-Powered Analytics Pro"],"y":[4999.99,2999.98,2099.93],"type":"bar"}],"layout":{"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"title":{"font":{"size":18},"text":"\u003cb\u003eTop 3 Products by Revenue\u003c\u002fb\u003e"},"xaxis":{"title":{"text":"Product"},"tickangle":-15},"yaxis":{"title":{"text":"Revenue (USD)"},"tickformat":"$,.0f","gridcolor":"rgba(200,200,200,0.3)"},"margin":{"l":70,"r":40,"t":70,"b":90},"plot_bgcolor":"white","paper_bgcolor":"white","height":420}};
+            var pieData = {"data":[{"hovertemplate":"\u003cb\u003e%{label}\u003c\u002fb\u003e\u003cbr\u003eRevenue: $%{value:,.2f}\u003cbr\u003eShare: %{percent}\u003cextra\u003e\u003c\u002fextra\u003e","labels":["West","East","North","South"],"marker":{"colors":["#1f77b4","#ff7f0e","#2ca02c","#d62728"],"line":{"color":"white","width":2}},"pull":[0.05,0,0,0],"textfont":{"size":13},"textinfo":"label+percent","values":[8199.91,3799.9,3599.93,2049.84],"type":"pie"}],"layout":{"template":{"data":{"histogram2dcontour":[{"type":"histogram2dcontour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"choropleth":[{"type":"choropleth","colorbar":{"outlinewidth":0,"ticks":""}}],"histogram2d":[{"type":"histogram2d","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"heatmap":[{"type":"heatmap","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"contourcarpet":[{"type":"contourcarpet","colorbar":{"outlinewidth":0,"ticks":""}}],"contour":[{"type":"contour","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"surface":[{"type":"surface","colorbar":{"outlinewidth":0,"ticks":""},"colorscale":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]]}],"mesh3d":[{"type":"mesh3d","colorbar":{"outlinewidth":0,"ticks":""}}],"scatter":[{"fillpattern":{"fillmode":"overlay","size":10,"solidity":0.2},"type":"scatter"}],"parcoords":[{"type":"parcoords","line":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolargl":[{"type":"scatterpolargl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"bar":[{"error_x":{"color":"#2a3f5f"},"error_y":{"color":"#2a3f5f"},"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"bar"}],"scattergeo":[{"type":"scattergeo","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterpolar":[{"type":"scatterpolar","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"histogram":[{"marker":{"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"histogram"}],"scattergl":[{"type":"scattergl","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatter3d":[{"type":"scatter3d","line":{"colorbar":{"outlinewidth":0,"ticks":""}},"marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermap":[{"type":"scattermap","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattermapbox":[{"type":"scattermapbox","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scatterternary":[{"type":"scatterternary","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"scattercarpet":[{"type":"scattercarpet","marker":{"colorbar":{"outlinewidth":0,"ticks":""}}}],"carpet":[{"aaxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"baxis":{"endlinecolor":"#2a3f5f","gridcolor":"white","linecolor":"white","minorgridcolor":"white","startlinecolor":"#2a3f5f"},"type":"carpet"}],"table":[{"cells":{"fill":{"color":"#EBF0F8"},"line":{"color":"white"}},"header":{"fill":{"color":"#C8D4E3"},"line":{"color":"white"}},"type":"table"}],"barpolar":[{"marker":{"line":{"color":"#E5ECF6","width":0.5},"pattern":{"fillmode":"overlay","size":10,"solidity":0.2}},"type":"barpolar"}],"pie":[{"automargin":true,"type":"pie"}]},"layout":{"autotypenumbers":"strict","colorway":["#636efa","#EF553B","#00cc96","#ab63fa","#FFA15A","#19d3f3","#FF6692","#B6E880","#FF97FF","#FECB52"],"font":{"color":"#2a3f5f"},"hovermode":"closest","hoverlabel":{"align":"left"},"paper_bgcolor":"white","plot_bgcolor":"#E5ECF6","polar":{"bgcolor":"#E5ECF6","angularaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"radialaxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"ternary":{"bgcolor":"#E5ECF6","aaxis":{"gridcolor":"white","linecolor":"white","ticks":""},"baxis":{"gridcolor":"white","linecolor":"white","ticks":""},"caxis":{"gridcolor":"white","linecolor":"white","ticks":""}},"coloraxis":{"colorbar":{"outlinewidth":0,"ticks":""}},"colorscale":{"sequential":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"sequentialminus":[[0.0,"#0d0887"],[0.1111111111111111,"#46039f"],[0.2222222222222222,"#7201a8"],[0.3333333333333333,"#9c179e"],[0.4444444444444444,"#bd3786"],[0.5555555555555556,"#d8576b"],[0.6666666666666666,"#ed7953"],[0.7777777777777778,"#fb9f3a"],[0.8888888888888888,"#fdca26"],[1.0,"#f0f921"]],"diverging":[[0,"#8e0152"],[0.1,"#c51b7d"],[0.2,"#de77ae"],[0.3,"#f1b6da"],[0.4,"#fde0ef"],[0.5,"#f7f7f7"],[0.6,"#e6f5d0"],[0.7,"#b8e186"],[0.8,"#7fbc41"],[0.9,"#4d9221"],[1,"#276419"]]},"xaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"yaxis":{"gridcolor":"white","linecolor":"white","ticks":"","title":{"standoff":15},"zerolinecolor":"white","automargin":true,"zerolinewidth":2},"scene":{"xaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"yaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2},"zaxis":{"backgroundcolor":"#E5ECF6","gridcolor":"white","linecolor":"white","showbackground":true,"ticks":"","zerolinecolor":"white","gridwidth":2}},"shapedefaults":{"line":{"color":"#2a3f5f"}},"annotationdefaults":{"arrowcolor":"#2a3f5f","arrowhead":0,"arrowwidth":1},"geo":{"bgcolor":"white","landcolor":"#E5ECF6","subunitcolor":"white","showland":true,"showlakes":true,"lakecolor":"white"},"title":{"x":0.05},"mapbox":{"style":"light"}}},"title":{"font":{"size":18},"text":"\u003cb\u003eRevenue Share by Sales Region\u003c\u002fb\u003e"},"margin":{"l":40,"r":40,"t":70,"b":40},"legend":{"orientation":"h","yanchor":"bottom","y":-0.15,"xanchor":"center","x":0.5},"paper_bgcolor":"white","height":420}};
 
-      <script>
-        // Column indices in each row:
-        // 0=order_id, 1=customer_id, 2=product_id, 3=product_name, 4=order_date,
-        // 5=status, 6=quantity, 7=total_amount, 8=sales_region
-        var allData = [
-    [1,1,1,"AI-Powered Analytics Pro","2025-01-05","completed",2,599.98,"east"],
-    [2,1,3,"Smart Dashboard Lite","2025-01-05","completed",1,99.99,"east"],
-    [3,2,2,"Cloud Data Pipeline","2025-02-10","completed",1,199.99,"west"],
-    [4,3,4,"Neural Network Starter Kit","2025-03-15","completed",1,499.99,"north"],
-    [5,3,6,"Enterprise Security Suite","2025-03-15","completed",1,1499.99,"north"],
-    [6,5,1,"AI-Powered Analytics Pro","2025-03-20","completed",1,299.99,"east"],
-    [7,5,8,"Automated ML Pipeline","2025-03-20","completed",2,799.98,"east"],
-    [8,6,7,"IoT Sensor Array","2025-04-01","completed",5,1249.95,"south"],
-    [9,8,10,"GPU Computing Cluster","2025-04-15","completed",1,4999.99,"west"],
-    [10,1,4,"Neural Network Starter Kit","2025-04-20","completed",1,499.99,"east"],
-    [11,9,2,"Cloud Data Pipeline","2025-05-01","completed",1,199.99,"west"],
-    [12,9,3,"Smart Dashboard Lite","2025-05-01","completed",3,299.97,"west"],
-    [13,10,9,"Data Lake Storage 1TB","2025-05-10","completed",10,599.9,"south"],
-    [14,2,6,"Enterprise Security Suite","2025-05-15","completed",1,1499.99,"west"],
-    [15,3,1,"AI-Powered Analytics Pro","2025-06-01","completed",3,899.97,"north"],
-    [16,5,7,"IoT Sensor Array","2025-06-10","completed",2,499.98,"east"],
-    [17,6,8,"Automated ML Pipeline","2025-06-15","pending",1,399.99,"south"],
-    [18,1,9,"Data Lake Storage 1TB","2025-06-20","pending",5,299.95,"east"],
-    [19,4,1,"AI-Powered Analytics Pro","2025-06-25","completed",1,299.99,"north"],
-    [20,8,4,"Neural Network Starter Kit","2025-07-01","completed",2,999.98,"west"],
-    [21,10,2,"Cloud Data Pipeline","2025-07-05","completed",1,199.99,"south"],
-    [22,1,6,"Enterprise Security Suite","2025-07-10","cancelled",1,1499.99,"east"],
-    [23,3,8,"Automated ML Pipeline","2025-07-15","completed",1,399.99,"north"],
-    [24,5,5,"Quantum Computing Simulator","2025-07-20","completed",1,999.99,"east"],
-    [25,9,7,"IoT Sensor Array","2025-07-25","pending",3,749.97,"west"]
-  ];
-
-        var COLORS = ['#1f77b4', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#e377c2', '#17becf'];
-        var PIE_COLORS = ['#1f77b4', '#2ca02c', '#ff7f0e', '#9467bd'];
-
-        function fmtMoney(v) {
-          return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-
-        function getFiltered() {
-          var region = document.getElementById('filterRegion').value;
-          var status = document.getElementById('filterStatus').value;
-          return allData.filter(function(r) {
-            if (region !== 'all' && r[8] !== region) return false;
-            if (status !== 'all' && r[5] !== status) return false;
-            return true;
-          });
-        }
-
-        function aggBy(keyIdx, valIdx, data) {
-          var map = {};
-          data.forEach(function(r) {
-            var k = r[keyIdx];
-            map[k] = (map[k] || 0) + r[valIdx];
-          });
-          var entries = Object.entries(map).sort(function(a, b) { return b[1] - a[1]; });
-          return { labels: entries.map(function(e) { return e[0]; }),
-                   values: entries.map(function(e) { return e[1]; }) };
-        }
-
-        function applyFilters() {
-          var data = getFiltered();
-          var totalRev = data.reduce(function(s, r) { return s + r[7]; }, 0);
-          var n = data.length;
-          var aov = n > 0 ? totalRev / n : 0;
-
-          // Top region by revenue
-          var byRegion = aggBy(8, 7, data);
-          var topRegion = byRegion.labels.length > 0 ? byRegion.labels[0] : '-';
-
-          document.getElementById('kpiRevenue').textContent = fmtMoney(totalRev);
-          document.getElementById('kpiOrders').textContent = n.toLocaleString();
-          document.getElementById('kpiAov').textContent = fmtMoney(aov);
-          document.getElementById('kpiTopRegion').textContent = topRegion === '-' ? '-' : topRegion.charAt(0).toUpperCase() + topRegion.slice(1);
-
-          // ---- Bar chart: top 3 products by revenue ----
-          var byProduct = aggBy(3, 7, data);
-          var topProducts = byProduct.labels.slice(0, 3);
-          var topProductVals = byProduct.values.slice(0, 3);
-          var barColors = topProducts.map(function(_, i) { return COLORS[i % COLORS.length]; });
-          var barText = topProductVals.map(function(v) { return fmtMoney(v); });
-
-          var barTrace = {
-            type: 'bar',
-            x: topProducts,
-            y: topProductVals,
-            text: barText,
-            textposition: 'outside',
-            textfont: { size: 12 },
-            marker: { color: barColors, line: { color: '#fff', width: 1 } },
-            hovertemplate: '<b>%{x}</b><br>Revenue: %{text}<extra></extra>'
-          };
-          var barLayout = {
-            margin: { l: 60, r: 20, t: 20, b: 100 },
-            xaxis: { tickangle: -25, tickfont: { size: 11 } },
-            yaxis: { title: 'Revenue (USD)', tickformat: '$,.0f', gridcolor: '#ecf0f1' },
-            plot_bgcolor: '#fff',
-            paper_bgcolor: '#fff',
-            showlegend: false
-          };
-          Plotly.react('chartBar', [barTrace], barLayout, { displayModeBar: false, responsive: true });
-
-          // ---- Pie chart: revenue % by region ----
-          var pieLabels = byRegion.labels.map(function(l) { return l.charAt(0).toUpperCase() + l.slice(1); });
-          var pieValues = byRegion.values;
-          var pieText = pieValues.map(function(v) {
-            var pct = totalRev > 0 ? (v / totalRev * 100) : 0;
-            return pieLabels[pieValues.indexOf(v)] + '<br>' + fmtMoney(v) + ' (' + pct.toFixed(1) + '%)';
-          });
-          var pieTrace = {
-            type: 'pie',
-            labels: pieLabels,
-            values: pieValues,
-            textinfo: 'percent',
-            textposition: 'inside',
-            insidetextorientation: 'auto',
-            marker: { colors: PIE_COLORS.slice(0, pieLabels.length), line: { color: '#fff', width: 2 } },
-            hovertemplate: '<b>%{label}</b><br>Revenue: $%{value:,.2f}<br>Share: %{percent}<extra></extra>'
-          };
-          var pieLayout = {
-            margin: { l: 20, r: 20, t: 20, b: 20 },
-            showlegend: true,
-            legend: { orientation: 'v', x: 1.02, y: 0.5, font: { size: 12 } },
-            paper_bgcolor: '#fff'
-          };
-          Plotly.react('chartPie', [pieTrace], pieLayout, { displayModeBar: false, responsive: true });
-
-          // ---- Insights ----
-          var insights = [];
-          if (data.length === 0) {
-            insights.push('No orders match the current filters.');
-          } else {
-            insights.push('Filtered dataset contains <b>' + n + '</b> order' + (n !== 1 ? 's' : '') + ' totaling <b>' + fmtMoney(totalRev) + '</b>.');
-            if (topProducts.length > 0) {
-              insights.push('The top product is <b>' + topProducts[0] + '</b> with revenue of <b>' + fmtMoney(topProductVals[0]) + '</b>.');
-            }
-            if (topRegion !== '-') {
-              var topRegionRev = byRegion.values[0];
-              var topRegionPct = totalRev > 0 ? (topRegionRev / totalRev * 100).toFixed(1) : 0;
-              insights.push('<b>' + topRegion.charAt(0).toUpperCase() + topRegion.slice(1) + '</b> leads all regions, contributing <b>' + topRegionPct + '%</b> of total revenue.');
-            }
-            if (n > 0) {
-              insights.push('Average order value is <b>' + fmtMoney(aov) + '</b>.');
-            }
-          }
-          document.getElementById('insightList').innerHTML = insights.map(function(i) { return '<li>' + i + '</li>'; }).join('');
-        }
-
-        function resetFilters() {
-          document.getElementById('filterRegion').value = 'all';
-          document.getElementById('filterStatus').value = 'all';
-          applyFilters();
-        }
-
-        applyFilters();
-      </script>
+            Plotly.newPlot('bar-chart', barData.data, barData.layout, {responsive: true, displayModeBar: false});
+            Plotly.newPlot('pie-chart', pieData.data, pieData.layout, {responsive: true, displayModeBar: false});
+        </script>
     </body>
     </html>
     

@@ -114,14 +114,24 @@ export function useWorkflowManagement({
               restoredAgentType = 'CONDITIONAL_NODE';
             }
 
+            // Merge the persisted top-level node config into data.config.
+            // Script/API-written workflows (e.g. the odd/even demo) keep
+            // control/tool node fields (condition, control_type, tool_type,
+            // tool_id) at the TOP level with an empty data.config, while
+            // frontend saves duplicate them into both. Without this merge the
+            // fields never reach the canvas, and the next save wipes them.
+            const persistedData = n.data || {};
+            const persistedConfig = n.config || {};
+
             return {
               id: n.id,
               type: 'custom',
               position: validPosition,
-              data: n.data || {
-                label: n.type,
+              data: {
+                label: persistedData.label ?? n.type,
+                ...persistedData,
                 agentType: restoredAgentType,
-                config: n.config || {}
+                config: { ...(persistedData.config || {}), ...persistedConfig }
               }
             };
           });

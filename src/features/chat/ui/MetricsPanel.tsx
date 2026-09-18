@@ -37,9 +37,8 @@ export default function MetricsPanel({
 
   return (
     <div
-      className="w-56 border-l overflow-y-auto"
+      className="h-full overflow-y-auto"
       style={{
-        borderColor: 'var(--color-border-dark)',
         backgroundColor: 'var(--color-background-light)',
       }}
     >
@@ -205,7 +204,7 @@ export default function MetricsPanel({
                   key={index}
                   className="p-2 rounded border"
                   style={{
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--color-background-light)',
                     borderColor: 'var(--color-border-dark)',
                   }}
                 >
@@ -266,7 +265,7 @@ export default function MetricsPanel({
                   key={index}
                   className="p-2 rounded border"
                   style={{
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--color-background-light)',
                     borderColor: 'var(--color-border-dark)',
                   }}
                 >
@@ -310,7 +309,7 @@ function MetricCard({ icon, label, value, warning = false }: MetricCardProps) {
     <div
       className="p-2 rounded-lg border"
       style={{
-        backgroundColor: warning ? 'rgba(245, 158, 11, 0.05)' : 'white',
+        backgroundColor: warning ? 'rgba(245, 158, 11, 0.05)' : 'var(--color-background-light)',
         borderColor: warning ? 'rgba(245, 158, 11, 0.3)' : 'var(--color-border-dark)',
       }}
     >

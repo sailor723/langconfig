@@ -16,6 +16,14 @@ import json
 import re
 from typing import Any, Optional
 
+# Single source of truth for Neo4j HTTP defaults (NEO4J_URL etc. in .env).
+from langgraph.connection import (
+    NEO4J_HTTP_URL,
+    NEO4J_HTTP_USER,
+    NEO4J_HTTP_PASSWORD,
+    NEO4J_DATABASE,
+)
+
 import httpx
 
 COMMON_QUERY_STOPWORDS = {
@@ -24,9 +32,11 @@ COMMON_QUERY_STOPWORDS = {
     "about",
     "are",
     "can",
+    "do",
     "does",
     "for",
     "how",
+    "i",
     "in",
     "is",
     "me",
@@ -56,21 +66,25 @@ class Neo4jDocumentRecord:
     search_terms: list[str] = field(default_factory=list)
     what_this_document_is_about: str = ""
     supported_queries: list[str] = field(default_factory=list)
-    out_of_scope: list[str] = field(default_factory=list)
     few_shot: list[dict[str, str]] = field(default_factory=list)
+    # Ontology enrichment (docs/graphindex-ontology.md): typed entities,
+    # document categories, and LLM-generated tags. Defaults keep old nodes
+    # (written before this field set existed) fully readable.
+    entities: list[dict[str, str]] = field(default_factory=list)
+    categories: dict[str, Any] = field(default_factory=dict)
+    llm_tags: list[str] = field(default_factory=list)
 
 
 @dataclass
 class Neo4jDocumentEnrichment:
     what_this_document_is_about: str = ""
     supported_queries: list[str] = field(default_factory=list)
-    out_of_scope: list[str] = field(default_factory=list)
     few_shot: list[dict[str, str]] = field(default_factory=list)
-
-
-def build_project_scope_names(current_name: str, all_document_names: list[str]) -> list[str]:
-    """Return other project document names for reflection-style prompts."""
-    return sorted(name for name in all_document_names if name != current_name)
+    # Ontology enrichment (docs/graphindex-ontology.md): typed entities,
+    # document categories, and LLM-generated tags.
+    entities: list[dict[str, str]] = field(default_factory=list)
+    categories: dict[str, Any] = field(default_factory=dict)
+    llm_tags: list[str] = field(default_factory=list)
 
 
 def build_document_node_properties(
@@ -87,6 +101,11 @@ def build_document_node_properties(
     """Build a flat Neo4j property map for one document node."""
     graphindex_meta = graphindex_meta or {}
     enrichment = enrichment or Neo4jDocumentEnrichment()
+    categories = enrichment.categories or {}
+
+    # LLM-generated tags extend (not replace) the source tags; dedupe keeps
+    # the facet list clean for Neo4j full-text / CONTAINS matching.
+    merged_tags = list(dict.fromkeys([*(tags or []), *enrichment.llm_tags]))[:20]
 
     return {
         "project_id": project_id,
@@ -95,15 +114,22 @@ def build_document_node_properties(
         "name": name,
         "file_path": file_path,
         "description": description or "",
-        "tags": tags or [],
+        "tags": merged_tags,
         "doc_name": graphindex_meta.get("doc_name") or name,
         "page_count": int(graphindex_meta.get("page_count") or 0),
         "content_preview": graphindex_meta.get("content_preview") or "",
         "search_terms": graphindex_meta.get("search_terms") or [],
         "what_this_document_is_about": enrichment.what_this_document_is_about,
         "supported_queries": enrichment.supported_queries,
-        "out_of_scope": enrichment.out_of_scope,
         "few_shot_json": json.dumps(enrichment.few_shot, ensure_ascii=False),
+        # Ontology enrichment (docs/graphindex-ontology.md): entities as JSON
+        # (mirrors few_shot_json), categories as scalar/list columns.
+        "entities_json": json.dumps(enrichment.entities, ensure_ascii=False),
+        "categories_genre": categories.get("genre", "") or "",
+        "categories_primary_subject": categories.get("primary_subject", "") or "",
+        "categories_subjects": categories.get("subjects") or [],
+        "question_types": categories.get("question_types") or [],
+        "financial_metrics": categories.get("financial_metrics") or [],
         # Step N+1: hierarchy metadata. Pass-through from context_doc
         # when present (set by bulk ingest); empty string for single
         # uploads. Used by folder-scope filters in Neo4j-side queries.
@@ -200,7 +226,6 @@ def choose_best_document_match(
         tags = [str(tag).lower() for tag in document.tags]
         search_terms = [str(term).lower() for term in document.search_terms]
         supported_queries = [str(item).lower() for item in document.supported_queries]
-        out_of_scope = [str(item).lower() for item in document.out_of_scope]
 
         for term in lookup_terms:
             if len(term) < 2:
@@ -220,8 +245,6 @@ def choose_best_document_match(
                 score += 1.5
             if any(term in candidate for candidate in supported_queries):
                 score += 3.0
-            if any(term in candidate for candidate in out_of_scope):
-                score -= 3.0
 
         if score <= 0:
             continue
@@ -233,7 +256,10 @@ def choose_best_document_match(
     if best_match is not None:
         return best_match[1]
 
-    return choose_best_name_match(query, documents)
+    # No doc scored above 0 — return None rather than falling back to
+    # name matching, which would happily return the first in-scope doc
+    # even when the query is unrelated to any of them.
+    return None
 
 
 class Neo4jDocumentIndex:
@@ -241,10 +267,10 @@ class Neo4jDocumentIndex:
 
     def __init__(
         self,
-        base_url: str = "http://localhost:7474",
-        username: str = "neo4j",
-        password: str = "password",
-        database: str = "neo4j",
+        base_url: str = NEO4J_HTTP_URL,
+        username: str = NEO4J_HTTP_USER,
+        password: str = NEO4J_HTTP_PASSWORD,
+        database: str = NEO4J_DATABASE,
         timeout_seconds: float = 10.0,
     ):
         self.base_url = base_url.rstrip("/")
@@ -292,11 +318,22 @@ class Neo4jDocumentIndex:
         return rows
 
     def ensure_constraints(self) -> None:
-        """Create the minimal index constraint for project_id + name."""
+        """Create the minimal index constraints for project_id + name.
+
+        One for Document nodes, one for the Entity graph layer
+        (docs/graphindex-ontology.md §1): a named entity is unique per
+        project, so `MERGE (:Entity {project_id, name})` is idempotent.
+        """
         self._run_cypher(
             (
                 "CREATE CONSTRAINT document_name_per_project IF NOT EXISTS "
                 "FOR (d:Document) REQUIRE (d.project_id, d.name) IS UNIQUE"
+            )
+        )
+        self._run_cypher(
+            (
+                "CREATE CONSTRAINT entity_name_per_project IF NOT EXISTS "
+                "FOR (e:Entity) REQUIRE (e.project_id, e.name) IS UNIQUE"
             )
         )
 
@@ -319,9 +356,17 @@ class Neo4jDocumentIndex:
         )
 
     def delete_project_documents(self, project_id: int) -> None:
-        """Delete all Document nodes for one project before a clean rebuild."""
+        """Delete all Document nodes for one project before a clean rebuild.
+
+        Also drops the project's entity layer — every MENTIONS edge dies
+        with its Document, so the Entity nodes would be orphaned.
+        """
         self._run_cypher(
             "MATCH (d:Document {project_id: $project_id}) DETACH DELETE d",
+            {"project_id": project_id},
+        )
+        self._run_cypher(
+            "MATCH (e:Entity {project_id: $project_id}) DETACH DELETE e",
             {"project_id": project_id},
         )
 
@@ -355,7 +400,148 @@ class Neo4jDocumentIndex:
             ),
             {"project_id": project_id, "name": name},
         )
+        # Entity nodes mentioned only by this doc become orphans — drop them
+        # so doc_count / roles stay accurate for graph queries.
+        self.prune_orphan_entities(project_id)
         return bool(rows and rows[0].get("deleted_count", 0) > 0)
+
+    # --- Entity graph layer (docs/graphindex-ontology.md §1) -------------------
+    # The enrichment stores entities as JSON on each Document node. These
+    # methods promote them into first-class graph nodes:
+    #   (:Entity {project_id, name, entity_type, doc_count, roles})
+    #   (:Document)-[:MENTIONS {role}]->(:Entity)
+    # enabling graph queries like "which docs mention Tesla".
+
+    def sync_entity_graph(
+        self,
+        project_id: int,
+        name: str,
+        entities: Optional[list[dict[str, Any]]] = None,
+    ) -> None:
+        """Incrementally sync the entity graph for one document.
+
+        Called right after a doc's enrichment is upserted: removes stale
+        MENTIONS edges, merges Entity nodes + edges for the current entity
+        list, then recomputes doc_count / roles for the affected entities.
+        Passing an empty list detaches the doc from all entities.
+        """
+        entities = [e for e in (entities or []) if isinstance(e, dict) and e.get("name")]
+        names = [e["name"] for e in entities]
+        self._run_cypher(
+            (
+                "MATCH (d:Document {project_id: $project_id, name: $name}) "
+                "OPTIONAL MATCH (d)-[r:MENTIONS]->(stale:Entity) "
+                "WHERE NOT stale.name IN $names "
+                "DELETE r "
+                "WITH d "
+                "UNWIND $entities AS ent "
+                "MERGE (e:Entity {project_id: $project_id, name: ent.name}) "
+                "ON CREATE SET e.entity_type = ent.entity_type "
+                "MERGE (d)-[:MENTIONS {role: ent.role}]->(e) "
+                "WITH e "
+                "OPTIONAL MATCH (e)<-[r:MENTIONS]-() "
+                "WITH e, count(r) AS doc_count, collect(DISTINCT r.role) AS roles "
+                "SET e.doc_count = doc_count, e.roles = roles"
+            ),
+            {
+                "project_id": project_id,
+                "name": name,
+                "entities": entities,
+                "names": names,
+            },
+        )
+
+    def build_entity_graph(self, project_id: int) -> dict[str, int]:
+        """Rebuild the whole entity layer for a project from current docs.
+
+        Idempotent backfill: purges the project's Entity nodes + MENTIONS
+        edges, then recreates them from each Document's `entities_json`.
+        Docs without enrichment simply contribute nothing.
+        """
+        # 1. Purge the project's entity layer (edges go with the nodes).
+        self._run_cypher(
+            "MATCH (e:Entity {project_id: $project_id}) DETACH DELETE e",
+            {"project_id": project_id},
+        )
+        # 2. Rebuild from the docs' current entity lists.
+        rows = [
+            {"name": d.name, "entities": d.entities}
+            for d in self.list_documents(project_id=project_id)
+        ]
+        if rows:
+            self._run_cypher(
+                (
+                    "UNWIND $rows AS row "
+                    "MATCH (d:Document {project_id: $project_id, name: row.name}) "
+                    "UNWIND row.entities AS ent "
+                    "MERGE (e:Entity {project_id: $project_id, name: ent.name}) "
+                    "ON CREATE SET e.entity_type = ent.entity_type "
+                    "MERGE (d)-[:MENTIONS {role: ent.role}]->(e)"
+                ),
+                {"project_id": project_id, "rows": rows},
+            )
+        # 3. Recompute aggregates.
+        self._run_cypher(
+            (
+                "MATCH (e:Entity {project_id: $project_id}) "
+                "OPTIONAL MATCH (e)<-[r:MENTIONS]-() "
+                "WITH e, count(r) AS doc_count, collect(DISTINCT r.role) AS roles "
+                "SET e.doc_count = doc_count, e.roles = roles"
+            ),
+            {"project_id": project_id},
+        )
+        # 4. Stats.
+        entities = self._run_cypher(
+            "MATCH (e:Entity {project_id: $project_id}) RETURN count(e) AS n",
+            {"project_id": project_id},
+        )
+        mentions = self._run_cypher(
+            (
+                "MATCH (:Document {project_id: $project_id})-[r:MENTIONS]->"
+                "(:Entity {project_id: $project_id}) RETURN count(r) AS n"
+            ),
+            {"project_id": project_id},
+        )
+        return {
+            "entities": int(entities[0]["n"]) if entities else 0,
+            "mentions": int(mentions[0]["n"]) if mentions else 0,
+        }
+
+    def find_docs_mentioning_entity(
+        self,
+        project_id: int,
+        entity_name: str,
+    ) -> list[dict[str, Any]]:
+        """Return the documents mentioning one entity, with the role each plays."""
+        rows = self._run_cypher(
+            (
+                "MATCH (e:Entity {project_id: $project_id, name: $entity_name}) "
+                "OPTIONAL MATCH (e)<-[r:MENTIONS]-(d:Document {project_id: $project_id}) "
+                "RETURN e.entity_type AS entity_type, e.doc_count AS doc_count, "
+                "e.roles AS roles, d.name AS doc_name, r.role AS role "
+                "ORDER BY doc_name"
+            ),
+            {"project_id": project_id, "entity_name": entity_name},
+        )
+        return [
+            {
+                "doc_name": r.get("doc_name"),
+                "role": r.get("role"),
+            }
+            for r in rows
+            if r.get("doc_name")
+        ]
+
+    def prune_orphan_entities(self, project_id: int) -> None:
+        """Delete Entity nodes with no remaining MENTIONS edges."""
+        self._run_cypher(
+            (
+                "MATCH (e:Entity {project_id: $project_id}) "
+                "WHERE NOT EXISTS { (e)<-[:MENTIONS]-() } "
+                "DETACH DELETE e"
+            ),
+            {"project_id": project_id},
+        )
 
     def get_document(self, project_id: int, name: str) -> Optional[Neo4jDocumentRecord]:
         """Load one document by exact name."""
@@ -367,7 +553,10 @@ class Neo4jDocumentIndex:
                 "d.description AS description, d.tags AS tags, d.doc_name AS doc_name, "
                 "d.page_count AS page_count, d.content_preview AS content_preview, "
                 "d.search_terms AS search_terms, d.what_this_document_is_about AS what_this_document_is_about, "
-                "d.supported_queries AS supported_queries, d.out_of_scope AS out_of_scope, d.few_shot_json AS few_shot_json "
+                "d.supported_queries AS supported_queries, d.few_shot_json AS few_shot_json, "
+                "d.entities_json AS entities_json, d.categories_genre AS categories_genre, "
+                "d.categories_primary_subject AS categories_primary_subject, d.categories_subjects AS categories_subjects, "
+                "d.question_types AS question_types, d.financial_metrics AS financial_metrics "
                 "LIMIT 1"
             ),
             {"project_id": project_id, "name": name},
@@ -389,12 +578,48 @@ class Neo4jDocumentIndex:
             search_terms=list(row.get("search_terms") or []),
             what_this_document_is_about=str(row.get("what_this_document_is_about") or ""),
             supported_queries=list(row.get("supported_queries") or []),
-            out_of_scope=list(row.get("out_of_scope") or []),
             few_shot=json.loads(row.get("few_shot_json") or "[]"),
+            entities=json.loads(row.get("entities_json") or "[]"),
+            categories={
+                "genre": str(row.get("categories_genre") or ""),
+                "primary_subject": str(row.get("categories_primary_subject") or ""),
+                "subjects": list(row.get("categories_subjects") or []),
+                "question_types": list(row.get("question_types") or []),
+                "financial_metrics": list(row.get("financial_metrics") or []),
+            },
         )
 
-    def list_documents(self, project_id: int) -> list[Neo4jDocumentRecord]:
-        """List all indexed documents for a project."""
+    def list_documents(
+        self,
+        project_id: int,
+        name_only: bool = False,
+    ) -> list[Neo4jDocumentRecord]:
+        """List all indexed documents for a project.
+
+        Args:
+            project_id: Project identifier.
+            name_only: When True, only the document names are
+                returned (via `RETURN d.name`); the other fields
+                on each record are left at their defaults. Use
+                this when callers only need the name list — it
+                avoids pulling all fields × N rows over the
+                Neo4j HTTP API, which becomes painful at 1000+ docs.
+        """
+        if name_only:
+            rows = self._run_cypher(
+                "MATCH (d:Document {project_id: $project_id}) "
+                "RETURN d.name AS name, d.project_id AS project_id "
+                "ORDER BY d.name",
+                {"project_id": project_id},
+            )
+            return [
+                Neo4jDocumentRecord(
+                    project_id=int(row["project_id"]),
+                    name=str(row["name"]),
+                    file_path="",
+                )
+                for row in rows
+            ]
         rows = self._run_cypher(
             (
                 "MATCH (d:Document {project_id: $project_id}) "
@@ -403,7 +628,10 @@ class Neo4jDocumentIndex:
                 "d.description AS description, d.tags AS tags, d.doc_name AS doc_name, "
                 "d.page_count AS page_count, d.content_preview AS content_preview, "
                 "d.search_terms AS search_terms, d.what_this_document_is_about AS what_this_document_is_about, "
-                "d.supported_queries AS supported_queries, d.out_of_scope AS out_of_scope, d.few_shot_json AS few_shot_json "
+                "d.supported_queries AS supported_queries, d.few_shot_json AS few_shot_json, "
+                "d.entities_json AS entities_json, d.categories_genre AS categories_genre, "
+                "d.categories_primary_subject AS categories_primary_subject, d.categories_subjects AS categories_subjects, "
+                "d.question_types AS question_types, d.financial_metrics AS financial_metrics "
                 "ORDER BY d.name"
             ),
             {"project_id": project_id},
@@ -417,19 +645,37 @@ class Neo4jDocumentIndex:
                 file_path=str(row.get("file_path") or ""),
                 description=str(row.get("description") or ""),
                 tags=list(row.get("tags") or []),
-                doc_name=str(row.get("doc_name") or row["name"]),
+                doc_name=str(row.get("doc_name") or ""),
                 page_count=int(row.get("page_count") or 0),
                 content_preview=str(row.get("content_preview") or ""),
                 search_terms=list(row.get("search_terms") or []),
                 what_this_document_is_about=str(row.get("what_this_document_is_about") or ""),
                 supported_queries=list(row.get("supported_queries") or []),
-                out_of_scope=list(row.get("out_of_scope") or []),
                 few_shot=json.loads(row.get("few_shot_json") or "[]"),
+                entities=json.loads(row.get("entities_json") or "[]"),
+                categories={
+                    "genre": str(row.get("categories_genre") or ""),
+                    "primary_subject": str(row.get("categories_primary_subject") or ""),
+                    "subjects": list(row.get("categories_subjects") or []),
+                    "question_types": list(row.get("question_types") or []),
+                    "financial_metrics": list(row.get("financial_metrics") or []),
+                },
             )
             for row in rows
         ]
 
-    def find_best_document(self, project_id: int, query: str) -> Optional[Neo4jDocumentRecord]:
-        """Find the best document using enriched node metadata first."""
+    def find_best_document(self, project_id: int, query: str,
+                           scope: Optional[list[str]] = None) -> Optional[Neo4jDocumentRecord]:
+        """Find the best document using enriched node metadata first.
+
+        Args:
+            project_id: Neo4j project id.
+            query: Natural-language query to match against document metadata.
+            scope: Optional list of document names to restrict search to.
+                   If None or empty, searches all documents in the project.
+        """
         documents = self.list_documents(project_id)
+        if scope:
+            scope_set = set(scope)
+            documents = [d for d in documents if d.name in scope_set]
         return choose_best_document_match(query, documents)

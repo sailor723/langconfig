@@ -58,6 +58,14 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting LangConfig API...")
 
+    # Attach the live log-stream handler so the bottom-panel Terminal tab
+    # receives backend system logs over SSE (GET /api/debug/logs/stream).
+    try:
+        from services.log_stream import attach_log_stream
+        attach_log_stream()
+    except Exception as e:
+        logger.warning(f"Failed to attach live log stream (non-fatal): {e}")
+
     # Initialize PostgreSQL database (unified database for everything)
     try:
         await async_init_db()
@@ -66,6 +74,39 @@ async def lifespan(app: FastAPI):
         logger.error(f"PostgreSQL initialization failed: {e}")
         logger.error("Make sure PostgreSQL is running: docker-compose up -d postgres")
         raise
+
+    # Apply the persisted storage-mode override (Settings UI runtime switch,
+    # docs/system-architecture.md §15 Phase 5): a value in the storage settings
+    # document wins over the .env STORAGE_MODE default.
+    try:
+        from core.settings import store as _settings_store
+        from db.database import SessionLocal as _sync_session_local
+        from config import settings as _app_settings
+
+        db = _sync_session_local()
+        try:
+            _settings_store.ensure_table(db)
+            persisted_mode = _settings_store.get_document(db, "storage").get("mode")
+            if persisted_mode:
+                _app_settings.storage_mode = persisted_mode
+                logger.info("Storage mode: %s (persisted override)", persisted_mode)
+            else:
+                logger.info("Storage mode: %s (.env/default)", _app_settings.storage_mode)
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Failed to apply storage-mode override (non-fatal): {e}")
+
+    # Settings documents auto-seed (DSH-style namespaces, docs/settings-refactor.md).
+    # Idempotent: writes default documents only for namespaces that have no row
+    # yet; never touches the legacy settings row or existing documents.
+    try:
+        from core.settings.seed import ensure_settings_seeded
+        written = ensure_settings_seeded()
+        if written:
+            logger.info("Settings documents seeded (%d default document(s))", written)
+    except Exception as e:
+        logger.warning(f"Settings documents auto-seed failed (non-fatal): {e}")
 
     # Initialize LangGraph checkpointing for workflow persistence and HITL
     try:
@@ -138,6 +179,28 @@ async def lifespan(app: FastAPI):
         logger.info("Chat session manager started successfully")
     except Exception as e:
         logger.warning(f"Chat session manager failed to start: {e}. Abandoned sessions won't be cleaned up automatically.")
+
+    # Periodic cleanup of idle notebook kernels (prevents ipykernel process leaks)
+    notebook_cleanup_task = None
+    try:
+        import asyncio as _asyncio
+
+        from services.notebook_kernel_manager import get_kernel_manager
+
+        async def _notebook_kernel_cleanup_loop():
+            km = get_kernel_manager()
+            while True:
+                try:
+                    # cleanup_idle() is blocking; keep it off the event loop
+                    await _asyncio.to_thread(km.cleanup_idle)
+                except Exception as e:
+                    logger.warning(f"Notebook kernel cleanup failed (non-fatal): {e}")
+                await _asyncio.sleep(120)
+
+        notebook_cleanup_task = _asyncio.create_task(_notebook_kernel_cleanup_loop())
+        logger.info("Notebook kernel idle-cleanup loop started (every 120s)")
+    except Exception as e:
+        logger.warning(f"Notebook kernel cleanup loop failed to start: {e}. Idle kernels won't be cleaned up.")
 
     # Start background task queue workers
     try:
@@ -212,6 +275,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error stopping chat session manager: {e}")
 
+    # Stop notebook kernel idle-cleanup loop and shut down all kernels
+    try:
+        if notebook_cleanup_task is not None:
+            notebook_cleanup_task.cancel()
+        from services.notebook_kernel_manager import get_kernel_manager
+        get_kernel_manager().shutdown_all()
+        logger.info("Notebook kernels shut down")
+    except Exception as e:
+        logger.error(f"Error shutting down notebook kernels: {e}")
+
     # Shutdown LangGraph checkpointing
     try:
         from core.workflows.checkpointing.manager import cleanup_checkpointing
@@ -274,6 +347,14 @@ app = FastAPI(
     }
 )
 
+# Serve /static/ from backend/static/ — for self-hosted vendor assets
+# (Plotly etc.) so analysis dashboards work without external CDN.
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path as _Path
+_STATIC_DIR = _Path(__file__).resolve().parent / "static"
+_STATIC_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
 # Register standardized error handlers
 from core.error_handlers import register_error_handlers
 register_error_handlers(app)
@@ -304,35 +385,142 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+
+# ── Gantt chart data for Sun Hing dashboard ──────────────────────
+@app.get("/api/gantt-data")
+async def serve_gantt_data():
+    """Return milestones + phases from sunhing_kpi.db for the Gantt HTML chart.
+    This mirrors the /api/gantt-data endpoint that existed in the original
+    sunhing_server.py on port 8999.
+    """
+    import sqlite3
+    from pathlib import Path
+    dbs_dir = Path(__file__).resolve().parent.parent / "data" / "analysis_dbs"
+    db_path = dbs_dir / "sunhing_kpi.db"
+    if not db_path.exists():
+        return JSONResponse(content={"milestones": [], "phases": []})
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    try:
+        milestones = [dict(r) for r in conn.execute(
+            "SELECT * FROM raw_pmo ORDER BY phase_id, milestone_id"
+        ).fetchall()]
+        phases = [dict(r) for r in conn.execute(
+            "SELECT * FROM dim_pmo_phase ORDER BY phase_id"
+        ).fetchall()]
+        return {"milestones": milestones, "phases": phases}
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+    finally:
+        conn.close()
+
+
+# ── ERD sample data for Sun Hing dashboard ──────────────────────
+@app.get("/api/sample-data")
+async def serve_sample_data(table: str):
+    """Return column info + first 5 rows for a given table in sunhing_kpi.db.
+    Mirrors the /api/sample-data endpoint from sunhing_server.py on port 8999.
+    """
+    import sqlite3
+    from pathlib import Path
+    dbs_dir = Path(__file__).resolve().parent.parent / "data" / "analysis_dbs"
+    db_path = dbs_dir / "sunhing_kpi.db"
+    ALLOWED = {
+        "company", "dim_kpi", "dim_pmo_phase", "fact_kpi_monthly", "fact_roe_summary",
+        "raw_hr", "raw_employee", "raw_finance", "raw_production",
+        "raw_legal", "raw_digital_platform", "raw_crm", "raw_entity",
+        "raw_pmo", "raw_sentiment", "raw_liability",
+    }
+    if table not in ALLOWED:
+        return JSONResponse(content={"error": f"Invalid table: {table}"}, status_code=400)
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+        rows = conn.execute(f"SELECT * FROM {table} LIMIT 5").fetchall()
+        total = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        return {"columns": cols, "rows": [list(r) for r in rows], "total_rows": total}
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+    finally:
+        conn.close()
+
+
+def _swap_plotly_cdn_to_local(html: str) -> str:
+    """Replace cdn.plot.ly with /static/plotly.min.js so the page works
+    without internet access (corporate proxy / sandboxed browser)."""
+    import re as _re
+    return _re.sub(
+        r'https?://cdn\.plot\.ly/plotly-[\d.]+\.min\.js',
+        '/static/plotly.min.js',
+        html,
+    )
+
+
+def _is_safe_filename(filename: str) -> bool:
+    """A filename is safe to serve only if it is a bare name.
+
+    Rejects path separators and `..` (path traversal via rglob on
+    Python < 3.13) and glob metacharacters (which would turn rglob
+    into a full recursive scan of the outputs tree — perf DoS).
+    """
+    if not filename or filename in (".", ".."):
+        return False
+    if "/" in filename or "\\" in filename or ".." in filename:
+        return False
+    if any(ch in filename for ch in "*?[]{}"):
+        return False
+    return True
+
 
 @app.get("/api/files/{filename:path}")
 async def serve_output_file(filename: str):
     """Serve generated files (charts, reports, dashboards) from outputs/ and data/ dirs."""
     from pathlib import Path
+    from fastapi.responses import HTMLResponse, JSONResponse
     from services.workspace_manager import get_workspace_manager
 
-    # First, check if it's in data/analysis_dbs/ (for analysis dashboards)
-    # Use absolute path from repo root since python_execute saves there
+    # Security: only bare filenames may be served. rglob() interprets
+    # `..` (traversal on Py < 3.13) and glob metacharacters (full-tree
+    # scan) from user input, so reject both up front.
+    if not _is_safe_filename(filename):
+        return JSONResponse(status_code=400, content={"error": "Invalid filename"})
+
+    # Cache-busting headers — analysis dashboards are regenerated often and the
+    # browser MUST NOT serve a stale copy of the HTML (cached HTML references
+    # data fields that may no longer exist in the new version).
+    no_cache_headers = {
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+
+    # 1. Analysis dashboards: data/analysis_dbs/<...>/<filename> (uses absolute repo path
+    #    because python_execute saves there).
     analysis_dir = Path(__file__).resolve().parent.parent / "data" / "analysis_dbs"
     if analysis_dir.exists():
         analysis_match = list(analysis_dir.rglob(filename))
         if analysis_match:
-            return FileResponse(str(analysis_match[0]))
+            fp = analysis_match[0]
+            if fp.suffix == ".html":
+                html = fp.read_text(encoding="utf-8")
+                # Swap CDN-hosted Plotly to local copy so the page works
+                # even when the browser has no internet (corporate proxy etc).
+                html = _swap_plotly_cdn_to_local(html)
+                return HTMLResponse(html, headers=no_cache_headers)
+            return FileResponse(str(fp), headers=no_cache_headers)
 
+    # 2. Default chat-session output directory.
     workspace_mgr = get_workspace_manager()
-
-    # Try default dir first (chat sessions)
     file_path = workspace_mgr.base_dir / "default" / filename
     if file_path.exists() and file_path.is_file():
         return FileResponse(str(file_path))
 
-    # Fallback: search all output directories
+    # 3. Fallback: search all output directories.
     found = list(workspace_mgr.base_dir.rglob(filename))
     if found:
         return FileResponse(str(found[0]))
 
-    from fastapi.responses import JSONResponse
     return JSONResponse(status_code=404, content={"error": f"File not found: {filename}"})
 
 @app.get("/")
@@ -349,13 +537,17 @@ from api.projects import routes as projects
 from api.tasks import routes as tasks
 from api.knowledge import rag, store
 from api.knowledge import graphindex_chat  # Phase 9 / Step K
+from api.knowledge import doc_chat  # Simplified doc chat (folder-based, no RAG/Neo4j)
+from api.knowledge import kv  # Simple KV document store (no DB dependencies)
 from api.system import settings, health, debug, background_tasks, search_providers
+from api.system import settings_documents  # DSH-style describe/mutate wire API
 from api.models import local as local_models
 from api.models import capabilities as model_capabilities
 from api.models import routes as model_routes
 from api.workflows import execution as orchestration, checkpoints
 from api.agents import deep_agents as deepagents, routes as agents, generator as agent_generator
 from api.chat import routes as chat
+from api.chat import skill_review as chat_skill_review
 from api.analysis import routes as analysis
 from api.hitl import routes as hitl
 from api.tools import routes as custom_tools
@@ -372,6 +564,11 @@ from api.presentations import router as presentations
 from api.schedules import router as schedules
 from api.triggers import router as triggers
 from api.webhooks import router as webhooks
+from api.notebooks import routes as notebooks
+from api.agent_documents import routes as agent_documents
+from api.classic_graph import routes as classic_graph
+from api.graph_studio import routes as graph_studio
+from api.plugins import router as plugins
 
 # Health check endpoints
 app.include_router(health.router)
@@ -387,9 +584,13 @@ app.include_router(projects.router)
 app.include_router(tasks.router)
 app.include_router(rag.router)
 app.include_router(graphindex_chat.router)  # Phase 9 / Step K — graphindex_chat agent API
+app.include_router(doc_chat.router)  # Simplified doc-chat — folder-based context, no RAG/Neo4j
+app.include_router(kv.router)  # KV document store — no DB dependencies
 app.include_router(background_tasks.router)  # Background task queue management
 app.include_router(workspace.router)  # Workspace file management
+app.include_router(agent_documents.router)  # DB-mode document library
 app.include_router(settings.router)
+app.include_router(settings_documents.router)  # describe/mutate (new settings wire API)
 app.include_router(search_providers.router)  # Search provider cards + API key mgmt
 app.include_router(local_models.router, prefix="/api/local-models", tags=["local-models"])  # Local model configurations
 app.include_router(model_capabilities.router, prefix="/api/models", tags=["models"])  # Model capability profiles
@@ -402,6 +603,7 @@ app.include_router(skills.router)  # Skills system - modular, context-aware capa
 app.include_router(images.router)  # Image storage and serving (for AI-generated images)
 app.include_router(deepagents.router)  # DeepAgents configuration and export
 app.include_router(chat.router)  # DeepAgents chat testing
+app.include_router(chat_skill_review.router)  # Data skill review/approve
 app.include_router(analysis.router)  # Data analysis: CSV→SQLite→Agent charts
 app.include_router(agent_generator.router)  # AI-powered agent generation
 app.include_router(debug.router)  # Debug endpoints for development
@@ -412,6 +614,10 @@ app.include_router(presentations)  # Presentation generation
 app.include_router(schedules)  # Workflow cron scheduling
 app.include_router(triggers)  # Workflow event triggers (file watch, etc.)
 app.include_router(webhooks)  # Webhook receiver endpoints
+app.include_router(notebooks.router)  # Educational notebooks viewer
+app.include_router(classic_graph.router)  # Classic LangGraph builder API
+app.include_router(graph_studio.router)  # Graph Engineering Studio (code-defined graphs)
+app.include_router(plugins)  # LangChain-style declarative plugins (marketplace + components)
 
 if __name__ == "__main__":
     import sys
@@ -428,5 +634,9 @@ if __name__ == "__main__":
         "main:app",
         host="localhost",
         port=8765,
-        reload=True
+        # 2 workers (UVICORN_WORKERS) give process-level parallelism so one
+        # slow request (LLM/SSE stream) no longer blocks every other API call.
+        # NOTE: reload + workers are mutually exclusive in uvicorn.
+        workers=int(os.getenv("UVICORN_WORKERS", "2")),
+        reload=False,
     )

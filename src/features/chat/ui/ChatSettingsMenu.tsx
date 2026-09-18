@@ -6,8 +6,9 @@
  */
 
 import { useState } from 'react';
-import { Settings, Download, Trash2, LogOut, Check } from 'lucide-react';
+import { Settings, Download, Trash2, LogOut, Check, Sun, Moon } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
+import type { ThemeName } from '../../../lib/themes';
 
 interface ChatSettingsMenuProps {
   sessionId: string | null;
@@ -16,6 +17,8 @@ interface ChatSettingsMenuProps {
   toolCalls: any[];
   subagentActivity: any[];
   agentName: string;
+  themeName: ThemeName;
+  onThemeChange: (name: ThemeName) => void;
   onClearHistory: () => void;
   onEndSession: () => void;
 }
@@ -27,6 +30,8 @@ export default function ChatSettingsMenu({
   toolCalls,
   subagentActivity,
   agentName,
+  themeName,
+  onThemeChange,
   onClearHistory,
   onEndSession
 }: ChatSettingsMenuProps) {
@@ -92,10 +97,48 @@ export default function ChatSettingsMenu({
           <div
             className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg border z-50"
             style={{
-              backgroundColor: 'white',
+              backgroundColor: 'var(--color-background-light)',
               borderColor: 'var(--color-border-dark)',
             }}
           >
+            {/* Theme toggle */}
+            <button
+              onClick={() => {
+                // Cycle: dark → langconfig → warm → dark
+                const order: ThemeName[] = ['dark', 'langconfig', 'warm'];
+                const idx = order.indexOf(themeName);
+                const next = order[(idx + 1) % order.length];
+                onThemeChange(next);
+                setIsOpen(false);
+              }}
+              onMouseEnter={() => setHoveredItem('theme')}
+              onMouseLeave={() => setHoveredItem(null)}
+              className="w-full px-4 py-3 flex items-center justify-between transition-colors border-b"
+              style={{
+                borderColor: 'var(--color-border-dark)',
+                backgroundColor: hoveredItem === 'theme' ? 'var(--color-primary)' : 'transparent',
+              }}
+            >
+              <div className="flex items-center gap-2">
+                {themeName === 'dark' ? (
+                  <Moon className="w-4 h-4" style={{ color: hoveredItem === 'theme' ? 'white' : 'var(--color-text-muted)' }} />
+                ) : themeName === 'warm' ? (
+                  <Sun className="w-4 h-4" style={{ color: hoveredItem === 'theme' ? 'white' : '#d97706' }} />
+                ) : (
+                  <Sun className="w-4 h-4" style={{ color: hoveredItem === 'theme' ? 'white' : 'var(--color-text-muted)' }} />
+                )}
+                <span
+                  className="text-sm"
+                  style={{ color: hoveredItem === 'theme' ? 'white' : 'var(--color-text-primary)' }}
+                >
+                  {themeName === 'dark' ? 'Dark Theme' : themeName === 'warm' ? 'Warm Theme' : 'Light Theme'}
+                </span>
+              </div>
+              <span className="text-xs" style={{ color: hoveredItem === 'theme' ? 'white' : 'var(--color-text-muted)' }}>
+                {themeName === 'dark' ? '🌙' : themeName === 'warm' ? '☀️' : '🌤️'}
+              </span>
+            </button>
+
             {/* HITL Toggle */}
             <button
               onClick={handleToggleHitl}

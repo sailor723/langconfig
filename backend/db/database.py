@@ -17,8 +17,19 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from contextlib import asynccontextmanager
 from typing import Generator, AsyncGenerator
 import logging
+from dotenv import load_dotenv
+
+# compose_db_url lives in the dependency-free db.db_url module so config.py
+# and standalone scripts can reuse it without building SQLAlchemy engines.
+from db.db_url import compose_db_url
 
 logger = logging.getLogger(__name__)
+
+# Load the project-root .env file so this module behaves the same in
+# standalone scripts (uv run python ..., pytest, one-off DB scripts) as the
+# app does via backend/config.py. The root .env is the single source of truth.
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
+load_dotenv(env_path)
 
 # Environment variables for configuration
 SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() == "true"
@@ -28,10 +39,9 @@ DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "10"))
 DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "20"))
 
 # PostgreSQL URL (unified database for everything)
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://langconfig:langconfig_dev@localhost:5433/langconfig"
-)
+# Explicit DATABASE_URL wins; otherwise it is composed from POSTGRES_* so the
+# app, docker-compose and the SQL agent always point at the same server.
+DATABASE_URL = os.getenv("DATABASE_URL") or compose_db_url()
 
 # Async PostgreSQL URL (for async operations like event persistence)
 ASYNC_DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+asyncpg://')
@@ -127,6 +137,21 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
 
+def register_all_models() -> None:
+    """Import every models.* module so its tables land on Base.metadata.
+
+    models/__init__.py does not import all modules (some are imported only
+    lazily), so a bare `import models` misses tables. Both init_db() and
+    async_init_db() must call this before create_all — otherwise the app
+    startup path silently creates a different schema than the seed path.
+    """
+    import importlib
+    import pkgutil
+    import models as _models_pkg
+    for _mod in pkgutil.iter_modules(_models_pkg.__path__):
+        importlib.import_module(f"models.{_mod.name}")
+
+
 def init_db():
     """
     Initialize PostgreSQL database (sync version).
@@ -135,6 +160,11 @@ def init_db():
     Use async_init_db() for async contexts (FastAPI lifespan).
     """
     try:
+        # Register ALL ORM models with Base before create_all.
+        # The app does this via `import models` in main.py, but standalone
+        # scripts (bootstrap, tests, one-off DB jobs) only import
+        # db.database — so import every models.* module explicitly here.
+        register_all_models()
         # Enable PostgreSQL extensions
         with engine.begin() as connection:
             connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
@@ -191,9 +221,20 @@ async def async_init_db():
 
     Creates pgvector extension and all SQLAlchemy tables asynchronously.
     Use this from FastAPI lifespan or other async contexts.
+
+    NOTE: must mirror ``init_db()`` exactly — register ALL ORM models
+    (pkgutil) and enable BOTH extensions — otherwise the app startup path
+    creates a different schema than the seed path (missing tables such as
+    ``conversation_archives``/``user_profiles``/``storage_objects`` and a
+    missing ``vector`` extension).
     """
     try:
-        # Enable PostgreSQL extensions
+        # Register ALL ORM models with Base before create_all, exactly like
+        # the sync init_db() (models/__init__ does not import every module).
+        register_all_models()
+
+        # Enable PostgreSQL extensions (vector is required for pgvector
+        # columns created via llama_index / legacy vector_documents).
         async with async_engine.begin() as connection:
             await connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             await connection.execute(text("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\""))

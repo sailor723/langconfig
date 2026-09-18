@@ -148,6 +148,8 @@ export interface WorkflowCanvasRef {
   saveWorkflow: (silent?: boolean) => Promise<void>;
   hasUnsavedChanges: () => boolean;
   clearCanvas: () => void;
+  loadWorkflowById: (id: number) => Promise<void>;
+  openCreateWorkflowModal: () => void;
 }
 
 // Recipe type for multi-node workflow templates
@@ -455,10 +457,10 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({
 
   // Use extracted hook for UI toggle states
   const {
-    showWorkflowDropdown,
-    setShowWorkflowDropdown,
-    handleToggleWorkflowDropdown,
-    handleCloseWorkflowDropdown,
+    showAgentDropdown,
+    setShowAgentDropdown,
+    handleToggleAgentDropdown,
+    handleCloseAgentDropdown,
     showThinkingStream,
     handleToggleThinkingStream,
     showLiveExecutionPanel,
@@ -466,9 +468,9 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({
     handleToggleLiveExecutionPanel,
     checkpointerEnabled,
     handleToggleCheckpointer,
-    workflowSearchQuery,
-    setWorkflowSearchQuery,
-    handleWorkflowSearchChange,
+    agentSearchQuery,
+    setAgentSearchQuery,
+    handleAgentSearchChange,
     isEditingName,
     setIsEditingName,
     handleStartEditingName,
@@ -507,7 +509,10 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({
 
   // Project context
   const { activeProjectId } = useProject();
-  const [availableWorkflows, setAvailableWorkflows] = useState<any[]>([]);
+
+  // ── Agent template state (toolbar dropdown) ──
+  const [agentTemplates, setAgentTemplates] = useState<any[]>([]);
+
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveWorkflowName, setSaveWorkflowName] = useState('');
   const [showPresentationDialog, setShowPresentationDialog] = useState(false);
@@ -890,21 +895,13 @@ const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(({
     return null;
   }, [taskHistory, workflowEvents]);
 
-  // Memoize model name extraction for performance
+  // Memoize model name — fallback to the first node's model
   const currentModelName = useMemo(() => {
-    // Try to get from workflow configuration first
-    if (currentWorkflowId && availableWorkflows.length > 0) {
-      const workflow = availableWorkflows.find(w => w.id === currentWorkflowId);
-      if (workflow?.configuration?.nodes?.[0]?.config?.model) {
-        return workflow.configuration.nodes[0].config.model;
-      }
-    }
-    // Fallback to nodes state
     if (nodes.length > 0 && nodes[0].data.config?.model) {
       return nodes[0].data.config.model;
     }
     return 'default';
-  }, [currentWorkflowId, availableWorkflows, nodes]);
+  }, [nodes]);
 
   // Use extracted hook for workflow metrics calculation
   const workflowMetrics = useWorkflowMetrics({
@@ -1081,30 +1078,156 @@ if __name__ == "__main__":
     fetchDocuments();
   }, [activeProjectId]);
 
-  // Fetch workflow list for dropdown
-  const fetchWorkflows = async () => {
+  // ── Fetch agent templates for the toolbar dropdown ──
+  const fetchAgentTemplates = async () => {
     try {
-      const response = await apiClient.listWorkflows();
-      setAvailableWorkflows(response.data || []); // Changed from setTaskHistory to setAvailableWorkflows
+      // Fetch system-provided templates
+      const response = await apiClient.apiFetch(`${apiClient.baseURL}/api/agents/templates`);
+      const templates = Array.isArray(response) ? response : response?.data ?? [];
+
+      // Also fetch custom agents (normal agents from deep_agent_templates with use_deepagents=false)
+      let customAgents: any[] = [];
+      try {
+        const customRes = await apiClient.listDeepAgents({ public_only: false });
+        const allAgents = Array.isArray(customRes.data) ? customRes.data : [];
+        // Normal agents have config.use_deepagents === false
+        customAgents = allAgents
+          .filter((ag: any) => ag.config?.use_deepagents === false)
+          .map((ag: any) => ({
+            id: `custom-${ag.id}`,
+            name: ag.name,
+            description: ag.description || '',
+            model: ag.config?.model || 'gpt-4o-mini',
+            temperature: ag.config?.temperature ?? 0.7,
+            system_prompt: ag.config?.system_prompt || '',
+            native_tools: ag.config?.native_tools || ag.config?.mcp_tools || [],
+            cli_tools: ag.config?.cli_tools || [],
+            custom_tools: ag.config?.custom_tools || [],
+            timeout_seconds: ag.config?.timeout_seconds ?? 300,
+            max_retries: ag.config?.max_retries ?? 3,
+            enable_model_routing: ag.config?.enable_model_routing ?? false,
+            enable_parallel_tools: ag.config?.enable_parallel_tools ?? false,
+            enable_memory: ag.config?.enable_memory ?? true,
+            enable_rag: ag.config?.enable_rag ?? false,
+            requires_human_approval: ag.config?.requires_human_approval ?? false,
+            use_deepagents: false,
+            tags: ag.tags || [],
+            icon: ag.icon || 'bot',
+            category: ag.category || 'custom',
+            fallback_models: ag.config?.fallback_models || [],
+          }));
+      } catch (e) {
+        console.error('Failed to fetch custom agents:', e);
+      }
+
+      // Merge: custom agents appear after system templates
+      const merged = [...templates, ...customAgents];
+      setAgentTemplates(merged);
     } catch (error) {
-      console.error('Failed to fetch workflows:', error);
+      console.error('Failed to fetch agent templates:', error);
     }
   };
 
-  // Load workflow data
-  // Fetch available workflows on mount
+  // Fetch agent templates on mount and when dropdown opens
   useEffect(() => {
-    fetchWorkflows();
+    fetchAgentTemplates();
   }, []);
 
-  // Refresh workflow list when dropdown opens
   useEffect(() => {
-    if (showWorkflowDropdown) {
-      fetchWorkflows();
+    if (showAgentDropdown) {
+      fetchAgentTemplates();
     }
-  }, [showWorkflowDropdown]);
+  }, [showAgentDropdown]);
 
-  // Workflow details (lock_version, name) are now fetched by useWorkflowPersistence hook
+  // ── Load workflow when workflowId prop changes (e.g. selected from sidebar) ──
+  const loadWorkflowById = useCallback(async (id: number) => {
+    try {
+      const response = await apiClient.getWorkflow(id);
+      const workflow = response.data;
+      const config = workflow.configuration || workflow.graph || {};
+      const configNodes = config.nodes || [];
+
+      // Restore ReactFlow nodes from saved config
+      const restoredNodes = configNodes.map((node: any, index: number) => {
+          let restoredAgentType = node.type || (node.data?.agentType) || 'default';
+          const lower = restoredAgentType.toLowerCase();
+          if (lower === 'conditional') restoredAgentType = 'CONDITIONAL_NODE';
+          if (lower === 'loop') restoredAgentType = 'LOOP_NODE';
+          if (lower === 'start') restoredAgentType = 'START_NODE';
+          if (lower === 'end') restoredAgentType = 'END_NODE';
+          if (lower === 'approval') restoredAgentType = 'APPROVAL_NODE';
+          if (lower === 'tool') restoredAgentType = 'TOOL_NODE';
+
+          // Merge the persisted top-level node config into data.config so
+          // control/tool node fields (condition, control_type, tool_type,
+          // tool_id) survive the load. Script/API-written workflows keep those
+          // fields at the TOP level with an empty data.config, while frontend
+          // saves duplicate them into both. Without this merge the fields never
+          // reach the canvas and the next save wipes them.
+          const persistedData = node.data || {};
+          const persistedConfig = node.config || {};
+
+          const nodeData = {
+            label: persistedData.label ?? (node.type
+              ? node.type.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+              : `Node ${node.id}`),
+            ...persistedData,
+            agentType: restoredAgentType,
+            model: persistedConfig?.model || persistedData.model || 'gpt-4o-mini',
+            config: { ...(persistedData.config || {}), ...persistedConfig },
+          };
+
+          return {
+            ...node,
+            type: 'custom',
+            data: nodeData,
+            position: {
+              x: typeof node.position?.x === 'number' && !isNaN(node.position.x) ? node.position.x : 250 + index * 200,
+              y: typeof node.position?.y === 'number' && !isNaN(node.position.y) ? node.position.y : 250,
+            },
+            width: node.width || 200,
+            height: node.height || 100,
+          };
+        });
+
+      const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#6366f1';
+      const restoredEdges = (config.edges || []).map((e: any) => ({
+        ...e,
+        id: e.id || `e-${e.source}-${e.target}-${Date.now()}`,
+        type: 'smoothstep',
+        label: e.label || e.data?.label,
+        animated: false,
+        style: { stroke: primaryColor, strokeWidth: 2.5 },
+        markerEnd: { type: 'arrowclosed', color: primaryColor },
+        labelStyle: { fill: primaryColor, fontWeight: 700 },
+        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.8 },
+        labelBgPadding: [8, 4],
+        labelBgBorderRadius: 4,
+      }));
+
+      setNodes(restoredNodes);
+      setEdges(restoredEdges);
+      setWorkflowName(workflow.name || 'Untitled Workflow');
+      setEditedName(workflow.name || 'Untitled Workflow');
+      setCurrentWorkflowId(id);
+      setCustomOutputPath(workflow.custom_output_path || null);
+      setCurrentTaskId(null);
+      localStorage.removeItem('langconfig-current-task-id');
+      localStorage.setItem('langconfig-workflow-id', String(id));
+    } catch (error) {
+      console.error('Failed to load workflow:', error);
+      showWarning('Failed to load the selected workflow.');
+    }
+  }, [setNodes, setEdges, showWarning]);
+
+  // React to external workflowId prop changes (from sidebar selection)
+  useEffect(() => {
+    if (workflowId && workflowId !== currentWorkflowId) {
+      loadWorkflowById(workflowId);
+    }
+    // Only run when workflowId prop changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workflowId]);
 
   // Fetch workflow's custom output path when workflow ID is set (e.g., on page load from localStorage)
   // This ensures the Files tab shows the correct output path even after a page refresh
@@ -1895,6 +2018,11 @@ if __name__ == "__main__":
     } else if (type === 'LOOP_NODE') {
       defaultConfig.max_iterations = 10;
       defaultConfig.exit_condition = '';
+    } else if (type === 'LLM_NODE') {
+      // LLM node: use system default model from localStorage, fallback to gpt-4o-mini
+      const defaultModel = localStorage.getItem('langconfig.defaultModel') || 'gpt-4o-mini';
+      defaultConfig.model = defaultModel;
+      defaultConfig.system_prompt = 'You are a helpful assistant. Respond concisely.';
     }
 
     const displayLabel: Record<string, string> = {
@@ -1904,6 +2032,7 @@ if __name__ == "__main__":
       LOOP_NODE: 'Loop',
       APPROVAL_NODE: 'Approval',
       TOOL_NODE: 'Tool',
+      LLM_NODE: 'LLM',
     };
 
     const newNode: Node = {
@@ -2132,8 +2261,10 @@ if __name__ == "__main__":
     deleteNode: handleNodeDelete,
     saveWorkflow: handleSave,
     hasUnsavedChanges: () => hasUnsavedChanges,
-    clearCanvas
-  }), [updateNodeConfig, handleNodeDelete, handleSave, hasUnsavedChanges, clearCanvas]);
+    clearCanvas,
+    loadWorkflowById,
+    openCreateWorkflowModal: () => setShowCreateWorkflowModal(true),
+  }), [updateNodeConfig, handleNodeDelete, handleSave, hasUnsavedChanges, clearCanvas, loadWorkflowById]);
 
   // ADDED: Debug workflow function
   const handleDebugWorkflow = useCallback(async () => {
@@ -2223,103 +2354,72 @@ if __name__ == "__main__":
     await updateWorkflowName(newName);
   };
 
-  const handleWorkflowSwitch = async (workflowId: number) => {
-    try {
-      const response = await apiClient.getWorkflow(workflowId);
-      const workflow = response.data;
-
-      // Load workflow into canvas
-      // Backend stores data in 'configuration' field, which may contain nodes/edges
-      const config = workflow.configuration || workflow.graph || {};
-      const configNodes = config.nodes || [];
-
-      // Validate and fix node positions and ensure type is set to 'custom'
-      const validatedNodes = configNodes.map((node: any, index: number) => {
-        // Backend saves nodes with: id, type (from agentType), config, position
-        // Frontend needs: id, type='custom', data={label, agentType, model, config}, position
-
-        // Normalize agentType if it's missing or informal (e.g. from an old save)
-        let restoredAgentType = node.type || (node.data?.agentType) || 'default';
-        if (restoredAgentType.toLowerCase() === 'conditional') restoredAgentType = 'CONDITIONAL_NODE';
-        if (restoredAgentType.toLowerCase() === 'loop') restoredAgentType = 'LOOP_NODE';
-        if (restoredAgentType.toLowerCase() === 'start') restoredAgentType = 'START_NODE';
-        if (restoredAgentType.toLowerCase() === 'end') restoredAgentType = 'END_NODE';
-        if (restoredAgentType.toLowerCase() === 'approval') restoredAgentType = 'APPROVAL_NODE';
-        if (restoredAgentType.toLowerCase() === 'tool') restoredAgentType = 'TOOL_NODE';
-
-        // If node already has data field (from a previous save), use it
-        // Otherwise, reconstruct it from the saved type and config
-        const nodeData = node.data || {
-          label: node.type ? node.type.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : `Node ${node.id}`,
-          agentType: restoredAgentType,
-          model: node.config?.model || 'gpt-4o-mini',
-          config: node.config || {}
-        };
-        
-        // Final fallback ensure agentType is set correctly in data if we are using existing node.data
-        if (nodeData && !nodeData.agentType) {
-          nodeData.agentType = restoredAgentType;
-        }
-
-        return {
-          ...node,
-          type: 'custom', // React Flow node type (always 'custom' for our CustomNode component)
-          data: nodeData,
-          position: {
-            x: typeof node.position?.x === 'number' && !isNaN(node.position.x)
-              ? node.position.x
-              : 250 + (index * 200),
-            y: typeof node.position?.y === 'number' && !isNaN(node.position.y)
-              ? node.position.y
-              : 250
-          },
-          width: node.width || 200, // Ensure width is always set
-          height: node.height || 100 // Ensure height is always set
-        };
-      });
-
-      // Validate and theme edges correctly
-      const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#6366f1';
-      const restoredEdges = (config.edges || []).map((e: any) => ({
-        ...e,
-        id: e.id || `e-${e.source}-${e.target}-${Date.now()}`,
-        type: 'smoothstep',
-        label: e.label || e.data?.label,
-        animated: false,
-        style: {
-          stroke: primaryColor,
-          strokeWidth: 2.5,
-        },
-        markerEnd: {
-          type: 'arrowclosed',
-          color: primaryColor,
-        },
-        labelStyle: { fill: primaryColor, fontWeight: 700 },
-        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.8 },
-        labelBgPadding: [8, 4],
-        labelBgBorderRadius: 4,
-      }));
-
-      // Always update the canvas state, even for empty workflows
-      setNodes(validatedNodes);
-      setEdges(restoredEdges);
-      setWorkflowName(workflow.name || 'Untitled Workflow');
-      setEditedName(workflow.name || 'Untitled Workflow');
-      setCurrentWorkflowId(workflowId);
-      // Load custom output path from workflow
-      setCustomOutputPath(workflow.custom_output_path || null);
-      // Clear task ID when switching workflows to get fresh events
-      setCurrentTaskId(null);
-      localStorage.removeItem('langconfig-current-task-id');
-      localStorage.setItem('langconfig-workflow-id', String(workflowId));
-
-      setShowWorkflowDropdown(false);
-      setWorkflowSearchQuery('');
-    } catch (error) {
-      console.error('Failed to load workflow:', error);
-      alert('Failed to switch workflow. Please try again.');
+  // ── Pick agent template from toolbar dropdown and add as canvas node ──
+  const handlePickAgentTemplate = useCallback((template: any) => {
+    // Build the same node shape that the selectedAgent useEffect expects
+    let newPosition = { x: 250, y: 250 };
+    if (nodes.length > 0) {
+      const validNodes = nodes.filter(n =>
+        typeof n.position?.x === 'number' && typeof n.position?.y === 'number' &&
+        !isNaN(n.position.x) && !isNaN(n.position.y)
+      );
+      if (validNodes.length > 0) {
+        const rightmostNode = validNodes.reduce((max, node) =>
+          node.position.x > max.position.x ? node : max, validNodes[0]);
+        newPosition = { x: rightmostNode.position.x + 350, y: rightmostNode.position.y };
+      }
     }
-  };
+
+    const newNode = {
+      id: `node-${nodeIdCounter}`,
+      type: 'custom' as const,
+      position: newPosition,
+      data: {
+        label: template.name,
+        agentType: template.id,
+        model: template.model,
+        config: {
+          model: template.model,
+          fallback_models: template.fallback_models || [],
+          temperature: template.temperature ?? 0.7,
+          max_tokens: template.max_tokens,
+          system_prompt: template.system_prompt || '',
+          native_tools: template.native_tools || [],
+          tools: [],
+          cli_tools: template.cli_tools || [],
+          custom_tools: template.custom_tools || [],
+          timeout_seconds: template.timeout_seconds ?? 300,
+          max_retries: template.max_retries ?? 3,
+          enable_model_routing: template.enable_model_routing ?? false,
+          enable_parallel_tools: template.enable_parallel_tools ?? false,
+          enable_memory: template.enable_memory ?? true,
+          enable_rag: template.enable_rag ?? false,
+          requires_human_approval: template.requires_human_approval ?? false,
+          use_deepagents: template.use_deepagents ?? false,
+          subagents: template.subagents || template.subagents_config || [],
+          deep_agent_template_id: template.id || null,
+          guardrails: template.config?.guardrails || {},
+          interrupt_before: template.config?.interrupt_before || [],
+          tool_type: null,
+          tool_id: null,
+          tool_params: {},
+        },
+      },
+      width: 200,
+      height: 100,
+    };
+
+    setNodes((nds) => [...nds, newNode]);
+    setNodeIdCounter(nodeIdCounter + 1);
+    setShowAgentDropdown(false);
+    setAgentSearchQuery('');
+
+    setTimeout(() => {
+      if (reactFlowInstance) {
+        reactFlowInstance.fitView({ padding: 0.2, duration: 400, maxZoom: 1.2 });
+      }
+    }, 100);
+  }, [nodes, nodeIdCounter, reactFlowInstance, setShowAgentDropdown, setAgentSearchQuery]);
 
   // Handler to update custom output path for the workflow
   const handleOutputPathChange = async (path: string | null) => {
@@ -2340,8 +2440,8 @@ if __name__ == "__main__":
     }
   };
 
-  const filteredWorkflows = availableWorkflows.filter(wf =>
-    wf.name.toLowerCase().includes(workflowSearchQuery.toLowerCase())
+  const filteredAgentTemplates = agentTemplates.filter((t: any) =>
+    (t.name || '').toLowerCase().includes(agentSearchQuery.toLowerCase())
   );
 
   // Status helpers (reserved for status indicator UI)
@@ -2393,10 +2493,8 @@ if __name__ == "__main__":
       resetTaskHistory();
       localStorage.setItem('langconfig-workflow-id', String(response.data.id));
 
-      // Refresh workflow list
-      apiClient.listWorkflows().then(res => {
-        setAvailableWorkflows(res.data);
-      });
+      // Refresh agent templates
+      fetchAgentTemplates();
 
       // Close modal and reset
       setShowCreateWorkflowModal(false);
@@ -2421,18 +2519,15 @@ if __name__ == "__main__":
           setIsEditingName={setIsEditingName}
           handleWorkflowNameSave={handleWorkflowNameSave}
           handleStartEditingName={handleStartEditingName}
-          showWorkflowDropdown={showWorkflowDropdown}
-          handleToggleWorkflowDropdown={handleToggleWorkflowDropdown}
-          handleCloseWorkflowDropdown={handleCloseWorkflowDropdown}
-          workflowSearchQuery={workflowSearchQuery}
-          handleWorkflowSearchChange={handleWorkflowSearchChange}
-          filteredWorkflows={filteredWorkflows}
-          currentWorkflowId={currentWorkflowId}
-          handleWorkflowSwitch={handleWorkflowSwitch}
-          onShowCreateWorkflowModal={() => {
-            setShowWorkflowDropdown(false);
-            setShowCreateWorkflowModal(true);
-          }}
+          // Agent template dropdown (replaces old workflow switcher dropdown)
+          showAgentDropdown={showAgentDropdown}
+          handleToggleAgentDropdown={handleToggleAgentDropdown}
+          handleCloseAgentDropdown={handleCloseAgentDropdown}
+          agentSearchQuery={agentSearchQuery}
+          handleAgentSearchChange={handleAgentSearchChange}
+          filteredAgentTemplates={filteredAgentTemplates}
+          agentTemplatesLoading={false}
+          onPickAgentTemplate={handlePickAgentTemplate}
           handleSave={handleSave}
           handleSaveVersion={handleSaveVersion}
           showVersionDropdown={showVersionDropdown}
@@ -2468,149 +2563,152 @@ if __name__ == "__main__":
         {/* Canvas Area */}
         <div className="flex-1 bg-gray-50 dark:bg-background-dark relative overflow-hidden" id="workflow-canvas-container">
           {/* Studio Tab - Keep ReactFlow mounted to preserve node selection */}
-          <div style={{ display: activeTab === 'studio' ? 'flex' : 'none', flexDirection: 'column', height: '100%' }}>
-            {nodes.length === 0 ? (
-              <EmptyCanvasState />
-            ) : (
-              <ErrorBoundary>
-                <ReactFlow
-                  nodes={validatedNodes}
-                  edges={validatedEdges}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  onConnect={onConnect}
-                  onNodeClick={handleNodeClick}
-                  onEdgeDoubleClick={onEdgeDoubleClick}
-                  onNodeDragStart={onNodeDragStart}
-                  onNodeDrag={onNodeDrag}
-                  onNodeDragStop={onNodeDragStop}
-                  onInit={(instance) => {
-                    setReactFlowInstance(instance);
-                    setCurrentZoom(instance.getZoom()); // Set initial zoom
-                    // Fit view on initial load if nodes exist - more zoomed out for better visibility
-                    if (nodes.length > 0) {
-                      setTimeout(() => {
-                        instance.fitView({ padding: 0.5, maxZoom: 0.6, minZoom: 0.3 });
-                        setCurrentZoom(instance.getZoom()); // Update zoom after fit
-                      }, 100);
-                    }
-                  }}
-                  onMove={(_event, viewport) => {
-                    // Update zoom level when viewport changes
-                    if (viewport && viewport.zoom !== currentZoom) {
-                      setCurrentZoom(viewport.zoom);
-                    }
-                  }}
-                  nodeTypes={nodeTypes}
-                  className="w-full h-full"
-                  deleteKeyCode={["Backspace", "Delete"]}
-                  multiSelectionKeyCode="Shift"
-                  panOnScroll={true}
-                  zoomOnScroll={true}
-                  zoomOnPinch={true}
-                  zoomOnDoubleClick={false}
-                  fitView
-                  fitViewOptions={{ padding: 0.5, maxZoom: 0.6, minZoom: 0.3 }}
-                  defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
-                  onDragOver={(e) => {
-                    // Allow drop by preventing default
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                  }}
-                  onDrop={(e) => {
-                    // Prevent file drop handling
-                    e.preventDefault();
+          <div style={{ position: 'relative', display: activeTab === 'studio' ? 'flex' : 'none', flexDirection: 'column', height: '100%' }}>
+            <ErrorBoundary>
+              <ReactFlow
+                nodes={validatedNodes}
+                edges={validatedEdges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onNodeClick={handleNodeClick}
+                onEdgeDoubleClick={onEdgeDoubleClick}
+                onNodeDragStart={onNodeDragStart}
+                onNodeDrag={onNodeDrag}
+                onNodeDragStop={onNodeDragStop}
+                onInit={(instance) => {
+                  setReactFlowInstance(instance);
+                  setCurrentZoom(instance.getZoom()); // Set initial zoom
+                  // Fit view on initial load if nodes exist - more zoomed out for better visibility
+                  if (nodes.length > 0) {
+                    setTimeout(() => {
+                      instance.fitView({ padding: 0.5, maxZoom: 0.6, minZoom: 0.3 });
+                      setCurrentZoom(instance.getZoom()); // Update zoom after fit
+                    }, 100);
+                  }
+                }}
+                onMove={(_event, viewport) => {
+                  // Update zoom level when viewport changes
+                  if (viewport && viewport.zoom !== currentZoom) {
+                    setCurrentZoom(viewport.zoom);
+                  }
+                }}
+                nodeTypes={nodeTypes}
+                className="w-full h-full"
+                deleteKeyCode={["Backspace", "Delete"]}
+                multiSelectionKeyCode="Shift"
+                panOnScroll={true}
+                zoomOnScroll={true}
+                zoomOnPinch={true}
+                zoomOnDoubleClick={false}
+                fitView
+                fitViewOptions={{ padding: 0.5, maxZoom: 0.6, minZoom: 0.3 }}
+                defaultViewport={{ x: 0, y: 0, zoom: 0.5 }}
+                onDragOver={(e) => {
+                  // Allow drop by preventing default
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                }}
+                onDrop={(e) => {
+                  // Prevent file drop handling
+                  e.preventDefault();
 
-                    // Read the dragged node type from dataTransfer
-                    const nodeType = e.dataTransfer.getData('application/x-langconfig-node');
-                    if (!nodeType) return;
+                  // Read the dragged node type from dataTransfer
+                  const nodeType = e.dataTransfer.getData('application/x-langconfig-node');
+                  if (!nodeType) return;
 
-                    // Convert screen coordinates to flow coordinates
-                    const position = reactFlowInstance?.screenToFlowPosition
-                      ? reactFlowInstance.screenToFlowPosition({ x: e.clientX, y: e.clientY })
-                      : { x: e.clientX, y: e.clientY };
+                  // Convert screen coordinates to flow coordinates
+                  const position = reactFlowInstance?.screenToFlowPosition
+                    ? reactFlowInstance.screenToFlowPosition({ x: e.clientX, y: e.clientY })
+                    : { x: e.clientX, y: e.clientY };
 
-                    handleAddControlNode(nodeType, position);
-                  }}
-                >
-                  <Background
-                    variant={BackgroundVariant.Dots}
-                    gap={16}
-                    size={1}
-                    className="bg-gray-50 dark:bg-background-dark"
-                  />
-
-                  {/* Controls - moved to top-right to avoid overlapping with NodePalette */}
-                  <Controls
-                    showInteractive={false}
-                    position="top-right"
-                    className="!bg-white dark:!bg-panel-dark !border-2 !border-gray-200 dark:!border-border-dark !rounded-lg !shadow-lg"
-                  />
-
-                  {/* Node Palette - Top Left (drag or click to add control nodes) */}
-                  <NodePalette
-                    onAddNode={handleAddControlNode}
-                    isCollapsed={isNodePaletteCollapsed}
-                    onToggleCollapse={() => setIsNodePaletteCollapsed(prev => !prev)}
-                  />
-
-                  {/* Control Buttons - Top Right */}
-                  <CanvasControlPanel
-                    showLiveExecutionPanel={showLiveExecutionPanel}
-                    showThinkingStream={showThinkingStream}
-                    onToggleLiveExecutionPanel={handleToggleLiveExecutionPanel}
-                    onToggleThinkingStream={handleToggleThinkingStream}
-                    onDebugWorkflow={handleDebugWorkflow}
-                    executionStatus={executionStatus}
-                    currentTaskId={currentTaskId}
-                    onRun={handleRun}
-                    onStop={handleStop}
-                    onClear={handleClear}
-                  />
-
-                  {/* MiniMap with enhanced styling - only show when nodes have valid positions */}
-                  {validatedNodes.length > 0 && (
-                    <MiniMap
-                      nodeColor={() => 'var(--color-primary)'}
-                      maskColor="rgba(0, 0, 0, 0.1)"
-                      position="bottom-left"
-                      className="!bg-white dark:!bg-panel-dark !border-2 !border-gray-200 dark:!border-border-dark !rounded-lg !shadow-lg"
-                      style={{
-                        backgroundColor: 'var(--color-panel-dark)',
-                        width: '120px',
-                        height: '80px'
-                      }}
-                    />
-                  )}
-                </ReactFlow>
-
-                {/* Live Execution Panel */}
-                <RealtimeExecutionPanel
-                  isVisible={showLiveExecutionPanel}
-                  events={workflowEvents}
-                  latestEvent={latestEvent}
-                  onClose={() => setShowLiveExecutionPanel(false)}
-                  executionStatus={executionStatus}
-                  workflowMetrics={workflowMetrics}
-                  userPrompt={userPrompt}
-                  workflowName={workflowName}
-                  currentTaskId={currentTaskId}
-                  onContinueFromTask={handleContinueFromTask}
-                  subagentsConfig={((nodes.find(n => {
-                    const cfg = (n.data as any)?.config || {};
-                    return cfg.use_deepagents || (cfg.subagents?.length > 0) || (n.data as any)?.agentType === 'deep_agent';
-                  }) as any)?.data?.config?.subagents) || []}
+                  handleAddControlNode(nodeType, position);
+                }}
+              >
+                <Background
+                  variant={BackgroundVariant.Dots}
+                  gap={16}
+                  size={1}
+                  className="bg-gray-50 dark:bg-background-dark"
                 />
 
-                {/* Thinking Toasts - Rendered outside ReactFlow with screen coordinates */}
-                <ThinkingToastRenderer
-                  nodes={nodes}
-                  nodeExecutionStatuses={nodeExecutionStatuses}
-                  reactFlowInstance={reactFlowInstance}
+                {/* Controls - moved to top-right to avoid overlapping with NodePalette */}
+                <Controls
+                  showInteractive={false}
+                  position="top-right"
+                  className="!bg-white dark:!bg-panel-dark !border-2 !border-gray-200 dark:!border-border-dark !rounded-lg !shadow-lg"
+                />
+
+                {/* Node Palette - Top Left (drag or click to add control nodes) */}
+                <NodePalette
+                  onAddNode={handleAddControlNode}
+                  isCollapsed={isNodePaletteCollapsed}
+                  onToggleCollapse={() => setIsNodePaletteCollapsed(prev => !prev)}
+                />
+
+                {/* Control Buttons - Top Right */}
+                <CanvasControlPanel
+                  showLiveExecutionPanel={showLiveExecutionPanel}
                   showThinkingStream={showThinkingStream}
-                  currentZoom={currentZoom}
+                  onToggleLiveExecutionPanel={handleToggleLiveExecutionPanel}
+                  onToggleThinkingStream={handleToggleThinkingStream}
+                  onDebugWorkflow={handleDebugWorkflow}
+                  executionStatus={executionStatus}
+                  currentTaskId={currentTaskId}
+                  onRun={handleRun}
+                  onStop={handleStop}
+                  onClear={handleClear}
                 />
-              </ErrorBoundary>
+
+                {/* MiniMap with enhanced styling - only show when nodes have valid positions */}
+                {validatedNodes.length > 0 && (
+                  <MiniMap
+                    nodeColor={() => 'var(--color-primary)'}
+                    maskColor="rgba(0, 0, 0, 0.1)"
+                    position="bottom-left"
+                    className="!bg-white dark:!bg-panel-dark !border-2 !border-gray-200 dark:!border-border-dark !rounded-lg !shadow-lg"
+                    style={{
+                      backgroundColor: 'var(--color-panel-dark)',
+                      width: '120px',
+                      height: '80px'
+                    }}
+                  />
+                )}
+              </ReactFlow>
+
+              {/* Live Execution Panel */}
+              <RealtimeExecutionPanel
+                isVisible={showLiveExecutionPanel}
+                events={workflowEvents}
+                latestEvent={latestEvent}
+                onClose={() => setShowLiveExecutionPanel(false)}
+                executionStatus={executionStatus}
+                workflowMetrics={workflowMetrics}
+                userPrompt={userPrompt}
+                workflowName={workflowName}
+                currentTaskId={currentTaskId}
+                onContinueFromTask={handleContinueFromTask}
+                subagentsConfig={((nodes.find(n => {
+                  const cfg = (n.data as any)?.config || {};
+                  return cfg.use_deepagents || (cfg.subagents?.length > 0) || (n.data as any)?.agentType === 'deep_agent';
+                }) as any)?.data?.config?.subagents) || []}
+              />
+
+              {/* Thinking Toasts - Rendered outside ReactFlow with screen coordinates */}
+              <ThinkingToastRenderer
+                nodes={nodes}
+                nodeExecutionStatuses={nodeExecutionStatuses}
+                reactFlowInstance={reactFlowInstance}
+                showThinkingStream={showThinkingStream}
+                currentZoom={currentZoom}
+              />
+            </ErrorBoundary>
+
+            {/* Empty canvas onboarding overlay - shown when no nodes yet */}
+            {nodes.length === 0 && (
+              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                <EmptyCanvasState />
+              </div>
             )}
 
             {/* Floating Total Cost Panel - Top Right */}

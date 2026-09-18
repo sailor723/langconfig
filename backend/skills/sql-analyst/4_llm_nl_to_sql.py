@@ -11,8 +11,13 @@ import os
 import sys
 from pathlib import Path
 
-_BACKEND = Path(__file__).resolve().parent.parent.parent
-_THIS_DIR = Path(__file__).resolve().parent
+# Support both script mode (__file__ defined) and REPL mode
+if '__file__' in globals():
+    _BASE = Path(__file__).resolve()
+else:
+    _BASE = Path.cwd() / "skills/sql-analyst/4_llm_nl_to_sql.py"  # REPL fallback
+_BACKEND = _BASE.parent.parent.parent
+_THIS_DIR = _BASE.parent
 sys.path.insert(0, str(_BACKEND))
 
 # SQL skill + visualization tools inline (same as 4_llm_nl_to_sql.py + chart gen)

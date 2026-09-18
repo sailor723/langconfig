@@ -132,8 +132,11 @@ def seed_custom_tools(db: Session) -> Dict[str, Any]:
     """
     Seed the database with pre-configured custom tools.
 
-    This function is idempotent - it will skip tools that already exist
-    based on their tool_id.
+    One-time bootstrap: skips tools that already exist (idempotent). After
+    first-time setup the DB is authoritative — this seeder is not part of
+    runtime, and API keys are never stored here anyway. Built-in tool code
+    reads keys LIVE from the single models.api_keys table on every call, so
+    a user's adhoc Settings save is picked up immediately with no re-seed.
 
     Args:
         db: SQLAlchemy database session

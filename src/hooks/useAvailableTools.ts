@@ -35,6 +35,8 @@ export interface ToolOption {
  */
 export interface UseAvailableToolsResult {
   tools: ToolOption[];
+  /** Default native-tool ids (pre-checked for agents with no configured tools). */
+  defaultToolIds: string[];
   isLoading: boolean;
   error: string | null;
   groupedByCategory: Record<string, ToolOption[]>;
@@ -43,20 +45,28 @@ export interface UseAvailableToolsResult {
 
 export function useAvailableTools(): UseAvailableToolsResult {
   const [tools, setTools] = useState<ToolOption[]>([]);
+  const [defaultToolIds, setDefaultToolIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTools = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    // The registry is required; the defaults endpoint is optional (older
+    // backends may not expose it) — a failure there must never wipe the tools.
     try {
       const response = await apiClient.listToolRegistry();
-      const data = (response.data || []) as ToolOption[];
-      setTools(data);
+      setTools((response.data || []) as ToolOption[]);
     } catch (err: any) {
       const message = err?.response?.data?.detail || err?.message || 'Failed to load tool registry';
       setError(message);
       setTools([]);
+    }
+    try {
+      const defaultsRes = await apiClient.getToolRegistryDefaults();
+      setDefaultToolIds((defaultsRes.data?.tool_ids || []) as string[]);
+    } catch {
+      setDefaultToolIds([]);
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +85,7 @@ export function useAvailableTools(): UseAvailableToolsResult {
     return acc;
   }, {});
 
-  return { tools, isLoading, error, groupedByCategory, refetch: fetchTools };
+  return { tools, defaultToolIds, isLoading, error, groupedByCategory, refetch: fetchTools };
 }
 
 /**
@@ -88,4 +98,5 @@ export const TOOL_CATEGORY_LABELS: Record<string, string> = {
   memory: 'Memory',
   reasoning: 'Reasoning',
   delegation: 'Subagent Delegation',
+  todo: 'TODO Management',
 };

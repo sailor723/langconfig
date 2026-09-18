@@ -3,7 +3,7 @@ name = "langconfig-backend"
 version = "0.1.0"
 description = "LangConfig - Open-source visual platform for building, testing, and deploying LangChain agents and LangGraph workflows"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     # Core Framework
     "fastapi==0.115.0",
@@ -17,11 +17,11 @@ dependencies = [
     "psycopg[binary]>=3.2.0",
     "psycopg-pool>=3.2.0",
     # LangChain v1.0 + LangGraph
-    "langchain>=1.2.7",
-    "langchain-core>=1.2.7",
+    "langchain>=1.3.14",
+    "langchain-core>=1.5.0",
     "langchain-openai>=1.0.1",
-    "langchain-anthropic>=1.2.0",
-    "langchain-google-genai>=4.1.2",
+    "langchain-anthropic>=1.5.3",
+    "langchain-google-genai>=4.3.1",
     "langchain-community==0.4.1",
     "langchain-postgres",
     "langgraph>=1.0.7",
@@ -44,8 +44,8 @@ dependencies = [
     "beautifulsoup4>=4.12.0",
     # MCP Protocol Support
     "fastapi-mcp>=0.1.0",
-    # DeepAgents
-    "deepagents>=0.2.4",
+    # DeepAgents (v0.7: leaner harness, skills/memory middleware)
+    "deepagents>=0.7.1",
     # Real-time Monitoring
     "sse-starlette>=2.1.3",
     # Browser Automation
@@ -82,7 +82,30 @@ dependencies = [
     "pdfminer-six>=20260107",
     "pi-heif>=1.4.0",
     "unstructured-inference>=1.6.13",
+    "markdownify>=1.2.3",
+    "nbformat>=5.10.4",
+    "jupyter-client>=8.9.1",
+    "litellm==1.91.4",
+    "langchain-ollama>=1.1.0",
 ]
 
 [dependency-groups]
 dev = []
+
+[tool.pytest.ini_options]
+# Run pytest from backend/ — only collects the tests package and keeps
+# vendored/external dirs (venv, outputs, etc.) out of the collection path
+testpaths = ["tests"]
+norecursedirs = [
+    ".venv",
+    "venv",
+    "env",
+    "node_modules",
+    "dist",
+    "outputs",
+    "data",
+    "skills",
+]
+# Auto mode: async test functions run regardless of whether they carry
+# @pytest.mark.asyncio (matches the repo's mixed test styles)
+asyncio_mode = "auto"

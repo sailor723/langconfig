@@ -76,6 +76,9 @@ class CustomTool(Base):
     input_schema = Column(JSON, nullable=False)  # JSON Schema for inputs
     output_format = Column(String(50), nullable=True, default="string")  # string, json, url
     validation_rules = Column(JSON, nullable=True)  # Additional validation rules
+    # DSH-style declarative definition (docs/tools-refactor.md §3): category,
+    # prompt order, timeout, concurrency, output schema, guards, presentation.
+    definition = Column(JSON, nullable=True)
 
     # Mode tracking
     is_template_based = Column(Boolean, default=True, nullable=False)  # Template vs Advanced mode
@@ -98,6 +101,8 @@ class CustomTool(Base):
 
     # Metadata
     category = Column(String(50), nullable=True)  # User-defined category
+    is_builtin = Column(Boolean, default=False, nullable=False)  # System-seeded built-in tool (from native_tools.py)
+    requires_api_key = Column(String(100), nullable=True)  # Env var of required API key, or NULL (built-in tools)
     tags = Column(JSON, default=lambda: [], nullable=False)  # Searchable tags
 
     # Timestamps

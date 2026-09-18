@@ -41,7 +41,12 @@ class SubAgentConfig(BaseModel):
     @field_validator('type', mode='before')
     @classmethod
     def coerce_type(cls, v):
-        """Coerce type to SubAgentType enum, defaulting to DICTIONARY if invalid."""
+        """Coerce type to SubAgentType enum; reject unknown values.
+
+        Missing/empty stays lenient (defaults to DICTIONARY) so legacy rows
+        load, but an explicitly invalid value raises instead of silently
+        changing the agent's behavior.
+        """
         import logging
         logger = logging.getLogger(__name__)
         logger.info(f"[SubAgentConfig] Coercing type from: {v!r} (type={type(v).__name__})")
@@ -57,11 +62,16 @@ class SubAgentConfig(BaseModel):
                 return SubAgentType.DICTIONARY
             elif v_lower == 'compiled':
                 return SubAgentType.COMPILED
-            else:
-                logger.warning(f"[SubAgentConfig] Unknown type '{v}', defaulting to DICTIONARY")
-                return SubAgentType.DICTIONARY
-        logger.warning(f"[SubAgentConfig] Unexpected type value {v!r}, defaulting to DICTIONARY")
-        return SubAgentType.DICTIONARY
+            elif v_lower == 'langgraph':
+                return SubAgentType.LANGGRAPH
+            raise ValueError(
+                f"[SubAgentConfig] Unknown subagent type '{v}'. "
+                "Expected 'dictionary', 'compiled' or 'langgraph'."
+            )
+        raise ValueError(
+            f"[SubAgentConfig] Unexpected type value {v!r} for subagent type. "
+            "Expected 'dictionary' or 'compiled'."
+        )
 
     # For dictionary-based subagents
     template_id: Optional[str] = Field(None, description="Base template to use from AgentTemplateRegistry")
@@ -80,24 +90,78 @@ class SubAgentConfig(BaseModel):
         description="Override configuration for the workflow (input mapping, etc.)"
     )
 
+    # For langgraph subagents (code-defined LangGraph agents)
+    graph_id: Optional[str] = Field(
+        None,
+        description="Code-defined LangGraph agent id (backend/langgraph/<graph_id>.py) "
+                    "to use as a CompiledSubAgent; requires type='langgraph'. "
+                    "Example: 'sql_agent' or 'neo4j_agent'."
+    )
+    database: Optional[str] = Field(
+        None,
+        description="Target database for the langgraph subagent (e.g. a Neo4j database "
+                    "name for graph_id='neo4j_agent'). Empty uses the default "
+                    "(env NEO4J_DATABASE or the studio-selected database). "
+                    "Only valid with type='langgraph'."
+    )
+
     @model_validator(mode='after')
     def validate_subagent_consistency(self) -> 'SubAgentConfig':
-        """Ensure compiled subagents have workflow_id and dictionary subagents don't."""
+        """Ensure compiled subagents have workflow_id, langgraph subagents have
+        graph_id, and dictionary subagents have neither."""
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"[SubAgentConfig] Validating '{self.name}': type={self.type}, type_value={self.type.value if hasattr(self.type, 'value') else self.type}, workflow_id={self.workflow_id}")
+        logger.info(f"[SubAgentConfig] Validating '{self.name}': type={self.type}, type_value={self.type.value if hasattr(self.type, 'value') else self.type}, workflow_id={self.workflow_id}, graph_id={self.graph_id}")
 
         if self.type == SubAgentType.COMPILED:
             if not self.workflow_id:
                 raise ValueError(
                     f"Compiled subagent '{self.name}' requires workflow_id. "
-                    f"Set type='dictionary' for simple subagents or provide a workflow_id."
+                    f"Set type='dictionary' for simple subagents, type='langgraph' "
+                    f"for a code-defined LangGraph agent, or provide a workflow_id."
+                )
+            if self.graph_id:
+                raise ValueError(
+                    f"Compiled subagent '{self.name}' cannot have graph_id. "
+                    f"Use type='langgraph' to run a code-defined LangGraph agent."
+                )
+            if self.database:
+                raise ValueError(
+                    f"Compiled subagent '{self.name}' cannot have database. "
+                    f"Set type='langgraph' with graph_id='neo4j_agent' to target a database."
+                )
+        elif self.type == SubAgentType.LANGGRAPH:
+            if not self.graph_id:
+                raise ValueError(
+                    f"LangGraph subagent '{self.name}' requires graph_id "
+                    f"(e.g. 'sql_agent' or 'neo4j_agent')."
+                )
+            if self.workflow_id:
+                raise ValueError(
+                    f"LangGraph subagent '{self.name}' cannot have workflow_id. "
+                    f"Use type='compiled' for workflow-based subagents."
+                )
+            if self.database and self.graph_id != 'neo4j_agent':
+                raise ValueError(
+                    f"LangGraph subagent '{self.name}' sets database but graph_id "
+                    f"'{self.graph_id}' is not a database-parameterized graph "
+                    "(only 'neo4j_agent' accepts a target database)."
                 )
         elif self.type == SubAgentType.DICTIONARY:
             if self.workflow_id:
                 raise ValueError(
                     f"Dictionary subagent '{self.name}' cannot have workflow_id. "
-                    f"Set type='compiled' to use workflow-based subagents."
+                    f"Set type='compiled' to use a workflow-based subagent."
+                )
+            if self.graph_id:
+                raise ValueError(
+                    f"Dictionary subagent '{self.name}' cannot have graph_id. "
+                    f"Set type='langgraph' to use a code-defined LangGraph agent."
+                )
+            if self.database:
+                raise ValueError(
+                    f"Dictionary subagent '{self.name}' cannot have database. "
+                    f"Set type='langgraph' with graph_id='neo4j_agent' to target a database."
                 )
         return self
 
@@ -198,6 +262,12 @@ class DeepAgentConfig(BaseModel):
     native_tools: List[str] = Field(default_factory=list, description="Native Python tool categories")
     cli_tools: List[str] = Field(default_factory=list, description="CLI tool categories")
     custom_tools: List[str] = Field(default_factory=list, description="User-created custom tools")
+    tool_params: Optional[Dict[str, Dict[str, Any]]] = Field(
+        None,
+        description="Per-tool default params, e.g. {'neo4j_agent_tool': {'database': 'neo4j'}}. "
+                    "Pinned defaults are bound onto the tool at build time so the agent "
+                    "knows the target (the model can still override by passing the arg)."
+    )
 
     # DeepAgents-specific
     use_deepagents: bool = Field(
@@ -249,6 +319,17 @@ class DeepAgentConfig(BaseModel):
         description="Skill IDs to load from the database and make available to the agent. "
                     "Skills are synced to the sandbox filesystem at agent creation time "
                     "and loaded via create_deep_agent(skills=[...]) for progressive disclosure."
+    )
+    # Plugins (LangChain-style declarative plugins, backend/plugins/<name>).
+    # Each plugin contributes skills (+ optional MCP servers / hooks) that are
+    # mounted into this agent at build time. Plugin skills are staged into the
+    # same skill catalog as builtin/personal skills (progressive disclosure).
+    plugins: List[str] = Field(
+        default_factory=list,
+        description="Plugin names/ids to mount into this agent (e.g. 'meeting-minutes' "
+                    "or 'meeting-minutes@langconfig-builtin'). Plugin skills become "
+                    "discoverable skills; plugin MCP servers / hooks are applied when "
+                    "the corresponding seams are enabled."
     )
     skill_router_model: Optional[str] = Field(
         default=None,
@@ -313,6 +394,17 @@ class DeepAgentTemplate(Base, OptimisticLockMixin):
     # References to base agent template (if extends one)
     base_template_id = Column(String(100), nullable=True, index=True)
 
+    # User-defined workspace path (PostgreSQL). When set, chat uploads and
+    # generated files for this agent live under this directory instead of the
+    # default outputs/agents/agent_{id}/ convention. Null → default.
+    workspace_path = Column(String(500), nullable=True)
+
+    # User-authored agent instruction docs — e.g. {"AGENTS.md": "...",
+    # "CLAUDE.md": "..."}. PostgreSQL is the source of truth; the files are
+    # materialized into the agent workspace at chat build time so
+    # MemoryMiddleware and the Files panel can use them.
+    agent_docs = Column(JSON, nullable=True)
+
     # DeepAgents configuration (stored as JSON)
     config = Column(JSON, nullable=False)
 
@@ -352,51 +444,10 @@ class DeepAgentTemplate(Base, OptimisticLockMixin):
     )
 
     # Relationships
-    exports = relationship("AgentExport", back_populates="agent", cascade="all, delete-orphan")
     chat_sessions = relationship("ChatSession", back_populates="agent", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<DeepAgentTemplate(id={self.id}, name='{self.name}')>"
-
-
-class AgentExport(Base):
-    """
-    Tracks exports of DeepAgent configurations.
-    Stores export history and generated artifacts.
-    """
-    __tablename__ = "agent_exports"
-
-    id = Column(Integer, primary_key=True, index=True)
-
-    # Reference to agent
-    agent_id = Column(Integer, ForeignKey("deep_agent_templates.id"), nullable=False)
-
-    # Export metadata
-    export_type = Column(String(50), nullable=False, index=True)  # 'standalone' or 'langconfig'
-    export_format = Column(String(50), nullable=True)  # 'zip', 'json', etc.
-
-    # Export configuration (what was included)
-    export_config = Column(JSON, nullable=False)
-
-    # File storage
-    file_path = Column(String(500), nullable=True)  # Path to exported artifact
-    file_size = Column(Integer, nullable=True)  # Size in bytes
-
-    # Generation metadata
-    generated_files = Column(JSON, nullable=True)  # List of files included
-
-    # Download tracking
-    download_count = Column(Integer, default=0, nullable=False)
-    last_downloaded_at = Column(DateTime(timezone=True), nullable=True)
-
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-    # Relationships
-    agent = relationship("DeepAgentTemplate", back_populates="exports")
-
-    def __repr__(self):
-        return f"<AgentExport(id={self.id}, type='{self.export_type}', agent_id={self.agent_id})>"
 
 
 class ChatSession(Base):
@@ -410,6 +461,10 @@ class ChatSession(Base):
 
     # Reference to agent
     agent_id = Column(Integer, ForeignKey("deep_agent_templates.id"), nullable=False, index=True)
+
+    # Reference to the vault (project) this session runs in — scopes the
+    # agent workspace (uploads + generated files) per (vault, agent).
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
 
     # Session metadata
     session_id = Column(String(100), unique=True, nullable=False, index=True)

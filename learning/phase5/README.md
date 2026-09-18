@@ -20,7 +20,7 @@
 ## Architecture
 
 ```
-React UI (port 1420) ──→ FastAPI Backend (port 8765) ──→ PostgreSQL (port 5433)
+React UI (port 1420) ──→ FastAPI Backend (port 8765) ──→ PostgreSQL (port 5432)
                               │
                          Agent Factory
                               │
@@ -1426,8 +1426,280 @@ Agent (research agent with skill-generator skill)
 | **Dependencies** | `pandas` and `matplotlib` must be added to `backend/pyproject.toml` for analysis scripts. |
 | **Untracked files** | Generated sandbox dirs (`_data_analysis_sandbox/`, `_analysis_output/`) should be gitignored. |
 
+#### 5k. Data Skill Companion System
+
+The earlier data analysis design had a problem: the system `data-analysis` SKILL.md
+was hardcoded with Titanic-specific examples (`/uploads/titanic.csv`, `Age`, `Fare`).
+When a user uploaded any arbitrary CSV, the agent had to fight those priors to produce
+correct analysis. More importantly, the agent had no way to understand what the columns
+*meant* — only their statistical properties.
+
+The **Data Skill Companion System** solves this with a two-layer architecture:
+
+| Layer | Who writes | What it covers | Example |
+|---|---|---|---|
+| **System skill** (`data-analysis` SKILL.md) | Developer | Content-independent mechanics | Chart types, tool invocation, edge cases |
+| **Companion skill** (`<dataset>.skill.md`) | User (or auto-generated) | Dataset-specific semantics | Column meanings, business logic, sample SQL |
+
+#### Flow
+
+```
+User uploads sales_data.csv
+  |
+  +-- CSV saved to sandbox
+  +-- Generator reads CSV schema (nrows=50)
+  |     +-- produces sales_data.skill.md.pending
+  |
+  v
+User reviews via API:
+  GET  /api/chat/{session_id}/skill-pending/sales_data
+  POST /api/chat/{session_id}/skill-pending/sales_data
+       {"action": "approve"}           -> activated
+       {"action": "edit", "content"}   -> user revision + activated
+       {"action": "reject"}            -> discarded
+  |
+  v
+Agent context:
+  1. System data-analysis SKILL.md      (mechanics)
+  2. sales_data.skill.md                (semantics)
+```
+
+#### Auto-Generated Companion
+
+The service at [`backend/services/data_skill_generator.py`](../../backend/services/data_skill_generator.py)
+reads the first 50 rows of the uploaded CSV and produces a structured `.skill.md.pending` file with:
+
+- **Column definitions table** -- name, detected type, sample values, null %
+- **Basic data profile** -- row count, numeric vs categorical columns, null density
+- **Sample SQL queries** -- auto-generated SELECT, COUNT, GROUP BY from detected column types
+- **Edge cases** -- null columns, spaced column names, unparsed date strings
+
+The generator respects existing companions: if a `.skill.md.pending` already exists
+(e.g. the user uploaded their own), it is never overwritten.
+
+#### Review & Approval API
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/chat/{session_id}/skill-pending/{csv_stem}` | Returns pending content for review |
+| `POST` | `/api/chat/{session_id}/skill-pending/{csv_stem}` | Approve, edit, or reject |
+
+POST body:
+```json
+{"action": "approve"}                          // rename to .skill.md (activated)
+{"action": "edit", "content": "new markdown..."} // save as .skill.md (activated)
+{"action": "reject"}                           // delete pending file (discarded)
+```
+
+#### Key Files
+
+| File | Purpose |
+|---|---|
+| `backend/services/data_skill_generator.py` | Reads CSV schema + generates `.skill.md.pending` |
+| `backend/api/chat/skill_review.py` | GET/POST endpoints for review/approve/reject |
+| `backend/api/chat/routes.py` | Upload handler calls generator; context builder injects companion |
+| `backend/skills/builtin/data-analysis/SKILL.md` | Now content-independent (mechanics only, no dataset-specific examples) |
+| `learning/phase5/examples/sample_sales_data.skill.md` | Example user-written companion for Apple product sales data |
+
+#### Context Injection
+
+At chat time, the context builder in [`backend/api/chat/routes.py`](../../backend/api/chat/routes.py)
+scans session documents for CSV files, checks the sandbox for companion `.skill.md`
+files (NOT `.skill.md.pending` -- only approved ones), and injects their content
+into the agent's `all_context` under a `## User Data Context` header.
+
+The system `data-analysis` skill covers chart types, tool invocation, and edge
+cases. The companion skill covers column semantics, business logic, and common
+queries. The agent reads both and produces analysis that understands the data
+domain, not just its statistical shape.
+
+#### Key Learnings
+
+| Lesson | Detail |
+|---|---|
+| **Two-layer separation** | System skill = mechanics; companion = semantics. Keeps both focused. |
+| **Pending -> approved** | Auto-generated companions stay invisible until the user approves them. |
+| **No overwrite** | Generator never overwrites an existing companion (user-provided or approved). |
+| **User-provided companion** | User can write their own `.skill.md` from scratch -- generator skips. |
+| **SQL sources** | Same pattern applies: a `.skill.md` can describe tables and sample queries. |
+
+#### 5l. Dashboard Generator Module
+
+The companion skill system needs an HTML dashboard renderer. The **`dashboard_generator`**
+module at [`backend/services/dashboard_generator.py`](../../backend/services/dashboard_generator.py)
+is the single source of truth, reused by both CLI and API.
+
+**Architecture:**
+
+```
+backend/services/dashboard_generator.py   ← 7.9 KB, single source of truth
+  ├─ generate_dashboard()     ← async, caching, LLM agent, JS fixes
+  ├─ _build_biz_context()     ← companion skill → business context
+  └─ _fix_html()              ← fix fmt$ bug, move script to </body>
+
+backend/scripts/gen_dashboard.py          ← 1.3 KB, thin CLI wrapper
+  └─ parse args → read files → call generate_dashboard()
+
+backend/analysis_server.py                ← 4.6 KB, thin API wrapper
+  └─ parse upload → CSV→SQLite metadata → call generate_dashboard()
+```
+
+**Content-hash caching:**
+
+```
+Content hash = sha256(csv_bytes + skill_bytes)[:16]
+Cache path   = data/analysis_dbs/dashboard_{hash}.html
+```
+
+Same CSV + skill → same hash → same dashboard → instant cache hit (0.5s vs 45s).
+Different CSV or skill → different hash → new LLM generation.
+
+**Usage:**
+
+```bash
+# CLI
+.venv/bin/python3 backend/scripts/gen_dashboard.py \
+  --csv learning/phase5/examples/sample_sales_data.csv \
+  --skill learning/phase5/examples/sample_sales_data.skill.md
+
+# API server (no PostgreSQL needed)
+.venv/bin/python3 backend/analysis_server.py
+curl -X POST http://localhost:8765/api/analysis/upload \
+  -F "file=@data.csv" -F "skill_file=@data.skill.md"
+```
+
+#### Key Learnings
+
+| Lesson | Detail |
+|---|---|
+| **Content-hash caching** | SHA256 of CSV+skill prevents duplicate LLM calls. 2nd run: 0.5s vs 45s. |
+| **JS is the weak link** | LLMs produce invalid JS (`fmt$(2,n)` syntax error, script in `<head>`). `_fix_html()` patches these. |
+| **Module refactor** | Extracting `dashboard_generator.py` eliminated ~300 lines of duplication between CLI and API. |
+| **Standalone server** | `analysis_server.py` serves the analysis API without PostgreSQL — useful when Docker/CICD is unavailable. |
+
+
+
 ---
 
+
+
+#### 5m. Analysis Page UI (Chat, Data, Skill, Theme)
+
+The dashboard detail view adds four panels accessible from the header bar:
+
+| Button | Panel | Description |
+|---|---|---|
+| **Data** | Scrollable table | Raw data rows fetched from `/api/analysis/data/{hash}` |
+| **Skill** | Markdown viewer | Companion skill content from `{hash}.meta.json` |
+| **Chat** | AI chat | Ask questions via the sql-analyst deep agent with companion context |
+
+**Chat panel features:**
+- Per-message Copy and Download buttons (icon-only, with green checkmark feedback)
+- Resizable split layout (drag divider between chat and dashboard, 45%-55% range)
+- Companion skill context injected into the agent's system prompt
+- Agent uses `sqlite_execute` to query live data (not the embedded dashboard snapshot)
+
+**Dark mode:**
+- Dashboard HTML is post-processed to inject dark-theme CSS overrides
+- Detects `document.documentElement.classList.contains('dark')`
+- Also overrides Plotly chart backgrounds (`plot_bgcolor`, `paper_bgcolor`, `gridcolor`)
+- Re-applies on theme switch
+
+**Key files:**
+
+| File | Role |
+|---|---|
+| `src/pages/AnalysisPage.tsx` | All panels + resize + theme injection in single component |
+| `backend/api/analysis/routes.py` | Chat endpoint with `skill_content` context injection |
+
+#### Sunhing Mock Data Lineage
+
+The Sunhing business-study flow uses a **mock data pipeline** that ends in a
+SQLite DB consumed by both the dashboard HTML and the analysis chat.
+
+**End-to-end flow:**
+
+```text
+deepagents-quickstarts/.../gen_mock_data.py
+├─ builds mock source systems
+│  ├─ hr_raw
+│  ├─ finance_raw
+│  ├─ prod_raw
+│  ├─ legal_raw
+│  ├─ digital_raw
+│  ├─ pmo_raw
+│  ├─ crm_raw
+│  ├─ entity_raw
+│  └─ sentiment_raw
+│
+├─ builds mock KPI outputs
+│  ├─ kpi_data
+│  ├─ risk_data
+│  └─ roe_summary
+│
+└─ writes mock_kpi_data_v2.0.json
+         │
+         v
+data/analysis_dbs/sunhing_kpi_db.py
+├─ dim_kpi
+├─ fact_kpi_monthly   <- from kpi_data + risk_data
+├─ fact_roe_summary   <- from roe_summary
+├─ raw_hr / raw_finance / raw_production / raw_legal
+├─ raw_digital_platform / raw_sentiment
+└─ helper-generated tables
+   ├─ raw_pmo / dim_pmo_phase
+   ├─ raw_crm
+   ├─ raw_entity
+   ├─ raw_employee
+   └─ raw_liability
+         │
+         v
+data/analysis_dbs/sunhing_kpi.db
+         │
+         ├─ gen_sunhing_kpi_dashboard.py
+         │    └─ sunhing_dashboard.html + detail HTML dashboards
+         │
+         └─ analysis backend / chat
+              └─ query SQLite for verification and answers
+```
+
+**Important distinction:**
+
+- `fact_kpi_monthly` is the **monthly KPI result layer**.
+  - It is inserted from upstream mock KPI outputs (`kpi_data`, `risk_data`).
+  - Its KPI definitions still point to intended raw sources such as
+    `raw_finance`, `raw_production`, `raw_entity`, and `raw_digital_platform`.
+- `fact_roe_summary` is the **monthly DuPont summary layer**.
+  - It is inserted from upstream mock `roe_summary` rows.
+  - In the current repo, it is not recomputed inside `sunhing_kpi_db.py`; it is
+    generated earlier in `gen_mock_data.py` and then loaded into SQLite.
+
+**Why the main dashboard can show both `98.0` and `1.08`:**
+
+- `98.0` is a **factor-card score** from `fact_kpi_monthly`.
+  - For `资产周转率`, the dashboard scores KPI `10-13` individually and averages
+    them in `gen_sunhing_kpi_dashboard.py`.
+- `1.08` is the **raw DuPont asset turnover** from `fact_roe_summary`.
+  - It is shown in the ROE decomposition line:
+    `净利润率 × 资产周转率 × 权益乘数`.
+
+**Mental model:**
+
+```text
+mock source assumptions
+-> mock JSON
+-> SQLite fact tables
+-> static HTML dashboards
+-> analysis panel + analysis chat
+```
+
+#### Key Learnings
+
+| Lesson | Detail |
+|---|---|
+| **Side panel layout** | Flex split with minWidth on iframe is better than overlay for keeping dashboard visible |
+| **CSS can't change Plotly** | Plotly SVG uses inline styles -- must use regex replacement on layout `plot_bgcolor` etc. |
+| **iframe theme isolation** | iframe is a separate document -- CSS must be injected into HTML content directly |
 ## Drift Log (since Phase 5)
 
 **Refreshed 2026-06-24.** This log tracks what changed in the Skills section
