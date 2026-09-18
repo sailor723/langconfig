@@ -1,6 +1,6 @@
 # LangConfig on WSL2 (Ubuntu) — native PostgreSQL setup
 
-Tested end-to-end on WSL2 + Ubuntu with **native** PostgreSQL 16 (no Docker).
+Verified on WSL2 + Ubuntu with **native** PostgreSQL 16 (no Docker).
 For the Docker path or macOS, see `docs/TEAM_INSTALL.md` instead.
 
 ## What you end up with
@@ -36,6 +36,9 @@ lsb_release -cs          # 'noble' = 24.04  |  'jammy' = 22.04
 ```bash
 cd ~
 git clone git@github.com:sailor723/langconfig.git langconfig
+# no SSH key on this WSL? use HTTPS instead:
+#   git clone https://github.com/sailor723/langconfig.git langconfig
+
 cd langconfig
 git log --oneline -1        # expect the current main tip
 git status -sb              # expect: ## main...origin/main  (no ahead/behind)
@@ -151,7 +154,8 @@ uv run python -c "import fastapi, langgraph, deepagents, sqlalchemy, psycopg, ne
 > `Installed N packages` line is not a total. To see the real count:
 > `uv run python -c "import importlib.metadata as m; print(len(list(m.distributions())))"` → ~260.
 > If it reports a SIGBUS: `rm -rf .venv && uv cache clean && UV_LINK_MODE=copy uv sync`
-> (see §11 for the disk/`/mnt/c` causes).
+> (causes: the repo on `/mnt/c`, a full disk, or a corrupt cache — see the note at the
+> top of this file and the `bus error` row in §12).
 
 ## 7. Seed the database
 
@@ -166,8 +170,12 @@ and it is **not** the same thing as `LANGCONFIG_WORKSPACE_ROOT` in `.env`.
 The seed is idempotent; add `--replace` only to force-reload the tools/agents dumps.
 
 The 10 steps: init server → init db (+pgvector) → alembic stamp head → settings →
-28 models → 6 search providers → tools → deep agents → identity backfill → skills →
-chinook.
+28 models → 6 search providers → tools → deep agents → identity backfill (step 8.5)
+→ skills → chinook.
+
+> `[1/10] init_server` should report *"role 'langconfig' already exists"* /
+> *"database 'langconfig' already exists"* — that confirms §4 was done. If instead it
+> prints *"Cannot connect as a superuser"*, the role/database were never created.
 
 ## 8. Verify
 
@@ -251,6 +259,7 @@ checking the API without the UI, but the UI itself is served **only** by vite on
 ## 11. Optional — Neo4j (Cypher agent / Graph Studio)
 
 The app runs fully without Neo4j; only those two features need it.
+(Native WSL Docker, or start Neo4j on another host and point `NEO4J_URI` at it.)
 
 ```bash
 docker run -d --name langconfig-neo4j \
