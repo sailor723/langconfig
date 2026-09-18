@@ -65,6 +65,11 @@ SEEDABLE_TOOL_META = {
     "task": ("Task (Subagent)", "delegation", None),
     "save_analysis_result": ("Save Analysis Result", "data_analysis", None),
     "gen_pptx": ("Generate PPTX", "presentation", None),
+    "gen_html_deck": ("Generate HTML Deck", "presentation", None),
+    "gen_pdf_deck": ("Generate PDF Deck", "presentation", None),
+    "doc_to_slides_outline": ("Document to Slides Outline", "presentation", None),
+    "doc_to_deck": ("Document to Deck (HTML+PPTX)", "presentation", None),
+    "list_deck_templates": ("List Deck Templates", "presentation", None),
     "create_skill": ("Create Skill", "skills", None),
     "skill": ("Read Skill", "skills", None),
     "update_skill": ("Update Skill", "skills", None),
@@ -101,6 +106,14 @@ SEEDABLE_TOOL_META = {
     "sqlite_load_csv": ("SQLite Load CSV", "data", None),
     "python_execute": ("Python Execute", "data", None),
     "save_document": ("Save Document", "document", None),
+    # Wrapped LangGraph agents (backend/langgraph/*.py) exposed as selectable
+    # native tools. Invocation is delegated to langgraph.tool_adapters so the
+    # hand-built pipelines (schema -> generate -> check -> execute) stay in one
+    # place. Available to both normal agents and DeepAgents via native_tools.
+    "sql_agent_tool": ("SQL Agent (Chinook)", "database", None),
+    "advanced_sql_agent_tool": ("SQL Agent (Advanced)", "database", None),
+    "neo4j_agent_tool": ("Neo4j Graph Agent", "database", None),
+    "neo4j_agent_advanced_tool": ("Neo4j Graph Agent (Advanced)", "database", None),
 }
 
 # Display category -> DSH-style definition category (core/tools/definition.py).

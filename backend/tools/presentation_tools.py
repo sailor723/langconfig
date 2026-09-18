@@ -1,37 +1,29 @@
 """
-Presentation generation native tool: gen_pptx (theme-aware).
+Presentation generation native tools: template-driven PPTX / HTML / PDF decks.
 
-Generates a styled PowerPoint (.pptx) deck with python-pptx. The layout
-language is shared with the platform's Deep Presentation Generator (agent
-165): full-bleed light content slides with an accent top strip, navy/dark
-title blocks, white rounded bullet cards with accent dot markers, big-number
-highlights, page footers + watermark, and dark cover/closing slides.
+The deck pipeline (user's 4-step flow):
+  1. ``doc_to_slides_outline`` — LLM turns a document into a 12–15 slide outline
+  2. ``normalize_outline`` (services/deck_templates.py) — deterministic
+     constraints: page clamp, bullet caps, auto-highlight of numbers
+  3. ``gen_html_deck`` / ``doc_to_deck`` — HTML mirror of the template
+  4. ``gen_pptx`` / ``doc_to_deck`` — PPTX rendered from the template file
 
-Theme parameter selects a named palette (business, fashion, tech, health,
-education, minimal). Default "business" keeps the classic navy/gold look.
+Control model: the LLM decides *what* (content, faithfulness, emphasis); the
+*template* (a real .pptx base file with themed masters/layouts, authored by
+scripts/build_deck_templates.py) decides *how* (layout, colors, fonts); the
+renderer is a pure function of (outline, template). That is what makes both
+formats reproducible, controllable, and visually consistent.
 
-Slides JSON schema:
-{
-  "title": "Deck title",
-  "slides": [
-    {"type": "title", "title": "...", "subtitle": "..."},
-    {"type": "section", "title": "...", "subtitle": "..."},
-    {"type": "content", "title": "...", "bullets": ["..."], "speaker_notes": "...", "highlight": ["61,704"]},
-    {"type": "data",    "title": "...", "bullets": ["..."]},
-    {"type": "conclusion", "title": "...", "bullets": ["..."]},
-    {"type": "closing", "title": "...", "subtitle": "..."}
-  ]
-}
-
-Supported slide types: title, section, content, data, conclusion, closing,
-image. `highlight` (optional list of bullet substrings) renders those bullets
-in the accent color at a larger size (best for key numbers/percentages).
+gen_pptx / gen_html_deck / gen_pdf_deck keep their historical signatures
+(slides JSON + theme name) so existing agents keep working; internally they
+now render through the template system.
 """
 import json
 import os
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from langchain_core.tools import tool
 from pptx import Presentation
@@ -41,9 +33,24 @@ from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.oxml.ns import qn
 
+from services.deck_templates import (
+    DARK_KINDS,
+    PALETTES,
+    get_palette,
+    get_template,
+    list_templates as _list_templates,
+    normalize_outline,
+)
+
+# Backward-compat alias (themes == template palettes).
+THEMES: Dict[str, dict] = PALETTES
+
 _OUTPUT_DIR = Path(os.getenv("PRESENTATION_OUTPUT_DIR", "/tmp/langconfig-tools/presentations"))
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]")
+
+MAX_DOC_CHARS = 150_000        # hard cap when reading a source document
+MAX_LLM_INPUT_CHARS = 90_000   # what actually reaches the outline LLM
 
 
 def _rgb(hex_str: str) -> RGBColor:
@@ -51,54 +58,9 @@ def _rgb(hex_str: str) -> RGBColor:
     return RGBColor(int(hex_str[0:2], 16), int(hex_str[2:4], 16), int(hex_str[4:6], 16))
 
 
-# ── Named palettes (theme → colors) ─────────────────────────────────────
-THEMES: dict = {
-    "business": {
-        "label": "Business / Corporate (navy + gold)",
-        "primary": "#1A2A4A", "accent": "#C8A24A", "accent_light": "#D8BD77", "accent_dark": "#A8842F",
-        "bg": "#EEF0F5", "card": "#FFFFFF", "card_line": "#E6E9F0", "body": "#4A5570", "muted": "#7A8398",
-        "dark_bg": "#1A2A4A", "dark_text": "#DBE2EF", "font": "Calibri",
-    },
-    "fashion": {
-        "label": "Fashion / Editorial (black + gold, serif)",
-        "primary": "#0B0B0F", "accent": "#BFA05A", "accent_light": "#D6BC7E", "accent_dark": "#8F7738",
-        "bg": "#F7F4EE", "card": "#FFFFFF", "card_line": "#E8E1D2", "body": "#2B2B2B", "muted": "#8A8A8A",
-        "dark_bg": "#0B0B0F", "dark_text": "#F2EEE4", "font": "Georgia",
-    },
-    "tech": {
-        "label": "Technology (slate + cyan)",
-        "primary": "#0F172A", "accent": "#22D3EE", "accent_light": "#67E8F9", "accent_dark": "#0891B2",
-        "bg": "#F1F5F9", "card": "#FFFFFF", "card_line": "#E2E8F0", "body": "#334155", "muted": "#64748B",
-        "dark_bg": "#0F172A", "dark_text": "#E2E8F0", "font": "Segoe UI",
-    },
-    "health": {
-        "label": "Healthcare (teal + white)",
-        "primary": "#134E4A", "accent": "#14B8A6", "accent_light": "#5EEAD4", "accent_dark": "#0F766E",
-        "bg": "#F0FDFA", "card": "#FFFFFF", "card_line": "#CCFBF1", "body": "#115E59", "muted": "#5F7A76",
-        "dark_bg": "#134E4A", "dark_text": "#E6FFFA", "font": "Calibri",
-    },
-    "education": {
-        "label": "Education (indigo + amber)",
-        "primary": "#3730A3", "accent": "#F59E0B", "accent_light": "#FCD34D", "accent_dark": "#B45309",
-        "bg": "#F8FAFC", "card": "#FFFFFF", "card_line": "#E2E8F0", "body": "#1E293B", "muted": "#64748B",
-        "dark_bg": "#3730A3", "dark_text": "#EEF2FF", "font": "Calibri",
-    },
-    "minimal": {
-        "label": "Minimal (monochrome)",
-        "primary": "#111111", "accent": "#8A8A8A", "accent_light": "#B0B0B0", "accent_dark": "#555555",
-        "bg": "#FFFFFF", "card": "#F5F5F5", "card_line": "#E0E0E0", "body": "#333333", "muted": "#999999",
-        "dark_bg": "#111111", "dark_text": "#F5F5F5", "font": "Arial",
-    },
-}
-
-
 def _theme(name: str) -> dict:
-    key = (name or "business").strip().lower()
-    if key not in THEMES:
-        raise ValueError(
-            f"Unknown theme '{name}'. Choose one of: {', '.join(sorted(THEMES))}"
-        )
-    return THEMES[key]
+    """Palette for a template id (kept for backward compatibility)."""
+    return get_palette(name)
 
 
 def _slugify(text: str) -> str:
@@ -120,7 +82,7 @@ def _parse_slides(slides_json: str) -> dict:
     return data
 
 
-# ── Low-level shape helpers (theme-aware) ───────────────────────────────
+# ── Low-level shape helpers (template-aware) ──────────────────────────────
 
 def _set_font(run, size: int, bold: bool, color, font_name: str, text: str = ""):
     run.font.size = Pt(size)
@@ -195,102 +157,189 @@ def _footer(slide, page, total, deck_title, t: dict):
     _set_font(wr, 9, False, _rgb(t["muted"]), t["font"])
 
 
-def _render_pptx(data: dict, output_dir: Path, theme_name: str, filename: str | None = None) -> Path:
-    t = _theme(theme_name)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    prs = Presentation()
+# ── PPTX renderer (template layouts + placeholders) ───────────────────────
+
+def _find_ph(slide, idx: int):
+    for ph in slide.placeholders:
+        if ph.placeholder_format.idx == idx:
+            return ph
+    return None
+
+
+def _remove_ph(slide, idx: int) -> None:
+    ph = _find_ph(slide, idx)
+    if ph is not None:
+        ph._element.getparent().remove(ph._element)
+
+
+def _fill_ph(slide, idx: int, text: str, size: int, bold: bool, color, font_name: str) -> None:
+    ph = _find_ph(slide, idx)
+    if ph is None or not text:
+        return
+    tf = ph.text_frame
+    tf.word_wrap = True
+    tf.text = text
+    for para in tf.paragraphs:
+        for run in para.runs:
+            _set_font(run, size, bold, color, font_name, text)
+
+
+def _fill_body_ph(slide, bullets: List[str], highlight: List[str], t: dict) -> None:
+    """Fill the body placeholder with bullets (inherits the layout's bullets)."""
+    ph = _find_ph(slide, 1)
+    if ph is None:
+        return
+    tf = ph.text_frame
+    tf.word_wrap = True
+    for i, b in enumerate(bullets):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.alignment = PP_ALIGN.LEFT
+        p.space_after = Pt(10)
+        r = p.add_run()
+        r.text = b
+        big = any(h in b for h in highlight) or bool(re.fullmatch(
+            r"[\d.,%+\-\u2192\u2190\s/'\"]{2,}", b))
+        _set_font(r, 20 if big else 17, big, _rgb(t["accent"] if big else t["primary"]), t["font"], b)
+
+
+def _draw_card_grid(slide, bullets: List[str], highlight: List[str], t: dict, data: bool) -> None:
+    """Responsive card grid (used when bullets exceed the body placeholder, or
+    for data slides). Big-number / highlight bullets become accent cards."""
+    n = len(bullets)
+    col_w = {5: 2.14, 4: 2.78, 3: 3.7, 2: 5.75, 1: 11.6}.get(n, 3.7)
+    gap = 0.22 if n >= 4 else 0.3
+    x0 = (13.333 - (n * col_w + (n - 1) * gap)) / 2
+    y_card, card_h = 2.15, 2.3
+    if n <= 2:
+        y_card, card_h = 2.3, 3.4
+    for idx, b in enumerate(bullets):
+        cx = x0 + idx * (col_w + gap)
+        big = any(h in b for h in highlight) or bool(re.fullmatch(
+            r"[\d.,%+\-\u2192\u2190\s/'\"]{2,}", b))
+        card = _add_rect(slide, cx, y_card, col_w, card_h, _rgb(t["card"]),
+                         line=_rgb(t["card_line"]), rounded=True, radius=0.08)
+        _add_text(slide, cx + 0.35, y_card + 0.28, col_w - 0.7, card_h - 0.5, b,
+                  26 if big else 18, True, _rgb(t["accent"] if big else t["primary"]),
+                  t["font"], anchor=MSO_ANCHOR.MIDDLE)
+        _add_rect(slide, cx + 0.35, y_card + 0.22, 0.13, 0.13, _rgb(t["accent"]),
+                  rounded=True, radius=0.5)
+
+
+def _render_pptx(data: dict, template_spec: dict, output_dir: Path,
+                 filename: str | None = None) -> Path:
+    """Render the outline into the template's layouts (library-native themes)."""
+    t = template_spec["palette"]
+    fonts = template_spec["fonts"]
+    layout_map = template_spec["layout_map"]
+    cons = template_spec["constraints"]
+
+    prs = Presentation(template_spec["template_file"])
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
     sw = int(prs.slide_width)
-    blank = prs.slide_layouts[6]
+    master = prs.slide_masters[0]
+
     deck_title = data.get("title", "Presentation")
-    total = len(data["slides"])
-    dark_types = {"title", "closing"}
+    slides = data["slides"]
+    total = len(slides)
 
-    for i, slide_data in enumerate(data["slides"], start=1):
-        stype = str(slide_data.get("type", "content")).lower()
-        title = str(slide_data.get("title", ""))
-        subtitle = str(slide_data.get("subtitle", ""))
-        bullets = [str(b) for b in (slide_data.get("bullets") or [])]
-        notes = str(slide_data.get("speaker_notes") or slide_data.get("notes") or "")
-        highlight = [str(h) for h in (slide_data.get("highlight") or [])]
+    for i, s in enumerate(slides, start=1):
+        kind = str(s.get("type", "content")).lower()
+        title = str(s.get("title", ""))
+        subtitle = str(s.get("subtitle", ""))
+        bullets = [str(b) for b in (s.get("bullets") or [])]
+        highlight = [str(h) for h in (s.get("highlight") or [])]
+        notes = str(s.get("speaker_notes") or s.get("notes") or "")
+        dark = kind in DARK_KINDS
 
-        s = prs.slides.add_slide(blank)
-        dark = stype in dark_types
-        s.background.fill.solid()
-        s.background.fill.fore_color.rgb = _rgb(t["dark_bg"] if dark else t["bg"])
+        layout_idx = layout_map.get(kind, layout_map["content"])
+        slide = prs.slides.add_slide(master.slide_layouts[layout_idx])
 
+        # Title / subtitle placeholders (positions come from the template).
         if dark:
-            # ── dark cover / closing ──
-            _add_rect(s, int(sw / 2 - 1.2 * 914400), int(3.30 * 914400), int(2.4 * 914400), int(0.04 * 914400), _rgb(t["accent"]))
-            _add_text(s, 0.5, 1.4, 12.33, 1.6, title, 54, True, _rgb(t["accent"]),
-                      t["font"], align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+            _fill_ph(slide, 0, title, 40, True, _rgb(t["accent"]), fonts["latin"])
             if subtitle:
-                _add_text(s, 0.5, 3.6, 12.33, 1.2, subtitle, 22, False, _rgb(t["dark_text"]),
-                          t["font"], align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
-            kicker = deck_title if stype == "closing" else t["label"].upper()
-            _add_text(s, 0.5, 5.1, 12.33, 0.6, kicker, 14, False, _rgb(t["muted"]),
-                      t["font"], align=PP_ALIGN.CENTER)
+                _fill_ph(slide, 1, subtitle, 18, False, _rgb(t["dark_text"]), fonts["latin"])
         else:
-            # ── light content / section / data / conclusion ──
-            _accent_top_bar(s, sw, t)
-            _add_text(s, 0.9, 0.45, 11.5, 1.0, title, 30, True, _rgb(t["primary"]), t["font"])
-            if subtitle:
-                _add_text(s, 0.9, 1.25, 11.5, 0.5, subtitle, 16, False, _rgb(t["muted"]), t["font"])
+            _fill_ph(slide, 0, title, 30, True, _rgb(t["primary"]), fonts["latin"])
+            if subtitle and kind in {"section", "agenda"}:
+                _fill_ph(slide, 1, subtitle, 16, False, _rgb(t["muted"]), fonts["latin"])
 
-            if stype == "section":
-                _add_text(s, 0.9, 2.9, 11.5, 1.2, title, 40, True, _rgb(t["primary"]), t["font"],
-                          align=PP_ALIGN.CENTER)
-                if subtitle:
-                    _add_text(s, 0.9, 4.3, 11.5, 0.7, subtitle, 18, False, _rgb(t["muted"]), t["font"],
-                              align=PP_ALIGN.CENTER)
-            elif bullets:
-                # responsive bullet cards: 3/4/5 per row; highlight key numbers
-                n = len(bullets)
-                col_w = {5: 2.14, 4: 2.78, 3: 3.7, 2: 5.75, 1: 11.6}.get(n, 3.7)
-                gap = 0.22 if n >= 4 else 0.3
-                x0 = (13.333 - (n * col_w + (n - 1) * gap)) / 2
-                y_card, card_h = 2.15, 2.3
-                if n <= 2:
-                    y_card, card_h = 2.3, 3.4
-                for idx, b in enumerate(bullets):
-                    cx = x0 + idx * (col_w + gap)
-                    big = any(h in b for h in highlight) or bool(re.fullmatch(
-                        r"[\d.,%+\-\u2192\u2190\s/'\"]{2,}", b))
-                    card = _add_rect(s, cx, y_card, col_w, card_h, _rgb(t["card"]),
-                                     line=_rgb(t["card_line"]), rounded=True, radius=0.08)
-                    _add_text(s, cx + 0.35, y_card + 0.28, col_w - 0.7, card_h - 0.5, b,
-                              26 if big else 18, True, _rgb(t["accent"] if big else t["primary"]),
-                              t["font"], anchor=MSO_ANCHOR.MIDDLE)
-                    _add_rect(s, cx + 0.35, y_card + 0.22, 0.13, 0.13, _rgb(t["accent"]),
-                              rounded=True, radius=0.5)
+        # Body: placeholder when the content fits, card grid otherwise.
+        if bullets and kind in {"content", "conclusion", "data", "timeline"}:
+            use_grid = kind == "data" or len(bullets) > cons["bullets_max"]
+            if use_grid:
+                _remove_ph(slide, 1)
+                _draw_card_grid(slide, bullets[: cons["max_cards"]], highlight, t, data=(kind == "data"))
+            else:
+                _fill_body_ph(slide, bullets, highlight, t)
 
-        _footer(s, i, total, deck_title, t)
+        _footer(slide, i, total, deck_title, t)
         if notes:
-            s.notes_slide.notes_text_frame.text = notes
+            slide.notes_slide.notes_text_frame.text = notes
 
+    output_dir.mkdir(parents=True, exist_ok=True)
     filename = filename or f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{_slugify(deck_title)}.pptx"
     path = output_dir / filename
     prs.save(str(path))
     return path
 
 
-def _resolve_pptx_output(output_dir: str) -> Path:
+def _agent_workspace_root(path: str) -> Optional[str]:
+    """If ``path`` lives under an agent workspace, return that workspace root.
+
+    Matches both layouts:
+      - ``<base>/agents/<agent_id>/...``
+      - ``<base>/projects/<x>/agents/<agent_id>/...``
+    Returns None when the path is not inside an agent workspace.
+    """
+    parts = Path(path).parts
+    for i, part in enumerate(parts):
+        if part == "agents" and i + 1 < len(parts):
+            return str(Path(*parts[: i + 2]))
+    return None
+
+
+def _resolve_pptx_output(output_dir: str, workspace_root: Optional[str] = None) -> Path:
     """Resolve the output directory and enforce the tool sandbox.
 
-    Only the default tool-owned directory (or a subdirectory of it) is
-    allowed — arbitrary server paths are rejected.
+    Allowed roots:
+      - the default tool-owned presentation directory (PRESENTATION_OUTPUT_DIR),
+      - any agent workspace under the workspace base (e.g. an agent's
+        ``generated/`` folder) — so decks land where the Files panel shows them.
+
+    Relative names (e.g. ``generated`` or ``decks``) are treated as
+    subdirectories: when ``workspace_root`` is known (the agent workspace the
+    source document came from), they resolve against it — so a bare
+    ``output_dir="generated"`` lands in that agent's ``generated/``. Without a
+    workspace root they resolve under the default presentation directory.
+    Arbitrary absolute server paths are rejected.
     """
     if output_dir and output_dir.strip():
-        target = Path(output_dir.strip()).expanduser().resolve()
+        raw = output_dir.strip()
+        p = Path(raw)
+        if not p.is_absolute():
+            if workspace_root:
+                p = Path(workspace_root) / p
+            else:
+                p = _OUTPUT_DIR / p
+        target = p.expanduser().resolve()
+        allowed = [_OUTPUT_DIR.resolve()]
         try:
-            target.relative_to(_OUTPUT_DIR.resolve())
-        except ValueError:
-            raise ValueError(
-                f"output_dir must be inside the presentation output directory "
-                f"({_OUTPUT_DIR})"
-            )
-        return target
+            from services.workspace_manager import get_workspace_manager
+            allowed.append(Path(get_workspace_manager().base_dir).resolve())
+        except Exception:  # noqa: BLE001 — fall back to the default dir only
+            pass
+        for root in allowed:
+            try:
+                target.relative_to(root)
+                return target
+            except ValueError:
+                continue
+        raise ValueError(
+            f"output_dir must be inside the presentation output directory "
+            f"({_OUTPUT_DIR}) or an agent workspace (generated/)"
+        )
     return _OUTPUT_DIR
 
 
@@ -325,7 +374,7 @@ def gen_pptx(title: str, slides_json: str, output_dir: str = "", theme: str = "b
         output_dir: Optional directory (inside the presentation output folder)
             to write the file. Created if it does not exist. Defaults to
             PRESENTATION_OUTPUT_DIR.
-        theme: Named color palette — one of business (navy/gold),
+        theme: Named template palette — one of business (navy/gold),
             fashion (black/gold serif), tech (slate/cyan), health (teal),
             education (indigo/amber), minimal (monochrome). Default business.
 
@@ -334,13 +383,13 @@ def gen_pptx(title: str, slides_json: str, output_dir: str = "", theme: str = "b
     """
     try:
         data = _parse_slides(slides_json)
-        theme_key = _theme(theme)["label"]  # validate theme early
+        spec = get_template(theme)  # validate template early
+        data, _warnings = normalize_outline(data, spec, clamp_pages=False)
         target = _resolve_pptx_output(output_dir)
-        target.mkdir(parents=True, exist_ok=True)
         base_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{_slugify(data.get('title', title))}.pptx"
         filename = _unique_pptx_path(target, base_name)
-        path = _render_pptx(data, target, theme, filename=filename.name)
-        return f"Created {path} with {len(data['slides'])} slides (theme={theme})"
+        path = _render_pptx(data, spec, target, filename=filename.name)
+        return f"Created {path} with {len(data['slides'])} slides (template={theme})"
     except ValueError as e:
         return f"Error: {e}"
     except Exception as e:
@@ -357,7 +406,7 @@ def _html_escape(text) -> str:
 
 
 def _theme_css(t: dict) -> str:
-    """Inline CSS for a theme (colors pulled from THEMES)."""
+    """Inline CSS for a template palette (colors + fonts)."""
     return f"""
 :root {{
   --primary: {t['primary']}; --accent: {t['accent']}; --accent-l: {t['accent_light']};
@@ -401,17 +450,16 @@ h2 {{ font-size: 30px; margin-bottom: 8px; }}
 """
 
 
-def _render_html_deck(data: dict, theme_name: str) -> str:
-    """Render a single-file HTML deck (JS paging) from the slides JSON."""
-    t = _theme(theme_name)
+def _render_html_deck(data: dict, template_spec: dict) -> str:
+    """Render a single-file HTML deck (JS paging) from the outline + template."""
+    t = template_spec["palette"]
     deck_title = data.get("title", "Presentation")
     slides = data["slides"]
     total = len(slides)
-    dark_types = {"title", "closing"}
     parts = []
     for i, s in enumerate(slides, start=1):
         stype = str(s.get("type", "content")).lower()
-        dark = stype in dark_types
+        dark = stype in DARK_KINDS
         title = _html_escape(s.get("title", ""))
         subtitle = _html_escape(s.get("subtitle", ""))
         bullets = [str(b) for b in (s.get("bullets") or [])]
@@ -469,11 +517,7 @@ show(0);
 
 
 def _find_unicode_font(pdf) -> str:
-    """Register a Unicode TTF on the fpdf instance; return the family name.
-
-    Mirrors tools/native_impl._add_pdf_font: try common CJK-capable fonts,
-    fall back to a built-in Latin font if none can be registered.
-    """
+    """Register a Unicode TTF on the fpdf instance; return the family name."""
     candidates = [
         "/System/Library/Fonts/PingFang.ttc",
         "/System/Library/Fonts/STHeiti Light.ttc",
@@ -499,11 +543,10 @@ def _render_pdf_deck(data: dict, output_dir: Path, theme_name: str, filename: st
     """Render a landscape PDF deck (one page per slide) using fpdf."""
     from fpdf import FPDF
 
-    t = _theme(theme_name)
+    t = get_palette(theme_name)
     deck_title = data.get("title", "Presentation")
     slides = data["slides"]
     total = len(slides)
-    dark_types = {"title", "closing"}
 
     pdf = FPDF(orientation="L", unit="pt", format="A4")  # 842 x 595 pt
     pdf.set_auto_page_break(False)
@@ -518,7 +561,7 @@ def _render_pdf_deck(data: dict, output_dir: Path, theme_name: str, filename: st
 
     for i, s in enumerate(slides, start=1):
         stype = str(s.get("type", "content")).lower()
-        dark = stype in dark_types
+        dark = stype in DARK_KINDS
         bullets = [str(b) for b in (s.get("bullets") or [])]
         highlight = [str(h) for h in (s.get("highlight") or [])]
         pdf.add_page()
@@ -598,7 +641,7 @@ def gen_html_deck(title: str, slides_json: str, output_dir: str = "", theme: str
             gen_pptx: types title|section|content|data|conclusion|closing|image,
             optional bullets / highlight / speaker_notes).
         output_dir: Optional directory (inside the presentation output folder).
-        theme: Named color palette (business|fashion|tech|health|education|minimal).
+        theme: Named template palette (business|fashion|tech|health|education|minimal).
         filename: Optional explicit filename (must end .html).
 
     Returns:
@@ -606,14 +649,15 @@ def gen_html_deck(title: str, slides_json: str, output_dir: str = "", theme: str
     """
     try:
         data = _parse_slides(slides_json)
-        _theme(theme)
+        spec = get_template(theme)
+        data, _warnings = normalize_outline(data, spec, clamp_pages=False)
         target = _resolve_pptx_output(output_dir)
         target.mkdir(parents=True, exist_ok=True)
         name = filename if filename and filename.endswith(".html") else \
             f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{_slugify(data.get('title', title))}.html"
         path = _unique_pptx_path(target, name)
-        path.write_text(_render_html_deck(data, theme), encoding="utf-8")
-        return f"Created {path} with {len(data['slides'])} slides (theme={theme})"
+        path.write_text(_render_html_deck(data, spec), encoding="utf-8")
+        return f"Created {path} with {len(data['slides'])} slides (template={theme})"
     except ValueError as e:
         return f"Error: {e}"
     except Exception as e:
@@ -630,7 +674,7 @@ def gen_pdf_deck(title: str, slides_json: str, output_dir: str = "", theme: str 
         slides_json: JSON object with "title" and "slides" (same schema as
             gen_pptx). CJK text is supported via a Unicode font.
         output_dir: Optional directory (inside the presentation output folder).
-        theme: Named color palette (business|fashion|tech|health|education|minimal).
+        theme: Named template palette (business|fashion|tech|health|education|minimal).
         filename: Optional explicit filename (must end .pdf).
 
     Returns:
@@ -638,13 +682,359 @@ def gen_pdf_deck(title: str, slides_json: str, output_dir: str = "", theme: str 
     """
     try:
         data = _parse_slides(slides_json)
-        _theme(theme)
+        get_template(theme)
+        data, _warnings = normalize_outline(data, get_template(theme), clamp_pages=False)
         target = _resolve_pptx_output(output_dir)
         name = filename if filename and filename.endswith(".pdf") else \
             f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{_slugify(data.get('title', title))}.pdf"
         path = _render_pdf_deck(data, target, theme, filename=_unique_pptx_path(target, name).name)
-        return f"Created {path} with {len(data['slides'])} slides (theme={theme})"
+        return f"Created {path} with {len(data['slides'])} slides (template={theme})"
     except ValueError as e:
         return f"Error: {e}"
     except Exception as e:
         return f"Error generating PDF deck: {e}"
+
+
+# =============================================================================
+# Document → outline → deck tools (the user's 4-step flow)
+# =============================================================================
+
+_DRAFT_SYSTEM_PROMPT = """You are a senior presentation designer. Turn the source document into a deck outline.
+
+Output EXACTLY one JSON object with this schema (no markdown fences, no commentary):
+{{
+  "title": "<deck title>",
+  "slides": [
+    {{"type": "title", "title": "<deck title>", "subtitle": "<one-line summary>"}},
+    {{"type": "agenda", "title": "Agenda", "bullets": ["<section 1>", ...]}},
+    {{"type": "content", "title": "<one core idea>", "bullets": ["<3-5 bullets>"], "highlight": ["<key number substring>"], "speaker_notes": "<1-2 sentences>"}},
+    {{"type": "data", "title": "<numbers topic>", "bullets": ["<≤6 KPI cards, e.g. '42% growth'>"]}},
+    {{"type": "section", "title": "<new part>", "subtitle": "<optional>"}},
+    {{"type": "timeline", "title": "<sequence>", "bullets": ["<≤6 ordered steps>"]}},
+    {{"type": "quote", "title": "<punchy statement>"}},
+    {{"type": "conclusion", "title": "Conclusion", "bullets": ["<2-4 takeaways>"]}},
+    {{"type": "closing", "title": "Thank You", "subtitle": "<optional>"}}
+  ]
+}}
+
+Slide types: title (cover), agenda (structure), section (part divider), content (one idea, 3–5 bullets),
+data (KPIs/numbers, ≤6 cards), timeline (ordered steps), quote (single bold statement),
+conclusion (takeaways), closing (last slide).
+
+Rules:
+- Produce {pages} slides total (cover + agenda + content + data + conclusion + closing included).
+- Each bullet ≤ {bullet_max_chars} characters and ≤ 12 words.
+- NEVER invent facts: every figure must come from the source document. Keep numbers and percentages.
+- Content slides: one core idea each; data slides for anything number-heavy.
+- Return ONLY the JSON object."""
+
+_REFINE_SYSTEM_PROMPT = """You are a meticulous slide editor. Here is a draft deck outline JSON.
+Refine it so the final deck is excellent:
+- Punchier, concrete titles; remove fluff.
+- Tight bullets (≤12 words each); keep every number accurate to the source.
+- Keep 12–15 slides; cover first (type "title"), closing last (type "closing").
+- Do not add facts that are not in the source.
+Return ONLY the corrected JSON object with the exact same schema (no markdown fences)."""
+
+
+def _resolve_doc_path(path: str) -> str:
+    """Resolve a possibly-relative document path against known locations.
+
+    Agents naturally pass paths relative to their workspace (e.g.
+    ``upload/report.pdf`` — the sandbox tools resolve those against the agent
+    workspace), while this tool executes in the backend process whose cwd is
+    ``backend/``. Resolution order:
+      1. absolute path that exists,
+      2. path relative to the backend cwd,
+      3. basename match inside any agent workspace ``upload/`` dir
+         (``outputs/agents/*/upload`` and ``outputs/projects/*/agents/*/upload``).
+    Returns the original path when nothing matches so the caller surfaces a
+    clear error.
+    """
+    p = Path(path)
+    if p.is_absolute() and p.exists():
+        return str(p)
+    if p.exists():
+        return str(p.resolve())
+    basename = p.name
+    try:
+        from services.workspace_manager import get_workspace_manager
+        base = Path(get_workspace_manager().base_dir)
+    except Exception:  # noqa: BLE001 — fall back to the conventional outputs root
+        base = Path(__file__).resolve().parent.parent / "outputs"
+    for pattern in ("agents/*/upload", "projects/*/agents/*/upload"):
+        for upload_dir in base.glob(pattern):
+            cand = upload_dir / basename
+            if cand.exists():
+                return str(cand)
+    return str(p)
+
+
+def _read_document_text(path: str) -> str:
+    """Extract text from a .pdf / .docx / .md / .txt source document."""
+    p = Path(path)
+    ext = p.suffix.lower()
+    if ext == ".pdf":
+        import fitz  # PyMuPDF
+        doc = fitz.open(str(p))
+        try:
+            return "\n\n".join(page.get_text("text") for page in doc)[:MAX_DOC_CHARS]
+        finally:
+            doc.close()
+    if ext == ".docx":
+        import docx as _docx
+        d = _docx.Document(str(p))
+        return "\n\n".join(par.text for par in d.paragraphs if par.text.strip())[:MAX_DOC_CHARS]
+    if ext == ".pptx":
+        ppt = Presentation(str(p))
+        parts = []
+        for slide in ppt.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text.strip():
+                    parts.append(shape.text)
+        return "\n\n".join(parts)[:MAX_DOC_CHARS]
+    # md / txt / anything else → plain UTF-8 read
+    try:
+        return p.read_text(encoding="utf-8", errors="ignore")[:MAX_DOC_CHARS]
+    except Exception:
+        return p.read_text(encoding="latin-1", errors="ignore")[:MAX_DOC_CHARS]
+
+
+def _extract_json(text: Any) -> Optional[Dict[str, Any]]:
+    s = str(text or "")
+    start, end = s.find("{"), s.rfind("}")
+    if start == -1 or end == -1:
+        return None
+    try:
+        data = json.loads(s[start:end + 1])
+        return data if isinstance(data, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def _llm_outline(model, doc_text: str, title: str, template: Dict[str, Any],
+                 pages: int) -> Dict[str, Any]:
+    """Two LLM passes: draft (12–15 pages) then refine. Returns the JSON outline."""
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    cons = template["constraints"]
+    target = max(cons["pages_min"], min(pages or cons["pages_max"], cons["pages_max"]))
+    doc_snippet = doc_text[:MAX_LLM_INPUT_CHARS]
+    draft_sys = _DRAFT_SYSTEM_PROMPT.format(
+        pages=target,
+        bullet_max_chars=cons["bullet_max_chars"],
+    )
+    draft = model.invoke([
+        SystemMessage(content=draft_sys),
+        HumanMessage(content=f"Document title: {title}\n\n--- Document ---\n{doc_snippet}"),
+    ])
+    outline = _extract_json(draft.content)
+    if not outline:
+        raise ValueError("the outline LLM did not return valid JSON")
+
+    refined = model.invoke([
+        SystemMessage(content=_REFINE_SYSTEM_PROMPT),
+        HumanMessage(content=json.dumps(outline, ensure_ascii=False, indent=2)),
+    ])
+    refined_outline = _extract_json(refined.content)
+    return refined_outline or outline
+
+
+def _load_outline_model():
+    from langgraph.llm import build_chat_model
+    return build_chat_model(temperature=0)
+
+
+@tool
+def list_deck_templates() -> str:
+    """List the available deck templates (theme + layout sets) with a short
+    description of each, so the caller can pick one for doc_to_deck / gen_pptx."""
+    rows = _list_templates()
+    if not rows:
+        return "No deck templates available."
+    lines = ["## Deck templates", ""]
+    for r in rows:
+        has = "✓" if r["has_template_file"] else "✗ (template file missing)"
+        lines.append(f"- **{r['id']}** — {r['name']}  [{has}]")
+    return "\n".join(lines)
+
+
+@tool
+def doc_to_slides_outline(file_path: str, template: str = "business", pages: int = 0) -> str:
+    """Turn a document (.md / .txt / .pdf / .docx) into a validated slides outline.
+
+    Reads the document server-side, then runs two LLM passes (draft → refine)
+    producing a 12–15 slide outline JSON. The outline is normalized against the
+    selected template's constraints (page clamp, bullet caps, auto-highlight of
+    key numbers). Feed the returned JSON into gen_html_deck / gen_pptx, or use
+    doc_to_deck to render both formats in one call.
+
+    Args:
+        file_path: Absolute path of the source document.
+        template: Template id (business|fashion|tech|health|education|minimal).
+        pages: Target slide count (0 = template default, 12–15).
+
+    Returns:
+        The normalized outline as a JSON string.
+    """
+    try:
+        spec = get_template(template)
+        text = _read_document_text(_resolve_doc_path(file_path))
+        if not text or not text.strip():
+            return f"Error: could not extract text from {file_path}"
+        title = Path(file_path).stem
+        model = _load_outline_model()
+        outline = _llm_outline(model, text, title, spec, pages)
+        normalized, warnings = normalize_outline(outline, spec, clamp_pages=True)
+        payload = {"outline": normalized, "warnings": warnings, "template": spec["id"]}
+        return json.dumps(payload, ensure_ascii=False)
+    except Exception as e:  # noqa: BLE001 — surface to the agent
+        return f"Error generating outline: {e}"
+
+
+@tool
+def doc_to_deck(file_paths: str, template: str = "business", formats: str = "html,pptx",
+                output_dir: str = "", pages: int = 0) -> str:
+    """Convert one or more documents (.md / .txt / .pdf / .docx) into themed
+    HTML + PPTX decks in a single call (batch supported).
+
+    Pipeline: read each document → LLM outline (12–15 slides, draft → refine)
+    → normalize against the template → render HTML (single file, no CDN) and
+    PPTX (from the template's own layouts). With multiple documents, each doc
+    becomes a section of one combined deck.
+
+    Args:
+        file_paths: JSON array of absolute document paths, e.g.
+            '["/abs/doc1.md", "/abs/doc2.pdf"]' (a single path is fine too).
+        template: Template id (business|fashion|tech|health|education|minimal).
+        formats: Comma-separated outputs: html, pptx (pdf also supported).
+        output_dir: Output directory (inside the presentation output folder).
+        pages: Target slide count (0 = template default).
+
+    Returns:
+        Paths of the generated files.
+    """
+    try:
+        spec = get_template(template)
+        cons = spec["constraints"]
+        try:
+            paths = json.loads(file_paths) if isinstance(file_paths, str) else file_paths
+        except json.JSONDecodeError:
+            paths = [file_paths]
+        if isinstance(paths, str):
+            paths = [paths]
+        paths = [p for p in paths if str(p).strip()]
+        if not paths:
+            return "Error: no file_paths provided"
+
+        model = _load_outline_model()
+        # Resolve source docs (relative paths → agent workspace upload/), and
+        # remember which agent workspace they came from so a bare relative
+        # output_dir like "generated" lands in THAT agent's generated/ folder.
+        resolved_paths = [_resolve_doc_path(p) for p in paths]
+        workspace_root = None
+        for rp in resolved_paths:
+            wr = _agent_workspace_root(rp)
+            if wr:
+                workspace_root = wr
+                break
+
+        per_doc = []
+        single = len(paths) == 1
+        if single:
+            # Content pages this doc may contribute (cover + closing are added
+            # by the combined deck).
+            alloc = pages or cons["pages_max"] - 2
+        else:
+            # Allocate the page budget across docs BEFORE outlining so the
+            # combined deck fits the template's pages_max without truncation.
+            structural = 2 + len(paths) + 1  # cover + agenda + N section + closing
+            alloc = max(3, (cons["pages_max"] - structural) // len(paths))
+        # The LLM also builds its own cover/agenda/closing (stripped on
+        # combine), so ask for alloc + 3.
+        target_per_doc = alloc + 3
+
+        for p in resolved_paths:
+            text = _read_document_text(p)
+            if not text or not text.strip():
+                return f"Error: could not extract text from {p}"
+            title = Path(p).stem
+            outline = _llm_outline(model, text, title, spec, target_per_doc)
+            per_doc.append({"name": title, "outline": outline})
+
+        # Combine into one deck: cover → agenda(docs) → per-doc section + slides → closing.
+        combined: Dict[str, Any] = {
+            "title": per_doc[0]["name"] if single else "Combined Deck",
+            "slides": [
+                {"type": "title", "title": per_doc[0]["outline"].get("title", per_doc[0]["name"]) if single
+                 else "Combined Deck", "subtitle": "Generated from source documents"},
+            ],
+        }
+        if not single:
+            combined["slides"].append({
+                "type": "agenda", "title": "Agenda",
+                "bullets": [d["name"] for d in per_doc],
+            })
+        for i, d in enumerate(per_doc):
+            if not single:
+                combined["slides"].append({"type": "section", "title": d["name"]})
+            content = [
+                s for s in d["outline"].get("slides", [])
+                # Per-doc structural slides are replaced by the combined
+                # deck's own cover / agenda / closing.
+                if s.get("type") not in {"title", "agenda", "closing"}
+            ]
+            # Cap this doc's contribution so every doc survives the clamp.
+            combined["slides"].extend(content[:alloc])
+        combined, warnings = normalize_outline(combined, spec, clamp_pages=True)
+
+        target = _resolve_pptx_output(output_dir, workspace_root=workspace_root)
+        target.mkdir(parents=True, exist_ok=True)
+        base = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{_slugify(combined['title'])}"
+        created: List[str] = []
+        fmt_list = [f.strip().lower() for f in formats.split(",") if f.strip()]
+
+        if "html" in fmt_list:
+            html_path = _unique_pptx_path(target, f"{base}.html")
+            html_path.write_text(_render_html_deck(combined, spec), encoding="utf-8")
+            created.append(str(html_path))
+        if "pptx" in fmt_list:
+            pptx_path = _render_pptx(combined, spec, target, filename=f"{base}.pptx")
+            created.append(str(pptx_path))
+        if "pdf" in fmt_list:
+            pdf_path = _render_pdf_deck(combined, target, spec["id"], filename=f"{base}.pdf")
+            created.append(str(pdf_path))
+
+        if not created:
+            return f"Error: no recognized formats in {formats!r} (use html, pptx, pdf)"
+        note = f" ({len(warnings)} normalization warnings)" if warnings else ""
+        return "Created:\n" + "\n".join(f"- {p}" for p in created) + note
+    except Exception as e:  # noqa: BLE001 — surface to the agent
+        return f"Error generating deck: {e}"
+
+
+def main() -> None:
+    """Quick smoke test of the template renderers (no LLM)."""
+    from services.deck_templates import list_templates
+    print(list_templates())
+    outline = {
+        "title": "Smoke Test",
+        "slides": [
+            {"type": "title", "title": "Smoke Test", "subtitle": "Template pipeline"},
+            {"type": "agenda", "title": "Agenda", "bullets": ["Intro", "Numbers", "Close"]},
+            {"type": "content", "title": "Key Idea", "bullets": ["First point", "42% growth", "Third point"], "highlight": ["42%"]},
+            {"type": "data", "title": "KPIs", "bullets": ["42% growth", "€1.2M revenue", "3.4x ROI"]},
+            {"type": "closing", "title": "Thank You"},
+        ],
+    }
+    spec = get_template("business")
+    out = Path("/tmp/langconfig-tools/presentations")
+    pptx = _render_pptx(outline, spec, out)
+    html = out / "smoke.html"
+    html.write_text(_render_html_deck(outline, spec), encoding="utf-8")
+    print("pptx:", pptx)
+    print("html:", html)
+
+
+if __name__ == "__main__":
+    main()

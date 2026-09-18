@@ -244,6 +244,11 @@ class _AgentAssemblyMixin:
         if enable_rag:
             tools.extend(await ToolLoader.load_rag(vector_store, project_id))
 
+        # Bind per-agent tool default params (e.g. neo4j_agent_tool.database)
+        # so the agent knows its configured target at runtime.
+        from core.tools.tool_params import apply_tool_params
+        tools = apply_tool_params(tools, agent_config.get("tool_params"))
+
         # DIAGNOSTIC: Log final tool list (before constraint wrapping)
         tool_names = [t.name for t in tools]
         logger.info(f"🔧 TOOLS LOADED: {tool_names}")

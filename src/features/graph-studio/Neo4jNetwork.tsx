@@ -491,7 +491,9 @@ function Neo4jNetworkInner() {
         variant={BackgroundVariant.Dots}
         style={{ opacity: 0.35 }}
       />
-      <Controls showInteractive={false} />
+      {/* bottom-right so the legend overlay (rendered by GraphCanvas) in
+          bottom-left doesn't collide with the zoom controls. */}
+      <Controls showInteractive={false} position="bottom-right" />
     </ReactFlow>
   );
 }

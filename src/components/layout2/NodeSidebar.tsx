@@ -597,23 +597,61 @@ function ChatBubble({ msg }: ChatBubbleProps) {
               Thinking ({msg.thinking.length} chars)
             </button>
             {showThinking && (
-              <pre style={{
-                marginTop: 6,
-                padding: 8,
-                background: 'rgba(167,139,250,0.08)',
-                border: '1px solid rgba(167,139,250,0.2)',
-                borderRadius: 3,
-                color: '#c4b5fd',
-                fontFamily: '"SF Mono", "Fira Code", monospace',
-                fontSize: 11,
-                lineHeight: 1.5,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                maxHeight: 240,
-                overflow: 'auto',
-              }}>
-                {msg.thinking}
-              </pre>
+              <>
+                <pre style={{
+                  marginTop: 6,
+                  padding: 8,
+                  background: 'rgba(167,139,250,0.08)',
+                  border: '1px solid rgba(167,139,250,0.2)',
+                  borderRadius: 3,
+                  color: '#c4b5fd',
+                  fontFamily: '"SF Mono", "Fira Code", monospace',
+                  fontSize: 11,
+                  lineHeight: 1.5,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  maxHeight: 240,
+                  overflow: 'auto',
+                }}>
+                  {msg.thinking}
+                </pre>
+                {/* Tool-call steps — same shape as the main chat panel's
+                    thinking view (msg.toolCalls is collected by chatStore). */}
+                {msg.toolCalls && msg.toolCalls.length > 0 && (
+                  <div style={{
+                    marginTop: 6,
+                    padding: 8,
+                    background: 'rgba(59,130,246,0.06)',
+                    border: '1px solid rgba(59,130,246,0.2)',
+                    borderRadius: 3,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 3,
+                  }}>
+                    {msg.toolCalls.map((tc, i) => (
+                      <div key={i} style={{
+                        fontSize: 10,
+                        fontFamily: '"SF Mono", "Fira Code", monospace',
+                        color: tc.status === 'error' ? '#f87171'
+                             : tc.status === 'running' ? '#93c5fd' : '#86efac',
+                        wordBreak: 'break-word',
+                      }}>
+                        {tc.status === 'running' ? '🔧' : tc.status === 'error' ? '❌' : '✅'} {tc.name}
+                        {tc.args && Object.keys(tc.args).length > 0 && (
+                          <span style={{ color: '#94a3b8' }}>
+                            {' '}{JSON.stringify(tc.args).slice(0, 120)}
+                          </span>
+                        )}
+                        {tc.result && tc.status !== 'running' && (
+                          <div style={{ color: '#94a3b8', whiteSpace: 'pre-wrap' }}>
+                            {String(tc.result).slice(0, 200)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

@@ -10,7 +10,7 @@
  *   - Guardrails   token limits, eviction
  *   - JSON         raw config
  */
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLayoutTokens } from './tokens';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { Tab } from './useLayout';
@@ -24,6 +24,7 @@ import { SectionId as _SectionId, SECTIONS } from './editorConstants';
 import ChatTestToolbar from './editorChatToolbar';
 import JsonEditorSection from './editorJsonSection';
 import ToolsPicker, { toToolIdList } from './editorToolsPicker';
+import ToolInspectModal from './ToolInspectModal';
 import SkillsPicker from './editorSkillsPicker';
 import EditorSectionNav from './editorSectionNav';
 import { useProject } from '../../contexts/ProjectContext';
@@ -46,8 +47,16 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Tool card click -> inspect/edit panel (per-agent tool_params, e.g. database)
+  const [inspectTool, setInspectTool] = useState<{ id: string; name: string; description: string } | null>(null);
   // Editable JSON text for the JSON tab
   const [jsonEdit, setJsonEdit] = useState(() => JSON.stringify(agent, null, 2));
+
+  // Always-current mirror of jsonEdit — lets async handlers (e.g. the tool
+  // inspect modal's Save -> main save) read the latest JSON after a state
+  // flush instead of a stale render closure.
+  const jsonEditRef = useRef(jsonEdit);
+  useEffect(() => { jsonEditRef.current = jsonEdit; }, [jsonEdit]);
 
   // Live view of jsonEdit — the form fields read from here so edits reflect
   // immediately (and Save persists exactly what's shown).
@@ -377,7 +386,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
     try {
       let payload: any;
       try {
-        payload = JSON.parse(jsonEdit);
+        payload = JSON.parse(jsonEditRef.current);
       } catch {
         setSaveMsg({ ok: false, text: 'Invalid JSON — fix errors and try again' });
         setSaving(false);
@@ -788,7 +797,9 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   // ── Subagents section — editable: add / edit / remove subagent cards ──
   const [subagentDraft, setSubagentDraft] = useState<{
     name: string; description: string; model: string; system_prompt: string; tools: string;
-  }>({ name: '', description: '', model: '', system_prompt: '', tools: '' });
+    type: string; graph_id: string; database: string; workflow_id: string;
+  }>({ name: '', description: '', model: '', system_prompt: '', tools: '',
+       type: 'dictionary', graph_id: '', database: '', workflow_id: '' });
   const [subagentEditIdx, setSubagentEditIdx] = useState<number | null>(null);
 
   const readSubagents = useCallback((): any[] => {
@@ -801,7 +812,8 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   }, [jsonEdit]);
 
   const startAddSubagent = () => {
-    setSubagentDraft({ name: '', description: '', model: '', system_prompt: '', tools: '' });
+    setSubagentDraft({ name: '', description: '', model: '', system_prompt: '', tools: '',
+      type: 'dictionary', graph_id: '', database: '', workflow_id: '' });
     setSubagentEditIdx(null);
   };
 
@@ -814,6 +826,10 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       model: sa.model || '',
       system_prompt: sa.system_prompt || '',
       tools: Array.isArray(sa.tools) ? sa.tools.join(', ') : '',
+      type: sa.type || 'dictionary',
+      graph_id: sa.graph_id || '',
+      database: sa.database || '',
+      workflow_id: sa.workflow_id != null ? String(sa.workflow_id) : '',
     });
     setSubagentEditIdx(idx);
   };
@@ -823,11 +839,23 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       setSaveMsg({ ok: false, text: 'Subagent needs a name' });
       return;
     }
+    if (subagentDraft.type === 'langgraph' && !subagentDraft.graph_id.trim()) {
+      setSaveMsg({ ok: false, text: 'LangGraph subagent needs a graph_id (e.g. neo4j_agent)' });
+      return;
+    }
     const sa: any = {
       name: subagentDraft.name.trim(),
       description: subagentDraft.description.trim(),
       system_prompt: subagentDraft.system_prompt,
     };
+    if (subagentDraft.type !== 'dictionary') sa.type = subagentDraft.type;
+    if (subagentDraft.type === 'langgraph') {
+      sa.graph_id = subagentDraft.graph_id.trim();
+      if (subagentDraft.database.trim()) sa.database = subagentDraft.database.trim();
+    } else if (subagentDraft.type === 'compiled' && subagentDraft.workflow_id.trim()) {
+      const wid = Number(subagentDraft.workflow_id.trim());
+      if (Number.isInteger(wid) && wid > 0) sa.workflow_id = wid;
+    }
     if (subagentDraft.model.trim()) sa.model = subagentDraft.model.trim();
     if (subagentDraft.tools.trim()) {
       sa.tools = subagentDraft.tools.split(',').map(s => s.trim()).filter(Boolean);
@@ -886,6 +914,32 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
                     placeholder="Name (e.g. researcher)" style={inputStyle} />
                   <input value={subagentDraft.description} onChange={e => setSubagentDraft(d => ({ ...d, description: e.target.value }))}
                     placeholder="Description — what this subagent does" style={inputStyle} />
+                  <select
+                    value={subagentDraft.type}
+                    onChange={e => setSubagentDraft(d => ({ ...d, type: e.target.value }))}
+                    style={{
+                      width: '100%', height: 26, padding: '0 6px',
+                      background: t.bgContent, border: `1px solid ${t.border}`,
+                      borderRadius: 3, color: t.textPrimary, fontSize: 11,
+                      fontFamily: 'monospace', outline: 'none',
+                    }}
+                  >
+                    <option value="dictionary">Dictionary (model + tools)</option>
+                    <option value="compiled">Compiled (workflow)</option>
+                    <option value="langgraph">LangGraph (code-defined agent)</option>
+                  </select>
+                  {subagentDraft.type === 'langgraph' && (
+                    <>
+                      <input value={subagentDraft.graph_id} onChange={e => setSubagentDraft(d => ({ ...d, graph_id: e.target.value }))}
+                        placeholder="Graph agent id (neo4j_agent or sql_agent)" style={inputStyle} />
+                      <input value={subagentDraft.database} onChange={e => setSubagentDraft(d => ({ ...d, database: e.target.value }))}
+                        placeholder="Neo4j database (e.g. neo4j; empty = default)" style={inputStyle} />
+                    </>
+                  )}
+                  {subagentDraft.type === 'compiled' && (
+                    <input value={subagentDraft.workflow_id} onChange={e => setSubagentDraft(d => ({ ...d, workflow_id: e.target.value }))}
+                      placeholder="Workflow ID (number)" style={inputStyle} />
+                  )}
                   <input value={subagentDraft.model} onChange={e => setSubagentDraft(d => ({ ...d, model: e.target.value }))}
                     placeholder="Model override (optional, e.g. deepseek-chat)" style={inputStyle} />
                   <textarea value={subagentDraft.system_prompt} onChange={e => setSubagentDraft(d => ({ ...d, system_prompt: e.target.value }))}
@@ -919,6 +973,30 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
                     <div style={{ marginTop: 10, paddingLeft: 20 }}>
                       <div style={labelStyle}>Description</div>
                       <div style={{ ...valueStyle, marginBottom: 8 }}>{sa_obj.description || '—'}</div>
+                      {sa_obj.type && sa_obj.type !== 'dictionary' && (
+                        <>
+                          <div style={labelStyle}>Type</div>
+                          <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.type}</div>
+                        </>
+                      )}
+                      {sa_obj.graph_id && (
+                        <>
+                          <div style={labelStyle}>Graph Agent</div>
+                          <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.graph_id}</div>
+                        </>
+                      )}
+                      {sa_obj.database && (
+                        <>
+                          <div style={labelStyle}>Database</div>
+                          <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.database}</div>
+                        </>
+                      )}
+                      {sa_obj.workflow_id && (
+                        <>
+                          <div style={labelStyle}>Workflow ID</div>
+                          <div style={{ ...valueStyle, fontFamily: 'monospace', marginBottom: 8 }}>{sa_obj.workflow_id}</div>
+                        </>
+                      )}
                       {sa_obj.model && (
                         <>
                           <div style={labelStyle}>Model</div>
@@ -1083,6 +1161,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       toolsLoading={toolsLoading}
       groupedByCategory={groupedByCategory}
       availableCustomTools={availableCustomTools}
+      onInspect={setInspectTool}
       t={t}
     />,
     skills:     renderSkills,
@@ -1161,6 +1240,43 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           filename={codeModal.filename}
           code={codeModal.code}
           onClose={() => setCodeModal(null)}
+        />
+      )}
+
+      {inspectTool && (
+        <ToolInspectModal
+          tool={inspectTool}
+          toolParams={liveConfig.tool_params}
+          onClose={() => setInspectTool(null)}
+          onSave={(toolId, params) => {
+            // Build the updated payload synchronously from the CURRENT jsonEdit
+            // and write BOTH state and ref — handleSave below must not read a
+            // stale ref (the useEffect that syncs the ref runs after commit,
+            // racing the setTimeout below).
+            let updated: any = null;
+            try {
+              updated = JSON.parse(jsonEdit);
+              if (!updated.config) updated.config = {};
+              if (!updated.config.tool_params) updated.config.tool_params = {};
+              updated.config.tool_params[toolId] = params;
+            } catch { /* invalid JSON — leave updated null */ }
+            if (updated) {
+              const json = JSON.stringify(updated, null, 2);
+              setJsonEdit(json);
+              jsonEditRef.current = json;
+              if (localAgentId) {
+                setTimeout(() => { handleSave(); }, 0);
+              } else {
+                setSaveMsg({ ok: true, text: `Tool params saved for ${toolId} (draft — click Save to create the agent)` });
+                setTimeout(() => setSaveMsg(null), 3000);
+              }
+            } else {
+              setSaveMsg({ ok: false, text: 'Invalid JSON — tool params not saved' });
+              setTimeout(() => setSaveMsg(null), 3000);
+            }
+            setInspectTool(null);
+          }}
+          t={t}
         />
       )}
     </div>

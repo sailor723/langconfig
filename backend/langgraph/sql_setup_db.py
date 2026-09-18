@@ -15,7 +15,7 @@ If you ever want to point this at a *different* Postgres database, set the
 same env vars the rest of the project uses (or override SQL_DATABASE_URL).
 """
 import os
-from typing import Any
+from typing import Annotated, Any, Optional
 
 import psycopg2
 import psycopg2.extras
@@ -27,6 +27,7 @@ from langgraph.connection import (
     POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD,
 )
 from langchain.tools import tool
+from langgraph.prebuilt import InjectedState
 
 # Best-effort: pick up the repo-root .env so SQL_* vars flow through.
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"))
@@ -47,13 +48,40 @@ def get_target_database() -> str:
     return _DB_OVERRIDE or os.getenv("SQL_POSTGRES_DB", os.getenv("POSTGRES_DB", "chinook"))
 
 
-def _connection_params() -> dict[str, Any]:
-    """Resolve connection params from SQL_* env vars, falling back to project defaults.
+def _resolve_database(database: Optional[str]) -> str:
+    """Per-call database resolution: explicit param -> studio override -> env."""
+    if database:
+        return database
+    return get_target_database()
 
-    The fallbacks reuse the existing Postgres server the LangConfig app already
-    points at (see DATABASE_URL in .env), so a fresh checkout works without
-    additional config — the chinook database is expected to exist.
+
+def _connection_params(connection: Optional[dict] = None) -> dict[str, Any]:
+    """Resolve connection params: explicit dict wins, else SQL_* env, else
+    project defaults (POSTGRES_* via connection.py — no hardcoded literals).
+
+    ``connection`` keys: dsn (full URL) OR host / port / dbname / user /
+    password. ``dbname`` is filled from ``_resolve_database(None)`` when the
+    explicit dict omits it, so a per-call database reaches the connection.
     """
+    if connection:
+        params: dict[str, Any] = {}
+        if connection.get("dsn"):
+            params["dsn"] = connection["dsn"]
+        else:
+            if connection.get("host") is not None:
+                params["host"] = connection["host"]
+            if connection.get("port") is not None:
+                params["port"] = int(connection["port"])
+            if connection.get("dbname"):
+                params["dbname"] = connection["dbname"]
+            if connection.get("user") is not None:
+                params["user"] = connection["user"]
+            if connection.get("password") is not None:
+                params["password"] = connection["password"]
+        if "dsn" in params:
+            return params
+        return {**params, "dbname": params.get("dbname") or _resolve_database(None)}
+
     explicit = os.getenv("SQL_DATABASE_URL")
     if explicit:
         return {"dsn": explicit}
@@ -63,15 +91,17 @@ def _connection_params() -> dict[str, Any]:
     return {
         "host": os.getenv("SQL_POSTGRES_HOST", os.getenv("POSTGRES_HOST", POSTGRES_HOST)),
         "port": int(os.getenv("SQL_POSTGRES_PORT", os.getenv("POSTGRES_PORT", str(POSTGRES_PORT)))),
-        "dbname": get_target_database(),
+        "dbname": _resolve_database(None),
         "user": os.getenv("SQL_POSTGRES_USER", os.getenv("POSTGRES_USER", POSTGRES_USER)),
         "password": os.getenv("SQL_POSTGRES_PASSWORD", os.getenv("POSTGRES_PASSWORD", POSTGRES_PASSWORD)),
     }
 
 
-def _connect():
-    """Open a read-only psycopg2 connection."""
-    params = _connection_params()
+def _connect(database: Optional[str] = None, connection: Optional[dict] = None):
+    """Open a read-only psycopg2 connection to the resolved database."""
+    params = _connection_params(connection)
+    if database and "dsn" not in params:
+        params["dbname"] = database
     conn = psycopg2.connect(**params)
     # Read-only transaction: every SELECT succeeds, every DML fails.
     conn.set_session(readonly=True, autocommit=False)
@@ -83,14 +113,19 @@ def _quote_ident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
-def ensure_chinook_db() -> dict[str, Any]:
-    """Verify the Postgres chinook database is reachable.
+def ensure_chinook_db(
+    database: Optional[str] = None,
+    connection: Optional[dict] = None,
+) -> dict[str, Any]:
+    """Verify the Postgres database is reachable.
 
     Returns the resolved connection params so callers can show the user where
     the workflow is reading from. Raises if the DB or any table is missing —
     mirrors the SQLite version's "download if missing" affordance.
     """
-    params = _connection_params()
+    params = _connection_params(connection)
+    if database and "dsn" not in params:
+        params["dbname"] = database
     dsn = params.pop("dsn", None)
     conn = psycopg2.connect(**({"dsn": dsn} if dsn else params))
     try:
@@ -107,9 +142,15 @@ def ensure_chinook_db() -> dict[str, Any]:
 
 
 @tool
-def sql_db_list_tables() -> str:
+def sql_db_list_tables(
+    database: Annotated[Optional[str], InjectedState("sql_database")] = None,
+    connection: Annotated[Optional[dict], InjectedState("sql_connection")] = None,
+) -> str:
     """Input is an empty string, output is a comma-separated list of tables in the database."""
-    conn = _connect()
+    try:
+        conn = _connect(database, connection)
+    except Exception as exc:  # noqa: BLE001 — surface connection errors to the model
+        return f"Error: {exc}"
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -124,11 +165,18 @@ def sql_db_list_tables() -> str:
 
 
 @tool
-def sql_db_schema(table_names: str) -> str:
+def sql_db_schema(
+    table_names: str,
+    database: Annotated[Optional[str], InjectedState("sql_database")] = None,
+    connection: Annotated[Optional[dict], InjectedState("sql_connection")] = None,
+) -> str:
     """Input to this tool is a comma-separated list of tables, output is the schema and sample rows for those tables.
     Be sure that the tables actually exist by calling sql_db_list_tables first!
     Example Input: table1, table2, table3"""
-    conn = _connect()
+    try:
+        conn = _connect(database, connection)
+    except Exception as exc:  # noqa: BLE001 — surface connection errors to the model
+        return f"Error: {exc}"
     try:
         with conn.cursor() as cur:
             # Discover all tables so we can validate names + check what exists.
@@ -191,12 +239,19 @@ def sql_db_schema(table_names: str) -> str:
 
 
 @tool
-def sql_db_query(query: str) -> str:
+def sql_db_query(
+    query: str,
+    database: Annotated[Optional[str], InjectedState("sql_database")] = None,
+    connection: Annotated[Optional[dict], InjectedState("sql_connection")] = None,
+) -> str:
     """Input to this tool is a detailed and correct SQL query, output is a result from the database.
     If the query is not correct, an error message will be returned.
     If an error is returned, rewrite the query, check the query, and try again.
     If you encounter an issue with Unknown column 'xxxx' in 'field list', use sql_db_schema to query the correct table fields."""
-    conn = _connect()
+    try:
+        conn = _connect(database, connection)
+    except Exception as exc:  # noqa: BLE001 — surface connection errors to the model
+        return f"Error: {exc}"
     try:
         with conn.cursor() as cur:
             cur.execute(query)

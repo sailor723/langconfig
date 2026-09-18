@@ -25,10 +25,11 @@ from __future__ import annotations
 import json
 import os
 import re
-from typing import Any, List, Optional
+from typing import Annotated, Any, List, Optional
 
 from dotenv import load_dotenv
 from langchain.tools import tool
+from langgraph.prebuilt import InjectedState
 
 # Best-effort: pick up the repo-root .env so NEO4J_* vars flow through.
 load_dotenv(
@@ -41,32 +42,61 @@ load_dotenv(
 # ---------------------------------------------------------------------------
 # Connection management
 # ---------------------------------------------------------------------------
-# Module-level driver cache. The Neo4j driver is thread-safe and pool-based,
-# so one driver per process is enough (matches the SQL setup's per-call
-# psycopg2 connection style for consistency).
-_DRIVER: Any = None
+# ---------------------------------------------------------------------------
+# Connection management
+# ---------------------------------------------------------------------------
+# Driver cache keyed by (uri, user, password, encrypted). Neo4j drivers are
+# thread-safe and pool-based, so one driver per distinct connection is enough
+# — the env-configured default gets one entry, and per-call connection
+# overrides (neo4j_connection) get their own. Mirrors the SQL setup's
+# per-call psycopg2 style for consistency, but avoids re-opening the same
+# server repeatedly.
+_DRIVERS: dict[tuple, Any] = {}
+
+
+def _connection_params(
+    connection: Optional[dict] = None,
+) -> tuple[str, str, str, bool]:
+    """Resolve (uri, user, password, encrypted) for a driver.
+
+    An explicit ``connection`` dict (keys: uri / user / password / encrypted)
+    wins; otherwise the env-driven defaults from the centralized connection
+    module apply (read from the project-root .env — no literals here).
+    """
+    from langgraph.connection import (
+        NEO4J_URI,
+        NEO4J_USER,
+        NEO4J_PASSWORD,
+        NEO4J_ENCRYPTED,
+    )
+    c = connection or {}
+    return (
+        c.get("uri") or NEO4J_URI,
+        c.get("user") or NEO4J_USER,
+        c.get("password") or NEO4J_PASSWORD,
+        bool(c.get("encrypted", NEO4J_ENCRYPTED)),
+    )
+
+
+def _driver_for(
+    connection: Optional[dict] = None,
+) -> Any:
+    """Lazy driver for a connection; cached per distinct connection params."""
+    key = _connection_params(connection)
+    if key not in _DRIVERS:
+        from neo4j import GraphDatabase
+        uri, user, password, encrypted = key
+        _DRIVERS[key] = GraphDatabase.driver(
+            uri,
+            auth=(user, password),
+            encrypted=encrypted,
+        )
+    return _DRIVERS[key]
 
 
 def _driver() -> Any:
-    """Lazy singleton driver; reads connection config from the
-    centralized connection module (env-driven, no hardcoded fallbacks)."""
-    global _DRIVER
-    if _DRIVER is None:
-        from neo4j import GraphDatabase
-        # All connection params come from backend/langgraph/connection.py,
-        # which reads them from the project-root .env. No literals here.
-        from langgraph.connection import (
-            NEO4J_URI,
-            NEO4J_USER,
-            NEO4J_PASSWORD,
-            NEO4J_ENCRYPTED,
-        )
-        _DRIVER = GraphDatabase.driver(
-            NEO4J_URI,
-            auth=(NEO4J_USER, NEO4J_PASSWORD),
-            encrypted=NEO4J_ENCRYPTED,
-        )
-    return _DRIVER
+    """Lazy driver for the env-configured default connection."""
+    return _driver_for(None)
 
 
 # Runtime override set by the studio UI (see graph_studio/databases/select).
@@ -85,6 +115,19 @@ def get_target_database() -> str:
     """Return the database the Neo4j tools are currently pointed at."""
     from langgraph.connection import NEO4J_DATABASE  # env-driven default
     return _DB_OVERRIDE or os.getenv("NEO4J_DATABASE") or NEO4J_DATABASE
+
+
+def _resolve_database(database: Optional[str]) -> str:
+    """Per-call database resolution: explicit param -> studio override -> env.
+
+    ``database`` is the per-invocation parameter (set by the agent via the
+    injected graph state, or by a direct tool call). When omitted, fall back
+    to the process-global ``_DB_OVERRIDE`` (set by the studio's
+    /databases/select) and finally the env ``NEO4J_DATABASE``.
+    """
+    if database:
+        return database
+    return get_target_database()
 
 
 # ---------------------------------------------------------------------------
@@ -198,27 +241,32 @@ def _list_neo4j_databases() -> list[dict[str, str]]:
         return []
 
 
-def ensure_neo4j_db() -> dict[str, Any]:
+def ensure_neo4j_db(
+    database: Optional[str] = None,
+    connection: Optional[dict] = None,
+) -> dict[str, Any]:
     """Verify the Neo4j server is reachable. Returns connection metadata.
 
-    Raises if no labels exist (mirrors sql_setup_db.ensure_chinook_db's
-    "DB must be populated" check).
+    ``database`` / ``connection`` override the target database / connection
+    per call (fall back to studio override + env). Raises if no labels exist
+    (mirrors sql_setup_db.ensure_chinook_db's "DB must be populated" check).
     """
-    drv = _driver()
-    with drv.session(database=get_target_database()) as s:
+    db = _resolve_database(database)
+    drv = _driver_for(connection)
+    with drv.session(database=db) as s:
         labels = s.run(
             "MATCH (n) RETURN labels(n)[0] AS label, count(*) AS n "
             "ORDER BY n DESC LIMIT 1"
         ).data()
         if not labels:
             raise RuntimeError(
-                f"Neo4j database '{get_target_database()}' has no nodes — "
+                f"Neo4j database '{db}' has no nodes — "
                 "load some data before invoking the agent."
             )
-    from langgraph.connection import NEO4J_URI  # centralized
+    uri, _, _, _ = _connection_params(connection)
     return {
-        "uri": NEO4J_URI,
-        "database": get_target_database(),
+        "uri": uri,
+        "database": db,
         "labels": [r["label"] for r in labels],
     }
 
@@ -229,15 +277,19 @@ def ensure_neo4j_db() -> dict[str, Any]:
 # the existing neo4j_* document-index tools in backend/tools/native_impl.py.
 # ---------------------------------------------------------------------------
 @tool
-def neo4j_graph_schema() -> str:
+def neo4j_graph_schema(
+    database: Annotated[Optional[str], InjectedState("neo4j_database")] = None,
+    connection: Annotated[Optional[dict], InjectedState("neo4j_connection")] = None,
+) -> str:
     """Input is an empty string. Output is a compact summary of the active
     Neo4j graph database — node labels with counts, relationship types with
     counts, and the property keys present on each label (capped at 8 props
     per label for compactness). The LLM should call this first before
     writing any Cypher, exactly like sql_db_list_tables.
     """
-    drv = _driver()
-    with drv.session(database=get_target_database()) as s:
+    db = _resolve_database(database)
+    drv = _driver_for(connection)
+    with drv.session(database=db) as s:
         # Top labels
         labels = s.run(
             "MATCH (n) RETURN labels(n)[0] AS label, count(*) AS n "
@@ -282,7 +334,11 @@ def neo4j_graph_schema() -> str:
 
 
 @tool
-def neo4j_graph_schema_details(labels: str) -> str:
+def neo4j_graph_schema_details(
+    labels: str,
+    database: Annotated[Optional[str], InjectedState("neo4j_database")] = None,
+    connection: Annotated[Optional[dict], InjectedState("neo4j_connection")] = None,
+) -> str:
     """Input is a comma-separated list of node labels (e.g. 'Person,Movie').
     Output is detailed schema for those labels — properties with data types
     plus up to 3 sample nodes per label. Call neo4j_graph_schema first to
@@ -290,8 +346,9 @@ def neo4j_graph_schema_details(labels: str) -> str:
 
     Example Input: Person, Movie
     """
-    drv = _driver()
-    with drv.session(database=get_target_database()) as s:
+    db = _resolve_database(database)
+    drv = _driver_for(connection)
+    with drv.session(database=db) as s:
         # Verify the labels exist by listing all current labels
         existing = {
             r["label"]
@@ -345,7 +402,12 @@ def neo4j_graph_schema_details(labels: str) -> str:
 
 
 @tool
-def neo4j_graph_query(cypher: str, parameters: str = "{}") -> str:
+def neo4j_graph_query(
+    cypher: str,
+    parameters: str = "{}",
+    database: Annotated[Optional[str], InjectedState("neo4j_database")] = None,
+    connection: Annotated[Optional[dict], InjectedState("neo4j_connection")] = None,
+) -> str:
     """Input is a Cypher query and an optional JSON string of parameters.
     Output is a markdown table of the query results, or an error message if
     the query fails.
@@ -379,8 +441,9 @@ def neo4j_graph_query(cypher: str, parameters: str = "{}") -> str:
         return f"Error: {err}"
 
     try:
-        drv = _driver()
-        with drv.session(database=get_target_database()) as s:
+        db = _resolve_database(database)
+        drv = _driver_for(connection)
+        with drv.session(database=db) as s:
             result = s.run(cypher, parameters=params or {})
             # .data() caps internally at the driver's record_limit; cap again
             # here for safety.

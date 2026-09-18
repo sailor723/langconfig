@@ -299,6 +299,15 @@ export const studio = {
 
     setState({ running: true, runError: null, runPath: [], inspectorTab: 'messages' });
 
+    // Hoisted accumulators: `state` (the store snapshot) is captured at run
+    // invocation and never refreshed inside the async streamSSE callback,
+    // so reading `state.liveMap` / `state.runPath` per event would always
+    // return the same stale base and the next setState would clobber all
+    // previously streamed messages. Mutate these in the callback instead —
+    // `let` bindings in the `run` closure persist across await ticks.
+    const liveMap: Record<string, LiveMessage> = { ...state.liveMap };
+    const runPath: string[] = [...state.runPath];
+
     try {
       let res = await api.streamRun(threadId, assistantId, input);
       // Studio threads are in-memory (process-lifetime): after a backend
@@ -315,7 +324,6 @@ export const studio = {
       await streamSSE(res, (ev) => {
         if (ev.event === 'messages/partial') {
           const messages = ev.data as LiveMessage[];
-          const liveMap = { ...state.liveMap };
           for (const m of messages) {
             if (m?.id) liveMap[m.id] = m; // content is cumulative per id
           }
@@ -323,7 +331,6 @@ export const studio = {
         } else if (ev.event === 'values') {
           const values = ev.data as { messages?: LiveMessage[] };
           const messages = values.messages ?? [];
-          const liveMap = { ...state.liveMap };
           for (const m of messages) {
             if (m?.id) liveMap[m.id] = m;
           }
@@ -331,7 +338,8 @@ export const studio = {
         } else if (ev.event === 'updates') {
           const update = ev.data as Record<string, unknown>;
           const keys = Object.keys(update);
-          setState({ runPath: [...state.runPath, ...keys] });
+          runPath.push(...keys);
+          setState({ runPath });
         } else if (ev.event === 'error') {
           const msg = (ev.data as { message?: string })?.message ?? 'Run failed';
           setState({ runError: msg });

@@ -15,6 +15,7 @@ import apiClient from '../../lib/api-client';
 import { Loader, Plus, X } from 'lucide-react';
 import { SectionId as _SectionId, SECTIONS } from './editorConstants';
 import SkillsPicker from './editorSkillsPicker';
+import ToolInspectModal from './ToolInspectModal';
 import { useProject } from '../../contexts/ProjectContext';
 
 // Mirrors the categories used by the built-in templates in
@@ -132,6 +133,9 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
       ? prefill.native_tools
       : defaultToolIds,
   );
+  // Per-agent tool params (e.g. neo4j_agent_tool.database) + inspect panel
+  const [toolParams, setToolParams] = useState<Record<string, any>>({});
+  const [inspectTool, setInspectTool] = useState<{ id: string; name: string; description: string } | null>(null);
   // Apply the default tool set once loaded (async hook) when nothing is
   // selected yet — new agents start with the universal base pre-checked.
   useEffect(() => {
@@ -184,6 +188,7 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
     cli_tools: [],
     custom_tools: selectedCustomTools,
     tools: [...selectedNativeTools, ...selectedCustomTools],
+    tool_params: Object.keys(toolParams).length > 0 ? toolParams : undefined,
     skills: selectedSkills,
     subagents: subagents.map(s => ({
       name: s.name,
@@ -483,24 +488,31 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
                   checked: boolean,
                   onToggle: () => void,
                 ) => (
-                  <label
+                  <div
                     key={tool.id}
+                    onClick={() => setInspectTool(tool)}
+                    title="Click to view / edit this tool"
                     style={{
                       display: 'flex', flexDirection: 'column', gap: 6,
                       padding: 10, borderRadius: 6, cursor: 'pointer',
-                      border: `1px solid ${t.border}`,
+                      border: `1px solid ${checked ? t.accent : t.border}`,
                       background: t.bgSidebar,
                       minHeight: 80,
                       boxSizing: 'border-box',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={onToggle}
-                        style={{ accentColor: t.accent, flexShrink: 0, marginTop: 2 }}
-                      />
+                      <span
+                        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+                        style={{ display: 'inline-flex', flexShrink: 0, marginTop: 2 }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={onToggle}
+                          style={{ accentColor: t.accent, cursor: 'pointer' }}
+                        />
+                      </span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
                           color: t.textPrimary, fontWeight: 600, fontSize: 12,
@@ -523,7 +535,7 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
                     }}>
                       {tool.description}
                     </div>
-                  </label>
+                  </div>
                 );
                 const toggleBtn = (label: string, active: boolean, onClick: () => void) => (
                   <button
@@ -822,6 +834,19 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
           )}
         </div>
       </div>
+
+      {inspectTool && (
+        <ToolInspectModal
+          tool={inspectTool}
+          toolParams={toolParams}
+          onClose={() => setInspectTool(null)}
+          onSave={(toolId, params) => {
+            setToolParams(prev => ({ ...prev, [toolId]: params }));
+            setInspectTool(null);
+          }}
+          t={t}
+        />
+      )}
     </div>
   );
 }

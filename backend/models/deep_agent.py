@@ -62,9 +62,11 @@ class SubAgentConfig(BaseModel):
                 return SubAgentType.DICTIONARY
             elif v_lower == 'compiled':
                 return SubAgentType.COMPILED
+            elif v_lower == 'langgraph':
+                return SubAgentType.LANGGRAPH
             raise ValueError(
                 f"[SubAgentConfig] Unknown subagent type '{v}'. "
-                "Expected 'dictionary' or 'compiled'."
+                "Expected 'dictionary', 'compiled' or 'langgraph'."
             )
         raise ValueError(
             f"[SubAgentConfig] Unexpected type value {v!r} for subagent type. "
@@ -88,24 +90,78 @@ class SubAgentConfig(BaseModel):
         description="Override configuration for the workflow (input mapping, etc.)"
     )
 
+    # For langgraph subagents (code-defined LangGraph agents)
+    graph_id: Optional[str] = Field(
+        None,
+        description="Code-defined LangGraph agent id (backend/langgraph/<graph_id>.py) "
+                    "to use as a CompiledSubAgent; requires type='langgraph'. "
+                    "Example: 'sql_agent' or 'neo4j_agent'."
+    )
+    database: Optional[str] = Field(
+        None,
+        description="Target database for the langgraph subagent (e.g. a Neo4j database "
+                    "name for graph_id='neo4j_agent'). Empty uses the default "
+                    "(env NEO4J_DATABASE or the studio-selected database). "
+                    "Only valid with type='langgraph'."
+    )
+
     @model_validator(mode='after')
     def validate_subagent_consistency(self) -> 'SubAgentConfig':
-        """Ensure compiled subagents have workflow_id and dictionary subagents don't."""
+        """Ensure compiled subagents have workflow_id, langgraph subagents have
+        graph_id, and dictionary subagents have neither."""
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"[SubAgentConfig] Validating '{self.name}': type={self.type}, type_value={self.type.value if hasattr(self.type, 'value') else self.type}, workflow_id={self.workflow_id}")
+        logger.info(f"[SubAgentConfig] Validating '{self.name}': type={self.type}, type_value={self.type.value if hasattr(self.type, 'value') else self.type}, workflow_id={self.workflow_id}, graph_id={self.graph_id}")
 
         if self.type == SubAgentType.COMPILED:
             if not self.workflow_id:
                 raise ValueError(
                     f"Compiled subagent '{self.name}' requires workflow_id. "
-                    f"Set type='dictionary' for simple subagents or provide a workflow_id."
+                    f"Set type='dictionary' for simple subagents, type='langgraph' "
+                    f"for a code-defined LangGraph agent, or provide a workflow_id."
+                )
+            if self.graph_id:
+                raise ValueError(
+                    f"Compiled subagent '{self.name}' cannot have graph_id. "
+                    f"Use type='langgraph' to run a code-defined LangGraph agent."
+                )
+            if self.database:
+                raise ValueError(
+                    f"Compiled subagent '{self.name}' cannot have database. "
+                    f"Set type='langgraph' with graph_id='neo4j_agent' to target a database."
+                )
+        elif self.type == SubAgentType.LANGGRAPH:
+            if not self.graph_id:
+                raise ValueError(
+                    f"LangGraph subagent '{self.name}' requires graph_id "
+                    f"(e.g. 'sql_agent' or 'neo4j_agent')."
+                )
+            if self.workflow_id:
+                raise ValueError(
+                    f"LangGraph subagent '{self.name}' cannot have workflow_id. "
+                    f"Use type='compiled' for workflow-based subagents."
+                )
+            if self.database and self.graph_id != 'neo4j_agent':
+                raise ValueError(
+                    f"LangGraph subagent '{self.name}' sets database but graph_id "
+                    f"'{self.graph_id}' is not a database-parameterized graph "
+                    "(only 'neo4j_agent' accepts a target database)."
                 )
         elif self.type == SubAgentType.DICTIONARY:
             if self.workflow_id:
                 raise ValueError(
                     f"Dictionary subagent '{self.name}' cannot have workflow_id. "
-                    f"Set type='compiled' to use workflow-based subagents."
+                    f"Set type='compiled' to use a workflow-based subagent."
+                )
+            if self.graph_id:
+                raise ValueError(
+                    f"Dictionary subagent '{self.name}' cannot have graph_id. "
+                    f"Set type='langgraph' to use a code-defined LangGraph agent."
+                )
+            if self.database:
+                raise ValueError(
+                    f"Dictionary subagent '{self.name}' cannot have database. "
+                    f"Set type='langgraph' with graph_id='neo4j_agent' to target a database."
                 )
         return self
 
@@ -206,6 +262,12 @@ class DeepAgentConfig(BaseModel):
     native_tools: List[str] = Field(default_factory=list, description="Native Python tool categories")
     cli_tools: List[str] = Field(default_factory=list, description="CLI tool categories")
     custom_tools: List[str] = Field(default_factory=list, description="User-created custom tools")
+    tool_params: Optional[Dict[str, Dict[str, Any]]] = Field(
+        None,
+        description="Per-tool default params, e.g. {'neo4j_agent_tool': {'database': 'neo4j'}}. "
+                    "Pinned defaults are bound onto the tool at build time so the agent "
+                    "knows the target (the model can still override by passing the arg)."
+    )
 
     # DeepAgents-specific
     use_deepagents: bool = Field(

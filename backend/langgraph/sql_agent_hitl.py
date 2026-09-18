@@ -9,10 +9,10 @@ Run:  python backend/langgraph/sql_agent_hitl.py
 """
 import json
 import os
-from typing import Literal
+from typing import Literal, NotRequired
 
 from dotenv import load_dotenv
-from langchain.messages import AIMessage
+from langchain.messages import AIMessage, ToolMessage
 from langchain.tools import tool
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
@@ -22,6 +22,17 @@ from langgraph.types import Command, interrupt
 
 from llm import build_chat_model
 from sql_setup_db import ensure_chinook_db, sql_db_list_tables, sql_db_schema, sql_db_query
+
+
+class SqlAgentState(MessagesState):
+    """MessagesState + per-call SQL target (database + optional connection).
+
+    Mirrors sql_agent.SqlAgentState; the HITL graph uses the same schema so
+    the tools' InjectedState params resolve in both graphs.
+    """
+
+    sql_database: NotRequired[str]
+    sql_connection: NotRequired[dict]
 
 # Best-effort: pick up the repo-root .env if the keys live there.
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"))
@@ -75,8 +86,11 @@ run_query_node = ToolNode([run_query_with_review], name="run_query")
 
 
 # ── 4. Application steps (dedicated nodes) ───────────────────────────
-def list_tables(state: MessagesState):
-    """Predetermined tool call: force listing the available tables."""
+def list_tables(state: SqlAgentState):
+    """Predetermined tool call: force listing the available tables.
+
+    The per-call database / connection are forwarded from the state.
+    """
     tool_call = {
         "name": "sql_db_list_tables",
         "args": {},
@@ -86,7 +100,18 @@ def list_tables(state: MessagesState):
     tool_call_message = AIMessage(content="", tool_calls=[tool_call])
 
     list_tables_tool = next(t for t in tools if t.name == "sql_db_list_tables")
-    tool_message = list_tables_tool.invoke(tool_call)
+    invoke_kwargs: dict = {}
+    if state.get("sql_database"):
+        invoke_kwargs["database"] = state["sql_database"]
+    if state.get("sql_connection"):
+        invoke_kwargs["connection"] = state["sql_connection"]
+    tool_message = list_tables_tool.invoke(invoke_kwargs)
+    # Plain-kwargs invoke returns the raw content string (not a ToolMessage,
+    # unlike a full tool_call dict) — normalize so history stays well-formed.
+    if not hasattr(tool_message, "content"):
+        tool_message = ToolMessage(
+            content=str(tool_message), tool_call_id=tool_call["id"]
+        )
     response = AIMessage(f"Available tables: {tool_message.content}")
 
     return {"messages": [tool_call_message, tool_message, response]}
@@ -129,7 +154,7 @@ def should_continue(state: MessagesState) -> Literal[END, "run_query"]:
     return END if not last_message.tool_calls else "run_query"
 
 
-builder = StateGraph(MessagesState)
+builder = StateGraph(SqlAgentState)
 builder.add_node(list_tables)
 builder.add_node(call_get_schema)
 builder.add_node(get_schema_node, "get_schema")

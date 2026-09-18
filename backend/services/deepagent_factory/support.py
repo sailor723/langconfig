@@ -45,7 +45,7 @@ class _DeepAgentSupportMixin:
             "custom_output_path": custom_output_path,
             "workspace_root": workspace_root,
         } if (workspace_root or custom_output_path or workflow_id) else None
-        return await load_agent_tools(
+        tools = await load_agent_tools(
             native_tool_names=config.native_tools or [],
             cli_tool_names=config.cli_tools or [],
             custom_tool_ids=config.custom_tools or [],
@@ -54,6 +54,10 @@ class _DeepAgentSupportMixin:
             task_id=task_id,
             agent_context={"agent_id": agent_id} if agent_id is not None else None,
         )
+        # Bind per-agent tool default params (e.g. neo4j_agent_tool.database)
+        # so the agent knows its configured target at runtime.
+        from core.tools.tool_params import apply_tool_params
+        return apply_tool_params(tools, getattr(config, "tool_params", None) or None)
 
     @staticmethod
     async def _prepare_subagents(
@@ -177,6 +181,74 @@ class _DeepAgentSupportMixin:
 
                 subagents.append(subagent)
                 logger.info(f"Dictionary subagent prepared: {sub_config.name} with {len(subagent_tools or [])} tools")
+
+            # Code-defined LangGraph agent (backend/langgraph/<graph_id>.py)
+            # as a CompiledSubAgent — e.g. sql_agent / neo4j_agent. The
+            # compiled graph is loaded once via langgraph.tool_adapters and
+            # handed to the SDK, which exposes it behind the `task` tool with
+            # an isolated context window.
+            elif sub_config.type == SubAgentType.LANGGRAPH:
+                if not sub_config.graph_id:
+                    logger.error(f"LangGraph subagent '{sub_config.name}' missing graph_id")
+                    continue
+                try:
+                    from langgraph.tool_adapters import get_graph_runnable
+
+                    runnable = get_graph_runnable(sub_config.graph_id)
+                    # Per-subagent target database: wrap the compiled graph so
+                    # every invocation injects the database into the state key
+                    # the graph's tools actually read via InjectedState
+                    # (sql_database for the SQL agents, neo4j_database for the
+                    # Neo4j agents).
+                    if sub_config.database:
+                        from langchain_core.runnables import RunnableLambda
+
+                        _db = sub_config.database
+                        _db_key = (
+                            "neo4j_database"
+                            if sub_config.graph_id
+                            in ("neo4j_agent", "neo4j_agent_advanced")
+                            else "sql_database"
+                        )
+
+                        # Default args bind the values per iteration — without
+                        # them every wrapper would late-bind to the LAST
+                        # subagent's database when multiple langgraph
+                        # subagents carry one.
+                        def _invoke_with_db(state, config=None, _db=_db, _db_key=_db_key):
+                            return runnable.invoke(
+                                {**state, _db_key: _db}, config
+                            )
+
+                        async def _ainvoke_with_db(state, config=None, _db=_db, _db_key=_db_key):
+                            return await runnable.ainvoke(
+                                {**state, _db_key: _db}, config
+                            )
+
+                        runnable = RunnableLambda(
+                            _invoke_with_db, afunc=_ainvoke_with_db
+                        )
+                        logger.info(
+                            f"LangGraph subagent '{sub_config.name}' pinned to "
+                            f"database '{_db}' (state key {_db_key})"
+                        )
+                    compiled_subagent = CompiledSubAgent(
+                        name=sub_config.name,
+                        description=sub_config.description,
+                        runnable=runnable,
+                    )
+                    subagents.append(compiled_subagent)
+                    logger.info(
+                        f"CompiledSubAgent prepared: {sub_config.name} "
+                        f"(langgraph graph {sub_config.graph_id})"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Error preparing LangGraph subagent '{sub_config.name}' "
+                        f"(graph_id={sub_config.graph_id}): {e}",
+                        exc_info=True,
+                    )
+                    continue
 
             # Workflow-based CompiledSubAgent
             elif sub_config.type == SubAgentType.COMPILED:
