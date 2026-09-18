@@ -1,0 +1,1 @@
+I'll use my knowledge of LangGraph to answer this question, since I don't have a fetch_url tool available. LangGraph is a well-documented framework from LangChain.

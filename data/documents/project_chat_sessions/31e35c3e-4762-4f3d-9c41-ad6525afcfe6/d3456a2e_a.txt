@@ -1,0 +1,2 @@
+Test doc 1: a test of natural language processing concepts.
+This is a simple test file to verify folder upload works.

@@ -76,21 +76,27 @@ export default function GlobalChatModal() {
 
   // Get current session details
   const currentSession = sessions.find((s: ChatSession) => s.session_id === currentSessionId);
-  const agentName = currentSession?.agent_name || 'Agent';
-  const [agentDescription, setAgentDescription] = useState('');
 
-  // Fetch agent description when session/agent changes
+  // Use selected agent name as fallback when session hasn't caught up yet
+  const [fallbackAgentName, setFallbackAgentName] = useState('');
   useEffect(() => {
-    if (currentSession?.agent_id) {
+    if (selectedAgentId) {
       apiClient.listDeepAgents({ public_only: false }).then(res => {
         const agents = res.data || [];
-        const agent = agents.find((a: any) => a.id === currentSession.agent_id);
-        setAgentDescription(agent?.description || '');
-      }).catch(() => setAgentDescription(''));
-    } else {
-      setAgentDescription('');
+        const agent = agents.find((a: any) => a.id === selectedAgentId);
+        if (agent) {
+          setFallbackAgentName(agent.name);
+          setAgentDescription(agent.description || '');
+        }
+      }).catch(() => {});
     }
-  }, [currentSession?.agent_id]);
+  }, [selectedAgentId]);
+
+  const sessionMatchesSelected = currentSession && selectedAgentId && currentSession.agent_id === selectedAgentId;
+  const agentName = sessionMatchesSelected
+    ? (currentSession?.agent_name || fallbackAgentName || 'Agent')
+    : (fallbackAgentName || currentSession?.agent_name || 'Agent');
+  const [agentDescription, setAgentDescription] = useState('');
 
   // Handle ESC key
   useEffect(() => {
@@ -136,8 +142,27 @@ export default function GlobalChatModal() {
 
   // Handle starting a new session
   const handleStartSession = async (agentId: number) => {
+    if (agentId !== 112) setSavedAgentId(null);
     try {
       await startSession(agentId);
+      // Fetch agent details and add welcome message
+      try {
+        const res = await apiClient.listDeepAgents({ public_only: false });
+        const agents = (res as any).data ?? [];
+        const agent = agents.find((a: any) => a.id === agentId);
+        const name = agent?.name || `Agent #${agentId}`;
+        const desc = agent?.description || '';
+        const welcome = desc
+          ? `👋 你好！我是 **${name}**。\n\n${desc}\n\n有什么我可以帮助你的吗？`
+          : `👋 你好！我是 **${name}**。有什么我可以帮助你的吗？`;
+        addMessage({
+          role: 'assistant',
+          content: welcome,
+          timestamp: new Date().toISOString(),
+        });
+      } catch {
+        // Silently fail — welcome message is optional
+      }
     } catch (error) {
       console.error('Failed to start session:', error);
       setSessionError('Failed to start chat session');
@@ -185,11 +210,19 @@ export default function GlobalChatModal() {
           }]);
           tracesRef.current = [...tracesRef.current, { type: 'tool_start', tool_name: event.tool_name, data: event.data }];
         } else if (event.type === 'tool_end' && event.tool_name) {
+          const result = event.data?.output || '';
           setActiveToolCalls(prev => prev.map(t =>
             t.tool_name === event.tool_name && t.status === 'running'
-              ? { ...t, status: 'completed', result: event.data?.output || '' }
+              ? { ...t, status: 'completed', result }
               : t
           ));
+          // Detect create_deepagent tool result → extract agent_id for Test/Tune buttons
+          if (event.tool_name === 'create_deepagent') {
+            const idMatch = result.match(/id=(\d+)/);
+            if (idMatch) {
+              setSavedAgentId(parseInt(idMatch[1], 10));
+            }
+          }
           tracesRef.current = [...tracesRef.current, { type: 'tool_end', tool_name: event.tool_name, data: event.data }];
         }
       },
@@ -268,6 +301,32 @@ export default function GlobalChatModal() {
     clearStreamingError();
   };
 
+  // ── Agent Creator workflow: Save / Test / Tune ─────────────
+  const isAgentCreator = currentSession?.agent_id === 112;
+  const [savedAgentId, setSavedAgentId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSaveFromCreator = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      // Tell the Agent Creator to save the current design using create_deepagent tool
+      await handleSendMessage('请保存当前设计的 agent，使用 create_deepagent 工具写入数据库');
+      // The tool_end handler will detect the agent_id automatically
+      setSaving(false);
+    } catch (err: any) {
+      setSaveError(err?.message || 'Failed to send save request');
+      setSaving(false);
+    }
+  };
+
+  const handleTestNewAgent = () => {
+    if (savedAgentId) {
+      handleStartSession(savedAgentId);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -321,6 +380,56 @@ export default function GlobalChatModal() {
               )}
             </div>
             <div className="flex items-center gap-1">
+              {/* Agent Creator workflow buttons */}
+              {isAgentCreator && currentSessionId && (
+                <>
+                  {!savedAgentId ? (
+                    <button
+                      onClick={handleSaveFromCreator}
+                      disabled={saving}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={{
+                        background: saving
+                          ? 'rgba(0, 109, 221, 0.5)'
+                          : 'linear-gradient(135deg, #006DDD 0%, #7FC8FF 100%)',
+                        color: '#FFFFFF',
+                        boxShadow: saving ? 'none' : '0 0 8px rgba(0, 109, 221, 0.3)',
+                        opacity: saving ? 0.7 : 1,
+                      }}
+                      title={saveError || 'Save designed agent to library'}
+                    >
+                      {saving ? 'Saving...' : '💾 Save Agent'}
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleTestNewAgent}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        style={{
+                          background: 'linear-gradient(135deg, #006DDD 0%, #7FC8FF 100%)',
+                          color: '#FFFFFF',
+                          boxShadow: '0 0 8px rgba(0, 109, 221, 0.3)',
+                        }}
+                        title="Test with the newly created agent"
+                      >
+                        🧪 Test New Agent
+                      </button>
+                      <button
+                        onClick={() => handleStartSession(112)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        style={{
+                          background: 'rgba(99, 102, 241, 0.12)',
+                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                          color: '#818CF8',
+                        }}
+                        title="Go back to Agent Creator for tuning"
+                      >
+                        🔧 Tune
+                      </button>
+                    </>
+                  )}
+                </>
+              )}
               <button
                 onClick={closeChat}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -347,6 +456,7 @@ export default function GlobalChatModal() {
               customEvents={customEvents}
               thinkingTraces={thinkingTraces}
               thinkingBuffer={thinkingBuffer}
+              agentName={agentName}
             />
 
             {/* Metrics Panel - Right Sidebar */}

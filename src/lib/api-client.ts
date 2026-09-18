@@ -426,7 +426,12 @@ class APIClient {
   }
 
   // RAG / Documents
-  async uploadDocument(projectId: number, file: File, metadata?: { description?: string; tags?: string[] }) {
+  async uploadDocument(
+    projectId: number,
+    file: File,
+    metadata?: { description?: string; tags?: string[] },
+    onUploadProgress?: (percent: number) => void
+  ) {
     const formData = new FormData();
     formData.append('file', file);
     if (metadata) {
@@ -435,6 +440,14 @@ class APIClient {
 
     return this.client.post('/api/rag/upload', formData, {
       params: { project_id: projectId },
+      onUploadProgress: onUploadProgress
+        ? (event: any) => {
+            // axios progress event for multipart uploads
+            if (event.total) {
+              onUploadProgress(Math.round((event.loaded * 100) / event.total));
+            }
+          }
+        : undefined,
     });
   }
 
@@ -442,7 +455,27 @@ class APIClient {
     projectId: number,
     files: File[],
     extractArchives: boolean = true,
-    metadata?: { description?: string; tags?: string[]; name?: string }
+    metadata?: { description?: string; tags?: string[]; name?: string },
+    onUploadProgress?: (percent: number) => void,
+    /**
+     * Step N+1: per-file metadata for folder uploads. When the user
+     * picks a folder via the browser-native file picker (webkitdirectory),
+     * each File has a `webkitRelativePath` like
+     * "electric_vehicle_industry/tesla/marketing/01-product-lineup.md".
+     * The frontend parses the path into industry/player/sub_category/
+     * sub_department and sends ONE metadata dict per file in this array.
+     * The backend applies them in order to the corresponding file.
+     * If omitted, all files share `metadata`.
+     */
+    fileMetadata?: Array<{
+      description?: string;
+      tags?: string[];
+      name?: string;
+      industry?: string;
+      player?: string;
+      sub_category?: string;
+      sub_department?: string;
+    }>
   ) {
     const formData = new FormData();
 
@@ -455,12 +488,26 @@ class APIClient {
     formData.append('project_id', projectId.toString());
     formData.append('extract_archives', extractArchives.toString());
 
-    // Add metadata if provided
+    // Add shared metadata if provided
     if (metadata) {
       formData.append('metadata', JSON.stringify(metadata));
     }
 
-    return this.client.post('/api/rag/upload-bulk', formData);
+    // Add per-file metadata if provided (folder upload). JSON-encoded
+    // list, one entry per file index. Empty list = no per-file metadata.
+    if (fileMetadata && fileMetadata.length > 0) {
+      formData.append('file_metadata', JSON.stringify(fileMetadata));
+    }
+
+    return this.client.post('/api/rag/upload-bulk', formData, {
+      onUploadProgress: onUploadProgress
+        ? (event: any) => {
+            if (event.total) {
+              onUploadProgress(Math.round((event.loaded * 100) / event.total));
+            }
+          }
+        : undefined,
+    });
   }
 
   async listDocuments(config: {
@@ -474,8 +521,51 @@ class APIClient {
     return this.client.get('/api/rag/documents', { params, signal });
   }
 
+  /**
+   * Step N+1: server-side folder ingest (Safari / Firefox fallback).
+   * The user pastes an absolute folder path; the server walks it
+   * and ingests every supported file, deriving industry/player/
+   * sub_category metadata from the path.
+   */
+  async ingestFolderFromPath(params: {
+    project_id: number;
+    folder_path: string;
+    industry?: string;
+    player?: string;
+  }) {
+    return this.client.post('/api/rag/ingest-folder', params);
+  }
+
+  /**
+   * List documents from the Neo4j graphindex catalog (the chat's view
+   * of the project's docs). Complements /api/rag/documents (Postgres
+   * context_documents) — the UI merges the two so the sidebar stays
+   * in sync with what the chat can actually find. See Step M of the
+   * Phase 9 README.
+   */
+  async listNeo4jDocuments(config: { project_id: number; signal?: AbortSignal }) {
+    return this.client.get('/api/graphindex/neo4j-documents', { params: config, signal: config.signal });
+  }
+
   async getDocument(id: number) {
     return this.client.get(`/api/rag/documents/${id}`);
+  }
+
+  /**
+   * Fetch the text content of a doc by Neo4j catalog name (not
+   * by Postgres id). For docs that exist in Neo4j but not in the
+   * context_documents table. See Phase 9 / Step M.
+   */
+  async getNeo4jDocumentContent(config: { project_id: number; name: string; max_chars?: number }) {
+    const response = await this.client.get('/api/graphindex/content', { params: config });
+    return response.data as {
+      doc_id: number;
+      doc_name: string;
+      content: string;
+      char_count: number;
+      source: string;
+      file_path: string;
+    };
   }
 
   async deleteDocument(id: number) {
@@ -493,21 +583,7 @@ class APIClient {
     return response.data;
   }
 
-  async pageIndexAnswer(data: {
-    query: string;
-    project_id: number;
-    context_doc_id?: number;
-    model?: string;
-    temperature?: number;
-    max_tokens?: number;
-  }) {
-    const response = await this.client.post('/api/rag/graphindex/answer', data);
-    return response.data;
-  }
-
-  async indexDocument(id: number) {
-    return this.client.post(`/api/rag/index/${id}`);
-  }
+  // (pageIndexAnswer removed — unused)
 
   async getSearchHistory(params: {
     project_id: number;
@@ -521,10 +597,22 @@ class APIClient {
     return this.client.get(`/api/rag/projects/${projectId}/storage-stats`);
   }
 
-  async previewDocument(contextDocId: number, maxChars?: number) {
-    const params = maxChars ? { max_chars: maxChars } : {};
-    const response = await this.client.get(`/api/rag/documents/${contextDocId}/preview`, { params });
-    return response.data;
+  // (previewDocument removed — unused)
+
+  // Get extracted text/structured content for inline rendering in the
+  // Knowledge panel. Supports MD, TXT, CSV, JSON, YAML, HTML, XML, code,
+  // DOCX, PPTX, XLSX. Returns `{ kind, content, rows?, sheet_names?,
+  // sheet_rows?, truncated }`.
+  async getDocumentContent(documentId: number) {
+    const response = await this.client.get(`/api/rag/documents/${documentId}/content`);
+    return response.data as {
+      kind: 'markdown' | 'csv' | 'html' | 'code' | 'plain';
+      content: string;
+      rows?: string[][];
+      sheet_names?: string[];
+      sheet_rows?: string[][][];
+      truncated: boolean;
+    };
   }
 
   // Settings
@@ -814,6 +902,73 @@ class APIClient {
     include_docker: boolean;
   }) {
     return this.client.post(`/api/deepagents/${id}/export`, data);
+  }
+
+  /**
+   * Import a DeepAgent from a .langconfig payload.
+   * Used by Phase 9 / Step L0 to register the `graphindex_chat` template
+   * from the Knowledge panel.
+   *
+   * NOTE: Accepts a *parsed object* (not a pre-stringified string).
+   * The BE endpoint expects `langconfig_content` as a JSON string field
+   * inside a JSON object body; we serialize it here so axios sends
+   * `Content-Type: application/json` (a raw string would be sent as
+   * `text/plain` and rejected with 422).
+   *
+   * Robustness: try TWO paths:
+   *   1. Direct axios POST to VITE_API_BASE_URL/api/deepagents/import
+   *      (works if backend is reachable + CORS allows)
+   *   2. Native fetch POST to window.location.origin/api/deepagents/import
+   *      (same-origin; works through Vite dev proxy or Tauri webview
+   *      bundled origin, no CORS check)
+   *
+   * Path 2 is the one that ACTUALLY works in the Tauri webview, where
+   * cross-origin XHR is blocked. We use native fetch for path 2 because
+   * mutating axios's baseURL after construction has no effect on the
+   * already-created AxiosInstance.
+   */
+  async importDeepAgent(langconfig: object) {
+    const body = { langconfig_content: JSON.stringify(langconfig) };
+    const directUrl = `${this.baseURL || ''}/api/deepagents/import`;
+    const fallbackUrl = `${window.location.origin}/api/deepagents/import`;
+
+    // Path 1: direct axios call
+    try {
+      console.log(`[apiClient] POST ${directUrl}`);
+      return await this.client.post('/api/deepagents/import', body);
+    } catch (err: any) {
+      const isNetwork = !err?.response;
+      console.warn(
+        `[apiClient] direct ${directUrl} failed ` +
+        `(${err?.message || 'network'}${err?.response?.status ? ' HTTP ' + err.response.status : ''}); ` +
+        `retrying ${fallbackUrl}`
+      );
+      if (!isNetwork && err?.response?.status) {
+        // Server responded with a non-2xx — surface it, don't retry.
+        throw err;
+      }
+    }
+
+    // Path 2: native fetch same-origin (bypasses axios & CORS)
+    try {
+      console.log(`[apiClient] POST ${fallbackUrl} (native fetch)`);
+      const res = await fetch(fallbackUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(
+          `HTTP ${res.status} from ${fallbackUrl}: ${text.slice(0, 300)}`
+        );
+      }
+      const data = await res.json();
+      return { data, status: res.status, statusText: res.statusText, headers: res.headers, config: {} as any };
+    } catch (err: any) {
+      console.error(`[apiClient] fallback to ${fallbackUrl} also failed:`, err);
+      throw err;
+    }
   }
 
   // Custom Tools

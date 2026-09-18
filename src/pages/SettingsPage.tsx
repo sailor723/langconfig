@@ -11,14 +11,12 @@ import apiClient from '../lib/api-client';
 import { themes, applyTheme, loadTheme, type ThemeName } from '../lib/themes';
 import LanguageSwitcher from '../i18n/LanguageSwitcher';
 import SettingsLayout, { SettingsCategory } from "../features/settings/ui/SettingsLayout";
-import LocalModelsSettings from "../features/settings/ui/LocalModelsSettings";
 import LocalWorkspaceSettings from "../features/settings/ui/LocalWorkspaceSettings";
 import ModelDefaultsSettings from '../features/settings/ui/ModelDefaultsSettings';
-import ApiKeysAndModels from '../features/settings/ui/ApiKeysAndModels';
 import ModelCardsSettings from '../features/settings/ui/ModelCardsSettings';
 import EmbeddingSettings from '../features/settings/ui/EmbeddingSettings';
 import SearchProvidersSettings from '../features/settings/ui/SearchProvidersSettings';
-import SettingsSection, { SettingsInput, SettingsSelect } from '../features/settings/ui/SettingsSection';
+import SettingsSection, { SettingsInput } from '../features/settings/ui/SettingsSection';
 
 export default function SettingsView() {
   const { t } = useTranslation('chat');
@@ -85,7 +83,6 @@ export default function SettingsView() {
 
   // Model Defaults state - start with null, load from backend
   const [modelDefaultsSettings, setModelDefaultsSettings] = useState<ModelDefaultsSettings | null>(null);
-  const [savingEmbedding, setSavingEmbedding] = useState(false);
 
   // General settings state - start with null, load from backend
   const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
@@ -103,7 +100,6 @@ export default function SettingsView() {
 
   // RAG settings state - start with null, load from backend
   const [ragSettings, setRagSettings] = useState<RagSettings | null>(null);
-  const [embeddingModels, setEmbeddingModels] = useState<{id: string; name: string; provider: string; type: string}[]>([]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -204,13 +200,8 @@ export default function SettingsView() {
         console.error('Failed to load RAG settings:', error);
       }
 
-      // Load available embedding models
-      try {
-        const embResponse = await apiClient.getAvailableEmbeddingModels();
-        setEmbeddingModels(embResponse.data.models || []);
-      } catch (error) {
-        console.error('Failed to load embedding models:', error);
-      }
+      // Note: available embedding models are now loaded by the
+      // <EmbeddingSettings> child component (it owns its own UI state).
 
     } catch (error) {
       // Ignore abort errors
@@ -489,75 +480,6 @@ export default function SettingsView() {
               autoSave('local-workspace');
             }}
           />
-        );
-
-      case 'embedding':
-        if (!ragSettings) return null;
-        return (
-          <SettingsSection
-            title={t('settings_embedding_title')}
-            description={t('settings_embedding_desc')}
-            icon="database"
-          >
-            <SettingsSelect
-              label={t('settings_embedding_model')}
-              value={ragSettings.embeddingModel}
-              onChange={(value: string) => {
-                setRagSettings({ ...ragSettings, embeddingModel: value });
-              }}
-              options={(() => {
-                const opts = embeddingModels.map(m => ({
-                  value: m.id,
-                  label: `${m.name}${m.type === 'local' ? t('settings_embedding_local') : ''}`
-                }));
-                // Always include current value even if not in list
-                if (ragSettings?.embeddingModel && !embeddingModels.some(m => m.id === ragSettings.embeddingModel)) {
-                  opts.unshift({ value: ragSettings.embeddingModel, label: `${ragSettings.embeddingModel} (custom)` });
-                }
-                return opts.length > 0 ? opts : [{ value: 'text-embedding-3-small', label: 'text-embedding-3-small' }];
-              })()}
-              description={t('settings_embedding_model_desc')}
-            />
-            <SettingsInput
-              label={t('settings_embedding_chunk_size')}
-              type="number"
-              value={ragSettings.chunkSize.toString()}
-              onChange={(value) => {
-                setRagSettings({ ...ragSettings, chunkSize: parseInt(value) || 1000 });
-              }}
-              description={t('settings_embedding_chunk_size_desc')}
-            />
-            <SettingsInput
-              label={t('settings_embedding_chunk_overlap')}
-              type="number"
-              value={ragSettings.chunkOverlap.toString()}
-              onChange={(value) => {
-                setRagSettings({ ...ragSettings, chunkOverlap: parseInt(value) || 200 });
-              }}
-              description={t('settings_embedding_chunk_overlap_desc')}
-            />
-            <div className="pt-6 border-t border-gray-200 dark:border-border-dark">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={async () => {
-                    setSavingEmbedding(true);
-                    await autoSave('embedding');
-                    setSavingEmbedding(false);
-                  }}
-                  disabled={savingEmbedding}
-                  className="px-8 py-2.5 text-sm font-semibold text-white rounded-lg hover:brightness-110 active:brightness-90 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                  style={{ backgroundColor: 'var(--color-primary)' }}
-                >
-                  {savingEmbedding ? 'Saving...' : 'Save'}
-                </button>
-                {!savingEmbedding && ragSettings && (
-                  <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                    Changes apply to new document indexing
-                  </span>
-                )}
-              </div>
-            </div>
-          </SettingsSection>
         );
 
       case 'model-defaults':

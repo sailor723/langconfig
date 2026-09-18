@@ -401,18 +401,18 @@ class DeepAgentFactory:
             except Exception as e:
                 logger.warning(f"Failed to initialize LocalShellBackend: {e}. Proceeding without sandbox.")
 
-        # Sync selected skills from DB to sandbox filesystem.
-        # Skills are written as SKILL.md files and made available via
-        # create_deep_agent(skills=["/skills/"]) for progressive disclosure.
-        skills_config = []
-        agent_kwargs_skills = None
-        if sandbox_path and getattr(config, 'skills', None):
+        # ── Skills (notebook-style progressive disclosure) ──
+        # Pattern (from backend/notebooks/module-5):
+        # - Each skill's SKILL.md path goes directly into the main agent
+        # - Library creates SkillsMiddleware on main agent: injects metadata
+        #   catalog (name + description + path) into the system prompt
+        # - Main agent reads SKILL.md body on demand via built-in read_file
+        # - No subagent wrapping — LLM matches via description
+        agent_kwargs_skills: list = []
+        if getattr(config, 'skills', None):
             try:
                 from db.database import SessionLocal
                 from models.skill import Skill
-
-                skills_root = sandbox_path / "skills"
-                skills_root.mkdir(parents=True, exist_ok=True)
 
                 db = SessionLocal()
                 try:
@@ -423,90 +423,13 @@ class DeepAgentFactory:
                     db.close()
 
                 for s in skill_records:
-                    skill_dir = skills_root / s.skill_id
-                    skill_dir.mkdir(parents=True, exist_ok=True)
-
-                    lines = [
-                        "---",
-                        f'name: {s.skill_id}',
-                        f'description: "{s.description}"',
-                        f'version: {s.version}',
-                    ]
-                    if s.tags:
-                        lines.append("tags:\n" + "\n".join(f"  - {t}" for t in s.tags))
-                    if s.triggers:
-                        lines.append("triggers:\n" + "\n".join(f'  - "{t}"' for t in s.triggers))
-                    if s.allowed_tools:
-                        lines.append("allowed_tools:\n" + "\n".join(f"  - {t}" for t in s.allowed_tools))
-                    lines.append("---")
-
-                    skill_md = "\n".join(lines) + "\n\n" + s.instructions
-                    if s.examples:
-                        skill_md += "\n\n## Examples\n\n" + s.examples
-
-                    (skill_dir / "SKILL.md").write_text(skill_md)
-                    skills_config.append(s.skill_id)
-
-                if skills_config:
-                    # ── Skill Router (first message only hint, not exclusion) ──
-                    # The router suggests the best skill but does NOT exclude others.
-                    # All skills remain in the system prompt so the agent can switch
-                    # on subsequent turns. Deleting skills (old approach) broke
-                    # multi-turn — agent had no other skills to switch to.
-                    if (config.skill_router_model and user_message and skill_records):
-                        matched_skill = await DeepAgentFactory._run_skill_router(
-                            router_model=config.skill_router_model,
-                            skill_records=skill_records,
-                            user_message=user_message,
-                        )
-                        if matched_skill:
-                            logger.info(f"Skill Router suggested: {matched_skill}")
-
-                    agent_kwargs_skills = [str(skills_root.resolve())]
-                    logger.info(f"Skills synced to sandbox: {skills_config}")
-
-                    # ── Build a subagent per skill with isolated SkillsMiddleware ──
-                    # Each subagent gets its own SkillsMiddleware so Skill A's SKILL.md
-                    # never leaks into Skill B's context on subsequent turns.
-                    # The main agent stays clean (no skills=[]) and delegates via task().
-                    from deepagents.middleware.skills import SkillsMiddleware
-                    from deepagents.backends import FilesystemBackend
-                    skill_backend = FilesystemBackend(root_dir=str(skills_root))
-                    skill_subagents = []
-                    for s in skill_records:
-                        skill_mw = SkillsMiddleware(
-                            backend=skill_backend,
-                            sources=[s.skill_id],
-                            system_prompt=None,
-                        )
-                        skill_subagents.append({
-                            "name": s.skill_id,
-                            "description": s.description,
-                            "system_prompt": (
-                                f"You are a {s.skill_id} specialist. "
-                                "Read the SKILL.md and follow its instructions exactly. "
-                                "Return only the result."
-                            ),
-                            "model": config.model,  # Inherit from main agent
-                            "tools": [],  # Will be auto-populated by skill loader
-                            "middleware": [skill_mw],
-                        })
-
-                    # Build delegation hints (replaces <available_skills> catalog)
-                    delegation_hints = "\n".join(
-                        f"  - {s.skill_id}: {s.description}" for s in skill_records
-                    )
-                    final_system_prompt += (
-                        "\n\n## SKILLS\n"
-                        "You have access to specialized subagents. When a task requires "
-                        "specialized knowledge, delegate using task() with the matching subagent name:\n"
-                        f"{delegation_hints}\n\n"
-                        "For simple questions, answer directly. "
-                        "For skill tasks, always delegate."
-                    )
-
+                    agent_kwargs_skills.append(s.source_path)
+                logger.info(
+                    f"Registered {len(agent_kwargs_skills)} skill(s) on main agent "
+                    f"(notebook-style progressive disclosure)"
+                )
             except Exception as e:
-                logger.warning(f"Failed to sync skills to sandbox: {e}")
+                logger.warning(f"Failed to register skills: {e}")
 
         # Create DeepAgent with all components
         try:
@@ -549,58 +472,15 @@ class DeepAgentFactory:
                 "middleware": middleware_instances if middleware_instances else None,
                 "subagents": subagents_config if subagents_config else None,
                 "checkpointer": checkpointer,
+                # Notebook-style: skills registered directly on main agent.
+                # Library creates SkillsMiddleware which injects metadata catalog.
+                "skills": agent_kwargs_skills if agent_kwargs_skills else None,
             }
 
             # Pass LocalShellBackend so the agent gains the `execute` tool for
             # running scripts (Python, shell commands, pip install, etc.)
             if local_sandbox_backend is not None:
                 agent_kwargs["backend"] = local_sandbox_backend
-
-            # Merge user subagents with skill subagents.
-            # Skill subagents have isolated SkillsMiddleware instances — one per skill.
-            # See the "## SKILLS" section above for how they're built.
-            # The main agent does NOT have skills=[] — it delegates via task().
-            all_subagents = []
-            if subagents_config:
-                all_subagents.extend(subagents_config)
-            if 'skill_subagents' in dir() and skill_subagents:
-                all_subagents.extend(skill_subagents)
-            if all_subagents:
-                agent_kwargs["subagents"] = all_subagents
-
-                # NOTE: deepagents==0.6.8 does NOT auto-create SubAgentMiddleware
-                # when subagents= is passed. We must add it explicitly to expose
-                # the `task` tool. Without this, the main agent has no way to
-                # delegate to subagents.
-                # See: https://docs.langchain.com/oss/python/deepagents/subagents
-                # NOTE: deepagents==0.6.8 DOES auto-create SubAgentMiddleware internally
-                # when subagents= is passed to create_deep_agent() (see graph.py:529).
-                # We do NOT need to manually add SubAgentMiddleware — doing so
-                # creates a DUPLICATE `task` tool, causing conflicts.
-                # What we DO need: each subagent's model must be a pre-built BaseChatModel
-                # instance (since "minimax-m3" is non-standard and init_chat_model fails).
-                # We reuse the SAME main_chat_model so they share credentials.
-                try:
-                    for sa in all_subagents:
-                        if isinstance(sa, dict):
-                            sa["model"] = main_chat_model  # Reuse main agent's model
-                    logger.info(f"Subagents will be auto-wired by create_deep_agent(): {len(all_subagents)} → `task` tool exposed")
-                except Exception as e:
-                    logger.warning(f"Failed to prepare subagent models: {e}")
-
-            # Debug logging for subagent configuration
-            logger.info(f"All subagents: {len(all_subagents)} (user: {len(subagents_config or [])}, skill: {len(skill_subagents if 'skill_subagents' in dir() else [])})")
-            for i, sub in enumerate(all_subagents):
-                if isinstance(sub, dict):
-                    sub_tools = sub.get('tools', [])
-                    tool_names = [getattr(t, 'name', str(t)) for t in sub_tools] if sub_tools else []
-                    has_skills = 'skills' in sub
-                    has_mw = len(sub.get('middleware', [])) > 0
-                    mw_info = f"mw={len(sub.get('middleware', []))}" if has_mw else ""
-                    skills_info = "skills=[]" if has_skills else ""
-                    logger.info(f"  [{i}] {sub.get('name')}: {len(sub_tools)} tools {skills_info} {mw_info}")
-                else:
-                    logger.info(f"  [{i}] CompiledSubAgent: {getattr(sub, 'name', 'unknown')}")
 
             # Try to pass guardrails if supported
             try:
@@ -650,14 +530,48 @@ class DeepAgentFactory:
                         agent_kwargs["interrupt_on"] = interrupt_on
                         logger.info(f"  HITL interrupt_on configured for {len(interrupt_on)} tools: {list(interrupt_on.keys())}")
 
+                    # Register a harness profile to exclude built-in tools we don't want.
+                    try:
+                        from deepagents import (
+                            HarnessProfile, register_harness_profile,
+                        )
+                        # The model is a ChatOpenAI instance, which the library
+                        # resolves with provider="openai". The key must match
+                        # what _harness_profile_for_model generates.
+                        _profile_key = f"openai:{_model_str}"
+                        register_harness_profile(
+                            _profile_key,
+                            HarnessProfile(
+                                excluded_tools=frozenset({
+                                    "write_todos", "update_todo_status", "get_todos",
+                                    "ls", "glob", "grep", "execute",
+                                    "task",
+                                }),
+                                excluded_middleware=[
+                                    "TodoListMiddleware",
+                                    "SkillsMiddleware",
+                                ],
+                            ),
+                        )
+                        logger.info(
+                            f"Registered harness profile for {_profile_key} "
+                            f"with built-in tools excluded"
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to register harness profile: {e}")
+
                 agent = create_deep_agent(**agent_kwargs, guardrails=guardrails_config)
-                logger.info("Guardrails configuration applied")
+                logger.info(f"Guardrails configuration applied")
             except TypeError as e:
                 if "guardrails" in str(e):
                     logger.warning("Guardrails parameter not supported, creating without it")
                     agent = create_deep_agent(**agent_kwargs)
                 else:
                     raise
+
+            # Log tools available to the agent for debugging
+            tool_names = [getattr(t, "name", str(t)) for t in all_tools] if all_tools else []
+            logger.info(f"=== Agent created with {len(tool_names)} tools: {tool_names} ===")
 
             logger.info(f"DeepAgent created for task {task_id}")
             logger.info(f"  Persistence: {'enabled' if checkpointer else 'disabled'}")
@@ -767,12 +681,12 @@ class DeepAgentFactory:
         if config.custom_tools:
             try:
                 logger.info(f"Custom tools requested: {config.custom_tools}")
-                custom_tools = await AgentFactory._load_custom_tools(config.custom_tools, project_id)
+                from core.agents.tool_loader import ToolLoader
+                custom_tools = await ToolLoader().load_custom(config.custom_tools, project_id)
                 tools.extend(custom_tools)
                 logger.info(f"Loaded {len(custom_tools)} custom tools: {[t.name for t in custom_tools]}")
             except Exception as e:
                 logger.error(f"Failed to load custom tools: {e}")
-                logger.exception("Custom tool loading stack trace:")
 
         return tools
 
@@ -826,11 +740,13 @@ class DeepAgentFactory:
                 # IMPORTANT: Load actual tool objects, not just tool names
                 # The deepagents library expects tools as BaseTool/Callable/dict objects,
                 # not string names. We need to resolve tool names to actual tools.
-                subagent_tools = []
+                # NOTE: If sub_config.tools is empty/None, DO NOT set "tools" key at all,
+                # so the subagent inherits the main agent's tools by default.
+                # Setting tools=[] would override inheritance with zero tools.
+                subagent_tools = None
                 if sub_config.tools:
                     try:
                         from tools.native_tools import load_native_tools
-                        # Load native tools by name
                         subagent_tools = load_native_tools(sub_config.tools)
                         logger.info(f"Loaded {len(subagent_tools)} tools for subagent '{sub_config.name}': {sub_config.tools}")
                     except Exception as e:
@@ -840,8 +756,11 @@ class DeepAgentFactory:
                     "name": sub_config.name,
                     "description": sub_config.description,
                     "system_prompt": sub_config.system_prompt or "",
-                    "tools": subagent_tools,  # Actual tool objects, not string names
                 }
+
+                # Only add tools key if tools were explicitly provided (inherits otherwise)
+                if subagent_tools:
+                    subagent["tools"] = subagent_tools
 
                 if sub_config.model:
                     subagent["model"] = sub_config.model
@@ -867,7 +786,7 @@ class DeepAgentFactory:
                     subagent["response_format"] = sub_config.response_format
 
                 subagents.append(subagent)
-                logger.info(f"Dictionary subagent prepared: {sub_config.name} with {len(subagent_tools)} tools")
+                logger.info(f"Dictionary subagent prepared: {sub_config.name} with {len(subagent_tools or [])} tools")
 
             # Workflow-based CompiledSubAgent
             elif sub_config.type == SubAgentType.COMPILED:

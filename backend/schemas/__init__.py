@@ -1,6 +1,4 @@
-# Copyright (c) 2025 Cade Russell (Ghost Peony)
-#
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
+"""Canonical schemas — single source of truth for data shape."""
+from .sales import CleanedSalesRow, SCHEMAS, get_schema
 
-# Schemas Package
+__all__ = ["CleanedSalesRow", "SCHEMAS", "get_schema"]

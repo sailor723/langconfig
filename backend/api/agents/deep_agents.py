@@ -8,11 +8,20 @@ API endpoints for DeepAgent configuration and management.
 """
 
 import logging
+import json
+import os as _os
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from starlette.responses import Response, FileResponse
+
+# Repo root — used by the codegen endpoint so generated scripts know where
+# to find langconfig modules, even when run from a different directory.
+_CODEGEN_REPO_ROOT = _os.path.abspath(
+    _os.path.join(_os.path.dirname(__file__), "..", "..", "..")
+)
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from db.database import get_db
 from models.deep_agent import (
@@ -22,7 +31,10 @@ from models.deep_agent import (
     SubAgentConfig,
     MiddlewareConfig,
     BackendConfig,
-    GuardrailsConfig
+    GuardrailsConfig,
+    create_default_middleware_config,
+    create_default_backend_config,
+    create_default_guardrails_config,
 )
 from services.export_service import ExportService
 from core.versioning import check_version_conflict, format_lock_version_error
@@ -80,16 +92,18 @@ def _ensure_deep_agent_config(config: dict, db: Session = None) -> dict:
     DeepAgents in the deep_agent_templates table should ALWAYS have
     use_deepagents=True, even if stored incorrectly in the database.
     This fixes frontend compatibility issues.
-    
+
     For regular (non-deep) agents, use_deepagents is explicitly set to False
     and should be respected.
-    
+
     If db is provided, also injects dynamic skill subagents into config.subagents.
     """
     config = dict(config)  # Make a copy to avoid mutating
-    # Respect explicitly set use_deepagents=False (regular agents)
-    if not config.get("use_deepagents", True):
-        return config
+    # BUGFIX: Previously this respected config.use_deepagents=False, but for deep
+    # agents in deep_agent_templates table, the flag is sometimes incorrectly
+    # saved as False in the DB. ALWAYS force True here to match the original
+    # upstream fix from commit 3efc2bf — this is what enables native_tools
+    # (web_search, tavily_search, web_fetch) to be loaded.
     config["use_deepagents"] = True
     # Inject merged skill subagents into config.subagents so frontend builder can see them
     if db is not None:
@@ -142,6 +156,22 @@ class DeepAgentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @field_validator("middleware_config", mode="before")
+    @classmethod
+    def ensure_middleware_config_is_list(cls, v):
+        """Handle DB records where middleware_config is stored as {} instead of []."""
+        if isinstance(v, dict):
+            return []
+        return v or []
+
+    @field_validator("subagents_config", mode="before")
+    @classmethod
+    def ensure_subagents_config_is_list(cls, v):
+        """Handle DB records where subagents_config is stored as {} instead of []."""
+        if isinstance(v, dict):
+            return []
+        return v or []
 
 
 class ExportRequest(BaseModel):
@@ -438,6 +468,155 @@ async def delete_deepagent(
 
 
 # =============================================================================
+# Agent Creator workflow support
+# =============================================================================
+
+CREATOR_OUTPUT_PATH = "/tmp/agent_creator_output.json"
+
+class CreatorOutput(BaseModel):
+    """Agent Creator saved config format (simplified)."""
+    name: str
+    category: Optional[str] = "Custom"
+    description: Optional[str] = ""
+    config: dict
+
+@router.post("/from-creator")
+async def create_from_agent_creator(
+    db: Session = Depends(get_db)
+):
+    """
+    Create a DeepAgent from the Agent Creator's saved output file.
+    Reads /tmp/agent_creator_output.json and creates the agent.
+    """
+    try:
+        if not _os.path.exists(CREATOR_OUTPUT_PATH):
+            raise HTTPException(status_code=404, detail="No Agent Creator output found. Run Agent Creator first.")
+
+        with open(CREATOR_OUTPUT_PATH, "r") as f:
+            raw = json.load(f)
+
+        data = CreatorOutput(**raw)
+
+        # Build full config with defaults
+        cfg = data.config
+        full_config = DeepAgentConfig(
+            model=cfg.get("model", "minimax-m3"),
+            system_prompt=cfg.get("system_prompt", ""),
+            native_tools=cfg.get("native_tools", ["web_search", "web_fetch"]),
+            skills=cfg.get("skills", []),
+            tools=cfg.get("tools", []),
+            cli_tools=cfg.get("cli_tools", []),
+            custom_tools=cfg.get("custom_tools", []),
+            temperature=cfg.get("temperature", 0.7),
+            use_deepagents=True,
+            middleware=create_default_middleware_config(),
+            subagents=[],
+            backend=create_default_backend_config(),
+            guardrails=create_default_guardrails_config(),
+        )
+
+        agent = DeepAgentTemplate(
+            name=data.name,
+            description=data.description,
+            category=data.category or "Custom",
+            config=full_config.dict(),
+            middleware_config=[m.dict() for m in full_config.middleware],
+            subagents_config=[],
+            backend_config=full_config.backend.dict(),
+            guardrails_config=full_config.guardrails.dict(),
+        )
+
+        db.add(agent)
+        db.commit()
+        db.refresh(agent)
+
+        # Remove the temp file
+        _os.remove(CREATOR_OUTPUT_PATH)
+
+        logger.info(f"Agent Creator created DeepAgent: {agent.name} (id={agent.id})")
+
+        return {
+            "status": "success",
+            "message": f"Agent '{data.name}' created successfully (id={agent.id})",
+            "agent_id": agent.id,
+            "name": agent.name,
+            "description": agent.description,
+            "category": agent.category,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create from Agent Creator: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class QuickCreateRequest(BaseModel):
+    """Quick-create a DeepAgent from the UI (fallback for Agent Creator workflow)."""
+    name: str
+    system_prompt: str
+    native_tools: list[str] = []
+    skills: list[str] = []
+    description: str = ""
+    category: str = "Custom"
+    model: str = "minimax-m3"
+    temperature: float = 0.7
+
+
+@router.post("/quick-create")
+async def quick_create_agent(
+    request: QuickCreateRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Quick-create a DeepAgent from the UI (backup for Agent Creator workflow).
+
+    Replaces the legacy file-based /from-creator endpoint.
+    Accepts agent config directly and writes to PostgreSQL.
+    """
+    try:
+        cfg = DeepAgentConfig(
+            model=request.model,
+            system_prompt=request.system_prompt.strip(),
+            native_tools=request.native_tools or [],
+            skills=request.skills or [],
+            tools=[],
+            cli_tools=[],
+            custom_tools=[],
+            temperature=request.temperature,
+            use_deepagents=True,
+            middleware=create_default_middleware_config(),
+            subagents=[],
+            backend=create_default_backend_config(),
+            guardrails=create_default_guardrails_config(),
+        )
+        agent = DeepAgentTemplate(
+            name=request.name.strip(),
+            description=request.description.strip(),
+            category=request.category,
+            config=cfg.dict(),
+            middleware_config=[m.dict() for m in cfg.middleware],
+            subagents_config=[],
+            backend_config=cfg.backend.dict(),
+            guardrails_config=cfg.guardrails.dict(),
+        )
+        db.add(agent)
+        db.commit()
+        db.refresh(agent)
+        logger.info(f"Quick-create DeepAgent: {agent.name} (id={agent.id})")
+        return {
+            "status": "success",
+            "message": f"Agent '{agent.name}' created successfully (id={agent.id})",
+            "agent_id": agent.id,
+            "name": agent.name,
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Quick-create failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
 # Prompt Assembly Preview
 # =============================================================================
 
@@ -688,14 +867,14 @@ async def download_export(
     db: Session = Depends(get_db)
 ):
     """Download an exported DeepAgent."""
-    from fastapi.responses import FileResponse
+    from starlette.responses import FileResponse
 
     export = db.query(AgentExport).filter(AgentExport.id == export_id).first()
 
     if not export:
         raise HTTPException(status_code=404, detail="Export not found")
 
-    if not export.file_path or not os.path.exists(export.file_path):
+    if not export.file_path or not _os.path.exists(export.file_path):
         raise HTTPException(status_code=404, detail="Export file not found")
 
     # Update download count
@@ -706,7 +885,7 @@ async def download_export(
 
     return FileResponse(
         export.file_path,
-        filename=os.path.basename(export.file_path),
+        filename=_os.path.basename(export.file_path),
         media_type="application/octet-stream"
     )
 
@@ -765,6 +944,7 @@ async def import_langconfig(
             "max_tokens": agent_data.get("max_tokens"),
             "system_prompt": agent_data["system_prompt"],
             "tools": agent_data.get("tools", []),
+            "native_tools": agent_data.get("tools", []),  # same list for factory loading
             "mcp_tools": agent_data.get("mcp_tools", []),
             "cli_tools": agent_data.get("cli_tools", []),
             "middleware": agent_data.get("middleware", []),
@@ -819,4 +999,226 @@ async def import_langconfig(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-import os
+@router.get("/{agent_id}/code")
+async def download_agent_code(agent_id: int, db: Session = Depends(get_db)):
+    """Download a runnable Python file for this agent.
+
+    The generated code mirrors the backend's actual agent creation exactly:
+    - sys.path setup with _REPO_ROOT + _PHASE9_DIR
+    - ChatOpenAI with proper env vars (MINIMAX_API_KEY, MINIMAX_API_BASE, etc.)
+    - load_native_tools() for tool loading
+    - create_deep_agent() for DeepAgents / create_react_agent for regular agents
+    - CLI entry point (python agent.py)
+    """
+    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    config = agent.config or {}
+    model = config.get("model", "gpt-4o")
+    temperature = config.get("temperature", 0.7)
+    max_tokens = config.get("max_tokens") or 4000
+    system_prompt = config.get("system_prompt", "You are a helpful AI assistant.")
+    native_tools = config.get("native_tools", [])
+    custom_tools = config.get("custom_tools", [])
+    middleware = config.get("middleware", [])
+
+    # Determine model provider for env vars
+    model_lower = model.lower()
+    if model_lower.startswith("minimax"):
+        model_import = "from langchain_openai import ChatOpenAI"
+        llm_init = f"""
+MODEL = os.environ.get("ACTUAL_MODEL", "{model}")
+API_KEY = os.environ.get("MINIMAX_API_KEY", "")
+BASE_URL = os.environ.get("MINIMAX_API_BASE", "https://api.minimaxi.com/v1")
+llm = ChatOpenAI(
+    model=MODEL,
+    base_url=BASE_URL,
+    api_key=API_KEY,
+    temperature={temperature},
+    max_tokens={max_tokens},
+)"""
+    elif model_lower.startswith("deepseek"):
+        model_import = "from langchain_openai import ChatOpenAI"
+        llm_init = f"""
+API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+BASE_URL = os.environ.get("DEEPSEEK_API_BASE", "https://api.deepseek.com/v1")
+llm = ChatOpenAI(
+    model="{model}",
+    base_url=BASE_URL,
+    api_key=API_KEY,
+    temperature={temperature},
+    max_tokens={max_tokens},
+)"""
+    elif model_lower.startswith("agnes"):
+        model_import = "from langchain_openai import ChatOpenAI"
+        llm_init = f"""
+API_KEY = os.environ.get("AGNES_API_KEY", "")
+BASE_URL = os.environ.get("AGNES_BASE_URL", "")
+llm = ChatOpenAI(
+    model="{model}",
+    base_url=BASE_URL,
+    api_key=API_KEY,
+    temperature={temperature},
+    max_tokens={max_tokens},
+)"""
+    else:
+        model_import = "from langchain_openai import ChatOpenAI"
+        llm_init = f"""
+API_KEY = os.environ.get("OPENAI_API_KEY", "")
+llm = ChatOpenAI(
+    model="{model}",
+    api_key=API_KEY,
+    temperature={temperature},
+    max_tokens={max_tokens},
+)"""
+
+    # Tool loading
+    native_tools_lines = ""
+    if native_tools:
+        native_tools_lines = f"""
+# Native tools (graphindex-backed document search)
+from tools.native_tools import load_native_tools
+tools.extend(load_native_tools({json.dumps(native_tools)}))
+"""
+
+    custom_tools_lines = ""
+    if custom_tools:
+        import_lines = "\n".join(
+            f'tools.append(tool_factory.load_custom_tool("{t}"))' for t in custom_tools
+        )
+        custom_tools_lines = f"""
+# Custom tools
+from orchestration.tool_factory import ToolFactory
+tool_factory = ToolFactory()
+{import_lines}
+"""
+
+    is_deep = config.get("use_deepagents", False)
+
+    if is_deep:
+        build_section = '''
+# Build DeepAgent with PostgreSQL checkpointer for conversation persistence
+from langgraph.checkpoint.postgres import PostgresSaver
+from deepagents import create_deep_agent
+
+checkpointer = PostgresSaver.from_conn_string(
+    os.environ.get("DATABASE_URL", "postgresql://user:pass@localhost:5432/langconfig")
+)
+agent = create_deep_agent(
+    model=llm,
+    system_prompt=system_prompt,
+    tools=tools,
+    checkpointer=checkpointer,
+)
+'''
+    else:
+        build_section = '''
+# Build LangGraph agent
+from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.prebuilt import create_react_agent
+
+checkpointer = PostgresSaver.from_conn_string(
+    os.environ.get("DATABASE_URL", "postgresql://user:pass@localhost:5432/langconfig")
+)
+agent = create_react_agent(
+    llm,
+    tools,
+    state_modifier=system_prompt,
+    checkpointer=checkpointer,
+)
+'''
+
+    # Escape single-quotes in system prompt for the generated code
+    escaped_prompt = system_prompt.replace("\\", "\\\\").replace("'", "\\'")
+
+    source = (
+        '#!/usr/bin/env python3\n'
+        f'"""Runnable agent: {agent.name} (generated by LangConfig)\n'
+        '\n'
+        'Usage:\n'
+        '    pip install langchain-openai langgraph python-dotenv\n'
+        '    python agent.py\n'
+        '"""\n'
+        '\n'
+        'import os\n'
+        'import sys\n'
+        '\n'
+        '# ── Path setup (mirrors backend/api/chat/routes.py) ──────────────────────\n'
+        '# You can override this by setting LANGCFG_ROOT or placing this script\n'
+        '# anywhere inside the repo (it walks up looking for backend/).\n'
+        f'_REPO_ROOT = r"{_CODEGEN_REPO_ROOT}"\n'
+        'if _REPO_ROOT not in sys.path:\n'
+        '    sys.path.insert(0, _REPO_ROOT)\n'
+        '_BACKEND_DIR = os.path.join(_REPO_ROOT, "backend")\n'
+        'if _BACKEND_DIR not in sys.path:\n'
+        '    sys.path.insert(0, _BACKEND_DIR)\n'
+        '_PHASE9_DIR = os.path.join(_REPO_ROOT, "learning", "phase9")\n'
+        'if _PHASE9_DIR not in sys.path and os.path.isdir(_PHASE9_DIR):\n'
+        '    sys.path.insert(0, _PHASE9_DIR)\n'
+        '\n'
+        '# Default project ID for graphindex tools (override via env)\n'
+        'if not os.environ.get("GRAPHINDEX_PROJECT_ID"):\n'
+        '    os.environ["GRAPHINDEX_PROJECT_ID"] = "1"\n'
+        '\n'
+        '# ── Env ──────────────────────────────────────────────────────────────────\n'
+        'from dotenv import load_dotenv\n'
+        '_dotenv_path = os.path.join(_REPO_ROOT, ".env")\n'
+        'if os.path.isfile(_dotenv_path):\n'
+        '    load_dotenv(_dotenv_path)\n'
+        'else:\n'
+        '    load_dotenv()\n'
+        '\n'
+        f'{model_import}\n'
+        '\n'
+        '# ── 1. LLM ──────────────────────────────────────────────────────────────\n'
+        f'{llm_init}\n'
+        '\n'
+        '# ── 2. System prompt ────────────────────────────────────────────────────\n'
+        f"system_prompt = '''{escaped_prompt}'''\n"
+        '\n'
+        '# ── 3. Tools ────────────────────────────────────────────────────────────\n'
+        'tools = []\n'
+        f'{native_tools_lines}{custom_tools_lines}'
+        '\n'
+        '# ── 4. Build agent ──────────────────────────────────────────────────────\n'
+        f'{build_section}'
+        '\n'
+        '# ── 5. CLI entry point ─────────────────────────────────────────────────\n'
+        'def main():\n'
+        f'    print(f"=== {agent.name} ===")\n'
+        '    print("Type \'exit\' to quit.\\n")\n'
+        '    from langchain_core.messages import HumanMessage, AIMessage\n'
+        '    history = []\n'
+        '    while True:\n'
+        '        user_input = input("You: ").strip()\n'
+        '        if user_input.lower() in ("exit", "quit"):\n'
+        '            break\n'
+        '        history.append(HumanMessage(content=user_input))\n'
+        '        result = agent.invoke(\n'
+        '            {"messages": history},\n'
+        '            config={"configurable": {"thread_id": "cli"}, "recursion_limit": 500},\n'
+        '        )\n'
+        '        msgs = result.get("messages", [])\n'
+        '        reply = ""\n'
+        '        for m in reversed(msgs):\n'
+        '            if hasattr(m, "content") and m.content and not hasattr(m, "tool_calls"):\n'
+        '                reply = m.content\n'
+        '                break\n'
+        '        if not reply:\n'
+        '            reply = str(result)\n'
+        '        print(f"\\nAgent: {reply}\\n")\n'
+        '        history.append(AIMessage(content=reply))\n'
+        '\n'
+        '\n'
+        'if __name__ == "__main__":\n'
+        '    main()\n'
+    )
+
+    return Response(
+        content=source,
+        media_type="text/x-python",
+        headers={
+            "Content-Disposition": f'attachment; filename="{agent.name.replace(" ", "_")}.py"',
+        },
+    )

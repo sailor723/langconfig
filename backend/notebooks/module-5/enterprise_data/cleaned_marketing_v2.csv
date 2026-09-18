@@ -1,0 +1,4 @@
+tx_id,Region,Product_Category,Quantity,Unit_Price,Discount
+MKT_999,US,Software,20,500.0,100.0
+MKT_1000,EMEA,Hardware,2,1250.0,10.0
+MKT_1001,LATAM,Services,1,2100.0,50.0

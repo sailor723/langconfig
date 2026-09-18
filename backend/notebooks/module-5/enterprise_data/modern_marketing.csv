@@ -1,0 +1,4 @@
+tx_id,market,prod_cat,qty,price_per_unit,rebate
+MKT_999,US,Software,20,$500.00,100.0
+MKT_1000,EMEA,Hardware,2,"$1,250.00",10.0
+MKT_1001,LATAM,Services,1,"$2,100.00",50.0

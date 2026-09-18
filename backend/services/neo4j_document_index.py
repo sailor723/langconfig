@@ -104,6 +104,13 @@ def build_document_node_properties(
         "supported_queries": enrichment.supported_queries,
         "out_of_scope": enrichment.out_of_scope,
         "few_shot_json": json.dumps(enrichment.few_shot, ensure_ascii=False),
+        # Step N+1: hierarchy metadata. Pass-through from context_doc
+        # when present (set by bulk ingest); empty string for single
+        # uploads. Used by folder-scope filters in Neo4j-side queries.
+        "industry": getattr(enrichment, "industry", None) or "",
+        "player": getattr(enrichment, "player", None) or "",
+        "sub_category": getattr(enrichment, "sub_category", None) or "",
+        "sub_department": getattr(enrichment, "sub_department", None) or "",
     }
 
 
@@ -317,6 +324,38 @@ class Neo4jDocumentIndex:
             "MATCH (d:Document {project_id: $project_id}) DETACH DELETE d",
             {"project_id": project_id},
         )
+
+    def delete_document(self, project_id: int, name: str) -> bool:
+        """Delete one Document node (and its relationships) by project+name.
+
+        Step N+1: paired with the Postgres delete endpoint so the
+        Knowledge Base UI's "remove doc" action also clears the
+        graphindex catalog. Without this, the deleted file would
+        still appear in the chat agent's `list_docs` results and
+        the user would hit "doc not found" errors.
+
+        Important: the Neo4j node's `name` field is the file's
+        POST-RENAME name (after `file_storage.save_file` prefixes
+        an 8-char content hash, e.g. `cfd711e3_01_tesla_q3_strategy.pdf`).
+        The Postgres `ContextDocument.filename` is the ORIGINAL name
+        (e.g. `01_tesla_q3_strategy.pdf`) and won't match. So callers
+        should pass either the `file_path` basename OR the rename-
+        prefixed name. The single-doc DELETE endpoint in rag.py tries
+        `original_filename` first, then `filename`; for orphan cleanup,
+        use `delete_project_documents()` (project-wide DETACH DELETE)
+        which is more reliable.
+
+        Returns True if a node was deleted, False if no matching node
+        existed (e.g. doc was never indexed into Neo4j).
+        """
+        rows = self._run_cypher(
+            (
+                "MATCH (d:Document {project_id: $project_id, name: $name}) "
+                "DETACH DELETE d RETURN count(d) AS deleted_count"
+            ),
+            {"project_id": project_id, "name": name},
+        )
+        return bool(rows and rows[0].get("deleted_count", 0) > 0)
 
     def get_document(self, project_id: int, name: str) -> Optional[Neo4jDocumentRecord]:
         """Load one document by exact name."""

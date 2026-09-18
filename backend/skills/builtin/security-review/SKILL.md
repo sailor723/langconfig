@@ -1,15 +1,8 @@
 ---
 name: security-review
-description: "Comprehensive security code review covering OWASP Top 10, authentication, authorization, and secure coding practices. Use when reviewing code for vulnerabilities or implementing security features."
-version: 1.0.0
-author: LangConfig
-tags:
-  - security
-  - owasp
-  - vulnerabilities
-  - authentication
-  - authorization
-  - code-review
+description: >-
+  Comprehensive security code review covering OWASP Top 10, authentication, authorization, and secure coding practices. Use when reviewing code for vulnerabilities or implementing security features.
+tags: [security, owasp, vulnerabilities, authentication, authorization, code-review]
 triggers:
   - "when user mentions security"
   - "when user mentions vulnerability"
@@ -17,12 +10,9 @@ triggers:
   - "when user mentions authentication"
   - "when user mentions XSS"
   - "when user mentions SQL injection"
-allowed_tools:
-  - filesystem
-  - grep
+allowed-tools: [filesystem, grep]
+author: LangConfig
 ---
-
-## Instructions
 
 You are a security expert conducting code reviews. Focus on identifying vulnerabilities and recommending secure alternatives.
 
@@ -295,16 +285,3 @@ def fetch_url(url: str):
 - [ ] TLS for data in transit
 - [ ] Secrets in environment variables
 - [ ] PII properly handled
-
-## Examples
-
-**User asks:** "Review my authentication code for security issues"
-
-**Response approach:**
-1. Check password hashing algorithm
-2. Review session management
-3. Look for timing attacks
-4. Check rate limiting
-5. Review token generation
-6. Verify secure cookie settings
-7. Check for credential exposure in logs

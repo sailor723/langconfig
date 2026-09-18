@@ -27,6 +27,7 @@ import {
   GitBranch,
   Trash2,
   BookOpen,
+  Maximize2,
 } from 'lucide-react';
 import { useNotification } from '../../../hooks/useNotification';
 import { ModelSelectorInline } from '../../../components/common/ModelSelector';
@@ -244,6 +245,11 @@ const NATIVE_TOOLS = [
   { id: 'tavily_search', name: 'Tavily Search', description: 'Professional web search with AI-optimized results. Supports general, news, and finance topics. Requires TAVILY_API_KEY.' },
   { id: 'web_fetch', name: 'Web Fetch', description: 'Fetch and extract text content from webpages using HTTP requests. Useful for reading articles, documentation, and web pages.' },
   { id: 'browser', name: 'Browser Automation', description: 'Advanced web interaction using Playwright. Navigate, click, extract text, take screenshots, and interact with JavaScript-rendered content.' },
+  // GraphIndex retrieval tools (vectorless RAG)
+  { id: 'graphindex_list_docs', name: 'GraphIndex - List Documents', description: 'List all documents in the project with about-preview. Use this first to discover what docs exist.' },
+  { id: 'graphindex_search', name: 'GraphIndex - Search Documents', description: 'Search project documents using LLM semantic routing. Returns best matching doc (primary + 0-3 supporting).' },
+  { id: 'graphindex_load', name: 'GraphIndex - Load Document Content', description: 'Load the full content of a document by its context_doc_id (from graphindex_search). Returns complete text.' },
+  { id: 'graphindex_multi_doc_load', name: 'GraphIndex - Multi-Doc Load', description: 'One-shot: route a query to the best primary document, then load primary + supporting docs in one step.' },
   // Memory tools
   { id: 'memory_store', name: 'Store Memory', description: 'Save information to agent memory for later recall. Uses PostgreSQL for persistence across sessions. Supports key-value storage with context categories.' },
   { id: 'memory_recall', name: 'Recall Memory', description: 'Retrieve previously stored information from memory by key. Access saved data across different conversation sessions.' },
@@ -391,6 +397,7 @@ export default function DeepAgentBuilder({
   // Skills state
   const [availableSkills, setAvailableSkills] = useState<Array<{ skill_id: string, name: string, description: string, source_type: string }>>([]);
   const [showSkillPicker, setShowSkillPicker] = useState(false);
+  const [showPromptModal, setShowPromptModal] = useState(false);
 
   // Fetch available skills
   useEffect(() => {
@@ -720,7 +727,7 @@ export default function DeepAgentBuilder({
         model: result.config.model,
         temperature: result.config.temperature,
         system_prompt: result.config.system_prompt,
-        native_tools: result.config.native_tools || result.config.mcp_tools || []
+        native_tools: result.config.native_tools || []
       }));
 
       // Show success with reasoning
@@ -974,13 +981,22 @@ export default function DeepAgentBuilder({
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2 uppercase">
                 Instructions for the agent <span className="text-red-500">*</span>
               </label>
-              <textarea
-                value={config.system_prompt}
-                onChange={(e) => updateConfig('system_prompt', e.target.value)}
-                rows={6}
-                placeholder="Enter the system prompt that defines the agent's behavior and capabilities... (or use AI Generate to auto-fill)"
-                className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-              />
+              <div className="relative">
+                <textarea
+                  value={config.system_prompt}
+                  onChange={(e) => updateConfig('system_prompt', e.target.value)}
+                  rows={12}
+                  placeholder="Enter the system prompt that defines the agent's behavior and capabilities... (or use AI Generate to auto-fill)"
+                  className="w-full px-3 py-2 bg-white dark:bg-background-dark border border-gray-200 dark:border-border-dark rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-y"
+                />
+                <button
+                  onClick={() => setShowPromptModal(true)}
+                  className="absolute top-2 right-2 p-1.5 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+                  title="Edit in full screen"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
               {/* Warning badge for missing file tools */}
               {fileToolWarning && (
@@ -2804,6 +2820,63 @@ export default function DeepAgentBuilder({
                   Discard Changes
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen Prompt Modal */}
+      {showPromptModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowPromptModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-panel-dark rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b shrink-0" style={{
+              backgroundColor: 'var(--color-primary)',
+              borderBottomColor: 'var(--color-border-dark)'
+            }}>
+              <div className="flex items-center gap-2">
+                <Brain size={20} className="text-white" />
+                <h3 className="text-lg font-semibold text-white">
+                  System Prompt
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowPromptModal(false)}
+                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body — full-height textarea */}
+            <div className="flex-1 p-6 min-h-0">
+              <textarea
+                value={config.system_prompt}
+                onChange={(e) => updateConfig('system_prompt', e.target.value)}
+                className="w-full h-full px-4 py-3 border border-gray-200 dark:border-border-dark bg-white dark:bg-background-dark rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                style={{ color: 'var(--color-text-primary)', minHeight: '400px' }}
+                placeholder="Enter system prompt..."
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t shrink-0 flex items-center justify-between" style={{ borderTopColor: 'var(--color-border-dark)' }}>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                {config.system_prompt.length} characters
+              </p>
+              <button
+                onClick={() => setShowPromptModal(false)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

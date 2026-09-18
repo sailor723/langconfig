@@ -5,10 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Trash2, Edit, Download, Copy, Upload, Sparkles, Code, Database, Terminal, X, Save, BookOpen, Tag, Clock, TrendingUp, Settings, Play } from 'lucide-react';
+import { Search, Plus, Trash2, Edit, Download, Copy, Upload, Sparkles, Code, Database, Terminal, X, Save, BookOpen, Tag, Clock, TrendingUp, Settings, Play, Maximize2, Minimize2, Brain } from 'lucide-react';
 import DeepAgentBuilder from './DeepAgentBuilder';
 import SkillBuilderModal from './SkillBuilderModal';
 import CustomToolBuilder from '../../tools/ui/CustomToolBuilder';
@@ -424,6 +424,7 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     });
   };
   const [showCodeModal, setShowCodeModal] = useState(false);
+  const [showPromptModal, setShowPromptModal] = useState(false);
   const [generatedCode, setGeneratedCode] = useState('');
   const [subagents, setSubagents] = useState(agent.config?.subagents || []);
   const [expandedSubagents, setExpandedSubagents] = useState<Set<number>>(new Set());
@@ -678,99 +679,183 @@ const AgentConfigView = ({ agent, onSave, onDelete, onClose, onTest }: AgentConf
     const tools = config.native_tools || [];
     const customTools = config.custom_tools || [];
     const middleware = config.middleware || [];
+    const isDeep = config.use_deepagents;
 
-    let code = `"""
-LangChain Agent Configuration
+    // Pick model import based on the model name
+    const modelLower = (config.model || '').toLowerCase();
+    let modelImport = '';
+    let llmInit = '';
+    if (modelLower.includes('openai') || modelLower.includes('gpt')) {
+      modelImport = `from langchain_openai import ChatOpenAI`;
+      llmInit = `llm = ChatOpenAI(
+    model="${config.model || 'gpt-4o'}",
+    temperature=${config.temperature ?? 0.7},
+    max_tokens=${config.max_tokens || 4000}
+)`;
+    } else if (modelLower.includes('minimax')) {
+      modelImport = `from langchain_openai import ChatOpenAI`;
+      llmInit = `llm = ChatOpenAI(
+    model="${config.model || 'minimax-m3'}",
+    base_url=os.environ.get("MINIMAX_API_BASE", "https://api.minimaxi.com/v1"),
+    api_key=os.environ.get("MINIMAX_API_KEY", "your-api-key"),
+    temperature=${config.temperature ?? 0.7},
+    max_tokens=${config.max_tokens || 4000}
+)`;
+    } else if (modelLower.includes('deepseek')) {
+      modelImport = `from langchain_openai import ChatOpenAI`;
+      llmInit = `llm = ChatOpenAI(
+    model="${config.model || 'deepseek-chat'}",
+    base_url=os.environ.get("DEEPSEEK_API_BASE", "https://api.deepseek.com/v1"),
+    api_key=os.environ.get("DEEPSEEK_API_KEY", "your-api-key"),
+    temperature=${config.temperature ?? 0.7},
+    max_tokens=${config.max_tokens || 4000}
+)`;
+    } else if (modelLower.includes('gemini') || modelLower.includes('gemma')) {
+      modelImport = `from langchain_google_genai import ChatGoogleGenerativeAI`;
+      llmInit = `llm = ChatGoogleGenerativeAI(
+    model="${config.model || 'gemini-2.0-flash'}",
+    temperature=${config.temperature ?? 0.7},
+    max_tokens=${config.max_tokens || 4000}
+)`;
+    } else {
+      // Fallback: try a generic ChatOpenAI-compatible endpoint
+      modelImport = `from langchain_openai import ChatOpenAI`;
+      llmInit = `llm = ChatOpenAI(
+    model="${config.model || 'gpt-4o'}",
+    temperature=${config.temperature ?? 0.7},
+    max_tokens=${config.max_tokens || 4000}
+)`;
+    }
+
+    const header = `"""
+${isDeep ? 'DeepAgent' : 'LangGraph'} Agent Configuration
 Agent: ${agentName}
 Generated from LangConfig
 """
 
-from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_openai_functions_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import SystemMessage
-from langgraph.checkpoint.postgres import PostgresSaver
-from langgraph.prebuilt import create_react_agent
+import os
 
-# Initialize LLM
-llm = ChatOpenAI(
-    model="${config.model || 'gpt-4o'}",
-    temperature=${config.temperature ?? 0.7},
-    max_tokens=${config.max_tokens || 4000}
-)
+${modelImport}`;
 
-# System Prompt
+    const systemSection = `
+# ---------------------------------------------------------------------------
+# 1. LLM
+# ---------------------------------------------------------------------------
+${llmInit}
+
+# ---------------------------------------------------------------------------
+# 2. System prompt
+# ---------------------------------------------------------------------------
 system_prompt = """${config.system_prompt || 'You are a helpful AI assistant.'}"""
+`;
 
-# Load Tools
+    let toolsSection = `
+# ---------------------------------------------------------------------------
+# 3. Tools
+# ---------------------------------------------------------------------------
 tools = []
 `;
 
     if (tools.length > 0) {
-      code += `\n# Native Tools\n`;
-      code += `from tools.native_tools import load_native_tools\n`;
-      code += `tools.extend(load_native_tools([\n`;
+      toolsSection += `\n# Native tools\n`;
+      toolsSection += `from tools.native_tools import load_native_tools\n`;
+      toolsSection += `tools.extend(load_native_tools([\n`;
       tools.forEach((tool: string) => {
-        code += `    "${tool}",\n`;
+        toolsSection += `    "${tool}",\n`;
       });
-      code += `]))\n`;
+      toolsSection += `]))\n`;
     }
 
     if (customTools.length > 0) {
-      code += `\n# Custom Tools\n`;
-      code += `from orchestration.tool_factory import ToolFactory\n`;
-      code += `tool_factory = ToolFactory()\n`;
+      toolsSection += `\n# Custom tools\n`;
+      toolsSection += `from orchestration.tool_factory import ToolFactory\n`;
+      toolsSection += `tool_factory = ToolFactory()\n`;
       customTools.forEach((toolId: string) => {
-        code += `tools.append(tool_factory.load_custom_tool("${toolId}"))\n`;
+        toolsSection += `tools.append(tool_factory.load_custom_tool("${toolId}"))\n`;
       });
     }
 
-    if (middleware.length > 0) {
-      code += `\n# Middleware Configuration\n`;
-      code += `middleware_config = [\n`;
-      middleware.forEach((m: any) => {
-        code += `    {"type": "${m.type}", "enabled": True, "config": {}},\n`;
-      });
-      code += `]\n`;
-    }
+    let buildSection;
+    if (isDeep) {
+      buildSection = `
+# ---------------------------------------------------------------------------
+# 4. Build DeepAgent
+# ---------------------------------------------------------------------------
+from deepagents import create_deep_agent
 
-    code += `
-# Create Agent
+agent = create_deep_agent(
+    llm=llm,
+    system_prompt=system_prompt,
+    tools=tools,
+)
+
+# ---------------------------------------------------------------------------
+# 5. Run
+# ---------------------------------------------------------------------------
+result = agent.invoke(
+    {"messages": [("user", "Your input here")]},
+    config={
+        "configurable": {"thread_id": "unique-thread-id"},
+        "recursion_limit": 500,
+    },
+)
+print(result["messages"][-1].content)
+`;
+    } else {
+      buildSection = `
+# ---------------------------------------------------------------------------
+# 4. Build LangGraph agent
+# ---------------------------------------------------------------------------
+from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.prebuilt import create_react_agent
+
 agent = create_react_agent(
     llm,
     tools,
-    state_modifier=system_prompt
+    state_modifier=system_prompt,
 )
 
-# PostgreSQL Checkpointer for memory
-checkpointer = PostgresSaver.from_conn_string(
-    "postgresql://user:pass@localhost/langconfig"
+# ---------------------------------------------------------------------------
+# 5. PostgreSQL checkpointer (memory)
+# ---------------------------------------------------------------------------
+DB_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://user:pass@localhost:5432/langconfig",
 )
+checkpointer = PostgresSaver.from_conn_string(DB_URL)
 
-# Create Agent Executor with checkpointing
-agent_executor = AgentExecutor(
-    agent=agent,
-    tools=tools,
-    checkpointer=checkpointer,
-    verbose=True
-)
-
-# Run the agent
-result = agent_executor.invoke(
+# ---------------------------------------------------------------------------
+# 6. Run
+# ---------------------------------------------------------------------------
+result = agent.invoke(
     {"messages": [("user", "Your input here")]},
-    config={"configurable": {"thread_id": "unique-thread-id"}}
+    config={
+        "configurable": {"thread_id": "unique-thread-id"},
+        "recursion_limit": 500,
+    },
 )
-
-print(result)
+print(result["messages"][-1].content)
 `;
+    }
 
-    return code;
+    return header + systemSection + toolsSection + buildSection;
   };
 
-  const handleViewCode = () => {
-    const code = generateLangChainCode();
-    setGeneratedCode(code);
-    setShowCodeModal(true);
+  const handleViewCode = async () => {
+    try {
+      const resp = await fetch(`/api/deepagents/${agent.id}/code`);
+      if (resp.ok) {
+        const code = await resp.text();
+        setGeneratedCode(code);
+        setShowCodeModal(true);
+      } else {
+        setGeneratedCode(`# Error: failed to fetch code (${resp.status})\n`);
+        setShowCodeModal(true);
+      }
+    } catch (e: any) {
+      setGeneratedCode(`# Error: ${e.message}\n`);
+      setShowCodeModal(true);
+    }
   };
 
   return (
@@ -1044,14 +1129,23 @@ print(result)
             </div>
             {expandedSections.has('system_prompt') && (
               <>
-                <textarea
-                  value={config.system_prompt || ''}
-                  onChange={(e) => setConfig({ ...config, system_prompt: e.target.value })}
-                  rows={6}
-                  className="w-full px-3 py-2 border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary resize-y"
-                  placeholder="Enter system prompt..."
-                  style={{ color: 'var(--color-text-primary)' }}
-                />
+                <div className="relative">
+                  <textarea
+                    value={config.system_prompt || ''}
+                    onChange={(e) => setConfig({ ...config, system_prompt: e.target.value })}
+                    rows={12}
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-border-dark bg-white dark:bg-panel-dark rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+                    placeholder="Enter system prompt..."
+                    style={{ color: 'var(--color-text-primary)' }}
+                  />
+                  <button
+                    onClick={() => setShowPromptModal(true)}
+                    className="absolute top-2 right-2 p-1.5 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors"
+                    title="Edit in full screen"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
                 <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>
                   {(config.system_prompt || '').length} characters
                 </p>
@@ -1904,6 +1998,23 @@ print(result)
                   <Copy size={14} />
                   Copy
                 </button>
+                <a
+                  href={`/api/deepagents/${agent.id}/code`}
+                  download={`${agent.name.replace(/\s+/g, '_')}.py`}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    color: 'white',
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)',
+                    textDecoration: 'none',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                >
+                  <Download size={14} />
+                  Download
+                </a>
                 <button
                   onClick={() => setShowCodeModal(false)}
                   className="p-2 transition-all text-white/90 hover:text-white hover:bg-white/15 rounded-lg"
@@ -1933,6 +2044,66 @@ print(result)
               <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
                 This code represents the LangChain/LangGraph configuration for this agent. Copy and use it in your Python projects.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen Prompt Modal */}
+      {showPromptModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowPromptModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-panel-dark rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ borderColor: 'var(--color-border-dark)' }}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b shrink-0" style={{
+              backgroundColor: 'var(--color-primary)',
+              borderBottomColor: 'var(--color-border-dark)'
+            }}>
+              <div className="flex items-center gap-2">
+                <Brain size={20} className="text-white" />
+                <h3 className="text-lg font-semibold text-white">
+                  System Prompt
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowPromptModal(false)}
+                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body — full-height textarea */}
+            <div className="flex-1 p-6 min-h-0">
+              <textarea
+                value={config.system_prompt || ''}
+                onChange={(e) => setConfig({ ...config, system_prompt: e.target.value })}
+                className="w-full h-full px-4 py-3 border border-gray-200 dark:border-border-dark bg-white dark:bg-background-dark rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                style={{ color: 'var(--color-text-primary)', minHeight: '400px' }}
+                placeholder="Enter system prompt..."
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t shrink-0 flex items-center justify-between" style={{ borderTopColor: 'var(--color-border-dark)' }}>
+              <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                {(config.system_prompt || '').length} characters
+              </p>
+              <button
+                onClick={() => setShowPromptModal(false)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

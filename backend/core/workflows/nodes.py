@@ -92,10 +92,10 @@ async def execute_tool_node(
         tool = None
 
         if tool_type == "custom":
-            # Load custom tool from database
-            from core.agents.factory import AgentFactory
+            # Load custom tool from database via ToolLoader (the actual implementation)
+            from core.agents.tool_loader import ToolLoader
             project_id = state.get("project_id", 0)
-            custom_tools = await AgentFactory._load_custom_tools([tool_id], project_id)
+            custom_tools = await ToolLoader().load_custom([tool_id], project_id)
 
             if not custom_tools:
                 raise ValueError(f"Custom tool '{tool_id}' not found")
@@ -142,10 +142,15 @@ async def execute_tool_node(
         logger.info(f"[TOOL_NODE] Tool execution successful. Result: {str(result)[:200]}...")
 
         # Update state with tool result
+        # BUG FIX: also append the tool output to state.messages as an AIMessage
+        # so the output_formatter (which reads state.messages) can pick it up
+        # and display it in the Workflow Results panel.
+        from langchain_core.messages import AIMessage
         return {
             **_update_status(WorkflowStatus.EXECUTING, "execute_tool"),
             "tool_result": result,
-            "last_tool_output": str(result)
+            "last_tool_output": str(result),
+            "messages": [AIMessage(content=str(result))]
         }
 
     except Exception as e:

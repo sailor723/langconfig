@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <title>Sales Dashboard</title>
+      <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+      <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 24px; font-family: Arial, sans-serif; background: #f5f7fa; color: #2c3e50; }
+        h1 { margin: 0 0 16px 0; font-size: 22px; }
+        .subtitle { color: #7f8c8d; font-size: 13px; margin-top: -8px; margin-bottom: 16px; }
+        .control-bar { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; background: #fff; padding: 14px 20px; border-radius: 10px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .control-bar label { font-size: 13px; color: #34495e; display: flex; align-items: center; gap: 6px; }
+        .control-bar select { padding: 6px 12px; border: 1px solid #dce4ec; border-radius: 6px; cursor: pointer; background: #fff; font-size: 13px; }
+        .reset-btn { padding: 6px 14px; background: #ecf0f1; border: 1px solid #dce4ec; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: auto; }
+        .reset-btn:hover { background: #d5dbdb; }
+        .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 16px; }
+        .kpi { background: #fff; padding: 16px; border-radius: 10px; border-left: 4px solid #1f77b4; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .kpi.k2 { border-left-color: #2ca02c; }
+        .kpi.k3 { border-left-color: #ff7f0e; }
+        .kpi.k4 { border-left-color: #9467bd; }
+        .kpi .label { font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+        .card { background: #fff; padding: 16px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .card h3 { margin: 0 0 8px 0; font-size: 14px; color: #34495e; }
+        .chart { width: 100%; height: 380px; }
+        .insight-box { background: #fff; padding: 16px 20px; border-radius: 10px; border-left: 4px solid #2ca02c; margin-top: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .insight-box h3 { margin: 0 0 8px 0; font-size: 14px; }
+        .insight-box ul { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.7; color: #34495e; }
+      </style>
+    </head>
+    <body>
+      <h1>Sales Dashboard</h1>
+      <div class="subtitle">Interactive view of top products and regional revenue &middot; 2025</div>
+
+      <div class="control-bar">
+        <label>Sales Region:
+          <select id="filterRegion" onchange="applyFilters()">
+            <option value="all">All</option>
+            <option value="east">East</option>
+        <option value="north">North</option>
+        <option value="south">South</option>
+        <option value="west">West</option>
+          </select>
+        </label>
+        <label>Order Status:
+          <select id="filterStatus" onchange="applyFilters()">
+            <option value="all">All</option>
+            <option value="cancelled">Cancelled</option>
+        <option value="completed">Completed</option>
+        <option value="pending">Pending</option>
+          </select>
+        </label>
+        <button class="reset-btn" onclick="resetFilters()">&#x21BB; Reset</button>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi"><div class="label">Total Revenue</div><div class="value" id="kpiRevenue">$0</div></div>
+        <div class="kpi k2"><div class="label">Total Orders</div><div class="value" id="kpiOrders">0</div></div>
+        <div class="kpi k3"><div class="label">Avg Order Value</div><div class="value" id="kpiAov">$0</div></div>
+        <div class="kpi k4"><div class="label">Top Region</div><div class="value" id="kpiTopRegion">-</div></div>
+      </div>
+
+      <div class="grid">
+        <div class="card"><h3>Top 3 Products by Total Revenue</h3><div id="chartBar" class="chart"></div></div>
+        <div class="card"><h3>Revenue Distribution by Sales Region</h3><div id="chartPie" class="chart"></div></div>
+      </div>
+
+      <div class="insight-box"><h3>Key Insights</h3><ul id="insightList"></ul></div>
+
+      <script>
+        // Column indices in each row:
+        // 0=order_id, 1=customer_id, 2=product_id, 3=product_name, 4=order_date,
+        // 5=status, 6=quantity, 7=total_amount, 8=sales_region
+        var allData = [
+    [1,1,1,"AI-Powered Analytics Pro","2025-01-05","completed",2,599.98,"east"],
+    [2,1,3,"Smart Dashboard Lite","2025-01-05","completed",1,99.99,"east"],
+    [3,2,2,"Cloud Data Pipeline","2025-02-10","completed",1,199.99,"west"],
+    [4,3,4,"Neural Network Starter Kit","2025-03-15","completed",1,499.99,"north"],
+    [5,3,6,"Enterprise Security Suite","2025-03-15","completed",1,1499.99,"north"],
+    [6,5,1,"AI-Powered Analytics Pro","2025-03-20","completed",1,299.99,"east"],
+    [7,5,8,"Automated ML Pipeline","2025-03-20","completed",2,799.98,"east"],
+    [8,6,7,"IoT Sensor Array","2025-04-01","completed",5,1249.95,"south"],
+    [9,8,10,"GPU Computing Cluster","2025-04-15","completed",1,4999.99,"west"],
+    [10,1,4,"Neural Network Starter Kit","2025-04-20","completed",1,499.99,"east"],
+    [11,9,2,"Cloud Data Pipeline","2025-05-01","completed",1,199.99,"west"],
+    [12,9,3,"Smart Dashboard Lite","2025-05-01","completed",3,299.97,"west"],
+    [13,10,9,"Data Lake Storage 1TB","2025-05-10","completed",10,599.9,"south"],
+    [14,2,6,"Enterprise Security Suite","2025-05-15","completed",1,1499.99,"west"],
+    [15,3,1,"AI-Powered Analytics Pro","2025-06-01","completed",3,899.97,"north"],
+    [16,5,7,"IoT Sensor Array","2025-06-10","completed",2,499.98,"east"],
+    [17,6,8,"Automated ML Pipeline","2025-06-15","pending",1,399.99,"south"],
+    [18,1,9,"Data Lake Storage 1TB","2025-06-20","pending",5,299.95,"east"],
+    [19,4,1,"AI-Powered Analytics Pro","2025-06-25","completed",1,299.99,"north"],
+    [20,8,4,"Neural Network Starter Kit","2025-07-01","completed",2,999.98,"west"],
+    [21,10,2,"Cloud Data Pipeline","2025-07-05","completed",1,199.99,"south"],
+    [22,1,6,"Enterprise Security Suite","2025-07-10","cancelled",1,1499.99,"east"],
+    [23,3,8,"Automated ML Pipeline","2025-07-15","completed",1,399.99,"north"],
+    [24,5,5,"Quantum Computing Simulator","2025-07-20","completed",1,999.99,"east"],
+    [25,9,7,"IoT Sensor Array","2025-07-25","pending",3,749.97,"west"]
+  ];
+
+        var COLORS = ['#1f77b4', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#e377c2', '#17becf'];
+        var PIE_COLORS = ['#1f77b4', '#2ca02c', '#ff7f0e', '#9467bd'];
+
+        function fmtMoney(v) {
+          return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function getFiltered() {
+          var region = document.getElementById('filterRegion').value;
+          var status = document.getElementById('filterStatus').value;
+          return allData.filter(function(r) {
+            if (region !== 'all' && r[8] !== region) return false;
+            if (status !== 'all' && r[5] !== status) return false;
+            return true;
+          });
+        }
+
+        function aggBy(keyIdx, valIdx, data) {
+          var map = {};
+          data.forEach(function(r) {
+            var k = r[keyIdx];
+            map[k] = (map[k] || 0) + r[valIdx];
+          });
+          var entries = Object.entries(map).sort(function(a, b) { return b[1] - a[1]; });
+          return { labels: entries.map(function(e) { return e[0]; }),
+                   values: entries.map(function(e) { return e[1]; }) };
+        }
+
+        function applyFilters() {
+          var data = getFiltered();
+          var totalRev = data.reduce(function(s, r) { return s + r[7]; }, 0);
+          var n = data.length;
+          var aov = n > 0 ? totalRev / n : 0;
+
+          // Top region by revenue
+          var byRegion = aggBy(8, 7, data);
+          var topRegion = byRegion.labels.length > 0 ? byRegion.labels[0] : '-';
+
+          document.getElementById('kpiRevenue').textContent = fmtMoney(totalRev);
+          document.getElementById('kpiOrders').textContent = n.toLocaleString();
+          document.getElementById('kpiAov').textContent = fmtMoney(aov);
+          document.getElementById('kpiTopRegion').textContent = topRegion === '-' ? '-' : topRegion.charAt(0).toUpperCase() + topRegion.slice(1);
+
+          // ---- Bar chart: top 3 products by revenue ----
+          var byProduct = aggBy(3, 7, data);
+          var topProducts = byProduct.labels.slice(0, 3);
+          var topProductVals = byProduct.values.slice(0, 3);
+          var barColors = topProducts.map(function(_, i) { return COLORS[i % COLORS.length]; });
+          var barText = topProductVals.map(function(v) { return fmtMoney(v); });
+
+          var barTrace = {
+            type: 'bar',
+            x: topProducts,
+            y: topProductVals,
+            text: barText,
+            textposition: 'outside',
+            textfont: { size: 12 },
+            marker: { color: barColors, line: { color: '#fff', width: 1 } },
+            hovertemplate: '<b>%{x}</b><br>Revenue: %{text}<extra></extra>'
+          };
+          var barLayout = {
+            margin: { l: 60, r: 20, t: 20, b: 100 },
+            xaxis: { tickangle: -25, tickfont: { size: 11 } },
+            yaxis: { title: 'Revenue (USD)', tickformat: '$,.0f', gridcolor: '#ecf0f1' },
+            plot_bgcolor: '#fff',
+            paper_bgcolor: '#fff',
+            showlegend: false
+          };
+          Plotly.react('chartBar', [barTrace], barLayout, { displayModeBar: false, responsive: true });
+
+          // ---- Pie chart: revenue % by region ----
+          var pieLabels = byRegion.labels.map(function(l) { return l.charAt(0).toUpperCase() + l.slice(1); });
+          var pieValues = byRegion.values;
+          var pieText = pieValues.map(function(v) {
+            var pct = totalRev > 0 ? (v / totalRev * 100) : 0;
+            return pieLabels[pieValues.indexOf(v)] + '<br>' + fmtMoney(v) + ' (' + pct.toFixed(1) + '%)';
+          });
+          var pieTrace = {
+            type: 'pie',
+            labels: pieLabels,
+            values: pieValues,
+            textinfo: 'percent',
+            textposition: 'inside',
+            insidetextorientation: 'auto',
+            marker: { colors: PIE_COLORS.slice(0, pieLabels.length), line: { color: '#fff', width: 2 } },
+            hovertemplate: '<b>%{label}</b><br>Revenue: $%{value:,.2f}<br>Share: %{percent}<extra></extra>'
+          };
+          var pieLayout = {
+            margin: { l: 20, r: 20, t: 20, b: 20 },
+            showlegend: true,
+            legend: { orientation: 'v', x: 1.02, y: 0.5, font: { size: 12 } },
+            paper_bgcolor: '#fff'
+          };
+          Plotly.react('chartPie', [pieTrace], pieLayout, { displayModeBar: false, responsive: true });
+
+          // ---- Insights ----
+          var insights = [];
+          if (data.length === 0) {
+            insights.push('No orders match the current filters.');
+          } else {
+            insights.push('Filtered dataset contains <b>' + n + '</b> order' + (n !== 1 ? 's' : '') + ' totaling <b>' + fmtMoney(totalRev) + '</b>.');
+            if (topProducts.length > 0) {
+              insights.push('The top product is <b>' + topProducts[0] + '</b> with revenue of <b>' + fmtMoney(topProductVals[0]) + '</b>.');
+            }
+            if (topRegion !== '-') {
+              var topRegionRev = byRegion.values[0];
+              var topRegionPct = totalRev > 0 ? (topRegionRev / totalRev * 100).toFixed(1) : 0;
+              insights.push('<b>' + topRegion.charAt(0).toUpperCase() + topRegion.slice(1) + '</b> leads all regions, contributing <b>' + topRegionPct + '%</b> of total revenue.');
+            }
+            if (n > 0) {
+              insights.push('Average order value is <b>' + fmtMoney(aov) + '</b>.');
+            }
+          }
+          document.getElementById('insightList').innerHTML = insights.map(function(i) { return '<li>' + i + '</li>'; }).join('');
+        }
+
+        function resetFilters() {
+          document.getElementById('filterRegion').value = 'all';
+          document.getElementById('filterStatus').value = 'all';
+          applyFilters();
+        }
+
+        applyFilters();
+      </script>
+    </body>
+    </html>
+    

@@ -30,7 +30,7 @@ class GeneratedAgentConfig(BaseModel):
     model: str
     temperature: float
     system_prompt: str
-    mcp_tools: list[str]
+    native_tools: list[str]
     reasoning: str
     confidence_score: float = 0.8
 
@@ -54,8 +54,9 @@ async def generate_agent_config(request: GenerateAgentRequest) -> dict:
         "gemini-2.0-flash-exp"
     ]
 
-    # DeepAgents standard filesystem tool names
+    # All available native tools (filesystem + database + retrieval)
     available_tools = [
+        # Filesystem & search tools
         "read_file",
         "write_file",
         "ls",
@@ -67,7 +68,27 @@ async def generate_agent_config(request: GenerateAgentRequest) -> dict:
         "browser",
         "reasoning_chain",
         "memory_store",
-        "memory_recall"
+        "memory_recall",
+        # Agent management
+        "create_deepagent",
+        # PostgreSQL schema tools
+        "pg_list_tables",
+        "pg_describe_table",
+        "pg_query",
+        "pg_execute",
+        # PostgreSQL domain tools
+        "pg_list_agents",
+        "pg_get_agent",
+        "pg_list_skills",
+        "pg_list_projects",
+        "pg_list_documents",
+        "pg_list_custom_tools",
+        # Neo4j document index tools
+        "neo4j_list_docs",
+        "neo4j_get_doc",
+        "neo4j_query",
+        "neo4j_upsert_doc",
+        "neo4j_delete_doc",
     ]
 
     # Build context-aware prompt
@@ -99,7 +120,7 @@ Generate an optimal agent configuration for:
 {agent_type_context}
 
 **Available Models:** {', '.join(available_models)}
-**Available MCP Tools:** {', '.join(available_tools)}
+**Available Tools:** {', '.join(available_tools)}
 
 INSTRUCTIONS:
 1. Select the best model for this task:
@@ -127,6 +148,22 @@ INSTRUCTIONS:
    - reasoning_chain: Step-by-step reasoning and planning
    - memory_store: Save information for later recall
    - memory_recall: Retrieve stored memories
+   - create_deepagent: Create a new DeepAgent in PostgreSQL directly
+   - pg_list_tables: List all tables in a PostgreSQL schema
+   - pg_describe_table: Show column details of a PostgreSQL table
+   - pg_query: Run read-only SELECT queries against PostgreSQL
+   - pg_execute: Run INSERT/UPDATE/DELETE statements
+   - pg_list_agents: List all DeepAgent templates with config summary
+   - pg_get_agent: Get full configuration of a DeepAgent by ID
+   - pg_list_skills: List all skills with tags and usage
+   - pg_list_projects: List all projects with doc counts
+   - pg_list_documents: List uploaded context documents
+   - pg_list_custom_tools: List user-created custom tools
+   - neo4j_list_docs: List Document nodes in Neo4j for a project
+   - neo4j_get_doc: Get full metadata of one Neo4j document
+   - neo4j_query: Run Cypher queries against Neo4j
+   - neo4j_upsert_doc: Create or update a document in Neo4j
+   - neo4j_delete_doc: Delete a document from the Neo4j index
 
 4. Create a comprehensive, role-based system prompt that:
    - Clearly defines the agent's role and expertise
@@ -141,7 +178,7 @@ Return ONLY valid JSON with this exact structure:
     "model": "selected_model_id",
     "temperature": 0.7,
     "system_prompt": "Detailed system prompt here...",
-    "mcp_tools": ["tool1", "tool2"],
+    "native_tools": ["tool1", "tool2"],
     "reasoning": "I chose gpt-4o because... temperature 0.7 for... tools selected because...",
     "confidence_score": 0.85
 }}
@@ -180,7 +217,7 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no explanations outside the
         generated_json = response.choices[0].message.content
         generated_config = json.loads(generated_json)
 
-        logger.info(f"Successfully generated config. Model: {generated_config.get('model')}, Tools: {generated_config.get('mcp_tools')}")
+        logger.info(f"Successfully generated config. Model: {generated_config.get('model')}, Tools: {generated_config.get('native_tools')}")
 
         # Validate the generated config
         validated_config = GeneratedAgentConfig(**generated_config)
