@@ -1693,6 +1693,30 @@ mock source assumptions
 -> analysis panel + analysis chat
 ```
 
+**Generation is deterministic — no LLM in the loop.** All Sun Hing pages
+(hub + factor sub-dashboards) are produced by one script,
+`data/analysis_dbs/gen_sunhing_kpi_dashboard.py`, which imports only
+`json/sqlite3/defaultdict/datetime/pathlib`. Two full runs against the same DB
+produce byte-identical HTML except a single `Generated: <timestamp>` line, so the
+DB is the only meaningful input.
+
+| Fact | Detail |
+|---|---|
+| Pages built | hub `sunhing_dashboard.html` (:973–1576), 5 factor sub-dashboards via `generate_sub_dashboard_html()` (:525) using `SUB_DASHBOARDS` (:275–333), plus `_gantt` (:1637) and `_data` (:1689) |
+| KPI selection | SQL at :540–549 — `WHERE f.period = <latest> AND d.roe_factor = <factor>`; the 5 factor pages partition the 28 KPIs exactly (9 + 4 + 4 + 4 + 7) |
+| Per-KPI outputs | card (:562) + status row (:580) + Plotly chart via `generate_chart_js()` (:480) + auto insights (:616–640) |
+| Shared helpers | `calc_score` :356 · `is_met` :366 · `format_value` :378 · `grade_from_score` :413 · `render_dashboard_meta` :436 |
+| Copy-only pages | `sunhing_erd.html`, `_intro`, `_intro_cn`, `_employees`, `_liability` (:1621, :1626–1636) — masters are read from `_LANGCFG_DIR`, not generated |
+| Output dir | `SUNHING_DASHBOARD_DIR` (default: agent-workspace `…/dashboard`) → `html/`; DB read from `<dir>/db/sunhing_kpi.db` |
+
+Two caveats this lineage exposes: the static pages (ERD/intro/employees/liability)
+are **copied**, not generated, so they drift silently; and `FACTOR_META` (:59)
+duplicates the page/accent metadata already in `SUB_DASHBOARDS` (:275).
+
+See **[docs/sunhing-dashboards.md](../../docs/sunhing-dashboards.md)** for the full
+producer map, the determinism proof, the two divergent DB copies, and the
+recommended consolidation.
+
 #### Key Learnings
 
 | Lesson | Detail |
