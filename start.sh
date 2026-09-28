@@ -85,22 +85,54 @@ start_postgres() {
         return 0
     fi
 
-    # Native mode (default): Homebrew PostgreSQL 16 on :5432
-    PG_READY="$(command -v pg_isready || echo /opt/homebrew/opt/postgresql@16/bin/pg_isready)"
-    if "$PG_READY" -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
+    # Native mode (default): PostgreSQL 16 on :5432.
+    # Resolve pg_isready across platforms: Linux/WSL2 packages put it in PATH,
+    # Homebrew keeps it inside the keg.
+    PG_READY="$(command -v pg_isready 2>/dev/null || true)"
+    if [ -z "$PG_READY" ]; then
+        for candidate in /usr/lib/postgresql/16/bin/pg_isready \
+                         /opt/homebrew/opt/postgresql@16/bin/pg_isready \
+                         /usr/local/opt/postgresql@16/bin/pg_isready; do
+            if [ -x "$candidate" ]; then
+                PG_READY="$candidate"
+                break
+            fi
+        done
+    fi
+    if [ -n "$PG_READY" ] && "$PG_READY" -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
         echo "  ✅ PostgreSQL already running on :5432"
         return 0
     fi
-    echo "  Starting PostgreSQL via brew services (postgresql@16)..."
-    brew services start postgresql@16
+
+    # Start it the way this OS does. Each attempt is `|| true` so a missing
+    # service manager (or a sudo password prompt) can never abort the script
+    # via `set -e` — the readiness loop below reports the real outcome.
+    case "$(uname -s)" in
+        Linux)
+            # WSL2 / Ubuntu: a system service, not Homebrew.
+            echo "  Starting PostgreSQL via service (postgresql)..."
+            sudo service postgresql start >/dev/null 2>&1 \
+                || sudo systemctl start postgresql >/dev/null 2>&1 \
+                || true
+            ;;
+        *)
+            echo "  Starting PostgreSQL via brew services (postgresql@16)..."
+            brew services start postgresql@16 >/dev/null 2>&1 || true
+            ;;
+    esac
+
     for _ in 1 2 3 4 5; do
-        if "$PG_READY" -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
+        if [ -n "$PG_READY" ] && "$PG_READY" -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
             echo "  ✅ PostgreSQL ready on :5432"
             return 0
         fi
         sleep 2
     done
-    echo "  ⚠️  PostgreSQL not ready — the backend may fail to connect"
+    echo "  ⚠️  PostgreSQL not ready on :5432 — start it manually, then re-run:"
+    case "$(uname -s)" in
+        Linux) echo "        sudo service postgresql start   (or: sudo systemctl start postgresql)" ;;
+        *)     echo "        brew services start postgresql@16" ;;
+    esac
 }
 
 start_backend() {
