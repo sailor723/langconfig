@@ -54,6 +54,17 @@ export default defineConfig(async () => ({
         secure: false,
         ws: true, // proxy WebSocket upgrades (terminal sessions)
       },
+      // Analysis dashboards render in an iframe whose origin is this dev server
+      // (API_BASE_URL is same-origin), and the backend rewrites Plotly's CDN URL
+      // to the relative path /static/plotly.min.js. Without this proxy that
+      // request hits Vite's SPA fallback and returns index.html (text/html) —
+      // the browser then fails to execute it and every chart silently vanishes
+      // while the static KPI numbers stay visible.
+      '/static': {
+        target: 'http://127.0.0.1:8765',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 }));
