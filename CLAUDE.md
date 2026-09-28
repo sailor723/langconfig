@@ -84,6 +84,7 @@ See `docs/` for architecture and design documentation:
 | File | Contents |
 |------|----------|
 | `docs/system-architecture.md` | System design, five-layer model, agent landscape, storage strategy |
+| `docs/sunhing-dashboards.md` | Sun Hing dashboard generation (deterministic generator, producer map, 28-KPI coverage, UI wiring) |
 | `REFACTORING.md` | Backend refactor status (god-module splits, verification methodology, security-fix pass) |
 | `docs/plans/` | SaaS design + implementation plans |
 | `docs/OKF_MINIMAL_PROFILE.md` | OKF knowledge-bundle profile |

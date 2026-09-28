@@ -812,6 +812,28 @@ own the filesystem, workspaces, and side effects.
 | `agent_generator_service.py`, `agent_utils.py`                                                                                | AI agent generation, model resolution (`resolve_model`)                           |
 | `workflow_config_service.py`                                                                                                    | Workflow config helpers                                                             |
 
+### Dashboards — the **Analysis** activity
+
+The Analysis activity (bar-chart icon in the ActivityBar → `/analysis` →
+`src/pages/AnalysisPage.tsx`) is a **static-HTML loader plus a meta-driven chat**:
+it lists `*.html` from `data/analysis_dbs/` via `GET /api/analysis/dashboards`
+(parsing each file's `LangConfig Dashboard Meta` head comment for `db:`, `skills:`,
+`entry:`), renders the page in an iframe via `GET /api/files/<name>` (which rewrites
+Plotly's CDN URL to `/static/plotly.min.js` so pages work offline), and wires the
+Chat panel to `/api/analysis/chat` using the dashboard's declared DB + skill.
+
+Three generation regimes feed it:
+
+| Regime | Code | LLM? | Examples |
+|---|---|---|---|
+| **Upload / demo** | `services/dashboard_generator.py` (`generate_dashboard`) + the prompt in `api/analysis/routes.py` (`_auto_generate_dashboard` → `_run_analysis_agent`) | ✅ yes (optional companion `.skill.md`) | `business_dashboard`, `sales_dashboard*`, `dashboard_<hash>` |
+| **ERP study case** | `backend/skills/erp-analyst/9_erp_dashboard.py` | ❌ deterministic (`Mode: static-embed`) | `erp_dashboard_*.html` |
+| **Sun Hing study case** | `data/analysis_dbs/gen_sunhing_kpi_dashboard.py` — one script builds the hub + 5 factor sub-dashboards (+ gantt/data) and copies the ERD/intro/employees/liability masters | ❌ deterministic (byte-stable modulo a timestamp) | `sunhing_dashboard*.html` |
+
+See **[docs/sunhing-dashboards.md](sunhing-dashboards.md)** for the Sun Hing
+producer map, the 28-KPI coverage proof, the determinism guarantee, and the known
+drift risks (two divergent DB copies; copy-propagated static pages).
+
 ---
 
 ## 10. Core engines deep-dive (`backend/core/`)

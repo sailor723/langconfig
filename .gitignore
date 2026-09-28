@@ -134,6 +134,7 @@ docs/*
 !docs/tools-audit.md
 !docs/agents-audit.md
 !docs/deepagent-vs-dsh.md
+!docs/sunhing-dashboards.md
 !docs/SETUP.md
 !docs/TEAM_INSTALL.md
 !docs/TEAM_INSTALL.zh-CN.md
