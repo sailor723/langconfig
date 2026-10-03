@@ -25,6 +25,7 @@ from langgraph.prebuilt import ToolNode
 from langgraph.types import Command, interrupt
 
 from llm import build_chat_model
+from hitl_support import make_preamble_router, make_repair_node
 from neo4j_setup_db import (
     ensure_neo4j_db,
     neo4j_graph_query,
@@ -175,13 +176,18 @@ def should_continue(state: MessagesState) -> Literal[END, "run_query"]:
 
 
 builder = StateGraph(Neo4jAgentState)
+builder.add_node(make_repair_node())          # answers dangling tool calls first
 builder.add_node(list_labels)
 builder.add_node(call_get_schema_details)
 builder.add_node(get_schema_node, "get_schema")
 builder.add_node(generate_query)
 builder.add_node(run_query_node, "run_query")
 
-builder.add_edge(START, "list_labels")
+# Repair first, then run the schema preamble once per thread (see hitl_support).
+builder.add_edge(START, "repair_history")
+builder.add_conditional_edges(
+    "repair_history", make_preamble_router("Available schema", "list_labels")
+)
 builder.add_edge("list_labels", "call_get_schema_details")
 builder.add_edge("call_get_schema_details", "get_schema")
 builder.add_edge("get_schema", "generate_query")

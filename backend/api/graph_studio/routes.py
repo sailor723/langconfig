@@ -32,6 +32,7 @@ graphs keep their own checkpointer (thread-scoped history) + store (memory).
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import importlib.util
 import inspect
 import json
@@ -45,6 +46,7 @@ from typing import Any, AsyncGenerator, Dict, List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse, StreamingResponse
+from langgraph.types import Command
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -174,6 +176,10 @@ def _jsonable(value: Any) -> Any:
         return {k: _jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [_jsonable(v) for v in value]
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        # e.g. langgraph's Interrupt(value=..., id=...) — without this it would
+        # reach json.dumps(default=str) as an opaque string in SSE payloads.
+        return _jsonable(dataclasses.asdict(value))
     return value
 
 
@@ -1287,6 +1293,11 @@ class StreamRunRequest(BaseModel):
     assistant_id: str
     input: Dict[str, Any] = {}
     stream_mode: List[str] = ["messages", "values", "updates"]
+    # Human-in-the-loop: when set, the run resumes the pending interrupt with
+    # this value instead of starting from ``input`` (LangGraph's
+    # ``Command(resume=...)``). The HITL graphs expect one of
+    # {"type": "accept"} | {"type": "edit", "args": {...}} | {"type": "response", "args": "..."}.
+    resume: Optional[Any] = None
 
 
 def _accumulate_chunk(
@@ -1382,6 +1393,9 @@ async def _run_event_gen(
     """Stream a run over SSE: messages/partial, values, updates (+ error)."""
     run_id = uuid.uuid4().hex
     started = _now()
+    is_resume = payload.resume is not None
+    # A resume continues the interrupted task; anything else is new input.
+    run_input: Any = Command(resume=payload.resume) if is_resume else payload.input
     run = {
         "run_id": run_id,
         "thread_id": record["thread_id"],
@@ -1389,7 +1403,7 @@ async def _run_event_gen(
         "status": "running",
         "created_at": started,
         "updated_at": started,
-        "kwargs": {"input": payload.input},
+        "kwargs": {"resume": payload.resume} if is_resume else {"input": payload.input},
     }
     _RUNS.setdefault(record["thread_id"], []).append(run)
     record["status"] = "running"
@@ -1401,7 +1415,7 @@ async def _run_event_gen(
     partial_messages: Dict[str, Dict[str, Any]] = {}
     try:
         async for event in compiled.astream(
-            payload.input, config=config, stream_mode=payload.stream_mode
+            run_input, config=config, stream_mode=payload.stream_mode
         ):
             # Stop at the next event boundary when the user hit "interrupt".
             if cancel_event.is_set():

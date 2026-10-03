@@ -21,6 +21,7 @@ from langgraph.prebuilt import ToolNode
 from langgraph.types import Command, interrupt
 
 from llm import build_chat_model
+from hitl_support import make_preamble_router, make_repair_node
 from sql_setup_db import ensure_chinook_db, sql_db_list_tables, sql_db_schema, sql_db_query
 
 
@@ -155,13 +156,20 @@ def should_continue(state: MessagesState) -> Literal[END, "run_query"]:
 
 
 builder = StateGraph(SqlAgentState)
+builder.add_node(make_repair_node())          # answers dangling tool calls first
 builder.add_node(list_tables)
 builder.add_node(call_get_schema)
 builder.add_node(get_schema_node, "get_schema")
 builder.add_node(generate_query)
 builder.add_node(run_query_node, "run_query")
 
-builder.add_edge(START, "list_tables")
+# History repair runs before anything else so a run resumed with a NEW message
+# (instead of an approval) can never send an unanswered tool call to the model.
+# The preamble then runs once per thread, as in sql_agent.py.
+builder.add_edge(START, "repair_history")
+builder.add_conditional_edges(
+    "repair_history", make_preamble_router("Available tables", "list_tables")
+)
 builder.add_edge("list_tables", "call_get_schema")
 builder.add_edge("call_get_schema", "get_schema")
 builder.add_edge("get_schema", "generate_query")

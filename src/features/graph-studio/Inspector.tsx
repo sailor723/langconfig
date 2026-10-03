@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useLayoutTokens } from '../../components/layout2/tokens';
 import { studio, useStudioState } from './studioStore';
 import ChatInput from './ChatInput';
+import InterruptBar from './InterruptBar';
 import type { LiveMessage } from './api';
 
 type ContentBlock = { type?: string; text?: string; name?: string; input?: unknown };
@@ -265,6 +266,9 @@ export default function Inspector() {
           </pre>
         )}
       </div>
+
+      {/* Pauses on an interrupt() and answers it (accept / edit / reject). */}
+      <InterruptBar />
 
       <ChatInput />
     </div>
