@@ -27,7 +27,8 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from urllib.parse import quote
+
+from core.utils.http import content_disposition
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
@@ -286,14 +287,6 @@ _VIEWABLE_EXTENSIONS = {
 }
 
 
-def _content_disposition(filename: str, inline: bool) -> str:
-    """RFC 5987 content-disposition with an ASCII fallback, so non-ASCII
-    filenames (e.g. Chinese) survive every browser/client without garbling."""
-    disposition = "inline" if inline else "attachment"
-    ascii_name = filename.encode("ascii", "ignore").decode("ascii") or "download"
-    return f'{disposition}; filename="{ascii_name}"; filename*=UTF-8\'\'{quote(filename)}'
-
-
 def _serve_file_bytes(
     content: bytes,
     filename: str,
@@ -310,7 +303,7 @@ def _serve_file_bytes(
         mime, _ = mimetypes.guess_type(filename)
         mime = mime or "application/octet-stream"
     headers = {
-        "Content-Disposition": _content_disposition(
+        "Content-Disposition": content_disposition(
             filename, inline=ext in _VIEWABLE_EXTENSIONS
         ),
         "Accept-Ranges": "bytes",

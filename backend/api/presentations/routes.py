@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from models.presentation_job import PresentationJob, PresentationJobStatus, PresentationFormat, PresentationTheme
 from services.presentation_service import presentation_service
 from services.oauth_service import google_oauth_service
+from core.utils.http import content_disposition
 
 router = APIRouter(prefix="/api/presentations", tags=["presentations"])
 logger = logging.getLogger(__name__)
@@ -262,7 +263,9 @@ async def download_presentation(job_id: int, db: Session = Depends(get_db)):
         media_type=media_type,
         filename=filename,
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"'
+            # Chinese/other non-ASCII titles must not be written raw into the
+            # header (latin-1 only) — content_disposition() RFC 5987-encodes it.
+            "Content-Disposition": content_disposition(filename)
         }
     )
 

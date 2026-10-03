@@ -6,6 +6,7 @@ import io
 
 from db.database import get_db
 from models.workflow import WorkflowProfile
+from core.utils.http import content_disposition
 from .schemas import (
     WorkflowExportOptions,
     WorkflowImportRequest,
@@ -83,7 +84,7 @@ async def export_workflow_package(
             io.BytesIO(zip_bytes),
             media_type="application/zip",
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
+                "Content-Disposition": content_disposition(filename)
             }
         )
 
@@ -134,7 +135,7 @@ async def export_workflow_config(
         return JSONResponse(
             content=config,
             headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
+                "Content-Disposition": content_disposition(filename)
             }
         )
 

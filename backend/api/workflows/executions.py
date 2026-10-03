@@ -15,6 +15,7 @@ from db.database import get_db
 from models.workflow import WorkflowProfile, WorkflowVersion, WorkflowExecution
 from models.execution_event import ExecutionEvent
 from core.session_manager import managed_transaction
+from core.utils.http import content_disposition
 from .schemas import (
     AgentCostBreakdown,
     ExecutionHistoryEntry,
@@ -772,7 +773,7 @@ async def export_execution_to_word(
         return StreamingResponse(
             file_stream,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            headers={"Content-Disposition": content_disposition(filename)}
         )
 
     except HTTPException:
