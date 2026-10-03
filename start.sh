@@ -1,8 +1,16 @@
 #!/bin/bash
 # Start LangConfig — kills previous processes, then starts PostgreSQL + BE + FE
-# Usage:  bash start.sh          # start all (db + backend + frontend)
-#         bash start.sh --fe     # frontend only
-#         bash start.sh --be     # backend only (db started first)
+#
+# Usage:  ./start.sh            # everything: PostgreSQL + backend (:8765) + frontend (:1421)
+#         ./start.sh --be       # backend only (PostgreSQL started first)
+#         ./start.sh --fe       # frontend only
+#
+# One command starts both halves — that is the default (no argument).
+#
+# Options (env vars):
+#   UVICORN_WORKERS=1   uvicorn worker processes (default 1 — see the note in
+#                       start_backend: the Graph activity's threads/checkpointers
+#                       are in-process, so >1 breaks HITL resume)
 
 set -e
 
@@ -146,15 +154,31 @@ start_backend() {
           SERPER_API_KEY 2>/dev/null || true
     echo "  Starting backend..."
     cd "$BE_DIR"
-    # 2 workers (UVICORN_WORKERS) give process-level parallelism so one slow
-    # LLM/SSE request can't block every other API call. Reload is disabled:
-    # uvicorn's --reload and --workers are mutually exclusive, and the reloader
-    # has wedged the single worker before. Restart via start.sh to pick up
-    # code changes (project rule).
-    WORKERS="${UVICORN_WORKERS:-2}"
+    # Worker count. DEFAULT IS 1 — deliberately.
+    #
+    # The Graph activity (code-defined LangGraph assistants) keeps its threads,
+    # runs and checkpointers in PROCESS MEMORY. With more than one uvicorn
+    # worker those registries are per-process, so a request for a thread can
+    # land on a worker that has never seen it ("unknown thread"), and a
+    # human-in-the-loop pause and its resume can end up in different processes.
+    # Measured with 2 workers: 4 of 6 requests for the same thread failed.
+    #
+    # 1 worker is enough for concurrency here because the SSE endpoints are
+    # async (they await the graph stream rather than blocking the event loop).
+    # Raise it only if you accept degraded Graph-activity behaviour:
+    #     UVICORN_WORKERS=2 ./start.sh
+    #
+    # Reload is disabled: uvicorn's --reload and --workers are mutually
+    # exclusive, and the reloader has wedged the worker before. Restart via
+    # start.sh to pick up code changes (project rule).
+    WORKERS="${UVICORN_WORKERS:-1}"
     SKIP_STARTUP_API_TEST=true .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --workers "$WORKERS" &
     echo $! > "$BE_PIDFILE"
     echo "  Backend PID: $(cat "$BE_PIDFILE") (workers=$WORKERS)"
+    if [ "$WORKERS" != "1" ]; then
+        echo "  ⚠️  workers=$WORKERS — the Graph activity keeps threads in memory;"
+        echo "      HITL resume and thread lookups can hit the wrong process."
+    fi
     sleep 3
     # Quick health check
     for i in 1 2 3; do
