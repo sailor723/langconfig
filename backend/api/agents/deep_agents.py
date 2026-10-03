@@ -31,6 +31,7 @@ from models.deep_agent import (
     create_default_guardrails_config,
 )
 from core.versioning import check_version_conflict, format_lock_version_error
+from core.utils.http import content_disposition
 from services.agent_bundle import build_agent_bundle, import_agent_bundle
 
 logger = logging.getLogger(__name__)
@@ -1107,14 +1108,16 @@ async def export_deepagent(
 
     bundle = build_agent_bundle(agent, db)
 
-    # Safe download filename derived from the agent name.
-    safe_name = agent.name.replace(" ", "_")
-    safe_name = "".join(c for c in safe_name if c.isalnum() or c in "_-") or "agent"
+    # Download filename derived from the agent name. The raw (possibly
+    # non-ASCII) name is kept: content_disposition() emits the RFC 5987
+    # filename*=UTF-8'' form plus an ASCII fallback, so Chinese agent names
+    # download correctly instead of failing header encoding.
+    filename = f"{(agent.name or 'agent').strip() or 'agent'}.langconfig.json"
     return Response(
         content=json.dumps(bundle, ensure_ascii=False, indent=2),
         media_type="application/json",
         headers={
-            "Content-Disposition": f'attachment; filename="{safe_name}.langconfig.json"'
+            "Content-Disposition": content_disposition(filename)
         }
     )
 
@@ -1580,6 +1583,8 @@ agent = create_agent(
         content=source,
         media_type="text/x-python",
         headers={
-            "Content-Disposition": f'attachment; filename="{agent.name.replace(" ", "_")}.py"',
+            "Content-Disposition": content_disposition(
+                f"{(agent.name or 'agent').strip() or 'agent'}.py"
+            ),
         },
     )
