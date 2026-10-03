@@ -288,7 +288,7 @@ export const studio = {
     }
   },
 
-  async run(input: Record<string, unknown>) {
+  async run(input: Record<string, unknown>, resume?: unknown) {
     if (state.running) return;
     if (!state.currentThreadId) {
       await studio.createThread();
@@ -309,14 +309,14 @@ export const studio = {
     const runPath: string[] = [...state.runPath];
 
     try {
-      let res = await api.streamRun(threadId, assistantId, input);
+      let res = await api.streamRun(threadId, assistantId, input, resume);
       // Studio threads are in-memory (process-lifetime): after a backend
       // restart the browser can hold a stale thread id that no longer exists.
       // Auto-create a fresh thread and retry once instead of failing with 404.
       if (!res.ok && res.status === 404) {
         await studio.createThread();
         threadId = state.currentThreadId;
-        res = await api.streamRun(threadId, assistantId, input);
+        res = await api.streamRun(threadId, assistantId, input, resume);
       }
       if (!res.ok) {
         throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`);
@@ -352,6 +352,19 @@ export const studio = {
       await studio.refreshState();
       await studio.loadThreads();
     }
+  },
+
+  /**
+   * Answer a pending human-in-the-loop interrupt.
+   *
+   * The HITL graphs expect one of:
+   *   { type: 'accept' }                              → run the tool as proposed
+   *   { type: 'edit', args: { args: { query } } }      → run the edited SQL/Cypher
+   *   { type: 'response', args: 'feedback' }           → don't run; tell the model
+   */
+  async resume(resumeValue: unknown) {
+    if (state.running) return;
+    await studio.run({}, resumeValue);
   },
 
   toggleDirection() {

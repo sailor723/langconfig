@@ -344,11 +344,14 @@ export const api = {
     return request(`/threads/${threadId}/runs?limit=${limit}`);
   },
 
-  /** Open the SSE stream for a run (returns the raw Response for streamSSE). */
+  /** Open the SSE stream for a run (returns the raw Response for streamSSE).
+   *  Pass `resume` to continue a human-in-the-loop interrupt instead of
+   *  starting a new turn from `input`. */
   streamRun(
     threadId: string,
     assistantId: string,
     input: Record<string, unknown>,
+    resume?: unknown,
   ): Promise<Response> {
     return fetch(`${BASE}/threads/${threadId}/runs/stream`, {
       method: 'POST',
@@ -357,6 +360,8 @@ export const api = {
         assistant_id: assistantId,
         input,
         stream_mode: ['messages', 'values', 'updates'],
+        // The backend maps this to LangGraph's Command(resume=...).
+        ...(resume === undefined ? {} : { resume }),
       }),
     });
   },
