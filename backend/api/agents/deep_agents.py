@@ -63,6 +63,39 @@ _ENV_DEFAULT_RE = re.compile(
     r'(?:\s*,\s*["\']([^"\']*)["\'])?'
 )
 
+# Modules that exist only inside the LangConfig repo. A generated standalone
+# file importing one of these dies with ModuleNotFoundError, so such a tool is
+# stubbed instead of inlined (see _imports_repo_module).
+_REPO_TOP_MODULES = frozenset({
+    "api", "config", "constants", "core", "db", "middleware", "models",
+    "orchestration", "schemas", "services", "storage", "tools",
+})
+
+# backend/langgraph/ shadows the real langgraph package when the cwd is
+# backend/, so only these submodules are LangConfig's own — everything else
+# (langgraph.graph, langgraph.checkpoint.*, langgraph.prebuilt, ...) is the
+# genuine third-party package and stays allowed.
+_REPO_LANGGRAPH_SUBMODULES = frozenset({
+    "connection", "llm", "neo4j_agent", "neo4j_agent_advanced", "neo4j_agent_hitl",
+    "neo4j_setup_db", "sql_agent", "sql_agent_advanced", "sql_agent_hitl",
+    "sql_setup_db", "tool_adapters",
+})
+
+_IMPORT_RE = re.compile(r"^[ \t]*(?:from|import)[ \t]+([A-Za-z_][\w.]*)", re.M)
+
+
+def _imports_repo_module(source: str) -> bool:
+    """True when inlined tool code imports something only LangConfig provides."""
+    for match in _IMPORT_RE.finditer(source or ""):
+        parts = match.group(1).split(".")
+        top = parts[0]
+        sub = parts[1] if len(parts) > 1 else ""
+        if top in _REPO_TOP_MODULES:
+            return True
+        if top == "langgraph" and sub in _REPO_LANGGRAPH_SUBMODULES:
+            return True
+    return False
+
 
 def _export_slug(name: str, agent_id: int) -> str:
     """ASCII, filesystem-safe folder name — Chinese agent names included."""
@@ -1529,21 +1562,38 @@ llm = ChatOpenAI(
         )
 
     tool_blocks = []
+    stubbed: List[str] = []
     for tid in tool_ids:
         row = tool_rows.get(tid)
         if row is not None and row.tool_type.value == "api":
-            tool_blocks.append(_emit_api_tool(row))
+            block = _emit_api_tool(row)
         elif row is not None:
-            tool_blocks.append(_emit_python_tool(row))
+            block = _emit_python_tool(row)
         elif tid in _CODEGEN_LEGACY_TOOLS:
-            tool_blocks.append(_emit_legacy_tool(tid))
+            block = _emit_legacy_tool(tid)
         elif tid in _CODEGEN_SIMPLE_TOOLS:
-            tool_blocks.append(_emit_simple_tool(tid))
+            block = _emit_simple_tool(tid)
         elif tid in _CODEGEN_FS_TOOLS and not is_deep:
-            tool_blocks.append(_emit_fs_tool(tid))
+            block = _emit_fs_tool(tid)
         else:
-            tool_blocks.append(_emit_missing_tool(tid))
+            block = _emit_missing_tool(tid)
+
+        # A tool whose code imports db/services/core/... cannot run in a
+        # standalone file: it would raise ModuleNotFoundError at import time
+        # (or mid-conversation, when a lazily-imported helper is reached).
+        # Ship the honest stub instead of code that cannot execute.
+        if _imports_repo_module(block):
+            block = _emit_missing_tool(tid)
+            stubbed.append(tid)
+
+        tool_blocks.append(block)
     tools_block = "\n".join(tool_blocks)
+
+    if stubbed:
+        logger.info(
+            "Export codegen: stubbed %d tool(s) that require the LangConfig "
+            "backend: %s", len(stubbed), ", ".join(stubbed),
+        )
 
     if is_deep:
         build_section = '''
