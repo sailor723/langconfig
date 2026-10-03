@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>EBL Carrier WSL Setup Manual</title>
+  <style>
+    @page { size: A4; margin: 18mm 14mm; }
+    body { font-family: -apple-system, "PingFang SC", "Helvetica Neue", Arial, sans-serif; font-size: 11pt; line-height: 1.55; color: #222; }
+    h1 { font-size: 22pt; border-bottom: 2px solid #333; padding-bottom: 4pt; margin-top: 18pt; }
+    h2 { font-size: 16pt; color: #1a3d6d; margin-top: 16pt; }
+    h3 { font-size: 13pt; color: #2a5d8d; margin-top: 12pt; }
+    h4 { font-size: 12pt; margin-top: 10pt; }
+    table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 10pt; }
+    th, td { border: 1px solid #aaa; padding: 5pt 7pt; text-align: left; }
+    th { background: #eef3f8; }
+    pre, code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9.5pt; }
+    pre { background: #f4f6f8; border: 1px solid #ddd; padding: 8pt; border-radius: 4pt; overflow-x: auto; page-break-inside: avoid; }
+    code { background: #f0f0f0; padding: 1pt 3pt; border-radius: 2pt; }
+    blockquote { border-left: 4pt solid #6aa3d8; padding: 4pt 10pt; color: #444; background: #f7faff; margin: 6pt 0; }
+    hr { border: none; border-top: 1px solid #ccc; margin: 14pt 0; }
+    img { max-width: 100%; }
+    pre, table, h1, h2, h3 { page-break-after: avoid; }
+    /* Default styles provided by pandoc (kept for compatibility).
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="/dev/null" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">EBL Carrier WSL Setup Manual</h1>
+</header>
+<h1
+id="用户手册ebl-carrier-预装准备windows-平台v1.720260918">用户手册：EBL
+Carrier 预装准备（Windows 平台）v1.7‑20260918</h1>
+<h2 id="手册目的">1. 手册目的</h2>
+<p>统一本地环境标准，保证全员环境一致、问题一致、部署逻辑一致，彻底规避
+“本地可运行、他人无法部署” 的环境差异问题。 本手册适配 FDE 日常 PoC
+验证、AI 应用、RAG、Agent、前后端一体化开发场景。</p>
+<h2 id="硬件设备要求强制标准">2. 硬件设备要求（强制标准）</h2>
+<p>本环境用于本地运行大模型、向量数据库、RAG、Agent
+服务以及前后端项目，对内存有硬性要求： 推荐配置：32GB 及以上内存 Windows
+笔记本（SSD） 最低准入配置：16GB 内存 Windows 笔记本（SSD） 备注：16GB
+为最低门槛，多服务同时运行容易内存吃紧并出现卡顿；8GB
+设备不支持本套环境。磁盘预留空间≥10GB，CPU 支持硬件虚拟化技术。</p>
+<h3 id="ai-辅助排错前置说明新增prerequisite">2‑1 AI
+辅助排错前置说明【新增‑Prerequisite】</h3>
+<p>部署过程中遇到安装报错、命令异常、WSL 故障等问题，可以使用 AI
+工具辅助排查。 使用建议：
+提交问题时附带终端完整报错信息，同时说明：正在按照《EBL Carrier Windows
+平台预装准备用户手册》搭建 WSL‑Ubuntu‑24.04 开发环境。
+尽量附带以下信息加速定位问题： 任务管理器 CPU 虚拟化状态 wsl
+–version、wsl –list –verbose 输出内容 Windows 系统版本</p>
+<p>安全约束： AI
+仅作为辅助定位工具，环境是否合格必须以本手册自检清单、验收标准为准，不能完全依赖
+AI 结论。 禁止向 AI
+粘贴公司业务源码、敏感配置，仅可提交命令行日志与报错信息。</p>
+<h2 id="部署前自检清单全部项必须满足方可开始部署">3.
+部署前自检清单（全部项必须满足，方可开始部署）</h2>
+<blockquote>
+<p>备注：WSL 环境验收不再依赖 PowerShell
+读取虚拟化状态，虚拟化前置条件在安装前通过任务管理器确认完毕。</p>
+</blockquote>
+<ul>
+<li>硬件：内存≥16GB、SSD 固态硬盘、CPU 支持硬件虚拟化</li>
+<li>系统：Windows 11</li>
+<li>CPU 硬件虚拟化已开启（任务管理器可查看）</li>
+<li>Windows 当前账户具备管理员权限</li>
+<li>C盘剩余空间 ≥10GB</li>
+<li>网络可访问外网（部分包下载需要）</li>
+<li>已从微软商店安装 Windows Terminal，作为标准终端工具</li>
+</ul>
+<blockquote>
+<p>⚠️重要提示：不要直接复制 Word 文档内的 PowerShell 命令运行，Word
+会自动修改减号字符，执行会报命令识别失败。复制后建议手动核对横线符号，必要时手动输入。</p>
+</blockquote>
+<h1 id="第4章-开启windows虚拟化功能">第4章 开启Windows虚拟化功能</h1>
+<blockquote>
+<p>前置：完成第3章部署前自检</p>
+</blockquote>
+<ol type="1">
+<li>按 <code>Ctrl+Shift+Esc</code> 打开任务管理器 → 性能 →
+CPU，确认<strong>虚拟化：已启用</strong>。</li>
+<li>如果虚拟化显示禁用，重启电脑进入BIOS/UEFI，开启：
+<ul>
+<li>Intel CPU：Intel VT-x</li>
+<li>AMD CPU：SVM Mode（AMD-V）</li>
+</ul></li>
+<li>Windows功能开启：Win+R输入<code>optionalfeatures.exe</code>，勾选：
+<ul>
+<li>适用于Linux的Windows子系统</li>
+<li>虚拟机平台</li>
+</ul></li>
+<li>点击确定，<strong>重启电脑</strong>使功能生效。</li>
+</ol>
+<blockquote>
+<p>⚠️自检项：重启完成后，任务管理器CPU页面虚拟化状态为【已启用】。</p>
+</blockquote>
+<h1 id="第5章-wsl2安装管理员powershell">第5章
+WSL2安装（管理员PowerShell）</h1>
+<blockquote>
+<p>打开Windows终端，选择PowerShell，右键【以管理员身份运行】</p>
+</blockquote>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 一键安装WSL + Ubuntu默认发行版</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>wsl <span class="op">--</span>install <span class="op">-</span>d Ubuntu-24<span class="op">.</span><span class="dv">04</span></span></code></pre></div>
+<p>执行完成后，<strong>重启Windows</strong>。</p>
+<p>重启后，自动弹出Ubuntu初始化窗口，设置Linux用户名（小写开头）和密码。</p>
+<p>校验命令（PowerShell）：</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>wsl <span class="op">--</span>list <span class="op">--</span>verbose</span></code></pre></div>
+<p>✅预期结果：Ubuntu-24.04，VERSION=2，State: Running</p>
+<blockquote>
+<p>⚠️自检项：wsl版本为2，发行版为Ubuntu-24.04。</p>
+</blockquote>
+<h1 id="第6章-ubuntu-24.04-简介">第6章 Ubuntu 24.04 简介</h1>
+<p>Ubuntu 是一个流行、免费开源的 Linux 发行版，基于 Debian。我们本次选用
+<strong>Ubuntu 24.04 LTS（长期支持版）</strong>：</p>
+<ul>
+<li>LTS：Long Term
+Support，提供5年官方安全与维护更新，稳定性高，适合开发环境。</li>
+<li>WSL 内的 Ubuntu 并不是完整虚拟机，直接运行在 Windows
+内核之上，启动速度快、资源占用更低。</li>
+<li>可以原生运行 Linux 命令、PostgreSQL、Python、Node.js、Git
+等开发组件，不需要额外虚拟机。</li>
+</ul>
+<blockquote>
+<p>⚠️重要区别：WSL Ubuntu
+没有独立开机引导、默认不带图形界面，所有操作依靠终端命令行。</p>
+</blockquote>
+<h1 id="第7章-wsl基础配置与内存限制可选推荐">第7章
+WSL基础配置与内存限制（可选，推荐）</h1>
+<p>编辑Windows用户目录下 <code>.wslconfig</code>
+文件（<code>C:\Users\你的用户名\.wslconfig</code>）</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode ini"><code class="sourceCode ini"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[wsl2]</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">memory</span><span class="ot">=</span><span class="st">16GB</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">processors</span><span class="ot">=</span><span class="dv">8</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">swap</span><span class="ot">=</span><span class="st">4GB</span></span></code></pre></div>
+<p>保存文件，PowerShell执行关闭WSL：</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>wsl <span class="op">--</span>shutdown</span></code></pre></div>
+<blockquote>
+<p>⚠️说明：内存值根据本机实际内存调整；32G机器可设置memory=24GB。</p>
+</blockquote>
+<h1 id="第8章-windows-文件系统与-ubuntuwsl之间文件互访">第8章 Windows
+文件系统与 Ubuntu（WSL）之间文件互访</h1>
+<p>💡目标：Windows 用户经常需要在 Windows 和 WSL Ubuntu
+之间共享代码、配置、日志、输入输出文件。WSL2
+内置互通机制，不需要网络共享、不需要 Samba。</p>
+<h2 id="mermaid-流程图可粘贴到支持-mermaid-的文档工具渲染">Mermaid
+流程图（可粘贴到支持 Mermaid 的文档工具渲染）</h2>
+<pre class="mermaid"><code>flowchart LR
+    subgraph Windows Host
+        W1[&quot;C:\\ D:\\ E:\\ 本地磁盘&quot;]
+        W2[&quot;文件资源管理器 / VS Code&quot;]
+    end
+    subgraph WSL2 Ubuntu-24.04
+        U1[&quot;/mnt/c  /mnt/d  /mnt/e&lt;br/&gt;自动挂载Windows磁盘&quot;]
+        U2[&quot;/home/ubuntu-user/  Ubuntu家目录&lt;br/&gt;✅项目代码存放位置&quot;]
+    end
+    %% 双向挂载连线
+    W1 &lt;--WSL自动挂载--&gt; U1
+    U2 &lt;-- \\wsl$\Ubuntu-24.04 --&gt; W2</code></pre>
+<h2 id="纯文本框图直接复制到-word-手册">纯文本框图（直接复制到 Word
+手册）</h2>
+<pre><code>┌────────────────────────────────────┐        ┌────────────────────────────────────────┐
+│ Windows OS                         │        │ WSL2 Ubuntu-24.04                     │
+│                                    │        │                                        │
+│  C:\  D:\  E:\ 本地磁盘            │◄──────►│ /mnt/c  /mnt/d  /mnt/e                │
+│  文件资源管理器、VS Code、Notepad++ │        │ （Ubuntu内访问Windows磁盘）            │
+│                                    │        │                                        │
+│  地址栏输入：\\wsl$\Ubuntu-24.04   │◄──────►│ /home/你的用户名/                      │
+│  浏览Ubuntu Linux文件系统          │        │ ✅【推荐存放项目代码】~/langconfig     │
+└────────────────────────────────────┘        └────────────────────────────────────────┘</code></pre>
+<p>⚠️非常重要的警告： 不要在 Ubuntu 内部直接编辑 <code>/mnt/c</code>
+下面的项目代码。跨文件系统读写性能很差，并且会出现文件权限、换行符（CRLF/LF）错乱，容易引发项目异常。
+✅最佳实践：项目代码存放在 Ubuntu 家目录
+<code>/home/你的用户名/</code>；Windows 只用来读取日志、导出成品文件。
+在 Windows 里面修改 <code>\\wsl$\Ubuntu-24.04</code> 下面的 Linux
+文件，同样容易破坏 Linux 文件权限。尽量避免直接编辑源码。
+文件路径大小写规则：<code>/mnt/c</code> 是小写；Windows 盘符在 WSL
+挂载点全部小写 <code>/mnt/c</code>、<code>/mnt/d</code>，不能写
+<code>/mnt/C</code>。</p>
+<h3 id="ubuntu-里面访问-windows-文件mntc-mntd">8.1 Ubuntu 里面访问
+Windows 文件（/mnt/c / /mnt/d …）</h3>
+<p>WSL2 自动把 Windows 所有盘符挂载到 <code>/mnt/</code> 目录：</p>
+<ul>
+<li>Windows C 盘 → Ubuntu：<code>/mnt/c/</code></li>
+<li>Windows D 盘 → Ubuntu：<code>/mnt/d/</code></li>
+<li>Windows E 盘 → Ubuntu：<code>/mnt/e/</code></li>
+</ul>
+<p>示例命令（在 Ubuntu 终端执行）</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 查看Windows C盘根目录文件</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ls</span> /mnt/c/</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 进入Windows C盘的Users目录</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /mnt/c/Users</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 复制一个Windows文件到Ubuntu家目录（推荐！把文件拷进Linux内再开发）</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> /mnt/c/Users/你的Windows用户名/Documents/test.txt ~/</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 把Ubuntu生成的日志文件拷贝到Windows桌面</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> ~/app.log /mnt/c/Users/你的Windows用户名/Desktop/</span></code></pre></div>
+<p>示例说明： <code>/mnt/c/Users/Administrator/Desktop</code> = Windows
+<code>C:\Users\Administrator\Desktop</code> Windows 路径里面的反斜杠
+<code>\</code> 在 Linux 要改成 <code>/</code></p>
+<h3 id="windows-里面访问-ubuntu-内部文件wsl">8.2 Windows 里面访问 Ubuntu
+内部文件（\wsl$）</h3>
+<p>打开 Windows 文件资源管理器，地址栏直接输入：</p>
+<pre><code>\\wsl$\Ubuntu-24.04</code></pre>
+<p>回车，就可以浏览 Ubuntu 完整文件系统。 Ubuntu
+家目录完整路径：<code>\\wsl$\Ubuntu-24.04\home\你的Ubuntu用户名</code></p>
+<p>✅使用场景：</p>
+<ul>
+<li>从 Ubuntu 里面导出图片、报表、日志，用 Windows 看图 / Office
+打开查看</li>
+<li>快速复制 Ubuntu 生成的产物到 Windows</li>
+</ul>
+<p>❌不推荐：直接在 Windows 资源管理器修改、编辑 Ubuntu
+里面的源代码，会破坏 Linux 权限，导致程序报错。</p>
+<h3 id="推荐工作流团队标准强烈遵守">8.3
+推荐工作流（团队标准，强烈遵守）</h3>
+<p>源代码、项目目录全部放在 Ubuntu 家目录：<code>~/langconfig</code></p>
+<ol type="1">
+<li>如果需要把 Windows 上的文件（模型、输入数据）给到 Linux：在 Ubuntu
+里执行 <code>cp /mnt/c/xxx ~/</code> 复制文件到 Linux 内部</li>
+<li>如果需要把 Linux 输出结果（日志、导出文件）拿到 Windows：在 Ubuntu
+执行 <code>cp ~/output.csv /mnt/c/Users/xxx/Desktop</code></li>
+</ol>
+<blockquote>
+<p>Windows 仅做读取成果文件，不要直接编辑 Linux 内项目源码。</p>
+</blockquote>
+<h3 id="常见坑-排错">8.4 常见坑 &amp; 排错</h3>
+<ul>
+<li>找不到 <code>/mnt/c</code>：WSL 没有自动挂载。执行重启
+WSL：PowerShell 管理员 <code>wsl --shutdown</code>，重启 Ubuntu。</li>
+<li>文件名中文乱码：Windows 文件名称中文，在 <code>/mnt/c</code>
+访问容易出现编码问题，尽量使用英文文件名。</li>
+<li>权限报错：访问 Windows 系统目录，Ubuntu 内会权限不足，属于正常
+Windows 安全限制。</li>
+<li><code>\\wsl$\</code> 打不开：确认 WSL 实例正在运行，PowerShell 执行
+<code>wsl -l -v</code>，确认 Ubuntu-24.04 状态为 Running。</li>
+</ul>
+<h3 id="快速参考对照表">8.5 快速参考对照表</h3>
+<table>
+<colgroup>
+<col style="width: 47%" />
+<col style="width: 52%" />
+</colgroup>
+<thead>
+<tr>
+<th>需求</th>
+<th>操作方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ubuntu 读取 C 盘 Windows 文件</td>
+<td><code>/mnt/c/</code></td>
+</tr>
+<tr>
+<td>Ubuntu 读取 D 盘 Windows 文件</td>
+<td><code>/mnt/d/</code></td>
+</tr>
+<tr>
+<td>Windows 浏览 Ubuntu 全部文件</td>
+<td>文件资源管理器输入<code>\\wsl$\Ubuntu-24.04</code></td>
+</tr>
+<tr>
+<td>把 Windows 文件复制进 Ubuntu</td>
+<td><code>cp /mnt/c/xxx ~/</code></td>
+</tr>
+<tr>
+<td>把 Ubuntu 生成文件导出到 Windows 桌面</td>
+<td><code>cp ~/xxx /mnt/c/Users/xxx/Desktop</code></td>
+</tr>
+</tbody>
+</table>
+<h1 id="第9章-ubuntu-基础命令备忘录面向-windows-用户">第9章 Ubuntu
+基础命令备忘录（面向 Windows 用户）</h1>
+<p>💡重要前置说明：很多团队成员来自 Windows，Linux CLI 操作逻辑和
+Windows CMD/PowerShell 有明显差异：</p>
+<ul>
+<li>Linux 区分大小写：<code>File.txt</code> 和 <code>file.txt</code>
+是两个完全不同文件；Windows 不区分大小写。</li>
+<li>路径分隔符：Linux 使用 <code>/</code>；Windows 使用
+<code>\</code>。</li>
+<li>空格处理：文件名 /
+文件夹名包含空格，必须用引号包裹，或者加反斜杠转义
+<code>\</code>。尽量不要创建带空格的目录 / 文件名。</li>
+<li>密码输入：输入密码时终端不会显示任何字符（无星号、无光标），属于正常安全机制，直接敲完回车即可。</li>
+<li><code>~</code> 代表当前用户家目录
+<code>/home/你的用户名</code>，非常常用。</li>
+<li>权限：很多系统修改操作需要
+<code>sudo</code>，代表临时提升管理员权限。</li>
+</ul>
+<table>
+<colgroup>
+<col style="width: 26%" />
+<col style="width: 53%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+<th>Windows equivalent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pwd</code></td>
+<td>print current working directory，查看当前所在路径</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cd</code> (without parameter)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ls</code></td>
+<td>list files in current folder，列出当前目录文件</td>
+<td><code>dir</code></td>
+</tr>
+<tr>
+<td><code>ls -l</code></td>
+<td>list with detailed info（权限、大小、时间）</td>
+<td><code>dir</code></td>
+</tr>
+<tr>
+<td><code>ls -a</code></td>
+<td>show hidden files（文件名以<code>.</code> 开头为隐藏文件）</td>
+<td><code>dir /a</code></td>
+</tr>
+<tr>
+<td><code>cd &lt;folder&gt;</code></td>
+<td>change directory，进入目标文件夹</td>
+<td><code>cd &lt;folder&gt;</code></td>
+</tr>
+<tr>
+<td><code>cd ~</code></td>
+<td>go back to home directory，回到家目录</td>
+<td><code>cd %USERPROFILE%</code></td>
+</tr>
+<tr>
+<td><code>cd ..</code></td>
+<td>go up one level，返回上一级目录</td>
+<td><code>cd ..</code></td>
+</tr>
+<tr>
+<td><code>mkdir &lt;folder&gt;</code></td>
+<td>create new folder，新建文件夹</td>
+<td><code>mkdir</code></td>
+</tr>
+<tr>
+<td><code>rm &lt;file&gt;</code></td>
+<td>delete file，删除文件</td>
+<td><code>del</code></td>
+</tr>
+<tr>
+<td><code>rm -r &lt;folder&gt;</code></td>
+<td>delete folder and all contents，删除文件夹（递归）</td>
+<td><code>rmdir /s</code></td>
+</tr>
+<tr>
+<td><code>cp source target</code></td>
+<td>copy file</td>
+<td><code>copy</code></td>
+</tr>
+<tr>
+<td><code>mv source target</code></td>
+<td>move /rename file or folder，移动或重命名</td>
+<td><code>move</code></td>
+</tr>
+<tr>
+<td><code>cat &lt;file&gt;</code></td>
+<td>print file content to terminal，查看文件内容</td>
+<td><code>type</code></td>
+</tr>
+<tr>
+<td><code>nano &lt;file&gt;</code></td>
+<td>simple text editor，简易文本编辑器</td>
+<td><code>notepad</code></td>
+</tr>
+<tr>
+<td><code>sudo &lt;command&gt;</code></td>
+<td>run command with root/admin privilege，管理员权限执行</td>
+<td>run as administrator</td>
+</tr>
+<tr>
+<td><code>clear</code></td>
+<td>clear terminal screen，清屏</td>
+<td><code>cls</code></td>
+</tr>
+<tr>
+<td><code>exit</code></td>
+<td>close current shell，退出终端</td>
+<td><code>exit</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Nano 编辑器快速参考（前面.bashrc 配置会用到）</strong></p>
+<ul>
+<li>Ctrl+O：保存文件（Write Out）</li>
+<li>Ctrl+X：退出编辑器</li>
+<li>Ctrl+W：搜索文本</li>
+</ul>
+<p>⚠️高危提醒：<code>rm -r</code>
+删除操作没有回收站，删除后无法恢复！执行前务必确认文件名。</p>
+<h1 id="第10章-ubuntu-24.04-系统源更新">第10章 Ubuntu 24.04
+系统源更新</h1>
+<p>进入WSL Ubuntu终端</p>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 更新软件源索引</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt update</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 升级全部已安装包</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt upgrade <span class="at">-y</span></span></code></pre></div>
+<blockquote>
+<p>⚠️自检项：update/upgrade无严重报错。</p>
+</blockquote>
+<h1 id="第11章-安装基础开发工具包">第11章 安装基础开发工具包</h1>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install <span class="at">-y</span> build-essential git curl wget unzip zip vim tree htop jq openssh-client</span></code></pre></div>
+<p>校验工具：</p>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> <span class="at">--version</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">--version</span></span></code></pre></div>
+<blockquote>
+<p>⚠️自检项：git、curl输出版本号，无command not found。</p>
+</blockquote>
+<h1 id="第12章-配置git全局信息">第12章 配置Git全局信息</h1>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> config <span class="at">--global</span> user.name <span class="st">&quot;Your Name&quot;</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> config <span class="at">--global</span> user.email <span class="st">&quot;your@email.com&quot;</span></span></code></pre></div>
+<p>校验：</p>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> config <span class="at">--global</span> <span class="at">--list</span></span></code></pre></div>
+<h1 id="第13章-配置ssh密钥用于代码仓库拉取">第13章
+配置SSH密钥（用于代码仓库拉取）</h1>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ssh-keygen</span> <span class="at">-t</span> ed25519 <span class="at">-C</span> <span class="st">&quot;your@email.com&quot;</span></span></code></pre></div>
+<p>一路回车，不设置密码（开发环境）。 查看公钥：</p>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> ~/.ssh/id_ed25519.pub</span></code></pre></div>
+<p>复制输出全部字符串，添加到代码仓库SSH密钥配置。</p>
+<blockquote>
+<p>⚠️自检项：SSH测试连通仓库成功 <code>ssh -T git@shturl.</code>。</p>
+</blockquote>
+<h1 id="第14章-wsl-systemd-开启关键postgresql依赖">第14章 WSL systemd
+开启（关键，PostgreSQL依赖）</h1>
+<div class="sourceCode" id="cb16"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> nano /etc/wsl.conf</span></code></pre></div>
+<p>写入内容：</p>
+<div class="sourceCode" id="cb17"><pre
+class="sourceCode ini"><code class="sourceCode ini"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[boot]</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="dt">systemd</span><span class="ot">=</span><span class="kw">true</span></span></code></pre></div>
+<p>Ctrl+O保存，Ctrl+X退出。 PowerShell执行：</p>
+<div class="sourceCode" id="cb18"><pre
+class="sourceCode powershell"><code class="sourceCode powershell"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>wsl <span class="op">--</span>shutdown</span></code></pre></div>
+<p>重新打开Ubuntu终端，校验systemd：</p>
+<div class="sourceCode" id="cb19"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="ex">systemctl</span> list-unit-files</span></code></pre></div>
+<blockquote>
+<p>⚠️自检项：无报错，systemd正常启用。</p>
+</blockquote>
+<h1 id="第15章-wsl网络互通校验">第15章 WSL网络互通校验</h1>
+<p>WSL内查看IP：</p>
+<div class="sourceCode" id="cb20"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="ex">ip</span> addr show eth0</span></code></pre></div>
+<p>Windows浏览器访问WSL内服务IP，用于后续前后端服务访问测试。</p>
+<h1 id="第16章-wsl环境备份与重置说明">第16章 WSL环境备份与重置说明</h1>
+<ul>
+<li>关闭WSL：<code>wsl --shutdown</code></li>
+<li>导出备份（PowerShell管理员）：<code>wsl --export Ubuntu-24.04 D:\backup\ubuntu2404.tar</code></li>
+<li>重置WSL（故障无法修复时，会清空所有数据）：<code>wsl --unregister Ubuntu-24.04</code></li>
+</ul>
+<h1 id="第17章-wslubuntu基础环境整体验收清单必须全部通过">第17章
+WSL+Ubuntu基础环境整体验收清单（必须全部通过）</h1>
+<ul class="task-list">
+<li><label><input
+type="checkbox" />CPU虚拟化已开启（任务管理器预先确认）</label></li>
+<li><label><input type="checkbox" />wsl -l -v
+确认Ubuntu-24.04，版本2</label></li>
+<li><label><input type="checkbox" />sudo apt update &amp;&amp; upgrade
+执行无报错</label></li>
+<li><label><input
+type="checkbox" />git/curl等基础工具安装成功，版本可正常输出</label></li>
+<li><label><input
+type="checkbox" />SSH密钥配置完成，可连通代码仓库</label></li>
+<li><label><input type="checkbox" />/etc/wsl.conf 已配置
+<code>systemd=true</code>，wsl重启生效</label></li>
+<li><label><input
+type="checkbox" />文件共享规则理解：项目代码存放于WSL家目录
+<code>~/</code>，不使用Windows挂载盘 <code>/mnt/c</code></label></li>
+<li><label><input
+type="checkbox" />网络：WSL可访问外网，Windows可访问WSL内IP</label></li>
+</ul>
+<blockquote>
+<p>✅全部通过，方可进入【第18章 应用部署：Langconfig】</p>
+</blockquote>
+<hr />
+<h1 id="第18章-应用部署langconfigapplication">第18章
+应用部署：Langconfig（Application）</h1>
+<blockquote>
+<p>前置条件：第1~17章 WSL+Ubuntu24.04
+基础环境全部部署完成，并通过第17章全部自检项。本章完成向量数据库、后端、前端完整项目部署。</p>
+</blockquote>
+<h2 id="代码拉取与环境配置文件准备">18.1 代码拉取与环境配置文件准备</h2>
+<div class="sourceCode" id="cb21"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># SSH 克隆代码仓库</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone git@xxx:xxx/langconfig.git</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> langconfig</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 复制环境模板文件，生成后端 .env 配置文件</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> backend</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> env_example .env</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="fu">nano</span> .env</span></code></pre></div>
+<p>编辑 <code>.env</code>，填入数据库连接信息：</p>
+<pre class="env"><code>DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=langconfig
+DB_USER=langconfig
+DB_PASSWORD=langconfig_dev</code></pre>
+<p>保存退出：Ctrl+O → 回车确认 → Ctrl+X</p>
+<blockquote>
+<p>⚠️注意：克隆仓库后<strong>必须执行 env_example
+复制</strong>，后端启动依赖该配置文件，缺失会导致数据库连接失败。</p>
+</blockquote>
+<h2 id="安装-uv-包管理器">18.2 安装 uv 包管理器</h2>
+<div class="sourceCode" id="cb23"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 执行 uv 官方安装脚本</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-LsSf</span> https://astral.sh/uv/install.sh <span class="kw">|</span> <span class="fu">sh</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 加载更新后的环境变量</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="bu">source</span> ~/.bashrc</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 验证 uv 是否安装成功</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> <span class="at">--version</span></span></code></pre></div>
+<h2
+id="安装-node.js-22-lts-npmnode安装完成后立刻校验-nodenpm校验通过再执行前端依赖安装">18.3
+安装 Node.js 22 LTS + npm（<strong>Node安装完成后立刻校验
+node/npm，校验通过再执行前端依赖安装</strong>）</h2>
+<div class="sourceCode" id="cb24"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 添加 NodeSource 源，安装 Node.js 22 LTS（自带 npm）</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-fsSL</span> https://deb.nodesource.com/setup_22.x <span class="kw">|</span> <span class="fu">sudo</span> <span class="at">-E</span> bash <span class="at">-</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install <span class="at">-y</span> nodejs</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Node安装完成后，立即校验 node、npm 版本，确认安装生效</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="ex">node</span> <span class="at">-v</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> <span class="at">-v</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="co"># ✅ node、npm 版本正常输出，方可继续；若报错 command not found，停止后续操作排查</span></span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 进入前端目录，安装前端项目依赖</span></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/langconfig/frontend</span>
+<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> install</span></code></pre></div>
+<blockquote>
+<p>⚠️注意：<strong>Node.js 安装完毕后必须马上执行 node -v、npm -v
+校验。只有校验成功，才允许执行 npm install。</strong> 如果 npm -v 报
+command not found，代表 Node/npm
+安装未生效，不能继续前端依赖安装。前端代码拉取完成后必须执行
+<code>npm install</code>，下载前端依赖包；不执行此步骤前端开发服务无法启动。</p>
+</blockquote>
+<h2 id="postgresql-pgvector-向量数据库部署">18.4 PostgreSQL + pgvector
+向量数据库部署</h2>
+<div class="sourceCode" id="cb25"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 开启 WSL systemd（PostgreSQL 服务管理必需；第14章已配置可跳过）</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> nano /etc/wsl.conf</span></code></pre></div>
+<p>写入配置内容：</p>
+<div class="sourceCode" id="cb26"><pre
+class="sourceCode ini"><code class="sourceCode ini"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[boot]</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="dt">systemd</span><span class="ot">=</span><span class="kw">true</span></span></code></pre></div>
+<p>保存退出。</p>
+<blockquote>
+<p>切换至 Windows PowerShell，执行
+<code>wsl --shutdown</code>，关闭并重启 WSL 终端，使 systemd
+配置生效。</p>
+</blockquote>
+<div class="sourceCode" id="cb27"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 更新软件源并安装 PostgreSQL 主程序</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt update</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install postgresql postgresql-contrib <span class="at">-y</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 安装适配 Postgres16 的 pgvector 向量扩展包</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install postgresql-16-pgvector <span class="at">-y</span></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a><span class="co"># 启动 PostgreSQL 服务，并设置开机自启</span></span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl start postgresql</span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl enable postgresql</span>
+<span id="cb27-11"><a href="#cb27-11" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl status postgresql</span>
+<span id="cb27-12"><a href="#cb27-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-13"><a href="#cb27-13" aria-hidden="true" tabindex="-1"></a><span class="co"># 校验：确认 Postgres 在5432端口正常接收连接</span></span>
+<span id="cb27-14"><a href="#cb27-14" aria-hidden="true" tabindex="-1"></a><span class="ex">pg_isready</span> <span class="at">-h</span> localhost <span class="at">-p</span> 5432          <span class="co"># 预期返回：accepting connections</span></span>
+<span id="cb27-15"><a href="#cb27-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-16"><a href="#cb27-16" aria-hidden="true" tabindex="-1"></a><span class="co"># 校验：确认 pgvector 系统包成功安装</span></span>
+<span id="cb27-17"><a href="#cb27-17" aria-hidden="true" tabindex="-1"></a><span class="ex">dpkg</span> <span class="at">-l</span> <span class="kw">|</span> <span class="fu">grep</span> postgresql-16-pgvector    <span class="co"># 预期输出包含：ii  postgresql-16-pgvector ...</span></span>
+<span id="cb27-18"><a href="#cb27-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-19"><a href="#cb27-19" aria-hidden="true" tabindex="-1"></a><span class="co"># 清理旧库、旧角色，新建超级用户角色 langconfig 与数据库 langconfig</span></span>
+<span id="cb27-20"><a href="#cb27-20" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-u</span> postgres psql</span></code></pre></div>
+<p>在 psql 交互终端内执行下面 SQL：</p>
+<div class="sourceCode" id="cb28"><pre
+class="sourceCode sql"><code class="sourceCode sql"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="kw">DROP</span> <span class="kw">DATABASE</span> <span class="cf">IF</span> <span class="kw">EXISTS</span> langconfig;</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="kw">DROP</span> <span class="kw">ROLE</span> <span class="cf">IF</span> <span class="kw">EXISTS</span> langconfig;</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">ROLE</span> langconfig LOGIN <span class="kw">PASSWORD</span> <span class="st">&#39;langconfig_dev&#39;</span> CREATEDB SUPERUSER;</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> <span class="kw">DATABASE</span> langconfig OWNER langconfig;</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>\c langconfig</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a><span class="kw">CREATE</span> EXTENSION <span class="cf">IF</span> <span class="kw">NOT</span> <span class="kw">EXISTS</span> vector;</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a><span class="kw">SELECT</span> extname <span class="kw">FROM</span> pg_extension <span class="kw">WHERE</span> extname<span class="op">=</span><span class="st">&#39;vector&#39;</span>;</span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>\q</span></code></pre></div>
+<div class="sourceCode" id="cb29"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 校验：确认 langconfig 数据库已启用 vector 向量扩展</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="ex">psql</span> <span class="at">-U</span> langconfig <span class="at">-d</span> langconfig <span class="at">-h</span> localhost <span class="at">-c</span> <span class="st">&quot;SELECT extname FROM pg_extension WHERE extname=&#39;vector&#39;;&quot;</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 可选：手动测试数据库连通性</span></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="ex">psql</span> <span class="at">-U</span> langconfig <span class="at">-d</span> langconfig <span class="at">-h</span> localhost</span></code></pre></div>
+<blockquote>
+<p>⚠️部署踩坑备注： 不要在 bash 单行命令中执行
+<code>ALTER ROLE ... PASSWORD</code>
+修改密码，容易产生密码哈希异常，导致密码认证失败； 在 psql
+交互式环境使用 <code>\password</code>
+修改密码时，如果两次输入密码不一致，密码不会保存；
+推荐先清理旧数据库、旧角色，一次性重建整套资源，规避残留对象引发的认证报错。</p>
+</blockquote>
+<h2 id="backend-依赖安装数据库迁移-seed-种子数据初始化">18.5 Backend
+依赖安装、数据库迁移 &amp; Seed 种子数据初始化</h2>
+<div class="sourceCode" id="cb30"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/langconfig/backend</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> sync</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 执行 alembic 数据库迁移脚本，自动创建业务数据表</span></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run alembic upgrade head</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 创建 outputs 输出目录，防止种子脚本因目录缺失报错</span></span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> outputs</span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 执行 Seed 种子脚本，初始化项目基础业务数据</span></span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a><span class="va">WORKSPACE_ROOT</span><span class="op">=</span><span class="st">&quot;</span><span class="va">$HOME</span><span class="st">/langconfig/backend/outputs&quot;</span> <span class="ex">uv</span> run python scripts/seeds/seed_all.py</span></code></pre></div>
+<blockquote>
+<p>⚠️注意：</p>
+<ol type="1">
+<li>必须<strong>先完成数据库迁移（alembic upgrade head），再执行 Seed
+种子脚本</strong>；顺序颠倒会导致数据表不存在，种子数据导入失败。</li>
+<li>种子脚本运行前必须创建 outputs 目录，否则脚本抛出文件路径异常。</li>
+</ol>
+</blockquote>
+<h2 id="启动前后端服务wsl2-暴露服务给-windows-浏览器">18.6
+启动前后端服务（WSL2 暴露服务给 Windows 浏览器）</h2>
+<div class="sourceCode" id="cb31"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 启动后端服务，必须绑定 0.0.0.0，否则 Windows Chrome 访问报 ERR_CONNECTION_REFUSED</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/langconfig/backend</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a><span class="ex">./start.sh</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Backend: http://localhost:8765  (docs: http://localhost:8765/docs)</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a><span class="co"># 启动前端开发服务，增加 --host 0.0.0.0 参数，暴露给 Windows 主机访问</span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/langconfig/frontend</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> run dev <span class="at">--</span> <span class="at">--host</span> 0.0.0.0</span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Frontend: http://localhost:1421</span></span></code></pre></div>
+<blockquote>
+<p>⚠️注意：WSL2 默认服务监听在 <code>127.0.0.1</code>
+仅WSL内部可访问；必须绑定
+<code>0.0.0.0</code>，Windows主机浏览器才能访问。</p>
+</blockquote>
+<h2 id="langconfig-应用部署验收清单全部项必须通过">18.7 Langconfig
+应用部署验收清单（全部项必须通过）</h2>
+<ul class="task-list">
+<li><label><input
+type="checkbox" /><code>pg_isready -h localhost -p 5432</code> 返回
+accepting connections</label></li>
+<li><label><input
+type="checkbox" /><code>dpkg -l | grep postgresql-16-pgvector</code>
+可查到 pgvector 安装包</label></li>
+<li><label><input type="checkbox" />psql 查询语句返回
+<code>vector</code>，确认向量扩展已加载</label></li>
+<li><label><input type="checkbox" />uv sync 依赖安装无报错</label></li>
+<li><label><input type="checkbox" />alembic upgrade head
+全部迁移脚本执行成功</label></li>
+<li><label><input type="checkbox" />Seed 种子脚本 seed_all.py
+完整执行完成</label></li>
+<li><label><input type="checkbox" />node -v、npm -v
+正常输出版本号</label></li>
+<li><label><input type="checkbox" />后端服务 8765 端口可在 Windows
+浏览器正常访问</label></li>
+<li><label><input type="checkbox" />前端服务 1421 端口可在 Windows
+浏览器正常访问</label></li>
+</ul>
+<h2 id="应用部署常见故障排查">18.8 应用部署常见故障排查</h2>
+<ol type="1">
+<li><strong>浏览器访问 localhost:端口，提示
+ERR_CONNECTION_REFUSED</strong></li>
+</ol>
+<blockquote>
+<p>服务仅监听 WSL 内部 <code>127.0.0.1</code>，未绑定
+<code>0.0.0.0</code>。停止当前进程，修改启动命令增加
+<code>--host 0.0.0.0</code>，重新启动服务。</p>
+</blockquote>
+<ol start="2" type="1">
+<li><strong>Postgres 连接报错 FATAL: password authentication
+failed</strong></li>
+</ol>
+<blockquote>
+<p>不要使用 bash 单行命令修改密码；进入 psql 交互式终端，先 DROP
+清理旧角色与数据库，再重新创建。密码两次输入不一致会导致密码不生效。</p>
+</blockquote>
+<ol start="3" type="1">
+<li><strong>Seed 种子脚本执行报错：找不到 outputs 目录 /
+表不存在</strong></li>
+</ol>
+<blockquote>
+<ul>
+<li>找不到 outputs：提前执行 <code>mkdir -p outputs</code>
+创建输出文件夹。</li>
+<li>表不存在：执行顺序错误，<strong>必须先执行 alembic upgrade
+head，再运行 seed_all.py</strong>。</li>
+</ul>
+</blockquote>
+<ol start="4" type="1">
+<li><strong>WSL systemd 不生效，PostgreSQL 服务无法启动</strong></li>
+</ol>
+<blockquote>
+<p>确认 <code>/etc/wsl.conf</code> 配置 <code>systemd=true</code>，在
+Windows PowerShell 执行 <code>wsl --shutdown</code> 重启 WSL。</p>
+</blockquote>
+<ol start="5" type="1">
+<li><strong>前端 npm install 命令提示 command not found:
+npm</strong></li>
+</ol>
+<blockquote>
+<p>Node.js / npm 未安装或者环境变量未刷新。回到18.3章节，执行 Node.js
+安装命令，<strong>安装完成立刻校验 node -v、npm
+-v</strong>，输出版本号成功后，再执行前端依赖安装。</p>
+</blockquote>
+<hr />
+<p>你可以直接全选复制，保存为 <code>EBL_Carrier_WSL_Manual.md</code>。
+要不要我再输出一份纯文本版本（不带markdown语法，直接粘贴到Word）备用？</p>
+</body>
+</html>
