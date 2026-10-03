@@ -10,6 +10,8 @@ API endpoints for DeepAgent configuration and management.
 import logging
 import json
 import os as _os
+import re
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, Depends
 from starlette.responses import Response, FileResponse
 
@@ -37,6 +39,115 @@ from services.agent_bundle import build_agent_bundle, import_agent_bundle
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/deepagents", tags=["deepagents"])
+
+
+# =============================================================================
+# Export-to-disk — agent.py + .env under backend/outputs/exports/<slug>/
+# =============================================================================
+
+_BACKEND_DIR = Path(__file__).resolve().parents[2]
+_EXPORT_ROOT = _BACKEND_DIR / "outputs" / "exports"
+
+# Read from the environment, but the generated script carries a working
+# default — so the .env lists them commented out instead of blank-and-required.
+_OPTIONAL_ENV = frozenset({
+    "ACTUAL_MODEL",
+    "LANGCFG_ROOT",
+    "GRAPHINDEX_PROJECT_ID",
+    "DOC_INDEX_BASE",
+    "MINIMAX_API_BASE",
+})
+
+_ENV_DEFAULT_RE = re.compile(
+    r'os\.environ(?:\.get)?[\(\[]\s*["\']([A-Z][A-Z0-9_]*)["\']'
+    r'(?:\s*,\s*["\']([^"\']*)["\'])?'
+)
+
+
+def _export_slug(name: str, agent_id: int) -> str:
+    """ASCII, filesystem-safe folder name — Chinese agent names included."""
+    slug = "".join(
+        c.lower() if (c.isascii() and c.isalnum()) else "-" for c in (name or "")
+    )
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    return f"{slug or 'agent'}-{agent_id}"
+
+
+def _export_dir(agent) -> Path:
+    return _EXPORT_ROOT / _export_slug(agent.name or "", agent.id)
+
+
+def _env_names(source: str) -> dict:
+    """Env vars the generated script reads -> their in-script default (or '').
+
+    A name can appear several times (once in the LLM block, again inside inlined
+    tool code, sometimes without a default) — keep the first non-empty default.
+    """
+    names: dict = {}
+    for match in _ENV_DEFAULT_RE.finditer(source):
+        name, default = match.group(1), (match.group(2) or "")
+        if name not in names or (not names[name] and default):
+            names[name] = default
+    return names
+
+
+def _env_template(agent, source: str) -> str:
+    """A .env for the exported folder: required keys blank, optional commented.
+
+    A variable is only emitted blank when the script has NO default for it.
+    Emitting `DEEPSEEK_API_BASE=` blank would *shadow* the script's own
+    `os.environ.get("DEEPSEEK_API_BASE", "https://api.deepseek.com/v1")` with an
+    empty string — the default never applies and calls land on api.openai.com.
+    """
+    found = _env_names(source)
+    required = sorted(
+        n for n, default in found.items() if not default and n not in _OPTIONAL_ENV
+    )
+    optional = sorted(set(found) - set(required))
+    display = (agent.name or "").strip() or f"agent {agent.id}"
+
+    lines = [
+        f"# LangConfig standalone agent — {display} (agent id {agent.id})",
+        "#",
+        "# Fill in the values below, then run:",
+        '#     python agent.py "your question"',
+        "#",
+        "# Blank on purpose: LangConfig stores provider keys encrypted in",
+        "# PostgreSQL (settings_documents -> models.api_keys), so a standalone",
+        "# agent has no database to read them from. Paste your own key here.",
+        "",
+    ]
+    lines += [f"{name}=" for name in required] or ["# (no API keys needed by this agent)"]
+
+    lines += ["", "# Optional — leave commented to use the script's built-in default:"]
+    for name in optional:
+        default = found.get(name) or ""
+        lines.append(f"# {name}={default}" if default else f"# {name}=")
+
+    return "\n".join(lines) + "\n"
+
+
+def _write_export_folder(agent, source: str):
+    """Best-effort: drop agent.py + .env on disk next to the served download.
+
+    Returns the directory, or None when the write is not possible. Never
+    raises — a read-only or full filesystem must not break the download.
+    """
+    try:
+        target = _export_dir(agent)
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "agent.py").write_text(source, encoding="utf-8")
+        env_file = target / ".env"
+        env_file.write_text(_env_template(agent, source), encoding="utf-8")
+        try:
+            env_file.chmod(0o600)  # will hold a real key once filled in
+        except OSError:
+            pass
+        logger.info("Exported agent %s to %s", agent.id, target)
+        return target
+    except Exception as exc:  # noqa: BLE001 — download must still succeed
+        logger.warning("Export-to-disk skipped for agent %s: %s", agent.id, exc)
+        return None
 
 
 # =============================================================================
@@ -1132,10 +1243,13 @@ async def download_agent_code(agent_id: int, db: Session = Depends(get_db)):
     custom_tools table at generation time), and the agent state schema — so
     it runs with just:
 
-        pip install langchain-openai langgraph langchain-community python-dotenv httpx
+        pip install deepagents langchain-openai langgraph langchain-community python-dotenv httpx
         python agent.py "your question"
 
     It has no dependency on PostgreSQL or the LangConfig backend repo.
+
+    The export is also written to ``backend/outputs/exports/<slug>/`` as
+    ``agent.py`` plus a ``.env`` holding the (blank) key names this agent needs.
     """
     agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
     if not agent:
@@ -1367,12 +1481,22 @@ llm = ChatOpenAI(
 
     def _emit_missing_tool(tool_id: str) -> str:
         """Emit a harmless stub for a tool that could not be inlined."""
+        # Two traps here, both previously live bugs:
+        #  * repr() (not json.dumps) — the message sits *inside* a double-quoted
+        #    string literal, so json.dumps' own quotes produced invalid Python
+        #    (`return "Tool "write_todos" is not available..."` -> SyntaxError).
+        #  * StructuredTool.from_function requires a docstring *or* description,
+        #    so the stub needs one even though it only returns an apology.
+        message = f"Tool {tool_id} is not available in this standalone script."
+        description = f"Unavailable in standalone mode: {tool_id}."
         return (
             f"# ── Tool: {tool_id} (NOT available in standalone mode) ───────────\n"
             f"def {tool_id}(*args, **kwargs) -> str:\n"
-            f'    return "Tool {json.dumps(tool_id)} is not available in this standalone script."\n\n'
+            f'    """{description}"""\n'
+            f"    return {message!r}\n\n"
             f"# register as a LangChain tool (name must be the tool_id)\n"
-            f"_tools.append(tool({json.dumps(tool_id)}, {tool_id}))\n"
+            f"_tools.append(tool({json.dumps(tool_id)}, {tool_id}, "
+            f"description={json.dumps(description)}))\n"
         )
 
     is_deep = config.get("use_deepagents", False)
@@ -1499,7 +1623,7 @@ agent = create_agent(
         'tools, and agent state. No PostgreSQL or LangConfig backend required.\n'
         '\n'
         'Usage:\n'
-        '    pip install langchain-openai langgraph langchain-community python-dotenv httpx\n'
+        '    pip install deepagents langchain-openai langgraph langchain-community python-dotenv httpx\n'
         '    python agent.py                     # interactive chat\n'
         '    python agent.py "your question"     # one-shot answer\n'
         '"""\n'
@@ -1513,7 +1637,13 @@ agent = create_agent(
         '\n'
         '# ── Env ──────────────────────────────────────────────────────────────\n'
         'from dotenv import load_dotenv\n'
-        'load_dotenv()  # loads .env from the current directory\n'
+        '# 1. .env shipped next to THIS script (written by the LangConfig export)\n'
+        '_SCRIPT_ENV = pathlib.Path(__file__).resolve().with_name(".env")\n'
+        'if _SCRIPT_ENV.is_file():\n'
+        '    load_dotenv(_SCRIPT_ENV)\n'
+        '# 2. ./.env relative to wherever you launched it from\n'
+        'load_dotenv()\n'
+        '# 3. $LANGCFG_ROOT/.env (a LangConfig checkout), if set\n'
         '_LANGCFG_ROOT = os.environ.get("LANGCFG_ROOT", "")\n'
         'if _LANGCFG_ROOT and os.path.isfile(os.path.join(_LANGCFG_ROOT, ".env")):\n'
         '    load_dotenv(os.path.join(_LANGCFG_ROOT, ".env"))\n'
@@ -1579,12 +1709,18 @@ agent = create_agent(
         '    main(sys.argv[1] if len(sys.argv) > 1 else None)\n'
     )
 
+    export_dir = _write_export_folder(agent, source)
+
+    headers = {
+        "Content-Disposition": content_disposition(
+            f"{(agent.name or 'agent').strip() or 'agent'}.py"
+        ),
+    }
+    if export_dir is not None:
+        headers["X-LangConfig-Export-Dir"] = str(export_dir.relative_to(_BACKEND_DIR))
+
     return Response(
         content=source,
         media_type="text/x-python",
-        headers={
-            "Content-Disposition": content_disposition(
-                f"{(agent.name or 'agent').strip() or 'agent'}.py"
-            ),
-        },
+        headers=headers,
     )
