@@ -13,7 +13,7 @@
  *   as outlined cards with credential dots, filled editor modules, dashed
  *   add-provider buttons.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { themes, useTheme, type ThemeName } from '../lib/themes'
 import apiClient from '../lib/api-client'
@@ -883,7 +883,7 @@ function LocalModelsSection() {
 
 function WorkspaceSection() {
   const { t } = useTranslation('chat')
-  const { activeProject, activeProjectId } = useProject()
+  const { activeProjectId, projects, setActiveProjectId, refreshProjects } = useProject()
   const [ws, setWs] = useState<any>(null)
   const [path, setPath] = useState('')
   const [maxIter, setMaxIter] = useState('')
@@ -899,6 +899,32 @@ function WorkspaceSection() {
   }, [])
   useEffect(() => { load() }, [load])
 
+  // The vault list can go stale when a project was created outside this modal
+  // (vault popover, API/CLI), so re-read it when the section mounts. Guarded by
+  // a ref: `refreshProjects` is not memoized in ProjectContext, and calling it
+  // from a dep-driven effect would loop (setProjects → new identity → effect).
+  const refreshedRef = useRef(false)
+  useEffect(() => {
+    if (refreshedRef.current) return
+    refreshedRef.current = true
+    void refreshProjects()
+  }, [refreshProjects])
+
+  // Dropdown options for the vault switch. A leading "(none)" entry covers a
+  // stale/cleared activeProjectId so the <select> never falls back silently to
+  // the first project.
+  const projectOptions = useMemo(() => {
+    const opts = projects.map(p => ({
+      value: String(p.id),
+      label: `${p.name} (#${p.id})`,
+      key: String(p.id),
+    }))
+    if (!projects.some(p => p.id === activeProjectId)) {
+      opts.unshift({ value: '', label: t('settings_current_project_none'), key: '__none' })
+    }
+    return opts
+  }, [projects, activeProjectId, t])
+
   const save = async (patch: Record<string, any>) => {
     setSaved(false)
     try {
@@ -913,17 +939,19 @@ function WorkspaceSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
       <SectionTitle title={t('settings_workspace_title')} desc={t('settings_workspace_desc')} />
+      {/* Vault switch — the project picked here scopes new chat sessions and
+          every agent workspace (outputs/<vault-slug>/agents/<agent>), so it is
+          the same selection as the ActivityBar vault popover. */}
       <Row label={t('settings_current_project')} hint={t('settings_current_project_hint')}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {activeProject ? (
-            <>
-              <span style={{ fontWeight: 600 }}>{activeProject.name}</span>
-              <span style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>#{activeProject.id}</span>
-            </>
-          ) : (
-            <span style={{ color: 'var(--color-text-muted)' }}>{t('settings_current_project_none')}</span>
-          )}
-        </div>
+        <Select
+          value={activeProjectId != null ? String(activeProjectId) : ''}
+          onChange={v => {
+            const id = parseInt(v, 10)
+            if (Number.isFinite(id) && id > 0) setActiveProjectId(id)
+          }}
+          options={projectOptions}
+          width={240}
+        />
       </Row>
       <Row label={t('settings_workspace_path')} hint={t('settings_workspace_path_hint')}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
