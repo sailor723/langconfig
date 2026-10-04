@@ -173,6 +173,86 @@ def _is_default_template_docs(docs: dict) -> bool:
     return _DEFAULT_TEMPLATE_SIGNATURE in ag
 
 
+# Machine-agnostic placeholders that ship inside the seeded dumps. They are
+# authors' stand-ins for "some install's workspace root" and must never reach
+# a running install: `WORKSPACE_BASE/...` is a *relative* path, so any tool
+# that resolves it writes into a phantom `backend/WORKSPACE_BASE/...` tree
+# instead of the agent's workspace. See the 2026-10 workspace-root incident.
+_PLACEHOLDER_MARKERS = ("WORKSPACE_BASE", "{{workspace_root}}", "{{agent_id}}")
+
+# Config keys whose value is a filesystem path and therefore must not carry a
+# placeholder. Other keys (prompts, tool names, …) are left untouched.
+_PATH_KEYS = {
+    "workspace_root",
+    "workspace_path",
+    "custom_output_path",
+    "output_path",
+    "root_dir",
+}
+
+
+def replace_placeholder_paths(text: str, workspace_root: str) -> tuple[str, bool]:
+    """Rewrite authored ``WORKSPACE_BASE/<path>`` mentions to the real workspace.
+
+    Seeded *prompts* can name the placeholder too (e.g. a "Your workspace is:
+    WORKSPACE_BASE/…" line). Left alone they both lie and — because the token is
+    a relative path — invite tools to write into a phantom tree. The resolved
+    ``workspace_root`` is the value the placeholder stood for.
+
+    Returns ``(new_text, changed)``.
+    """
+    if not text or "WORKSPACE_BASE" not in text or not workspace_root:
+        return text, False
+    new_text = re.sub(r"WORKSPACE_BASE[\w./\\-]*", workspace_root, text)
+    return new_text, new_text != text
+
+
+def sanitize_placeholder_paths(cfg: dict) -> bool:
+    """Strip machine-agnostic placeholder paths out of an agent config.
+
+    Acts on ``config.middleware[*].config.<path-ish key>`` (where the seeded
+    dumps hide ``WORKSPACE_BASE/...``) and on top-level path keys. A
+    placeholder-only ``filesystem`` middleware entry is dropped entirely —
+    the runtime already scopes the agent's filesystem to its resolved
+    workspace, so the entry contributes nothing once the bogus root is gone.
+
+    Returns True when the config was modified (callers persist it).
+    """
+    changed = False
+
+    def _is_placeholder(value: object) -> bool:
+        return isinstance(value, str) and any(m in value for m in _PLACEHOLDER_MARKERS)
+
+    middleware = cfg.get("middleware")
+    if isinstance(middleware, list):
+        kept = []
+        for entry in middleware:
+            if not isinstance(entry, dict):
+                kept.append(entry)
+                continue
+            entry_cfg = entry.get("config")
+            if isinstance(entry_cfg, dict):
+                for key in list(entry_cfg.keys()):
+                    if key in _PATH_KEYS and _is_placeholder(entry_cfg[key]):
+                        entry_cfg.pop(key)
+                        changed = True
+                if not entry_cfg and entry.get("type") == "filesystem":
+                    # Nothing left for this entry to configure — drop it
+                    # rather than leaving an empty shell behind.
+                    changed = True
+                    continue
+            kept.append(entry)
+        if changed:
+            cfg["middleware"] = kept
+
+    for key in list(cfg.keys()):
+        if key in _PATH_KEYS and _is_placeholder(cfg.get(key)):
+            cfg.pop(key)
+            changed = True
+
+    return changed
+
+
 def rebake_agent_identity(agent, workspace_root: str) -> bool:
     """
     Re-bake an agent's identity block + AGENTS.md/CLAUDE.md so the stored
@@ -210,6 +290,12 @@ def rebake_agent_identity(agent, workspace_root: str) -> bool:
     base_prompt = _strip_identity_block(stored_prompt)
     for legacy in _LEGACY_TOKENS:
         base_prompt = base_prompt.replace(legacy, str(agent.id))
+    # Authored mentions of the seeded `WORKSPACE_BASE/...` placeholder (e.g. a
+    # "Your workspace is:" line) are rewritten to the resolved workspace so the
+    # prompt stops naming a path that does not exist on this machine.
+    base_prompt, _prompt_path_rewritten = replace_placeholder_paths(
+        base_prompt, workspace_root
+    )
 
     # 2) Decide whether the imported agent_docs are user-authored or
     #    auto-generated defaults. Defaults are regenerated so the
@@ -234,9 +320,13 @@ def rebake_agent_identity(agent, workspace_root: str) -> bool:
     #    baked with their current id).
     prompt_changed = new_prompt != stored_prompt
     docs_changed = (agent.agent_docs or {}) != docs
-    if not prompt_changed and not docs_changed:
+    # Seeded configs can also carry machine-agnostic placeholder paths
+    # (e.g. a `filesystem` middleware rooted at `WORKSPACE_BASE/...`). Those
+    # must be stripped here too, otherwise a fresh seed re-introduces a
+    # phantom write root even though the prompt looks current.
+    config_changed = sanitize_placeholder_paths(cfg)
+    if not prompt_changed and not docs_changed and not config_changed:
         return False
-
     cfg["system_prompt"] = new_prompt
     agent.config = cfg
     agent.agent_docs = docs
