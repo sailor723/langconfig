@@ -70,25 +70,54 @@ CLOUD_MODELS = [
                       "input_price": 0.55, "output_price": 2.19, "speed_tps": 35,
                       "thinking": True, "open_source": True, "license": "MIT",
                       "release": "2025-01", "strength": "Reasoning, math, science"}},
-    # DeepSeek V4 Series (April 2026 — preview)
-    {"model_id": "deepseek-v4-pro", "display_name": "DeepSeek V4 Pro", "provider": "deepseek",
+    # DeepSeek V4.1 series (GA 2026-09). Capability facts below are from the
+    # vendor docs, not guesses:
+    #   https://api-docs.deepseek.com/quick_start/pricing  (Vision ✓ flash / ✗ pro, 1M ctx, 384K out)
+    #   https://api-docs.deepseek.com/guides/vision/       (image payload shapes + limits)
+    # deepseek-flash is the ONLY image-input ("image to text") model on the
+    # DeepSeek API: OpenAI-compatible chat completions with `image_url` blocks.
+    {"model_id": "deepseek-flash", "display_name": "DeepSeek Flash (V4.1, Vision)", "provider": "deepseek",
      "capabilities": {"streaming": True, "tools": True, "structured_output": True, "vision": True,
-                      "audio": True,
                       "max_context": 1000000, "max_output": 384000,
-                      "input_price": 1.74, "output_price": 3.48, "speed_tps": 40,
+                      # USD per 1M tokens at peak (cache-miss input / output); off-peak is half.
+                      "input_price": 0.30, "output_price": 1.20,
+                      # The cost path reads these spellings (core/models/registry.py:421).
+                      "price_per_1m_input": 0.30, "price_per_1m_output": 1.20,
+                      "speed_tps": 83,
                       "thinking": True, "open_source": True, "license": "MIT",
-                      "release": "2026-04",
+                      "release": "2026-09",
+                      "strength": "Native image understanding + agents (screenshots, scans, charts)",
+                      "aliases": ["deepseek-v4-flash", "deepseek-v4-flash-vision-exp"],
+                      "notes": ("Images: base64 data URL, public http(s) URL, or Files API file_id. "
+                                "JPEG/PNG/GIF/WebP, <=600 images/request, ~1024 tokens per image."),
+                      "architecture": "DeepSeek-V4.1-Flash"}},
+    {"model_id": "deepseek-v4-pro", "display_name": "DeepSeek V4 Pro", "provider": "deepseek",
+     "capabilities": {"streaming": True, "tools": True, "structured_output": True,
+                      # Vendor docs: "Vision — Not supported" for v4-pro (text only).
+                      "max_context": 1000000, "max_output": 384000,
+                      "input_price": 1.32, "output_price": 3.96,
+                      "price_per_1m_input": 1.32, "price_per_1m_output": 3.96,
+                      "speed_tps": 40,
+                      "thinking": True, "open_source": True, "license": "MIT",
+                      "release": "2026-08",
                       "strength": "Frontier MoE, hybrid attention",
                       "params_total": "1.6T", "params_active": "49B",
                       "architecture": "Hybrid CSA+HCA"}},
-    {"model_id": "deepseek-v4-flash", "display_name": "DeepSeek V4 Flash", "provider": "deepseek",
+    # Legacy alias, still accepted by the API: requests are served by
+    # DeepSeek-V4.1-Flash and billed at Flash prices. Kept because exported
+    # agents and skills in this repo name `deepseek-v4-flash` explicitly.
+    {"model_id": "deepseek-v4-flash", "display_name": "DeepSeek V4 Flash (legacy alias)", "provider": "deepseek",
      "capabilities": {"streaming": True, "tools": True, "structured_output": True, "vision": True,
                       "max_context": 1000000, "max_output": 384000,
-                      "input_price": 0.14, "output_price": 0.28, "speed_tps": 83,
+                      "input_price": 0.30, "output_price": 1.20,
+                      "price_per_1m_input": 0.30, "price_per_1m_output": 1.20,
+                      "speed_tps": 83,
                       "thinking": True, "open_source": True, "license": "MIT",
                       "release": "2026-04",
                       "strength": "Fast, cheap, agents",
-                      "params_total": "284B", "params_active": "13B",
+                      "deprecated": True,
+                      "superseded_by": "deepseek-flash",
+                      "notes": "Legacy name — served by DeepSeek-V4.1-Flash. Prefer deepseek-flash.",
                       "architecture": "Hybrid CSA+HCA"}},
 
     # Anthropic - Claude 4.x

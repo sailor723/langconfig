@@ -54,6 +54,9 @@ def runtime_defaults() -> dict:
 # Fallback kept for bootstrapping if DB is not available
 _SUPPORTED_MODELS_FALLBACK = {
     "gpt-5.1", "gpt-4o", "gpt-4o-mini",
+    # deepseek-flash is the vendor's vision (image-input) model; the v4 names
+    # are its legacy aliases (requests are served by DeepSeek-V4.1-Flash).
+    "deepseek-flash", "deepseek-v4-flash", "deepseek-v4-pro",
     "deepseek-chat", "deepseek-reasoner",
     "claude-opus-4-5", "claude-opus-4-5-20250514",
     "claude-sonnet-4-5", "claude-sonnet-4-5-20250514", "claude-sonnet-4-5-20250929",
