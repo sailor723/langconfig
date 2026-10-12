@@ -16,48 +16,316 @@
  *   │ ⚙ Settings          │  Bottom
  *   └─────────────────────┘
  */
-import { useState } from 'react';
-import { Plus, MessageSquare, Search, ChevronDown, ChevronRight, Calendar, Puzzle, FolderOpen } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
+import { Plus, MessageSquare, Search, ChevronDown, ChevronRight, Calendar, Folder, Star, Users } from 'lucide-react';
 import type { ChatSession } from '../types/chat';
 import { useChat } from '../state/ChatContext';
+import {
+  formatCompactDateTime, formatFullDateTime, formatMessageCount,
+} from '../utils/formatChatTime';
+
+/**
+ * Which list the panel shows, chosen by the three buttons in the top bar:
+ *  - 'agents'    one folder per agent, holding that agent's chats
+ *  - 'favorites' the pinned conversations, flat
+ *  - 'dates'     one folder per day, holding that day's chats
+ */
+type ChatHistoryView = 'agents' | 'favorites' | 'dates';
 
 interface ChatHistorySidebarProps {
   onNewSession: () => void;
-  onOpenFiles?: () => void;
 }
 
-export default function ChatHistorySidebar({ onNewSession, onOpenFiles }: ChatHistorySidebarProps) {
+export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarProps) {
   const { sessions, currentSessionId, switchSession } = useChat();
   const [collapsed, setCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showProjects, setShowProjects] = useState(true);
+  // Two views, chosen by the two buttons in the top bar: 'agents' (the default)
+  // groups the history into one folder per agent, 'favorites' shows only the
+  // pinned conversations. Persisted in localStorage, not sessionStorage — the
+  // chat window is opened with window.open(), so it gets a fresh session store
+  // every time.
+  const [view, setView] = useState<ChatHistoryView>(() => {
+    const stored = localStorage.getItem('chat_view');
+    // Must list every view: an unrecognised value silently fell back to the
+    // agent folders, so a stored 'dates' choice was forgotten on reload.
+    if (stored === 'agents' || stored === 'favorites' || stored === 'dates') return stored;
+    // Carry over the previous boolean flag on first load after this change.
+    return localStorage.getItem('chat_favorites_only') === 'true' ? 'favorites' : 'agents';
+  });
+
+  const selectView = (next: ChatHistoryView) => {
+    localStorage.setItem('chat_view', next);
+    setView(next);
+  };
 
   const activeSessions = sessions.filter(
     (s: ChatSession) => s.message_count > 0 || s.session_id === currentSessionId
   );
 
-  const filteredSessions = searchQuery
-    ? activeSessions.filter((s: ChatSession) =>
-        (s.last_message_preview || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.agent_name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : activeSessions;
+  // Favourites: ordered by when they were pinned (newest first) rather than by
+  // activity, so a pinned conversation doesn't jump around when it receives a
+  // message. The section itself lives under Projects and starts collapsed.
+  const pinnedSessions = activeSessions
+    .filter((s: ChatSession) => s.is_favorite)
+    .sort((a: ChatSession, b: ChatSession) =>
+      (b.favorited_at || b.updated_at).localeCompare(a.favorited_at || a.updated_at)
+    );
 
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    if (diffMinutes < 1) return 'now';
-    if (diffMinutes < 60) return `${diffMinutes}m`;
-    if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)}h`;
-    const diffDays = Math.floor(diffMinutes / 1440);
-    if (diffDays < 7) return `${diffDays}d`;
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  // Agent folders — one per agent, holding that agent's conversations. They are
+  // SIBLINGS of Favourites (both sit under Projects), because the interesting
+  // grouping for history is "which agent", while Favourites is a hand-picked
+  // quick-select shortcut that cuts across agents.
+  //
+  // Folders are ordered by their most recent conversation; chats inside are
+  // newest first. Every conversation is included, including pinned ones, so a
+  // folder really is that agent's full history and Favourites is purely a
+  // shortcut on top of it.
+  const agentFolders = (() => {
+    const byAgent = new Map<number, { agentId: number; agentName: string; sessions: ChatSession[]; latest: string }>();
+    for (const session of activeSessions) {
+      const stamp = session.updated_at || session.created_at;
+      const group = byAgent.get(session.agent_id);
+      if (group) {
+        group.sessions.push(session);
+        if (stamp > group.latest) group.latest = stamp;
+      } else {
+        byAgent.set(session.agent_id, {
+          agentId: session.agent_id,
+          agentName: session.agent_name || 'Unknown agent',
+          sessions: [session],
+          latest: stamp,
+        });
+      }
+    }
+    return [...byAgent.values()]
+      .map(group => ({
+        ...group,
+        sessions: [...group.sessions].sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+      }))
+      .sort((a, b) => b.latest.localeCompare(a.latest));
+  })();
+
+  // Date folders: one per day, using the same timestamp the rows show (last
+  // activity), so a folder and its rows can never disagree about which day a
+  // conversation belongs to. Newest day first, chats newest-first inside.
+  const dateFolders = (() => {
+    const buckets = new Map<string, { key: string; label: string; sessions: ChatSession[] }>();
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const today = startOfDay(new Date());
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    for (const session of activeSessions) {
+      const date = new Date(session.updated_at || session.created_at);
+      if (Number.isNaN(date.getTime())) continue;
+      const day = startOfDay(date);
+      const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+      const label = day.getTime() === today.getTime()
+        ? 'Today'
+        : day.getTime() === yesterday.getTime()
+          ? 'Yesterday'
+          : day.toLocaleDateString(undefined, {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+              ...(day.getFullYear() === today.getFullYear() ? {} : { year: 'numeric' }),
+            });
+      const bucket = buckets.get(key);
+      if (bucket) bucket.sessions.push(session);
+      else buckets.set(key, { key, label, sessions: [session] });
+    }
+
+    return [...buckets.values()]
+      .map(bucket => ({
+        ...bucket,
+        sessions: [...bucket.sessions].sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
+      }))
+      .sort((a, b) => b.key.localeCompare(a.key));   // ISO-ish key sorts oldest->newest
+  })();
+
+  // Per-agent folder EXPANSION, persisted so the state survives the chat window
+  // being closed and reopened (sessionStorage would not). Stored as the
+  // exception rather than the rule: an absent entry means collapsed, which is
+  // the default — folders are a table of contents, so they start closed and you
+  // open the one agent you care about.
+  const [expandedAgentFolders, setExpandedAgentFolders] = useState<Record<number, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('chat_expanded_agent_folders') || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleAgentFolder = (agentId: number) => {
+    setExpandedAgentFolders(prev => {
+      const next = { ...prev, [agentId]: !prev[agentId] };
+      localStorage.setItem('chat_expanded_agent_folders', JSON.stringify(next));
+      return next;
+    });
   };
+
+  // Date folders collapse independently too, stored by day key under their own
+  // localStorage entry so switching views never mixes the two trees up.
+  const [expandedDateFolders, setExpandedDateFolders] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('chat_expanded_date_folders') || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleDateFolder = (key: string) => {
+    setExpandedDateFolders(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem('chat_expanded_date_folders', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  // While searching, favourites appear in the flat result list instead of
+  // twice, so a match is never hidden inside a collapsed section.
+  const matchesSearch = (s: ChatSession) =>
+    (s.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s.last_message_preview || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s.agent_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+  // Search spans whichever view is active: favourites only when the star is on,
+  // otherwise every conversation (pinned ones included — the folders hold the
+  // agent's full history).
+  const scopedSessions = view === 'favorites' ? pinnedSessions : activeSessions;
+  const filteredSessions = searchQuery ? scopedSessions.filter(matchesSearch) : scopedSessions;
+
+  /** Row label: the user's title, else the last message preview. */
+  const sessionLabel = (session: ChatSession) =>
+    session.title || (session.last_message_preview
+      ? session.last_message_preview.slice(0, 60)
+      : 'New conversation');
+
+  // Stars live in the open conversation's header, not on every row: pinning is
+  // a decision you make while reading, and a star per row turns the list into
+  // a management surface.
+  const sessionRow = (session: ChatSession, variant: 'chat' | 'favorite' | 'dated' = 'chat') => {
+    const isActive = currentSessionId === session.session_id;
+    const isFavoriteRow = variant === 'favorite';
+    // A pinned chat with no name would otherwise be an anonymous date, so it
+    // says so rather than borrowing the conversation's first message.
+    const label = isFavoriteRow ? (session.title || 'Untitled chat') : sessionLabel(session);
+
+    return (
+      <button
+        key={session.session_id}
+        onClick={() => switchSession(session.session_id)}
+        className="w-full text-left px-2 py-1.5 rounded-lg transition-all group"
+        // Everything the row leaves out (agent, exact timestamp, length) lives
+        // here, so trimming the visible line loses nothing.
+        title={[
+          session.title || sessionLabel(session),
+          session.agent_name,
+          formatFullDateTime(session.updated_at),
+          formatMessageCount(session.message_count),
+          session.is_favorite ? 'pinned' : null,
+        ].filter(Boolean).join(' · ')}
+        style={{
+          backgroundColor: isActive ? 'var(--color-primary)' : 'transparent',
+        }}
+        onMouseEnter={(e) => {
+          if (!isActive) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)';
+        }}
+        onMouseLeave={(e) => {
+          if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+        }}
+      >
+        {isFavoriteRow ? (
+          /* Favourites: the FULL title, wrapped — no truncation, and no length,
+             agent name or message preview competing for the width. Just the
+             date underneath. Favourites are hand-picked, so the name is the only
+             thing worth the space. */
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span
+              className="text-xs whitespace-normal break-words leading-snug"
+              style={{ color: isActive ? 'white' : 'var(--color-text-primary)' }}
+            >
+              {label}
+            </span>
+            <span
+              className="text-[10px]"
+              style={{ color: isActive ? 'rgba(255,255,255,0.65)' : 'var(--color-text-muted)' }}
+            >
+              {formatCompactDateTime(session.updated_at)}
+            </span>
+          </div>
+        ) : (
+          /* History row: single line — title + when it happened + how long it is.
+             The title truncates, the metadata never wraps away. */
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              className="text-xs truncate flex-1 min-w-0"
+              style={{ color: isActive ? 'white' : 'var(--color-text-primary)' }}
+            >
+              {label}
+            </span>
+            <span
+              className="text-[10px] flex-shrink-0"
+              style={{ color: isActive ? 'rgba(255,255,255,0.65)' : 'var(--color-text-muted)' }}
+            >
+              {/* The date folder already names the day, so repeating it here is
+                  noise; the length still distinguishes one chat from another. */}
+              {variant === 'dated'
+                ? formatMessageCount(session.message_count)
+                : `${formatCompactDateTime(session.updated_at)} · ${formatMessageCount(session.message_count)}`}
+            </span>
+          </div>
+        )}
+      </button>
+    );
+  };
+
+  /** One folder: header (chevron, icon, name, count) plus its chats, indented. */
+  const folderBlock = (opts: {
+    id: string;
+    label: string;
+    icon: ReactNode;
+    sessions: ChatSession[];
+    expanded: boolean;
+    onToggle: () => void;
+    /** Row style for this folder's chats (date folders hide the timestamp). */
+    rowVariant?: 'chat' | 'dated';
+  }) => (
+    <div key={opts.id} className="pb-0.5">
+      <button
+        onClick={opts.onToggle}
+        className="flex items-center gap-1 w-full text-left px-2 py-1 rounded-lg hover:bg-black/5 transition-colors"
+        title={`${opts.label} — ${opts.sessions.length} conversation${opts.sessions.length === 1 ? '' : 's'}`}
+        aria-expanded={opts.expanded}
+      >
+        {opts.expanded ? (
+          <ChevronDown className="w-3 h-3 flex-shrink-0" />
+        ) : (
+          <ChevronRight className="w-3 h-3 flex-shrink-0" />
+        )}
+        {opts.icon}
+        <span className="text-[11px] font-medium truncate" style={{ color: 'var(--color-text-muted)' }}>
+          {opts.label}
+        </span>
+        <span className="ml-auto text-[10px] flex-shrink-0" style={{ color: 'var(--color-text-muted)' }}>
+          {opts.sessions.length}
+        </span>
+      </button>
+      {opts.expanded && (
+        <div className="pl-3 space-y-0.5">
+          {opts.sessions.map((s: ChatSession) => sessionRow(s, opts.rowVariant ?? 'chat'))}
+        </div>
+      )}
+    </div>
+  );
 
   // ── Collapsed state ────────────────────────────────────────────
 
   if (collapsed) {
+    // Pinned chats come first so the rail stays a quick select.
+    const railSessions = [...pinnedSessions, ...activeSessions.filter((s: ChatSession) => !s.is_favorite)];
     return (
       <div
         className="flex flex-col items-center py-3 transition-all duration-200"
@@ -74,11 +342,11 @@ export default function ChatHistorySidebar({ onNewSession, onOpenFiles }: ChatHi
           <MessageSquare className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
         </button>
         <div className="flex-1 overflow-y-auto space-y-1 px-1">
-          {activeSessions.slice(0, 8).map((session: ChatSession) => (
+          {railSessions.slice(0, 8).map((session: ChatSession) => (
             <button
               key={session.session_id}
               onClick={() => switchSession(session.session_id)}
-              className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-colors ${
+              className={`relative w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-colors ${
                 currentSessionId === session.session_id
                   ? 'bg-primary text-white'
                   : 'hover:bg-black/5'
@@ -86,9 +354,22 @@ export default function ChatHistorySidebar({ onNewSession, onOpenFiles }: ChatHi
               style={{
                 color: currentSessionId === session.session_id ? 'white' : 'var(--color-text-muted)',
               }}
-              title={session.agent_name}
+              title={[
+                session.agent_name,
+                sessionLabel(session),
+                formatCompactDateTime(session.updated_at),
+                formatMessageCount(session.message_count),
+                session.is_favorite ? 'pinned' : null,
+              ].filter(Boolean).join(' · ')}
             >
               {session.agent_name.charAt(0).toUpperCase()}
+              {session.is_favorite && (
+                <Star
+                  className="w-2.5 h-2.5 absolute -top-0.5 -right-0.5"
+                  style={{ color: 'var(--color-primary)' }}
+                  fill="currentColor"
+                />
+              )}
             </button>
           ))}
         </div>
@@ -106,8 +387,8 @@ export default function ChatHistorySidebar({ onNewSession, onOpenFiles }: ChatHi
         backgroundColor: 'var(--color-panel-dark, var(--color-panel, #f9fafb))',
       }}
     >
-      {/* ── Top nav: New / Search / Scheduled / Plugins ──────────── */}
-      <div className="flex items-center gap-0.5 px-3 py-2.5">
+      {/* ── Top nav: New chat · Search · Date view · Agents · Favourites ── */}
+      <div className="flex items-center gap-2 px-3 py-2.5">
         <button
           onClick={onNewSession}
           className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
@@ -123,23 +404,59 @@ export default function ChatHistorySidebar({ onNewSession, onOpenFiles }: ChatHi
           <Search className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
         </button>
         <button
-          className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
-          title="Scheduled"
+          onClick={() => selectView('dates')}
+          className="p-1.5 rounded-lg transition-colors"
+          style={{ backgroundColor: view === 'dates' ? 'var(--color-primary)' : 'transparent' }}
+          title={`Group by date — ${dateFolders.length} day${dateFolders.length === 1 ? '' : 's'}`}
+          aria-pressed={view === 'dates'}
         >
-          <Calendar className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+          <Calendar
+            className="w-4 h-4"
+            style={{ color: view === 'dates' ? 'white' : 'var(--color-text-muted)' }}
+          />
         </button>
+
+        {/* Two views, side by side: Agents (one folder per agent, each holding
+            that agent's chats) and Favourites (the pinned conversations, with
+            the pin count on the icon). Exactly one is active. */}
         <button
-          className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
-          title="Plugins"
+          onClick={() => selectView('agents')}
+          className="p-1.5 rounded-lg transition-colors"
+          style={{ backgroundColor: view === 'agents' ? 'var(--color-primary)' : 'transparent' }}
+          title={`All agents — ${agentFolders.length} folder${agentFolders.length === 1 ? '' : 's'}, each holding its chats`}
+          aria-pressed={view === 'agents'}
         >
-          <Puzzle className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+          <Users
+            className="w-4 h-4"
+            style={{ color: view === 'agents' ? 'white' : 'var(--color-text-muted)' }}
+          />
         </button>
+
         <button
-          onClick={onOpenFiles}
-          className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
-          title="Files"
+          onClick={() => selectView('favorites')}
+          className="relative p-1.5 rounded-lg transition-colors"
+          style={{ backgroundColor: view === 'favorites' ? 'var(--color-primary)' : 'transparent' }}
+          title={view === 'favorites'
+            ? 'Showing favourites — click Agents for all chats'
+            : `Show favourites${pinnedSessions.length ? ` (${pinnedSessions.length})` : ''}`}
+          aria-pressed={view === 'favorites'}
         >
-          <FolderOpen className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+          <Star
+            className="w-4 h-4"
+            style={{ color: view === 'favorites' ? 'white' : 'var(--color-text-muted)' }}
+            fill="none"
+          />
+          {pinnedSessions.length > 0 && (
+            <span
+              className="absolute -top-0.5 -right-0.5 text-[9px] leading-none px-1 rounded-full"
+              style={{
+                backgroundColor: view === 'favorites' ? 'white' : 'var(--color-primary)',
+                color: view === 'favorites' ? 'var(--color-primary)' : 'white',
+              }}
+            >
+              {pinnedSessions.length}
+            </span>
+          )}
         </button>
 
         <div className="flex-1" />
@@ -181,62 +498,61 @@ export default function ChatHistorySidebar({ onNewSession, onOpenFiles }: ChatHi
         )}
       </div>
 
-      {/* ── Chats section ─────────────────────────────────────────── */}
-      <div className="px-3 pt-2 pb-1 flex items-center justify-between">
-        <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>
-          Chats
-        </span>
-        <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
-          {activeSessions.length}
-        </span>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
-        {filteredSessions.length === 0 ? (
+      {/* ── Content: favourites view, search results, or agent folders ───
+           The star in the top bar switches the first two in and out: off shows
+           the history grouped into one folder per agent, on shows just the
+           pinned conversations. Both collapse independently and remember it.
+           A search lists flat matches, scoped to whichever view is active. */}
+      <div className="flex-1 overflow-y-auto px-1 pb-2 space-y-0.5">
+        {searchQuery ? (
+          filteredSessions.length === 0 ? (
+            <div className="p-4 text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              No matching conversations
+            </div>
+          ) : (
+            filteredSessions.map((s: ChatSession) => sessionRow(s))
+          )
+        ) : view === 'favorites' ? (
+          pinnedSessions.length === 0 ? (
+            <div className="p-4 text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              No favourites yet — open a chat and tap ☆ in its header.
+            </div>
+          ) : (
+            /* Flat, newest pin first: favourites cut across agents, so this
+               view is deliberately not grouped into folders. */
+            <div className="pl-3 space-y-0.5">
+              {pinnedSessions.map((s: ChatSession) => sessionRow(s, 'favorite'))}
+            </div>
+          )
+        ) : view === 'dates' ? (
+          dateFolders.length === 0 ? (
+            <div className="p-4 text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>
+              No conversations yet
+            </div>
+          ) : (
+            dateFolders.map(folder => folderBlock({
+              id: `date-${folder.key}`,
+              label: folder.label,
+              icon: <Calendar className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />,
+              sessions: folder.sessions,
+              expanded: Boolean(expandedDateFolders[folder.key]),
+              onToggle: () => toggleDateFolder(folder.key),
+              rowVariant: 'dated',
+            }))
+          )
+        ) : agentFolders.length === 0 ? (
           <div className="p-4 text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {searchQuery ? 'No matching conversations' : 'No conversations yet'}
+            No conversations yet
           </div>
         ) : (
-          filteredSessions.map((session: ChatSession) => {
-            const isActive = currentSessionId === session.session_id;
-            return (
-              <button
-                key={session.session_id}
-                onClick={() => switchSession(session.session_id)}
-                className="w-full text-left px-2 py-2 rounded-lg transition-all group"
-                style={{
-                  backgroundColor: isActive ? 'var(--color-primary)' : 'transparent',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span
-                    className="text-xs truncate"
-                    style={{
-                      color: isActive ? 'white' : 'var(--color-text-primary)',
-                    }}
-                  >
-                    {session.last_message_preview
-                      ? session.last_message_preview.slice(0, 60)
-                      : 'New conversation'}
-                  </span>
-                  <span
-                    className="text-[10px] flex-shrink-0"
-                    style={{
-                      color: isActive ? 'rgba(255,255,255,0.6)' : 'var(--color-text-muted)',
-                    }}
-                  >
-                    {formatTimestamp(session.updated_at)}
-                  </span>
-                </div>
-              </button>
-            );
-          })
+          agentFolders.map(folder => folderBlock({
+            id: `agent-${folder.agentId}`,
+            label: folder.agentName,
+            icon: <Folder className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />,
+            sessions: folder.sessions,
+            expanded: Boolean(expandedAgentFolders[folder.agentId]),
+            onToggle: () => toggleAgentFolder(folder.agentId),
+          }))
         )}
       </div>
 

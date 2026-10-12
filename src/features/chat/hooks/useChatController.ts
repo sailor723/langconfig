@@ -40,6 +40,8 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     startSession,
     endSession,
     sessions,
+    toggleFavorite,
+    renameSession,
   } = useChat();
 
   // ── Side panel visibility (metrics / context / files) ──────────────
@@ -383,6 +385,9 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     currentSessionId,
     selectedAgentId,
     sessions,
+    // conversation header (title + pin)
+    toggleFavorite,
+    renameSession,
     // agent display
     agentName,
     agentDescription,
