@@ -41,6 +41,10 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
   const agent = tab.data?.agent ?? tab.data ?? {};
   const config = agent.config || {};
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
+  // Models the reader graph can use for the vision step (catalog `capabilities.vision`).
+  const visionCapableModels = (cloudModels || [])
+    .filter((m: any) => m?.capabilities?.vision)
+    .map((m: any) => ({ id: m.id, name: m.name || m.id }));
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [expandedSubs, setExpandedSubs] = useState<Record<number, boolean>>({});
   const [testPrompt, setTestPrompt] = useState('Hello, please introduce yourself.');
@@ -274,6 +278,44 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       } catch { return prev; }
     });
   }, []);
+
+  /**
+   * The single writer of `config.tool_params` in this editor.
+   *
+   * Both the inline tool-box controls (ToolsPicker -> ToolParamsControls, e.g.
+   * read_any_file's "Image reading" / "Vision model") and the inspect modal call
+   * it, so the JSON tab, the in-memory draft and the saved row cannot disagree.
+   * The ref write is synchronous on purpose: handleSave reads
+   * jsonEditRef.current, and the effect that mirrors jsonEdit runs after commit.
+   */
+  const applyToolParams = (toolId: string, params: Record<string, any> | null) => {
+    let updated: any = null;
+    try {
+      updated = JSON.parse(jsonEditRef.current);
+      if (!updated.config) updated.config = {};
+      const current = { ...(updated.config.tool_params || {}) };
+      // No params left => unpin the tool for this agent instead of storing {}.
+      if (params && Object.keys(params).length > 0) current[toolId] = params;
+      else delete current[toolId];
+      updated.config.tool_params = Object.keys(current).length > 0 ? current : null;
+    } catch { /* invalid JSON — reported below */ }
+
+    if (!updated) {
+      setSaveMsg({ ok: false, text: 'Invalid JSON — tool options not saved' });
+      setTimeout(() => setSaveMsg(null), 3000);
+      return;
+    }
+
+    const json = JSON.stringify(updated, null, 2);
+    setJsonEdit(json);
+    jsonEditRef.current = json;
+    if (localAgentId) {
+      setTimeout(() => { handleSave(); }, 0);
+    } else {
+      setSaveMsg({ ok: true, text: `Tool options saved for ${toolId} (draft — click Save to create the agent)` });
+      setTimeout(() => setSaveMsg(null), 3000);
+    }
+  };
 
   const toggleNativeTool = useCallback((toolId: string) => {
     setSelectedNativeTools(prev => {
@@ -1162,6 +1204,9 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
       groupedByCategory={groupedByCategory}
       availableCustomTools={availableCustomTools}
       onInspect={setInspectTool}
+      toolParams={liveConfig.tool_params}
+      onToolParamsChange={applyToolParams}
+      visionModels={visionCapableModels}
       t={t}
     />,
     skills:     renderSkills,
@@ -1249,31 +1294,7 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
           toolParams={liveConfig.tool_params}
           onClose={() => setInspectTool(null)}
           onSave={(toolId, params) => {
-            // Build the updated payload synchronously from the CURRENT jsonEdit
-            // and write BOTH state and ref — handleSave below must not read a
-            // stale ref (the useEffect that syncs the ref runs after commit,
-            // racing the setTimeout below).
-            let updated: any = null;
-            try {
-              updated = JSON.parse(jsonEdit);
-              if (!updated.config) updated.config = {};
-              if (!updated.config.tool_params) updated.config.tool_params = {};
-              updated.config.tool_params[toolId] = params;
-            } catch { /* invalid JSON — leave updated null */ }
-            if (updated) {
-              const json = JSON.stringify(updated, null, 2);
-              setJsonEdit(json);
-              jsonEditRef.current = json;
-              if (localAgentId) {
-                setTimeout(() => { handleSave(); }, 0);
-              } else {
-                setSaveMsg({ ok: true, text: `Tool params saved for ${toolId} (draft — click Save to create the agent)` });
-                setTimeout(() => setSaveMsg(null), 3000);
-              }
-            } else {
-              setSaveMsg({ ok: false, text: 'Invalid JSON — tool params not saved' });
-              setTimeout(() => setSaveMsg(null), 3000);
-            }
+            applyToolParams(toolId, params);
             setInspectTool(null);
           }}
           t={t}

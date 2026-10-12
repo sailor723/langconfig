@@ -16,6 +16,7 @@ import { Loader, Plus, X } from 'lucide-react';
 import { SectionId as _SectionId, SECTIONS } from './editorConstants';
 import SkillsPicker from './editorSkillsPicker';
 import ToolInspectModal from './ToolInspectModal';
+import ToolParamsControls, { type VisionModelOption } from './toolParamsControls';
 import { useProject } from '../../contexts/ProjectContext';
 
 // Mirrors the categories used by the built-in templates in
@@ -63,6 +64,10 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   // identity is baked with the right workspace at creation time.
   const { activeProjectId } = useProject();
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
+  // Models the reader may use for its vision step (catalog `capabilities.vision`).
+  const visionCapableModels: VisionModelOption[] = (cloudModels || [])
+    .filter((m: any) => m?.capabilities?.vision)
+    .map((m: any) => ({ id: m.id, name: m.name || m.id }));
   const { isLoading: nativeToolsLoading, groupedByCategory, defaultToolIds } = useAvailableTools();
 
   // Section state
@@ -542,6 +547,18 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
                     }}>
                       {tool.description}
                     </div>
+                    <ToolParamsControls
+                      toolId={tool.id}
+                      params={toolParams[tool.id]}
+                      onChange={(next) => setToolParams(prev => {
+                        const out = { ...prev };
+                        if (next && Object.keys(next).length > 0) out[tool.id] = next;
+                        else delete out[tool.id];
+                        return out;
+                      })}
+                      visionModels={visionCapableModels}
+                      t={t}
+                    />
                   </div>
                 );
                 const toggleBtn = (label: string, active: boolean, onClick: () => void) => (
