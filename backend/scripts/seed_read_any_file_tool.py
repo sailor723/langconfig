@@ -39,17 +39,19 @@ def _ensure_app_importable() -> None:
         _sys.path.insert(0, backend)
 
 
-async def read_any_file(file_path: str, question: str = None) -> str:
+async def read_any_file(file_path: str, question: str = None, vision: bool = True,
+                        vision_model: str = None) -> str:
     """Read any file and return TEXT - never raw or base64 bytes.
 
-    text/code/data  -> verbatim, line-numbered
+    text/code/data   -> verbatim, line-numbered
     .pdf/.docx/.pptx -> extracted text
-    images          -> vision description + OCR text
+    images           -> vision description + OCR text (vision=False: OCR text only)
     """
     _ensure_app_importable()
     from core.graphs.read_file import read_file_as_text
 
-    return await read_file_as_text(file_path, question=question)
+    return await read_file_as_text(file_path, question=question, vision_enabled=vision,
+                                   vision_model=vision_model)
 '''
 
 DESCRIPTION = (
@@ -58,7 +60,10 @@ DESCRIPTION = (
     "(.png/.jpg/.jpeg/.webp/.gif/.bmp/.tiff) come back as a short vision description plus "
     "OCR-extracted text. Use this for images instead of read_file - it never returns raw or "
     "base64 image data, so it cannot overflow the context. Pass `question` to ask something "
-    "specific about an image."
+    "specific about an image, or `vision=False` for a deterministic OCR-only read (faster, "
+    "no model call) when you just need the characters in a screenshot or scan. "
+    "`vision_model` overrides which model performs that read (defaults to the platform's "
+    "configured vision model)."
 )
 
 INPUT_SCHEMA = {
@@ -67,6 +72,16 @@ INPUT_SCHEMA = {
         "file_path": {
             "type": "string",
             "description": "Path to the file to read (text, document, or image).",
+        },
+        "vision": {
+            "type": "boolean",
+            "description": "Images: false = OCR text only, skipping the vision model (default true).",
+            "default": True,
+        },
+        "vision_model": {
+            "type": "string",
+            "description": "Vision model used for images (e.g. deepseek-flash). Empty = platform default.",
+            "default": "",
         },
         "question": {
             "type": "string",
@@ -103,6 +118,16 @@ ARGS_SCHEMA = {
     "question": {
         "type": "string",
         "description": "Optional question about an image (ignored for text files).",
+        "default": "",
+    },
+    "vision": {
+        "type": "boolean",
+        "description": "Images: false = OCR text only, skipping the vision model (default true).",
+        "default": True,
+    },
+    "vision_model": {
+        "type": "string",
+        "description": "Vision model used for images (e.g. deepseek-flash). Empty = platform default.",
         "default": "",
     },
 }

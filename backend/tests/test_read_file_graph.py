@@ -64,8 +64,8 @@ def fake_vision(monkeypatch):
     """Replace the vision call; record invocations."""
     calls: list[tuple[str, str]] = []
 
-    def _fake(image_b64: str, mime: str, question: str | None):
-        calls.append((mime, question or ""))
+    def _fake(image_b64: str, mime: str, question: str | None, model: str = rf.VISION_MODEL):
+        calls.append((mime, question or "", model))
         return "FAKE DESCRIPTION of the image.", 42
 
     monkeypatch.setattr(rf, "_describe_with_vision", _fake)
@@ -160,12 +160,28 @@ def test_image_branch_survives_vision_failure(probe_files, monkeypatch):
     assert "OCR PROBE 12345" in state["result"]     # OCR still delivered
 
 
-def test_image_branch_with_vision_disabled(probe_files):
+def test_ocr_only_mode_skips_the_vision_call(probe_files, fake_vision):
+    """OCR-only: deterministic, free, and it must not reach the vision node."""
     state = asyncio.run(rf.get_file_reader_graph().ainvoke(
         {"file_path": str(probe_files["png"]), "vision_enabled": False}))
-    assert "vision disabled" in state["result"]
+
+    assert state["branch"] == "image"
+    assert state.get("vision_disabled") is True
+    assert state["describe_tokens"] == 0
+    assert not fake_vision                       # the vision body never ran
     assert "base64" not in state["result"]
-    assert "OCR PROBE 12345" in state["result"]
+    assert "OCR PROBE 12345" in state["result"]   # OCR text is still delivered
+    assert "mode: ocr-only" in state["result"]    # payload is self-describing
+    assert "(vision not requested" in state["result"]
+    assert "FAKE DESCRIPTION" not in state["result"]
+
+
+def test_vision_mode_is_labelled_in_the_payload(probe_files, fake_vision):
+    state = asyncio.run(rf.get_file_reader_graph().ainvoke(
+        {"file_path": str(probe_files["png"])}))
+    assert "mode: vision+ocr" in state["result"]
+    assert state.get("vision_disabled") in (None, False)
+    assert "FAKE DESCRIPTION of the image." in state["result"]
 
 
 def test_question_is_passed_to_the_vision_node(probe_files, fake_vision):
@@ -181,6 +197,23 @@ def test_convertible_format_is_normalised_to_png(probe_files, fake_vision):
     assert state["mime"] == "image/png"            # BMP converted for the API
     assert state["image_format"] == "PNG"
     assert fake_vision[0][0] == "image/png"
+
+
+def test_vision_model_can_be_overridden_per_call(probe_files, fake_vision):
+    """An agent can pin which model reads its images (tool_params)."""
+    state = asyncio.run(rf.get_file_reader_graph().ainvoke({
+        "file_path": str(probe_files["png"]), "vision_model": "some-vision-model",
+    }))
+    assert fake_vision[0][2] == "some-vision-model"        # override reached the client
+    assert "mode: vision+ocr (some-vision-model)" in state["result"]
+
+
+def test_cache_is_per_model(probe_files, fake_vision):
+    """A different model must not reuse another model's description."""
+    asyncio.run(rf.get_file_reader_graph().ainvoke({"file_path": str(probe_files["png"])}))
+    asyncio.run(rf.get_file_reader_graph().ainvoke(
+        {"file_path": str(probe_files["png"]), "vision_model": "other-model"}))
+    assert len(fake_vision) == 2                            # no cross-model cache hit
 
 
 def test_describe_result_is_cached(probe_files, fake_vision):
