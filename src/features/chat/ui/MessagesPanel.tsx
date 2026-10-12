@@ -38,6 +38,12 @@ interface MessagesPanelProps {
    * `projectName` below.
    */
   workspaceName?: string;
+  /**
+   * Agent the composer sends to. Shown in the composer's control row, which
+   * used to carry the workspace name instead. Separate from `workspaceName`,
+   * which still feeds the empty-state heading.
+   */
+  agentName?: string;
 }
 
 export default function MessagesPanel({
@@ -54,6 +60,7 @@ export default function MessagesPanel({
   thinkingTraces = [],
   thinkingBuffer = '',
   workspaceName,
+  agentName,
 }: MessagesPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -161,7 +168,7 @@ export default function MessagesPanel({
                     handleCsvUpload(file.filename);
                   }
                 }}
-                workspaceName={workspaceName}
+                agentName={agentName}
               />
             </div>
           </div>
@@ -700,7 +707,7 @@ export default function MessagesPanel({
           placeholder={disabled ? "No agent selected" : "Do anything"}
           sessionId={sessionId}
           projectId={projectId}
-          workspaceName={workspaceName}
+          agentName={agentName}
           onFileUploaded={(file) => {
             console.log('File uploaded:', file);
             // Auto-trigger data analysis after CSV or SQLite upload (no chat message)

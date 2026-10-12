@@ -197,6 +197,7 @@ export default function GlobalChatModal() {
               thinkingTraces={c.thinkingTraces}
               thinkingBuffer={c.thinkingBuffer}
               workspaceName={activeProject?.name || undefined}
+              agentName={c.agentName}
             />
             {c.currentSessionId && c.showMetrics && (
               <SidePanel

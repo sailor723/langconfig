@@ -912,6 +912,45 @@ select {
   background-color: #3c3c3c !important;
 }
 
+/* ── Chat composer card (src/features/chat/ui/CodexMessageInput.tsx) ────────
+ * The composer has to read as ONE rounded box: the textarea, the attach/send
+ * row and the workspace footer all sit inside it. Two runtime overrides from
+ * lib/themes.tsx broke that shape:
+ *
+ *   1. It maps every element whose inline style mentions
+ *      --color-input-background to panelDark !important — the same colour as
+ *      the panel behind the card. The card's 28px bottom corners then had
+ *      nothing to be seen against, so only the top ones looked rounded.
+ *   2. It forces textareas opaque, so the lighter area ended at the textarea's
+ *      own bottom edge: round on top, square underneath.
+ *
+ * These rules win on specificity (html[data-theme] + two classes beats
+ * attribute + attribute, both !important). The colour is written out rather
+ * than read from var(--color-input-background) because the standalone chat
+ * window overwrites that variable on <html> with its own (light) theme while
+ * data-theme still says "dark" — reading the variable would paint the card
+ * white on a dark panel. Light themes all resolve their input background to
+ * #ffffff; dark is the only exception. */
+html[data-theme] .chat-composer-card {
+  background-color: #ffffff !important;
+}
+
+html[data-theme="dark"] .chat-composer-card {
+  background-color: #3c3c3c !important;
+}
+
+/* Upload menu (FileUploadButton) — same reasoning as the card above, and it is
+ * portalled to <body>, so it floats over the PANEL rather than sitting on the
+ * card. Left to the panel colour it would have been the same colour as the
+ * panel behind it and read as an outline with text and nothing inside. */
+html[data-theme] .chat-composer-menu {
+  background-color: #ffffff !important;
+}
+
+html[data-theme="dark"] .chat-composer-menu {
+  background-color: #3c3c3c !important;
+}
+
 [data-theme="dark"] .bg-white {
   background-color: #252526 !important;
 }
