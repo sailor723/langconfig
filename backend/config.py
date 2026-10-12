@@ -1,13 +1,20 @@
 """
 LangConfig Configuration
-Reads all API keys and infrastructure settings from .env (pydantic-settings).
-Database settings table is used only for user preferences (theme, language, etc.).
+
+Models and API keys live in PostgreSQL (the ``models`` settings document,
+written by the Settings UI). ``.env`` carries infrastructure only: database,
+storage, workspace, rate limits, tracing. Any provider credential still found
+in ``.env`` is ignored and reported once at boot by
+:func:`warn_on_env_credentials`.
 """
 from pydantic_settings import BaseSettings
 from pydantic import model_validator
 from typing import Optional
+import logging
 import os
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 # Load .env file from project root
 env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
@@ -127,85 +134,119 @@ class Settings(BaseSettings):
     execution_history_retention_days: int = 90
     auto_cleanup_execution_history: bool = True
 
-    # ── Uppercase aliases for convenience ──
-    # UI-editable providers: DB-first (DB keys are encrypted at rest, decrypted
-    # transparently by _db_api_key_only below). .env is the fallback when no
-    # DB key exists, so the system still works on a fresh install with only
-    # .env. Keys are matched by snake_case; *_API_BASE properties use .env as
-    # the source for now (TODO: extend APIKeySet to accept base_url overrides).
+    # ── Provider credentials — PostgreSQL is the ONLY source ──
+    # Every key and base URL lives in the ``models`` settings document
+    # (core/settings → ``models.api_keys``), encrypted at rest and decrypted by
+    # ``_db_api_key_only`` below. The ``*_api_key`` / ``*_base_url`` fields
+    # declared above are legacy .env bootstrap leftovers: they are deliberately
+    # NOT consulted any more, so a stale file can never win over what the
+    # Settings UI wrote. ``warn_on_env_credentials()`` names them at boot.
     @property
     def OPENAI_API_KEY(self) -> Optional[str]:
-        return _db_api_key_only("openai_api_key") or self.openai_api_key
+        return _db_api_key_only("openai_api_key")
+
+    @property
+    def OPENAI_API_BASE(self) -> Optional[str]:
+        return _db_api_key_only("openai_base_url")
 
     @property
     def ANTHROPIC_API_KEY(self) -> Optional[str]:
-        return _db_api_key_only("anthropic_api_key") or self.anthropic_api_key
+        return _db_api_key_only("anthropic_api_key")
+
+    @property
+    def ANTHROPIC_API_BASE(self) -> Optional[str]:
+        return _db_api_key_only("anthropic_base_url")
 
     @property
     def GOOGLE_API_KEY(self) -> Optional[str]:
-        return (
-            _db_api_key_only("google_api_key")
-            or self.google_api_key
-            or self.gemini_api_key
-        )
+        return _db_api_key_only("google_api_key")
+
+    @property
+    def GOOGLE_API_BASE(self) -> Optional[str]:
+        return _db_api_key_only("google_base_url")
+
+    @property
+    def COHERE_API_KEY(self) -> Optional[str]:
+        return _db_api_key_only("cohere_api_key")
+
+    @property
+    def REPLICATE_API_KEY(self) -> Optional[str]:
+        return _db_api_key_only("replicate_api_key")
 
     @property
     def DEEPSEEK_API_KEY(self) -> Optional[str]:
-        return _db_api_key_only("deepseek_api_key") or self.deepseek_api_key
+        return _db_api_key_only("deepseek_api_key")
 
     @property
-    def DEEPSEEK_API_BASE(self) -> str:
-        return _db_api_key_only("deepseek_api_base") or self.deepseek_api_base
+    def DEEPSEEK_API_BASE(self) -> Optional[str]:
+        return _db_api_key_only("deepseek_api_base")
 
     @property
     def SERPER_API_KEY(self) -> Optional[str]:
-        return _db_api_key_only("serper_api_key") or self.serper_api_key
+        return _db_api_key_only("serper_api_key")
 
     @property
     def TAVILY_API_KEY(self) -> Optional[str]:
-        return _db_api_key_only("tavily_api_key") or self.tavily_api_key
+        return _db_api_key_only("tavily_api_key")
 
     @property
     def AGNES_API_KEY(self) -> Optional[str]:
-        return _db_api_key_only("agnes_api_key") or self.agnes_api_key
+        return _db_api_key_only("agnes_api_key")
 
     @property
-    def AGNES_BASE_URL(self) -> str:
-        # AGNES_BASE_URL lives in DB under agnes_base_url; honor it when set.
-        return _db_api_key_only("agnes_base_url") or self.agnes_base_url
+    def AGNES_BASE_URL(self) -> Optional[str]:
+        return _db_api_key_only("agnes_base_url")
 
     @property
     def MINIMAX_API_KEY(self) -> Optional[str]:
-        return _db_api_key_only("minimax_api_key") or self.minimax_api_key
+        return _db_api_key_only("minimax_api_key")
 
     @property
-    def MINIMAX_API_BASE(self) -> str:
-        # TODO: wire through when APIKeySet accepts minimax_base_url
-        return self.minimax_api_base
+    def MINIMAX_API_BASE(self) -> Optional[str]:
+        return _db_api_key_only("minimax_api_base")
 
     @property
     def KIMI_API_KEY(self) -> Optional[str]:
-        return _db_api_key_only("kimi_api_key") or self.kimi_api_key
+        return _db_api_key_only("kimi_api_key")
 
     @property
     def KIMI_API_BASE(self) -> Optional[str]:
-        return self.kimi_api_base
+        return _db_api_key_only("kimi_api_base")
 
     @property
     def QWEN_API_KEY(self) -> Optional[str]:
-        return _db_api_key_only("qwen_api_key") or self.qwen_api_key
+        return _db_api_key_only("qwen_api_key")
 
     @property
     def QWEN_API_BASE(self) -> Optional[str]:
-        return self.qwen_api_base
+        return _db_api_key_only("qwen_api_base")
 
     @property
     def GLM_API_KEY(self) -> Optional[str]:
-        return _db_api_key_only("glm_api_key") or self.glm_api_key
+        return _db_api_key_only("glm_api_key")
 
     @property
     def GLM_API_BASE(self) -> Optional[str]:
-        return self.glm_api_base
+        return _db_api_key_only("glm_api_base")
+
+    def env_only_credentials(self) -> list:
+        """Credential fields supplied by .env (ignored at runtime).
+
+        Authoritative list = the ``core.settings.schemas.ApiKeys`` field names,
+        i.e. exactly what belongs in PostgreSQL's ``models.api_keys`` document.
+        Everything else in .env (Ollama endpoints, DB, storage, tracing) is
+        infrastructure and stays there.
+        """
+        try:
+            from core.settings.schemas import ApiKeys
+
+            credential_fields = set(ApiKeys.model_fields)
+        except Exception:
+            return []
+        return sorted(
+            name for name in self.model_fields_set
+            if name in credential_fields and getattr(self, name, None)
+        )
 
     # ── Computed ──
     @property
@@ -301,32 +342,44 @@ def _db_api_key_only(key_name: str) -> Optional[str]:
 settings = Settings()
 
 
-def get_api_key_from_db(key_name: str) -> Optional[str]:
-    """Read an API key from .env (pydantic-settings), falling back to the DB.
+# Reported-once flag for .env credentials (see warn_on_env_credentials).
+_ENV_CREDENTIALS_REPORTED = False
 
-    Resolution order (SINGLE api-key table):
-    1. .env file (via pydantic-settings) — canonical source of truth
-    2. The ``models`` settings document's ``api_keys`` field
-       (core/settings — the one table every API key lives in, set via the
-       Settings UI; secrets encrypted at rest)
 
-    The legacy ``settings.api_keys`` JSONB column was migrated into the
-    models document and is no longer read.
+def warn_on_env_credentials() -> list:
+    """Report provider credentials found only in .env (logged once per process).
+
+    Runtime policy: models and API keys live in PostgreSQL. A credential in
+    .env is ignored — this only tells the operator which values are dead so
+    they can be moved into Settings. Returns the offending field names.
     """
-    # Try .env first via settings
+    global _ENV_CREDENTIALS_REPORTED
     try:
-        val = getattr(settings, key_name, None) or getattr(settings, key_name.upper(), None)
-        if val:
-            return val
+        names = settings.env_only_credentials()
     except Exception:
-        pass
+        return []
+    if names and not _ENV_CREDENTIALS_REPORTED:
+        _ENV_CREDENTIALS_REPORTED = True
+        logger.warning(
+            "Ignoring %d credential(s) supplied by the environment (not the DB): %s. "
+            "Models and API keys belong in PostgreSQL (Settings UI) — set them there, "
+            "because a value in .env or an exported shell variable is no longer read.",
+            len(names), ", ".join(names),
+        )
+    return names
 
-    # Fallback: UI-set key from the single models.api_keys document.
-    try:
-        db_val = _db_api_key_only(key_name)
-        if db_val:
-            return db_val
-    except Exception:
-        pass
 
-    return None
+def get_api_key_from_db(key_name: str) -> Optional[str]:
+    """Read a provider credential from PostgreSQL — the only source of truth.
+
+    Every key lives in the ``models`` settings document (``core/settings`` →
+    ``models.api_keys``), encrypted at rest and decrypted by
+    ``_db_api_key_only``. ``.env`` is deliberately NOT consulted: anything
+    found there is reported once by :func:`warn_on_env_credentials` and
+    ignored, so a stale file can never shadow the Settings UI.
+
+    Args:
+        key_name: snake_case field name, e.g. ``deepseek_api_key``.
+    """
+    warn_on_env_credentials()
+    return _db_api_key_only(key_name)
