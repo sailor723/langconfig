@@ -32,8 +32,12 @@ interface MessagesPanelProps {
   customEvents?: Map<string, CustomEventPayload>;
   thinkingTraces?: ThinkingStep[][];
   thinkingBuffer?: string;
-  /** Optional agent name shown in composer footer (Codex style) */
-  agentName?: string;
+  /**
+   * Workspace (project) this conversation runs in. The empty-state heading asks
+   * "what should we build in X?" — X is the workspace, not the agent. Feeds
+   * `projectName` below.
+   */
+  workspaceName?: string;
 }
 
 export default function MessagesPanel({
@@ -49,7 +53,7 @@ export default function MessagesPanel({
   customEvents = new Map(),
   thinkingTraces = [],
   thinkingBuffer = '',
-  agentName,
+  workspaceName,
 }: MessagesPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -62,8 +66,10 @@ export default function MessagesPanel({
   const [analysisMeta, setAnalysisMeta] = useState<{rowCount: number; colCount: number} | null>(null);
   const [csvUploading, setCsvUploading] = useState(false);
 
-  // Derive project name for Codex empty state heading
-  const projectName = agentName || 'my workspace';
+  // Codex-style heading: the workspace is the "where", the agent is the "who".
+  // This used to render the AGENT name under the word "in", which labelled an
+  // agent as a workspace — the platform's hierarchy is workspace > agent > chat.
+  const projectName = workspaceName || 'this workspace';
 
   // Live timer for streaming thinking duration
   useEffect(() => {
@@ -155,7 +161,7 @@ export default function MessagesPanel({
                     handleCsvUpload(file.filename);
                   }
                 }}
-                agentName={agentName}
+                workspaceName={workspaceName}
               />
             </div>
           </div>
@@ -694,7 +700,7 @@ export default function MessagesPanel({
           placeholder={disabled ? "No agent selected" : "Do anything"}
           sessionId={sessionId}
           projectId={projectId}
-          agentName={agentName}
+          workspaceName={workspaceName}
           onFileUploaded={(file) => {
             console.log('File uploaded:', file);
             // Auto-trigger data analysis after CSV or SQLite upload (no chat message)
