@@ -75,6 +75,23 @@ async def lifespan(app: FastAPI):
         logger.error("Make sure PostgreSQL is running: docker-compose up -d postgres")
         raise
 
+    # Register deepagents harness profiles (must happen before any
+    # create_deep_agent call). LangConfig excludes the SDK's `read_file` so a
+    # deep agent cannot pull an image in as a base64 tool result — that path
+    # overflowed the context window (2.1 MB → 1.47M tokens → HTTP 400). Files
+    # are read through the `read_any_file` builtin instead.
+    try:
+        from services.harness_profiles import register_langconfig_harness_profiles
+
+        _profiles = register_langconfig_harness_profiles()
+        if _profiles:
+            logger.info(
+                "Harness profiles active: %s",
+                {k: sorted(v) for k, v in _profiles.items()},
+            )
+    except Exception as e:
+        logger.warning(f"Harness-profile registration failed (non-fatal): {e}")
+
     # Apply the persisted storage-mode override (Settings UI runtime switch,
     # docs/system-architecture.md §15 Phase 5): a value in the storage settings
     # document wins over the .env STORAGE_MODE default.
