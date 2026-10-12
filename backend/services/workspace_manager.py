@@ -268,10 +268,20 @@ class WorkspaceManager:
              relative paths resolve against the vault root
              (``outputs/{vault_key}/``) when a project is bound, else
              against ``base_dir``.
-          2. Vault-scoped default ``outputs/{vault_key}/agents/{agent_key}/``
+          2. Vault-scoped default ``outputs/{vault_key}/agents/agent_{id}/``
              when a project is bound.
           3. Legacy default ``outputs/agents/agent_{id}/`` when neither is
              available.
+
+        The **id-based** folder is the canonical default: it is stable across
+        agent renames, and creation/chat/upload/Files-panel all resolve it
+        identically. ``agent_key`` (the sanitized agent name) is kept only as a
+        *legacy hint*: a name-slug folder is still used while it holds user
+        files, so agents created before this rule keep their uploads and
+        generated output visible. A slug folder holding nothing but the
+        auto-generated docs (AGENTS.md/CLAUDE.md) and ``.gitkeep`` placeholders
+        is superseded by ``agent_{id}`` — the docs are re-materialized there
+        from the DB, so nothing is lost.
 
         ``vault_key`` is the project's sanitized name (or its id) and
         ``agent_key`` the agent's sanitized name (or ``agent_{id}``) — pass
@@ -285,6 +295,7 @@ class WorkspaceManager:
             str(project_id) if project_id is not None else None
         )
         agent_folder = agent_key or f"agent_{getattr(agent, 'id', 'unknown')}"
+        id_folder = f"agent_{getattr(agent, 'id', 'unknown')}"
         custom = getattr(agent, "workspace_path", None)
         if custom and str(custom).strip():
             p = Path(str(custom).strip()).expanduser()
@@ -297,11 +308,62 @@ class WorkspaceManager:
             logger.info(f"Agent workspace (custom): {p}")
             return p
         if key is not None:
-            vault_root = self.base_dir / key / "agents" / agent_folder
-            ensure_agent_workspace_layout(vault_root)
-            logger.info(f"Agent workspace (vault-scoped): {vault_root}")
-            return vault_root
-        return self.get_agent_workspace(agent.id)
+            chosen = self._canonical_agent_folder(
+                self.base_dir / key / "agents", id_folder, agent_folder
+            )
+            ensure_agent_workspace_layout(chosen)
+            logger.info(f"Agent workspace (vault-scoped): {chosen}")
+            return chosen
+        # No vault/project to anchor to (agent creation/update bakes identity
+        # before any session exists). Honour the caller's agent_key instead of
+        # silently dropping it: dropping it produced ``agents/agent_{id}``
+        # while the chat/upload paths produced ``agents/{slug}``, so one agent
+        # ended up with two folders and two contradictory identities.
+        chosen = self._canonical_agent_folder(
+            self.base_dir / "agents", id_folder, agent_folder
+        )
+        ensure_agent_workspace_layout(chosen)
+        logger.info(f"Agent workspace (legacy default): {chosen}")
+        return chosen
+
+    # Files a workspace gets automatically (never count as user data).
+    GENERATED_DOC_NAMES = frozenset({"AGENTS.md", "CLAUDE.md", "README.md", ".gitkeep"})
+
+    @classmethod
+    def _has_user_files(cls, folder: Path) -> bool:
+        """Whether a workspace folder holds anything the user created.
+
+        Auto-generated instruction docs and layout placeholders are ignored, so
+        a folder containing only those can be superseded by ``agent_{id}``
+        without losing anything.
+        """
+        if not folder.is_dir():
+            return False
+        try:
+            for child in folder.rglob("*"):
+                if child.is_file() and child.name not in cls.GENERATED_DOC_NAMES:
+                    return True
+        except OSError:
+            # Unreadable folder: assume it holds data and keep using it.
+            return True
+        return False
+
+    @classmethod
+    def _canonical_agent_folder(
+        cls, agents_root: Path, id_folder: str, legacy_folder: str
+    ) -> Path:
+        """Pick the folder for one agent under ``agents_root``.
+
+        ``agent_{id}`` wins unless the legacy name-slug folder still holds user
+        files — that keeps older agents' uploads visible while every new agent
+        gets the rename-stable id-based folder.
+        """
+        if legacy_folder == id_folder:
+            return agents_root / id_folder
+        legacy = agents_root / legacy_folder
+        if cls._has_user_files(legacy):
+            return legacy
+        return agents_root / id_folder
 
     @staticmethod
     def project_vault_key(db, project_id: Optional[int]) -> str:
