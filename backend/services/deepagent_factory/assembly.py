@@ -379,6 +379,12 @@ class _DeepAgentAssemblyMixin:
         if not getattr(config, 'disable_memory_middleware', False):
             try:
                 from deepagents.middleware.memory import MemoryMiddleware
+                # Imported here, not later in the function: the filesystem
+                # block further down binds this name, and a name bound anywhere
+                # in a function is function-local, so referencing it before that
+                # assignment raised UnboundLocalError — the warning was
+                # swallowed and MemoryMiddleware silently never loaded.
+                from deepagents.backends.filesystem import FilesystemBackend
                 from services.agents_md_service import ensure_agents_md_exists
                 from pathlib import Path as _Path
 
@@ -466,32 +472,48 @@ class _DeepAgentAssemblyMixin:
             except ImportError as e:
                 logger.warning(f"FilesystemMiddleware not available: {e}")
 
-        # Initialize SummarizationMiddleware if enabled (deepagents built-in)
-        # This automatically compresses conversation history when token count exceeds threshold.
+        # Summarization: decide it here, ATTACH it after the agent's backend is
+        # chosen (see the "SummarizationMiddleware" block further down). It
+        # offloads evicted history to that backend, so the file it writes must
+        # be one the agent can re-open through its own file tools.
+        summarization_spec = None
         if config.guardrails and config.guardrails.enable_summarization:
             try:
-                from deepagents.middleware.summarization import SummarizationMiddleware
-                from deepagents.backends import StateBackend
-
                 # langchain >= 1.3.14 renamed the context-size kind "token" -> "tokens"
                 trigger = ("tokens", config.guardrails.token_limits.get("summarization_threshold", 60000))
-                keep = ("messages", 20)
-                summarization_mw = SummarizationMiddleware(
-                    model=config.model,
-                    backend=StateBackend(),
-                    trigger=trigger,
-                    keep=keep,
-                )
-                instrumented_summ = instrument_deepagents_middleware(
-                    summarization_mw,
-                    callback_handler=callback_handler
-                )
-                middleware_instances.append(instrumented_summ)
+                # How many recent messages survive compaction; everything older
+                # is folded into the running summary (and offloaded to the
+                # backend). 20 is the historical default — raise it to keep more
+                # verbatim, lower it to reclaim more context per compaction.
+                keep = ("messages", int(config.guardrails.token_limits.get("keep_last_messages", 20)))
+                # Resolve the summarizer model exactly like the agent's own
+                # model: provider from the `models` table and credentials from
+                # the `models.api_keys` document, both in PostgreSQL.
+                #
+                # Passing the bare id string (model=config.model) used to route
+                # through LangChain's init_chat_model, which reads credentials
+                # from os.environ ONLY. Nothing in this app exports keys to the
+                # environment (they live in the DB), so the constructor always
+                # raised ValidationError and the warning was swallowed below —
+                # summarization was silently absent no matter how low the
+                # threshold was set.
+                summarization_spec = {
+                    "model": await resolve_model(
+                        config.model or DEFAULT_MODEL,
+                        config.temperature,
+                        config.max_tokens or 4096,
+                        {"streaming": False},
+                    ),
+                    "trigger": trigger,
+                    "keep": keep,
+                }
                 logger.info(
-                    f"SummarizationMiddleware initialized: trigger={trigger}, keep={keep}"
+                    "Summarization enabled: model=%s trigger=%s keep=%s",
+                    config.model or DEFAULT_MODEL, trigger, keep,
                 )
             except Exception as e:
-                logger.warning(f"SummarizationMiddleware not available: {e}")
+                summarization_spec = None
+                logger.warning(f"Summarization configuration failed: {e}")
 
         # NOTE: SubAgentMiddleware is added LATER (after all_subagents is built)
         # to provide the `task` tool. The deepagents library does NOT auto-create it.
@@ -725,6 +747,40 @@ class _DeepAgentAssemblyMixin:
                 agent_kwargs["backend"] = FormatAwareBackend(agent_kwargs["backend"])
             except Exception as e:
                 logger.warning(f"FormatAwareBackend wrap failed (non-fatal): {e}")
+
+            # SummarizationMiddleware — attached here, after the backend is
+            # final, so evicted history lands where the agent's own read_file
+            # looks for it (/conversation_history/<thread>.md). The model was
+            # resolved from PostgreSQL when the spec was built.
+            if summarization_spec:
+                try:
+                    from deepagents.middleware.summarization import SummarizationMiddleware
+
+                    summarization_backend = agent_kwargs.get("backend")
+                    if summarization_backend is None:
+                        from deepagents.backends import StateBackend
+                        summarization_backend = StateBackend()
+
+                    summarization_mw = SummarizationMiddleware(
+                        model=summarization_spec["model"],
+                        backend=summarization_backend,
+                        trigger=summarization_spec["trigger"],
+                        keep=summarization_spec["keep"],
+                    )
+                    middleware_instances.append(
+                        instrument_deepagents_middleware(
+                            summarization_mw, callback_handler=callback_handler
+                        )
+                    )
+                    # agent_kwargs captured the list object, but it may have
+                    # been None when the list was empty — keep them in sync.
+                    agent_kwargs["middleware"] = middleware_instances
+                    logger.info(
+                        "SummarizationMiddleware attached (offload backend=%s)",
+                        type(summarization_backend).__name__,
+                    )
+                except Exception as e:
+                    logger.warning(f"SummarizationMiddleware not available: {e}")
 
             # Try to pass guardrails if supported
             try:
