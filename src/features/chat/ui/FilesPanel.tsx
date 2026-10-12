@@ -3,6 +3,7 @@ import { File, FolderOpen, Folder, Download, X, Loader2, CheckCircle, AlertCircl
 import type { SessionDocument } from '../types/chat';
 import apiClient from '../../../lib/api-client';
 import { downloadFile } from '../utils/downloadFile';
+import TruncatedLabel from './TruncatedLabel';
 
 interface FilesPanelProps {
   sessionId: string | null;
@@ -141,7 +142,11 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
               {documents.map(doc => (
                 <div key={doc.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg" style={{ backgroundColor: 'var(--color-background-light)' }}>
                   <File className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
-                  <span className="text-xs truncate flex-1" title={doc.filename}>{doc.original_filename || doc.filename}</span>
+                  <TruncatedLabel
+                    className="text-xs flex-1 min-w-0"
+                    text={doc.original_filename || doc.filename}
+                    sublabel={doc.filename !== (doc.original_filename || doc.filename) ? doc.filename : undefined}
+                  />
                   {statusIcon(doc.indexing_status)}
                   <button
                     onClick={() => downloadFile(
@@ -179,7 +184,7 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
                         ? <ChevronRight className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />
                         : <ChevronDown className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />}
                       <Folder className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
-                      <span className="text-xs font-medium truncate flex-1">{folderLabel}</span>
+                      <TruncatedLabel className="text-xs font-medium flex-1 min-w-0" text={folderLabel} />
                       <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
                         {group.files.length}
                       </span>
@@ -189,7 +194,11 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
                         {group.files.map(file => (
                           <div key={file.path} className="flex items-center gap-2 px-2 py-1 rounded-lg" style={{ backgroundColor: 'var(--color-background-light)' }}>
                             <File className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--color-primary)' }} />
-                            <span className="text-xs truncate flex-1" title={file.path}>{file.filename}</span>
+                            <TruncatedLabel
+                              className="text-xs flex-1 min-w-0"
+                              text={file.filename}
+                              sublabel={file.path !== file.filename ? file.path : undefined}
+                            />
                             <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
                               {file.size_human || `${(file.size_bytes / 1024).toFixed(0)}KB`}
                             </span>
