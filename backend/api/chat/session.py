@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -193,6 +194,13 @@ async def list_chat_sessions(
             "agent_id": session.agent_id,
             "agent_name": agent.name if agent else "Unknown Agent",
             "is_active": session.is_active,
+            # Pinned conversations: the sidebar shows these first for quick select.
+            "is_favorite": bool(session.is_favorite),
+            "favorited_at": session.favorited_at.isoformat() if session.favorited_at else None,
+            # Null title = the UI falls back to the first user message, so a
+            # conversation is readable before anyone names it.
+            "title": session.title,
+            "title_source": session.title_source,
             # BUG FIX: session.messages can be None for some sessions
             # (e.g. freshly created with no messages yet, or migrated from
             # a schema that didn't set the default). Use a safe accessor.
@@ -203,6 +211,83 @@ async def list_chat_sessions(
         })
 
     return result
+
+
+class FavoriteRequest(BaseModel):
+    """Pin or unpin a conversation (chat history quick select)."""
+    favorite: bool = True
+
+
+class TitleRequest(BaseModel):
+    """Rename a conversation. `title=None` clears it back to the fallback."""
+    title: Optional[str] = None
+
+
+@router.post("/{session_id}/title")
+async def set_session_title(
+    session_id: str,
+    request: TitleRequest,
+    db: Session = Depends(get_db)
+):
+    """Set (or clear) a conversation's title.
+
+    Whitespace-only input clears the title, which returns the UI to its fallback
+    (the first user message) rather than storing an empty string. Length is
+    capped at the column width so an over-long name can never break the write.
+    """
+    session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    title = (request.title or "").strip()[:120]
+    session.title = title or None
+    # A user-entered name is authoritative — recorded so a future auto-titler
+    # never overwrites it.
+    session.title_source = "manual" if title else None
+    db.commit()
+    db.refresh(session)
+
+    logger.info(f"Conversation {session_id} title -> {session.title!r}")
+    return {
+        "status": "success",
+        "session_id": session.session_id,
+        "title": session.title,
+        "title_source": session.title_source,
+    }
+
+
+@router.post("/{session_id}/favorite")
+async def set_session_favorite(
+    session_id: str,
+    request: FavoriteRequest,
+    db: Session = Depends(get_db)
+):
+    """Mark a conversation as pinned (or unpin it).
+
+    Purely presentational: it never touches the conversation, so pinned chats are
+    a bookmark rather than a copy, and unpinning is always lossless. `favorited_at`
+    is stamped so the pinned list can order by when it was pinned instead of
+    re-sorting whenever the conversation receives a message.
+    """
+    session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session.is_favorite = bool(request.favorite)
+    session.favorited_at = datetime.utcnow() if request.favorite else None
+    db.commit()
+    db.refresh(session)
+
+    logger.info(
+        f"{'Pinned' if session.is_favorite else 'Unpinned'} conversation "
+        f"{session_id} (agent {session.agent_id})"
+    )
+    return {
+        "status": "success",
+        "session_id": session.session_id,
+        "is_favorite": bool(session.is_favorite),
+        "favorited_at": session.favorited_at.isoformat() if session.favorited_at else None,
+    }
 
 
 @router.get("/health")

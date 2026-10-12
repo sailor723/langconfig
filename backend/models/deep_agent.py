@@ -500,6 +500,22 @@ class ChatSession(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     checkpoint_id = Column(String(200), nullable=True)  # LangGraph checkpoint reference
 
+    # Pinned ("favourite") conversation: surfaces at the top of the chat history
+    # for quick select. Per session, so it works with agent grouping and without
+    # relying on titles (test runs of the same agent are indistinguishable by
+    # title alone). favorited_at keeps the pinned list stable instead of
+    # re-sorting on every message.
+    is_favorite = Column(Boolean, default=False, nullable=False, server_default="false", index=True)
+    favorited_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Conversation title, shown when the chat is open and used by the history
+    # list. Null means "fall back to the first user message": every chat is
+    # readable without a naming step, and a title is only stored once the user
+    # renames it. title_source distinguishes a user's name from a generated one
+    # so auto-titling can be added later without overwriting manual names.
+    title = Column(String(120), nullable=True)
+    title_source = Column(String(16), nullable=True)  # 'manual' | 'auto'
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
