@@ -11,8 +11,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { ChatMessage, CustomEventPayload, ToolCall } from '../types/chat';
-import CodexMessageInput from './CodexMessageInput';
+import type { ChatMessage, ContextOccupancy, CustomEventPayload, ToolCall } from '../types/chat';
+import CodexMessageInput, { COMPOSER_MAX_WIDTH } from './CodexMessageInput';
 import AnalysisPanel from './AnalysisPanel';
 import { ContentBlockRenderer } from '@/components/common/ContentBlockRenderer';
 import type { ThinkingStep } from './ThinkingBlock';
@@ -44,6 +44,14 @@ interface MessagesPanelProps {
    * which still feeds the empty-state heading.
    */
   agentName?: string;
+  /** Context occupancy for the composer's meter. */
+  context?: ContextOccupancy | null;
+  /**
+   * Session stats for the line under the composer — the same facts the window's
+   * bottom bar used to carry, moved onto the composer's axis the way DSH's
+   * stats strip sits under its input. Null while there is no session.
+   */
+  stats?: { tokens: number; toolCalls: number; theme?: string } | null;
 }
 
 export default function MessagesPanel({
@@ -61,6 +69,8 @@ export default function MessagesPanel({
   thinkingBuffer = '',
   workspaceName,
   agentName,
+  context,
+  stats = null,
 }: MessagesPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -150,8 +160,12 @@ export default function MessagesPanel({
       <div className="flex-1 overflow-y-auto px-6 pt-4 pb-2">
         {messages.length === 0 && !disabled && useCodexLayout ? (
           // Codex-style empty state: centered heading + composer
-          <div className="flex flex-col items-center justify-center h-full min-h-full px-6">
-            <div className="w-full max-w-xl">
+          <div className="flex flex-col items-center justify-center h-full min-h-full">
+            {/* No width cap here: the composer card carries the width rule, and
+                applying the same percentage at this level too would compound —
+                62% of 62% — leaving the box pinned to its floor in the empty
+                state while it grew in a conversation. */}
+            <div className="w-full">
               <h1 className="text-xl font-semibold mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>
                 What should we build in <span className="font-bold">{projectName}</span>?
               </h1>
@@ -169,6 +183,7 @@ export default function MessagesPanel({
                   }
                 }}
                 agentName={agentName}
+                context={context}
               />
             </div>
           </div>
@@ -708,6 +723,7 @@ export default function MessagesPanel({
           sessionId={sessionId}
           projectId={projectId}
           agentName={agentName}
+          context={context}
           onFileUploaded={(file) => {
             console.log('File uploaded:', file);
             // Auto-trigger data analysis after CSV or SQLite upload (no chat message)
@@ -744,6 +760,32 @@ export default function MessagesPanel({
             }
           }}
         />
+        {/* Stats strip: centred on the composer's axis, directly under the box.
+            DSH's own line excludes context occupancy on purpose — that number
+            has one home, the ring beside send. */}
+        {stats && (
+          <div
+            className="mx-auto w-full mt-2 text-center text-[11px]"
+            style={{ maxWidth: COMPOSER_MAX_WIDTH, color: 'var(--color-text-muted)' }}
+          >
+            <span>
+              <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                {stats.tokens.toLocaleString()}
+              </span>{' '}
+              tokens
+            </span>
+            <span className="mx-2">·</span>
+            <span>{stats.toolCalls} tool call{stats.toolCalls === 1 ? '' : 's'}</span>
+            <span className="mx-2">·</span>
+            <span>{messages.length} message{messages.length !== 1 ? 's' : ''}</span>
+            {stats.theme && (
+              <>
+                <span className="mx-2">·</span>
+                <span className="capitalize">{stats.theme}</span>
+              </>
+            )}
+          </div>
+        )}
       </div>
       )}
     </div>

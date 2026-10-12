@@ -6,11 +6,13 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import type { SessionMetrics, ToolCall, SubAgentActivity } from '../types/chat';
+import type { SessionMetrics, ToolCall, SubAgentActivity, ContextOccupancy } from '../types/chat';
 import apiClient from '../../../lib/api-client';
 
 interface UseChatMetricsResult {
   metrics: SessionMetrics;
+  /** Context occupancy (used tokens vs the agent's thresholds); null until known. */
+  context: ContextOccupancy | null;
   toolCalls: ToolCall[];
   subagentActivity: SubAgentActivity[];
   isLoading: boolean;
@@ -27,6 +29,7 @@ const DEFAULT_METRICS: SessionMetrics = {
 
 export function useChatMetrics(sessionId: string | null): UseChatMetricsResult {
   const [metrics, setMetrics] = useState<SessionMetrics>(DEFAULT_METRICS);
+  const [context, setContext] = useState<ContextOccupancy | null>(null);
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [subagentActivity, setSubagentActivity] = useState<SubAgentActivity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -43,6 +46,9 @@ export function useChatMetrics(sessionId: string | null): UseChatMetricsResult {
       const data = response.data;
 
       setMetrics(data.metrics || DEFAULT_METRICS);
+      // Absent on a backend that predates the field: the meter then renders
+      // nothing rather than a zeroed ring.
+      setContext(data.context || null);
       setToolCalls(data.tool_calls || []);
       setSubagentActivity(data.subagent_spawns || []);
     } catch (err: any) {
@@ -60,6 +66,7 @@ export function useChatMetrics(sessionId: string | null): UseChatMetricsResult {
     } else {
       // Reset metrics when no session
       setMetrics(DEFAULT_METRICS);
+      setContext(null);
       setToolCalls([]);
       setSubagentActivity([]);
     }
@@ -67,6 +74,7 @@ export function useChatMetrics(sessionId: string | null): UseChatMetricsResult {
 
   return {
     metrics,
+    context,
     toolCalls,
     subagentActivity,
     isLoading,

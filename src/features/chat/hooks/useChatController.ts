@@ -165,6 +165,7 @@ export function useChatController(options: UseChatControllerOptions = {}) {
 
   const {
     metrics,
+    context,
     toolCalls,
     subagentActivity,
     isLoading: isLoadingMetrics,
@@ -398,6 +399,8 @@ export function useChatController(options: UseChatControllerOptions = {}) {
     clearError,
     // metrics
     metrics,
+    // context occupancy for the composer meter
+    context,
     toolCalls,
     subagentActivity,
     isLoadingMetrics,
