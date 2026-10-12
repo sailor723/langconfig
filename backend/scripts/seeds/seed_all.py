@@ -49,6 +49,7 @@ SEEDS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(BACKEND_DIR))
 
 from sqlalchemy import text
+from sqlalchemy import text as sa_text
 from sqlalchemy.engine import make_url
 
 from db.database import SessionLocal, engine, init_db
@@ -56,6 +57,10 @@ from db.database import SessionLocal, engine, init_db
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+# Agent ids inserted by step 8 in this run; step 8.5 re-bakes only these.
+_SEEDED_AGENT_IDS: set[int] = set()
+
+
 def _db_url(dbname: str | None = None) -> str:
     """Render the configured DATABASE_URL, optionally swapping the database name."""
     url = make_url(engine.url.render_as_string(hide_password=False))
@@ -300,6 +305,11 @@ def step_deep_agents(replace: bool) -> None:
                   f"{count} existing agent(s) AND their chat sessions")
             _truncate("deep_agent_templates")
         _restore_dump("deep_agents_dump.sql")
+        # A reset replaces every agent, so identity applies to all of them.
+        with SessionLocal() as db:
+            _SEEDED_AGENT_IDS.clear()
+            _SEEDED_AGENT_IDS.update(
+                r[0] for r in db.execute(sa_text("SELECT id FROM deep_agent_templates")))
         print(f"  -> reset to the dump ({_table_count('deep_agent_templates')} agent(s))")
         return
 
@@ -308,11 +318,28 @@ def step_deep_agents(replace: bool) -> None:
               "scripts/seeds/export_agents_merge.py")
         return
 
+    # Remember which names existed so the identity backfill can be limited to
+    # the agents THIS run inserted. Without that it rewrote every agent in the
+    # database — a teammate's own included — baking this machine's workspace
+    # into prompts and docs that were not ours to touch.
+    with SessionLocal() as db:
+        names_before = {r[0] for r in db.execute(sa_text(
+            "SELECT name FROM deep_agent_templates"))}
+
     before = count
     _restore_dump("deep_agents_merge.sql")
     after = _table_count("deep_agent_templates")
     print(f"  -> {after - before} agent(s) added, {before} pre-existing left untouched "
           f"({after} total)")
+
+    # Rows whose name was not present before the merge are exactly what this run
+    # inserted — the merge only ever adds, and only for absent names.
+    with SessionLocal() as db:
+        newly = [r[0] for r in db.execute(sa_text(
+            "SELECT id, name FROM deep_agent_templates")) if r[1] not in names_before]
+    _SEEDED_AGENT_IDS.clear()
+    _SEEDED_AGENT_IDS.update(newly)
+    print(f"  -> identity backfill limited to the {len(newly)} agent(s) just added")
 
 
 def step_identity() -> None:
@@ -343,10 +370,12 @@ def step_identity() -> None:
         drop_cmd += ["--base-dir", ws_override]
     subprocess.run(drop_cmd, cwd=str(BACKEND_DIR))
 
-    # Then the identity backfill.
+    # Then the identity backfill, limited to the agents step 8 inserted (an
+    # empty set is meaningful: nothing was added, so nothing gets rewritten).
     cmd = [sys.executable, "scripts/backfill_agent_identity.py"]
     if ws_override:
         cmd += ["--workspace-root", ws_override]
+    cmd += ["--only-ids", ",".join(str(i) for i in sorted(_SEEDED_AGENT_IDS))]
     subprocess.run(cmd, cwd=str(BACKEND_DIR), check=True)
 
 

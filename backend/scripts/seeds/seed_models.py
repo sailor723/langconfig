@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 CSV_PATH = os.environ.get("MODELS_CSV", "/tmp/models_with_url.csv")
+# --refresh-existing restores the previous overwrite behaviour (see the branch below).
+_REFRESH_EXISTING = "--refresh-existing" in sys.argv
 
 # Default capability set per provider — used when seeding since the CSV does not
 # carry full capability JSONs. Keeping this minimal but realistic.
@@ -44,12 +46,14 @@ DEFAULT_CAPS = {
 
 
 def main() -> int:
+    refresh_existing = _REFRESH_EXISTING
     if not os.path.exists(CSV_PATH):
         print(f"ERROR: CSV not found at {CSV_PATH}. Run /tmp/export_models.py first.")
         return 1
 
     added = 0
     updated = 0
+    kept = 0
     skipped_local = 0
     with open(CSV_PATH, newline="") as f:
         reader = csv.DictReader(f)
@@ -81,6 +85,16 @@ def main() -> int:
             existing = db.query(Model).filter(Model.model_id == model_id).first()
             caps = dict(DEFAULT_CAPS.get(provider, {"streaming": True}))
             if existing:
+                # INSERT-ONLY by default. This used to overwrite display_name,
+                # provider, source, capabilities and is_active on every run —
+                # and `caps` comes from the PER-PROVIDER DEFAULT_CAPS table, so a
+                # re-seed silently flattened per-model metadata (pricing, vision,
+                # max_context, strength, aliases) back to the provider default.
+                # A teammate's own catalogue edits were collateral too. Pass
+                # --refresh-existing to opt into the old behaviour.
+                if not refresh_existing:
+                    kept += 1
+                    continue
                 existing.display_name = display_name
                 existing.provider = provider
                 existing.source = source
@@ -101,7 +115,8 @@ def main() -> int:
     finally:
         db.close()
 
-    print(f"Done. Added={added} Updated={updated} Skipped_local={skipped_local}")
+    print(f"Done. Added={added} Updated={updated} Kept_existing={kept} "
+          f"Skipped_local={skipped_local}")
     return 0
 
 

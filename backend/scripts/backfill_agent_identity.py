@@ -72,9 +72,26 @@ def main() -> int:
         idx = sys.argv.index("--workspace-root")
         if idx + 1 < len(sys.argv):
             override_root = sys.argv[idx + 1]
+
+    # --only-ids restricts the backfill to agents a seed just inserted. The
+    # identity bake rewrites config.system_prompt and agent_docs, so without
+    # this the installer also rewrote agents it never touched — including a
+    # teammate's own, whose prompt and docs are theirs. Absent/empty means "all
+    # agents", which is right for a deliberate re-bake.
+    only_ids: set[int] | None = None
+    if "--only-ids" in sys.argv:
+        idx = sys.argv.index("--only-ids")
+        raw = sys.argv[idx + 1] if idx + 1 < len(sys.argv) else ""
+        parsed = {int(x) for x in raw.split(",") if x.strip().isdigit()}
+        only_ids = parsed          # may be empty => nothing to do
+
     db = SessionLocal()
     try:
         agents = db.query(DeepAgentTemplate).order_by(DeepAgentTemplate.id).all()
+        if only_ids is not None:
+            agents = [a for a in agents if a.id in only_ids]
+            print(f"restricted to {len(agents)} agent(s) inserted by this run"
+                  + ("" if agents else " — nothing to re-bake"))
         updated = 0
         skipped = 0
         for agent in agents:
