@@ -58,6 +58,10 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     chatStore.setCurrentProjectId(activeProjectId ?? null);
   }, [activeProjectId]);
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
+  // Models the reader can use for the vision step (catalog `capabilities.vision`).
+  const visionCapableModels = (cloudModels || [])
+    .filter((m: any) => m?.capabilities?.vision)
+    .map((m: any) => ({ id: m.id, name: m.name || m.id }));
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [testPrompt, setTestPrompt] = useState('Hello, please introduce yourself.');
   const [running, setRunning] = useState(false);
@@ -669,6 +673,15 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         groupedByCategory={groupedByCategory}
         availableCustomTools={availableCustomTools}
         onInspect={setInspectTool}
+        toolParams={liveConfig.tool_params}
+        onToolParamsChange={(toolId, params) => {
+          // Persist per-agent tool params (hard-pinned at build time).
+          const next = { ...(liveConfig.tool_params || {}) };
+          if (params && Object.keys(params).length > 0) next[toolId] = params;
+          else delete next[toolId];
+          updateConfigField('tool_params', Object.keys(next).length > 0 ? next : null);
+        }}
+        visionModels={visionCapableModels}
         t={t}
       />
     ),

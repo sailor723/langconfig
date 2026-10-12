@@ -26,6 +26,8 @@ export function toToolIdList(value: unknown): string[] {
   return [];
 }
 
+import ToolParamsControls, { type VisionModelOption } from './toolParamsControls';
+
 export interface NativeTool {
   id: string;
   name: string;
@@ -51,6 +53,11 @@ interface ToolsPickerProps {
   availableCustomTools: CustomTool[];
   /** Clicking a tool card body opens the inspect/edit panel (never toggles). */
   onInspect?: (tool: { id: string; name: string; description: string }) => void;
+  /** Per-agent tool parameters (config.tool_params) — rendered as typed controls on the card. */
+  toolParams?: Record<string, Record<string, any>>;
+  onToolParamsChange?: (toolId: string, params: Record<string, any>) => void;
+  /** Vision-capable models offered by the read_any_file options. */
+  visionModels?: VisionModelOption[];
   t: LayoutTokens;
 }
 
@@ -65,6 +72,9 @@ export default function ToolsPicker({
   groupedByCategory,
   availableCustomTools,
   onInspect,
+  toolParams,
+  onToolParamsChange,
+  visionModels,
   t,
 }: ToolsPickerProps) {
   const cardStyle: React.CSSProperties = {
@@ -153,6 +163,15 @@ export default function ToolsPicker({
       }}>
         {tool.description}
       </div>
+      {onToolParamsChange && (
+        <ToolParamsControls
+          toolId={tool.id}
+          params={toolParams?.[tool.id]}
+          onChange={(next) => onToolParamsChange(tool.id, next)}
+          visionModels={visionModels}
+          t={t}
+        />
+      )}
     </div>
   );
 
