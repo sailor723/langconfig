@@ -453,6 +453,29 @@ class _AgentAssemblyMixin:
                 )
                 middleware = list(middleware or []) + [fs_mw]
                 logger.info(f"✓ Filesystem middleware added (regular agent) root={_fs_root}")
+
+                # Normal-agent analogue of the deepagents harness profile
+                # (`services/harness_profiles.py`): strip excluded tools from
+                # the model-visible surface. The SDK's `read_file` returns
+                # images as base64 image blocks, which a *tool* message cannot
+                # carry — it is tokenised per character (2.1 MB → 1.47M tokens
+                # → HTTP 400). Must be appended AFTER the tool-injecting
+                # middleware so it can filter what that middleware added.
+                try:
+                    from services.harness_profiles import (
+                        build_tool_exclusion_middleware,
+                        excluded_tool_names,
+                    )
+
+                    _excl_mw = build_tool_exclusion_middleware()
+                    if _excl_mw is not None:
+                        middleware.append(_excl_mw)
+                        logger.info(
+                            "✓ Tool exclusion middleware added (regular agent) "
+                            f"excluded={sorted(excluded_tool_names())}"
+                        )
+                except Exception as e:
+                    logger.warning(f"Tool exclusion middleware unavailable: {e}")
             except Exception as e:
                 logger.warning(f"Filesystem middleware not available for regular agent: {e}")
 
