@@ -395,7 +395,16 @@ async def _process_single_chat_upload(
     # separate from agent-generated files (generated/) and the instruction docs
     # (AGENTS.md / CLAUDE.md at the root). The agent's filesystem tools are
     # scoped to the workspace root, so it can still read uploads.
-    sandbox_exts = ('.csv', '.pdf', '.docx', '.pptx', '.md', '.txt', '.json', '.py', '.js', '.ts', '.tsx', '.jsx')
+    sandbox_exts = (
+        '.csv', '.pdf', '.docx', '.pptx', '.md', '.txt', '.json', '.py',
+        '.js', '.ts', '.tsx', '.jsx',
+        # Images: copied into the agent workspace upload/ folder so the
+        # read_image (OCR) tool and vision models (deepseek-flash) can
+        # reach them through the workspace sandbox. Without this an image
+        # upload was saved to project storage and then unreachable by the
+        # agent — the one file type whose whole point is being read.
+        '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tiff',
+    )
     safe_name = Path(file.filename).name  # basename only — block path-traversal writes
     if file.filename.lower().endswith(sandbox_exts):
         try:
@@ -450,7 +459,13 @@ async def _process_single_chat_upload(
     else:
         ext_with_dot = f".{file_ext}"
 
-    if ext_with_dot in extractable_exts:
+    if document_type == DocumentType.IMAGE:
+        # Images have no extractable text layer; embedding them would fail (the
+        # vector indexer is text-only). Leave them NOT_INDEXED and let the agent
+        # read them through read_image / a vision model instead.
+        doc.indexing_status = IndexingStatus.NOT_INDEXED
+        db.commit()
+    elif ext_with_dot in extractable_exts:
         doc.indexing_status = IndexingStatus.READY
         db.commit()
 
@@ -480,7 +495,20 @@ async def _process_single_chat_upload(
                 )
             )
     else:
-        background_tasks.add_task(index_session_document_background, doc.id, session.agent_id)
+        # No text layer to embed — and indexing could not have worked anyway:
+        # index_session_document_background hands a SESSION document id to
+        # context_document_indexer.index_document(), which looks it up with
+        # db.get(ContextDocument, id). Two different tables, so every upload
+        # that landed here (images, .xlsx, .db, …) logged
+        # "Context document N not found" while the file itself was saved fine.
+        # Record the status instead of scheduling a task that cannot succeed;
+        # such files stay reachable to the agent through the workspace copy.
+        doc.indexing_status = IndexingStatus.NOT_INDEXED
+        db.commit()
+        logger.info(
+            f"Uploaded {file.filename!r} ({document_type.value}) has no text layer: "
+            f"kept NOT_INDEXED, available to the agent in the workspace upload/ folder"
+        )
 
     return SessionDocumentResponse(
         id=doc.id,
