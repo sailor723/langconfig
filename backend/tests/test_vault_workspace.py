@@ -224,17 +224,39 @@ def test_agent_vault_key_falls_back_to_id_without_name():
     assert WorkspaceManager.agent_vault_key(None, NoName()) == "agent_7"
 
 
-def test_resolve_uses_agent_key_folder():
+def test_resolve_prefers_agent_id_folder_and_keeps_legacy_slug_only_with_user_files():
+    """New agents get ``agents/agent_{id}`` (rename-stable, and identical from
+    creation, chat, uploads and the Files panel). A legacy name-slug folder is
+    kept only while it still holds user files, so the convention change never
+    orphans an existing agent's uploads."""
     from services.workspace_manager import WorkspaceManager
     from pathlib import Path
     import tempfile
     tmp = Path(tempfile.mkdtemp()).resolve()
     m = WorkspaceManager(base_dir=str(tmp))
+
+    # New agent, nothing on disk → canonical id-based folder.
     ws = m.resolve_agent_workspace(_FakeAgent(159), project_id=2, vault_key="my-project", agent_key="hello")
-    assert str(ws.relative_to(tmp)) == "my-project/agents/hello"
-    # legacy fallback without keys stays agent_{id}
-    ws2 = m.resolve_agent_workspace(_FakeAgent(159), project_id=2)
-    assert str(ws2.relative_to(tmp)) == "2/agents/agent_159"
+    assert str(ws.relative_to(tmp)) == "my-project/agents/agent_159"
+
+    # A slug folder holding only generated docs is superseded: the docs are
+    # re-materialized from PostgreSQL into the id folder.
+    docs_only = tmp / "my-project" / "agents" / "docs-only"
+    docs_only.mkdir(parents=True)
+    (docs_only / "AGENTS.md").write_text("x", encoding="utf-8")
+    ws2 = m.resolve_agent_workspace(_FakeAgent(160), project_id=2, vault_key="my-project", agent_key="docs-only")
+    assert str(ws2.relative_to(tmp)) == "my-project/agents/agent_160"
+
+    # A legacy slug folder with real user files keeps working (no data loss).
+    legacy = tmp / "my-project" / "agents" / "with-data"
+    (legacy / "upload").mkdir(parents=True)
+    (legacy / "upload" / "report.csv").write_text("a,b", encoding="utf-8")
+    ws3 = m.resolve_agent_workspace(_FakeAgent(161), project_id=2, vault_key="my-project", agent_key="with-data")
+    assert str(ws3.relative_to(tmp)) == "my-project/agents/with-data"
+
+    # No project/vault: still id-based (agent_key is only a legacy hint).
+    ws4 = m.resolve_agent_workspace(_FakeAgent(159), project_id=2)
+    assert str(ws4.relative_to(tmp)) == "2/agents/agent_159"
 
 
 # ── identity / doc re-bake ──────────────────────────────────────────

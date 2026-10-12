@@ -512,10 +512,18 @@ async def create_deepagent(
         # stored on deep_agent_templates.
         from core.agents.identity import build_identity_system_prompt, default_agent_docs
         from services.workspace_manager import get_workspace_manager, WorkspaceManager
+        # Resolve the workspace EXACTLY as the chat/upload paths do
+        # (api/chat/messages.py, api/chat/documents.py), i.e. passing the same
+        # agent_key. Passing agent_key=None here made creation fall back to
+        # ``agents/agent_{id}`` while every later call resolved the name-slug
+        # folder — so each new agent got a second, empty folder and its baked
+        # identity pointed at the one the runtime never used.
+        # An explicit workspace_path (priority 1 in resolve_agent_workspace)
+        # still overrides this for agents that pin an id-based folder.
         _ws_root = str(get_workspace_manager().resolve_agent_workspace(
             agent, request.project_id,
             vault_key=WorkspaceManager.project_vault_key(db, request.project_id) or None,
-            agent_key=None,
+            agent_key=WorkspaceManager.agent_vault_key(db, agent),
         ))
         _docs = request.agent_docs or default_agent_docs(agent, _ws_root)
         config_dict["system_prompt"] = build_identity_system_prompt(
@@ -888,9 +896,12 @@ async def create_from_agent_creator(
         # instruction docs (AGENTS.md / CLAUDE.md) into the persisted system
         # prompt, and persist the docs to the DB row (see create_deepagent).
         from core.agents.identity import build_identity_system_prompt, default_agent_docs
-        from services.workspace_manager import get_workspace_manager
+        from services.workspace_manager import get_workspace_manager, WorkspaceManager
+        # Same agent_key as the chat/upload paths so the baked identity cannot
+        # disagree with the folder the runtime actually uses.
         _ws_root = str(get_workspace_manager().resolve_agent_workspace(
-            agent, None, vault_key=None, agent_key=None,
+            agent, None, vault_key=None,
+            agent_key=WorkspaceManager.agent_vault_key(db, agent),
         ))
         _docs = default_agent_docs(agent, _ws_root)
         full_config.system_prompt = build_identity_system_prompt(
@@ -980,9 +991,12 @@ async def quick_create_agent(
         # instruction docs (AGENTS.md / CLAUDE.md) into the persisted system
         # prompt, and persist the docs to the DB row (see create_deepagent).
         from core.agents.identity import build_identity_system_prompt, default_agent_docs
-        from services.workspace_manager import get_workspace_manager
+        from services.workspace_manager import get_workspace_manager, WorkspaceManager
+        # Same agent_key as the chat/upload paths so the baked identity cannot
+        # disagree with the folder the runtime actually uses.
         _ws_root = str(get_workspace_manager().resolve_agent_workspace(
-            agent, None, vault_key=None, agent_key=None,
+            agent, None, vault_key=None,
+            agent_key=WorkspaceManager.agent_vault_key(db, agent),
         ))
         _docs = default_agent_docs(agent, _ws_root)
         cfg.system_prompt = build_identity_system_prompt(
