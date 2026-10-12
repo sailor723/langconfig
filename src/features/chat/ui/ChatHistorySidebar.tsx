@@ -16,10 +16,11 @@
  *   │ ⚙ Settings          │  Bottom
  *   └─────────────────────┘
  */
-import { type ReactNode, useState } from 'react';
-import { Plus, MessageSquare, Search, ChevronDown, ChevronRight, Calendar, Folder, Star, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, MessageSquare, Search, ChevronDown, ChevronRight, Calendar, Folder, FolderOpen, Star, Users, X } from 'lucide-react';
 import type { ChatSession } from '../types/chat';
 import { useChat } from '../state/ChatContext';
+import { useProject } from '../../../contexts/ProjectContext';
 import {
   formatCompactDateTime, formatFullDateTime, formatMessageCount,
 } from '../utils/formatChatTime';
@@ -38,8 +39,19 @@ interface ChatHistorySidebarProps {
 
 export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarProps) {
   const { sessions, currentSessionId, switchSession } = useChat();
+  // The heading says "Projects", so the value has to be the project (vault).
+  // It used to render the current session's agent name — an agent shown under a
+  // project heading, which is simply the wrong thing.
+  const { activeProject, projects } = useProject();
+
+  const currentSession = sessions.find((s: ChatSession) => s.session_id === currentSessionId);
+  const sessionProject = projects.find(p => p.id === currentSession?.project_id);
+  const projectName = sessionProject?.name
+    || activeProject?.name
+    || (currentSession ? 'No project' : 'my-project');
   const [collapsed, setCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [showProjects, setShowProjects] = useState(true);
   // Two views, chosen by the two buttons in the top bar: 'agents' (the default)
   // groups the history into one folder per agent, 'favorites' shows only the
@@ -186,16 +198,18 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
 
   // While searching, favourites appear in the flat result list instead of
   // twice, so a match is never hidden inside a collapsed section.
+  // Direct text mapping on the title: a plain case-insensitive substring, no
+  // fuzzy matching and no message content. The input's placeholder says so, so
+  // it is clear that only named conversations are searchable.
   const matchesSearch = (s: ChatSession) =>
-    (s.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s.last_message_preview || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s.agent_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    (s.title || '').toLowerCase().includes(searchQuery.trim().toLowerCase());
 
   // Search spans whichever view is active: favourites only when the star is on,
   // otherwise every conversation (pinned ones included — the folders hold the
   // agent's full history).
+  const query = searchQuery.trim();
   const scopedSessions = view === 'favorites' ? pinnedSessions : activeSessions;
-  const filteredSessions = searchQuery ? scopedSessions.filter(matchesSearch) : scopedSessions;
+  const filteredSessions = query ? scopedSessions.filter(matchesSearch) : scopedSessions;
 
   /** Row label: the user's title, else the last message preview. */
   const sessionLabel = (session: ChatSession) =>
@@ -286,7 +300,6 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
   const folderBlock = (opts: {
     id: string;
     label: string;
-    icon: ReactNode;
     sessions: ChatSession[];
     expanded: boolean;
     onToggle: () => void;
@@ -296,16 +309,17 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
     <div key={opts.id} className="pb-0.5">
       <button
         onClick={opts.onToggle}
-        className="flex items-center gap-1 w-full text-left px-2 py-1 rounded-lg hover:bg-black/5 transition-colors"
+        className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-lg hover:bg-black/5 transition-colors"
         title={`${opts.label} — ${opts.sessions.length} conversation${opts.sessions.length === 1 ? '' : 's'}`}
         aria-expanded={opts.expanded}
       >
+        {/* The folder glyph carries the state — open vs closed — so no chevron
+            is needed next to it. */}
         {opts.expanded ? (
-          <ChevronDown className="w-3 h-3 flex-shrink-0" />
+          <FolderOpen className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />
         ) : (
-          <ChevronRight className="w-3 h-3 flex-shrink-0" />
+          <Folder className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />
         )}
-        {opts.icon}
         <span className="text-[11px] font-medium truncate" style={{ color: 'var(--color-text-muted)' }}>
           {opts.label}
         </span>
@@ -397,11 +411,18 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
           <Plus className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
         </button>
         <button
-          onClick={() => setSearchQuery('')}
-          className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
-          title="Search"
+          onClick={() => {
+            setSearchOpen(open => {
+              if (open) setSearchQuery('');   // closing the box clears the filter
+              return !open;
+            });
+          }}
+          className="p-1.5 rounded-lg transition-colors"
+          style={{ backgroundColor: searchOpen ? 'var(--color-primary)' : 'transparent' }}
+          title={searchOpen ? 'Close search' : 'Search titles'}
+          aria-expanded={searchOpen}
         >
-          <Search className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+          <Search className="w-4 h-4" style={{ color: searchOpen ? 'white' : 'var(--color-text-muted)' }} />
         </button>
         <button
           onClick={() => selectView('dates')}
@@ -470,6 +491,38 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
         </button>
       </div>
 
+      {/* ── Search: plain substring on the conversation title ─────── */}
+      {searchOpen && (
+        <div className="px-3 pb-1">
+          <div className="flex items-center gap-1.5 px-2 rounded-lg"
+            style={{ border: '1px solid var(--color-border)' }}
+          >
+            <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />
+            <input
+              autoFocus
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Escape') { setSearchQuery(''); setSearchOpen(false); }
+              }}
+              placeholder="Search titles…"
+              className="flex-1 min-w-0 bg-transparent py-1.5 text-xs focus:outline-none"
+              style={{ color: 'var(--color-text-primary)' }}
+            />
+            {query && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="p-0.5 rounded hover:bg-black/5"
+                title="Clear"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Projects section ─────────────────────────────────────── */}
       <div className="px-3 pt-3 pb-1">
         <button
@@ -488,12 +541,9 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
           <div className="mt-1 px-4 py-1.5 rounded-lg text-xs flex items-center justify-between hover:bg-black/5 transition-colors cursor-pointer"
             style={{ color: 'var(--color-text-primary)' }}
           >
-            <span className="font-medium truncate">
-              {currentSessionId
-                ? sessions.find((s: ChatSession) => s.session_id === currentSessionId)?.agent_name || 'my-agent'
-                : 'my-agent'}
+            <span className="font-medium truncate" title={projectName}>
+              {projectName}
             </span>
-            <ChevronDown className="w-3 h-3 opacity-50" />
           </div>
         )}
       </div>
@@ -504,10 +554,10 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
            pinned conversations. Both collapse independently and remember it.
            A search lists flat matches, scoped to whichever view is active. */}
       <div className="flex-1 overflow-y-auto px-1 pb-2 space-y-0.5">
-        {searchQuery ? (
+        {query ? (
           filteredSessions.length === 0 ? (
             <div className="p-4 text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              No matching conversations
+              No titles match “{query}”
             </div>
           ) : (
             filteredSessions.map((s: ChatSession) => sessionRow(s))
@@ -533,7 +583,6 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
             dateFolders.map(folder => folderBlock({
               id: `date-${folder.key}`,
               label: folder.label,
-              icon: <Calendar className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />,
               sessions: folder.sessions,
               expanded: Boolean(expandedDateFolders[folder.key]),
               onToggle: () => toggleDateFolder(folder.key),
@@ -548,7 +597,6 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
           agentFolders.map(folder => folderBlock({
             id: `agent-${folder.agentId}`,
             label: folder.agentName,
-            icon: <Folder className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />,
             sessions: folder.sessions,
             expanded: Boolean(expandedAgentFolders[folder.agentId]),
             onToggle: () => toggleAgentFolder(folder.agentId),
