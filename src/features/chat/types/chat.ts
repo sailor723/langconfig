@@ -23,6 +23,8 @@ export interface ChatSession {
   session_id: string;
   agent_id: number;
   agent_name: string;
+  /** Vault/project this conversation runs in (null = unbound). */
+  project_id?: number | null;
   is_active: boolean;
   message_count: number;
   last_message_preview: string | null;
