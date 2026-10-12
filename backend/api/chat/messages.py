@@ -20,7 +20,7 @@ if _REPO_ROOT not in _sys.path and _os.path.isdir(_REPO_ROOT):
 
 import json
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -57,6 +57,52 @@ logger = logging.getLogger(__name__)
 # No prefix here: this router is included into routes.router, which already
 # carries the "/api/chat" prefix (FastAPI would otherwise stack prefixes).
 router = APIRouter(tags=["chat"])
+
+
+def _resolve_recursion_limit(agent_config: Optional[dict]) -> int:
+    """Turn cap for one chat invocation.
+
+    A recursion limit bounds LangGraph supersteps (model + tool turns): it is the
+    guard against a runaway tool loop, not a context-size control. Resolution
+    order:
+
+    1. the agent's own ``recursion_limit`` (so one agent can be tighter than its
+       kind's default),
+    2. the per-kind default from Settings → Agents (``agents.agent`` /
+       ``agents.deepagent``) — the two kinds differ ~6x in steps per LLM turn,
+    3. the team-wide ``analysis_recursion_limit``.
+
+    Verified against deepagents 0.7.1: the SDK binds ``recursion_limit=9999`` on
+    the compiled graph via ``.with_config``, but an invoke-time value overrides
+    it (invoking with 2 raises GraphRecursionError where 3 completes).
+    """
+    from config import settings as _app_settings
+
+    agent_config = agent_config or {}
+    try:
+        per_agent = int(agent_config.get("recursion_limit") or 0)
+    except (TypeError, ValueError):
+        logger.warning(
+            "agent config recursion_limit=%r is not an int — using the kind default",
+            agent_config.get("recursion_limit"),
+        )
+        per_agent = 0
+    if per_agent > 0:
+        return per_agent
+
+    try:
+        from models.deep_agent import default_recursion_limit
+
+        kind_default = default_recursion_limit(
+            bool(agent_config.get("use_deepagents", True))
+        )
+    except Exception as exc:  # settings unreadable must never break a chat
+        logger.warning("could not read the agents settings defaults: %s", exc)
+        kind_default = None
+    if kind_default:
+        return kind_default
+
+    return _app_settings.analysis_recursion_limit
 
 
 def _default_agent_docs(agent, workspace_root: str) -> dict:
@@ -525,14 +571,12 @@ async def send_message(
 
         # Invoke agent with thread_id for conversation persistence
         # The checkpointer automatically loads and saves conversation history.
-        # recursion_limit is shared with the analysis agent (config.py) so
-        # both paths honour the same per-team override via .env.
-        from config import settings as _app_settings
+        # Turn cap: the agent's own recursion_limit, else the team-wide setting.
         result = await agent_instance.ainvoke(
             {"messages": [new_message]},
             config={
                 "configurable": {"thread_id": session.session_id},
-                "recursion_limit": _app_settings.analysis_recursion_limit,
+                "recursion_limit": _resolve_recursion_limit(_safe_config),
             }
         )
 
@@ -1111,9 +1155,8 @@ async def send_message_stream(
                 new_message = HumanMessage(content=augmented_content)
 
                 # Use astream_events for token-by-token streaming
-                # recursion_limit is shared with the analysis agent (config.py)
-                # so both paths honour the same per-team override via .env.
-                from config import settings as _app_settings
+                # Turn cap: the agent's own recursion_limit, else the team-wide
+                # setting (same resolution as the non-streaming path).
                 tool_calls_count = 0
                 collected_tool_names = []  # Track tool names for DB persistence and skill detection
                 async for event in agent_instance.astream_events(
@@ -1121,7 +1164,7 @@ async def send_message_stream(
                     config={
                         "configurable": {"thread_id": session_id},
                         "callbacks": [event_handler],
-                        "recursion_limit": _app_settings.analysis_recursion_limit,
+                        "recursion_limit": _resolve_recursion_limit(agent_config),
                     },
                     version="v2"
                 ):

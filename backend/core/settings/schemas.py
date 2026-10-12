@@ -247,6 +247,79 @@ class RuntimeSettings(BaseModel):
     auto_cleanup_execution_history: bool = True
 
 
+# ── agents (create-time defaults) ────────────────────────────────────────────
+def _agent_limits(recursion_limit: int) -> "AgentLimits":
+    """Shared create-time limits, differing only in the step budget."""
+    return AgentLimits(
+        recursion_limit=recursion_limit,
+        summarization_threshold=60000,
+        keep_last_messages=20,
+        max_total_tokens=100000,
+        eviction_threshold=80000,
+        enable_summarization=True,
+        enable_auto_eviction=True,
+    )
+
+
+class AgentLimits(BaseModel):
+    """Limits applied when an agent is created (per agent kind).
+
+    ``recursion_limit`` counts LangGraph supersteps, not tool calls. Measured on
+    this codebase: one LLM turn costs ~13 steps for a standard agent (each of the
+    six default middleware contributes a ``before_model`` *and* an ``after_model``
+    step) but only ~2 for a DeepAgent (its middleware runs inside the model node).
+    Both kinds therefore need different numbers to express the same intent:
+
+        standard agent : 400 steps  ~= 30 LLM turns
+        DeepAgent      : 150 steps  ~= 75 tool turns
+
+    ``summarization_threshold`` is compared against system prompt + tool schemas +
+    conversation, so it must stay comfortably above an agent's own baseline
+    (measured ~12,000 tokens for a 30-tool DeepAgent) or it compacts every turn.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    recursion_limit: int = Field(
+        ge=1, description="LangGraph supersteps allowed in one chat run"
+    )
+    summarization_threshold: int = Field(
+        ge=1, description="Compact when the model call would exceed this many tokens"
+    )
+    keep_last_messages: int = Field(
+        ge=1, description="Messages kept verbatim after compaction"
+    )
+    max_total_tokens: int = Field(
+        ge=1, description="Context budget for workflow nodes / exported apps (not enforced in chat)"
+    )
+    eviction_threshold: int = Field(
+        ge=1, description="Declared threshold; must satisfy summarization < eviction < max_total"
+    )
+    enable_summarization: bool = True
+    enable_auto_eviction: bool = True
+
+    @model_validator(mode="after")
+    def _validate_ordering(self) -> "AgentLimits":
+        if not (
+            self.summarization_threshold < self.eviction_threshold < self.max_total_tokens
+        ):
+            raise ValueError(
+                "agent limits must satisfy summarization_threshold "
+                f"({self.summarization_threshold}) < eviction_threshold "
+                f"({self.eviction_threshold}) < max_total_tokens ({self.max_total_tokens})"
+            )
+        return self
+
+
+class AgentsSettings(BaseModel):
+    """Create-time defaults, one set per agent kind (Settings → Agents)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent: AgentLimits = Field(default_factory=lambda: _agent_limits(400))
+    deepagent: AgentLimits = Field(default_factory=lambda: _agent_limits(150))
+
+
 # ── registry of v1 namespaces ────────────────────────────────────────────────
 NAMESPACE_SCHEMAS: dict[str, type[BaseModel]] = {
     "general": GeneralSettings,
@@ -257,4 +330,5 @@ NAMESPACE_SCHEMAS: dict[str, type[BaseModel]] = {
     "search": SearchSettings,
     "onboarding": OnboardingSettings,
     "runtime": RuntimeSettings,
+    "agents": AgentsSettings,
 }

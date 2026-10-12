@@ -31,6 +31,7 @@ from models.deep_agent import (
     create_default_middleware_config,
     create_default_backend_config,
     create_default_guardrails_config,
+    default_recursion_limit,
 )
 from core.versioning import check_version_conflict, format_lock_version_error
 from core.utils.http import content_disposition
@@ -871,10 +872,12 @@ async def create_from_agent_creator(
             custom_tools=cfg.get("custom_tools", []),
             temperature=cfg.get("temperature", 0.7),
             use_deepagents=True,
+            # Step budget + guardrails come from Settings → Agents (per agent kind).
+            recursion_limit=cfg.get("recursion_limit") or default_recursion_limit(True),
             middleware=create_default_middleware_config(),
             subagents=[],
             backend=create_default_backend_config(),
-            guardrails=create_default_guardrails_config(),
+            guardrails=create_default_guardrails_config(True),
         )
 
         agent = DeepAgentTemplate(
@@ -968,10 +971,12 @@ async def quick_create_agent(
             custom_tools=[],
             temperature=request.temperature,
             use_deepagents=True,
+            # Step budget + guardrails come from Settings → Agents (per agent kind).
+            recursion_limit=default_recursion_limit(True),
             middleware=create_default_middleware_config(),
             subagents=[],
             backend=create_default_backend_config(),
-            guardrails=create_default_guardrails_config(),
+            guardrails=create_default_guardrails_config(True),
         )
         agent = DeepAgentTemplate(
             name=request.name.strip(),
