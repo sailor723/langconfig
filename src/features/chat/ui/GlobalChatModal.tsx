@@ -77,7 +77,6 @@ export default function GlobalChatModal() {
         <div className="flex flex-shrink-0" style={{ width: c.sidebarWidth }}>
           <ChatHistorySidebar
             onNewSession={c.handleNewSession}
-            onOpenFiles={() => c.togglePanel('files')}
           />
           {/* Resize Handle */}
           <div

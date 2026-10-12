@@ -28,6 +28,14 @@ export interface ChatSession {
   last_message_preview: string | null;
   created_at: string;
   updated_at: string;
+  /** Pinned conversation — pinned chats surface at the top for quick select. */
+  is_favorite?: boolean;
+  /** When it was pinned (ISO); keeps the pinned list stable as chats update. */
+  favorited_at?: string | null;
+  /** Conversation name. Null = fall back to the first user message. */
+  title?: string | null;
+  /** Who chose the title: 'manual' (user) or 'auto' (generated). */
+  title_source?: string | null;
 }
 
 export interface SessionMetrics {
@@ -155,6 +163,10 @@ export interface ChatContextValue extends ChatContextState {
   startSession: (agentId: number) => Promise<string>;
   switchSession: (sessionId: string) => void;
   endSession: (sessionId: string) => Promise<void>;
+  /** Pin/unpin a conversation for quick select; optimistic, reverted on failure. */
+  toggleFavorite: (sessionId: string) => Promise<void>;
+  /** Rename a conversation (empty string clears it back to the fallback). */
+  renameSession: (sessionId: string, title: string) => Promise<void>;
   setSelectedAgent: (agentId: number | null) => void;
   toggleHitl: () => void;
   refreshSessions: () => Promise<void>;

@@ -9,6 +9,10 @@ export interface ChatApi {
   startChatSession(agentId: number, projectId?: number | null): Promise<any>;
   endChatSession(sessionId: string): Promise<any>;
   getChatSessions(): Promise<any>;
+  /** Pin/unpin a conversation (chat history quick select). */
+  setChatFavorite(sessionId: string, favorite: boolean): Promise<any>;
+  /** Rename a conversation; empty string clears it back to the fallback. */
+  setChatTitle(sessionId: string, title: string): Promise<any>;
   getChatHistory(sessionId: string): Promise<any>;
   getChatMetrics(sessionId: string): Promise<any>;
   listActionPresets(params?: {
@@ -37,6 +41,16 @@ export const chatApi: ChatApi = {
 
   async getChatSessions(this: APIClient) {
     return this.get('/api/chat/sessions');
+  },
+
+  /** Pin/unpin a conversation. Purely a bookmark: never touches the messages. */
+  async setChatFavorite(this: APIClient, sessionId: string, favorite: boolean) {
+    return this.post(`/api/chat/${sessionId}/favorite`, { favorite });
+  },
+
+  /** Rename a conversation. Blank clears it, returning the UI to its fallback. */
+  async setChatTitle(this: APIClient, sessionId: string, title: string) {
+    return this.post(`/api/chat/${sessionId}/title`, { title });
   },
 
   async getChatHistory(this: APIClient, sessionId: string) {

@@ -159,6 +159,67 @@ export function ChatProvider({ children }: ChatProviderProps) {
     setHitlEnabled(prev => !prev);
   }, []);
 
+  /**
+   * Pin/unpin a conversation. Optimistic: the star flips immediately and the
+   * previously pinned conversations keep their order (the list sorts on
+   * `favorited_at`, not on activity), so pinned chats don't jump around when
+   * they receive new messages.
+   */
+  const toggleFavorite = useCallback(async (sessionId: string) => {
+    const target = sessions.find(s => s.session_id === sessionId);
+    if (!target) return;
+    const next = !target.is_favorite;
+
+    setSessions(prev => prev.map(s => (s.session_id === sessionId
+      ? { ...s, is_favorite: next, favorited_at: next ? new Date().toISOString() : null }
+      : s)));
+
+    try {
+      const res = await apiClient.setChatFavorite(sessionId, next);
+      const confirmed = res?.data?.is_favorite ?? next;
+      const confirmedAt = res?.data?.favorited_at ?? (next ? new Date().toISOString() : null);
+      setSessions(prev => prev.map(s => (s.session_id === sessionId
+        ? { ...s, is_favorite: confirmed, favorited_at: confirmedAt }
+        : s)));
+    } catch (error) {
+      console.error('Failed to update favourite:', error);
+      // Revert so the UI never claims a pin the server did not store.
+      setSessions(prev => prev.map(s => (s.session_id === sessionId
+        ? { ...s, is_favorite: target.is_favorite, favorited_at: target.favorited_at ?? null }
+        : s)));
+    }
+  }, [sessions]);
+
+  /**
+   * Rename a conversation. Optimistic like the pin, and blank means "clear":
+   * the row then falls back to the first user message, which keeps every
+   * conversation readable without forcing a naming step.
+   */
+  const renameSession = useCallback(async (sessionId: string, title: string) => {
+    const target = sessions.find(s => s.session_id === sessionId);
+    if (!target) return;
+    const cleaned = title.trim();
+    const optimistic = cleaned || null;
+
+    setSessions(prev => prev.map(s => (s.session_id === sessionId
+      ? { ...s, title: optimistic, title_source: optimistic ? 'manual' : null }
+      : s)));
+
+    try {
+      const res = await apiClient.setChatTitle(sessionId, cleaned);
+      const confirmed = res?.data?.title ?? optimistic;
+      setSessions(prev => prev.map(s => (s.session_id === sessionId
+        ? { ...s, title: confirmed, title_source: res?.data?.title_source ?? (confirmed ? 'manual' : null) }
+        : s)));
+    } catch (error) {
+      console.error('Failed to rename conversation:', error);
+      setSessions(prev => prev.map(s => (s.session_id === sessionId
+        ? { ...s, title: target.title ?? null, title_source: target.title_source ?? null }
+        : s)));
+      throw error;
+    }
+  }, [sessions]);
+
   const value: ChatContextValue = {
     isOpen,
     currentSessionId,
@@ -170,6 +231,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
     startSession,
     switchSession,
     endSession,
+    toggleFavorite,
+    renameSession,
     setSelectedAgent: setSelectedAgentId,
     toggleHitl,
     refreshSessions,

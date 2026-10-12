@@ -20,6 +20,9 @@ import MetricsPanel from './MetricsPanel';
 import MessagesPanel from './MessagesPanel';
 import ChatHistorySidebar from './ChatHistorySidebar';
 import AgentSelector from './AgentSelector';
+import ConversationTitle from './ConversationTitle';
+import ChatMeta from './ChatMeta';
+import type { ChatSession } from '../types/chat';
 import ChatSettingsMenu from './ChatSettingsMenu';
 import SidePanel from './SidePanel';
 
@@ -90,7 +93,6 @@ export default function ChatPage() {
       <div className="flex flex-shrink-0" style={{ width: c.sidebarWidth }}>
         <ChatHistorySidebar
           onNewSession={c.handleNewSession}
-          onOpenFiles={() => c.togglePanel('files')}
         />
         <div
           onMouseDown={c.handleResizeStart}
@@ -105,14 +107,48 @@ export default function ChatPage() {
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-2">
-          <AgentSelector
-            selectedAgentId={c.selectedAgentId}
-            onSelectAgent={c.handleStartSession}
-            displayName={c.agentName}
-          />
-          <div className="flex items-center gap-1">
+        {/* Header — everything informational sits on the left (agent, then the
+            conversation title with its date/time/length), actions on the right.
+            The title truncates, so the metadata never gets pushed out. */}
+        <div className="flex items-center px-5 py-2 gap-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <AgentSelector
+              selectedAgentId={c.selectedAgentId}
+              onSelectAgent={c.handleStartSession}
+              displayName={c.agentName}
+            />
+            {c.currentSessionId && (() => {
+              // Title + pin belong to the OPEN conversation: pinning is a
+              // decision made while reading, and the history rows stay clean.
+              const session = c.sessions.find((s: ChatSession) => s.session_id === c.currentSessionId);
+              const firstUserMessage = c.messages.find((m: any) => m.role === 'user')?.content;
+              const fallback = firstUserMessage
+                ? String(firstUserMessage).slice(0, 50)
+                : 'New conversation';
+              // Prefer the live count: it includes the turn being streamed,
+              // while the stored one is only as fresh as the last list refresh.
+              const liveCount = c.messages.length || session?.message_count || 0;
+              return (
+                // Nudged off the agent selector rather than sitting flush
+                // against it — the single number below is the whole adjustment.
+                <div className="flex items-center gap-2 min-w-0" style={{ marginLeft: 20 }}>
+                  <ConversationTitle
+                    title={session?.title ?? null}
+                    fallback={fallback}
+                    isFavorite={Boolean(session?.is_favorite)}
+                    onRename={(title) => c.renameSession(c.currentSessionId!, title)}
+                    onToggleFavorite={() => c.toggleFavorite(c.currentSessionId!)}
+                  />
+                  <ChatMeta
+                    createdAt={session?.created_at}
+                    updatedAt={session?.updated_at}
+                    messageCount={liveCount}
+                  />
+                </div>
+              );
+            })()}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
             {c.currentSessionId && (
               <>
                 <button
