@@ -11,13 +11,17 @@ What it does (every step is idempotent):
     2. init_db()                -> create all 50 tables + pgvector extension
     3. alembic stamp head       -> record the migration version (no replay needed)
     4. seed_settings.py         -> default settings documents (models/general/etc.)
-    5. seed_models.py           -> 28 cloud LLM providers (models table)
+    5. seed_models.py + upsert  -> model catalog incl. the vision model
     6. seed_search_providers.py -> 6 search backends
-    7. custom_tools_dump.sql    -> 53 tools incl. your 10 custom ones (restore if empty;
-                                   otherwise seed_builtin_tools keeps the 43 built-ins in sync)
-    8. deep_agents_dump.sql     -> 42 deep agents incl. your custom ones (restore if empty
-                                   or under-populated — fewer rows than the dump)
-    9. skills FS -> DB sync     -> upsert all SKILL.md files from backend/skills/ (33 total)
+    7. custom_tools_dump.sql    -> tools (restore if empty)
+       + custom_tools_merge.sql -> tools, ADDITIVE union on tool_id: inserts only
+                                   the ids that are absent, never rewrites a row
+       + seed_builtin_tools / read_any_file -> refresh code-owned built-ins
+    8. deep_agents_merge.sql    -> agents, ADDITIVE: inserts only names that are
+                                   absent, never removes or rewrites an existing agent
+    9. skills FS -> DB sync     -> upsert every SKILL.md under backend/skills/
+                                   (builtin/, personal/ and the top-level <id>/ dirs);
+                                   an invalid dir is reported and skipped
    10. chinook (best-effort)    -> create the sample DB + restore 11 tables for Graph Studio
 
 No full DB dump is needed: the role/database are created fresh by step 1 and only
@@ -216,8 +220,16 @@ def step_settings() -> None:
 
 
 def step_models() -> None:
-    print("\n[5/10] seed_models.py  (28 cloud providers)")
+    print("\n[5/10] models  (catalog + per-model capabilities)")
     _run_python(["scripts/seeds/seed_models.py"], {"MODELS_CSV": str(SEEDS_DIR / "models_seed.csv")})
+    # seed_models.py derives capabilities from a PER-PROVIDER table, in which
+    # `deepseek` has no vision flag, and models_seed.csv has no row for
+    # deepseek-flash at all — so the vision model the agent editor lists
+    # (capabilities.vision) and the reader pins per agent (d42f1a9) simply did
+    # not exist on a fresh install. upsert_model.py carries that row's real
+    # capabilities; it is idempotent and only touches `models`.
+    print("  -> upsert_model.py --preset deepseek-flash (vision model)")
+    _run_python(["scripts/upsert_model.py", "--preset", "deepseek-flash"])
 
 
 def step_search_providers() -> None:
@@ -236,27 +248,71 @@ def step_custom_tools(replace: bool) -> None:
         print(f"  -> custom_tools already has {count} row(s); running seed_builtin_tools to sync built-ins")
         _run_python(["scripts/seeds/seed_builtin_tools.py"])
 
+    # Additive catalog merge. The dump above carries explicit ids and was only
+    # applied to an EMPTY table, so a teammate who had made their own tools
+    # received none of the shared catalog. This file unions by tool_id: their
+    # rows stay exactly as they are, missing ones are added with ids from the
+    # sequence. (Their 5 tools + 3 of yours they lack = 8.)
+    if (SEEDS_DIR / "custom_tools_merge.sql").exists():
+        before = _table_count("custom_tools")
+        print("  -> custom_tools_merge.sql (additive; existing tool_ids untouched)")
+        _restore_dump("custom_tools_merge.sql")
+        print(f"  -> {_table_count('custom_tools') - before} tool(s) added, "
+              f"{before} pre-existing left untouched")
+    else:
+        print("  -> custom_tools_merge.sql missing; regenerate with "
+              "scripts/seeds/export_tools_merge.py")
+
+    # read_any_file is a BUILTIN whose definition lives in its own script (it
+    # needs trusted code — filesystem, tesseract, the reader graph — so it is
+    # not a UI tool). Nothing used to call that script, so a fresh install came
+    # up without the tool the vision/reader path depends on. Idempotent: it
+    # updates the row in place.
+    print("  -> seed_read_any_file_tool.py (builtin reader tool)")
+    _run_python(["scripts/seed_read_any_file_tool.py"])
+
 
 def step_deep_agents(replace: bool) -> None:
-    print("\n[8/10] deep_agents  (42 agents incl. custom)")
+    """[8] agents — additive by default: never removes or rewrites a row.
+
+    This used to restore ``deep_agents_dump.sql`` (explicit ids) after a
+    ``TRUNCATE deep_agent_templates RESTART IDENTITY CASCADE`` whenever the table
+    held FEWER rows than the dump. That condition is met by exactly the people
+    who must not be affected — a teammate who created their own three agents
+    has three rows, so the seed deleted them, and the CASCADE took their
+    ``chat_sessions`` with it (``agent_id`` is a foreign key).
+
+    The default path now applies ``deep_agents_merge.sql``: one INSERT per agent,
+    without an ``id`` (the target sequence assigns it, so no collision with the
+    target's own rows) and guarded by ``WHERE NOT EXISTS (… name = …)`` so an
+    agent whose name is already present — the teammate's own version included —
+    is left exactly as it is. Idempotent: re-running inserts nothing.
+
+    ``--replace`` still restores the old dump, because a destructive reset is
+    occasionally what someone wants. It truncates, so it now says so first.
+    """
+    print("\n[8/10] agents  (additive merge; existing agents are never touched)")
     count = _table_count("deep_agent_templates")
-    dump_count = _dump_row_count("deep_agents_dump.sql")
-    if count == 0 or replace:
-        if replace and count:
+
+    if replace:
+        if count:
+            print(f"  !! --replace: TRUNCATE deep_agent_templates CASCADE removes the "
+                  f"{count} existing agent(s) AND their chat sessions")
             _truncate("deep_agent_templates")
         _restore_dump("deep_agents_dump.sql")
+        print(f"  -> reset to the dump ({_table_count('deep_agent_templates')} agent(s))")
         return
 
-    if count < dump_count:
-        # Under-populated table (stray rows from a partial run or an older
-        # install) — reload the canonical agent set so a fresh bootstrap always
-        # ends up complete instead of silently skipping the dump.
-        print(f"  -> table has {count} row(s), fewer than the dump's {dump_count}; reloading full agent set")
-        _truncate("deep_agent_templates")
-        _restore_dump("deep_agents_dump.sql")
+    if not (SEEDS_DIR / "deep_agents_merge.sql").exists():
+        print("  -> deep_agents_merge.sql missing; regenerate it with "
+              "scripts/seeds/export_agents_merge.py")
         return
 
-    print("  -> already has user agents; skipping dump (re-run with --replace to reset)")
+    before = count
+    _restore_dump("deep_agents_merge.sql")
+    after = _table_count("deep_agent_templates")
+    print(f"  -> {after - before} agent(s) added, {before} pre-existing left untouched "
+          f"({after} total)")
 
 
 def step_identity() -> None:
@@ -273,17 +329,24 @@ def step_identity() -> None:
     install this is a no-op.
     """
     print("\n[8.5/10] identity backfill  (real id + workspace + docs)")
+    # The workspace root override must reach BOTH scripts. Without it the
+    # migration below falls back to the `workspace.base_dir` SETTINGS document
+    # and moves real directories under it — which is how a seed against a test
+    # or scratch database could touch a live install's agent folders. The
+    # backfill already honoured WORKSPACE_ROOT; this one silently did not.
+    ws_override = os.environ.get("WORKSPACE_ROOT", "").strip()
+
     # First, drop the legacy 'projects/' segment if it exists (no-op on a
     # fresh install; safe to run on every seed).
-    subprocess.run(
-        [sys.executable, "scripts/drop_projects_segment.py"],
-        cwd=str(BACKEND_DIR),
-    )
+    drop_cmd = [sys.executable, "scripts/drop_projects_segment.py"]
+    if ws_override:
+        drop_cmd += ["--base-dir", ws_override]
+    subprocess.run(drop_cmd, cwd=str(BACKEND_DIR))
+
     # Then the identity backfill.
     cmd = [sys.executable, "scripts/backfill_agent_identity.py"]
-    ws_root = os.environ.get("WORKSPACE_ROOT", "").strip()
-    if ws_root:
-        cmd += ["--workspace-root", ws_root]
+    if ws_override:
+        cmd += ["--workspace-root", ws_override]
     subprocess.run(cmd, cwd=str(BACKEND_DIR), check=True)
 
 
@@ -306,20 +369,41 @@ def step_skills() -> None:
     )
     from models.skill import Skill as SkillModel
 
-    # builtin/ first, then personal root (skip the builtin subfolder so each
-    # SKILL.md is visited exactly once).
-    seen: set = set()
-    skill_mds: list = list(scan_builtin_skills())
+    # THREE roots. The docstring has always claimed the personal skills live at
+    # backend/skills/<id>/, but PERSONAL_SKILLS_ROOT points at
+    # backend/skills/personal — so the top-level dirs were never scanned and six
+    # skills that exist in the live database (and on disk) were missing from
+    # every fresh install: erp-analyst, market-wizard, report-generator,
+    # sql-analyst, sunhing-analyst, web-content-analyzer.
+    #
+    # Order is builtin -> personal -> top level, and the FIRST parse of a given
+    # skill_id wins. 14 of the 21 top-level dirs duplicate a personal skill, so
+    # this adds the missing ones without re-syncing (and rewriting) the rest.
+    skills_root = Path(PERSONAL_SKILLS_ROOT).parent
+    candidates: list = list(scan_builtin_skills())
     for md in PERSONAL_SKILLS_ROOT.rglob("SKILL.md"):
-        if "builtin" in md.parts or md in seen:
+        if "builtin" not in md.parts:
+            candidates.append(md)
+    candidates += sorted(skills_root.glob("*/SKILL.md"))
+
+    # A stray directory must never break an install: backend/skills/market_wizard
+    # duplicates market-wizard under an id the model rejects (Skill validates
+    # kebab-case), which raised ValueError and aborted the whole seed the moment
+    # the top-level root entered the scan.
+    parsed: dict = {}
+    skipped: list = []
+    for skill_md in candidates:
+        try:
+            data = fs_to_db_dict(skill_md)
+        except Exception as exc:                      # noqa: BLE001 - reported below
+            skipped.append((skill_md, exc))
             continue
-        skill_mds.append(md)
+        data["source_type"] = derive_source_type(skill_md)
+        parsed.setdefault(data["skill_id"], data)
 
     synced = 0
     with SessionLocal() as db:
-        for skill_md in skill_mds:
-            data = fs_to_db_dict(skill_md)
-            data["source_type"] = derive_source_type(skill_md)
+        for data in parsed.values():
             existing = db.query(SkillModel).filter(SkillModel.skill_id == data["skill_id"]).first()
             if existing:
                 # Only overwrite when the filesystem copy is newer than the DB row.
@@ -332,10 +416,25 @@ def step_skills() -> None:
                     synced += 1
             else:
                 data["indexed_at"] = datetime.now(timezone.utc)
-                db.add(SkillModel(**data))
+                # The model validates skill_id (kebab-case) on construction, so an
+                # invalid directory fails HERE, not in fs_to_db_dict above.
+                # Construct first and skip without touching the session: a
+                # rollback would discard every skill added earlier in this loop.
+                try:
+                    obj = SkillModel(**data)
+                except Exception as exc:              # noqa: BLE001 - reported below
+                    skipped.append((data.get("skill_id"), exc))
+                    continue
+                db.add(obj)
                 synced += 1
         db.commit()
-    print(f"  -> {synced} skill(s) synced (total in DB: {_table_count('skills')})")
+
+    for where, exc in skipped:
+        label = (where.relative_to(skills_root.parent)
+                 if isinstance(where, Path) else where)
+        print(f"  !! skipped {label}: {exc}")
+    print(f"  -> {synced} skill(s) synced, {len(skipped)} skipped "
+          f"(total in DB: {_table_count('skills')})")
 
 
 def step_chinook() -> None:
@@ -389,6 +488,14 @@ def main() -> int:
     step_skills()
     step_chinook()
     summary()
+    # No duplicate report here. The union matches on tool_id, so a teammate's
+    # `my_current_time` and the catalog's `current_time` both survive — which is
+    # the correct outcome for a migration: it cannot know two differently-named
+    # ids are "the same tool", and guessing by name would drop real ones. The
+    # Tool Library is the place to resolve that: the user sees both rows and
+    # deletes the one they do not want. check_tool_overlap.py remains for an
+    # on-demand bulk look.
+
     print("\nDone. Start the backend (uv run python main.py), then the frontend.")
     return 0
 
