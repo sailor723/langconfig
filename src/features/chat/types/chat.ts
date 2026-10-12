@@ -52,6 +52,26 @@ export interface SessionMetrics {
   context_operations: number;
 }
 
+/**
+ * How full the conversation's context is, from GET /api/chat/{id}/metrics.
+ *
+ * `percent` is measured against `summarization_threshold` — the per-agent token
+ * size at which the agent is told to compact its history — so the ring describes
+ * the agent's own setting rather than a model constant. `used_tokens` is an
+ * estimate over the system prompt and the message list
+ * (services/context_occupancy.py), not a provider's billing figure.
+ */
+export interface ContextOccupancy {
+  used_tokens: number;
+  summarization_threshold: number;
+  eviction_threshold: number;
+  max_total_tokens: number;
+  keep_last_messages: number;
+  enable_summarization: boolean;
+  percent: number;
+  percent_of_max: number;
+}
+
 export interface SessionDocument {
   id: number;
   session_id: string;

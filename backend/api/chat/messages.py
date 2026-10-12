@@ -1526,6 +1526,25 @@ async def get_session_metrics(
     context_service = ConversationContextService(db)
     context_tokens = context_service.calculate_session_tokens(session)
 
+    # Context occupancy for the composer's ring: the same token count the
+    # summarisation trigger uses, against the agent's own threshold. Read here
+    # because the ring is rendered beside the session's other numbers, and
+    # because occupancy changes with every turn.
+    from services.context_occupancy import agent_context_config, occupancy
+
+    agent_config = (agent.config or {}) if agent else {}
+    guardrails = agent_context_config(agent_config) or (
+        agent.guardrails_config if agent and isinstance(agent.guardrails_config, dict) else {}
+    )
+    occupancy_data = occupancy(
+        messages=session.messages or [],
+        guardrails=guardrails,
+        system_prompt=agent_config.get("system_prompt", "") if isinstance(agent_config.get("system_prompt", ""), str) else "",
+        # Both agent kinds live in deep_agent_templates; `use_deepagents` marks
+        # which limit defaults apply when the row carries no guardrails.
+        use_deepagents=bool(agent_config.get("use_deepagents", True)),
+    ).as_dict()
+
     # Update cost tracking if column exists (handle missing column gracefully)
     try:
         current_cost = getattr(session, 'total_cost_usd', 0.0)
@@ -1546,6 +1565,7 @@ async def get_session_metrics(
             "cost_per_token": round(estimated_cost / max(total_tokens, 1), 8) if total_tokens > 0 else 0,
             "model_used": model
         },
+        "context": occupancy_data,
         "tool_calls": session.tool_calls,
         "subagent_spawns": session.subagent_spawns,
         "context_operations": session.context_operations,

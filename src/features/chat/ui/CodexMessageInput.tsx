@@ -16,7 +16,8 @@
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { Send } from 'lucide-react';
 import FileUploadButton from './FileUploadButton';
-import type { SessionDocument } from '../types/chat';
+import ContextMeter from './ContextMeter';
+import type { ContextOccupancy, SessionDocument } from '../types/chat';
 
 interface CodexMessageInputProps {
   onSendMessage: (message: string) => void;
@@ -35,6 +36,12 @@ interface CodexMessageInputProps {
    * message goes.
    */
   agentName?: string;
+  /**
+   * Context occupancy for the meter beside send. Absent until the metrics
+   * endpoint answers, and on a backend that does not report it yet — the meter
+   * then renders nothing rather than an empty ring.
+   */
+  context?: ContextOccupancy | null;
 }
 
 /**
@@ -56,15 +63,32 @@ const MIN_TEXTAREA_HEIGHT = 42;
 const MAX_TEXTAREA_HEIGHT = 240;
 
 /**
- * Widest the composer gets. It used to stretch the full width of the messages
- * panel (1092px on a 1400px window), which put the text and the send button
- * roughly a screen apart. 780px is the DeepSeek Harness composer's own cap:
- * DSH centres a 748px transcript column and sizes the card to that column plus
- * 16px a side. Centred with `mx-auto`, so the box keeps a symmetric margin as
- * the window changes. The empty-state composer is unaffected — it sits in a
- * narrower column already.
+ * Widest the composer gets — a proportion of its container, not a fixed cap.
+ *
+ * A fixed width (700px, and before that 780 / 672 / 640 / 600) reads well at the
+ * one window size it was chosen at and ignores every other: widen the window and
+ * the box stays put. A proportion grows and shrinks with the window instead.
+ *
+ * 71.3% is the first proportional value — 62% — raised by the 15% asked for:
+ * 62 × 1.15 = 71.3. In a 1400px window that is 779px of the panel's 1092px
+ * content box, against 677px at 62%. For reference, assistant messages are
+ * capped at max-w-[80%] in MessagesPanel, so the composer sits just inside the
+ * widest message column above it.
+ *
+ * The 560px floor keeps it usable in a narrow window, and `min(100%, …)` keeps
+ * it inside the panel when even that floor is too wide (a phone-width window
+ * gets 100% of what there is). There is deliberately NO ceiling, since a
+ * percentage has none — add one with clamp(), e.g.
+ * `min(100%, clamp(560px, 71.3%, 1200px))`, if a very wide screen makes the box
+ * uncomfortably long.
+ *
+ * Exported because the stats line under the composer (MessagesPanel) is a
+ * SIBLING of this card and has to line up with it: same containing block, same
+ * max width, same centring. The empty-state column, by contrast, deliberately
+ * carries no cap of its own — applying the rule at two nested levels would
+ * compound (71.3% of 71.3%) and pin that box to its floor.
  */
-const COMPOSER_MAX_WIDTH = 780;
+export const COMPOSER_MAX_WIDTH = 'min(100%, max(560px, 71.3%))';
 
 export default function CodexMessageInput({
   onSendMessage,
@@ -75,6 +99,7 @@ export default function CodexMessageInput({
   projectId = null,
   onFileUploaded = () => {},
   agentName,
+  context,
 }: CodexMessageInputProps) {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -188,7 +213,7 @@ export default function CodexMessageInput({
         {/* The right padding matches the left (24px) so the send circle and the
             "+" sit equally far in from the card's edges. DSH keeps its send
             button at 8px, so this is a deliberate step away from it — it reads
-            better once the card is capped at 780px and centred. */}
+            better now that the card is capped and centred. */}
         {/* py-2 rather than py-1.5 keeps this row 48px now that the attach
             control is a 28px circle (DSH's "+" geometry): the row is sized by
             its tallest child, so a 32px send button plus 16px of padding still
@@ -211,25 +236,29 @@ export default function CodexMessageInput({
           )}
         </div>
 
-        {/* Round send button */}
-        <button
-          onClick={handleSend}
-          disabled={!canSend}
-          className="w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0
-                     disabled:opacity-40 disabled:cursor-not-allowed
-                     hover:opacity-90 active:scale-95"
-          style={{
-            backgroundColor: 'var(--color-primary)',
-            color: 'white',
-          }}
-          title={isStreaming ? 'Streaming...' : 'Send message'}
-        >
-          {isStreaming ? (
-            <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <Send className="w-3.5 h-3.5" />
-          )}
-        </button>
+        {/* Trailing controls: the context meter, then send — DSH's order. */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <ContextMeter context={context} />
+
+          <button
+            onClick={handleSend}
+            disabled={!canSend}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0
+                       disabled:opacity-40 disabled:cursor-not-allowed
+                       hover:opacity-90 active:scale-95"
+            style={{
+              backgroundColor: 'var(--color-primary)',
+              color: 'white',
+            }}
+            title={isStreaming ? 'Streaming...' : 'Send message'}
+          >
+            {isStreaming ? (
+              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Send className="w-3.5 h-3.5" />
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

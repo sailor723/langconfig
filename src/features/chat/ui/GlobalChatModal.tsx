@@ -198,6 +198,11 @@ export default function GlobalChatModal() {
               thinkingBuffer={c.thinkingBuffer}
               workspaceName={activeProject?.name || undefined}
               agentName={c.agentName}
+              context={c.context}
+              stats={c.currentSessionId ? {
+                tokens: c.metrics?.total_tokens || 0,
+                toolCalls: c.toolCalls?.length || 0,
+              } : null}
             />
             {c.currentSessionId && c.showMetrics && (
               <SidePanel

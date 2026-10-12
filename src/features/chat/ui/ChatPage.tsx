@@ -245,6 +245,12 @@ export default function ChatPage() {
             thinkingBuffer={c.thinkingBuffer}
             workspaceName={activeProject?.name || undefined}
             agentName={c.agentName}
+            context={c.context}
+            stats={c.currentSessionId ? {
+              tokens: c.metrics?.total_tokens || 0,
+              toolCalls: c.toolCalls?.length || 0,
+              theme: chatTheme,
+            } : null}
           />
           {c.currentSessionId && c.showMetrics && (
             <SidePanel
@@ -285,31 +291,15 @@ export default function ChatPage() {
             backgroundColor: 'var(--color-panel-dark, #f9fafb)',
           }}
         >
-          {/* Status line, not identity: the agent's name is already in the header
-              (and used to appear here a second time). This carried the agent name
-              before; it now reports session state, from metrics that are actually
-              populated (model_used / context_tokens / cost are null in the
-              database today, so they are deliberately not shown). */}
+          {/* Only the no-session hint stays here. The session's numbers moved
+              onto the composer's own axis, under the chat box (MessagesPanel),
+              where DSH keeps its stats strip — this bar is now chrome (the
+              settings gear and the copyright), not a status line. */}
           <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {!c.currentSessionId ? (
+            {!c.currentSessionId && (
               <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
                 No session — pick an agent to start
               </span>
-            ) : (
-              <>
-                <span>
-                  <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                    {(c.metrics?.total_tokens || 0).toLocaleString()}
-                  </span>{' '}
-                  tokens
-                </span>
-                <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'var(--color-text-muted)' }} />
-                <span>{c.toolCalls?.length || 0} tool call{(c.toolCalls?.length || 0) === 1 ? '' : 's'}</span>
-                <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'var(--color-text-muted)' }} />
-                <span>{c.messages.length} message{c.messages.length !== 1 ? 's' : ''}</span>
-                <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'var(--color-text-muted)' }} />
-                <span className="capitalize">{chatTheme}</span>
-              </>
             )}
           </div>
           <div className="flex items-center gap-1">
