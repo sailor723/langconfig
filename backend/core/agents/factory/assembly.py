@@ -479,6 +479,70 @@ class _AgentAssemblyMixin:
             except Exception as e:
                 logger.warning(f"Filesystem middleware not available for regular agent: {e}")
 
+        # 6b-bis. Summarization — the standard agent's counterpart of the
+        # SummarizationMiddleware the DeepAgent assembly attaches
+        # (services/deepagent_factory/assembly.py). Guardrails have carried
+        # `enable_summarization` and token_limits for both kinds, but only
+        # DeepAgents ever acted on them: a standard agent with summarization
+        # enabled kept growing its history until the provider refused the
+        # request. Trigger and keep semantics are deliberately identical, so the
+        # number the composer's context ring shows (services/
+        # context_occupancy.py, measured against summarization_threshold) is the
+        # number this middleware actually compacts at.
+        try:
+            from models.deep_agent import _agent_limits
+
+            _guardrails = agent_config.get("guardrails") or {}
+            if not isinstance(_guardrails, dict):
+                _guardrails = {}
+            _limits = _guardrails.get("token_limits") or {}
+            # Fall back to the per-kind Settings defaults exactly like the
+            # create endpoints and the occupancy meter do, so an agent saved
+            # before those settings existed behaves like a new one.
+            _defaults = _agent_limits(False)
+            _sum_enabled = bool(_guardrails.get(
+                "enable_summarization", _defaults.get("enable_summarization", True)
+            ))
+            _has_sum_mw = any(
+                getattr(m, "__class__", None).__name__ == "SummarizationMiddleware"
+                for m in (middleware or [])
+            )
+
+            if _sum_enabled and not _has_sum_mw:
+                from deepagents.middleware.summarization import SummarizationMiddleware
+                from services.agent_utils import resolve_model
+
+                _trigger_tokens = int(_limits.get(
+                    "summarization_threshold", _defaults["summarization_threshold"]
+                ))
+                _keep_messages = int(_limits.get(
+                    "keep_last_messages", _defaults["keep_last_messages"]
+                ))
+                _summarizer = await resolve_model(
+                    model_name,
+                    temperature,
+                    # Small cap: the summariser writes a summary, it does not
+                    # reproduce the transcript. The agent's own max_tokens (often
+                    # 30k) would be a wasteful budget for that.
+                    4096,
+                    {"streaming": False},
+                )
+                if middleware is None:
+                    middleware = []
+                middleware.append(SummarizationMiddleware(
+                    model=_summarizer,
+                    trigger=("tokens", _trigger_tokens),
+                    keep=("messages", _keep_messages),
+                ))
+                logger.info(
+                    f"✓ Summarization middleware added (regular agent): "
+                    f"trigger=tokens>={_trigger_tokens}, keep={_keep_messages} messages"
+                )
+        except Exception as e:
+            # Never fail an agent build over context management: without this
+            # block the agent simply runs uncompacted, as it did before.
+            logger.warning(f"Summarization middleware unavailable for regular agent: {e}")
+
         # 6c. Setup Callbacks (e.g., LangFuse Tracing, Token Tracking)
         callbacks = AgentFactory._configure_callbacks(
             project_id=project_id,
