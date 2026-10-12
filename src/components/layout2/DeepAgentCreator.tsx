@@ -503,7 +503,14 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
                   >
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                       <span
-                        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+                        // Only stop propagation here so a click in the checkbox
+                        // area does not also open the inspect panel. The toggle
+                        // itself is driven by the input's onChange below:
+                        // calling onToggle() here TOO fired it twice per click
+                        // (state flips A->B->A), which made every tool look
+                        // impossible to switch on or off. Same fix as
+                        // editorToolsPicker.tsx.
+                        onClick={(e) => e.stopPropagation()}
                         style={{ display: 'inline-flex', flexShrink: 0, marginTop: 2 }}
                       >
                         <input
