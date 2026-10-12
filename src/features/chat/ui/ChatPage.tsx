@@ -12,6 +12,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { X, GripVertical, BarChart3, FolderOpen } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
+import { useProject } from '../../../contexts/ProjectContext';
 import { themes, type ThemeName } from '../../../lib/themes';
 import { useChatController } from '../hooks/useChatController';
 import HitlInterruptModal from './HitlInterruptModal';
@@ -27,6 +28,9 @@ import ChatSettingsMenu from './ChatSettingsMenu';
 import SidePanel from './SidePanel';
 
 export default function ChatPage() {
+  // The open conversation is labelled with its workspace (project), which sits
+  // above the agent in the platform's hierarchy.
+  const { activeProject } = useProject();
   const [searchParams] = useSearchParams();
   const agentIdFromUrl = searchParams.get('agentId');
 
@@ -239,7 +243,7 @@ export default function ChatPage() {
             customEvents={c.customEvents}
             thinkingTraces={c.thinkingTraces}
             thinkingBuffer={c.thinkingBuffer}
-            agentName={c.agentName}
+            workspaceName={activeProject?.name || undefined}
           />
           {c.currentSessionId && c.showMetrics && (
             <SidePanel
@@ -280,14 +284,32 @@ export default function ChatPage() {
             backgroundColor: 'var(--color-panel-dark, #f9fafb)',
           }}
         >
+          {/* Status line, not identity: the agent's name is already in the header
+              (and used to appear here a second time). This carried the agent name
+              before; it now reports session state, from metrics that are actually
+              populated (model_used / context_tokens / cost are null in the
+              database today, so they are deliberately not shown). */}
           <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              {c.currentSessionId ? c.agentName : 'Standalone Chat'}
-            </span>
-            <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'var(--color-text-muted)' }} />
-            <span>{c.messages.length} message{c.messages.length !== 1 ? 's' : ''}</span>
-            <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'var(--color-text-muted)' }} />
-            <span className="capitalize">{chatTheme}</span>
+            {!c.currentSessionId ? (
+              <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                No session — pick an agent to start
+              </span>
+            ) : (
+              <>
+                <span>
+                  <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                    {(c.metrics?.total_tokens || 0).toLocaleString()}
+                  </span>{' '}
+                  tokens
+                </span>
+                <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'var(--color-text-muted)' }} />
+                <span>{c.toolCalls?.length || 0} tool call{(c.toolCalls?.length || 0) === 1 ? '' : 's'}</span>
+                <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'var(--color-text-muted)' }} />
+                <span>{c.messages.length} message{c.messages.length !== 1 ? 's' : ''}</span>
+                <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'var(--color-text-muted)' }} />
+                <span className="capitalize">{chatTheme}</span>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <ChatSettingsMenu

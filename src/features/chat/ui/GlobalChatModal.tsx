@@ -8,6 +8,7 @@
 import { useEffect, useRef } from 'react';
 import { X, GripVertical, BarChart3, FolderOpen } from 'lucide-react';
 import { useChat } from '../state/ChatContext';
+import { useProject } from '../../../contexts/ProjectContext';
 import { useChatController } from '../hooks/useChatController';
 import HitlInterruptModal from './HitlInterruptModal';
 import FilesPanel from './FilesPanel';
@@ -21,6 +22,7 @@ export default function GlobalChatModal() {
   const { isOpen, closeChat } = useChat();
   // Shared chat controller (same logic as ChatPage) — modal shell only
   const c = useChatController({ locale: 'zh', autoStart: isOpen });
+  const { activeProject } = useProject();
 
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -194,7 +196,7 @@ export default function GlobalChatModal() {
               customEvents={c.customEvents}
               thinkingTraces={c.thinkingTraces}
               thinkingBuffer={c.thinkingBuffer}
-              agentName={c.agentName}
+              workspaceName={activeProject?.name || undefined}
             />
             {c.currentSessionId && c.showMetrics && (
               <SidePanel

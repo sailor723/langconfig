@@ -24,8 +24,12 @@ interface CodexMessageInputProps {
   sessionId?: string | null;
   projectId?: number | null;
   onFileUploaded?: (file: SessionDocument) => void;
-  /** Optional current project/agent label shown inside composer footer */
-  agentName?: string;
+  /**
+   * Workspace (project) label for the composer footer badge. Its own layout
+   * documents the row as "[project] · Work locally" — it used to be handed the
+   * AGENT name, which is why the agent appeared twice at the bottom.
+   */
+  workspaceName?: string;
 }
 
 export default function CodexMessageInput({
@@ -36,7 +40,7 @@ export default function CodexMessageInput({
   sessionId = null,
   projectId = null,
   onFileUploaded = () => {},
-  agentName,
+  workspaceName,
 }: CodexMessageInputProps) {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -126,7 +130,7 @@ export default function CodexMessageInput({
       </div>
 
       {/* Footer row (project badge, environment) */}
-      {agentName && (
+      {workspaceName && (
         <div
           className="flex items-center gap-3 px-3 py-1.5 text-[11px]"
           style={{
@@ -134,7 +138,7 @@ export default function CodexMessageInput({
           }}
         >
           <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-            {agentName}
+            {workspaceName}
           </span>
           <span>·</span>
           <span>Work locally</span>
