@@ -246,6 +246,12 @@ def instrument_deepagents_middleware(
         logger.info("Instrumenting SubAgentMiddleware")
         return InstrumentedSubAgentMiddleware(middleware_instance, callback_handler)
 
+    elif "SummarizationMiddleware" in middleware_class_name:
+        # Compaction needs no instrumentation of its own — the model call it
+        # makes is already traced. Pass through silently instead of logging
+        # "unknown middleware type" on every build with summarization enabled.
+        return middleware_instance
+
     else:
         # Unknown middleware type - return as-is
         logger.warning(f"Unknown middleware type: {middleware_class_name}, skipping instrumentation")
