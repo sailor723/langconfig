@@ -11,6 +11,7 @@ import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
 import { useAvailableTools } from '../../hooks/useAvailableTools';
+import { useAgentDefaults } from '../../hooks/useAgentDefaults';
 import apiClient from '../../lib/api-client';
 import { Loader, Plus, X } from 'lucide-react';
 import { SectionId as _SectionId, SECTIONS } from './editorConstants';
@@ -69,6 +70,9 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
     .filter((m: any) => m?.capabilities?.vision)
     .map((m: any) => ({ id: m.id, name: m.name || m.id }));
   const { isLoading: nativeToolsLoading, groupedByCategory, defaultToolIds } = useAvailableTools();
+  // Create-time limits from Settings → Agents (PostgreSQL). New DeepAgents start
+  // from these instead of literals; Settings is the single place to edit them.
+  const { deepagent: deepagentDefaults, isLoading: defaultsLoading } = useAgentDefaults();
 
   // Section state
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
@@ -122,6 +126,10 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   const [enableSummarization, setEnableSummarization] = useState(false);
   const [longTermMemory, setLongTermMemory] = useState(true);
   const [tokenLimit, setTokenLimit] = useState<number | ''>(8000);
+  // Step budget and token limits for a NEW DeepAgent come from Settings → Agents
+  // (PostgreSQL). Seeded below once the namespace is read, so the creator starts
+  // from the team's numbers instead of a literal.
+  const [recursionLimit, setRecursionLimit] = useState<number | ''>('');
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +163,17 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
   }, [defaultToolIds]);
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>([]);
   const [showAllTools, setShowAllTools] = useState(true);
+
+  // Seed the step budget + token limits from Settings → Agents (PostgreSQL).
+  // Only fills fields the user has not touched, so prefill/typing always wins.
+  useEffect(() => {
+    if (defaultsLoading || !deepagentDefaults) return;
+    setRecursionLimit(prev => (prev === '' ? deepagentDefaults.recursion_limit : prev));
+    setTokenLimit(prev => (prev === 8000 || prev === '' ? deepagentDefaults.max_total_tokens : prev));
+    setEnableSummarization(prev => prev || deepagentDefaults.enable_summarization);
+    setEnableAutoEviction(prev => prev || deepagentDefaults.enable_auto_eviction);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultsLoading, deepagentDefaults?.recursion_limit]);
 
   // Load available tools and skills on mount
   useEffect(() => {
@@ -223,19 +242,32 @@ export default function DeepAgentCreator({ tab }: DeepAgentCreatorProps) {
       enable_auto_eviction: enableAutoEviction,
       enable_summarization: enableSummarization,
       long_term_memory: longTermMemory,
-      // Omit token_limits when not set so backend uses its own defaults
-      // (summarization_threshold=60000 < eviction_threshold=80000 < max_total_tokens=100000)
-      ...(tokenLimit === '' ? {} : {
-        token_limits: {
-          max_total_tokens: Number(tokenLimit),
-          summarization_threshold: Math.floor(Number(tokenLimit) * 0.6),
-          eviction_threshold: Math.floor(Number(tokenLimit) * 0.8),
-        },
-      }),
+      // Compaction numbers come from Settings → Agents. When the user keeps the
+      // budget at the Settings value, Settings' thresholds apply verbatim (they
+      // are already ordered); when they lower the budget, the thresholds are
+      // scaled with it so the ordering validator still passes.
+      ...(tokenLimit === '' ? {} : (() => {
+        const budget = Number(tokenLimit);
+        const fromSettings = deepagentDefaults && budget === deepagentDefaults.max_total_tokens;
+        return {
+          token_limits: {
+            max_total_tokens: budget,
+            summarization_threshold: fromSettings
+              ? deepagentDefaults!.summarization_threshold
+              : Math.floor(budget * 0.6),
+            eviction_threshold: fromSettings
+              ? deepagentDefaults!.eviction_threshold
+              : Math.floor(budget * 0.8),
+            keep_last_messages: deepagentDefaults?.keep_last_messages ?? 20,
+          },
+        };
+      })()),
     },
+    // Step budget for a new run (Settings → Agents). Counts LangGraph supersteps,
+    // not tool calls: a DeepAgent spends ~2 per tool turn.
+    recursion_limit: recursionLimit === '' ? null : Number(recursionLimit),
     use_deepagents: true,
   });
-
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);

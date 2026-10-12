@@ -16,6 +16,7 @@ import { useLayoutState } from './useLayout';
 import { chatStore } from './chatStore';
 import { useAvailableModels } from '../../hooks/useAvailableModels';
 import { useAvailableTools } from '../../hooks/useAvailableTools';
+import { useAgentDefaults } from '../../hooks/useAgentDefaults';
 import apiClient from '../../lib/api-client';
 import CodeViewerModal from './CodeViewerModal';
 import ChatTestToolbar from './editorChatToolbar';
@@ -58,6 +59,20 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
     chatStore.setCurrentProjectId(activeProjectId ?? null);
   }, [activeProjectId]);
   const { cloudModels, localModels, isLoading: modelsLoading } = useAvailableModels({ includeLocal: true });
+  // Create-time limits from Settings → Agents (PostgreSQL): a new standard agent
+  // starts from the team's numbers rather than an empty guardrails object.
+  const { agent: agentDefaults } = useAgentDefaults();
+  const agentGuardrails = useMemo(() => (agentDefaults ? {
+    enable_auto_eviction: agentDefaults.enable_auto_eviction,
+    enable_summarization: agentDefaults.enable_summarization,
+    token_limits: {
+      max_total_tokens: agentDefaults.max_total_tokens,
+      eviction_threshold: agentDefaults.eviction_threshold,
+      summarization_threshold: agentDefaults.summarization_threshold,
+      keep_last_messages: agentDefaults.keep_last_messages,
+    },
+  } : {}), [agentDefaults]);
+  const defaultRecursionLimit = agentDefaults?.recursion_limit ?? null;
   // Models the reader can use for the vision step (catalog `capabilities.vision`).
   const visionCapableModels = (cloudModels || [])
     .filter((m: any) => m?.capabilities?.vision)
@@ -385,7 +400,10 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
         middleware: [],
         subagents: [],
         backend: { type: 'state' },
-        guardrails: {},
+        // Guardrails + step budget come from Settings → Agents for a new agent;
+        // the JSON tab still wins (spread below) if the user edited them there.
+        guardrails: agentGuardrails,
+        recursion_limit: defaultRecursionLimit,
         use_deepagents: false,
         // JSON-tab overrides
         ...jsonConfig,
@@ -593,6 +611,25 @@ export default function AgentEditor({ tab }: AgentEditorProps) {
             style={{ ...inputStyle, fontFamily: 'monospace' }}
             min={0}
           />
+        </div>
+        <div style={compactCardStyle}>
+          <div style={labelStyle}>Recursion Limit</div>
+          <input
+            type="number"
+            value={config.recursion_limit ?? ''}
+            onChange={e => updateConfigField(
+              'recursion_limit', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+            placeholder="Team default (1000)"
+            style={{ ...inputStyle, fontFamily: 'monospace' }}
+            min={1}
+          />
+          {/* Steps, not turns: measured ~30 LangGraph steps per tool turn for a
+              standard agent, so 1000 is roughly 30 tool calls. */}
+          <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4, lineHeight: '14px' }}>
+            Maximum LangGraph steps in one run — a standard agent spends ~30 of
+            them per tool turn, so the 1000 default is about 30 tool calls. Leave
+            empty to use the team-wide setting.
+          </div>
         </div>
         <div style={compactCardStyle}>
           <div style={labelStyle}>Version</div>

@@ -19,7 +19,7 @@ import { themes, useTheme, type ThemeName } from '../lib/themes'
 import apiClient from '../lib/api-client'
 import { useProject } from '../contexts/ProjectContext'
 
-type SectionId = 'general' | 'models' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'runtime' | 'about'
+type SectionId = 'general' | 'models' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'runtime' | 'agents' | 'about'
 
 const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
   { id: 'general', labelKey: 'settings_general', icon: 'tune' },
@@ -29,6 +29,7 @@ const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
   { id: 'workspace', labelKey: 'settings_workspace', icon: 'folder_open' },
   { id: 'storage', labelKey: 'settings_storage', icon: 'storage' },
   { id: 'runtime', labelKey: 'settings_section_runtime', icon: 'tune' },
+  { id: 'agents', labelKey: 'settings_agents', icon: 'rule' },
   { id: 'about', labelKey: 'settings_about', icon: 'info' },
 ]
 
@@ -276,6 +277,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               {section === 'workspace' && <WorkspaceSection />}
               {section === 'storage' && <StorageSection />}
               {section === 'runtime' && <RuntimeSection />}
+              {section === 'agents' && <AgentsSection />}
               {section === 'about' && <AboutSection />}
             </div>
           </div>
@@ -1148,6 +1150,111 @@ function RuntimeSection() {
         <Toggle checked={rt?.auto_cleanup_execution_history ?? true}
                 onChange={v => update({ auto_cleanup_execution_history: v })} />
       </Row>
+    </div>
+  )
+}
+
+// ── Agents (create-time limits) ───────────────────────────────────
+//
+// The two kinds carry different numbers on purpose: recursion_limit counts
+// LangGraph supersteps, and one LLM turn costs ~13 steps for a standard agent
+// (six default middleware × before_model + after_model) but ~2 for a DeepAgent.
+// Creators read this namespace, so editing a value here changes what the next
+// agent is created with.
+
+const AGENT_LIMIT_FIELDS: { key: string; label: string; hint: string }[] = [
+  {
+    key: 'recursion_limit',
+    label: 'recursion_limit',
+    hint: 'LangGraph supersteps for one chat run — not tool calls. A standard agent spends ~13 per LLM turn, a DeepAgent ~2.',
+  },
+  {
+    key: 'summarization_threshold',
+    label: 'summarization_threshold',
+    hint: 'Compact when a model call would exceed this many tokens (system prompt + tool schemas + conversation). Keep it above ~12k.',
+  },
+  {
+    key: 'keep_last_messages',
+    label: 'keep_last_messages',
+    hint: 'Messages kept verbatim after compaction; everything older is folded into one summary and offloaded to conversation_history/.',
+  },
+  {
+    key: 'max_total_tokens',
+    label: 'max_total_tokens',
+    hint: 'Context budget for workflow nodes and exported apps. Not enforced in chat.',
+  },
+  {
+    key: 'eviction_threshold',
+    label: 'eviction_threshold',
+    hint: 'Declared threshold; must stay between summarization_threshold and max_total_tokens.',
+  },
+]
+
+function AgentLimitsBlock({ kind, title, hint }: { kind: 'agent' | 'deepagent'; title: string; hint: string }) {
+  const [limits, setLimits] = useState<Record<string, any> | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  const reload = useCallback(async () => {
+    const ns = await describeNs('agents')
+    setLimits((ns?.value?.[kind] as Record<string, any>) ?? null)
+  }, [kind])
+
+  useEffect(() => { reload() }, [reload])
+
+  const write = async (key: string, value: any) => {
+    const ok = await mutateNs('agents', [{ op: 'set', path: [kind, key], value }])
+    setFailed(!ok)
+    await reload()   // server truth (validation may reject an ordering violation)
+  }
+
+  if (!limits) return null
+
+  return (
+    <div style={{ marginTop: 20 }}>
+      <SectionTitle title={title} desc={hint} />
+      {failed && (
+        <div style={{ fontSize: 12, color: 'var(--color-danger, #d33)', marginBottom: 8 }}>
+          Rejected — the limits must satisfy summarization_threshold &lt; eviction_threshold &lt; max_total_tokens.
+        </div>
+      )}
+      {AGENT_LIMIT_FIELDS.map(f => (
+        <Row key={f.key} label={f.label} hint={f.hint}>
+          <Input
+            type="number"
+            mono
+            width={140}
+            value={String(limits[f.key] ?? '')}
+            onChange={v => write(f.key, v === '' ? undefined : parseInt(v, 10))}
+          />
+        </Row>
+      ))}
+      <Row label="enable_summarization" hint="Compact the conversation instead of overrunning the context window.">
+        <Toggle checked={Boolean(limits.enable_summarization)} onChange={v => write('enable_summarization', v)} />
+      </Row>
+      <Row label="enable_auto_eviction" hint="Evict oversized tool results to the backend (1 MB per result).">
+        <Toggle checked={Boolean(limits.enable_auto_eviction)} onChange={v => write('enable_auto_eviction', v)} />
+      </Row>
+    </div>
+  )
+}
+
+function AgentsSection() {
+  return (
+    <div>
+      <SectionTitle
+        title="Agents"
+        desc="Defaults applied when an agent is created. Existing agents keep their own values — set those in the agent editor."
+      />
+      <AgentLimitsBlock
+        kind="agent"
+        title="Standard agents"
+        hint="Agents created with use_deepagents = false. Their six default middleware cost ~13 steps per LLM turn, so 400 steps ≈ 30 turns."
+      />
+      <AgentLimitsBlock
+        kind="deepagent"
+        title="DeepAgents"
+        hint="Middleware runs inside the model node, so a turn costs ~2 steps; 150 steps ≈ 75 tool turns."
+      />
     </div>
   )
 }
