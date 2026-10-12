@@ -255,6 +255,17 @@ class DeepAgentConfig(BaseModel):
         default=None,
         description="Modalities for multimodal models (e.g., ['image', 'text'] for Gemini image generation)"
     )
+    recursion_limit: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description=(
+            "LangGraph supersteps allowed in one chat run — the guard against a "
+            "runaway tool loop. Counts steps, not tool calls: one LLM turn costs "
+            "~13 steps for a standard agent (six default middleware × before/after "
+            "model) but ~2 for a DeepAgent. Unset = the per-kind default from the "
+            "`agents` settings namespace."
+        ),
+    )
     system_prompt: str = Field(..., description="Agent system prompt")
 
     # Tools
@@ -596,15 +607,61 @@ def create_default_backend_config() -> BackendConfig:
     )
 
 
-def create_default_guardrails_config() -> GuardrailsConfig:
-    """Create default guardrails configuration."""
+def _agent_limits(use_deepagents: bool) -> Dict[str, Any]:
+    """Per-kind create-time limits from the ``agents`` settings namespace.
+
+    Settings (PostgreSQL) is the source of truth; the schema defaults apply when
+    the document is absent. ``use_deepagents`` picks the set — the two kinds need
+    very different step budgets because their per-turn step costs differ ~6x.
+    """
+    from core.settings.runtime import runtime_value
+
+    kind = "deepagent" if use_deepagents else "agent"
+    # The namespace is nested per kind ({"agent": {...}, "deepagent": {...}}), so
+    # read the kind's sub-document rather than a dotted field name.
+    limits = (runtime_value("agents") or {}).get(kind) or {}
+
+    def pick(key: str, fallback: Any) -> Any:
+        value = limits.get(key)
+        return fallback if value is None else value
+
+    return {
+        "recursion_limit": pick("recursion_limit", None),
+        "summarization_threshold": pick("summarization_threshold", 60000),
+        "keep_last_messages": pick("keep_last_messages", 20),
+        "max_total_tokens": pick("max_total_tokens", 100000),
+        "eviction_threshold": pick("eviction_threshold", 80000),
+        "enable_summarization": pick("enable_summarization", True),
+        "enable_auto_eviction": pick("enable_auto_eviction", True),
+    }
+
+
+def default_recursion_limit(use_deepagents: bool = True) -> Optional[int]:
+    """Step budget for a new chat run, from Settings (``agents`` namespace).
+
+    Returns None when Settings carries no value, so callers can fall back to the
+    team-wide ``analysis_recursion_limit``.
+    """
+    limits = _agent_limits(use_deepagents)
+    value = limits.get("recursion_limit")
+    try:
+        value = int(value) if value is not None else None
+    except (TypeError, ValueError):
+        value = None
+    return value if value and value > 0 else None
+
+
+def create_default_guardrails_config(use_deepagents: bool = True) -> GuardrailsConfig:
+    """Guardrails for a newly created agent, from the ``agents`` settings namespace."""
+    limits = _agent_limits(use_deepagents)
     return GuardrailsConfig(
         interrupts={},
         token_limits={
-            "max_total_tokens": 100000,
-            "eviction_threshold": 80000,
-            "summarization_threshold": 60000
+            "max_total_tokens": int(limits["max_total_tokens"]),
+            "eviction_threshold": int(limits["eviction_threshold"]),
+            "summarization_threshold": int(limits["summarization_threshold"]),
+            "keep_last_messages": int(limits["keep_last_messages"]),
         },
-        enable_auto_eviction=True,
-        enable_summarization=True
+        enable_auto_eviction=bool(limits["enable_auto_eviction"]),
+        enable_summarization=bool(limits["enable_summarization"]),
     )

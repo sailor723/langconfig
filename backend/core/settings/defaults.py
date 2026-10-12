@@ -59,6 +59,35 @@ def get_defaults() -> dict[str, dict]:
         "rag": {
             "embedding_model": "ollama-nomic-embed-text:latest",
         },
+        # Create-time agent limits, one set per agent kind. The numbers come from
+        # measurement on this codebase: recursion_limit counts LangGraph
+        # supersteps, and one LLM turn costs ~13 steps for a standard agent (six
+        # default middleware × before_model + after_model) but only ~2 for a
+        # DeepAgent (its middleware runs inside the model node). So 400 steps is
+        # ~30 LLM turns for a standard agent and 150 steps ~75 tool turns for a
+        # DeepAgent. summarization_threshold must stay above the agent's own
+        # baseline (system prompt + tool schemas, measured ~12,000 tokens) or it
+        # compacts on every single turn.
+        "agents": {
+            "agent": {
+                "recursion_limit": 400,
+                "summarization_threshold": 60000,
+                "keep_last_messages": 20,
+                "max_total_tokens": 100000,
+                "eviction_threshold": 80000,
+                "enable_summarization": True,
+                "enable_auto_eviction": True,
+            },
+            "deepagent": {
+                "recursion_limit": 150,
+                "summarization_threshold": 60000,
+                "keep_last_messages": 20,
+                "max_total_tokens": 100000,
+                "eviction_threshold": 80000,
+                "enable_summarization": True,
+                "enable_auto_eviction": True,
+            },
+        },
         # Runtime user-adjustable settings (was the long list of overrides in
         # backend/config.py + the root .env — now the Settings panel owns
         # the values; this seed is the bootstrap default on first boot).

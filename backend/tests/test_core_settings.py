@@ -64,10 +64,40 @@ def _db(db_session_factory):
 def test_v1_namespaces_registered():
     assert cs.namespaces() == [
         "general", "models", "workspace", "storage", "rag", "search", "onboarding", "runtime",
+        "agents",
     ]
     for ns in cs.namespaces():
         assert cs.is_registered(ns)
         assert cs.get(ns).schema is cs.NAMESPACE_SCHEMAS[ns]
+
+
+def test_agents_namespace_holds_create_time_limits():
+    """Settings → Agents is the source of the create-time limits.
+
+    The two kinds carry different step budgets on purpose: recursion_limit counts
+    LangGraph supersteps, and one LLM turn costs ~13 steps for a standard agent
+    but ~2 for a DeepAgent.
+    """
+    limits = cs.resolve_value(None, "agents")
+    assert limits["agent"]["recursion_limit"] == 400
+    assert limits["deepagent"]["recursion_limit"] == 150
+    for kind in ("agent", "deepagent"):
+        cfg = limits[kind]
+        assert cfg["summarization_threshold"] < cfg["eviction_threshold"] < cfg["max_total_tokens"]
+        assert cfg["keep_last_messages"] >= 1
+        assert cfg["enable_summarization"] is True
+
+
+def test_agents_namespace_rejects_bad_threshold_order():
+    from core.settings.schemas import AgentLimits
+
+    with pytest.raises(ValidationError):
+        AgentLimits(
+            recursion_limit=100,
+            summarization_threshold=5000,
+            eviction_threshold=4000,   # must be greater than summarization_threshold
+            max_total_tokens=9000,
+        )
 
 
 def test_register_rejects_bad_namespace():
