@@ -193,6 +193,10 @@ async def list_chat_sessions(
             "session_id": session.session_id,
             "agent_id": session.agent_id,
             "agent_name": agent.name if agent else "Unknown Agent",
+            # The vault this conversation runs in — the chat window labels the
+            # session with it. Without it the sidebar had only the agent name,
+            # which it then displayed under a "Projects" heading.
+            "project_id": session.project_id,
             "is_active": session.is_active,
             # Pinned conversations: the sidebar shows these first for quick select.
             "is_favorite": bool(session.is_favorite),
