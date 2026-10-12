@@ -244,6 +244,7 @@ export default function ChatPage() {
             thinkingTraces={c.thinkingTraces}
             thinkingBuffer={c.thinkingBuffer}
             workspaceName={activeProject?.name || undefined}
+            agentName={c.agentName}
           />
           {c.currentSessionId && c.showMetrics && (
             <SidePanel
