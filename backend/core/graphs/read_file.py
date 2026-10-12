@@ -89,6 +89,7 @@ class FileReadState(TypedDict, total=False):
     file_path: str
     question: Optional[str]
     vision_enabled: bool
+    vision_model: str
     # ── classification ──
     kind: Literal["text", "document", "image", "binary"]
     branch: str
@@ -105,6 +106,7 @@ class FileReadState(TypedDict, total=False):
     ocr_chars: int
     ocr_available: bool
     description: str
+    vision_disabled: bool
     describe_error: str
     describe_tokens: int
     describe_cached: bool
@@ -179,7 +181,9 @@ def _line_number(text: str) -> str:
     return "\n".join(f"{i + 1:4d}| {line}" for i, line in enumerate(lines))
 
 
-def _describe_with_vision(image_b64: str, mime: str, question: Optional[str]) -> tuple[str, int]:
+def _describe_with_vision(
+    image_b64: str, mime: str, question: Optional[str], model: str = VISION_MODEL
+) -> tuple[str, int]:
     """Vision node body: image as an image_url block on a USER message.
 
     Returns ``(description, completion_tokens)``. Raises on failure; the node
@@ -195,7 +199,7 @@ def _describe_with_vision(image_b64: str, mime: str, question: Optional[str]) ->
         raise RuntimeError("no DeepSeek API key configured")
 
     llm = init_chat_model(
-        model=VISION_MODEL, model_provider="deepseek", api_key=api_key,
+        model=model or VISION_MODEL, model_provider="deepseek", api_key=api_key,
         max_tokens=DESCRIBE_MAX_TOKENS, streaming=False,
         # deepseek-flash defaults to thinking; for a caption the reasoning only
         # eats the answer budget.
@@ -363,16 +367,18 @@ def describe_node(state: FileReadState) -> FileReadState:
     started = time.time()
     elapsed = lambda: int((time.time() - started) * 1000)  # noqa: E731
     if not state.get("vision_enabled", True):
+        # Caller asked for OCR only — not a failure, so it is reported as such.
         return {"describe_tokens": 0, "describe_cached": False,
-                "describe_error": "vision disabled", "describe_ms": elapsed()}
+                "vision_disabled": True, "describe_ms": elapsed()}
 
+    resolved_model = (state.get("vision_model") or "").strip() or VISION_MODEL
     b64 = state.get("image_b64") or ""
     if not b64:
         return {"describe_tokens": 0, "describe_cached": False,
                 "describe_error": "no image payload", "describe_ms": elapsed()}
 
     cache_key = hashlib.sha256(
-        f"{VISION_MODEL}|{state.get('question') or ''}|{b64}".encode()
+        f"{resolved_model}|{state.get('question') or ''}|{b64}".encode()
     ).hexdigest()
     hit = _DESCRIBE_CACHE.get(cache_key)
     if hit is not None:
@@ -380,8 +386,9 @@ def describe_node(state: FileReadState) -> FileReadState:
                 "describe_ms": elapsed()}
 
     try:
-        description, tokens = _describe_with_vision(b64, state.get("mime") or "image/png",
-                                                    state.get("question"))
+        description, tokens = _describe_with_vision(
+            b64, state.get("mime") or "image/png", state.get("question"), resolved_model
+        )
     except Exception as e:
         logger.warning(f"vision describe failed: {type(e).__name__}: {e}")
         return {"describe_tokens": 0, "describe_cached": False,
@@ -402,14 +409,19 @@ def merge_node(state: FileReadState) -> FileReadState:
 
     question = (state.get("question") or "").strip()
     asked = f"question: {question}\n" if question else ""
+    used_model = (state.get("vision_model") or "").strip() or VISION_MODEL
+    mode = "ocr-only" if state.get("vision_disabled") else f"vision+ocr ({used_model})"
     header = (
         f"== Image ==\n"
         f"name: {state.get('name')}\n"
+        f"mode: {mode}\n"
         f"{asked}"
         f"format: {state.get('image_format')}  dimensions: {state.get('image_dimensions')}  "
         f"size: {(state.get('image_bytes') or 0) / 1024:.0f} KiB"
     )
-    if state.get("describe_error"):
+    if state.get("vision_disabled"):
+        vision = "(vision not requested — OCR text only)"
+    elif state.get("describe_error"):
         vision = f"(vision description unavailable: {state['describe_error']})"
     else:
         note = " (cached)" if state.get("describe_cached") else ""
@@ -493,10 +505,16 @@ async def read_file_as_text(
     file_path: str,
     question: Optional[str] = None,
     vision_enabled: bool = True,
+    vision_model: Optional[str] = None,
 ) -> str:
-    """Run the graph and return only the text result (the tool contract)."""
+    """Run the graph and return only the text result (the tool contract).
+
+    ``vision_model`` overrides ``LANGCONFIG_VISION_MODEL`` for this call, so an
+    agent can pin the model its reader uses (``tool_params``).
+    """
     state = await get_file_reader_graph().ainvoke(
-        {"file_path": file_path, "question": question, "vision_enabled": vision_enabled},
+        {"file_path": file_path, "question": question, "vision_enabled": vision_enabled,
+         "vision_model": vision_model or ""},
         config={"recursion_limit": 12},
     )
     return state.get("result") or "Error: reader produced no output"
@@ -526,16 +544,15 @@ def _cli(argv: Optional[list] = None) -> int:
                         help="skip the vision call (OCR only; no API cost)")
     parser.add_argument("--state", action="store_true",
                         help="print the whole graph state as JSON instead of just the result")
-    parser.add_argument("--model", help=f"override the vision model (default {VISION_MODEL})")
+    parser.add_argument("--vision-model", dest="vision_model",
+                        help=f"override the vision model (default {VISION_MODEL})")
     args = parser.parse_args(argv)
-
-    if args.model:
-        globals()["VISION_MODEL"] = args.model
 
     state = asyncio.run(get_file_reader_graph().ainvoke({
         "file_path": args.path,
         "question": args.question,
         "vision_enabled": not args.no_vision,
+        "vision_model": args.vision_model or "",
     }, config={"recursion_limit": 12}))
 
     if args.state:
