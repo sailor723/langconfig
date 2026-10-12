@@ -12,6 +12,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { ChatMessage, ContextOccupancy, CustomEventPayload, ToolCall } from '../types/chat';
+import { formatCompactDateTime, formatFullDateTime } from '../utils/formatChatTime';
 import CodexMessageInput, { COMPOSER_MAX_WIDTH } from './CodexMessageInput';
 import AnalysisPanel from './AnalysisPanel';
 import { ContentBlockRenderer } from '@/components/common/ContentBlockRenderer';
@@ -519,13 +520,20 @@ export default function MessagesPanel({
                         </div>
                       )}
 
-                      {/* Message Footer */}
+                      {/* Message Footer. Messages stored before the streaming
+                          endpoint stamped a timestamp carry none, and
+                          `new Date(undefined).toLocaleTimeString()` printed
+                          "Invalid Date" under every one of them — so the time is
+                          rendered only when it parses, and the shared formatter
+                          returns '' otherwise. */}
                       <div className="flex items-center gap-3 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <span
                           className="text-[11px]"
                           style={{ color: 'var(--color-text-muted)' }}
+                          title={formatFullDateTime(message.timestamp) || undefined}
                         >
-                          {message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Assistant' : 'System'} · {new Date(message.timestamp).toLocaleTimeString()}
+                          {message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Assistant' : 'System'}
+                          {formatCompactDateTime(message.timestamp) && ` · ${formatCompactDateTime(message.timestamp)}`}
                         </span>
                         <button
                           onClick={() => copyToClipboard(message.content, index)}

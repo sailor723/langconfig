@@ -359,6 +359,25 @@ class StreamingFilter:
 # =============================================================================
 
 
+def _stored_message(role: str, content: str) -> Dict[str, Any]:
+    """A message as it is stored in ``chat_sessions.messages``.
+
+    Every append site goes through here. The streaming endpoint (what the chat
+    UI actually calls) used to append a bare ``{"role", "content"}`` while the
+    non-streaming one stamped a timestamp, so nearly every message sent through
+    the UI landed without one and the history footer rendered "Invalid Date"
+    underneath it — 198 of 210 stored messages in one real database.
+    """
+    from datetime import datetime
+
+    return {
+        "role": role,
+        "content": content,
+        "timestamp": datetime.utcnow().isoformat(),
+        "banked": False,
+    }
+
+
 @router.post("/message", response_model=ChatResponse)
 async def send_message(
     request: SendMessageRequest,
@@ -399,14 +418,10 @@ async def send_message(
         # Add user message to history
         from datetime import datetime
         from sqlalchemy.orm.attributes import flag_modified
-        user_message_timestamp = datetime.utcnow().isoformat()
         user_message_index = len(session.messages or [])
-        session.messages.append({
-            "role": "user",
-            "content": request.message,
-            "timestamp": user_message_timestamp,
-            "banked": False
-        })
+        _user_entry = _stored_message("user", request.message)
+        user_message_timestamp = _user_entry["timestamp"]
+        session.messages.append(_user_entry)
         flag_modified(session, "messages")
 
         # Get or create agent instance. Key by agent id + updated_at so edits
@@ -621,14 +636,10 @@ async def send_message(
             response_text = str(response_text)
 
         # Add assistant message to history
-        assistant_message_timestamp = datetime.utcnow().isoformat()
         assistant_message_index = len(session.messages or [])
-        session.messages.append({
-            "role": "assistant",
-            "content": response_text,
-            "timestamp": assistant_message_timestamp,
-            "banked": False
-        })
+        _assistant_entry = _stored_message("assistant", response_text)
+        assistant_message_timestamp = _assistant_entry["timestamp"]
+        session.messages.append(_assistant_entry)
         flag_modified(session, "messages")
 
         # Update metrics
@@ -922,10 +933,9 @@ async def send_message_stream(
                     return
 
                 logger.info(f"Before adding user message: total_messages={len(fresh_session.messages)}")
-                fresh_session.messages.append({
-                    "role": "user",
-                    "content": request.message
-                })
+                fresh_session.messages.append(
+                    _stored_message("user", request.message)
+                )
                 flag_modified(fresh_session, "messages")
                 await async_db.commit()  # Commit user message immediately
                 await async_db.refresh(fresh_session)  # Refresh to confirm save
@@ -1361,10 +1371,9 @@ async def send_message_stream(
                         if final_session:
                             logger.info(f"Before adding assistant message: total_messages={len(final_session.messages)}")
 
-                            final_session.messages.append({
-                                "role": "assistant",
-                                "content": full_response
-                            })
+                            final_session.messages.append(
+                                _stored_message("assistant", full_response)
+                            )
                             flag_modified(final_session, "messages")
 
                             # Update metrics with RAG token tracking
