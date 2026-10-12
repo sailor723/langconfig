@@ -1164,20 +1164,64 @@ export default function DeepAgentEditor({ tab }: DeepAgentEditorProps) {
             () => handleGuardrailChange(['long_term_memory'], false))}
         </div>
         <div style={compactCardStyle}>
+          <div style={labelStyle}>Execution Limit</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>recursion_limit</span>
+            <input
+              type="number"
+              min={1}
+              value={liveConfig.recursion_limit ?? ''}
+              onChange={e => handleConfigFieldChange(
+                'recursion_limit', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+              style={{ ...editableInputStyle, width: 120, fontFamily: 'monospace' }}
+            />
+            <span style={{ fontSize: 10, color: t.textMuted }}>
+              turns per run — unset uses the team default (1000)
+            </span>
+          </div>
+          <div style={{ fontSize: 10, color: t.textMuted, marginTop: 6, lineHeight: '14px' }}>
+            Caps LangGraph steps in one run (model + tool turns), so a runaway
+            tool loop stops with a clear error instead of spinning. Measured cost:
+            a DeepAgent spends ~2–3 steps per tool turn, a standard agent ~30 — so
+            the 1000 default is ~30 tool turns for a standard agent. It bounds
+            steps, not context size — that is what summarization is for.
+          </div>
+        </div>
+        <div style={compactCardStyle}>
           <div style={labelStyle}>Token Limits</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>max_total_tokens</span>
               {numInput(['token_limits', 'max_total_tokens'], tl.max_total_tokens)}
+              <span style={{ fontSize: 10, color: t.textMuted }}>workflow / export only</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>eviction_threshold</span>
               {numInput(['token_limits', 'eviction_threshold'], tl.eviction_threshold)}
+              <span style={{ fontSize: 10, color: t.textMuted }}>not read at runtime</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>summarization_threshold</span>
               {numInput(['token_limits', 'summarization_threshold'], tl.summarization_threshold)}
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: t.textMuted, width: 150 }}>keep_last_messages</span>
+              {numInput(['token_limits', 'keep_last_messages'], tl.keep_last_messages)}
+            </div>
+          </div>
+          {/* How compaction behaves, in one line — the numbers above are easy to
+              misread: the threshold counts system prompt + tool schemas +
+              conversation, so a value below the agent's own baseline compacts on
+              every turn; and nothing is evicted until the history is longer than
+              keep_last_messages. */}
+          <div style={{ fontSize: 10, color: t.textMuted, marginTop: 6, lineHeight: '14px' }}>
+            Older messages are folded into one summary that stays in context;
+            the last <strong style={{ color: t.textPrimary }}>{tl.keep_last_messages ?? 20}</strong> messages
+            are kept verbatim (default 20), and everything evicted is written
+            verbatim to <code>conversation_history/&lt;thread&gt;.md</code> in the agent
+            workspace. The threshold is compared against system prompt + tool
+            schemas + conversation, so keep it comfortably above the agent's own
+            baseline or it will compact on every turn.
           </div>
         </div>
         <div style={compactCardStyle}>
