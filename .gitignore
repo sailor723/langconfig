@@ -141,6 +141,7 @@ docs/*
 !docs/TEAM_INSTALL.md
 !docs/TEAM_INSTALL.zh-CN.md
 !docs/TEAM_INSTALL.zh-CN.pdf
+!docs/TEAM_MIGRATION.md
 langconfig/
 
 # Private/unreleased features (uncomment before pushing to public)
