@@ -52,6 +52,14 @@ Output is page-structured rather than line-numbered: for a PDF the page is the
 unit a model can cite (and cannot edit), and six characters of line number per
 line is pure token overhead on a long document.
 
+OCR
+---
+tesseract is asked for ``LANGCONFIG_OCR_LANGS``; unset, the languages are
+resolved from the packs actually installed (English, plus Chinese when present),
+and the payload names the ones used. This matters more than it sounds: a
+Han-character page read with ``eng`` returns Latin nonsense, which is worse than
+an empty result because it looks like content.
+
 The compiled graph is a utility graph: **no checkpointer** (it would accumulate
 image state per thread — the very failure this module removes) and an in-process
 node cache for the vision call, keyed by file content hash.
@@ -81,6 +89,9 @@ logger = logging.getLogger(__name__)
 # ── tunables ─────────────────────────────────────────────────────────────────
 VISION_MODEL = os.getenv("LANGCONFIG_VISION_MODEL", "deepseek-flash")
 OCR_MAX_CHARS = int(os.getenv("LANGCONFIG_OCR_MAX_CHARS", "4000"))
+# tesseract languages. Empty = resolve from what is installed (English plus any
+# Chinese pack), because the default `eng` renders CJK pages as mojibake.
+OCR_LANGS_ENV = os.getenv("LANGCONFIG_OCR_LANGS", "").strip()
 DESCRIBE_MAX_TOKENS = int(os.getenv("LANGCONFIG_DESCRIBE_MAX_TOKENS", "400"))
 MAX_IMAGE_EDGE = int(os.getenv("LANGCONFIG_MAX_IMAGE_EDGE", "1600"))
 PDF_MIN_PAGE_CHARS = int(os.getenv("LANGCONFIG_PDF_MIN_PAGE_CHARS", "12"))
@@ -246,6 +257,53 @@ def _line_number(text: str) -> str:
     return "\n".join(f"{i + 1:4d}| {line}" for i, line in enumerate(lines))
 
 
+# Languages tesseract is asked for, and the packs worth adding by default: a
+# Han-character page read with `eng` comes back as Latin nonsense, which is
+# worse than an empty result because it looks like content.
+_PREFERRED_OCR_LANGS = ("eng", "chi_sim", "chi_tra")
+_SPECIAL_TESSDATA = frozenset({"osd", "snum", "equ"})
+_OCR_LANGS_CACHE: Optional[str] = None
+
+
+def _installed_tessdata_langs() -> List[str]:
+    """Language packs tesseract can actually load right now."""
+    try:
+        proc = subprocess.run(["tesseract", "--list-langs"],
+                              capture_output=True, text=True, timeout=20)
+    except Exception as e:                                   # pragma: no cover
+        logger.warning(f"could not list tesseract languages: {e}")
+        return []
+    # The first line is the tessdata path, not a language.
+    lines = (proc.stdout or "").splitlines()[1:]
+    return [l.strip() for l in lines if l.strip() and l.strip() not in _SPECIAL_TESSDATA]
+
+
+def _resolve_ocr_langs(configured: str, installed: List[str]) -> str:
+    """Pick the ``-l`` argument: explicit config wins, else the sane default."""
+    if configured:
+        return configured
+    available = set(installed)
+    chosen = [lang for lang in _PREFERRED_OCR_LANGS if lang in available]
+    if not chosen:
+        chosen = sorted(available)[:1]
+    return "+".join(chosen) or "eng"
+
+
+def ocr_langs() -> str:
+    """The language argument for tesseract (resolved once per process)."""
+    global _OCR_LANGS_CACHE
+    if _OCR_LANGS_CACHE is None:
+        _OCR_LANGS_CACHE = _resolve_ocr_langs(OCR_LANGS_ENV, _installed_tessdata_langs())
+        logger.info(f"OCR languages: {_OCR_LANGS_CACHE}")
+    return _OCR_LANGS_CACHE
+
+
+def clear_ocr_langs_cache() -> None:
+    """Re-resolve on the next call (a pack may have been installed since)."""
+    global _OCR_LANGS_CACHE
+    _OCR_LANGS_CACHE = None
+
+
 def _fit_image_bytes(raw: bytes, ext: Optional[str] = None) -> Tuple[bytes, str, str, str]:
     """Decode *raw*; downscale if too large; return ``(raw, mime, format, dims)``.
 
@@ -290,7 +348,7 @@ def _ocr_file(path: os.PathLike | str) -> Tuple[str, int, bool]:
     if shutil.which("tesseract") is None:
         return "", 0, False
     try:
-        proc = subprocess.run(["tesseract", str(path), "stdout"],
+        proc = subprocess.run(["tesseract", str(path), "stdout", "-l", ocr_langs()],
                               capture_output=True, text=True, timeout=60)
         text = (proc.stdout or "").strip()
     except Exception as e:
@@ -622,10 +680,10 @@ def pdf_page_node(state: FileReadState) -> FileReadState:
         if ocr_chars > len(ocr_text):
             section += (f"\n...(OCR truncated: showing {len(ocr_text)} "
                         f"of {ocr_chars} chars)")
-        lines.append(f"== Text in the image (OCR: tesseract, eng) ==\n{section}")
+        lines.append(f"== Text in the image (OCR: tesseract, {ocr_langs()}) ==\n{section}")
         out["ocr"] = True
     else:
-        lines.append("== Text in the image (OCR: tesseract, eng) ==\n"
+        lines.append(f"== Text in the image (OCR: tesseract, {ocr_langs()}) ==\n"
                      "(no OCR text found in the page)")
 
     out["body"] = "\n\n".join(lines)
@@ -801,7 +859,7 @@ def merge_node(state: FileReadState) -> FileReadState:
         # ``used_model``, not the module default: an agent that pinned its own
         # vision model must not see two different model names in one payload.
         f"== Description (vision: {used_model}) ==\n{vision}\n\n"
-        f"== Text in the image (OCR: tesseract, eng) ==\n{ocr_section}"
+        f"== Text in the image (OCR: tesseract, {ocr_langs()}) ==\n{ocr_section}"
     )
     return {"result": payload, "branch": "image",
             "merge_ms": int((time.time() - started) * 1000)}

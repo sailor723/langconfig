@@ -64,7 +64,7 @@ DESCRIPTION = (
     "OCR-extracted text. Use this for images instead of read_file - it never returns raw or "
     "base64 image data, so it cannot overflow the context. PDFs are read page by page: a "
     "page with a real text layer gives its text, and a page that is only a scan is rendered "
-    "and read with OCR, so scanned contracts and invoices work too. Pass `question` to ask "
+    "and read with OCR, so scanned contracts and invoices work too - OCR uses the language packs installed on the host (English and Chinese by default), so a scanned Chinese page reads as Chinese. Pass `question` to ask "
     "something specific about an image or a scanned page, or `vision=False` for a "
     "deterministic OCR-only read (faster, no model call) when you just need the characters "
     "in a screenshot or scan. `vision_model` overrides which model performs that read "
