@@ -30,9 +30,18 @@ SEEDS = BACKEND / "scripts/seeds"
 sys.path.insert(0, str(BACKEND))
 
 # leg -> (exporter script, committed artefact, table, key column)
+# leg -> (exporter, committed artefact, count SQL)
+# The count SQL is what the DB side is measured with, so a leg can count a subset:
+# the settings snapshot deliberately covers only the TEAM namespaces, not
+# general/onboarding, and counting the whole table would report false drift.
 EXPORTED = {
-    "agents": ("export_agents_merge.py", "deep_agents_merge.sql", "deep_agent_templates", "name"),
-    "tools": ("export_tools_merge.py", "custom_tools_merge.sql", "custom_tools", "tool_id"),
+    "agents": ("export_agents_merge.py", "deep_agents_merge.sql",
+               "SELECT count(*) FROM deep_agent_templates"),
+    "tools": ("export_tools_merge.py", "custom_tools_merge.sql",
+              "SELECT count(*) FROM custom_tools"),
+    "settings": ("export_settings.py", "settings_seed.json",
+                 "SELECT count(*) FROM settings_documents WHERE ns IN "
+                 "('agents','models','rag','runtime','storage','workspace')"),
 }
 
 PASS, STALE = "FRESH", "STALE"
@@ -44,14 +53,27 @@ def db_counts() -> dict[str, int]:
 
     out: dict[str, int] = {}
     with SessionLocal() as db:
-        for leg, (_script, _artefact, table, _key) in EXPORTED.items():
-            out[leg] = db.execute(text(f"SELECT count(*) FROM {table}")).scalar()
+        for leg, (_script, _artefact, count_sql) in EXPORTED.items():
+            out[leg] = db.execute(text(count_sql)).scalar()
     return out
 
 
 def snapshot_rows(path: Path) -> int:
-    """Rows a committed snapshot offers (one guarded INSERT per row)."""
-    return path.read_bytes().count(b"WHERE NOT EXISTS") if path.exists() else 0
+    """Rows a committed snapshot offers.
+
+    SQL snapshots carry one guarded INSERT per row; the settings snapshot is JSON
+    with one top-level key per namespace.
+    """
+    if not path.exists():
+        return 0
+    raw = path.read_bytes()
+    if path.suffix == ".json":
+        import json as _json
+        try:
+            return len([k for k in _json.loads(raw) if not k.startswith("__")])
+        except Exception:
+            return 0
+    return raw.count(b"WHERE NOT EXISTS")
 
 
 def regenerate(script: str, target: Path) -> bool:
@@ -67,6 +89,45 @@ def regenerate(script: str, target: Path) -> bool:
     return target.exists()
 
 
+def skills_status() -> dict:
+    """Skills do not export — the SKILL.md files ARE the artefact.
+
+    Two ways that still fails silently, so both are reported: a skill that lives
+    only in the database (no file, so seed_all.py has nothing to sync), and a file
+    that exists but was never committed (so a teammate's clone has neither).
+    """
+    import subprocess as _sp
+    from sqlalchemy import text as _text
+    from db.database import SessionLocal as _SessionLocal
+    from core.skills.sync import (
+        scan_builtin_skills, fs_to_db_dict, PERSONAL_SKILLS_ROOT,
+    )
+
+    with _SessionLocal() as db:
+        db_ids = {r[0] for r in db.execute(_text("SELECT skill_id FROM skills"))}
+
+    root = Path(PERSONAL_SKILLS_ROOT).parent
+    disk_ids: set[str] = set()
+    for md in (list(scan_builtin_skills())
+               + list(PERSONAL_SKILLS_ROOT.rglob("SKILL.md"))
+               + sorted(root.glob("*/SKILL.md"))):
+        try:
+            disk_ids.add(fs_to_db_dict(md)["skill_id"])
+        except Exception:
+            continue
+
+    uncommitted = []
+    try:
+        out = _sp.run(["git", "-C", str(BACKEND.parent), "status", "--porcelain", "--", "backend/skills"],
+                      capture_output=True, text=True, timeout=20).stdout
+        uncommitted = [l[3:].strip() for l in out.splitlines() if l[3:].strip().endswith("SKILL.md")]
+    except Exception:
+        pass
+
+    return {"db": len(db_ids), "disk": len(disk_ids),
+            "db_only": sorted(db_ids - disk_ids), "uncommitted": uncommitted}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--check", action="store_true",
@@ -78,7 +139,7 @@ def main() -> int:
     errors: list[str] = []
 
     print(f"{'leg':8} {'rows in DB':>10} {'in snapshot':>12}  status")
-    for leg, (script, artefact, table, key) in EXPORTED.items():
+    for leg, (script, artefact, _count_sql) in EXPORTED.items():
         committed = SEEDS / artefact
         if not committed.exists():
             print(f"{leg:8} {live[leg]:>10} {'—':>12}  {STALE}: {artefact} missing")
@@ -121,19 +182,31 @@ def main() -> int:
                 committed.write_bytes(fresh.read_bytes())
                 print(f"{leg:8} {live[leg]:>10} {rows:>12}  written")
 
-    # The legs with no exporter. Reported so the table reflects the whole
-    # baseline, not just the two files that happen to be regenerable.
-    print(f"\n{'skills':8} {'—':>10} {'—':>15}  synced from disk by seed_all step 9 (no export)")
+    # Skills: no exporter, because the SKILL.md files are the artefact — but
+    # checked anyway, since a database-only or uncommitted skill reaches nobody.
+    sk = skills_status()
+    problems = []
+    if sk["db_only"]:
+        problems.append(f"{len(sk['db_only'])} in the DB with no file: {', '.join(sk['db_only'][:3])}")
+    if sk["uncommitted"]:
+        problems.append(f"{len(sk['uncommitted'])} file(s) not committed")
+    if problems:
+        print(f"{'skills':8} {sk['db']:>10} {sk['disk']:>15}  {STALE}: {'; '.join(problems)}")
+        stale.append("skills")
+    else:
+        print(f"{'skills':8} {sk['db']:>10} {sk['disk']:>15}  "
+              f"{PASS} — files are the artefact, all committed")
+
+    # The remaining legs have no exporter at all.
     print(f"{'models':8} {'—':>10} {'—':>15}  hand-maintained CSV + upsert_model preset (no export)")
-    print(f"{'settings':8} {'—':>10} {'—':>15}  code defaults only; UI edits do NOT travel")
 
     if errors:
         print(f"\nERROR: {', '.join(errors)} — the exporter itself failed; "
               f"nothing was compared")
         return 2
     if args.check and stale:
-        print(f"\nSTALE: {', '.join(stale)} — regenerate, then commit "
-              f"backend/scripts/seeds/*.sql")
+        print(f"\nSTALE: {', '.join(stale)} — regenerate, then commit the files "
+              f"under backend/scripts/seeds/")
         return 1
     if args.check:
         print("\nAll exported legs match the database.")

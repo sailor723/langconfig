@@ -10,7 +10,9 @@ What it does (every step is idempotent):
     1. init_server()            -> create the PostgreSQL role + database if missing
     2. init_db()                -> create all 50 tables + pgvector extension
     3. alembic stamp head       -> record the migration version (no replay needed)
-    4. seed_settings.py         -> default settings documents (models/general/etc.)
+    4. seed_settings.py         -> default settings documents (missing namespaces)
+    4b. settings_seed.json      -> the TEAM's settings, three-way merged so a key
+                                   somebody changed locally is never overwritten
     5. seed_models.py + upsert  -> model catalog incl. the vision model
     6. seed_search_providers.py -> 6 search backends
     7. custom_tools_dump.sql    -> tools (restore if empty)
@@ -222,6 +224,30 @@ def step_stamp_head() -> None:
 def step_settings() -> None:
     print("\n[4/10] seed_settings.py  (default settings documents)")
     _run_python(["scripts/seeds/seed_settings.py"])
+
+
+def step_team_settings() -> None:
+    """[4b] Apply the exported team settings over the code defaults.
+
+    seed_settings.py above only fills namespaces that are EMPTY, so a value
+    changed in the UI never reached anyone. This applies settings_seed.json with
+    a three-way merge (core/settings/team_seed.py): untouched keys adopt the team
+    value, keys somebody changed themselves are left alone.
+    """
+    print("\n[4b/10] team settings  (three-way merge over the defaults)")
+    from core.settings.team_seed import apply_team_seed
+
+    result = apply_team_seed()
+    if not result["present"]:
+        print("  -> settings_seed.json missing; regenerate with "
+              "scripts/seeds/export_settings.py")
+        return
+    print(f"  -> {result['written']} document(s) updated, "
+          f"{len(result['applied'])} key(s) taken from the team seed, "
+          f"{len(result['kept'])} left as they are (changed locally)")
+    if result["kept"]:
+        print(f"     kept: {', '.join(result['kept'][:6])}"
+              + (" …" if len(result["kept"]) > 6 else ""))
 
 
 def step_models() -> None:
@@ -511,6 +537,7 @@ def main() -> int:
     step_settings()
     step_models()
     step_search_providers()
+    step_team_settings()
     step_custom_tools(replace=args.replace)
     step_deep_agents(replace=args.replace)
     step_identity()
