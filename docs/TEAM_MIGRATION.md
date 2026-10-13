@@ -76,7 +76,7 @@ POSTGRES_HOST=localhost
 POSTGRES_PORT=5433          # 5433 with docker-compose, 5432 native
 POSTGRES_DB=langconfig
 POSTGRES_USER=langconfig
-POSTGRES_PASSWORD=langconfig_dev     # change it, and mirror it in docker-compose
+POSTGRES_PASSWORD=langconfig_dev     # change it — here, and nowhere else (see below)
 ENVIRONMENT=development
 
 # Encrypts provider API keys stored in the database. Generate ONCE per machine
@@ -100,6 +100,16 @@ OLLAMA_BASE_URL=http://localhost:11434
 
 > Create `.env` **before** starting Postgres: `docker compose` reads
 > `POSTGRES_PORT` at compose time to decide the host port mapping.
+
+> **Editing the password once, in the right file, at the right time.**
+> `docker-compose.yml` interpolates `${POSTGRES_USER}`, `${POSTGRES_PASSWORD}`,
+> `${POSTGRES_DB}` and `${POSTGRES_PORT}` **from this `.env`**, with the literals
+> above as fallbacks — so there is nothing to mirror into the compose file, and
+> editing it there would change nothing. What does matter is *when*: Postgres
+> applies `POSTGRES_PASSWORD` only when it initialises an **empty** data volume, so
+> a password changed after the first `docker compose up` leaves the container on
+> the old one and the backend cannot connect. Set it now, or recreate the volume
+> with `docker compose down -v` and seed again.
 
 ## 3. Database up
 
@@ -184,10 +194,13 @@ document holds ciphertext that only decrypts with the key that wrote it, and the
 ## 7. Run it
 
 ```bash
-bash start.sh                  # backend :8765 + frontend :1421, one-shot
-# or separately:
-cd backend && .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --workers 1
-npm run dev                    # frontend :1421
+bash start.sh                  # from the repo root: backend :8765 + frontend :1421, one-shot
+
+# or run the two yourself — note the different directories. The frontend's
+# package.json is at the REPO ROOT, not in backend/, so `cd backend` first and
+# then `npm run dev` fails with "no such file or directory".
+cd backend && .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --workers 1   # IN backend/
+npm run dev                                                                        # IN the repo root
 ```
 
 Note: the backend runs **without `--reload`**, so backend code changes need a
@@ -214,14 +227,16 @@ It checks, and prints what it saw for each:
 - **live turn** (with `--chat`) — creates a session and gets an answer, which
   exercises credentials, the agent build and the model route
 
-Reference run on this install:
+Reference run on this install (condensed — the script prints one line per check):
 
 ```
-[1] database        PASS  agents=56, tools=68, models=29, skills=43, settings=8
+[1] database        PASS  agents=56, tools=67, models=29, skills=43, settings=8
 [2] seed content    PASS  9 checks (vision models: 18, read_any_file: 1 row)
 [3] backend API     PASS  4 endpoints HTTP 200
 === 15 passed, 0 failed, 1 skipped ===
 ```
+
+The one skip is the live turn; pass `--chat <agent_id>` to include it.
 
 Manual equivalents, if you prefer:
 
