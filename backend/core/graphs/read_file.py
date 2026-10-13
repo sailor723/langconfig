@@ -12,26 +12,38 @@ turns any file into a small **text** payload instead.
 
 Routing
 -------
-Four branches, one per family of file, plus the path that refuses:
+Five branches, one per family of file, plus the path that refuses:
 
     classify ─┬─ text/data ────→ read_text ──────────────────────────────→ END
               ├─ image ─────────→ read_image ─┬─ ocr ──────┐
               │                               └─ describe ─┴→ merge ─→ END
               ├─ pdf ──────────→ read_pdf ─┬─ (one Send per image-only page) ─┐
               │                            └─ (nothing to render) ───────────┤
-              ├─ word/ppt ─────→ read_document ─┬─ (one Send per picture) ────┤
+              ├─ word/ppt/xls ─→ read_document ─┬─ (one Send per picture) ────┤
               │                                 └─ (no pictures) ─────────────┤
+              ├─ zip/tar ──────→ read_archive ─┬─ (Send per readable member) ─┤
+              │                                └─ (no readable members) ─────┤
               │                                                             ↓
-              │                     pdf_page / doc_picture ─→ *┬─ pdf_compose ─→ END
-              │                                              └─ doc_compose ─→ END
+              │        pdf_page / doc_picture / archive_member ─→ *┬─ pdf_compose ─┐
+              │                                                    ├─ doc_compose ─┤
+              │                                                    └─ archive_compose ─→ END
               └─ other ────────→ unsupported ──────────────────────────────────→ END
 
-``read_text`` / ``read_image`` / ``read_pdf`` / ``read_document`` are the four
-branch entry points and the only nodes the router chooses between; everything
-else is a node inside one of those branches, because a format is not always one
-step: an image is normalised *and* OCR'd *and* described, a PDF is a per-page map
-plus a reduce, a Word/PowerPoint file is a structure pass plus a map over the
-pictures embedded in it.
+``read_text`` / ``read_image`` / ``read_pdf`` / ``read_document`` /
+``read_archive`` are the five branch entry points and the only nodes the router
+chooses between; everything else is a node inside one of those branches, because
+a format is not always one step: an image is normalised *and* OCR'd *and*
+described, a PDF is a per-page map plus a reduce, a Word/PowerPoint/Excel file is
+a structure pass plus a map over the pictures embedded in it, and an archive is a
+manifest plus a map over its readable members.
+
+An archive is the one branch that **recurses**: a member is read by
+:func:`read_file_as_text` again, so a .csv member is read by the text branch, a
+.docx member by the document branch, and a .png member by the image branch —
+there is no second implementation of any format. ``depth`` counts the expansion,
+so an archive inside an archive is listed but not expanded again; the member is
+staged on disk under a name this code chooses (index + extension), never the
+member's own path, so nothing in a hostile archive has anywhere to traverse to.
 
 Word, PowerPoint and Excel are **not** on the text branch even though text comes
 out of them: a .docx is ZIP+XML, a .pptx is slides and a .xlsx is a grid, so
@@ -101,6 +113,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, TypedDict
 
@@ -124,6 +137,11 @@ PDF_MAX_OCR_PAGES = int(os.getenv("LANGCONFIG_PDF_MAX_OCR_PAGES", "20"))
 PDF_MAX_VISION_PAGES = int(os.getenv("LANGCONFIG_PDF_MAX_VISION_PAGES", "3"))
 DOC_MAX_PICTURES = int(os.getenv("LANGCONFIG_DOC_MAX_PICTURES", "10"))
 DOC_MAX_VISION_PICTURES = int(os.getenv("LANGCONFIG_DOC_MAX_VISION_PICTURES", "3"))
+ARCHIVE_MAX_ENTRIES = int(os.getenv("LANGCONFIG_ARCHIVE_MAX_ENTRIES", "200"))
+ARCHIVE_MAX_MEMBERS = int(os.getenv("LANGCONFIG_ARCHIVE_MAX_MEMBERS", "15"))
+ARCHIVE_MAX_MEMBER_BYTES = int(os.getenv("LANGCONFIG_ARCHIVE_MAX_MEMBER_BYTES", str(256 * 1024)))
+ARCHIVE_MAX_TOTAL_BYTES = int(os.getenv("LANGCONFIG_ARCHIVE_MAX_TOTAL_BYTES", str(2 * 1024 * 1024)))
+ARCHIVE_MAX_DEPTH = int(os.getenv("LANGCONFIG_ARCHIVE_MAX_DEPTH", "1"))
 TEXT_MAX_CHARS = 500_000          # matches the legacy read_file cap
 TEXT_MAX_READ_BYTES = 2 * 1024 * 1024
 DESCRIBE_CACHE_SIZE = 128
@@ -145,6 +163,9 @@ PDF_EXTS = frozenset({".pdf"})
 OFFICE_EXTS = frozenset({".docx", ".pptx"})
 SHEET_EXTS = frozenset({".xlsx", ".xlsm"})       # read by openpyxl, same branch
 DOCUMENT_EXTS = PDF_EXTS | OFFICE_EXTS | SHEET_EXTS
+
+# Containers: an archive has no text of its own, only members.
+ARCHIVE_EXTS = frozenset({".zip", ".tar", ".tgz", ".gz", ".tbz2", ".txz"})
 
 # Office formats whose structure needs a library we do not read: they get a
 # conversion instruction instead of a generic "binary file" refusal.
@@ -168,9 +189,10 @@ TEXT_EXTS = frozenset({
 })
 
 UNSUPPORTED_HINT = (
-    "Images: .png/.jpg/.jpeg/.webp/.gif. "
-    "Documents: .pdf/.docx/.pptx. "
-    "Text: .txt/.md/.json/.csv/.yaml/.py/..."
+    "Text: .txt/.md/.json/.csv/.yaml/.py. "
+    "Images: .png/.jpg/.jpeg/.webp/.gif/.bmp/.tiff. "
+    "Documents: .pdf/.docx/.pptx/.xlsx. "
+    "Archives: .zip/.tar/.tar.gz/.tgz."
 )
 
 
@@ -179,11 +201,14 @@ class FileReadState(TypedDict, total=False):
 
     # ── input ──
     file_path: str
+    # What to call the file in the payload: a member of an archive is staged
+    # under a generated name, and the model should see the member's real one.
+    display_name: str
     question: Optional[str]
     vision_enabled: bool
     vision_model: str
     # ── classification ──
-    kind: Literal["text", "document", "image", "binary"]
+    kind: Literal["text", "document", "image", "archive", "binary"]
     branch: str
     ext: str
     mime: str
@@ -232,6 +257,23 @@ class FileReadState(TypedDict, total=False):
     doc_vision_budget: int
     read_document_ms: int
     doc_ms: int
+    # ── archive branch internals (zip / tar containers) ──
+    archive_kind: str
+    archive_entries: int
+    archive_manifest: List[Dict[str, Any]]
+    archive_members: List[Dict[str, Any]]
+    archive_skipped: List[Dict[str, Any]]
+    archive_run_dir: str
+    archive_blocks: Annotated[List[Dict[str, Any]], operator.add]
+    archive_read_members: int
+    read_archive_ms: int
+    archive_ms: int
+    member_index: int
+    member_arch_index: int
+    member_name: str
+    member_ext: str
+    member_bytes: int
+    depth: int
     # ── one map task's payload (``pdf_page`` / ``doc_picture``; never the whole state) ──
     page: int
     item_index: int
@@ -268,6 +310,8 @@ def classify(file_name_or_path: str) -> tuple[str, str]:
         return "image", ext
     if ext in DOCUMENT_EXTS or ext in LEGACY_OFFICE_EXTS:
         return "document", ext
+    if ext in ARCHIVE_EXTS:
+        return "archive", ext
     if ext in TEXT_EXTS:
         return "text", ext
     return "binary", ext
@@ -288,6 +332,8 @@ def route_by_kind(state: FileReadState) -> str:
         return "text"
     if kind == "image":
         return "image"
+    if kind == "archive":
+        return "archive"
     return "other"
 
 
@@ -550,7 +596,7 @@ def classify_node(state: FileReadState) -> FileReadState:
     started = time.time()
     path_str = state["file_path"]
     kind, ext = classify(path_str)
-    name = Path(path_str).name
+    name = state.get("display_name") or Path(path_str).name
     out: FileReadState = {
         "kind": kind,
         "ext": ext,
@@ -1091,6 +1137,342 @@ def doc_compose_node(state: FileReadState) -> FileReadState:
             "doc_ms": int((time.time() - started) * 1000)}
 
 
+# ── archive branch ───────────────────────────────────────────────────────────
+def _human_size(size: int) -> str:
+    """A size a reader can act on: ``19 B``, ``35.8 KiB``, ``1.4 MiB``."""
+    if size < 1024:
+        return f"{size} B"
+    if size < 1024 * 1024:
+        return f"{size / 1024:.1f} KiB"
+    return f"{size / (1024 * 1024):.1f} MiB"
+
+
+def _decode_archive_name(name: str) -> str:
+    """Repair a member name that arrived as CP437 mojibake.
+
+    zipfile decodes names as CP437 unless the archive sets the UTF-8 flag, and
+    many tools (macOS ``zip`` among them) do not — so ``价格表.csv`` arrives as
+    ``Σ╗╖µá╝Φí¿.csv``. Re-encoding through CP437 and decoding as UTF-8/GBK/Big5
+    recovers it; anything that does not decode is left exactly as zipfile gave it.
+    """
+    if name.isascii():
+        return name
+    try:
+        raw = name.encode("cp437")
+    except UnicodeEncodeError:
+        return name
+    for codec in ("utf-8", "gbk", "big5"):
+        try:
+            return raw.decode(codec)
+        except UnicodeDecodeError:
+            continue
+    return name
+
+
+def _archive_open(path: Path):
+    """``(kind, entries, reader)`` for a zip or tar container.
+
+    ``entries`` are plain dicts — name, size, compressed, date, dir — so the zip
+    and tar paths share everything downstream. Member bytes are never read here.
+    """
+    import tarfile
+    import zipfile
+
+    if zipfile.is_zipfile(path):
+        archive = zipfile.ZipFile(path)
+        entries = [{
+            "name": _decode_archive_name(info.filename),
+            "raw": info.filename,          # the archive's own key; may be mojibake
+            "size": info.file_size,
+            "compressed": info.compress_size,
+            "date": "-".join(str(part).zfill(2) for part in info.date_time[:3]),
+            "dir": info.is_dir(),
+            "encrypted": bool(info.flag_bits & 0x1),
+        } for info in archive.infolist()]
+        return "zip", entries, archive
+
+    try:
+        archive = tarfile.open(path, "r:*")       # .tar, .tar.gz, .tgz, .tar.bz2, .tar.xz
+    except tarfile.ReadError:
+        # Only a bare .gz can be a non-tar: for any other extension this means
+        # "not a zip and not a tar", which the caller reports as unreadable.
+        if path.suffix.lower() != ".gz":
+            raise
+        # A bare .gz is one compressed file rather than a container; it still has
+        # a member — the file itself — so treat it as a one-entry archive.
+        return "gz", [{"name": path.name[:-3] or path.name, "raw": path.name,
+                       "size": 0, "compressed": 0,
+                       "date": "-".join(str(part).zfill(2)
+                                        for part in time.gmtime(path.stat().st_mtime)[:3]),
+                       "dir": False, "encrypted": False}], None
+    entries = [{
+        "name": _decode_archive_name(member.name),
+        "raw": member.name,
+        "size": member.size,
+        "compressed": member.size,
+        "date": "-".join(str(part).zfill(2) for part in
+                         (time.gmtime(member.mtime)[:3] if member.mtime else (0, 0, 0))),
+        "dir": member.isdir(),
+        "encrypted": False,
+    } for member in archive.getmembers()]
+    return "tar", entries, archive
+
+
+def _archive_read_member(archive, kind: str, name: str, limit: int) -> bytes:
+    """Read one member's bytes into memory, refusing to exceed *limit*.
+
+    Nothing is ever written for this call, so a hostile member name (``../``)
+    has nothing to escape into: the name is only ever a lookup key.
+    """
+    if kind == "gz":
+        import gzip
+
+        with gzip.open(archive or name, "rb") as handle:      # ``name`` is the path here
+            return handle.read(limit + 1)[:limit]
+    if kind == "zip":
+        with archive.open(name) as handle:
+            data = handle.read(limit + 1)
+    else:
+        handle = archive.extractfile(name)
+        if handle is None:
+            return b""
+        with handle:
+            data = handle.read(limit + 1)
+    return data[:limit]
+
+
+def _archive_error(msg: str, started: float) -> FileReadState:
+    """Every archive failure returns text, never an exception."""
+    logger.warning(msg)
+    return {"result": msg, "error": msg, "branch": "archive",
+            "read_archive_ms": int((time.time() - started) * 1000)}
+
+
+def read_archive_node(state: FileReadState) -> FileReadState:
+    """List the container, then choose which members are worth reading.
+
+    A .zip or .tar has no text of its own — it is a container — so the branch
+    answers two questions: what is in here, and what of it can be read. Members
+    whose own extension the reader understands (text, image, PDF, Word,
+    PowerPoint, Excel) become map tasks and go back through this same reader, so
+    there is no second implementation of any format.
+    """
+    started = time.time()
+    path_str = state["file_path"]
+    name = state.get("name") or Path(path_str).name
+    depth = int(state.get("depth") or 0)
+    path, err = _resolve_path(path_str)
+    if err:
+        return _archive_error(err, started)
+    if not path.is_file():
+        return _archive_error(f"Error: File not found: {path_str}", started)
+
+    try:
+        kind, entries, archive = _archive_open(path)
+    except Exception as e:
+        return _archive_error(f"Error: could not open '{name}' as an archive: "
+                              f"{type(e).__name__}: {e}", started)
+
+    try:
+        if kind == "zip" and entries and all(entry["encrypted"] for entry in entries):
+            return _archive_error(f"Error: '{name}' is encrypted — it cannot be read "
+                                  f"without the password", started)
+
+        files = [entry for entry in entries if not entry["dir"]]
+        members, skipped = [], []
+        budget = ARCHIVE_MAX_TOTAL_BYTES
+        expanded = depth < ARCHIVE_MAX_DEPTH
+        for entry in files:
+            reason = None
+            member_kind, member_ext = classify(entry["name"])
+            if len(members) >= ARCHIVE_MAX_MEMBERS:
+                reason = f"only the first {ARCHIVE_MAX_MEMBERS} members are read"
+            elif entry["encrypted"]:
+                reason = "encrypted — needs a password"
+            elif member_kind == "binary":
+                reason = "no readable format for this extension"
+            elif member_kind == "archive" and not expanded:
+                reason = ("nested archive — listed only, an archive inside an archive "
+                          "is not expanded")
+            elif entry["size"] > ARCHIVE_MAX_MEMBER_BYTES:
+                reason = (f"declared size {_human_size(entry['size'])} exceeds the "
+                          f"{_human_size(ARCHIVE_MAX_MEMBER_BYTES)} per-member cap")
+            elif entry["size"] > budget:
+                reason = (f"the remaining {_human_size(budget)} of the "
+                          f"{_human_size(ARCHIVE_MAX_TOTAL_BYTES)} total cap is too small")
+            if reason:
+                skipped.append({"name": entry["name"], "reason": reason})
+                continue
+            budget -= entry["size"]
+            members.append({"index": len(members), "name": entry["name"],
+                            "arch_index": entries.index(entry),
+                            "ext": member_ext, "size": entry["size"]})
+    finally:
+        if archive is not None:
+            archive.close()
+
+    run_dir = ""
+    if members:
+        # Members are staged under a name of OUR choosing, never the archive's:
+        # index + sanitised extension, so no member name can traverse anywhere.
+        run_dir = str(path.parent / f".archive_{uuid.uuid4().hex[:8]}")
+        Path(run_dir).mkdir(parents=True, exist_ok=True)
+
+    return {
+        "branch": "archive",
+        "archive_kind": kind.upper(),
+        "archive_entries": len(entries),
+        "archive_manifest": entries[:ARCHIVE_MAX_ENTRIES],
+        "archive_members": members,
+        "archive_skipped": skipped,
+        "archive_run_dir": run_dir,
+        "depth": depth,
+        "read_archive_ms": int((time.time() - started) * 1000),
+    }
+
+
+def route_archive_members(state: FileReadState):
+    """Map the readable members: one ``Send`` each, or straight to the reduce."""
+    if state.get("error") or state.get("result"):
+        return "archive_compose"
+    members = state.get("archive_members") or []
+    if not members:
+        return "archive_compose"
+    return [Send("archive_member", {
+        "file_path": state["file_path"],
+        "name": state.get("name"),
+        "question": state.get("question"),
+        "vision_enabled": state.get("vision_enabled", True),
+        "vision_model": state.get("vision_model"),
+        "member_index": member["index"],
+        "member_arch_index": member["arch_index"],
+        "member_name": member["name"],
+        "member_ext": member["ext"],
+        "member_bytes": member["size"],
+        "archive_run_dir": state.get("archive_run_dir") or "",
+        "depth": int(state.get("depth") or 0) + 1,
+    }) for member in members]
+
+
+async def archive_member_node(state: FileReadState) -> FileReadState:
+    """One member: read its bytes, stage it, and read it with this same reader.
+
+    The staging file is named after the member's *index*, not its path, so the
+    classic archive traversal (``../../etc/passwd``) has nothing to traverse; and
+    the staged file is read by the ordinary branches — a .csv member through the
+    text branch, a .docx member through the document branch — which is why an
+    archive needs no format code of its own.
+    """
+    started = time.time()
+    index = int(state["member_index"])
+    member_name = state.get("member_name") or f"member {index}"
+    out: Dict[str, Any] = {"index": index, "name": member_name, "chars": 0}
+    run_dir = state.get("archive_run_dir") or ""
+
+    path, err = _resolve_path(state["file_path"])
+    if err or not path.is_file():
+        out["body"] = f"--- {member_name} ---\n(could not be read: {err or 'archive not found'})"
+        return {"archive_blocks": [out]}
+
+    try:
+        kind, entries, archive = _archive_open(path)
+        try:
+            position = int(state.get("member_arch_index") or 0)
+            raw_name = entries[position]["raw"] if position < len(entries) else state["member_name"]
+            data = _archive_read_member(archive if kind != "gz" else str(path),
+                                       kind, raw_name, ARCHIVE_MAX_MEMBER_BYTES)
+        finally:
+            if archive is not None:
+                archive.close()
+    except Exception as e:
+        out["body"] = (f"--- {member_name} ---\n"
+                       f"(could not be read: {type(e).__name__}: {e})")
+        return {"archive_blocks": [out]}
+
+    # The member's real name is in the archive; on disk it is index + extension.
+    safe_ext = "".join(ch for ch in (state.get("member_ext") or "") if ch.isalnum())[:8]
+    staged = Path(run_dir) / f"member_{index:03d}.{safe_ext or 'bin'}"
+    try:
+        staged.write_bytes(data)
+        body = await read_file_as_text(
+            str(staged),
+            question=state.get("question"),
+            vision_enabled=state.get("vision_enabled", True),
+            vision_model=state.get("vision_model"),
+            depth=int(state.get("depth") or 1),
+            display_name=member_name,
+        )
+    except Exception as e:
+        body = f"(could not be read: {type(e).__name__}: {e})"
+    finally:
+        staged.unlink(missing_ok=True)
+
+    out["body"] = f"--- {member_name} ---\n{body}"
+    out["chars"] = len(body)
+    out["ms"] = int((time.time() - started) * 1000)
+    return {"archive_blocks": [out]}
+
+
+def archive_compose_node(state: FileReadState) -> FileReadState:
+    """Reduce: the manifest, the members read, what was skipped, and the cap."""
+    started = time.time()
+    run_dir = state.get("archive_run_dir") or ""
+    try:
+        if state.get("error") or state.get("result"):
+            return {}
+        blocks = sorted(state.get("archive_blocks") or [], key=lambda b: b.get("index") or 0)
+        members = state.get("archive_members") or []
+        skipped = state.get("archive_skipped") or []
+        entries = state.get("archive_manifest") or []
+        total = int(state.get("archive_entries") or 0)
+        name = state.get("name")
+
+        manifest = [f"  {entry['name']}"
+                    f"{'/' if entry['dir'] and not entry['name'].endswith('/') else ''}  "
+                    f"{_human_size(entry['size'])}  {entry['date']}"
+                    + ("  [encrypted]" if entry.get("encrypted") else "")
+                    for entry in entries]
+        if total > len(entries):
+            manifest.append(f"  ... ({total - len(entries)} more entries not listed)")
+
+        header = [
+            "== Archive ==",
+            f"name: {name}  kind: {state.get('archive_kind')}  entries: {total}  "
+            f"read: {len(blocks)} member(s)",
+        ]
+        question = (state.get("question") or "").strip()
+        if question:
+            header.append(f"question: {question}")
+        parts = ["\n".join(header), "manifest:\n" + "\n".join(manifest) if manifest else "manifest: (empty)"]
+        parts.extend(block.get("body") or "" for block in blocks)
+        if skipped:
+            parts.append("not read:\n" + "\n".join(
+                f"  {item['name']} — {item['reason']}" for item in skipped))
+
+        if not blocks:
+            if not any(not entry["dir"] for entry in entries):
+                msg = f"Error: '{name}' is empty — {total} entr(y/ies), no files to read"
+                return {"result": msg, "error": msg, "branch": "archive",
+                        "archive_ms": int((time.time() - started) * 1000)}
+            # Entries exist but none could be read: the manifest is still the most
+            # useful answer, so keep it and name the reason for each member.
+            parts.append(f"nothing above could be read — {len(skipped)} member(s) skipped, "
+                         f"each with its reason")
+
+        body = "\n\n".join(parts)
+        truncated = False
+        if len(body) > TEXT_MAX_CHARS:
+            body = body[:TEXT_MAX_CHARS] + (
+                f"\n\n[Truncated - content exceeds {TEXT_MAX_CHARS} characters]")
+            truncated = True
+        return {"result": body, "branch": "archive", "truncated": truncated,
+                "archive_read_members": len(blocks),
+                "archive_ms": int((time.time() - started) * 1000)}
+    finally:
+        if run_dir:
+            shutil.rmtree(run_dir, ignore_errors=True)      # nothing staged survives a read
+
+
 def read_image_node(state: FileReadState) -> FileReadState:
     """Decode → (convert BMP/TIFF → PNG) → cap the longest edge → re-encode."""
     started = time.time()
@@ -1212,6 +1594,9 @@ def build_file_reader_graph():
     builder.add_node("read_document", read_document_node)
     builder.add_node("doc_picture", doc_picture_node)
     builder.add_node("doc_compose", doc_compose_node)
+    builder.add_node("read_archive", read_archive_node)
+    builder.add_node("archive_member", archive_member_node)
+    builder.add_node("archive_compose", archive_compose_node)
     builder.add_node("read_image", read_image_node)
     builder.add_node("ocr", ocr_node)
     builder.add_node("describe", describe_node)
@@ -1223,6 +1608,7 @@ def build_file_reader_graph():
         "text": "read_text",
         "pdf": "read_pdf",
         "document": "read_document",
+        "archive": "read_archive",
         "image": "read_image",
         "other": "unsupported",
     })
@@ -1241,6 +1627,14 @@ def build_file_reader_graph():
     })
     builder.add_edge("doc_picture", "doc_compose")
     builder.add_edge("doc_compose", END)
+    # Archives: list the container, then read its readable members by recursing
+    # into this same reader — no format code of its own.
+    builder.add_conditional_edges("read_archive", route_archive_members, {
+        "archive_member": "archive_member",
+        "archive_compose": "archive_compose",
+    })
+    builder.add_edge("archive_member", "archive_compose")
+    builder.add_edge("archive_compose", END)
     # Fan-out: both nodes run in one superstep; they write different keys.
     builder.add_edge("read_image", "ocr")
     builder.add_edge("read_image", "describe")
@@ -1274,16 +1668,20 @@ async def read_file_as_text(
     question: Optional[str] = None,
     vision_enabled: bool = True,
     vision_model: Optional[str] = None,
+    depth: int = 0,
+    display_name: Optional[str] = None,
 ) -> str:
     """Run the graph and return only the text result (the tool contract).
 
     ``vision_model`` overrides ``LANGCONFIG_VISION_MODEL`` for this call, so an
-    agent can pin the model its reader uses (``tool_params``).
+    agent can pin the model its reader uses (``tool_params``). ``depth`` counts
+    archive expansions: a member is read by this same function with ``depth+1``,
+    so an archive nested in an archive is listed but not expanded again.
     """
     state = await get_file_reader_graph().ainvoke(
-        {"file_path": file_path, "question": question, "vision_enabled": vision_enabled,
-         "vision_model": vision_model or ""},
-        config={"recursion_limit": 12},
+        {"file_path": file_path, "display_name": display_name or "", "question": question,
+         "vision_enabled": vision_enabled, "vision_model": vision_model or "", "depth": depth},
+        config={"recursion_limit": 16},
     )
     return state.get("result") or "Error: reader produced no output"
 
@@ -1341,6 +1739,9 @@ def _cli(argv: Optional[list] = None) -> int:
                       f"pictures={state.get('doc_pictures')} "
                       f"ocr={state.get('doc_ocr_pictures')} vision={state.get('doc_vision_pictures')} "
                       f"vision_tokens={state.get('doc_vision_tokens')}")
+        elif state.get("branch") == "archive":
+            detail = (f"format={state.get('archive_kind')} entries={state.get('archive_entries')} "
+                      f"read_members={state.get('archive_read_members')}")
         else:
             detail = (f"describe_tokens={state.get('describe_tokens')} "
                       f"ocr_chars={state.get('ocr_chars')} ocr={state.get('ocr_ms')}ms "
@@ -1348,7 +1749,7 @@ def _cli(argv: Optional[list] = None) -> int:
                       f"cached={state.get('describe_cached')}")
         print(
             f"\n[branch={state.get('branch')} kind={state.get('kind')} {detail} "
-            f"total={state.get('pdf_ms') or state.get('doc_ms') or state.get('read_ms') or state.get('merge_ms')}ms]",
+            f"total={state.get('pdf_ms') or state.get('doc_ms') or state.get('archive_ms') or state.get('read_ms') or state.get('merge_ms')}ms]",
             file=sys.stderr,
         )
     return 0
