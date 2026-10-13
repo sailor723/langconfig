@@ -5,7 +5,7 @@
     expect after migration: 5 + 3 = 8, and the 3 shared rows keep THEIR content.
 
 The "me" set is a hand-built merge file so the arithmetic is visible; the real
-generated file (68 tools) is applied afterwards to confirm it is well-formed and
+generated file (67 tools) is applied afterwards to confirm it is well-formed and
 idempotent.
 """
 import subprocess
@@ -43,6 +43,9 @@ def make_tool(db, tool_id, name, description):
 
 print("1. schema …")
 init_db()
+# the arithmetic below ("5 + 3 = 8") assumes this script's own starting state, so
+# clear whatever a previous verification left in the scratch DB
+psql("TRUNCATE custom_tools RESTART IDENTITY CASCADE")
 
 print("2. teammate's 5 tools …")
 db = SessionLocal()

@@ -14,7 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-BACKEND = Path(__file__).resolve().parent
+BACKEND = Path(__file__).resolve().parents[2]   # scripts/seeds/ -> backend/
 sys.path.insert(0, str(BACKEND))
 
 from sqlalchemy import text                      # noqa: E402
@@ -47,6 +47,9 @@ def apply_seed() -> None:
 print("1. creating schema …")
 subprocess.run([sys.executable, "-c",
                 "from db.database import init_db; init_db()"], cwd=BACKEND, check=True)
+# each verification owns the scratch DB it asserted on, so it can be run either
+# order and more than once — a previous run's rows must not be counted as ours
+psql("TRUNCATE deep_agent_templates, custom_tools, chat_sessions RESTART IDENTITY CASCADE")
 
 print("2. simulating a teammate …")
 db = SessionLocal()
