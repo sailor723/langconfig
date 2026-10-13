@@ -10,8 +10,8 @@
 
 `langconfig.zip` (≈31 MB) contains the full source tree minus secrets/build
 artifacts (no `.env`, `node_modules`, `.venv`, `data`, `backend/outputs`, git
-history). The database seed restores a machine-agnostic baseline: 44 deep
-agents, 28 LLM models, 58 tools, 19 skills. **Your workspace paths and API keys
+history). The database seed restores a machine-agnostic baseline: 56 deep
+agents, 29 LLM models, 67 tools, 43 skills. **Your workspace paths and API keys
 are added locally in the steps below — nothing machine-specific ships in the
 zip.**
 
@@ -448,11 +448,13 @@ What it does (10 steps, all idempotent):
 | 1 | create Postgres role + database if missing |
 | 2 | create all tables + pgvector extension |
 | 3 | alembic stamp head |
-| 4–6 | seed settings documents, 28 models, 6 search providers |
-| 7 | restore 58 tools |
-| 8 | restore 44 deep agents (machine-agnostic dump) |
+| 4 | seed settings documents (missing namespaces only) |
+| **4b** | **team settings** — `settings_seed.json` merged three-way, so a key you changed yourself is not overwritten |
+| 5–6 | 29 models, 6 search providers |
+| 7 | restore 67 tools |
+| 8 | restore 56 deep agents (machine-agnostic dump) |
 | **8.5** | **identity backfill** — bakes each agent's real id + `<WORKSPACE_ROOT>/agents/agent_{id}` + AGENTS.md/CLAUDE.md into `system_prompt` + `agent_docs` |
-| 9 | sync 19 skills from `backend/skills/` |
+| 9 | sync 43 skills from `backend/skills/` |
 | 10 | create `chinook` sample DB (best-effort) |
 
 Verify the result (works regardless of the workspace root you chose):

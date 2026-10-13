@@ -5,9 +5,11 @@ install that matches the team's agents, tools, models and skills — **without
 touching anything they have already built**.
 
 Companion to [`TEAM_INSTALL.md`](TEAM_INSTALL.md), which covers the same ground
-for a zip-package install. Where the two disagree on counts, trust this file:
-the numbers there have drifted (it still advertises 44 agents / 28 models /
-58 tools / 19 skills).
+for a **zip-package install** (`scripts/make_team_zip.sh` +
+`backend/scripts/setup.py`, no git required). Both baselines are counted fresh as
+of 56 agents / 29 models / 67 tools / 43 skills; if the two ever disagree again,
+trust this file, because its numbers are the ones `export_baseline.py --check`
+verifies against the database.
 
 ---
 
