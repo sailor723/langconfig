@@ -55,6 +55,9 @@ async def read_any_file(file_path: str, question: str = None, vision: bool = Tru
                              read with OCR (and vision)
     excel (.xlsx)         -> cell values sheet by sheet through openpyxl (a formula
                              shows its cached result, else the formula itself)
+    archive (.zip/.tar.*) -> the list of members, then every readable member read
+                             by this same reader (a .docx inside a zip comes back
+                             as a document, a .csv as text, a .png OCR'd)
     """
     _ensure_app_importable()
     from core.graphs.read_file import read_file_as_text
@@ -65,7 +68,7 @@ async def read_any_file(file_path: str, question: str = None, vision: bool = Tru
 
 DESCRIPTION = (
     "Read any file and return its TEXT - one reader for four kinds of file (text, "
-    "image, PDF, and Office documents including Excel). "
+    "image, PDF, Office documents including Excel, and archives). "
     "TEXT (markdown, code, data): verbatim, line-numbered. "
     "IMAGE (.png/.jpg/.jpeg/.webp/.gif/.bmp/.tiff): a short vision description plus the "
     "OCR-extracted text. "
@@ -77,6 +80,12 @@ DESCRIPTION = (
     "still reads. "
     "EXCEL (.xlsx/.xlsm): every sheet is read through openpyxl - cell values as | "
     "separated rows, sheet by sheet, with the sheet names and hidden sheets marked. "
+    "ARCHIVE (.zip/.tar/.tar.gz/.tgz): the members are listed with sizes, and every "
+    "member whose type this tool understands is read too - a .csv inside a zip comes "
+    "back as text, a .docx as a document, a .png OCR'd. Limits keep it predictable: "
+    "the first 15 readable members, 256 KiB per member, 2 MiB in total, one level of "
+    "nesting, and a member whose declared size breaks a limit is refused before it is "
+    "decompressed. Everything skipped is named with its reason. "
     "It never returns raw or base64 image data, so it cannot overflow the context - use it "
     "instead of read_file for images, scans and pictures inside documents. OCR uses the "
     "language packs installed on the host (English and Chinese by default), so a scanned "

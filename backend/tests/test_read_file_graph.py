@@ -11,6 +11,8 @@ Vision is monkeypatched (no API calls, no cost); the live path is opt-in via
 from __future__ import annotations
 
 import asyncio
+import subprocess
+import io
 import os
 import shutil
 import time
@@ -364,8 +366,14 @@ def test_route_by_kind_sends_each_family_to_its_own_branch():
     assert rf.route_by_kind({"kind": "document", "ext": ".doc"}) == "document"
     assert rf.route_by_kind({"kind": "document", "ext": ".xlsx"}) == "document"
     assert rf.route_by_kind({"kind": "document", "ext": ".xlsm"}) == "document"
+    assert rf.route_by_kind({"kind": "archive", "ext": ".zip"}) == "archive"
     assert rf.route_by_kind({"kind": "image", "ext": ".png"}) == "image"
     assert rf.route_by_kind({"kind": "text", "ext": ".md"}) == "text"
+
+
+def test_container_extensions_are_archives():
+    for ext in (".zip", ".tar", ".tgz", ".gz", ".tbz2", ".txz"):
+        assert rf.classify(f"bundle{ext}") == ("archive", ext)
 
 
 def test_office_formats_are_documents_so_they_can_be_read_or_advised():
@@ -934,6 +942,207 @@ def test_legacy_xls_advises_saving_as_xlsx(sheet_files, fake_vision):
         assert "save it as .xlsx" in state["result"]
     finally:
         legacy.unlink()
+
+
+# ── archive branch (zip / tar containers) ────────────────────────────────────
+@pytest.fixture(scope="module")
+def archive_files(probe_files):
+    """Containers: a mixed zip, a tar.gz, a nested pair, a bomb and junk."""
+    import zipfile, tarfile, shutil
+
+    made: list[Path] = []
+
+    def _path(name: str) -> Path:
+        path = PROBE_DIR / name
+        made.append(path)
+        return path
+
+    document = pytest.importorskip("docx").Document()
+    document.add_heading("Inner Doc", 1)
+    document.add_paragraph("text inside a zip")
+    docx_member = _path("inner.docx")
+    document.save(docx_member)
+
+    book = pytest.importorskip("openpyxl").Workbook()
+    book.active.append(["sku", "price"])
+    book.active.append(["A", 10])
+    xlsx_member = _path("inner.xlsx")
+    book.save(xlsx_member)
+
+    deep = io.BytesIO()
+    with zipfile.ZipFile(deep, "w") as z:
+        z.writestr("deepest/note.md", "# too deep\n")
+    nested = io.BytesIO()
+    with zipfile.ZipFile(nested, "w") as z:
+        z.writestr("inner/note.md", "# inner note\n")
+        z.writestr("deep.zip", deep.getvalue())
+
+    bundle = _path("bundle.zip")
+    with zipfile.ZipFile(bundle, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("readme.md", "# Readme\n\nThe bundle's own text.\n")
+        z.writestr("data/prices.csv", "sku,price\nA,10\n")
+        z.writestr("inner.docx", docx_member.read_bytes())
+        z.writestr("inner.xlsx", xlsx_member.read_bytes())
+        z.writestr("shot.png", probe_files["png"].read_bytes())
+        z.writestr("nested.zip", nested.getvalue())
+        z.writestr("binary.bin", b"\x00\x01\x02" * 40)
+        z.writestr("empty/", "")
+
+    tar_path = _path("bundle.tar.gz")
+    with tarfile.open(tar_path, "w:gz") as t:
+        t.add(docx_member, arcname="docs/inner.docx")
+
+    bomb = _path("bomb.zip")
+    with zipfile.ZipFile(bomb, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("big.txt", "A" * 5_000_000)          # tiny on disk, huge declared
+
+    empty = _path("empty.zip")
+    with zipfile.ZipFile(empty, "w") as z:
+        z.writestr("only/a/dir/", "")
+
+    corrupt = _path("corrupt.zip")
+    corrupt.write_bytes(b"PK\x03\x04 not an archive")
+
+    # a zip whose names were written without the UTF-8 flag (macOS `zip` does this)
+    legacy = None
+    if shutil.which("zip"):
+        source = PROBE_DIR / "价格表.csv"
+        source.write_text("产品,单价\nA,25\n", encoding="utf-8")
+        legacy = _path("legacy.zip")
+        shutil.rmtree(legacy, ignore_errors=True)
+        subprocess.run(["zip", "-q", str(legacy), source.name], cwd=str(PROBE_DIR),
+                       capture_output=True)
+        source.unlink()
+
+    yield {"bundle": bundle, "tar": tar_path, "bomb": bomb, "empty": empty,
+           "corrupt": corrupt, "legacy": legacy}
+    for path in made:
+        if path.exists():
+            path.unlink()
+
+
+def _read_archive(archive_files, key, **kw):
+    payload = {"file_path": str(archive_files[key])}
+    payload.update(kw)
+    return asyncio.run(rf.get_file_reader_graph().ainvoke(payload))
+
+
+def test_zip_manifest_lists_what_is_inside(archive_files, fake_vision):
+    state = _read_archive(archive_files, "bundle", vision_enabled=False)
+
+    assert state["branch"] == "archive"
+    assert state["result"].startswith("== Archive ==")
+    assert "kind: ZIP" in state["result"]
+    assert "entries: 8" in state["result"]
+    for name in ("readme.md", "data/prices.csv", "inner.docx", "inner.xlsx",
+                 "shot.png", "nested.zip", "binary.bin"):
+        assert name in state["result"], name
+    assert state["archive_entries"] == 8
+    assert not fake_vision
+
+
+def test_zip_reads_its_text_members(archive_files, fake_vision):
+    state = _read_archive(archive_files, "bundle", vision_enabled=False)
+
+    assert "--- readme.md ---" in state["result"]
+    assert "The bundle's own text." in state["result"]
+    assert "--- data/prices.csv ---" in state["result"]
+    assert "sku,price" in state["result"]
+
+
+def test_zip_reads_office_members_through_their_own_branches(archive_files, fake_vision):
+    """No second implementation of any format: a member is read by this reader."""
+    state = _read_archive(archive_files, "bundle", vision_enabled=False)
+
+    assert "--- inner.docx ---" in state["result"]
+    assert "# Inner Doc" in state["result"]              # the document branch
+    assert "--- inner.xlsx ---" in state["result"]
+    assert "== Spreadsheet ==" in state["result"]        # the spreadsheet path
+    assert "sku | price" in state["result"]
+
+
+def test_zip_reads_an_image_member_with_ocr(archive_files, fake_vision):
+    state = _read_archive(archive_files, "bundle", vision_enabled=False)
+
+    assert "--- shot.png ---" in state["result"]
+    assert "OCR PROBE 12345" in state["result"]          # real tesseract output
+
+
+def test_member_is_named_as_the_member_not_the_staging_file(archive_files, fake_vision):
+    state = _read_archive(archive_files, "bundle", vision_enabled=False)
+
+    assert "member_00" not in state["result"]
+    assert "name: inner.docx" in state["result"]
+
+
+def test_binary_and_nested_members_are_named_not_read(archive_files, fake_vision):
+    state = _read_archive(archive_files, "bundle", vision_enabled=False)
+
+    # nested.zip is expanded once (its own text member is read) …
+    assert "--- nested.zip ---" in state["result"]
+    assert "inner note" in state["result"]
+    # … but the archive inside it is only listed
+    assert "deep.zip" in state["result"]
+    assert "too deep" not in state["result"]
+    assert "nested archive" in state["result"]
+    assert "binary.bin" in state["result"]
+    assert "no readable format for this extension" in state["result"]
+
+
+def test_member_cap_is_named(archive_files, fake_vision, monkeypatch):
+    monkeypatch.setattr(rf, "ARCHIVE_MAX_MEMBERS", 1)
+    state = _read_archive(archive_files, "bundle", vision_enabled=False)
+
+    assert "only the first 1 members are read" in state["result"]
+    assert state["archive_read_members"] == 1
+
+
+def test_declared_size_is_refused_before_decompressing(archive_files, fake_vision):
+    """A zip bomb is visible from the header: 4.8 MiB declared, 5 KiB on disk."""
+    state = _read_archive(archive_files, "bomb", vision_enabled=False)
+
+    assert "big.txt" in state["result"]                  # the manifest survives
+    assert "declared size" in state["result"]
+    assert "per-member cap" in state["result"]
+    assert state["archive_read_members"] == 0
+
+
+def test_tar_gz_members_are_read(archive_files, fake_vision):
+    state = _read_archive(archive_files, "tar", vision_enabled=False)
+
+    assert "kind: TAR" in state["result"]
+    assert "--- docs/inner.docx ---" in state["result"]
+    assert "text inside a zip" in state["result"]
+
+
+@pytest.mark.skipif(not shutil.which("zip"), reason="needs the zip CLI to make a legacy archive")
+def test_legacy_archive_names_are_repaired(archive_files, fake_vision):
+    """macOS `zip` leaves the UTF-8 flag unset; the name arrives as CP437 mojibake."""
+    state = _read_archive(archive_files, "legacy", vision_enabled=False)
+
+    assert "价格表.csv" in state["result"]
+    assert "产品,单价" in state["result"]                # and the content is found
+
+
+def test_empty_archive_reports_that_nothing_could_be_read(archive_files, fake_vision):
+    state = _read_archive(archive_files, "empty", vision_enabled=False)
+
+    assert state["result"].startswith("Error:")
+    assert "is empty" in state["result"]
+
+
+def test_corrupt_archive_reports_an_error(archive_files, fake_vision):
+    state = _read_archive(archive_files, "corrupt", vision_enabled=False)
+
+    assert state["result"].startswith("Error:")
+    assert "could not open" in state["result"]
+
+
+def test_archive_never_leaves_staged_members_behind(archive_files, fake_vision):
+    _read_archive(archive_files, "bundle", vision_enabled=False)
+
+    leftovers = list(PROBE_DIR.glob(".archive_*"))
+    assert leftovers == []
 
 
 # ── live path (opt-in: LANGCONFIG_LIVE_TESTS=1) ──────────────────────────────
