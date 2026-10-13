@@ -1328,13 +1328,6 @@ PROTECTED_PATH_COMPONENTS = (
     "frontend", "api", "core", "services", "models",
 )
 
-# How each extension is described back to the caller, so the agent can tell the
-# user what it actually produced rather than what it hoped to produce.
-_RENDERED_OUTPUTS = {
-    ".html": "HTML page rendered from your markdown",
-    ".pdf": "PDF rendered from your markdown",
-    ".docx": "Word document rendered from your markdown",
-}
 
 
 def _write_target(
@@ -1470,16 +1463,19 @@ def _write_file_impl(
 
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        ext = path.suffix.lower()
-        if ext == ".html":
-            path.write_text(_render_html_document(content, title=path.name), encoding="utf-8")
-        elif ext == ".pdf":
-            _write_pdf_file(path, content)
-        elif ext == ".docx":
-            _write_docx_file(path, content)
-        else:
-            # Plain text formats: markdown, txt, json, csv, py, etc.
-            path.write_text(content, encoding="utf-8")
+        # Rendering belongs to the writer graph (core/graphs/write_file.py): one
+        # node per output format, so a format can be changed and reviewed on its
+        # own. This function owns *where* the file goes and what the agent is
+        # told; the graph owns *what a .docx / .pdf / .html looks like*.
+        from core.graphs.write_file import write_document
+
+        try:
+            shown_path = path.relative_to(workspace.resolve()).as_posix()
+        except ValueError:
+            shown_path = str(path)
+        state = write_document(str(path), content, display_path=shown_path)
+        if state.get("error"):
+            return state["result"]
 
         # Phase 2: durable storage copy when STORAGE_MODE=db (no-op in local).
         # Read the bytes back so binary outputs (pdf/docx) persist correctly.
@@ -1506,12 +1502,8 @@ def _write_file_impl(
 
         # The agent must be able to tell the user where the file is; "report.md"
         # alone is why a .md write gets reported as a .docx deliverable.
-        try:
-            shown = path.relative_to(workspace.resolve()).as_posix()
-        except ValueError:
-            shown = str(path)
-        what = _RENDERED_OUTPUTS.get(ext, "written verbatim")
-        return (f"Successfully wrote {len(content)} characters to {shown} "
+        what = state.get("format_label") or "written verbatim"
+        return (f"Successfully wrote {len(content)} characters to {shown_path} "
                 f"({path.stat().st_size} bytes, {what}).")
 
     except Exception as e:
