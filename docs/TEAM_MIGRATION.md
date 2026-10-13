@@ -425,6 +425,50 @@ they changed themselves) comes through byte-identical — while a name clash and
 the real working tree at the end, so it cannot pass by having damaged the thing it
 was measuring.
 
+### On a real machine, after an update
+
+`smoke_test.py` only asserts that things are **present** (`> 0`, `>= 25`) — it says
+nothing about whether the person's own work survived, which is the half of the
+promise that matters on a machine that already had an install. This reads the
+baseline out of the merge files, subtracts it, and reports what is left. Read-only,
+safe anywhere:
+
+```bash
+cd backend && .venv/bin/python - <<'EOF'
+import re
+from pathlib import Path
+from db.database import engine
+from sqlalchemy import text
+
+base = Path("scripts/seeds")
+agents = set(re.findall(r"WHERE name = '((?:[^']|'')*)'", (base / "deep_agents_merge.sql").read_text()))
+tools = set(re.findall(r"WHERE tool_id = '([^']+)'", (base / "custom_tools_merge.sql").read_text()))
+
+with engine.connect() as c:
+    q = lambda s: c.execute(text(s)).scalar()
+    rows = lambda s: [r[0] for r in c.execute(text(s))]
+    n_a, n_t = q("SELECT count(*) FROM deep_agent_templates"), q("SELECT count(*) FROM custom_tools")
+    mine_a = [n for n in rows("SELECT name FROM deep_agent_templates ORDER BY name") if n not in agents]
+    mine_t = [t for t in rows("SELECT tool_id FROM custom_tools ORDER BY tool_id") if t not in tools]
+    dup_a = q("SELECT count(*) FROM (SELECT name FROM deep_agent_templates GROUP BY name HAVING count(*)>1) d")
+    dup_t = q("SELECT count(*) FROM (SELECT tool_id FROM custom_tools GROUP BY tool_id HAVING count(*)>1) d")
+    stale = q("SELECT count(*) FROM custom_tools WHERE tool_id = 'write_file'")
+
+print(f"baseline in the repo : {len(agents)} agents, {len(tools)} tools")
+print(f"this database        : {n_a} agents, {n_t} tools")
+print(f"kept from before     : {len(mine_a)} own agent(s), {len(mine_t)} own tool(s)")
+if mine_a: print(f"   own agents        : {mine_a}")
+if mine_t: print(f"   own tools         : {mine_t}")
+print(f"duplicates           : {dup_a} agent names, {dup_t} tool ids")
+print(f"stale write_file row : {stale}   (must be 0)")
+EOF
+```
+
+What to expect on a teammate's machine: totals at least the baseline's, their own
+names and ids listed under "kept from before", `0` duplicates in both, and `0` for
+the stale row. On the machine that owns the baseline the two "kept from before"
+counts are legitimately `0` — everything there *is* the baseline.
+
 ## 10. Footguns
 
 - **Exactly two things of a teammate's can be rewritten, and neither is their own
