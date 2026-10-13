@@ -73,12 +73,19 @@ def scrub_prefixes() -> list[tuple[str, str]]:
     from db.database import SessionLocal as _SessionLocal
 
     base = ""
-    with _SessionLocal() as db:
-        doc = db.execute(_text(
-            "SELECT document FROM settings_documents WHERE ns = 'workspace'"
-        )).scalar()
-        if isinstance(doc, dict):
-            base = str(doc.get("workspace_path") or "")
+    try:
+        with _SessionLocal() as db:
+            doc = db.execute(_text(
+                "SELECT document FROM settings_documents WHERE ns = 'workspace'"
+            )).scalar()
+            if isinstance(doc, dict):
+                base = str(doc.get("workspace_path") or "")
+    except Exception as exc:                      # noqa: BLE001
+        # The table may not exist yet (a database with agents but no settings
+        # seeded is a legitimate state), and the home-directory prefix below
+        # still covers the paths that matter.
+        print(f"note: workspace settings unavailable ({type(exc).__name__}); "
+              f"scrubbing the home directory only", file=sys.stderr)
     prefixes = []
     if base:
         prefixes.append(base)                     # …/backend/outputs
