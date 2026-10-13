@@ -1323,6 +1323,88 @@ def _write_docx_file(path: Path, content: str) -> None:
     doc.save(str(path))
 
 
+PROTECTED_PATH_COMPONENTS = (
+    "langconfig", "backend", "src", "node_modules", ".git",
+    "frontend", "api", "core", "services", "models",
+)
+
+# How each extension is described back to the caller, so the agent can tell the
+# user what it actually produced rather than what it hoped to produce.
+_RENDERED_OUTPUTS = {
+    ".html": "HTML page rendered from your markdown",
+    ".pdf": "PDF rendered from your markdown",
+    ".docx": "Word document rendered from your markdown",
+}
+
+
+def _write_target(
+    file_path: str,
+    workspace_root: Path,
+    default_dir: Path,
+) -> tuple:
+    """Resolve a requested path to ``(path, error)`` inside *workspace_root*.
+
+    The caller may name a subfolder — ``generated/`` (deliverables), ``other/``
+    (scratch), or deeper — and it is honoured, because both the skill and the
+    tool description promise it. A bare filename lands in *default_dir*.
+
+    Refusals are explicit rather than a silent rewrite, so a wrong path teaches
+    the agent instead of hiding: ``..`` cannot escape, an absolute path must
+    already be inside the workspace, ``upload/`` is the user's own folder and
+    stays read-only, and a path that *starts* with a source-tree component
+    (``backend/``, ``src/``, ``core/`` …) is still refused.
+    """
+    from services.workspace_manager import AGENT_UPLOADS_DIR
+
+    request = str(file_path or "").strip().replace("\\", "/")
+    if not request or request.endswith("/"):
+        return None, ("Error: give a filename, e.g. 'generated/report.md' or 'report.md'.")
+
+    raw = Path(request)
+    if raw.is_absolute():
+        candidate = raw.resolve()
+        try:
+            parts = candidate.relative_to(workspace_root.resolve()).parts
+        except ValueError:
+            return None, (
+                f"Error: refusing to write to '{file_path}': it is outside this "
+                f"agent's workspace. Give a path relative to the workspace, e.g. "
+                f"'generated/report.md' or 'other/scratch.md'."
+            )
+    else:
+        if ".." in raw.parts:
+            return None, (
+                f"Error: refusing to write to '{file_path}': a path containing '..' "
+                f"cannot be resolved inside the workspace. Use a relative path like "
+                f"'generated/report.md'."
+            )
+        parts = raw.parts
+
+    filename = parts[-1]
+    folders = parts[:-1]
+    head = folders[0] if folders else ""
+
+    for pattern in PROTECTED_PATH_COMPONENTS:
+        if pattern in head.lower():
+            logger.warning(f"Blocked protected path: {file_path} (starts with '{pattern}')")
+            return None, (
+                f"Error: refusing to write to '{file_path}': the path starts with "
+                f"protected directory component '{pattern}'. Write into the workspace "
+                f"instead — 'generated/{filename}' for a deliverable, or "
+                f"'other/{filename}' for scratch."
+            )
+
+    if head.lower() == AGENT_UPLOADS_DIR:
+        return None, (
+            f"Error: refusing to write to '{file_path}': upload/ holds the user's own "
+            f"uploaded documents and stays read-only. Put deliverables in "
+            f"'generated/{filename}' and scratch in 'other/{filename}'."
+        )
+
+    target_dir = (workspace_root / Path(*folders)) if folders else default_dir
+    return (target_dir / filename).resolve(), None
+
+
 def _write_file_impl(
     file_path: str,
     content: str,
@@ -1332,89 +1414,65 @@ def _write_file_impl(
     """
     Implementation of write_file tool with workspace-aware file storage.
 
-    The output format follows the requested file extension: ``.md`` and other
-    plain-text extensions are written verbatim, while ``.html`` / ``.pdf`` /
-    ``.docx`` are rendered as proper documents from the text content.
+    Where it goes: inside the calling agent's workspace, honouring the subfolder
+    the caller asked for — ``generated/`` is the default for a bare filename,
+    ``other/`` is reachable for scratch, deeper paths are created, and ``upload/``
+    (the user's own documents) is refused.
+
+    What it writes: the format follows the extension. ``.md`` and other plain-text
+    extensions are stored verbatim; ``.html`` / ``.pdf`` / ``.docx`` are rendered
+    as real documents from the same content.
 
     Args:
-        file_path: The filename to create
+        file_path: Filename or workspace-relative path, e.g. 'report.md' or 'other/notes.md'
         content: The content to write
         _workspace_context: Context about the workspace (project_id, workflow_id, task_id)
         _agent_context: Context about the agent creating the file (agent_label, agent_type, node_id, etc.)
     """
     try:
-        # SECURITY: Sanitize file path to prevent dangerous directory creation
-        # Extract just the filename, stripping ALL directory components
-        original_path = file_path
-        filename = Path(file_path).name  # Gets just "report.md" from any path
-
-        # Block suspicious paths — if a protected directory component appears
-        # anywhere outside the bare filename, refuse instead of silently
-        # rewriting the path (a silent sanitize hides bugs from the agent).
-        dangerous_patterns = [
-            'langconfig', 'backend', 'src', 'node_modules', '.git',
-            'frontend', 'api', 'core', 'services', 'models'
-        ]
-        path_lower = file_path.lower()
-        for pattern in dangerous_patterns:
-            if pattern in path_lower and pattern not in filename.lower():
-                logger.warning(f"Blocked dangerous path: {file_path} (contains '{pattern}')")
-                return (f"Error: refusing to write to '{file_path}': path contains "
-                        f"protected directory component '{pattern}'. Write into the "
-                        f"workspace output folder instead (e.g. '{filename}').")
-
-        # Always use organized workspace for better file management
-        from services.workspace_manager import get_workspace_manager, AGENT_GENERATED_DIR
+        from services.workspace_manager import AGENT_GENERATED_DIR, get_workspace_manager
 
         workspace_mgr = get_workspace_manager()
 
-        # If workspace context provided, use it; otherwise use a default workspace
-        if _workspace_context:
-            # Per-agent workspace root takes precedence: used as-is, no
-            # workflow/task subdirectories appended. Generated deliverables
-            # land in the dedicated "generated" subfolder (uploads live in
-            # "upload", instruction docs at the root).
-            workspace_root = _workspace_context.get('workspace_root')
-            if workspace_root:
-                workspace = Path(workspace_root).resolve()
-                workspace.mkdir(parents=True, exist_ok=True)
-                workspace = workspace / AGENT_GENERATED_DIR
-                workspace.mkdir(parents=True, exist_ok=True)
-            else:
-                # Use custom output path if configured for this workflow
-                custom_output_path = _workspace_context.get('custom_output_path')
-                workspace = workspace_mgr.get_task_workspace_with_override(
-                    project_id=_workspace_context.get('project_id'),
-                    workflow_id=_workspace_context.get('workflow_id'),
-                    task_id=_workspace_context.get('task_id'),
-                    custom_output_path=custom_output_path
-                )
+        # ── the workspace this write belongs to ──────────────────────────────
+        if _workspace_context and _workspace_context.get('workspace_root'):
+            # Per-agent workspace root, used as-is: deliverables default to its
+            # "generated" subfolder, uploads live in "upload", instruction docs
+            # at the root.
+            workspace = Path(_workspace_context['workspace_root']).resolve()
+            workspace.mkdir(parents=True, exist_ok=True)
+            default_dir = workspace / AGENT_GENERATED_DIR
+            default_dir.mkdir(parents=True, exist_ok=True)
+        elif _workspace_context:
+            workspace = workspace_mgr.get_task_workspace_with_override(
+                project_id=_workspace_context.get('project_id'),
+                workflow_id=_workspace_context.get('workflow_id'),
+                task_id=_workspace_context.get('task_id'),
+                custom_output_path=_workspace_context.get('custom_output_path'),
+            )
+            default_dir = workspace           # workflow outputs stay where they were
         else:
-            # Default to outputs/default/ - use workspace manager's base_dir for consistent path
             workspace = workspace_mgr.base_dir / "default"
             workspace.mkdir(parents=True, exist_ok=True)
+            default_dir = workspace
 
-        # Write file to workspace directory (use just the filename, not full path)
-        path = (workspace / filename).resolve()  # Use sanitized filename only
-        workspace_resolved = workspace.resolve()
+        path, error = _write_target(file_path, workspace, default_dir)
+        if error:
+            return error
 
-        # Security: Ensure file is within workspace
-        # Use Path.is_relative_to() for robust cross-platform comparison
+        # Belt and braces: the resolver already keeps the path inside, and this
+        # is the assertion that a future edit cannot quietly break that.
         try:
-            path.relative_to(workspace_resolved)
+            path.relative_to(workspace.resolve())
         except ValueError:
-            logger.warning(f"Security: Blocked write outside workspace: {path} not in {workspace_resolved}")
-            return f"Error: Cannot write outside workspace directory"
+            logger.warning(f"Security: Blocked write outside workspace: {path} not in {workspace}")
+            return "Error: Cannot write outside workspace directory"
 
-        # Create parent directories if they don't exist
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Format-aware rendering based on the requested file extension:
-        # markdown and other plain-text formats are written verbatim, while
-        # html / pdf / docx are rendered as real documents from the content.
         ext = path.suffix.lower()
         if ext == ".html":
-            path.write_text(_render_html_document(content, title=filename), encoding="utf-8")
+            path.write_text(_render_html_document(content, title=path.name), encoding="utf-8")
         elif ext == ".pdf":
             _write_pdf_file(path, content)
         elif ext == ".docx":
@@ -1429,17 +1487,15 @@ def _write_file_impl(
 
         logger.info(f"Wrote file: {path} ({len(content)} chars)")
 
-        # Record file metadata in database if we have context
         _record_file_metadata(
-            filename=filename,
+            filename=path.name,
             file_path=path,
-            workspace=workspace,
+            workspace=path.parent,
             content=content,
             workspace_context=_workspace_context,
             agent_context=_agent_context
         )
 
-        # Record initial version for diff tracking
         _record_file_version(
             file_path=path,
             operation="create",
@@ -1448,7 +1504,15 @@ def _write_file_impl(
             agent_context=_agent_context
         )
 
-        return f"Successfully wrote {len(content)} characters to {path.name}"
+        # The agent must be able to tell the user where the file is; "report.md"
+        # alone is why a .md write gets reported as a .docx deliverable.
+        try:
+            shown = path.relative_to(workspace.resolve()).as_posix()
+        except ValueError:
+            shown = str(path)
+        what = _RENDERED_OUTPUTS.get(ext, "written verbatim")
+        return (f"Successfully wrote {len(content)} characters to {shown} "
+                f"({path.stat().st_size} bytes, {what}).")
 
     except Exception as e:
         logger.error(f"Error writing file {file_path}: {e}")
@@ -1725,22 +1789,27 @@ write_file = StructuredTool.from_function(
     description="""Write content to a file. REQUIRES 2 PARAMETERS: file_path AND content.
 
 MANDATORY PARAMETERS (you MUST provide BOTH):
-1. file_path (str): Filename like 'report.md' (directory ignored for security)
+1. file_path (str): A workspace-relative path. A bare filename ('report.md') goes
+   to generated/; name a folder to choose — 'generated/report.md' for a
+   deliverable, 'other/notes.md' for scratch. 'upload/' is the user's own folder
+   and is refused.
 2. content (str): The COMPLETE file content - DO NOT omit this parameter!
 
-WRONG: write_file(file_path='test.md')  ← MISSING content, will ERROR
-CORRECT: write_file(file_path='test.md', content='# My Report\\nContent here...')
+WRONG: write_file(file_path='test.md')  <- MISSING content, will ERROR
+CORRECT: write_file(file_path='generated/test.md', content='# My Report\nContent here...')
 
-SUPPORTED FORMATS — pick the format by file extension:
-- .md    Markdown document (stored as-is)
+SUPPORTED FORMATS - pick the format by file extension:
+- .md    Markdown document (stored verbatim)
 - .html  Styled, self-contained HTML page (rendered from the content)
 - .pdf   PDF document (headings + paragraphs rendered from the content)
 - .docx  Word document (headings + paragraphs rendered from the content)
-- .txt / .json / .csv / .py  plain text (stored as-is)
+- .txt / .json / .csv / .py  plain text (stored verbatim)
 Use markdown headings (# / ## / ###) in content so pdf/html/docx outputs
 get proper document structure.
 
-Files are saved to the workflow's organized output directory.
+The result names the workspace-relative path, the size, and whether the file was
+written verbatim or rendered — report THAT path to the user, do not guess it.
+
 Users can view, preview, and download files from the 'Files' tab.
 
 If you don't have content ready yet, DO NOT call this tool until you do.""",
