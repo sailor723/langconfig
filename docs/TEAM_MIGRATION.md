@@ -28,7 +28,7 @@ the numbers there have drifted (it still advertises 44 agents / 28 models /
 LangGraph checkpoint tables, and uploaded document blobs. Each person keeps their
 own history. This is also why a full `pg_dump` is the wrong tool — on one real
 install **5.8 GB of a 6 GB database was `checkpoint_blobs`** (resumable graph
-state), against ~1 MB of actual team knowledge (56 agents + 68 tools + 29 models
+state), against ~1 MB of actual team knowledge (56 agents + 67 tools + 29 models
 + 43 skills).
 
 ---
@@ -78,9 +78,18 @@ ENVIRONMENT=development
 API_KEY_ENCRYPTION_KEY=
 
 STORAGE_MODE=db             # db = uploads in Postgres (BYTEA); fs = on disk
-LANGCONFIG_WORKSPACE_ROOT=backend/outputs
+LANGCONFIG_WORKSPACE_ROOT=backend/.workspace_data
 OLLAMA_BASE_URL=http://localhost:11434
 ```
+
+> **Two different roots, two different names — do not confuse them.**
+> `LANGCONFIG_WORKSPACE_ROOT` (above) is where the **project-level** `AGENTS.md`
+> files live, read as `<root>/<project_id>/AGENTS.md` by
+> `services/agents_md_service.py`. It is *not* the per-agent root. A **per-agent**
+> workspace comes from that agent's `workspace_path` column, or — for one seed
+> run only — from the separate `WORKSPACE_ROOT` variable on the command line
+> (§5). A relative `LANGCONFIG_WORKSPACE_ROOT` is anchored at the **repo root**,
+> not at the process CWD.
 
 > Create `.env` **before** starting Postgres: `docker compose` reads
 > `POSTGRES_PORT` at compose time to decide the host port mapping.
@@ -109,21 +118,27 @@ cd backend
 ```
 
 Idempotent and **additive**. It is safe to re-run, and safe to run on a database
-that already has a teammate's work in it. The ten steps:
+that already has a teammate's work in it. The steps, in the order `seed_all.py`
+runs them (it labels them `[n/10]`, with two half-steps — `4b` and `8.5`):
 
 1. `init_server()` — create the role and database if missing
-2. `init_db()` — 50 tables + the pgvector extension
+2. `init_db()` — 48 tables + the pgvector extension
 3. `alembic stamp head` — record the migration version (fresh DB; use
    `alembic upgrade head` on an existing one)
 4. `seed_settings.py` — default settings documents, **missing namespaces only**
-5. `seed_models.py` + `upsert_model.py --preset deepseek-flash` — catalog
-6. `seed_search_providers.py` — 6 search backends
-7. tools — `custom_tools_dump.sql` (only if the table is empty), then the
-   **additive** `custom_tools_merge.sql`, then built-in refresh
-   (`seed_builtin_tools.py`, `seed_read_any_file_tool.py`)
-8. agents — **additive** `deep_agents_merge.sql`
-9. identity backfill — resolves each agent's real workspace and bakes identity
-10. skills — FS → DB sync; chinook sample DB (best-effort)
+5. team settings — the exported `settings_seed.json` merged three-way over those
+   defaults (§9). Without this step a value you changed in the UI never reaches
+   anyone, because step 4 only fills namespaces that are still empty
+6. `seed_models.py` + `upsert_model.py --preset deepseek-flash` — catalog
+7. `seed_search_providers.py` — 6 search backends
+8. tools — `custom_tools_dump.sql` **only into an empty table**; when the table
+   already has rows, `seed_builtin_tools.py` refreshes the built-ins instead.
+   Then the **additive** `custom_tools_merge.sql`, then
+   `scripts/seed_read_any_file_tool.py` (the reader tool sits outside `seeds/`
+   because it needs trusted code — filesystem, tesseract, the reader graph)
+9. agents — **additive** `deep_agents_merge.sql`
+10. identity backfill — resolves each agent's real workspace and bakes identity
+11. skills — FS → DB sync; chinook sample DB (best-effort)
 
 **The guarantee:** agents and tools are united on their identity
 (`name` / `tool_id`). A teammate with 5 tools, where 3 match yours, ends with
@@ -140,6 +155,12 @@ Optional, for a test run that must not touch real workspaces:
 ```bash
 WORKSPACE_ROOT=/tmp/langconfig-ws .venv/bin/python scripts/seeds/seed_all.py
 ```
+
+`WORKSPACE_ROOT` here is **not** the `.env` variable from §2 — that one is the
+project-level `AGENTS.md` root. This is a one-shot override that `seed_all.py`
+forwards to the identity backfill as `--workspace-root`, changing where the seeded
+agents' workspaces are baked for this run only. Leave it unset to bake the
+per-agent paths already in the seed (each agent's `workspace_path`).
 
 ## 6. Provider API keys
 
@@ -209,6 +230,13 @@ createdb -h localhost -p 5433 -U langconfig langconfig_seedtest   # or psql -c "
 POSTGRES_DB=langconfig_seedtest .venv/bin/python scripts/seeds/verify_additive_seed.py
 POSTGRES_DB=langconfig_seedtest .venv/bin/python scripts/seeds/verify_tools_union.py
 ```
+
+Each script refuses to run unless the URL contains `langconfig_seedtest`, clears
+the tables it is about to make claims about, and applies the **real** generated
+seed at the end. So the two commands work in either order, repeatedly, in the one
+scratch database. Each prints `ALL CHECKS PASSED` — the first proves a teammate's
+own agent, tool and chat session survive (including a name clash, where *their*
+version wins), the second proves the tool count arithmetic `5 + 3 = 8`.
 
 ## 9. Shipping later work to the team
 

@@ -8,7 +8,7 @@ Run from backend/:
 
 What it does (every step is idempotent):
     1. init_server()            -> create the PostgreSQL role + database if missing
-    2. init_db()                -> create all 50 tables + pgvector extension
+    2. init_db()                -> create all 48 tables + pgvector extension
     3. alembic stamp head       -> record the migration version (no replay needed)
     4. seed_settings.py         -> default settings documents (missing namespaces)
     4b. settings_seed.json      -> the TEAM's settings, three-way merged so a key
@@ -30,7 +30,7 @@ No full DB dump is needed: the role/database are created fresh by step 1 and onl
 data-only dumps are reloaded, so machine-specific state (API keys, local models,
 settings, chat history) never leaks into the bundle.
 
-The startup sync in main.py also runs skills FS -> DB on every backend start; step 8
+The startup sync in main.py also runs skills FS -> DB on every backend start; step 9
 just makes the bootstrap self-contained so the data is in Postgres immediately.
 local_models + API keys stay per-machine (.env / Settings).
 
