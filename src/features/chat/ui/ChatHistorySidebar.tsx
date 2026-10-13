@@ -314,7 +314,10 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
           backgroundColor: isActive ? 'var(--color-primary)' : 'transparent',
         }}
         onMouseEnter={(e) => {
-          if (!isActive) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.04)';
+          // The same neutral translucent grey the rows and view toggles use. It
+          // was rgba(0,0,0,0.04) — four percent of black over #252526 — which is
+          // nothing at all on this panel; a dark-theme hover has to ADD light.
+          if (!isActive) e.currentTarget.style.backgroundColor = 'rgba(128,128,128,0.18)';
         }}
         onMouseLeave={(e) => {
           if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
@@ -378,7 +381,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
     <div key={opts.id} className="pb-0.5">
       <button
         onClick={opts.onToggle}
-        className="group flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-lg hover:bg-black/5 transition-colors"
+        className="group flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-lg hover:bg-[rgba(128,128,128,0.18)] transition-colors"
         title={`${opts.label} — ${opts.sessions.length} conversation${opts.sessions.length === 1 ? '' : 's'}`}
         aria-expanded={opts.expanded}
       >
@@ -536,7 +539,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
             column", which is what DSH's panel icon says. */}
         <button
           onClick={() => setCollapsed(true)}
-          className="p-1.5 rounded-lg hover:bg-black/5 transition-colors flex-shrink-0"
+          className="p-1.5 rounded-lg hover:bg-[rgba(128,128,128,0.18)] transition-colors flex-shrink-0"
           title="Collapse sidebar"
           aria-label="Collapse sidebar"
         >
@@ -674,7 +677,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
             {query && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="p-0.5 rounded hover:bg-black/5"
+                className="p-0.5 rounded hover:bg-[rgba(128,128,128,0.18)]"
                 title="Clear"
                 style={{ color: 'var(--color-text-muted)' }}
               >
@@ -700,7 +703,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
           Projects
         </button>
         {showProjects && (
-          <div className="mt-1 px-4 py-1.5 rounded-lg text-xs flex items-center justify-between hover:bg-black/5 transition-colors cursor-pointer"
+          <div className="mt-1 px-4 py-1.5 rounded-lg text-xs flex items-center justify-between hover:bg-[rgba(128,128,128,0.18)] transition-colors cursor-pointer"
             style={{ color: 'var(--color-text-primary)' }}
           >
             <span className="font-medium truncate" title={projectName}>
