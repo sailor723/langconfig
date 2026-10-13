@@ -53,6 +53,8 @@ async def read_any_file(file_path: str, question: str = None, vision: bool = Tru
     word / powerpoint     -> structure through python-docx / python-pptx (headings,
                              lists, tables, slide notes) plus every embedded picture
                              read with OCR (and vision)
+    excel (.xlsx)         -> cell values sheet by sheet through openpyxl (a formula
+                             shows its cached result, else the formula itself)
     """
     _ensure_app_importable()
     from core.graphs.read_file import read_file_as_text
@@ -62,7 +64,8 @@ async def read_any_file(file_path: str, question: str = None, vision: bool = Tru
 '''
 
 DESCRIPTION = (
-    "Read any file and return its TEXT - one reader for four kinds of file. "
+    "Read any file and return its TEXT - one reader for four kinds of file (text, "
+    "image, PDF, and Office documents including Excel). "
     "TEXT (markdown, code, data): verbatim, line-numbered. "
     "IMAGE (.png/.jpg/.jpeg/.webp/.gif/.bmp/.tiff): a short vision description plus the "
     "OCR-extracted text. "
@@ -72,6 +75,8 @@ DESCRIPTION = (
     "lists, tables and slide speaker notes are kept, and every embedded picture is read "
     "with OCR (and described when vision is on), so a document that is mostly screenshots "
     "still reads. "
+    "EXCEL (.xlsx/.xlsm): every sheet is read through openpyxl - cell values as | "
+    "separated rows, sheet by sheet, with the sheet names and hidden sheets marked. "
     "It never returns raw or base64 image data, so it cannot overflow the context - use it "
     "instead of read_file for images, scans and pictures inside documents. OCR uses the "
     "language packs installed on the host (English and Chinese by default), so a scanned "

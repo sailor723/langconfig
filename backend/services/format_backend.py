@@ -11,7 +11,7 @@ that call the configured ``BackendProtocol`` (``backend.write`` /
 ``backend.read``) and treat every file as plain text. LangConfig's native
 renderers/extractors (``tools/native_impl.py``) already handle real documents:
 ``.html`` / ``.pdf`` / ``.docx`` are rendered from markdown content on write,
-and ``.pdf`` / ``.docx`` / ``.pptx`` text is extracted on read.
+and ``.pdf`` / ``.docx`` / ``.pptx`` / ``.xlsx`` text is extracted on read.
 
 This wrapper sits *between* the SDK middleware and whatever backend is active
 (``FilesystemBackend`` in fs mode, ``DbBackend`` in db mode), so the SDK's
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # Extensions that write_file renders as real documents (not plain text).
 _RENDER_EXTENSIONS = {".html", ".pdf", ".docx"}
 # Extensions read_file extracts text from (binary document formats).
-_EXTRACT_EXTENSIONS = {".pdf", ".docx", ".pptx"}
+_EXTRACT_EXTENSIONS = {".pdf", ".docx", ".pptx", ".xlsx", ".xlsm"}
 
 
 class FormatAwareBackend(BackendProtocol):
@@ -76,6 +76,7 @@ class FormatAwareBackend(BackendProtocol):
         try:
             from tools.native_impl import (
                 _extract_docx_text,
+                _extract_xlsx,
                 _extract_pdf_text,
                 _extract_pptx_text,
             )
@@ -96,6 +97,8 @@ class FormatAwareBackend(BackendProtocol):
                     text = _extract_pdf_text(tmp)
                 elif ext == ".docx":
                     text = _extract_docx_text(tmp)
+                elif ext in (".xlsx", ".xlsm"):
+                    text = _extract_xlsx(tmp)[0] or "Error: no data found in workbook"
                 else:  # .pptx
                     text = _extract_pptx_text(tmp)
             finally:

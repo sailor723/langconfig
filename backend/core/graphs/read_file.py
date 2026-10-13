@@ -33,12 +33,16 @@ step: an image is normalised *and* OCR'd *and* described, a PDF is a per-page ma
 plus a reduce, a Word/PowerPoint file is a structure pass plus a map over the
 pictures embedded in it.
 
-Word and PowerPoint are **not** on the text branch even though text comes out of
-them: a .docx is ZIP+XML and a .pptx is slides, so reading either needs the
-format's own library (python-docx / python-pptx, in ``tools/native_impl``) — and
-the pictures inside them need OCR and vision, which is what ``doc_picture`` is
-for. A document whose content *is* a screenshot is that branch's whole reason to
-exist.
+Word, PowerPoint and Excel are **not** on the text branch even though text comes
+out of them: a .docx is ZIP+XML, a .pptx is slides and a .xlsx is a grid, so
+reading any of them needs the format's own library (python-docx / python-pptx /
+openpyxl, in ``tools/native_impl``) — and the pictures inside them need OCR and
+vision, which is what ``doc_picture`` is for. A document whose content *is* a
+screenshot is that branch's whole reason to exist. Spreadsheets ride the same
+branch, being the same family — an Office file whose structure needs a library —
+and bring their own caps (``XLSX_MAX_SHEETS`` / ``XLSX_MAX_ROWS`` /
+``XLSX_MAX_COLS`` in ``tools/native_impl``), because a sheet is unbounded where a
+page is not.
 
 ``ocr`` and ``describe`` are two edges out of ``read_image``, so LangGraph runs
 them in the same superstep (wall time ≈ the slower one, not the sum). They
@@ -139,19 +143,19 @@ IMAGE_EXTS = NATIVE_IMAGE_EXTS | CONVERTIBLE_IMAGE_EXTS
 # on the text branch even though what comes out of them is text.
 PDF_EXTS = frozenset({".pdf"})
 OFFICE_EXTS = frozenset({".docx", ".pptx"})
-DOCUMENT_EXTS = PDF_EXTS | OFFICE_EXTS
+SHEET_EXTS = frozenset({".xlsx", ".xlsm"})       # read by openpyxl, same branch
+DOCUMENT_EXTS = PDF_EXTS | OFFICE_EXTS | SHEET_EXTS
 
 # Office formats whose structure needs a library we do not read: they get a
 # conversion instruction instead of a generic "binary file" refusal.
-LEGACY_OFFICE_EXTS = frozenset({".doc", ".ppt", ".xls", ".xlsx", ".odt", ".odp", ".ods"})
+LEGACY_OFFICE_EXTS = frozenset({".doc", ".ppt", ".xls", ".odt", ".odp", ".ods"})
 OFFICE_ADVICE = {
     ".doc": "legacy Word .doc — save it as .docx and read that",
     ".ppt": "legacy PowerPoint .ppt — save it as .pptx and read that",
-    ".xls": "legacy Excel .xls — export the sheet to .csv and read that",
-    ".xlsx": "Excel .xlsx — this reader has no spreadsheet library; export the sheet to .csv",
+    ".xls": "legacy Excel .xls — save it as .xlsx and read that",
+    ".ods": "OpenDocument .ods — export the sheet to .csv and read that",
     ".odt": "OpenDocument .odt — save it as .docx and read that",
     ".odp": "OpenDocument .odp — save it as .pptx and read that",
-    ".ods": "OpenDocument .ods — export the sheet to .csv and read that",
 }
 
 # Plain-text formats. Mirrors the extension lists the chat upload path and the
@@ -217,6 +221,8 @@ class FileReadState(TypedDict, total=False):
     doc_format: str
     doc_text: str
     doc_pictures: int
+    doc_sheets: int
+    doc_rows: int
     doc_picture_items: List[Dict[str, Any]]
     doc_skipped_pictures: List[Dict[str, Any]]
     doc_picture_blocks: Annotated[List[Dict[str, Any]], operator.add]
@@ -276,7 +282,7 @@ def route_by_kind(state: FileReadState) -> str:
         ext = state.get("ext")
         if ext in PDF_EXTS:
             return "pdf"
-        if ext in OFFICE_EXTS or ext in LEGACY_OFFICE_EXTS:
+        if ext in OFFICE_EXTS or ext in SHEET_EXTS or ext in LEGACY_OFFICE_EXTS:
             return "document"
     if kind in ("text", "document"):
         return "text"
@@ -323,8 +329,10 @@ _OCR_LANGS_CACHE: Optional[str] = None
 def _installed_tessdata_langs() -> List[str]:
     """Language packs tesseract can actually load right now."""
     try:
-        proc = subprocess.run(["tesseract", "--list-langs"],
-                              capture_output=True, text=True, timeout=20)
+        proc = subprocess.run(["tesseract", "--list-langs"], capture_output=True,
+                              # tesseract's stderr is not always UTF-8 (leptonica
+                              # prints raw bytes), and text=True would raise on it
+                              text=True, errors="replace", timeout=20)
     except Exception as e:                                   # pragma: no cover
         logger.warning(f"could not list tesseract languages: {e}")
         return []
@@ -404,7 +412,7 @@ def _ocr_file(path: os.PathLike | str) -> Tuple[str, int, bool]:
         return "", 0, False
     try:
         proc = subprocess.run(["tesseract", str(path), "stdout", "-l", ocr_langs()],
-                              capture_output=True, text=True, timeout=60)
+                              capture_output=True, text=True, errors="replace", timeout=60)
         text = (proc.stdout or "").strip()
     except Exception as e:
         logger.warning(f"OCR failed for {path}: {e}")
@@ -881,18 +889,24 @@ def read_document_node(state: FileReadState) -> FileReadState:
         return _document_error(err, started)
     if not path.is_file():
         return _document_error(f"Error: File not found: {path_str}", started)
-    if ext not in OFFICE_EXTS:
+    if ext not in OFFICE_EXTS and ext not in SHEET_EXTS:
         advice = OFFICE_ADVICE.get(ext)
         msg = (f"Error: cannot read '{name}'. {advice}" if advice else
-               f"Error: '{name}' is not a Word (.docx) or PowerPoint (.pptx) file")
+               f"Error: '{name}' is not a Word (.docx), PowerPoint (.pptx) or Excel "
+               f"(.xlsx) file")
         return _document_error(msg, started)
 
-    from tools.native_impl import _extract_docx, _extract_pptx
+    from tools.native_impl import _extract_docx, _extract_pptx, _extract_xlsx
 
     try:
-        text, pictures = _extract_docx(path) if ext == ".docx" else _extract_pptx(path)
+        if ext in SHEET_EXTS:
+            text, pictures = _extract_xlsx(path)
+        elif ext == ".docx":
+            text, pictures = _extract_docx(path)
+        else:
+            text, pictures = _extract_pptx(path)
     except ImportError as e:
-        package = "python-docx" if ext == ".docx" else "python-pptx"
+        package = {"xlsx": "openpyxl", "docx": "python-docx"}.get(ext.lstrip("."), "python-pptx")
         return _document_error(f"Error: {package} is not installed ({e})", started)
     except Exception as e:
         return _document_error(f"Error: could not read '{name}': {type(e).__name__}: {e}",
@@ -902,9 +916,13 @@ def read_document_node(state: FileReadState) -> FileReadState:
               "ext": p.get("ext"), "bytes": p.get("bytes")} for p in pictures[:DOC_MAX_PICTURES]]
     skipped = [p for p in pictures[DOC_MAX_PICTURES:]]
     vision_enabled = state.get("vision_enabled", True)
+    rows = sum(1 for line in text.splitlines() if "|" in line) if ext in SHEET_EXTS else 0
+    sheets = text.count("[Sheet: ") if ext in SHEET_EXTS else 0
     return {
         "branch": "document",
         "doc_format": ext.lstrip(".").upper(),
+        "doc_sheets": sheets,
+        "doc_rows": rows,
         "doc_text": text,
         "doc_picture_items": items,
         "doc_skipped_pictures": [{"label": p["label"], "anchor": p["anchor"]} for p in skipped],
@@ -1024,14 +1042,24 @@ def doc_compose_node(state: FileReadState) -> FileReadState:
         return {"result": msg, "error": msg, "branch": "document",
                 "doc_ms": int((time.time() - started) * 1000)}
 
-    header = [
-        "== Document ==",
-        f"name: {name}  format: {state.get('doc_format')}  "
-        f"pictures: {total_pictures}",
-        f"read: {len(text.splitlines())} line(s) of text + {read_pictures} picture(s) "
-        f"(OCR {ocr_pictures}, vision {vision_pictures})",
-        f"mode: {'ocr-only' if not vision_enabled else f'vision+ocr ({used_model})'}",
-    ]
+    spreadsheet = str(state.get("doc_format") or "").lower() in ("xlsx", "xlsm")
+    if spreadsheet:
+        header = [
+            "== Spreadsheet ==",
+            f"name: {name}  format: {state.get('doc_format')}  "
+            f"sheets: {state.get('doc_sheets')}  rows: {state.get('doc_rows')}",
+            "read: cell values sheet by sheet (a formula shows as its result when the "
+            "file carries one, else as the formula)",
+        ]
+    else:
+        header = [
+            "== Document ==",
+            f"name: {name}  format: {state.get('doc_format')}  "
+            f"pictures: {total_pictures}",
+            f"read: {len(text.splitlines())} line(s) of text + {read_pictures} picture(s) "
+            f"(OCR {ocr_pictures}, vision {vision_pictures})",
+            f"mode: {'ocr-only' if not vision_enabled else f'vision+ocr ({used_model})'}",
+        ]
     question = (state.get("question") or "").strip()
     if question:
         header.append(f"question: {question}")
@@ -1309,6 +1337,7 @@ def _cli(argv: Optional[list] = None) -> int:
         elif state.get("branch") == "document":
             detail = (f"format={state.get('doc_format')} text_lines="
                       f"{len((state.get('doc_text') or '').splitlines())} "
+                      f"sheets={state.get('doc_sheets')} rows={state.get('doc_rows')} "
                       f"pictures={state.get('doc_pictures')} "
                       f"ocr={state.get('doc_ocr_pictures')} vision={state.get('doc_vision_pictures')} "
                       f"vision_tokens={state.get('doc_vision_tokens')}")
