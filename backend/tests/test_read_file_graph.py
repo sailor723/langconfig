@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 from pathlib import Path
 
 import pytest
@@ -277,6 +278,224 @@ def test_binary_file_is_not_returned_raw(probe_files):
     assert state["result"].startswith("Error:")
     assert "binary file" in state["result"]
     assert "\x00" not in state["result"]
+
+
+# ── pdf branch ───────────────────────────────────────────────────────────────
+@pytest.fixture(scope="module")
+def pdf_files():
+    """Probe PDFs: a text layer, real scans, both, and the failure shapes."""
+    fitz = pytest.importorskip("fitz")
+    made: list[Path] = []
+
+    def _png(name: str, label: str, size=(1000, 300)) -> Path:
+        img = Image.new("RGB", size, "white")
+        if label:
+            ImageDraw.Draw(img).text((30, 110), label, fill="black",
+                                     font=ImageFont.truetype(LATIN_FONT, 60))
+        path = PROBE_DIR / name
+        img.save(path, "PNG")
+        made.append(path)
+        return path
+
+    def _build(name: str, specs) -> Path:
+        doc = fitz.open()
+        for kind, payload in specs:
+            if kind == "text":
+                page = doc.new_page()
+                for i, line in enumerate(payload):
+                    page.insert_text((72, 100 + 24 * i), line)
+            else:                                   # a scan: the page is one image
+                page = doc.new_page(width=1000, height=300)
+                page.insert_image(fitz.Rect(0, 0, 1000, 300), filename=str(payload))
+        path = PROBE_DIR / name
+        doc.save(path)
+        doc.close()
+        made.append(path)
+        return path
+
+    scan = _png("scan_page.png", "SCAN PROBE 777")
+    blank = _png("blank_page.png", "", (600, 200))
+    pdfs = {
+        "text": _build("layer.pdf", [("text", ["TEXT PROBE 4242", "second line of the layer"])]),
+        "scan": _build("scan.pdf", [("scan", scan)]),
+        "mixed": _build("mixed.pdf", [("text", ["MIXED PROBE 9"]), ("scan", scan)]),
+        "blank": _build("blank.pdf", [("scan", blank)]),
+        "multi": _build("multi.pdf", [
+            ("scan", _png("page_a.png", "PAGE ALPHA 111")),
+            ("scan", _png("page_b.png", "PAGE BETA 222")),
+            ("scan", _png("page_c.png", "PAGE GAMMA 333")),
+        ]),
+    }
+    corrupt = PROBE_DIR / "corrupt.pdf"
+    corrupt.write_bytes(b"%PDF-1.7\nthis is not a pdf\n")
+    made.append(corrupt)
+    pdfs["corrupt"] = corrupt
+
+    locked = PROBE_DIR / "locked.pdf"
+    doc = fitz.open()
+    doc.new_page().insert_text((72, 100), "secret")
+    doc.save(locked, encryption=fitz.PDF_ENCRYPT_AES_256, owner_pw="o", user_pw="u")
+    doc.close()
+    made.append(locked)
+    pdfs["locked"] = locked
+
+    yield pdfs
+    for path in made:
+        if path.exists():
+            path.unlink()
+
+
+def _read(pdf_files, key, **kw):
+    payload = {"file_path": str(pdf_files[key])}
+    payload.update(kw)
+    return asyncio.run(rf.get_file_reader_graph().ainvoke(payload))
+
+
+def test_route_by_kind_sends_pdfs_to_their_own_branch():
+    assert rf.route_by_kind({"kind": "document", "ext": ".pdf"}) == "pdf"
+    assert rf.route_by_kind({"kind": "document", "ext": ".docx"}) == "text"
+
+
+def test_pdf_text_layer_is_read_page_by_page(pdf_files, fake_vision):
+    state = _read(pdf_files, "text")
+
+    assert state["branch"] == "pdf"
+    assert "TEXT PROBE 4242" in state["result"]
+    assert "second line of the layer" in state["result"]
+    assert "[Page 1]" in state["result"]
+    assert "text pages: 1" in state["result"]
+    assert "image-only pages: 0" in state["result"]
+    assert state["pdf_text_pages"] == 1
+    assert not fake_vision                       # a text layer needs no reading
+
+
+def test_scanned_pdf_is_read_by_ocr_instead_of_failing(pdf_files, fake_vision):
+    """The case that used to return 'no extractable text found in PDF'."""
+    state = _read(pdf_files, "scan", vision_enabled=False)
+
+    assert state["branch"] == "pdf"
+    assert "no extractable text" not in state["result"]
+    assert "SCAN PROBE 777" in state["result"]     # real tesseract output
+    assert "[Page 1] (image-only" in state["result"]
+    assert "image-only pages: 1" in state["result"]
+    assert "mode: ocr-only" in state["result"]
+    assert state["pdf_ocr_pages"] == 1
+    assert state["pdf_vision_pages"] == 0
+    assert not fake_vision                        # vision was not requested
+
+
+def test_scanned_pdf_uses_vision_when_enabled(pdf_files, fake_vision):
+    state = _read(pdf_files, "scan")
+
+    assert "FAKE DESCRIPTION of the image." in state["result"]
+    assert len(fake_vision) == 1
+    assert fake_vision[0][0].startswith("image/")
+    assert "mode: vision+ocr" in state["result"]
+    assert state["pdf_vision_pages"] == 1
+    assert state["pdf_vision_tokens"] == 42
+    assert "SCAN PROBE 777" in state["result"]     # OCR still runs alongside
+
+
+def test_mixed_pdf_reads_both_kinds_of_page(pdf_files, fake_vision):
+    state = _read(pdf_files, "mixed", vision_enabled=False)
+
+    assert "text pages: 1" in state["result"]
+    assert "image-only pages: 1" in state["result"]
+    assert "MIXED PROBE 9" in state["result"]
+    assert "SCAN PROBE 777" in state["result"]
+    # page order, not completion order
+    assert state["result"].index("[Page 1]") < state["result"].index("[Page 2] (image-only")
+    assert state["pdf_text_pages"] == 1
+    assert state["pdf_ocr_pages"] == 1
+
+
+def test_pdf_vision_budget_caps_the_paid_calls(pdf_files, fake_vision, monkeypatch):
+    monkeypatch.setattr(rf, "PDF_MAX_VISION_PAGES", 1)
+    state = _read(pdf_files, "multi")
+
+    assert len(fake_vision) == 1                   # 3 image-only pages, 1 vision call
+    assert state["pdf_vision_pages"] == 1
+    assert state["pdf_ocr_pages"] == 3             # OCR is free, so it runs everywhere
+    assert "vision skipped" in state["result"]
+    assert "vision is limited to the first 1 image-only page(s)" in state["result"]
+
+
+def test_pdf_ocr_budget_is_named_not_silent(pdf_files, fake_vision, monkeypatch):
+    monkeypatch.setattr(rf, "PDF_MAX_OCR_PAGES", 1)
+    state = _read(pdf_files, "multi", vision_enabled=False)
+
+    assert state["pdf_image_pages"] == 3
+    assert state["pdf_ocr_pages"] == 1
+    assert "not read: OCR is limited to 1 image-only pages per document" in state["result"]
+    assert "note: OCR is limited to 1 image-only pages per document" in state["result"]
+
+
+def test_pdf_page_walk_is_capped(pdf_files, fake_vision, monkeypatch):
+    monkeypatch.setattr(rf, "PDF_MAX_PAGES", 1)
+    state = _read(pdf_files, "multi", vision_enabled=False)
+
+    assert "note: only the first 1 of 3 pages were examined" in state["result"]
+    assert "PAGE ALPHA 111" in state["result"]
+    assert "PAGE BETA 222" not in state["result"]
+
+
+def test_pdf_map_results_are_reduced_into_page_order(pdf_files, fake_vision, monkeypatch):
+    """Map tasks finish out of order; the payload must not."""
+    real_ocr = rf._ocr_bytes
+
+    def _slow_first_page(raw, tag):
+        if str(tag) == "1":
+            time.sleep(0.6)                        # page 1 lands last
+        return real_ocr(raw, tag)
+
+    monkeypatch.setattr(rf, "_ocr_bytes", _slow_first_page)
+    state = _read(pdf_files, "multi", vision_enabled=False)
+
+    order = [state["result"].index(f"PAGE {name}")
+             for name in ("ALPHA", "BETA", "GAMMA")]
+    assert order == sorted(order), state["result"][:400]
+
+
+def test_pdf_payload_never_carries_image_bytes(pdf_files, fake_vision):
+    state = _read(pdf_files, "scan")               # a page of nothing but pixels
+
+    assert "base64" not in state["result"]
+    assert "iVBORw0KGgo" not in state["result"]
+    assert len(state["result"]) < 20_000           # bounded, not megabytes
+
+
+def test_blank_scan_reports_that_nothing_could_be_read(pdf_files, fake_vision):
+    """A page of pixels with no text and no vision = a failed read, said plainly."""
+    state = _read(pdf_files, "blank", vision_enabled=False)
+
+    assert state["result"].startswith("Error:")
+    assert "no readable text" in state["result"]
+    assert state.get("pdf_ocr_pages") in (None, 0)
+
+
+def test_blank_scan_with_vision_is_content_not_an_error(pdf_files, fake_vision):
+    """Vision described the page, so there *is* something to report."""
+    state = _read(pdf_files, "blank")
+
+    assert not state["result"].startswith("Error:")
+    assert "FAKE DESCRIPTION of the image." in state["result"]
+    assert state["pdf_vision_pages"] == 1
+
+
+def test_corrupt_pdf_reports_an_error(pdf_files, fake_vision):
+    state = _read(pdf_files, "corrupt")
+
+    assert state["result"].startswith("Error:")
+    assert "could not open" in state["result"]
+    assert not fake_vision
+
+
+def test_password_protected_pdf_reports_an_error(pdf_files, fake_vision):
+    state = _read(pdf_files, "locked")
+
+    assert state["result"].startswith("Error:")
+    assert "password-protected" in state["result"]
+    assert not fake_vision
 
 
 # ── live path (opt-in: LANGCONFIG_LIVE_TESTS=1) ──────────────────────────────
