@@ -49,6 +49,13 @@ CLASH_AGENT = "Deep Architect"        # a baseline agent, matched by name
 CLASH_TOOL = "current_time"           # a baseline tool, matched by canonical tool_id
 LATER_AGENT = "Teammate QA Agent"     # created after their install, before delivery 2
 LATER_TOOL = "tm_qa_report"
+OWN_SKILL = "teammate-secret-skill"   # a skill of theirs that exists nowhere in the repo
+EDITED_SKILL = "agent-to-skill"       # a repo skill they edit, NEWER than the repo's file
+STALE_SKILL = "api-rate-limiter"      # a repo skill they edit, OLDER than the repo's file
+CODE_OWNED_TOOL = "ls"                # a built-in seed_builtin_tools only ADDS if missing
+CODE_OWNED_EDIT = "TEAMMATE EDIT (code-owned tool)"
+OVERWRITTEN_TOOL = "read_any_file"    # the one tool whose own script upserts in place
+OVERWRITTEN_EDIT = "TEAMMATE EDIT (read_any_file)"
 THEIR_DESC = "TEAMMATE VERSION — ours, do not overwrite"
 LOCAL_SETTING = 9999                  # vs a code default and team seed of 120
 
@@ -169,6 +176,18 @@ def add_tool(url, tool_id, description=THEIR_DESC):
         """), {"t": tool_id, "d": description})
 
 
+def add_own_skill(url, skill_id, description, mtime_sql="now()"):
+    """A skill row that exists only in their database, never on disk."""
+    with create_engine(url).begin() as c:
+        c.execute(text(f"""
+            INSERT INTO skills (skill_id, name, description, version, source_type, source_path,
+                                tags, triggers, required_context, instructions, usage_count,
+                                avg_success_rate, file_modified_at, indexed_at, created_at, updated_at)
+            VALUES (:s, :s, :d, '1.0.0', 'personal', 'db-only', '[]'::json, '[]'::json, '{{}}'::json,
+                    'instructions the repo has never seen', 0, 0.0, {mtime_sql}, now(), now(), now())
+        """), {"s": skill_id, "d": description})
+
+
 # ── stage 0: sandbox ─────────────────────────────────────────────────────────
 banner("STAGE 0", "sandbox — two throwaway clones + two scratch databases")
 if SCRATCH.exists():
@@ -210,6 +229,7 @@ for a in THEIRS_AGENTS + [CLASH_AGENT]:
 for t in THEIRS_TOOLS + [CLASH_TOOL]:
     add_tool(TEAM_URL, t)
 their_agent_id = add_agent(TEAM_URL, "Teammate Reporting Agent")
+add_own_skill(TEAM_URL, OWN_SKILL, THEIR_DESC)
 with create_engine(TEAM_URL).begin() as c:
     c.execute(text("""
         INSERT INTO chat_sessions (agent_id, session_id, messages, metrics, is_active,
@@ -270,9 +290,34 @@ print(f"  added agent {LATER_AGENT!r} (id {later_agent_id}) and tool {LATER_TOOL
 print(f"  changed runtime.analysis_chat_timeout to {readback!r} "
       f"(team seed and code default: 120)")
 assert readback == str(LOCAL_SETTING), f"the local edit did not stick: {readback!r}"
+
+# two edits to skills that ALSO ship in the repo: the sync only overwrites a DB row
+# when the file on disk is newer, so their newer edit must survive while their older
+# one is expected to be replaced by the repo's copy.
+psql(TEAM_URL, f"UPDATE skills SET description = 'TEAMMATE EDITED (newer than the file)', "
+               f"file_modified_at = now() WHERE skill_id = '{EDITED_SKILL}'")
+psql(TEAM_URL, f"UPDATE skills SET description = 'TEAMMATE EDIT (older than the file)', "
+               f"file_modified_at = '2000-01-01' WHERE skill_id = '{STALE_SKILL}'")
+print(f"  edited repo skills {EDITED_SKILL!r} (newer than the file) and "
+      f"{STALE_SKILL!r} (older than the file)")
+# two edits to tools that the seed also owns, and they behave DIFFERENTLY:
+# seed_builtin_tools.py only creates missing rows (existing ones, edits included,
+# are skipped unless --refresh is passed, and seed_all never passes it), while
+# seed_read_any_file_tool.py upserts its row in place and so reverts the edit.
+psql(TEAM_URL, f"UPDATE custom_tools SET description = '{CODE_OWNED_EDIT}' "
+               f"WHERE tool_id = '{CODE_OWNED_TOOL}'")
+psql(TEAM_URL, f"UPDATE custom_tools SET description = '{OVERWRITTEN_EDIT}' "
+               f"WHERE tool_id = '{OVERWRITTEN_TOOL}'")
+print(f"  edited {CODE_OWNED_TOOL!r} (a seeded built-in) and "
+      f"{OVERWRITTEN_TOOL!r} (upserted in place) to see which one is really code-owned")
+print(f"  their database holds {q(TEAM_URL, 'SELECT count(*) FROM skills')} skill(s), "
+      f"including their own {OWN_SKILL!r}")
+
 before2 = {
     "agents": q(TEAM_URL, "SELECT count(*) FROM deep_agent_templates"),
     "tools": q(TEAM_URL, "SELECT count(*) FROM custom_tools"),
+    "skills": q(TEAM_URL, "SELECT count(*) FROM skills"),
+    "own_skill_hash": row_hash(TEAM_URL, "skills", "skill_id", OWN_SKILL),
     "agent_hash": row_hash(TEAM_URL, "deep_agent_templates", "name", LATER_AGENT),
     "tool_hash": row_hash(TEAM_URL, "custom_tools", "tool_id", LATER_TOOL),
 }
@@ -332,6 +377,12 @@ after2 = {
     "new_agent": q(TEAM_URL, f"SELECT count(*) FROM deep_agent_templates WHERE name = '{NEW_AGENT}'"),
     "new_tool": q(TEAM_URL, f"SELECT count(*) FROM custom_tools WHERE tool_id = '{NEW_TOOL}'"),
     "write_file": q(TEAM_URL, "SELECT count(*) FROM custom_tools WHERE tool_id = 'write_file'"),
+    "skills": q(TEAM_URL, "SELECT count(*) FROM skills"),
+    "own_skill": q(TEAM_URL, f"SELECT description FROM skills WHERE skill_id = '{OWN_SKILL}'"),
+    "edited_skill": q(TEAM_URL, f"SELECT description FROM skills WHERE skill_id = '{EDITED_SKILL}'"),
+    "stale_skill": q(TEAM_URL, f"SELECT description FROM skills WHERE skill_id = '{STALE_SKILL}'"),
+    "code_owned_tool": q(TEAM_URL, f"SELECT description FROM custom_tools WHERE tool_id = '{CODE_OWNED_TOOL}'"),
+    "overwritten_tool": q(TEAM_URL, f"SELECT description FROM custom_tools WHERE tool_id = '{OVERWRITTEN_TOOL}'"),
 }
 print(f"  after: {after2['agents']} agents, {after2['tools']} tools")
 
@@ -378,6 +429,18 @@ checks = [
     ("their own setting was not overwritten", after2["setting"] == str(LOCAL_SETTING)),
     ("the owner's untouched value stayed the team's (merge is selective, not global)",
      after2["owner_setting"] == "120"),
+    # the skills leg: FS -> DB, never deletes, overwrites only when the file is newer
+    ("their own skill (in no repo) survived both deliveries",
+     after2["own_skill"] == THEIR_DESC
+     and row_hash(TEAM_URL, "skills", "skill_id", OWN_SKILL) == before2["own_skill_hash"]),
+    ("their newer edit to a repo skill was kept", after2["edited_skill"] == "TEAMMATE EDITED (newer than the file)"),
+    ("their OLDER edit to a repo skill was replaced by the repo's copy (by design)",
+     after2["stale_skill"] != "TEAMMATE EDIT (older than the file)"),
+    ("no skill of theirs was deleted", after2["skills"] >= before2["skills"]),
+    ("a seeded built-in tool they edited was left alone (seed_builtin_tools only adds)",
+     after2["code_owned_tool"] == CODE_OWNED_EDIT),
+    (f"their edit to {OVERWRITTEN_TOOL} WAS reverted — the one tool upserted in place",
+     after2["overwritten_tool"] != OVERWRITTEN_EDIT and after2["overwritten_tool"] is not None),
     (f"the new team agent {NEW_AGENT!r} arrived", after2["new_agent"] == 1),
     (f"the new team tool {NEW_TOOL!r} arrived", after2["new_tool"] == 1),
     ("delivery 2 added the new work only (no duplicate tools)",
