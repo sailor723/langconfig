@@ -208,14 +208,28 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
         <Settings size={20} strokeWidth={1.5} />
       </button>
 
-      {/* Toggle right panel (Chat) — opens a dedicated window */}
+      {/* Toggle right panel (Chat) — opens a dedicated window at almost the
+          full screen, centred. It was a fixed 700x900: on a 1440-wide display
+          that is a half-width strip for a UI that has to hold a history column,
+          the transcript, a composer and two side panels.
+
+          The geometry only applies when the window is CREATED — a named window
+          that is already open is reused and keeps its size, so an existing chat
+          window has to be closed once for this to take effect. */}
       <button
         title="Open chat window"
-        onClick={() => window.open(
-          window.location.origin + '/#/chat',
-          'langconfig-chat',
-          'width=700,height=900,menubar=no,toolbar=no,scrollbars=yes'
-        )}
+        onClick={() => {
+          const w = Math.round(window.screen.availWidth * 0.95);
+          const h = Math.round(window.screen.availHeight * 0.95);
+          window.open(
+            window.location.origin + '/#/chat',
+            'langconfig-chat',
+            `width=${w},height=${h},`
+              + `left=${Math.round((window.screen.availWidth - w) / 2)},`
+              + `top=${Math.round((window.screen.availHeight - h) / 2)},`
+              + 'menubar=no,toolbar=no,scrollbars=yes'
+          );
+        }}
         style={{
           width: 48,
           height: 48,
