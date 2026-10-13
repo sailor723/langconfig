@@ -4,6 +4,11 @@ How to bring a new machine (or a teammate's) from `git clone` to a working
 install that matches the team's agents, tools, models and skills — **without
 touching anything they have already built**.
 
+**The direction of travel:** the machine that owns the baseline **seeds out**
+(§9) and commits; every other machine clones or pulls that commit and then
+**seeds** (§5). Nothing moves between databases directly — the repo is the only
+channel, so a commit that skipped its seed out carries the previous state.
+
 Companion to [`TEAM_INSTALL.md`](TEAM_INSTALL.md), which covers the same ground
 for a **zip-package install** (`scripts/make_team_zip.sh` +
 `backend/scripts/setup.py`, no git required). Both baselines are counted fresh as
@@ -266,18 +271,36 @@ UI changes nothing in the repository, so the snapshots under
 `backend/scripts/seeds/` are the only thing that carries them to a teammate — and
 a stale snapshot fails *silently*: their `seed_all.py` just adds nothing new.
 
-One command does the whole "seed out", and tells you whether you were due:
+The order is always **seed out → commit → they pull → they seed**. Seeding out is
+what puts your database into the repo; the commit is what carries it; and nothing
+reaches their database until they run `seed_all.py` (§5). Skipping the seed out
+and committing anyway ships the *previous* state, which looks like a successful
+migration that delivered nothing.
 
 ```bash
 cd backend
-.venv/bin/python scripts/seeds/export_baseline.py           # photograph the DB into the repo
-.venv/bin/python scripts/seeds/export_baseline.py --check    # am I due? (exit 1 if yes)
-git add scripts/seeds/*.sql && git commit -m "chore(seeds): refresh team baseline"
+
+# 1. SEED OUT — first ask whether you are due, then photograph the database
+.venv/bin/python scripts/seeds/export_baseline.py --check   # reads only; exit 1 = you are due
+.venv/bin/python scripts/seeds/export_baseline.py           # writes the snapshots
+
+# 2. COMMIT — every artefact it wrote, or the leg you forgot ships stale
+git add scripts/seeds/*.sql scripts/seeds/settings_seed.json
+git commit -m "chore(seeds): refresh team baseline"
+
+# 3. THE TEAMMATE — pulls this commit, then seeds (§5). Nothing before that
+#    has touched their database.
 ```
 
-`--check` catches both kinds of drift: a **new** row (counts differ) and an
-**edited** row (counts identical, bytes differ) — the second is why it compares
-the regenerated file byte-for-byte rather than counting rows.
+Run `--check` first: it only reads, so it is the cheap way to answer "do I owe the
+team a seed?" at any time. It catches both kinds of drift: a **new** row (counts
+differ) and an **edited** row (counts identical, bytes differ) — the second is why
+it compares the regenerated file byte-for-byte rather than counting rows.
+
+Both `git add` paths matter: the export rewrites `settings_seed.json` as well as
+the two `.sql` snapshots, so a `*.sql`-only glob leaves the settings leg behind —
+committed as stale, and silently, because the file simply does not appear in the
+diff.
 
 It covers four legs:
 
