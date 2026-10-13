@@ -1762,10 +1762,11 @@ class WriteFileArgs(BaseModel):
     """Arguments for write_file tool - BOTH are REQUIRED"""
     file_path: str = PydanticField(
         ...,  # ... means required in Pydantic
-        description="REQUIRED: The filename to create. The extension picks the output "
-                    "format: '.md' markdown, '.html' styled page, '.pdf' PDF document, "
-                    "'.docx' Word document, or plain text (.txt/.json/.csv/.py). "
-                    "Directory path is ignored."
+        description="REQUIRED: The file to create, relative to the workspace. The extension "
+                    "picks the format: '.md' markdown, '.html' styled page, '.pdf' PDF, "
+                    "'.docx' Word, or plain text (.txt/.json/.csv/.py). A bare filename goes "
+                    "to generated/; name a folder to choose — 'generated/report.docx' for a "
+                    "deliverable, 'other/notes.md' for scratch. 'upload/' is refused."
     )
     content: str = PydanticField(
         ...,  # ... means required in Pydantic
