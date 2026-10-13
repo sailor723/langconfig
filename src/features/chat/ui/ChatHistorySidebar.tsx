@@ -17,7 +17,7 @@
  *   └─────────────────────┘
  */
 import { useState } from 'react';
-import { Plus, MessageSquare, MessageSquarePlus, Search, ChevronDown, ChevronRight, Calendar, Folder, FolderOpen, Star, Users, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Plus, MessageSquare, MessageSquarePlus, Search, ChevronDown, ChevronRight, Calendar, Folder, FolderOpen, Package, Users, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ChatSession } from '../types/chat';
 import { useChat } from '../state/ChatContext';
 import { useProject } from '../../../contexts/ProjectContext';
@@ -286,8 +286,8 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
       ? session.last_message_preview.slice(0, 60)
       : 'New conversation');
 
-  // Stars live in the open conversation's header, not on every row: pinning is
-  // a decision you make while reading, and a star per row turns the list into
+  // The box lives in the open conversation's header, not on every row: pinning is
+  // a decision you make while reading, and an icon per row turns the list into
   // a management surface.
   const sessionRow = (session: ChatSession, variant: 'chat' | 'favorite' | 'dated' = 'chat') => {
     const isActive = currentSessionId === session.session_id;
@@ -457,10 +457,12 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
             >
               {session.agent_name.charAt(0).toUpperCase()}
               {session.is_favorite && (
-                <Star
-                  className="w-2.5 h-2.5 absolute -top-0.5 -right-0.5"
+                // Sized up from the star's 10px: Package carries more detail than a
+                // star at badge scale, and it is stroke-drawn, so the star's
+                // fill="currentColor" would have rendered a blob rather than a box.
+                <Package
+                  className="w-3 h-3 absolute -top-0.5 -right-0.5"
                   style={{ color: 'var(--color-primary)' }}
-                  fill="currentColor"
                 />
               )}
             </button>
@@ -616,7 +618,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
           className: 'relative',
           children: (
             <>
-              <Star className="w-[13px] h-[13px]" strokeWidth={1.5} fill="none" />
+              <Package className="w-[13px] h-[13px]" strokeWidth={1.5} />
               {pinnedSessions.length > 0 && (
                 <span
                   className="absolute -top-0.5 -right-0.5 text-[9px] leading-none px-1 rounded-full"
