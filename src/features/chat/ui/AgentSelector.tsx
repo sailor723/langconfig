@@ -110,12 +110,17 @@ export default function AgentSelector({
           border: 'none',
         }}
       >
-        <span className="text-sm font-bold">
+        {/* 15px/700 to match the sidebar's EBL Carrier Chat wordmark, which is the
+            one other piece of type in the chrome at that size — so the agent name
+            and the wordmark read as the same rank rather than as two accidents.
+            Unlike the wordmark this inherits the app's Manrope, since the agent name
+            is body-adjacent type rather than a brand mark. */}
+        <span className="text-[15px] font-bold">
           {selectedAgent
             ? selectedAgent.name
             : displayName || t('select_agent')}
         </span>
-        <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
+        <ChevronDown className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
       </button>
 
       {isOpen && (
