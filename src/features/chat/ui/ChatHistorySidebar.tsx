@@ -754,7 +754,10 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
       </div>
 
       {footer && (
-        <div className="pt-1 pb-2 px-2 border-t" style={{ borderColor: 'var(--color-border-dark, #3c3c3c)' }}>
+        // No separator rule above this: it was a 1px #3c3c3c line on a #252526
+        // column, which reads as a white line in the dark theme. The footer is
+        // pinned under the list anyway, so the spacing does the separating.
+        <div className="pt-1 pb-2 px-2">
           {footer}
         </div>
       )}
