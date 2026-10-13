@@ -212,15 +212,44 @@ POSTGRES_DB=langconfig_seedtest .venv/bin/python scripts/seeds/verify_tools_unio
 
 ## 9. Shipping later work to the team
 
-Regenerate the seeds from your live database and commit them; teammates re-run
-`seed_all.py` (additively):
+**Agents and tools live in Postgres, not in git.** Creating or editing one in the
+UI changes nothing in the repository, so the snapshots under
+`backend/scripts/seeds/` are the only thing that carries them to a teammate — and
+a stale snapshot fails *silently*: their `seed_all.py` just adds nothing new.
+
+One command does the whole "seed out", and tells you whether you were due:
 
 ```bash
 cd backend
-.venv/bin/python scripts/seeds/export_agents_merge.py    # → deep_agents_merge.sql
-.venv/bin/python scripts/seeds/export_tools_merge.py     # → custom_tools_merge.sql
+.venv/bin/python scripts/seeds/export_baseline.py           # photograph the DB into the repo
+.venv/bin/python scripts/seeds/export_baseline.py --check    # am I due? (exit 1 if yes)
 git add scripts/seeds/*.sql && git commit -m "chore(seeds): refresh team baseline"
 ```
+
+`--check` catches both kinds of drift: a **new** row (counts differ) and an
+**edited** row (counts identical, bytes differ) — the second is why it compares
+the regenerated file byte-for-byte rather than counting rows.
+
+### Making it unmissable (opt-in)
+
+A pre-commit guard lives in `.githooks/pre-commit`. Enable it **on the machine
+that owns the baseline** — not on a teammate's clone, where the guard would read
+*their* database and treat their own agents as drift:
+
+```bash
+git config core.hooksPath .githooks
+git config langconfig.seedGuard true            # stop a commit with a stale snapshot
+git config langconfig.seedGuardMode auto        # ...or regenerate + stage it for you
+```
+
+With `auto`, committing after creating an agent simply includes the refreshed
+snapshot. Bypass deliberately with `git commit --no-verify`.
+
+> **Caveat, learned the hard way:** the guard exports from whatever database the
+> environment points at. A run with `POSTGRES_DB=<something else>` wrote *that*
+> database's agents into the committed snapshot; it was caught and reverted, but
+> it is why the guard is opt-in and why the hook never regenerates on a machine
+> that does not own the baseline.
 
 Both exporters strip machine paths to `WORKSPACE_BASE/…`, which
 `core/agents/identity.py` rewrites at run time and step 9 re-bakes per install.

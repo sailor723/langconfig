@@ -1,0 +1,68 @@
+#!/bin/sh
+# Seed guard — stop a commit whose team snapshot is behind the database.
+#
+# Your agents and tools live in Postgres, not in git. The snapshots under
+# backend/scripts/seeds/ are the only way they reach a teammate, and a stale
+# snapshot fails silently: their seed_all.py simply adds nothing new. This hook
+# makes that forgettable step unmissable.
+#
+# OPT-IN, and only appropriate on the machine that OWNS the baseline:
+#
+#   git config core.hooksPath .githooks
+#   git config langconfig.seedGuard true            # enforce
+#   git config langconfig.seedGuardMode auto        # ...or fix it for you
+#
+# Do NOT enable it on a teammate's clone: the guard compares the LOCAL database
+# against the committed snapshot, so their own agents and tools look like drift,
+# and their commits would be blocked over data that is not theirs to publish.
+#
+# Bypass deliberately with: git commit --no-verify
+
+[ "$(git config --bool langconfig.seedGuard)" = "true" ] || exit 0
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+PY="$ROOT/backend/.venv/bin/python"
+[ -x "$PY" ] || PY="$(command -v python3 2>/dev/null)"
+[ -n "$PY" ] && [ -x "$PY" ] || exit 0
+CHECK="$ROOT/backend/scripts/seeds/export_baseline.py"
+[ -f "$CHECK" ] || exit 0
+
+# Quiet when the database cannot be reached at all (another machine, no
+# Postgres running): the guard is about drift, not about being a DB dependency.
+if ! "$PY" "$CHECK" --check; then
+  case "$(git config langconfig.seedGuardMode 2>/dev/null || echo block)" in
+    auto)
+      echo ""
+      echo "seed guard: snapshot was stale — regenerating and staging it"
+      "$PY" "$CHECK" || exit 1
+      git add "$ROOT/backend/scripts/seeds/deep_agents_merge.sql" \
+              "$ROOT/backend/scripts/seeds/custom_tools_merge.sql" || exit 1
+      echo "seed guard: staged the refreshed snapshots into this commit"
+      exit 0
+      ;;
+    *)
+      cat <<'EOF'
+
+────────────────────────────────────────────────────────────────────────
+seed guard: refusing this commit.
+
+The agents/tools snapshot in backend/scripts/seeds/ no longer matches your
+database — so committing now would send teammates a stale picture, and they
+would receive none of your recent agents or tools.
+
+    cd backend && .venv/bin/python scripts/seeds/export_baseline.py
+    git add backend/scripts/seeds/*.sql
+
+To have the guard do it for you:
+    git config langconfig.seedGuardMode auto
+
+To commit without it (deliberately):
+    git commit --no-verify
+────────────────────────────────────────────────────────────────────────
+EOF
+      exit 1
+      ;;
+  esac
+fi
+
+exit 0
