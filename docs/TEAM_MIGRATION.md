@@ -20,8 +20,8 @@ the numbers there have drifted (it still advertises 44 agents / 28 models /
 | **agents** | `seeds/deep_agents_merge.sql` | **additive**: inserts only names that are absent |
 | **tools** | `seeds/custom_tools_merge.sql` + `seed_builtin_tools.py` | **union** on `tool_id`; built-ins are refreshed in place |
 | **models** | `seeds/models_seed.csv` + `upsert_model.py --preset deepseek-flash` | the CSV alone has no vision model |
-| **skills** | `backend/skills/**` → FS→DB sync | three roots: `builtin/`, `personal/`, and top-level `<id>/` |
-| **settings** | `seed_settings.py` (missing namespaces only) | team values; never machine paths |
+| **skills** | `backend/skills/**` → FS→DB sync | three roots: `builtin/`, `personal/`, top-level `<id>/`; the file IS the artefact |
+| **settings** | `seeds/settings_seed.json` → three-way merge | team values only; a key you changed locally is never overwritten |
 | **per machine** | `.env`, API keys, `backend/outputs/` | secrets and workspaces are local by design |
 
 **Deliberately NOT migrated:** `chat_sessions`, `conversation_archives`, the
@@ -229,6 +229,27 @@ git add scripts/seeds/*.sql && git commit -m "chore(seeds): refresh team baselin
 `--check` catches both kinds of drift: a **new** row (counts differ) and an
 **edited** row (counts identical, bytes differ) — the second is why it compares
 the regenerated file byte-for-byte rather than counting rows.
+
+It covers four legs:
+
+| leg | artefact | checked how |
+|---|---|---|
+| agents | `deep_agents_merge.sql` | row count, then bytes |
+| tools | `custom_tools_merge.sql` | row count, then bytes |
+| settings | `settings_seed.json` | namespace count, then bytes |
+| skills | the `SKILL.md` files themselves | a DB-only skill, or a file not committed |
+
+**Settings** are exported by `scripts/seeds/export_settings.py`, which strips
+`models.api_keys` (encrypted with *your* `API_KEY_ENCRYPTION_KEY`) and any
+absolute path such as `workspace.workspace_path`, and skips `general` and
+`onboarding` — one is per-person cosmetic, the other would let a teammate's
+install skip the setup wizard that asks for their API keys. `seed_all.py` step 4b
+applies it with a **three-way merge** against the code defaults: a key nobody
+touched adopts the team value, a key somebody changed themselves is left alone.
+
+**Models remain the one leg with no export path** — a hand-maintained CSV plus the
+`deepseek-flash` preset in `upsert_model.py`. A model added through the UI does not
+travel.
 
 ### Making it unmissable (opt-in)
 

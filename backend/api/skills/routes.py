@@ -493,7 +493,11 @@ async def create_skill(request: SkillCreateRequest):
     """
     Create a new personal skill.
 
-    Creates a skill that is stored in the database (not filesystem).
+    Stored in the database and mirrored to a `SKILL.md` on disk by the
+    `db_row_to_fs` call at the end of this handler — the docstring here used to
+    claim "database (not filesystem)", which the code does not do, and the file
+    matters: the skills table is not exported anywhere, so a committed SKILL.md
+    under backend/skills/ is the only way a skill reaches a teammate.
     """
     registry = get_skill_registry()
 
