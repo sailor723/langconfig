@@ -973,6 +973,31 @@ html[data-theme="dark"] .chat-new-session {
   color: var(--color-primary);
 }
 
+/* The user's message bubble (MessagesPanel).
+ *
+ * DSH draws it as a surface LIFTED off the panel — its `specific-bubble` token,
+ * rgb(237,243,254) light / rgb(44,44,46) dark — because the composer and the
+ * transcript are one column and the person's own turn needs to be findable in it.
+ * Ours used `var(--color-background-dark)` inline, which lib/themes.tsx rewrites
+ * to panelDark: the bubble came out the exact colour of the panel behind it, so
+ * there was no box to see. A class, for the same reason as the composer card.
+ *
+ * Radius is DSH's literal 22px. On a single-line bubble (ours is ~34px tall) the
+ * browser clamps it to half the height, which is precisely the pill DSH's own
+ * 44px/22px line produces; multi-line keeps 22px corners. */
+.chat-user-bubble {
+  background-color: rgb(237, 243, 254);
+  border-radius: 22px;
+}
+
+html[data-theme] .chat-user-bubble {
+  background-color: rgb(237, 243, 254) !important;
+}
+
+html[data-theme="dark"] .chat-user-bubble {
+  background-color: rgb(44, 44, 46) !important;
+}
+
 [data-theme="dark"] .bg-white {
   background-color: #252526 !important;
 }
