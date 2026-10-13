@@ -951,6 +951,19 @@ html[data-theme="dark"] .chat-composer-menu {
   background-color: #3c3c3c !important;
 }
 
+/* New-session box (ChatHistorySidebar) — the same problem the composer card had:
+   lib/themes.tsx rewrites any element whose inline style mentions
+   --color-input-background to panelDark, i.e. to the sidebar's own colour, so the
+   box rendered flat with nothing but its border. DSH's `sidebar.newSession` is an
+   elevated surface, so this restores the input colour. */
+html[data-theme] .chat-new-session {
+  background-color: #ffffff !important;
+}
+
+html[data-theme="dark"] .chat-new-session {
+  background-color: #3c3c3c !important;
+}
+
 [data-theme="dark"] .bg-white {
   background-color: #252526 !important;
 }
