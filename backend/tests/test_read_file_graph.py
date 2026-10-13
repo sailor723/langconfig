@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import asyncio
 import os
+import shutil
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from PIL import Image, ImageDraw, ImageFont
@@ -23,6 +25,7 @@ from core.graphs import read_file as rf
 WORKSPACE = Path(__file__).resolve().parent.parent / "outputs"
 PROBE_DIR = WORKSPACE / "_pytest_read_file"
 LATIN_FONT = "/System/Library/Fonts/Supplemental/Arial.ttf"
+CJK_FONT = "/System/Library/Fonts/Supplemental/Songti.ttc"
 LIVE = os.getenv("LANGCONFIG_LIVE_TESTS") == "1"
 
 
@@ -496,6 +499,70 @@ def test_password_protected_pdf_reports_an_error(pdf_files, fake_vision):
     assert state["result"].startswith("Error:")
     assert "password-protected" in state["result"]
     assert not fake_vision
+
+
+# ── OCR languages ────────────────────────────────────────────────────────────
+@pytest.mark.parametrize("configured,installed,expected", [
+    ("", ["eng"], "eng"),
+    ("", ["chi_sim", "eng"], "eng+chi_sim"),          # a Han page read as eng is mojibake
+    ("", ["eng", "chi_sim", "chi_tra"], "eng+chi_sim+chi_tra"),
+    ("", ["jpn"], "jpn"),                             # no preferred pack: use what exists
+    ("", [], "eng"),                                  # nothing listed: tesseract's default
+    ("deu", ["eng"], "deu"),                          # explicit configuration wins outright
+])
+def test_ocr_language_selection(configured, installed, expected):
+    assert rf._resolve_ocr_langs(configured, installed) == expected
+
+
+@pytest.mark.skipif(shutil.which("tesseract") is None, reason="needs the tesseract binary")
+def test_tesseract_is_asked_for_the_resolved_languages(probe_files, monkeypatch):
+    seen: dict = {}
+
+    def _fake_run(argv, **_kw):
+        seen["argv"] = argv
+
+        class _Done:
+            stdout = "OCR PROBE 12345\n"
+            returncode = 0
+
+        return _Done()
+
+    monkeypatch.setattr(rf, "ocr_langs", lambda: "eng+chi_sim")
+    monkeypatch.setattr(rf, "subprocess", SimpleNamespace(run=_fake_run))
+
+    text, chars, available = rf._ocr_file(probe_files["png"])
+
+    assert seen["argv"][:3] == ["tesseract", str(probe_files["png"]), "stdout"]
+    assert seen["argv"][3:5] == ["-l", "eng+chi_sim"]
+    assert text == "OCR PROBE 12345"
+    assert chars == len("OCR PROBE 12345") and available is True
+
+
+def test_payload_names_the_ocr_languages(probe_files, fake_vision, monkeypatch):
+    monkeypatch.setattr(rf, "ocr_langs", lambda: "eng+chi_sim")
+    state = asyncio.run(rf.get_file_reader_graph().ainvoke(
+        {"file_path": str(probe_files["png"])}))
+    assert "== Text in the image (OCR: tesseract, eng+chi_sim) ==" in state["result"]
+
+
+@pytest.mark.skipif("chi_sim" not in rf._installed_tessdata_langs(),
+                    reason="needs the tesseract chi_sim pack")
+def test_chinese_scan_comes_back_as_chinese():
+    """Regression: a Han-character scan OCR'd as `eng` returned Latin nonsense."""
+    font = next((f for f in (CJK_FONT, LATIN_FONT) if Path(f).exists()), None)
+    if font is None:
+        pytest.skip("no CJK-capable font on this machine")
+    png = PROBE_DIR / "chinese.png"
+    img = Image.new("RGB", (900, 200), "white")
+    ImageDraw.Draw(img).text((30, 70), "惠州华阳医疗器械", fill="black",
+                             font=ImageFont.truetype(font, 56))
+    img.save(png, "PNG")
+    try:
+        state = asyncio.run(rf.get_file_reader_graph().ainvoke({"file_path": str(png)}))
+        # tesseract separates Han characters with spaces; the characters are what matter
+        assert "惠州华阳医疗器械" in state["result"].replace(" ", "")
+    finally:
+        png.unlink()
 
 
 # ── live path (opt-in: LANGCONFIG_LIVE_TESTS=1) ──────────────────────────────
