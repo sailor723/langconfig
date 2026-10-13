@@ -1,14 +1,19 @@
-# Team migration — code, database, and smoke test
+# Team migration — seed out, commit, push, then seed
 
 How to bring a new machine (or a teammate's) from `git clone` to a working
 install that matches the team's agents, tools, models and skills — **without
 touching anything they have already built**.
 
 **The direction of travel:** the machine that owns the baseline **seeds out**
-(§9), commits and pushes; every other machine clones or pulls that commit and then
-**seeds** (§5). Tools, agents and settings travel as files through git and never
+(§1), commits and pushes; every other machine clones or pulls that commit and then
+**seeds** (§6). Tools, agents and settings travel as files through git and never
 database-to-database — so a commit that skipped its seed out, or one that was
 never pushed, carries the previous state.
+
+> **Which half is yours?** If this machine owns the baseline — the database the
+> team's agents, tools and settings are authored in — start at **§1**. If you are
+> setting up a teammate's machine, the repo already carries the baseline: go to
+> **§2** for the install and **§6** to seed it in.
 
 Companion to [`TEAM_INSTALL.md`](TEAM_INSTALL.md), which covers the same ground
 for a **zip-package install** (`scripts/make_team_zip.sh` +
@@ -26,7 +31,7 @@ verifies against the database.
 | **code** | `git clone` / `git pull` | `learning/` (the phase-9 GraphIndex package the chat path imports), `backend/skills/**` and all seed assets are tracked |
 | **schema** | `alembic upgrade head` | the installer stamps head on a fresh database; an existing one needs a real upgrade |
 | **agents** | `seeds/deep_agents_merge.sql` | **additive**: inserts only names that are absent |
-| **tools** | `seeds/custom_tools_merge.sql` + `seed_builtin_tools.py` | **union** on `tool_id`; existing rows are never rewritten, so a teammate's edit — even to a built-in — survives (the `read_any_file` exception is in §5) |
+| **tools** | `seeds/custom_tools_merge.sql` + `seed_builtin_tools.py` | **union** on `tool_id`; existing rows are never rewritten, so a teammate's edit — even to a built-in — survives (the `read_any_file` exception is in §6) |
 | **models** | `seeds/models_seed.csv` + `upsert_model.py --preset deepseek-flash` | the CSV alone has no vision model |
 | **skills** | `backend/skills/**` → FS→DB sync | three roots: `builtin/`, `personal/`, top-level `<id>/`; the file IS the artefact |
 | **settings** | `seeds/settings_seed.json` → three-way merge | team values only; a key you changed locally is never overwritten |
@@ -41,7 +46,102 @@ state), against ~1 MB of actual team knowledge (56 agents + 67 tools + 29 models
 
 ---
 
-## 1. Prerequisites
+## 1. Seed out, then commit and push — the baseline owner's half
+
+**Agents and tools live in Postgres, not in git.** Creating or editing one in the
+UI changes nothing in the repository, so the snapshots under
+`backend/scripts/seeds/` are the only thing that carries them to a teammate — and
+a stale snapshot fails *silently*: their `seed_all.py` just adds nothing new.
+
+The order is always **seed out → commit → push → they pull → they seed**. Seeding
+out is what puts your database into the repo, the commit records it, and the push
+is what actually delivers it: git is the only channel between the two machines, so
+a commit that is never pushed reaches nobody. Nothing reaches their database until
+they run `seed_all.py` (§6). Skipping the seed out and committing anyway ships the
+*previous* state, which looks like a successful migration that delivered nothing.
+
+```bash
+cd backend
+
+# 1. SEED OUT — first ask whether you are due, then photograph the database
+.venv/bin/python scripts/seeds/export_baseline.py --check   # reads only; exit 1 = you are due
+.venv/bin/python scripts/seeds/export_baseline.py           # writes the snapshots
+
+# 2. COMMIT — every artefact it wrote, or the leg you forgot ships stale
+git add scripts/seeds/*.sql scripts/seeds/settings_seed.json
+git commit -m "chore(seeds): refresh team baseline"
+
+# 3. PUSH — until this runs, the snapshot exists only on your machine
+git push
+
+# 4. THE TEAMMATE — pulls that commit, then seeds (§6). Nothing before their
+#    seed has touched their database.
+```
+
+Run `--check` first: it only reads, so it is the cheap way to answer "do I owe the
+team a seed?" at any time. It catches both kinds of drift: a **new** row (counts
+differ) and an **edited** row (counts identical, bytes differ) — the second is why
+it compares the regenerated file byte-for-byte rather than counting rows.
+
+Both `git add` paths matter: the export rewrites `settings_seed.json` as well as
+the two `.sql` snapshots, so a `*.sql`-only glob leaves the settings leg behind —
+committed as stale, and silently, because the file simply does not appear in the
+diff.
+
+It covers four legs:
+
+| leg | artefact | checked how |
+|---|---|---|
+| agents | `deep_agents_merge.sql` | row count, then bytes |
+| tools | `custom_tools_merge.sql` | row count, then bytes |
+| settings | `settings_seed.json` | namespace count, then bytes |
+| skills | the `SKILL.md` files themselves | a DB-only skill, or a file not committed |
+
+**Settings** are exported by `scripts/seeds/export_settings.py`, which strips
+`models.api_keys` (encrypted with *your* `API_KEY_ENCRYPTION_KEY`) and any
+absolute path such as `workspace.workspace_path`, and skips `general` and
+`onboarding` — one is per-person cosmetic, the other would let a teammate's
+install skip the setup wizard that asks for their API keys. `seed_all.py` step 4b
+applies it with a **three-way merge** against the code defaults: a key nobody
+touched adopts the team value, a key somebody changed themselves is left alone.
+
+**Models remain the one leg with no export path** — a hand-maintained CSV plus the
+`deepseek-flash` preset in `upsert_model.py`. A model added through the UI does not
+travel.
+
+### Making it unmissable (opt-in)
+
+A pre-commit guard lives in `.githooks/pre-commit`. Enable it **on the machine
+that owns the baseline** — not on a teammate's clone, where the guard would read
+*their* database and treat their own agents as drift:
+
+```bash
+git config core.hooksPath .githooks
+git config langconfig.seedGuard true            # stop a commit with a stale snapshot
+git config langconfig.seedGuardMode auto        # ...or regenerate + stage it for you
+```
+
+With `auto`, committing after creating an agent simply includes the refreshed
+snapshot. Bypass deliberately with `git commit --no-verify`.
+
+> **Caveat, learned the hard way:** the guard exports from whatever database the
+> environment points at. A run with `POSTGRES_DB=<something else>` wrote *that*
+> database's agents into the committed snapshot; it was caught and reverted, but
+> it is why the guard is opt-in and why the hook never regenerates on a machine
+> that does not own the baseline.
+
+Both exporters strip machine paths to `WORKSPACE_BASE/…`, which
+`core/agents/identity.py` rewrites at run time and step 9 re-bakes per install.
+
+**Convention that keeps the union clean:** shared tools use the catalog's
+canonical `tool_id`, so the merge recognises them and teammates get your
+updates; a personal variant gets a deliberately different id and lives alongside.
+If two tools *are* the same thing under different ids, the merge cannot know
+(names are editable labels — matching on them would silently drop real tools).
+`scripts/seeds/check_tool_overlap.py` reports those candidates on demand, and the
+Tool Library is where a user deletes the redundant one.
+
+## 2. Prerequisites
 
 | need | version | why |
 |---|---|---|
@@ -62,7 +162,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # macOS: brew install git uv node postgresql@16   (or Docker Desktop)
 ```
 
-## 2. Clone and configure
+## 3. Clone and configure
 
 ```bash
 git clone git@github.com:sailor723/langconfig.git
@@ -96,7 +196,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 > `services/agents_md_service.py`. It is *not* the per-agent root. A **per-agent**
 > workspace comes from that agent's `workspace_path` column, or — for one seed
 > run only — from the separate `WORKSPACE_ROOT` variable on the command line
-> (§5). A relative `LANGCONFIG_WORKSPACE_ROOT` is anchored at the **repo root**,
+> (§6). A relative `LANGCONFIG_WORKSPACE_ROOT` is anchored at the **repo root**,
 > not at the process CWD.
 
 > Create `.env` **before** starting Postgres: `docker compose` reads
@@ -112,14 +212,14 @@ OLLAMA_BASE_URL=http://localhost:11434
 > the old one and the backend cannot connect. Set it now, or recreate the volume
 > with `docker compose down -v` and seed again.
 
-## 3. Database up
+## 4. Database up
 
 ```bash
 docker compose up -d postgres
 docker ps                      # langconfig-postgres ... 0.0.0.0:5433->5432/tcp
 ```
 
-## 4. Backend dependencies
+## 5. Backend dependencies
 
 ```bash
 cd backend
@@ -128,9 +228,9 @@ uv sync                        # creates backend/.venv from uv.lock
 # python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 
-## 5. Seed the database — this is the migration
+## 6. Seed the database — this is the migration
 
-Run this **after** `git clone` (§2) or, on a machine that already exists,
+Run this **after** `git clone` (§3) or, on a machine that already exists,
 `git pull` — the snapshots it reads are the ones in the repo, so seeding without
 pulling first just re-applies what you already had:
 
@@ -150,7 +250,7 @@ runs them (it labels them `[n/10]`, with two half-steps — `4b` and `8.5`):
    `alembic upgrade head` on an existing one)
 4. `seed_settings.py` — default settings documents, **missing namespaces only**
 5. team settings — the exported `settings_seed.json` merged three-way over those
-   defaults (§9). Without this step a value you changed in the UI never reaches
+   defaults (§1). Without this step a value you changed in the UI never reaches
    anyone, because step 4 only fills namespaces that are still empty
 6. `seed_models.py` + `upsert_model.py --preset deepseek-flash` — catalog
 7. `seed_search_providers.py` — 6 search backends
@@ -181,13 +281,13 @@ Optional, for a test run that must not touch real workspaces:
 WORKSPACE_ROOT=/tmp/langconfig-ws .venv/bin/python scripts/seeds/seed_all.py
 ```
 
-`WORKSPACE_ROOT` here is **not** the `.env` variable from §2 — that one is the
+`WORKSPACE_ROOT` here is **not** the `.env` variable from §3 — that one is the
 project-level `AGENTS.md` root. This is a one-shot override that `seed_all.py`
 forwards to the identity backfill as `--workspace-root`, changing where the seeded
 agents' workspaces are baked for this run only. Leave it unset to bake the
 per-agent paths already in the seed (each agent's `workspace_path`).
 
-## 6. Provider API keys
+## 7. Provider API keys
 
 Credentials live in the **database**, encrypted with `API_KEY_ENCRYPTION_KEY`
 (provider selection reads the `models` table; keys come from the settings
@@ -197,7 +297,7 @@ Do **not** copy `settings_documents` between machines: the `models.api_keys`
 document holds ciphertext that only decrypts with the key that wrote it, and the
 `workspace` namespace holds an absolute path from the machine it came from.
 
-## 7. Run it
+## 8. Run it
 
 ```bash
 bash start.sh                  # from the repo root: backend :8765 + frontend :1421, one-shot
@@ -212,7 +312,7 @@ npm run dev                                                                     
 Note: the backend runs **without `--reload`**, so backend code changes need a
 restart; frontend changes hot-reload.
 
-## 8. Smoke test
+## 9. Smoke test and verification
 
 ```bash
 cd backend
@@ -284,101 +384,6 @@ they changed themselves) comes through byte-identical — while a name clash and
 `tool_id` clash keep **their** version. It also re-checks the real database and
 the real working tree at the end, so it cannot pass by having damaged the thing it
 was measuring.
-
-## 9. Shipping later work to the team
-
-**Agents and tools live in Postgres, not in git.** Creating or editing one in the
-UI changes nothing in the repository, so the snapshots under
-`backend/scripts/seeds/` are the only thing that carries them to a teammate — and
-a stale snapshot fails *silently*: their `seed_all.py` just adds nothing new.
-
-The order is always **seed out → commit → push → they pull → they seed**. Seeding
-out is what puts your database into the repo, the commit records it, and the push
-is what actually delivers it: git is the only channel between the two machines, so
-a commit that is never pushed reaches nobody. Nothing reaches their database until
-they run `seed_all.py` (§5). Skipping the seed out and committing anyway ships the
-*previous* state, which looks like a successful migration that delivered nothing.
-
-```bash
-cd backend
-
-# 1. SEED OUT — first ask whether you are due, then photograph the database
-.venv/bin/python scripts/seeds/export_baseline.py --check   # reads only; exit 1 = you are due
-.venv/bin/python scripts/seeds/export_baseline.py           # writes the snapshots
-
-# 2. COMMIT — every artefact it wrote, or the leg you forgot ships stale
-git add scripts/seeds/*.sql scripts/seeds/settings_seed.json
-git commit -m "chore(seeds): refresh team baseline"
-
-# 3. PUSH — until this runs, the snapshot exists only on your machine
-git push
-
-# 4. THE TEAMMATE — pulls that commit, then seeds (§5). Nothing before their
-#    seed has touched their database.
-```
-
-Run `--check` first: it only reads, so it is the cheap way to answer "do I owe the
-team a seed?" at any time. It catches both kinds of drift: a **new** row (counts
-differ) and an **edited** row (counts identical, bytes differ) — the second is why
-it compares the regenerated file byte-for-byte rather than counting rows.
-
-Both `git add` paths matter: the export rewrites `settings_seed.json` as well as
-the two `.sql` snapshots, so a `*.sql`-only glob leaves the settings leg behind —
-committed as stale, and silently, because the file simply does not appear in the
-diff.
-
-It covers four legs:
-
-| leg | artefact | checked how |
-|---|---|---|
-| agents | `deep_agents_merge.sql` | row count, then bytes |
-| tools | `custom_tools_merge.sql` | row count, then bytes |
-| settings | `settings_seed.json` | namespace count, then bytes |
-| skills | the `SKILL.md` files themselves | a DB-only skill, or a file not committed |
-
-**Settings** are exported by `scripts/seeds/export_settings.py`, which strips
-`models.api_keys` (encrypted with *your* `API_KEY_ENCRYPTION_KEY`) and any
-absolute path such as `workspace.workspace_path`, and skips `general` and
-`onboarding` — one is per-person cosmetic, the other would let a teammate's
-install skip the setup wizard that asks for their API keys. `seed_all.py` step 4b
-applies it with a **three-way merge** against the code defaults: a key nobody
-touched adopts the team value, a key somebody changed themselves is left alone.
-
-**Models remain the one leg with no export path** — a hand-maintained CSV plus the
-`deepseek-flash` preset in `upsert_model.py`. A model added through the UI does not
-travel.
-
-### Making it unmissable (opt-in)
-
-A pre-commit guard lives in `.githooks/pre-commit`. Enable it **on the machine
-that owns the baseline** — not on a teammate's clone, where the guard would read
-*their* database and treat their own agents as drift:
-
-```bash
-git config core.hooksPath .githooks
-git config langconfig.seedGuard true            # stop a commit with a stale snapshot
-git config langconfig.seedGuardMode auto        # ...or regenerate + stage it for you
-```
-
-With `auto`, committing after creating an agent simply includes the refreshed
-snapshot. Bypass deliberately with `git commit --no-verify`.
-
-> **Caveat, learned the hard way:** the guard exports from whatever database the
-> environment points at. A run with `POSTGRES_DB=<something else>` wrote *that*
-> database's agents into the committed snapshot; it was caught and reverted, but
-> it is why the guard is opt-in and why the hook never regenerates on a machine
-> that does not own the baseline.
-
-Both exporters strip machine paths to `WORKSPACE_BASE/…`, which
-`core/agents/identity.py` rewrites at run time and step 9 re-bakes per install.
-
-**Convention that keeps the union clean:** shared tools use the catalog's
-canonical `tool_id`, so the merge recognises them and teammates get your
-updates; a personal variant gets a deliberately different id and lives alongside.
-If two tools *are* the same thing under different ids, the merge cannot know
-(names are editable labels — matching on them would silently drop real tools).
-`scripts/seeds/check_tool_overlap.py` reports those candidates on demand, and the
-Tool Library is where a user deletes the redundant one.
 
 ## 10. Footguns
 
