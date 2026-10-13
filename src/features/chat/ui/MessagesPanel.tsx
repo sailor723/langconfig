@@ -259,12 +259,16 @@ export default function MessagesPanel({
                             minWidth: 0,
                             overflowWrap: 'anywhere',
                             wordBreak: 'break-word',
-                            // User messages: subtle bg color, no border
-                            // AI messages: no bg, no border
-                            backgroundColor: message.role === 'user' ? 'var(--color-background-dark)' : 'transparent',
-                          border: 'none',
-                          borderRadius: message.role === 'user' ? '8px' : '0',
+                            // The user's own turn gets a bubble; the assistant's
+                            // stays plain text on the panel. The fill and the
+                            // 22px radius live in index.css (.chat-user-bubble):
+                            // an inline var(--color-background-dark) is rewritten
+                            // to panelDark by the theme layer, which made the
+                            // bubble the same colour as the panel — no box at all.
+                            backgroundColor: 'transparent',
+                            border: 'none',
                         }}
+                        className={message.role === 'user' ? 'chat-user-bubble' : ''}
                       >
                         <div
                           className="prose prose-sm max-w-none"
