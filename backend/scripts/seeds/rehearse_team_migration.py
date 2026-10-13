@@ -1,12 +1,16 @@
 """Rehearse the whole team-migration loop in isolation, in the real order.
 
     the owner installs  ->  the teammate installs and starts working
-    ->  the owner SEEDS OUT + COMMITS  ->  the teammate PULLS THE REPO  ->  SEEDS
+    ->  the owner SEEDS OUT, COMMITS and PUSHES
+    ->  the teammate PULLS THE REPO  ->  SEEDS
 
 The other verify_* scripts test the merge SQL in place. This one rehearses the
-actual delivery: two machines, two databases, and a teammate who already has
-their own agents, tools, a chat session, and a setting they changed themselves
-before the team's new work ever reaches them.
+actual delivery: two machines, two databases, a bare remote standing in for
+GitHub, and a teammate who already has their own agents, tools, a chat session,
+and a setting they changed themselves before the team's new work ever reaches
+them. Git is the only channel between the two databases, so the push is part of
+what is being tested — the run checks that the new commit is invisible to the
+teammate until it happens.
 
 Two guarantees are checked, and the second is the one that quietly breaks:
 
@@ -34,6 +38,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[3]        # backend/scripts/seeds/ -> repo root
 BACKEND = REPO / "backend"
 SCRATCH = Path("/tmp/langconfig-rehearsal")
+ORIGIN = SCRATCH / "origin.git"                   # bare remote: stands in for GitHub
 OWNER = SCRATCH / "owner"                         # the baseline owner's machine
 TEAM = SCRATCH / "teammate"                       # the teammate's machine
 WS_OWNER = "/tmp/langconfig-rehearsal-ws/owner"
@@ -201,7 +206,14 @@ head = sh(["git", "-C", str(REPO), "rev-parse", "--short", "HEAD"]).stdout.strip
 print(f"  real repo, read-only from here   HEAD {head}")
 print(f"  real database, never used        {REAL_DB}")
 
-sh(["git", "clone", "--local", "--quiet", str(REPO), str(OWNER)])
+sh(["git", "init", "--bare", "--quiet", str(ORIGIN)])
+sh(["git", "-C", str(REPO), "push", "--quiet", str(ORIGIN), "main:main"])
+# a fresh bare repo's HEAD points at master, so a clone of it checks out nothing
+sh(["git", "-C", str(ORIGIN), "symbolic-ref", "HEAD", "refs/heads/main"])
+sh(["git", "clone", "--quiet", str(ORIGIN), str(OWNER)])
+if not (OWNER / "backend").exists():
+    raise SystemExit(f"the clone came out empty — check {ORIGIN}'s HEAD and refs")
+print(f"  bare origin (stands in for GitHub) {ORIGIN}")
 prepare_clone(OWNER, OWNER_DB, WS_OWNER)
 for db in (OWNER_DB, TEAM_DB):
     psql(MAINT, f'DROP DATABASE IF EXISTS "{db}"')
@@ -218,7 +230,7 @@ print(f"  a fresh install contains a 'write_file' tool row: {'write_file' in own
 
 # ── stage 2: the teammate arrives ────────────────────────────────────────────
 banner("STAGE 2", "the teammate — clone the SAME commit, install, and bring their own work")
-sh(["git", "clone", "--local", "--quiet", str(OWNER), str(TEAM)])
+sh(["git", "clone", "--quiet", str(ORIGIN), str(TEAM)])
 prepare_clone(TEAM, TEAM_DB, WS_TEAM)
 print(f"  teammate clone HEAD {sh(['git', '-C', str(TEAM), 'rev-parse', '--short', 'HEAD']).stdout.strip()}"
       f" (same as owner: {head})")
@@ -344,15 +356,28 @@ in_snapshot = (NEW_AGENT in (OWNER / "backend/scripts/seeds/deep_agents_merge.sq
                and NEW_TOOL in (OWNER / "backend/scripts/seeds/custom_tools_merge.sql").read_text())
 print(f"  the new work is now inside the snapshot artefact: {in_snapshot}")
 
-# ── stage 6: COMMIT TO GIT ───────────────────────────────────────────────────
-banner("STAGE 6", "COMMIT — the snapshot is the only thing that carries the work")
+# ── stage 6: COMMIT, then PUSH ───────────────────────────────────────────────
+banner("STAGE 6", "COMMIT + PUSH — git is the channel, so an unpushed commit delivers nothing")
 sh(["git", "-C", str(OWNER), "add", "backend/scripts/seeds"])
 sh(["git", "-C", str(OWNER), "-c", "user.email=rehearsal@local", "-c", "user.name=Rehearsal",
     "commit", "--quiet", "-m", "chore(seeds): rehearsal — carry new team work"])
 owner_sha = sh(["git", "-C", str(OWNER), "rev-parse", "--short", "HEAD"]).stdout.strip()
-print(f"  owner commit {owner_sha}")
+print(f"  owner commit {owner_sha} (still local: nothing has been pushed yet)")
 for ln in sh(["git", "-C", str(OWNER), "show", "--stat", "--oneline", "HEAD"]).stdout.strip().splitlines()[:6]:
     print(f"    {ln.strip()}")
+
+# the teammate looks for it before the push, and must not find it
+sh(["git", "-C", str(TEAM), "fetch", "--quiet", "origin"], check=False)
+seen_before_push = sh(["git", "-C", str(TEAM), "rev-parse", "--short", "origin/main"],
+                      check=False).stdout.strip()
+print(f"  teammate's origin/main before the push: {seen_before_push} "
+      f"({'cannot see it, as expected' if seen_before_push != owner_sha else 'ALREADY VISIBLE'})")
+
+pushed = sh(["git", "-C", str(OWNER), "push", "--quiet", "origin", "main"], check=False)
+print(f"  git push -> exit {pushed.returncode}")
+if pushed.returncode != 0:
+    print(pushed.stderr[-800:])
+    raise SystemExit("the owner could not push")
 
 # ── stage 7: THE REPO reaches the teammate ───────────────────────────────────
 banner("STAGE 7", "THE REPO — the teammate pulls, and the work is in their snapshot")
@@ -418,6 +443,8 @@ checks = [
     ("seed out caught the new work (--check was DUE)", due.returncode == 1),
     ("seed out wrote it into the snapshot", in_snapshot),
     ("the commit is what the teammate pulled", team_head == owner_sha and team_has_new),
+    ("the new commit was invisible to them until it was pushed",
+     seen_before_push != owner_sha and pushed.returncode == 0),
     (f"their later agent {LATER_AGENT!r} survived delivery 2",
      row_hash(TEAM_URL, "deep_agent_templates", "name", LATER_AGENT) == before2["agent_hash"]),
     (f"their later tool {LATER_TOOL!r} survived delivery 2",
