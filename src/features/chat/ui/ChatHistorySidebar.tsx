@@ -94,6 +94,18 @@ function viewToggle(opts: {
   );
 }
 
+/**
+ * The column's background, in BOTH states.
+ *
+ * These disagreed: the expanded sidebar used `--color-panel-dark` while the 48px
+ * rail asked for `--color-panel` — a variable nothing defines (ChatPage sets
+ * panel-dark, and no data-theme block in index.css declares panel; only the
+ * legacy `.theme-codex-dark` class does). The rail therefore fell back to its
+ * light #f9fafb default and rendered grey inside an otherwise dark window.
+ * One constant now, so the two states cannot drift apart again.
+ */
+const SIDEBAR_BG = 'var(--color-panel-dark, var(--color-panel, #f9fafb))';
+
 export default function ChatHistorySidebar({ onNewSession, footer, footerCompact }: ChatHistorySidebarProps) {
   const { sessions, currentSessionId, switchSession } = useChat();
   // The heading says "Projects", so the value has to be the project (vault).
@@ -402,12 +414,12 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
         className="flex flex-col items-center py-3 transition-all duration-200"
         style={{
           width: '48px',
-          backgroundColor: 'var(--color-panel, #f9fafb)',
+          backgroundColor: SIDEBAR_BG,
         }}
       >
         <button
           onClick={() => setCollapsed(false)}
-          className="p-2 rounded-lg hover:bg-black/5 transition-colors mb-4"
+          className="p-2 rounded-lg hover:bg-[rgba(128,128,128,0.18)] transition-colors mb-4"
           title="Expand sidebar"
         >
           <PanelLeftOpen className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
@@ -415,7 +427,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
         {/* New session in the rail: 36px, no border — DSH's collapsed form. */}
         <button
           onClick={onNewSession}
-          className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-black/5 transition-colors mb-2"
+          className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-[rgba(128,128,128,0.18)] transition-colors mb-2"
           style={{ color: 'var(--color-text-primary)' }}
           title="New session"
         >
@@ -430,7 +442,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
               className={`relative w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium transition-colors ${
                 currentSessionId === session.session_id
                   ? 'bg-primary text-white'
-                  : 'hover:bg-black/5'
+                  : 'hover:bg-[rgba(128,128,128,0.18)]'
               }`}
               style={{
                 color: currentSessionId === session.session_id ? 'white' : 'var(--color-text-muted)',
@@ -468,7 +480,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
       className="flex flex-col transition-all duration-200"
       style={{
         width: '100%',
-        backgroundColor: 'var(--color-panel-dark, var(--color-panel, #f9fafb))',
+        backgroundColor: SIDEBAR_BG,
       }}
     >
       {/* ── Brand row ────────────────────────────────────────────────
