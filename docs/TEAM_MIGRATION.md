@@ -10,10 +10,14 @@ touching anything they have already built**.
 database-to-database — so a commit that skipped its seed out, or one that was
 never pushed, carries the previous state.
 
-> **Which half is yours?** If this machine owns the baseline — the database the
-> team's agents, tools and settings are authored in — start at **§1**. If you are
-> setting up a teammate's machine, the repo already carries the baseline: go to
-> **§2** for the install and **§6** to seed it in.
+> **Which half is yours?**
+> - **This machine owns the baseline** — the database the team's agents, tools and
+>   settings are authored in: start at **§1**.
+> - **A teammate's machine that already runs a previous version**: go to **§6,
+>   "a machine that already has an install"** — `git pull`, `uv sync`,
+>   `alembic upgrade head`, then seed. Do not clone again or copy `.env`.
+> - **A brand-new machine**: **§2** onward (prerequisites, clone, database,
+>   dependencies), then §6 to seed.
 
 Companion to [`TEAM_INSTALL.md`](TEAM_INSTALL.md), which covers the same ground
 for a **zip-package install** (`scripts/make_team_zip.sh` +
@@ -230,15 +234,51 @@ uv sync                        # creates backend/.venv from uv.lock
 
 ## 6. Seed the database — this is the migration
 
-Run this **after** `git clone` (§3) or, on a machine that already exists,
-`git pull` — the snapshots it reads are the ones in the repo, so seeding without
-pulling first just re-applies what you already had:
+There are two ways in, and they are not the same. Pick by what the machine already
+has, not by what you want it to have.
+
+### A machine that already has an install — the update path
+
+No `git clone`, no `cp env_example .env` (§3), no `docker compose up`: it already
+has a working repository, `.env`, a running Postgres and a venv. Copying `.env`
+would overwrite a working one — including the `API_KEY_ENCRYPTION_KEY` that its
+stored provider keys are encrypted with.
+
+```bash
+cd /path/to/langconfig
+git status                # confirm nothing local is half-finished
+git pull --ff-only        # refuses to guess if the machine has diverged
+
+cd backend
+uv sync                                   # bring the venv to the new uv.lock
+.venv/bin/python -m alembic upgrade head  # BEFORE seeding — see the warning below
+.venv/bin/python scripts/seeds/seed_all.py
+.venv/bin/python scripts/smoke_test.py    # §9
+```
+
+> **Why `alembic upgrade head` has to come first.** Step 3 of `seed_all.py` runs
+> `alembic stamp head` **unconditionally**: it *records* the revision instead of
+> applying migrations. That is correct for a fresh database, which cannot replay
+> the 001–021 chain, and wrong for an existing one — seed first and any migration
+> the update brought is marked applied without ever having run, leaving the schema
+> silently behind the code. `upgrade head` applies whatever is pending and makes
+> the stamp a no-op.
+
+Nothing of theirs is lost: their agents, tools, skills, chat sessions and any
+setting they changed themselves come through, and a name or `tool_id` clash keeps
+**their** version (§10 lists the only two exceptions).
+
+### A fresh machine
+
+Prerequisites, clone, database and dependencies first (§2 → §5), then:
 
 ```bash
 cd backend
-git -C .. pull            # only needed on an existing machine
 .venv/bin/python scripts/seeds/seed_all.py
 ```
+
+Either way, seeding without pulling (or cloning) first just re-applies the
+snapshots the machine already had.
 
 Idempotent and **additive**. It is safe to re-run, and safe to run on a database
 that already has a teammate's work in it. The steps, in the order `seed_all.py`
