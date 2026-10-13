@@ -43,12 +43,16 @@ async def read_any_file(file_path: str, question: str = None, vision: bool = Tru
                         vision_model: str = None) -> str:
     """Read any file and return TEXT - never raw or base64 bytes.
 
-    text/code/data   -> verbatim, line-numbered
-    .pdf             -> page by page: a page with a text layer comes back as
-                        text; a page that is just a scan is rendered and read
-                        with OCR (and described by the vision model)
-    .docx/.pptx      -> extracted text
-    images           -> vision description + OCR text (vision=False: OCR text only)
+    One reader, four kinds of file:
+
+    text (md, code, data) -> verbatim, line-numbered
+    image                 -> vision description + OCR text (vision=False: OCR only)
+    pdf                   -> page by page: a page with a text layer comes back as
+                             text; a page that is only a scan is rendered and read
+                             with OCR (and described by the vision model)
+    word / powerpoint     -> structure through python-docx / python-pptx (headings,
+                             lists, tables, slide notes) plus every embedded picture
+                             read with OCR (and vision)
     """
     _ensure_app_importable()
     from core.graphs.read_file import read_file_as_text
@@ -58,16 +62,22 @@ async def read_any_file(file_path: str, question: str = None, vision: bool = Tru
 '''
 
 DESCRIPTION = (
-    "Read any file and return its TEXT. Text, code and data files come back verbatim "
-    "(line-numbered); .docx/.pptx are converted to text; images "
-    "(.png/.jpg/.jpeg/.webp/.gif/.bmp/.tiff) come back as a short vision description plus "
-    "OCR-extracted text. Use this for images instead of read_file - it never returns raw or "
-    "base64 image data, so it cannot overflow the context. PDFs are read page by page: a "
-    "page with a real text layer gives its text, and a page that is only a scan is rendered "
-    "and read with OCR, so scanned contracts and invoices work too - OCR uses the language packs installed on the host (English and Chinese by default), so a scanned Chinese page reads as Chinese. Pass `question` to ask "
-    "something specific about an image or a scanned page, or `vision=False` for a "
-    "deterministic OCR-only read (faster, no model call) when you just need the characters "
-    "in a screenshot or scan. `vision_model` overrides which model performs that read "
+    "Read any file and return its TEXT - one reader for four kinds of file. "
+    "TEXT (markdown, code, data): verbatim, line-numbered. "
+    "IMAGE (.png/.jpg/.jpeg/.webp/.gif/.bmp/.tiff): a short vision description plus the "
+    "OCR-extracted text. "
+    "PDF: read page by page - a page with a real text layer gives its text, and a page "
+    "that is only a scan is rendered and OCR'd, so scanned contracts and invoices work. "
+    "WORD/POWERPOINT (.docx/.pptx): read through python-docx / python-pptx - headings, "
+    "lists, tables and slide speaker notes are kept, and every embedded picture is read "
+    "with OCR (and described when vision is on), so a document that is mostly screenshots "
+    "still reads. "
+    "It never returns raw or base64 image data, so it cannot overflow the context - use it "
+    "instead of read_file for images, scans and pictures inside documents. OCR uses the "
+    "language packs installed on the host (English and Chinese by default), so a scanned "
+    "Chinese page reads as Chinese. Pass `question` to ask something specific about an "
+    "image, a scanned page or a picture; `vision=False` for a deterministic OCR-only read "
+    "(faster, no model call); `vision_model` to pick which model performs that read "
     "(defaults to the platform's configured vision model)."
 )
 
@@ -76,7 +86,7 @@ INPUT_SCHEMA = {
     "properties": {
         "file_path": {
             "type": "string",
-            "description": "Path to the file to read (text, document, PDF, or image).",
+            "description": "Path to the file to read (text, image, PDF, Word or PowerPoint).",
         },
         "vision": {
             "type": "boolean",
@@ -118,7 +128,7 @@ DEFINITION = {
 ARGS_SCHEMA = {
     "file_path": {
         "type": "string",
-        "description": "Path to the file to read (text, document, PDF, or image).",
+        "description": "Path to the file to read (text, image, PDF, Word or PowerPoint).",
     },
     "question": {
         "type": "string",
@@ -167,7 +177,7 @@ def main() -> int:
     try:
         db.execute(INSERT_SQL, {
             "tool_id": TOOL_ID,
-            "name": "Read Any File (text + images)",
+            "name": "Read Any File (unified reader)",
             "description": DESCRIPTION,
             "definition": json.dumps(DEFINITION),
             "input_schema": json.dumps(INPUT_SCHEMA),

@@ -12,21 +12,33 @@ turns any file into a small **text** payload instead.
 
 Routing
 -------
-Three branches, one per family of file, plus the path that refuses:
+Four branches, one per family of file, plus the path that refuses:
 
-    classify ─┬─ text/document ─→ read_text ─────────────────────────→ END
+    classify ─┬─ text/data ────→ read_text ──────────────────────────────→ END
               ├─ image ─────────→ read_image ─┬─ ocr ──────┐
               │                               └─ describe ─┴→ merge ─→ END
               ├─ pdf ──────────→ read_pdf ─┬─ (one Send per image-only page) ─┐
               │                            └─ (nothing to render) ───────────┤
-              │                                                            ↓
-              │                                        pdf_page ─→ pdf_compose ─→ END
-              └─ other ────────→ unsupported ─────────────────────────────────→ END
+              ├─ word/ppt ─────→ read_document ─┬─ (one Send per picture) ────┤
+              │                                 └─ (no pictures) ─────────────┤
+              │                                                             ↓
+              │                     pdf_page / doc_picture ─→ *┬─ pdf_compose ─→ END
+              │                                              └─ doc_compose ─→ END
+              └─ other ────────→ unsupported ──────────────────────────────────→ END
 
-``read_text`` / ``read_image`` / ``read_pdf`` are the three branch entry points
-and the only nodes the router chooses between; everything else is a node inside
-one of those branches, because a format is not always one step: an image is
-normalised *and* OCR'd *and* described, a PDF is a per-page map plus a reduce.
+``read_text`` / ``read_image`` / ``read_pdf`` / ``read_document`` are the four
+branch entry points and the only nodes the router chooses between; everything
+else is a node inside one of those branches, because a format is not always one
+step: an image is normalised *and* OCR'd *and* described, a PDF is a per-page map
+plus a reduce, a Word/PowerPoint file is a structure pass plus a map over the
+pictures embedded in it.
+
+Word and PowerPoint are **not** on the text branch even though text comes out of
+them: a .docx is ZIP+XML and a .pptx is slides, so reading either needs the
+format's own library (python-docx / python-pptx, in ``tools/native_impl``) — and
+the pictures inside them need OCR and vision, which is what ``doc_picture`` is
+for. A document whose content *is* a screenshot is that branch's whole reason to
+exist.
 
 ``ocr`` and ``describe`` are two edges out of ``read_image``, so LangGraph runs
 them in the same superstep (wall time ≈ the slower one, not the sum). They
@@ -106,6 +118,8 @@ PDF_RENDER_DPI = int(os.getenv("LANGCONFIG_PDF_RENDER_DPI", "150"))
 PDF_MAX_PAGES = int(os.getenv("LANGCONFIG_PDF_MAX_PAGES", "200"))
 PDF_MAX_OCR_PAGES = int(os.getenv("LANGCONFIG_PDF_MAX_OCR_PAGES", "20"))
 PDF_MAX_VISION_PAGES = int(os.getenv("LANGCONFIG_PDF_MAX_VISION_PAGES", "3"))
+DOC_MAX_PICTURES = int(os.getenv("LANGCONFIG_DOC_MAX_PICTURES", "10"))
+DOC_MAX_VISION_PICTURES = int(os.getenv("LANGCONFIG_DOC_MAX_VISION_PICTURES", "3"))
 TEXT_MAX_CHARS = 500_000          # matches the legacy read_file cap
 TEXT_MAX_READ_BYTES = 2 * 1024 * 1024
 DESCRIBE_CACHE_SIZE = 128
@@ -120,11 +134,25 @@ NATIVE_IMAGE_EXTS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif"})
 CONVERTIBLE_IMAGE_EXTS = frozenset({".bmp", ".tif", ".tiff"})
 IMAGE_EXTS = NATIVE_IMAGE_EXTS | CONVERTIBLE_IMAGE_EXTS
 
-# Binary documents converted to text by _extract_* helpers in tools.native_impl.
-DOCUMENT_EXTS = frozenset({".pdf", ".docx", ".pptx"})
-
-# Documents that get the page-aware branch (text layer + rendered image pages).
+# Binary documents. PDFs are pages; Office documents are ZIP+XML that needs the
+# format's own library (python-docx / python-pptx) — which is why they are not
+# on the text branch even though what comes out of them is text.
 PDF_EXTS = frozenset({".pdf"})
+OFFICE_EXTS = frozenset({".docx", ".pptx"})
+DOCUMENT_EXTS = PDF_EXTS | OFFICE_EXTS
+
+# Office formats whose structure needs a library we do not read: they get a
+# conversion instruction instead of a generic "binary file" refusal.
+LEGACY_OFFICE_EXTS = frozenset({".doc", ".ppt", ".xls", ".xlsx", ".odt", ".odp", ".ods"})
+OFFICE_ADVICE = {
+    ".doc": "legacy Word .doc — save it as .docx and read that",
+    ".ppt": "legacy PowerPoint .ppt — save it as .pptx and read that",
+    ".xls": "legacy Excel .xls — export the sheet to .csv and read that",
+    ".xlsx": "Excel .xlsx — this reader has no spreadsheet library; export the sheet to .csv",
+    ".odt": "OpenDocument .odt — save it as .docx and read that",
+    ".odp": "OpenDocument .odp — save it as .pptx and read that",
+    ".ods": "OpenDocument .ods — export the sheet to .csv and read that",
+}
 
 # Plain-text formats. Mirrors the extension lists the chat upload path and the
 # legacy read_file tool treat as text, so behaviour does not drift between them.
@@ -185,8 +213,24 @@ class FileReadState(TypedDict, total=False):
     pdf_vision_pages: int
     pdf_vision_tokens: int
     pdf_vision_budget: int
-    # ── one ``pdf_page`` map task (never the whole graph state) ──
+    # ── document branch internals (Word / PowerPoint) ──
+    doc_format: str
+    doc_text: str
+    doc_pictures: int
+    doc_picture_items: List[Dict[str, Any]]
+    doc_skipped_pictures: List[Dict[str, Any]]
+    doc_picture_blocks: Annotated[List[Dict[str, Any]], operator.add]
+    doc_ocr_pictures: int
+    doc_vision_pictures: int
+    doc_vision_tokens: int
+    doc_vision_budget: int
+    read_document_ms: int
+    doc_ms: int
+    # ── one map task's payload (``pdf_page`` / ``doc_picture``; never the whole state) ──
     page: int
+    item_index: int
+    item_label: str
+    item_anchor: str
     vision: bool
     vision_reason: str
     # ── output ──
@@ -216,7 +260,7 @@ def classify(file_name_or_path: str) -> tuple[str, str]:
     ext = Path(file_name_or_path).suffix.lower() or Path(file_name_or_path).name.lower()
     if ext in IMAGE_EXTS:
         return "image", ext
-    if ext in DOCUMENT_EXTS:
+    if ext in DOCUMENT_EXTS or ext in LEGACY_OFFICE_EXTS:
         return "document", ext
     if ext in TEXT_EXTS:
         return "text", ext
@@ -228,8 +272,12 @@ def route_by_kind(state: FileReadState) -> str:
     if state.get("error"):
         return "other"
     kind = state.get("kind")
-    if kind == "document" and state.get("ext") in PDF_EXTS:
-        return "pdf"
+    if kind == "document":
+        ext = state.get("ext")
+        if ext in PDF_EXTS:
+            return "pdf"
+        if ext in OFFICE_EXTS or ext in LEGACY_OFFICE_EXTS:
+            return "document"
     if kind in ("text", "document"):
         return "text"
     if kind == "image":
@@ -390,6 +438,72 @@ def _describe_cached(
     return {"description": description, "describe_tokens": tokens, "describe_cached": False}
 
 
+def _image_block(
+    raw: bytes,
+    *,
+    tag: Any,
+    title: str,
+    question: Optional[str],
+    vision: bool,
+    vision_model: Optional[str],
+    vision_reason: str,
+    vision_budget: int,
+    budget_unit: str,
+    ocr_empty_note: str = "(no OCR text found in the image)",
+) -> Dict[str, Any]:
+    """Read one image as text: OCR always, vision when the router granted it.
+
+    Shared by the PDF page task and the document picture task, because a scanned
+    PDF page and a screenshot inside a .docx are the same problem — pixels that
+    must become text — and two copies of this would drift apart. ``title`` is a
+    template carrying ``{dims}``.
+    """
+    out: Dict[str, Any] = {"ocr": False, "vision": False, "tokens": 0}
+    try:
+        raw, mime, _, dims = _fit_image_bytes(raw, ".png")
+    except Exception as e:
+        out["body"] = f"{title.format(dims='?')} — could not be decoded: {type(e).__name__}: {e}"
+        return out
+
+    lines = [title.format(dims=dims)]
+    used_model = (vision_model or "").strip() or VISION_MODEL
+
+    # vision first: it is the slow half, and the OCR section reads better under it
+    if vision:
+        described = _describe_cached(base64.b64encode(raw).decode(), mime, question, vision_model)
+        out["tokens"] = int(described.get("describe_tokens") or 0)
+        if described.get("describe_error"):
+            lines.append(f"== Description (vision: {used_model}) ==\n"
+                         f"(vision description unavailable: {described['describe_error']})")
+        else:
+            note = " (cached)" if described.get("describe_cached") else ""
+            body = described.get("description") or "(no description returned)"
+            lines.append(f"== Description (vision: {used_model}) ==\n{body}{note}")
+            out["vision"] = True
+    elif vision_reason == "disabled":
+        lines.append("== Description ==\n(vision not requested — OCR text only)")
+    else:
+        lines.append("== Description ==\n(vision skipped — the vision budget covers the "
+                     f"first {vision_budget} {budget_unit})")
+
+    ocr_text, ocr_chars, ocr_available = _ocr_bytes(raw, tag)
+    if not ocr_available:
+        lines.append("== Text in the image (OCR: tesseract) ==\n"
+                     "(no OCR available — tesseract binary not installed)")
+    elif ocr_text:
+        section = ocr_text
+        if ocr_chars > len(ocr_text):
+            section += (f"\n...(OCR truncated: showing {len(ocr_text)} "
+                        f"of {ocr_chars} chars)")
+        lines.append(f"== Text in the image (OCR: tesseract, {ocr_langs()}) ==\n{section}")
+        out["ocr"] = True
+    else:
+        lines.append(f"== Text in the image (OCR: tesseract, {ocr_langs()}) ==\n{ocr_empty_note}")
+
+    out["body"] = "\n\n".join(lines)
+    return out
+
+
 def _describe_with_vision(
     image_b64: str, mime: str, question: Optional[str], model: str = VISION_MODEL
 ) -> tuple[str, int]:
@@ -502,6 +616,13 @@ def _pdf_error(msg: str, started: float) -> FileReadState:
     logger.warning(msg)
     return {"result": msg, "error": msg, "branch": "pdf",
             "pdf_ms": int((time.time() - started) * 1000)}
+
+
+def _document_error(msg: str, started: float) -> FileReadState:
+    """Every document failure returns text, never an exception."""
+    logger.warning(msg)
+    return {"result": msg, "error": msg, "branch": "document",
+            "read_document_ms": int((time.time() - started) * 1000)}
 
 
 def _ocr_bytes(raw: bytes, tag: str) -> Tuple[str, int, bool]:
@@ -633,9 +754,9 @@ def pdf_page_node(state: FileReadState) -> FileReadState:
     """
     started = time.time()
     page_no = int(state["page"])
-    vision = bool(state.get("vision"))
-    out: Dict[str, Any] = {"page": page_no, "ocr": False, "vision": False, "tokens": 0}
+    out: Dict[str, Any] = {"page": page_no}
     blocked = None
+    png = b""
 
     path, err = _resolve_path(state["file_path"])
     if err or not path.is_file():
@@ -646,54 +767,26 @@ def pdf_page_node(state: FileReadState) -> FileReadState:
 
             with fitz.open(path) as doc:
                 png = doc.load_page(page_no - 1).get_pixmap(dpi=PDF_RENDER_DPI).tobytes("png")
-            raw, mime, _, dims = _fit_image_bytes(png, ".png")
         except Exception as e:
             blocked = f"{type(e).__name__}: {e}"
 
     if blocked:
-        out["body"] = f"[Page {page_no}] (image-only — could not be read: {blocked})"
-        out["ms"] = int((time.time() - started) * 1000)
+        out.update({"ocr": False, "vision": False, "tokens": 0, "ms": int((time.time() - started) * 1000),
+                    "body": f"[Page {page_no}] (image-only — could not be read: {blocked})"})
         return {"pdf_page_blocks": [out]}
 
-    lines = [f"[Page {page_no}] (image-only — rendered at {PDF_RENDER_DPI} dpi, {dims})"]
-
-    # vision first: it is the slow half, and the OCR section reads better under it
-    used_model = (state.get("vision_model") or "").strip() or VISION_MODEL
-    if vision:
-        described = _describe_cached(base64.b64encode(raw).decode(), mime,
-                                    state.get("question"), state.get("vision_model"))
-        tokens = int(described.get("describe_tokens") or 0)
-        out["tokens"] = tokens
-        if described.get("describe_error"):
-            lines.append(f"== Description (vision: {used_model}) ==\n"
-                         f"(vision description unavailable: {described['describe_error']})")
-        else:
-            note = " (cached)" if described.get("describe_cached") else ""
-            body = described.get("description") or "(no description returned)"
-            lines.append(f"== Description (vision: {used_model}) ==\n{body}{note}")
-            out["vision"] = True
-    elif state.get("vision_reason") == "disabled":
-        lines.append("== Description ==\n(vision not requested — OCR text only)")
-    else:
-        lines.append("== Description ==\n(vision skipped — the vision budget covers the "
-                     f"first {PDF_MAX_VISION_PAGES} image-only page(s))")
-
-    ocr_text, ocr_chars, ocr_available = _ocr_bytes(raw, page_no)
-    if not ocr_available:
-        lines.append("== Text in the image (OCR: tesseract) ==\n"
-                     "(no OCR available — tesseract binary not installed)")
-    elif ocr_text:
-        section = ocr_text
-        if ocr_chars > len(ocr_text):
-            section += (f"\n...(OCR truncated: showing {len(ocr_text)} "
-                        f"of {ocr_chars} chars)")
-        lines.append(f"== Text in the image (OCR: tesseract, {ocr_langs()}) ==\n{section}")
-        out["ocr"] = True
-    else:
-        lines.append(f"== Text in the image (OCR: tesseract, {ocr_langs()}) ==\n"
-                     "(no OCR text found in the page)")
-
-    out["body"] = "\n\n".join(lines)
+    out.update(_image_block(
+        png,
+        tag=page_no,
+        title=f"[Page {page_no}] (image-only — rendered at {PDF_RENDER_DPI} dpi, {{dims}})",
+        question=state.get("question"),
+        vision=bool(state.get("vision")),
+        vision_model=state.get("vision_model"),
+        vision_reason=state.get("vision_reason") or "",
+        vision_budget=PDF_MAX_VISION_PAGES,
+        budget_unit="image-only page(s)",
+        ocr_empty_note="(no OCR text found in the page)",
+    ))
     out["ms"] = int((time.time() - started) * 1000)
     return {"pdf_page_blocks": [out]}
 
@@ -769,6 +862,205 @@ def pdf_compose_node(state: FileReadState) -> FileReadState:
             "pdf_vision_tokens": tokens,
             "pdf_ms": int(state.get("read_pdf_ms") or 0) + page_ms
                       + int((time.time() - started) * 1000)}
+
+
+def read_document_node(state: FileReadState) -> FileReadState:
+    """Word/PowerPoint: their own library for structure, an inventory of pictures.
+
+    A .docx is ZIP+XML and a .pptx is slides — neither is text, so neither is
+    read as text. The structure comes from python-docx / python-pptx (headings,
+    lists, tables, slide notes) and the pictures, which have no text at all, are
+    listed here and read by the map task.
+    """
+    started = time.time()
+    path_str = state["file_path"]
+    name = state.get("name") or Path(path_str).name
+    ext = state.get("ext") or ""
+    path, err = _resolve_path(path_str)
+    if err:
+        return _document_error(err, started)
+    if not path.is_file():
+        return _document_error(f"Error: File not found: {path_str}", started)
+    if ext not in OFFICE_EXTS:
+        advice = OFFICE_ADVICE.get(ext)
+        msg = (f"Error: cannot read '{name}'. {advice}" if advice else
+               f"Error: '{name}' is not a Word (.docx) or PowerPoint (.pptx) file")
+        return _document_error(msg, started)
+
+    from tools.native_impl import _extract_docx, _extract_pptx
+
+    try:
+        text, pictures = _extract_docx(path) if ext == ".docx" else _extract_pptx(path)
+    except ImportError as e:
+        package = "python-docx" if ext == ".docx" else "python-pptx"
+        return _document_error(f"Error: {package} is not installed ({e})", started)
+    except Exception as e:
+        return _document_error(f"Error: could not read '{name}': {type(e).__name__}: {e}",
+                               started)
+
+    items = [{"index": p["index"], "label": p["label"], "anchor": p["anchor"],
+              "ext": p.get("ext"), "bytes": p.get("bytes")} for p in pictures[:DOC_MAX_PICTURES]]
+    skipped = [p for p in pictures[DOC_MAX_PICTURES:]]
+    vision_enabled = state.get("vision_enabled", True)
+    return {
+        "branch": "document",
+        "doc_format": ext.lstrip(".").upper(),
+        "doc_text": text,
+        "doc_picture_items": items,
+        "doc_skipped_pictures": [{"label": p["label"], "anchor": p["anchor"]} for p in skipped],
+        "doc_pictures": len(pictures),
+        "doc_vision_budget": DOC_MAX_VISION_PICTURES if vision_enabled else 0,
+        "read_document_ms": int((time.time() - started) * 1000),
+    }
+
+
+def route_document_pictures(state: FileReadState):
+    """Map the embedded pictures: one ``Send`` each, or straight to the reduce."""
+    if state.get("error") or state.get("result"):
+        return "doc_compose"
+    items = state.get("doc_picture_items") or []
+    if not items:
+        return "doc_compose"
+
+    budget = int(state.get("doc_vision_budget") or 0)
+    sends = []
+    for position, item in enumerate(items):
+        if position < budget:
+            wants_vision, reason = True, "requested"
+        elif budget:
+            wants_vision, reason = False, "budget"
+        else:
+            wants_vision, reason = False, "disabled"
+        sends.append(Send("doc_picture", {
+            "file_path": state["file_path"],
+            "ext": state.get("ext"),
+            "question": state.get("question"),
+            "vision_enabled": state.get("vision_enabled", True),
+            "vision_model": state.get("vision_model"),
+            "item_index": item["index"],
+            "item_label": item["label"],
+            "item_anchor": item.get("anchor") or "",
+            "vision": wants_vision,
+            "vision_reason": reason,
+        }))
+    return sends
+
+
+def doc_picture_node(state: FileReadState) -> FileReadState:
+    """One embedded picture: extract its bytes → OCR → (if granted) vision.
+
+    A map task too, so it takes its ``Send`` payload and returns only its block.
+    The bytes are re-extracted by index from the document (the probe kept only
+    labels, so no picture bytes ever sit in the graph state).
+    """
+    started = time.time()
+    index = int(state["item_index"])
+    label = state.get("item_label") or f"[Picture {index + 1}]"
+    anchor = state.get("item_anchor") or ""
+    where = f" — {anchor}" if anchor else ""
+    out: Dict[str, Any] = {"index": index}
+
+    blob = None
+    blocked = None
+    path, err = _resolve_path(state["file_path"])
+    if err or not path.is_file():
+        blocked = err or f"Error: File not found: {state['file_path']}"
+    else:
+        try:
+            from tools.native_impl import _docx_pictures, _pptx_pictures
+
+            pictures = (_docx_pictures(path) if state.get("ext") == ".docx"
+                        else _pptx_pictures(path))
+            blob = pictures[index].get("blob") if index < len(pictures) else None
+            if not blob:
+                blocked = f"picture {index + 1} is no longer in the document"
+        except Exception as e:
+            blocked = f"{type(e).__name__}: {e}"
+
+    if blocked or not blob:
+        out.update({"ocr": False, "vision": False, "tokens": 0, "ms": int((time.time() - started) * 1000),
+                    "body": f"{label}{where} — could not be read: {blocked or 'no bytes'}"})
+        return {"doc_picture_blocks": [out]}
+
+    out.update(_image_block(
+        blob,
+        tag=index,
+        title=f"{label}{where} (embedded picture, {{dims}})",
+        question=state.get("question"),
+        vision=bool(state.get("vision")),
+        vision_model=state.get("vision_model"),
+        vision_reason=state.get("vision_reason") or "",
+        vision_budget=DOC_MAX_VISION_PICTURES,
+        budget_unit="embedded picture(s)",
+        ocr_empty_note="(no OCR text found in the picture)",
+    ))
+    out["ms"] = int((time.time() - started) * 1000)
+    return {"doc_picture_blocks": [out]}
+
+
+def doc_compose_node(state: FileReadState) -> FileReadState:
+    """Reduce: the header, the structure, the picture blocks, and the cap."""
+    started = time.time()
+    if state.get("error") or state.get("result"):
+        return {}                                  # the probe already answered
+
+    text = (state.get("doc_text") or "").strip()
+    picture_blocks = list(state.get("doc_picture_blocks") or [])
+    skipped = list(state.get("doc_skipped_pictures") or [])
+    name = state.get("name")
+    total_pictures = int(state.get("doc_pictures") or 0)
+    budget = int(state.get("doc_vision_budget") or 0)
+    vision_enabled = state.get("vision_enabled", True)
+    used_model = (state.get("vision_model") or "").strip() or VISION_MODEL
+
+    read_pictures = len(picture_blocks)
+    ocr_pictures = sum(1 for b in picture_blocks if b.get("ocr"))
+    vision_pictures = sum(1 for b in picture_blocks if b.get("vision"))
+    tokens = sum(int(b.get("tokens") or 0) for b in picture_blocks)
+
+    if not text and read_pictures == 0:
+        msg = (f"Error: no readable content in '{name}' — no text and "
+               f"{total_pictures} picture(s) could not be read")
+        return {"result": msg, "error": msg, "branch": "document",
+                "doc_ms": int((time.time() - started) * 1000)}
+
+    header = [
+        "== Document ==",
+        f"name: {name}  format: {state.get('doc_format')}  "
+        f"pictures: {total_pictures}",
+        f"read: {len(text.splitlines())} line(s) of text + {read_pictures} picture(s) "
+        f"(OCR {ocr_pictures}, vision {vision_pictures})",
+        f"mode: {'ocr-only' if not vision_enabled else f'vision+ocr ({used_model})'}",
+    ]
+    question = (state.get("question") or "").strip()
+    if question:
+        header.append(f"question: {question}")
+    if total_pictures > DOC_MAX_PICTURES:
+        header.append(f"note: only the first {DOC_MAX_PICTURES} of {total_pictures} "
+                      f"picture(s) were read")
+    if vision_enabled and total_pictures > budget:
+        header.append(f"note: vision is limited to the first "
+                      f"{budget or DOC_MAX_VISION_PICTURES} picture(s); the rest are OCR only")
+
+    parts = ["\n".join(header)]
+    if text:
+        parts.append(text)
+    parts.extend(b.get("body") or "" for b in sorted(picture_blocks, key=lambda b: b.get("index") or 0))
+    for picture in skipped:
+        parts.append(f"{picture.get('label')} — {picture.get('anchor')} "
+                     f"(not read: pictures are limited to {DOC_MAX_PICTURES} per document)")
+
+    body = "\n\n".join(p for p in parts if p)
+    truncated = False
+    if len(body) > TEXT_MAX_CHARS:
+        body = body[:TEXT_MAX_CHARS] + (
+            f"\n\n[Truncated - content exceeds {TEXT_MAX_CHARS} characters]")
+        truncated = True
+
+    return {"result": body, "branch": "document", "truncated": truncated,
+            "doc_ocr_pictures": ocr_pictures, "doc_vision_pictures": vision_pictures,
+            "doc_vision_tokens": tokens,
+            "doc_ms": int((time.time() - started) * 1000)}
 
 
 def read_image_node(state: FileReadState) -> FileReadState:
@@ -889,6 +1181,9 @@ def build_file_reader_graph():
     builder.add_node("read_pdf", read_pdf_node)
     builder.add_node("pdf_page", pdf_page_node)
     builder.add_node("pdf_compose", pdf_compose_node)
+    builder.add_node("read_document", read_document_node)
+    builder.add_node("doc_picture", doc_picture_node)
+    builder.add_node("doc_compose", doc_compose_node)
     builder.add_node("read_image", read_image_node)
     builder.add_node("ocr", ocr_node)
     builder.add_node("describe", describe_node)
@@ -899,6 +1194,7 @@ def build_file_reader_graph():
     builder.add_conditional_edges("classify", route_by_kind, {
         "text": "read_text",
         "pdf": "read_pdf",
+        "document": "read_document",
         "image": "read_image",
         "other": "unsupported",
     })
@@ -910,6 +1206,13 @@ def build_file_reader_graph():
     })
     builder.add_edge("pdf_page", "pdf_compose")
     builder.add_edge("pdf_compose", END)
+    # Documents: same shape as PDF — probe, one task per embedded picture, reduce.
+    builder.add_conditional_edges("read_document", route_document_pictures, {
+        "doc_picture": "doc_picture",
+        "doc_compose": "doc_compose",
+    })
+    builder.add_edge("doc_picture", "doc_compose")
+    builder.add_edge("doc_compose", END)
     # Fan-out: both nodes run in one superstep; they write different keys.
     builder.add_edge("read_image", "ocr")
     builder.add_edge("read_image", "describe")
@@ -1003,6 +1306,12 @@ def _cli(argv: Optional[list] = None) -> int:
                       f"ocr={state.get('pdf_ocr_pages')} vision={state.get('pdf_vision_pages')} "
                       f"vision_tokens={state.get('pdf_vision_tokens')} "
                       f"probe={state.get('read_pdf_ms')}ms")
+        elif state.get("branch") == "document":
+            detail = (f"format={state.get('doc_format')} text_lines="
+                      f"{len((state.get('doc_text') or '').splitlines())} "
+                      f"pictures={state.get('doc_pictures')} "
+                      f"ocr={state.get('doc_ocr_pictures')} vision={state.get('doc_vision_pictures')} "
+                      f"vision_tokens={state.get('doc_vision_tokens')}")
         else:
             detail = (f"describe_tokens={state.get('describe_tokens')} "
                       f"ocr_chars={state.get('ocr_chars')} ocr={state.get('ocr_ms')}ms "
@@ -1010,7 +1319,7 @@ def _cli(argv: Optional[list] = None) -> int:
                       f"cached={state.get('describe_cached')}")
         print(
             f"\n[branch={state.get('branch')} kind={state.get('kind')} {detail} "
-            f"total={state.get('pdf_ms') or state.get('read_ms') or state.get('merge_ms')}ms]",
+            f"total={state.get('pdf_ms') or state.get('doc_ms') or state.get('read_ms') or state.get('merge_ms')}ms]",
             file=sys.stderr,
         )
     return 0
