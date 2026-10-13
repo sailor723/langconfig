@@ -238,6 +238,23 @@ scratch database. Each prints `ALL CHECKS PASSED` — the first proves a teammat
 own agent, tool and chat session survive (including a name clash, where *their*
 version wins), the second proves the tool count arithmetic `5 + 3 = 8`.
 
+For the whole loop rather than the merge SQL alone — creator machine, seed out,
+commit, a teammate clone that pulls it, a teammate database already full of their
+own work — one command makes everything it needs under `/tmp`, including both
+clones and both databases:
+
+```bash
+.venv/bin/python scripts/seeds/rehearse_team_migration.py
+```
+
+It asserts the two guarantees this document otherwise only states: that what a
+teammate installs is **identical** to what the owner has, and that across two
+deliveries every one of their rows (agents, tools, a chat session, and a setting
+they changed themselves) comes through byte-identical — while a name clash and a
+`tool_id` clash keep **their** version. It also re-checks the real database and
+the real working tree at the end, so it cannot pass by having damaged the thing it
+was measuring.
+
 ## 9. Shipping later work to the team
 
 **Agents and tools live in Postgres, not in git.** Creating or editing one in the
@@ -315,6 +332,20 @@ Tool Library is where a user deletes the redundant one.
 
 - **`--replace` is destructive** — truncates agents and tools; the CASCADE also
   removes those agents' chat sessions.
+- **A seed against a scratch database is not passively safe.** Step 10's identity
+  backfill falls back to the `workspace.base_dir` **settings document** when
+  `WORKSPACE_ROOT` is unset, and that fallback can MOVE real directories under it
+  — so `POSTGRES_DB=something_else seed_all.py` can still rearrange *this*
+  machine's agent folders. Always pass `WORKSPACE_ROOT=/tmp/<scratch>-ws` when
+  seeding a database that is not the one you are actually working in.
+- **The empty-table dump can contradict the live database.** `custom_tools_dump.sql`
+  is a `pg_dump` block with explicit ids that applies *only* when `custom_tools`
+  is empty — the fresh-install path — while the merge is what keeps an existing
+  install current. They have already drifted once: the dump still carried the
+  `write_file` row after it was deleted from the live database and from
+  `SEEDABLE_TOOL_META`, so the owner had 67 tools and every new teammate got 68.
+  `scripts/seeds/rehearse_team_migration.py` now asserts that a teammate's fresh
+  install equals the owner's, which is what caught it.
 - **Port confusion** — `5433` via docker-compose, `5432` native. `.env` decides;
   compose reads it at start time.
 - **Indexing fails without Ollama** — document indexing needs the embedding
