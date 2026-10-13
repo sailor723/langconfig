@@ -20,6 +20,7 @@ thin runtime facade and re-exports from this module instead.
 """
 
 import logging
+import re
 from typing import Annotated, List, Literal, NotRequired, Optional, Dict, Any
 from pathlib import Path
 import asyncio
@@ -1273,9 +1274,39 @@ def _add_pdf_font(pdf) -> str:
     return "Helvetica"
 
 
-def _write_pdf_file(path: Path, content: str) -> None:
+def _document_title(path: Path, title: Optional[str] = None) -> str:
+    """The heading a rendered document gets when its content has no H1 of its own.
+
+    ``title`` is the file the caller actually asked for. That distinction matters:
+    a renderer may be handed a *temporary* path (FormatAwareBackend renders to one
+    before copying the bytes into place), and deriving the title from that path is
+    how documents ended up headed ``Langconfig-Doc-4f2a`` instead of the filename
+    the user chose.
+    """
+    source = Path(title).stem if title else (path.stem or "Document")
+    # Filenames separate words with underscores, hyphens or both; a document
+    # heading reads better with spaces.
+    words = re.sub(r"[_\-]+", " ", source or "Document").split()
+    return " ".join(word.capitalize() for word in words) or "Document"
+
+
+def _has_own_title(blocks: list) -> bool:
+    """True when the markdown carries its own H1 — then we must not add one.
+
+    The HTML renderer has always worked this way; Word and PDF used to prepend a
+    filename heading regardless, which is why a report titled "# Quarterly Report"
+    arrived with "Quarterly Report" twice at the top.
+    """
+    return any(kind == "h1" for kind, _ in blocks)
+
+
+def _write_pdf_file(path: Path, content: str, title: Optional[str] = None) -> None:
     """Generate a PDF from text content using fpdf2 (lazy import keeps the
-    backend import-safe when the package is not installed)."""
+    backend import-safe when the package is not installed).
+
+    ``title`` names the document; without it the path's own stem is used, which is
+    what a caller rendering straight to the final file wants.
+    """
     from fpdf import FPDF
 
     pdf = FPDF()
@@ -1283,11 +1314,13 @@ def _write_pdf_file(path: Path, content: str) -> None:
     pdf.add_page()
 
     family = _add_pdf_font(pdf)
-    pdf.set_font(family, "B", 15)
-    pdf.multi_cell(0, 8, (path.stem or "Document").replace("_", " ").title())
-    pdf.ln(3)
+    blocks = _split_text_blocks(content)
+    if not _has_own_title(blocks):
+        pdf.set_font(family, "B", 15)
+        pdf.multi_cell(0, 8, _document_title(path, title))
+        pdf.ln(3)
 
-    for kind, text in _split_text_blocks(content):
+    for kind, text in blocks:
         if kind == "h1":
             pdf.set_font(family, "B", 14)
         elif kind == "h2":
@@ -1305,13 +1338,18 @@ def _write_pdf_file(path: Path, content: str) -> None:
     pdf.output(str(path))
 
 
-def _write_docx_file(path: Path, content: str) -> None:
-    """Generate a .docx from text content using python-docx (lazy import)."""
+def _write_docx_file(path: Path, content: str, title: Optional[str] = None) -> None:
+    """Generate a .docx from text content using python-docx (lazy import).
+
+    ``title`` names the document; without it the path's own stem is used.
+    """
     from docx import Document
 
     doc = Document()
-    doc.add_heading((path.stem or "Document").replace("_", " ").title(), level=0)
-    for kind, text in _split_text_blocks(content):
+    blocks = _split_text_blocks(content)
+    if not _has_own_title(blocks):
+        doc.add_heading(_document_title(path, title), level=0)
+    for kind, text in blocks:
         if kind == "h1":
             doc.add_heading(text, level=1)
         elif kind == "h2":
