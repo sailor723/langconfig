@@ -110,7 +110,7 @@ export default function AgentSelector({
           border: 'none',
         }}
       >
-        <span className="text-sm font-medium">
+        <span className="text-sm font-bold">
           {selectedAgent
             ? selectedAgent.name
             : displayName || t('select_agent')}
