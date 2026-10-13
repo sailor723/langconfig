@@ -721,8 +721,12 @@ export default function MessagesPanel({
         </div>
       )}
 
+      {/* Composer block: the box and its stats line, at the foot of the chat
+          area. pb-2 rather than the old pb-6 — that 24px read as dead space
+          under the box, which now sits a few pixels above the window's bottom
+          bar, the way DSH ends its column. */}
       {(messages.length > 0 || disabled) && (
-      <div className="px-6 pt-4 pb-6">
+      <div className="px-6 pt-4 pb-2">
         <CodexMessageInput
           onSendMessage={onSendMessage}
           disabled={disabled}

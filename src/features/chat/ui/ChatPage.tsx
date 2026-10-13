@@ -97,6 +97,44 @@ export default function ChatPage() {
       <div className="flex flex-shrink-0" style={{ width: c.sidebarWidth }}>
         <ChatHistorySidebar
           onNewSession={c.handleNewSession}
+          footer={
+            // Settings + copyright, at the foot of the LEFT column and on ONE
+            // line. DSH pins its `sidebar.settings` slot at the foot of the left
+            // sidebar; this used to live in a window-wide bar under the composer,
+            // which both crowded the box and read as a second toolbar.
+            <div className="flex items-center gap-2 min-w-0">
+              <ChatSettingsMenu
+                sessionId={c.currentSessionId}
+                messages={c.messages}
+                metrics={c.metrics}
+                toolCalls={c.toolCalls}
+                subagentActivity={c.subagentActivity}
+                agentName={c.agentName}
+                themeName={chatTheme}
+                onThemeChange={handleThemeChange}
+                onClearHistory={c.clearHistory}
+                onEndSession={c.handleEndSession}
+              />
+              <span className="text-[11px] truncate" style={{ color: 'var(--color-text-muted)' }}>
+                Copyright © EBL 2026
+              </span>
+            </div>
+          }
+          footerCompact={
+            // The 48px rail gets the control alone — the copyright line does not fit.
+            <ChatSettingsMenu
+              sessionId={c.currentSessionId}
+              messages={c.messages}
+              metrics={c.metrics}
+              toolCalls={c.toolCalls}
+              subagentActivity={c.subagentActivity}
+              agentName={c.agentName}
+              themeName={chatTheme}
+              onThemeChange={handleThemeChange}
+              onClearHistory={c.clearHistory}
+              onEndSession={c.handleEndSession}
+            />
+          }
         />
         <div
           onMouseDown={c.handleResizeStart}
@@ -284,41 +322,12 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Bottom toolbar — agent info, status & settings gear */}
-        <div
-          className="flex items-center justify-between px-6 py-1.5"
-          style={{
-            backgroundColor: 'var(--color-panel-dark, #f9fafb)',
-          }}
-        >
-          {/* Only the no-session hint stays here. The session's numbers moved
-              onto the composer's own axis, under the chat box (MessagesPanel),
-              where DSH keeps its stats strip — this bar is now chrome (the
-              settings gear and the copyright), not a status line. */}
-          <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            {!c.currentSessionId && (
-              <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                No session — pick an agent to start
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <ChatSettingsMenu
-              sessionId={c.currentSessionId}
-              messages={c.messages}
-              metrics={c.metrics}
-              toolCalls={c.toolCalls}
-              subagentActivity={c.subagentActivity}
-              agentName={c.agentName}
-              themeName={chatTheme}
-              onThemeChange={handleThemeChange}
-              onClearHistory={c.clearHistory}
-              onEndSession={c.handleEndSession}
-            />
-            {/* Company copyright line at the foot of the standalone chat window */}
-            <span className="text-xs ml-3" style={{ color: 'var(--color-text-muted)' }}>Copyright © EBL 2026</span>
-          </div>
-        </div>
+        {/* No bar under the chat area: settings and the copyright moved to the
+            foot of the left sidebar, and the composer block is now the last thing
+            in this column — the box sits at the bottom, as DSH ends its column.
+            The old bar's "No session — pick an agent to start" hint is already
+            the composer's own placeholder ("No agent selected"). */}
+
       </div>
 
       {c.pendingInterrupt && (

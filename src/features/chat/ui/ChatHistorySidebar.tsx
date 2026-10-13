@@ -17,7 +17,7 @@
  *   └─────────────────────┘
  */
 import { useState } from 'react';
-import { Plus, MessageSquare, Search, ChevronDown, ChevronRight, Calendar, Folder, FolderOpen, Star, Users, X } from 'lucide-react';
+import { Plus, MessageSquare, MessageSquarePlus, Search, ChevronDown, ChevronRight, Calendar, Folder, FolderOpen, Star, Users, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ChatSession } from '../types/chat';
 import { useChat } from '../state/ChatContext';
 import { useProject } from '../../../contexts/ProjectContext';
@@ -35,9 +35,23 @@ type ChatHistoryView = 'agents' | 'favorites' | 'dates';
 
 interface ChatHistorySidebarProps {
   onNewSession: () => void;
+  /**
+   * Pinned to the foot of the column, in both the expanded view and the 48px
+   * rail. This is where the chat settings control lives, because that is where
+   * DSH keeps its `sidebar.settings` slot — bottom-pinned in the left sidebar,
+   * not in a bar under the conversation. It used to sit against the right edge
+   * of a window-wide bar below the composer, which both looked like a second
+   * toolbar and held the composer 48px off the bottom of the chat area.
+   */
+  footer?: React.ReactNode;
+  /**
+   * The rail's footer: the 48px column is narrower than the copyright line, so
+   * the collapsed state gets the settings control alone.
+   */
+  footerCompact?: React.ReactNode;
 }
 
-export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarProps) {
+export default function ChatHistorySidebar({ onNewSession, footer, footerCompact }: ChatHistorySidebarProps) {
   const { sessions, currentSessionId, switchSession } = useChat();
   // The heading says "Projects", so the value has to be the project (vault).
   // It used to render the current session's agent name — an agent shown under a
@@ -353,7 +367,16 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
           className="p-2 rounded-lg hover:bg-black/5 transition-colors mb-4"
           title="Expand sidebar"
         >
-          <MessageSquare className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+          <PanelLeftOpen className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+        </button>
+        {/* New session in the rail: 36px, no border — DSH's collapsed form. */}
+        <button
+          onClick={onNewSession}
+          className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-black/5 transition-colors mb-2"
+          style={{ color: 'var(--color-text-primary)' }}
+          title="New session"
+        >
+          <MessageSquarePlus className="w-4 h-4" />
         </button>
         <div className="flex-1 overflow-y-auto space-y-1 px-1">
           {railSessions.slice(0, 8).map((session: ChatSession) => (
@@ -387,6 +410,9 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
             </button>
           ))}
         </div>
+        {(footerCompact || footer) && (
+          <div className="pt-2 flex flex-col items-center">{footerCompact || footer}</div>
+        )}
       </div>
     );
   }
@@ -401,15 +427,78 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
         backgroundColor: 'var(--color-panel-dark, var(--color-panel, #f9fafb))',
       }}
     >
-      {/* ── Top nav: New chat · Search · Date view · Agents · Favourites ── */}
-      <div className="flex items-center gap-2 px-3 py-2.5">
+      {/* ── Brand row ────────────────────────────────────────────────
+          DSH's `logoRow`: the wordmark on the left, the panel toggle on the
+          right, 60px tall, above everything else. The wordmark doubles as a New
+          Session shortcut there, and this one does too.
+
+          No image asset for the name exists in the repo (only LangConfig's), so
+          the mark is drawn as text; swap the span for an <img src="…"> when there
+          is one and nothing else here has to move.
+
+          Bold, in DSH's font stack. This app sets Manrope app-wide (`--font-family-sans`)
+          and Inter for display (`--font-family-display`); DSH sets neither — its
+          `--dsw-font-family` is the plain system stack, so the wordmark asks for
+          that explicitly rather than inheriting Manrope. The stack is copied
+          verbatim so the CJK fallbacks match too. */}
+      <div className="flex items-center gap-2 px-3 h-[60px]">
         <button
           onClick={onNewSession}
-          className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
-          title="New chat"
+          className="text-[15px] truncate"
+          style={{
+            color: 'var(--color-text-primary)',
+            fontWeight: 700,
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', "
+              + "'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+          }}
+          title="EBL Carrier Harness — new session"
         >
-          <Plus className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+          EBL Carrier Harness
         </button>
+        <div className="flex-1" />
+        {/* Panel toggle, not a chevron: the affordance is "collapse this
+            column", which is what DSH's panel icon says. */}
+        <button
+          onClick={() => setCollapsed(true)}
+          className="p-1.5 rounded-lg hover:bg-black/5 transition-colors flex-shrink-0"
+          title="Collapse sidebar"
+          aria-label="Collapse sidebar"
+        >
+          <PanelLeftClose className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+        </button>
+      </div>
+
+      {/* ── New session ──────────────────────────────────────────────
+          DSH's `sidebar.newSession`: a full-width box above the browsing
+          controls (38px tall, 12px radius, icon + label), not a bare "+" hidden
+          among the view toggles. The view row below is pushed down by it, which
+          is the order DSH uses: new session, then the list of what exists.
+
+          No border, by request: the elevated fill alone carries it. */}
+      <div className="px-2 pt-2.5 pb-1">
+        <button
+          onClick={onNewSession}
+          // The fill lives in index.css (.chat-new-session): an inline
+          // `var(--color-input-background)` is rewritten to panelDark by the
+          // runtime theme layer, which is exactly the sidebar's own colour — the
+          // box came out flat with only a border, where DSH's is elevated.
+          className="chat-new-session w-full flex items-center justify-center gap-1.5 text-sm font-medium transition-colors"
+          style={{
+            height: 38,
+            borderRadius: 12,
+            color: 'var(--color-text-primary)',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+          title="New session"
+        >
+          <MessageSquarePlus className="w-3.5 h-3.5" />
+          New session
+        </button>
+      </div>
+
+      {/* ── View controls: Search · Date view · Agents · Favourites ── */}
+      <div className="flex items-center gap-2 px-3 py-1.5">
         <button
           onClick={() => {
             setSearchOpen(open => {
@@ -422,7 +511,7 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
           title={searchOpen ? 'Close search' : 'Search titles'}
           aria-expanded={searchOpen}
         >
-          <Search className="w-4 h-4" style={{ color: searchOpen ? 'white' : 'var(--color-text-muted)' }} />
+          <Search className="w-3.5 h-3.5" style={{ color: searchOpen ? 'white' : 'var(--color-text-muted)' }} />
         </button>
         <button
           onClick={() => selectView('dates')}
@@ -432,7 +521,7 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
           aria-pressed={view === 'dates'}
         >
           <Calendar
-            className="w-4 h-4"
+            className="w-3.5 h-3.5"
             style={{ color: view === 'dates' ? 'white' : 'var(--color-text-muted)' }}
           />
         </button>
@@ -448,7 +537,7 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
           aria-pressed={view === 'agents'}
         >
           <Users
-            className="w-4 h-4"
+            className="w-3.5 h-3.5"
             style={{ color: view === 'agents' ? 'white' : 'var(--color-text-muted)' }}
           />
         </button>
@@ -463,7 +552,7 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
           aria-pressed={view === 'favorites'}
         >
           <Star
-            className="w-4 h-4"
+            className="w-3.5 h-3.5"
             style={{ color: view === 'favorites' ? 'white' : 'var(--color-text-muted)' }}
             fill="none"
           />
@@ -480,15 +569,6 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
           )}
         </button>
 
-        <div className="flex-1" />
-
-        <button
-          onClick={() => setCollapsed(true)}
-          className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
-          title="Collapse"
-        >
-          <ChevronRight className="w-3.5 h-3.5" style={{ color: 'var(--color-text-muted)' }} />
-        </button>
       </div>
 
       {/* ── Search: plain substring on the conversation title ─────── */}
@@ -604,6 +684,11 @@ export default function ChatHistorySidebar({ onNewSession }: ChatHistorySidebarP
         )}
       </div>
 
+      {footer && (
+        <div className="pt-1 pb-2 px-2 border-t" style={{ borderColor: 'var(--color-border-dark, #3c3c3c)' }}>
+          {footer}
+        </div>
+      )}
     </div>
   );
 }
