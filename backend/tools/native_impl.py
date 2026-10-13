@@ -707,10 +707,11 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
     Read the contents of a file with optional line offset and limit.
 
     Supports plain text files (.txt, .md, .py, .json, .csv, etc.) plus
-    binary documents: PDF (.pdf), Word (.docx) and PowerPoint (.pptx).
+    binary documents: PDF (.pdf), Word (.docx), PowerPoint (.pptx) and Excel
+    (.xlsx).
     Binary formats are converted to text (line-numbered like any other file):
-    a .docx keeps its headings, lists and tables, and a .pptx keeps its slides
-    and speaker notes.
+    a .docx keeps its headings, lists and tables, a .pptx keeps its slides and
+    speaker notes, and a .xlsx comes back sheet by sheet with its cell values.
 
     Embedded pictures cannot be read here - they are pixels, not text - but the
     output says how many there are, and `read_any_file` reads them (OCR, plus a
@@ -753,9 +754,11 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
             content = _extract_docx_text(path)
         elif ext == ".pptx":
             content = _extract_pptx_text(path)
-        elif ext in (".ppt", ".doc"):
+        elif ext in (".xlsx", ".xlsm"):
+            content = _extract_xlsx(path)[0] or "Error: no data found in workbook"
+        elif ext in (".ppt", ".doc", ".xls"):
             return (f"Error: legacy {ext} files are not supported. "
-                    f"Convert to .pptx / .docx and read that instead")
+                    f"Convert to .pptx / .docx / .xlsx and read that instead")
         else:
             # Bounded read: never slurp an arbitrarily large file into memory
             # before truncating. The 2MB ceiling is generous and the offset /
@@ -900,6 +903,123 @@ def _extract_docx(path: Path, with_blobs: bool = False):
             lines.extend(rows)
 
     return "\n".join(lines), _docx_pictures(document, with_blobs=with_blobs)
+
+
+XLSX_MAX_ROWS = int(os.getenv("LANGCONFIG_XLSX_MAX_ROWS", "200"))
+XLSX_MAX_COLS = int(os.getenv("LANGCONFIG_XLSX_MAX_COLS", "40"))
+XLSX_MAX_SHEETS = int(os.getenv("LANGCONFIG_XLSX_MAX_SHEETS", "10"))
+XLSX_CELL_MAX_CHARS = int(os.getenv("LANGCONFIG_XLSX_CELL_MAX_CHARS", "200"))
+
+
+def _cell_text(value) -> str:
+    """One cell as the text a reader should see (not ``25.0`` for 25)."""
+    import datetime as _dt
+
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    if isinstance(value, _dt.datetime):
+        return value.date().isoformat() if value.time() == _dt.time(0, 0) else value.isoformat(sep=" ")
+    if isinstance(value, _dt.date):
+        return value.isoformat()
+    if isinstance(value, float):
+        if value.is_integer() and abs(value) < 1e15:
+            return str(int(value))
+        return f"{value:g}"
+    text = str(value).replace("\n", " ").strip()
+    return text[:XLSX_CELL_MAX_CHARS]
+
+
+def _xlsx_media(path: Path) -> tuple:
+    """``(images, charts)`` inside the .xlsx zip — counted, never rendered."""
+    try:
+        import zipfile
+
+        with zipfile.ZipFile(path) as archive:
+            names = archive.namelist()
+        return (sum(1 for n in names if n.startswith("xl/media/")),
+                sum(1 for n in names if n.startswith("xl/charts/chart")))
+    except Exception:
+        return (0, 0)
+
+
+def _extract_xlsx(path: Path, with_blobs: bool = False):
+    """``(text, [])`` from one .xlsx, sheet by sheet.
+
+    A spreadsheet is a grid, not prose: each sheet becomes a heading and each row
+    a ``|``-separated line, so the columns still line up for whoever reads it.
+
+    Cells are read twice on purpose: once for calculated values and once for the
+    formulas. A workbook Excel saved carries cached results, so the value pass is
+    what a reader wants; a workbook written by code (openpyxl, pandas) usually
+    carries **no** cached results, and then a formula cell is empty — which would
+    silently drop whole columns. Where the value pass has nothing, the formula is
+    shown instead. Pictures and charts are not read (a chart is not an image until
+    something renders it) but they are counted and named.
+    """
+    from openpyxl import load_workbook
+
+    def read(data_only: bool):
+        workbook = load_workbook(str(path), data_only=data_only, read_only=True)
+        try:
+            sheets = []
+            for index, sheet in enumerate(workbook.worksheets):
+                if index >= XLSX_MAX_SHEETS:
+                    break
+                rows = []
+                for row in sheet.iter_rows(max_row=XLSX_MAX_ROWS + 1,
+                                           max_col=XLSX_MAX_COLS, values_only=True):
+                    rows.append([_cell_text(cell) for cell in row])
+                sheets.append({
+                    "title": sheet.title,
+                    "hidden": getattr(sheet, "sheet_state", "visible") != "visible",
+                    "rows": rows,
+                })
+            return sheets, max(0, len(workbook.worksheets) - XLSX_MAX_SHEETS)
+        finally:
+            workbook.close()
+
+    values, extra_sheets = read(data_only=True)
+    formulas, _ = read(data_only=False)
+
+    sections, total_rows = [], 0
+    for sheet, formula_sheet in zip(values, formulas):
+        formula_rows = formula_sheet["rows"]
+        lines, overflow = [], False
+        for number, row in enumerate(sheet["rows"]):
+            if number >= XLSX_MAX_ROWS:
+                overflow = True
+                break
+            fallback = formula_rows[number] if number < len(formula_rows) else []
+            merged = []
+            for column, cell in enumerate(row):
+                if not cell and column < len(fallback) and fallback[column].startswith("="):
+                    cell = fallback[column]          # no cached result: show the formula
+                merged.append(cell)
+            while merged and merged[-1] == "":
+                merged.pop()
+            if any(merged):
+                lines.append(" | ".join(merged))
+        title = f"[Sheet: {sheet['title']}{' (hidden)' if sheet['hidden'] else ''}]"
+        if overflow:
+            lines.append(f"... (more rows not shown: this sheet is longer than "
+                         f"{XLSX_MAX_ROWS} rows)")
+        total_rows += len(lines) - (1 if overflow else 0)
+        sections.append(title + "\n" + ("\n".join(lines) if lines else "(no data)"))
+
+    if total_rows == 0:                # every sheet empty: nothing to hand back
+        return "", []
+
+    notes = []
+    if extra_sheets:
+        notes.append(f"[{extra_sheets} more sheet(s) not shown: only the first "
+                     f"{XLSX_MAX_SHEETS} are read]")
+    images, charts = _xlsx_media(path)
+    if images or charts:
+        notes.append(f"[Media: {images} image(s), {charts} chart(s) embedded — a spreadsheet's "
+                     f"pictures and charts are not rendered here]")
+    return "\n\n".join([*sections, *notes]), []
 
 
 def _picture_note(pictures: list) -> str:
@@ -2242,7 +2362,9 @@ def read_image(file_path: str) -> str:
     try:
         proc = subprocess.run(
             ["tesseract", str(resolved), "stdout"],
-            capture_output=True, text=True, timeout=60,
+            # errors="replace": tesseract's stderr can carry non-UTF-8 bytes and
+            # text=True would then raise instead of returning the OCR text
+            capture_output=True, text=True, errors="replace", timeout=60,
         )
         text = (proc.stdout or "").strip()
     except Exception as e:

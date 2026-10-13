@@ -25,7 +25,9 @@ from core.graphs import read_file as rf
 WORKSPACE = Path(__file__).resolve().parent.parent / "outputs"
 PROBE_DIR = WORKSPACE / "_pytest_read_file"
 LATIN_FONT = "/System/Library/Fonts/Supplemental/Arial.ttf"
-CJK_FONT = "/System/Library/Fonts/Supplemental/Songti.ttc"
+HAN_SAMPLE = "医疗器械测试"
+CJK_FONT = "/Library/Fonts/Arial Unicode.ttf"          # tesseract reads this one
+CJK_FONT_ALT = "/System/Library/Fonts/Supplemental/Songti.ttc"   # renders, but unreadable
 LIVE = os.getenv("LANGCONFIG_LIVE_TESTS") == "1"
 
 
@@ -361,13 +363,19 @@ def test_route_by_kind_sends_each_family_to_its_own_branch():
     assert rf.route_by_kind({"kind": "document", "ext": ".pptx"}) == "document"
     assert rf.route_by_kind({"kind": "document", "ext": ".doc"}) == "document"
     assert rf.route_by_kind({"kind": "document", "ext": ".xlsx"}) == "document"
+    assert rf.route_by_kind({"kind": "document", "ext": ".xlsm"}) == "document"
     assert rf.route_by_kind({"kind": "image", "ext": ".png"}) == "image"
     assert rf.route_by_kind({"kind": "text", "ext": ".md"}) == "text"
 
 
-def test_legacy_office_formats_are_documents_so_they_can_be_advised():
-    for ext in (".doc", ".ppt", ".xls", ".xlsx", ".odt", ".odp", ".ods"):
-        assert rf.classify(f"old{ext}") == ("document", ext)
+def test_office_formats_are_documents_so_they_can_be_read_or_advised():
+    for ext in (".docx", ".pptx", ".xlsx", ".xlsm", ".doc", ".ppt", ".xls", ".odt", ".odp", ".ods"):
+        assert rf.classify(f"book{ext}") == ("document", ext)
+
+
+def test_supported_office_extensions_are_the_ones_with_a_reader():
+    assert rf.OFFICE_EXTS | rf.SHEET_EXTS == {".docx", ".pptx", ".xlsx", ".xlsm"}
+    assert not (rf.LEGACY_OFFICE_EXTS & (rf.OFFICE_EXTS | rf.SHEET_EXTS))
 
 
 def test_pdf_text_layer_is_read_page_by_page(pdf_files, fake_vision):
@@ -556,22 +564,40 @@ def test_payload_names_the_ocr_languages(probe_files, fake_vision, monkeypatch):
     assert "== Text in the image (OCR: tesseract, eng+chi_sim) ==" in state["result"]
 
 
-@pytest.mark.skipif("chi_sim" not in rf._installed_tessdata_langs(),
-                    reason="needs the tesseract chi_sim pack")
-def test_chinese_scan_comes_back_as_chinese():
-    """Regression: a Han-character scan OCR'd as `eng` returned Latin nonsense."""
-    font = next((f for f in (CJK_FONT, LATIN_FONT) if Path(f).exists()), None)
+def _han_png(name: str = "chinese.png") -> Path:
+    """A PNG of Han text, rendered with a font tesseract can actually read.
+
+    The font is not incidental: the same string drawn with Songti comes back as
+    ``RESHAPE TT carb`` — the reader is fine, the rasterisation is unreadable.
+    """
+    font = next((f for f in (CJK_FONT, CJK_FONT_ALT) if Path(f).exists()), None)
     if font is None:
         pytest.skip("no CJK-capable font on this machine")
-    png = PROBE_DIR / "chinese.png"
-    img = Image.new("RGB", (900, 200), "white")
-    ImageDraw.Draw(img).text((30, 70), "惠州华阳医疗器械", fill="black",
-                             font=ImageFont.truetype(font, 56))
+    png = PROBE_DIR / name
+    img = Image.new("RGB", (700, 160), "white")
+    ImageDraw.Draw(img).text((20, 40), HAN_SAMPLE, fill="black",
+                             font=ImageFont.truetype(font, 72))
     img.save(png, "PNG")
+    return png
+
+
+@pytest.mark.skipif("chi_sim" not in rf._installed_tessdata_langs(),
+                    reason="needs the tesseract chi_sim pack")
+def test_chinese_scan_comes_back_as_chinese(monkeypatch):
+    """The regression: a Han-character scan read with `eng` returns Latin nonsense."""
+    png = _han_png()
     try:
-        state = asyncio.run(rf.get_file_reader_graph().ainvoke({"file_path": str(png)}))
+        state = asyncio.run(rf.get_file_reader_graph().ainvoke(
+            {"file_path": str(png), "vision_enabled": False}))
         # tesseract separates Han characters with spaces; the characters are what matter
-        assert "惠州华阳医疗器械" in state["result"].replace(" ", "")
+        assert HAN_SAMPLE in state["result"].replace(" ", ""), state["result"][-200:]
+        assert f"OCR: tesseract, {rf.ocr_langs()}" in state["result"]
+
+        # the negative control: the same image read as English alone has no Han
+        monkeypatch.setattr(rf, "ocr_langs", lambda: "eng")
+        english_only = asyncio.run(rf.get_file_reader_graph().ainvoke(
+            {"file_path": str(png), "vision_enabled": False}))
+        assert not any("\u4e00" <= ch <= "\u9fff" for ch in english_only["result"])
     finally:
         png.unlink()
 
@@ -747,9 +773,14 @@ def test_legacy_office_formats_get_conversion_advice(doc_files, fake_vision):
     assert legacy["result"].startswith("Error:")
     assert "save it as .docx" in legacy["result"]
 
-    sheet = _read_doc(doc_files, "sheet")
-    assert sheet["result"].startswith("Error:")
-    assert "export the sheet to .csv" in sheet["result"]
+    ods = PROBE_DIR / "old.ods"
+    ods.write_bytes(b"PK\x03\x04 an open-document sheet")
+    try:
+        sheet = asyncio.run(rf.get_file_reader_graph().ainvoke({"file_path": str(ods)}))
+        assert sheet["result"].startswith("Error:")
+        assert "export the sheet to .csv" in sheet["result"]
+    finally:
+        ods.unlink()
     assert not fake_vision
 
 
@@ -774,6 +805,135 @@ def test_shared_extractor_tells_the_model_pictures_exist(doc_files):
     text = _extract_docx_text(doc_files["shot_only"])
     assert "1 embedded picture(s)" in text
     assert "read_any_file" in text
+
+
+# ── spreadsheets (.xlsx) ─────────────────────────────────────────────────────
+@pytest.fixture(scope="module")
+def sheet_files():
+    """xlsx probes: values, formulas, several sheets, a hidden one, and junk."""
+    openpyxl = pytest.importorskip("openpyxl")
+    import datetime as dt
+
+    made: list[Path] = []
+
+    def _path(name: str) -> Path:
+        path = PROBE_DIR / name
+        made.append(path)
+        return path
+
+    book = openpyxl.Workbook()
+    prices = book.active
+    prices.title = "Prices"
+    prices.append(["Product", "Unit", "Price", "Qty", "Total"])
+    prices.append(["Widget A", "pcs", 25, 12, "=C2*D2"])
+    prices.append(["Widget B", "box", 150.5, 4, "=C3*D3"])
+    prices.append(["Report date", dt.date(2026, 3, 31)])
+    notes = book.create_sheet("Notes")
+    notes.append(["first note"])
+    notes.append(["second note"])
+    hidden = book.create_sheet("Secret")
+    hidden.append(["hidden value"])
+    hidden.sheet_state = "hidden"
+    prices_path = _path("prices.xlsx")
+    book.save(prices_path)
+
+    long_book = openpyxl.Workbook()
+    sheet = long_book.active
+    sheet.append(["row number"])
+    for i in range(1, 26):
+        sheet.append([f"row {i}"])
+    long_path = _path("long.xlsx")
+    long_book.save(long_path)
+
+    empty_book = openpyxl.Workbook()
+    empty_path = _path("empty.xlsx")
+    empty_book.save(empty_path)
+
+    corrupt = _path("corrupt.xlsx")
+    corrupt.write_bytes(b"PK\x03\x04 not a workbook")
+
+    yield {"prices": prices_path, "long": long_path, "empty": empty_path, "corrupt": corrupt}
+    for path in made:
+        if path.exists():
+            path.unlink()
+
+
+def _read_sheet(sheet_files, key, **kw):
+    payload = {"file_path": str(sheet_files[key])}
+    payload.update(kw)
+    return asyncio.run(rf.get_file_reader_graph().ainvoke(payload))
+
+
+def test_xlsx_is_read_sheet_by_sheet(sheet_files, fake_vision):
+    state = _read_sheet(sheet_files, "prices")
+
+    assert state["branch"] == "document"
+    assert state["result"].startswith("== Spreadsheet ==")
+    assert "format: XLSX" in state["result"]
+    assert "sheets: 3" in state["result"]
+    assert "[Sheet: Prices]" in state["result"]
+    assert "Product | Unit | Price | Qty | Total" in state["result"]
+    assert "Widget A | pcs | 25 | 12" in state["result"]
+    assert "150.5" in state["result"]                    # a real decimal survives
+    assert "2026-03-31" in state["result"]               # a date is not a serial number
+    assert "[Sheet: Notes]" in state["result"]
+    assert "second note" in state["result"]
+    assert "[Sheet: Secret (hidden)]" in state["result"]
+    assert state["doc_sheets"] == 3
+    assert not fake_vision                               # a sheet never calls a model
+
+
+def test_xlsx_formula_column_is_not_dropped(sheet_files, fake_vision):
+    """A workbook saved by code has no cached results; the column must survive."""
+    state = _read_sheet(sheet_files, "prices")
+
+    assert "=C2*D2" in state["result"]
+
+
+def test_xlsx_row_cap_is_named(sheet_files, fake_vision, monkeypatch):
+    from tools import native_impl
+
+    monkeypatch.setattr(native_impl, "XLSX_MAX_ROWS", 5)
+    state = _read_sheet(sheet_files, "long")
+
+    assert "more rows not shown" in state["result"]
+    assert "row 4" in state["result"]
+    assert "row 20" not in state["result"]
+
+
+def test_xlsx_sheet_cap_is_named(sheet_files, fake_vision, monkeypatch):
+    from tools import native_impl
+
+    monkeypatch.setattr(native_impl, "XLSX_MAX_SHEETS", 1)
+    state = _read_sheet(sheet_files, "prices")
+
+    assert "2 more sheet(s) not shown" in state["result"]
+    assert "[Sheet: Notes]" not in state["result"]
+
+
+def test_empty_workbook_reports_that_nothing_could_be_read(sheet_files, fake_vision):
+    state = _read_sheet(sheet_files, "empty")
+
+    assert state["result"].startswith("Error:")
+    assert "no readable content" in state["result"]
+
+
+def test_corrupt_xlsx_reports_an_error(sheet_files, fake_vision):
+    state = _read_sheet(sheet_files, "corrupt")
+
+    assert state["result"].startswith("Error:")
+    assert "could not read" in state["result"]
+
+
+def test_legacy_xls_advises_saving_as_xlsx(sheet_files, fake_vision):
+    legacy = PROBE_DIR / "old.xls"
+    legacy.write_bytes(b"\xd0\xcf\x11\xe0 legacy excel")
+    try:
+        state = asyncio.run(rf.get_file_reader_graph().ainvoke({"file_path": str(legacy)}))
+        assert state["result"].startswith("Error:")
+        assert "save it as .xlsx" in state["result"]
+    finally:
+        legacy.unlink()
 
 
 # ── live path (opt-in: LANGCONFIG_LIVE_TESTS=1) ──────────────────────────────
