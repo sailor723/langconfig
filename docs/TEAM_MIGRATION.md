@@ -5,9 +5,10 @@ install that matches the team's agents, tools, models and skills — **without
 touching anything they have already built**.
 
 **The direction of travel:** the machine that owns the baseline **seeds out**
-(§9) and commits; every other machine clones or pulls that commit and then
-**seeds** (§5). Nothing moves between databases directly — the repo is the only
-channel, so a commit that skipped its seed out carries the previous state.
+(§9), commits and pushes; every other machine clones or pulls that commit and then
+**seeds** (§5). Tools, agents and settings travel as files through git and never
+database-to-database — so a commit that skipped its seed out, or one that was
+never pushed, carries the previous state.
 
 Companion to [`TEAM_INSTALL.md`](TEAM_INSTALL.md), which covers the same ground
 for a **zip-package install** (`scripts/make_team_zip.sh` +
@@ -129,8 +130,13 @@ uv sync                        # creates backend/.venv from uv.lock
 
 ## 5. Seed the database — this is the migration
 
+Run this **after** `git clone` (§2) or, on a machine that already exists,
+`git pull` — the snapshots it reads are the ones in the repo, so seeding without
+pulling first just re-applies what you already had:
+
 ```bash
 cd backend
+git -C .. pull            # only needed on an existing machine
 .venv/bin/python scripts/seeds/seed_all.py
 ```
 
@@ -286,11 +292,12 @@ UI changes nothing in the repository, so the snapshots under
 `backend/scripts/seeds/` are the only thing that carries them to a teammate — and
 a stale snapshot fails *silently*: their `seed_all.py` just adds nothing new.
 
-The order is always **seed out → commit → they pull → they seed**. Seeding out is
-what puts your database into the repo; the commit is what carries it; and nothing
-reaches their database until they run `seed_all.py` (§5). Skipping the seed out
-and committing anyway ships the *previous* state, which looks like a successful
-migration that delivered nothing.
+The order is always **seed out → commit → push → they pull → they seed**. Seeding
+out is what puts your database into the repo, the commit records it, and the push
+is what actually delivers it: git is the only channel between the two machines, so
+a commit that is never pushed reaches nobody. Nothing reaches their database until
+they run `seed_all.py` (§5). Skipping the seed out and committing anyway ships the
+*previous* state, which looks like a successful migration that delivered nothing.
 
 ```bash
 cd backend
@@ -303,8 +310,11 @@ cd backend
 git add scripts/seeds/*.sql scripts/seeds/settings_seed.json
 git commit -m "chore(seeds): refresh team baseline"
 
-# 3. THE TEAMMATE — pulls this commit, then seeds (§5). Nothing before that
-#    has touched their database.
+# 3. PUSH — until this runs, the snapshot exists only on your machine
+git push
+
+# 4. THE TEAMMATE — pulls that commit, then seeds (§5). Nothing before their
+#    seed has touched their database.
 ```
 
 Run `--check` first: it only reads, so it is the cheap way to answer "do I owe the
