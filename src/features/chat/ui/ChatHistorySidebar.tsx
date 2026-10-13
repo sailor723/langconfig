@@ -51,6 +51,48 @@ interface ChatHistorySidebarProps {
   footerCompact?: React.ReactNode;
 }
 
+/**
+ * One view toggle, styled the way DSH styles its sidebar controls: a 28px
+ * circle with a neutral translucent hover, and a selected state that is a
+ * stronger fill plus a primary-tinted icon rather than a saturated block.
+ *
+ * The fill is a translucent grey so one value works on the light and dark
+ * panels alike — `hover:bg-black/5` is imperceptible over #252526.
+ */
+function viewToggle(opts: {
+  active: boolean;
+  title: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+  ariaExpanded?: boolean;
+}) {
+  const fill = opts.active ? 'rgba(128,128,128,0.28)' : 'transparent';
+  const hover = 'rgba(128,128,128,0.18)';
+  return (
+    <button
+      onClick={opts.onClick}
+      className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+        opts.active ? 'chat-view-toggle-active' : ''
+      } ${opts.className || ''}`}
+      style={{
+        backgroundColor: fill,
+        // Only the inactive colour is inline; the active tint comes from the
+        // class above, because an inline color-primary is rewritten by the
+        // theme layer into a solid primary fill (see index.css).
+        ...(opts.active ? {} : { color: 'var(--color-text-muted)' }),
+      }}
+      onMouseEnter={(e) => { if (!opts.active) e.currentTarget.style.backgroundColor = hover; }}
+      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = fill; }}
+      title={opts.title}
+      aria-pressed={opts.active}
+      aria-expanded={opts.ariaExpanded}
+    >
+      {opts.children}
+    </button>
+  );
+}
+
 export default function ChatHistorySidebar({ onNewSession, footer, footerCompact }: ChatHistorySidebarProps) {
   const { sessions, currentSessionId, switchSession } = useChat();
   // The heading says "Projects", so the value has to be the project (vault).
@@ -497,78 +539,82 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
         </button>
       </div>
 
-      {/* ── View controls: Search · Date view · Agents · Favourites ── */}
-      <div className="flex items-center gap-2 px-3 py-1.5">
-        <button
-          onClick={() => {
+      {/* ── View controls: Search · Date view · Agents · Favourites ──
+          DSH's `.iconButton` conventions, applied to our toggles:
+
+            * 28px circle (border-radius: 50%), not a rounded square;
+            * a neutral translucent hover, because `bg-black/5` on this dark
+              panel is invisible — black over #252526 barely changes it;
+            * SELECTED is a fill one step stronger with the icon tinted in the
+              primary colour. It used to be a solid primary block under a white
+              icon, which read far heavier than the icons beside it — DSH keeps
+              its saturated fill for the send button, not for a view toggle;
+            * `strokeWidth={1.5}` on the glyphs. DSH draws its icons as filled
+              outline paths that are optically much finer than lucide's default
+              stroke of 2 — the weight, not the size, is what looked clunky. */}
+      <div className="flex items-center gap-1 pl-3 pr-2 py-1.5">
+        {/* Name of the list on the left, controls on the right — DSH's row
+            pattern (wordmark then panel toggle in its logo row). The label names
+            whichever view is showing, so the row reads as "Agents … [toggles]"
+            rather than four anonymous icons. */}
+        <span
+          className="text-[11px] font-medium truncate"
+          style={{ color: 'var(--color-text-primary)' }}
+        >
+          {view === 'favorites' ? 'Favourites' : view === 'dates' ? 'Dates' : 'Agents'}
+        </span>
+        <div className="flex-1" />
+        {viewToggle({
+          active: searchOpen,
+          title: searchOpen ? 'Close search' : 'Search titles',
+          ariaExpanded: searchOpen,
+          onClick: () => {
             setSearchOpen(open => {
               if (open) setSearchQuery('');   // closing the box clears the filter
               return !open;
             });
-          }}
-          className="p-1.5 rounded-lg transition-colors"
-          style={{ backgroundColor: searchOpen ? 'var(--color-primary)' : 'transparent' }}
-          title={searchOpen ? 'Close search' : 'Search titles'}
-          aria-expanded={searchOpen}
-        >
-          <Search className="w-3.5 h-3.5" style={{ color: searchOpen ? 'white' : 'var(--color-text-muted)' }} />
-        </button>
-        <button
-          onClick={() => selectView('dates')}
-          className="p-1.5 rounded-lg transition-colors"
-          style={{ backgroundColor: view === 'dates' ? 'var(--color-primary)' : 'transparent' }}
-          title={`Group by date — ${dateFolders.length} day${dateFolders.length === 1 ? '' : 's'}`}
-          aria-pressed={view === 'dates'}
-        >
-          <Calendar
-            className="w-3.5 h-3.5"
-            style={{ color: view === 'dates' ? 'white' : 'var(--color-text-muted)' }}
-          />
-        </button>
-
+          },
+          children: <Search className="w-3.5 h-3.5" strokeWidth={1.5} />,
+        })}
+        {viewToggle({
+          active: view === 'dates',
+          title: `Group by date — ${dateFolders.length} day${dateFolders.length === 1 ? '' : 's'}`,
+          onClick: () => selectView('dates'),
+          children: <Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />,
+        })}
         {/* Two views, side by side: Agents (one folder per agent, each holding
             that agent's chats) and Favourites (the pinned conversations, with
             the pin count on the icon). Exactly one is active. */}
-        <button
-          onClick={() => selectView('agents')}
-          className="p-1.5 rounded-lg transition-colors"
-          style={{ backgroundColor: view === 'agents' ? 'var(--color-primary)' : 'transparent' }}
-          title={`All agents — ${agentFolders.length} folder${agentFolders.length === 1 ? '' : 's'}, each holding its chats`}
-          aria-pressed={view === 'agents'}
-        >
-          <Users
-            className="w-3.5 h-3.5"
-            style={{ color: view === 'agents' ? 'white' : 'var(--color-text-muted)' }}
-          />
-        </button>
-
-        <button
-          onClick={() => selectView('favorites')}
-          className="relative p-1.5 rounded-lg transition-colors"
-          style={{ backgroundColor: view === 'favorites' ? 'var(--color-primary)' : 'transparent' }}
-          title={view === 'favorites'
+        {viewToggle({
+          active: view === 'agents',
+          title: `All agents — ${agentFolders.length} folder${agentFolders.length === 1 ? '' : 's'}, each holding its chats`,
+          onClick: () => selectView('agents'),
+          children: <Users className="w-3.5 h-3.5" strokeWidth={1.5} />,
+        })}
+        {viewToggle({
+          active: view === 'favorites',
+          title: view === 'favorites'
             ? 'Showing favourites — click Agents for all chats'
-            : `Show favourites${pinnedSessions.length ? ` (${pinnedSessions.length})` : ''}`}
-          aria-pressed={view === 'favorites'}
-        >
-          <Star
-            className="w-3.5 h-3.5"
-            style={{ color: view === 'favorites' ? 'white' : 'var(--color-text-muted)' }}
-            fill="none"
-          />
-          {pinnedSessions.length > 0 && (
-            <span
-              className="absolute -top-0.5 -right-0.5 text-[9px] leading-none px-1 rounded-full"
-              style={{
-                backgroundColor: view === 'favorites' ? 'white' : 'var(--color-primary)',
-                color: view === 'favorites' ? 'var(--color-primary)' : 'white',
-              }}
-            >
-              {pinnedSessions.length}
-            </span>
-          )}
-        </button>
-
+            : `Show favourites${pinnedSessions.length ? ` (${pinnedSessions.length})` : ''}`,
+          onClick: () => selectView('favorites'),
+          className: 'relative',
+          children: (
+            <>
+              <Star className="w-3.5 h-3.5" strokeWidth={1.5} fill="none" />
+              {pinnedSessions.length > 0 && (
+                <span
+                  className="absolute -top-0.5 -right-0.5 text-[9px] leading-none px-1 rounded-full"
+                  style={{
+                    backgroundColor: 'var(--color-primary)',
+                    color: 'white',
+                  }}
+                >
+                  {pinnedSessions.length}
+                </span>
+              )}
+            </>
+          ),
+        })}
       </div>
 
       {/* ── Search: plain substring on the conversation title ─────── */}

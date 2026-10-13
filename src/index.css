@@ -964,6 +964,15 @@ html[data-theme="dark"] .chat-new-session {
   background-color: #3c3c3c !important;
 }
 
+/* Active sidebar view toggle (ChatHistorySidebar). The glyph tint is a CLASS on
+ * purpose: lib/themes.tsx rewrites every element whose INLINE style mentions
+ * color-primary into a solid primary fill with header-coloured text, so an
+ * inline `color: var(--color-primary)` turned this quiet 28px circle into the
+ * heavy blue block it was meant to replace. */
+.chat-view-toggle-active {
+  color: var(--color-primary);
+}
+
 [data-theme="dark"] .bg-white {
   background-color: #252526 !important;
 }
