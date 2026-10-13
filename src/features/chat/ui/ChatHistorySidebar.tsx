@@ -509,7 +509,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
           }}
           title="EBL Carrier Chat — new session"
         >
-          EBL Carrier Chat
+          &nbsp;EBL Carrier Chat
         </button>
         <div className="flex-1" />
         {/* Panel toggle, not a chevron: the affordance is "collapse this
