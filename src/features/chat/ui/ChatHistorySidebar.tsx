@@ -507,9 +507,9 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
             fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', "
               + "'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif",
           }}
-          title="EBC Carrier Chat — new session"
+          title="EBL Carrier Chat — new session"
         >
-          EBC Carrier Chat
+          EBL Carrier Chat
         </button>
         <div className="flex-1" />
         {/* Panel toggle, not a chevron: the affordance is "collapse this
