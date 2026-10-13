@@ -53,6 +53,7 @@ SEEDABLE_TOOL_META = {
     "read_file": ("Read File", "filesystem", None),
     "read_image": ("Read Image (OCR)", "filesystem", None),
     "write_file": ("Write File", "filesystem", None),
+    "write_any_file": ("Write Any File (unified writer)", "filesystem", None),
     "edit_file": ("Edit File", "filesystem", None),
     "glob": ("Glob", "filesystem", None),
     "grep": ("Grep", "filesystem", None),

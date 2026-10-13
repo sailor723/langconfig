@@ -1809,7 +1809,39 @@ If you don't have content ready yet, DO NOT call this tool until you do.""",
     handle_tool_error=_write_file_error_handler
 )
 
-# Backwards compatibility alias
+# The same writer under an explicit name. Both rows are seeded and either can be
+# attached to an agent; the descriptions say so, because two names for one
+# implementation is only confusing if the model is left to guess.
+write_any_file = StructuredTool.from_function(
+    func=_write_file_impl,
+    name="write_any_file",
+    args_schema=WriteFileArgs,
+    description="""Write content to a file — the unified writer, same implementation as write_file.
+
+Use whichever of the two your agent carries; they behave identically.
+
+REQUIRES 2 PARAMETERS: file_path AND content.
+1. file_path (str): workspace-relative. A bare filename ('report.md') goes to
+   generated/; name a folder to choose — 'generated/report.docx' for a
+   deliverable, 'other/notes.md' for scratch. 'upload/' is the user's folder and
+   is refused.
+2. content (str): The COMPLETE file content - DO NOT omit this parameter!
+
+SUPPORTED FORMATS - the extension picks the format:
+- .md / .txt / .json / .csv / .py   stored verbatim
+- .html   styled, self-contained page rendered from your markdown
+- .pdf    PDF rendered from your markdown
+- .docx   Word document rendered from your markdown
+Markdown headings (# / ## / ###) become real headings in .docx/.pdf/.html.
+A deck (.pptx) or a spreadsheet (.xlsx) is refused with the tool that can make
+it, rather than written as corrupted text.
+
+The result names the workspace-relative path, the size, and whether the file was
+stored verbatim or rendered — report THAT path to the user, do not guess it.""",
+    handle_tool_error=_write_file_error_handler
+)
+
+# Backwards compatibility aliases
 file_write = write_file
 
 

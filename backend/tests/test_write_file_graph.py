@@ -161,3 +161,37 @@ def test_cli_writes_a_file_and_reports_it(tmp_path, capsys):
 def test_cli_reports_a_refusal_with_a_nonzero_exit(tmp_path, capsys):
     assert wf._cli([str(tmp_path / "deck.pptx"), "--text", "x"]) == 1
     assert "cannot write" in capsys.readouterr().out
+
+
+# ── two names, one writer ────────────────────────────────────────────────────
+def test_write_file_and_write_any_file_are_the_same_writer():
+    """Both names are offered on purpose; they must stay one implementation.
+
+    Two names for one tool is only safe while nothing drifts: if a future change
+    edits one description or one code path, this fails and says so.
+    """
+    import asyncio
+
+    from core.agents.tool_loader import ToolLoader
+    from tools import native_impl
+
+    assert native_impl.write_file.name == "write_file"
+    assert native_impl.write_any_file.name == "write_any_file"
+    assert native_impl.write_file.func is native_impl.write_any_file.func
+    assert native_impl.write_file.args_schema is native_impl.write_any_file.args_schema
+
+    # Both resolve to a callable tool through the loader agents use.
+    for configured in ("write_file", "write_any_file"):
+        loaded = asyncio.run(ToolLoader.load_native([configured]))
+        assert [tool.name for tool in loaded] == [configured], configured
+
+
+def test_the_two_descriptions_each_state_the_two_parameter_contract():
+    from tools import native_impl
+
+    for tool in (native_impl.write_file, native_impl.write_any_file):
+        text = tool.description
+        assert "file_path" in text and "content" in text
+        assert "verbatim" in text                     # md/text contract
+        assert ".docx" in text and ".pdf" in text and ".html" in text
+        assert "generated/" in text and "upload/" in text
