@@ -378,17 +378,35 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
     <div key={opts.id} className="pb-0.5">
       <button
         onClick={opts.onToggle}
-        className="flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-lg hover:bg-black/5 transition-colors"
+        className="group flex items-center gap-1.5 w-full text-left px-2 py-1 rounded-lg hover:bg-black/5 transition-colors"
         title={`${opts.label} — ${opts.sessions.length} conversation${opts.sessions.length === 1 ? '' : 's'}`}
         aria-expanded={opts.expanded}
       >
-        {/* The folder glyph carries the state — open vs closed — so no chevron
-            is needed next to it. */}
-        {opts.expanded ? (
-          <FolderOpen className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />
-        ) : (
-          <Folder className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />
-        )}
+        {/* Folder by default, expand arrow on row hover — DSH's leading-slot swap
+            (ui-workspace Rows.module.css: `:hover` hides .folder and reveals
+            .chevron). Two things are deliberate:
+
+            - the slot is fixed-width, like DSH's 16px one, so the swap cannot
+              shift the label even if the two glyphs differ in width;
+            - the arrow is this row's own stroke chevron rotated 90° when open,
+              not DSH's filled triangle, so it matches the other chevrons here.
+
+            Hover only, as in DSH: the folder glyph still carries open vs closed,
+            so the arrow is an affordance hint rather than the state. */}
+        <span className="w-3.5 h-3.5 flex-shrink-0 inline-flex items-center justify-center">
+          {opts.expanded ? (
+            <FolderOpen className="w-3.5 h-3.5 group-hover:hidden" style={{ color: 'var(--color-text-muted)' }} />
+          ) : (
+            <Folder className="w-3.5 h-3.5 group-hover:hidden" style={{ color: 'var(--color-text-muted)' }} />
+          )}
+          <ChevronRight
+            className="hidden w-3.5 h-3.5 group-hover:block transition-transform duration-150"
+            style={{
+              color: 'var(--color-text-muted)',
+              transform: opts.expanded ? 'rotate(90deg)' : undefined,
+            }}
+          />
+        </span>
         <span className="text-[11px] font-medium truncate" style={{ color: 'var(--color-text-muted)' }}>
           {opts.label}
         </span>
