@@ -72,7 +72,8 @@ function viewToggle(opts: {
   return (
     <button
       onClick={opts.onClick}
-      className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+      // 28px x 0.8 = 22.4, rounded to 22; the glyphs go 14 x 0.9 = 12.6 -> 13.
+      className={`w-[22px] h-[22px] rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
         opts.active ? 'chat-view-toggle-active' : ''
       } ${opts.className || ''}`}
       style={{
@@ -420,7 +421,8 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
         >
           <MessageSquarePlus className="w-4 h-4" />
         </button>
-        <div className="flex-1 overflow-y-auto space-y-1 px-1">
+        {/* scrollbar-gutter: stable — see the note on the list below. */}
+        <div className="flex-1 overflow-y-auto space-y-1 px-1" style={{ scrollbarGutter: 'stable' }}>
           {railSessions.slice(0, 8).map((session: ChatSession) => (
             <button
               key={session.session_id}
@@ -524,7 +526,9 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
           // `var(--color-input-background)` is rewritten to panelDark by the
           // runtime theme layer, which is exactly the sidebar's own colour — the
           // box came out flat with only a border, where DSH's is elevated.
-          className="chat-new-session w-full flex items-center justify-center gap-1.5 text-sm font-medium transition-colors"
+          // text-sm (14px) x 0.8 = 11.2 -> 11px. The 38px box height is unchanged,
+          // so the label sits a little smaller inside it.
+          className="chat-new-session w-full flex items-center justify-center gap-1.5 text-[11px] font-medium transition-colors"
           style={{
             height: 38,
             borderRadius: 12,
@@ -574,13 +578,13 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
               return !open;
             });
           },
-          children: <Search className="w-3.5 h-3.5" strokeWidth={1.5} />,
+          children: <Search className="w-[13px] h-[13px]" strokeWidth={1.5} />,
         })}
         {viewToggle({
           active: view === 'dates',
           title: `Group by date — ${dateFolders.length} day${dateFolders.length === 1 ? '' : 's'}`,
           onClick: () => selectView('dates'),
-          children: <Calendar className="w-3.5 h-3.5" strokeWidth={1.5} />,
+          children: <Calendar className="w-[13px] h-[13px]" strokeWidth={1.5} />,
         })}
         {/* Two views, side by side: Agents (one folder per agent, each holding
             that agent's chats) and Favourites (the pinned conversations, with
@@ -589,7 +593,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
           active: view === 'agents',
           title: `All agents — ${agentFolders.length} folder${agentFolders.length === 1 ? '' : 's'}, each holding its chats`,
           onClick: () => selectView('agents'),
-          children: <Users className="w-3.5 h-3.5" strokeWidth={1.5} />,
+          children: <Users className="w-[13px] h-[13px]" strokeWidth={1.5} />,
         })}
         {viewToggle({
           active: view === 'favorites',
@@ -600,7 +604,7 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
           className: 'relative',
           children: (
             <>
-              <Star className="w-3.5 h-3.5" strokeWidth={1.5} fill="none" />
+              <Star className="w-[13px] h-[13px]" strokeWidth={1.5} fill="none" />
               {pinnedSessions.length > 0 && (
                 <span
                   className="absolute -top-0.5 -right-0.5 text-[9px] leading-none px-1 rounded-full"
@@ -679,7 +683,14 @@ export default function ChatHistorySidebar({ onNewSession, footer, footerCompact
            the history grouped into one folder per agent, on shows just the
            pinned conversations. Both collapse independently and remember it.
            A search lists flat matches, scoped to whichever view is active. */}
-      <div className="flex-1 overflow-y-auto px-1 pb-2 space-y-0.5">
+      {/* scrollbar-gutter: stable reserves the scrollbar's width whether or
+          not the list is currently overflowing. Expanding a folder makes the list
+          taller than the viewport, and on a machine with CLASSIC scrollbars
+          (macOS "Show scroll bars: Always") the scrollbar then takes ~15px out of
+          the content box — so every row narrowed and the sidebar looked like it
+          had changed width. With the gutter reserved the content width is
+          constant; on overlay scrollbars it costs nothing. */}
+      <div className="flex-1 overflow-y-auto px-1 pb-2 space-y-0.5" style={{ scrollbarGutter: 'stable' }}>
         {query ? (
           filteredSessions.length === 0 ? (
             <div className="p-4 text-center text-xs" style={{ color: 'var(--color-text-muted)' }}>
