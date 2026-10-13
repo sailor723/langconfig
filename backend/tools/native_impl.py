@@ -708,8 +708,15 @@ def read_file(file_path: str, offset: int = 0, limit: int = None, max_chars: int
 
     Supports plain text files (.txt, .md, .py, .json, .csv, etc.) plus
     binary documents: PDF (.pdf), Word (.docx) and PowerPoint (.pptx).
-    Binary formats are converted to text (line-numbered like any other file).
-    Legacy .ppt / .doc (pre-2007) are not supported - convert them first.
+    Binary formats are converted to text (line-numbered like any other file):
+    a .docx keeps its headings, lists and tables, and a .pptx keeps its slides
+    and speaker notes.
+
+    Embedded pictures cannot be read here - they are pixels, not text - but the
+    output says how many there are, and `read_any_file` reads them (OCR, plus a
+    description from the vision model).
+    Legacy .ppt / .doc (pre-2007) and spreadsheets are not supported - convert
+    them first (.docx / .pptx, or .csv for a sheet).
 
     Args:
         file_path: Path to the file to read
@@ -808,28 +815,174 @@ def _extract_pdf_text(path: Path) -> str:
     return "\n\n".join(pages) if pages else "Error: no extractable text found in PDF"
 
 
-def _extract_docx_text(path: Path) -> str:
-    """Extract text from a Word .docx: paragraphs first, then table cells."""
+def _docx_pictures(document_or_path, with_blobs: bool = True) -> list:
+    """Embedded pictures in a .docx, in document order.
+
+    Returns ``[{index, label, anchor, ext, bytes[, blob]}]``. python-docx exposes
+    inline shapes without saying *where* they sat, so the pictures are walked
+    from the document XML — which also finds pictures inside table cells and text
+    boxes. ``anchor`` is the text of the picture's own paragraph (or the last
+    paragraph before it), which is what lets a reader say where a picture was.
+
+    Takes an open ``docx.Document`` or a path, so a caller that already has the
+    document open does not pay for a second one.
+    """
     try:
-        import docx
+        from docx.oxml.ns import qn
     except ImportError:
-        return "Error: python-docx is not installed. Run: pip install python-docx"
+        return []
+    document = document_or_path
+    if not hasattr(document, "element"):
+        import docx as _docx
+
+        document = _docx.Document(str(document_or_path))
+
+    pictures = []
+    last_text = ""
+    for paragraph in document.element.body.iter(qn("w:p")):
+        text = "".join(node.text or "" for node in paragraph.iter(qn("w:t"))).strip()
+        for blip in paragraph.iter(qn("a:blip")):
+            rid = blip.get(qn("r:embed")) or blip.get(qn("r:link"))
+            if not rid:
+                continue
+            part = document.part.related_parts.get(rid)
+            blob = getattr(part, "blob", None) if part is not None else None
+            if not blob:
+                continue
+            entry = {
+                "index": len(pictures),
+                "label": f"[Picture {len(pictures) + 1}]",
+                "anchor": (text or last_text or "no surrounding text")[:120],
+                "ext": Path(str(getattr(part, "partname", ""))).suffix.lower() or ".png",
+                "bytes": len(blob),
+            }
+            if with_blobs:
+                entry["blob"] = blob
+            pictures.append(entry)
+        if text:
+            last_text = text
+    return pictures
+
+
+def _extract_docx(path: Path, with_blobs: bool = False):
+    """``(text, pictures)`` from one .docx, from a single open.
+
+    The text keeps the document's own structure — a heading stays a heading, a
+    list item a bullet, a table a table — because flattening it to bare
+    paragraphs throws away the only outline a .docx has. Pictures cannot be read
+    here (they are pixels, not text): they are inventoried, and the caller that
+    can read them does — ``read_any_file`` OCRs them and describes them.
+    """
+    import docx
+
     document = docx.Document(str(path))
-    lines = [p.text for p in document.paragraphs if p.text.strip()]
+    lines: List[str] = []
+    for paragraph in document.paragraphs:
+        text = (paragraph.text or "").strip()
+        if not text:
+            continue
+        style = (paragraph.style.name if paragraph.style is not None else "") or ""
+        if style.startswith("Heading"):
+            level = "".join(ch for ch in style if ch.isdigit()) or "1"
+            lines.append(f"{'#' * min(int(level), 6)} {text}")
+        elif style.startswith("List") or style in ("List Bullet", "List Number"):
+            lines.append(f"- {text}")
+        else:
+            lines.append(text)
     for table in document.tables:
+        rows = []
         for row in table.rows:
             cells = [cell.text.strip() for cell in row.cells]
             if any(cells):
-                lines.append(" | ".join(cells))
-    return "\n".join(lines) if lines else "Error: no text found in document"
+                rows.append(" | ".join(cells))
+        if rows:
+            lines.append("[Table]")
+            lines.extend(rows)
+
+    return "\n".join(lines), _docx_pictures(document, with_blobs=with_blobs)
 
 
-def _extract_pptx_text(path: Path) -> str:
-    """Extract text from a PowerPoint .pptx, slide by slide."""
+def _picture_note(pictures: list) -> str:
+    """Tell a text-only caller that pictures exist and who can read them.
+
+    Only ``read_file`` and the SDK path get this: they extract text and cannot
+    see pixels, so they must at least say the pixels are there. The reader that
+    *does* read them appends its own sections instead.
+    """
+    if not pictures:
+        return ""
+    return (f"[Pictures: {len(pictures)} embedded picture(s) — their text and content are "
+            f"not in this file's text; read them with read_any_file]")
+
+
+def _extract_docx_text(path: Path) -> str:
+    """Extract text from a Word .docx: headings, lists, paragraphs, then tables."""
     try:
-        from pptx import Presentation
+        text, pictures = _extract_docx(path)
     except ImportError:
-        return "Error: python-pptx is not installed. Run: pip install python-pptx"
+        return "Error: python-docx is not installed. Run: pip install python-docx"
+    note = _picture_note(pictures)
+    joined = "\n".join(part for part in (text, note) if part)
+    return joined or "Error: no text found in document"
+
+
+def _pptx_pictures(presentation_or_path, with_blobs: bool = True) -> list:
+    """Pictures in a .pptx, in slide order: ``[{index, label, anchor, …}]``.
+
+    Walks into groups, because a picture inside a grouped shape is still a
+    picture. Takes an open ``Presentation`` or a path.
+    """
+    try:
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+    except ImportError:
+        return []
+    presentation = presentation_or_path
+    if not hasattr(presentation, "slides"):
+        from pptx import Presentation
+
+        presentation = Presentation(str(presentation_or_path))
+
+    def walk(shapes):
+        for shape in shapes:
+            yield shape
+            try:
+                grouped = shape.shape_type == MSO_SHAPE_TYPE.GROUP
+            except Exception:
+                grouped = False
+            if grouped:
+                yield from walk(shape.shapes)
+
+    pictures = []
+    for number, slide in enumerate(presentation.slides, start=1):
+        for shape in walk(slide.shapes):
+            try:
+                if shape.shape_type != MSO_SHAPE_TYPE.PICTURE:
+                    continue
+                image = shape.image
+                blob = image.blob
+            except Exception:
+                continue
+            entry = {
+                "index": len(pictures),
+                "label": f"[Picture {len(pictures) + 1}]",
+                "anchor": f"slide {number}",
+                "ext": "." + (getattr(image, "ext", "") or "png").lower(),
+                "bytes": len(blob),
+            }
+            if with_blobs:
+                entry["blob"] = blob
+            pictures.append(entry)
+    return pictures
+
+
+def _extract_pptx(path: Path, with_blobs: bool = False):
+    """``(text, pictures)`` from one .pptx, from a single open.
+
+    Slide text, tables and **speaker notes** — the notes are usually where the
+    substance is, and the legacy extractor dropped them.
+    """
+    from pptx import Presentation
+
     prs = Presentation(str(path))
     slides = []
     for i, slide in enumerate(prs.slides, start=1):
@@ -844,8 +997,29 @@ def _extract_pptx_text(path: Path) -> str:
                     cells = [cell.text.strip() for cell in row.cells]
                     if any(cells):
                         parts.append(" | ".join(cells))
+        notes = ""
+        try:
+            if slide.has_notes_slide:
+                frame = slide.notes_slide.notes_text_frame
+                notes = (frame.text or "").strip() if frame is not None else ""
+        except Exception as e:  # a broken notes part must not fail the read
+            logger.debug(f"no speaker notes for slide {i}: {e}")
+        if notes:
+            parts.append(f"[Speaker notes]\n{notes}")
         slides.append("\n".join(parts))
-    return "\n\n".join(slides) if slides else "Error: no text found in presentation"
+
+    return "\n\n".join(slides), _pptx_pictures(prs, with_blobs=with_blobs)
+
+
+def _extract_pptx_text(path: Path) -> str:
+    """Extract text from a PowerPoint .pptx, slide by slide, notes included."""
+    try:
+        text, pictures = _extract_pptx(path)
+    except ImportError:
+        return "Error: python-pptx is not installed. Run: pip install python-pptx"
+    note = _picture_note(pictures)
+    joined = "\n\n".join(part for part in (text, note) if part)
+    return joined or "Error: no text found in presentation"
 
 
 def _split_text_blocks(content: str) -> list:

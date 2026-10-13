@@ -354,9 +354,20 @@ def _read(pdf_files, key, **kw):
     return asyncio.run(rf.get_file_reader_graph().ainvoke(payload))
 
 
-def test_route_by_kind_sends_pdfs_to_their_own_branch():
+def test_route_by_kind_sends_each_family_to_its_own_branch():
+    """One tool, four branches: text, image, pdf, Word/PowerPoint."""
     assert rf.route_by_kind({"kind": "document", "ext": ".pdf"}) == "pdf"
-    assert rf.route_by_kind({"kind": "document", "ext": ".docx"}) == "text"
+    assert rf.route_by_kind({"kind": "document", "ext": ".docx"}) == "document"
+    assert rf.route_by_kind({"kind": "document", "ext": ".pptx"}) == "document"
+    assert rf.route_by_kind({"kind": "document", "ext": ".doc"}) == "document"
+    assert rf.route_by_kind({"kind": "document", "ext": ".xlsx"}) == "document"
+    assert rf.route_by_kind({"kind": "image", "ext": ".png"}) == "image"
+    assert rf.route_by_kind({"kind": "text", "ext": ".md"}) == "text"
+
+
+def test_legacy_office_formats_are_documents_so_they_can_be_advised():
+    for ext in (".doc", ".ppt", ".xls", ".xlsx", ".odt", ".odp", ".ods"):
+        assert rf.classify(f"old{ext}") == ("document", ext)
 
 
 def test_pdf_text_layer_is_read_page_by_page(pdf_files, fake_vision):
@@ -563,6 +574,206 @@ def test_chinese_scan_comes_back_as_chinese():
         assert "惠州华阳医疗器械" in state["result"].replace(" ", "")
     finally:
         png.unlink()
+
+
+# ── document branch (Word / PowerPoint) ──────────────────────────────────────
+@pytest.fixture(scope="module")
+def doc_files(probe_files):
+    """Word and PowerPoint probes, including ones whose content is a picture."""
+    docx = pytest.importorskip("docx")
+    pptx = pytest.importorskip("pptx")
+    from docx.shared import Inches
+    from pptx.util import Inches as PptxInches
+
+    shot = str(probe_files["png"])                 # carries "OCR PROBE 12345"
+    made: list[Path] = []
+
+    def _path(name: str) -> Path:
+        path = PROBE_DIR / name
+        made.append(path)
+        return path
+
+    document = docx.Document()
+    document.add_heading("Quarterly Report", 1)
+    document.add_paragraph("Revenue grew across both regions.")
+    document.add_paragraph("First bullet", style="List Bullet")
+    table = document.add_table(rows=2, cols=3)
+    for i, cell in enumerate(("Region", "Q1", "Q2")):
+        table.cell(0, i).text = cell
+    for i, cell in enumerate(("HK", "100", "140")):
+        table.cell(1, i).text = cell
+    document.add_paragraph("See the dashboard screenshot below.")
+    document.add_picture(shot, width=Inches(4))
+    report = _path("report.docx")
+    document.save(report)
+
+    only_picture = docx.Document()
+    only_picture.add_picture(shot, width=Inches(4))
+    shot_only = _path("shot-only.docx")
+    only_picture.save(shot_only)
+
+    many = docx.Document()
+    many.add_paragraph("Three pictures follow.")
+    for _ in range(3):
+        many.add_picture(shot, width=Inches(2))
+    many_pictures = _path("many.docx")
+    many.save(many_pictures)
+
+    empty = docx.Document()
+    empty.add_paragraph("")
+    empty_doc = _path("empty.docx")
+    empty.save(empty_doc)
+
+    presentation = pptx.Presentation()
+    first = presentation.slides.add_slide(presentation.slide_layouts[5])
+    first.shapes.title.text = "Q2 Review"
+    first.notes_slide.notes_text_frame.text = "Remember to mention the 40% growth."
+    second = presentation.slides.add_slide(presentation.slide_layouts[5])
+    second.shapes.title.text = "Dashboard"
+    second.shapes.add_picture(shot, PptxInches(1), PptxInches(1.5), width=PptxInches(6))
+    deck = _path("deck.pptx")
+    presentation.save(deck)
+
+    corrupt = _path("corrupt.docx")
+    corrupt.write_bytes(b"PK\x03\x04 not really a docx")
+    legacy = _path("legacy.doc")
+    legacy.write_bytes(b"\xd0\xcf\x11\xe0 legacy word")
+    sheet = _path("sheet.xlsx")
+    sheet.write_bytes(b"PK\x03\x04 a spreadsheet")
+
+    yield {"report": report, "shot_only": shot_only, "many": many_pictures,
+           "empty": empty_doc, "deck": deck, "corrupt": corrupt,
+           "legacy": legacy, "sheet": sheet}
+    for path in made:
+        if path.exists():
+            path.unlink()
+
+
+def _read_doc(doc_files, key, **kw):
+    payload = {"file_path": str(doc_files[key])}
+    payload.update(kw)
+    return asyncio.run(rf.get_file_reader_graph().ainvoke(payload))
+
+
+def test_docx_keeps_its_own_structure(doc_files, fake_vision):
+    """A .docx is ZIP+XML: headings, lists and tables come from its library."""
+    state = _read_doc(doc_files, "report", vision_enabled=False)
+
+    assert state["branch"] == "document"
+    assert "format: DOCX" in state["result"]
+    assert "# Quarterly Report" in state["result"]      # heading kept as a heading
+    assert "- First bullet" in state["result"]          # list kept as a list
+    assert "[Table]" in state["result"]
+    assert "Region | Q1 | Q2" in state["result"]
+    assert "HK | 100 | 140" in state["result"]
+    assert state["doc_pictures"] == 1
+
+
+def test_docx_picture_is_read_as_text(doc_files, fake_vision):
+    """The part a text extractor cannot do: the screenshot's own text."""
+    state = _read_doc(doc_files, "report", vision_enabled=False)
+
+    assert "OCR PROBE 12345" in state["result"]         # real tesseract output
+    assert "[Picture 1]" in state["result"]
+    assert "See the dashboard screenshot below." in state["result"]   # the anchor
+    assert "embedded picture" in state["result"]
+    assert state["doc_ocr_pictures"] == 1
+    assert not fake_vision
+
+
+def test_docx_picture_uses_vision_when_enabled(doc_files, fake_vision):
+    state = _read_doc(doc_files, "report")
+
+    assert "FAKE DESCRIPTION of the image." in state["result"]
+    assert len(fake_vision) == 1
+    assert "mode: vision+ocr" in state["result"]
+    assert state["doc_vision_pictures"] == 1
+    assert state["doc_vision_tokens"] == 42
+
+
+def test_document_that_is_only_a_picture_is_still_readable(doc_files, fake_vision):
+    """No text at all, one screenshot: the old extractor returned an error."""
+    state = _read_doc(doc_files, "shot_only", vision_enabled=False)
+
+    assert not state["result"].startswith("Error:")
+    assert "OCR PROBE 12345" in state["result"]
+    assert state["doc_pictures"] == 1
+
+
+def test_pptx_speaker_notes_are_read(doc_files, fake_vision):
+    state = _read_doc(doc_files, "deck", vision_enabled=False)
+
+    assert "format: PPTX" in state["result"]
+    assert "[Slide 1]" in state["result"]
+    assert "Q2 Review" in state["result"]
+    assert "Remember to mention the 40% growth." in state["result"]
+    assert "[Slide 2]" in state["result"]
+    assert "OCR PROBE 12345" in state["result"]          # the picture on slide 2
+    assert "slide 2" in state["result"]                  # anchored to its slide
+
+
+def test_document_picture_budget_caps_the_paid_calls(doc_files, fake_vision, monkeypatch):
+    monkeypatch.setattr(rf, "DOC_MAX_VISION_PICTURES", 1)
+    state = _read_doc(doc_files, "many")
+
+    assert state["doc_pictures"] == 3
+    assert len(fake_vision) == 1
+    assert state["doc_vision_pictures"] == 1
+    assert state["doc_ocr_pictures"] == 3                # OCR is free, so it runs on all
+    assert "vision skipped" in state["result"]
+    assert "vision is limited to the first 1 picture(s)" in state["result"]
+
+
+def test_document_picture_cap_is_named_not_silent(doc_files, fake_vision, monkeypatch):
+    monkeypatch.setattr(rf, "DOC_MAX_PICTURES", 1)
+    state = _read_doc(doc_files, "many", vision_enabled=False)
+
+    assert state["doc_pictures"] == 3
+    assert state["doc_ocr_pictures"] == 1
+    assert "not read: pictures are limited to 1 per document" in state["result"]
+    assert "note: only the first 1 of 3 picture(s) were read" in state["result"]
+
+
+def test_document_payload_never_carries_image_bytes(doc_files, fake_vision):
+    state = _read_doc(doc_files, "shot_only")
+
+    assert "base64" not in state["result"]
+    assert "iVBORw0KGgo" not in state["result"]
+    assert len(state["result"]) < 20_000
+
+
+def test_legacy_office_formats_get_conversion_advice(doc_files, fake_vision):
+    legacy = _read_doc(doc_files, "legacy")
+    assert legacy["result"].startswith("Error:")
+    assert "save it as .docx" in legacy["result"]
+
+    sheet = _read_doc(doc_files, "sheet")
+    assert sheet["result"].startswith("Error:")
+    assert "export the sheet to .csv" in sheet["result"]
+    assert not fake_vision
+
+
+def test_corrupt_docx_reports_an_error(doc_files, fake_vision):
+    state = _read_doc(doc_files, "corrupt")
+
+    assert state["result"].startswith("Error:")
+    assert "could not read" in state["result"]
+
+
+def test_empty_docx_reports_that_nothing_could_be_read(doc_files, fake_vision):
+    state = _read_doc(doc_files, "empty", vision_enabled=False)
+
+    assert state["result"].startswith("Error:")
+    assert "no readable content" in state["result"]
+
+
+def test_shared_extractor_tells_the_model_pictures_exist(doc_files):
+    """The other three call sites (read_file, the SDK path) use this too."""
+    from tools.native_impl import _extract_docx_text
+
+    text = _extract_docx_text(doc_files["shot_only"])
+    assert "1 embedded picture(s)" in text
+    assert "read_any_file" in text
 
 
 # ── live path (opt-in: LANGCONFIG_LIVE_TESTS=1) ──────────────────────────────

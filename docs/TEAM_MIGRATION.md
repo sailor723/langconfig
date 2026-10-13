@@ -42,7 +42,7 @@ state), against ~1 MB of actual team knowledge (56 agents + 68 tools + 29 models
 | Python | **3.13** (`requires-python >=3.13`) | backend |
 | uv | recent | dependency sync from `uv.lock` |
 | Node.js | 20+ (Vite 7) | frontend |
-| tesseract | optional | OCR for `read_any_file` (scanned PDF pages and images); without it the reader says so and falls back to the vision model. Install a language pack for non-English scans — `brew install tesseract-lang` adds `chi_sim` — and the reader picks up whatever is installed (`LANGCONFIG_OCR_LANGS` overrides it) |
+| tesseract | optional | OCR for `read_any_file` (scanned PDF pages, images, and pictures embedded in Word/PowerPoint); without it the reader says so and falls back to the vision model. Install a language pack for non-English scans — `brew install tesseract-lang` adds `chi_sim` — and the reader picks up whatever is installed (`LANGCONFIG_OCR_LANGS` overrides it) |
 | Ollama | optional | embeddings (`ollama-nomic-embed-text`) — document/RAG indexing is the only thing that needs it |
 | Redis | optional | only the LangGraph redis cache backend uses it; compose ships it anyway |
 
