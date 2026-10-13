@@ -18,7 +18,11 @@ What it does (every step is idempotent):
     7. custom_tools_dump.sql    -> tools (restore if empty)
        + custom_tools_merge.sql -> tools, ADDITIVE union on tool_id: inserts only
                                    the ids that are absent, never rewrites a row
-       + seed_builtin_tools / read_any_file -> refresh code-owned built-ins
+       + seed_builtin_tools / read_any_file -> built-ins, but only the MISSING ones:
+                                   seed_builtin_tools leaves every existing row alone
+                                   (its --refresh flag is the only way to overwrite,
+                                   and this script never passes it), while
+                                   seed_read_any_file_tool upserts its own row in place
     8. deep_agents_merge.sql    -> agents, ADDITIVE: inserts only names that are
                                    absent, never removes or rewrites an existing agent
     9. skills FS -> DB sync     -> upsert every SKILL.md under backend/skills/

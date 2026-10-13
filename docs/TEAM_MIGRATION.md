@@ -20,7 +20,7 @@ verifies against the database.
 | **code** | `git clone` / `git pull` | `learning/` (the phase-9 GraphIndex package the chat path imports), `backend/skills/**` and all seed assets are tracked |
 | **schema** | `alembic upgrade head` | the installer stamps head on a fresh database; an existing one needs a real upgrade |
 | **agents** | `seeds/deep_agents_merge.sql` | **additive**: inserts only names that are absent |
-| **tools** | `seeds/custom_tools_merge.sql` + `seed_builtin_tools.py` | **union** on `tool_id`; built-ins are refreshed in place |
+| **tools** | `seeds/custom_tools_merge.sql` + `seed_builtin_tools.py` | **union** on `tool_id`; existing rows are never rewritten, so a teammate's edit — even to a built-in — survives (the `read_any_file` exception is in §5) |
 | **models** | `seeds/models_seed.csv` + `upsert_model.py --preset deepseek-flash` | the CSV alone has no vision model |
 | **skills** | `backend/skills/**` → FS→DB sync | three roots: `builtin/`, `personal/`, top-level `<id>/`; the file IS the artefact |
 | **settings** | `seeds/settings_seed.json` → three-way merge | team values only; a key you changed locally is never overwritten |
@@ -134,10 +134,12 @@ runs them (it labels them `[n/10]`, with two half-steps — `4b` and `8.5`):
 6. `seed_models.py` + `upsert_model.py --preset deepseek-flash` — catalog
 7. `seed_search_providers.py` — 6 search backends
 8. tools — `custom_tools_dump.sql` **only into an empty table**; when the table
-   already has rows, `seed_builtin_tools.py` refreshes the built-ins instead.
-   Then the **additive** `custom_tools_merge.sql`, then
-   `scripts/seed_read_any_file_tool.py` (the reader tool sits outside `seeds/`
-   because it needs trusted code — filesystem, tesseract, the reader graph)
+   already has rows, `seed_builtin_tools.py` adds just the built-ins that are
+   missing and leaves every existing row alone. Then the **additive**
+   `custom_tools_merge.sql`, then `scripts/seed_read_any_file_tool.py` (the reader
+   tool sits outside `seeds/` because it needs trusted code — filesystem,
+   tesseract, the reader graph; it is also the one row the seed **upserts in
+   place**, so an edit to `read_any_file` specifically is reverted)
 9. agents — **additive** `deep_agents_merge.sql`
 10. identity backfill — resolves each agent's real workspace and bakes identity
 11. skills — FS → DB sync; chinook sample DB (best-effort)
@@ -332,6 +334,16 @@ Tool Library is where a user deletes the redundant one.
 
 ## 10. Footguns
 
+- **Exactly two things of a teammate's can be rewritten, and neither is their own
+  work.** `custom_tools_merge.sql` and `deep_agents_merge.sql` never touch an
+  existing row, and `seed_builtin_tools.py` only adds built-ins that are missing —
+  so an edit to a built-in survives. The exceptions:
+  - **`read_any_file`** — its own script (`scripts/seed_read_any_file_tool.py`)
+    upserts the row in place, so an edit to that one tool is reverted;
+  - **a skill that also ships in the repo** — the FS→DB sync overwrites an
+    existing row whenever the repo's `SKILL.md` is *newer* than the row's
+    `file_modified_at`, so a teammate's edit is kept only while their copy is the
+    newer one. A skill that exists **only** in their database is never touched.
 - **`--replace` is destructive** — truncates agents and tools; the CASCADE also
   removes those agents' chat sessions.
 - **A seed against a scratch database is not passively safe.** Step 10's identity
