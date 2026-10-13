@@ -152,10 +152,12 @@ class FormatAwareBackend(BackendProtocol):
             # Binary formats: render to a temp path, then write bytes directly.
             tmp = _path_for_extraction(file_path, b"")
             try:
+                # The temp path is an implementation detail of rendering to bytes;
+                # the document must be titled after the file the caller asked for.
                 if ext == ".pdf":
-                    _write_pdf_file(tmp, content)
+                    _write_pdf_file(tmp, content, title=filename)
                 else:
-                    _write_docx_file(tmp, content)
+                    _write_docx_file(tmp, content, title=filename)
                 payload = tmp.read_bytes()
             finally:
                 tmp.unlink(missing_ok=True)
