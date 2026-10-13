@@ -52,7 +52,6 @@ SEEDABLE_TOOL_META = {
     "ls": ("List Directory", "filesystem", None),
     "read_file": ("Read File", "filesystem", None),
     "read_image": ("Read Image (OCR)", "filesystem", None),
-    "write_file": ("Write File", "filesystem", None),
     "edit_file": ("Edit File", "filesystem", None),
     "glob": ("Glob", "filesystem", None),
     "grep": ("Grep", "filesystem", None),
