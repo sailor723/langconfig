@@ -8,7 +8,7 @@
  * first user message, so every conversation is readable without a naming step.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Archive } from 'lucide-react';
+import { Package } from 'lucide-react';
 
 interface ConversationTitleProps {
   /** Stored title, or null when the conversation has never been named. */
@@ -97,10 +97,12 @@ export default function ConversationTitle({
         title={isFavorite ? 'Remove from favourites' : 'Add to favourites'}
         aria-pressed={isFavorite}
       >
-        {/* A storage box rather than a star. The state affordance is carried by
-            colour + opacity alone: the icon is stroke-drawn, so filling it the way
-            the star was filled would read as a solid blob instead of a box. */}
-        <Archive
+        {/* A closed box, not Archive: Archive is a lid line sitting on a body, which
+            is the same silhouette as Trash — it reads as a rubbish bin. Package is
+            drawn in isometric, so no lid-over-body reading is possible. State is
+            colour + opacity alone; the icon is stroke-drawn, so filling it the way
+            the star was filled renders a solid blob rather than a box. */}
+        <Package
           className="w-4 h-4"
           style={{ color: isFavorite ? 'var(--color-primary)' : 'var(--color-text-muted)', opacity: isFavorite ? 1 : 0.5 }}
         />
