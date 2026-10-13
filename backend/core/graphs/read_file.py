@@ -15,11 +15,42 @@ Routing
     classify ─┬─ text/document ─→ read_text ─────────────────────────→ END
               ├─ image ─────────→ normalise ─┬─ ocr ──────┐
               │                              └─ describe ─┴→ merge ─→ END
-              └─ other ─────────→ unsupported ───────────────────────→ END
+              ├─ pdf ──────────→ pdf_probe ─┬─ (one Send per image-only page) ─┐
+              │                             └─ (nothing to render) ───────────┤
+              │                                                               ↓
+              │                                                          pdf_page ─→ pdf_compose ─→ END
+              └─ other ────────→ unsupported ───────────────────────────────────────→ END
 
 ``ocr`` and ``describe`` are two edges out of ``normalise``, so LangGraph runs
 them in the same superstep (wall time ≈ the slower one, not the sum). They
 write different state keys, so no reducer is needed; ``merge`` composes them.
+
+PDFs
+----
+A PDF is not one format but two: pages that carry a text layer, and pages that
+are just a scan. Reading only the text layer means a scanned contract returns
+`no extractable text found in PDF` — a whole, common file class the reader used
+to fail on. So ``pdf_probe`` walks the document (PyMuPDF, already a dependency)
+and sorts the pages: a page whose extracted text reaches ``PDF_MIN_PAGE_CHARS``
+is text and is kept as is; every other page is image-only and becomes a **map
+task** — ``route_pdf_pages`` returns one ``Send("pdf_page", {page: n, …})`` per
+such page, so ``pdf_page`` runs them in one superstep and reads each page the
+same way ``normalise``/``ocr``/``describe`` read a loose image. ``pdf_compose``
+is the reduce: it sorts the blocks by page number (map results arrive in
+completion order, not page order), reports what was read and what was skipped,
+and applies the character cap.
+
+Budgets keep a 300-page scan from becoming a 300-page API bill: ``PDF_MAX_PAGES``
+bounds the probe's walk, ``PDF_MAX_OCR_PAGES`` the number of pages rendered and
+OCR'd (local tesseract: free but serial), ``PDF_MAX_VISION_PAGES`` the paid
+vision calls, which go to the first image-only pages. The router decides vision
+per page *before* fanning out, so no shared counter is needed and the split is
+deterministic. Every omitted page is named in the payload, so a partial read is
+never silently partial.
+
+Output is page-structured rather than line-numbered: for a PDF the page is the
+unit a model can cite (and cannot edit), and six characters of line number per
+line is pure token overhead on a long document.
 
 The compiled graph is a utility graph: **no checkpointer** (it would accumulate
 image state per thread — the very failure this module removes) and an in-process
@@ -29,8 +60,10 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import logging
 import mimetypes
+import operator
 import os
 import shutil
 import subprocess
@@ -38,9 +71,10 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, TypedDict
+from typing import Annotated, Any, Dict, List, Literal, Optional, Tuple, TypedDict
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import Send
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +83,11 @@ VISION_MODEL = os.getenv("LANGCONFIG_VISION_MODEL", "deepseek-flash")
 OCR_MAX_CHARS = int(os.getenv("LANGCONFIG_OCR_MAX_CHARS", "4000"))
 DESCRIBE_MAX_TOKENS = int(os.getenv("LANGCONFIG_DESCRIBE_MAX_TOKENS", "400"))
 MAX_IMAGE_EDGE = int(os.getenv("LANGCONFIG_MAX_IMAGE_EDGE", "1600"))
+PDF_MIN_PAGE_CHARS = int(os.getenv("LANGCONFIG_PDF_MIN_PAGE_CHARS", "12"))
+PDF_RENDER_DPI = int(os.getenv("LANGCONFIG_PDF_RENDER_DPI", "150"))
+PDF_MAX_PAGES = int(os.getenv("LANGCONFIG_PDF_MAX_PAGES", "200"))
+PDF_MAX_OCR_PAGES = int(os.getenv("LANGCONFIG_PDF_MAX_OCR_PAGES", "20"))
+PDF_MAX_VISION_PAGES = int(os.getenv("LANGCONFIG_PDF_MAX_VISION_PAGES", "3"))
 TEXT_MAX_CHARS = 500_000          # matches the legacy read_file cap
 TEXT_MAX_READ_BYTES = 2 * 1024 * 1024
 DESCRIBE_CACHE_SIZE = 128
@@ -65,6 +104,9 @@ IMAGE_EXTS = NATIVE_IMAGE_EXTS | CONVERTIBLE_IMAGE_EXTS
 
 # Binary documents converted to text by _extract_* helpers in tools.native_impl.
 DOCUMENT_EXTS = frozenset({".pdf", ".docx", ".pptx"})
+
+# Documents that get the page-aware branch (text layer + rendered image pages).
+PDF_EXTS = frozenset({".pdf"})
 
 # Plain-text formats. Mirrors the extension lists the chat upload path and the
 # legacy read_file tool treat as text, so behaviour does not drift between them.
@@ -110,6 +152,25 @@ class FileReadState(TypedDict, total=False):
     describe_error: str
     describe_tokens: int
     describe_cached: bool
+    # ── pdf path internals ──
+    # ``pdf_probe`` fills the counts and the text blocks; the per-page map tasks
+    # (``Send`` → ``pdf_page``) append their own block through ``pdf_page_blocks``,
+    # whose reducer is ``operator.add`` because several run in one superstep.
+    pdf_pages: int
+    pdf_text_pages: int
+    pdf_image_pages: int
+    pdf_render_pages: List[int]
+    pdf_text_blocks: List[Dict[str, Any]]
+    pdf_skipped_blocks: List[Dict[str, Any]]
+    pdf_page_blocks: Annotated[List[Dict[str, Any]], operator.add]
+    pdf_ocr_pages: int
+    pdf_vision_pages: int
+    pdf_vision_tokens: int
+    pdf_vision_budget: int
+    # ── one ``pdf_page`` map task (never the whole graph state) ──
+    page: int
+    vision: bool
+    vision_reason: str
     # ── output ──
     result: str
     truncated: bool
@@ -121,6 +182,8 @@ class FileReadState(TypedDict, total=False):
     ocr_ms: int
     describe_ms: int
     merge_ms: int
+    pdf_ms: int
+    pdf_probe_ms: int
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -143,10 +206,12 @@ def classify(file_name_or_path: str) -> tuple[str, str]:
 
 
 def route_by_kind(state: FileReadState) -> str:
-    """Conditional-edge router: ``text`` | ``image`` | ``other``."""
+    """Conditional-edge router: ``text`` | ``pdf`` | ``image`` | ``other``."""
     if state.get("error"):
         return "other"
     kind = state.get("kind")
+    if kind == "document" and state.get("ext") in PDF_EXTS:
+        return "pdf"
     if kind in ("text", "document"):
         return "text"
     if kind == "image":
@@ -179,6 +244,85 @@ def _line_number(text: str) -> str:
     """
     lines = text.split("\n")
     return "\n".join(f"{i + 1:4d}| {line}" for i, line in enumerate(lines))
+
+
+def _fit_image_bytes(raw: bytes, ext: Optional[str] = None) -> Tuple[bytes, str, str, str]:
+    """Decode *raw*; downscale if too large; return ``(raw, mime, format, dims)``.
+
+    Shared by the image branch (which reads a path) and the PDF branch (which
+    renders a page), so the size cap and the re-encode rule exist once. Formats
+    the image API accepts are passed through untouched unless they need
+    shrinking; everything else is converted to PNG.
+    """
+    from PIL import Image
+
+    with Image.open(io.BytesIO(raw)) as img:
+        fmt = img.format or "PNG"
+        dims = f"{img.width}x{img.height}"
+        needs_resize = max(img.width, img.height) > MAX_IMAGE_EDGE
+        passthrough = fmt in ("PNG", "JPEG", "WEBP", "GIF") and (ext or "").lower() not in CONVERTIBLE_IMAGE_EXTS
+        if passthrough and not needs_resize:
+            mime = {"PNG": "image/png", "JPEG": "image/jpeg",
+                    "WEBP": "image/webp", "GIF": "image/gif"}.get(fmt, "image/png")
+            return raw, mime, fmt, dims
+
+        work = img
+        if needs_resize:
+            scale = MAX_IMAGE_EDGE / max(img.width, img.height)
+            work = img.resize((max(1, int(img.width * scale)), max(1, int(img.height * scale))))
+        if work.mode not in ("RGB", "L"):
+            work = work.convert("RGB")
+        buf = io.BytesIO()
+        work.save(buf, format="PNG", optimize=True)
+        out = buf.getvalue()
+
+    with Image.open(io.BytesIO(out)) as scaled:
+        return out, "image/png", "PNG", f"{scaled.width}x{scaled.height}"
+
+
+def _ocr_file(path: os.PathLike | str) -> Tuple[str, int, bool]:
+    """Run tesseract on *path*; return ``(text, chars_full_length, available)``.
+
+    ``chars_full_length`` is the untrimmed length, so a caller can say it only
+    showed the first N characters. Local, free, and deterministic — which is why
+    the PDF branch spends it on every image-only page it can.
+    """
+    if shutil.which("tesseract") is None:
+        return "", 0, False
+    try:
+        proc = subprocess.run(["tesseract", str(path), "stdout"],
+                              capture_output=True, text=True, timeout=60)
+        text = (proc.stdout or "").strip()
+    except Exception as e:
+        logger.warning(f"OCR failed for {path}: {e}")
+        text = ""
+    return text[:OCR_MAX_CHARS], len(text), True
+
+
+def _describe_cached(
+    image_b64: str, mime: str, question: Optional[str], model: Optional[str]
+) -> FileReadState:
+    """Cache-aware vision call. Returns the ``describe_*`` state keys."""
+    resolved_model = (model or "").strip() or VISION_MODEL
+    if not image_b64:
+        return {"describe_tokens": 0, "describe_cached": False,
+                "describe_error": "no image payload"}
+    cache_key = hashlib.sha256(
+        f"{resolved_model}|{question or ''}|{image_b64}".encode()
+    ).hexdigest()
+    hit = _DESCRIBE_CACHE.get(cache_key)
+    if hit is not None:
+        return {"description": hit[0], "describe_tokens": hit[1], "describe_cached": True}
+    try:
+        description, tokens = _describe_with_vision(image_b64, mime, question, resolved_model)
+    except Exception as e:
+        logger.warning(f"vision describe failed: {type(e).__name__}: {e}")
+        return {"describe_tokens": 0, "describe_cached": False,
+                "describe_error": f"{type(e).__name__}: {e}"}
+    if len(_DESCRIBE_CACHE) >= DESCRIBE_CACHE_SIZE:
+        _DESCRIBE_CACHE.clear()
+    _DESCRIBE_CACHE[cache_key] = (description, tokens)
+    return {"description": description, "describe_tokens": tokens, "describe_cached": False}
 
 
 def _describe_with_vision(
@@ -252,6 +396,8 @@ def read_text_node(state: FileReadState) -> FileReadState:
                 _extract_docx_text, _extract_pdf_text, _extract_pptx_text,
             )
 
+            # ``.pdf`` normally routes to the pdf branch; this stays as the
+            # fallback for a direct call to this node.
             ext = state.get("ext")
             if ext == ".pdf":
                 content = _extract_pdf_text(path)
@@ -285,6 +431,281 @@ def read_text_node(state: FileReadState) -> FileReadState:
         return {"result": msg, "error": msg, "read_ms": int((time.time() - started) * 1000)}
 
 
+# ── pdf branch ───────────────────────────────────────────────────────────────
+def _pdf_error(msg: str, started: float) -> FileReadState:
+    """Every PDF failure returns text, never an exception (the tool contract)."""
+    logger.warning(msg)
+    return {"result": msg, "error": msg, "branch": "pdf",
+            "pdf_ms": int((time.time() - started) * 1000)}
+
+
+def _ocr_bytes(raw: bytes, tag: str) -> Tuple[str, int, bool]:
+    """OCR an in-memory image: tesseract needs a path, so hand it a temp file."""
+    tmpdir = tempfile.mkdtemp(prefix="langconfig-pdf-")
+    try:
+        tmp = Path(tmpdir) / f"page-{tag}.png"
+        tmp.write_bytes(raw)
+        return _ocr_file(tmp)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def pdf_probe_node(state: FileReadState) -> FileReadState:
+    """Walk the PDF once: keep the text layer, name the pages that need rendering.
+
+    This is the map half's planner. It does not render anything — that is the
+    per-page task's job — so a 200-page scan costs one cheap text pass here and
+    nothing more until the router decides how many pages to read.
+    """
+    started = time.time()
+    path_str = state["file_path"]
+    name = state.get("name") or Path(path_str).name
+    path, err = _resolve_path(path_str)
+    if err:
+        return _pdf_error(err, started)
+    if not path.is_file():
+        return _pdf_error(f"Error: File not found: {path_str}", started)
+
+    try:
+        import fitz  # PyMuPDF
+    except ImportError:
+        # No PyMuPDF: fall back to the legacy text-only extractor rather than
+        # refusing the read outright. No page rendering is possible this way.
+        from tools.native_impl import _extract_pdf_text
+
+        text = _extract_pdf_text(path)
+        if text.startswith("Error:"):
+            return _pdf_error(text, started)
+        return {"branch": "pdf", "result": _line_number(text),
+                "pdf_pages": 0, "pdf_text_pages": 0, "pdf_image_pages": 0,
+                "pdf_render_pages": [], "pdf_text_blocks": [], "pdf_skipped_blocks": [],
+                "pdf_vision_budget": 0,
+                "pdf_probe_ms": int((time.time() - started) * 1000)}
+
+    try:
+        doc = fitz.open(path)
+    except Exception as e:
+        return _pdf_error(f"Error: could not open '{name}' as a PDF: "
+                          f"{type(e).__name__}: {e}", started)
+
+    try:
+        if doc.needs_pass:
+            return _pdf_error(f"Error: '{name}' is password-protected — it cannot be "
+                              f"read without the password", started)
+        total = doc.page_count
+        walk = min(total, PDF_MAX_PAGES)
+        text_blocks: List[Dict[str, Any]] = []
+        render_pages: List[int] = []
+        skipped: List[Dict[str, Any]] = []
+        for i in range(walk):
+            text = (doc.load_page(i).get_text() or "").strip()
+            if len(text) >= PDF_MIN_PAGE_CHARS:
+                text_blocks.append({"page": i + 1, "body": f"[Page {i + 1}]\n{text}"})
+            elif len(render_pages) < PDF_MAX_OCR_PAGES:
+                render_pages.append(i + 1)
+            else:
+                skipped.append({"page": i + 1, "body": (
+                    f"[Page {i + 1}] (image-only — not read: OCR is limited to "
+                    f"{PDF_MAX_OCR_PAGES} image-only pages per document)")})
+    except Exception as e:
+        return _pdf_error(f"Error: could not read '{name}': {type(e).__name__}: {e}", started)
+    finally:
+        doc.close()
+
+    vision_enabled = state.get("vision_enabled", True)
+    return {
+        "branch": "pdf",
+        "pdf_pages": total,
+        "pdf_text_pages": len(text_blocks),
+        "pdf_image_pages": len(render_pages) + len(skipped),
+        "pdf_render_pages": render_pages,
+        "pdf_text_blocks": text_blocks,
+        "pdf_skipped_blocks": skipped,
+        "pdf_vision_budget": PDF_MAX_VISION_PAGES if vision_enabled else 0,
+        "pdf_probe_ms": int((time.time() - started) * 1000),
+    }
+
+
+def route_pdf_pages(state: FileReadState):
+    """Map the image-only pages: one ``Send`` each, or straight to the reduce.
+
+    Vision is granted per page *here* rather than counted inside the tasks, so
+    the split is deterministic and the tasks stay pure.
+    """
+    if state.get("error") or state.get("result"):
+        return "pdf_compose"                      # the probe already answered
+    pages = state.get("pdf_render_pages") or []
+    if not pages:
+        return "pdf_compose"
+
+    budget = int(state.get("pdf_vision_budget") or 0)
+    sends = []
+    for index, page_no in enumerate(pages):
+        if index < budget:
+            wants_vision, reason = True, "requested"
+        elif budget:
+            wants_vision, reason = False, "budget"
+        else:
+            wants_vision, reason = False, "disabled"
+        sends.append(Send("pdf_page", {
+            "file_path": state["file_path"],
+            "name": state.get("name"),
+            "question": state.get("question"),
+            "vision_enabled": state.get("vision_enabled", True),
+            "vision_model": state.get("vision_model"),
+            "page": page_no,
+            "vision": wants_vision,
+            "vision_reason": reason,
+        }))
+    return sends
+
+
+def pdf_page_node(state: FileReadState) -> FileReadState:
+    """One image-only page: render → OCR → (if granted) vision.
+
+    Runs as a map task, so it receives its ``Send`` payload — not the graph's
+    whole state — and returns only its block for the reducer to append.
+    """
+    started = time.time()
+    page_no = int(state["page"])
+    vision = bool(state.get("vision"))
+    out: Dict[str, Any] = {"page": page_no, "ocr": False, "vision": False, "tokens": 0}
+    blocked = None
+
+    path, err = _resolve_path(state["file_path"])
+    if err or not path.is_file():
+        blocked = err or f"Error: File not found: {state['file_path']}"
+    else:
+        try:
+            import fitz
+
+            with fitz.open(path) as doc:
+                png = doc.load_page(page_no - 1).get_pixmap(dpi=PDF_RENDER_DPI).tobytes("png")
+            raw, mime, _, dims = _fit_image_bytes(png, ".png")
+        except Exception as e:
+            blocked = f"{type(e).__name__}: {e}"
+
+    if blocked:
+        out["body"] = f"[Page {page_no}] (image-only — could not be read: {blocked})"
+        out["ms"] = int((time.time() - started) * 1000)
+        return {"pdf_page_blocks": [out]}
+
+    lines = [f"[Page {page_no}] (image-only — rendered at {PDF_RENDER_DPI} dpi, {dims})"]
+
+    # vision first: it is the slow half, and the OCR section reads better under it
+    used_model = (state.get("vision_model") or "").strip() or VISION_MODEL
+    if vision:
+        described = _describe_cached(base64.b64encode(raw).decode(), mime,
+                                    state.get("question"), state.get("vision_model"))
+        tokens = int(described.get("describe_tokens") or 0)
+        out["tokens"] = tokens
+        if described.get("describe_error"):
+            lines.append(f"== Description (vision: {used_model}) ==\n"
+                         f"(vision description unavailable: {described['describe_error']})")
+        else:
+            note = " (cached)" if described.get("describe_cached") else ""
+            body = described.get("description") or "(no description returned)"
+            lines.append(f"== Description (vision: {used_model}) ==\n{body}{note}")
+            out["vision"] = True
+    elif state.get("vision_reason") == "disabled":
+        lines.append("== Description ==\n(vision not requested — OCR text only)")
+    else:
+        lines.append("== Description ==\n(vision skipped — the vision budget covers the "
+                     f"first {PDF_MAX_VISION_PAGES} image-only page(s))")
+
+    ocr_text, ocr_chars, ocr_available = _ocr_bytes(raw, page_no)
+    if not ocr_available:
+        lines.append("== Text in the image (OCR: tesseract) ==\n"
+                     "(no OCR available — tesseract binary not installed)")
+    elif ocr_text:
+        section = ocr_text
+        if ocr_chars > len(ocr_text):
+            section += (f"\n...(OCR truncated: showing {len(ocr_text)} "
+                        f"of {ocr_chars} chars)")
+        lines.append(f"== Text in the image (OCR: tesseract, eng) ==\n{section}")
+        out["ocr"] = True
+    else:
+        lines.append("== Text in the image (OCR: tesseract, eng) ==\n"
+                     "(no OCR text found in the page)")
+
+    out["body"] = "\n\n".join(lines)
+    out["ms"] = int((time.time() - started) * 1000)
+    return {"pdf_page_blocks": [out]}
+
+
+def pdf_compose_node(state: FileReadState) -> FileReadState:
+    """Reduce: page order, the header, the counts, and the character cap."""
+    started = time.time()
+    if state.get("error") or state.get("result"):
+        return {}                                  # the probe already answered
+
+    text_blocks = list(state.get("pdf_text_blocks") or [])
+    page_blocks = list(state.get("pdf_page_blocks") or [])
+    skipped = list(state.get("pdf_skipped_blocks") or [])
+    # Map tasks finish in completion order; a reader must see page order.
+    blocks = sorted(text_blocks + page_blocks + skipped, key=lambda b: b.get("page") or 0)
+
+    total = int(state.get("pdf_pages") or 0)
+    text_pages = int(state.get("pdf_text_pages") or 0)
+    image_pages = int(state.get("pdf_image_pages") or 0)
+    read_pages = len(page_blocks)
+    ocr_pages = sum(1 for b in page_blocks if b.get("ocr"))
+    vision_pages = sum(1 for b in page_blocks if b.get("vision"))
+    tokens = sum(int(b.get("tokens") or 0) for b in page_blocks)
+    budget = int(state.get("pdf_vision_budget") or 0)
+    vision_enabled = state.get("vision_enabled", True)
+    used_model = (state.get("vision_model") or "").strip() or VISION_MODEL
+
+    if text_pages == 0 and ocr_pages == 0 and vision_pages == 0:
+        # Nothing at all came back from the document: say so as an error rather
+        # than hand the model a payload of empty sections. (A blank page that
+        # vision *did* describe is content — "an empty scan" — so not this case.)
+        has_tesseract = shutil.which("tesseract") is not None
+        msg = (f"Error: no readable text in '{state.get('name')}' — {total} page(s), "
+               f"{image_pages} of them image-only with no OCR text"
+               + ("" if has_tesseract else " (tesseract is not installed)")
+               + ("" if vision_enabled else " (vision was not requested)"))
+        return {"result": msg, "error": msg, "branch": "pdf",
+                "pdf_ms": int((time.time() - started) * 1000)}
+
+    header = [
+        "== PDF ==",
+        f"name: {state.get('name')}  pages: {total}  "
+        f"text pages: {text_pages}  image-only pages: {image_pages}",
+        f"read: {text_pages} text + {read_pages} image-only "
+        f"(OCR {ocr_pages}, vision {vision_pages})",
+        f"mode: {'ocr-only' if not vision_enabled else f'vision+ocr ({used_model})'}  "
+        f"render: {PDF_RENDER_DPI} dpi",
+    ]
+    question = (state.get("question") or "").strip()
+    if question:
+        header.append(f"question: {question}")
+    if total > PDF_MAX_PAGES:
+        header.append(f"note: only the first {PDF_MAX_PAGES} of {total} pages were examined")
+    if image_pages > PDF_MAX_OCR_PAGES:
+        header.append(f"note: OCR is limited to {PDF_MAX_OCR_PAGES} image-only pages "
+                      f"per document")
+    if vision_enabled and image_pages > budget:
+        header.append(f"note: vision is limited to the first {budget or PDF_MAX_VISION_PAGES} "
+                      f"image-only page(s); the rest are OCR only")
+
+    body = "\n".join(header) + "\n\n" + "\n\n".join(b.get("body") or "" for b in blocks)
+    truncated = False
+    if len(body) > TEXT_MAX_CHARS:
+        body = body[:TEXT_MAX_CHARS] + (
+            f"\n\n[Truncated - content exceeds {TEXT_MAX_CHARS} characters]")
+        truncated = True
+
+    # The map tasks run in one superstep, so the branch's wall time is the
+    # probe plus the slowest page plus this reduce — not the sum of the pages.
+    page_ms = max((int(b.get("ms") or 0) for b in page_blocks), default=0)
+    return {"result": body, "branch": "pdf", "truncated": truncated,
+            "pdf_ocr_pages": ocr_pages, "pdf_vision_pages": vision_pages,
+            "pdf_vision_tokens": tokens,
+            "pdf_ms": int(state.get("pdf_probe_ms") or 0) + page_ms
+                      + int((time.time() - started) * 1000)}
+
+
 def normalise_image_node(state: FileReadState) -> FileReadState:
     """Decode → (convert BMP/TIFF → PNG) → cap the longest edge → re-encode."""
     started = time.time()
@@ -297,32 +718,7 @@ def normalise_image_node(state: FileReadState) -> FileReadState:
         return {"result": msg, "error": msg, "read_ms": int((time.time() - started) * 1000)}
 
     try:
-        from PIL import Image
-
-        with Image.open(path) as img:
-            fmt = img.format or "unknown"
-            dims = f"{img.width}x{img.height}"
-            native = state.get("ext") in NATIVE_IMAGE_EXTS
-            needs_resize = max(img.width, img.height) > MAX_IMAGE_EDGE
-            if native and not needs_resize:
-                raw = path.read_bytes()
-                mime = state.get("mime") or "image/png"
-            else:
-                work = img
-                if needs_resize:
-                    scale = MAX_IMAGE_EDGE / max(img.width, img.height)
-                    work = img.resize((max(1, int(img.width * scale)), max(1, int(img.height * scale))))
-                if work.mode not in ("RGB", "L"):
-                    work = work.convert("RGB")
-                import io
-
-                buf = io.BytesIO()
-                work.save(buf, format="PNG", optimize=True)
-                raw = buf.getvalue()
-                mime = "image/png"
-                fmt = "PNG"
-                with Image.open(io.BytesIO(raw)) as scaled:
-                    dims = f"{scaled.width}x{scaled.height}"
+        raw, mime, fmt, dims = _fit_image_bytes(path.read_bytes(), state.get("ext"))
     except Exception as e:
         msg = f"Error: '{path_str}' is not a readable image: {e}"
         logger.warning(msg)
@@ -345,60 +741,22 @@ def ocr_node(state: FileReadState) -> FileReadState:
     if state.get("image_tmp_path") is None and state.get("error"):
         return state
     tmp_path = state.get("image_tmp_path") or state["file_path"]
-    if shutil.which("tesseract") is None:
-        return {"ocr_text": "", "ocr_chars": 0, "ocr_available": False,
-                "ocr_ms": int((time.time() - started) * 1000)}
-    out: FileReadState = {"ocr_available": True}
-    try:
-        proc = subprocess.run(["tesseract", str(tmp_path), "stdout"],
-                              capture_output=True, text=True, timeout=60)
-        text = (proc.stdout or "").strip()
-    except Exception as e:
-        logger.warning(f"OCR failed for {tmp_path}: {e}")
-        text = ""
-    out["ocr_text"] = text[:OCR_MAX_CHARS]
-    out["ocr_chars"] = len(text)
-    out["ocr_ms"] = int((time.time() - started) * 1000)
-    return out
+    text, chars, available = _ocr_file(tmp_path)
+    return {"ocr_text": text, "ocr_chars": chars, "ocr_available": available,
+            "ocr_ms": int((time.time() - started) * 1000)}
 
 
 def describe_node(state: FileReadState) -> FileReadState:
     """Vision pass — the image rides a USER message (the only wire that works)."""
     started = time.time()
-    elapsed = lambda: int((time.time() - started) * 1000)  # noqa: E731
     if not state.get("vision_enabled", True):
         # Caller asked for OCR only — not a failure, so it is reported as such.
         return {"describe_tokens": 0, "describe_cached": False,
-                "vision_disabled": True, "describe_ms": elapsed()}
-
-    resolved_model = (state.get("vision_model") or "").strip() or VISION_MODEL
-    b64 = state.get("image_b64") or ""
-    if not b64:
-        return {"describe_tokens": 0, "describe_cached": False,
-                "describe_error": "no image payload", "describe_ms": elapsed()}
-
-    cache_key = hashlib.sha256(
-        f"{resolved_model}|{state.get('question') or ''}|{b64}".encode()
-    ).hexdigest()
-    hit = _DESCRIBE_CACHE.get(cache_key)
-    if hit is not None:
-        return {"description": hit[0], "describe_tokens": hit[1], "describe_cached": True,
-                "describe_ms": elapsed()}
-
-    try:
-        description, tokens = _describe_with_vision(
-            b64, state.get("mime") or "image/png", state.get("question"), resolved_model
-        )
-    except Exception as e:
-        logger.warning(f"vision describe failed: {type(e).__name__}: {e}")
-        return {"describe_tokens": 0, "describe_cached": False,
-                "describe_error": f"{type(e).__name__}: {e}", "describe_ms": elapsed()}
-
-    if len(_DESCRIBE_CACHE) >= DESCRIBE_CACHE_SIZE:
-        _DESCRIBE_CACHE.clear()
-    _DESCRIBE_CACHE[cache_key] = (description, tokens)
-    return {"description": description, "describe_tokens": tokens, "describe_cached": False,
-            "describe_ms": elapsed()}
+                "vision_disabled": True, "describe_ms": int((time.time() - started) * 1000)}
+    out = _describe_cached(state.get("image_b64") or "", state.get("mime") or "image/png",
+                           state.get("question"), state.get("vision_model"))
+    out["describe_ms"] = int((time.time() - started) * 1000)
+    return out
 
 
 def merge_node(state: FileReadState) -> FileReadState:
@@ -440,7 +798,9 @@ def merge_node(state: FileReadState) -> FileReadState:
 
     payload = (
         f"{header}\n\n"
-        f"== Description (vision: {VISION_MODEL}) ==\n{vision}\n\n"
+        # ``used_model``, not the module default: an agent that pinned its own
+        # vision model must not see two different model names in one payload.
+        f"== Description (vision: {used_model}) ==\n{vision}\n\n"
         f"== Text in the image (OCR: tesseract, eng) ==\n{ocr_section}"
     )
     return {"result": payload, "branch": "image",
@@ -461,6 +821,9 @@ def build_file_reader_graph():
     builder = StateGraph(FileReadState)
     builder.add_node("classify", classify_node)
     builder.add_node("read_text", read_text_node)
+    builder.add_node("pdf_probe", pdf_probe_node)
+    builder.add_node("pdf_page", pdf_page_node)
+    builder.add_node("pdf_compose", pdf_compose_node)
     builder.add_node("normalise", normalise_image_node)
     builder.add_node("ocr", ocr_node)
     builder.add_node("describe", describe_node)
@@ -470,9 +833,18 @@ def build_file_reader_graph():
     builder.add_edge(START, "classify")
     builder.add_conditional_edges("classify", route_by_kind, {
         "text": "read_text",
+        "pdf": "pdf_probe",
         "image": "normalise",
         "other": "unsupported",
     })
+    # PDF: the probe's router maps one task per image-only page (``Send``), and
+    # ``pdf_compose`` reduces once every task in the superstep has landed.
+    builder.add_conditional_edges("pdf_probe", route_pdf_pages, {
+        "pdf_page": "pdf_page",
+        "pdf_compose": "pdf_compose",
+    })
+    builder.add_edge("pdf_page", "pdf_compose")
+    builder.add_edge("pdf_compose", END)
     # Fan-out: both nodes run in one superstep; they write different keys.
     builder.add_edge("normalise", "ocr")
     builder.add_edge("normalise", "describe")
@@ -559,11 +931,21 @@ def _cli(argv: Optional[list] = None) -> int:
         print(json.dumps(state, indent=2, default=str))
     else:
         print(state.get("result") or "Error: reader produced no output")
+        if state.get("branch") == "pdf":
+            # A PDF's useful telemetry is per page, not per describe call.
+            detail = (f"pages={state.get('pdf_pages')} text={state.get('pdf_text_pages')} "
+                      f"image_only={state.get('pdf_image_pages')} "
+                      f"ocr={state.get('pdf_ocr_pages')} vision={state.get('pdf_vision_pages')} "
+                      f"vision_tokens={state.get('pdf_vision_tokens')} "
+                      f"probe={state.get('pdf_probe_ms')}ms")
+        else:
+            detail = (f"describe_tokens={state.get('describe_tokens')} "
+                      f"ocr_chars={state.get('ocr_chars')} ocr={state.get('ocr_ms')}ms "
+                      f"describe={state.get('describe_ms')}ms "
+                      f"cached={state.get('describe_cached')}")
         print(
-            f"\n[branch={state.get('branch')} kind={state.get('kind')} "
-            f"describe_tokens={state.get('describe_tokens')} ocr_chars={state.get('ocr_chars')} "
-            f"ocr={state.get('ocr_ms')}ms describe={state.get('describe_ms')}ms "
-            f"cached={state.get('describe_cached')}]",
+            f"\n[branch={state.get('branch')} kind={state.get('kind')} {detail} "
+            f"total={state.get('pdf_ms') or state.get('read_ms') or state.get('merge_ms')}ms]",
             file=sys.stderr,
         )
     return 0

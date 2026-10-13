@@ -208,6 +208,10 @@ curl -sS -X DELETE http://localhost:8765/api/settings/models/deepseek-flash   # 
 4. **Text-only fallback exists:** the builtin `read_image` tool
    (`backend/tools/native_impl.py:2040`) OCRs a workspace image with the system
    `tesseract` binary — useful when a workflow must stay on `deepseek-chat`.
+   The `read_any_file` reader (`backend/core/graphs/read_file.py`) extends that
+   fallback to PDFs: a page with no text layer is rendered at 150 dpi and OCR'd
+   (the first few image-only pages also get a vision description when vision is
+   on), so a scanned contract no longer reads as "no extractable text found".
 5. **Pricing keys:** the seed writes `input_price`/`output_price`, while
    `core/models/registry.py:421` reads `price_per_1m_input`/`price_per_1m_output`.
    The new `deepseek-flash` row writes both spellings; older rows do not, so

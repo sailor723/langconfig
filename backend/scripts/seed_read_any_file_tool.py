@@ -44,7 +44,10 @@ async def read_any_file(file_path: str, question: str = None, vision: bool = Tru
     """Read any file and return TEXT - never raw or base64 bytes.
 
     text/code/data   -> verbatim, line-numbered
-    .pdf/.docx/.pptx -> extracted text
+    .pdf             -> page by page: a page with a text layer comes back as
+                        text; a page that is just a scan is rendered and read
+                        with OCR (and described by the vision model)
+    .docx/.pptx      -> extracted text
     images           -> vision description + OCR text (vision=False: OCR text only)
     """
     _ensure_app_importable()
@@ -56,14 +59,16 @@ async def read_any_file(file_path: str, question: str = None, vision: bool = Tru
 
 DESCRIPTION = (
     "Read any file and return its TEXT. Text, code and data files come back verbatim "
-    "(line-numbered); .pdf/.docx/.pptx are converted to text; images "
+    "(line-numbered); .docx/.pptx are converted to text; images "
     "(.png/.jpg/.jpeg/.webp/.gif/.bmp/.tiff) come back as a short vision description plus "
     "OCR-extracted text. Use this for images instead of read_file - it never returns raw or "
-    "base64 image data, so it cannot overflow the context. Pass `question` to ask something "
-    "specific about an image, or `vision=False` for a deterministic OCR-only read (faster, "
-    "no model call) when you just need the characters in a screenshot or scan. "
-    "`vision_model` overrides which model performs that read (defaults to the platform's "
-    "configured vision model)."
+    "base64 image data, so it cannot overflow the context. PDFs are read page by page: a "
+    "page with a real text layer gives its text, and a page that is only a scan is rendered "
+    "and read with OCR, so scanned contracts and invoices work too. Pass `question` to ask "
+    "something specific about an image or a scanned page, or `vision=False` for a "
+    "deterministic OCR-only read (faster, no model call) when you just need the characters "
+    "in a screenshot or scan. `vision_model` overrides which model performs that read "
+    "(defaults to the platform's configured vision model)."
 )
 
 INPUT_SCHEMA = {
@@ -71,7 +76,7 @@ INPUT_SCHEMA = {
     "properties": {
         "file_path": {
             "type": "string",
-            "description": "Path to the file to read (text, document, or image).",
+            "description": "Path to the file to read (text, document, PDF, or image).",
         },
         "vision": {
             "type": "boolean",
@@ -113,7 +118,7 @@ DEFINITION = {
 ARGS_SCHEMA = {
     "file_path": {
         "type": "string",
-        "description": "Path to the file to read (text, document, or image).",
+        "description": "Path to the file to read (text, document, PDF, or image).",
     },
     "question": {
         "type": "string",
