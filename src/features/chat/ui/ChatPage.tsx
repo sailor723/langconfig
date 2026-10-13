@@ -151,9 +151,16 @@ export default function ChatPage() {
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header — everything informational sits on the left (agent, then the
             conversation title with its date/time/length), actions on the right.
-            The title truncates, so the metadata never gets pushed out. */}
-        <div className="flex items-center px-5 py-2 gap-3">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+            The title truncates, so the metadata never gets pushed out.
+
+            Taller than the row of text it holds, and spaced on purpose: DSH's
+            header is 12px of top padding over a 32px title row, and its clusters
+            breathe (10px inside the title cluster, 20px before the utilities). This
+            row is 52px with the agent/title gap owned by the cluster below rather
+            than split between a gap and an inline margin, so the two distances are
+            each set in exactly one place. */}
+        <div className="flex items-center px-5 py-3 gap-3 min-h-[52px]">
+          <div className="flex items-center gap-8 min-w-0 flex-1">
             <AgentSelector
               selectedAgentId={c.selectedAgentId}
               onSelectAgent={c.handleStartSession}
@@ -171,9 +178,11 @@ export default function ChatPage() {
               // while the stored one is only as fresh as the last list refresh.
               const liveCount = c.messages.length || session?.message_count || 0;
               return (
-                // Nudged off the agent selector rather than sitting flush
-                // against it — the single number below is the whole adjustment.
-                <div className="flex items-center gap-2 min-w-0" style={{ marginLeft: 20 }}>
+                // The distance off the agent selector is the cluster's `gap-8`
+                // above; this gap is the title-to-metadata one. They stay separate
+                // because the title and its date/length read as a single unit,
+                // while the agent stands on its own.
+                <div className="flex items-center gap-3 min-w-0">
                   <ConversationTitle
                     title={session?.title ?? null}
                     fallback={fallback}
