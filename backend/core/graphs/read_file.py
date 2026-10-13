@@ -12,16 +12,23 @@ turns any file into a small **text** payload instead.
 
 Routing
 -------
-    classify ─┬─ text/document ─→ read_text ─────────────────────────→ END
-              ├─ image ─────────→ normalise ─┬─ ocr ──────┐
-              │                              └─ describe ─┴→ merge ─→ END
-              ├─ pdf ──────────→ pdf_probe ─┬─ (one Send per image-only page) ─┐
-              │                             └─ (nothing to render) ───────────┤
-              │                                                               ↓
-              │                                                          pdf_page ─→ pdf_compose ─→ END
-              └─ other ────────→ unsupported ───────────────────────────────────────→ END
+Three branches, one per family of file, plus the path that refuses:
 
-``ocr`` and ``describe`` are two edges out of ``normalise``, so LangGraph runs
+    classify ─┬─ text/document ─→ read_text ─────────────────────────→ END
+              ├─ image ─────────→ read_image ─┬─ ocr ──────┐
+              │                               └─ describe ─┴→ merge ─→ END
+              ├─ pdf ──────────→ read_pdf ─┬─ (one Send per image-only page) ─┐
+              │                            └─ (nothing to render) ───────────┤
+              │                                                            ↓
+              │                                        pdf_page ─→ pdf_compose ─→ END
+              └─ other ────────→ unsupported ─────────────────────────────────→ END
+
+``read_text`` / ``read_image`` / ``read_pdf`` are the three branch entry points
+and the only nodes the router chooses between; everything else is a node inside
+one of those branches, because a format is not always one step: an image is
+normalised *and* OCR'd *and* described, a PDF is a per-page map plus a reduce.
+
+``ocr`` and ``describe`` are two edges out of ``read_image``, so LangGraph runs
 them in the same superstep (wall time ≈ the slower one, not the sum). They
 write different state keys, so no reducer is needed; ``merge`` composes them.
 
@@ -30,12 +37,12 @@ PDFs
 A PDF is not one format but two: pages that carry a text layer, and pages that
 are just a scan. Reading only the text layer means a scanned contract returns
 `no extractable text found in PDF` — a whole, common file class the reader used
-to fail on. So ``pdf_probe`` walks the document (PyMuPDF, already a dependency)
+to fail on. So ``read_pdf`` walks the document (PyMuPDF, already a dependency)
 and sorts the pages: a page whose extracted text reaches ``PDF_MIN_PAGE_CHARS``
 is text and is kept as is; every other page is image-only and becomes a **map
 task** — ``route_pdf_pages`` returns one ``Send("pdf_page", {page: n, …})`` per
 such page, so ``pdf_page`` runs them in one superstep and reads each page the
-same way ``normalise``/``ocr``/``describe`` read a loose image. ``pdf_compose``
+same way ``read_image``/``ocr``/``describe`` read a loose image. ``pdf_compose``
 is the reduce: it sorts the blocks by page number (map results arrive in
 completion order, not page order), reports what was read and what was skipped,
 and applies the character cap.
@@ -164,7 +171,7 @@ class FileReadState(TypedDict, total=False):
     describe_tokens: int
     describe_cached: bool
     # ── pdf path internals ──
-    # ``pdf_probe`` fills the counts and the text blocks; the per-page map tasks
+    # ``read_pdf`` fills the counts and the text blocks; the per-page map tasks
     # (``Send`` → ``pdf_page``) append their own block through ``pdf_page_blocks``,
     # whose reducer is ``operator.add`` because several run in one superstep.
     pdf_pages: int
@@ -189,12 +196,12 @@ class FileReadState(TypedDict, total=False):
     # per-node durations (distinct keys: the parallel nodes write in one superstep)
     classify_ms: int
     read_ms: int
-    normalise_ms: int
+    read_image_ms: int
     ocr_ms: int
     describe_ms: int
     merge_ms: int
     pdf_ms: int
-    pdf_probe_ms: int
+    read_pdf_ms: int
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -508,7 +515,7 @@ def _ocr_bytes(raw: bytes, tag: str) -> Tuple[str, int, bool]:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
-def pdf_probe_node(state: FileReadState) -> FileReadState:
+def read_pdf_node(state: FileReadState) -> FileReadState:
     """Walk the PDF once: keep the text layer, name the pages that need rendering.
 
     This is the map half's planner. It does not render anything — that is the
@@ -538,7 +545,7 @@ def pdf_probe_node(state: FileReadState) -> FileReadState:
                 "pdf_pages": 0, "pdf_text_pages": 0, "pdf_image_pages": 0,
                 "pdf_render_pages": [], "pdf_text_blocks": [], "pdf_skipped_blocks": [],
                 "pdf_vision_budget": 0,
-                "pdf_probe_ms": int((time.time() - started) * 1000)}
+                "read_pdf_ms": int((time.time() - started) * 1000)}
 
     try:
         doc = fitz.open(path)
@@ -580,7 +587,7 @@ def pdf_probe_node(state: FileReadState) -> FileReadState:
         "pdf_text_blocks": text_blocks,
         "pdf_skipped_blocks": skipped,
         "pdf_vision_budget": PDF_MAX_VISION_PAGES if vision_enabled else 0,
-        "pdf_probe_ms": int((time.time() - started) * 1000),
+        "read_pdf_ms": int((time.time() - started) * 1000),
     }
 
 
@@ -760,11 +767,11 @@ def pdf_compose_node(state: FileReadState) -> FileReadState:
     return {"result": body, "branch": "pdf", "truncated": truncated,
             "pdf_ocr_pages": ocr_pages, "pdf_vision_pages": vision_pages,
             "pdf_vision_tokens": tokens,
-            "pdf_ms": int(state.get("pdf_probe_ms") or 0) + page_ms
+            "pdf_ms": int(state.get("read_pdf_ms") or 0) + page_ms
                       + int((time.time() - started) * 1000)}
 
 
-def normalise_image_node(state: FileReadState) -> FileReadState:
+def read_image_node(state: FileReadState) -> FileReadState:
     """Decode → (convert BMP/TIFF → PNG) → cap the longest edge → re-encode."""
     started = time.time()
     path_str = state["file_path"]
@@ -780,10 +787,10 @@ def normalise_image_node(state: FileReadState) -> FileReadState:
     except Exception as e:
         msg = f"Error: '{path_str}' is not a readable image: {e}"
         logger.warning(msg)
-        return {"result": msg, "error": msg, "normalise_ms": int((time.time() - started) * 1000)}
+        return {"result": msg, "error": msg, "read_image_ms": int((time.time() - started) * 1000)}
 
     return {
-        "normalise_ms": int((time.time() - started) * 1000),
+        "read_image_ms": int((time.time() - started) * 1000),
         "image_b64": base64.b64encode(raw).decode(),
         "image_bytes": len(raw),
         "image_format": fmt,
@@ -879,10 +886,10 @@ def build_file_reader_graph():
     builder = StateGraph(FileReadState)
     builder.add_node("classify", classify_node)
     builder.add_node("read_text", read_text_node)
-    builder.add_node("pdf_probe", pdf_probe_node)
+    builder.add_node("read_pdf", read_pdf_node)
     builder.add_node("pdf_page", pdf_page_node)
     builder.add_node("pdf_compose", pdf_compose_node)
-    builder.add_node("normalise", normalise_image_node)
+    builder.add_node("read_image", read_image_node)
     builder.add_node("ocr", ocr_node)
     builder.add_node("describe", describe_node)
     builder.add_node("merge", merge_node)
@@ -891,21 +898,21 @@ def build_file_reader_graph():
     builder.add_edge(START, "classify")
     builder.add_conditional_edges("classify", route_by_kind, {
         "text": "read_text",
-        "pdf": "pdf_probe",
-        "image": "normalise",
+        "pdf": "read_pdf",
+        "image": "read_image",
         "other": "unsupported",
     })
     # PDF: the probe's router maps one task per image-only page (``Send``), and
     # ``pdf_compose`` reduces once every task in the superstep has landed.
-    builder.add_conditional_edges("pdf_probe", route_pdf_pages, {
+    builder.add_conditional_edges("read_pdf", route_pdf_pages, {
         "pdf_page": "pdf_page",
         "pdf_compose": "pdf_compose",
     })
     builder.add_edge("pdf_page", "pdf_compose")
     builder.add_edge("pdf_compose", END)
     # Fan-out: both nodes run in one superstep; they write different keys.
-    builder.add_edge("normalise", "ocr")
-    builder.add_edge("normalise", "describe")
+    builder.add_edge("read_image", "ocr")
+    builder.add_edge("read_image", "describe")
     builder.add_edge("ocr", "merge")
     builder.add_edge("describe", "merge")
     builder.add_edge("read_text", END)
@@ -995,7 +1002,7 @@ def _cli(argv: Optional[list] = None) -> int:
                       f"image_only={state.get('pdf_image_pages')} "
                       f"ocr={state.get('pdf_ocr_pages')} vision={state.get('pdf_vision_pages')} "
                       f"vision_tokens={state.get('pdf_vision_tokens')} "
-                      f"probe={state.get('pdf_probe_ms')}ms")
+                      f"probe={state.get('read_pdf_ms')}ms")
         else:
             detail = (f"describe_tokens={state.get('describe_tokens')} "
                       f"ocr_chars={state.get('ocr_chars')} ocr={state.get('ocr_ms')}ms "
