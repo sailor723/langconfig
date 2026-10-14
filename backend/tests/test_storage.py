@@ -476,3 +476,85 @@ def test_storage_mode_api_switches_and_persists(tmp_path, monkeypatch):
     # Invalid mode rejected.
     resp = client.put("/api/settings/storage-mode", json={"mode": "s3"})
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Two ways to add knowledge: copy it in, or link to where it already is
+# ---------------------------------------------------------------------------
+
+
+def test_link_records_a_path_without_copying(tmp_path, monkeypatch):
+    """POST /api/kv/link adds a document in place; POST /upload copies one in.
+
+    The linked file must survive deleting its record: the knowledge base does not own it, and
+    removing a record that destroyed the user's original file would be data loss.
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from api.knowledge import kv as kv_module
+
+    kb_root = tmp_path / "knowledge"
+    monkeypatch.setenv("KB_ROOT", str(kb_root))
+    monkeypatch.setenv("DOCUMENTS_KB_ROOT", str(kb_root))
+
+    outside = tmp_path / "shared" / "report.md"
+    outside.parent.mkdir(parents=True)
+    outside.write_bytes(b"linked content")
+
+    app = FastAPI()
+    app.include_router(kv_module.router)
+    client = TestClient(app)
+
+    resp = client.post("/api/kv/link", data={"project_id": "7", "path": str(outside)})
+    assert resp.status_code == 200, resp.text
+    doc_id = resp.json()["id"]
+
+    # Listed, marked as linked, pointing at the original path.
+    listing = client.get("/api/kv/documents", params={"project_id": 7}).json()
+    assert len(listing) == 1
+    assert listing[0]["linked"] is True
+    assert listing[0]["name"] == "report.md"
+    assert kv_module.KVStore(7).get_doc(doc_id).storage_path == str(outside)
+
+    # Nothing was copied into the knowledge base.
+    assert not (kb_root / "kb_7").exists() or not any((kb_root / "kb_7").iterdir())
+
+    # It serves from where it lives.
+    served = client.get(f"/api/kv/documents/{doc_id}/file", params={"project_id": 7})
+    assert served.status_code == 200
+    assert served.content == b"linked content"
+
+    # Deleting the record unlinks; the file is untouched.
+    assert client.delete(f"/api/kv/documents/{doc_id}",
+                         params={"project_id": 7}).status_code == 200
+    assert outside.exists() and outside.read_bytes() == b"linked content"
+    assert client.get("/api/kv/documents", params={"project_id": 7}).json() == []
+
+
+def test_link_refuses_paths_it_cannot_use(tmp_path, monkeypatch):
+    """A relative path, a missing file, a directory, and an inside-the-KB path are all refused."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from api.knowledge import kv as kv_module
+
+    kb_root = tmp_path / "knowledge"
+    monkeypatch.setenv("KB_ROOT", str(kb_root))
+    monkeypatch.setenv("DOCUMENTS_KB_ROOT", str(kb_root))
+
+    inside = kb_root / "kb_8" / "already-here.md"
+    inside.parent.mkdir(parents=True)
+    inside.write_bytes(b"x")
+
+    app = FastAPI()
+    app.include_router(kv_module.router)
+    client = TestClient(app)
+
+    def link(path):
+        return client.post("/api/kv/link", data={"project_id": "8", "path": path}).status_code
+
+    assert link("relative/file.md") == 400          # would mean different files per CWD
+    assert link(str(tmp_path / "nope.md")) == 404
+    assert link(str(tmp_path)) == 400               # a directory is not a document
+    assert link(str(inside)) == 400                 # already knowledge base content

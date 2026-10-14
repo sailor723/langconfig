@@ -22,6 +22,7 @@ import hashlib
 import json
 import logging
 import mimetypes
+import os
 import re
 import time
 import uuid
@@ -86,6 +87,10 @@ class DocRecord(BaseModel):
     created_at: float = Field(default_factory=time.time)  # epoch seconds
     # The knowledge base this document belongs to — the catalog's key, not a foreign key.
     kb: Optional[str] = None
+    # Added by LINK rather than by upload: `storage_path` names a file that lives wherever it
+    # already lived, nothing was copied into the knowledge store, and deleting the record must
+    # never delete that file.
+    linked: bool = False
     # Legacy, read-only: present in catalogs written before the layout change.
     project_id: Optional[int] = None
 
@@ -129,8 +134,15 @@ class KVStore:
                 self._data = {}
 
     def _save(self) -> None:
-        """Persist metadata to JSON file."""
+        """Persist metadata to JSON file, creating the knowledge root if it is not there yet.
+
+        Nothing creates this directory at import time, so a write to a knowledge base that has
+        never been written before is what brings `.kvmeta` into existence. Without this the write
+        raised FileNotFoundError, was swallowed by the handler below, and the record quietly
+        disappeared.
+        """
         try:
+            self._file.parent.mkdir(parents=True, exist_ok=True)
             self._file.write_text(
                 json.dumps(self._data, indent=2, ensure_ascii=False),
                 encoding="utf-8",
@@ -380,6 +392,7 @@ class KVDocumentResponse(BaseModel):
     sub_category: Optional[str] = None
     sub_department: Optional[str] = None
     created_at: float
+    linked: bool = False
 
 
 class KVUploadResponse(BaseModel):
@@ -418,9 +431,91 @@ async def list_documents(project_id: int):
             sub_category=d.sub_category,
             sub_department=d.sub_department,
             created_at=d.created_at,
+            linked=d.linked,
         )
         for d in docs
     ]
+
+
+@router.post("/link", response_model=KVUploadResponse)
+async def link_document(
+    project_id: int = Form(...),
+    path: str = Form(...),
+    metadata: Optional[str] = Form(None),
+):
+    """Add a document that stays where it is: record a path, copy nothing.
+
+    The other way to add knowledge is `POST /upload`, which copies the file into this knowledge
+    base so it travels with the folder. Linking is for documents that already live somewhere
+    useful — a shared drive, a project directory, a data volume — and that would be wasteful or
+    wrong to duplicate. The trade is that the knowledge base is no longer self-contained: if the
+    file moves or the mount goes away, the record dangles, which is exactly what
+    `doctor.sh` reports and `relocate_knowledge_paths.py` repairs.
+    """
+    if not path or not path.strip():
+        raise HTTPException(status_code=400, detail="A file path is required")
+
+    target = Path(os.path.expanduser(path.strip()))
+    if not target.is_absolute():
+        raise HTTPException(status_code=400,
+                            detail="Use an absolute path — a relative one would mean different "
+                                   "files depending on where the backend was started")
+    if not target.exists():
+        raise HTTPException(status_code=404, detail=f"No such file: {target}")
+    if not target.is_file():
+        raise HTTPException(status_code=400, detail=f"Not a file: {target}")
+
+    # Linking a file that is already inside this knowledge base would create a second record for
+    # one document; upload is the honest way to add something the knowledge base already holds.
+    store = KVStore(project_id)
+    docs_dir = documents_dir(str(project_id))
+    try:
+        target.resolve().relative_to(docs_dir.resolve())
+    except ValueError:
+        pass
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"That file is already inside this knowledge base ({docs_dir}). "
+                   "Use upload for files here, or link a path outside it.",
+        )
+
+    for existing in store.list_docs():
+        if not existing.linked and Path(existing.storage_path) == target:
+            raise HTTPException(status_code=409, detail="That path is already linked here")
+
+    doc_metadata: dict = {}
+    if metadata:
+        try:
+            doc_metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="metadata must be valid JSON")
+
+    try:
+        size = target.stat().st_size
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail=f"Cannot read {target}: {exc}")
+
+    doc_id = store.next_id()
+    store.put_doc(DocRecord(
+        id=doc_id,
+        kb=str(project_id),
+        filename=target.name,
+        original_filename=target.name,
+        size=size,
+        mime_type=mimetypes.guess_type(target.name)[0] or "application/octet-stream",
+        storage_path=str(target),
+        linked=True,
+        **_parse_hierarchy_from_metadata(doc_metadata),
+    ))
+
+    logger.info(f"Linked {target} into knowledge base {project_id} as {doc_id}")
+    return KVUploadResponse(
+        id=doc_id,
+        name=target.name,
+        size=size,
+        message="Linked. The file was not copied and will not be deleted with this record.",
+    )
 
 
 @router.post("/upload", response_model=KVUploadResponse)
@@ -686,6 +781,13 @@ async def delete_document(doc_id: str, project_id: int):
         _purge_kvmeta_for_key(store, resolved["key"])
         logger.info(f"Deleted document {doc_id} from storage ({resolved['key']})")
         return {"message": "Document deleted."}
+
+    if doc.linked:
+        # The file is not ours. It was linked in place, so removing the knowledge record must
+        # leave it exactly where it is — deleting it would destroy the user's own document.
+        store.delete_doc(doc_id)
+        logger.info(f"Unlinked document {doc_id}; file left in place: {doc.storage_path}")
+        return {"message": "Unlinked. The file itself was left where it is."}
 
     # Delete file from disk
     try:
