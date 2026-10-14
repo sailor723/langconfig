@@ -4,6 +4,7 @@
     .venv/bin/python scripts/adopt_orphan_projects.py                 # report only
     .venv/bin/python scripts/adopt_orphan_projects.py --apply
     .venv/bin/python scripts/adopt_orphan_projects.py --apply --names names.json
+    .venv/bin/python scripts/adopt_orphan_projects.py --undo
 
 Why this exists: the Knowledge panel lists projects from `GET /api/projects/`, so a
 `data/documents/project_<id>/` folder is only reachable if a matching row exists. Copy a legacy
@@ -26,7 +27,10 @@ Only numeric `project_<id>` folders that also have a `.kvmeta/project_<id>.json`
 That pairing is deliberate: it excludes `project_chat_sessions`, which is not a project but the
 chat attachment container (its documents live under a session id).
 
-Read-only unless `--apply` is given.
+`--apply` records the ids it actually created in `adopt-journal.json`, next to the documents it
+made reachable, and `--undo` deletes exactly those rows. Nothing deletes a folder, ever.
+
+Read-only unless `--apply` or `--undo` is given.
 """
 import argparse
 import glob
@@ -113,15 +117,75 @@ def find_uncatalogued() -> list[tuple[str, int]]:
     return found
 
 
-def adopt(pid: int, name: str) -> None:
+ADOPT_DESC = "Adopted from data/documents — rename me in the UI"
+JOURNAL_NAME = "adopt-journal.json"
+
+
+def journal_path() -> Path:
+    """Sibling of relocate-journal.json: both undo files live in the documents root."""
+    return Path(documents_root()) / JOURNAL_NAME
+
+
+def adopt(pid: int, name: str) -> bool:
+    """Insert the row, reporting whether this call created it (ON CONFLICT may decline)."""
     with engine.begin() as conn:
-        conn.execute(text("""
+        created = conn.execute(text("""
             INSERT INTO projects (id, name, description, status, configuration,
                                   indexing_status, created_at, updated_at)
             VALUES (:id, :name, :desc, 'active', '{}'::json, 'not_indexed', now(), now())
             ON CONFLICT (id) DO NOTHING
-        """), {"id": pid, "name": name,
-               "desc": "Adopted from data/documents — rename me in the UI"})
+            RETURNING id
+        """), {"id": pid, "name": name, "desc": ADOPT_DESC}).scalar()
+    return created is not None
+
+
+def undo() -> int:
+    """Delete exactly the rows a previous --apply created, and nothing else.
+
+    A row is removed only while it still carries the adopt marker, so a project the user has
+    since taken over (renamed, re-described) is left alone and reported instead. The documents
+    stay on disk untouched — this reverses the *reachability* change, not the migration.
+
+    The id sequence is deliberately not rolled back: shrinking it could hand a future project an
+    id that some copied folder still uses.
+    """
+    path = journal_path()
+    if not path.exists():
+        print(f"  no journal at {path} — nothing to undo")
+        print("  (the journal is written by --apply)")
+        return 1
+
+    created = json.loads(path.read_text()).get("created", [])
+    if not created:
+        print("  journal records no created rows — nothing to undo")
+        return 0
+
+    removed, kept = [], []
+    with engine.begin() as conn:
+        for pid in created:
+            row = conn.execute(
+                text("SELECT description FROM projects WHERE id = :i"), {"i": pid}
+            ).first()
+            if row is None:
+                continue                      # already gone; nothing to reverse
+            if row[0] != ADOPT_DESC:
+                kept.append(pid)              # taken over by a human — leave it
+                continue
+            conn.execute(text("DELETE FROM projects WHERE id = :i"), {"i": pid})
+            removed.append(pid)
+
+    print(f"  removed {len(removed)} adopted row(s): {removed or 'none'}")
+    if kept:
+        print(f"  kept {len(kept)} row(s) that are no longer the adopted placeholder: {kept}")
+
+    root = Path(documents_root())
+    still = [p for p in removed if (root / f"project_{p}").is_dir()]
+    if still:
+        print(f"\n  their folders are untouched and still on disk: {still}")
+        print("  without a projects row they are unreachable again — re-run --apply to undo this undo.")
+    path.rename(path.with_suffix(".json.undone"))
+    print(f"  journal closed: {path.name} -> {path.name}.undone")
+    return 0
 
 
 def fix_sequence() -> tuple[int, int]:
@@ -138,12 +202,18 @@ def fix_sequence() -> tuple[int, int]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--apply", action="store_true", help="insert the missing project rows")
+    ap.add_argument("--undo", action="store_true",
+                    help="delete the rows a previous --apply created (uses its journal)")
     ap.add_argument("--names", help='JSON file mapping id -> name, e.g. {"77": "My Project"}')
     ap.add_argument("--name-pattern", default="project {id}",
                     help="name for adopted projects when --names has no entry (default: %(default)r)")
     args = ap.parse_args()
 
+    if args.undo:
+        return undo()
+
     names = {}
+    created: list[int] = []
     if args.names:
         names = {int(k): v for k, v in json.load(open(args.names)).items()}
 
@@ -173,9 +243,13 @@ def main() -> int:
         return 0
 
     for pid, _, _ in orphans:
-        adopt(pid, names.get(pid) or args.name_pattern.format(id=pid))
+        if adopt(pid, names.get(pid) or args.name_pattern.format(id=pid)):
+            created.append(pid)
     before, after = fix_sequence()
-    print(f"\n  adopted {len(orphans)} project(s); projects_id_seq {before} -> {after}")
+    print(f"\n  adopted {len(created)} project(s); projects_id_seq {before} -> {after}")
+
+    journal_path().write_text(json.dumps({"created": created}, indent=2))
+    print(f"  journal: {journal_path()}  (revert with --undo)")
 
     with engine.connect() as conn:
         total = conn.execute(text("SELECT count(*) FROM projects")).scalar()
