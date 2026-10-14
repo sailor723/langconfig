@@ -160,24 +160,24 @@ def test_kv_endpoint_serves_from_disk_only(db_mode, tmp_path, monkeypatch):
 
     resp = client.post(
         "/api/kv/upload",
-        data={"project_id": "1"},
+        data={"knowledge": "kb_1"},
         files={"file": ("report.md", b"hello world", "text/markdown")},
     )
     assert resp.status_code == 200
     doc_id = resp.json()["id"]
     assert db_mode.list("documents/") == []           # no durable row was created
 
-    doc = kv_module.KVStore(1).get_doc(doc_id)
+    doc = kv_module.KVStore("kb_1").get_doc(doc_id)
     assert Path(doc.storage_path).read_bytes() == b"hello world"
 
-    resp = client.get(f"/api/kv/documents/{doc_id}/file", params={"project_id": 1})
+    resp = client.get(f"/api/kv/documents/{doc_id}/file", params={"knowledge": "kb_1"})
     assert resp.status_code == 200
     assert resp.content == b"hello world"
     assert "report.md" in resp.headers["content-disposition"]
 
-    resp = client.delete(f"/api/kv/documents/{doc_id}", params={"project_id": 1})
+    resp = client.delete(f"/api/kv/documents/{doc_id}", params={"knowledge": "kb_1"})
     assert resp.status_code == 200
-    assert kv_module.KVStore(1).get_doc(doc_id) is None
+    assert kv_module.KVStore("kb_1").get_doc(doc_id) is None
     assert not Path(doc.storage_path).exists()
 
 
@@ -294,11 +294,11 @@ def test_kv_listing_is_filesystem_only_in_db_mode(db_mode, tmp_path, monkeypatch
         ("\u62a5\u544a.pdf", b"%PDF-1.4 fake", "application/pdf"),
         ("\u6d4b\u8bd5.docx", b"PK fake", "application/octet-stream"),
     ):
-        resp = client.post("/api/kv/upload", data={"project_id": "1"},
+        resp = client.post("/api/kv/upload", data={"knowledge": "kb_1"},
                            files={"file": (name, body, mime)})
         assert resp.status_code == 200
 
-    resp = client.get("/api/kv/documents", params={"project_id": 1})
+    resp = client.get("/api/kv/documents", params={"knowledge": "kb_1"})
     assert resp.status_code == 200
     docs = {d["name"]: d for d in resp.json()}
     assert set(docs) == {"report.md", "\u62a5\u544a.pdf", "\u6d4b\u8bd5.docx"}
@@ -309,7 +309,7 @@ def test_kv_listing_is_filesystem_only_in_db_mode(db_mode, tmp_path, monkeypatch
     # PDF with non-ASCII name: proper content-type, inline disposition,
     # RFC 5987 encoded filename (no raw bytes in the header).
     pdf = docs["\u62a5\u544a.pdf"]
-    resp = client.get(f"/api/kv/documents/{pdf['id']}/file", params={"project_id": 1})
+    resp = client.get(f"/api/kv/documents/{pdf['id']}/file", params={"knowledge": "kb_1"})
     assert resp.status_code == 200
     assert resp.content == b"%PDF-1.4 fake"
     assert resp.headers["content-type"].startswith("application/pdf")
@@ -319,7 +319,7 @@ def test_kv_listing_is_filesystem_only_in_db_mode(db_mode, tmp_path, monkeypatch
 
     # docx with non-ASCII name: correct office MIME, forced to attachment.
     docx = docs["\u6d4b\u8bd5.docx"]
-    resp = client.get(f"/api/kv/documents/{docx['id']}/file", params={"project_id": 1})
+    resp = client.get(f"/api/kv/documents/{docx['id']}/file", params={"knowledge": "kb_1"})
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith(
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -328,8 +328,8 @@ def test_kv_listing_is_filesystem_only_in_db_mode(db_mode, tmp_path, monkeypatch
 
     # Deleting removes the disk file and the catalog entry, and leaves the orphan row alone.
     # (A fresh KVStore: the store caches its JSON file at construction.)
-    pdf_path = Path(kv_module.KVStore(1).get_doc(pdf["id"]).storage_path)
-    resp = client.delete(f"/api/kv/documents/{pdf['id']}", params={"project_id": 1})
+    pdf_path = Path(kv_module.KVStore("kb_1").get_doc(pdf["id"]).storage_path)
+    resp = client.delete(f"/api/kv/documents/{pdf['id']}", params={"knowledge": "kb_1"})
     assert resp.status_code == 200
     assert not pdf_path.exists()
     assert db_mode.exists("documents/project_1/orphan/no-file-anywhere.md") is True
@@ -361,14 +361,14 @@ def test_kv_file_serves_range_requests(tmp_path, monkeypatch):
     total = len(body)
     resp = client.post(
         "/api/kv/upload",
-        data={"project_id": "1"},
+        data={"knowledge": "kb_1"},
         files={"file": ("report.pdf", body, "application/pdf")},
     )
     assert resp.status_code == 200
     doc_id = resp.json()["id"]
 
     # Full response advertises range support.
-    r = client.get(f"/api/kv/documents/{doc_id}/file", params={"project_id": 1})
+    r = client.get(f"/api/kv/documents/{doc_id}/file", params={"knowledge": "kb_1"})
     assert r.status_code == 200
     assert r.headers["accept-ranges"] == "bytes"
     assert r.content == body
@@ -376,7 +376,7 @@ def test_kv_file_serves_range_requests(tmp_path, monkeypatch):
     # Safari-style probe range.
     r = client.get(
         f"/api/kv/documents/{doc_id}/file",
-        params={"project_id": 1},
+        params={"knowledge": "kb_1"},
         headers={"Range": "bytes=0-1"},
     )
     assert r.status_code == 206
@@ -386,7 +386,7 @@ def test_kv_file_serves_range_requests(tmp_path, monkeypatch):
     # Suffix range (last N bytes).
     r = client.get(
         f"/api/kv/documents/{doc_id}/file",
-        params={"project_id": 1},
+        params={"knowledge": "kb_1"},
         headers={"Range": "bytes=-8"},
     )
     assert r.status_code == 206
@@ -396,7 +396,7 @@ def test_kv_file_serves_range_requests(tmp_path, monkeypatch):
     # Un-satisfiable range -> 416 with an asterisk Content-Range.
     r = client.get(
         f"/api/kv/documents/{doc_id}/file",
-        params={"project_id": 1},
+        params={"knowledge": "kb_1"},
         headers={"Range": "bytes=999999-"},
     )
     assert r.status_code == 416
@@ -506,30 +506,30 @@ def test_link_records_a_path_without_copying(tmp_path, monkeypatch):
     app.include_router(kv_module.router)
     client = TestClient(app)
 
-    resp = client.post("/api/kv/link", data={"project_id": "7", "path": str(outside)})
+    resp = client.post("/api/kv/link", data={"knowledge": "kb_7", "path": str(outside)})
     assert resp.status_code == 200, resp.text
     doc_id = resp.json()["id"]
 
     # Listed, marked as linked, pointing at the original path.
-    listing = client.get("/api/kv/documents", params={"project_id": 7}).json()
+    listing = client.get("/api/kv/documents", params={"knowledge": "kb_7"}).json()
     assert len(listing) == 1
     assert listing[0]["linked"] is True
     assert listing[0]["name"] == "report.md"
-    assert kv_module.KVStore(7).get_doc(doc_id).storage_path == str(outside)
+    assert kv_module.KVStore("kb_7").get_doc(doc_id).storage_path == str(outside)
 
     # Nothing was copied into the knowledge base.
     assert not (kb_root / "kb_7").exists() or not any((kb_root / "kb_7").iterdir())
 
     # It serves from where it lives.
-    served = client.get(f"/api/kv/documents/{doc_id}/file", params={"project_id": 7})
+    served = client.get(f"/api/kv/documents/{doc_id}/file", params={"knowledge": "kb_7"})
     assert served.status_code == 200
     assert served.content == b"linked content"
 
     # Deleting the record unlinks; the file is untouched.
     assert client.delete(f"/api/kv/documents/{doc_id}",
-                         params={"project_id": 7}).status_code == 200
+                         params={"knowledge": "kb_7"}).status_code == 200
     assert outside.exists() and outside.read_bytes() == b"linked content"
-    assert client.get("/api/kv/documents", params={"project_id": 7}).json() == []
+    assert client.get("/api/kv/documents", params={"knowledge": "kb_7"}).json() == []
 
 
 def test_link_refuses_paths_it_cannot_use(tmp_path, monkeypatch):
@@ -552,7 +552,7 @@ def test_link_refuses_paths_it_cannot_use(tmp_path, monkeypatch):
     client = TestClient(app)
 
     def link(path):
-        return client.post("/api/kv/link", data={"project_id": "8", "path": path}).status_code
+        return client.post("/api/kv/link", data={"knowledge": "kb_8", "path": path}).status_code
 
     assert link("relative/file.md") == 400          # would mean different files per CWD
     assert link(str(tmp_path / "nope.md")) == 404
@@ -564,7 +564,8 @@ def test_bases_lists_knowledge_from_disk(tmp_path, monkeypatch):
     """GET /api/kv/bases answers from the filesystem, with no project to choose.
 
     This is what lets the Knowledge view stop gating on a project: the knowledge bases are a
-    property of the disk, and the endpoint works with the database unreachable.
+    property of the disk, and the endpoint works with the database unreachable. `key` is the
+    folder name — the value every other endpoint takes as `knowledge=`.
     """
     import json
 
@@ -578,7 +579,7 @@ def test_bases_lists_knowledge_from_disk(tmp_path, monkeypatch):
     (kb_root / "kb_42").mkdir()
     (kb_root / "kb_42" / "a.md").write_bytes(b"x")
     (kb_root / ".kvmeta" / "kb_42.json").write_text(json.dumps({
-        "abc12345": {"id": "abc12345", "kb": "42", "filename": "a.md",
+        "abc12345": {"id": "abc12345", "kb": "kb_42", "filename": "a.md",
                      "original_filename": "a.md", "size": 1, "mime_type": "text/markdown",
                      "storage_path": str(kb_root / "kb_42" / "a.md"), "created_at": 0.0},
     }))
@@ -590,9 +591,193 @@ def test_bases_lists_knowledge_from_disk(tmp_path, monkeypatch):
     body = TestClient(app).get("/api/kv/bases").json()
 
     assert body["root"] == str(kb_root)
-    assert [b["key"] for b in body["bases"]] == ["42"]
+    assert [b["key"] for b in body["bases"]] == ["kb_42"]
     base = body["bases"][0]
     assert base["document_count"] == 1
-    assert base["handle"] == 42          # the id the older endpoints still take
-    assert base["legacy"] is False
-    assert base["name"]                  # falls back to "knowledge 42" without a database
+    assert base["folder"] == str(kb_root / "kb_42")
+    # Nothing about a knowledge base is a project id any more: not its handle, not its
+    # membership in a project, not a legacy flag.
+    assert "handle" not in base and "legacy" not in base and "project_id" not in base
+    assert base["name"]                  # falls back to the folder name without a database
+
+
+def test_discovery_accepts_any_folder_name_with_a_catalog(tmp_path, monkeypatch):
+    """A folder under the knowledge root WITH a catalog beside it is a knowledge base.
+
+    This is the rule that makes the rename possible in either order: nothing recognises a
+    knowledge base by a `kb_` prefix any more, so renaming a folder and its catalog is the whole
+    migration, and every knowledge base stays visible at every point during it.
+    """
+    import json
+
+    from services.kb_discovery import discover
+
+    kb_root = tmp_path / "knowledge"
+    (kb_root / ".kvmeta").mkdir(parents=True)
+    for folder, catalog in (("langconfig-test", "langconfig-test"),
+                            ("kb_legacy", "kb_legacy"),
+                            ("Some Mixed Name", "Some Mixed Name")):
+        (kb_root / folder).mkdir()
+        (kb_root / folder / "a.md").write_bytes(b"x")
+        (kb_root / ".kvmeta" / f"{catalog}.json").write_text(json.dumps({"x": {"id": "x"}}))
+    # A folder with no catalog is NOT one: nothing could list it.
+    (kb_root / "kb_6").mkdir()
+    (kb_root / "kb_6" / "orphan.md").write_bytes(b"x")
+
+    monkeypatch.setenv("KB_ROOT", str(kb_root))
+    monkeypatch.setenv("DOCUMENTS_KB_ROOT", str(kb_root))
+
+    found = {kb.key for kb in discover()}
+    assert found == {"langconfig-test", "kb_legacy", "Some Mixed Name"}
+
+
+def test_the_legacy_root_is_not_read_at_all(tmp_path, monkeypatch):
+    """Knowledge has ONE home. A copy under `data/documents` is not a second knowledge base.
+
+    Discovery used to read both roots, current first, and shadow the legacy copy by identity. That
+    was not merely redundant: deleting a knowledge base from the current root removed its shadow
+    and RESURRECTED the older copy from the legacy root, which is exactly what happened when an
+    empty `project-9876` was cleaned up and `data/documents/project_9876` reappeared as a
+    knowledge base with no documents.
+
+    So this asserts the root is not consulted, not that it loses a precedence contest — a
+    difference that matters, because shadowing can be undone by deleting the winner and not
+    reading it cannot.
+    """
+    import json
+
+    from services.kb_discovery import discover, kb_roots
+
+    current, legacy = tmp_path / "knowledge", tmp_path / "documents"
+    for root in (current, legacy):
+        (root / ".kvmeta").mkdir(parents=True)
+
+    (current / "langconfig-test").mkdir()
+    (current / "langconfig-test" / "kb.json").write_text(
+        json.dumps({"name": "langconfig-test", "key": "1"}))
+    (current / ".kvmeta" / "langconfig-test.json").write_text(
+        json.dumps({"a": {"id": "a"}}))
+
+    # A perfectly well-formed knowledge base in the old location, which must stay invisible.
+    (legacy / "project_1").mkdir()
+    (legacy / "project_1" / "old.md").write_bytes(b"x")
+    (legacy / ".kvmeta" / "project_1.json").write_text(json.dumps({"b": {"id": "b"}}))
+
+    monkeypatch.setenv("KB_ROOT", str(current))
+    monkeypatch.setenv("DOCUMENTS_KB_ROOT", str(legacy))
+
+    assert [str(r) for r in kb_roots()] == [str(current)], "discovery still reads a second root"
+    assert [kb.key for kb in discover()] == ["langconfig-test"]
+
+    # And removing the current-root base does not bring the legacy one back, which is the whole
+    # point: there is nothing behind it to resurface.
+    (current / ".kvmeta" / "langconfig-test.json").unlink()
+    assert discover() == []
+
+
+def test_upload_names_the_knowledge_base_and_nothing_else(tmp_path, monkeypatch):
+    """Upload names the knowledge base by its folder name. There is no project id and no alias.
+
+    The folder name IS the handle: it is what `GET /api/kv/bases` reports as `key`, what is
+    written into the catalog, and what doc chat reads back through the same resolver. The old
+    `kb_`/`project_id` pair is gone, not deprecated — a caller passing an id has nothing to pass
+    it to.
+    """
+    import json
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from api.knowledge import kv as kv_module
+
+    kb_root = tmp_path / "knowledge"
+    monkeypatch.setenv("KB_ROOT", str(kb_root))
+    monkeypatch.setenv("DOCUMENTS_KB_ROOT", str(kb_root))
+
+    app = FastAPI()
+    app.include_router(kv_module.router)
+    client = TestClient(app)
+
+    # By folder name — the only spelling there is.
+    r = client.post("/api/kv/upload", data={"knowledge": "langconfig-test"},
+                    files={"file": ("a.md", b"one", "text/markdown")})
+    assert r.status_code == 200, r.text
+    assert any((kb_root / "langconfig-test").iterdir())
+    rec = next(iter(json.loads((kb_root / ".kvmeta" / "langconfig-test.json").read_text()).values()))
+    assert rec["kb"] == "langconfig-test"
+    assert "project_id" not in rec
+
+    # The catalog is named after the folder, so the pairing is visible in a listing.
+    assert not (kb_root / "kb_langconfig-test").exists()
+
+    # Nothing given: refused, rather than guessed.
+    r = client.post("/api/kv/upload", files={"file": ("c.md", b"three", "text/markdown")})
+    assert r.status_code == 422, "knowledge is required, so a bare upload cannot succeed"
+
+    # `kb` is gone too, not merely deprecated: it no longer names anything.
+    r = client.post("/api/kv/upload", data={"kb": "explicit"},
+                    files={"file": ("d.md", b"four", "text/markdown")})
+    assert r.status_code == 422
+    assert not (kb_root / "explicit").exists() and not (kb_root / "kb_explicit").exists()
+
+
+def test_upload_and_doc_chat_are_the_same_folder(tmp_path, monkeypatch):
+    """The two ends of the pipeline resolve to one directory, proven by content, not by path.
+
+    Upload wrote into `data/knowledge/<name>/`, doc chat read `data/documents/project_<id>/`, and
+    the two disagreed — so a document uploaded into a knowledge base was invisible to the chat
+    that was supposed to answer from it. It did not fail: the other copy was there and answered
+    instead, which is worse. This asserts the uploaded bytes are what doc chat reads, which is the
+    only version of the claim that cannot pass by coincidence.
+    """
+    import json
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from api.knowledge import doc_chat, kv as kv_module
+
+    kb_root = tmp_path / "knowledge"
+    monkeypatch.setenv("KB_ROOT", str(kb_root))
+    monkeypatch.setenv("DOCUMENTS_KB_ROOT", str(kb_root))
+
+    # A stale copy in the legacy root, under the old name. If doc chat ever reads this again,
+    # the marker assertion below fails rather than quietly answering from the wrong documents.
+    legacy = tmp_path / "documents" / "project_1"
+    legacy.mkdir(parents=True)
+    (legacy / "strategy.md").write_text("STALE-COPY-MARKER")
+
+    app = FastAPI()
+    app.include_router(kv_module.router)
+    app.include_router(doc_chat.router)
+    client = TestClient(app)
+
+    marker = "ZEBRAFISH-MARKER-9f3a2c"
+    r = client.post("/api/kv/upload",
+                    data={"knowledge": "langconfig-test",
+                          "metadata": json.dumps({"industry": "business_model"})},
+                    files={"file": ("strategy.md", f"# Strategy\n{marker}\n".encode(),
+                                    "text/markdown")})
+    assert r.status_code == 200, r.text
+
+    # Where it landed, and where the read end looks for it.
+    assert (kb_root / "langconfig-test" / "business_model").is_dir()
+    assert doc_chat.resolve_kb_folder("langconfig-test") == \
+        (kb_root / "langconfig-test").resolve()
+
+    # The read end sees the uploaded bytes — at the subfolder scope and at the root scope.
+    for scope in ("business_model", ""):
+        files = doc_chat._scan_folder_sync("langconfig-test", scope)
+        assert files, f"doc chat found nothing at scope {scope!r}"
+        assert any(marker in f["content"] for f in files), \
+            f"doc chat did not read the uploaded document at scope {scope!r}"
+        assert not any("STALE-COPY-MARKER" in f["content"] for f in files), \
+            "doc chat read the legacy copy instead"
+
+    # The scope selector the Doc Chat panel populates lists the folder uploads actually created.
+    folders = client.get("/api/doc-chat/folders", params={"knowledge": "langconfig-test"}).json()
+    assert folders["folders"] == ["business_model"]
+
+    # And a folder_path cannot climb out of the knowledge base.
+    assert doc_chat.resolve_kb_folder("langconfig-test", "../../..") is None
+

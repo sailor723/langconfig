@@ -10,8 +10,9 @@ Copying files into a database-shaped feature does not move the feature.
 
 This script asserts the contract that replaced it, through the real routes:
 
-  1. DISCOVERY  a copied folder is listed with NO operator action, because a project found on
-                disk is registered as the endpoint answers
+  1. DISCOVERY  a copied folder is listed with NO operator action — straight off the disk by
+                `GET /api/kv/bases`, and no longer only because a row was registered. The name is
+                the folder name; there is no project id in the request path at all
   2. REGISTRY   the storage settings document cannot repoint the knowledge base — it is set here
                 to a nonexistent path and to mode='db', and neither may matter
   3. THE TRAP   a row of only id and name still breaks the whole project list (500), which is why
@@ -140,35 +141,56 @@ client = TestClient(app, raise_server_exceptions=False)
 
 
 def project_ids() -> list[int] | None:
-    """The ids the Knowledge panel can offer, or None when the endpoint is broken."""
+    """The ids the project list can offer, or None when the endpoint is broken."""
     response = client.get("/api/projects/")
     if response.status_code != 200:
         return None
     return [p["id"] for p in response.json()]
 
 
-def documents_of(project_id: int):
-    response = client.get(f"/api/kv/documents?project_id={project_id}")
+def knowledge_bases() -> list[dict] | None:
+    """The knowledge bases the Knowledge panel lists — from disk, no database — or None."""
+    response = client.get("/api/kv/bases")
+    return response.json().get("bases") if response.status_code == 200 else None
+
+
+def documents_of(knowledge: str):
+    """A knowledge base's documents, named the way every endpoint names one: by folder."""
+    response = client.get("/api/kv/documents", params={"knowledge": knowledge})
     return response.json() if response.status_code == 200 else None
 
 
+# The copied folder is named `project_901` — the legacy layout, deliberately, because that is
+# what a folder copied off an older machine looks like. The knowledge base's name IS that folder
+# name, so this is also the handle every endpoint takes.
+ORPHAN_KB = f"project_{ORPHAN_ID}"
+
 # ── 1. the copied folder is discovered by listing ────────────────────────────
 print("\n2. DISCOVERY — a copied folder registers itself …")
+# Asked BEFORE /api/projects/, which is what registers the row: the point is that the listing
+# does not depend on the row existing. `/api/kv/bases` reads the disk and nothing else.
+bases = knowledge_bases()
+listed = [b["key"] for b in (bases or [])]
 ids_before = project_ids()
-orphan_docs = documents_of(ORPHAN_ID)
+orphan_docs = documents_of(ORPHAN_KB)
 reachable = ids_before is not None and ORPHAN_ID in ids_before
+# The stronger claim, and the one the panel actually uses: the knowledge base is listed straight
+# off the filesystem, so it is present and openable with no row and no database at all.
+listed_on_disk = ORPHAN_KB in listed
 doc_count = len(orphan_docs or [])
 first_doc = (orphan_docs or [{}])[0].get("id")
-file_status = (client.get(f"/api/kv/documents/{first_doc}/file?project_id={ORPHAN_ID}")
+file_status = (client.get(f"/api/kv/documents/{first_doc}/file",
+                          params={"knowledge": ORPHAN_KB})
                .status_code if first_doc else None)
 with engine.connect() as conn:
     registered_row = conn.execute(text("""
         SELECT name, status, indexing_status, configuration IS NOT NULL
         FROM projects WHERE id = :id
     """), {"id": ORPHAN_ID}).fetchone()
+print(f"   GET /api/kv/bases             -> {listed}")
 print(f"   GET /api/projects/            -> {ids_before}")
-print(f"   GET /api/kv/documents?p={ORPHAN_ID} -> {doc_count} document(s)")
-print(f"   GET .../file?project_id={ORPHAN_ID} -> HTTP {file_status}")
+print(f"   GET /api/kv/documents?knowledge={ORPHAN_KB} -> {doc_count} document(s)")
+print(f"   GET .../file?knowledge={ORPHAN_KB} -> HTTP {file_status}")
 
 # The root is a filesystem fact: the settings document pointed elsewhere and said mode='db', and
 # neither may matter. This is the check that the knowledge base has no registry dependency.
@@ -201,7 +223,7 @@ print(f"   projects_id_seq {seq_before} -> {seq_after}")
 print("\n5. VERIFY — reachable, openable, and no id collision …")
 ids_after = project_ids()
 reachable_after = ids_after is not None and ORPHAN_ID in ids_after
-docs_after = documents_of(ORPHAN_ID)
+docs_after = documents_of(ORPHAN_KB)
 
 created = client.post("/api/projects/", json={"name": "Created After Registration",
                                               "description": "sequence check"})
@@ -210,7 +232,8 @@ print(f"   GET /api/projects/ -> {ids_after}")
 print(f"   documents -> {len(docs_after or [])};  new project created -> id {new_id}")
 
 checks = [
-    ("a copied folder is listed without any operator action", reachable),
+    ("a copied folder is listed without any operator action",
+     reachable and listed_on_disk),
     ("its documents are listed from .kvmeta", doc_count == 2),
     ("and the file itself opens (HTTP 200)", file_status == 200),
     ("the settings document cannot repoint the knowledge base", secret_document_ignored),

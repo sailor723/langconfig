@@ -11,6 +11,7 @@ import { MessageSquare, FileText, Settings, X, Send, Trash2, Copy, Download, Rot
 import { chatStore, useChatMessages } from './chatStore';
 import apiClient from '../../lib/api-client';
 import DocChatPanel from '../../features/knowledge/ui/DocChatPanel';
+import { useKnowledgeScope } from '../../features/knowledge/knowledgeScope';
 import { useProject } from '../../contexts/ProjectContext';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
@@ -350,19 +351,21 @@ function ChatSidebar({ t }: { t: ReturnType<typeof useLayoutTokens> }) {
 // ── Doc Chat sidebar content ────────────────────────────
 
 function DocChatSidebar() {
-  const { tabs, activeTabId } = useLayoutState();
-  const { activeProjectId } = useProject();
-
-  // Derive folderPath and projectId from the active knowledge-view tab
-  const activeKbTab = tabs.find(
-    (tab) => tab.id === activeTabId && tab.viewType === 'knowledge-view',
-  );
-  const folderPath = activeKbTab?.data?.folderPath ?? '';
-  const projectId = activeKbTab?.data?.projectId ?? activeProjectId ?? 1;
+  // The scope is chosen here, in the panel's own dropdown, and published to shared state — so the
+  // Knowledge sidebar's browser, its document list and its uploads all follow the same selection.
+  // It used to be inferred from the active tab, which meant this panel had no knowledge base at
+  // all whenever it was opened from the sidebar, and could list no scopes.
+  const { options, scope, setScope, base, folder } = useKnowledgeScope();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <DocChatPanel folderPath={folderPath} projectId={projectId} />
+      <DocChatPanel
+        folderPath={folder}
+        knowledge={base}
+        scopeOptions={options}
+        scope={scope}
+        onScopeChange={setScope}
+      />
     </div>
   );
 }

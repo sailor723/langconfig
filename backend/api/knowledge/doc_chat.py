@@ -6,12 +6,16 @@ on disk, builds a system prompt with all file contents as inline context,
 and streams the LLM response directly.
 
 Flow:
-  1. User selects a folder in the KB tree (e.g. "industry/player/sub_category")
-  2. Frontend sends POST /api/doc-chat with {folder_path, messages, model}
-  3. Backend scans data/documents/project_{id}/{folder_path}
+  1. User selects a knowledge base and a folder in it (e.g. "industry/player/sub_category")
+  2. Frontend sends POST /api/doc-chat with {knowledge, folder_path, messages, model}
+  3. Backend scans that folder through `documents_dir(knowledge)` — the same resolver the upload
+     endpoints write through, so the two ends cannot address different copies
   4. Builds system prompt with all document text as context
   5. Streams LLM response with citations [Source: filename.ext]
   6. Conversation history stored in-memory by conversation_id
+
+A knowledge base is named by its folder name, exactly as it is on disk. There is no project id:
+knowledge is not scoped to a project, it is a folder with a catalog beside it.
 
 This replaces the previous graphindex_chat / Neo4j-based approach.
 """
@@ -32,7 +36,7 @@ from pydantic import BaseModel, Field
 
 from core.settings import runtime_get
 from services.agent_utils import resolve_model
-from services.file_storage import file_storage
+from services.kb_discovery import documents_dir
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +81,12 @@ class DocChatRequest(BaseModel):
         ..., description="Chat messages (last one is the current user query)"
     )
     folder_path: str = Field(
-        ..., description="Folder path relative to project doc root, e.g. 'electric_vehicle_industry/tesla/marketing'"
+        "", description="Folder inside the knowledge base, e.g. 'electric_vehicle_industry/tesla'"
     )
-    project_id: int = Field(1, description="Project ID scoping the document folder")
+    knowledge: str = Field(
+        ..., min_length=1,
+        description="Knowledge base folder name, as it appears under the knowledge root",
+    )
     model: Optional[str] = Field(
         None, description="Model name (e.g. 'deepseek-chat', 'gpt-4o'). Defaults to system default."
     )
@@ -129,20 +136,42 @@ def _extract_text(file_path: Path, max_chars: int = 100_000) -> Optional[str]:
     return None
 
 
-def _scan_folder_sync(folder_path: str, project_id: int, max_files: int = MAX_FILES) -> List[Dict[str, Any]]:
+def resolve_kb_folder(knowledge: str, folder_path: str = "") -> Optional[Path]:
+    """The directory a knowledge base — or a folder inside it — actually is.
+
+    Both ends of the pipeline resolve through here, which is the point: uploads are written under
+    `documents_dir(knowledge)` and doc chat reads under it, so "upload a document, then ask about
+    it" is one directory rather than two path expressions that have to be kept in agreement. They
+    previously were two, and disagreed.
+
+    Returns None when the result would leave the knowledge base: `folder_path` comes from the
+    client, and `..` in it must not read the rest of the disk.
+    """
+    root = documents_dir(knowledge).resolve()
+    target = (root / folder_path).resolve() if folder_path else root
+    try:
+        target.relative_to(root)
+    except ValueError:
+        logger.warning(f"Refusing folder_path outside the knowledge base: {folder_path!r}")
+        return None
+    return target
+
+
+def _scan_folder_sync(knowledge: str, folder_path: str = "",
+                      max_files: int = MAX_FILES) -> List[Dict[str, Any]]:
     """Scan a folder for supported files and return their text content.
 
     Args:
-        folder_path: Relative path under project's doc root.
-        project_id: Project ID to scope the lookup.
+        knowledge: Knowledge base folder name, resolved by `documents_dir()`.
+        folder_path: Folder inside it, e.g. "industry/player".
         max_files: Max files to scan (sorted by size desc, capped by MAX_CONTEXT_CHARS).
 
     Returns:
         List of {name, path, content, size} dicts.
     """
-    base = Path(file_storage.base_dir) / f"project_{project_id}" / folder_path
-    if not base.exists() or not base.is_dir():
-        logger.warning(f"Folder not found: {base}")
+    base = resolve_kb_folder(knowledge, folder_path)
+    if base is None or not base.is_dir():
+        logger.warning(f"Folder not found: {knowledge}/{folder_path}")
         return []
 
     files: List[Dict[str, Any]] = []
@@ -221,14 +250,15 @@ async def doc_chat(request: DocChatRequest):
         # Scan folder for documents
         md_files = await asyncio.to_thread(
             _scan_folder_sync,
+            request.knowledge,
             request.folder_path,
-            request.project_id,
             MAX_FILES,
         )
 
         if not md_files:
             no_files_msg = (
-                f"No supported documents found in '{request.folder_path}'.\n\n"
+                f"No supported documents found in '{request.knowledge}"
+                f"{'/' + request.folder_path if request.folder_path else ''}'.\n\n"
                 f"Please upload documents to that folder first via the Knowledge panel."
             )
             return StreamingResponse(
@@ -355,17 +385,18 @@ async def doc_chat(request: DocChatRequest):
 # ── Folder listing endpoint ─────────────────────────────────────────────
 
 @router.get("/folders")
-async def list_doc_chat_folders(project_id: int = 1):
-    """List all folder paths under a project's document directory that
-    contain supported files. Used by the frontend scope selector to
-    populate the dropdown with available chat scopes.
+async def list_doc_chat_folders(knowledge: str):
+    """List every folder inside a knowledge base that holds supported files.
 
-    Scans the actual filesystem so it works even when documents have no
-    hierarchy metadata in the KV store.
+    Used by the frontend scope selector. `knowledge` is the knowledge base's folder name, the same
+    handle the upload endpoints take, and the scan goes through `documents_dir()` — so this lists
+    the folders documents were actually uploaded into, not a parallel copy of them.
+
+    Scans the filesystem so it works even when documents have no hierarchy metadata in the catalog.
     """
-    base = Path(file_storage.base_dir) / f"project_{project_id}"
-    if not base.exists() or not base.is_dir():
-        return {"folders": [], "total": 0}
+    base = resolve_kb_folder(knowledge)
+    if base is None or not base.is_dir():
+        return {"folders": [], "total": 0, "knowledge": knowledge}
 
     folders: set[str] = set()
     SUPPORTED = TEXT_EXTENSIONS | PDF_EXTENSIONS
@@ -378,12 +409,13 @@ async def list_doc_chat_folders(project_id: int = 1):
             continue
         rel = fp.relative_to(base)
         parent = str(rel.parent)
-        # Skip the root (files directly in project_{id}/)
+        # Skip the root: files sitting directly in the knowledge base are the "" scope, which the
+        # caller already has and does not need listed.
         if parent != ".":
             folders.add(parent)
 
     sorted_folders = sorted(folders)
-    return {"folders": sorted_folders, "total": len(sorted_folders)}
+    return {"folders": sorted_folders, "total": len(sorted_folders), "knowledge": knowledge}
 
 
 # ── Source-code endpoint ────────────────────────────────────────────────
