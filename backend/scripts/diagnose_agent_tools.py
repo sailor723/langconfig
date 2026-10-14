@@ -16,8 +16,15 @@ custom_tools), resolved by name through core/tools/registry.py. Read-only.
 """
 import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.getcwd())  # run from <tree>/backend, as a file or via stdin
+# Run from anywhere: take backend/ from this file's own location and work from there. The
+# app resolves settings paths against the process CWD ("./data/documents"), so the CWD must be
+# backend/ no matter where the script was invoked from — running it from the repo root used to
+# fail with "can't open file .../scripts/<name>.py".
+BACKEND = Path(__file__).resolve().parents[1]
+os.chdir(BACKEND)
+sys.path.insert(0, str(BACKEND))
 
 from sqlalchemy import text  # noqa: E402
 
