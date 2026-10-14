@@ -404,6 +404,44 @@ class KVUploadResponse(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────────
 
+@router.get("/tree")
+async def knowledge_tree(depth: int = 4):
+    """Every folder and file under the knowledge root, exactly as it is on disk.
+
+    Not documents-of-a-project, and not only what a catalog happens to list: this is the
+    filesystem. A folder copied under the knowledge root shows up here before anything has
+    registered it, which is the point — knowledge is the files, and the panel shows them.
+    """
+    from services.kb_discovery import kb_root
+
+    root = Path(kb_root()).resolve()
+
+    def walk(directory: Path, level: int) -> list:
+        if level > depth:
+            return []
+        try:
+            entries = sorted(directory.iterdir(), key=lambda e: (e.is_file(), e.name.lower()))
+        except OSError:
+            return []
+        out = []
+        for entry in entries:
+            if entry.name == ".DS_Store" or entry.name == ".kvmeta":
+                continue
+            try:
+                rel = str(entry.relative_to(root))
+                if entry.is_dir():
+                    out.append({"name": entry.name, "path": rel, "type": "dir",
+                                "children": walk(entry, level + 1)})
+                else:
+                    out.append({"name": entry.name, "path": rel, "type": "file",
+                                "size": entry.stat().st_size})
+            except OSError:
+                continue
+        return out
+
+    return {"root": str(root), "entries": walk(root, 1)}
+
+
 @router.get("/bases")
 async def list_knowledge_bases():
     """The knowledge bases this install holds, read from the filesystem.

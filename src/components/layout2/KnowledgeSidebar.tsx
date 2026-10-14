@@ -30,6 +30,49 @@ interface Document {
   created_at: number;
 }
 
+function formatSize(bytes?: number): string {
+  if (bytes === undefined) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} K`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} M`;
+}
+
+/** Folders and files exactly as they are under the knowledge root. No project anywhere. */
+function renderTree(entries: TreeEntry[], depth: number, t: any) {
+  return entries.map((e) => (
+    <div key={e.path}>
+      <div
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '4px 10px', paddingLeft: 10 + depth * 12,
+          fontSize: 12,
+          color: e.type === 'dir' ? t.textPrimary : t.textMuted,
+        }}
+        title={e.path}
+      >
+        {e.type === 'dir'
+          ? <Folder size={13} style={{ color: t.accent, flexShrink: 0 }} />
+          : <FileText size={13} style={{ flexShrink: 0 }} />}
+        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {e.name}
+        </span>
+        {e.type === 'file' && (
+          <span style={{ fontSize: 10, color: t.textMuted, flexShrink: 0 }}>{formatSize(e.size)}</span>
+        )}
+      </div>
+      {e.type === 'dir' && e.children && e.children.length > 0 && renderTree(e.children, depth + 1, t)}
+    </div>
+  ));
+}
+
+interface TreeEntry {
+  name: string;
+  path: string;
+  type: 'dir' | 'file';
+  size?: number;
+  children?: TreeEntry[];
+}
+
 interface KnowledgeBase {
   key: string;
   name: string;
@@ -156,6 +199,8 @@ export default function KnowledgeSidebar() {
   // the panel shows: knowledge is not scoped to a project, so the list is the knowledge folders
   // themselves, not the active project's documents.
   const [bases, setBases] = useState<KnowledgeBase[]>([]);
+  const [tree, setTree] = useState<TreeEntry[]>([]);
+  const [treeRoot, setTreeRoot] = useState<string>('');
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -164,6 +209,14 @@ export default function KnowledgeSidebar() {
       .then((r) => (r.ok ? r.json() : { bases: [] }))
       .then((d) => { if (alive) setBases(Array.isArray(d?.bases) ? d.bases : []); })
       .catch(() => { if (alive) setBases([]); });
+    fetch('/api/kv/tree')
+      .then((r) => (r.ok ? r.json() : { entries: [] }))
+      .then((d) => {
+        if (!alive) return;
+        setTree(Array.isArray(d?.entries) ? d.entries : []);
+        setTreeRoot(typeof d?.root === 'string' ? d.root : '');
+      })
+      .catch(() => { if (alive) setTree([]); });
     return () => { alive = false; };
   }, []);
 
@@ -410,37 +463,18 @@ export default function KnowledgeSidebar() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* The knowledge bases: one row per folder under the knowledge root. */}
-      <div style={{ flexShrink: 0, borderBottom: `1px solid ${t.border}`, maxHeight: '45%', overflowY: 'auto' }}>
-        {bases.length === 0 && (
-          <div style={{ padding: '8px 10px', fontSize: 11, color: t.textMuted }}>
-            No knowledge folders found
+      {/* Every folder and file under the knowledge root, as it is on disk. */}
+      <div style={{ flexShrink: 0, maxHeight: '50%', overflowY: 'auto', borderBottom: `1px solid ${t.border}` }}>
+        <div style={{ padding: '5px 10px', fontSize: 10, color: t.textMuted, wordBreak: 'break-all' }}
+             title={treeRoot}>
+          {treeRoot || 'knowledge root'}
+        </div>
+        {tree.length === 0 && (
+          <div style={{ padding: '4px 10px 8px', fontSize: 11, color: t.textMuted }}>
+            nothing here yet — copy a folder in
           </div>
         )}
-        {bases.map((b) => {
-          const isActive = selectedBase?.key === b.key;
-          return (
-            <button
-              key={b.key}
-              onClick={() => setSelectedKey(b.key)}
-              title={`${b.root}/kb_${b.key}${b.legacy ? '  (legacy location)' : ''}`}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-                padding: '6px 10px', border: 'none', textAlign: 'left', cursor: 'pointer',
-                background: isActive ? t.bgHover : 'transparent',
-                color: t.textPrimary, fontSize: 12, userSelect: 'none',
-              }}
-              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = t.bgHover; }}
-              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-            >
-              <Folder size={13} style={{ color: isActive ? t.accent : t.textMuted, flexShrink: 0 }} />
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isActive ? 600 : 400 }}>
-                {b.name}
-              </span>
-              <span style={{ fontSize: 10, color: t.textMuted, flexShrink: 0 }}>{b.document_count}</span>
-            </button>
-          );
-        })}
+        {renderTree(tree, 0, t)}
       </div>
 
       {/* ── Toolbar ──────────────────────────────────── */}
