@@ -20,20 +20,30 @@ gone unless the original key is restored. What can be done is to name the affect
 request, blank them so encrypting fresh values becomes possible again.
 
     --clear blanks only the undecryptable secret fields. Nothing else in the document is touched,
-    and every field it changes is listed first.
+    and every field it changes is listed first. The stored values are lost.
+
+    --rekey-from OLD_KEY is the better remedy when the old key is still known: every stored secret
+    is decrypted with OLD_KEY and re-encrypted under the key in force now, so nothing is lost. A
+    field OLD_KEY cannot read is left untouched rather than blanked, so guessing costs nothing.
+
+A machine that copied `env_example` without editing API_KEY_ENCRYPTION_KEY has a known OLD_KEY —
+the placeholder sentinel this script recognises, and which the app currently accepts as a real
+key. That combination is the usual reason a seed run that succeeded for hours starts failing:
+
+    .venv/bin/python scripts/audit_settings_secrets.py --rekey-from \
+        PASTE-THE-64-HEX-OUTPUT-OF-OPENSSL-RAND-HEX-32
 
 Recovery recipe for a machine whose seed run aborted at step 4b:
 
     cd <tree>/backend
-    .venv/bin/python scripts/audit_settings_secrets.py            # names the fields
-    .venv/bin/python scripts/audit_settings_secrets.py --clear    # blanks them
+    .venv/bin/python scripts/audit_settings_secrets.py            # names the fields + the key state
+    .venv/bin/python scripts/audit_settings_secrets.py --rekey-from <the key that wrote them>
     .venv/bin/python scripts/seeds/seed_all.py                    # step 4b now completes
 
-Then re-enter the API keys in Settings → API Keys. Blanking is not a repair — the old value is
-unrecoverable — it unblocks the rows that were holding the whole namespace hostage. The only real
-repair is restoring the `API_KEY_ENCRYPTION_KEY` that wrote those rows, if it is still known.
+Fall back to --clear only when the writing key is genuinely gone, then re-enter the API keys in
+Settings → API Keys. The only true repair is restoring the key that wrote those rows.
 
-Read-only unless --clear is given.
+Read-only unless --clear or --rekey-from is given.
 """
 import argparse
 import os
@@ -87,6 +97,14 @@ def get_at(document, dotted):
             return None
         node = node.get(part)
     return node
+
+
+def set_at(document, dotted, value) -> None:
+    node = document
+    parts = dotted.split(".")
+    for part in parts[:-1]:
+        node = node.setdefault(part, {})
+    node[parts[-1]] = value
 
 
 def scan() -> tuple[list, int]:
@@ -162,9 +180,72 @@ def describe_key() -> None:
         print("      real key, or blank the line and stay on the DEV fallback.")
 
 
+def rekey(old_key: str) -> tuple[int, int]:
+    """Re-encrypt every stored secret from ``old_key`` to the key in force now.
+
+    The repair for a machine whose data was written under a key it no longer has: the values are
+    recoverable *if* the old key is still known (typically the `env_example` placeholder that was
+    later edited). Decryption happens here against the supplied key; the write goes through
+    ``store.put_document``, which validates the document and re-encrypts it with the current key.
+
+    Returns ``(rekeyed, unreadable)``. A field the supplied key cannot read is left exactly as it
+    was — never blanked — so a wrong guess is harmless.
+    """
+    from cryptography.fernet import Fernet
+
+    from core.settings import registry, store as settings_store
+    from db.database import SessionLocal
+    from services.encryption import _derive_fernet_key
+
+    old = Fernet(_derive_fernet_key(old_key))
+    with engine.connect() as conn:
+        rows = list(conn.execute(text("SELECT ns, document FROM settings_documents")))
+
+    db = SessionLocal()
+    rekeyed = unreadable = 0
+    try:
+        for ns, document in rows:
+            if not isinstance(document, dict):
+                continue
+            try:
+                registry.get(ns)
+            except Exception:  # noqa: BLE001 — an unregistered namespace has no schema to write
+                print(f"    - {ns}: no registered schema, skipped")
+                continue
+
+            plain = dict(document)
+            changed = []
+            for dotted, value in fernet_fields(document):
+                try:
+                    set_at(plain, dotted, old.decrypt(value).decode())
+                    changed.append(dotted)
+                except Exception as exc:  # noqa: BLE001
+                    unreadable += 1
+                    print(f"    ! {ns}.{dotted}: unreadable with the supplied key "
+                          f"({type(exc).__name__}) — left untouched")
+            if not changed:
+                continue
+            try:
+                settings_store.put_document(db, ns, plain)
+            except Exception as exc:  # noqa: BLE001 — schema rejection must not half-write
+                db.rollback()
+                print(f"    ! {ns}: refused by the schema ({type(exc).__name__}) — unchanged")
+                continue
+            db.commit()
+            rekeyed += len(changed)
+            print(f"    {ns}: re-encrypted {len(changed)} value(s) under the current key")
+    finally:
+        db.close()
+    return rekeyed, unreadable
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--clear", action="store_true", help="blank the undecryptable fields")
+    remedy = ap.add_mutually_exclusive_group()
+    remedy.add_argument("--clear", action="store_true",
+                        help="blank the undecryptable fields (loses the stored values)")
+    remedy.add_argument("--rekey-from", metavar="OLD_KEY", default=None,
+                        help="re-encrypt every stored secret from OLD_KEY to the current key")
     args = ap.parse_args()
 
     describe_key()
@@ -172,6 +253,18 @@ def main() -> int:
     with engine.connect() as conn:
         namespaces = [r[0] for r in conn.execute(text("SELECT ns FROM settings_documents ORDER BY ns"))]
     print(f"  settings rows  : {', '.join(namespaces) or 'none'}")
+
+    if args.rekey_from is not None:
+        print(f"\n  re-keying: decrypt with the supplied key, re-encrypt under the current key")
+        rekeyed, unreadable = rekey(args.rekey_from)
+        print(f"\n  re-encrypted {rekeyed} value(s); {unreadable} could not be read with that key")
+        if rekeyed == 0:
+            print("  Nothing moved — the supplied key does not read any stored value here.")
+            print("  Try the other candidate key, or fall back to --clear and re-enter the values.")
+        else:
+            remaining, _ = scan()
+            print(f"  unreadable with the current key now: {len(remaining)}")
+        return 0
 
     broken, checked = scan()
     print(f"  secrets checked: {checked} encrypted value(s) across those rows")
