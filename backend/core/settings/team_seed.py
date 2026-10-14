@@ -95,13 +95,28 @@ def apply_team_seed(path: Optional[Path] = None, db: Optional[Session] = None) -
     written = 0
     applied: List[str] = []
     kept: List[str] = []
+    unreadable: List[str] = []
     try:
         for ns in ours_ns:
             ours = payload.get(ns)
             if not isinstance(ours, dict):
                 continue
             base = base_all.get(ns, {})
-            theirs = store.get_document(db, ns) if store.row_exists(db, ns) else {}
+            try:
+                theirs = store.get_document(db, ns) if store.row_exists(db, ns) else {}
+            except Exception as exc:              # noqa: BLE001 — one field must not stop a seed
+                # Reading a namespace decrypts its secrets, so a single value written under a
+                # different API_KEY_ENCRYPTION_KEY used to abort the whole run here — after nine
+                # other steps had already succeeded. Skipping the namespace leaves its stored
+                # document untouched (nothing is rewritten, so nothing is destroyed), and the
+                # caller reports it rather than failing silently.
+                unreadable.append(ns)
+                logger.warning(
+                    "team settings seed: skipping %r — a stored secret cannot be decrypted with "
+                    "the current key (%s). Fix with backend/scripts/audit_settings_secrets.py",
+                    ns, type(exc).__name__,
+                )
+                continue
             before = json.dumps(theirs, sort_keys=True)
             merged = _merge(base, ours, theirs, ns, applied, kept)
             if json.dumps(merged, sort_keys=True) != before:
@@ -110,9 +125,11 @@ def apply_team_seed(path: Optional[Path] = None, db: Optional[Session] = None) -
         if written:
             db.commit()
         logger.info("team settings seed: %d document(s) written, %d key(s) applied, "
-                    "%d kept (locally changed)", written, len(applied), len(kept))
+                    "%d kept (locally changed), %d skipped (unreadable secret)",
+                    written, len(applied), len(kept), len(unreadable))
     finally:
         if own_session:
             db.close()
 
-    return {"present": True, "written": written, "applied": applied, "kept": kept}
+    return {"present": True, "written": written, "applied": applied, "kept": kept,
+            "unreadable": unreadable}

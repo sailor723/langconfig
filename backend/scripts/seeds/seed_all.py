@@ -252,6 +252,14 @@ def step_team_settings() -> None:
     if result["kept"]:
         print(f"     kept: {', '.join(result['kept'][:6])}"
               + (" …" if len(result["kept"]) > 6 else ""))
+    skipped = result.get("unreadable") or []
+    if skipped:
+        print(f"  !! skipped {len(skipped)} namespace(s) with a secret this machine cannot "
+              f"decrypt: {', '.join(skipped)}")
+        print("     Their stored values are untouched; only the team merge was skipped.")
+        print("     Fix with:  .venv/bin/python scripts/audit_settings_secrets.py --rekey-from "
+              "<the key that wrote them>")
+        print("     This no longer aborts the seed, but those settings are not applied.")
 
 
 def step_models() -> None:
