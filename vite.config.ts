@@ -67,4 +67,34 @@ export default defineConfig(async () => ({
       },
     },
   },
+  // `npm run preview` serves the BUILT bundle (dist/) instead of transforming
+  // modules on demand. Load time is the difference between one bundle and
+  // hundreds of separate requests, which is what makes the dev server feel slow
+  // — badly so on WSL, where every file read crosses the filesystem boundary.
+  // Requires `npm run build` first, and re-running it after a pull that touches
+  // the frontend.
+  //
+  // It needs the same two proxies as `server` above, /static included: the
+  // backend rewrites Plotly's CDN URL to /static/plotly.min.js, and without that
+  // proxy the request falls through to the SPA entry and returns HTML, so every
+  // analysis chart silently disappears while its KPI numbers stay correct.
+  preview: {
+    port: 1421,
+    strictPort: true,
+    allowedHosts: [process.env.VITE_ALLOWED_HOSTS || "localhost"],
+    host: "::",
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8765',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
+      '/static': {
+        target: 'http://127.0.0.1:8765',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 }));

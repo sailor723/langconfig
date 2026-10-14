@@ -352,6 +352,29 @@ npm run dev                                                                     
 Note: the backend runs **without `--reload`**, so backend code changes need a
 restart; frontend changes hot-reload.
 
+### If the dev server feels slow (WSL especially)
+
+`npm run dev` transforms modules on demand, so the first page load pulls hundreds
+of separate requests — and on WSL every one of those reads crosses into the Windows
+filesystem. Serving the built bundle instead is one bundle, one request:
+
+```bash
+cd ~/langconfig
+npm run build                  # once, and again after a pull that touches the frontend
+FRONTEND=preview bash start.sh # serves dist/ on :1421, same as the dev server
+```
+
+`vite.config.ts` gives the preview server the same `/api` and `/static` proxies the
+dev server has, so nothing else changes — in particular `/static`, without which
+every analysis dashboard silently loses its Plotly charts while the KPI numbers
+still look right. Prefer the dev server while you are editing frontend code (preview
+has no hot reload); use preview for a machine that is just being used.
+
+`start.sh` refuses to start in preview mode when `dist/` is missing, rather than
+printing a PID for a process that has already exited — which is what the dev path
+does when `vite` is not installed, and how "Frontend PID: …" appears next to a
+connection refused.
+
 ## 9. Smoke test and verification
 
 ```bash
