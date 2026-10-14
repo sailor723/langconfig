@@ -558,3 +558,41 @@ def test_link_refuses_paths_it_cannot_use(tmp_path, monkeypatch):
     assert link(str(tmp_path / "nope.md")) == 404
     assert link(str(tmp_path)) == 400               # a directory is not a document
     assert link(str(inside)) == 400                 # already knowledge base content
+
+
+def test_bases_lists_knowledge_from_disk(tmp_path, monkeypatch):
+    """GET /api/kv/bases answers from the filesystem, with no project to choose.
+
+    This is what lets the Knowledge view stop gating on a project: the knowledge bases are a
+    property of the disk, and the endpoint works with the database unreachable.
+    """
+    import json
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from api.knowledge import kv as kv_module
+
+    kb_root = tmp_path / "knowledge"
+    (kb_root / ".kvmeta").mkdir(parents=True)
+    (kb_root / "kb_42").mkdir()
+    (kb_root / "kb_42" / "a.md").write_bytes(b"x")
+    (kb_root / ".kvmeta" / "kb_42.json").write_text(json.dumps({
+        "abc12345": {"id": "abc12345", "kb": "42", "filename": "a.md",
+                     "original_filename": "a.md", "size": 1, "mime_type": "text/markdown",
+                     "storage_path": str(kb_root / "kb_42" / "a.md"), "created_at": 0.0},
+    }))
+    monkeypatch.setenv("KB_ROOT", str(kb_root))
+    monkeypatch.setenv("DOCUMENTS_KB_ROOT", str(kb_root))
+
+    app = FastAPI()
+    app.include_router(kv_module.router)
+    body = TestClient(app).get("/api/kv/bases").json()
+
+    assert body["root"] == str(kb_root)
+    assert [b["key"] for b in body["bases"]] == ["42"]
+    base = body["bases"][0]
+    assert base["document_count"] == 1
+    assert base["handle"] == 42          # the id the older endpoints still take
+    assert base["legacy"] is False
+    assert base["name"]                  # falls back to "knowledge 42" without a database

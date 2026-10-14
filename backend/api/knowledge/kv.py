@@ -404,6 +404,40 @@ class KVUploadResponse(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────────
 
+@router.get("/bases")
+async def list_knowledge_bases():
+    """The knowledge bases this install holds, read from the filesystem.
+
+    The Knowledge view uses this instead of asking which project to scope to. A knowledge base
+    exists because its folder and catalog exist, so the list comes from the disk and works with
+    the database unreachable. `handle` is the numeric id the existing endpoints still accept —
+    a knowledge base does not need a project, but the API has not finished catching up.
+    """
+    from sqlalchemy import text
+
+    from db.database import engine
+    from services.kb_discovery import discover, kb_root
+
+    names: dict = {}
+    try:                                    # purely cosmetic: a project's name, when one exists
+        with engine.connect() as conn:
+            names = {str(r[0]): r[1] for r in conn.execute(text("SELECT id, name FROM projects"))}
+    except Exception as exc:                # noqa: BLE001 — naming must not gate the listing
+        logger.warning("knowledge bases listed without database names: %s", exc)
+
+    out = []
+    for kb in discover():
+        out.append({
+            "key": kb.key,
+            "name": names.get(kb.key) or f"knowledge {kb.key}",
+            "document_count": kb.document_count,
+            "handle": kb.project_id,
+            "legacy": kb.legacy,
+            "root": str(kb.catalog.parent.parent),
+        })
+    return {"root": str(kb_root()), "bases": out}
+
+
 @router.get("/documents")
 async def list_documents(project_id: int):
     """List all documents for a project, from the filesystem catalog.
