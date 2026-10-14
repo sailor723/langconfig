@@ -44,8 +44,11 @@ print(f"   {len(recs)} record(s), {len(missing)} DANGLING")
 for p in missing[:5]:
     print(f"     missing: {p}")
 if missing:
-    print("   ^ the files are not where the records say. Adopting projects will not fix this:")
-    print("     either copy the folder to the recorded location, or report this output.")
+    print("   ^ the files are not where the records say. That is what a knowledge base copied")
+    print("     between machines looks like: its registered paths still name the old machine.")
+    print("     Fix it with, then re-run this script:")
+    print("         .venv/bin/python scripts/relocate_knowledge_paths.py          # report")
+    print("         .venv/bin/python scripts/relocate_knowledge_paths.py --apply  # write")
 EOF
 
 echo
