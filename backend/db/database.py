@@ -9,7 +9,7 @@ Unified database for all data: workflows, projects, tasks, vector storage, and L
 """
 import os
 import time
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
@@ -181,6 +181,11 @@ def init_db():
         # existing ones — so we run ALTER TABLE IF NOT EXISTS for
         # each new column. This is safe to run on every startup.
         _add_hierarchy_columns_if_missing(engine)
+
+        # ...and the same treatment for every other column the models declare.
+        # See _repair_missing_model_columns for why this cannot be left to
+        # migrations alone.
+        _add_missing_model_columns_sync(engine)
     except Exception as e:
         logger.error(f"Failed to initialize PostgreSQL: {e}")
         raise
@@ -215,11 +220,106 @@ def _add_hierarchy_columns_if_missing(sync_engine) -> None:
         logger.warning(f"Could not ensure hierarchy columns: {e}")
 
 
+def _add_missing_model_columns_sync(sync_engine) -> None:
+    """Add columns the models declare but this database lacks (sync path)."""
+    try:
+        with sync_engine.begin() as conn:
+            added, nullable_mismatch = _add_missing_model_columns(
+                conn, sync_engine.dialect
+            )
+        _log_column_repair(added, nullable_mismatch)
+    except Exception as e:
+        logger.warning(f"Could not add missing model columns: {e}")
+
+
+async def _add_missing_model_columns_async(async_engine_obj) -> None:
+    """Async version for the FastAPI lifespan path (mirrors the sync one)."""
+    try:
+        async with async_engine_obj.begin() as conn:
+            added, nullable_mismatch = await conn.run_sync(
+                lambda sync_conn: _add_missing_model_columns(
+                    sync_conn, sync_conn.dialect
+                )
+            )
+        _log_column_repair(added, nullable_mismatch)
+    except Exception as e:
+        logger.warning(f"Could not add missing model columns (async): {e}")
+
+
+def _add_missing_model_columns(conn, dialect) -> tuple[list, list]:
+    """Add every column this database is missing relative to the models.
+
+    ``create_all()`` creates missing TABLES but never ALTERs an existing one, so
+    a database created by an older build silently keeps its old columns. Alembic
+    is the intended path, but it cannot reach a database whose version was
+    already stamped at head by a seed run — and the seed then dies on the first
+    query naming a column that was never added. Real example: a teammate's
+    August install had ``custom_tools.definition``,
+    ``chat_sessions.{title,title_source,is_favorite,favorited_at,project_id}``,
+    ``settings.setup_complete`` and ``deep_agent_templates.{workspace_path,agent_docs}``
+    missing while ``alembic_version`` said 031 (head).
+
+    Idempotent (ADD COLUMN IF NOT EXISTS), derived from the models themselves so
+    it cannot drift from them, and scoped to columns only: tables are
+    ``create_all``'s job, and dropping or retyping anything is nobody's.
+
+    NOT NULL is carried over only when the model also declares a server default,
+    because existing rows need a value; otherwise the column is added nullable
+    and reported, rather than aborting startup on a legacy database.
+    """
+    inspector = inspect(conn)
+    added: list = []
+    nullable_mismatch: list = []
+    for table in Base.metadata.sorted_tables:
+        if not inspector.has_table(table.name):
+            continue
+        existing = {c["name"] for c in inspector.get_columns(table.name)}
+        for column in table.columns:
+            if column.name in existing:
+                continue
+            col_type = column.type.compile(dialect=dialect)
+            default = ""
+            not_null = ""
+            if column.server_default is not None:
+                arg = getattr(column.server_default, "arg", None)
+                if arg is not None:
+                    rendered = getattr(arg, "text", None) or str(arg)
+                    default = f" DEFAULT {rendered}"
+                    if not column.nullable:
+                        not_null = " NOT NULL"
+            conn.execute(text(
+                f"ALTER TABLE {table.name} ADD COLUMN IF NOT EXISTS "
+                f"{column.name} {col_type}{default}{not_null}"
+            ))
+            added.append(f"{table.name}.{column.name}")
+            if not column.nullable and column.server_default is None:
+                nullable_mismatch.append(f"{table.name}.{column.name}")
+            if column.index:
+                conn.execute(text(
+                    f"CREATE INDEX IF NOT EXISTS ix_{table.name}_{column.name} "
+                    f"ON {table.name} ({column.name})"
+                ))
+    return added, nullable_mismatch
+
+
+def _log_column_repair(added: list, nullable_mismatch: list) -> None:
+    if added:
+        logger.warning(
+            "✓ added %d column(s) the models declare but this database lacked "
+            "(create_all does not ALTER existing tables): %s",
+            len(added), ", ".join(added),
+        )
+    if nullable_mismatch:
+        logger.warning(
+            "  ! added as NULLABLE although the models say NOT NULL, because "
+            "there is no server default to fill existing rows: %s",
+            ", ".join(nullable_mismatch),
+        )
+
+
 async def async_init_db():
     """
     Initialize PostgreSQL database (async version).
-
-    Creates pgvector extension and all SQLAlchemy tables asynchronously.
     Use this from FastAPI lifespan or other async contexts.
 
     NOTE: must mirror ``init_db()`` exactly — register ALL ORM models
@@ -247,6 +347,9 @@ async def async_init_db():
 
         # Step N+1: hierarchy columns (same as sync path, async).
         await _add_hierarchy_columns_if_missing_async(async_engine)
+
+        # ...and every other column the models declare (mirrors the sync path).
+        await _add_missing_model_columns_async(async_engine)
     except Exception as e:
         logger.error(f"Failed to initialize PostgreSQL (async): {e}")
         raise
