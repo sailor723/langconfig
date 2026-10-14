@@ -229,7 +229,8 @@ docker ps                      # langconfig-postgres ... 0.0.0.0:5433->5432/tcp
 cd backend
 uv sync                        # creates backend/.venv from uv.lock
 # fallback without uv:
-# python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt
+# python3.13 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
+# (a uv venv ships no bare `pip` script — use `python -m pip`, or `uv pip install -r requirements.txt`)
 ```
 
 ## 6. Seed the database — this is the migration
@@ -345,7 +346,7 @@ bash start.sh                  # from the repo root: backend :8765 + frontend :1
 # or run the two yourself — note the different directories. The frontend's
 # package.json is at the REPO ROOT, not in backend/, so `cd backend` first and
 # then `npm run dev` fails with "no such file or directory".
-cd backend && .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --workers 1   # IN backend/
+cd backend && .venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8765 --workers 1  # IN backend/
 npm run dev                                                                        # IN the repo root
 ```
 

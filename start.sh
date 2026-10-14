@@ -172,7 +172,13 @@ start_backend() {
     # exclusive, and the reloader has wedged the worker before. Restart via
     # start.sh to pick up code changes (project rule).
     WORKERS="${UVICORN_WORKERS:-1}"
-    SKIP_STARTUP_API_TEST=true .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8765 --workers "$WORKERS" &
+    # `python -m uvicorn`, not `.venv/bin/uvicorn`. A console script carries its
+    # interpreter as an absolute path on line 1, so a venv that was copied from
+    # another machine, or whose uv-managed Python has since been replaced, fails
+    # with "cannot execute: required file not found" — while `.venv/bin/python`
+    # itself still works, which makes it look like uvicorn is missing. Going
+    # through the module sidesteps the shebang entirely.
+    SKIP_STARTUP_API_TEST=true .venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8765 --workers "$WORKERS" &
     echo $! > "$BE_PIDFILE"
     echo "  Backend PID: $(cat "$BE_PIDFILE") (workers=$WORKERS)"
     if [ "$WORKERS" != "1" ]; then
