@@ -30,6 +30,15 @@ interface Document {
   created_at: number;
 }
 
+interface KnowledgeBase {
+  key: string;
+  name: string;
+  document_count: number;
+  handle: number | null;
+  legacy: boolean;
+  root: string;
+}
+
 interface FolderNode {
   name: string;
   path: string;
@@ -143,7 +152,26 @@ export default function KnowledgeSidebar() {
     }
   }, []);
 
-  const projectId = activeProjectId ?? 1;
+  // The knowledge bases under the knowledge root, straight from the filesystem. This is what
+  // the panel shows: knowledge is not scoped to a project, so the list is the knowledge folders
+  // themselves, not the active project's documents.
+  const [bases, setBases] = useState<KnowledgeBase[]>([]);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/kv/bases')
+      .then((r) => (r.ok ? r.json() : { bases: [] }))
+      .then((d) => { if (alive) setBases(Array.isArray(d?.bases) ? d.bases : []); })
+      .catch(() => { if (alive) setBases([]); });
+    return () => { alive = false; };
+  }, []);
+
+  // Which knowledge base's documents the tree below shows. `handle` is the id the document
+  // endpoints still take; a knowledge base does not need a project, the API just has not
+  // finished catching up.
+  const selectedBase = bases.find((b) => b.key === selectedKey) ?? bases[0] ?? null;
+  const projectId = selectedBase?.handle ?? activeProjectId ?? 1;
 
   const loadDocuments = useCallback(async () => {
     setLoading(true);
@@ -382,10 +410,38 @@ export default function KnowledgeSidebar() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* No project header. Knowledge is not scoped to a project, and an earlier version showed
-          the active project's name here — as a label rather than a control, but it still read as
-          "this knowledge belongs to that project", which is exactly what is no longer true. The
-          toolbar below names the panel; the tree below that is the content. */}
+      {/* The knowledge bases: one row per folder under the knowledge root. */}
+      <div style={{ flexShrink: 0, borderBottom: `1px solid ${t.border}`, maxHeight: '45%', overflowY: 'auto' }}>
+        {bases.length === 0 && (
+          <div style={{ padding: '8px 10px', fontSize: 11, color: t.textMuted }}>
+            No knowledge folders found
+          </div>
+        )}
+        {bases.map((b) => {
+          const isActive = selectedBase?.key === b.key;
+          return (
+            <button
+              key={b.key}
+              onClick={() => setSelectedKey(b.key)}
+              title={`${b.root}/kb_${b.key}${b.legacy ? '  (legacy location)' : ''}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                padding: '6px 10px', border: 'none', textAlign: 'left', cursor: 'pointer',
+                background: isActive ? t.bgHover : 'transparent',
+                color: t.textPrimary, fontSize: 12, userSelect: 'none',
+              }}
+              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = t.bgHover; }}
+              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+            >
+              <Folder size={13} style={{ color: isActive ? t.accent : t.textMuted, flexShrink: 0 }} />
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isActive ? 600 : 400 }}>
+                {b.name}
+              </span>
+              <span style={{ fontSize: 10, color: t.textMuted, flexShrink: 0 }}>{b.document_count}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* ── Toolbar ──────────────────────────────────── */}
       <div
