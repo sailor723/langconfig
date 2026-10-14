@@ -1,28 +1,30 @@
-"""Reproduce the "copied knowledge base" case, then prove the fix — as a regression test.
+"""The knowledge base is filesystem-only, and a copy of it is a working knowledge base.
 
     cd <tree>/backend
     .venv/bin/python scripts/verify_copied_knowledge_base.py
 
 The case that stalled a team migration: a legacy `data/documents` folder is copied into a fresh
 install, every file and every `.kvmeta` record arrives intact, and the Knowledge panel shows
-nothing — because it lists projects from `GET /api/projects/` and there is no row for those ids.
+nothing — because it listed projects from `GET /api/projects/` and there was no row for those ids.
+Copying files into a database-shaped feature does not move the feature.
 
-This script builds that situation from scratch, asserts that it is genuinely broken, applies the
-fix, and asserts it is genuinely fixed. If the reproduction ever stops reproducing, the script
-fails loudly rather than passing vacuously — a test that cannot fail is worse than no test.
+This script asserts the contract that replaced it, through the real routes:
+
+  1. DISCOVERY  a copied folder is listed with NO operator action, because a project found on
+                disk is registered as the endpoint answers
+  2. REGISTRY   the storage settings document cannot repoint the knowledge base — it is set here
+                to a nonexistent path and to mode='db', and neither may matter
+  3. THE TRAP   a row of only id and name still breaks the whole project list (500), which is why
+                the row that gets registered carries every field the response model requires
+  4. TOOL       the explicit adopt script is still correct, and now has nothing to do
+  5. VERIFY     reachable, openable, and a project created afterwards does not collide
 
 Everything it needs it creates itself: a scratch database (`langconfig_kbtest`), a scratch
-documents tree under /tmp, and a fake copied folder. It overrides POSTGRES_DB before importing
-anything from the app, so it cannot touch the configured database.
+documents tree under /tmp, and a fake copied folder. It overrides POSTGRES_DB and
+DOCUMENTS_BASE_DIR before importing anything from the app, so it cannot touch the configured
+database or the real documents directory.
 
-Four phases:
-
-  1. REPRODUCE   documents on disk + .kvmeta, no projects row  -> unreachable through the API
-  2. THE TRAP    a row of only id and name breaks the whole project list (500)
-  3. FIX         scripts/adopt_orphan_projects.adopt + fix_sequence
-  4. VERIFY      reachable, openable, and a new project does not collide
-
-Run through Starlette's TestClient, i.e. the real routes and response models — the 500 in phase 2
+Run through Starlette's TestClient, i.e. the real routes and response models — the 500 in phase 3
 only appears at that layer, which is exactly why it is worth testing there.
 """
 import json
@@ -38,12 +40,13 @@ DOCS_ROOT = Path("/tmp/langconfig-copied-kb")
 # Override the database before db.* is imported: the engine is built from POSTGRES_DB.
 os.environ["POSTGRES_DB"] = MOCK_DB
 os.environ["WORKSPACE_ROOT"] = "/tmp/langconfig-copied-kb-ws"
-# STORAGE_MODE too, and this is not cosmetic: the panel's listing decides between `.kvmeta` and
-# `storage_objects` by reading `config.settings.storage_mode` — the .env value — at
-# api/knowledge/kv.py:377, while file_storage resolves its root from the storage settings
-# *document*. Two sources of truth for one setting: a machine whose .env says `db` while the
-# document says `local` lists from one catalog and writes to the other.
+# STORAGE_MODE no longer selects the catalog — the knowledge base is filesystem-only — but it is
+# still set, so that a regression reintroducing the `db` branch would be caught here.
 os.environ["STORAGE_MODE"] = "local"
+# The documents root now comes from the environment, never from the settings registry, so this is
+# what redirects the knowledge base. It must be set BEFORE the app is imported: kv.py caches
+# KV_DATA_DIR at import time.
+os.environ["DOCUMENTS_BASE_DIR"] = str(DOCS_ROOT)
 
 BACKEND = Path(__file__).resolve().parents[1]  # scripts/ -> backend/
 os.chdir(BACKEND)   # the app resolves relative settings paths against the CWD
@@ -104,21 +107,24 @@ if DOCS_ROOT.exists():
 make_documents(KNOWN_ID, ["policy.md", "minutes.md"])
 make_documents(ORPHAN_ID, ["legacy-report.md", "legacy-data.csv"])
 
-# Point this database at the scratch tree, with local mode so the listing reads .kvmeta.
-# Both must be set BEFORE the app is imported: kv.py caches KV_DATA_DIR at import time.
+# Point the *database's* settings document somewhere else entirely. It must have no effect: the
+# knowledge base root is a filesystem fact, resolved from the environment. Before this change the
+# document won here, which is how a copied row (or a seed snapshot) could silently repoint where
+# documents were read from.
 with engine.begin() as conn:
     conn.execute(text("""
         UPDATE settings_documents
         SET document = jsonb_set(jsonb_set(document::jsonb, '{documents_base_dir}',
-                                           to_jsonb(CAST(:root AS text))), '{mode}', '"local"')::json
+                                           to_jsonb(CAST(:root AS text))), '{mode}', '"db"')::json
         WHERE ns = 'storage'
-    """), {"root": str(DOCS_ROOT)})
+    """), {"root": "/nonexistent/and-irrelevant"})
     conn.execute(text("""
         INSERT INTO projects (id, name, description, status, configuration,
                               indexing_status, created_at, updated_at)
         VALUES (:id, 'Known Project', NULL, 'active', '{}'::json, 'not_indexed', now(), now())
     """), {"id": KNOWN_ID})
 print(f"   project_{KNOWN_ID} has a row; project_{ORPHAN_ID} has files and .kvmeta only")
+print("   the settings document points at /nonexistent/and-irrelevant, and mode says 'db'")
 
 from starlette.testclient import TestClient  # noqa: E402
 
@@ -144,20 +150,27 @@ def documents_of(project_id: int):
     return response.json() if response.status_code == 200 else None
 
 
-# ── 1. reproduce ─────────────────────────────────────────────────────────────
-print("\n2. REPRODUCE — the copied folder is present but unreachable …")
+# ── 1. the copied folder is discovered by listing ────────────────────────────
+print("\n2. DISCOVERY — a copied folder registers itself …")
 ids_before = project_ids()
 orphan_docs = documents_of(ORPHAN_ID)
-reachable_before = ids_before is not None and ORPHAN_ID in ids_before
+reachable = ids_before is not None and ORPHAN_ID in ids_before
 doc_count = len(orphan_docs or [])
 first_doc = (orphan_docs or [{}])[0].get("id")
 file_status = (client.get(f"/api/kv/documents/{first_doc}/file?project_id={ORPHAN_ID}")
                .status_code if first_doc else None)
+with engine.connect() as conn:
+    registered_row = conn.execute(text("""
+        SELECT name, status, indexing_status, configuration IS NOT NULL
+        FROM projects WHERE id = :id
+    """), {"id": ORPHAN_ID}).fetchone()
 print(f"   GET /api/projects/            -> {ids_before}")
 print(f"   GET /api/kv/documents?p={ORPHAN_ID} -> {doc_count} document(s)")
 print(f"   GET .../file?project_id={ORPHAN_ID} -> HTTP {file_status}")
 
-reproduced = (not reachable_before) and doc_count > 0 and file_status == 200
+# The root is a filesystem fact: the settings document pointed elsewhere and said mode='db', and
+# neither may matter. This is the check that the knowledge base has no registry dependency.
+secret_document_ignored = doc_count == 2 and file_status == 200
 
 # ── 2. the trap: a partial row is worse than no row ──────────────────────────
 print("\n3. THE TRAP — a row of only id and name …")
@@ -172,48 +185,40 @@ with engine.begin() as conn:
 print(f"   removed the partial row -> {project_ids()}")
 
 # ── 3. fix ───────────────────────────────────────────────────────────────────
-print("\n4. FIX — scripts/adopt_orphan_projects …")
+print("\n4. THE EXPLICIT TOOL — still available, now a no-op …")
 from scripts.adopt_orphan_projects import adopt, find_orphans, fix_sequence  # noqa: E402
 
-# the script resolves the root from the app, which is already redirected here
-import services.file_storage as _fs  # noqa: E402
-_fs.file_storage._base_dir = DOCS_ROOT
-
 found = [pid for pid, _, _ in find_orphans()]
-print(f"   orphans found: {found}")
+print(f"   orphans found: {found}  (registration already happened during listing)")
 for pid in found:
     adopt(pid, f"Adopted {pid}")
 seq_before, seq_after = fix_sequence()
-print(f"   adopted {len(found)}; projects_id_seq {seq_before} -> {seq_after}")
+print(f"   projects_id_seq {seq_before} -> {seq_after}")
 
-# ── 4. verify ────────────────────────────────────────────────────────────────
+# ── 5. verify ────────────────────────────────────────────────────────────────
 print("\n5. VERIFY — reachable, openable, and no id collision …")
 ids_after = project_ids()
 reachable_after = ids_after is not None and ORPHAN_ID in ids_after
 docs_after = documents_of(ORPHAN_ID)
-with engine.connect() as conn:
-    row = conn.execute(text("""
-        SELECT name, status, indexing_status, configuration IS NOT NULL
-        FROM projects WHERE id = :id
-    """), {"id": ORPHAN_ID}).fetchone()
 
-created = client.post("/api/projects/", json={"name": "Created After Adoption",
+created = client.post("/api/projects/", json={"name": "Created After Registration",
                                               "description": "sequence check"})
 new_id = created.json().get("id") if created.status_code in (200, 201) else None
 print(f"   GET /api/projects/ -> {ids_after}")
 print(f"   documents -> {len(docs_after or [])};  new project created -> id {new_id}")
 
 checks = [
-    ("the case reproduced: unreachable while its documents exist",
-     reproduced and not reachable_before),
-    ("its documents were readable the whole time", doc_count == 2 and file_status == 200),
-    ("a partial project row breaks the whole list (hence the full-row insert)",
+    ("a copied folder is listed without any operator action", reachable),
+    ("its documents are listed from .kvmeta", doc_count == 2),
+    ("and the file itself opens (HTTP 200)", file_status == 200),
+    ("the settings document cannot repoint the knowledge base", secret_document_ignored),
+    ("its row got the fields the response model requires",
+     bool(registered_row) and registered_row[1] and registered_row[2] and registered_row[3]),
+    ("a partial project row still breaks the whole list (hence the full-row insert)",
      minimal_breaks_endpoint),
-    ("the orphan was found by the fix", ORPHAN_ID in found),
-    ("it is now selectable through the API", reachable_after),
+    ("the explicit tool has nothing left to adopt", ORPHAN_ID not in found),
+    ("it is still selectable through the API", reachable_after),
     ("its documents are still listed", len(docs_after or []) == 2),
-    ("its row has the fields the response model requires",
-     bool(row) and row[1] and row[2] and row[3]),
     ("a project created afterwards does not collide", new_id is not None and new_id > ORPHAN_ID),
 ]
 for label, ok in checks:

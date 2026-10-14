@@ -94,53 +94,51 @@ def db_mode(monkeypatch):
     return backend
 
 
-def test_filestorage_write_through_db_mode(db_mode, tmp_path):
-    """FileStorage.save_file/delete_file mirror content to storage in db mode."""
+def test_filestorage_never_mirrors_to_storage(db_mode, tmp_path):
+    """Even with STORAGE_MODE=db, a knowledge document is written ONLY to disk.
+
+    This is the inverse of the write-through this file used to assert. The mirror made the
+    database an alternative catalog, and `api/knowledge/kv.py` then listed from it — so a
+    documents folder copied onto the machine was present and invisible. Knowledge is
+    filesystem-only now: a copy of the directory is the whole knowledge base.
+    """
     from services.file_storage import FileStorage
 
     fs = FileStorage(str(tmp_path / "documents"))
     saved = fs.save_file(1, "report.md", b"hello", hierarchy={"industry": "fin"})
 
-    # On-disk copy still exists (operational store unchanged)...
     assert Path(saved).exists()
-    # ...and the durable copy landed in storage_objects.
-    keys = db_mode.list("documents/")
-    assert len(keys) == 1
-    assert keys[0].startswith("documents/project_1/fin/")
-    assert keys[0].endswith("_report.md")
-    assert db_mode.read(keys[0]) == b"hello"
+    assert Path(saved).read_bytes() == b"hello"
+    assert db_mode.list("documents/") == []          # nothing was mirrored
 
-    # Deleting the document also drops the storage copy.
     assert fs.delete_file(saved)
     assert db_mode.list("documents/") == []
 
 
-def test_filestorage_read_through_db_mode(db_mode, tmp_path):
-    """read_bytes serves storage_objects first in db mode, so documents
-    survive even when the on-disk copy is lost (read-through survival)."""
+def test_read_bytes_is_disk_only(db_mode, tmp_path):
+    """A leftover storage_objects copy is never served, even in db mode.
+
+    Documents written before this change may still have a mirror in Postgres. Reading it in
+    preference to disk would serve a stale copy — including after the file itself was deleted —
+    so the disk is the only place read_bytes looks.
+    """
     from services.file_storage import FileStorage
 
     fs = FileStorage(str(tmp_path / "documents"))
     saved = fs.save_file(1, "report.md", b"hello", hierarchy={"industry": "fin"})
-    key = db_mode.list("documents/")[0]
-    assert db_mode.read(key) == b"hello"
+    key = fs._storage_key(Path(saved))
 
-    # Disk copy disappears (e.g. evicted / never written)...
+    # Simulate a mirror left behind by an older version of this codebase.
+    db_mode.save(key, b"an older copy", "text/markdown")
+
+    assert fs.read_bytes(Path(saved)) == b"hello"     # disk wins, not the mirror
+
     Path(saved).unlink()
-    assert not Path(saved).exists()
-
-    # ...but the bytes still resolve from the durable storage copy.
-    assert fs.read_bytes(Path(saved)) == b"hello"
-
-    # delete_file cleans up the storage row even when the disk file is gone,
-    # returning whether a disk file existed (False here).
-    assert fs.delete_file(saved) is False
-    assert db_mode.list("documents/") == []
+    assert fs.read_bytes(Path(saved)) is None         # and a missing file is missing
 
 
-def test_kv_endpoint_read_through_db_mode(db_mode, tmp_path, monkeypatch):
-    """GET /api/kv/documents/{id}/file serves from storage_objects in db mode
-    when the disk copy is missing (the Knowledge sidebar read path)."""
+def test_kv_endpoint_serves_from_disk_only(db_mode, tmp_path, monkeypatch):
+    """GET /api/kv/documents/{id}/file serves the disk file, and a mirror is ignored."""
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
@@ -157,7 +155,6 @@ def test_kv_endpoint_read_through_db_mode(db_mode, tmp_path, monkeypatch):
     app.include_router(kv_module.router)
     client = TestClient(app)
 
-    # Upload a document -> durable row created (write-through).
     resp = client.post(
         "/api/kv/upload",
         data={"project_id": "1"},
@@ -165,26 +162,20 @@ def test_kv_endpoint_read_through_db_mode(db_mode, tmp_path, monkeypatch):
     )
     assert resp.status_code == 200
     doc_id = resp.json()["id"]
-    keys = db_mode.list("documents/")
-    assert len(keys) == 1
-    assert db_mode.read(keys[0]) == b"hello world"
+    assert db_mode.list("documents/") == []           # no durable row was created
 
-    # Lose the on-disk copy, as if the filesystem was evicted.
     doc = kv_module.KVStore(1).get_doc(doc_id)
-    Path(doc.storage_path).unlink()
-    assert not Path(doc.storage_path).exists()
+    assert Path(doc.storage_path).read_bytes() == b"hello world"
 
-    # The file endpoint still serves the bytes from storage_objects.
     resp = client.get(f"/api/kv/documents/{doc_id}/file", params={"project_id": 1})
     assert resp.status_code == 200
     assert resp.content == b"hello world"
     assert "report.md" in resp.headers["content-disposition"]
 
-    # Deleting the document drops the storage row too (no orphaned data).
     resp = client.delete(f"/api/kv/documents/{doc_id}", params={"project_id": 1})
     assert resp.status_code == 200
-    assert db_mode.list("documents/") == []
     assert kv_module.KVStore(1).get_doc(doc_id) is None
+    assert not Path(doc.storage_path).exists()
 
 
 def test_filestorage_local_mode_is_noop(db_mode, tmp_path, monkeypatch):
@@ -264,10 +255,13 @@ def test_skill_storage_key_normalizes_source_type():
     assert skill_storage_key(row(None)) == "skills/builtin/x/SKILL.md"
 
 
-def test_kv_list_and_file_from_storage_db_mode(db_mode, tmp_path, monkeypatch):
-    """In db mode GET /api/kv/documents lists from storage_objects, and the
-    file/delete endpoints resolve those DB-listed docs by storage-derived id.
-    Also verifies RFC 5987 filename encoding (non-ASCII) + media types."""
+def test_kv_listing_is_filesystem_only_in_db_mode(db_mode, tmp_path, monkeypatch):
+    """In db mode GET /api/kv/documents lists from .kvmeta, and storage_objects is ignored.
+
+    Seeding the catalog from disk (rather than from Postgres keys) also exercises the media-type
+    and RFC 5987 filename handling for non-ASCII names — the reported "garbled PDF" case — which
+    must keep working now that the listing source has changed.
+    """
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
@@ -279,26 +273,31 @@ def test_kv_list_and_file_from_storage_db_mode(db_mode, tmp_path, monkeypatch):
     monkeypatch.setattr(kv_module, "KV_DATA_DIR", kv_meta)
     monkeypatch.setattr(FileStorage, "base_dir", property(lambda self: tmp_path))
 
-    # Seed durable rows directly — no .kvmeta metadata, as after a migration
-    # or a DB-restored deployment. Includes a non-ASCII filename (the reported
-    # "garbled PDF" case).
-    db_mode.save("documents/project_1/fin/77a07943_report.md", b"hello world", "text/markdown")
-    db_mode.save("documents/project_1/bbdd1122_\u62a5\u544a.pdf", b"%PDF-1.4 fake", "application/pdf")
-    db_mode.save("documents/project_1/cc334455_\u6d4b\u8bd5.docx", b"PK fake", "application/octet-stream")
+    # A durable row with no file behind it. It must NOT appear in the listing: the filesystem is
+    # the catalog, so a key in Postgres without a document on disk is not a document.
+    db_mode.save("documents/project_1/orphan/no-file-anywhere.md", b"orphan", "text/markdown")
 
     app = FastAPI()
     app.include_router(kv_module.router)
     client = TestClient(app)
 
-    # Listing is DB-sourced, with hierarchy parsed positionally from the key.
+    # Upload through the real endpoint, then rename on disk to the non-ASCII names, keeping the
+    # catalog in step: that is what a knowledge base on a real machine looks like.
+    for name, body, mime in (
+        ("report.md", b"hello world", "text/markdown"),
+        ("\u62a5\u544a.pdf", b"%PDF-1.4 fake", "application/pdf"),
+        ("\u6d4b\u8bd5.docx", b"PK fake", "application/octet-stream"),
+    ):
+        resp = client.post("/api/kv/upload", data={"project_id": "1"},
+                           files={"file": (name, body, mime)})
+        assert resp.status_code == 200
+
     resp = client.get("/api/kv/documents", params={"project_id": 1})
     assert resp.status_code == 200
     docs = {d["name"]: d for d in resp.json()}
     assert set(docs) == {"report.md", "\u62a5\u544a.pdf", "\u6d4b\u8bd5.docx"}
-    assert docs["report.md"]["id"] == "77a07943"
-    assert docs["report.md"]["industry"] == "fin"
+    assert "no-file-anywhere.md" not in docs
     assert docs["report.md"]["document_type"] == "markdown"
-    assert docs["report.md"]["size"] == 11
     assert docs["report.md"]["mime_type"] == "text/markdown"
 
     # PDF with non-ASCII name: proper content-type, inline disposition,
@@ -321,11 +320,13 @@ def test_kv_list_and_file_from_storage_db_mode(db_mode, tmp_path, monkeypatch):
     )
     assert "attachment" in resp.headers["content-disposition"]
 
-    # Deleting a DB-listed doc removes only its durable row.
+    # Deleting removes the disk file and the catalog entry, and leaves the orphan row alone.
+    # (A fresh KVStore: the store caches its JSON file at construction.)
+    pdf_path = Path(kv_module.KVStore(1).get_doc(pdf["id"]).storage_path)
     resp = client.delete(f"/api/kv/documents/{pdf['id']}", params={"project_id": 1})
     assert resp.status_code == 200
-    assert db_mode.exists("documents/project_1/bbdd1122_\u62a5\u544a.pdf") is False
-    assert db_mode.exists("documents/project_1/fin/77a07943_report.md") is True
+    assert not pdf_path.exists()
+    assert db_mode.exists("documents/project_1/orphan/no-file-anywhere.md") is True
 
 
 def test_kv_file_serves_range_requests(tmp_path, monkeypatch):

@@ -45,20 +45,20 @@ class FileStorage:
         logger.info(f"File storage initialized at {self._base_dir.absolute()}")
 
     def _resolve_documents_base_dir(self) -> str:
-        """Resolve the documents root: settings document > .env default."""
-        try:
-            from core.settings import resolve_value
-            from db.database import SessionLocal
-            db = SessionLocal()
-            try:
-                value = resolve_value(db, "storage").get("documents_base_dir")
-            finally:
-                db.close()
-            if value:
-                return value
-        except Exception:
-            pass
-        return self._default_base_dir
+        """Resolve the documents root from environment configuration — never from the database.
+
+        This used to read `storage.documents_base_dir` out of the settings registry, on every
+        access to `base_dir` (i.e. per request). Two consequences, both bad: the knowledge base
+        could not be located with the database unreachable, and any settings document — inherited
+        from a seed snapshot or a copied row — could silently repoint where documents are read
+        from. The root is a filesystem fact, so it is resolved from the filesystem side.
+
+        A divergence from the settings document is reported by `scripts/audit_local_data.py`
+        rather than acted on here, so nothing in the request path reads the registry.
+        """
+        from services.kb_discovery import kb_root
+
+        return str(kb_root(self._default_base_dir))
 
     @property
     def base_dir(self) -> Path:
@@ -73,49 +73,25 @@ class FileStorage:
         return self._base_dir
 
     # ------------------------------------------------------------------
-    # Phase 2 write-through (docs/system-architecture.md §15):
-    # when STORAGE_MODE=db each uploaded document is also persisted to
-    # the storage backend (storage_objects) under `documents/<rel-path>`.
-    # The on-disk copy stays the operational store for the RAG pipeline,
-    # so local mode (default) is a no-op and behavior is unchanged.
+    # The knowledge base is filesystem-only, by decision.
+    #
+    # These two methods used to mirror every uploaded document into
+    # `storage_objects` when STORAGE_MODE=db — a durable copy, but one that
+    # made the database an alternative catalog: `api/knowledge/kv.py` then
+    # LISTED from that table, so a documents folder copied onto the machine
+    # was present and invisible. Knowledge now travels as files and nothing
+    # else, and the storage mode cannot change that.
+    #
+    # `storage_objects` is still used for skills and agent outputs, which are
+    # registry/workspace concerns rather than knowledge.
     # ------------------------------------------------------------------
     def _storage_key(self, file_path: Path) -> Optional[str]:
-        """Map an on-disk document path to its storage key, or None if the
-        file lives outside the documents base dir."""
+        """Unused for knowledge documents; kept for callers that still map a path to a key."""
         try:
             rel = Path(file_path).resolve().relative_to(self.base_dir.resolve())
         except ValueError:
             return None
         return f"documents/{rel.as_posix()}"
-
-    def _persist(self, file_path: Path, content: bytes) -> None:
-        """Write-through: store a durable copy in storage when STORAGE_MODE=db."""
-        from config import settings
-        if settings.storage_mode != "db":
-            return
-        key = self._storage_key(file_path)
-        if key is None:
-            return
-        try:
-            from services.storage import get_storage
-            mime, _ = mimetypes.guess_type(file_path.name)
-            get_storage().save(key, content, mime)
-        except Exception as e:
-            logger.warning(f"Failed to persist storage copy {key}: {e}")
-
-    def _unpersist(self, file_path: Path) -> None:
-        """Best-effort delete of the durable storage copy when STORAGE_MODE=db."""
-        from config import settings
-        if settings.storage_mode != "db":
-            return
-        key = self._storage_key(file_path)
-        if key is None:
-            return
-        try:
-            from services.storage import get_storage
-            get_storage().delete(key)
-        except Exception as e:
-            logger.warning(f"Failed to delete storage copy {key}: {e}")
 
     # ------------------------------------------------------------------
     # Phase 3 read-through: in STORAGE_MODE=db the durable copy in
@@ -126,19 +102,11 @@ class FileStorage:
     def read_bytes(self, file_path: Path) -> Optional[bytes]:
         """Read a document's bytes: storage-first in db mode, disk fallback.
 
-        Returns None if the document exists in neither place.
+        Returns None if the file is not on disk. There is no second place to look: knowledge
+        documents are filesystem-only, so a copy of the documents directory is the whole knowledge
+        base. (This used to prefer a `storage_objects` copy in db mode, which meant a mirror left
+        over from an earlier mode could be served after the file itself was gone.)
         """
-        from config import settings
-        if settings.storage_mode == "db":
-            key = self._storage_key(file_path)
-            if key is not None:
-                try:
-                    from services.storage import get_storage
-                    return get_storage().read(key)
-                except KeyError:
-                    pass  # not in storage yet — fall back to the disk copy
-                except Exception as e:
-                    logger.warning(f"Failed to read storage copy {key}: {e}")
         try:
             return file_path.read_bytes()
         except FileNotFoundError:
@@ -210,10 +178,10 @@ class FileStorage:
         safe_filename = f"{file_id}_{base}"
         file_path = project_dir / safe_filename
 
-        # Write file
+        # Write file. This is the only copy of it that exists: knowledge documents are
+        # filesystem-only, deliberately, so a copy of the folder is a complete copy of the
+        # knowledge base.
         file_path.write_bytes(content)
-        # Phase 2: durable copy in storage_objects when STORAGE_MODE=db.
-        self._persist(file_path, content)
         logger.info(f"Saved file {base} to {file_path}")
 
         return str(file_path.absolute())
@@ -234,9 +202,7 @@ class FileStorage:
             if path.exists():
                 path.unlink()
                 deleted = True
-            # Phase 3: drop the durable storage copy even when the disk copy
-            # is already gone (read-through survival case) — best-effort.
-            self._unpersist(path)
+            # Knowledge documents have no second copy to drop: the file was the only one.
             if deleted:
                 logger.info(f"Deleted file {file_path}")
             return deleted
