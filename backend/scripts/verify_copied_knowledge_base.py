@@ -46,7 +46,9 @@ os.environ["STORAGE_MODE"] = "local"
 # The documents root now comes from the environment, never from the settings registry, so this is
 # what redirects the knowledge base. It must be set BEFORE the app is imported: kv.py caches
 # KV_DATA_DIR at import time.
-os.environ["DOCUMENTS_BASE_DIR"] = str(DOCS_ROOT)
+os.environ["KB_ROOT"] = str(DOCS_ROOT)
+# And no legacy fallback: without this, key 1 resolves to the real data/documents.
+os.environ["DOCUMENTS_KB_ROOT"] = str(DOCS_ROOT)
 
 BACKEND = Path(__file__).resolve().parents[1]  # scripts/ -> backend/
 os.chdir(BACKEND)   # the app resolves relative settings paths against the CWD

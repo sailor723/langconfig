@@ -54,27 +54,27 @@ from db.database import SessionLocal, engine  # noqa: E402
 # endpoint that registers on read. Two copies of that logic would drift; the 500-on-partial-row
 # trap in particular is only avoided because one function knows about it.
 from services.kb_discovery import AUTO_DESC, discover, fix_sequence as _fix_sequence  # noqa: E402
-from services.kb_discovery import kb_root, register_missing, uncatalogued  # noqa: E402
+from services.kb_discovery import kb_root, legacy_root, register_missing, uncatalogued  # noqa: E402
 
 
 def documents_root() -> str:
-    """Where this install keeps documents — from environment configuration, not the database."""
+    """Where this install keeps knowledge — from environment configuration, not the database."""
     return str(Path(kb_root()).resolve())
 
 
 def find_orphans() -> list[tuple[int, int, str]]:
-    """(project_id, document count, .kvmeta path) for on-disk projects with no projects row."""
-    on_disk = discover()
+    """(project_id, document count, catalog path) for on-disk knowledge with no projects row."""
+    on_disk = [kb for kb in discover() if kb.project_id is not None]
     if not on_disk:
         return []
     with engine.connect() as conn:
         known = {r[0] for r in conn.execute(text("SELECT id FROM projects"))}
-    return [(p.project_id, p.document_count, str(p.kv_file))
-            for p in on_disk if p.project_id not in known]
+    return [(kb.project_id, kb.document_count, str(kb.catalog))
+            for kb in on_disk if kb.project_id not in known]
 
 
 def find_uncatalogued() -> list[tuple[str, int]]:
-    """Folders that exist but cannot be registered — no catalog, or not a project at all."""
+    """Folders that exist but cannot be registered — no catalog, or not a knowledge base."""
     return uncatalogued()
 
 
@@ -83,8 +83,11 @@ JOURNAL_NAME = "adopt-journal.json"
 
 
 def journal_path() -> Path:
-    """Sibling of relocate-journal.json: both undo files live in the documents root."""
-    return Path(documents_root()) / JOURNAL_NAME
+    """The undo file. Either root will do: an unfinished journal may predate the layout move."""
+    legacy = Path(legacy_root()) / JOURNAL_NAME
+    if legacy.exists():
+        return legacy
+    return Path(kb_root()) / JOURNAL_NAME
 
 
 def adopt(pid: int, name: str) -> bool:
@@ -160,7 +163,7 @@ def main() -> int:
     ap.add_argument("--undo", action="store_true",
                     help="delete the rows a previous --apply created (uses its journal)")
     ap.add_argument("--names", help='JSON file mapping id -> name, e.g. {"77": "My Project"}')
-    ap.add_argument("--name-pattern", default="project {id}",
+    ap.add_argument("--name-pattern", default="knowledge {id}",
                     help="name for adopted projects when --names has no entry (default: %(default)r)")
     args = ap.parse_args()
 
