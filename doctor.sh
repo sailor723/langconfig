@@ -4,10 +4,14 @@
 #   bash doctor.sh          read-only report: storage mode, document paths, project folders
 #   bash doctor.sh --fix    adopt project folders that have no database row (writes rows only)
 #
-# The case this is for: a legacy data/documents folder was copied into a fresh install, the files
-# and their .kvmeta records arrived intact, and the Knowledge panel shows nothing — because the
-# panel lists projects from the database and no row exists for those ids. The documents are not
-# lost, they are unreachable.
+# The case this is for: a legacy data/documents folder was copied into a fresh install and the
+# Knowledge panel showed nothing. The documents are not lost when that happens, they are
+# unreachable — and the two reasons are the two checks below.
+#
+# A project folder with no database row is now registered automatically the first time the panel
+# asks for the project list, so that half of the problem repairs itself; this script still reports
+# it, and `--fix` does it without a browser. Paths that no longer resolve are the half that cannot
+# repair itself, and they are what actually stops a document from opening.
 #
 # Nothing here touches, moves or deletes a document. --fix inserts the missing `projects` rows and
 # nothing else; it is idempotent, and re-running it reports "no orphan folders".

@@ -366,17 +366,13 @@ class KVUploadResponse(BaseModel):
 
 @router.get("/documents")
 async def list_documents(project_id: int):
-    """List all documents for a project.
+    """List all documents for a project, from the filesystem catalog.
 
-    In STORAGE_MODE=db the list is sourced from storage_objects
-    (documents/project_<id>/ keys) — the durable store is authoritative.
-    Local mode reads the .kvmeta JSON as before.
+    This used to switch on STORAGE_MODE: in `db` mode it listed from `storage_objects` in
+    Postgres instead, which made the database an alternative catalog — a documents folder copied
+    onto the machine was then present and invisible. Knowledge is filesystem-only now, so the
+    `.kvmeta` catalog is the only index, whatever the storage mode says.
     """
-    from config import settings
-
-    if settings.storage_mode == "db":
-        return _list_docs_from_storage(project_id)
-
     store = KVStore(project_id)
     docs = store.list_docs()
     # Sort newest first

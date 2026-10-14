@@ -61,7 +61,22 @@ async def list_projects(
     status: Optional[ProjectStatus] = None,
     db: Session = Depends(get_db)
 ):
-    """List all projects with optional status filter"""
+    """List all projects with optional status filter.
+
+    Before answering, register any knowledge base that exists on disk but has no row. A documents
+    folder copied onto this machine IS a complete knowledge base — the files plus their `.kvmeta`
+    catalog are all it takes — but this endpoint is what the Knowledge panel lists, so without a
+    row that knowledge base is present and unreachable, which is exactly how a copied one came to
+    look lost. Registration is idempotent and never modifies an existing row.
+    """
+    try:
+        from services.kb_discovery import register_missing
+        created = register_missing(db)
+        if created:
+            logger.info("registered %d knowledge base(s) found on disk: %s", len(created), created)
+    except Exception as exc:                  # noqa: BLE001 — listing must still answer
+        logger.warning("could not scan the documents folder for unregistered projects: %s", exc)
+
     query = db.query(Project)
     if status:
         query = query.filter(Project.status == status)

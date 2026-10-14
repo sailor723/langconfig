@@ -33,10 +33,8 @@ made reachable, and `--undo` deletes exactly those rows. Nothing deletes a folde
 Read-only unless `--apply` or `--undo` is given.
 """
 import argparse
-import glob
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -50,74 +48,37 @@ sys.path.insert(0, str(BACKEND))
 
 from sqlalchemy import text  # noqa: E402
 
-from db.database import engine  # noqa: E402
+from db.database import SessionLocal, engine  # noqa: E402
 
-DOCS_ROOT = os.path.join(os.getcwd(), "data", "documents")
-KV_DIR = os.path.join(DOCS_ROOT, ".kvmeta")
+# Discovery, the insert and the sequence fix now live in one place, shared with the projects
+# endpoint that registers on read. Two copies of that logic would drift; the 500-on-partial-row
+# trap in particular is only avoided because one function knows about it.
+from services.kb_discovery import AUTO_DESC, discover, fix_sequence as _fix_sequence  # noqa: E402
+from services.kb_discovery import kb_root, register_missing, uncatalogued  # noqa: E402
 
 
 def documents_root() -> str:
-    """Ask the app where documents live rather than assuming data/documents."""
-    try:
-        from services.file_storage import file_storage
-        return str(Path(file_storage.base_dir).resolve())
-    except Exception:
-        return DOCS_ROOT
+    """Where this install keeps documents — from environment configuration, not the database."""
+    return str(Path(kb_root()).resolve())
 
 
 def find_orphans() -> list[tuple[int, int, str]]:
-    """(project_id, document count, .kvmeta path) for folders with no projects row."""
-    root = documents_root()
-    kv_dir = os.path.join(root, ".kvmeta")
+    """(project_id, document count, .kvmeta path) for on-disk projects with no projects row."""
+    on_disk = discover()
+    if not on_disk:
+        return []
     with engine.connect() as conn:
         known = {r[0] for r in conn.execute(text("SELECT id FROM projects"))}
-
-    orphans = []
-    for path in sorted(glob.glob(os.path.join(root, "project_*"))):
-        if not os.path.isdir(path):
-            continue
-        match = re.fullmatch(r"project_(\d+)", os.path.basename(path))
-        if not match:
-            continue  # project_chat_sessions and friends are not projects
-        pid = int(match.group(1))
-        kv_file = os.path.join(kv_dir, f"project_{pid}.json")
-        if not os.path.exists(kv_file):
-            continue
-        if pid in known:
-            continue
-        try:
-            count = len(json.load(open(kv_file)))
-        except Exception:
-            count = 0
-        orphans.append((pid, count, kv_file))
-    return orphans
+    return [(p.project_id, p.document_count, str(p.kv_file))
+            for p in on_disk if p.project_id not in known]
 
 
 def find_uncatalogued() -> list[tuple[str, int]]:
-    """Folders with files but no .kvmeta, plus non-numeric project_* dirs.
-
-    Neither is adoptable, and for different reasons: without a `.kvmeta` there is no record for
-    the panel to list (adopting the project would surface nothing), and `project_chat_sessions`
-    is not a project at all — it is the chat attachment container, keyed by session id.
-    """
-    root = documents_root()
-    kv_dir = os.path.join(root, ".kvmeta")
-    found = []
-    for path in sorted(glob.glob(os.path.join(root, "project_*"))):
-        if not os.path.isdir(path):
-            continue
-        name = os.path.basename(path)
-        files = sum(len(fs) for _, _, fs in os.walk(path))
-        if not files:
-            continue
-        if not re.fullmatch(r"project_(\d+)", name):
-            found.append((name, files))                       # not a project
-        elif not os.path.exists(os.path.join(kv_dir, f"{name}.json")):
-            found.append((name, files))                       # a project, but nothing lists it
-    return found
+    """Folders that exist but cannot be registered — no catalog, or not a project at all."""
+    return uncatalogued()
 
 
-ADOPT_DESC = "Adopted from data/documents — rename me in the UI"
+ADOPT_DESC = AUTO_DESC
 JOURNAL_NAME = "adopt-journal.json"
 
 
@@ -127,16 +88,21 @@ def journal_path() -> Path:
 
 
 def adopt(pid: int, name: str) -> bool:
-    """Insert the row, reporting whether this call created it (ON CONFLICT may decline)."""
-    with engine.begin() as conn:
-        created = conn.execute(text("""
-            INSERT INTO projects (id, name, description, status, configuration,
-                                  indexing_status, created_at, updated_at)
-            VALUES (:id, :name, :desc, 'active', '{}'::json, 'not_indexed', now(), now())
-            ON CONFLICT (id) DO NOTHING
-            RETURNING id
-        """), {"id": pid, "name": name, "desc": ADOPT_DESC}).scalar()
-    return created is not None
+    """Insert the row via the shared registrar, reporting whether this call created it."""
+    db = SessionLocal()
+    try:
+        return bool(register_missing(db, names={pid: name}, only=[pid]))
+    finally:
+        db.close()
+
+
+def fix_sequence() -> tuple[int, int]:
+    """Advance projects_id_seq past the highest id, or the next UI insert collides."""
+    db = SessionLocal()
+    try:
+        return _fix_sequence(db)
+    finally:
+        db.close()
 
 
 def undo() -> int:
@@ -186,17 +152,6 @@ def undo() -> int:
     path.rename(path.with_suffix(".json.undone"))
     print(f"  journal closed: {path.name} -> {path.name}.undone")
     return 0
-
-
-def fix_sequence() -> tuple[int, int]:
-    """Advance projects_id_seq past the highest id, or the next insert collides."""
-    with engine.begin() as conn:
-        before = conn.execute(text("SELECT last_value FROM projects_id_seq")).scalar()
-        highest = conn.execute(text("SELECT COALESCE(MAX(id), 0) FROM projects")).scalar()
-        if highest > before:
-            conn.execute(text("SELECT setval('projects_id_seq', :h)"), {"h": highest})
-        after = conn.execute(text("SELECT last_value FROM projects_id_seq")).scalar()
-        return before, after
 
 
 def main() -> int:

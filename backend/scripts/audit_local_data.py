@@ -94,7 +94,13 @@ for table, n in counts.items():
     print(f"    {table:34} {n}")
 
 print("\non disk (per tree — git never carries any of it):")
-knowledge = resolve(storage.get("documents_base_dir", ""), "./data/documents")
+# The knowledge base root is resolved the way the application resolves it: from the environment,
+# never from the settings document. The document's value is shown above only so a divergence is
+# visible — it is reported, not obeyed.
+from services.kb_discovery import kb_root  # noqa: E402
+
+knowledge = Path(kb_root()).resolve()
+document_says = storage.get("documents_base_dir")
 kvmeta = knowledge / ".kvmeta"
 outputs = resolve(workspace.get("base_dir", ""), "backend/outputs")
 agents_md = resolve(os.getenv("LANGCONFIG_WORKSPACE_ROOT", ""), "backend/.workspace_data")
@@ -107,14 +113,16 @@ print(f"    project AGENTS.md root     {agents_md}\n        -> {human(agents_md)
 print(f"    skills of their own        {skills}\n        -> {human(skills)}")
 
 print("\nwhat that means:")
-if mode == "db":
-    print("    storage.mode=db: Knowledge documents live in Postgres (storage_objects),")
-    print("    so the sidebar panel comes with the database. Nothing to copy for it.")
-else:
-    print(f"    storage.mode={mode!r}: Knowledge documents live ONLY as files under")
-    print(f"    {knowledge} — including .kvmeta, which is what the sidebar panel")
-    print("    lists from. Copy that whole directory or the panel comes up empty even")
-    print("    though Postgres still has the rows and the embeddings.")
+print("    The knowledge base is FILESYSTEM-ONLY: the documents and the .kvmeta catalog under")
+print(f"    {knowledge}")
+print("    are the whole of it, and the Knowledge panel lists from that catalog. Copy the")
+print("    directory and the knowledge base has moved; a project folder found there is")
+print("    registered automatically when the panel asks for the project list.")
+print("    storage.mode no longer affects it, and neither does any settings document:")
+if document_says and str(knowledge) != str(resolve(document_says, "./data/documents")):
+    print(f"      ! the storage document says documents_base_dir={document_says!r}, which is now")
+    print("        IGNORED. Nothing reads the registry to find the knowledge base.")
+print("    Embeddings stay in Postgres, so search returns after a re-index, not from a copy.")
 print("    The workspace directory is referenced by ABSOLUTE path in the database")
 print(f"    ({workspace.get('workspace_path')!r}); either keep the tree at that path or")
 print("    update Settings -> Workspace, or agents keep writing to the old folder.")
