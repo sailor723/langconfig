@@ -162,10 +162,21 @@ def describe_key() -> None:
     resolved = _resolve_key_str()
     env_file = BACKEND.parent / ".env"
 
+    # The resolved key can no longer BE the placeholder — `_resolve_key_str` treats it as unset —
+    # so the sentinel has to be looked for in the raw sources. Reporting it still matters: it is
+    # the usual writer of the rows this script is asked to rescue, and knowing that turns
+    # `--rekey-from PASTE-THE-64-HEX-...` from a guess into the obvious move.
+    raw = ""
+    try:
+        from config import settings as app_settings
+        raw = (getattr(app_settings, "api_key_encryption_key", None) or "").strip()
+    except Exception:  # noqa: BLE001
+        pass
+    raw = raw or (_EXPORTED_IN_SHELL or "").strip()
+    placeholder_in_use = raw == TEMPLATE_PLACEHOLDER
+
     if resolved == "langconfig-dev-insecure-key-change-me":
         state = "DEV FALLBACK — no key configured, secrets are NOT protected"
-    elif resolved == TEMPLATE_PLACEHOLDER:
-        state = "TEMPLATE PLACEHOLDER — env_example was copied but never edited"
     else:
         state = f"configured ({len(resolved)} chars)"
 
@@ -174,10 +185,11 @@ def describe_key() -> None:
     if _EXPORTED_IN_SHELL:
         where.append(f"{ENCRYPTION_KEY_ENV} exported in this shell")
     print(f"  key source     : {', '.join(where)}")
-    if resolved == TEMPLATE_PLACEHOLDER:
-        print("    ! This is the literal string shipped in env_example. Every value written with it")
-        print("      is unreadable on a machine that left the line blank instead. Replace it with a")
-        print("      real key, or blank the line and stay on the DEV fallback.")
+    if placeholder_in_use:
+        print("    ! The configured value is still the env_example placeholder, which is now ignored")
+        print("      (it counts as unset). Anything written while it WAS in force is unreadable here:")
+        print("          --rekey-from " + TEMPLATE_PLACEHOLDER)
+        print("      Replace the line with a real key, or leave it blank and stay on the DEV fallback.")
 
 
 def rekey(old_key: str) -> tuple[int, int]:

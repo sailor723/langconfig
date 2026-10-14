@@ -69,12 +69,24 @@ OLLAMA_BASE_URL=http://localhost:11434
 # Legacy alias for older callers that still expect LOCAL_LLM_*.
 LOCAL_LLM_BASE_URL=http://localhost:11434
 
-# REQUIRED before the first backend start. Generate once with:
-#     openssl rand -hex 32        (64 hex characters)  -> paste below
-# It is the Fernet master key for every API key stored in the DB (Settings ->
-# Models / first-run wizard). Keep it stable: changing it makes existing
-# encrypted keys unreadable.
-API_KEY_ENCRYPTION_KEY=PASTE-THE-64-HEX-OUTPUT-OF-OPENSSL-RAND-HEX-32
+# Encrypts the provider API keys stored in the DB (Settings -> Models, first-run
+# wizard). Two supported states — pick one and use it on EVERY machine:
+#
+#   blank (recommended): unset here and the app uses its built-in DEV key. Every
+#       machine that leaves this blank encrypts identically, so nothing has to be
+#       distributed and no machine can lock another out. Stored keys are still
+#       encrypted; the key is just not itself a secret.
+#   set: generate once with `openssl rand -hex 32` (64 hex characters) and put the
+#       SAME value on every machine, out of band. Do it before you store any key.
+#
+# Changing this value later — or setting it on some machines and not others —
+# makes already-stored keys unreadable, and `seed_all.py` then aborts at step 4b
+# over one field. Recovery: backend/scripts/audit_settings_secrets.py
+#
+# Never leave a placeholder here. The app accepts any non-empty value as a real
+# key, so an unedited placeholder silently becomes a master key of its own that
+# matches no other machine's.
+API_KEY_ENCRYPTION_KEY=
 ENVIRONMENT=development
 # Must use the SAME port as POSTGRES_PORT above (5432 native / 5433 docker).
 TEST_DATABASE_URL=postgresql+asyncpg://langconfig:langconfig_dev@localhost:5432/langconfig_test

@@ -25,9 +25,30 @@ ENCRYPTION_KEY_ENV_LEGACY = "APP_ENCRYPTION_KEY"
 # Dev-only fallback. Never used when ENVIRONMENT=production.
 DEV_FALLBACK_KEY = "langconfig-dev-insecure-key-change-me"
 
+# The sentinel shipped in `env_example`. It is the *absence* of a key, but it is
+# non-empty, so a naive check would accept it as one — and an unedited `.env`
+# would then encrypt real secrets under a key that matches no other machine,
+# making them unreadable as soon as that line is edited or blanked. Treated as
+# unset below. See backend/scripts/audit_settings_secrets.py.
+TEMPLATE_PLACEHOLDER_KEY = "PASTE-THE-64-HEX-OUTPUT-OF-OPENSSL-RAND-HEX-32"
+
 # Fernet tokens always start with the version byte 0x80, base64-encoded as
 # "gAAAA". Used to distinguish encrypted values from legacy plaintext.
 _FERNET_PREFIX = "gAAAA"
+
+
+def _reject_placeholder(value: "str | None") -> "str | None":
+    """Return ``value`` unless it is the env_example placeholder, which counts as unset."""
+    if value and value.strip() == TEMPLATE_PLACEHOLDER_KEY:
+        logger.warning(
+            "%s is still the env_example placeholder — ignoring it and using the DEV "
+            "fallback key. Replace it with a real key or leave it blank. Any secret "
+            "already encrypted with the placeholder needs "
+            "backend/scripts/audit_settings_secrets.py --rekey-from.",
+            ENCRYPTION_KEY_ENV,
+        )
+        return None
+    return value
 
 
 def _resolve_key_str() -> str:
@@ -35,16 +56,17 @@ def _resolve_key_str() -> str:
 
     Priority: settings (pydantic, from .env) → documented env var →
     legacy env var → dev fallback. In production the fallback is refused.
+    The env_example placeholder counts as unset at every step.
     """
     try:
         from config import settings
-        configured = getattr(settings, "api_key_encryption_key", None)
+        configured = _reject_placeholder(getattr(settings, "api_key_encryption_key", None))
         if configured:
             return configured
     except Exception:
         pass
 
-    key_str = os.getenv(ENCRYPTION_KEY_ENV) or os.getenv(ENCRYPTION_KEY_ENV_LEGACY)
+    key_str = _reject_placeholder(os.getenv(ENCRYPTION_KEY_ENV) or os.getenv(ENCRYPTION_KEY_ENV_LEGACY))
     if key_str:
         return key_str
 

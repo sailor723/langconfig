@@ -184,12 +184,27 @@ POSTGRES_USER=langconfig
 POSTGRES_PASSWORD=langconfig_dev     # change it — here, and nowhere else (see below)
 ENVIRONMENT=development
 
-# Encrypts provider API keys stored in the database. Generate ONCE per machine
-# and keep it: rotating it makes every stored key undecryptable.
-#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Encrypts provider API keys stored in the database. Two supported states; pick ONE
+# and use it on every machine:
+#   blank  (recommended): the app falls back to its built-in DEV key. Every machine
+#           that leaves this blank encrypts identically, so nothing has to be
+#           distributed and no machine can lock another out.
+#   set:    generate once with `openssl rand -hex 32` and put the SAME value on
+#           every machine, out of band, before any key is stored.
+# Never leave the env_example placeholder here: the app accepts any non-empty
+# value as a real key, so an unedited placeholder becomes a key that matches no
+# other machine. Editing it later makes everything already stored unreadable,
+# and `seed_all.py` step 4b then skips that namespace (it no longer aborts).
+# Recovery: backend/scripts/audit_settings_secrets.py --rekey-from <old key>
 API_KEY_ENCRYPTION_KEY=
 
-STORAGE_MODE=db             # db = uploads in Postgres (BYTEA); fs = on disk
+# 'local' or 'db' — those are the only two values the code recognises. The comment
+# used to say 'fs', which works only by accident: anything that is not 'db' behaves
+# as local. db keeps the files on disk AND mirrors them into Postgres
+# (storage_objects), and makes the Knowledge panel list from that table instead of
+# .kvmeta. See docs/KB_MIGRATION.md before changing it on a machine that already
+# has a knowledge base.
+STORAGE_MODE=local
 LANGCONFIG_WORKSPACE_ROOT=backend/.workspace_data
 OLLAMA_BASE_URL=http://localhost:11434
 ```
