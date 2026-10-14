@@ -115,7 +115,7 @@ function buildFolderTree(docs: Document[]): { folders: FolderNode[]; ungrouped: 
 export default function KnowledgeSidebar() {
   const t = useLayoutTokens();
   const { openTab, setRightPanelTab, openRightPanel } = useLayoutState();
-  const { activeProjectId, activeProject } = useProject();
+  const { activeProjectId } = useProject();
 
   const [folderTree, setFolderTree] = useState<FolderNode[]>([]);
   const [ungroupedDocs, setUngroupedDocs] = useState<Document[]>([]);
@@ -382,26 +382,10 @@ export default function KnowledgeSidebar() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* ── Knowledge base header ───────────────────────
-          No project switcher here. Knowledge is not chosen per project: it lives on the
-          filesystem and the panel reads that. Until the knowledge base becomes the unit the
-          API is addressed by, this is a label showing what is on screen, not a control. */}
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            width: '100%', padding: '6px 10px',
-            color: t.textPrimary, fontSize: 12, textAlign: 'left',
-            borderBottom: `1px solid ${t.border}`,
-            userSelect: 'none',
-          }}
-        >
-          <Folder size={13} style={{ color: t.accent, flexShrink: 0 }} />
-          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-            {activeProject?.name ?? `Knowledge ${projectId}`}
-          </span>
-        </div>
-      </div>
+      {/* No project header. Knowledge is not scoped to a project, and an earlier version showed
+          the active project's name here — as a label rather than a control, but it still read as
+          "this knowledge belongs to that project", which is exactly what is no longer true. The
+          toolbar below names the panel; the tree below that is the content. */}
 
       {/* ── Toolbar ──────────────────────────────────── */}
       <div
