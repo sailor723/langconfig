@@ -115,14 +115,13 @@ function buildFolderTree(docs: Document[]): { folders: FolderNode[]; ungrouped: 
 export default function KnowledgeSidebar() {
   const t = useLayoutTokens();
   const { openTab, setRightPanelTab, openRightPanel } = useLayoutState();
-  const { activeProjectId, activeProject, projects, setActiveProjectId } = useProject();
+  const { activeProjectId, activeProject } = useProject();
 
   const [folderTree, setFolderTree] = useState<FolderNode[]>([]);
   const [ungroupedDocs, setUngroupedDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [showProjectPicker, setShowProjectPicker] = useState(false);
 
   // Ingest state
   const [folderPathInput, setFolderPathInput] = useState('');
@@ -383,65 +382,25 @@ export default function KnowledgeSidebar() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* ── Active project header + quick switcher ─────── */}
+      {/* ── Knowledge base header ───────────────────────
+          No project switcher here. Knowledge is not chosen per project: it lives on the
+          filesystem and the panel reads that. Until the knowledge base becomes the unit the
+          API is addressed by, this is a label showing what is on screen, not a control. */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
-        <button
-          onClick={() => setShowProjectPicker(v => !v)}
-          title="Switch project (vault)"
+        <div
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             width: '100%', padding: '6px 10px',
-            border: 'none', background: 'transparent', cursor: 'pointer',
             color: t.textPrimary, fontSize: 12, textAlign: 'left',
             borderBottom: `1px solid ${t.border}`,
             userSelect: 'none',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = t.bgHover; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
         >
           <Folder size={13} style={{ color: t.accent, flexShrink: 0 }} />
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-            {activeProject?.name ?? `Project ${projectId}`}
+            {activeProject?.name ?? `Knowledge ${projectId}`}
           </span>
-          <span style={{ display: 'flex', color: t.textMuted }}>
-            {showProjectPicker ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-          </span>
-        </button>
-
-        {showProjectPicker && (
-          <div
-            style={{
-              position: 'absolute', left: 6, right: 6, top: '100%', zIndex: 1000,
-              background: t.bgSidebar, border: `1px solid ${t.border}`, borderRadius: 6,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-              maxHeight: 300, overflowY: 'auto', padding: 4,
-            }}
-          >
-            {projects.filter((p) => p.id > 0).map((p) => {
-              const isActive = p.id === projectId;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => { setActiveProjectId(p.id); setShowProjectPicker(false); }}
-                  title={`Project ${p.id}`}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-                    padding: '7px 10px', borderRadius: 4,
-                    border: 'none', background: isActive ? t.bgHover : 'transparent',
-                    color: t.textPrimary, cursor: 'pointer', fontSize: 12, textAlign: 'left',
-                    userSelect: 'none',
-                  }}
-                  onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = t.bgHover; }}
-                  onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-                >
-                  <Folder size={12} style={{ color: isActive ? t.accent : t.textMuted, flexShrink: 0 }} />
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
-                  {isActive && <CheckCircle size={12} style={{ color: '#22c55e', flexShrink: 0 }} />}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        </div>
       </div>
 
       {/* ── Toolbar ──────────────────────────────────── */}

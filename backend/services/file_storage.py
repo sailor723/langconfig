@@ -113,7 +113,7 @@ class FileStorage:
             return None
     
     def save_file(self, project_id: int, filename: str, content: bytes,
-                  hierarchy: dict = None) -> str:
+                  hierarchy: dict = None, target_dir: Optional[Path] = None) -> str:
         """
         Save uploaded file to disk.
 
@@ -130,11 +130,16 @@ class FileStorage:
                 <sub_department>/ so the on-disk path mirrors the
                 source folder and the `_parse_hierarchy_from_path`
                 fallback in rag.py can recover the bucket from disk.
+            target_dir: Write here instead of `<base_dir>/project_<id>`. The knowledge base
+                passes its own directory (`data/knowledge/kb_<key>`), so knowledge no longer
+                lands inside `data/documents` — which is shared with chat attachments and RAG
+                uploads and is 530 MB of this install's 695 MB there. Everything else keeps the
+                old default and therefore does not move.
 
         Returns:
             Absolute path to saved file
         """
-        project_dir = self.base_dir / f"project_{project_id}"
+        project_dir = Path(target_dir) if target_dir else self.base_dir / f"project_{project_id}"
 
         # Honor the hierarchy (when the UI / curl supplied it) by
         # mirroring the source folder layout on disk. This keeps the

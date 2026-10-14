@@ -52,17 +52,28 @@ for _ext, _mime in (
 
 router = APIRouter(prefix="/api/kv", tags=["kv"])
 
-# ── KV data directory — where the metadata JSON lives ──────────────
-KV_DATA_DIR = Path(file_storage.base_dir) / ".kvmeta"
-KV_DATA_DIR.mkdir(parents=True, exist_ok=True)
+# ── Where knowledge lives ──────────────────────────────────────────
+# `data/knowledge`, its own directory: knowledge only, so copying it copies exactly the knowledge.
+# It is deliberately NOT `file_storage.base_dir` (`data/documents`), which is shared with chat
+# attachments (530 MB of this install's 695 MB) and RAG uploads. The root comes from environment
+# configuration, never from a settings document, so a copied settings row cannot repoint it.
+from services.kb_discovery import catalog_path, documents_dir, kb_root  # noqa: E402
+
+KV_DATA_DIR = kb_root() / ".kvmeta"    # kept for callers that import it; the store
+#                                        creates directories only when it writes
 
 
 # ── In-memory KV store with JSON file persistence ─────────────────
 
 class DocRecord(BaseModel):
-    """Minimal document record stored in the KV store."""
+    """A document record stored in the KV store.
+
+    `project_id` is a legacy field: it used to be written into every record, duplicating the
+    catalog's own name, and it is no longer stored. It stays on the model because the API response
+    and the Knowledge panel still speak in project ids, and because records written before the
+    change must still load.
+    """
     id: str
-    project_id: int
     filename: str
     original_filename: str
     size: int
@@ -73,30 +84,46 @@ class DocRecord(BaseModel):
     sub_category: Optional[str] = None
     sub_department: Optional[str] = None
     created_at: float = Field(default_factory=time.time)  # epoch seconds
+    # The knowledge base this document belongs to — the catalog's key, not a foreign key.
+    kb: Optional[str] = None
+    # Legacy, read-only: present in catalogs written before the layout change.
+    project_id: Optional[int] = None
 
 
 class KVStore:
     """
-    Simple key-value store backed by a JSON file.
+    One knowledge base: a JSON catalog of documents plus the directory holding them.
 
     Thread-safe for single-writer deployments. For multi-process,
     consider replacing with Redis or a file lock.
     """
 
-    def __init__(self, project_id: int):
+    def __init__(self, project_id):
         self.project_id = project_id
-        self._file = KV_DATA_DIR / f"project_{project_id}.json"
+        self.kb = str(project_id)
+        # Where this knowledge base currently lives: the current root, or the legacy one if it
+        # has not been migrated yet. Reading and writing stay together, so a KB is never split
+        # across two catalogs; the migration is what moves it.
+        self._file = catalog_path(self.kb, create=True)
         self._data: Dict[str, Any] = {}
         self._load()
 
     # ── persistence ────────────────────────────────────────────
 
     def _load(self) -> None:
-        """Load metadata from JSON file if it exists."""
+        """Load metadata from JSON file if it exists.
+
+        A catalog written before the layout change has `project_id` in every record and no `kb`;
+        one written after has `kb` and no `project_id`. Normalising here means the rest of the
+        module never has to care which it is looking at.
+        """
         if self._file.exists():
             try:
                 raw = self._file.read_text(encoding="utf-8")
                 self._data = json.loads(raw)
+                for record in self._data.values():
+                    if isinstance(record, dict):
+                        record.setdefault("kb", self.kb)
             except Exception as e:
                 logger.warning(f"Failed to load KV store from {self._file}: {e}")
                 self._data = {}
@@ -380,7 +407,7 @@ async def list_documents(project_id: int):
     return [
         KVDocumentResponse(
             id=d.id,
-            project_id=d.project_id,
+            project_id=d.project_id if d.project_id is not None else project_id,
             name=d.original_filename,
             original_filename=d.original_filename,
             document_type=_doc_type_from_ext(d.original_filename),
@@ -421,6 +448,7 @@ async def upload_document(
     # Save to disk via file_storage (preserves hierarchy path)
     storage_path = file_storage.save_file(
         project_id, file.filename, content,
+        target_dir=documents_dir(str(project_id)),
         hierarchy={
             "industry": hierarchy["industry"],
             "player": hierarchy["player"],
@@ -433,7 +461,7 @@ async def upload_document(
     doc_id = store.next_id()
     doc = DocRecord(
         id=doc_id,
-        project_id=project_id,
+        kb=str(project_id),
         filename=Path(file.filename).name,
         original_filename=file.filename,
         size=len(content),
@@ -502,6 +530,7 @@ async def upload_documents_bulk(
             # Save to disk
             storage_path = file_storage.save_file(
                 project_id, file.filename, content,
+                target_dir=documents_dir(str(project_id)),
                 hierarchy={
                     "industry": hierarchy["industry"],
                     "player": hierarchy["player"],
@@ -513,7 +542,7 @@ async def upload_documents_bulk(
             doc_id = store.next_id()
             doc = DocRecord(
                 id=doc_id,
-                project_id=project_id,
+                kb=str(project_id),
                 filename=Path(file.filename).name,
                 original_filename=file.filename,
                 size=len(content),
@@ -609,13 +638,14 @@ async def ingest_folder_from_path(request: Request):
 
             storage_path = file_storage.save_file(
                 project_id, fp.name, content,
+                target_dir=documents_dir(str(project_id)),
                 hierarchy=hierarchy,
             )
 
             doc_id = store.next_id()
             doc = DocRecord(
                 id=doc_id,
-                project_id=project_id,
+                kb=str(project_id),
                 filename=fp.name,
                 original_filename=fp.name,
                 size=len(content),

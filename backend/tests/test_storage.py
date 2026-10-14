@@ -148,7 +148,10 @@ def test_kv_endpoint_serves_from_disk_only(db_mode, tmp_path, monkeypatch):
     # Redirect the KV metadata dir and document base dir away from the repo.
     kv_meta = tmp_path / ".kvmeta"
     kv_meta.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(kv_module, "KV_DATA_DIR", kv_meta)
+    # The store resolves its catalog from KB_ROOT now, not from a module global, so a
+    # knowledge base can be found with the database unreachable.
+    monkeypatch.setenv("KB_ROOT", str(tmp_path))
+    monkeypatch.setenv("DOCUMENTS_KB_ROOT", str(tmp_path))   # no legacy fallback
     monkeypatch.setattr(FileStorage, "base_dir", property(lambda self: tmp_path))
 
     app = FastAPI()
@@ -270,7 +273,10 @@ def test_kv_listing_is_filesystem_only_in_db_mode(db_mode, tmp_path, monkeypatch
 
     kv_meta = tmp_path / ".kvmeta"
     kv_meta.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(kv_module, "KV_DATA_DIR", kv_meta)
+    # The store resolves its catalog from KB_ROOT now, not from a module global, so a
+    # knowledge base can be found with the database unreachable.
+    monkeypatch.setenv("KB_ROOT", str(tmp_path))
+    monkeypatch.setenv("DOCUMENTS_KB_ROOT", str(tmp_path))   # no legacy fallback
     monkeypatch.setattr(FileStorage, "base_dir", property(lambda self: tmp_path))
 
     # A durable row with no file behind it. It must NOT appear in the listing: the filesystem is
@@ -341,7 +347,10 @@ def test_kv_file_serves_range_requests(tmp_path, monkeypatch):
 
     kv_meta = tmp_path / ".kvmeta"
     kv_meta.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(kv_module, "KV_DATA_DIR", kv_meta)
+    # The store resolves its catalog from KB_ROOT now, not from a module global, so a
+    # knowledge base can be found with the database unreachable.
+    monkeypatch.setenv("KB_ROOT", str(tmp_path))
+    monkeypatch.setenv("DOCUMENTS_KB_ROOT", str(tmp_path))   # no legacy fallback
     monkeypatch.setattr(FileStorage, "base_dir", property(lambda self: tmp_path))
 
     app = FastAPI()
