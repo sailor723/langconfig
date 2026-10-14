@@ -11,6 +11,12 @@ Two questions this answers, because both have bitten us:
 Numbers quoted below are from one reference install (56 agents / 67 tools), not
 universal constants — they are there to make the shapes concrete.
 
+**Naming:** this file is the *map* — where things are today and the shape they should take.
+What each thing is called, and which of the three classes it belongs to
+(**Registry · Knowledge · Workspace**), is defined in
+[`data-taxonomy.md`](data-taxonomy.md). Where the two disagree, fix whichever is wrong and
+note it in the taxonomy.
+
 ---
 
 ## 1. The state today
