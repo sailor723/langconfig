@@ -194,9 +194,25 @@ start_backend() {
 start_frontend() {
     echo "── Frontend ─────────────────────────────"
     kill_old "frontend" 1421 "$FE_PIDFILE"
-    echo "  Starting frontend..."
-    cd "$FE_DIR"
-    npm run dev &
+    # FRONTEND=preview serves the built bundle from dist/ instead of running the
+    # dev server, which transforms modules on demand — markedly faster to load,
+    # and markedly faster still on WSL, where each file read crosses into the
+    # Windows filesystem. It needs `npm run build` first (and again after any
+    # pull that touches the frontend); without dist/ the preview server starts
+    # and immediately exits, which is why the check below reports honestly.
+    if [ "${FRONTEND:-dev}" = "preview" ]; then
+        if [ ! -d "$FE_DIR/dist" ]; then
+            echo "  ✗ FRONTEND=preview needs a build first:  cd $FE_DIR && npm run build"
+            return 1
+        fi
+        echo "  Starting frontend (preview — built bundle from dist/)..."
+        cd "$FE_DIR"
+        npm run preview &
+    else
+        echo "  Starting frontend (dev server)..."
+        cd "$FE_DIR"
+        npm run dev &
+    fi
     echo $! > "$FE_PIDFILE"
     echo "  Frontend PID: $(cat "$FE_PIDFILE")"
     sleep 4
