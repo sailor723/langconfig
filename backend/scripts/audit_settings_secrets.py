@@ -52,7 +52,16 @@ sys.path.insert(0, str(BACKEND))
 
 from sqlalchemy import text  # noqa: E402
 
+# Capture the shell's own value BEFORE any app import: config.py calls load_dotenv, which writes
+# the .env lines into os.environ, after which a real shell export is indistinguishable from a
+# .env line and the diagnostic below would claim the wrong source.
+_EXPORTED_IN_SHELL = os.environ.get("API_KEY_ENCRYPTION_KEY")
+
 from db.database import engine  # noqa: E402
+
+# The sentinel shipped in `env_example`. Not a secret — it is the *absence* of a secret, which
+# the app cannot tell apart from a real key because it only tests for a non-empty value.
+TEMPLATE_PLACEHOLDER = "PASTE-THE-64-HEX-OUTPUT-OF-OPENSSL-RAND-HEX-32"
 
 
 def fernet_fields(document, prefix=""):
@@ -118,15 +127,47 @@ def blank(namespace: str, dotted: str) -> bool:
     return get_at(after, dotted) in (None, "")
 
 
+def describe_key() -> None:
+    """Report which key is in force AND where it came from.
+
+    The key is only the third of these that is a real secret; the other two are honest states
+    that must not be mistaken for a configured key:
+
+    * ``DEV fallback``     — nothing configured. Stable across machines, so it is harmless as
+      long as it was never mixed with a real key on the same database.
+    * ``template placeholder`` — ``cp env_example .env`` was run and the line never edited. The
+      app only checks that the value is non-empty, so this sentinel silently becomes a *third*
+      key that matches no other machine's.
+    """
+    from services.encryption import ENCRYPTION_KEY_ENV, _resolve_key_str
+
+    resolved = _resolve_key_str()
+    env_file = BACKEND.parent / ".env"
+
+    if resolved == "langconfig-dev-insecure-key-change-me":
+        state = "DEV FALLBACK — no key configured, secrets are NOT protected"
+    elif resolved == TEMPLATE_PLACEHOLDER:
+        state = "TEMPLATE PLACEHOLDER — env_example was copied but never edited"
+    else:
+        state = f"configured ({len(resolved)} chars)"
+
+    print(f"  encryption key : {state}")
+    where = [f"root .env {'present' if env_file.exists() else 'ABSENT'}"]
+    if _EXPORTED_IN_SHELL:
+        where.append(f"{ENCRYPTION_KEY_ENV} exported in this shell")
+    print(f"  key source     : {', '.join(where)}")
+    if resolved == TEMPLATE_PLACEHOLDER:
+        print("    ! This is the literal string shipped in env_example. Every value written with it")
+        print("      is unreadable on a machine that left the line blank instead. Replace it with a")
+        print("      real key, or blank the line and stay on the DEV fallback.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--clear", action="store_true", help="blank the undecryptable fields")
     args = ap.parse_args()
 
-    from services.encryption import _resolve_key_str
-    source = _resolve_key_str()
-    dev_fallback = source == "langconfig-dev-insecure-key-change-me"
-    print(f"  encryption key : {'DEV FALLBACK (no key configured anywhere)' if dev_fallback else f'configured ({len(source)} chars)'}")
+    describe_key()
 
     with engine.connect() as conn:
         namespaces = [r[0] for r in conn.execute(text("SELECT ns FROM settings_documents ORDER BY ns"))]
