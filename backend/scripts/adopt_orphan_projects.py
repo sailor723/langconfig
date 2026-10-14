@@ -34,8 +34,15 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.getcwd())  # run from <tree>/backend, as a file or via stdin
+# Run from anywhere: take backend/ from this file's own location and work from there. The
+# app resolves settings paths against the process CWD ("./data/documents"), so the CWD must be
+# backend/ no matter where the script was invoked from — running it from the repo root used to
+# fail with "can't open file .../scripts/<name>.py".
+BACKEND = Path(__file__).resolve().parents[1]
+os.chdir(BACKEND)
+sys.path.insert(0, str(BACKEND))
 
 from sqlalchemy import text  # noqa: E402
 
@@ -49,7 +56,7 @@ def documents_root() -> str:
     """Ask the app where documents live rather than assuming data/documents."""
     try:
         from services.file_storage import file_storage
-        return str(file_storage.base_dir)
+        return str(Path(file_storage.base_dir).resolve())
     except Exception:
         return DOCS_ROOT
 
@@ -80,6 +87,30 @@ def find_orphans() -> list[tuple[int, int, str]]:
             count = 0
         orphans.append((pid, count, kv_file))
     return orphans
+
+
+def find_uncatalogued() -> list[tuple[str, int]]:
+    """Folders with files but no .kvmeta, plus non-numeric project_* dirs.
+
+    Neither is adoptable, and for different reasons: without a `.kvmeta` there is no record for
+    the panel to list (adopting the project would surface nothing), and `project_chat_sessions`
+    is not a project at all — it is the chat attachment container, keyed by session id.
+    """
+    root = documents_root()
+    kv_dir = os.path.join(root, ".kvmeta")
+    found = []
+    for path in sorted(glob.glob(os.path.join(root, "project_*"))):
+        if not os.path.isdir(path):
+            continue
+        name = os.path.basename(path)
+        files = sum(len(fs) for _, _, fs in os.walk(path))
+        if not files:
+            continue
+        if not re.fullmatch(r"project_(\d+)", name):
+            found.append((name, files))                       # not a project
+        elif not os.path.exists(os.path.join(kv_dir, f"{name}.json")):
+            found.append((name, files))                       # a project, but nothing lists it
+    return found
 
 
 def adopt(pid: int, name: str) -> None:
@@ -128,6 +159,12 @@ def main() -> int:
     for pid, count, _ in orphans:
         label = names.get(pid) or args.name_pattern.format(id=pid)
         print(f"    project_{pid:<6} {count:>5} document(s)   would be named {label!r}")
+
+    uncatalogued = find_uncatalogued()
+    if uncatalogued:
+        print("\n  not adoptable (no .kvmeta record, so nothing could list them anyway):")
+        for name, files in uncatalogued:
+            print(f"    {name:<20} {files:>5} file(s)")
 
     if not args.apply:
         print("\n  report only. Re-run with --apply to insert these rows.")

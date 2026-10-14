@@ -46,6 +46,7 @@ os.environ["WORKSPACE_ROOT"] = "/tmp/langconfig-copied-kb-ws"
 os.environ["STORAGE_MODE"] = "local"
 
 BACKEND = Path(__file__).resolve().parents[1]  # scripts/ -> backend/
+os.chdir(BACKEND)   # the app resolves relative settings paths against the CWD
 sys.path.insert(0, str(BACKEND))
 
 from sqlalchemy import create_engine, text  # noqa: E402
