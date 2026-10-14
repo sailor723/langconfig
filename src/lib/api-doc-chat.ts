@@ -33,8 +33,10 @@ export interface DocChatMessage {
 
 export interface DocChatRequest {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  /** Folder inside the knowledge base, e.g. "business_model/tesla". "" is the root. */
   folder_path: string;
-  project_id?: number;
+  /** Knowledge base folder name — the same handle the upload endpoints take. */
+  knowledge: string;
   conversation_id?: string | null;
   /** LLM settings (same resolution path as the rest of the app). */
   model?: string;
@@ -63,15 +65,16 @@ export interface DocChatConversation {
 // ───────────────────────────────────────────────────────────
 
 /**
- * List all folder paths under a project that contain supported
- * files. Used by the scope selector in DocChatPanel.
+ * List every folder inside a knowledge base that holds supported files.
+ * Used by the scope selector in DocChatPanel.
  */
 export async function listDocChatFolders(
-  projectId: number = 1,
+  knowledge: string,
 ): Promise<string[]> {
+  if (!knowledge) return [];
   try {
     const response = await apiClient.get('/api/doc-chat/folders', {
-      params: { project_id: projectId },
+      params: { knowledge },
     });
     return response.data.folders || [];
   } catch {

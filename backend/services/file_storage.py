@@ -130,11 +130,15 @@ class FileStorage:
                 <sub_department>/ so the on-disk path mirrors the
                 source folder and the `_parse_hierarchy_from_path`
                 fallback in rag.py can recover the bucket from disk.
-            target_dir: Write here instead of `<base_dir>/project_<id>`. The knowledge base
-                passes its own directory (`data/knowledge/kb_<key>`), so knowledge no longer
-                lands inside `data/documents` — which is shared with chat attachments and RAG
-                uploads and is 530 MB of this install's 695 MB there. Everything else keeps the
-                old default and therefore does not move.
+            target_dir: Write here instead of `<base_dir>/project_<id>`. The knowledge base passes
+                its own directory — `documents_dir(<folder name>)`, under `data/knowledge` — so
+                knowledge does not land inside `data/documents`, which is shared with chat
+                attachments and RAG uploads and is 530 MB of this install's 695 MB there.
+                Everything else keeps the old default and therefore does not move.
+
+        `project_id` is unused whenever `target_dir` is given, which is every knowledge call:
+        knowledge is not scoped to a project, so there is no id to derive a default path from.
+        Callers that pass no `target_dir` — chat attachments, RAG uploads — still need it.
 
         Returns:
             Absolute path to saved file

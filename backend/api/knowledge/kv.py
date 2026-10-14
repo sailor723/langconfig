@@ -7,13 +7,22 @@ in-memory dict (persisted to a JSON file on the KV_DATA_DIR path).
 Follows the same zero-dependency pattern as `doc_chat.py`.
 
 Endpoints:
-  GET    /api/kv/documents          — list documents for a project
+  GET    /api/kv/bases              — the knowledge bases under the knowledge root
+  GET    /api/kv/tree               — every folder and file under the knowledge root
+  GET    /api/kv/documents          — list a knowledge base's documents
   POST   /api/kv/upload             — upload a single file
   POST   /api/kv/upload-bulk        — upload multiple files (folder)
+  POST   /api/kv/link               — record a file that stays where it is
   POST   /api/kv/ingest-folder      — server-side folder walk
   DELETE /api/kv/documents/{id}     — delete a document
   GET    /api/kv/documents/{id}/file — serve raw file bytes
   GET    /api/kv/documents/{id}/content — extracted text (docx/pptx/xlsx/...)
+
+Every one of them names the knowledge base by its FOLDER NAME — `knowledge=<folder>`, the same
+value `/api/kv/bases` reports as `key`. There is no project id, and no `kb_<key>` folder
+convention: a knowledge base is a folder with a catalog beside it, and `documents_dir()` resolves
+it for this module and for doc chat alike, so the folder a document is uploaded into is the folder
+it is read back from.
 """
 
 from __future__ import annotations
@@ -28,6 +37,15 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+# The hierarchy a knowledge base files documents under, outermost first. `save_file` writes them
+# in this order and `_parse_hierarchy_from_path` reads them back by position, so anything that
+# names them has to use the same sequence.
+_HIERARCHY = ("industry", "player", "sub_category", "sub_department")
+
+# The 8-hex collision prefix `FileStorage.save_file` puts on every filename it writes. It is a
+# storage detail; the document's own name is what follows it.
+_ON_DISK_PREFIX = re.compile(r"^[0-9a-f]{8}_")
 
 from core.utils.http import content_disposition
 
@@ -69,10 +87,11 @@ KV_DATA_DIR = kb_root() / ".kvmeta"    # kept for callers that import it; the st
 class DocRecord(BaseModel):
     """A document record stored in the KV store.
 
-    `project_id` is a legacy field: it used to be written into every record, duplicating the
-    catalog's own name, and it is no longer stored. It stays on the model because the API response
-    and the Knowledge panel still speak in project ids, and because records written before the
-    change must still load.
+    There is no `project_id` here, not even a legacy one. A knowledge base is named by the folder
+    it lives in, which is also the name of its catalog, so a record has nothing to gain from
+    repeating a project id — and when it did repeat one, it was a second copy of the catalog's own
+    name that could drift from it. Catalogs written before the change still load: pydantic ignores
+    the unknown field, and `put_doc()` does not write it back.
     """
     id: str
     filename: str
@@ -85,31 +104,28 @@ class DocRecord(BaseModel):
     sub_category: Optional[str] = None
     sub_department: Optional[str] = None
     created_at: float = Field(default_factory=time.time)  # epoch seconds
-    # The knowledge base this document belongs to — the catalog's key, not a foreign key.
+    # The knowledge base this document belongs to — the folder name, not a foreign key.
     kb: Optional[str] = None
     # Added by LINK rather than by upload: `storage_path` names a file that lives wherever it
     # already lived, nothing was copied into the knowledge store, and deleting the record must
     # never delete that file.
     linked: bool = False
-    # Legacy, read-only: present in catalogs written before the layout change.
-    project_id: Optional[int] = None
 
 
 class KVStore:
     """
     One knowledge base: a JSON catalog of documents plus the directory holding them.
 
-    Thread-safe for single-writer deployments. For multi-process,
-    consider replacing with Redis or a file lock.
+    Constructed with the knowledge base's folder name. Thread-safe for single-writer deployments.
+    For multi-process, consider replacing with Redis or a file lock.
     """
 
-    def __init__(self, project_id):
-        self.project_id = project_id
-        self.kb = str(project_id)
+    def __init__(self, knowledge: str):
+        self.knowledge = knowledge
         # Where this knowledge base currently lives: the current root, or the legacy one if it
-        # has not been migrated yet. Reading and writing stay together, so a KB is never split
-        # across two catalogs; the migration is what moves it.
-        self._file = catalog_path(self.kb, create=True)
+        # has not been renamed yet. Reading and writing stay together, so a KB is never split
+        # across two catalogs; the rename is what moves it.
+        self._file = catalog_path(self.knowledge, create=True)
         self._data: Dict[str, Any] = {}
         self._load()
 
@@ -118,9 +134,9 @@ class KVStore:
     def _load(self) -> None:
         """Load metadata from JSON file if it exists.
 
-        A catalog written before the layout change has `project_id` in every record and no `kb`;
-        one written after has `kb` and no `project_id`. Normalising here means the rest of the
-        module never has to care which it is looking at.
+        A catalog written before the change has `project_id` in every record and may lack `kb`;
+        pydantic ignores the field it no longer knows and this fills in the one it needs, so the
+        rest of the module never has to care which shape it is looking at.
         """
         if self._file.exists():
             try:
@@ -128,7 +144,7 @@ class KVStore:
                 self._data = json.loads(raw)
                 for record in self._data.values():
                     if isinstance(record, dict):
-                        record.setdefault("kb", self.kb)
+                        record.setdefault("kb", self.knowledge)
             except Exception as e:
                 logger.warning(f"Failed to load KV store from {self._file}: {e}")
                 self._data = {}
@@ -153,7 +169,7 @@ class KVStore:
     # ── CRUD ───────────────────────────────────────────────────
 
     def list_docs(self) -> List[DocRecord]:
-        """Return all documents for this project."""
+        """Return all documents in this knowledge base."""
         return [DocRecord(**v) for v in self._data.values()]
 
     def get_doc(self, doc_id: str) -> Optional[DocRecord]:
@@ -167,6 +183,19 @@ class KVStore:
         """Insert or update a document."""
         self._data[doc.id] = doc.model_dump()
         self._save()
+
+    def put_docs(self, docs: List["DocRecord"]) -> int:
+        """Insert or update several documents, writing the catalog ONCE.
+
+        `put_doc` re-serialises the whole catalog per document, which is fine for one upload and
+        quadratic for a sweep: indexing 171 files would rewrite a 580 KB catalog 171 times. The
+        result is identical, the writes are not.
+        """
+        for doc in docs:
+            self._data[doc.id] = doc.model_dump()
+        if docs:
+            self._save()
+        return len(docs)
 
     def delete_doc(self, doc_id: str) -> bool:
         """Delete a document. Returns True if it existed."""
@@ -210,107 +239,6 @@ def _parse_hierarchy_from_metadata(metadata: dict) -> dict:
         "sub_category": metadata.get("sub_category") if isinstance(metadata, dict) else None,
         "sub_department": metadata.get("sub_department") if isinstance(metadata, dict) else None,
     }
-
-
-# ── Storage-backed docs (docs/system-architecture.md §15, Phase 5) ──────────
-# In STORAGE_MODE=db the durable copy in storage_objects is authoritative, so
-# the listing is sourced from `documents/project_<id>/` keys instead of the
-# .kvmeta JSON. `save_file` writes `project_<id>/[industry/][player/]
-# [sub_category/][sub_department/]<uuid8>_<name>` — the position-based
-# hierarchy matches `_parse_hierarchy_from_path` in rag/uploads.py.
-
-_UUID8_RE = re.compile(r"^([0-9a-f]{8})_(.+)$")
-
-
-def _parse_storage_key(project_id: int, key: str) -> Optional[dict]:
-    """Parse a storage key into its id / filename / hierarchy parts.
-
-    Returns None when the key isn't a document belonging to `project_id`.
-    """
-    prefix = f"documents/project_{project_id}/"
-    if not key.startswith(prefix):
-        return None
-    segs = key[len(prefix):].split("/")
-    basename = segs[-1]
-    hier = segs[:-1]
-    m = _UUID8_RE.match(basename)
-    if m:
-        doc_id, original = m.group(1), m.group(2)
-    else:
-        doc_id, original = basename, basename  # legacy/no-prefix names
-    return {
-        "id": doc_id,
-        "original_filename": original,
-        "industry": hier[0] if len(hier) >= 1 else None,
-        "player": hier[1] if len(hier) >= 2 else None,
-        "sub_category": hier[2] if len(hier) >= 3 else None,
-        "sub_department": hier[3] if len(hier) >= 4 else None,
-    }
-
-
-def _storage_doc(project_id: int, doc_id: str) -> Optional[dict]:
-    """Find a document in storage_objects by its storage-derived id.
-
-    Used for docs listed from the DB, which have no .kvmeta record.
-    """
-    from services.storage import get_storage
-
-    storage = get_storage()
-    for key in storage.list(f"documents/project_{project_id}/"):
-        parsed = _parse_storage_key(project_id, key)
-        if parsed and parsed["id"] == doc_id:
-            stat = storage.stat(key)
-            return {
-                "key": key,
-                "original_filename": parsed["original_filename"],
-                "mime_type": stat.mime_type if stat else None,
-            }
-    return None
-
-
-def _purge_kvmeta_for_key(store: "KVStore", key: str) -> None:
-    """Drop .kvmeta records whose on-disk path maps to `key` (dedupe).
-
-    A doc uploaded in db mode exists both in .kvmeta and storage_objects, but
-    the DB listing uses the storage-derived id, so deleting it must not leave
-    a ghost record behind for when the user switches back to local mode.
-    """
-    for doc in store.list_docs():
-        try:
-            if file_storage._storage_key(Path(doc.storage_path)) == key:
-                store.delete_doc(doc.id)
-        except Exception:
-            continue
-
-
-def _list_docs_from_storage(project_id: int) -> List["KVDocumentResponse"]:
-    """DB mode: list documents from storage_objects instead of .kvmeta JSON."""
-    from services.storage import get_storage
-
-    storage = get_storage()
-    out: List[KVDocumentResponse] = []
-    for key in storage.list(f"documents/project_{project_id}/"):
-        parsed = _parse_storage_key(project_id, key)
-        if parsed is None:
-            continue
-        stat = storage.stat(key)
-        created_at = stat.updated_at.timestamp() if stat and stat.updated_at else 0.0
-        out.append(KVDocumentResponse(
-            id=parsed["id"],
-            project_id=project_id,
-            name=parsed["original_filename"],
-            original_filename=parsed["original_filename"],
-            document_type=_doc_type_from_ext(parsed["original_filename"]),
-            size=stat.size_bytes if stat else 0,
-            mime_type=stat.mime_type if stat else None,
-            industry=parsed["industry"],
-            player=parsed["player"],
-            sub_category=parsed["sub_category"],
-            sub_department=parsed["sub_department"],
-            created_at=created_at,
-        ))
-    out.sort(key=lambda d: d.created_at, reverse=True)
-    return out
 
 
 # ── File serving (encoding & media types) ────────────────────────────────
@@ -381,7 +309,6 @@ def _serve_file_bytes(
 
 class KVDocumentResponse(BaseModel):
     id: str
-    project_id: int
     name: str
     original_filename: str
     document_type: str
@@ -393,6 +320,8 @@ class KVDocumentResponse(BaseModel):
     sub_department: Optional[str] = None
     created_at: float
     linked: bool = False
+    # The knowledge base this document is in — the folder name, which is what the caller passed.
+    knowledge: Optional[str] = None
 
 
 class KVUploadResponse(BaseModel):
@@ -405,12 +334,17 @@ class KVUploadResponse(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────
 
 @router.get("/tree")
-async def knowledge_tree(depth: int = 4):
+async def knowledge_tree(depth: int = 16):
     """Every folder and file under the knowledge root, exactly as it is on disk.
 
     Not documents-of-a-project, and not only what a catalog happens to list: this is the
     filesystem. A folder copied under the knowledge root shows up here before anything has
     registered it, which is the point — knowledge is the files, and the panel shows them.
+
+    `depth` is a guard against a pathological tree, not a display choice, and it has to sit well
+    past anything real: at the old default of 4, a knowledge base organised
+    `industry/player/topic/section/team/` had its deepest folders — and every file in them — cut
+    off silently, so the tree under-reported what was on disk (346 files against 952 records).
     """
     from services.kb_discovery import kb_root
 
@@ -448,51 +382,41 @@ async def list_knowledge_bases():
 
     The Knowledge view uses this instead of asking which project to scope to. A knowledge base
     exists because its folder and catalog exist, so the list comes from the disk and works with
-    the database unreachable. `handle` is the numeric id the existing endpoints still accept —
-    a knowledge base does not need a project, but the API has not finished catching up.
+    the database unreachable. `key` is the folder name — pass it back as `knowledge=`.
     """
-    from sqlalchemy import text
-
-    from db.database import engine
     from services.kb_discovery import discover, kb_root
 
-    names: dict = {}
-    try:                                    # purely cosmetic: a project's name, when one exists
-        with engine.connect() as conn:
-            names = {str(r[0]): r[1] for r in conn.execute(text("SELECT id, name FROM projects"))}
-    except Exception as exc:                # noqa: BLE001 — naming must not gate the listing
-        logger.warning("knowledge bases listed without database names: %s", exc)
-
+    # No database read: a knowledge base's name lives with the knowledge base, in its own
+    # `kb.json`. Listing and naming therefore work with Postgres unreachable, and copying the
+    # folder to another machine carries the name with it.
     out = []
     for kb in discover():
         out.append({
             "key": kb.key,
-            "name": names.get(kb.key) or f"knowledge {kb.key}",
+            "name": kb.display_name,
             "document_count": kb.document_count,
-            "handle": kb.project_id,
-            "legacy": kb.legacy,
-            "root": str(kb.catalog.parent.parent),
+            "folder": str(kb.folder),
+            "root": str(kb.folder.parent),
         })
     return {"root": str(kb_root()), "bases": out}
 
 
 @router.get("/documents")
-async def list_documents(project_id: int):
-    """List all documents for a project, from the filesystem catalog.
+async def list_documents(knowledge: str):
+    """List a knowledge base's documents, from the filesystem catalog.
 
     This used to switch on STORAGE_MODE: in `db` mode it listed from `storage_objects` in
     Postgres instead, which made the database an alternative catalog — a documents folder copied
     onto the machine was then present and invisible. Knowledge is filesystem-only now, so the
     `.kvmeta` catalog is the only index, whatever the storage mode says.
     """
-    store = KVStore(project_id)
+    store = KVStore(knowledge)
     docs = store.list_docs()
     # Sort newest first
     docs.sort(key=lambda d: d.created_at, reverse=True)
     return [
         KVDocumentResponse(
             id=d.id,
-            project_id=d.project_id if d.project_id is not None else project_id,
             name=d.original_filename,
             original_filename=d.original_filename,
             document_type=_doc_type_from_ext(d.original_filename),
@@ -504,14 +428,162 @@ async def list_documents(project_id: int):
             sub_department=d.sub_department,
             created_at=d.created_at,
             linked=d.linked,
+            knowledge=d.kb or knowledge,
         )
         for d in docs
     ]
 
 
+@router.post("/index-missing")
+async def index_missing_files(knowledge: Optional[str] = None):
+    """Give a record to every file already on disk under the knowledge root that has none.
+
+    The catalog is the index and the folder is the content, so a file dropped in by hand — copied,
+    restored, written by a script — is real and readable but unlisted: the document list is built
+    from the catalog, so it cannot show what the catalog has never heard of. Measured on this
+    install, that was 320 files against 1993 records, 55 MB of them with no indexed counterpart.
+
+    Records are written IN PLACE. Nothing is copied and nothing is moved — `ingest-folder` calls
+    `save_file()`, which would write a second, uuid-prefixed copy of every one of those files
+    beside the original. This is the equivalent of `link` for files that are already inside the
+    knowledge base.
+
+    Deliberately NOT `linked`. These files live inside the knowledge base, so the knowledge base
+    owns them and deleting one from the panel deletes it, exactly as for an uploaded document. A
+    linked record would mean "the file is not ours, leave it alone", which is for paths outside
+    the root.
+
+    Idempotent: a file that already has a record is left alone, and running it twice adds nothing.
+    `knowledge` may be omitted to sweep every knowledge base.
+    """
+    from services.kb_discovery import MANIFEST_NAME, discover, documents_dir, kv_dir
+
+    targets = [knowledge] if knowledge else [kb.key for kb in discover()]
+    reports = []
+    for name in targets:
+        # RESOLVED, because a record stores an ABSOLUTE storage_path while `documents_dir()` is
+        # built from `kb_root()`, which is configured relative — "data/knowledge". Comparing a
+        # relative walk path against absolute records never matches, so the "already has a record"
+        # check silently fails and every file is indexed a second time, doubling the catalog.
+        base = documents_dir(name).resolve()
+        if not base.is_dir():
+            reports.append({"knowledge": name, "indexed": 0, "already_indexed": 0,
+                            "note": "no such folder"})
+            continue
+
+        store = KVStore(name)
+        # Matched on the absolute path, which is what a record actually stores. Matching on the
+        # name would miss a file that was renamed on disk and re-add its neighbour.
+        known = {str(Path(d.storage_path)) for d in store.list_docs()}
+
+        fresh: List[DocRecord] = []
+        already = 0
+        for path in sorted(base.rglob("*")):
+            if not path.is_file() or path.name.startswith(".") or path.name == MANIFEST_NAME:
+                continue                       # the manifest is the base's own name, not a document
+            if str(path) in known:
+                already += 1
+                continue
+
+            # The folder a file sits in IS its hierarchy, positionally — the same shape the upload
+            # paths write, so a swept file groups exactly like an uploaded one.
+            parts = list(path.relative_to(base).parts[:-1])
+            hierarchy = {key: (parts[i] if len(parts) > i else None)
+                         for i, key in enumerate(_HIERARCHY)}
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            fresh.append(DocRecord(
+                id=store.next_id(),
+                kb=name,
+                filename=path.name,
+                # The writer's 8-hex collision prefix is a storage detail; the document's name is
+                # what follows it.
+                original_filename=_ON_DISK_PREFIX.sub("", path.name),
+                size=stat.st_size,
+                mime_type=mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+                storage_path=str(path),
+                created_at=stat.st_mtime,
+                **hierarchy,
+            ))
+
+        added = store.put_docs(fresh)
+
+        # Empty folders, which this sweep is uniquely placed to notice: it has just walked every
+        # one, so it knows which hold nothing. Deepest first, so a parent that becomes empty once
+        # its children go is removed in the same pass rather than surviving to the next one.
+        pruned: List[str] = []
+        for path in sorted((p for p in base.rglob("*") if p.is_dir()),
+                           key=lambda p: len(p.parts), reverse=True):
+            if path.name.startswith("."):
+                continue
+            try:
+                if not any(path.iterdir()):
+                    path.rmdir()
+                    pruned.append(str(path.relative_to(base)))
+            except OSError:
+                continue
+
+        # A knowledge base whose folder holds nothing but its own manifest is an empty knowledge
+        # base: it lists no documents and never will, because there is nothing to list. Removed
+        # with its folder and catalog together — leaving either behind would strand it, and the
+        # next discovery pass would see a catalog with no folder.
+        documents_left = [p for p in base.rglob("*")
+                          if p.is_file() and p.name != MANIFEST_NAME]
+        if not documents_left:
+            catalog = kv_dir(kb_root()) / f"{name}.json"
+            try:
+                if catalog.exists():
+                    catalog.unlink()
+                for leftover in base.rglob("*"):
+                    if leftover.is_file():
+                        leftover.unlink()
+                base.rmdir()
+            except OSError as exc:
+                logger.warning("could not remove empty knowledge base %s: %s", name, exc)
+            else:
+                reports.append({"knowledge": name, "indexed": added, "already_indexed": already,
+                                "removed": True,
+                                "note": "empty knowledge base — folder and catalog removed"})
+                logger.info("removed empty knowledge base %s", name)
+                continue
+
+        reports.append({"knowledge": name, "indexed": added, "already_indexed": already,
+                        "empty_folders_removed": pruned})
+
+    total = sum(r["indexed"] for r in reports)
+    removed_bases = [r["knowledge"] for r in reports if r.get("removed")]
+    removed_folders = sum(len(r.get("empty_folders_removed") or []) for r in reports)
+    # Genuinely different outcomes, which one message would blur: files added, files all present
+    # already, and a knowledge base with nothing in it. "No files on disk" is not "everything is
+    # already indexed" — the first means the folder is empty, and saying otherwise sends someone
+    # looking for a problem that is not there.
+    seen = sum(r["indexed"] + r["already_indexed"] for r in reports)
+    if total:
+        message = f"Indexed {total} file(s) in place."
+    elif seen:
+        message = f"Nothing to do — all {seen} file(s) on disk already have a record."
+    else:
+        message = "No files on disk to index."
+    if removed_folders:
+        message += f" Removed {removed_folders} empty folder(s)."
+    if removed_bases:
+        message += f" Removed empty knowledge base(s): {', '.join(removed_bases)}."
+    return {
+        "success": True,
+        "indexed": total,
+        "scanned": seen,
+        "removed_folders": removed_folders,
+        "removed_bases": removed_bases,
+        "bases": reports,
+        "message": message,
+    }
+
+
 @router.post("/link", response_model=KVUploadResponse)
 async def link_document(
-    project_id: int = Form(...),
+    knowledge: str = Form(...),
     path: str = Form(...),
     metadata: Optional[str] = Form(None),
 ):
@@ -539,8 +611,8 @@ async def link_document(
 
     # Linking a file that is already inside this knowledge base would create a second record for
     # one document; upload is the honest way to add something the knowledge base already holds.
-    store = KVStore(project_id)
-    docs_dir = documents_dir(str(project_id))
+    store = KVStore(knowledge)
+    docs_dir = documents_dir(knowledge)
     try:
         target.resolve().relative_to(docs_dir.resolve())
     except ValueError:
@@ -571,7 +643,7 @@ async def link_document(
     doc_id = store.next_id()
     store.put_doc(DocRecord(
         id=doc_id,
-        kb=str(project_id),
+        kb=knowledge,
         filename=target.name,
         original_filename=target.name,
         size=size,
@@ -581,7 +653,7 @@ async def link_document(
         **_parse_hierarchy_from_metadata(doc_metadata),
     ))
 
-    logger.info(f"Linked {target} into knowledge base {project_id} as {doc_id}")
+    logger.info(f"Linked {target} into knowledge base {knowledge} as {doc_id}")
     return KVUploadResponse(
         id=doc_id,
         name=target.name,
@@ -592,14 +664,29 @@ async def link_document(
 
 @router.post("/upload", response_model=KVUploadResponse)
 async def upload_document(
-    project_id: int = Form(...),
+    knowledge: str = Form(...),
     file: UploadFile = File(...),
     metadata: Optional[str] = Form(None),
 ):
-    """Upload a single document. Metadata is optional JSON with
-    hierarchy fields: industry, player, sub_category, sub_department."""
+    """Upload a single document into a knowledge base.
+
+    The knowledge base is named by `knowledge` — its folder name under the knowledge root, which
+    is what `GET /api/kv/bases` reports as `key`. Nothing here is looked up in a database: the
+    name is a folder, and `documents_dir()` is the same resolver doc chat reads through, so the
+    file lands exactly where a chat about this knowledge base will look for it.
+
+    Metadata is optional JSON with hierarchy fields: industry, player, sub_category,
+    sub_department.
+    """
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file provided")
+
+    knowledge = (knowledge or "").strip()
+    if not knowledge:
+        raise HTTPException(
+            status_code=400,
+            detail="A knowledge base is required: pass knowledge=<folder name>",
+        )
 
     # Parse optional metadata
     doc_metadata: dict = {}
@@ -612,10 +699,12 @@ async def upload_document(
     hierarchy = _parse_hierarchy_from_metadata(doc_metadata)
     content = await file.read()
 
-    # Save to disk via file_storage (preserves hierarchy path)
+    # Save to disk via file_storage (preserves hierarchy path). The id argument is unused because
+    # a knowledge base supplies its own target directory: knowledge is not scoped to a project, so
+    # there is no id to derive a default path from.
     storage_path = file_storage.save_file(
-        project_id, file.filename, content,
-        target_dir=documents_dir(str(project_id)),
+        None, file.filename, content,
+        target_dir=documents_dir(knowledge),
         hierarchy={
             "industry": hierarchy["industry"],
             "player": hierarchy["player"],
@@ -624,11 +713,11 @@ async def upload_document(
         },
     )
 
-    store = KVStore(project_id)
+    store = KVStore(knowledge)
     doc_id = store.next_id()
     doc = DocRecord(
         id=doc_id,
-        kb=str(project_id),
+        kb=knowledge,
         filename=Path(file.filename).name,
         original_filename=file.filename,
         size=len(content),
@@ -648,17 +737,25 @@ async def upload_document(
 
 @router.post("/upload-bulk", response_model=List[KVUploadResponse])
 async def upload_documents_bulk(
-    project_id: int = Form(...),
+    knowledge: str = Form(...),
     files: List[UploadFile] = File(...),
     metadata: Optional[str] = Form(None),
     file_metadata: Optional[str] = Form(None),
 ):
     """Upload multiple files (supports folder upload with hierarchy).
 
+    - `knowledge`: the knowledge base's folder name, resolved by `documents_dir()`.
     - `metadata`: shared JSON metadata for all files.
     - `file_metadata`: per-file JSON list matching `files` order. Each
       entry may contain: industry, player, sub_category, sub_department.
     """
+    knowledge = (knowledge or "").strip()
+    if not knowledge:
+        raise HTTPException(
+            status_code=400,
+            detail="A knowledge base is required: pass knowledge=<folder name>",
+        )
+
     # Parse metadata
     doc_metadata: dict = {}
     if metadata:
@@ -677,7 +774,7 @@ async def upload_documents_bulk(
         except json.JSONDecodeError:
             logger.warning(f"Invalid file_metadata JSON: {file_metadata}")
 
-    store = KVStore(project_id)
+    store = KVStore(knowledge)
     results: List[KVUploadResponse] = []
 
     for idx, file in enumerate(files):
@@ -696,8 +793,8 @@ async def upload_documents_bulk(
 
             # Save to disk
             storage_path = file_storage.save_file(
-                project_id, file.filename, content,
-                target_dir=documents_dir(str(project_id)),
+                None, file.filename, content,
+                target_dir=documents_dir(knowledge),
                 hierarchy={
                     "industry": hierarchy["industry"],
                     "player": hierarchy["player"],
@@ -709,7 +806,7 @@ async def upload_documents_bulk(
             doc_id = store.next_id()
             doc = DocRecord(
                 id=doc_id,
-                kb=str(project_id),
+                kb=knowledge,
                 filename=Path(file.filename).name,
                 original_filename=file.filename,
                 size=len(content),
@@ -745,7 +842,7 @@ async def ingest_folder_from_path(request: Request):
 
     Body (JSON):
       {
-        "project_id":  int,
+        "knowledge":   str,   # knowledge base folder name to ingest into
         "folder_path": absolute path on the server
       }
 
@@ -754,13 +851,13 @@ async def ingest_folder_from_path(request: Request):
     from datetime import datetime
 
     body = await request.json()
-    project_id = body.get("project_id")
+    knowledge = (body.get("knowledge") or "").strip()
     folder_path = body.get("folder_path")
 
-    if not project_id or not folder_path:
+    if not knowledge or not folder_path:
         raise HTTPException(
             status_code=400,
-            detail="Both 'project_id' and 'folder_path' are required",
+            detail="Both 'knowledge' and 'folder_path' are required",
         )
 
     folder = Path(folder_path).expanduser().resolve()
@@ -778,7 +875,7 @@ async def ingest_folder_from_path(request: Request):
         ".swift", ".r", ".c", ".cpp", ".h", ".hpp",
     }
 
-    store = KVStore(project_id)
+    store = KVStore(knowledge)
     ingested = 0
     failed = 0
     skipped = 0
@@ -804,15 +901,15 @@ async def ingest_folder_from_path(request: Request):
             }
 
             storage_path = file_storage.save_file(
-                project_id, fp.name, content,
-                target_dir=documents_dir(str(project_id)),
+                None, fp.name, content,
+                target_dir=documents_dir(knowledge),
                 hierarchy=hierarchy,
             )
 
             doc_id = store.next_id()
             doc = DocRecord(
                 id=doc_id,
-                kb=str(project_id),
+                kb=knowledge,
                 filename=fp.name,
                 original_filename=fp.name,
                 size=len(content),
@@ -829,7 +926,7 @@ async def ingest_folder_from_path(request: Request):
 
     return {
         "success": failed == 0,
-        "project_id": project_id,
+        "knowledge": knowledge,
         "folder": str(folder),
         "files_ingested": ingested,
         "files_skipped": skipped,
@@ -839,20 +936,12 @@ async def ingest_folder_from_path(request: Request):
 
 
 @router.delete("/documents/{doc_id}")
-async def delete_document(doc_id: str, project_id: int):
+async def delete_document(doc_id: str, knowledge: str):
     """Delete a document from the KV store and its file from disk."""
-    store = KVStore(project_id)
+    store = KVStore(knowledge)
     doc = store.get_doc(doc_id)
     if not doc:
-        # DB mode: docs listed from storage_objects have no .kvmeta record.
-        resolved = _storage_doc(project_id, doc_id)
-        if resolved is None:
-            raise HTTPException(status_code=404, detail="Document not found")
-        from services.storage import get_storage
-        get_storage().delete(resolved["key"])
-        _purge_kvmeta_for_key(store, resolved["key"])
-        logger.info(f"Deleted document {doc_id} from storage ({resolved['key']})")
-        return {"message": "Document deleted."}
+        raise HTTPException(status_code=404, detail="Document not found")
 
     if doc.linked:
         # The file is not ours. It was linked in place, so removing the knowledge record must
@@ -871,29 +960,48 @@ async def delete_document(doc_id: str, project_id: int):
     return {"message": "Document deleted."}
 
 
-@router.get("/documents/{doc_id}/file")
-async def get_document_file(doc_id: str, project_id: int, request: Request):
-    """Serve the raw document file for inline viewing or download.
+@router.get("/file")
+async def get_file_by_path(knowledge: str, path: str, request: Request):
+    """Serve a file under a knowledge base by its PATH, catalogued or not.
 
-    In STORAGE_MODE=db the durable copy in storage_objects is read first
-    (read-through), falling back to the disk copy when the storage row is
-    missing. Local mode behaves exactly as before — a plain disk read.
+    The panel's folder tree is the filesystem, and a knowledge base can hold files nothing has
+    indexed: a folder copied in by hand, a report written straight to disk. Opening one cannot go
+    through the catalog, because the catalog is an index and this is the thing being indexed —
+    `/documents/{id}/file` has no id to offer for a file that was never added. Measured here, that
+    is most of them: 508 files on disk across the root against 238 with a record.
+
+    `path` is relative to the knowledge base and is confined to it, so it cannot reach the rest of
+    the disk.
     """
-    store = KVStore(project_id)
+    root = documents_dir(knowledge).resolve()
+    target = (root / path).resolve()
+    try:
+        # resolve() first, so a symlink pointing out of the knowledge base is refused too rather
+        # than followed — the check has to be on where the path lands, not on how it is spelled.
+        target.relative_to(root)
+    except ValueError:
+        raise HTTPException(status_code=400,
+                            detail="Path is outside the knowledge base")
+
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail=f"No such file: {path}")
+
+    try:
+        content = target.read_bytes()
+    except OSError as exc:
+        raise HTTPException(status_code=400, detail=f"Cannot read {path}: {exc}")
+
+    mime, _ = mimetypes.guess_type(target.name)
+    return _serve_file_bytes(content, target.name, mime, request.headers.get("range"))
+
+
+@router.get("/documents/{doc_id}/file")
+async def get_document_file(doc_id: str, knowledge: str, request: Request):
+    """Serve the raw document file for inline viewing or download."""
+    store = KVStore(knowledge)
     doc = store.get_doc(doc_id)
     if not doc:
-        # DB mode: docs listed from storage_objects have no .kvmeta record,
-        # so resolve the durable row by its storage-derived id.
-        resolved = _storage_doc(project_id, doc_id)
-        if resolved is None:
-            raise HTTPException(status_code=404, detail="Document not found")
-        from services.storage import get_storage
-        return _serve_file_bytes(
-            get_storage().read(resolved["key"]),
-            resolved["original_filename"],
-            resolved["mime_type"],
-            request.headers.get("range"),
-        )
+        raise HTTPException(status_code=404, detail="Document not found")
 
     file_path = Path(doc.storage_path)
     content = file_storage.read_bytes(file_path)
@@ -904,7 +1012,7 @@ async def get_document_file(doc_id: str, project_id: int, request: Request):
 
 
 @router.get("/documents/{doc_id}/content")
-async def get_document_content(doc_id: str, project_id: int):
+async def get_document_content(doc_id: str, knowledge: str):
     """Return extracted text/markdown for inline viewing.
 
     Mirrors the RAG content endpoint (`/api/rag/documents/{id}/content`) for
@@ -917,35 +1025,20 @@ async def get_document_content(doc_id: str, project_id: int):
     """
     from api.knowledge.rag.helpers import _extract_text_for_viewer
 
-    store = KVStore(project_id)
+    store = KVStore(knowledge)
     doc = store.get_doc(doc_id)
-
-    if doc:
-        file_path = Path(doc.storage_path)
-        content = file_storage.read_bytes(file_path)
-        if content is None:
-            raise HTTPException(status_code=404, detail="File not found on disk")
-        ext = file_path.suffix.lower() or Path(doc.original_filename).suffix.lower()
-        # The extractor reads from disk; in STORAGE_MODE=db the durable copy
-        # may live only in storage_objects, so materialize a temp file.
-        if file_path.exists():
-            return _extract_text_for_viewer(file_path, ext)
-        import tempfile
-        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-            tmp.write(content)
-            tmp_path = Path(tmp.name)
-        try:
-            return _extract_text_for_viewer(tmp_path, ext)
-        finally:
-            tmp_path.unlink(missing_ok=True)
-
-    # DB mode: docs listed from storage_objects have no .kvmeta record.
-    resolved = _storage_doc(project_id, doc_id)
-    if resolved is None:
+    if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    from services.storage import get_storage
-    content = get_storage().read(resolved["key"])
-    ext = Path(resolved["original_filename"]).suffix.lower()
+
+    file_path = Path(doc.storage_path)
+    content = file_storage.read_bytes(file_path)
+    if content is None:
+        raise HTTPException(status_code=404, detail="File not found on disk")
+    ext = file_path.suffix.lower() or Path(doc.original_filename).suffix.lower()
+    # The extractor reads from disk; a linked document may point at a path that has since gone
+    # away, so materialise what we did manage to read when the original is not there.
+    if file_path.exists():
+        return _extract_text_for_viewer(file_path, ext)
     import tempfile
     with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
         tmp.write(content)

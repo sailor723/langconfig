@@ -47,14 +47,16 @@ export interface DocumentsApi {
   getDocument(id: number): Promise<any>;
   getNeo4jDocumentContent(config: { project_id: number; name: string; max_chars?: number }): Promise<any>;
   deleteDocument(id: number): Promise<any>;
-  listKVDocuments(config: { project_id: number }): Promise<any>;
+  listKVDocuments(config: { knowledge: string }): Promise<any>;
   uploadKVDocumentsBulk(
-    projectId: number,
+    knowledge: string,
     files: File[],
     fileMetadata?: Array<{ industry?: string; player?: string; sub_category?: string; sub_department?: string }>
   ): Promise<any>;
-  ingestKVDocumentFolder(params: { project_id: number; folder_path: string }): Promise<any>;
-  deleteKVDocument(docId: string, projectId: number): Promise<any>;
+  ingestKVDocumentFolder(params: { knowledge: string; folder_path: string }): Promise<any>;
+  deleteKVDocument(docId: string, knowledge: string): Promise<any>;
+  listKnowledgeBases(): Promise<any>;
+  indexMissingKVDocuments(knowledge?: string): Promise<any>;
   searchDocuments(data: {
     query: string;
     project_id: number;
@@ -225,20 +227,31 @@ export const documentsApi: DocumentsApi = {
   },
 
   // ── KV Document Store (simple file-based, no DB) ─────────────
+  //
+  // A knowledge base is named by its FOLDER NAME (`knowledge`), the value `/api/kv/bases`
+  // reports as `key`. There is no project id here: knowledge is not scoped to a project, and
+  // the backend resolves the folder through the same function doc chat reads through.
 
   /**
-   * List documents from the KV store (file-based, no PostgreSQL/Neo4j).
+   * The knowledge bases under the knowledge root, read from disk. No project to choose.
    */
-  async listKVDocuments(this: APIClient, config: { project_id: number }) {
+  async listKnowledgeBases(this: APIClient) {
+    return this.get('/api/kv/bases');
+  },
+
+  /**
+   * List documents from a knowledge base (file-based, no PostgreSQL/Neo4j).
+   */
+  async listKVDocuments(this: APIClient, config: { knowledge: string }) {
     return this.get('/api/kv/documents', { params: config });
   },
 
   /**
-   * Upload files to the KV store.
+   * Upload files into a knowledge base.
    */
   async uploadKVDocumentsBulk(
     this: APIClient,
-    projectId: number,
+    knowledge: string,
     files: File[],
     fileMetadata?: Array<{
       industry?: string;
@@ -249,7 +262,7 @@ export const documentsApi: DocumentsApi = {
   ) {
     const formData = new FormData();
     files.forEach((file) => formData.append('files', file));
-    formData.append('project_id', projectId.toString());
+    formData.append('knowledge', knowledge);
     if (fileMetadata && fileMetadata.length > 0) {
       formData.append('file_metadata', JSON.stringify(fileMetadata));
     }
@@ -257,17 +270,26 @@ export const documentsApi: DocumentsApi = {
   },
 
   /**
-   * Ingest a folder from the server's disk into the KV store.
+   * Ingest a folder from the server's disk into a knowledge base.
    */
-  async ingestKVDocumentFolder(this: APIClient, params: { project_id: number; folder_path: string }) {
+  async ingestKVDocumentFolder(this: APIClient, params: { knowledge: string; folder_path: string }) {
     return this.post('/api/kv/ingest-folder', params);
   },
 
   /**
-   * Delete a document from the KV store.
+   * Delete a document from a knowledge base.
    */
-  async deleteKVDocument(this: APIClient, docId: string, projectId: number) {
-    return this.delete(`/api/kv/documents/${docId}?project_id=${projectId}`);
+  async deleteKVDocument(this: APIClient, docId: string, knowledge: string) {
+    return this.delete(`/api/kv/documents/${docId}?knowledge=${encodeURIComponent(knowledge)}`);
+  },
+
+  /**
+   * Give a record to every file already on disk that has none. Omitting `knowledge` sweeps all of
+   * them. Records only: nothing is copied, moved or renamed.
+   */
+  async indexMissingKVDocuments(this: APIClient, knowledge?: string) {
+    const query = knowledge ? `?knowledge=${encodeURIComponent(knowledge)}` : '';
+    return this.post(`/api/kv/index-missing${query}`);
   },
 
   async searchDocuments(this: APIClient, data: {

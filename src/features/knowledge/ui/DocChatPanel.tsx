@@ -11,7 +11,7 @@
  *
  * Adapted from agent-workspace's DocChatPanel.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FolderOpen,
   Bot,
@@ -25,16 +25,15 @@ import {
   History,
   X,
   Loader,
-  SlidersHorizontal,
   Code2,
 } from 'lucide-react';
 import { useLayoutTokens } from '../../../components/layout2/tokens';
 import { useDocChat } from '../useDocChat';
-import type { DocChatMessage, DocChatLlmOptions } from '../../../lib/api-doc-chat';
-import { listDocChatFolders, getDocChatCode } from '../../../lib/api-doc-chat';
+import type { DocChatMessage } from '../../../lib/api-doc-chat';
+import { getDocChatCode } from '../../../lib/api-doc-chat';
+import { scopeOptionLabel, type ScopeOption } from '../knowledgeScope';
 import DocChatHistory from './DocChatHistory';
 import CodeViewerModal from '../../../components/layout2/CodeViewerModal';
-import { useAvailableModels } from '../../../hooks/useAvailableModels';
 
 // ── Constants ─────────────────────────────────────────
 
@@ -47,9 +46,16 @@ const CITATION_RE = /\[Source:\s*([^\]]+\.\w+)\]\s*/g;
 // ── Props ─────────────────────────────────────────────
 
 interface DocChatPanelProps {
-  /** Folder path to scope the chat to (e.g. "industry/player"). */
+  /** Knowledge base folder name. There is no project: knowledge is a folder on disk. */
+  knowledge: string;
+  /** Folder inside it to scope the chat to (e.g. "business_model/tesla"). "" is the root. */
   folderPath: string;
-  projectId?: number | null;
+  /** Every scope to choose from — each knowledge base and every folder beneath it. */
+  scopeOptions?: ScopeOption[];
+  /** The current scope as one path, e.g. "langconfig-test/eyewear_industry". */
+  scope?: string;
+  /** Called with the chosen scope path. The selection is shared, not local to this panel. */
+  onScopeChange?: (path: string) => void;
   /** Called when the user clicks a citation chip. */
   onOpenDoc?: (docName: string) => void;
 }
@@ -135,8 +141,11 @@ function copyToClipboard(text: string) {
 // ── Component ─────────────────────────────────────────
 
 export default function DocChatPanel({
+  knowledge,
   folderPath,
-  projectId,
+  scopeOptions = [],
+  scope = '',
+  onScopeChange,
   onOpenDoc,
 }: DocChatPanelProps) {
   const t = useLayoutTokens();
@@ -157,22 +166,10 @@ export default function DocChatPanel({
     refreshConversations,
   } = useDocChat();
 
-  // Scope options derived from filesystem folder scanning
-  const [scopeOptions, setScopeOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [overrideScope, setOverrideScope] = useState<string | null>(null);
-
-  useEffect(() => {
-    listDocChatFolders(projectId ?? 1).then((folderPaths) => {
-      const opts = folderPaths.map((p) => ({
-        value: p,
-        label: p.replace(/_/g, ' ').replace(/\//g, ' / '),
-      }));
-      setScopeOptions(opts);
-    });
-  }, [projectId]);
-
-  // Active scope: overrideScope > folderPath
-  const activeScope = overrideScope ?? folderPath;
+  // The chat's scope is the shared selection, chosen in the dropdown above and in scope of this
+  // component: `knowledge` is the base and `folderPath` the folder inside it, both derived from
+  // the one scope path by the caller. There is no local copy to fall out of step with.
+  const activeScope = folderPath;
 
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
@@ -180,24 +177,12 @@ export default function DocChatPanel({
   const [editText, setEditText] = useState('');
 
   // ── LLM settings ──────────────────────────────────
-  // The model picker + params are sent to the backend on every request so
-  // Doc Chat honors the same LLM settings as the rest of the app.
-  const { models: availableModels } = useAvailableModels();
-  const [llmModel, setLlmModel] = useState<string>('');   // '' = app default model
-  const [temperature, setTemperature] = useState(0.0);
-  const [maxTokens, setMaxTokens] = useState<string>(''); // '' = model default
-  const [showParams, setShowParams] = useState(false);
+  // Doc Chat carries no LLM settings of its own. It answers with the app's default model and its
+  // default sampling, both resolved server-side, so the request omits them entirely. Per-panel
+  // overrides meant this one panel could answer with a different model and temperature from
+  // everywhere else, which is a second source of truth for a setting that should have one.
   const [codeModal, setCodeModal] = useState<{ filename: string; code: string } | null>(null);
   const [loadingCode, setLoadingCode] = useState(false);
-
-  const llmOptions = useMemo<DocChatLlmOptions>(
-    () => ({
-      model: llmModel || undefined,
-      temperature,
-      max_tokens: maxTokens ? Number(maxTokens) : undefined,
-    }),
-    [llmModel, temperature, maxTokens],
-  );
 
   // Scroll to bottom when new messages arrive
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -219,9 +204,9 @@ export default function DocChatPanel({
 
   const handleSend = useCallback(() => {
     if (!input.trim() || !activeScope || isStreaming) return;
-    send(input.trim(), activeScope, projectId ?? undefined, llmOptions);
+    send(input.trim(), activeScope, knowledge);
     setInput('');
-  }, [input, activeScope, isStreaming, send, projectId, llmOptions]);
+  }, [input, activeScope, isStreaming, send, knowledge]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -240,8 +225,8 @@ export default function DocChatPanel({
 
   const handleRegenerate = useCallback(() => {
     if (!activeScope) return;
-    regenerate(activeScope, projectId ?? undefined, llmOptions);
-  }, [activeScope, regenerate, projectId, llmOptions]);
+    regenerate(activeScope, knowledge);
+  }, [activeScope, regenerate, knowledge]);
 
   const handleEditStart = useCallback((msg: DocChatMessage) => {
     setEditingMessageId(msg.id);
@@ -255,10 +240,10 @@ export default function DocChatPanel({
 
   const handleEditSubmit = useCallback(() => {
     if (!editingMessageId || !activeScope) return;
-    editAndResend(editingMessageId, editText, activeScope, projectId ?? undefined, llmOptions);
+    editAndResend(editingMessageId, editText, activeScope, knowledge);
     setEditingMessageId(null);
     setEditText('');
-  }, [editingMessageId, editText, activeScope, editAndResend, projectId, llmOptions]);
+  }, [editingMessageId, editText, activeScope, editAndResend, knowledge]);
 
   /** Fetch the backend doc-chat source and show it in the code viewer. */
   const handleViewCode = useCallback(async () => {
@@ -366,146 +351,35 @@ export default function DocChatPanel({
       >
         <FolderOpen size={12} style={{ color: '#a855f7', flexShrink: 0 }} />
         <span style={{ fontSize: 11, flexShrink: 0 }}>Scope:</span>
-        {scopeOptions.length > 0 ? (
-          <select
-            value={activeScope}
-            onChange={(e) => setOverrideScope(e.target.value === folderPath ? null : e.target.value)}
-            style={{
-              flex: 1,
-              background: 'transparent',
-              border: 'none',
-              color: t.textPrimary,
-              fontSize: 12,
-              outline: 'none',
-              cursor: 'pointer',
-              minWidth: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-            title={activeScope}
-          >
-            {scopeOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        ) : (
-          <span
-            style={{
-              color: t.textPrimary,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              flex: 1,
-              fontSize: 12,
-            }}
-            title={folderPath}
-          >
-            {folderPath || '(ungrouped)'}
-          </span>
-        )}
-        {/* Model picker — LLM used to answer ('' = app default model) */}
+        {/* The full list, at every level — every knowledge base and every folder inside it. The
+            scope is chosen here, next to the chat it affects, and published to shared state so
+            the Knowledge sidebar's browser and document list follow the same one. */}
         <select
-          value={llmModel}
-          onChange={(e) => setLlmModel(e.target.value)}
-          title="LLM model (Default = the app's default model)"
+          value={scope}
+          onChange={(ev) => onScopeChange?.(ev.target.value)}
+          title={scope}
           style={{
-            maxWidth: 120,
+            flex: 1,
             background: 'transparent',
             border: 'none',
             color: t.textPrimary,
             fontSize: 12,
             outline: 'none',
             cursor: 'pointer',
-            flexShrink: 0,
+            minWidth: 0,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
           }}
         >
-          <option value="">Default</option>
-          {availableModels.map((m) => (
-            <option key={m.id} value={m.id}>{m.name}</option>
+          {scopeOptions.map((opt) => (
+            <option key={opt.path} value={opt.path}>{scopeOptionLabel(opt)}</option>
           ))}
-        </select>
-
-        {/* LLM params (temperature / max tokens) */}
-        <div style={{ position: 'relative' }}>
-          <button
-            title="LLM settings"
-            onClick={() => setShowParams((v) => !v)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: showParams ? '#a855f7' : t.textMuted,
-              cursor: 'pointer',
-              padding: 2,
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <SlidersHorizontal size={13} />
-          </button>
-          {showParams && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 30,
-                right: 0,
-                zIndex: 30,
-                background: t.bgSidebar,
-                border: `1px solid ${t.border}`,
-                borderRadius: 6,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
-                padding: 10,
-                width: 200,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>
-                  Temperature
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={2}
-                  step={0.1}
-                  value={temperature}
-                  onChange={(e) => setTemperature(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: '#a855f7' }}
-                />
-                <div style={{ fontSize: 11, fontFamily: 'monospace', color: t.textPrimary, textAlign: 'right' }}>
-                  {temperature.toFixed(1)}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>
-                  Max tokens
-                </div>
-                <input
-                  type="number"
-                  min={0}
-                  step={256}
-                  value={maxTokens}
-                  placeholder="Model default"
-                  onChange={(e) => setMaxTokens(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: t.bgInput,
-                    border: `1px solid ${t.border}`,
-                    borderRadius: 4,
-                    padding: '3px 6px',
-                    fontSize: 12,
-                    color: t.textPrimary,
-                    outline: 'none',
-                    fontFamily: 'inherit',
-                  }}
-                />
-              </div>
-            </div>
+          {/* A scope that exists on disk but is not in the fetched tree yet — a folder uploaded a
+              moment ago — still has to be representable. */}
+          {scope && !scopeOptions.some((opt) => opt.path === scope) && (
+            <option value={scope}>{scope}</option>
           )}
-        </div>
+        </select>
 
         {/* View code — shows the backend doc-chat implementation */}
         <button

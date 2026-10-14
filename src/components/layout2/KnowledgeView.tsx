@@ -125,9 +125,25 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
 
   // Derive everything from tab.data reactively so switching tabs updates the view
   const folderPath = tab.data?.folderPath ?? null;
-  const projectId = tab.data?.projectId ?? 1;
+  // The knowledge base this document is in — its folder name. No project fallback: the tab
+  // carries the name, and guessing one would open a different knowledge base's document.
+  const knowledge: string = tab.data?.knowledge ?? '';
   const docId: string | undefined = tab.data?.docId;
   const docName: string = tab.data?.docName ?? '';
+  // A file opened from the folder tree, named by its path rather than by a catalog id. The tree
+  // is the filesystem, so it lists files nothing has indexed — a folder copied in by hand, a
+  // report written straight to disk — and those have no id to open. Serving them by path is what
+  // makes browsing the filesystem actually work.
+  const filePath: string | undefined = tab.data?.filePath;
+
+  // How to reach this file's bytes: by path when the tree named one, otherwise by catalog id.
+  const rawFileUrl = knowledge
+    ? filePath
+      ? `/api/kv/file?knowledge=${encodeURIComponent(knowledge)}&path=${encodeURIComponent(filePath)}`
+      : docId
+        ? `/api/kv/documents/${docId}/file?knowledge=${encodeURIComponent(knowledge)}`
+        : null
+    : null;
 
   // Content state — resets when docId changes
   const [content, setContent] = useState<string | null>(null);
@@ -140,11 +156,11 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
     setStatus('loading');
     setErrorMsg(null);
     setActiveId(null);
-  }, [docId]);
+  }, [docId, filePath]);
 
   // Fetch document content
   useEffect(() => {
-    if (!docId) {
+    if (!rawFileUrl) {
       setContent(null);
       setStatus('loading');
       return;
@@ -171,7 +187,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
     }
 
     // Text-based formats — fetch content from KV store
-    fetch(`/api/kv/documents/${docId}/file?project_id=${projectId}`)
+    fetch(rawFileUrl)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         return res.text();
@@ -188,10 +204,10 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
       });
 
     return () => { cancelled = true; };
-  }, [docId, projectId, docName]);
+  }, [rawFileUrl, docName]);
 
   // File URL for PDF/images/download
-  const fileUrl = docId ? `/api/kv/documents/${docId}/file?project_id=${projectId}` : null;
+  const fileUrl = rawFileUrl;
 
   const ext = docName.split('.').pop()?.toLowerCase() || '';
   const isPdf = PDF_EXTENSIONS.has(ext);
@@ -343,7 +359,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
             ...cardStyle,
           }}
         >
-        {!docId ? (
+        {!rawFileUrl ? (
           /* Empty state */
           <div style={{
             flex: 1,

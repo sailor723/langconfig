@@ -167,6 +167,18 @@ export interface LayoutState {
   toggleRightPanel: () => void;
   setRightPanelTab: (tab: 'chat' | 'doc-chat' | 'properties') => void;
 
+  // Which knowledge base the Knowledge view and Doc Chat are working with, by folder name.
+  // Shared rather than inferred: Doc Chat used to read it off the active knowledge-view tab, so
+  // opening the panel from the sidebar — which opens no tab at all — left it with no knowledge
+  // base, and it could not list a single scope.
+  knowledgeBase: string;
+  setKnowledgeBase: (folder: string) => void;
+  // The folder inside that knowledge base, '' meaning the base itself. A knowledge base is a
+  // folder, so "which base" and "which folder in it" are one question at different depths; this
+  // and `knowledgeBase` together are the current scope, and the Knowledge sidebar owns both.
+  knowledgeFolder: string;
+  setKnowledgeFolder: (folder: string) => void;
+
   // Bottom panel (VS Code "Panel" at bottom — terminal, chat, logs)
   bottomPanelOpen: boolean;
   toggleBottomPanel: () => void;
@@ -194,6 +206,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const [rightPanelContent, setRightPanelContent] = useState<string | null>(null);
   const [rightPanelWidth, setRightPanelWidth] = useState(360);
   const [rightPanelTab, setRightPanelTab] = useState<'chat' | 'doc-chat' | 'properties'>('chat');
+  const [knowledgeBase, setKnowledgeBase] = useState('');
+  const [knowledgeFolder, setKnowledgeFolder] = useState('');
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
 
   const toggleSidebar = useCallback(() => setSidebarOpen(v => !v), []);
@@ -317,12 +331,17 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     closeRightPanel,
     toggleRightPanel,
     setRightPanelTab,
+    knowledgeBase,
+    setKnowledgeBase,
+    knowledgeFolder,
+    setKnowledgeFolder,
     bottomPanelOpen,
     toggleBottomPanel,
     setBottomPanelOpen,
   }), [
     activeActivity, sidebarOpen, sidebarView, sidebarWidth, tabs, activeTabId,
-    rightPanelOpen, rightPanelContent, rightPanelWidth, rightPanelTab, bottomPanelOpen,
+    rightPanelOpen, rightPanelContent, rightPanelWidth, rightPanelTab, knowledgeBase,
+    knowledgeFolder, bottomPanelOpen,
   ]);
 
   return (

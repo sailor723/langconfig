@@ -58,10 +58,10 @@ export interface UseDocChatResult {
   status: DocChatStatus;
   error: string | null;
   conversations: DocChatConversation[];
-  send: (text: string, folderPath: string, projectId?: number, llm?: DocChatLlmOptions) => Promise<void>;
+  send: (text: string, folderPath: string, knowledge: string, llm?: DocChatLlmOptions) => Promise<void>;
   cancel: () => void;
-  regenerate: (folderPath: string, projectId?: number, llm?: DocChatLlmOptions) => Promise<void>;
-  editAndResend: (messageId: string, newText: string, folderPath: string, projectId?: number, llm?: DocChatLlmOptions) => Promise<void>;
+  regenerate: (folderPath: string, knowledge: string, llm?: DocChatLlmOptions) => Promise<void>;
+  editAndResend: (messageId: string, newText: string, folderPath: string, knowledge: string, llm?: DocChatLlmOptions) => Promise<void>;
   clearMessages: () => void;
   loadConversation: (conversationId: string, folderPath: string) => Promise<void>;
   deleteConversation: (conversationId: string) => Promise<void>;
@@ -101,7 +101,7 @@ export function useDocChat(): UseDocChatResult {
       assistantId: string,
       folderPath: string,
       historyForRequest: DocChatMessage[],
-      projectId?: number,
+      knowledge: string,
       llm?: DocChatLlmOptions,
     ): Promise<void> => {
       try {
@@ -111,7 +111,7 @@ export function useDocChat(): UseDocChatResult {
             content: m.content,
           })),
           folder_path: folderPath,
-          project_id: projectId,
+          knowledge,
           conversation_id: conversationId,
           ...llm,
         });
@@ -215,9 +215,9 @@ export function useDocChat(): UseDocChatResult {
   );
 
   const send = useCallback(
-    async (text: string, folderPath: string, projectId?: number, llm?: DocChatLlmOptions) => {
+    async (text: string, folderPath: string, knowledge: string, llm?: DocChatLlmOptions) => {
       const trimmed = text.trim();
-      if (!trimmed || !folderPath) return;
+      if (!trimmed || !knowledge) return;
       if (isStreaming) return;
 
       cancelledRef.current = false;
@@ -245,7 +245,7 @@ export function useDocChat(): UseDocChatResult {
       await streamResponse(assistantId, folderPath, [
         ...messages,
         userMsg,
-      ], projectId, llm);
+      ], knowledge, llm);
     },
     [messages, isStreaming, streamResponse],
   );
@@ -262,7 +262,7 @@ export function useDocChat(): UseDocChatResult {
   }, []);
 
   const regenerate = useCallback(
-    async (folderPath: string, projectId?: number, llm?: DocChatLlmOptions) => {
+    async (folderPath: string, knowledge: string, llm?: DocChatLlmOptions) => {
       if (isStreaming) return;
       const lastUserIdx = messages
         .map((m, i) => (m.role === 'user' ? i : -1))
@@ -286,15 +286,15 @@ export function useDocChat(): UseDocChatResult {
       setIsStreaming(true);
       setStatus({ kind: 'reading', folderPath });
 
-      await streamResponse(assistantId, folderPath, trimmed, projectId, llm);
+      await streamResponse(assistantId, folderPath, trimmed, knowledge, llm);
     },
     [messages, isStreaming, streamResponse],
   );
 
   const editAndResend = useCallback(
-    async (messageId: string, newText: string, folderPath: string, projectId?: number, llm?: DocChatLlmOptions) => {
+    async (messageId: string, newText: string, folderPath: string, knowledge: string, llm?: DocChatLlmOptions) => {
       const trimmed = newText.trim();
-      if (!trimmed || !folderPath) return;
+      if (!trimmed || !knowledge) return;
       if (isStreaming) return;
       const idx = messages.findIndex((m) => m.id === messageId);
       if (idx < 0) return;
@@ -324,7 +324,7 @@ export function useDocChat(): UseDocChatResult {
       await streamResponse(assistantId, folderPath, [
         ...prev,
         editedUserMsg,
-      ], projectId, llm);
+      ], knowledge, llm);
     },
     [messages, isStreaming, streamResponse],
   );
