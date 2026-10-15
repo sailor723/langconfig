@@ -60,7 +60,7 @@ def _display_doc_name(filename: str) -> str:
 
 # Max chars to feed into LLM context
 MAX_CONTEXT_CHARS = 500_000  # 500K chars — fits comfortably in most model context windows
-MAX_FILES = 100
+MAX_FILES = 300
 
 # In-memory conversation store (simple dict, not persisted)
 conversation_memory: Dict[str, List[Dict[str, Any]]] = {}
