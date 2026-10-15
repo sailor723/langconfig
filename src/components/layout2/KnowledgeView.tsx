@@ -10,6 +10,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from './tokens';
 import PdfViewer from './PdfViewer';
 import type { Tab } from './useLayout';
@@ -122,6 +123,7 @@ type DocStatus = 'loading' | 'loaded' | 'error';
 
 export default function KnowledgeView({ tab }: KnowledgeViewProps) {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
 
   // Derive everything from tab.data reactively so switching tabs updates the view
   const folderPath = tab.data?.folderPath ?? null;
@@ -199,7 +201,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
       })
       .catch((err) => {
         if (cancelled) return;
-        setErrorMsg(err.message || 'Failed to load document');
+        setErrorMsg(err.message || tr('kb_err_load_document'));
         setStatus('error');
       });
 
@@ -326,7 +328,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <Database size={16} style={{ color: '#a855f7' }} />
         <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: t.textMuted }}>
-          Knowledge
+          {tr('nav_knowledge')}
         </span>
         {folderPath && (
           <>
@@ -372,8 +374,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
           }}>
             <FileText size={32} style={{ opacity: 0.3 }} />
             <p style={{ fontSize: 14, textAlign: 'center' }}>
-              Select a document from the Knowledge sidebar<br />
-              to view its content here.
+              {tr('kb_view_select_doc')}
             </p>
           </div>
         ) : status === 'loading' && isText ? (
@@ -427,7 +428,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
           <Suspense fallback={
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: t.textMuted, fontSize: 13 }}>
               <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-              Loading office viewer...
+              {tr('kb_loading_office')}
             </div>
           }>
             <OfficeViewer url={fileUrl!} fileName={docName} ext={ext as 'docx' | 'pptx'} />
@@ -527,7 +528,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
             textAlign: 'center',
           }}>
             <FileText size={28} style={{ opacity: 0.3 }} />
-            <p>Preview not available for <strong>.{ext}</strong> files.</p>
+            <p>{tr('kb_preview_unavailable')} <strong>.{ext}</strong></p>
             {fileUrl && (
               <a
                 href={fileUrl}
@@ -579,7 +580,7 @@ export default function KnowledgeView({ tab }: KnowledgeViewProps) {
             >
               <List size={13} style={{ color: '#a855f7' }} />
               <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: t.textMuted }}>
-                Contents
+                {tr('kb_contents')}
               </span>
               <span style={{ fontSize: 11, color: t.textMuted, marginLeft: 'auto' }}>
                 {toc.length}

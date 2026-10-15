@@ -10,6 +10,7 @@
  * Adapted from agent-workspace's useDocChat.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   postChat,
   listConversations,
@@ -71,6 +72,7 @@ export interface UseDocChatResult {
 // ── Hook ──────────────────────────────────────────────
 
 export function useDocChat(): UseDocChatResult {
+  const { t: tr } = useTranslation('chat');
   const [messages, setMessages] = useState<DocChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -118,7 +120,7 @@ export function useDocChat(): UseDocChatResult {
 
         const reader = response.body?.getReader();
         if (!reader) {
-          throw new Error('No response stream available');
+          throw new Error(tr('dc_err_no_stream'));
         }
         readerRef.current = reader;
         setStatus({ kind: 'streaming', folderPath });
@@ -157,7 +159,7 @@ export function useDocChat(): UseDocChatResult {
               // Stream finished
               break;
             } else if (parsed.type === 'error') {
-              setError(parsed.message || 'Chat error');
+              setError(parsed.message || tr('dc_err_chat_error'));
               break;
             } else if (parsed.type === 'start') {
               // Start event — extract conversation_id from metadata
@@ -192,14 +194,14 @@ export function useDocChat(): UseDocChatResult {
         );
         refreshConversations();
       } catch (err) {
-        const message = (err as Error).message || 'Chat failed';
+        const message = (err as Error).message || tr('dc_err_chat_failed');
         setError(message);
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
               ? {
                   ...m,
-                  content: 'Error communicating with the server. Please ensure the backend is running.',
+                  content: tr('dc_err_connection'),
                   streaming: false,
                 }
               : m,
@@ -343,7 +345,7 @@ export function useDocChat(): UseDocChatResult {
         setConversationId(id);
         setError(null);
       } catch (err) {
-        setError((err as Error).message || 'Failed to load conversation');
+        setError((err as Error).message || tr('dc_err_load_conversation'));
       }
     },
     [],
@@ -358,7 +360,7 @@ export function useDocChat(): UseDocChatResult {
         }
         await refreshConversations();
       } catch (err) {
-        setError((err as Error).message || 'Failed to delete conversation');
+        setError((err as Error).message || tr('dc_err_delete_conversation'));
       }
     },
     [conversationId, clearMessages, refreshConversations],

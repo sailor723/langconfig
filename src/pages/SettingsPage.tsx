@@ -270,7 +270,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, padding: 0, border: 'none', borderRadius: '50%', background: 'transparent', cursor: 'pointer', color: tok.labelPrimary, fontSize: 14 }}
               onMouseEnter={e => { e.currentTarget.style.background = tok.hover }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-              title="Close"
+              title={t('close')}
             >✕</button>
           </div>
           <div style={{ flex: 1, minHeight: 0, padding: '0 24px 24px', overflowY: 'auto' }}>
@@ -365,7 +365,7 @@ function ModelsSection() {
   const { t } = useTranslation('chat')
   const [keys, setKeys] = useState<{ provider: string; is_set: boolean }[]>([])
   const [models, setModels] = useState<{ cloud: ModelInfo[]; local: ModelInfo[] }>({ cloud: [], local: [] })
-  const [defaults, setDefaults] = useState<any>({ primary_model: '', fallback_models: [], temperature: 0, max_tokens: 0 })
+  const [defaults, setDefaults] = useState<any>({ default_model: '', fallback_models: [], temperature: 0, max_tokens: 0 })
   const [editing, setEditing] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [keyInput, setKeyInput] = useState('')
@@ -391,7 +391,7 @@ function ModelsSection() {
         .filter(p => !WEB_API_PROVIDERS.has(p.provider))
       setKeys(providers)
       setDefaults({
-        primary_model: value.primary_model || '',
+        default_model: value.default_model || '',
         fallback_models: value.fallback_models || [],
         temperature: value.default_temperature ?? 0,
         max_tokens: value.max_tokens ?? 0,
@@ -471,8 +471,8 @@ function ModelsSection() {
       {/* Default model rows */}
       <Row label={t('settings_default_model')} hint={t('settings_default_model_hint')}>
         <Select
-          value={defaults.primary_model || ''} width={280}
-          onChange={v => updateDefault({ primary_model: v })}
+          value={defaults.default_model || ''} width={280}
+          onChange={v => updateDefault({ default_model: v })}
           options={[{ value: '', label: t('settings_not_set') }, ...allModels]}
         />
       </Row>
@@ -567,7 +567,7 @@ function ModelsSection() {
             <Input value={newProviderName} onChange={setNewProviderName} placeholder="e.g. openai, deepseek, anthropic" width="100%" />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>API key</span>
+            <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_api_key')}</span>
             <Input value={keyInput} onChange={setKeyInput} placeholder="sk-…" mono width="100%" />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -803,7 +803,7 @@ function LocalModelsSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
-      <SectionTitle title={t('settings_local_models')} desc="Local model servers (Ollama, LM Studio, vLLM, LiteLLM)." />
+      <SectionTitle title={t('settings_local_models')} desc={t('settings_local_models_desc')} />
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {models.map(m => (
           <li key={m.id} style={{ border: `1px solid ${tok.borderL2}`, borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -824,7 +824,7 @@ function LocalModelsSection() {
             )}
           </li>
         ))}
-        {models.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary }}>No local models yet — add Ollama below.</li>}
+        {models.length === 0 && <li style={{ fontSize: 14, color: tok.labelTertiary }}>{t('settings_local_models_empty')}</li>}
       </ul>
 
       {adding && (
@@ -835,7 +835,7 @@ function LocalModelsSection() {
               <Input value={form.name} onChange={set('name')} placeholder="e.g. ollama-qwen3 (no 'local-' prefix)" mono width="100%" />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-              <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Provider</span>
+              <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_local_provider')}</span>
               <Select value={form.provider} onChange={v => changeProvider(String(v), form.base_url || undefined)} options={[
                 { value: 'ollama', label: 'Ollama' }, { value: 'lmstudio', label: 'LM Studio' },
                 { value: 'vllm', label: 'vLLM' }, { value: 'litellm', label: 'LiteLLM' }, { value: 'custom', label: 'Custom' },
@@ -844,11 +844,11 @@ function LocalModelsSection() {
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 2 }}>
-              <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Base URL (ends with /v1)</span>
+              <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_local_base_url')}</span>
               <Input value={form.base_url} onChange={set('base_url')} placeholder="http://localhost:11434/v1" mono width="100%" />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-              <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>Model name</span>
+              <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_local_model_name')}</span>
               <Select
                 value={form.model_name} onChange={v => set('model_name')(String(v))}
                 options={serverModels.length
@@ -864,7 +864,7 @@ function LocalModelsSection() {
             )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>API key (optional)</span>
+            <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_local_api_key_optional')}</span>
             <Input value={form.api_key} onChange={set('api_key')} placeholder="(leave empty for Ollama)" mono width="100%" />
           </div>
           {msg && <div style={{ fontSize: 12, lineHeight: '18px', color: msg.ok ? tok.success : tok.error }}>{msg.text}</div>}
@@ -1055,7 +1055,7 @@ function RuntimeSection() {
       </Row>
 
       {/* Storage (display only; editable under storage_mode endpoint) */}
-      <Row label={t('settings_runtime_storage_mode')}
+      <Row label={t('settings_storage_mode')}
            hint={t('settings_runtime_value_unchanged')}>
         <code style={{ fontSize: 12, color: tok.labelTertiary }}>{rt?.storage_mode ?? 'local'}</code>
       </Row>
@@ -1168,35 +1168,36 @@ function RuntimeSection() {
 // Creators read this namespace, so editing a value here changes what the next
 // agent is created with.
 
-const AGENT_LIMIT_FIELDS: { key: string; label: string; hint: string }[] = [
+const AGENT_LIMIT_FIELDS: { key: string; label: string; hintKey: string }[] = [
   {
     key: 'recursion_limit',
     label: 'recursion_limit',
-    hint: 'LangGraph supersteps for one chat run — not tool calls. A standard agent spends ~13 per LLM turn, a DeepAgent ~2.',
+    hintKey: 'settings_agents_limit_recursion_limit_hint',
   },
   {
     key: 'summarization_threshold',
     label: 'summarization_threshold',
-    hint: 'Compact when a model call would exceed this many tokens (system prompt + tool schemas + conversation). Keep it above ~12k.',
+    hintKey: 'settings_agents_limit_summarization_threshold_hint',
   },
   {
     key: 'keep_last_messages',
     label: 'keep_last_messages',
-    hint: 'Messages kept verbatim after compaction; everything older is folded into one summary and offloaded to conversation_history/.',
+    hintKey: 'settings_agents_limit_keep_last_messages_hint',
   },
   {
     key: 'max_total_tokens',
     label: 'max_total_tokens',
-    hint: 'Context budget for workflow nodes and exported apps. Not enforced in chat.',
+    hintKey: 'settings_agents_limit_max_total_tokens_hint',
   },
   {
     key: 'eviction_threshold',
     label: 'eviction_threshold',
-    hint: 'Declared threshold; must stay between summarization_threshold and max_total_tokens.',
+    hintKey: 'settings_agents_limit_eviction_threshold_hint',
   },
 ]
 
 function AgentLimitsBlock({ kind, title, hint }: { kind: 'agent' | 'deepagent'; title: string; hint: string }) {
+  const { t } = useTranslation('chat')
   const [limits, setLimits] = useState<Record<string, any> | null>(null)
   const [failed, setFailed] = useState(false)
 
@@ -1220,11 +1221,11 @@ function AgentLimitsBlock({ kind, title, hint }: { kind: 'agent' | 'deepagent'; 
       <SectionTitle title={title} desc={hint} />
       {failed && (
         <div style={{ fontSize: 12, color: 'var(--color-danger, #d33)', marginBottom: 8 }}>
-          Rejected — the limits must satisfy summarization_threshold &lt; eviction_threshold &lt; max_total_tokens.
+          {t('settings_agents_rejected')}
         </div>
       )}
       {AGENT_LIMIT_FIELDS.map(f => (
-        <Row key={f.key} label={f.label} hint={f.hint}>
+        <Row key={f.key} label={f.label} hint={t(f.hintKey)}>
           <Input
             type="number"
             mono
@@ -1234,10 +1235,10 @@ function AgentLimitsBlock({ kind, title, hint }: { kind: 'agent' | 'deepagent'; 
           />
         </Row>
       ))}
-      <Row label="enable_summarization" hint="Compact the conversation instead of overrunning the context window.">
+      <Row label="enable_summarization" hint={t('settings_runtime_enable_summarization_hint')}>
         <Toggle checked={Boolean(limits.enable_summarization)} onChange={v => write('enable_summarization', v)} />
       </Row>
-      <Row label="enable_auto_eviction" hint="Evict oversized tool results to the backend (1 MB per result).">
+      <Row label="enable_auto_eviction" hint={t('settings_runtime_enable_auto_eviction_hint')}>
         <Toggle checked={Boolean(limits.enable_auto_eviction)} onChange={v => write('enable_auto_eviction', v)} />
       </Row>
     </div>
@@ -1245,21 +1246,22 @@ function AgentLimitsBlock({ kind, title, hint }: { kind: 'agent' | 'deepagent'; 
 }
 
 function AgentsSection() {
+  const { t } = useTranslation('chat')
   return (
     <div>
       <SectionTitle
-        title="Agents"
-        desc="Defaults applied when an agent is created. Existing agents keep their own values — set those in the agent editor."
+        title={t('settings_agents')}
+        desc={t('settings_agents_desc')}
       />
       <AgentLimitsBlock
         kind="agent"
-        title="Standard agents"
-        hint="Agents created with use_deepagents = false. Their six default middleware cost ~13 steps per LLM turn, so 400 steps ≈ 30 turns."
+        title={t('settings_agents_standard')}
+        hint={t('settings_agents_standard_hint')}
       />
       <AgentLimitsBlock
         kind="deepagent"
-        title="DeepAgents"
-        hint="Middleware runs inside the model node, so a turn costs ~2 steps; 150 steps ≈ 75 tool turns."
+        title={t('settings_agents_deepagent')}
+        hint={t('settings_agents_deepagent_hint')}
       />
     </div>
   )
