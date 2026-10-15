@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 import time
 from pathlib import Path
@@ -213,6 +214,25 @@ def _scan_folder_sync(knowledge: str, folder_path: str = "",
 
 # ── LLM helpers ──────────────────────────────────────────────────────────
 
+def _stream_chunk_timeout() -> float:
+    """Seconds to wait for a content chunk before declaring the stream dead.
+
+    langchain defaults to 120s and documents `LANGCHAIN_OPENAI_STREAM_CHUNK_TIMEOUT_S` as the way to
+    change it. That is honoured here, because the guard fails legitimately slow work — doc chat's
+    context is huge and a thinking model reasons over all of it first — and the error message tells
+    people to reach for the env var. Otherwise ten minutes, which still bounds a dead connection;
+    the panel's Cancel button is the real answer for a request that hangs.
+    """
+    raw = os.getenv("LANGCHAIN_OPENAI_STREAM_CHUNK_TIMEOUT_S")
+    if raw:
+        try:
+            value = float(raw)
+            return value if value > 0 else 0.0     # 0/None disables the guard, per langchain
+        except ValueError:
+            logger.warning("ignoring non-numeric LANGCHAIN_OPENAI_STREAM_CHUNK_TIMEOUT_S=%r", raw)
+    return 600.0
+
+
 async def _resolve_llm(request: DocChatRequest):
     """Create the chat model for a doc-chat request.
 
@@ -232,7 +252,17 @@ async def _resolve_llm(request: DocChatRequest):
         model_name,
         temperature=configured_temp if configured_temp is not None else request.temperature,
         max_tokens=request.max_tokens,
-        config={"streaming": True},
+        config={
+            "streaming": True,
+            # Doc chat inlines every document it can fit — hundreds of thousands of characters on a
+            # real knowledge base — and a thinking model reasons over all of it before writing a
+            # word, streaming reasoning_content that langchain does not count as a chunk. Its
+            # default 120s guard therefore fails requests that are working.
+            #
+            # The env var is honoured first: langchain's own error message tells people to set it,
+            # and passing our value unconditionally would silently shadow their override.
+            "stream_chunk_timeout": _stream_chunk_timeout(),
+        },
     )
 
 
