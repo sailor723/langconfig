@@ -220,10 +220,17 @@ async def _resolve_llm(request: DocChatRequest):
     so Doc Chat honors the same LLM settings as everywhere else: DB-stored
     API keys, local Ollama models served with the 128K context window, etc.
     """
-    model_name = request.model or runtime_get("models", "default_model") or "deepseek-chat"
+    # Settings → Knowledge wins, then the app default. The panel used to carry its own dropdown,
+    # which meant the choice was re-made per session and could differ from every other answer in
+    # the app; the setting is where it belongs, and NULL there means "follow the app default".
+    model_name = (request.model
+                  or runtime_get("knowledge", "doc_chat_model")
+                  or runtime_get("models", "default_model")
+                  or "deepseek-chat")
+    configured_temp = runtime_get("knowledge", "doc_chat_temperature")
     return await resolve_model(
         model_name,
-        temperature=request.temperature,
+        temperature=configured_temp if configured_temp is not None else request.temperature,
         max_tokens=request.max_tokens,
         config={"streaming": True},
     )
