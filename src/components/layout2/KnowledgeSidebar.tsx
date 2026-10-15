@@ -9,6 +9,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useLayoutTokens } from './tokens';
 import { useLayoutState } from './useLayout';
+import { useTranslation } from 'react-i18next';
 import apiClient from '../../lib/api-client';
 import { splitScope } from '../../features/knowledge/knowledgeScope';
 import {
@@ -50,6 +51,8 @@ interface KnowledgeBase {
   key: string;
   name: string;
   document_count: number;
+  /** Total size of the indexed documents, from the catalog. */
+  size_bytes?: number;
   folder: string;
   root: string;
 }
@@ -60,6 +63,8 @@ interface FolderNode {
   children: FolderNode[];
   docs: Document[];   // documents belonging to this folder level
   docCount: number;
+  /** Total size of everything under this folder, children included — the same sum docCount is. */
+  sizeBytes: number;
 }
 
 /* ── Folder tree builder ──────────────────────────────── */
@@ -97,7 +102,10 @@ function buildFolderTree(docs: Document[]): { folders: FolderNode[]; ungrouped: 
       const displayName = segment.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       node = currentList.find((n) => n.name === displayName && n.path === pathSoFar);
       if (!node) {
-        node = { name: displayName, path: pathSoFar, children: [], docs: [], docCount: 0 };
+        node = {
+          name: displayName, path: pathSoFar, children: [], docs: [],
+          docCount: 0, sizeBytes: 0,
+        };
         currentList.push(node);
       }
       currentList = node.children;
@@ -112,10 +120,13 @@ function buildFolderTree(docs: Document[]): { folders: FolderNode[]; ungrouped: 
   // Count total docs per folder (including children)
   const countDocs = (folder: FolderNode): number => {
     let count = folder.docs.length;
+    let bytes = folder.docs.reduce((sum, d) => sum + (d.size || 0), 0);
     for (const child of folder.children) {
       count += countDocs(child);
+      bytes += child.sizeBytes;
     }
     folder.docCount = count;
+    folder.sizeBytes = bytes;
     return count;
   };
 
@@ -145,6 +156,7 @@ function buildFolderTree(docs: Document[]): { folders: FolderNode[]; ungrouped: 
 /* ── Sidebar component ────────────────────────────────── */
 
 export default function KnowledgeSidebar() {
+  const { t: tr } = useTranslation('chat');
   const t = useLayoutTokens();
   const {
     openTab, setRightPanelTab, openRightPanel,
@@ -163,6 +175,11 @@ export default function KnowledgeSidebar() {
   const [folderPathInput, setFolderPathInput] = useState('');
   const [ingesting, setIngesting] = useState(false);
   const [ingestMsg, setIngestMsg] = useState<string | null>(null);
+  // Whether the last ingest SUCCEEDED, tracked as state rather than inferred from the message.
+  // The colour used to come from `ingestMsg.startsWith('Failed')`, which is an English string:
+  // translating the message silently turned every error green, because no Chinese message starts
+  // with "Failed". The outcome is not a property of the wording, so it is not read out of it.
+  const [ingestOk, setIngestOk] = useState(true);
 
   // File upload state
   // The file picker, its progress and its errors live in the dialog now. This button only opens
@@ -240,8 +257,8 @@ export default function KnowledgeSidebar() {
       setUngroupedDocs(ungrouped);
     } catch (err: any) {
       const msg = err?.response?.status === 0 || err?.code === 'ERR_NETWORK'
-        ? 'Backend not reachable. Is the server running?'
-        : err?.message || 'Failed to load documents';
+        ? tr('kb_err_backend_down')
+        : err?.message || tr('kb_err_load_documents');
       setError(msg);
     } finally {
       setLoading(false);
@@ -308,13 +325,15 @@ export default function KnowledgeSidebar() {
     try {
       const resp = await apiClient.ingestKVDocumentFolder({ knowledge, folder_path: path });
       const data = resp.data as any;
-      setIngestMsg(`Ingested ${data.files_ingested} files`);
+      setIngestOk(true);
+      setIngestMsg(tr('kb_ingested_files', { count: data.files_ingested }));
       setFolderPathInput('');
       setTimeout(() => setIngestMsg(null), 3000);
       loadDocuments();
     } catch (err: any) {
       const detail = err?.response?.data?.detail || err?.message || 'Ingest failed';
-      setIngestMsg(`Failed: ${detail}`);
+      setIngestOk(false);
+      setIngestMsg(`${tr('kb_err_ingest')}: ${detail}`);
       setTimeout(() => setIngestMsg(null), 5000);
     } finally {
       setIngesting(false);
@@ -404,7 +423,7 @@ export default function KnowledgeSidebar() {
     <div
       key={doc.id}
       onClick={() => handleOpenDoc(doc)}
-      title={`${doc.name} (${(doc.size / 1024).toFixed(1)} KB)`}
+      title={`${doc.name} (${formatSize(doc.size)})`}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -426,7 +445,7 @@ export default function KnowledgeSidebar() {
         {doc.name}
       </span>
       <span style={{ fontSize: 10, color: t.textMuted, flexShrink: 0 }}>
-        {(doc.size / 1024).toFixed(0)}K
+        {formatSize(doc.size)}
       </span>
     </div>
   );
@@ -466,7 +485,9 @@ export default function KnowledgeSidebar() {
               place instead of the whole list sitting one icon-width too far in. */}
           <Folder size={14} style={{ flexShrink: 0, color: '#d4a84b' }} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{node.name}</span>
-          <span style={{ fontSize: 11, color: t.textMuted, flexShrink: 0 }}>{node.docCount}</span>
+          <span style={{ fontSize: 11, color: t.textMuted, flexShrink: 0 }}>
+            {node.docCount}{node.sizeBytes ? ` · ${formatSize(node.sizeBytes)}` : ''}
+          </span>
         </div>
 
         {isExpanded && (
@@ -496,12 +517,12 @@ export default function KnowledgeSidebar() {
         }}
       >
         <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: t.textMuted }}>
-          Knowledge Base
+          {tr('kb_knowledge_base')}
         </span>
         <div style={{ display: 'flex', gap: 2 }}>
           <button
             onClick={handleOpenDocPlayground}
-            title="Doc Playground — chat with the knowledge base"
+            title={tr('kb_doc_playground')}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 22, height: 22,
@@ -515,7 +536,7 @@ export default function KnowledgeSidebar() {
           </button>
           <button
             onClick={openUploadDialog}
-            title="Upload files into a knowledge base you choose"
+            title={tr('kb_upload_files_hint')}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 22, height: 22,
@@ -529,7 +550,7 @@ export default function KnowledgeSidebar() {
           </button>
           <button
             onClick={() => folderInputRef.current?.click()}
-            title="Upload folder (preserves hierarchy)"
+            title={tr('kb_upload_folder_hint')}
             disabled={folderUploading}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -546,7 +567,7 @@ export default function KnowledgeSidebar() {
           <input ref={folderInputRef} type="file" onChange={handleFolderPick} style={{ display: 'none' }} />
           <button
             onClick={loadDocuments}
-            title="Refresh"
+            title={tr('kb_refresh')}
             disabled={loading}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -575,7 +596,7 @@ export default function KnowledgeSidebar() {
           flexShrink: 0,
         }}>
           <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.4, color: t.textMuted, flexShrink: 0 }}>
-            Base
+            {tr('kb_base')}
           </span>
           <select
             value={knowledge}
@@ -597,7 +618,10 @@ export default function KnowledgeSidebar() {
           >
             {bases.map((b) => (
               <option key={b.key} value={b.key}>
-                {b.name}{b.document_count ? ` (${b.document_count})` : ''}
+                {b.name}
+                {b.document_count
+                  ? ` (${b.document_count}${b.size_bytes ? ` · ${formatSize(b.size_bytes)}` : ''})`
+                  : ''}
               </option>
             ))}
           </select>
@@ -611,7 +635,7 @@ export default function KnowledgeSidebar() {
         {loading && !hasItems ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', fontSize: 13, color: t.textMuted }}>
             <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} />
-            Loading…
+            {tr('kb_loading_ellipsis')}
           </div>
         ) : error ? (
           <div style={{ padding: '16px 20px', fontSize: 13, color: '#e5484d' }}>
@@ -624,14 +648,14 @@ export default function KnowledgeSidebar() {
                 background: 'transparent', color: t.textPrimary, cursor: 'pointer',
               }}
             >
-              Retry
+              {tr('kb_retry')}
             </button>
           </div>
         ) : !hasItems ? (
           <div style={{ padding: '16px 20px', fontSize: 13, color: t.textMuted }}>
-            <p style={{ margin: 0 }}>No documents yet.</p>
+            <p style={{ margin: 0 }}>{tr('kb_no_docs_yet')}</p>
             <p style={{ margin: '8px 0 0', fontSize: 12 }}>
-              Use the ingest field below or click <strong>+</strong> to upload files.
+              {tr('kb_empty_hint')}
             </p>
           </div>
         ) : (
@@ -665,6 +689,7 @@ export default function KnowledgeSidebar() {
               </span>
               <span style={{ fontSize: 11, color: t.textMuted, flexShrink: 0 }}>
                 {folderTree.reduce((sum, f) => sum + f.docCount, 0) + ungroupedDocs.length}
+                {selectedBase?.size_bytes ? ` · ${formatSize(selectedBase.size_bytes)}` : ''}
               </span>
             </div>
 
@@ -691,7 +716,7 @@ export default function KnowledgeSidebar() {
             type="text"
             value={folderPathInput}
             onChange={(e) => setFolderPathInput(e.target.value)}
-            placeholder="Folder path (e.g. industry/player)"
+            placeholder={tr('kb_folder_path_placeholder')}
             style={{
               flex: 1,
               background: t.bgContent,
@@ -707,7 +732,7 @@ export default function KnowledgeSidebar() {
           <button
             onClick={handleIngest}
             disabled={ingesting || !folderPathInput.trim()}
-            title="Ingest folder"
+            title={tr('kb_ingest_folder')}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 26, height: 26, flexShrink: 0,
@@ -725,7 +750,7 @@ export default function KnowledgeSidebar() {
           </button>
         </div>
         {ingestMsg && (
-          <div style={{ fontSize: 11, color: ingestMsg.startsWith('Failed') ? '#e5484d' : '#10b981', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: ingestOk ? '#10b981' : '#e5484d', marginTop: 4 }}>
             {ingestMsg}
           </div>
         )}

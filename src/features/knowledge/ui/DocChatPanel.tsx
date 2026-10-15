@@ -19,6 +19,7 @@ import {
   Send,
   Square,
   Copy,
+  Check,
   Download,
   RotateCcw,
   Pencil,
@@ -27,6 +28,7 @@ import {
   Loader,
   Code2,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from '../../../components/layout2/tokens';
 import { useDocChat } from '../useDocChat';
 import type { DocChatMessage } from '../../../lib/api-doc-chat';
@@ -65,6 +67,7 @@ interface DocChatPanelProps {
 /** Render message content with clickable citation chips. */
 function renderCitations(
   content: string,
+  openTitle: (docName: string) => string,
   onCitationClick?: (docName: string) => void,
 ) {
   const parts: React.ReactNode[] = [];
@@ -102,7 +105,7 @@ function renderCitations(
           margin: '0 1px',
           whiteSpace: 'nowrap',
         }}
-        title={`Open ${docName}`}
+        title={openTitle(docName)}
       >
         {docName}
       </button>,
@@ -120,22 +123,184 @@ function renderCitations(
 
 // ── Helper: download assistant message as a .md file ──
 
-function downloadAsMarkdown(content: string) {
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+/** A filename that says which knowledge base and when, not just a timestamp. */
+function downloadName(knowledge: string, at: Date): string {
+  const safe = (knowledge || 'knowledge').replace(/[^\w.\u4e00-\u9fff-]+/g, '-').replace(/^-+|-+$/g, '');
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const stamp = `${at.getFullYear()}${pad(at.getMonth() + 1)}${pad(at.getDate())}-${pad(at.getHours())}${pad(at.getMinutes())}`;
+  return `doc-chat-${safe}-${stamp}.md`;
+}
+
+/**
+ * Save one answer as Markdown, with where it came from at the top.
+ *
+ * The provenance block is the point of downloading rather than copying: a saved answer with no
+ * record of which knowledge base, which scope and how many documents produced it is unverifiable
+ * a week later.
+ */
+function downloadAsMarkdown(content: string, filename: string, provenance: string) {
+  const body = provenance ? `${provenance}\n\n---\n\n${content}\n` : `${content}\n`;
+  const blob = new Blob([body], { type: 'text/markdown;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `doc-chat-response-${Date.now()}.md`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
 
 // ── Helper: copy to clipboard ─────────────────────────
 
-function copyToClipboard(text: string) {
-  navigator.clipboard.writeText(text).catch(() => {
-    // Fallback: ignore
-  });
+/**
+ * Copy text, and report whether it worked.
+ *
+ * Reporting matters: a copy button that silently does nothing is indistinguishable from a broken
+ * one, which is exactly how these buttons were reported. The legacy path is not vestigial either —
+ * `navigator.clipboard` is undefined on an insecure origin, which is what the app is served from
+ * when it is opened over plain http from another machine.
+ */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Permission denied or not a secure context — fall through to the legacy path.
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+// ── Message action row ────────────────────────────────
+//
+// Hover-revealed by the MESSAGE, via `group-hover` on the message wrapper — the same pattern
+// MessagesPanel uses. Two things were wrong with the previous version, and together they made copy
+// and download unreachable: the row was declared inside DocChatPanel's body (so React treated it as
+// a new component type on every render and remounted it), and it carried a SECOND opacity of its
+// own on top of the wrapper's. The wrapper revealed the outer row, but the inner one stayed at
+// opacity 0 until the pointer entered it — an invisible strip you had to find by luck. One
+// visibility rule, owned by the wrapper, and it works: move onto the message, the buttons appear.
+
+type ActionState = 'idle' | 'copied' | 'failed';
+
+function MessageActions({
+  msg,
+  knowledge,
+  folderPath,
+  onRegenerate,
+  onEditStart,
+  t,
+}: {
+  msg: DocChatMessage;
+  knowledge: string;
+  folderPath: string;
+  onRegenerate: () => void;
+  onEditStart: (msg: DocChatMessage) => void;
+  t: ReturnType<typeof useLayoutTokens>;
+}) {
+  const [state, setState] = useState<ActionState>('idle');
+  const { t: tr } = useTranslation('chat');
+
+  // The "Copied" label is a timer, and it must not outlive the row it belongs to.
+  useEffect(() => {
+    if (state === 'idle') return;
+    const id = setTimeout(() => setState('idle'), 2000);
+    return () => clearTimeout(id);
+  }, [state]);
+
+  const handleCopy = useCallback(async () => {
+    setState((await copyToClipboard(msg.content)) ? 'copied' : 'failed');
+  }, [msg.content]);
+
+  const handleDownload = useCallback(() => {
+    const provenance = [
+      `# ${tr('dc_settings_title')}`,
+      ``,
+      `- **${tr('kb_base')}:** ${knowledge || '(none)'}`,
+      `- **${tr('dc_scope')}** ${folderPath || tr('dc_whole_base')}`,
+      msg.contextChip
+        ? `- **${tr('dc_context_chip', { files: msg.contextChip.fileCount, chars: msg.contextChip.charCount.toLocaleString() })}**`
+        : null,
+    ].filter((line) => line !== null).join('\n');
+    downloadAsMarkdown(msg.content, downloadName(knowledge, new Date()), provenance);
+  }, [msg.content, msg.contextChip, knowledge, folderPath, tr]);
+
+  return (
+    <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+      <button
+        type="button"
+        title={state === 'failed' ? tr('dc_copy_failed') : tr('dc_copy_message')}
+        aria-label={tr('dc_copy_message')}
+        onClick={handleCopy}
+        style={btnMiniStyle(t)}
+      >
+        {state === 'copied' ? <Check size={10} /> : <Copy size={10} />}
+      </button>
+
+      {msg.role === 'assistant' && (
+        <>
+          <button
+            type="button"
+            title={tr('dc_download_answer')}
+            aria-label={tr('dc_download_answer')}
+            onClick={handleDownload}
+            style={btnMiniStyle(t)}
+          >
+            <Download size={10} />
+          </button>
+          <button
+            type="button"
+            title={tr('dc_regenerate')}
+            aria-label={tr('dc_regenerate')}
+            onClick={onRegenerate}
+            style={btnMiniStyle(t)}
+          >
+            <RotateCcw size={10} />
+          </button>
+        </>
+      )}
+
+      {msg.role === 'user' && (
+        <button
+          type="button"
+          title={tr('dc_edit_resend')}
+          aria-label={tr('dc_edit_resend')}
+          onClick={() => onEditStart(msg)}
+          style={btnMiniStyle(t)}
+        >
+          <Pencil size={10} />
+        </button>
+      )}
+
+      {/* Last in the row, so the label appearing does not shove the other buttons sideways. */}
+      {state !== 'idle' && (
+        <span
+          role="status"
+          style={{
+            fontSize: 10,
+            color: state === 'copied' ? '#22c55e' : '#e5484d',
+            marginLeft: 2,
+          }}
+        >
+          {state === 'copied' ? tr('dc_copied') : tr('dc_copy_failed')}
+        </span>
+      )}
+    </div>
+  );
 }
 
 // ── Component ─────────────────────────────────────────
@@ -149,6 +314,8 @@ export default function DocChatPanel({
   onOpenDoc,
 }: DocChatPanelProps) {
   const t = useLayoutTokens();
+  // `t` is this file's design-token object, so the translator is `tr` throughout.
+  const { t: tr } = useTranslation('chat');
   const {
     messages,
     conversationId,
@@ -268,64 +435,10 @@ export default function DocChatPanel({
 
   let statusLabel: string | null = null;
   if (status.kind === 'reading') {
-    statusLabel = `Reading ${status.folderPath}...`;
+    statusLabel = tr('dc_reading', { path: status.folderPath });
   } else if (status.kind === 'streaming') {
-    statusLabel = 'Thinking...';
+    statusLabel = tr('dc_thinking');
   }
-
-  // ── Render: Message actions row ─────────────────────
-
-  const MessageActions = ({ msg }: { msg: DocChatMessage }) => {
-    const [show, setShow] = useState(false);
-    return (
-      <div
-        style={{
-          display: 'flex',
-          gap: 4,
-          opacity: show ? 1 : 0,
-          transition: 'opacity 0.12s',
-          marginTop: 4,
-        }}
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-      >
-        <button
-          title="Copy"
-          onClick={() => copyToClipboard(msg.content)}
-          style={btnMiniStyle(t)}
-        >
-          <Copy size={10} />
-        </button>
-        {msg.role === 'assistant' && (
-          <>
-            <button
-              title="Download"
-              onClick={() => downloadAsMarkdown(msg.content)}
-              style={btnMiniStyle(t)}
-            >
-              <Download size={10} />
-            </button>
-            <button
-              title="Regenerate"
-              onClick={handleRegenerate}
-              style={btnMiniStyle(t)}
-            >
-              <RotateCcw size={10} />
-            </button>
-          </>
-        )}
-        {msg.role === 'user' && (
-          <button
-            title="Edit and resend"
-            onClick={() => handleEditStart(msg)}
-            style={btnMiniStyle(t)}
-          >
-            <Pencil size={10} />
-          </button>
-        )}
-      </div>
-    );
-  };
 
   // ── Render ──────────────────────────────────────────
 
@@ -355,7 +468,7 @@ export default function DocChatPanel({
         }}
       >
         <FolderOpen size={12} style={{ color: '#a855f7', flexShrink: 0 }} />
-        <span style={{ fontSize: 11, flexShrink: 0 }}>Scope:</span>
+        <span style={{ fontSize: 11, flexShrink: 0 }}>{tr('dc_scope')}</span>
         {/* The full list, at every level — every knowledge base and every folder inside it. The
             scope is chosen here, next to the chat it affects, and published to shared state so
             the Knowledge sidebar's browser and document list follow the same one. */}
@@ -388,7 +501,7 @@ export default function DocChatPanel({
 
         {/* View code — shows the backend doc-chat implementation */}
         <button
-          title="View code"
+          title={tr('dc_view_code')}
           onClick={handleViewCode}
           disabled={loadingCode}
           style={{
@@ -406,7 +519,7 @@ export default function DocChatPanel({
         </button>
 
         <button
-          title="History"
+          title={tr('history')}
           onClick={() => setShowHistory((v) => !v)}
           style={{
             background: 'transparent',
@@ -442,7 +555,7 @@ export default function DocChatPanel({
           )}
         </button>
         <button
-          title="New chat"
+          title={tr('dc_new_chat')}
           onClick={clearMessages}
           style={{
             background: 'transparent',
@@ -530,21 +643,13 @@ export default function DocChatPanel({
           >
             <Bot size={24} style={{ opacity: 0.3 }} />
             <p style={{ margin: 0 }}>
-              Ask a question about the documents in this folder.
+              {tr('dc_empty_prompt')}
             </p>
+            {/* One sentence with the path interpolated, rather than text wrapped around a <code>
+                element: splitting a sentence on a mid-sentence value is untranslatable, because
+                word order around it is language-specific. */}
             <p style={{ margin: 0, fontSize: 11 }}>
-              The LLM will read matching files from{' '}
-              <code
-                style={{
-                  background: t.bgHover,
-                  padding: '1px 5px',
-                  borderRadius: 3,
-                  fontSize: 11,
-                }}
-              >
-                {folderPath}
-              </code>{' '}
-              and answer from context.
+              {tr('dc_empty_hint', { path: folderPath || tr('dc_whole_base') })}
             </p>
           </div>
         ) : (
@@ -556,19 +661,14 @@ export default function DocChatPanel({
             return (
               <div
                 key={msg.id}
+                /* `group` is what the actions row keys its `group-hover` off — hover the message,
+                   the buttons appear. */
+                className="group"
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: isUser ? 'flex-end' : 'flex-start',
                   marginBottom: 12,
-                }}
-                onMouseEnter={(e) => {
-                  const actions = e.currentTarget.querySelector('.msg-actions') as HTMLElement;
-                  if (actions) actions.style.opacity = '1';
-                }}
-                onMouseLeave={(e) => {
-                  const actions = e.currentTarget.querySelector('.msg-actions') as HTMLElement;
-                  if (actions) actions.style.opacity = '0';
                 }}
               >
                 {/* Role indicator */}
@@ -586,7 +686,7 @@ export default function DocChatPanel({
                 >
                   {isAssistant && <Bot size={10} />}
                   {isUser && <User size={10} />}
-                  <span>{isUser ? 'You' : 'Assistant'}</span>
+                  <span>{isUser ? tr('dc_role_you') : tr('dc_role_assistant')}</span>
                 </div>
 
                 {/* Context chip (assistant only) */}
@@ -601,7 +701,7 @@ export default function DocChatPanel({
                       marginBottom: 4,
                     }}
                   >
-                    Loaded {msg.contextChip.fileCount} files · {msg.contextChip.charCount.toLocaleString()} chars
+                    {tr('dc_context_chip', { files: msg.contextChip.fileCount, chars: msg.contextChip.charCount.toLocaleString() })}
                   </div>
                 )}
 
@@ -649,10 +749,10 @@ export default function DocChatPanel({
                       />
                       <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                         <button onClick={handleEditSubmit} style={btnSmallStyle(t)}>
-                          Save
+                          {tr('dc_save')}
                         </button>
                         <button onClick={handleEditCancel} style={btnSmallStyle(t)}>
-                          Cancel
+                          {tr('cancel')}
                         </button>
                       </div>
                     </div>
@@ -660,7 +760,7 @@ export default function DocChatPanel({
                     <>
                       {msg.content ? (
                         isAssistant ? (
-                          renderCitations(msg.content, onOpenDoc)
+                          renderCitations(msg.content, (name) => tr('dc_open_source', { name }), onOpenDoc)
                         ) : (
                           msg.content
                         )
@@ -675,11 +775,18 @@ export default function DocChatPanel({
                   )}
                 </div>
 
-                {/* Message actions (hover-revealed) */}
+                {/* Message actions — always visible, dimmed until pointed at. They used to be
+                    hidden behind a second, inner opacity that only the row itself could clear,
+                    which left copy and download unreachable in practice. */}
                 {!isEditing && !msg.streaming && (
-                  <div className="msg-actions" style={{ opacity: 0, transition: 'opacity 0.15s' }}>
-                    <MessageActions msg={msg} />
-                  </div>
+                  <MessageActions
+                    msg={msg}
+                    knowledge={knowledge}
+                    folderPath={folderPath}
+                    onRegenerate={handleRegenerate}
+                    onEditStart={handleEditStart}
+                    t={t}
+                  />
                 )}
               </div>
             );
@@ -719,7 +826,7 @@ export default function DocChatPanel({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about the documents..."
+            placeholder={tr('dc_input_placeholder')}
             rows={1}
             disabled={isStreaming}
             style={{
@@ -740,7 +847,7 @@ export default function DocChatPanel({
           />
           {isStreaming ? (
             <button
-              title="Cancel"
+              title={tr('cancel')}
               onClick={handleCancel}
               style={{
                 height: 32,
@@ -760,7 +867,7 @@ export default function DocChatPanel({
             </button>
           ) : (
             <button
-              title="Send"
+              title={tr('dc_send')}
               onClick={handleSend}
               disabled={!input.trim()}
               style={{

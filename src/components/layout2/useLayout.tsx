@@ -204,7 +204,11 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightPanelContent, setRightPanelContent] = useState<string | null>(null);
-  const [rightPanelWidth, setRightPanelWidth] = useState(360);
+  // Right panel width, shared by the Chat, Doc Chat and Properties tabs — one container, one
+  // width. 540 is 50% wider than the 360 it was: Doc Chat answers carry citations and file
+  // headers, and at 360 a two-line answer wrapped to five. Drag-resize still spans 240-800
+  // (NodeSidebar), so this is a starting point, not a limit.
+  const [rightPanelWidth, setRightPanelWidth] = useState(540);
   const [rightPanelTab, setRightPanelTab] = useState<'chat' | 'doc-chat' | 'properties'>('chat');
   const [knowledgeBase, setKnowledgeBase] = useState('');
   const [knowledgeFolder, setKnowledgeFolder] = useState('');

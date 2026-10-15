@@ -8,6 +8,7 @@
  */
 import { useState } from 'react';
 import { Trash2, MessageSquare, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLayoutTokens } from '../../../components/layout2/tokens';
 import type { DocChatConversation } from '../../../lib/api-doc-chat';
 
@@ -19,15 +20,15 @@ interface DocChatHistoryProps {
   onRefresh: () => void;
 }
 
-function formatRelative(ts: number | null): string {
+function formatRelative(ts: number | null, tr: (k: string, o?: any) => string): string {
   if (!ts) return '';
   const d = new Date(ts * 1000);
   const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return tr('dc_just_now');
+  if (mins < 60) return tr('dc_minutes_ago', { count: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return tr('dc_hours_ago', { count: hours });
   return d.toLocaleDateString();
 }
 
@@ -39,6 +40,7 @@ const DocChatHistory = ({
   onRefresh,
 }: DocChatHistoryProps) => {
   const t = useLayoutTokens();
+  const { t: tr } = useTranslation('chat');
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   return (
@@ -68,7 +70,7 @@ const DocChatHistory = ({
         <MessageSquare size={11} style={{ marginRight: 6 }} />
         <span>History ({conversations.length})</span>
         <button
-          title="Refresh"
+          title={tr('kb_refresh')}
           onClick={onRefresh}
           style={{
             marginLeft: 'auto',
@@ -96,7 +98,7 @@ const DocChatHistory = ({
               textAlign: 'center',
             }}
           >
-            No conversations yet.
+            {tr('dc_no_conversations')}
           </div>
         ) : (
           conversations
@@ -134,15 +136,15 @@ const DocChatHistory = ({
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
                     }}
-                    title={`${conv.message_count} messages`}
+                    title={tr('dc_messages_count', { count: conv.message_count })}
                   >
-                    {conv.message_count} {conv.message_count === 1 ? 'msg' : 'msgs'}
+                    {tr('dc_messages_count', { count: conv.message_count })}
                   </span>
                   <span style={{ color: t.textMuted, fontSize: 11 }}>
-                    {formatRelative(conv.last_updated)}
+                    {formatRelative(conv.last_updated, tr)}
                   </span>
                   <button
-                    title="Delete"
+                    title={tr('kb_delete')}
                     onClick={(e) => {
                       e.stopPropagation();
                       onDelete(conv.conversation_id);
