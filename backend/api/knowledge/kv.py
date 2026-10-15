@@ -425,10 +425,23 @@ async def list_knowledge_bases():
     # folder to another machine carries the name with it.
     out = []
     for kb in discover():
+        # Size comes from the catalog's own `size` fields, not a walk of the folder. Two reasons:
+        # the catalog is already being read for the count, so this costs nothing extra; and it
+        # reports the size of what is INDEXED, which is what the count next to it means. A folder
+        # holding unindexed files would otherwise show a size that does not match its count, and
+        # the difference is exactly what "Scan and index" exists to fix.
+        size_bytes = 0
+        try:
+            catalog = json.loads(Path(kb.catalog).read_text(encoding="utf-8"))
+            size_bytes = sum(int(r.get("size") or 0) for r in catalog.values()
+                             if isinstance(r, dict))
+        except Exception:  # noqa: BLE001 — a listing must not fail over one unreadable catalog
+            size_bytes = 0
         out.append({
             "key": kb.key,
             "name": kb.display_name,
             "document_count": kb.document_count,
+            "size_bytes": size_bytes,
             "folder": str(kb.folder),
             "root": str(kb.folder.parent),
         })
