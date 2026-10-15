@@ -42,14 +42,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/doc-chat", tags=["doc-chat"])
 
-# Supported file extensions for document scanning
-TEXT_EXTENSIONS = {
-    ".md", ".txt", ".json", ".csv", ".yaml", ".yml", ".xml",
-    ".py", ".js", ".ts", ".tsx", ".jsx", ".html", ".htm", ".css",
-    ".sql", ".sh", ".bash", ".rb", ".go", ".rs", ".java", ".kt",
-    ".swift", ".r", ".c", ".cpp", ".h", ".hpp",
-}
-PDF_EXTENSIONS = {".pdf"}
+# What counts as a document is defined ONCE, in the ingest core, and imported here. Doc chat kept
+# its own copy of these sets, which is how the read side and the write side could drift apart —
+# `ingest-folder` ended up with a text-only list that silently skipped PDFs while chat read them.
+from services.kv_ingest import PDF_EXTENSIONS, TEXT_EXTENSIONS  # noqa: E402
 
 # FileStorage.save_file prefixes on-disk filenames with an 8-hex uuid to
 # avoid collisions (e.g. "b37a8720_industry_analysis_report.md"). Strip it
