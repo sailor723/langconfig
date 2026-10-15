@@ -168,6 +168,50 @@ def test_mutate_unknown_namespace_404(client):
     assert res.status_code == 404
 
 
+def test_doc_chat_limits_round_trip_over_the_wire(client):
+    """The Doc Chat limits are settable through the API the Settings panel calls.
+
+    This is the layer the UI actually uses (`mutateSettings({ns:'knowledge', ops})`), so a field
+    that the schema knows but the wire API rejects would only surface when someone pressed Save.
+    """
+    res = client.post("/api/settings/mutate", json={
+        "ns": "knowledge",
+        "ops": [
+            {"op": "set", "path": ["doc_chat_max_files"], "value": 40},
+            {"op": "set", "path": ["doc_chat_max_context_chars"], "value": 400_000},
+        ],
+    })
+    assert res.status_code == 200, res.text
+
+    described = client.get("/api/settings/describe").json()
+    knowledge = next(ns for ns in described["namespaces"] if ns["ns"] == "knowledge")
+    assert knowledge["value"]["doc_chat_max_files"] == 40
+    assert knowledge["value"]["doc_chat_max_context_chars"] == 400_000
+
+    # Unset returns each field to the built-in default doc chat falls back to.
+    res = client.post("/api/settings/mutate", json={
+        "ns": "knowledge",
+        "ops": [
+            {"op": "unset", "path": ["doc_chat_max_files"]},
+            {"op": "unset", "path": ["doc_chat_max_context_chars"]},
+        ],
+    })
+    assert res.status_code == 200, res.text
+    described = client.get("/api/settings/describe").json()
+    knowledge = next(ns for ns in described["namespaces"] if ns["ns"] == "knowledge")
+    assert knowledge["value"]["doc_chat_max_files"] is None
+    assert knowledge["value"]["doc_chat_max_context_chars"] is None
+
+
+def test_doc_chat_limits_reject_out_of_range_values_over_the_wire(client):
+    """`0 files per answer` must be refused at the API, not stored and acted on."""
+    for field, bad in (("doc_chat_max_files", 0), ("doc_chat_max_context_chars", 5)):
+        res = client.post("/api/settings/mutate", json={
+            "ns": "knowledge", "ops": [{"op": "set", "path": [field], "value": bad}],
+        })
+        assert res.status_code == 422, f"{field}={bad} should be refused, got {res.status_code}"
+
+
 def test_mutate_schema_invalid_422(client):
     res = client.post("/api/settings/mutate", json={
         "ns": "general", "ops": [{"op": "set", "path": ["no_such_field"], "value": 1}],
