@@ -43,13 +43,13 @@
     "default_model": "deepseek-chat",
     "default_temperature": 0.0,
     "fallback_models": [
-      "deepseek-v4-pro"
+      "deepseek-v4-flash"
     ],
     "local_base_url": "http://localhost:11434",
     "local_model_name": "llama3.2:latest",
     "local_provider": "ollama",
-    "max_tokens": 256000,
-    "primary_model": "deepseek-chat"
+    "max_tokens": 1000000,
+    "primary_model": "deepseek-v4-flash"
   },
   "rag": {
     "embedding_model": "ollama-nomic-embed-text:latest"
