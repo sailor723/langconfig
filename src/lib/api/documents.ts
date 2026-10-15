@@ -57,6 +57,10 @@ export interface DocumentsApi {
   deleteKVDocument(docId: string, knowledge: string): Promise<any>;
   listKnowledgeBases(): Promise<any>;
   indexMissingKVDocuments(knowledge?: string): Promise<any>;
+  listLegacyKnowledge(): Promise<any>;
+  migrateLegacyFolders(
+    selections: Array<{ project: string; folder: string; knowledge: string }>
+  ): Promise<any>;
   searchDocuments(data: {
     query: string;
     project_id: number;
@@ -290,6 +294,25 @@ export const documentsApi: DocumentsApi = {
   async indexMissingKVDocuments(this: APIClient, knowledge?: string) {
     const query = knowledge ? `?knowledge=${encodeURIComponent(knowledge)}` : '';
     return this.post(`/api/kv/index-missing${query}`);
+  },
+
+  /**
+   * Folders still sitting in the old per-project layout, with the file counts and how many files
+   * are loose at each project root. Read-only: nothing is moved or registered by looking.
+   */
+  async listLegacyKnowledge(this: APIClient) {
+    return this.get('/api/kv/legacy');
+  },
+
+  /**
+   * Copy chosen legacy folders into knowledge bases under the names the user typed. Copies, so the
+   * old folder is untouched, and skips content that is already there, so running it twice is safe.
+   */
+  async migrateLegacyFolders(
+    this: APIClient,
+    selections: Array<{ project: string; folder: string; knowledge: string }>
+  ) {
+    return this.post('/api/kv/migrate', { selections });
   },
 
   async searchDocuments(this: APIClient, data: {
