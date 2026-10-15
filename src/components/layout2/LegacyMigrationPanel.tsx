@@ -32,6 +32,9 @@ import type { SettingsPanelTokens } from './settingsPanelTokens';
 interface LegacyFolder {
   folder: string;
   files: number;
+  /** The directory on disk this folder is — what the migrate call names. */
+  source: string;
+  group?: string;
   /** Already migrated — recorded in the target knowledge base's manifest. */
   migrated?: boolean;
   /** Migrated once, but the folder has been touched since; a repeat run would bring in the new. */
@@ -83,14 +86,23 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
   // the server's `migrated` flag, which comes from the knowledge base's own manifest; this only
   // ORs with it.
   const [justMigrated, setJustMigrated] = useState<Record<string, boolean>>({});
+  // Which directory to look in. Empty means the old per-project layout, which is where this
+  // usually starts; naming a path is how old data on another disk becomes reachable at all.
+  const [scanPath, setScanPath] = useState('');
+  const [appliedPath, setAppliedPath] = useState('');
+  // False when the named path is not a folder on this machine. Kept separate from "no candidates",
+  // because that is what a mistyped or relative path looks like, and reporting it as "everything is
+  // already migrated" sends the user to the wrong conclusion.
+  const [pathOk, setPathOk] = useState(true);
 
-  const load = useMemo(() => async () => {
+  const load = useMemo(() => async (path?: string) => {
     setLoading(true);
     try {
-      const res: any = await apiClient.listLegacyKnowledge();
+      const res: any = await apiClient.listLegacyKnowledge(path);
       const data = res?.data ?? res ?? {};
       const list: LegacyProject[] = Array.isArray(data.projects) ? data.projects : [];
       setProjects(list);
+      setPathOk(data.path_ok !== false);
       const nextNames: Record<string, string> = {};
       const nextSelected: Record<string, boolean> = {};
       list.forEach((p) => {
@@ -111,7 +123,7 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load]);   // first look: the old layout, no path needed
 
   const existingKeys = useMemo(
     () => new Set(existingBases.map(equivalenceKey)),
@@ -122,13 +134,13 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
     !!f.migrated || !!justMigrated[`${project}::${f.folder}`];
 
   const chosen = useMemo(() => {
-    const out: Array<{ project: string; folder: string; knowledge: string }> = [];
+    const out: Array<{ source: string; folder: string; group: string; knowledge: string }> = [];
     projects.forEach((p) => {
       p.folders.forEach((f) => {
         const key = `${p.project}::${f.folder}`;
         if (!selected[key] || isDone(p.project, f)) return;   // already done stays done
         const name = (names[key] || '').trim();
-        if (name) out.push({ project: p.project, folder: f.folder, knowledge: name });
+        if (name) out.push({ source: f.source, folder: f.folder, group: p.project, knowledge: name });
       });
     });
     return out;
@@ -181,7 +193,9 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
             Knowledge migration
           </div>
           <button
-            type="button" onClick={load} disabled={loading}
+            type="button"
+            onClick={() => load(appliedPath.trim() || undefined)}
+            disabled={loading}
             title="Scan the old layout again"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -202,6 +216,42 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
         </div>
       </div>
 
+      <div>
+        <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>
+          Look in this folder
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={scanPath}
+            placeholder="Leave empty for the old per-project layout — or name any folder"
+            onChange={(e) => setScanPath(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { setAppliedPath(scanPath); load(scanPath.trim() || undefined); } }}
+            style={{
+              flex: 1, height: 30, padding: '0 8px', boxSizing: 'border-box',
+              background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8,
+              color: t.textPrimary, fontFamily: '"SF Mono", monospace', fontSize: 11.5,
+              outline: 'none',
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => { setAppliedPath(scanPath); load(scanPath.trim() || undefined); }}
+            disabled={loading}
+            style={{
+              padding: '0 14px', borderRadius: 8, fontSize: 12.5, fontFamily: 'inherit',
+              border: 'none', cursor: loading ? 'default' : 'pointer',
+              background: loading ? t.bg : t.primary,
+              color: loading ? t.textMuted : '#fff',
+            }}
+          >Scan</button>
+        </div>
+        <div style={{ marginTop: 4, fontSize: 11, color: t.textMuted }}>
+          {appliedPath
+            ? <>scanning <span style={{ fontFamily: 'monospace' }}>{appliedPath}</span> — its subfolders are the candidates</>
+            : 'the old per-project layout under the legacy root'}
+        </div>
+      </div>
+
       {loading && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: t.textMuted, fontSize: 12 }}>
           <Loader size={12} className="animate-spin" />
@@ -210,9 +260,22 @@ export default function LegacyMigrationPanel({ onMigrated, existingBases, t }: P
       )}
 
       {!loading && folderCount === 0 && (
-        <div style={{ fontSize: 12, color: t.textMuted }}>
-          Nothing left in the old layout — every folder has already been migrated.
-        </div>
+        !pathOk ? (
+          <div style={{ fontSize: 12, color: '#e5484d' }}>
+            That folder is not on this machine. Paths are read by the backend, so use the full path
+            from the machine running it — e.g. /Users/you/langconfig/backend/data/documents.
+          </div>
+        ) : appliedPath ? (
+          <div style={{ fontSize: 12, color: t.textMuted }}>
+            <span style={{ fontFamily: 'monospace' }}>{appliedPath}</span> has no subfolders to
+            migrate. Each subfolder becomes one knowledge base, so a folder holding only files has
+            nothing to offer — use <b>Import a folder</b> above for that.
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: t.textMuted }}>
+            Nothing left in the old layout — every folder has already been migrated.
+          </div>
+        )
       )}
 
       {!loading && folderCount > 0 && (

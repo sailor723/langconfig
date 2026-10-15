@@ -57,9 +57,10 @@ export interface DocumentsApi {
   deleteKVDocument(docId: string, knowledge: string): Promise<any>;
   listKnowledgeBases(): Promise<any>;
   indexMissingKVDocuments(knowledge?: string): Promise<any>;
-  listLegacyKnowledge(): Promise<any>;
+  listLegacyKnowledge(path?: string): Promise<any>;
+  importFolder(params: { path: string; knowledge: string; dry_run?: boolean }): Promise<any>;
   migrateLegacyFolders(
-    selections: Array<{ project: string; folder: string; knowledge: string }>
+    selections: Array<{ source: string; folder: string; group: string; knowledge: string }>
   ): Promise<any>;
   searchDocuments(data: {
     query: string;
@@ -300,8 +301,17 @@ export const documentsApi: DocumentsApi = {
    * Folders still sitting in the old per-project layout, with the file counts and how many files
    * are loose at each project root. Read-only: nothing is moved or registered by looking.
    */
-  async listLegacyKnowledge(this: APIClient) {
-    return this.get('/api/kv/legacy');
+  async listLegacyKnowledge(this: APIClient, path?: string) {
+    const query = path ? `?path=${encodeURIComponent(path)}` : '';
+    return this.get(`/api/kv/legacy${query}`);
+  },
+
+  /**
+   * Make a folder already on the server into a knowledge base under a chosen name. Nothing is
+   * transferred — for that, the browser picker uses `uploadKVDocumentsBulk` instead.
+   */
+  async importFolder(this: APIClient, params: { path: string; knowledge: string; dry_run?: boolean }) {
+    return this.post('/api/kv/import', params);
   },
 
   /**
@@ -310,7 +320,7 @@ export const documentsApi: DocumentsApi = {
    */
   async migrateLegacyFolders(
     this: APIClient,
-    selections: Array<{ project: string; folder: string; knowledge: string }>
+    selections: Array<{ source: string; folder: string; group: string; knowledge: string }>
   ) {
     return this.post('/api/kv/migrate', { selections });
   },

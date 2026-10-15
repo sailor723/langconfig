@@ -649,38 +649,83 @@ def adopt_existing_migrations(*, apply: bool = False) -> list[dict]:
     return out
 
 
-def scan_legacy() -> list[dict]:
-    """The folders a teammate's old layout holds, read from the disk.
+def import_directory(source, knowledge: str, *, apply: bool = False,
+                     naming: NamingPolicy = NamingPolicy.PRESERVE) -> IngestReport:
+    """Take a folder on this machine and make it a knowledge base called `knowledge`.
 
-    One entry per `project_<id>`, listing the folders that could become knowledge bases. Only
-    folders: the migration acts on a folder the user selects, and a file loose at a project root is
-    a different thing entirely — it has no name to inherit, and it is uploaded through the ordinary
-    upload button, which is the flow people already know.
+    The counterpart to picking a folder in the browser: for material that is ALREADY on the machine
+    running the backend — unzipped into a temp directory, copied from a share, restored from a
+    backup — where sending the bytes through the browser would mean uploading a folder to the
+    computer it is already on. Nothing is transferred here; the files are copied straight into the
+    knowledge root.
 
-    Each folder also reports whether it has already been migrated. `migrated` means a knowledge base
-    recorded *this exact* folder — same paths, sizes and mtimes — so the panel can stop offering it.
-    `changed` means it was migrated once and has been touched since, which is worth showing rather
-    than hiding: those are the files a repeat run would actually bring in.
-
-    `project_chat_sessions` is skipped — chat attachments, not knowledge.
+    Refuses a path already inside the knowledge root, and not out of caution: those files are
+    already in a knowledge base, so copying them would put a second copy beside the first under a
+    new name. `Scan and index` is the operation for that, and it writes records without moving a
+    byte. A refusal that names the button to press is worth more than a silent duplication.
     """
-    root = Path(legacy_root())
+    src = Path(source).expanduser()
+    if not src.exists() or not src.is_dir():
+        return IngestReport(knowledge=knowledge,
+                            refused=[(str(source), "not a folder on this machine")])
+
+    try:
+        inside = src.resolve().is_relative_to(Path(kb_root()).resolve())
+    except (OSError, ValueError):
+        inside = False
+    if inside:
+        return IngestReport(knowledge=knowledge, refused=[(
+            str(source),
+            "already inside the knowledge root — use 'Scan and index', which records those files "
+            "where they are instead of copying them")])
+
+    sources = [(rel, path.read_bytes(), mtime) for rel, path, mtime in iter_directory(src)]
+    if not sources:
+        return IngestReport(knowledge=knowledge,
+                            refused=[(str(source), "that folder has no files in it")])
+    return ingest_files(sources, knowledge, apply=apply, naming=naming)
+
+
+def scan_source(root=None) -> list[dict]:
+    """Folders that could become knowledge bases, under the legacy root or any path you name.
+
+    Two shapes, decided by what is there rather than by a flag:
+
+    * **A legacy root** — its children are `project_<id>` folders, so each project is a group and its
+      subfolders are the candidates. This is the layout the old code produced and the one the
+      default scan finds. A `project_chat_sessions` child is skipped: chat attachments, not
+      knowledge.
+    * **Any other path** — a folder a teammate handed over, an unzipped archive, an old disk. Its
+      immediate subfolders are the candidates, grouped under the path's own name.
+
+    Every candidate carries the absolute directory it came from, so the caller names a folder rather
+    than reconstructing a path from parts — and so a folder outside the legacy root is reachable at
+    all, which is the whole point of naming a path.
+    """
+    base = Path(root).expanduser() if root else Path(legacy_root())
     known = migrated_index()
     out: list[dict] = []
-    if not root.is_dir():
+    if not base.is_dir():
         return out
-    for entry in sorted(p for p in root.iterdir() if p.is_dir()):
-        if entry.name == "project_chat_sessions" or not entry.name.startswith("project_"):
-            continue
+    base_abs = base.resolve()
+
+    children = sorted(p for p in base.iterdir() if p.is_dir() and not p.name.startswith("."))
+    projects = [c for c in children if c.name.startswith("project_")]
+    if projects:
+        groups = [(p.name, p) for p in projects if p.name != "project_chat_sessions"]
+    else:
+        groups = [(base_abs.name or str(base_abs), base_abs)]
+
+    for label, group_dir in groups:
         folders = []
-        for child in sorted(entry.iterdir()):
-            if child.name.startswith(".") or not child.is_dir():
-                continue
+        for child in sorted(p for p in group_dir.iterdir()
+                            if p.is_dir() and not p.name.startswith(".")):
             count, fingerprint = folder_fingerprint(child)
             if not count:
                 continue
-            record = known.get((entry.name, child.name))
-            item = {"folder": child.name, "files": count}
+            record = known.get((label, child.name))
+            item = {"folder": child.name, "files": count,
+                    "group": label, "source": str(child.resolve())}
             if record:
                 item["migrated_into"] = record["knowledge"]
                 item["migrated"] = record.get("fingerprint") == fingerprint
@@ -690,49 +735,13 @@ def scan_legacy() -> list[dict]:
                 item["changed"] = False
             folders.append(item)
         if folders:
-            out.append({"project": entry.name, "folders": folders})
+            out.append({"project": label, "path": str(group_dir.resolve()), "folders": folders})
     return out
 
 
-def _inside_legacy(*parts: str) -> Path:
-    """A path under the legacy root, or an error.
-
-    The names come from a client, so `..` in either of them must not read the rest of the disk.
-    Resolved before the check, so a symlink pointing outside is caught too.
-    """
-    root = Path(legacy_root()).resolve()
-    target = root.joinpath(*parts).resolve()
-    if not target.is_relative_to(root) or target == root:
-        raise ValueError(f"refusing to read outside the legacy root: {'/'.join(parts)}")
-    return target
-
-
-def ingest_legacy_folder(project: str, folder: str, knowledge: str, *,
-                         apply: bool = False,
-                         naming: NamingPolicy = NamingPolicy.PRESERVE) -> IngestReport:
-    """One folder of one legacy project becomes one knowledge base.
-
-    This is the operation the migration panel performs: the user picks `project_1/华阳`, types the
-    name they want, and the folder's contents arrive under it.
-
-    Only the selected folder is read. Files loose at the project root are not this operation's
-    business — they have no folder to inherit a name from, and they are uploaded through the
-    ordinary upload button if the user wants them.
-    """
-    source = _inside_legacy(project, folder)
-    if not source.is_dir():
-        return IngestReport(knowledge=knowledge,
-                            refused=[(folder, f"no such folder in {project}")])
-    sources = [(rel, path.read_bytes(), mtime) for rel, path, mtime in iter_directory(source)]
-    report = ingest_files(sources, knowledge, apply=apply, naming=naming)
-    if apply and report.ok:
-        # Record where this knowledge base came from, in its own manifest, so the panel stops
-        # offering this folder next time — including after a page reload, and including in a
-        # different browser. `report.knowledge` rather than `knowledge`, because an equivalent name
-        # merges into the base that already exists and that is the manifest that has to carry it.
-        count, fingerprint = folder_fingerprint(source)
-        record_migration(report.knowledge, project, folder, count, fingerprint)
-    return report
+def scan_legacy() -> list[dict]:
+    """The legacy root, scanned. Kept so callers that mean that root do not have to pass it."""
+    return scan_source(None)
 
 
 # ── recategorize ───────────────────────────────────────────────────────────
