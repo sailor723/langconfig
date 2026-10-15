@@ -203,7 +203,11 @@ export default function DocChatPanel({
   // ── Handlers ────────────────────────────────────────
 
   const handleSend = useCallback(() => {
-    if (!input.trim() || !activeScope || isStreaming) return;
+    // NOT `!activeScope`. The scope is a string, and "" is a real scope meaning the whole knowledge
+    // base — the most common one. Treating it as "no scope" made Send do nothing at all, silently:
+    // the button looked live, the click ran, and the guard returned. Chatting with the whole base
+    // is the default, so this broke the default case.
+    if (!input.trim() || isStreaming) return;
     send(input.trim(), activeScope, knowledge);
     setInput('');
   }, [input, activeScope, isStreaming, send, knowledge]);
@@ -224,7 +228,7 @@ export default function DocChatPanel({
   }, [cancel]);
 
   const handleRegenerate = useCallback(() => {
-    if (!activeScope) return;
+    // "" is the whole base, not a missing scope. See handleSend.
     regenerate(activeScope, knowledge);
   }, [activeScope, regenerate, knowledge]);
 
@@ -239,7 +243,8 @@ export default function DocChatPanel({
   }, []);
 
   const handleEditSubmit = useCallback(() => {
-    if (!editingMessageId || !activeScope) return;
+    // "" is the whole base, not a missing scope. See handleSend.
+    if (!editingMessageId) return;
     editAndResend(editingMessageId, editText, activeScope, knowledge);
     setEditingMessageId(null);
     setEditText('');
