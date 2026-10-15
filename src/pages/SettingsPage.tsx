@@ -20,6 +20,7 @@ import apiClient from '../lib/api-client'
 import LegacyMigrationPanel from '../components/layout2/LegacyMigrationPanel'
 import KnowledgeIndexPanel from '../components/layout2/KnowledgeIndexPanel'
 import ImportFolderPanel from '../components/layout2/ImportFolderPanel'
+import DocChatSettingsPanel from '../components/layout2/DocChatSettingsPanel'
 import { useProject } from '../contexts/ProjectContext'
 
 type SectionId = 'general' | 'models' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'runtime' | 'agents' | 'knowledge' | 'about'
@@ -1298,6 +1299,8 @@ function KnowledgeSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <DocChatSettingsPanel t={panelTokens} />
+      <div style={{ height: 1, background: tok.borderL2 }} />
       <ImportFolderPanel onImported={loadBases} existingBases={bases} t={panelTokens} />
       <div style={{ height: 1, background: tok.borderL2 }} />
       <KnowledgeIndexPanel onIndexed={loadBases} t={panelTokens} />

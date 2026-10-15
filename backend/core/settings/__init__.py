@@ -61,8 +61,9 @@ __all__ = [
     "ResolvedNamespace", "resolve", "resolve_all", "resolve_value",
     # schemas
     "NAMESPACE_SCHEMAS",
-    "ApiKeys", "GeneralSettings", "ModelsSettings", "OnboardingSettings",
-    "RagSettings", "SearchSettings", "StorageSettings", "WorkspaceSettings",
+    "ApiKeys", "GeneralSettings", "KnowledgeSettings", "ModelsSettings",
+    "OnboardingSettings", "RagSettings", "SearchSettings", "StorageSettings",
+    "WorkspaceSettings",
     # secrets
     "decrypt_document_secrets", "delete_at_path", "encrypt_document_secrets",
     "get_at_path", "redact", "secret_paths", "set_at_path",

@@ -11,6 +11,7 @@
     "note": "Applied by seed_all.py with a three-way merge: a key the teammate has changed is left alone, an untouched one adopts the team value. See core/settings/team_seed.py.",
     "skipped": {
       "general": "not a team namespace (see module docstring)",
+      "knowledge": "not a team namespace (see module docstring)",
       "onboarding": "not a team namespace (see module docstring)"
     },
     "stripped": [

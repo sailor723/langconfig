@@ -321,6 +321,25 @@ class AgentsSettings(BaseModel):
 
 
 # ── registry of v1 namespaces ────────────────────────────────────────────────
+# ── knowledge ────────────────────────────────────────────────────────────────
+class KnowledgeSettings(BaseModel):
+    """Knowledge-base behaviour: which model doc chat answers with.
+
+    Doc Chat used to carry an LLM dropdown of its own, which is the wrong place for it — the
+    choice belongs with the knowledge base, set once, not re-made in a chat panel every time. It
+    lives here rather than in `models` because it is a knowledge setting: a knowledge base can be
+    pointed at a different model without changing what every agent in the app uses.
+
+    NULL means "follow the app default" (`models.default_model`), so an install that never opens
+    this setting behaves exactly as before.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    doc_chat_model: Optional[str] = None
+    doc_chat_temperature: Optional[float] = None
+
+
 NAMESPACE_SCHEMAS: dict[str, type[BaseModel]] = {
     "general": GeneralSettings,
     "models": ModelsSettings,
@@ -331,4 +350,5 @@ NAMESPACE_SCHEMAS: dict[str, type[BaseModel]] = {
     "onboarding": OnboardingSettings,
     "runtime": RuntimeSettings,
     "agents": AgentsSettings,
+    "knowledge": KnowledgeSettings,
 }
