@@ -369,6 +369,14 @@ async def resolve_model(
         if not get_api_key_from_db("deepseek_api_key"):
             raise ValueError(f"DEEPSEEK_API_KEY is required for model {model_name}")
 
+        # langchain's stream_chunk_timeout is a liveness guard: 120s with no *content* chunk and it
+        # declares the connection dead. A thinking model breaks that assumption legitimately — it
+        # streams reasoning_content first, which langchain does not count, so a long deliberation
+        # looks identical to a dead socket. Callers that know their latency profile (doc chat, with
+        # hundreds of thousands of characters inlined) pass their own value.
+        extra: Dict[str, Any] = {}
+        if "stream_chunk_timeout" in config:
+            extra["stream_chunk_timeout"] = config["stream_chunk_timeout"]
         return init_chat_model(
             model=model_name,
             model_provider="deepseek",
@@ -376,6 +384,7 @@ async def resolve_model(
             max_tokens=max_tokens,
             api_key=get_api_key_from_db("deepseek_api_key"),
             streaming=streaming,
+            **extra,
         )
 
     # --- Local Models (Ollama, LM Studio, vLLM, etc.) ---
