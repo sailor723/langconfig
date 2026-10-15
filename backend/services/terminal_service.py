@@ -71,7 +71,18 @@ class TerminalSession:
             # POSIX: real PTY for an interactive shell
             import pty
 
-            master_fd, slave_fd = pty.openpty()
+            try:
+                master_fd, slave_fd = pty.openpty()
+            except OSError as exc:
+                # `pty.openpty()` hides the real failure. It calls `os.openpty()`, catches any
+                # OSError and discards it, then falls back to a legacy `/dev/ptyXX` scan, which
+                # fails on any modern macOS and raises "out of pty devices" — a message that
+                # describes the fallback, not the cause. On a machine with 511 pty slots and 15 in
+                # use, that message sends you hunting a leak that does not exist. Report the errno
+                # actually received, because this string is what the client displays.
+                raise RuntimeError(
+                    f"could not allocate a pty: {exc.strerror or exc} (errno {exc.errno})"
+                ) from exc
             self.master_fd = master_fd
             self.proc = subprocess.Popen(
                 [self.shell, "-i"],

@@ -7,6 +7,7 @@
 Debug API endpoints for development
 """
 import asyncio
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -18,6 +19,11 @@ from models.workflow import WorkflowProfile
 from models.custom_tool import CustomTool
 
 router = APIRouter(prefix="/api/debug", tags=["debug"])
+
+# Named here so the terminal WebSocket's failure path has somewhere to report. That handler used
+# to swallow its exception entirely, which is why a dying terminal left only `[accepted]` in the
+# syslog and a closed socket on the client.
+logger = logging.getLogger(__name__)
 
 
 @router.get("/workflow/{workflow_id}")
@@ -306,7 +312,11 @@ async def terminal_ws(websocket: WebSocket, terminal_id: str = "default"):
     except WebSocketDisconnect:
         pass
     except Exception:
-        pass
+        # Logged rather than swallowed. This used to be a bare `pass`, which meant a terminal that
+        # died mid-session left a `[accepted]` and nothing else in the syslog — the client sees a
+        # closed socket and the proxy reports EPIPE, and there is no record of why. An interactive
+        # shell failing silently is the hardest kind to chase.
+        logger.exception("terminal session %r failed", terminal_id)
     finally:
         await session.close()
         active_sessions.pop(terminal_id, None)
