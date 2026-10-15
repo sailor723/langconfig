@@ -96,7 +96,22 @@ export async function postChat(
     body: JSON.stringify(request),
   });
   if (!response.ok) {
-    throw new Error(`Doc chat request failed: HTTP ${response.status}`);
+    // The server says WHY — "API key is required for model X (provider: openai)", a model that
+    // does not exist, a folder it cannot read. Throwing the status code away discards the only
+    // explanation the user will ever get, and turns a one-line fix into a mystery: the panel showed
+    // "HTTP 500" and nothing else, which is indistinguishable from the backend being down.
+    let detail = '';
+    try {
+      const body = await response.clone().json();
+      detail = typeof body?.detail === 'string'
+        ? body.detail
+        : body?.message || JSON.stringify(body?.detail ?? '');
+    } catch {
+      try { detail = (await response.clone().text()).slice(0, 300); } catch { /* leave it empty */ }
+    }
+    throw new Error(
+      detail ? `Doc chat failed: ${detail}` : `Doc chat request failed: HTTP ${response.status}`,
+    );
   }
   const headerId = response.headers.get('X-Conversation-ID');
   const conversationId = headerId || request.conversation_id || '';
