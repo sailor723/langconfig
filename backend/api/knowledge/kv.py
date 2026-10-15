@@ -971,36 +971,82 @@ async def ingest_folder_from_path(request: Request):
     }
 
 
-@router.get("/legacy")
-async def list_legacy_knowledge():
-    """What the old project layout still holds, for the migration panel to offer.
+@router.post("/import")
+async def import_folder_from_path(request: Request):
+    """Make a folder already on this machine into a knowledge base under a chosen name.
 
-    Reads the disk only. Nothing is moved, renamed or registered by looking — this is the list the
-    user picks from, and each folder's own name is the default knowledge base name they can
-    override before anything happens.
+    Body: ``{"path": "/abs/path/to/folder", "knowledge": "EBL_OS_docs", "dry_run": false}``
+
+    The counterpart to uploading a folder from the browser: nothing is transferred, which is the
+    point when the folder is already here. Files are COPIED into the knowledge root, so the source
+    is untouched, and content already present is skipped by hash, so a repeat run adds nothing. A
+    path inside the knowledge root is refused with the alternative named.
     """
-    from services.kv_ingest import scan_legacy
+    from services.kv_ingest import import_directory
 
-    projects = await asyncio.to_thread(scan_legacy)
+    body = await request.json()
+    source = (body.get("path") or "").strip()
+    knowledge = (body.get("knowledge") or "").strip()
+    if not source or not knowledge:
+        raise HTTPException(status_code=400, detail="Both 'path' and 'knowledge' are required")
+
+    report = await asyncio.to_thread(
+        import_directory, source, knowledge, apply=not bool(body.get("dry_run")))
+    return {
+        "knowledge": report.knowledge,
+        "ok": report.ok,
+        "created": report.created_kb,
+        "merged_into": report.merged_into,
+        "written": len(report.written),
+        "duplicates": len(report.duplicates),
+        "unrecognised": list(report.unknown_types),
+        "refused": [{"name": n, "reason": r} for n, r in report.refused],
+        "warnings": list(report.warnings),
+    }
+
+
+@router.get("/legacy")
+async def list_legacy_knowledge(path: Optional[str] = None):
+    """Folders available to migrate, from the legacy root or from a path the user names.
+
+    Reads the disk only. Nothing is moved, renamed or registered by looking. With no `path` this is
+    the old per-project layout; with one it is whatever directory the user pointed at, which is what
+    makes old data on another disk or in an unzipped archive reachable instead of invisible.
+
+    Each candidate reports the absolute directory it came from, and whether a knowledge base already
+    recorded it — so the panel can stop offering work that is done.
+    """
+    from services.kv_ingest import scan_source
+
+    projects = await asyncio.to_thread(scan_source, path)
+    # Reported so the panel can tell "you named a folder that is not there" from "there is nothing
+    # left to migrate". Both come back as an empty list, and telling a user their migration is
+    # complete when they mistyped a path is worse than saying nothing.
+    path_ok = True
+    if path:
+        candidate = Path(path).expanduser()
+        path_ok = candidate.is_dir()
     return {
         "projects": projects,
         "total_folders": sum(len(p["folders"]) for p in projects),
+        "path": path or None,
+        "path_ok": path_ok,
     }
 
 
 @router.post("/migrate")
 async def migrate_legacy_folders(request: Request):
-    """Copy chosen legacy folders into knowledge bases.
+    """Copy chosen folders into knowledge bases, under the names the user typed.
 
-    Body: ``{"selections": [{"project": "project_1", "folder": "华阳", "knowledge": "华阳"}]}``
+    Body: ``{"selections": [{"source": "/abs/dir", "knowledge": "华阳招聘"}]}``
 
-    Each selection is one folder of one old project becoming one knowledge base, under the name the
-    user typed. It copies, so the old folder is left exactly as it was; running it twice adds
-    nothing, because content already present is skipped by hash. Files loose at a project root are
-    not touched and are reported back — the user uploads those through the ordinary upload button
-    if they want them.
+    Each selection is one folder becoming one knowledge base. It copies, so the source is left
+    exactly as it was; running it twice adds nothing, because content already present is skipped by
+    hash. The group a folder belongs to is taken from its parent directory, which is what the
+    provenance record keys on — so a folder migrated from anywhere is recognised again next time,
+    and is not offered twice.
     """
-    from services.kv_ingest import ingest_legacy_folder
+    from services.kv_ingest import folder_fingerprint, import_directory, record_migration
 
     body = await request.json()
     selections = body.get("selections") or []
@@ -1009,24 +1055,29 @@ async def migrate_legacy_folders(request: Request):
 
     results = []
     for item in selections:
-        project = (item.get("project") or "").strip()
-        folder = (item.get("folder") or "").strip()
+        source = (item.get("source") or "").strip()
+        folder = (item.get("folder") or Path(source).name).strip()
+        group = (item.get("group") or Path(source).parent.name).strip()
         knowledge = (item.get("knowledge") or folder).strip()
-        if not project or not folder or not knowledge:
-            results.append({"project": project, "folder": folder, "knowledge": knowledge,
-                            "ok": False, "error": "project, folder and knowledge are required"})
+        if not source or not knowledge:
+            results.append({"source": source, "folder": folder, "knowledge": knowledge,
+                            "ok": False, "error": "source and knowledge are required"})
             continue
         try:
             # In a thread: this reads and writes whole files, and a folder can hold a thousand.
-            report = await asyncio.to_thread(
-                ingest_legacy_folder, project, folder, knowledge, apply=True)
-        except ValueError as exc:
-            results.append({"project": project, "folder": folder, "knowledge": knowledge,
+            report = await asyncio.to_thread(import_directory, source, knowledge, apply=True)
+        except (ValueError, OSError) as exc:
+            results.append({"source": source, "folder": folder, "knowledge": knowledge,
                             "ok": False, "error": str(exc)})
             continue
+
+        if report.ok:
+            count, fingerprint = await asyncio.to_thread(folder_fingerprint, Path(source))
+            await asyncio.to_thread(record_migration, report.knowledge, group, folder,
+                                    count, fingerprint)
+
         results.append({
-            "project": project,
-            "folder": folder,
+            "source": source, "folder": folder, "group": group,
             "knowledge": report.knowledge,
             "ok": report.ok,
             "created": report.created_kb,
