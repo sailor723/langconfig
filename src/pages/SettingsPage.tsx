@@ -17,9 +17,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { themes, useTheme, type ThemeName } from '../lib/themes'
 import apiClient from '../lib/api-client'
+import LegacyMigrationPanel from '../components/layout2/LegacyMigrationPanel'
+import KnowledgeIndexPanel from '../components/layout2/KnowledgeIndexPanel'
 import { useProject } from '../contexts/ProjectContext'
 
-type SectionId = 'general' | 'models' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'runtime' | 'agents' | 'about'
+type SectionId = 'general' | 'models' | 'webapi' | 'localmodels' | 'workspace' | 'storage' | 'runtime' | 'agents' | 'knowledge' | 'about'
 
 const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
   { id: 'general', labelKey: 'settings_general', icon: 'tune' },
@@ -30,6 +32,7 @@ const SECTIONS: { id: SectionId; labelKey: string; icon: string }[] = [
   { id: 'storage', labelKey: 'settings_storage', icon: 'storage' },
   { id: 'runtime', labelKey: 'settings_section_runtime', icon: 'tune' },
   { id: 'agents', labelKey: 'settings_agents', icon: 'rule' },
+  { id: 'knowledge', labelKey: 'settings_knowledge', icon: 'sync_alt' },
   { id: 'about', labelKey: 'settings_about', icon: 'info' },
 ]
 
@@ -278,6 +281,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
               {section === 'storage' && <StorageSection />}
               {section === 'runtime' && <RuntimeSection />}
               {section === 'agents' && <AgentsSection />}
+              {section === 'knowledge' && <KnowledgeSection />}
               {section === 'about' && <AboutSection />}
             </div>
           </div>
@@ -1255,6 +1259,47 @@ function AgentsSection() {
         title="DeepAgents"
         hint="Middleware runs inside the model node, so a turn costs ~2 steps; 150 steps ≈ 75 tool turns."
       />
+    </div>
+  )
+}
+
+// ── Knowledge migration ───────────────────────────────────────────
+//
+// Not a normal operation: run once per machine after a teammate's data has arrived in the old
+// `data/documents/project_<id>/` layout, then never again. It lives in Settings for that reason —
+// beside the upload buttons it would be mistaken for one. See
+// docs/plans/2026-10-15-kv-ingest-core-spec.md.
+function KnowledgeSection() {
+  const [bases, setBases] = useState<string[]>([])
+
+  const loadBases = useCallback(() => {
+    apiClient.listKnowledgeBases()
+      .then((r: any) => {
+        const list = r?.data?.bases ?? r?.bases ?? []
+        setBases(Array.isArray(list) ? list.map((b: any) => b.key).filter(Boolean) : [])
+      })
+      .catch(() => { /* the hint and the panel both degrade without it */ })
+  }, [])
+
+  // `existingBases` only drives a hint ("merges into the base that already exists"), so a failure
+  // to load it must not stop the panels from working.
+  useEffect(() => { loadBases() }, [loadBases])
+
+  const panelTokens = {
+    bg: tok.layer1,
+    bgPanel: tok.layer2,
+    border: tok.borderL2,
+    textPrimary: tok.labelPrimary,
+    textMuted: tok.labelSecondary,
+    hover: tok.hover,
+    primary: tok.primary,
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <KnowledgeIndexPanel onIndexed={loadBases} t={panelTokens} />
+      <div style={{ height: 1, background: tok.borderL2 }} />
+      <LegacyMigrationPanel existingBases={bases} onMigrated={loadBases} t={panelTokens} />
     </div>
   )
 }

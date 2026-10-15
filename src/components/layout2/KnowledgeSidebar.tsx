@@ -12,8 +12,9 @@ import { useLayoutState } from './useLayout';
 import apiClient from '../../lib/api-client';
 import { splitScope } from '../../features/knowledge/knowledgeScope';
 import {
-  Folder, FileText, CheckCircle, Loader, RefreshCw, Plus, FileUp, FolderUp, MessagesSquare, ScanSearch,
+  Folder, FileText, CheckCircle, Loader, RefreshCw, Plus, FileUp, FolderUp, MessagesSquare,
 } from 'lucide-react';
+import UploadFilesDialog from './UploadFilesDialog';
 
 /* ── Types ────────────────────────────────────────────── */
 
@@ -162,13 +163,14 @@ export default function KnowledgeSidebar() {
   const [folderPathInput, setFolderPathInput] = useState('');
   const [ingesting, setIngesting] = useState(false);
   const [ingestMsg, setIngestMsg] = useState<string | null>(null);
-  // Batch-indexing the files that are on disk but not in any catalog.
-  const [indexing, setIndexing] = useState(false);
-  const [indexMsg, setIndexMsg] = useState<string | null>(null);
 
   // File upload state
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  // The file picker, its progress and its errors live in the dialog now. This button only opens
+  // it, so there is nothing here to be "uploading" — a spinner on it would report work this
+  // component cannot see.
+  const [uploadOpen, setUploadOpen] = useState(false);
+  // Files gathered by another control, handed to the dialog so they need not be picked twice.
+  const [uploadSeed, setUploadSeed] = useState<File[] | null>(null);
 
   // Folder upload state
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -295,24 +297,7 @@ export default function KnowledgeSidebar() {
    * copying nothing — so they appear like anything else. Additive and idempotent: files that
    * already have a record are left alone, and running it twice changes nothing.
    */
-  const handleIndexMissing = useCallback(async () => {
-    setIndexing(true);
-    setIndexMsg(null);
-    try {
-      const resp = await apiClient.indexMissingKVDocuments();
-      const data = resp.data as any;
-      // The backend distinguishes "indexed some", "all already indexed" and "no files on disk";
-      // saying "nothing to index" for an empty folder reads as a failure that did not happen.
-      setIndexMsg(data?.message || `Indexed ${data?.indexed ?? 0} file(s)`);
-      await Promise.all([loadBases(), loadDocuments()]);
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail || err?.message || 'Indexing failed';
-      setIndexMsg(`Failed: ${detail}`);
-    } finally {
-      setIndexing(false);
-      setTimeout(() => setIndexMsg(null), 6000);
-    }
-  }, [loadBases, loadDocuments]);
+
 
   /** Ingest a folder by path */
   const handleIngest = useCallback(async () => {
@@ -336,46 +321,17 @@ export default function KnowledgeSidebar() {
     }
   }, [folderPathInput, knowledge, loadDocuments]);
 
-  /** Upload files via file picker */
-  const handleFilePick = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !knowledge) return;
-    setUploading(true);
-    try {
-      const fileArray = Array.from(files);
-      // Files picked go into the current scope, so "upload here" means here. The scope's path
-      // becomes the hierarchy the writer turns into folders — the same four levels the tree and
-      // the document list are grouped by, so a file uploaded while scoped to
-      // `eyewear_industry/新溢眼镜` appears in that folder rather than at the base root.
-      const scopeParts = scopeFolder ? scopeFolder.split('/').filter(Boolean) : [];
-      const scopeMeta: any = {};
-      if (scopeParts.length >= 1) scopeMeta.industry = scopeParts[0];
-      if (scopeParts.length >= 2) scopeMeta.player = scopeParts[1];
-      if (scopeParts.length >= 3) scopeMeta.sub_category = scopeParts[2];
-      if (scopeParts.length >= 4) scopeMeta.sub_department = scopeParts[3];
-
-      const fileMetadata = fileArray.map((f) => {
-        const relPath: string = (f as any).webkitRelativePath || f.name;
-        const meta: any = { ...scopeMeta };
-        const parts = relPath.split('/').filter(Boolean);
-        // A picked folder's own name is not a folder inside the scope: it was the knowledge base
-        // under the old rules, and under the new ones it names one. Only a *nested* path adds
-        // levels.
-        if (parts.length >= 3) meta.industry = parts[1];
-        if (parts.length >= 4) meta.player = parts[2];
-        if (parts.length >= 5) meta.sub_category = parts[3];
-        if (parts.length >= 6) meta.sub_department = parts[4];
-        return meta;
-      });
-      await apiClient.uploadKVDocumentsBulk(knowledge, fileArray, fileMetadata);
-      loadDocuments();
-    } catch (err: any) {
-      console.error('Upload failed:', err);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  }, [knowledge, scopeFolder, loadDocuments]);
+  /**
+   * Upload files. Opens a dialog rather than the picker directly, because the destination is a
+   * choice: pick an existing knowledge base or name a new one. The old handler uploaded into
+   * whichever base happened to be in scope and did *nothing at all* when none was — no error, no
+   * message, a picker that appeared to work and files that went nowhere. It also meant files had no
+   * route to a newly named knowledge base.
+   */
+  const openUploadDialog = useCallback(() => {
+    setUploadSeed(null);
+    setUploadOpen(true);
+  }, []);
 
   /** Upload folder via webkitdirectory picker */
   const handleFolderPick = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -383,14 +339,29 @@ export default function KnowledgeSidebar() {
     if (!files || files.length === 0) return;
 
     const fileArray = Array.from(files);
-    const relPaths = fileArray.map((f) => (f as any).webkitRelativePath || f.name);
+    const relPaths = fileArray.map((f) => (f as any).webkitRelativePath || '');
+
+    // A folder pick gives every file a path like "<Folder>/<rest…>". A *file* pick gives none,
+    // and the input then behaves like an ordinary file input — which is not this button's job.
+    //
+    // This used to fall back to `f.name`, which quietly defeated the guard below: a plain file
+    // selection always yields a name, so the knowledge base was created from the FILE's name.
+    // Picking `prioritization.pdf` through this button produced a knowledge base called
+    // `prioritization.pdf`. The fallback is gone, and files picked here are handed to the upload
+    // dialog instead — where the knowledge base name is a field, which is where it belongs.
+    if (!relPaths.every((rel) => rel.includes('/'))) {
+      setUploadSeed(fileArray);
+      setUploadOpen(true);
+      if (folderInputRef.current) folderInputRef.current.value = '';
+      return;
+    }
 
     // The folder you pick IS the knowledge base. Every file arrives as "<Folder>/<rest…>", and
     // that first segment names the knowledge base rather than becoming a subfolder inside one
     // somebody else's — picking `business_model` gives you a knowledge base called
     // `business_model`, sitting directly under the knowledge root.
-    const kb = (relPaths[0] || '').split('/').filter(Boolean)[0];
-    if (!kb) return;      // a plain file selection has no folder name to make a base out of
+    const kb = relPaths[0].split('/').filter(Boolean)[0];
+    if (!kb) return;      // a path with no leading segment has no folder name to make a base from
 
     setFolderUploading(true);
     try {
@@ -543,20 +514,18 @@ export default function KnowledgeSidebar() {
             <MessagesSquare size={13} />
           </button>
           <button
-            onClick={() => fileInputRef.current?.click()}
-            title="Upload files"
-            disabled={uploading}
+            onClick={openUploadDialog}
+            title="Upload files into a knowledge base you choose"
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 22, height: 22,
               border: 'none', background: 'transparent', color: t.textMuted,
-              cursor: uploading ? 'default' : 'pointer', borderRadius: 3,
-              opacity: uploading ? 0.5 : 1,
+              cursor: 'pointer', borderRadius: 3,
             }}
-            onMouseEnter={(e) => { if (!uploading) e.currentTarget.style.background = t.bgHover; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = t.bgHover; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
           >
-            {uploading ? <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={14} />}
+            <Plus size={14} />
           </button>
           <button
             onClick={() => folderInputRef.current?.click()}
@@ -574,24 +543,7 @@ export default function KnowledgeSidebar() {
           >
             {folderUploading ? <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <FolderUp size={14} />}
           </button>
-          <input ref={fileInputRef} type="file" multiple onChange={handleFilePick} style={{ display: 'none' }} />
           <input ref={folderInputRef} type="file" onChange={handleFolderPick} style={{ display: 'none' }} />
-          <button
-            onClick={handleIndexMissing}
-            disabled={indexing}
-            title="Index files already on disk — lists files that were copied in by hand, without copying them again"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 22, height: 22,
-              border: 'none', background: 'transparent', color: t.textMuted,
-              cursor: indexing ? 'default' : 'pointer', borderRadius: 3,
-              opacity: indexing ? 0.5 : 1,
-            }}
-            onMouseEnter={(e) => { if (!indexing) e.currentTarget.style.background = t.bgHover; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-          >
-            {indexing ? <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <ScanSearch size={14} />}
-          </button>
           <button
             onClick={loadDocuments}
             title="Refresh"
@@ -777,12 +729,22 @@ export default function KnowledgeSidebar() {
             {ingestMsg}
           </div>
         )}
-        {indexMsg && (
-          <div style={{ fontSize: 11, color: indexMsg.startsWith('Failed') ? '#e5484d' : '#10b981', marginTop: 4 }}>
-            {indexMsg}
-          </div>
-        )}
       </div>
+      <UploadFilesDialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        currentKnowledge={knowledge}
+        scopeFolder={scopeFolder}
+        existingBases={bases.map((b) => b.key)}
+        initialFiles={uploadSeed ?? undefined}
+        onUploaded={(kb) => {
+          // The base may be brand new, and the files may have landed in a different base than the
+          // one in scope, so refresh the list rather than assuming either.
+          loadBases();
+          if (kb === knowledge) loadDocuments();
+        }}
+        t={t}
+      />
     </div>
   );
 }
