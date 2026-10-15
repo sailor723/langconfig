@@ -201,9 +201,10 @@ API_KEY_ENCRYPTION_KEY=
 # 'local' or 'db' — those are the only two values the code recognises. The comment
 # used to say 'fs', which works only by accident: anything that is not 'db' behaves
 # as local. db keeps the files on disk AND mirrors them into Postgres
-# (storage_objects), and makes the Knowledge panel list from that table instead of
-# .kvmeta. See docs/KB_MIGRATION.md before changing it on a machine that already
-# has a knowledge base.
+# (storage_objects) for skills and agent outputs. It does NOT change what the
+# Knowledge panel lists: knowledge is filesystem-only and lists from .kvmeta, which
+# is a decision, not a mode. See docs/storage-map.md for where each class of data
+# lives.
 STORAGE_MODE=local
 LANGCONFIG_WORKSPACE_ROOT=backend/.workspace_data
 OLLAMA_BASE_URL=http://localhost:11434
