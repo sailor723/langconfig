@@ -27,6 +27,7 @@ it is read back from.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -99,6 +100,15 @@ class DocRecord(BaseModel):
     size: int
     mime_type: Optional[str] = None
     storage_path: str  # absolute path on disk
+    # The document's path INSIDE its knowledge base, and the source of truth for where it is.
+    # `storage_path` above is the absolute path of whichever machine wrote the record, which makes
+    # a catalog un-portable: copy the folder to another machine and every record still names the
+    # old one. `key` resolves against the root the catalog is read from, so a copied knowledge base
+    # works. Both are written; `_record_file` prefers this one.
+    key: Optional[str] = None
+    # Content hash, so a re-ingest can skip what is already here. Absent on records written before
+    # hashing existed, which is why dedup also asks the disk.
+    sha256: Optional[str] = None
     industry: Optional[str] = None
     player: Optional[str] = None
     sub_category: Optional[str] = None
@@ -211,6 +221,30 @@ class KVStore:
 
 
 # ── Helpers ────────────────────────────────────────────────────────
+
+def _record_file(doc, knowledge: Optional[str] = None) -> Path:
+    """Where a record's file actually is, as an ABSOLUTE path.
+
+    `key` first, because it is relative to the knowledge base and therefore survives the folder
+    being copied to another machine or the root being moved. `storage_path` is the fallback for
+    records written before `key` existed, and for `linked` documents, whose path is by definition
+    wherever the user's own file lives.
+
+    Resolved, and that is load-bearing rather than tidy. `documents_dir()` is configured relative
+    (`./data/knowledge`) while every caller that compares this against something walked from disk
+    holds an absolute path. Returning the relative form made `index-missing` match nothing, so it
+    wrote a second record for all 441 files of a knowledge base that was already fully indexed —
+    the same relative-versus-absolute trap the neighbours of this function warn about, and it cost
+    a real cleanup to undo.
+    """
+    kb = knowledge or getattr(doc, "kb", None)
+    key = getattr(doc, "key", None)
+    if kb and key and not getattr(doc, "linked", False):
+        candidate = documents_dir(kb) / key
+        if candidate.is_file():
+            return candidate.resolve()
+    return Path(doc.storage_path).resolve()
+
 
 def _doc_type_from_ext(filename: str) -> str:
     """Map file extension to a human-readable type string."""
@@ -472,9 +506,11 @@ async def index_missing_files(knowledge: Optional[str] = None):
             continue
 
         store = KVStore(name)
-        # Matched on the absolute path, which is what a record actually stores. Matching on the
-        # name would miss a file that was renamed on disk and re-add its neighbour.
-        known = {str(Path(d.storage_path)) for d in store.list_docs()}
+        # Resolved through `_record_file`, so a record whose `key` is set matches the file it
+        # actually refers to even if this root is not the one the record was written on. Matched on
+        # the path rather than the name, because matching on the name would miss a file that was
+        # renamed on disk and re-add its neighbour.
+        known = {str(_record_file(d, name)) for d in store.list_docs()}
 
         fresh: List[DocRecord] = []
         already = 0
@@ -935,6 +971,80 @@ async def ingest_folder_from_path(request: Request):
     }
 
 
+@router.get("/legacy")
+async def list_legacy_knowledge():
+    """What the old project layout still holds, for the migration panel to offer.
+
+    Reads the disk only. Nothing is moved, renamed or registered by looking — this is the list the
+    user picks from, and each folder's own name is the default knowledge base name they can
+    override before anything happens.
+    """
+    from services.kv_ingest import scan_legacy
+
+    projects = await asyncio.to_thread(scan_legacy)
+    return {
+        "projects": projects,
+        "total_folders": sum(len(p["folders"]) for p in projects),
+    }
+
+
+@router.post("/migrate")
+async def migrate_legacy_folders(request: Request):
+    """Copy chosen legacy folders into knowledge bases.
+
+    Body: ``{"selections": [{"project": "project_1", "folder": "华阳", "knowledge": "华阳"}]}``
+
+    Each selection is one folder of one old project becoming one knowledge base, under the name the
+    user typed. It copies, so the old folder is left exactly as it was; running it twice adds
+    nothing, because content already present is skipped by hash. Files loose at a project root are
+    not touched and are reported back — the user uploads those through the ordinary upload button
+    if they want them.
+    """
+    from services.kv_ingest import ingest_legacy_folder
+
+    body = await request.json()
+    selections = body.get("selections") or []
+    if not selections:
+        raise HTTPException(status_code=400, detail="No folders selected")
+
+    results = []
+    for item in selections:
+        project = (item.get("project") or "").strip()
+        folder = (item.get("folder") or "").strip()
+        knowledge = (item.get("knowledge") or folder).strip()
+        if not project or not folder or not knowledge:
+            results.append({"project": project, "folder": folder, "knowledge": knowledge,
+                            "ok": False, "error": "project, folder and knowledge are required"})
+            continue
+        try:
+            # In a thread: this reads and writes whole files, and a folder can hold a thousand.
+            report = await asyncio.to_thread(
+                ingest_legacy_folder, project, folder, knowledge, apply=True)
+        except ValueError as exc:
+            results.append({"project": project, "folder": folder, "knowledge": knowledge,
+                            "ok": False, "error": str(exc)})
+            continue
+        results.append({
+            "project": project,
+            "folder": folder,
+            "knowledge": report.knowledge,
+            "ok": report.ok,
+            "created": report.created_kb,
+            "merged_into": report.merged_into,
+            "written": len(report.written),
+            "duplicates": len(report.duplicates),
+            "unrecognised": list(report.unknown_types),
+            "refused": [{"name": n, "reason": r} for n, r in report.refused],
+            "warnings": list(report.warnings),
+        })
+
+    return {
+        "results": results,
+        "written": sum(r.get("written", 0) for r in results),
+        "duplicates": sum(r.get("duplicates", 0) for r in results),
+    }
+
+
 @router.delete("/documents/{doc_id}")
 async def delete_document(doc_id: str, knowledge: str):
     """Delete a document from the KV store and its file from disk."""
@@ -947,12 +1057,12 @@ async def delete_document(doc_id: str, knowledge: str):
         # The file is not ours. It was linked in place, so removing the knowledge record must
         # leave it exactly where it is — deleting it would destroy the user's own document.
         store.delete_doc(doc_id)
-        logger.info(f"Unlinked document {doc_id}; file left in place: {doc.storage_path}")
+        logger.info(f"Unlinked document {doc_id}; file left in place: {_record_file(doc, knowledge)}")
         return {"message": "Unlinked. The file itself was left where it is."}
 
     # Delete file from disk
     try:
-        file_storage.delete_file(doc.storage_path)
+        file_storage.delete_file(str(_record_file(doc, knowledge)))
     except Exception as e:
         logger.warning(f"Failed to delete file from disk: {e}")
 
@@ -1003,7 +1113,7 @@ async def get_document_file(doc_id: str, knowledge: str, request: Request):
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    file_path = Path(doc.storage_path)
+    file_path = _record_file(doc, knowledge)
     content = file_storage.read_bytes(file_path)
     if content is None:
         raise HTTPException(status_code=404, detail="File not found on disk")
@@ -1030,7 +1140,7 @@ async def get_document_content(doc_id: str, knowledge: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    file_path = Path(doc.storage_path)
+    file_path = _record_file(doc, knowledge)
     content = file_storage.read_bytes(file_path)
     if content is None:
         raise HTTPException(status_code=404, detail="File not found on disk")
