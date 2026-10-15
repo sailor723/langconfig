@@ -37,7 +37,7 @@ from pydantic import BaseModel, Field
 
 from core.settings import runtime_get
 from services.agent_utils import resolve_model
-from services.kb_discovery import documents_dir
+from services.kb_discovery import MANIFEST_NAME, documents_dir
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +58,35 @@ def _display_doc_name(filename: str) -> str:
     """Human-friendly document name — removes the 8-hex uuid collision prefix."""
     return _HASH_PREFIX_RE.sub("", filename)
 
-# Max chars to feed into LLM context
-MAX_CONTEXT_CHARS = 500_000  # 500K chars — fits comfortably in most model context windows
+# Built-in defaults for how much document text one answer may inline. These are the fallbacks,
+# not the policy: Settings → Knowledge (`knowledge.doc_chat_max_files` /
+# `doc_chat_max_context_chars`) overrides them, and unset there means these values. Kept as
+# constants so behaviour is defined even with no settings table — `runtime_get()` falls back to
+# `defaults.get_defaults()`, which has no `knowledge` namespace, so it returns None and these win.
+MAX_CONTEXT_CHARS = 1_000_000  # 1M chars — fits comfortably in most model context windows
 MAX_FILES = 300
+
+
+def _positive_int(value: Any) -> Optional[int]:
+    """A configured limit, or None when it is absent or unusable.
+
+    `bool` is excluded deliberately: it is an int subclass, and a settings document hand-edited to
+    `true` should fall back to the default rather than silently mean 1 file.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if value > 0 else None
+
+
+def configured_max_files() -> int:
+    """Files one doc-chat answer may inline: the setting, else the built-in default."""
+    return _positive_int(runtime_get("knowledge", "doc_chat_max_files")) or MAX_FILES
+
+
+def configured_max_context_chars() -> int:
+    """Characters of document text one answer may inline: the setting, else the default."""
+    return (_positive_int(runtime_get("knowledge", "doc_chat_max_context_chars"))
+            or MAX_CONTEXT_CHARS)
 
 # In-memory conversation store (simple dict, not persisted)
 conversation_memory: Dict[str, List[Dict[str, Any]]] = {}
@@ -95,9 +121,10 @@ class DocChatRequest(BaseModel):
         None, ge=1, le=1_000_000,
         description="Maximum output tokens. Defaults to the model's own default.",
     )
-    max_context_chars: int = Field(
-        MAX_CONTEXT_CHARS, ge=10_000, le=1_000_000,
-        description="Max characters of document text to include in context",
+    max_context_chars: Optional[int] = Field(
+        None, ge=10_000, le=20_000_000,
+        description="Max characters of document text to include. Omit to use the configured limit "
+                    "(Settings → Knowledge); a value here can only LOWER it, never raise it.",
     )
 
 
@@ -106,6 +133,16 @@ class DocChatRequest(BaseModel):
 def _extract_text(file_path: Path, max_chars: int = 100_000) -> Optional[str]:
     """Extract text content from a supported file type."""
     suffix = file_path.suffix.lower()
+
+    # HTML first: it IS in TEXT_EXTENSIONS, but reading its bytes verbatim would send the page's
+    # furniture — <style>, <script>, the head — to the model as if it were content.
+    if suffix in (".html", ".htm"):
+        try:
+            return _html_to_text(file_path.read_text(encoding="utf-8", errors="replace"),
+                                 source_name=file_path.name)
+        except Exception as e:
+            logger.warning(f"Failed to extract HTML text from {file_path}: {e}")
+            return None
 
     if suffix in TEXT_EXTENSIONS:
         try:
@@ -133,6 +170,75 @@ def _extract_text(file_path: Path, max_chars: int = 100_000) -> Optional[str]:
     return None
 
 
+# HTML is a text format on disk but a rendered document in spirit: the bytes that make a page
+# readable to a browser are exactly the bytes that make it useless to a model. Measured on one real
+# knowledge base, the largest document was a 56 KB pandoc report of which ~60% was CSS and markup —
+# the model paid for all of it, and could cite the stylesheet's own text as a source (asked what
+# folders existed, it listed CSS selector names among them).
+#
+# Block-level boundaries become newlines while inline runs are joined, so a sentence split across
+# `<span>`s stays one sentence — which matters for Chinese text, where inline spans are everywhere.
+# Line wrapping the source itself did inside a paragraph is left alone: reflowing it would merge
+# list items and table cells, and that structure is how a model reads a table.
+_HTML_BLOCK_TAGS = (
+    "p", "div", "li", "tr", "h1", "h2", "h3", "h4", "h5", "h6", "table", "thead", "tbody",
+    "ul", "ol", "section", "article", "header", "footer", "blockquote", "pre", "td", "th",
+    "br", "hr",
+)
+
+
+def _html_to_text(raw: str, source_name: str = "") -> str:
+    """Readable text from an HTML document: its content, without the page furniture.
+
+    Returns `raw` unchanged when nothing readable can be found, so this can never show a model
+    *less* than reading the file as plain text did.
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        logger.warning("beautifulsoup4 unavailable — including HTML as raw text")
+        return raw
+
+    soup = BeautifulSoup(raw, "html.parser")
+    for tag in soup(["script", "style", "noscript", "template", "svg"]):
+        tag.decompose()
+
+    # The title is content, and the only thing in `head` that is. Kept before the head is dropped,
+    # and skipped when it only repeats the name the prompt already labels the document with.
+    #
+    # Compared against the DISPLAY name, not the on-disk one: a knowledge base's files carry the
+    # writer's 8-hex collision prefix (`a2d6dd95_company_analysis_final_report.html`), so a title
+    # matching the document's real name never equals the stored filename and the guard would never
+    # fire — which is exactly the case it exists for.
+    title = soup.title.get_text(strip=True) if soup.title else ""
+    if soup.head is not None:
+        soup.head.decompose()
+    if title and source_name and title.lower() == Path(_display_doc_name(source_name)).stem.lower():
+        title = ""
+
+    for tag in soup.find_all(_HTML_BLOCK_TAGS):
+        if tag.parent is None:          # a detached root has nowhere to insert around it
+            continue
+        tag.insert_before("\n")
+        tag.insert_after("\n")
+
+    # Separator "": inline text stays joined, so the newlines are the block boundaries inserted
+    # above plus whatever the source wrapped inside a paragraph.
+    lines = [re.sub(r"[ \t\u00a0]+", " ", line).strip()
+             for line in soup.get_text("").splitlines()]
+    kept: List[str] = []
+    for line in lines:
+        if line or (kept and kept[-1]):     # collapse runs of blank lines, keep one between blocks
+            kept.append(line)
+    while kept and not kept[-1]:
+        kept.pop()
+
+    body = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
+    if not body:
+        return raw
+    return f"# {title}\n\n{body}" if title else body
+
+
 def resolve_kb_folder(knowledge: str, folder_path: str = "") -> Optional[Path]:
     """The directory a knowledge base — or a folder inside it — actually is.
 
@@ -155,16 +261,19 @@ def resolve_kb_folder(knowledge: str, folder_path: str = "") -> Optional[Path]:
 
 
 def _scan_folder_sync(knowledge: str, folder_path: str = "",
-                      max_files: int = MAX_FILES) -> List[Dict[str, Any]]:
+                      max_files: int = MAX_FILES,
+                      max_context_chars: int = MAX_CONTEXT_CHARS) -> List[Dict[str, Any]]:
     """Scan a folder for supported files and return their text content.
 
     Args:
         knowledge: Knowledge base folder name, resolved by `documents_dir()`.
         folder_path: Folder inside it, e.g. "industry/player".
-        max_files: Max files to scan (sorted by size desc, capped by MAX_CONTEXT_CHARS).
+        max_files: Max files to scan (sorted by size desc, capped by `max_context_chars`).
+        max_context_chars: Characters of content this scan may return in total.
 
-    Returns:
-        List of {name, path, content, size} dicts.
+    Both limits are passed in rather than read here, so this stays a pure filesystem function: it
+    runs in a worker thread and is called directly by tests. The caller resolves them once per
+    request from Settings → Knowledge.
     """
     base = resolve_kb_folder(knowledge, folder_path)
     if base is None or not base.is_dir():
@@ -175,6 +284,15 @@ def _scan_folder_sync(knowledge: str, folder_path: str = "",
     for fp in sorted(base.rglob("*")):
         if not fp.is_file() or fp.name.startswith("."):
             continue
+        # The knowledge base's own manifest is not one of its documents. `kb.json` is `{"name": …,
+        # "key": …}` — plus the migration provenance `sources` — and it sits INSIDE the folder the
+        # scan walks, so without this it was read as a document, inlined into every answer and
+        # citable as a source. Measured on one install: 16 of 19 knowledge bases carry one.
+        #
+        # The other two readers already exclude it (`kv_ingest.disk_hashes`, `/index-missing`); this
+        # was the third and the one that forgot.
+        if fp.name == MANIFEST_NAME:
+            continue
         suffix = fp.suffix.lower()
         if suffix not in TEXT_EXTENSIONS and suffix not in PDF_EXTENSIONS:
             continue
@@ -183,10 +301,15 @@ def _scan_folder_sync(knowledge: str, folder_path: str = "",
             text = _extract_text(fp)
             if text is None:
                 continue
+            rel = fp.relative_to(base)
             files.append({
                 "name": fp.name,
                 "display_name": _display_doc_name(fp.name),
-                "path": str(fp.relative_to(base)),
+                "path": str(rel),
+                # Where the document sits inside the scope, relative to the scanned folder. "."
+                # means it sits at the scope's own root. Kept separate from `path` so the prompt can
+                # say WHERE a document is without restating its name.
+                "rel_dir": str(rel.parent),
                 "content": text,
                 "size": len(text),
             })
@@ -200,8 +323,8 @@ def _scan_folder_sync(knowledge: str, folder_path: str = "",
     total_chars = 0
 
     for f in files[:max_files]:
-        if total_chars + f["size"] > MAX_CONTEXT_CHARS:
-            remaining = MAX_CONTEXT_CHARS - total_chars
+        if total_chars + f["size"] > max_context_chars:
+            remaining = max_context_chars - total_chars
             if remaining > 2000:
                 f["content"] = f["content"][:remaining] + "\n\n...[truncated]"
                 result.append(f)
@@ -280,12 +403,19 @@ async def doc_chat(request: DocChatRequest):
     try:
         conversation_id = request.conversation_id or f"doc_conv_{int(time.time() * 1000)}"
 
+        # How much one answer may read, resolved ONCE for the request: a settings lookup opens its
+        # own session, so it does not belong in the per-file loop below. Settings → Knowledge wins;
+        # absent (or no settings table) means the built-in defaults.
+        max_files = configured_max_files()
+        configured_context = configured_max_context_chars()
+
         # Scan folder for documents
         md_files = await asyncio.to_thread(
             _scan_folder_sync,
             request.knowledge,
             request.folder_path,
-            MAX_FILES,
+            max_files,
+            configured_context,
         )
 
         if not md_files:
@@ -308,11 +438,22 @@ async def doc_chat(request: DocChatRequest):
         # Build document context
         doc_parts = []
         total_chars = 0
-        max_context = min(request.max_context_chars, MAX_CONTEXT_CHARS)
+        # The configured limit is the cap; a request may ask for LESS (a narrower question over a
+        # huge knowledge base) but never for more, so the budget stays the operator's to set.
+        max_context = min(request.max_context_chars or configured_context, configured_context)
         for f in md_files:
-            # Use the cleaned name so citations show the original document
-            # name instead of the uuid-prefixed on-disk filename.
-            header = f"\n--- File: {f.get('display_name', f['path'])} ---\n"
+            # The cleaned name, so a citation reads as the original document instead of the
+            # uuid-prefixed on-disk filename — plus WHERE it sits inside the scope.
+            #
+            # The location is not decoration: without it the model holds 155 documents and no
+            # folder structure at all, so "show me all folders" could only be answered from folder
+            # names mentioned in the prose. That is what happened — the reply listed folders that
+            # do not exist while the real answer (`analysis/`, `survey_filled/`, …, one per file
+            # path) was known to this function and never sent.
+            label = f.get("display_name", f["path"])
+            rel_dir = f.get("rel_dir", "")
+            where = f" (folder: {rel_dir})" if rel_dir not in ("", ".") else ""
+            header = f"\n--- File: {label}{where} ---\n"
             entry = header + f["content"]
             if total_chars + len(entry) > max_context:
                 remaining = max_context - total_chars
@@ -327,21 +468,34 @@ async def doc_chat(request: DocChatRequest):
         doc_context = "\n".join(doc_parts)
         file_count = len(md_files)
 
+        # An empty scope is the WHOLE knowledge base, not a missing value. Printing it as an empty
+        # `## Selected Folder:` field left the model reading a blank where a scope should be, and it
+        # duly reported the field as empty to the user.
+        scope_label = request.folder_path or "the whole knowledge base"
+
         system_prompt = (
             f"You are a document-grounded Q&A assistant. Answer the user's question "
             f"using ONLY the documents provided below.\n\n"
-            f"## Selected Folder: {request.folder_path}\n"
-            f"## Number of Documents Loaded: {file_count}\n"
-            f"## Total Characters of Context: {total_chars}\n\n"
+            # Bookkeeping, deliberately OUTSIDE the DOCUMENTS block. It used to be injected inside
+            # that block, so a model told the block was its only source of truth cited our own file
+            # count back as if a document had stated it: "155 files [Source: CEO_survey.json]".
+            f"## DOCUMENT SET (this assistant's own bookkeeping — NOT a document, never cite it):\n"
+            f"scope: {scope_label}\n"
+            f"files loaded: {file_count}\n"
+            f"characters of context: {total_chars}\n\n"
             f"## DOCUMENTS (this is your ONLY source of truth):\n"
             f"{doc_context}\n\n"
             f"## RULES:\n"
             f"1. Begin your reply with exactly: `**[Documents loaded: {file_count} files, {total_chars} chars]**`\n"
             f"2. Answer ONLY using facts, numbers, and statements from the documents above.\n"
             f"3. For every claim, cite the source file: `[Source: filename.ext]`\n"
-            f"4. If the documents do not contain the answer, respond with: "
+            f"4. Each document's `(folder: …)` is where that document sits inside the scope. To say "
+            f"what folders or documents exist, use those folder values and nothing else.\n"
+            f"5. Never cite the DOCUMENT SET block above. It is this assistant's own bookkeeping, "
+            f"not a document.\n"
+            f"6. If the documents do not contain the answer, respond with: "
             f"\"The loaded documents do not contain information about [topic].\"\n"
-            f"5. NEVER use your own knowledge, NEVER make up information."
+            f"7. NEVER use your own knowledge, NEVER make up information."
         )
 
         # Build messages for LLM
@@ -437,6 +591,10 @@ async def list_doc_chat_folders(knowledge: str):
     # Walk all subdirectories looking for supported files
     for fp in sorted(base.rglob("*")):
         if not fp.is_file() or fp.name.startswith("."):
+            continue
+        # Same rule as the scan: a manifest is not a document, so a folder holding only one is not
+        # a scope worth offering — picking it would come back "No supported documents found".
+        if fp.name == MANIFEST_NAME:
             continue
         if fp.suffix.lower() not in SUPPORTED:
             continue

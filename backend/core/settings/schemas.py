@@ -323,21 +323,32 @@ class AgentsSettings(BaseModel):
 # ── registry of v1 namespaces ────────────────────────────────────────────────
 # ── knowledge ────────────────────────────────────────────────────────────────
 class KnowledgeSettings(BaseModel):
-    """Knowledge-base behaviour: which model doc chat answers with.
+    """Knowledge-base behaviour: which model doc chat answers with, and how much it reads.
 
     Doc Chat used to carry an LLM dropdown of its own, which is the wrong place for it — the
     choice belongs with the knowledge base, set once, not re-made in a chat panel every time. It
     lives here rather than in `models` because it is a knowledge setting: a knowledge base can be
     pointed at a different model without changing what every agent in the app uses.
 
-    NULL means "follow the app default" (`models.default_model`), so an install that never opens
-    this setting behaves exactly as before.
+    NULL means "follow the built-in default", so an install that never opens this setting behaves
+    exactly as before. The two limits are the ones doc chat used to hard-code (`MAX_FILES` and
+    `MAX_CONTEXT_CHARS` in `api/knowledge/doc_chat.py`), and they are set here rather than in
+    `.env` because `.env` is read once at boot for infrastructure, while these are tuned while
+    using the app — the same reason `doc_chat_model` lives here.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     doc_chat_model: Optional[str] = None
     doc_chat_temperature: Optional[float] = None
+    # Files inlined into one answer. Bounded because a knowledge base with 900 files in one
+    # folder makes "no limit" indistinguishable from a hang.
+    doc_chat_max_files: Optional[int] = Field(default=None, ge=1, le=5000)
+    # Characters of document text inlined into one answer — the real context budget. The upper
+    # bound is ~5M tokens of Latin text, past any current model's window, so it is a sanity
+    # check on a typo rather than a policy: the point of the setting is that the operator, not
+    # this file, decides what fits.
+    doc_chat_max_context_chars: Optional[int] = Field(default=None, ge=10_000, le=20_000_000)
 
 
 NAMESPACE_SCHEMAS: dict[str, type[BaseModel]] = {

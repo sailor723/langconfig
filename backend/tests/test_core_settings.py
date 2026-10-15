@@ -64,11 +64,64 @@ def _db(db_session_factory):
 def test_v1_namespaces_registered():
     assert cs.namespaces() == [
         "general", "models", "workspace", "storage", "rag", "search", "onboarding", "runtime",
-        "agents",
+        "agents", "knowledge",
     ]
     for ns in cs.namespaces():
         assert cs.is_registered(ns)
         assert cs.get(ns).schema is cs.NAMESPACE_SCHEMAS[ns]
+
+
+def test_knowledge_namespace_resolves_without_a_document_row(db_session_factory):
+    """A new field needs NO reseed: schema defaults are the base layer of every resolution.
+
+    `resolve()` merges `schema().model_dump()` under the DB document, so a namespace with no row at
+    all — and a field no document mentions — still resolves. This is the property that makes adding
+    a setting a code change rather than a migration.
+    """
+    value = cs.resolve_value(None, "knowledge")          # db=None: pure schema defaults
+    assert value["doc_chat_model"] is None
+    assert value["doc_chat_temperature"] is None
+    assert value["doc_chat_max_files"] is None
+    assert value["doc_chat_max_context_chars"] is None
+
+    # And with a real, empty table the same thing holds.
+    db = _db(db_session_factory)
+    try:
+        assert cs.store.get_document(db, "knowledge") == {}
+        resolved = cs.resolve_value(db, "knowledge")
+        assert resolved["doc_chat_max_files"] is None
+        assert resolved["doc_chat_max_context_chars"] is None
+    finally:
+        db.close()
+
+
+def test_knowledge_limits_are_optional_and_bounded(db_session_factory):
+    """The two doc-chat limits are settable, unsettable, and refuse nonsense at write time."""
+    db = _db(db_session_factory)
+    try:
+        cs.mutate(db, "knowledge", [
+            {"op": "set", "path": ["doc_chat_max_files"], "value": 25},
+            {"op": "set", "path": ["doc_chat_max_context_chars"], "value": 250_000},
+        ])
+        value = cs.resolve_value(db, "knowledge")
+        assert value["doc_chat_max_files"] == 25
+        assert value["doc_chat_max_context_chars"] == 250_000
+
+        # A document written before the fields existed still resolves, with None for each.
+        cs.mutate(db, "knowledge", [
+            {"op": "unset", "path": ["doc_chat_max_files"]},
+            {"op": "unset", "path": ["doc_chat_max_context_chars"]},
+        ])
+        value = cs.resolve_value(db, "knowledge")
+        assert value["doc_chat_max_files"] is None
+        assert value["doc_chat_max_context_chars"] is None
+
+        # Out-of-range values are refused rather than stored, so `0 files` cannot reach doc chat.
+        for field, bad in (("doc_chat_max_files", 0), ("doc_chat_max_context_chars", 5)):
+            with pytest.raises(ValidationError):
+                cs.mutate(db, "knowledge", [{"op": "set", "path": [field], "value": bad}])
+    finally:
+        db.close()
 
 
 def test_agents_namespace_holds_create_time_limits():
