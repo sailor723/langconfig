@@ -20,8 +20,15 @@ zip.**
 A fresh Ubuntu server needs a few base tools before the steps below:
 
 ```bash
-sudo apt update && sudo apt install -y unzip git curl ca-certificates
+sudo apt update && sudo apt install -y unzip git curl ca-certificates lsof
 ```
+
+`lsof` is not in a default Ubuntu/WSL image, and `start.sh` uses it to stop a previous backend or
+frontend still holding `:8765` / `:1421` before starting a new one. Without it the port stays busy,
+Vite refuses to fall back to another port (`strictPort: true`), and the only symptom is
+`Error: Port 1421 is already in use` — so a re-run of `start.sh` looks like it half-started. It now
+falls back to `fuser`, then `ss`, and says so when none is available; installing `lsof` is still the
+recommended fix.
 
 ---
 

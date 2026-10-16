@@ -25,6 +25,53 @@ SELF_PID=$$
 BE_PIDFILE="/tmp/langconfig-be.pid"
 FE_PIDFILE="/tmp/langconfig-fe.pid"
 
+# ── port helpers ─────────────────────────────────────────────────────────────
+# Which tool can name the process LISTENING on a port?
+#
+# `lsof` is the clearest, and it is what this script assumed — but it is NOT installed on a default
+# WSL2 Ubuntu, and its absence was invisible: the lookup discarded stderr and `|| true` swallowed
+# the failure, so no PID was ever found, nothing was killed, and the whole symptom was
+# "⚠️ Port 1421 is still busy after 5s" followed by Vite refusing to start (strictPort: true, so it
+# will not fall back to another port). One check here turns that into a message naming the fix.
+#
+# `ss` comes from iproute2, which is present on Ubuntu by default, so the fallback chain covers a
+# stock WSL install without any extra package.
+PORT_TOOL=""
+for port_tool in lsof fuser; do
+    if command -v "$port_tool" >/dev/null 2>&1; then PORT_TOOL="$port_tool"; break; fi
+done
+if [ -z "$PORT_TOOL" ] && command -v ss >/dev/null 2>&1; then PORT_TOOL="ss"; fi
+
+# PIDs listening on a port, one per line; empty when the port is free.
+#
+# Empty and "no tool to ask" are different answers, so callers check PORT_TOOL when that matters.
+# `ss -ltnp` only names processes it is allowed to see, so a listener owned by another user may
+# come back empty — the manual hint in kill_old covers that case.
+listeners_on_port() {
+    local port="$1"
+    case "$PORT_TOOL" in
+        lsof)  lsof -ti:"$port" -sTCP:LISTEN 2>/dev/null || true ;;
+        fuser) fuser -n tcp "$port" 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+$' || true ;;
+        ss)    ss -ltnp 2>/dev/null | grep -E "[.:]$port\b" \
+                   | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u || true ;;
+        *)     true ;;
+    esac
+}
+
+# Warn once, not once per call, since kill_old runs for both the backend and the frontend.
+PORT_TOOL_WARNED=""
+warn_no_port_tool() {
+    [ -n "$PORT_TOOL" ] && return 0
+    [ -n "$PORT_TOOL_WARNED" ] && return 0
+    PORT_TOOL_WARNED=1
+    echo "  ⚠️  no lsof/fuser/ss available — cannot tell whether a port is free, or stop what holds it."
+    echo "      Install one (Ubuntu/WSL):  sudo apt install -y lsof"
+    echo "      Otherwise a previous server keeps the port and the new one exits with"
+    echo "      \"Port 1421 is already in use\"."
+    return 0
+}
+# ── end port helpers ─────────────────────────────────────────────────────────
+
 kill_old() {
     local name="$1" port="$2" pidfile="$3"
 
@@ -47,8 +94,9 @@ kill_old() {
     #    `lsof -i:PORT` alone also matches outbound sockets, e.g. the Vite dev
     #    server's ws-proxy connections to the backend on 8765, which would
     #    wrongly take down the frontend too.
+    warn_no_port_tool
     local pids
-    pids=$(lsof -ti:"$port" -sTCP:LISTEN 2>/dev/null || true)
+    pids=$(listeners_on_port "$port")
     if [ -n "$pids" ]; then
         for p in $pids; do
             if [ "$p" != "$SELF_PID" ]; then
@@ -59,8 +107,14 @@ kill_old() {
     fi
 
     # 3) Wait until the port is actually free so the new server can bind.
+    if [ -z "$PORT_TOOL" ]; then
+        echo "      If it still fails, stop the old server by hand:  kill \$(cat $pidfile)"
+        return 0
+    fi
     for _ in 1 2 3 4 5; do
-        lsof -ti:"$port" -sTCP:LISTEN >/dev/null 2>&1 || return 0
+        if [ -z "$(listeners_on_port "$port")" ]; then
+            return 0
+        fi
         sleep 1
     done
     echo "  ⚠️  Port $port is still busy after 5s"
@@ -222,6 +276,23 @@ start_frontend() {
     echo $! > "$FE_PIDFILE"
     echo "  Frontend PID: $(cat "$FE_PIDFILE")"
     sleep 4
+    # Ask whether the server WE STARTED is alive, not merely whether the port answers.
+    #
+    # `npm run dev` exits immediately when the port is taken, so a dead PID here is the real
+    # signal. Curling the port alone is a false positive in exactly the case that matters: a stale
+    # frontend still holding 1421 answers the request, so a start that failed outright reported
+    # "✅ Frontend running" and the old instance — serving whatever it was started with — stayed.
+    fe_pid="$(cat "$FE_PIDFILE")"
+    if ! kill -0 "$fe_pid" 2>/dev/null; then
+        echo "  ✗ Frontend did not stay running (PID $fe_pid exited) — see the Vite output above."
+        if curl -sf http://localhost:1421/ >/dev/null 2>&1; then
+            echo "    Something IS serving 1421: an older frontend that was never stopped."
+            warn_no_port_tool
+            echo "    Stop it and re-run:  bash start.sh --fe"
+        fi
+        cd "$ROOT_DIR"
+        return 1
+    fi
     # Vite binds to ::1 (IPv6 loopback) on macOS, so check `localhost`, not 127.0.0.1
     if curl -sf http://localhost:1421/ >/dev/null 2>&1; then
         echo "  ✅ Frontend running on http://localhost:1421"
