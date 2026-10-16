@@ -18,8 +18,11 @@
 全新 Ubuntu 服务器在开始以下步骤前需要一些基础工具：
 
 ```bash
-sudo apt update && sudo apt install -y unzip git curl ca-certificates
+sudo apt update && sudo apt install -y unzip git curl ca-certificates lsof
 ```
+
+`lsof` 默认不在 Ubuntu/WSL 镜像中。`start.sh` 用它先停掉仍占用 `:8765` / `:1421` 的旧后端或旧前端，再启动新实例。缺少它时端口会一直占用，而 Vite 不会自动改用其它端口（`strictPort: true`），唯一的现象就是
+`Error: Port 1421 is already in use` —— 看起来像是 `start.sh` 只启动了一半。现在它会依次回退到 `fuser`、`ss`，若都不可用则会明确提示；但推荐的做法仍是安装 `lsof`。
 
 ---
 

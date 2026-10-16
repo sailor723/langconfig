@@ -53,6 +53,20 @@ else
   bad "psql not found — sudo apt install -y postgresql-16 postgresql-16-pgvector"
 fi
 
+# start.sh needs one of these to find what is LISTENING on :1421/:8765 before it restarts a server.
+# Not installed on a default WSL2 Ubuntu, and its absence is silent at the moment it matters: the
+# port stays busy, Vite refuses to fall back to another port (strictPort: true), and the only clue
+# is "Port 1421 is already in use". WARN rather than FAIL — a first run works without it.
+if command -v lsof >/dev/null 2>&1; then
+  ok "lsof present — start.sh can stop a previous server still holding :1421 or :8765"
+elif command -v ss >/dev/null 2>&1; then
+  warn "lsof missing; start.sh falls back to ss (works, but cannot name other users' processes)"
+  info "recommended: sudo apt install -y lsof"
+else
+  warn "no lsof and no ss — start.sh cannot tell whether a port is free, so a re-run can fail"
+  info "with: Port 1421 is already in use     fix: sudo apt install -y lsof"
+fi
+
 if command -v dpkg >/dev/null 2>&1; then
   if dpkg -l 2>/dev/null | grep -q '^ii  *postgresql-16 '; then
     ok "postgresql-16 server package installed"

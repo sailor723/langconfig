@@ -274,8 +274,10 @@ sudo apt upgrade -y
 # 第11章 安装基础开发工具包
 
 ```bash
-sudo apt install -y build-essential git curl wget unzip zip vim tree htop jq openssh-client
+sudo apt install -y build-essential git curl wget unzip zip vim tree htop jq openssh-client lsof
 ```
+
+> `lsof` 是 `start.sh` 用来查找并停止仍占用 `:1421` / `:8765` 的旧进程的。默认的 WSL2 Ubuntu 不带它，缺少时 `start.sh` 无法释放端口，前端会以 `Error: Port 1421 is already in use` 退出（Vite 配置了 `strictPort`，不会自动换端口）。
 
 校验工具：
 
