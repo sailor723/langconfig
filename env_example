@@ -111,8 +111,12 @@ STORAGE_MODE=db
 # Local embeddings
 OLLAMA_EMBED_MODEL=nomic-embed-text:latest
 
-# Tracing (LangSmith — the api_key is in DB; the toggle + project name are env)
-LANGSMITH_TRACING=true
+# Tracing (LangSmith). OFF by default: it needs an API key, and the key lives in
+# the DB (Settings → API Keys). Turning this on before a key exists means every
+# LLM call fails an unauthenticated POST to api.smith.langchain.com and logs a
+# 401 — the app still works, but the noise fills the log. Set to true only after
+# the key is configured.
+LANGSMITH_TRACING=false
 LANGSMITH_PROJECT=langconfig
 
 # Backups

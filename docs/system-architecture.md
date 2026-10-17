@@ -24,9 +24,13 @@ runtime.
 | Layer        | Technology                                                                                       |
 | ------------ | ------------------------------------------------------------------------------------------------ |
 | Frontend     | React 19 + TypeScript + Tailwind CSS 4 + ReactFlow                                               |
-| Backend      | Python 3.11/3.13 + FastAPI + LangChain V1 + LangGraph + deepagents 0.7.1                         |
+| Backend      | Python 3.13 (`backend/.python-version`) + FastAPI + LangChain V1 + LangGraph + deepagents 0.7.1 |
 | Database     | PostgreSQL 16 + pgvector + SQLAlchemy + Alembic                                                  |
 | Runtime libs | deepagents SDK, langchain/langgraph, LLM providers (DeepSeek / OpenAI-compatible), Tavily search |
+
+> `:5432` throughout this document is the *default* PostgreSQL port. The effective port comes
+> from `POSTGRES_PORT` in the root `.env` (Docker deployments commonly use `5433`); the app,
+> `docker-compose.yml`, Alembic and the seed scripts all derive theirs from that one value.
 
 ### The five-layer mental model
 
@@ -562,7 +566,7 @@ flowchart TB
         A3["API clients<br/>lib/api/ (typed)"]
     end
 
-    subgraph API["2 · API LAYER — FastAPI · 43 routers (main.py)"]
+    subgraph API["2 · API LAYER — FastAPI · 45 routers (main.py)"]
         direction LR
         R1["agents + deepagents<br/>CRUD · prompt-preview · export"]
         R2["chat + workflows<br/>SSE · orchestration · hitl"]
@@ -739,9 +743,9 @@ flowchart LR
 
 ---
 
-## 8. Backend API layer — the 43 routers
+## 8. Backend API layer — the 45 routers
 
-`backend/main.py` registers **43 routers** on the FastAPI app. They are thin controllers:
+`backend/main.py` registers **45 routers** on the FastAPI app (291 paths / 345 operations). They are thin controllers:
 parse the request, delegate to a service/factory, and stream the result.
 
 | Group                | Routers (in`main.py` order)                                                                               | Purpose                                                                                                                   |
@@ -756,8 +760,8 @@ parse the request, delegate to a service/factory, and stream the result.
 | Tools & skills       | `custom_tools`, `tool_registry`, `skills`                                                             | User tools, native tool registry (single source of truth), skills system                                                  |
 | Docs & classic graph | `agent_documents`, `classic_graph`                                                                     | DB-mode document library; classic LangGraph builder API                                                                   |
 | Workspace & projects | `projects`, `tasks`, `workspace`, `background_tasks`                                                | Projects, task workspaces, file trees, background job queue                                                               |
-| Models & settings    | `settings`, `search_providers`, `local_models`, `model_capabilities`, `model_routes`, `schemas` | Config, search-provider keys, local models, capability profiles, model invocation (Playground), structured-output schemas |
-| Automation & extras  | `schedules`, `triggers`, `webhooks`, `notebooks`, `presentations`, `google_auth`                | Cron scheduling, file-watch triggers, webhook receivers, notebooks, presentation generation + OAuth                       |
+| Models & settings    | `settings`, `settings_documents`, `search_providers`, `local_models`, `model_capabilities`, `model_routes`, `schemas` | Config, DSH-style describe/mutate settings wire API, search-provider keys, local models, capability profiles, model invocation (Playground), structured-output schemas |
+| Automation & extras  | `schedules`, `triggers`, `webhooks`, `notebooks`, `presentations`, `google_auth`, `plugins` | Cron scheduling, file-watch triggers, webhook receivers, notebooks, presentation generation + OAuth, LangChain-style declarative plugins |
 
 ```mermaid
 flowchart LR
@@ -830,7 +834,7 @@ Three generation regimes feed it:
 | **ERP study case** | `backend/skills/erp-analyst/9_erp_dashboard.py` | ❌ deterministic (`Mode: static-embed`) | `erp_dashboard_*.html` |
 | **Sun Hing study case** | `data/analysis_dbs/gen_sunhing_kpi_dashboard.py` — one script builds the hub + 5 factor sub-dashboards (+ gantt/data) and copies the ERD/intro/employees/liability masters | ❌ deterministic (byte-stable modulo a timestamp) | `sunhing_dashboard*.html` |
 
-See **[docs/sunhing-dashboards.md](sunhing-dashboards.md)** for the Sun Hing
+See **[docs/reference/sunhing-dashboards.md](reference/sunhing-dashboards.md)** for the Sun Hing
 producer map, the 28-KPI coverage proof, the determinism guarantee, and the known
 drift risks (two divergent DB copies; copy-propagated static pages).
 
@@ -1220,7 +1224,7 @@ The `models` table is the single source of truth for every model the app can cal
 3. **Seed from the canonical CSV** — `/tmp/models_with_url.csv` is the "initial query" written by `/tmp/export_models.py`. The seed script reads it:
    ```bash
    cd backend && DATABASE_URL="postgresql://langconfig:langconfig_dev@localhost:5432/langconfig" \
-       .venv/bin/python scripts/seed_models.py
+       .venv/bin/python scripts/seeds/in/seed_models.py
    ```
    This inserts ~28 cloud rows (skipping the 4 ollama-local rows in the CSV) with `is_active=true` and a per-provider default `capabilities` JSON.
 4. **Local rows** (`source='local'`) are NOT seeded by the script — users add them through Settings > Local Models.
@@ -1236,7 +1240,7 @@ stored Fernet-encrypted in the `models` settings document (`models.api_keys`). R
 `.env` key is required. See §16.2.
 ### 16.2 Settings & configuration — DSH-style documents (Phase 5)
 
-> Full design + migration record: `docs/settings-refactor.md` · status: ✅ done
+> Full design + migration record: `docs/reference/settings-refactor.md` · status: ✅ done
 > (`core/settings/` engine, describe/mutate API, `.env` shrink, `env_example` removed).
 
 **What was already there (before the Phase-5 refactor):**
@@ -1355,7 +1359,7 @@ matter for which tier.
 
 ### 16.3 Tools — DSH-shaped definitions on the compile model (Phase 6)
 
-> Full design + phase record: `docs/tools-refactor.md` · status: ✅ Phases A+B.
+> Full design + phase record: `docs/reference/tools-refactor.md` · status: ✅ Phases A+B.
 
 LangConfig's tool system compiles **DB rows → runnable tools** at runtime
 (`custom_tools` → `ToolFactory` codegen → `StructuredTool`), and the tool source
@@ -1436,8 +1440,8 @@ Seeding is a **setup/migration tool, never part of the runtime path**.
 | Seed | Entry point | Behavior |
 |------|-------------|----------|
 | Settings documents | `core/settings/seed.py::ensure_settings_seeded()` (runs on every boot) | Writes a default document **only for namespaces with no row** (`row_exists`); existing documents are never touched |
-| Built-in tools | `scripts/seeds/seed_builtin_tools.py` (setup only) | Creates missing `custom_tools` rows; existing built-in rows are **updated only with an explicit `--refresh`**; user-owned rows with the same id are never touched |
-| Agents / tools dumps | `scripts/seeds/seed_all.py` (setup only, `--replace` opt-in) | Seeds tables only when **empty** (`count == 0`); `--replace` truncates before restoring dumps — documented as destructive |
+| Built-in tools | `scripts/seeds/in/seed_builtin_tools.py` (setup only) | Creates missing `custom_tools` rows; existing built-in rows are **updated only with an explicit `--refresh`**; user-owned rows with the same id are never touched |
+| Agent / tool baseline | `scripts/seeds/in/seed_all.py` (setup only, `--replace` opt-in) | Seeds tables only when **empty** (`count == 0`); `--replace` truncates, then restores the **merge** files (`in/deep_agents_merge.sql`, `in/custom_tools_merge.sql`) so a reset lands exactly on the maintained baseline |
 
 `main.py` boot runs **only** `ensure_settings_seeded()` (idempotent) — no
 tool/agent seeding happens at runtime.
@@ -1470,12 +1474,15 @@ runtime        =  agent builds from deep_agent_templates.config
 **Operational notes:**
 
 - `seed_all.py --replace` truncates `deep_agent_templates` / `custom_tools` —
-  a deliberate force-reload. Do not run it casually; it discards user edits.
-- The `step_deep_agents` catch-up branch reloads the agent dump when the table
-  has **fewer rows than the dump** (partial install). If you intentionally
-  delete agents, run `seed_all` afterwards only with awareness that this
-  branch can re-add the canonical set; to fully honor "user edits win", that
-  branch should fire only when the table is empty (see `scripts/seeds/seed_all.py`).
+  a deliberate force-reload. Do not run it casually; it discards user edits
+  (the agent `TRUNCATE` CASCADEs to `chat_sessions`). It then restores the
+  merge files, so the result matches a default install rather than the
+  explicit-id dumps, which had drifted 12 agents behind.
+- `step_deep_agents` no longer has a "fewer rows than the dump" catch-up branch.
+  That branch deleted a teammate's own agents (and, through the FK, their chat
+  sessions) precisely when they had added their own, so the default path is now
+  an add-only merge on `name` and never touches an existing row. See
+  `backend/scripts/seeds/in/seed_all.py`.
 - To propagate a `tools/native_impl.py` code fix into existing built-in rows,
   run `seed_builtin_tools.py --refresh` once (setup step) — runtime never
   re-seeds.
@@ -1910,10 +1917,10 @@ uv sync        # installs the exact Python deps from pyproject.toml / uv.lock in
 
 ### 4a. FRESH INSTALL: init schema + stamp Alembic + seeds (one command)
 
-`scripts/seeds/seed_all.py` is the canonical bootstrap — it initializes the schema from the ORM models (the same code path the app runs at startup), stamps Alembic at HEAD, and loads every seed. All steps are idempotent and target whatever `DATABASE_URL` the `.env` resolves to (native or Docker):
+`scripts/seeds/in/seed_all.py` is the canonical bootstrap — it initializes the schema from the ORM models (the same code path the app runs at startup), stamps Alembic at HEAD, and loads every seed. All steps are idempotent and target whatever `DATABASE_URL` the `.env` resolves to (native or Docker):
 
 ```bash
-cd backend && uv run python scripts/seeds/seed_all.py
+cd backend && uv run python scripts/seeds/in/seed_all.py
 ```
 
 It runs, in order:
@@ -1974,7 +1981,7 @@ The suite uses `TEST_DATABASE_URL` (default `postgresql+asyncpg://langconfig:lan
 | `connect: connection refused` | Postgres not running — native: `pg_isready -h 127.0.0.1 -p $POSTGRES_PORT`; docker: `docker compose up -d postgres` |
 | Port 5432 already in use | Another Postgres (e.g. brew) owns 5432 — use Docker mode (`POSTGRES_PORT=5433`) or stop the other service |
 | Password authentication failed | Confirm `.env` role/password match step 3 (`langconfig` / `langconfig_dev`) and `POSTGRES_PORT` matches the running server |
-| Alembic "target database is not up to date" | Re-run `uv run alembic upgrade head`; on a fresh DB re-run `uv run python scripts/seeds/seed_all.py` |
+| Alembic "target database is not up to date" | Re-run `uv run alembic upgrade head`; on a fresh DB re-run `uv run python scripts/seeds/in/seed_all.py` |
 | Slow `uv sync` | Fresh venv in `backend/.venv` on first run, then incremental; dspy is intentionally **not** a dependency |
 | Backend :8765 unreachable | Backend must be running; from another host use the WSL IP (`wsl hostname -I`) |
 | OOM during npm/uv install (WSL2) | Bump `.wslconfig` `memory=8GB` + restart `wsl --shutdown` |

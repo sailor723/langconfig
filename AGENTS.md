@@ -81,9 +81,12 @@ See `docs/` for architecture and design documentation:
 | File | Contents |
 |------|----------|
 | `docs/system-architecture.md` | System design, five-layer model, agent landscape, storage strategy |
-| `docs/sunhing-dashboards.md` | Sun Hing dashboard generation (deterministic generator, producer map, 28-KPI coverage, UI wiring) |
+| `docs/installation.md` | Install and update: local dev, team zip, and the seed out → push → pull → seed loop |
+| `docs/usage.md` | User guide: the shell, the 13 activities, first-agent / first-workflow walkthroughs |
+| `docs/reference/` | Reference material (storage map, data taxonomy, skill authoring, settings/tools design, audits, studies) |
+| `docs/reference/sunhing-dashboards.md` | Sun Hing dashboard generation (deterministic generator, producer map, 28-KPI coverage, UI wiring) |
 | `REFACTORING.md` | Backend refactor status (god-module splits, verification methodology) |
-| `docs/plans/` | SaaS design + implementation plans |
-| `docs/OKF_MINIMAL_PROFILE.md` | OKF knowledge-bundle profile |
-| `docs/PAGEINDEX_OKF_DESIGN.md` | PageIndex + OKF knowledge design note |
+| `docs/reference/plans/` | SaaS design + implementation plans |
+| `docs/reference/OKF_MINIMAL_PROFILE.md` | OKF knowledge-bundle profile (local-only, not committed) |
+| `docs/reference/PAGEINDEX_OKF_DESIGN.md` | PageIndex + OKF knowledge design note (local-only, not committed) |
 | `backend/README.md` | Backend-specific setup |

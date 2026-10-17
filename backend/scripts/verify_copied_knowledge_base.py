@@ -101,7 +101,7 @@ print("1. scratch database + copied documents tree …")
 psql(f'DROP DATABASE IF EXISTS "{MOCK_DB}"')
 psql(f'CREATE DATABASE "{MOCK_DB}"')
 init_db()
-subprocess.run([sys.executable, "scripts/seeds/seed_settings.py"], cwd=str(BACKEND),
+subprocess.run([sys.executable, "scripts/seeds/in/seed_settings.py"], cwd=str(BACKEND),
                env=dict(os.environ, POSTGRES_DB=MOCK_DB), check=True,
                capture_output=True, text=True)
 

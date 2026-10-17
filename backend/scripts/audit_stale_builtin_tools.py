@@ -15,7 +15,7 @@ old.
 
     cd <tree>/backend
     .venv/bin/python scripts/audit_stale_builtin_tools.py          # report only
-    .venv/bin/python scripts/seeds/seed_builtin_tools.py --refresh # fix
+    .venv/bin/python scripts/seeds/in/seed_builtin_tools.py --refresh # fix
 
 Read-only: it generates the expected code in memory and compares, writing nothing.
 """
@@ -92,7 +92,7 @@ if unbuildable:
 
 print()
 if stale or missing:
-    print("  Fix with:  .venv/bin/python scripts/seeds/seed_builtin_tools.py --refresh")
+    print("  Fix with:  .venv/bin/python scripts/seeds/in/seed_builtin_tools.py --refresh")
     print("  (that rewrites every seeded built-in row, so any deliberate edit to one")
     print("   is overwritten along with the stale code)")
 else:

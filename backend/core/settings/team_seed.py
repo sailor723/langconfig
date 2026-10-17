@@ -1,6 +1,6 @@
 """Apply the team's exported settings, without trampling anyone's own changes.
 
-`scripts/seeds/export_settings.py` writes ``scripts/seeds/settings_seed.json``;
+`scripts/seeds/out/export_settings.py` writes ``scripts/seeds/in/settings_seed.json``;
 this applies it, and the merge is the whole point:
 
     base   = the CODE defaults (core/settings/defaults.py)
@@ -23,7 +23,7 @@ agent and tool seeds follow.
 Namespaces with no code default (`general`, `onboarding`) are not in the export at
 all — see export_settings.py for why.
 
-Called by ``scripts/seeds/seed_all.py`` (step 4b) and safe to call at any time.
+Called by ``scripts/seeds/in/seed_all.py`` (step 4b) and safe to call at any time.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from .defaults import get_defaults
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SEED_PATH = Path(__file__).resolve().parents[2] / "scripts/seeds/settings_seed.json"
+DEFAULT_SEED_PATH = Path(__file__).resolve().parents[2] / "scripts/seeds/in/settings_seed.json"
 
 
 def _merge(base: Any, ours: Any, theirs: Any, path: str,

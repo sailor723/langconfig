@@ -6,7 +6,7 @@
 """
 Settings document seeding — one idempotent entry point used by:
 
-- ``scripts/seeds/seed_settings.py`` (explicit fresh-install bootstrap step),
+- ``scripts/seeds/in/seed_settings.py`` (explicit fresh-install bootstrap step),
 - the backend boot hook in ``main.py`` (auto-seed, no-op when documents exist),
 - tests.
 
