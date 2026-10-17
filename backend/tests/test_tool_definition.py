@@ -115,7 +115,16 @@ async def test_create_tool_without_definition_defaults():
 def test_seed_build_row_emits_definition():
     """The built-in seeder's row payload carries a definition with a
     definition-category derived from the display category."""
-    from scripts.seeds import seed_builtin_tools as seeder
+    # The seeder lives under scripts/seeds/in/ and is not an importable
+    # package, so load it by path.
+    import importlib.util
+    from pathlib import Path as _Path
+
+    _seeder_path = (_Path(__file__).resolve().parents[1]
+                    / "scripts" / "seeds" / "in" / "seed_builtin_tools.py")
+    _spec = importlib.util.spec_from_file_location("seed_builtin_tools", _seeder_path)
+    seeder = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(seeder)
 
     payload = seeder._build_row(
         "web_search",  # tool name

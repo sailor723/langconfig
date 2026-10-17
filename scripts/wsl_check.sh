@@ -173,7 +173,7 @@ if [ "$TABLES" = "48" ]; then
 elif [ -n "$TABLES" ] && [ "$TABLES" -gt 0 ] 2>/dev/null; then
   warn "table count = $TABLES (expected 48) — fine if a slightly different revision, else re-run seed"
 else
-  bad "no tables found — run the seed: cd backend && uv run python scripts/seeds/seed_all.py"
+  bad "no tables found — run the seed: cd backend && uv run python scripts/seeds/in/seed_all.py"
 fi
 
 REV="$(run 'SELECT version_num FROM alembic_version LIMIT 1' | tr -d '[:space:]')"
@@ -237,7 +237,7 @@ command -v uv >/dev/null 2>&1 && ok "uv present — $(uv --version 2>&1)" || war
 head_ "SUMMARY"
 if [ "$FAIL" -eq 0 ]; then
   printf '  \033[32mALL CRITICAL CHECKS PASSED\033[0m  (%d warning(s))\n' "$WARN"
-  info "next: cd backend && uv run python scripts/seeds/seed_all.py   # if counts above were short"
+  info "next: cd backend && uv run python scripts/seeds/in/seed_all.py   # if counts above were short"
   info "then: bash start.sh --be  &&  bash scripts/health_check.sh"
   exit 0
 else

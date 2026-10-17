@@ -521,7 +521,7 @@ uv run alembic upgrade head
 mkdir -p outputs
 
 # 执行 Seed 种子脚本，初始化项目基础业务数据
-WORKSPACE_ROOT="$HOME/langconfig/backend/outputs" uv run python scripts/seeds/seed_all.py
+WORKSPACE_ROOT="$HOME/langconfig/backend/outputs" uv run python scripts/seeds/in/seed_all.py
 ```
 
 > ⚠️注意：

@@ -16,8 +16,8 @@ changing the public API.
 | 3c — Large god-modules | `api/knowledge/rag.py`, `core/agents/factory.py` → route/mixin packages | `d94bf4e`, `7fc2078` | ✅ done |
 | Test cleanup | Fixed 4 pytest collection errors from stale tests | `0ff16d1` | ✅ done |
 | 4 — Security & correctness pass | Encryption key source, python_function `exec` sandbox, path-traversal/SSRF guards, safe expression eval, checkpointing defaults, DB-driven model registry | `d954134`, `0b23ce0`, `62d88c0`, `5138ff2` | ✅ done |
-| 5 — Settings refactor (DSH-style) | `core/settings/` engine + describe/mutate wire API + legacy endpoint cleanup + `.env`/`config.py` shrink + team zip script — see `docs/settings-refactor.md` | *(in progress on branch)* | ✅ done (engine/API/frontend/cleanup + 5b `.env` shrink) |
-| 6 — Tools refactor (DSH-shaped) | `ToolDefinition` JSONB on `custom_tools` + ToolFactory metadata wiring + seeder definitions + registry surface (Phase A) + ToolRegistry + execution pipeline: approval guard / timeout / output-schema (Phase B) — see `docs/tools-refactor.md` | *(in progress on branch)* | ✅ Phases A+B done; C–E pending (Code Mode, prompt assembly, UI/split) |
+| 5 — Settings refactor (DSH-style) | `core/settings/` engine + describe/mutate wire API + legacy endpoint cleanup + `.env`/`config.py` shrink + team zip script — see `docs/reference/settings-refactor.md` | *(in progress on branch)* | ✅ done (engine/API/frontend/cleanup + 5b `.env` shrink) |
+| 6 — Tools refactor (DSH-shaped) | `ToolDefinition` JSONB on `custom_tools` + ToolFactory metadata wiring + seeder definitions + registry surface (Phase A) + ToolRegistry + execution pipeline: approval guard / timeout / output-schema (Phase B) — see `docs/reference/tools-refactor.md` | *(in progress on branch)* | ✅ Phases A+B done; C–E pending (Code Mode, prompt assembly, UI/split) |
 
 ---
 

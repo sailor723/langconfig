@@ -408,7 +408,7 @@ def test_seed_script_module_runs(db_session_factory):
     import importlib.util
     from pathlib import Path
 
-    script = Path(__file__).resolve().parents[1] / "scripts" / "seeds" / "seed_settings.py"
+    script = Path(__file__).resolve().parents[1] / "scripts" / "seeds" / "in" / "seed_settings.py"
     assert script.exists()
     spec = importlib.util.spec_from_file_location("seed_settings_under_test", script)
     module = importlib.util.module_from_spec(spec)

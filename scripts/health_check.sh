@@ -67,7 +67,7 @@ if [ -n "$AGENTS" ]; then
     N="$(echo "$AGENTS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null)"
     echo "  ✅ deep agents in DB: ${N:-?}"
     if [ "${N:-0}" -lt 10 ]; then
-        echo "  ❌ Too few agents — run:  cd backend && WORKSPACE_ROOT=... uv run python scripts/seeds/seed_all.py"
+        echo "  ❌ Too few agents — run:  cd backend && WORKSPACE_ROOT=... uv run python scripts/seeds/in/seed_all.py"
         fail=1
     fi
 else

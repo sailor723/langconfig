@@ -9,7 +9,7 @@ Application configuration splits by ownership:
 
 ### Rule 2: No hardcoded enums for model/settings values
 - Do **not** define Python enums or constants for model names, providers, or pricing.
-- The `models` table (source: `cloud` | `local`) is the source of truth for the model catalog, seeded from `scripts/seeds/seed_models.py` CSV — no code changes needed to add a model.
+- The `models` table (source: `cloud` | `local`) is the source of truth for the model catalog, seeded from `scripts/seeds/in/seed_models.py` CSV — no code changes needed to add a model.
 
 ### Rule 3: Settings Panel is the single entry point
 The **only** way to update product settings in the database is through the **Settings Panel** UI or its corresponding API endpoints (`/api/system/settings/*`). No code should programmatically write to the `settings` table outside of the settings API.

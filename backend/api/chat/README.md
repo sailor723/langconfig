@@ -2,6 +2,14 @@
 
 Complete chat system for testing DeepAgents before export, with automatic memory management and conversation persistence.
 
+> **Module layout.** This was one file when this document was written; it is now a
+> sub-router package (`api/chat/`). `routes.py` owns the single `/api/chat` prefix and
+> includes the prefix-less sub-routers; `messages.py` holds both the streaming and
+> non-streaming send paths, `session.py` the lifecycle endpoints, `context.py` the
+> context-preview/occupancy routes, `documents.py` the session document library,
+> `skill_review.py` the CSV data-skill review flow, `schemas.py` the request/response
+> models, `shared.py` the logger. The endpoints and behaviour below are unchanged.
+
 ## Features
 
 ✅ **Token-by-Token Streaming** - Real-time response streaming using LangGraph `astream_events`

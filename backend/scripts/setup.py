@@ -177,7 +177,7 @@ def start_database():
         return True
 
 def init_database():
-    """Initialize the database via the canonical bootstrap (scripts/seeds/seed_all.py).
+    """Initialize the database via the canonical bootstrap (scripts/seeds/in/seed_all.py).
 
     Delegates to seed_all.py so there is exactly one install path: it creates
     the role/database if missing, creates all tables + extensions, stamps the
@@ -189,7 +189,7 @@ def init_database():
 
     root = get_project_root()
     backend_path = root / "backend"
-    seed_script = backend_path / "scripts" / "seeds" / "seed_all.py"
+    seed_script = backend_path / "scripts" / "seeds" / "in" / "seed_all.py"
 
     if not seed_script.exists():
         print_error(f"seed_all.py not found at {seed_script}")

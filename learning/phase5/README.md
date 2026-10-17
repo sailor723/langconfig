@@ -1713,7 +1713,7 @@ Two caveats this lineage exposes: the static pages (ERD/intro/employees/liabilit
 are **copied**, not generated, so they drift silently; and `FACTOR_META` (:59)
 duplicates the page/accent metadata already in `SUB_DASHBOARDS` (:275).
 
-See **[docs/sunhing-dashboards.md](../../docs/sunhing-dashboards.md)** for the full
+See **[docs/sunhing-dashboards.md](../../docs/reference/sunhing-dashboards.md)** for the full
 producer map, the determinism proof, the two divergent DB copies, and the
 recommended consolidation.
 

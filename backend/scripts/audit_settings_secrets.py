@@ -38,7 +38,7 @@ Recovery recipe for a machine whose seed run aborted at step 4b:
     cd <tree>/backend
     .venv/bin/python scripts/audit_settings_secrets.py            # names the fields + the key state
     .venv/bin/python scripts/audit_settings_secrets.py --rekey-from <the key that wrote them>
-    .venv/bin/python scripts/seeds/seed_all.py                    # step 4b now completes
+    .venv/bin/python scripts/seeds/in/seed_all.py                    # step 4b now completes
 
 Fall back to --clear only when the writing key is genuinely gone, then re-enter the API keys in
 Settings → API Keys. The only true repair is restoring the key that wrote those rows.

@@ -43,9 +43,9 @@ There are many ways to contribute to LangConfig:
 
 ### Prerequisites
 
-- Node.js 18+
-- Python 3.11+
-- Docker Desktop
+- Node.js 24+
+- Python 3.13 (managed with [`uv`](https://docs.astral.sh/uv/) — see `backend/.python-version`)
+- PostgreSQL 16 + pgvector (Docker Desktop is the easy path: `docker compose up -d postgres`)
 - Git
 
 ### Installation
@@ -58,21 +58,20 @@ cd langconfig
 # Install frontend dependencies
 npm install
 
-# Install backend dependencies
+# Install backend dependencies (creates backend/.venv from uv.lock)
 cd backend
-pip install -r requirements.txt
+uv sync
 cd ..
 
-# Start PostgreSQL
-docker-compose up -d postgres
+# Start PostgreSQL (pgvector/pg16 on the port set by POSTGRES_PORT)
+docker compose up -d postgres
 
-# Configure environment
+# Configure environment — infrastructure only (DB, ports, workspace, tracing)
 cp env_example .env
-# Edit .env with your API keys
 
-# Initialize database
+# Initialize database + load seed data (idempotent, safe to re-run)
 cd backend
-alembic upgrade head
+.venv/bin/python scripts/seeds/in/seed_all.py
 cd ..
 ```
 
@@ -81,7 +80,8 @@ cd ..
 ```bash
 # Terminal 1 - Backend
 cd backend
-python main.py
+.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8765
+# (or: bash start.sh, which also starts Postgres and the frontend)
 
 # Terminal 2 - Frontend
 npm run dev
@@ -98,9 +98,11 @@ npm run dev
 
 3. **Test your changes**:
    ```bash
-   # Backend tests
+   # Backend tests — 591 passing, 18 skipped
    cd backend
-   pytest
+   .venv/bin/python -m pytest \
+     --ignore=tests/test_neo4j_document_enrichment.py \
+     --ignore=tests/test_pageindex_full_content_loader.py
 
    # Frontend (ensure it builds)
    npm run build

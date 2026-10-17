@@ -23,33 +23,33 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 | `Workspace.tsx` | ✅ | Tab bar (35px, drag-reorder, middle-click close) + content area |
 | `NodeSidebar.tsx` | ✅ | Always-visible right panel with Chat tab (default) and Properties tab (on node select) |
 | `BottomPanel.tsx` | ✅ | VS Code-style panel with Terminal, Execution, Results tabs |
-| `StatusBar.tsx` | ✅ | 22px blue (#007acc) bar with white text, model + token count + task |
+| `StatusBar.tsx` | ⚠️ | 22px blue (#007acc) bar with white text, model + token count + task. **Mounted only in the standalone `src/layout-preview.tsx` harness, not in `App.tsx`** — the shipped shell has no status bar. |
 
-### ✅ Phase 2: File Explorer
+### Phase 2: File Explorer
 
 | Feature | Status | Description |
 |---------|--------|-------------|
 | TreeView (folders/files) | ✅ | Recursive tree with expand/collapse |
 | Right-click context menu | ✅ | Rename, Delete, New File/Folder |
 | Inline rename | ✅ | Double-click or F2 |
-| Quick file picker (Cmd+P) | ✅ | Fuzzy search across all activity types |
+| Quick file picker (Cmd+P) | ❌ | `QuickFilePicker.tsx` exists but is imported by nothing and no `keydown` handler binds Cmd+P. Not reachable from the UI. |
 
-### ✅ Phase 3: Tab Improvements
+### Phase 3: Tab Improvements (partial — see keyboard row)
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Keyboard shortcuts | ✅ | Ctrl+W close, Ctrl+Tab switch, Cmd+Shift+P palette, Cmd+Shift+F search |
+| Keyboard shortcuts | ⚠️ | Only **Ctrl+backtick** (toggle bottom panel, `BottomPanel.tsx:83`) is wired. Ctrl+W, Ctrl+Tab, Cmd+Shift+P and Cmd+Shift+F are **not implemented** — no `metaKey`/`ctrlKey` handler for them exists anywhere in `src/`. |
 | Middle-click to close | ✅ | Middle-click on any tab closes it |
 | Tab tooltips | ✅ | Full file path shown on hover |
 | Tab drag-reorder | ✅ | HTML5 drag-and-drop tab reordering |
 | Open file from API | ✅ | Real content from backend |
 
-### ✅ Phase 4: Quick Actions
+### Phase 4: Quick Actions (components exist, wiring missing)
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Command palette (Cmd+Shift+P) | ✅ | 10+ commands: toggle panels, switch activities, new file, close tab |
-| Search across files (Cmd+Shift+F) | ✅ | Sidebar search panel with results grouped by file, match highlighting |
+| Command palette (Cmd+Shift+P) | ❌ | `CommandPalette.tsx` exists (10+ commands) but is imported by nothing and never mounted. Not reachable from the UI. |
+| Search across files (Cmd+Shift+F) | ⚠️ | The sidebar search panel renders, but the Cmd+Shift+F shortcut that should open it is not bound. |
 
 ### ✅ Phase 5: DeepAgents Sidebar + Structured Editor
 
@@ -78,7 +78,7 @@ Refactoring the LangConfig UI from a top-nav web app layout to a VS Code-inspire
 
 | Feature | Status | Description |
 |---------|--------|-------------|
-| Shared chat store | ✅ | [chatStore.ts](file:///Users/weiping/dev/Learn/langchain-ai/langconfig/src/components/layout2/chatStore.ts) — module-level singleton with subscribe pattern |
+| Shared chat store | ✅ | [chatStore.ts](chatStore.ts) — module-level singleton with subscribe pattern |
 | Session-aware send | ✅ | Chat input uses the active session id to send follow-ups to the same agent |
 | Thinking extraction | ✅ | Strips `<think>...</think>` blocks, displays collapsible reasoning trace in agent bubbles |
 | Copy / Save / Re-run | ✅ | Per assistant message: copy to clipboard, download as `.md`, re-run same prompt |
@@ -302,7 +302,7 @@ frontend at `http://localhost:1421`, Vite proxies `/api/*` to backend.
 
 ## Phase 5 — DeepAgents Editor
 
-Clicking a deep agent in the sidebar opens [DeepAgentEditor.tsx](file:///Users/weiping/dev/Learn/langchain-ai/langconfig/src/components/layout2/DeepAgentEditor.tsx),
+Clicking a deep agent in the sidebar opens [DeepAgentEditor.tsx](DeepAgentEditor.tsx),
 a structured form-based view with a left-rail section nav:
 
 | Section | Content |

@@ -11,7 +11,7 @@ The 43 seedable built-in tools now live in PostgreSQL (``custom_tools`` rows
 with ``is_builtin=True``) and are compiled at runtime by ``ToolFactory`` —
 exactly like custom tools. Their implementations live in
 ``tools/native_impl.py``, which exists only as the seed-time source that
-``scripts/seeds/seed_builtin_tools.py`` bakes into self-contained row code.
+``scripts/seeds/in/seed_builtin_tools.py`` bakes into self-contained row code.
 
 This module is the thin runtime facade and keeps ONLY the parts that cannot
 live in the DB:
@@ -440,7 +440,7 @@ FILESYSTEM_TOOLS = ["ls", "read_file", "write_file", "edit_file", "glob", "grep"
 # =============================================================================
 # Metadata for the tools that CANNOT be seeded into custom_tools (special
 # runtime handling required). The other 43 built-in tools are seeded into
-# custom_tools by scripts/seeds/seed_builtin_tools.py — their display metadata lives
+# custom_tools by scripts/seeds/in/seed_builtin_tools.py — their display metadata lives
 # in the DB rows and GET /api/tools/registry (api/tools/registry.py) merges
 # the two sources.
 
