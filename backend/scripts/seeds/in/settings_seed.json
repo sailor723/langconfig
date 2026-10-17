@@ -15,12 +15,12 @@
       "onboarding": "not a team namespace (see module docstring)"
     },
     "stripped": [
-      "models.api_keys",
+      "models.api_keys.deepseek_api_key",
+      "models.api_keys.minimax_api_key",
+      "models.api_keys.tavily_api_key",
+      "models.api_keys (emptied)",
       "workspace.workspace_path"
-    ],
-    "notes": {
-      "runtime.langsmith_tracing": "Seeded OFF. langsmith_api_key is a secret and therefore stripped from this file, so tracing-on would emit an unauthenticated 401 to api.smith.langchain.com on every run. Turn it on in Settings only after adding a key."
-    }
+    ]
   },
   "agents": {
     "agent": {

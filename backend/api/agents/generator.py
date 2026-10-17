@@ -60,12 +60,15 @@ async def generation_health_check():
     Returns:
         Service status and availability
     """
-    import os
+    # The DB is the only credential source (see config.py). Reading .env here
+    # reported "ready" for a key generation could never use.
+    from config import get_api_key_from_db
 
-    openai_key_set = bool(os.getenv("OPENAI_API_KEY"))
+    openai_key_set = bool(get_api_key_from_db("openai_api_key"))
 
     return {
         "status": "healthy" if openai_key_set else "degraded",
         "openai_configured": openai_key_set,
-        "message": "Agent generation service ready" if openai_key_set else "OPENAI_API_KEY not configured"
+        "message": ("Agent generation service ready" if openai_key_set
+                    else "No OpenAI key in Settings → Models (agent generation needs one)"),
     }

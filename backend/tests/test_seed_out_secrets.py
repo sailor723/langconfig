@@ -1,6 +1,7 @@
-"""Seed-out must never publish a credential.
+"""Credentials never travel with a seed — in either direction.
 
-Two mechanisms, tested separately:
+Outbound (seed out) and inbound (seed in) are guarded independently, so a
+regression on one side cannot leak on the other. Tested separately:
 
   1. ``export_settings.py`` drops every ``role="secret"`` field by consulting the
      settings schema — not a hand-written list of key names.
@@ -53,6 +54,22 @@ SLACK_LIKE = "https://hooks.slack.com/services/" + _fake("T000/B000/", 20)
 DISCORD_LIKE = "https://discord.com/api/webhooks/123456789/" + _fake("", 20)
 JWT_LIKE = "eyJ" + _fake("", 20) + "." + _fake("", 20) + "." + _fake("", 20)
 ASSIGNED_LIKE = _fake("", 24)
+
+
+def _database_name() -> str:
+    from sqlalchemy.engine import make_url
+    from db.database import engine
+    return make_url(engine.url.render_as_string(hide_password=False)).database or ""
+
+
+# These tests write settings documents (they exercise the inbound merge), so they
+# are gated on a scratch database. Without this guard they silently ran against
+# the developer's live DB and overwrote real values — a credential included.
+requires_scratch_db = pytest.mark.skipif(
+    "test" not in _database_name(),
+    reason="writes settings documents; run with POSTGRES_DB=<name containing "
+           "'test'> to exercise the inbound guard",
+)
 
 
 # ── detection ────────────────────────────────────────────────────────────────
@@ -143,3 +160,85 @@ def test_scrub_keeps_machine_paths_out_of_the_seed():
     clean, dropped = export.scrub("workspace", {"workspace_path": "/home/me/ws"})
     assert "workspace_path" not in clean
     assert any("workspace_path" in d for d in dropped)
+
+
+# ── inbound: seed in must refuse credentials too ─────────────────────────────
+
+@requires_scratch_db
+def test_inbound_guard_strips_a_tampered_seed(tmp_path):
+    """A seed carrying keys must not write them, and must not touch ours."""
+    from core.settings.team_seed import apply_team_seed
+    from db.database import SessionLocal
+    from core.settings import store
+
+    marker = "team-value-from-tampered-seed"
+    db = SessionLocal()
+    had_row = store.row_exists(db, "models")
+    before = store.get_document(db, "models") if had_row else {}
+    try:
+        # Start from a known "untouched" state: keep only the per-machine
+        # secrets, drop every team-owned key. The three-way merge only takes a
+        # team value where the existing one still equals the code default, so a
+        # leftover locally-changed value from another test would (correctly)
+        # be kept and this test would be asserting the wrong thing.
+        store.put_document(
+            db, "models",
+            {k: v for k, v in before.items() if k in ("api_keys", "local_api_key")},
+        )
+
+        seed = tmp_path / "tampered.json"
+        seed.write_text(
+            '{"__meta__": {}, "models": {"api_keys": {"openai_api_key": "REPO-LEAK"},'
+            f' "local_api_key": "REPO-LEAK-LOCAL", "default_model": "{marker}"}}}}'
+        )
+        result = apply_team_seed(path=seed, db=db)
+
+        # every credential field is refused, and named
+        assert result["present"] is True
+        blocked = " ".join(result["blocked"])
+        assert "models.api_keys.openai_api_key" in blocked
+        assert "models.local_api_key" in blocked
+
+        # the non-secret team value still lands (assert the OUTCOME — the merge's
+        # internal "applied" list depends on what the DB already held)
+        assert store.get_document(db, "models")["default_model"] == marker
+
+        # and the seeded credentials were never written
+        models = store.get_document(db, "models")
+        assert (models.get("api_keys") or {}).get("openai_api_key") != "REPO-LEAK"
+        assert models.get("local_api_key") != "REPO-LEAK-LOCAL"
+    finally:
+        store.put_document(db, "models", before)      # leave the DB as we found it
+        db.close()
+
+
+@requires_scratch_db
+def test_inbound_guard_leaves_the_machines_own_keys_alone(tmp_path):
+    from core.settings.team_seed import apply_team_seed
+    from db.database import SessionLocal
+    from core.settings import store
+
+    db = SessionLocal()
+    try:
+        store.mutate(db, "models", [
+            {"op": "set", "path": ["api_keys", "deepseek_api_key"], "value": "MINE"},
+        ])
+        seed = tmp_path / "s.json"
+        seed.write_text('{"__meta__": {}, "models": {"api_keys": {"deepseek_api_key": "THEIRS"}}}')
+        apply_team_seed(path=seed, db=db)
+        assert store.get_document(db, "models")["api_keys"]["deepseek_api_key"] == "MINE"
+    finally:
+        db.close()
+
+
+@requires_scratch_db
+def test_clean_seed_reports_no_refusals():
+    from core.settings.team_seed import apply_team_seed
+    from db.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        result = apply_team_seed(db=db)      # the real committed seed
+        assert result["blocked"] == [], result["blocked"]
+    finally:
+        db.close()

@@ -931,8 +931,10 @@ class _ToolBuildersMixin:
         impl_config: Dict[str, Any]
     ) -> BaseTool:
         """Create OpenAI DALL-E 3 image generation tool"""
-        # Fallback to OPENAI_API_KEY from environment if not in config
-        api_key = impl_config.get("api_key") or os.getenv("OPENAI_API_KEY") or ""
+        # Per-tool override first, then the DB (the only credential source).
+        from config import get_api_key_from_db
+
+        api_key = impl_config.get("api_key") or get_api_key_from_db("openai_api_key") or ""
         model = impl_config.get("model", "dall-e-3")
         default_size = impl_config.get("size", "1024x1024")
         default_quality = impl_config.get("quality", "standard")
@@ -1018,8 +1020,10 @@ class _ToolBuildersMixin:
         impl_config: Dict[str, Any]
     ) -> BaseTool:
         """Create OpenAI Sora video generation tool"""
-        # Fallback to OPENAI_API_KEY from environment if not in config
-        api_key = impl_config.get("api_key") or os.getenv("OPENAI_API_KEY") or ""
+        # Per-tool override first, then the DB (the only credential source).
+        from config import get_api_key_from_db
+
+        api_key = impl_config.get("api_key") or get_api_key_from_db("openai_api_key") or ""
         model = impl_config.get("model", "sora")
         default_duration = impl_config.get("duration", 5)
         default_resolution = impl_config.get("resolution", "1080p")
@@ -1104,8 +1108,8 @@ class _ToolBuildersMixin:
         api_key = (
             impl_config.get("api_key") or
             settings.GOOGLE_API_KEY or
-            os.getenv("GEMINI_API_KEY") or
-            os.getenv("GOOGLE_API_KEY") or
+            _db_key("google_api_key") or
+            _db_key("gemini_api_key") or
             ""
         )
         model = impl_config.get("model", "gemini-3-pro-image-preview")
@@ -1305,8 +1309,8 @@ class _ToolBuildersMixin:
         api_key = (
             impl_config.get("api_key") or
             settings.GOOGLE_API_KEY or
-            os.getenv("GEMINI_API_KEY") or
-            os.getenv("GOOGLE_API_KEY") or
+            _db_key("google_api_key") or
+            _db_key("gemini_api_key") or
             ""
         )
         model = impl_config.get("model", "veo-3.1-fast-generate-preview")

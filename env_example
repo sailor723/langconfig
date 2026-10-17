@@ -7,12 +7,16 @@
 #       server boot. Edit only when redeploying.
 #   (2) USER-ADJUSTABLE: bootstrap defaults. The backend reads the equivalent
 #       field from the `workspace` / `general` / `models` / etc. settings
-#       document (see Settings panel + docs/TEAM_INSTALL.md). Override the
+#       document (see Settings panel + docs/installation.md). Override the
 #       value here to change the bootstrap default; otherwise edit via the
 #       UI and the DB value wins.
-#   (3) API KEYS: every secret lives in PostgreSQL (encrypted via Fernet
-#       using API_KEY_ENCRYPTION_KEY below). Use the first-run wizard or
-#       Settings → Models to add them; nothing in this file is read for keys.
+#   (3) API KEYS: NO API KEY BELONGS IN THIS FILE. Every secret lives in
+#       PostgreSQL (encrypted via Fernet using API_KEY_ENCRYPTION_KEY below) and
+#       is read only from there — Settings → Models, or the first-run wizard.
+#       A provider key placed here is ignored (reported once at boot) and makes
+#       the Settings "Test" button disagree with what agents actually use.
+#       API_KEY_ENCRYPTION_KEY is the ONE key that stays: it is the Fernet master
+#       key for the database, not a provider credential.
 #
 # Connection vars follow this rule:
 #   - Backend reads from THIS file at startup.

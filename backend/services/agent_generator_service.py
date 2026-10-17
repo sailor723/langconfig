@@ -187,10 +187,15 @@ IMPORTANT: Return ONLY the JSON object, no markdown, no explanations outside the
 """
 
     try:
-        # Initialize OpenAI client
-        api_key = os.getenv("OPENAI_API_KEY")
+        # Initialize OpenAI client. Credentials come from the database only.
+        from config import get_api_key_from_db
+
+        api_key = get_api_key_from_db("openai_api_key")
         if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable not set")
+            raise ValueError(
+                "No OpenAI key configured. Add one in Settings → Models; the "
+                "generate-agent feature needs it."
+            )
 
         client = OpenAI(api_key=api_key)
 

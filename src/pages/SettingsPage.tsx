@@ -47,7 +47,13 @@ const PROVIDER_FIELD: Record<string, string> = {
 
 // Web API providers (search engines etc.) — shown in their own Settings
 // section ("Web API"), NOT mixed into the LLM Models list.
-const WEB_API_PROVIDERS = new Set(['tavily', 'serper'])
+//
+// This is only a FALLBACK. The authoritative list is the seeded
+// `search_providers` table (`api_key_field` / `requires_api_key`), which travels
+// with the seed: hardcoding it here meant exa / brave / serpapi — all seeded as
+// web APIs — were classified as LLM providers and their keys rendered in the
+// wrong section.
+const WEB_API_PROVIDERS_FALLBACK = new Set(['tavily', 'serper'])
 
 const PROVIDER_BASE_FIELD: Record<string, string> = {
   openai: 'openai_base_url', anthropic: 'anthropic_base_url', google: 'google_base_url',
@@ -202,11 +208,17 @@ function Btn({ children, onClick, variant = 'ghost', disabled, dense = false }: 
   return <button style={base} onClick={onClick} disabled={disabled}>{children}</button>
 }
 
-function Dot({ state }: { state: 'configured' | 'missing' }) {
+function Dot({ state }: { state: 'configured' | 'missing' | 'invalid' }) {
+  // 'configured' only means "a value is stored". It says nothing about whether
+  // that value works — a bogus key showed a green dot while every agent failed.
+  const [title, colour] = state === 'invalid'
+    ? ['Key rejected by the provider — click Test', tok.error]
+    : state === 'configured'
+      ? ['Key stored (not verified — click Test)', tok.success]
+      : ['Missing key', tok.error]
   return (
-    <span
-      role="img" title={state === 'configured' ? 'Configured' : 'Missing key'}
-      style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', flex: 'none', background: state === 'configured' ? tok.success : tok.error }}
+    <span role="img" title={title}
+      style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', flex: 'none', background: colour }}
     />
   )
 }
@@ -372,23 +384,36 @@ function ModelsSection() {
   const [baseUrl, setBaseUrl] = useState('')
   const [newProviderName, setNewProviderName] = useState('')
   const [testingProvider, setTestingProvider] = useState<string | null>(null)
-  const [testMsg, setTestMsg] = useState<{ ok: boolean; msg: string } | null>(null)
+  // Keyed by provider: one shared message meant a result could appear under a
+  // different row than the one you tested.
+  const [testMsg, setTestMsg] = useState<Record<string, { ok: boolean; msg: string } | undefined>>({})
 
   const load = useCallback(async () => {
     try {
-      const [descRes, modelsRes] = await Promise.all([
+      const [descRes, modelsRes, spRes] = await Promise.all([
         apiClient.describeSettings(), apiClient.listAvailableModels(),
+        // Metadata only (field names / flags), never key values.
+        apiClient.listSearchProviders().catch(() => null),
       ])
+      const webApi = new Set<string>(WEB_API_PROVIDERS_FALLBACK)
+      const spRows = (spRes as any)?.data?.providers
+      if (Array.isArray(spRows)) {
+        webApi.clear()
+        for (const row of spRows) {
+          const field: string | undefined = row?.api_key_field
+          if (field) webApi.add(String(row.id))          // tavily -> tavily_api_key
+        }
+      }
       const ns: SettingsNs | undefined = (descRes.data?.namespaces || []).find((n: any) => n.ns === 'models')
       const value = ns?.value || {}
       // Provider rows derive from the redacted secret positions (DSH dots):
-      // models.api_keys.* fields, no values ever cross the wire. Web API
-      // providers (tavily/serper) are excluded here — they live in the
-      // dedicated "Web API" settings section.
+      // models.api_keys.* fields, no values ever cross the wire. Providers the
+      // seeded search_providers table marks as needing a key are excluded here —
+      // they live in the dedicated "Web API" settings section.
       const providers = (ns?.secrets || [])
         .filter(s => s.path[0] === 'api_keys')
         .map(s => ({ provider: s.path[1].replace(/_api_key$/, ''), is_set: s.set }))
-        .filter(p => !WEB_API_PROVIDERS.has(p.provider))
+        .filter(p => !webApi.has(p.provider))
       setKeys(providers)
       setDefaults({
         default_model: value.default_model || '',
@@ -436,32 +461,52 @@ function ModelsSection() {
 
   const handleEditSave = async (provider: string) => {
     try {
+      const saved = keyInput.trim()
       await saveKey(provider, keyInput, baseUrl)
-      setEditing(null); setKeyInput(''); setBaseUrl(''); setTestMsg(null)
+      setEditing(null); setKeyInput(''); setBaseUrl('')
       await load()
-    } catch (err: any) { setTestMsg({ ok: false, msg: err?.response?.data?.detail || 'Failed to save' }) }
+      // Confirm it round-tripped: the row now reads the stored value, so a later
+      // Test cannot silently validate a draft that never persisted.
+      if (saved) setTestMsg(prev => ({ ...prev, [provider]: { ok: true, msg: 'Saved — Test now checks the stored key' } }))
+    } catch (err: any) {
+      setTestMsg(prev => ({ ...prev, [provider]: { ok: false, msg: err?.response?.data?.detail || 'Failed to save — the key was NOT stored' } }))
+    }
   }
 
   const handleTest = async (provider: string) => {
-    setTestingProvider(provider); setTestMsg(null)
+    setTestingProvider(provider)
     try {
-      // Test the DRAFT key when one is entered, else the SAVED key (none →
-      // backend resolves the stored models.api_keys value).
-      const res = await apiClient.testApiKey(provider, keyInput.trim() || undefined)
-      setTestMsg({ ok: !!res.data?.success, msg: res.data?.message || (res.data?.success ? '✓ Connected' : '✗ Failed') })
-    } catch { setTestMsg({ ok: false, msg: '✗ Connection failed' }) } finally { setTestingProvider(null) }
+      // Test the draft ONLY for the row that is actually open. `keyInput` is a
+      // single shared field, so sending it unconditionally meant the Test button
+      // on any row validated whichever key happened to be typed into another
+      // row's editor.
+      const draft = editing === provider ? keyInput.trim() : ''
+      const res = await apiClient.testApiKey(provider, draft || undefined)
+      const ok = !!res.data?.success
+      const base = res.data?.message || (ok ? '✓ Connected' : '✗ Failed')
+      // Say WHICH key was tested. A green result for an unsaved draft used to
+      // look identical to a green result for the stored key — so the model
+      // looked configured, while every agent still failed on a missing key.
+      setTestMsg(prev => ({
+        ...prev,
+        [provider]: { ok, msg: draft ? `${base} · draft key, not saved yet — click Save` : `${base} · saved key` },
+      }))
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || err?.message || '✗ Connection failed'
+      setTestMsg(prev => ({ ...prev, [provider]: { ok: false, msg } }))
+    } finally { setTestingProvider(null) }
   }
 
   const handleAddProvider = async () => {
     const name = newProviderName.trim().toLowerCase()
     if (!name) return
     const field = PROVIDER_FIELD[name]
-    if (!field) { setTestMsg({ ok: false, msg: t('settings_unknown_provider', { name, list: Object.keys(PROVIDER_FIELD).join(', ') }) }); return }
+    if (!field) { setTestMsg(prev => ({ ...prev, __add__: { ok: false, msg: t('settings_unknown_provider', { name, list: Object.keys(PROVIDER_FIELD).join(', ') }) } })); return }
     try {
       await saveKey(name, keyInput, baseUrl)
-      setAdding(false); setNewProviderName(''); setKeyInput(''); setBaseUrl(''); setTestMsg(null)
+      setAdding(false); setNewProviderName(''); setKeyInput(''); setBaseUrl(''); setTestMsg({})
       await load()
-    } catch (err: any) { setTestMsg({ ok: false, msg: err?.response?.data?.detail || 'Failed' }) }
+    } catch (err: any) { setTestMsg(prev => ({ ...prev, __add__: { ok: false, msg: err?.response?.data?.detail || 'Failed' } })) }
   }
 
   return (
@@ -510,15 +555,29 @@ function ModelsSection() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                 <span style={{ fontSize: 14, lineHeight: '22px', fontWeight: 500, color: tok.labelPrimary }}>{label(k.provider)}</span>
-                <Dot state={k.is_set ? 'configured' : 'missing'} />
+                <Dot state={
+                  // a rejected key outranks "stored": the dot must not stay green
+                  // after a test proved the value does not work
+                  testMsg[k.provider]?.ok === false ? 'invalid'
+                    : k.is_set ? 'configured' : 'missing'
+                } />
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
                 <Btn dense onClick={() => handleTest(k.provider)} disabled={testingProvider === k.provider}>
                   {testingProvider === k.provider ? t('settings_testing') : t('settings_test')}
                 </Btn>
-                <Btn dense onClick={() => { setEditing(k.provider); setKeyInput(''); setBaseUrl(''); setTestMsg(null) }}>{t('settings_edit')}</Btn>
+                <Btn dense onClick={() => { setEditing(k.provider); setKeyInput(''); setBaseUrl(''); setTestMsg(prev => ({ ...prev, [k.provider]: undefined })) }}>{t('settings_edit')}</Btn>
               </span>
             </div>
+            {/* Result of THIS row's Test, visible without opening the editor —
+                it used to render only inside the collapsed edit panel, so a
+                click on the outer Test button produced no visible feedback and
+                the only thing on screen was the "configured" dot. */}
+            {testMsg[k.provider] && (
+              <div style={{ fontSize: 12, lineHeight: '18px', color: testMsg[k.provider]!.ok ? tok.success : tok.error }}>
+                {testMsg[k.provider]!.msg}
+              </div>
+            )}
             {editing === k.provider && (
               <div style={{ borderRadius: 12, background: tok.module, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -547,7 +606,6 @@ function ModelsSection() {
                     )}
                   </div>
                 </div>
-                {testMsg && <div style={{ fontSize: 12, lineHeight: '18px', color: testMsg.ok ? tok.success : tok.error }}>{testMsg.msg}</div>}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                   <Btn onClick={() => handleTest(k.provider)} disabled={testingProvider === k.provider}>{testingProvider === k.provider ? t('settings_testing') : t('settings_test')}</Btn>
                   <Btn onClick={() => setEditing(null)}>{t('settings_cancel')}</Btn>
@@ -574,7 +632,7 @@ function ModelsSection() {
             <span style={{ fontSize: 12, lineHeight: '18px', fontWeight: 500, color: tok.labelSecondary }}>{t('settings_base_url_optional')}</span>
             <Input value={baseUrl} onChange={setBaseUrl} placeholder="https://api.example.com" mono width="100%" />
           </div>
-          {testMsg && <div style={{ fontSize: 12, lineHeight: '18px', color: testMsg.ok ? tok.success : tok.error }}>{testMsg.msg}</div>}
+          {testMsg.__add__ && <div style={{ fontSize: 12, lineHeight: '18px', color: testMsg.__add__.ok ? tok.success : tok.error }}>{testMsg.__add__.msg}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
             <Btn onClick={() => setAdding(false)}>{t('settings_cancel')}</Btn>
             <Btn variant="primary" onClick={handleAddProvider}>{t('settings_save')}</Btn>
@@ -583,7 +641,7 @@ function ModelsSection() {
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           <button
-            type="button" onClick={() => { setAdding(true); setKeyInput(''); setBaseUrl(''); setNewProviderName(''); setTestMsg(null) }}
+            type="button" onClick={() => { setAdding(true); setKeyInput(''); setBaseUrl(''); setNewProviderName(''); setTestMsg(prev => ({ ...prev, __add__: undefined })) }}
             style={{
               flex: '1 1 0', minWidth: 180, gap: 6, height: 44, boxSizing: 'border-box',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

@@ -132,24 +132,6 @@ API_PROVIDER_BASE_URL_FIELDS = {
 }
 
 
-def _get_env_key_for_provider(provider: str) -> Optional[str]:
-    """Get API key from .env for a provider."""
-    mapping = {
-        "openai": app_settings.openai_api_key,
-        "anthropic": app_settings.anthropic_api_key,
-        "google": app_settings.google_api_key,
-        "cohere": None,
-        "replicate": None,
-        "deepseek": app_settings.deepseek_api_key,
-        "glm": None,
-        "minimax": None,
-        "tavily": app_settings.tavily_api_key,
-        "serper": app_settings.serper_api_key,
-        "agnes": app_settings.agnes_api_key,
-    }
-    return mapping.get(provider)
-
-
 def _get_env_base_url_for_provider(provider: str) -> Optional[str]:
     """Default base URL for a provider from app_settings."""
     return {
@@ -295,14 +277,22 @@ def _document_api_keys(db: Session) -> dict:
 
 
 def _resolve_api_key(db: Session, provider: str) -> Optional[str]:
-    """Resolve a provider's key for testing: the single models.api_keys
-    document first, then .env (legacy settings.api_keys is no longer used)."""
+    """Resolve a provider's key the way an AGENT will — from the database only.
+
+    This used to fall back to ``.env``. That made the test endpoint disagree with
+    every runtime path: agents read the ``models.api_keys`` document exclusively
+    (``config.get_api_key_from_db``), so a green test sourced from ``.env`` meant
+    "this key works" and "no agent can use it" at the same time. A test that does
+    not answer the question the user is asking is worse than no test.
+
+    ``.env`` carrier values are deliberately ignored here, matching
+    ``config.py``'s documented policy (a credential in ``.env`` is reported once
+    at boot and never read).
+    """
     field = API_PROVIDER_KEY_FIELDS.get(provider)
-    if field:
-        key = _document_api_keys(db).get(field)
-        if key:
-            return key
-    return _get_env_key_for_provider(provider)
+    if not field:
+        return None
+    return _document_api_keys(db).get(field) or None
 
 
 @router.post("/api-keys/test")
@@ -313,7 +303,9 @@ async def test_api_key(req: APIKeyTestRequest, db: Session = Depends(get_db)):
     if not key:
         raise HTTPException(
             status_code=400,
-            detail=f"No API key found for '{req.provider}'. Set it in Settings → Models or in .env.",
+            detail=(f"No API key stored for '{req.provider}'. Agents read keys from the "
+                    f"database only, so set it here (Settings → Models) and Save before "
+                    f"testing — a value in .env is not used."),
         )
 
     base_url_field = API_PROVIDER_BASE_URL_FIELDS.get(req.provider)
@@ -477,12 +469,12 @@ async def delete_model(model_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/embedding-models")
-async def get_embedding_models():
-    """Get available embedding models (reads from .env config)."""
+async def get_embedding_models(db: Session = Depends(get_db)):
+    """Available embedding models. A cloud option exists only if its key does."""
     models = []
 
-    # Cloud embedding models
-    if app_settings.openai_api_key:
+    # Cloud embedding models — gated on the DB key, like every other runtime path
+    if _document_api_keys(db).get("openai_api_key"):
         models.extend([
             {"id": "text-embedding-3-large", "name": "text-embedding-3-large", "provider": "openai", "type": "cloud"},
             {"id": "text-embedding-3-small", "name": "text-embedding-3-small", "provider": "openai", "type": "cloud"},
@@ -529,13 +521,15 @@ def _default_workspace_path() -> str:
 
 
 def _has_any_chat_api_key(db: Session) -> bool:
-    """True when at least one chat provider has a usable key (document or .env)."""
+    """True when at least one chat provider has a key — in the database.
+
+    No ``.env`` fallback: the wizard must not report "configured" for a key that
+    no agent can read.
+    """
     doc_keys = _document_api_keys(db)
     for provider in _active_providers(db):
         field = API_PROVIDER_KEY_FIELDS.get(provider)
         if field and doc_keys.get(field):
-            return True
-        if _get_env_key_for_provider(provider):
             return True
     return False
 

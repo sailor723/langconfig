@@ -28,6 +28,7 @@ Called by ``scripts/seeds/in/seed_all.py`` (step 4b) and safe to call at any tim
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 from pathlib import Path
@@ -71,6 +72,44 @@ def _merge(base: Any, ours: Any, theirs: Any, path: str,
     return theirs
 
 
+
+def _strip_secrets(ns: str, doc: dict, blocked: List[str]) -> dict:
+    """Remove every secret field from an incoming team document.
+
+    Credentials never travel: not out of the owner's database (the exporter
+    scrubs them from the schema) and not back in. This is the inbound half of
+    that rule, and it is deliberately independent of the exporter, so a
+    hand-edited or regressed ``settings_seed.json`` still cannot write a key
+    into somebody else's database.
+
+    Dropping the key is also what keeps the teammate's own credential: the
+    merge only takes a key that is present in the team document, so an absent
+    ``api_keys`` means "leave theirs alone".
+
+    Returns a copy with the secrets removed; ``blocked`` collects the paths so
+    the caller can tell the operator the repository carries a credential.
+    """
+    from . import registry
+    from .secrets import delete_at_path, secret_paths
+
+    try:
+        schema = registry.get(ns).schema
+    except Exception:                                  # noqa: BLE001
+        # Unknown namespace: refuse the whole section rather than guess.
+        blocked.append(f"{ns}.* (no schema registered)")
+        return {}
+
+    out = copy.deepcopy(doc)
+    for path in secret_paths(schema):
+        if delete_at_path(out, path):
+            blocked.append(f"{ns}." + ".".join(path))
+    # A container whose every field was a secret (models.api_keys) is now {}.
+    for key in [k for k, v in out.items() if isinstance(v, dict) and not v]:
+        out.pop(key)
+        blocked.append(f"{ns}.{key} (emptied)")
+    return out
+
+
 def apply_team_seed(path: Optional[Path] = None, db: Optional[Session] = None) -> Dict[str, Any]:
     """Apply the seed file. Returns a summary of what moved and what was kept."""
     seed_path = Path(path) if path else DEFAULT_SEED_PATH
@@ -96,11 +135,13 @@ def apply_team_seed(path: Optional[Path] = None, db: Optional[Session] = None) -
     applied: List[str] = []
     kept: List[str] = []
     unreadable: List[str] = []
+    blocked: List[str] = []
     try:
         for ns in ours_ns:
             ours = payload.get(ns)
             if not isinstance(ours, dict):
                 continue
+            ours = _strip_secrets(ns, ours, blocked)
             base = base_all.get(ns, {})
             try:
                 theirs = store.get_document(db, ns) if store.row_exists(db, ns) else {}
@@ -124,12 +165,20 @@ def apply_team_seed(path: Optional[Path] = None, db: Optional[Session] = None) -
                 written += 1
         if written:
             db.commit()
+        if blocked:
+            logger.warning(
+                "team settings seed: REFUSED %d credential field(s) found in the seed "
+                "(%s). Credentials are never seeded — every machine enters its own. "
+                "Remove them from the published settings_seed.json.",
+                len(blocked), ", ".join(blocked),
+            )
         logger.info("team settings seed: %d document(s) written, %d key(s) applied, "
-                    "%d kept (locally changed), %d skipped (unreadable secret)",
-                    written, len(applied), len(kept), len(unreadable))
+                    "%d kept (locally changed), %d skipped (unreadable secret), "
+                    "%d credential field(s) refused",
+                    written, len(applied), len(kept), len(unreadable), len(blocked))
     finally:
         if own_session:
             db.close()
 
     return {"present": True, "written": written, "applied": applied, "kept": kept,
-            "unreadable": unreadable}
+            "unreadable": unreadable, "blocked": blocked}

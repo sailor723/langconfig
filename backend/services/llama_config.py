@@ -91,7 +91,10 @@ def initialize_llama_index_settings(
             _multimodal_enabled = False
             logger.info(f"Ollama embeddings enabled with {ollama_embed_model}")
         else:
-            openai_api_key = app_settings.OPENAI_API_KEY or os.getenv("OPENAI_API_KEY")
+            # OPENAI_API_KEY is a DB-backed property (config.py); the env
+            # fallback that used to sit here is gone — no path reads a
+            # credential from .env.
+            openai_api_key = app_settings.OPENAI_API_KEY
             if enable_multimodal and openai_api_key:
                 logger.info("Initializing OpenAI multimodal embedding model")
                 Settings.embed_model = OpenAIEmbedding(
@@ -214,7 +217,13 @@ def ensure_initialized():
         logger.info("LlamaIndex not yet initialized, initializing with default settings")
         # Configure LiteLLM proxy for HyDE support
         litellm_url = os.getenv("LITELLM_PROXY_URL", "http://litellm-proxy:4000")
-        litellm_key = os.getenv("LITELLM_API_KEY", "sk-proxy-master-key")
+        # No literal default: "sk-proxy-master-key" in the source tree is a
+        # credential, and the old os.getenv() read made .env a second source.
+        # The LiteLLM proxy is optional; when configured, its key belongs in the
+        # settings document like every other secret (None/empty = no auth).
+        from config import get_api_key_from_db
+
+        litellm_key = get_api_key_from_db("litellm_api_key") or ""
         initialize_llama_index_settings(
             litellm_proxy_url=litellm_url,
             litellm_api_key=litellm_key,

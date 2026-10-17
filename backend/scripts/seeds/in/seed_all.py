@@ -314,6 +314,15 @@ def step_team_settings() -> None:
     if result["kept"]:
         print(f"     kept: {', '.join(result['kept'][:6])}"
               + (" …" if len(result["kept"]) > 6 else ""))
+    refused = result.get("blocked") or []
+    if refused:
+        # Not an error for this machine — its own credentials are untouched —
+        # but the repository is carrying something it must not.
+        print(f"  !! REFUSED {len(refused)} credential field(s) in the seed: "
+              f"{', '.join(refused[:6])}" + (" …" if len(refused) > 6 else ""))
+        print("     Credentials are never seeded; each machine enters its own. "
+              "Remove them from settings_seed.json and re-run "
+              "scripts/seeds/out/export_baseline.py.")
     skipped = result.get("unreadable") or []
     if skipped:
         print(f"  !! skipped {len(skipped)} namespace(s) with a secret this machine cannot "

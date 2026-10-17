@@ -47,25 +47,13 @@ class Settings(BaseSettings):
     database_url: str = ""
     database_url_async: Optional[str] = None
 
-    # ── LLM API Keys (directly from .env, no DB fallback) ──
-    openai_api_key: Optional[str] = None
-    anthropic_api_key: Optional[str] = None
-    google_api_key: Optional[str] = None
-    gemini_api_key: Optional[str] = None
-    deepseek_api_key: Optional[str] = None
-    deepseek_api_base: str = "https://api.deepseek.com"
-    agnes_api_key: Optional[str] = None
-    agnes_base_url: str = "https://apihub.agnes-ai.com/v1"
-    minimax_api_key: Optional[str] = None
-    minimax_api_base: str = "https://api.minimax.chat/v1"
-    kimi_api_key: Optional[str] = None
-    kimi_api_base: Optional[str] = None
-    qwen_api_key: Optional[str] = None
-    qwen_api_base: Optional[str] = None
-    glm_api_key: Optional[str] = None
-    glm_api_base: Optional[str] = None
-    tavily_api_key: Optional[str] = None
-    serper_api_key: Optional[str] = None
+    # ── Provider credentials: NOT HERE ──
+    # No *_api_key field exists on this model on purpose. Every provider key is
+    # read from PostgreSQL (the ``models`` settings document, encrypted) via
+    # ``get_api_key_from_db`` / the uppercase properties below. A key in ``.env``
+    # or in the shell is ignored and reported once at boot by
+    # ``warn_on_env_credentials`` — declaring a field here would quietly give it
+    # a second, weaker source of truth.
 
     # ── Ollama Embedding ──
     # Source of truth: OLLAMA_BASE_URL / OLLAMA_EMBED_MODEL in .env.
@@ -74,8 +62,11 @@ class Settings(BaseSettings):
     ollama_base_url: str = ""
     ollama_embed_model: str = ""
 
-    # ── LangSmith (optional) ──
-    langsmith_api_key: Optional[str] = None
+    # ── LangSmith ──
+    # The key lives in the database (models.api_keys.langsmith_api_key) like every
+    # other credential; the langchain SDK reads LANGSMITH_API_KEY from the
+    # environment itself, which is out of our hands — but this Settings model no
+    # longer declares a field for it, so nothing here can read a .env value.
     langsmith_project: str = "langconfig"
 
     # ── Middleware ──
@@ -230,23 +221,31 @@ class Settings(BaseSettings):
         return _db_api_key_only("glm_api_base")
 
     def env_only_credentials(self) -> list:
-        """Credential fields supplied by .env (ignored at runtime).
+        """Credential names present in the environment (all ignored at runtime).
 
-        Authoritative list = the ``core.settings.schemas.ApiKeys`` field names,
-        i.e. exactly what belongs in PostgreSQL's ``models.api_keys`` document.
-        Everything else in .env (Ollama endpoints, DB, storage, tracing) is
-        infrastructure and stays there.
+        Nobody reads these any more — the app has no credential field at all — so
+        this exists purely to tell an operator that the key they exported is
+        dead. The authoritative name list is ``core.settings.schemas.ApiKeys``
+        (exactly what belongs in PostgreSQL's ``models.api_keys`` document);
+        it is matched against the environment in both ``snake_case`` and
+        ``UPPER_CASE``, since either spelling used to work.
+
+        Everything else in ``.env`` (database, storage, workspace, Ollama
+        endpoints, tracing) is infrastructure and legitimately stays there.
         """
+        import os as _os
+
         try:
             from core.settings.schemas import ApiKeys
 
-            credential_fields = set(ApiKeys.model_fields)
+            fields = set(ApiKeys.model_fields)
         except Exception:
             return []
-        return sorted(
-            name for name in self.model_fields_set
-            if name in credential_fields and getattr(self, name, None)
-        )
+        found = []
+        for name in fields:
+            if _os.environ.get(name) or _os.environ.get(name.upper()):
+                found.append(name)
+        return sorted(found)
 
     # ── Computed ──
     @property
