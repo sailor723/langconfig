@@ -11,6 +11,9 @@
 #   UVICORN_WORKERS=1   uvicorn worker processes (default 1 — see the note in
 #                       start_backend: the Graph activity's threads/checkpointers
 #                       are in-process, so >1 breaks HITL resume)
+#   LANGCONFIG_LAN_ACCESS=on   let a second person on the network use this
+#                       instance (Basic auth; docs/reference/lan-access.md).
+#                       Read from .env, not the shell.
 
 set -e
 
@@ -71,6 +74,44 @@ warn_no_port_tool() {
     return 0
 }
 # ── end port helpers ─────────────────────────────────────────────────────────
+
+# ── LAN access helpers ───────────────────────────────────────────────────────
+# LAN mode (docs/reference/lan-access.md) is configured in .env rather than on
+# the command line, so the backend and this script read one source of truth.
+
+env_value() {
+    local key="$1"
+    [ -f "$ROOT_DIR/.env" ] || return 0
+    grep -E "^[[:space:]]*${key}=" "$ROOT_DIR/.env" 2>/dev/null \
+        | tail -n 1 \
+        | cut -d= -f2- \
+        | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+              -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"
+}
+
+lan_access_enabled() {
+    case "$(env_value LANGCONFIG_LAN_ACCESS | tr '[:upper:]' '[:lower:]')" in
+        1|true|yes|on) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Best-effort LAN address of this machine, for the URL to hand to the second user.
+lan_ip() {
+    local ip=""
+    if command -v ipconfig >/dev/null 2>&1; then
+        # macOS: the primary interface is en0; en1 covers a docked/USB adapter.
+        ip="$(ipconfig getifaddr en0 2>/dev/null || true)"
+        [ -n "$ip" ] || ip="$(ipconfig getifaddr en1 2>/dev/null || true)"
+    fi
+    if [ -z "$ip" ] && command -v hostname >/dev/null 2>&1; then
+        # Linux/WSL2 (-I is unsupported on macOS, hence the ordering above).
+        ip="$(hostname -I 2>/dev/null | awk '{print $1}')" || true
+    fi
+    printf '%s' "${ip:-<this-machine-ip>}"
+}
+# ── end LAN access helpers ───────────────────────────────────────────────────
+
 
 kill_old() {
     local name="$1" port="$2" pidfile="$3"
@@ -325,4 +366,38 @@ echo "Done. Use Ctrl+C to stop."
 echo ""
 echo "  Backend:  http://localhost:8765  (docs: http://localhost:8765/docs)"
 echo "  Frontend: http://localhost:1421"
+
+# LAN mode changes what you hand to the second user: the built bundle served by
+# the backend, behind a Basic-auth challenge. Saying so here is the difference
+# between "it works" and "it 401s and I don't know why".
+if lan_access_enabled; then
+    echo ""
+    echo "  LAN (shared instance): http://$(lan_ip):8765"
+    # Names only — never passwords. One credential per person is what makes
+    # removing a person a one-line .env edit rather than a group announcement.
+    LAN_NAMES="$(env_value LANGCONFIG_LAN_USERS | tr ',' '\n' | cut -d: -f1 | sed '/^[[:space:]]*$/d' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+    if [ -n "$LAN_NAMES" ]; then
+        echo "    accounts: $LAN_NAMES  (passwords: LANGCONFIG_LAN_USERS in .env)"
+    else
+        echo "    user: $(env_value LANGCONFIG_LAN_USER | sed 's/^$/langconfig/')  (password: LANGCONFIG_LAN_PASSWORD in .env)"
+    fi
+    if [ -z "$LAN_NAMES" ] && [ -z "$(env_value LANGCONFIG_LAN_PASSWORD)" ]; then
+        echo "    ⚠️  No credential is configured — the backend REFUSES every LAN"
+        echo "        request (503) until you set LANGCONFIG_LAN_USERS. That is"
+        echo "        deliberate: an enabled gate with no key must not fall open."
+    fi
+    if [ ! -f "$ROOT_DIR/dist/index.html" ]; then
+        echo "    ⚠️  dist/index.html is missing — LAN users would reach the API but see"
+        echo "        no UI. Run: cd $ROOT_DIR && npm run build"
+    fi
+    echo "    Everything behind this door is shared: projects, files, chat history,"
+    echo "    API keys. Separate credentials, one workspace — not separate users."
+else
+    echo ""
+    echo "  LAN mode is off (LANGCONFIG_LAN_ACCESS in .env). Note what that means:"
+    echo "  :8765 listens on all interfaces with NO authentication, so anything that"
+    echo "  can reach this port can drive the app — unchanged from before LAN mode"
+    echo "  existed. Set LANGCONFIG_LAN_ACCESS=on + a password to gate it, or see"
+    echo "  docs/reference/lan-access.md."
+fi
 echo ""

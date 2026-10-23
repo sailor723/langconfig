@@ -99,6 +99,39 @@ GOOGLE_REDIRECT_URI=http://localhost:8765/api/auth/google/callback
 SQL_ECHO=false
 RATE_LIMIT_CLEANUP_INTERVAL=300
 
+# ── LAN access (docs/reference/lan-access.md) ────────────────────────────────
+# Other people on your network using this instance. This app has no user
+# accounts — LAN mode is ONE door with a key each: everyone behind it shares the
+# same projects, files, chat history and API keys, and the app runs code with
+# filesystem/shell tools, so treat every credential as machine access.
+#
+# How it works: the backend listens on 0.0.0.0:8765, so requests from the
+# network are refused with a Basic-auth challenge; requests from this machine
+# (127.0.0.1) are always allowed, which keeps local dev, the Vite proxy and the
+# test suite untouched. LAN users open http://<your-ip>:8765 — the built
+# frontend (dist/) is served from that same origin, so run `npm run build` and
+# re-run it after frontend changes.
+#
+# Leave this OFF unless you actually want other people in; off is the default and
+# changes nothing.
+LANGCONFIG_LAN_ACCESS=off
+# One credential per person: comma-separated name:password. Only the FIRST colon
+# separates, so a password may contain ':'. Separate credentials exist so that
+# removing one person is a one-line edit rather than telling everyone a new
+# password, and so the refusal log can say who tried.
+#   LANGCONFIG_LAN_USERS=alice:<pw>,bob:<pw>,carol:<pw>
+# Generate one with:  openssl rand -hex 16
+# Malformed entries are dropped and reported at boot; with no usable entry the
+# gate refuses every LAN request (503) rather than falling open.
+LANGCONFIG_LAN_USERS=
+# Legacy single-credential form — only read when LANGCONFIG_LAN_USERS is empty.
+LANGCONFIG_LAN_USER=langconfig
+LANGCONFIG_LAN_PASSWORD=
+# Optional comma-separated path prefixes that skip auth entirely. Only for
+# endpoints that verify their own signatures (e.g. /api/webhooks/). Anything
+# listed here is reachable by the whole network unauthenticated.
+LANGCONFIG_LAN_BYPASS_PATHS=
+
 # ════ (2) USER-ADJUSTABLE (bootstrap defaults; UI overrides at runtime) ════
 
 # Workspace — directory holding the project-level AGENTS.md files, read by

@@ -402,6 +402,51 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+# LAN access guard (docs/reference/lan-access.md).
+# The backend binds 0.0.0.0, so without this every route on port 8765 is open
+# to the whole network — this app runs code and holds your provider API keys.
+# Loopback (local dev, the Vite proxy, tests) is exempt, so this is a no-op
+# unless LANGCONFIG_LAN_ACCESS is switched on in .env.
+# Registered last, which in FastAPI means outermost: it refuses before any
+# router, middleware or SSE stream starts work.
+from middleware.lan_guard import LanGuardMiddleware, lan_access_enabled, parse_lan_users
+
+app.add_middleware(LanGuardMiddleware)
+
+# Report the configuration at boot — the one moment someone is reading the log.
+# A gate that is silently misconfigured is worse than no gate, so each bad state
+# says so in the strongest terms that still lets the server start.
+if lan_access_enabled():
+    _lan_accounts, _lan_problems = parse_lan_users()
+    for _problem in _lan_problems:
+        logger.error(
+            "LANGCONFIG_LAN_USERS entry ignored: %s — that person cannot sign in "
+            "until this is fixed.",
+            _problem,
+        )
+    if not _lan_accounts:
+        logger.error(
+            "LAN access is ON but no usable credential is configured — every "
+            "non-loopback request will be REFUSED (503). Set LANGCONFIG_LAN_USERS "
+            "(name:password,...) in .env. This is deliberate: an enabled gate with "
+            "no key must not fall open."
+        )
+    else:
+        logger.info(
+            "LAN access mode is ON — non-loopback requests require Basic auth; "
+            "loopback is exempt. %d credential(s): %s",
+            len(_lan_accounts),
+            ", ".join(sorted(_lan_accounts)),
+        )
+elif os.getenv("LANGCONFIG_LAN_USERS", "").strip() or os.getenv(
+    "LANGCONFIG_LAN_PASSWORD", ""
+):
+    logger.warning(
+        "LAN credentials are set but LANGCONFIG_LAN_ACCESS is off — they protect "
+        "nothing and :8765 is still reachable from the network with no "
+        "authentication. Set LANGCONFIG_LAN_ACCESS=on to enforce them."
+    )
+
 from fastapi.responses import FileResponse, JSONResponse
 
 # ── Gantt chart data for Sun Hing dashboard ──────────────────────
@@ -635,6 +680,73 @@ app.include_router(notebooks.router)  # Educational notebooks viewer
 app.include_router(classic_graph.router)  # Classic LangGraph builder API
 app.include_router(graph_studio.router)  # Graph Engineering Studio (code-defined graphs)
 app.include_router(plugins)  # LangChain-style declarative plugins (marketplace + components)
+
+# ── Built SPA for LAN users (docs/reference/lan-access.md) ───────────────────
+# Local development serves the UI from Vite on :1421. A colleague on another
+# machine cannot use that entry point safely: Vite binds the LAN but its
+# allowedHosts default refuses unknown hosts, and — more importantly — the
+# dev server proxies /api from loopback, which the LAN guard exempts. Going
+# through Vite would therefore bypass the gate entirely.
+#
+# So LAN mode serves the built bundle from this origin instead. One origin,
+# one Basic-auth challenge on the document, and the browser then attaches those
+# credentials to every same-origin fetch, SSE stream and WebSocket.
+#
+# Same-origin works only because API_BASE_URL is '' when VITE_API_BASE_URL is
+# unset (src/config/api.ts) — do not "helpfully" bake an absolute URL into a
+# build that is meant to be reached by IP.
+#
+# Off unless LAN access is on, so local behaviour is unchanged.
+if lan_access_enabled():
+    _DIST_DIR = (_Path(__file__).resolve().parent.parent / "dist").resolve()
+
+    if not (_DIST_DIR / "index.html").is_file():
+        logger.warning(
+            "LAN access is ON but %s/index.html is missing — the API is gated, "
+            "but LAN users have no UI. Run `npm run build`, then restart.",
+            _DIST_DIR,
+        )
+    else:
+        from fastapi import HTTPException
+
+        # `root` (defined above) owns "/" and answers with a JSON info blob. A
+        # colleague typing the address must land on the app, not on JSON, so
+        # drop that one route and let the SPA catch-all below serve "/". The
+        # same information remains at /docs and /openapi.json.
+        app.router.routes = [
+            route for route in app.router.routes if getattr(route, "path", None) != "/"
+        ]
+
+        _DIST_ASSETS = _DIST_DIR / "assets"
+        if _DIST_ASSETS.is_dir():
+            app.mount(
+                "/assets",
+                StaticFiles(directory=str(_DIST_ASSETS)),
+                name="spa-assets",
+            )
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def serve_spa(full_path: str):
+            """Serve the built frontend, falling back to index.html for SPA routes.
+
+            Registered last: every /api route, /static mount, /docs and /assets
+            above matches first. This only sees what they did not claim.
+            """
+            # An unknown /api path is a missing endpoint, not a client-side
+            # route — returning index.html would turn a clear 404 into JSON
+            # parse errors in the browser.
+            if full_path.startswith(("api/", "static/")):
+                raise HTTPException(status_code=404, detail="Not Found")
+
+            if full_path:
+                candidate = (_DIST_DIR / full_path).resolve()
+                # Refuse anything that escapes dist/ (../ in the URL).
+                if candidate.is_file() and candidate.is_relative_to(_DIST_DIR):
+                    return FileResponse(str(candidate))
+
+            return FileResponse(str(_DIST_DIR / "index.html"))
+
+        logger.info("Serving built frontend from %s for LAN users", _DIST_DIR)
 
 if __name__ == "__main__":
     import sys
