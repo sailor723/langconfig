@@ -88,8 +88,10 @@ See `docs/` for architecture and design documentation:
 | `docs/usage.md` | User guide: the shell, the 13 activities, first-agent / first-workflow walkthroughs |
 | `docs/reference/` | Reference material (storage map, data taxonomy, skill authoring, settings/tools design, audits, studies) |
 | `docs/reference/sunhing-dashboards.md` | Sun Hing dashboard generation (deterministic generator, producer map, 28-KPI coverage, UI wiring) |
+| `docs/reference/lan-access.md` | Letting a second person use this instance over the network: the Basic-auth LAN gate, what stays shared, and why per-user data is a rebuild |
 | `REFACTORING.md` | Backend refactor status (god-module splits, verification methodology, security-fix pass) |
 | `docs/reference/plans/` | SaaS design + implementation plans |
+| `docs/reference/plans/2026-10-17-multiuser-design.md` | Multi-user study: per-user API keys, shared-vs-private assets, per-user workspace, phasing |
 | `docs/reference/OKF_MINIMAL_PROFILE.md` | OKF knowledge-bundle profile (local-only, not committed) |
 | `docs/reference/PAGEINDEX_OKF_DESIGN.md` | PageIndex + OKF knowledge design note (local-only, not committed) |
 | `backend/README.md` | Backend-specific setup |

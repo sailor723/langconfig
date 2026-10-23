@@ -158,6 +158,8 @@ docs/reference/*
 !docs/reference/deepagent-vs-dsh.md
 !docs/reference/deepagents-study.md
 !docs/reference/deepseek-vision-model.md
+!docs/reference/lan-access.md
+!docs/reference/multitenancy.md
 !docs/reference/settings-refactor.md
 !docs/reference/skill-authoring.md
 !docs/reference/storage-map.md
@@ -169,6 +171,7 @@ docs/reference/plans/*
 !docs/reference/plans/2026-02-12-langconfig-saas-design.md
 !docs/reference/plans/2026-02-12-langconfig-saas-implementation.md
 !docs/reference/plans/2026-10-15-kv-ingest-core-spec.md
+!docs/reference/plans/2026-10-17-multiuser-design.md
 langconfig/
 
 # Private/unreleased features (uncomment before pushing to public)
