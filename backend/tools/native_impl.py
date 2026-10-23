@@ -19,6 +19,7 @@ Never import from tools.native_tools.py here; tools/native_tools.py is the
 thin runtime facade and re-exports from this module instead.
 """
 
+import json
 import logging
 import re
 from typing import Annotated, List, Literal, NotRequired, Optional, Dict, Any
@@ -2652,6 +2653,53 @@ def save_analysis_result(text: str, file_path: str | None = None) -> str:
 # Skill Management Tools
 # =============================================================================
 
+def _coerce_str_list(value) -> list[str] | None:
+    """Normalise a model-supplied "list" into a real list of strings.
+
+    Why this exists: ``create_skill``/``update_skill`` declare ``tags: list[str]``
+    and ``triggers: list[str]``, but Python does not enforce annotations at
+    runtime. Models routinely pass arrays as JSON text (``'["a", "b"]'``) or as a
+    comma-separated string (``"a, b"``). Stored verbatim in the JSON columns,
+    that string makes ``SkillResponse`` fail validation — which surfaced as a
+    500 on ``GET /api/skills/{id}`` while ``GET /api/skills`` hid it behind a
+    placeholder row.
+
+    Coerce at the boundary rather than trusting the type hint: an LLM is the
+    caller here, so the input is untrusted text in practice.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple, set)):
+        items = list(value)
+    elif isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return []
+        parsed = None
+        try:
+            parsed = json.loads(text)
+        except (ValueError, TypeError):
+            parsed = None
+        if isinstance(parsed, list):
+            items = parsed
+        elif isinstance(parsed, dict) or parsed is None:
+            # Not JSON, or a JSON object: fall back to splitting on commas.
+            items = text.split(",")
+        else:
+            items = [parsed]
+    else:
+        items = [value]
+
+    out: list[str] = []
+    for item in items:
+        if item is None:
+            continue
+        text = str(item).strip()
+        if text:
+            out.append(text)
+    return out
+
+
 @tool
 def create_skill(name: str, description: str, instructions: str,
                  tags: list[str] | None = None,
@@ -2682,8 +2730,8 @@ def create_skill(name: str, description: str, instructions: str,
             name=name.strip(),
             description=description.strip(),
             version="1.0.0",
-            tags=tags or ["custom"],
-            triggers=triggers or [],
+            tags=_coerce_str_list(tags) or ["custom"],
+            triggers=_coerce_str_list(triggers) or [],
             instructions=instructions.strip(),
             source_type="personal",
             source_path=f"db://personal/{skill_id}",
@@ -2742,9 +2790,9 @@ def update_skill(skill_id: str, name: str | None = None,
         if instructions is not None:
             skill.instructions = instructions.strip()
         if tags is not None:
-            skill.tags = tags
+            skill.tags = _coerce_str_list(tags)
         if triggers is not None:
-            skill.triggers = triggers
+            skill.triggers = _coerce_str_list(triggers)
         skill.updated_at = datetime.datetime.now(datetime.timezone.utc)
         db.commit()
         return f"✅ Skill '{skill_id}' updated successfully!"
