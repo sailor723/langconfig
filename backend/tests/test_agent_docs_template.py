@@ -63,3 +63,65 @@ def test_workspace_scaffolding_still_documented(docs):
         assert fragment in text
     assert "/tmp/ws/demo_agent" in text
     assert "999" in text
+
+
+# ── the template is a reviewable file, not a Python f-string ───────────────
+
+def test_templates_are_repo_files():
+    from pathlib import Path
+    import core.agents.identity as identity
+
+    tpl = Path(identity.__file__).resolve().parent / "templates"
+    assert (tpl / "AGENTS.default.md").is_file()
+    assert (tpl / "CLAUDE.default.md").is_file()
+
+
+def test_placeholders_are_substituted(docs):
+    for name, text in docs.items():
+        assert "{{" not in text, f"{name} kept an unsubstituted placeholder"
+        assert "}}" not in text, f"{name} kept an unsubstituted placeholder"
+
+
+def test_rendering_uses_the_agent_values():
+    agent = SimpleNamespace(id=4242, name="weather_bot", description="Says hi warmly.")
+    docs = default_agent_docs(agent, "/tmp/ws/weather_bot")
+    text = docs["AGENTS.md"]
+    assert "weather_bot" in text
+    assert "Says hi warmly." in text
+    assert "4242" in text
+    assert "/tmp/ws/weather_bot" in text
+
+
+def test_missing_template_degrades_to_a_stub(monkeypatch):
+    """A packaged install without package-data must not break agent creation."""
+    import core.agents.identity as identity
+
+    monkeypatch.setattr(identity, "_TEMPLATE_DIR", identity.Path("/nonexistent/templates"))
+    agent = SimpleNamespace(id=7, name="stub_agent", description="stub")
+    docs = identity.default_agent_docs(agent, "/tmp/ws/stub")
+    assert "stub_agent" in docs["AGENTS.md"]
+    assert "/tmp/ws/stub" in docs["AGENTS.md"]
+
+
+# ── CLAUDE.md is a mirror: stored + materialised, NOT embedded in the prompt ─
+
+def test_prompt_embeds_agents_md_but_not_claude_md(docs):
+    from core.agents.identity import build_identity_system_prompt
+
+    prompt = build_identity_system_prompt(
+        "You are a helpful AI assistant.", 999, "/tmp/ws/demo_agent", docs
+    )
+    assert "## AGENTS.md (embedded)" in prompt
+    assert "## CLAUDE.md (embedded)" not in prompt
+    # the mirror is still produced and stored — it reaches the workspace as a file
+    assert docs["CLAUDE.md"]
+
+
+def test_prompt_stays_under_the_old_size(docs):
+    """Embedding only AGENTS.md must make the prompt smaller, not larger."""
+    from core.agents.identity import build_identity_system_prompt
+
+    prompt = build_identity_system_prompt("You are a helpful AI assistant.", 999,
+                                          "/tmp/ws/demo_agent", docs)
+    inline_docs = len(docs["AGENTS.md"]) + len(docs["CLAUDE.md"])
+    assert len(prompt) < inline_docs + 1000      # old shape was docs + identity + base

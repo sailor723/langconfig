@@ -28,7 +28,11 @@ for agents without a project binding or custom ``workspace_path``).
 # prompts that already carry a block).
 IDENTITY_MARKER = "## Identity"
 
+import logging
 import re
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Tokens from earlier block versions that must be upgraded away (v1 carried
 # {{category}} + {{agent_name}}; v2 carried {{description}} + {{agent_name}};
@@ -54,6 +58,9 @@ def identity_block(agent_id, workspace_root: str) -> str:
     )
 
 
+EMBEDDED_DOC_NAMES = ("AGENTS.md",)
+
+
 def build_identity_system_prompt(
     base_prompt: str,
     agent_id,
@@ -73,7 +80,16 @@ def build_identity_system_prompt(
     """
     parts = [base_prompt or ""]
     parts.append(identity_block(agent_id, workspace_root))
-    for name in ("AGENTS.md", "CLAUDE.md"):
+    # AGENTS.md is the authoritative instruction doc, so it is embedded inline:
+    # a model cannot skip text that is already in its prompt, which matters with
+    # cheap models (a rule at the end of a long prompt gets ignored either way,
+    # but text that is absent gets ignored always).
+    #
+    # CLAUDE.md is a *mirror* that points at AGENTS.md, so embedding it adds
+    # tokens and no information. It is still stored and materialized to the
+    # workspace as a file, which is where the Files panel and any file-reading
+    # consumer expect it.
+    for name in EMBEDDED_DOC_NAMES:
         content = (docs or {}).get(name)
         if content:
             content = refresh_doc_identity(content, agent_id, workspace_root)
@@ -374,6 +390,38 @@ def refresh_identity_block(system_prompt: str, agent_id, workspace_root: str) ->
     return prompt
 
 
+_TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
+
+# Placeholder syntax kept deliberately dumb (`{{name}}`) so the files read like
+# documents in a diff, not like code. Anything unrecognised is left alone, which
+# makes a typo visible in the rendered output instead of failing silently.
+_MINIMAL_FALLBACK_AGENTS = (
+    "# {agent_name}\n\n{description}\n\n"
+    "## Identity\n\n- **Agent ID**: {agent_id}\n- **Workspace**: {workspace_root}\n"
+)
+
+
+def _render_doc_template(filename: str, values: dict) -> str:
+    """Render one doc template from ``core/agents/templates/``.
+
+    Lives in the repo rather than in a Python f-string so the text an agent
+    inherits is reviewable in a diff and editable without touching code. A
+    missing file (e.g. a packaged install without package-data) degrades to a
+    minimal stub rather than breaking agent creation.
+    """
+    path = _TEMPLATE_DIR / filename
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:  # pragma: no cover - packaging guard
+        logger.warning(
+            "Agent doc template %s is not readable (%s); falling back to a stub", path, exc
+        )
+        return _MINIMAL_FALLBACK_AGENTS.format(**values)
+    for key, value in values.items():
+        text = text.replace("{{" + key + "}}", str(value))
+    return text
+
+
 def default_agent_docs(agent, workspace_root: str) -> dict:
     """Sensible default AGENTS.md / CLAUDE.md for agents without authored docs.
 
@@ -382,83 +430,21 @@ def default_agent_docs(agent, workspace_root: str) -> dict:
     system prompt, so the agent's instructions are self-describing on every
     run.
 
+    The text itself comes from ``core/agents/templates/AGENTS.default.md`` and
+    ``CLAUDE.default.md`` — reviewable files, not string literals.
+
     Returns ``{"AGENTS.md": ..., "CLAUDE.md": ...}``.
     """
     name = getattr(agent, "name", None) or f"Agent {getattr(agent, 'id', '')}".strip()
     description = getattr(agent, "description", None) or "An AI agent."
     agent_id = getattr(agent, "id", "?")
-    agents_md = (
-        f"# {name}\n\n"
-        f"{description}\n\n"
-        f"## Identity\n\n"
-        f"- **Agent ID**: {agent_id}\n"
-        f"- **Workspace**: {workspace_root}\n\n"
-        f"## Workspace\n\n"
-        f"Your workspace directory is:\n\n"
-        f"    {workspace_root}\n\n"
-        f"- **Uploaded files** — documents the user uploads (knowledge) appear "
-        f"in the `upload/` subfolder; read them from there when a task needs "
-        f"their data.\n"
-        f"- **Generated files** — save every deliverable you produce (reports, "
-        f"documents, exports) into the `generated/` subfolder, e.g. via "
-        f"`save_document` or file-writing tools, so the user can find them in "
-        f"the Files panel.\n"
-        f"- **Skills** — your prompt carries a skill catalogue (name, "
-        f"description, and the exact path to each SKILL.md). Those paths look "
-        f"like `/skills/<source>/<skill-id>/SKILL.md` and are served by the "
-        f"backend — they are NOT inside this workspace's `skills/` folder, "
-        f"which stays empty in database storage mode.\n"
-        f"- **Other** — use `other/` for scratch files, intermediate work, or "
-        f"anything that is neither a user upload, a deliverable, nor a skill.\n"
-        f"- **Your instructions** — AGENTS.md (this file) and CLAUDE.md sit at "
-        f"the workspace root.\n"
-        f"- Keep all files inside the workspace — do not write outside it.\n\n"
-        f"## Path map — use these directly\n\n"
-        f"- User uploads: **`upload/<filename>`** (read from here)\n"
-        f"- Deliverables: **`generated/<filename>`** (write here)\n"
-        f"- Scratch / misc: **`other/<filename>`**\n"
-        f"- Skills: **`/skills/…`** (virtual, from the catalogue — NOT the "
-        f"workspace `skills/` folder) · Instructions: `AGENTS.md`, `CLAUDE.md`\n"
-        f"- Use this map for uploads and deliverables: do NOT run ls/glob/grep "
-        f"to discover those paths, construct them from the rules above.\n"
-        f"- The one exception is skills: the catalogue in your prompt lists each "
-        f"skill's exact path, and you may read a `/skills/…/SKILL.md` or search "
-        f"for one when you need to confirm which skill applies.\n\n"
-        f"## Skills — use the catalogue\n\n"
-        f"Your prompt carries a skill catalogue (name, description, path). "
-        f"Before answering:\n"
-        f"- If any skill's description matches what the user wants, read that "
-        f"skill's SKILL.md (a `/skills/…` path) with read_file FIRST, then "
-        f"follow it.\n"
-        f"- Never answer from memory when a matching skill exists.\n"
-        f"- If no skill matches, proceed normally.\n\n"
-        f"## Working conventions\n\n"
-        f"- Before generating a file, match the format the user asked for "
-        f"(Markdown, DOCX, CSV, HTML, …) and save it with a descriptive "
-        f"filename inside `generated/`.\n"
-        f"- After producing a deliverable, summarize what you created and "
-        f"where it was saved.\n"
-        f"- If a task needs data from uploaded files, read them from "
-        f"`upload/` first.\n\n"
-        f"## Agent docs\n\n"
-        f"- This file (AGENTS.md) is loaded into your context as instructions "
-        f"on every chat run.\n"
-        f"- CLAUDE.md (next to this file) mirrors these instructions.\n"
-    )
-    claude_md = (
-        f"# {name} — CLAUDE.md\n\n"
-        f"Mirror of AGENTS.md — see that file in the same folder for the "
-        f"agent's full operating instructions.\n\n"
-        f"## Identity\n\n"
-        f"- **Agent ID**: {agent_id}\n"
-        f"- **Workspace**: {workspace_root}\n\n"
-        f"## Quick reference\n\n"
-        f"- Workspace: `{workspace_root}`\n"
-        f"- User uploads (knowledge): `upload/`; deliverables: `generated/`; "
-        f"scratch/misc: `other/`.\n"
-        f"- Skills live at `/skills/<source>/<skill-id>/SKILL.md` (from the "
-        f"catalogue in your prompt — not in this workspace).\n"
-        f"- After producing a deliverable, summarize what you created and "
-        f"where it was saved.\n"
-    )
-    return {"AGENTS.md": agents_md, "CLAUDE.md": claude_md}
+    values = {
+        "agent_name": name,
+        "description": description,
+        "agent_id": agent_id,
+        "workspace_root": workspace_root,
+    }
+    return {
+        "AGENTS.md": _render_doc_template("AGENTS.default.md", values),
+        "CLAUDE.md": _render_doc_template("CLAUDE.default.md", values),
+    }
