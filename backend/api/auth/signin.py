@@ -40,6 +40,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from db.database import SessionLocal
+from middleware.lan_guard import SIGNOUT_COOKIE
 from services import session_service, user_service
 from services.user_service import UserError
 
@@ -265,10 +266,19 @@ def _clear_cookie(response) -> None:
 def signin_page(request: Request, next: Optional[str] = None):
     """The page itself. Reachable without a session (see PUBLIC_PREFIXES in the gate)."""
     target = _safe_next(next or request.query_params.get("next"))
+
+    # A browser that signed out is shown the page even if a session cookie is still
+    # around. Redirecting it back into the app would make the gate refuse it (the
+    # marker outranks the session), which redirects here again — a reload loop that
+    # only ever stops when the cookie expires.
+    signed_out = request.cookies.get(SIGNOUT_COOKIE) is not None
+
     db = SessionLocal()
     try:
         # Already signed in? Do not make the person sign in twice.
-        if session_service.resolve(db, request.cookies.get(SESSION_COOKIE)) is not None:
+        if not signed_out and session_service.resolve(
+            db, request.cookies.get(SESSION_COOKIE)
+        ) is not None:
             return RedirectResponse(target, status_code=303)
         exists = user_service.count_users(db) > 0
     finally:
@@ -329,7 +339,7 @@ async def login(request: Request):
         response = JSONResponse({"status": "ok", "user": identity.to_public()})
     _set_cookie(response, token)
     # A fresh sign-in outranks any earlier sign-out marker left in this browser.
-    response.delete_cookie("langconfig_signed_out", path="/")
+    response.delete_cookie(SIGNOUT_COOKIE, path="/")
     return response
 
 
@@ -349,7 +359,7 @@ def logout(request: Request):
     # prompt (an older bookmark, a script that cached credentials) has no session
     # cookie to revoke, and the marker is what suppresses those cached credentials.
     response.set_cookie(
-        "langconfig_signed_out", "1", path="/", httponly=True, samesite="lax"
+        SIGNOUT_COOKIE, "1", path="/", httponly=True, samesite="lax"
     )
     return response
 
@@ -410,7 +420,7 @@ def legacy_sign_in(request: Request, next: Optional[str] = None):
     """Deprecated alias: the sign-in UI is the page at ``/signin``."""
     target = _safe_next(next or request.query_params.get("next"))
     response = RedirectResponse(f"{SIGNIN_PATH}?next={target}", status_code=303)
-    response.delete_cookie("langconfig_signed_out", path="/")
+    response.delete_cookie(SIGNOUT_COOKIE, path="/")
     return response
 
 

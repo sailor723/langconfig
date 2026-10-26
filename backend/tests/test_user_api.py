@@ -532,3 +532,54 @@ def _cleanup_sessions(user_id: int) -> None:
         session_service.revoke_all_for_user(db, user_id, reason="test cleanup")
     finally:
         db.close()
+
+
+# ── reload-loop regressions ─────────────────────────────────────────────────
+#
+# Reported from a real session: "I run sign off, but page keeps refreshing". Two
+# redirect cycles could do that, and both are pinned here so they cannot come back.
+
+def test_sign_in_page_does_not_bounce_a_signed_out_browser(db_session, accounts):
+    """marker + a still-valid session must render the page, not redirect.
+
+    The gate refuses a marked browser (the marker outranks the session), so
+    redirecting it into the app sends it straight back here — a reload loop.
+    """
+    me = accounts("loopmarker", password="looppass123")
+    client = _auth_app()
+    client.post("/api/auth/login", json={"username": me.username, "password": "looppass123"})
+
+    # Plant the marker while the session is still valid (exactly the state that
+    # produced the loop).
+    client.cookies.set("langconfig_signed_out", "1", path="/")
+
+    response = client.get("/signin", follow_redirects=False)
+    assert response.status_code == 200, "must render, not redirect"
+    assert 'name="password"' in response.text
+
+    _cleanup_sessions(me.id)
+
+
+def test_sign_in_page_redirects_when_cleanly_signed_in(db_session, accounts):
+    me = accounts("loopclean", password="looppass123")
+    client = _auth_app()
+    client.post("/api/auth/login", json={"username": me.username, "password": "looppass123"})
+
+    response = client.get("/signin", follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    _cleanup_sessions(me.id)
+
+
+def test_signing_in_again_clears_the_marker(db_session, accounts):
+    """Otherwise the next page load is refused by the gate for no visible reason."""
+    me = accounts("loopclear", password="looppass123")
+    client = _auth_app()
+    client.cookies.set("langconfig_signed_out", "1", path="/")
+
+    response = client.post(
+        "/api/auth/login", json={"username": me.username, "password": "looppass123"}
+    )
+    set_cookie = response.headers.get("set-cookie", "")
+    assert "langconfig_signed_out=" in set_cookie
+    _cleanup_sessions(me.id)

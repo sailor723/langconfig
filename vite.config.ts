@@ -65,6 +65,15 @@ export default defineConfig(async () => ({
         changeOrigin: true,
         secure: false,
       },
+      // The sign-in page is server-rendered HTML, not a route of this SPA. Without
+      // this proxy /signin falls through to Vite's entry and returns index.html —
+      // the SPA boots on a path it does not own, every API call is still refused,
+      // and the 401 handler sends it back to /signin: an endless reload.
+      '/signin': {
+        target: 'http://127.0.0.1:8765',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   // `npm run preview` serves the BUILT bundle (dist/) instead of transforming

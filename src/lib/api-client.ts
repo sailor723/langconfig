@@ -193,7 +193,11 @@ export class APIClient {
         //
         // One navigation at a time (a page can issue a dozen requests), and the
         // current route is carried through so the person lands where they were.
-        if (!this.redirectingToSignIn) {
+        // Already there? Then navigating again is the loop: the page would reload,
+        // fail the same way, and reload forever (seen when /signin itself was not
+        // proxied to the backend and the SPA came back instead of the login page).
+        const onSignInPage = window.location.pathname.replace(/\/+$/, '') === '/signin';
+        if (!this.redirectingToSignIn && !onSignInPage) {
           this.redirectingToSignIn = true;
           const next = window.location.pathname + window.location.search;
           window.location.assign(`/signin?next=${encodeURIComponent(next)}`);

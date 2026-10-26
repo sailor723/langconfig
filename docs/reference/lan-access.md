@@ -266,6 +266,7 @@ APIs; the app hit this and has one fix in place:
 | Browser shows a password dialog instead of the sign-in page | it has a cached Basic credential from an earlier version, or the page was opened via a link that sent one | sign out once (`/api/auth/logout`); after that the page is used |
 | Sign-in page loads, but the app is blank afterwards | cookie not stored (Secure cookie on plain HTTP, or cookies blocked) | leave `LANGCONFIG_COOKIE_SECURE` unset on plain HTTP, allow cookies for the host |
 | Signed in, then thrown back to the page every few minutes | cookie is being dropped as third-party (embedded/inlined) or cleared by a privacy extension | open `http://<ip>:8765` directly, not inside another site's frame |
+| The page keeps reloading in a loop | a stale `langconfig_signed_out` cookie (cookies ignore ports, so a sign-out on `:8765` also marks `:1421`), plus `/signin` not reaching the backend on the dev server | fixed in `vite.config.ts` (proxy) and in the 401 handler, which never bounces a page that is already at `/signin`; signing in once clears the marker |
 | Browser shows a login box for `192.168…` | working as intended | enter your own name and password |
 | A person suddenly gets `401` | their account was disabled (in **Users**), or the password was reset | re-enable, or give them the new password |
 | An account added to `.env` never appears | `.env` is bootstrap-only and was already imported once | add the account in **Users** |
