@@ -28,6 +28,20 @@ from db.database import get_async_session, AsyncSessionLocal
 logger = logging.getLogger(__name__)
 
 
+
+
+def _personal_dir_for_current_user():
+    """`backend/skills/personal/<user id>` for whoever is asking, else the parent.
+
+    Kept here rather than inline so creation and discovery cannot drift apart: both now
+    answer "where do this account's skills live?" from the same resolver.
+    """
+    from services import user_roots
+
+    return user_roots.personal_skills_dir_for(user_roots.subject_user_id())
+
+
+
 class SkillRegistry:
     """
     Central registry for skills with in-memory caching.
@@ -398,7 +412,12 @@ class SkillRegistry:
                 version=version or "1.0.0",
                 author=author or "User",
                 source_type=SkillSourceType.PERSONAL,
-                source_path=str(PERSONAL_SKILLS_ROOT / skill_id),
+                # Personal skills live under their owner: `personal/<user id>/<skill>`.
+                # The flat root would put a newly created skill outside the only layout
+                # the loader reads, which is how the pre-isolation tree looked.
+                source_path=str(
+                    _personal_dir_for_current_user() / skill_id
+                ),
                 tags=tags,
                 triggers=triggers,
                 allowed_tools=allowed_tools or [],

@@ -559,3 +559,36 @@ def test_skills_carry_an_owner_and_builtins_do_not(db_session):
             assert owned == 0, "a builtin skill must stay unowned (system-wide)"
         else:
             assert owned == total, f"{total - owned} {source_type} skill(s) have no owner"
+
+
+def test_every_skill_source_path_points_at_an_existing_folder(db_session):
+    """`source_path` is load-bearing: `agent_bundle` collects files from it.
+
+    A stale value does not raise — it silently exports a skill with no files, which is
+    exactly what the five personal rows did after the layout moved.
+    """
+    from pathlib import Path as _Path
+
+    from sqlalchemy import text as _text
+
+    rows = db_session.execute(_text(
+        "SELECT skill_id, source_type, source_path FROM skills"
+    )).all()
+    if not rows:
+        pytest.skip("no skills on this install")
+
+    broken = [(s, t, p) for s, t, p in rows if not p or not _Path(p).is_dir()]
+    assert broken == [], f"{len(broken)} skill(s) point at a missing folder: {broken[:3]}"
+
+
+def test_new_personal_skills_are_created_under_their_owner(tmp_path, db_session):
+    """Creation and discovery must answer "where?" from the same resolver."""
+    from core.skills import registry as registry_module
+
+    token = set_current_user(UserContext(id=42, username="x", role="member", via="session"))
+    try:
+        path = registry_module._personal_dir_for_current_user()
+    finally:
+        reset_current_user(token)
+    assert path.name == "42"
+    assert path.parent.name == "personal"
