@@ -1123,8 +1123,34 @@ counts are legitimately `0` — everything there *is* the baseline.
 - **Indexing fails without Ollama** — document indexing needs the embedding
   model; chat does not.
 - **Checkpoint growth** — `checkpoint_blobs` accumulates per graph step and can
-  dwarf everything else (5.8 GB here). It is resumable-run state, not history:
-  prune it if the database gets heavy.
+  dwarf everything else (**5.8 GB of a 6 GB database** on one real install). It
+  is resumable-run state, not history: `chat_sessions.messages` +
+  `conversation_archives` hold the transcript, the checkpoint is the *agent's
+  memory*. Most of that bulk came from sessions with **zero messages** — one
+  runaway run wrote 12,785 snapshots (~5.3 GB) for a session that never recorded
+  a single turn.
+
+  `scripts/prune_chat_checkpoints.py` reclaims it. It is dry-run by default and
+  only ever deletes threads that **join to a chat session**, so a workflow's
+  resumable (HITL) run — `task_*` / `run_*` / `workflow_*_node_*`, which have no
+  `chat_sessions` row — can never match:
+
+  ```bash
+  cd backend
+  .venv/bin/python scripts/prune_chat_checkpoints.py --dry-run          # report only
+  .venv/bin/python scripts/prune_chat_checkpoints.py --apply            # pg_dump first, then delete
+  .venv/bin/python scripts/prune_chat_checkpoints.py --apply --older-than-days 90   # keep recent sessions
+  .venv/bin/python scripts/prune_chat_checkpoints.py --apply --delete-empty-sessions # also drop the empty rows
+  ```
+
+  `DELETE` does not return disk on its own — follow it with `VACUUM FULL
+  checkpoint_blobs` (brief exclusive lock; nothing else should be chatting) to
+  shrink the table. Measured after a prune: blobs 5,838 MB → 87 MB, database
+  6,147 MB → 357 MB.
+
+  **The cost, stated once:** a pruned session that is continued later starts with
+  empty agent state. The UI still shows its history, but the model no longer
+  remembers it — there is no `messages → checkpoint` rehydration path yet.
 - **`API_KEY_ENCRYPTION_KEY` must be stable** — changing it orphans stored keys.
 - **Stray skill directories** — a directory whose `SKILL.md` declares a
   non-kebab-case id (e.g. `skills/market_wizard/`) is reported and skipped by the

@@ -174,6 +174,16 @@ Phases 0–1 carry most of the value; 2 makes the database portable; 3 is cleanu
   configuration stays in the settings document, which is already the app's stated direction
   for API keys ("a value in `.env` is no longer read").
 - **`checkpoint_writes.task_path`** belongs to LangGraph; leave it alone.
+- **Checkpoint tables are not a project's data — and they are not history.**
+  `checkpoints` / `checkpoint_blobs` / `checkpoint_writes` are the agent's *memory*
+  (one snapshot per graph step); the transcript lives in `chat_sessions.messages` and
+  `conversation_archives`. On one reference install they reached **5.8 GB of a 6 GB
+  database**, ~95% of it belonging to chat sessions with **zero messages** (a single
+  runaway run wrote 12,785 snapshots for one that never recorded a turn).
+  Reclaim with `backend/scripts/prune_chat_checkpoints.py` (dry-run by default; deletes
+  only threads that join to a `chat_sessions` row, so workflow `task_*`/`run_*` runs are
+  never touched), then `VACUUM FULL checkpoint_blobs` to return the disk. See
+  [`../installation.md`](../installation.md) §7 "Checkpoint growth".
 
 ### Surface area
 

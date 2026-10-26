@@ -79,14 +79,23 @@ def find_targets(db, older_than_days: int) -> list[dict]:
                    s.title,
                    s.created_at,
                    s.updated_at,
-                   coalesce(json_array_length(s.messages), 0) as msg_count,
+                   case
+                     when s.messages is null or json_typeof(s.messages) <> 'array' then 0
+                     else json_array_length(s.messages)
+                   end as msg_count,
                    (select count(*) from checkpoints c
                      where c.thread_id = s.session_id) as ckpt_rows,
                    (select coalesce(sum(pg_column_size(b.blob)), 0)
                       from checkpoint_blobs b
                      where b.thread_id = s.session_id) as blob_bytes
               from chat_sessions s
-             where coalesce(json_array_length(s.messages), 0) = 0
+             -- A transcript that is not a non-empty array holds no messages:
+             -- SQL NULL, JSON null, a scalar or an object all mean "empty".
+             -- CASE, not OR, so json_array_length is only evaluated for arrays.
+             where case
+                     when s.messages is null or json_typeof(s.messages) <> 'array' then true
+                     else json_array_length(s.messages) = 0
+                   end
                and coalesce(s.updated_at, s.created_at) < :cutoff
              order by blob_bytes desc
             """
@@ -158,7 +167,8 @@ def drop_empty_sessions(db, session_ids: list[str]) -> int:
     result = db.execute(
         text(
             "delete from chat_sessions where session_id in :ids "
-            "and coalesce(json_array_length(messages), 0) = 0"
+            "and (messages is null or json_typeof(messages) <> 'array' "
+            "     or json_array_length(messages) = 0)"
         ).bindparams(bindparam("ids", expanding=True)),
         {"ids": session_ids},
     )
