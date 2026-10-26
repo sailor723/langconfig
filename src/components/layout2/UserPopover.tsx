@@ -6,18 +6,23 @@
  * wonders why the app knows their name. This popover answers it and offers the two
  * actions an account has.
  *
- * It also states the two facts people get wrong, in the place they look:
- *   - **Signing in/out is the browser's job.** The LAN gate uses HTTP Basic, so
- *     there is no session to end here; a sign-out button would either lie or
- *     relaunch the browser's prompt.
+ * It also states the one fact people get wrong, in the place they look:
  *   - **Accounts are not isolation.** Everyone in this install sees the same
  *     projects, agents and knowledge.
+ *
+ * Sign out is real, with a caveat worth keeping honest. HTTP Basic has no session,
+ * so the backend marks this browser as signed out with a session cookie and the
+ * gate then refuses every request from it — including a reload, which shows a
+ * "Signed out" page instead of the app. What this does NOT do is forget the
+ * password the browser has cached: pressing Sign in returns you to the same
+ * account without typing. To hand the machine to someone else, close the browser
+ * or use a private window. The page states that in the same words.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useLayoutTokens } from './tokens';
 import apiClient from '../../lib/api-client';
 import type { UserSummary } from '../../lib/api/users';
-import { Loader, ShieldCheck, UserRound, Users } from 'lucide-react';
+import { Loader, LogOut, ShieldCheck, UserRound, Users } from 'lucide-react';
 
 interface UserPopoverProps {
   anchorRef: React.RefObject<HTMLElement | null>;
@@ -188,6 +193,21 @@ export default function UserPopover({
             <Users size={14} /> Users…
           </button>
         )}
+
+        {/* A full navigation, not a fetch: the backend answers with a "Signed out"
+            page, and that response is what makes the sign-out effective in this
+            browser. The app document cannot render it — it is refused too. */}
+        <button
+          style={{ ...rowStyle, borderTop: `1px solid ${t.border}`, marginTop: 4 }}
+          onClick={() => {
+            onClose();
+            window.location.assign('/api/auth/sign-out');
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = t.bgHover)}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+        >
+          <LogOut size={14} /> Sign out
+        </button>
       </div>
 
       <div
@@ -199,9 +219,9 @@ export default function UserPopover({
           color: t.textMuted,
         }}
       >
-        Signing in and out is handled by the browser (Basic auth). Close the
-        browser or use a private window to sign out. Accounts share this
-        install&apos;s data.
+        Signing out blocks this browser until someone signs in again. It does not
+        forget the password the browser saved — for a shared machine, close the
+        browser or use a private window.
       </div>
     </div>
   );

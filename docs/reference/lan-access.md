@@ -130,9 +130,29 @@ Disabling is immediate — the verifier's cache is invalidated on every change, 
 next request is refused rather than up to a minute later. Nothing is ever hard-deleted: the
 `user_id` columns that now point at existing work keep their owner.
 
-**Signing out is a browser action.** Basic auth has no session to end, so a "Sign out" button
-would be a lie: credentials live in the browser's authentication cache until the browser is
-closed. Use a private window on a shared machine, or quit the browser.
+### Signing out, and what it can honestly promise
+
+The user popover (**activity bar → your icon → Sign out**) really does end access from that
+browser — including a reload, which shows a "Signed out" page instead of the app — because the
+backend marks the browser as signed out and the gate then refuses it *before* it looks at the
+credential.
+
+That takes one extra piece of state, and it is worth understanding why:
+
+- HTTP Basic has **no session and no logout message**. The browser keeps the credential in its own
+  cache and attaches it to every request for the realm until the browser is closed.
+- So signing out sets a **session cookie** (`langconfig_signed_out`, `HttpOnly`, no `Max-Age` — it
+  dies with the browser session, like the credential it suppresses) and answers with **401 and no
+  `WWW-Authenticate` header**. The missing challenge is the trick: a 401 *with* a challenge makes
+  the browser re-prompt or silently retry with the credential it still holds, which would undo the
+  sign-out one request later.
+- **Sign in** (on that page) deletes the marker and redirects back into the app; the browser
+  replays its remembered credential, so returning to your own account needs no typing.
+
+What it does **not** do: forget the password the browser has saved. Anyone who presses *Sign in*
+on that browser is back in as the same person. To hand a machine to someone else, **close the
+browser or use a private window** — that is the only step that also clears the browser's own
+credential cache. The sign-out page says exactly this, in these words.
 
 ## 4. Verify it, don't assume it
 
@@ -143,6 +163,18 @@ curl -i http://192.168.3.23:8765/api/users/me                            # 401 +
 curl -i -u alice:<password> http://192.168.3.23:8765/api/users/me        # 200, "username":"alice"
 curl -i -u alice:<bobs-password> http://192.168.3.23:8765/api/users/me   # 401
 curl -i -u alice:<password> http://192.168.3.23:8765/api/users           # 403 when alice is a member
+```
+
+Sign out / sign in, as the browser does it (a cookie jar stands in for the browser):
+
+```bash
+curl -s -c jar -o page.html http://192.168.3.23:8765/api/auth/sign-out   # 200 + session cookie
+grep -c "Signed out" page.html                                          # 1
+curl -s -i -b jar -u alice:<password> http://192.168.3.23:8765/api/chat/health | head -1
+#   401 and NO WWW-Authenticate — the credential alice still holds is not enough
+curl -s -i -b jar -c jar http://192.168.3.23:8765/api/auth/sign-in | head -3   # 303 -> /
+curl -s -o /dev/null -w '%{http_code}\n' -b jar -u alice:<password> \
+  http://192.168.3.23:8765/api/users/me                                          # 200 again
 ```
 
 From **this machine**, loopback must stay open (this is what keeps local dev working) and
@@ -157,7 +189,7 @@ Tests for the whole chain — gate contract, verification, roles, attribution:
 ```bash
 cd backend && .venv/bin/python -m pytest \
   tests/test_lan_guard.py tests/test_user_service.py tests/test_user_api.py \
-  tests/test_audit_attribution.py tests/test_chat_session_manager.py -q
+  tests/test_audit_attribution.py tests/test_chat_session_manager.py -q   # 107
 ```
 
 ## 5. What everyone shares with you
@@ -222,6 +254,8 @@ APIs; the app hit this and has one fix in place:
 | Local dev suddenly asks for a password | you opened `:8765` from another interface, not loopback | use `localhost`/`127.0.0.1`, or send credentials |
 | A webhook receiver now returns 401 | external endpoint hitting a gated path | add its prefix to `LANGCONFIG_LAN_BYPASS_PATHS` — **only** if it verifies its own signatures |
 | Everyone is locked out | the last admin's password was lost or the account was disabled | `create_user.py --reset-password` or `--enable` on the server |
+| "Signed out" page reappears after signing in | the sign-in link was opened with the marker still set | use the **Sign in** button on that page (it clears the cookie); a bookmark to `/` will stay signed out until you do |
+| Signed out, but clicking Sign in returns to the same person | expected — the browser replays its saved credential | close the browser or use a private window to be a different person |
 
 ## 8. If you need this beyond a trusted LAN
 
@@ -274,13 +308,15 @@ multi-tenancy; retrofitting is harder than rebuilding"* — and designs a separa
 | `LANGCONFIG_LAN_USER` | `langconfig` | legacy single username — read only when `LANGCONFIG_LAN_USERS` is empty |
 | `LANGCONFIG_LAN_PASSWORD` | *(empty)* | legacy single password, same bootstrap-only rule |
 | `LANGCONFIG_LAN_BYPASS_PATHS` | *(empty)* | comma-separated path prefixes that skip auth; anyone can reach these |
+| *(no setting)* | — | `/api/auth/` is **always** reachable, signed out or not: it serves the sign-out/sign-in pages. The marker cookie is `langconfig_signed_out` |
 
 Code: `backend/middleware/lan_guard.py` (gate), `backend/middleware/identity.py` (identity from
 the verified scope), `backend/core/security/{passwords,lan_auth}.py` (scrypt hashes, verifier +
 cache), `backend/core/context/current_user.py` (request identity), `backend/services/user_service.py`
 (accounts, bootstrap, guards), `backend/api/users/routes.py` (self-service + admin API),
 `backend/models/user.py`, `alembic/versions/032_add_users.py`, `backend/scripts/create_user.py`
-(operator tool), and in the UI `src/components/layout2/{UserPopover,UserAccountDialogs}.tsx`.
+(operator tool), `backend/api/auth/signout.py` (sign out/in pages and the marker cookie), and in
+the UI `src/components/layout2/{UserPopover,UserAccountDialogs}.tsx`.
 
 Tests: `backend/tests/test_lan_guard.py`, `test_user_service.py`, `test_user_api.py`,
 `test_audit_attribution.py`, `test_chat_session_manager.py`.

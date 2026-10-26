@@ -302,3 +302,82 @@ def test_roles_endpoint_names_the_vocabulary(db_session, accounts):
     response = client.get("/api/users/roles")
     assert response.status_code == 200
     assert response.json()["roles"] == ["admin", "member"]
+
+
+# ── sign out ────────────────────────────────────────────────────────────────
+#
+# The marker cookie is the one piece of state an otherwise stateless gate keeps:
+# it is what makes "Sign out" mean anything under HTTP Basic.
+
+def test_sign_out_sets_a_session_cookie_and_explains_itself(db_session, monkeypatch):
+    monkeypatch.setenv("LANGCONFIG_LAN_ACCESS", "on")
+    app = FastAPI()
+    from api.auth.signout import router as signout_router
+
+    app.include_router(signout_router)
+    client = TestClient(app)
+
+    response = client.get("/api/auth/sign-out")
+    assert response.status_code == 200
+    assert "Signed out" in response.text
+    assert "/api/auth/sign-in" in response.text
+
+    cookie = response.headers.get("set-cookie", "")
+    assert "langconfig_signed_out=1" in cookie
+    assert "httponly" in cookie.lower()
+    # A session cookie: it must expire with the browser, like the credential it hides.
+    assert "max-age" not in cookie.lower()
+
+
+def test_sign_out_says_so_when_the_gate_is_off(monkeypatch):
+    monkeypatch.delenv("LANGCONFIG_LAN_ACCESS", raising=False)
+    app = FastAPI()
+    from api.auth.signout import router as signout_router
+
+    app.include_router(signout_router)
+    response = TestClient(app).get("/api/auth/sign-out")
+    assert response.status_code == 200
+    assert "LAN access is off" in response.text
+    assert "set-cookie" not in response.headers
+
+
+def test_sign_in_clears_the_marker_and_redirects_home(monkeypatch):
+    monkeypatch.setenv("LANGCONFIG_LAN_ACCESS", "on")
+    app = FastAPI()
+    from api.auth.signout import router as signout_router
+
+    app.include_router(signout_router)
+    response = TestClient(app).get("/api/auth/sign-in", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/"
+    cookie = response.headers.get("set-cookie", "")
+    assert "langconfig_signed_out=" in cookie
+    assert 'Max-Age=0' in cookie or 'max-age=0' in cookie.lower()
+
+
+@pytest.mark.parametrize(
+    "target",
+    ["https://evil.example/steal", "//evil.example", "/\\evil.example", "javascript:alert(1)"],
+)
+def test_sign_in_refuses_to_render_someone_elses_page(monkeypatch, target):
+    """An unvalidated `next` is an open redirect on a freshly authenticated browser."""
+    monkeypatch.setenv("LANGCONFIG_LAN_ACCESS", "on")
+    app = FastAPI()
+    from api.auth.signout import router as signout_router
+
+    app.include_router(signout_router)
+    response = TestClient(app).get("/api/auth/sign-in", params={"next": target}, follow_redirects=False)
+    assert response.headers["location"] == "/"
+
+
+def test_sign_in_keeps_a_same_origin_path(monkeypatch):
+    monkeypatch.setenv("LANGCONFIG_LAN_ACCESS", "on")
+    app = FastAPI()
+    from api.auth.signout import router as signout_router
+
+    app.include_router(signout_router)
+    response = TestClient(app).get(
+        "/api/auth/sign-in", params={"next": "/#/agents"}, follow_redirects=False
+    )
+    assert response.headers["location"] == "/#/agents"

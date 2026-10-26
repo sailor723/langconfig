@@ -662,7 +662,7 @@ from api.workspace import routes as workspace
 from api.presets import actions as action_presets
 from api.skills import routes as skills
 from api import schemas
-from api.auth import google_router as google_auth
+from api.auth import google_router as google_auth, signout_router as auth_signout
 from api.presentations import router as presentations
 from api.schedules import router as schedules
 from api.triggers import router as triggers
@@ -690,6 +690,7 @@ app.include_router(graphindex_chat.router)  # Phase 9 / Step K — graphindex_ch
 app.include_router(doc_chat.router)  # Simplified doc-chat — folder-based context, no RAG/Neo4j
 app.include_router(kv.router)  # KV document store — no DB dependencies
 app.include_router(background_tasks.router)  # Background task queue management
+app.include_router(auth_signout)  # Sign out / sign in (reachable while signed out)
 app.include_router(users.router)  # User accounts (who is asking)
 app.include_router(workspace.router)  # Workspace file management
 app.include_router(agent_documents.router)  # DB-mode document library

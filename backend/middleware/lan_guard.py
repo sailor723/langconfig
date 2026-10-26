@@ -58,6 +58,20 @@ logger = logging.getLogger(__name__)
 # Kept for the pre-Slice-1 name used by tests and docs.
 _is_loopback = is_loopback_scope
 
+#: Cookie set by ``/api/auth/sign-out`` and honoured here BEFORE the credential.
+#:
+#: Why a cookie at all: HTTP Basic has no session to end, and the browser keeps the
+#: credential in its own cache and replays it on every request. Refusing to look at
+#: it — while this marker is present — is the only way "Sign out" can mean anything
+#: without inventing a login page. It is a *session* cookie on purpose: it expires
+#: when the browser closes, the same lifetime as the credential it suppresses.
+SIGNOUT_COOKIE = "langconfig_signed_out"
+
+#: Paths the gate always passes through, whatever ``LANGCONFIG_LAN_BYPASS_PATHS``
+#: says. The sign-out/sign-in pages have to be reachable while signed out, and they
+#: reveal nothing about any account.
+PUBLIC_PREFIXES: tuple[str, ...] = ("/api/auth/",)
+
 
 def lan_access_enabled() -> bool:
     """True when LAN access (and therefore the gate) is switched on."""
@@ -117,6 +131,32 @@ def _basic_credentials(scope: Scope) -> tuple[Optional[str], Optional[str]]:
     return None, None
 
 
+def _has_signout_marker(scope: Scope) -> bool:
+    """Did this browser explicitly sign out?"""
+    for key, value in scope.get("headers") or []:
+        if key.lower() != b"cookie":
+            continue
+        try:
+            raw = value.decode("latin-1")
+        except Exception:
+            continue
+        for part in raw.split(";"):
+            name, sep, val = part.strip().partition("=")
+            if sep and name == SIGNOUT_COOKIE and val.strip():
+                return True
+    return False
+
+
+def _wants_html(scope: Scope) -> bool:
+    for key, value in scope.get("headers") or []:
+        if key.lower() == b"accept":
+            try:
+                return b"text/html" in value.lower()
+            except Exception:
+                return False
+    return False
+
+
 def _attempted_username(scope: Scope) -> str:
     """Who a refused request claimed to be, made safe for a log line."""
     user, _ = _basic_credentials(scope)
@@ -152,12 +192,26 @@ class LanGuardMiddleware:
             await self.app(scope, receive, send)
             return
 
+        path = _path_of(scope)
+
+        # Always open, even to a signed-out browser: the sign-out/sign-in pages
+        # themselves, and anything an operator explicitly bypassed.
+        if any(path.startswith(p) for p in PUBLIC_PREFIXES):
+            await self.app(scope, receive, send)
+            return
+
+        # An explicit sign-out outranks everything else — a credential the browser
+        # still holds, and the loopback exemption. Signing out locally must sign
+        # out locally, or the button would be a lie on the machine it was clicked.
+        if _has_signout_marker(scope):
+            await self._deny_signed_out(scope, send, path)
+            return
+
         # The local machine always gets in — that is the owner.
         if is_loopback_scope(scope):
             await self.app(scope, receive, send)
             return
 
-        path = _path_of(scope)
         if self.bypass_paths and any(path.startswith(p) for p in self.bypass_paths):
             await self.app(scope, receive, send)
             return
@@ -235,6 +289,43 @@ class LanGuardMiddleware:
         await send({"type": "http.response.body", "body": body})
 
     @staticmethod
+    async def _deny_signed_out(scope: Scope, send: Send, path: str) -> None:
+        """Refuse a browser that signed out — WITHOUT a challenge.
+
+        The missing ``WWW-Authenticate`` header is the whole point: with it, the
+        browser would re-prompt for a password (or silently retry with the cached
+        credential) and the sign-out would be undone one request later. A 401 that
+        offers no challenge means "not for you, and asking again will not help".
+        """
+        if scope["type"] == "websocket":
+            await send({"type": "websocket.close", "code": 1008, "reason": "signed out"})
+            return
+
+        if _wants_html(scope):
+            body = _SIGNED_OUT_PAGE.encode("utf-8")
+            headers = [(b"content-type", b"text/html; charset=utf-8")]
+        else:
+            body = (
+                b"LangConfig: this browser is signed out.\n\n"
+                b"Open /api/auth/sign-in in a browser tab to sign in again.\n"
+            )
+            headers = [(b"content-type", b"text/plain; charset=utf-8")]
+
+        logger.info("Refused %s for a signed-out browser", path)
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 401,
+                "headers": headers
+                + [
+                    (b"content-length", str(len(body)).encode("ascii")),
+                    (b"cache-control", b"no-store"),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+    @staticmethod
     async def _deny_unconfigured(scope: Scope, send: Send) -> None:
         if scope["type"] == "websocket":
             await send(
@@ -268,6 +359,33 @@ class LanGuardMiddleware:
             {"type": "http.response.start", "status": 503, "headers": _plain_headers(body)}
         )
         await send({"type": "http.response.body", "body": body})
+
+
+_SIGNED_OUT_PAGE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signed out — LangConfig</title>
+<style>
+  html,body{height:100%;margin:0}
+  body{background:#1e1e1e;color:#d4d4d4;font:14px/1.6 -apple-system,BlinkMacSystemFont,
+    "Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}
+  main{max-width:460px;text-align:center}
+  h1{font-size:20px;font-weight:600;margin:0 0 8px;color:#f5f5f5}
+  p{margin:0 0 18px;color:#a3a3a3}
+  a.button{display:inline-block;padding:9px 22px;border-radius:18px;background:#0e639c;
+    color:#fff;text-decoration:none;font-weight:500}
+  a.button:hover{background:#1177bb}
+  .note{margin-top:26px;font-size:12px;color:#7a7a7a;line-height:1.55}
+</style></head>
+<body><main>
+  <h1>Signed out</h1>
+  <p>This browser no longer has access to LangConfig.</p>
+  <a class="button" href="/api/auth/sign-in">Sign in</a>
+  <div class="note">This browser remembers your login, so <em>Sign in</em> returns you
+  to the same account without typing. To sign in as someone else, close the browser or
+  use a private window.</div>
+</main></body></html>
+"""
 
 
 def _plain_headers(body: bytes, extra: list | None = None) -> list:

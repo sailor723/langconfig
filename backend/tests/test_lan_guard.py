@@ -24,6 +24,7 @@ import pytest
 import middleware.lan_guard as lan_guard
 from core.security.lan_auth import InMemoryCredentialVerifier
 from middleware.lan_guard import (
+    SIGNOUT_COOKIE,
     LanGuardMiddleware,
     _is_loopback,
     lan_access_enabled,
@@ -446,3 +447,112 @@ def test_claimed_username_is_sanitized(lan_multi):
     assert "\n" not in result
     assert "\x00" not in result
     assert len(result) <= 64
+
+
+# ── sign out ────────────────────────────────────────────────────────────────
+#
+# The marker is the only thing that makes "Sign out" mean anything under HTTP
+# Basic, where the browser keeps the credential and replays it on every request.
+
+def _signed_out(*, kind="http", path="/api/agents", **kwargs):
+    cookie = (b"cookie", f"{SIGNOUT_COOKIE}=1".encode())
+    return _call(
+        LanGuardMiddleware(_Downstream()), kind=kind, path=path,
+        headers=[_basic(USER, PASSWORD), cookie], **kwargs
+    )
+
+
+def test_signed_out_browser_is_refused_although_it_has_valid_credentials(lan_on):
+    """The cached credential must not win: that is the whole point."""
+    downstream = _Downstream()
+    sent = _run(
+        _call(
+            LanGuardMiddleware(downstream),
+            headers=[_basic(USER, PASSWORD), (b"cookie", f"{SIGNOUT_COOKIE}=1".encode())],
+        )
+    )
+    assert downstream.called is False
+    assert sent[0]["status"] == 401
+
+
+def test_signed_out_response_offers_no_challenge(lan_on):
+    """A challenge would make the browser re-prompt or retry, undoing the sign-out."""
+    sent = _run(_signed_out())
+    headers = {k.lower() for k, _v in sent[0]["headers"]}
+    assert b"www-authenticate" not in headers
+
+
+def test_signed_out_browser_gets_the_sign_out_page(lan_on):
+    """A reload must show the page, not a bare 401 from the SPA's document request."""
+    sent = _run(
+        _call(
+            LanGuardMiddleware(_Downstream()),
+            path="/",
+            headers=[
+                (b"cookie", f"{SIGNOUT_COOKIE}=1".encode()),
+                (b"accept", b"text/html,application/xhtml+xml"),
+            ],
+        )
+    )
+    assert sent[0]["status"] == 401
+    body = sent[1]["body"].decode()
+    assert "Signed out" in body
+    assert "/api/auth/sign-in" in body
+
+
+def test_sign_out_endpoints_stay_reachable_while_signed_out(lan_on):
+    """/api/auth/ is always open — otherwise a signed-out browser could never sign in."""
+    for path in ("/api/auth/sign-out", "/api/auth/sign-in"):
+        downstream = _Downstream()
+        sent = _run(
+            _call(
+                LanGuardMiddleware(downstream),
+                path=path,
+                headers=[(b"cookie", f"{SIGNOUT_COOKIE}=1".encode())],
+            )
+        )
+        assert downstream.called is True, path
+        assert sent[0]["status"] == 200, path
+
+
+def test_other_cookies_are_not_a_sign_out(lan_on):
+    downstream = _Downstream()
+    sent = _run(
+        _call(
+            LanGuardMiddleware(downstream),
+            headers=[_basic(USER, PASSWORD), (b"cookie", b"theme=dark; sid=abc")],
+        )
+    )
+    assert downstream.called is True
+    assert sent[0]["status"] == 200
+
+
+def test_loopback_signed_out_is_also_refused(lan_on):
+    """Signing out locally must sign out locally — otherwise the button lies."""
+    sent = _run(
+        _call(
+            LanGuardMiddleware(_Downstream()),
+            client=("127.0.0.1", 41000),
+            headers=[(b"cookie", f"{SIGNOUT_COOKIE}=1".encode())],
+        )
+    )
+    assert sent[0]["status"] == 401
+
+
+def test_websocket_from_a_signed_out_browser_is_closed(lan_on):
+    sent = _run(_signed_out(kind="websocket"))
+    assert sent[0]["type"] == "websocket.close"
+    assert sent[0]["code"] == 1008
+
+
+def test_signed_out_marker_is_ignored_when_the_gate_is_off(lan_off):
+    """Gate off means no sign-in happened, so nothing can sign out."""
+    downstream = _Downstream()
+    sent = _run(
+        _call(
+            LanGuardMiddleware(downstream),
+            headers=[(b"cookie", f"{SIGNOUT_COOKIE}=1".encode())],
+        )
+    )
+    assert downstream.called is True
+    assert sent[0]["status"] == 200
