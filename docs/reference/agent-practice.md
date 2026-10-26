@@ -83,17 +83,24 @@ opens with four rules, each with its own experiment:
 |---|---|---|
 | **R1** shape | "three lines" → "a three-column table" | the answer's *shape*, nothing else |
 | **R2** length | 40 words → 300 | the answer's *length* |
-| **R3** refusal | delete the rule | it starts inventing what it never read |
+| **R3** refusal | delete the rule | it answers from memory instead of naming the gap |
 | **R4** tone | allow exclamation marks | one line, immediately visible |
 
-Run **R3 twice** — with the rule and without it. Measured here: "what did our website traffic
-look like last month?" answers
+Run **R3 twice** — with the rule and without it — on a question that **tempts** the failure.
+Measured here, asking *"what is a typical SaaS monthly churn rate? give me a number."*:
 
-```
-Conclusion: I can't answer this — the web analytics capability is missing.
-```
+| R3 | Answer |
+|---|---|
+| on | `Conclusion: I can't give you a number. Because: that needs web or database access, which I don't have.` |
+| off | `Conclusion: Typical SaaS monthly churn is about 3-5% for SMB, under 1% for enterprise.` |
 
-Delete R3 and the same question yields a confident paragraph about numbers nobody measured.
+The second is not a lie the model chose to tell — it is the model doing what it does when nobody
+has told it to stop, and the number is a plausible-sounding average with nothing behind it.
+
+**Pick the question carefully.** Asking *"what did our website traffic look like last month?"*
+gets a refusal with or without R3, because the empty workspace is its own evidence — which makes
+a good-looking experiment that proves nothing. A rule's effect is only visible when the
+alternative is attractive.
 
 #### Create it by hand (5 steps, about 2 minutes)
 
@@ -132,9 +139,13 @@ same question, compare.
 
 ## Experiments
 
-- **R3 (run this one twice):** ask "what did our website traffic look like last month?" → it
-  names the missing capability. Delete R3, run it again → a confident paragraph about numbers
-  nobody measured. That difference is why refusal rules exist.
+- **R3 (run this one twice):** ask "what is a typical SaaS monthly churn rate? give me a
+  number." With R3 it refuses and names the missing capability. Delete R3, run it again → it
+  answers "typical SaaS monthly churn is about 3-5% for SMB", from memory, with nothing behind
+  it. That difference is why refusal rules exist.
+  Ask a question whose absence of evidence is *visible* (e.g. "what did our traffic look like
+  last month?") and it refuses either way, because the empty workspace is proof — a rule's
+  effect only shows when the alternative is tempting.
 - **R1:** change "three lines" to "a three-column table" → the shape changes; nothing else does.
 - **R2:** change 40 to 300 → the answer grows.
 - **R4:** allow exclamation marks → visible in one line.

@@ -51,19 +51,29 @@ same question, compare.
 
 ## Rules
 
-- **R1 Shape** — answer in exactly three lines: `Conclusion:` / `Because:` / `Next:`. No tables.
-- **R2 Length** — the whole answer fits in 40 words.
+- **R1 Shape** — your **answer** is exactly three lines: `Conclusion:` / `Because:` / `Next:`.
+  No tables. (On the first message of a session the platform also makes you greet and report
+  the workspace status; that part sits above the answer and does not count as one of the three.)
+- **R2 Length** — the three-line answer is at most 40 words. The greeting is not part of it.
 - **R3 Refusal** — if answering needs a tool you do not have (web, database), name the missing
   capability and stop. Never estimate or answer from memory as if you had checked.
 - **R4 Tone** — address the user as "you", never "You", and never use exclamation marks.
 
 ## Experiments
 
-- **R3 (run this one twice):** ask "what did our website traffic look like last month?" → it
-  names the missing capability. Delete R3, run it again → a confident paragraph about numbers
-  nobody measured. That difference is why refusal rules exist.
-- **R1:** change "three lines" to "a three-column table" → the shape changes; nothing else does.
+- **R3 (run this one twice):** ask "what is a typical SaaS monthly churn rate? give me a
+  number." With R3 it refuses and names the missing capability. Delete R3, run it again → it
+  answers "typical SaaS monthly churn is about 3-5% for SMB", from memory, with nothing behind
+  it. That difference is why refusal rules exist.
+  Ask a question whose absence of evidence is *visible* (e.g. "what did our traffic look like
+  last month?") and it refuses either way, because the empty workspace is proof — a rule's
+  effect only shows when the alternative is tempting.
+- **R1:** change "three lines" to "a three-column table" → the shape of the *answer* changes;
+  nothing else does.
 - **R2:** change 40 to 300 → the answer grows.
+
+Run these on the **second** message of a session: the first one always includes the greeting,
+which makes an "exactly three lines" rule look broken when it is not.
 - **R4:** allow exclamation marks → visible in one line.
 
 ## Workspace
