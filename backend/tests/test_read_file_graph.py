@@ -24,7 +24,14 @@ from PIL import Image, ImageDraw, ImageFont
 
 from core.graphs import read_file as rf
 
-WORKSPACE = Path(__file__).resolve().parent.parent / "outputs"
+# Probe files go in the *caller's* workspace, because that is the only tree the
+# filesystem tools now accept: the install root is no longer a sandbox root (every
+# account's tree lives inside it, so allowing it allowed everything). Without an
+# identity the resolver answers with the install owner's tree, which is where these
+# tests belong.
+from services import user_roots as _user_roots  # noqa: E402
+
+WORKSPACE = _user_roots.current_root()
 PROBE_DIR = WORKSPACE / "_pytest_read_file"
 LATIN_FONT = "/System/Library/Fonts/Supplemental/Arial.ttf"
 HAN_SAMPLE = "医疗器械测试"
@@ -35,7 +42,7 @@ LIVE = os.getenv("LANGCONFIG_LIVE_TESTS") == "1"
 
 @pytest.fixture(scope="module", autouse=True)
 def probe_files():
-    """Create probe files inside a sandbox root (backend/outputs)."""
+    """Create probe files inside the caller's workspace tree."""
     PROBE_DIR.mkdir(parents=True, exist_ok=True)
     text = PROBE_DIR / "sample.md"
     text.write_text("# Title\n\nrevenue = 42\n", encoding="utf-8")

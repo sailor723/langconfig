@@ -666,29 +666,15 @@ async def tavily_search(query: str, max_results: int = 5) -> str:
 # an agent cannot read arbitrary server paths (.env, /etc, source dirs, ...).
 # ---------------------------------------------------------------------------
 
-#: The workspace root of the *run* currently executing, bound by the caller that
-#: started it. Why a ContextVar and not the request identity: the agent harness
-#: executes tools in its own task, where the request's identity ContextVar is not
-#: visible — the fallback then resolved to the install owner, so a second account's
-#: agent happily read the first account's files. The run knows its workspace; it just
-#: has to say so.
-_RUN_ROOT: "ContextVar[Optional[str]]" = ContextVar("langconfig_agent_run_root", default=None)
-
-
-def bind_run_root(path) -> object:
-    """Bind the workspace root for the duration of a run. Returns a reset token."""
-    return _RUN_ROOT.set(str(path))
-
-
-def clear_run_root(token) -> None:
-    try:
-        _RUN_ROOT.reset(token)
-    except ValueError:  # token from another context — harmless
-        pass
-
-
-def current_run_root() -> Optional[str]:
-    return _RUN_ROOT.get()
+# The run-root binding lives in services/user_roots.py: the tools an agent runs are
+# code snapshots generated from this module, so a ContextVar declared *here* would be
+# inlined into each snapshot as a separate object and a binding set here would never
+# reach it. One declaration, imported by both sides.
+from services.user_roots import (  # noqa: E402
+    bind_run_root,
+    clear_run_root,
+    current_run_root,
+)
 
 
 def _sandbox_roots() -> list:
@@ -707,14 +693,10 @@ def _sandbox_roots() -> list:
     backend_dir = Path(__file__).resolve().parent.parent
     from services import user_roots
 
-    bound = _RUN_ROOT.get()
-    if bound:
-        private_root = Path(bound)
-    else:
-        try:
-            private_root = user_roots.current_root()
-        except Exception:  # no identity and no DB → fall back to the install root
-            private_root = backend_dir / "outputs"
+    try:
+        private_root = user_roots.current_root()   # run binding → identity → owner
+    except Exception:  # no identity and no DB → fall back to the install root
+        private_root = backend_dir / "outputs"
 
     roots = [
         private_root,                        # this person's tree (write_file home, bash cwd)

@@ -215,11 +215,17 @@ class _AgentAssemblyMixin:
         # Load native tools with context for file tracking
         # Delegated to ToolLoader (extracted 2026-06-24) — see core/agents/tool_loader.py
         from core.agents.tool_loader import ToolLoader
-        tools.extend(await ToolLoader.load_native(
+        _native = await ToolLoader.load_native(
             native_tool_names,
             workspace_context=workspace_context,
             agent_context=agent_context
-        ))
+        )
+        # Bind each tool call to THIS run's workspace root. The tools resolve their
+        # filesystem sandbox from it, and inside the agent harness the request identity
+        # is not visible — so without this they fell back to the install owner and a
+        # second account's agent worked in the first account's tree.
+        from core.tools.sandbox_scope import scope_tools_to_root
+        tools.extend(scope_tools_to_root(_native, workspace_root))
 
         # Load CLI tools if specified
         cli_tools = agent_config.get("cli_tools", [])

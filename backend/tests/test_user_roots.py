@@ -398,3 +398,64 @@ def test_the_agent_shell_and_file_tools_are_scoped_to_the_caller():
         assert error is None and resolved == own.resolve()
     finally:
         reset_current_user(token)
+
+
+# ── enforcement: tool calls carry the run's root ───────────────────────────
+
+def test_scoped_tool_binds_the_root_for_its_own_call():
+    """The binding happens inside the call, because the harness runs tools in its own
+    task — binding once around `ainvoke` silently did nothing (measured)."""
+    from langchain_core.tools import tool as _tool
+
+    from core.tools.sandbox_scope import scope_tools_to_root
+
+    @_tool
+    def probe() -> str:
+        """where am I"""
+        return str(user_roots.current_root())
+
+    scoped = scope_tools_to_root([probe], "/tmp/ws/users/284")[0]
+    assert scoped.func() == "/tmp/ws/users/284"
+    # …and it is undone afterwards, so the next caller is not stuck in that tree.
+    assert user_roots.current_run_root() is None
+
+
+def test_scoping_is_per_call_so_two_users_do_not_share_a_root():
+    from langchain_core.tools import tool as _tool
+
+    from core.tools.sandbox_scope import scope_tools_to_root
+
+    @_tool
+    def probe() -> str:
+        """where am I"""
+        return str(user_roots.current_root())
+
+    alice = scope_tools_to_root([probe], "/tmp/ws/users/1")[0]
+    bob = scope_tools_to_root([probe], "/tmp/ws/users/284")[0]
+    assert alice.func() == "/tmp/ws/users/1"
+    assert bob.func() == "/tmp/ws/users/284"
+
+
+def test_no_root_leaves_the_tools_untouched():
+    """An install with no accounts must keep behaving exactly as before."""
+    from core.tools.sandbox_scope import scope_tools_to_root
+
+    sentinel = object()
+    assert scope_tools_to_root([sentinel], None) == [sentinel]
+
+
+def test_the_snapshot_sandbox_reads_the_shared_binding():
+    """The tools an agent runs are DB snapshots generated from tools/native_impl.py.
+
+    A ContextVar declared in that module would be inlined into each snapshot as a
+    separate object, so the binding has to live in a module both sides import —
+    services/user_roots.py. This asserts the indirection is real.
+    """
+    import tools.native_impl as ni
+
+    assert ni.bind_run_root is user_roots.bind_run_root
+    token = user_roots.bind_run_root("/tmp/ws/users/42")
+    try:
+        assert ni._sandbox_roots()[0] == user_roots.Path("/tmp/ws/users/42").resolve()
+    finally:
+        user_roots.clear_run_root(token)

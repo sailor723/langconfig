@@ -37,12 +37,24 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from contextvars import ContextVar
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 #: Directory under the install root that holds one subtree per account.
 USERS_DIRNAME = "users"
+
+#: The workspace root of the run currently executing, bound by whoever starts the run.
+#:
+#: Why this lives here and not in the tool module: the tools an agent actually runs are
+#: **code snapshots in PostgreSQL** (`custom_tools`), generated from `tools/native_impl.py`
+#: by inlining the helpers a tool references. A ContextVar declared in `native_impl`
+#: would therefore be inlined into each snapshot as a *separate* variable, and a binding
+#: set in the module would be invisible to the snapshot — which is exactly the kind of
+#: silent no-op that looks like it works. Declared here, both sides import the same
+#: object.
+_RUN_ROOT: "ContextVar[Optional[str]]" = ContextVar("langconfig_run_root", default=None)
 
 
 def install_root() -> Path:
@@ -108,12 +120,31 @@ def root_for(user_id: Optional[int], root: Optional[Path] = None) -> Path:
     return base / USERS_DIRNAME / str(user_id)
 
 
+def bind_run_root(path) -> object:
+    """Bind the workspace root for one run/tool call. Returns a reset token."""
+    return _RUN_ROOT.set(str(path))
+
+
+def clear_run_root(token) -> None:
+    try:
+        _RUN_ROOT.reset(token)
+    except ValueError:  # token from another context — harmless
+        pass
+
+
+def current_run_root() -> Optional[str]:
+    return _RUN_ROOT.get()
+
+
 def current_root(db=None, root: Optional[Path] = None) -> Path:
     """The private tree of whoever is asking right now (see :func:`subject_user_id`).
 
     ``root`` overrides the install root — the workspace manager passes its own
     resolved base so both agree even when Settings points elsewhere.
     """
+    bound = _RUN_ROOT.get()
+    if bound:
+        return Path(bound)
     return root_for(subject_user_id(db), root=root)
 
 

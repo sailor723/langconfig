@@ -57,7 +57,13 @@ class _DeepAgentSupportMixin:
         # Bind per-agent tool default params (e.g. neo4j_agent_tool.database)
         # so the agent knows its configured target at runtime.
         from core.tools.tool_params import apply_tool_params
-        return apply_tool_params(tools, getattr(config, "tool_params", None) or None)
+        tools = apply_tool_params(tools, getattr(config, "tool_params", None) or None)
+
+        # Bind every tool call to this run's workspace root — see
+        # core/tools/sandbox_scope.py for why the binding cannot live in the request
+        # context (the agent harness runs tools outside it).
+        from core.tools.sandbox_scope import scope_tools_to_root
+        return scope_tools_to_root(tools, workspace_root)
 
     @staticmethod
     async def _prepare_subagents(
