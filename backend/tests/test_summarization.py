@@ -75,6 +75,15 @@ class TestMetadataExtractionIntegration:
 
         # agent_memories FKs to projects — create our own project so the test
         # is self-contained on any (fresh) test database.
+        #
+        # The async engine is a process-wide pool whose asyncpg connections belong to the
+        # event loop that opened them. An earlier test in a full run closes its loop, and
+        # the pooled connection is then "attached to a different loop" — the test passes
+        # alone and fails in the suite. Disposing first rebinds the pool to this test's
+        # loop without touching any other test.
+        from db.database import async_engine
+
+        await async_engine.dispose()
         session = AsyncSessionLocal()
         project = Project(name="summarization-test")
         session.add(project)

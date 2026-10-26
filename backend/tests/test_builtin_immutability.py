@@ -58,7 +58,7 @@ def test_updating_a_builtin_tool_is_forbidden(db_session):
         update_payload = CustomToolUpdate(description="hijacked")
         import asyncio
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             update_custom_tool(tid, update_payload, db_session)
         )
     assert exc.value.status_code == 403
@@ -76,7 +76,7 @@ def test_builtin_tool_row_is_unchanged_after_the_rejected_update(db_session):
     import asyncio
 
     with pytest.raises(HTTPException):
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.run(
             update_custom_tool(tid, CustomToolUpdate(description="hijacked"), db_session)
         )
 
@@ -91,7 +91,7 @@ def test_deleting_a_builtin_tool_is_forbidden(db_session):
     import asyncio
 
     with pytest.raises(HTTPException) as exc:
-        asyncio.get_event_loop().run_until_complete(delete_custom_tool(tid, db_session))
+        asyncio.run(delete_custom_tool(tid, db_session))
     assert exc.value.status_code == 403
 
 
@@ -116,7 +116,7 @@ def test_a_custom_tool_is_still_editable(db_session):
     try:
         import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             update_custom_tool(tid, CustomToolUpdate(description="after"), db_session)
         )
         # the handler answers {"tool_id", "message", "warnings"} — assert on the
@@ -144,7 +144,7 @@ def test_updating_a_builtin_skill_is_forbidden(db_session):
     import asyncio
 
     with pytest.raises(HTTPException) as exc:
-        asyncio.get_event_loop().run_until_complete(update_skill(sid, _Req()))
+        asyncio.run(update_skill(sid, _Req()))
     assert exc.value.status_code == 403
     assert "built-in" in str(exc.value.detail).lower()
 
