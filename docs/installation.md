@@ -963,6 +963,37 @@ git push
 Run `--check` first: it only reads, so it is the cheap way to answer "do I owe the
 team a seed?" at any time.
 
+### What a seed in actually does — and the two things it will not do
+
+Every merge file is **additive and non-destructive**: `INSERT … WHERE NOT EXISTS (… name
+= …)` for agents, `WHERE NOT EXISTS (… tool_id = …)` for tools. That is what makes it safe
+to run on somebody's live database, and it is why two expectations are wrong:
+
+| You might expect | What actually happens |
+|---|---|
+| "I deleted an agent; teammates lose it too" | **No.** Their seed adds nothing new and removes nothing. The deletion reaches **fresh installs only**. An existing install keeps the agent until its owner deletes it there. |
+| "The tool fix ships with the seed" | **No.** An edited tool row is *not* re-inserted, because the row already exists. `seed in` reports nothing and the old code keeps running. |
+
+The second one is the dangerous one, and it bit this project: the per-user filesystem
+sandbox lives inside each builtin tool's `implementation_config.code`, so a machine that
+only ran `seed_all.py` kept tools that could read another account's workspace.
+
+**On every existing machine, after pulling a tool change:**
+
+```bash
+cd backend && .venv/bin/python scripts/seeds/in/seed_builtin_tools.py --refresh
+```
+
+`--refresh` rewrites the builtin rows from `tools/native_impl.py`; `seed_all.py` does not
+call it, deliberately — a seed must not silently rewrite tools an install may be running.
+Check the result with `--check`'s `tools` line (it goes `FRESH`) and by looking for the
+change in `custom_tools_merge.sql`.
+
+The one way to land a target database *exactly* on the seed is `seed_all.py --replace`,
+and it says what it costs before doing it: it truncates `deep_agent_templates` (and the
+tool table), and the cascade takes every `chat_sessions` row with the agents. Use it on a
+fresh machine, never on somebody's working install.
+
 ### No credential leaves the machine
 
 Two independent guards, because the artefacts are of two different kinds:
@@ -1071,6 +1102,10 @@ uv sync                                   # venv to the new uv.lock
 .venv/bin/python scripts/seeds/in/seed_all.py
 .venv/bin/python scripts/seeds/verify/smoke_test.py
 ```
+
+> **If the pull touched tools**, `seed_all.py` will not update them — it never rewrites an
+> existing row. Run `scripts/seeds/in/seed_builtin_tools.py --refresh` as well, or that
+> machine keeps executing the old tool code. See §4 "What a seed in actually does".
 
 > **Why there is no separate `alembic upgrade head` step.** `seed_all.py` reads
 > `alembic_version` first. A database with **no** recorded revision is *stamped* at
@@ -1205,6 +1240,11 @@ counts are legitimately `0` — everything there *is* the baseline.
 ---
 
 ## 7. Footguns
+
+**"I seeded but the tool change didn't arrive."** Every merge file is insert-only, so an
+edited row (tools especially: the code lives in `implementation_config`) is skipped with
+no message. `seed all` then `seed_builtin_tools.py --refresh` is the pair; §4 has the
+details.
 
 - **Exactly two things of a teammate's can be rewritten, and neither is their own
   work.** `custom_tools_merge.sql` and `deep_agents_merge.sql` never touch an
