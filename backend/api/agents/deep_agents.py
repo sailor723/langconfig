@@ -816,18 +816,40 @@ async def delete_deepagent(
     agent_id: int,
     db: Session = Depends(get_db)
 ):
-    """Delete a DeepAgent template."""
+    """Delete a DeepAgent template **and its workspace**.
+
+    The workspace used to be left behind: 93 orphan directories accumulated on one
+    install, invisible in the UI and attributable to nothing. They now move to
+    ``<owner tree>/.trash/agents/`` — gone from the workspace, still recoverable, with the
+    file count reported so the caller knows what left.
+    """
     agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.id == agent_id).first()
 
     if not agent:
         raise HTTPException(status_code=404, detail="DeepAgent not found")
 
+    agent_name = agent.name
+
+    # Workspaces first: if the row went first and the sweep failed, the directories
+    # would be unattributable — exactly the mess this is fixing.
+    from services.agent_cleanup import remove_agent_workspaces
+
+    workspace = remove_agent_workspaces(agent)
+
     db.delete(agent)
     db.commit()
 
-    logger.info(f"Deleted DeepAgent: {agent.name} (id={agent_id})")
+    logger.info(
+        "Deleted DeepAgent: %s (id=%s); %d workspace dir(s), %d file(s) moved to %s",
+        agent_name, agent_id, len(workspace["dirs"]), workspace["files"],
+        workspace.get("moved_to") or "—",
+    )
 
-    return {"status": "success", "message": f"DeepAgent {agent_id} deleted"}
+    return {
+        "status": "success",
+        "message": f"DeepAgent {agent_id} deleted",
+        "workspace": workspace,
+    }
 
 
 # =============================================================================

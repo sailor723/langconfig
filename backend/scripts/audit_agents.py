@@ -46,7 +46,7 @@ def _agents(db):
     from sqlalchemy import text
 
     return db.execute(text(
-        "SELECT a.id, a.name, a.config, a.agent_docs, "
+        "SELECT a.id, a.name, a.category, a.description, a.config, a.agent_docs, "
         "       (SELECT count(*) FROM chat_sessions s WHERE s.agent_id = a.id) AS chats "
         "FROM deep_agent_templates a ORDER BY a.id"
     )).all()
@@ -241,6 +241,8 @@ def main() -> int:
     parser.add_argument("--delete", nargs="*", type=int, default=None,
                         help="ids of agent-less-chat agents to delete (refused if they have chats)")
     parser.add_argument("--owner", type=int, default=None, help="user id whose tree to audit")
+    parser.add_argument("--csv", default=None, metavar="PATH",
+                        help="write the whole inventory to CSV for review")
     parser.add_argument("--prune-empty", action="store_true",
                         help="remove skeleton dirs left by deleted agents (never files)")
     parser.add_argument("--prune-orphans", action="store_true",
@@ -259,6 +261,33 @@ def main() -> int:
             owner = found.id
 
         data = report(db, owner)
+
+        if args.csv:
+            import csv as _csv
+
+            dirs = _workspace_dirs(owner)
+            with open(args.csv, "w", newline="", encoding="utf-8") as handle:
+                writer = _csv.writer(handle)
+                writer.writerow(["id", "name", "category", "chats", "seeded",
+                                 "model", "workspace_dirs", "user_files", "description"])
+                seeded_names = set()
+                try:
+                    import re as _re
+                    _sql = (BACKEND_DIR / "scripts" / "seeds" / "in" / "deep_agents_merge.sql").read_text(encoding="utf-8")
+                    seeded_names = {n.replace("''", "'") for n in _re.findall(r"SELECT '((?:[^']|'')*)',", _sql)}
+                except Exception:
+                    pass
+                for row in data["rows"]:
+                    paths = dirs.get(row.id, [])
+                    writer.writerow([
+                        row.id, row.name, row.category or "", row.chats,
+                        "seed" if row.name in seeded_names else "custom",
+                        ((row.config or {}).get("model") or ""),
+                        len(paths), sum(d["user_files"] for d in paths),
+                        (row.description or "").replace("\n", " ")[:120],
+                    ])
+            print(f"  inventory written: {args.csv}")
+            print()
 
         orphans = prune_orphans(user_roots.root_for(owner), args.apply)
         empty_n, files_n = len(orphans["empty"]), len(orphans["with_files"])
