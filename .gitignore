@@ -153,6 +153,7 @@ docs/*
 !docs/reference/
 docs/reference/*
 !docs/reference/GOOGLE_OAUTH_SETUP.md
+!docs/reference/agent-practice.md
 !docs/reference/agents-audit.md
 !docs/reference/data-taxonomy.md
 !docs/reference/deepagent-vs-dsh.md

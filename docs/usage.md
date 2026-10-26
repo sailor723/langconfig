@@ -145,6 +145,10 @@ and revision-guarded, so two tabs cannot silently clobber each other.
 
 ---
 
+> **After your first agent exists, read [`reference/agent-practice.md`](reference/agent-practice.md).**
+> Configuration is the easy half; the eight exercises there are about what to say, what to
+> expect back, and how to tell a real deliverable from a confident sentence.
+
 ## 5. Walkthrough — your first agent
 
 1. **Settings → API Keys**: add a key. **Settings → Models**: choose a default.
