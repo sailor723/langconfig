@@ -75,30 +75,92 @@ The edge case is the one people skip, and the one that prevents invented answers
 
 ### Run it on `prompt-lab`
 
-There is a ready-made agent for this: **`prompt-lab`**, three tools (`ls`,
-`read_any_file`, `save_document`), one model, one small job — so the only thing that varies
-in an experiment is the text. Its `AGENTS.md` opens with four rules, each with the experiment
-to run:
+A ready-made agent for these experiments: three tools (`ls`, `read_any_file`,
+`save_document`), one model, one small job — so the only variable is the text. Its `AGENTS.md`
+opens with four rules, each with its own experiment:
 
 | Rule | Change this | Watch this |
 |---|---|---|
-| **R1** output shape | "exactly three lines" → a table | the answer's *shape*, nothing else |
-| **R2** length budget | 60 characters → 300 | the answer's *length* |
-| **R3** refusal | delete the "say which capability is missing and stop" rule | it starts producing plausible paragraphs about data it never read |
-| **R4** tone | 你 → 您, allow/ban exclamation marks | one line, immediately visible |
+| **R1** shape | "three lines" → "a three-column table" | the answer's *shape*, nothing else |
+| **R2** length | 40 words → 300 | the answer's *length* |
+| **R3** refusal | delete the rule | it starts inventing what it never read |
+| **R4** tone | allow exclamation marks | one line, immediately visible |
 
-Create or restore it on any install:
+Run **R3 twice** — with the rule and without it. Measured here: "what did our website traffic
+look like last month?" answers
 
-```bash
-cd backend && .venv/bin/python scripts/create_starter_agent.py          # idempotent
-cd backend && .venv/bin/python scripts/create_starter_agent.py --delete # remove it
+```
+Conclusion: I can't answer this — the web analytics capability is missing.
 ```
 
-R3 is the one to run first, and the one to run *twice* — with the rule and without it. Measured
-on this install: with the rule, asking "what did our website traffic look like last month?"
-answers `Conclusion: I can't answer this — the web analytics capability is missing …`; delete
-the rule and the same question produces a confident paragraph about numbers nobody measured.
-That difference is the reason to teach refusal rules at all.
+Delete R3 and the same question yields a confident paragraph about numbers nobody measured.
+
+#### Create it by hand (5 steps, about 2 minutes)
+
+**1.** Activity bar → **DeepAgents** → **Create**. Name `prompt-lab`, model `deepseek-chat`,
+temperature `0.2`.
+
+**2.** **Tools** — exactly these three: `ls`, `read_any_file`, `save_document`. Fewer tools is the
+point (P7); it is also why R3 is demonstrable rather than theoretical.
+
+**3.** **Overview → system prompt** — paste:
+
+```
+You are prompt-lab, a small agent that demonstrates one thing: behaviour
+comes from these instructions, not from the model.
+
+Do the user's task, following AGENTS.md exactly. If a rule and the request conflict, follow the
+rule and say so.
+```
+
+**4.** **Docs → AGENTS.md** — replace everything with:
+
+```
+# prompt-lab
+
+Three tools, one job: show that the rules below control the behaviour.
+To run an experiment: change **one** rule in the Docs tab, save, start a **new** chat, ask the
+same question, compare.
+
+## Rules
+
+- **R1 Shape** — answer in exactly three lines: `Conclusion:` / `Because:` / `Next:`. No tables.
+- **R2 Length** — the whole answer fits in 40 words.
+- **R3 Refusal** — if answering needs a tool you do not have (web, database), name the missing
+  capability and stop. Never estimate or answer from memory as if you had checked.
+- **R4 Tone** — address the user as "you", never "You", and never use exclamation marks.
+
+## Experiments
+
+- **R3 (run this one twice):** ask "what did our website traffic look like last month?" → it
+  names the missing capability. Delete R3, run it again → a confident paragraph about numbers
+  nobody measured. That difference is why refusal rules exist.
+- **R1:** change "three lines" to "a three-column table" → the shape changes; nothing else does.
+- **R2:** change 40 to 300 → the answer grows.
+- **R4:** allow exclamation marks → visible in one line.
+
+## Workspace
+
+- **Workspace**: <the path the agent reports; the template fills this in>
+
+Deliverables go in `generated/`; uploads are read from `upload/`; `other/` is scratch. Nothing
+else is available: `ls`, `read_any_file` and `save_document` are the only tools — which is what
+makes R3 demonstrable.
+```
+
+**5.** **Save → new chat → run the R3 question above.** Expect the three-line answer with
+`Conclusion: I can't answer this — the web analytics capability is missing.`
+
+#### Or create it with one command
+
+```bash
+cd backend
+.venv/bin/python scripts/create_starter_agent.py            # create or refresh (idempotent)
+.venv/bin/python scripts/create_starter_agent.py --delete    # remove it, workspace to .trash
+```
+
+The script writes the same three texts above, bakes the identity, and materializes
+`AGENTS.md` / `CLAUDE.md` into the workspace — keep the two in step if you edit one.
 
 ### One worked example, because the shape is easier to copy than to describe
 

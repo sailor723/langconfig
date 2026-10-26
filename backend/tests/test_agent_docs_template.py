@@ -325,31 +325,38 @@ def test_the_prompt_lab_starter_agent_is_creatable_and_idempotent(db_session):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
+    # A dedicated name: this test deletes what it creates, and an earlier version used the
+    # real `prompt-lab`, so running the suite removed the starter agent from the dev database.
+    test_name = f"mu-test-{module.NAME}"
     try:
-        first = module.upsert(db_session)
-        second = module.upsert(db_session)
+        first = module.upsert(db_session, test_name)
+        second = module.upsert(db_session, test_name)
         assert first == second, "a second run must refresh, not duplicate"
 
         rows = db_session.execute(
             text("SELECT count(*) FROM deep_agent_templates WHERE name = :n"),
-            {"n": module.NAME},
+            {"n": test_name},
         ).scalar()
         assert rows == 1
 
         prompt, docs = db_session.execute(
             text("SELECT config->>'system_prompt', agent_docs::text "
                  "FROM deep_agent_templates WHERE name = :n"),
-            {"n": module.NAME},
+            {"n": test_name},
         ).first()
         # The lab rules are the point of the agent. Parsed, not substring-matched: the
         # jsonb text escapes non-ASCII (—  becomes  \u2014), so a raw search misses it.
         import json as _json
 
         lab = _json.loads(docs)["AGENTS.md"]
-        assert "## Lab — four rules you can change" in lab
-        assert "R3 — the refusal rule" in lab
+        # The rules are the point of the agent; assert them by name, not by heading style,
+        # because the compact version in `agent-practice.md` is the one users paste.
+        assert "## Rules" in lab
+        for rule in ("R1 Shape", "R2 Length", "R3 Refusal", "R4 Tone"):
+            assert rule in lab
+        assert "Delete R3" in lab, "the experiment that proves refusal matters must survive"
         # …and the identity was baked, so the agent knows its id and workspace.
         assert "## Identity" in prompt
         assert f"agent {first}" in prompt
     finally:
-        module.delete(db_session)
+        module.delete(db_session, test_name)

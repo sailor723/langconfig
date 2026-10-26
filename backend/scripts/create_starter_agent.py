@@ -37,91 +37,50 @@ NAME = "prompt-lab"
 #: the tool list does not compete with the instructions (see P7 in the practice guide).
 NATIVE_TOOLS = ["ls", "read_any_file", "save_document"]
 
-SYSTEM_PROMPT = """You are prompt-lab, a small agent used to demonstrate that behaviour comes
-from the prompt and not from the model.
+SYSTEM_PROMPT = """You are prompt-lab, a small agent that demonstrates one thing: behaviour
+comes from these instructions, not from the model.
 
-Your job: take a request from the user and answer it, following the rules in your AGENTS.md
-exactly. When the rules and the user's request conflict, follow the rules and say so.
-
-If the user asks what you are for, explain in one sentence that changing the rules in the Docs
-tab changes your behaviour immediately, and invite them to try.
-"""
+Do the user's task, following AGENTS.md exactly. If a rule and the request conflict, follow the
+rule and say so."""
 
 LAB_AGENTS_MD = """# prompt-lab
 
-An agent whose whole purpose is to show that the prompt — these rules — controls the
-behaviour. Everything else about it is deliberately minimal: three tools, one model, one
-small job.
+Three tools, one job: show that the rules below control the behaviour.
+To run an experiment: change **one** rule in the Docs tab, save, start a **new** chat, ask the
+same question, compare.
 
-## Lab — four rules you can change
+## Rules
 
-Each rule below is independently observable. To run an experiment: edit **one** rule in the
-Docs tab, save, start a **new** chat, ask the same question again, and compare. A change you
-cannot see did not take effect.
+- **R1 Shape** — answer in exactly three lines: `Conclusion:` / `Because:` / `Next:`. No tables.
+- **R2 Length** — the whole answer fits in 40 words.
+- **R3 Refusal** — if answering needs a tool you do not have (web, database), name the missing
+  capability and stop. Never estimate or answer from memory as if you had checked.
+- **R4 Tone** — address the user as "you", never "You", and never use exclamation marks.
 
-### R1 — output shape
+## Experiments
 
-- Answer in **exactly three lines**, prefixed `Conclusion:`, `Because:`, `Next:`. No tables,
-  no headings, no extra prose.
-
-*Experiment:* ask "summarise our sales trend". Then change `three lines` to `a table with three
-columns`. The answer's shape changes immediately; nothing else about the agent did.
-
-### R2 — length budget
-
-- The whole answer must fit in **60 Chinese characters / 40 words**, including the prefixes.
-
-*Experiment:* raise it to 300 and watch the answer grow. Then put it back — most "the model is
-verbose" complaints are a length budget you never wrote.
-
-### R3 — the refusal rule (the important one)
-
-- If answering needs a tool you do not have (web search, database, file upload), say which
-  capability is missing and **stop**. Never estimate, never answer from memory as if you had
-  checked.
-
-*Experiment:* ask "what did our site's traffic look like last month?" — an agent with this rule
-names the missing capability. Delete the rule and run it again: it will produce a plausible
-paragraph. That difference is the entire reason this rule exists.
-
-### R4 — tone, visible in one line
-
-- Address the user as "you" (你), never "您". Never use exclamation marks.
-
-*Experiment:* ask it to greet a new colleague. Then flip 你 → 您 and add an exclamation-mark
-ban or allowance. Tone rules are the cheapest way to prove the prompt is live.
-
-## How to run an experiment
-
-1. Change **one** rule. Two changes at once cannot be attributed.
-2. Save the Docs tab.
-3. **New chat** — a running conversation keeps the instructions it started with.
-4. Ask the same question as before.
-5. Decide: did the behaviour change? If not, the rule is vague, buried, or contradicted by
-   another rule — sharpen it (see `docs/reference/agent-practice.md`, P2).
-
-## What this agent cannot do
-
-`ls`, `read_any_file` and `save_document` are its only tools. It has no web access, no
-database, and no way to run shell commands — which makes R3 demonstrable rather than
-theoretical.
+- **R3 (run this one twice):** ask "what did our website traffic look like last month?" → it
+  names the missing capability. Delete R3, run it again → a confident paragraph about numbers
+  nobody measured. That difference is why refusal rules exist.
+- **R1:** change "three lines" to "a three-column table" → the shape changes; nothing else does.
+- **R2:** change 40 to 300 → the answer grows.
+- **R4:** allow exclamation marks → visible in one line.
 
 ## Workspace
 
 - **Workspace**: {{workspace_root}}
 
-Deliverables go in `generated/`; uploads are read from `upload/`; `other/` is scratch.
+Deliverables go in `generated/`; uploads are read from `upload/`; `other/` is scratch. Nothing
+else is available: `ls`, `read_any_file` and `save_document` are the only tools — which is what
+makes R3 demonstrable.
 """
 
 LAB_CLAUDE_MD = """# prompt-lab — CLAUDE.md
 
-Mirror of AGENTS.md; see that file for the lab rules.
+Mirror of AGENTS.md: four rules (shape, length, refusal, tone). Change one, new chat, same
+question, compare. Tools: `ls`, `read_any_file`, `save_document` — nothing else.
 
 - **Workspace**: {{workspace_root}}
-- Four lab rules (R1 output shape, R2 length, R3 refusal, R4 tone). Change one, new chat,
-  same question, compare.
-- Tools: `ls`, `read_any_file`, `save_document` — nothing else. That is why R3 (refusal) is
-  demonstrable.
 """
 
 
@@ -164,14 +123,14 @@ def _config() -> dict:
     }
 
 
-def upsert(db) -> int:
+def upsert(db, name: str = NAME) -> int:
     from models.deep_agent import DeepAgentTemplate
 
-    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.name == NAME).first()
+    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.name == name).first()
     created = agent is None
     if created:
         agent = DeepAgentTemplate(
-            name=NAME,
+            name=name,
             description="Starter agent for learning prompt control: four lab rules, three tools.",
             category="Custom",
             config=_config(),
@@ -204,11 +163,11 @@ def upsert(db) -> int:
         agent, None, vault_key=None, agent_key=WorkspaceManager.agent_vault_key(db, agent),
     ))
 
-    values = {"workspace_root": workspace_root, "agent_id": agent.id, "agent_name": NAME}
+    values = {"workspace_root": workspace_root, "agent_id": agent.id, "agent_name": name}
     docs = {
         "AGENTS.md": LAB_AGENTS_MD.replace("{{workspace_root}}", workspace_root)
                                  .replace("{{agent_id}}", str(agent.id))
-                                 .replace("{{agent_name}}", NAME),
+                                 .replace("{{agent_name}}", name),
         "CLAUDE.md": LAB_CLAUDE_MD.replace("{{workspace_root}}", workspace_root),
     }
     agent.agent_docs = docs
@@ -224,20 +183,20 @@ def upsert(db) -> int:
     for filename, content in docs.items():
         (root / filename).write_text(content, encoding="utf-8")
 
-    print(f"  {'created' if created else 'refreshed'} {NAME} (id={agent.id})")
+    print(f"  {'created' if created else 'refreshed'} {name} (id={agent.id})")
     print(f"  workspace: {workspace_root}")
     print(f"  tools    : {', '.join(NATIVE_TOOLS)}")
     return agent.id
 
 
-def delete(db) -> int:
+def delete(db, name: str = NAME) -> int:
     from sqlalchemy import text
     from models.deep_agent import DeepAgentTemplate
     from services.agent_cleanup import remove_agent_workspaces
 
-    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.name == NAME).first()
+    agent = db.query(DeepAgentTemplate).filter(DeepAgentTemplate.name == name).first()
     if agent is None:
-        print(f"  {NAME} does not exist")
+        print(f"  {name} does not exist")
         return 1
     # Workspace first, same order as the delete endpoint: a failed sweep after the row is
     # gone would leave unattributable directories.
@@ -245,21 +204,24 @@ def delete(db) -> int:
     db.execute(text("DELETE FROM chat_sessions WHERE agent_id = :i"), {"i": agent.id})
     db.delete(agent)
     db.commit()
-    print(f"  deleted {NAME}; {len(summary['dirs'])} workspace dir(s) moved to the trash")
+    print(f"  deleted {name}; {len(summary['dirs'])} workspace dir(s) moved to the trash")
     return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Create or refresh the prompt-lab starter agent.")
     parser.add_argument("--delete", action="store_true")
+    parser.add_argument("--name", default=NAME,
+                        help="agent name (default: prompt-lab); a test uses its own so it "
+                             "never deletes the real starter agent")
     args = parser.parse_args()
 
     db = SessionLocal()
     try:
         if args.delete:
-            return delete(db)
-        agent_id = upsert(db)
-        print(f"\n  next: open {NAME} in the UI, run one experiment from its lab section,")
+            return delete(db, args.name)
+        agent_id = upsert(db, args.name)
+        print(f"\n  next: open {args.name} in the UI, run one experiment from its lab section,")
         print("        then read docs/reference/agent-practice.md §P2.")
         return 0 if agent_id else 1
     finally:
