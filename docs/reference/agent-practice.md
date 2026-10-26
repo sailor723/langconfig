@@ -73,6 +73,33 @@ of prompting lets an agent read a database it has no tool for.
 
 The edge case is the one people skip, and the one that prevents invented answers.
 
+### Run it on `prompt-lab`
+
+There is a ready-made agent for this: **`prompt-lab`**, three tools (`ls`,
+`read_any_file`, `save_document`), one model, one small job — so the only thing that varies
+in an experiment is the text. Its `AGENTS.md` opens with four rules, each with the experiment
+to run:
+
+| Rule | Change this | Watch this |
+|---|---|---|
+| **R1** output shape | "exactly three lines" → a table | the answer's *shape*, nothing else |
+| **R2** length budget | 60 characters → 300 | the answer's *length* |
+| **R3** refusal | delete the "say which capability is missing and stop" rule | it starts producing plausible paragraphs about data it never read |
+| **R4** tone | 你 → 您, allow/ban exclamation marks | one line, immediately visible |
+
+Create or restore it on any install:
+
+```bash
+cd backend && .venv/bin/python scripts/create_starter_agent.py          # idempotent
+cd backend && .venv/bin/python scripts/create_starter_agent.py --delete # remove it
+```
+
+R3 is the one to run first, and the one to run *twice* — with the rule and without it. Measured
+on this install: with the rule, asking "what did our website traffic look like last month?"
+answers `Conclusion: I can't answer this — the web analytics capability is missing …`; delete
+the rule and the same question produces a confident paragraph about numbers nobody measured.
+That difference is the reason to teach refusal rules at all.
+
 ### One worked example, because the shape is easier to copy than to describe
 
 Task: *"turn this CSV of monthly sales into a short brief"*, running badly (a paragraph of

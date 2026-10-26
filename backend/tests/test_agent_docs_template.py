@@ -305,3 +305,51 @@ def test_the_template_tells_the_agent_who_it_works_for():
     assert "server's" in flat
 
     assert "Who you are working for" in docs["CLAUDE.md"]
+
+
+def test_the_prompt_lab_starter_agent_is_creatable_and_idempotent(db_session):
+    """`scripts/create_starter_agent.py` must be re-runnable: one row, one workspace.
+
+    It is the teaching artifact for P2, so it has to be restorable on any install without
+    leaving duplicates behind — and it must bake the identity itself, because writing the row
+    by hand skips the create endpoint's baking step.
+    """
+    import importlib.util
+    from pathlib import Path as _Path
+    from sqlalchemy import text
+
+    spec = importlib.util.spec_from_file_location(
+        "create_starter_agent",
+        _Path(__file__).resolve().parent.parent / "scripts" / "create_starter_agent.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    try:
+        first = module.upsert(db_session)
+        second = module.upsert(db_session)
+        assert first == second, "a second run must refresh, not duplicate"
+
+        rows = db_session.execute(
+            text("SELECT count(*) FROM deep_agent_templates WHERE name = :n"),
+            {"n": module.NAME},
+        ).scalar()
+        assert rows == 1
+
+        prompt, docs = db_session.execute(
+            text("SELECT config->>'system_prompt', agent_docs::text "
+                 "FROM deep_agent_templates WHERE name = :n"),
+            {"n": module.NAME},
+        ).first()
+        # The lab rules are the point of the agent. Parsed, not substring-matched: the
+        # jsonb text escapes non-ASCII (—  becomes  \u2014), so a raw search misses it.
+        import json as _json
+
+        lab = _json.loads(docs)["AGENTS.md"]
+        assert "## Lab — four rules you can change" in lab
+        assert "R3 — the refusal rule" in lab
+        # …and the identity was baked, so the agent knows its id and workspace.
+        assert "## Identity" in prompt
+        assert f"agent {first}" in prompt
+    finally:
+        module.delete(db_session)
