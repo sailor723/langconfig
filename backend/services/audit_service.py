@@ -50,6 +50,7 @@ import os
 from typing import Optional, Dict, Any
 from fastapi import Request
 from sqlalchemy.orm import Session
+from core.context.current_user import current_user_id
 from models.audit_log import AuditLog, AuditAction
 import json
 
@@ -140,6 +141,11 @@ async def audit_log(
             # Extract query parameters
             if request.url.query:
                 query_params = dict(request.query_params)
+
+        # Attribute to the caller unless the call site said otherwise — see
+        # audit_log_sync for why this lives here and not at every call site.
+        if user_id is None:
+            user_id = current_user_id()
 
         # Determine success based on status code
         success = 1  # Default to success
@@ -240,6 +246,12 @@ def audit_log_sync(
         )
     """
     try:
+        # Attribute the row to whoever is making the request unless the caller
+        # said otherwise. Doing it here rather than at ~40 call sites means no
+        # audit row can be added later that quietly forgets its author.
+        if user_id is None:
+            user_id = current_user_id()
+
         # Determine success based on status code
         success = 1  # Default to success
         if status_code and status_code >= 400:

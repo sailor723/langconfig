@@ -47,6 +47,8 @@ npm run build                      # Frontend build check
   - `POST /api/workflows/{id}/execute` - Run workflow (SSE)
   - `POST /api/agents/{id}/chat` - Chat with agent (SSE)
   - `POST /api/knowledge/documents` - Upload RAG document
+  - `GET /api/users/me` - Who is calling (Basic auth via the LAN gate; loopback = owner)
+  - `GET /api/users` - Account list and management (admin only)
 
 ## Shell Commands (Important!)
 

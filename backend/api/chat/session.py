@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
+from core.context.current_user import current_user_id
 from db.database import get_db
 from models.deep_agent import ChatSession, DeepAgentTemplate
 from services.chat_session_manager import get_session_manager
@@ -62,7 +63,10 @@ async def start_chat_session(
         session = ChatSession(
             session_id=session_id,
             agent_id=agent.id,
-            user_id=request.user_id,
+            # The caller, not a client-supplied field: the identity is verified by
+            # the LAN gate, the request body is not. `request.user_id` survives only
+            # as the fallback for loopback work that predates accounts.
+            user_id=current_user_id() or request.user_id,
             project_id=request.project_id,  # vault scope for the agent workspace
             messages=[],
             metrics={

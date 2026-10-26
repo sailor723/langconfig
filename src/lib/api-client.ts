@@ -59,6 +59,7 @@ import { chatApi, type ChatApi } from './api/chat';
 import { skillsApi, type SkillsApi } from './api/skills';
 import { schedulesApi, type SchedulesApi } from './api/schedules';
 import { triggersApi, type TriggersApi } from './api/triggers';
+import { usersApi, type UsersApi } from './api/users';
 
 /**
  * API Client for LangConfig backend
@@ -263,7 +264,8 @@ export interface APIClient extends
   ChatApi,
   SkillsApi,
   SchedulesApi,
-  TriggersApi {}
+  TriggersApi,
+  UsersApi {}
 
 // Attach the extracted resource methods to the class prototype.
 Object.assign(
@@ -280,6 +282,7 @@ Object.assign(
   skillsApi,
   schedulesApi,
   triggersApi,
+  usersApi,
 );
 
 export const apiClient = new APIClient();

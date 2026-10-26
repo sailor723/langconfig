@@ -14,9 +14,10 @@ import { useState, useRef, Fragment } from 'react';
 import { useLayoutState, ACTIVITIES, type ActivityDef, type ActivityId } from './useLayout';
 import { useLayoutTokens } from './tokens';
 import {
-  GitBranch, Brain, Users, BarChart3, Network, Settings, Wrench, Database, Award, MessageSquare, Archive, FileText, BookOpen, Workflow, type LucideIcon,
+  GitBranch, Brain, Users, BarChart3, Network, Settings, Wrench, Database, Award, MessageSquare, Archive, FileText, BookOpen, Workflow, UserRound, type LucideIcon,
 } from 'lucide-react';
 import VaultPopover from './VaultPopover';
+import UserPopover from './UserPopover';
 
 const ICON_MAP: Partial<Record<ActivityId, LucideIcon>> = {
   vault:      Archive,
@@ -103,6 +104,8 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
   const t = useLayoutTokens();
   const [vaultOpen, setVaultOpen] = useState(false);
   const vaultBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [userOpen, setUserOpen] = useState(false);
+  const userBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const handleActivityClick = (id: ActivityId) => {
     setActiveActivity(id);
@@ -185,6 +188,52 @@ export default function ActivityBar({ onClickActivity }: ActivityBarProps) {
       ))}
 
       <div style={{ flex: 1 }} />
+
+      {/* Account — who am I, and the two things an account can do.
+          Bottom cluster because that is where "this session" lives, next to
+          Settings: it is about you, not about a document. */}
+      <button
+        ref={userBtnRef}
+        title="Your account"
+        onClick={() => setUserOpen(v => !v)}
+        style={{
+          width: 48,
+          height: 48,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'transparent',
+          color: userOpen ? t.activityBarActive : t.activityBarInactive,
+          border: 'none',
+          cursor: 'pointer',
+          position: 'relative',
+        }}
+        onMouseEnter={e => { if (!userOpen) e.currentTarget.style.background = t.activityBarHover; }}
+        onMouseLeave={e => { if (!userOpen) e.currentTarget.style.background = 'transparent'; }}
+      >
+        {userOpen && (
+          <span
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 8,
+              bottom: 8,
+              width: 2,
+              background: t.activityBarActive,
+            }}
+          />
+        )}
+        <UserRound size={20} strokeWidth={userOpen ? 2 : 1.5} />
+      </button>
+
+      {userOpen && (
+        <UserPopover
+          anchorRef={userBtnRef as React.RefObject<HTMLElement | null>}
+          onClose={() => setUserOpen(false)}
+          onOpenAccount={() => window.dispatchEvent(new CustomEvent('account:open'))}
+          onOpenUsers={() => window.dispatchEvent(new CustomEvent('users:open'))}
+        />
+      )}
 
       {/* Settings gear — opens the DSH-style settings modal (centered panel) */}
       <button

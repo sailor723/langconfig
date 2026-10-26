@@ -372,26 +372,26 @@ echo "  Frontend: http://localhost:1421"
 # between "it works" and "it 401s and I don't know why".
 if lan_access_enabled; then
     echo ""
-    echo "  LAN (shared instance): http://$(lan_ip):8765"
-    # Names only — never passwords. One credential per person is what makes
-    # removing a person a one-line .env edit rather than a group announcement.
-    LAN_NAMES="$(env_value LANGCONFIG_LAN_USERS | tr ',' '\n' | cut -d: -f1 | sed '/^[[:space:]]*$/d' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
-    if [ -n "$LAN_NAMES" ]; then
-        echo "    accounts: $LAN_NAMES  (passwords: LANGCONFIG_LAN_USERS in .env)"
-    else
-        echo "    user: $(env_value LANGCONFIG_LAN_USER | sed 's/^$/langconfig/')  (password: LANGCONFIG_LAN_PASSWORD in .env)"
-    fi
-    if [ -z "$LAN_NAMES" ] && [ -z "$(env_value LANGCONFIG_LAN_PASSWORD)" ]; then
-        echo "    ⚠️  No credential is configured — the backend REFUSES every LAN"
-        echo "        request (503) until you set LANGCONFIG_LAN_USERS. That is"
-        echo "        deliberate: an enabled gate with no key must not fall open."
+    echo "  LAN (accounts): http://$(lan_ip):8765"
+    # Who can sign in lives in the `users` table, not in .env: the .env entries
+    # were imported on the first boot and are ignored from then on. So this says
+    # where accounts are managed instead of listing a file that no longer decides
+    # anything — the boot log above reports the real count.
+    echo "    Sign in with your own account (Browser asks once). Admin: user icon"
+    echo "    -> Users, to add, disable or re-password people."
+    echo "    Passwords are hashed; the policy is a minimum of 8 characters."
+    if [ -z "$(env_value LANGCONFIG_LAN_USERS)" ] && [ -z "$(env_value LANGCONFIG_LAN_PASSWORD)" ]; then
+        echo "    First boot only: with no .env credential and an empty users table,"
+        echo "    every LAN request is REFUSED (503) — deliberate: an enabled gate"
+        echo "    with no key must not fall open. Create the first admin with:"
+        echo "      cd backend && .venv/bin/python scripts/create_user.py admin '<pw>' --admin"
     fi
     if [ ! -f "$ROOT_DIR/dist/index.html" ]; then
         echo "    ⚠️  dist/index.html is missing — LAN users would reach the API but see"
         echo "        no UI. Run: cd $ROOT_DIR && npm run build"
     fi
-    echo "    Everything behind this door is shared: projects, files, chat history,"
-    echo "    API keys. Separate credentials, one workspace — not separate users."
+    echo "    Accounts are separate; the data is not: projects, files, chat history,"
+    echo "    knowledge and API keys are shared by every account on this instance."
 else
     echo ""
     echo "  LAN mode is off (LANGCONFIG_LAN_ACCESS in .env). Note what that means:"

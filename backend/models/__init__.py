@@ -47,6 +47,7 @@ from .agent_memory import AgentMemory
 from .analysis_chat import AnalysisChatMessage
 from .agent_document import AgentDocument
 from .classic_graph import ClassicGraph, ClassicGraphRun
+from .user import User, UserRole
 
 __all__ = [
     "Project",
@@ -99,4 +100,6 @@ __all__ = [
     "AgentDocument",
     "ClassicGraph",
     "ClassicGraphRun",
+    "User",
+    "UserRole",
 ]

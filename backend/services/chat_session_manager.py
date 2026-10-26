@@ -19,9 +19,39 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 
+from core.context.current_user import current_user
 from models.deep_agent import ChatSession
 
 logger = logging.getLogger(__name__)
+
+# Marks cache entries built outside any request (startup warmups, scripts,
+# background jobs). Distinct from every real id, so it can never collide.
+_ANONYMOUS_SEGMENT = "u~"
+
+
+def _user_segment() -> str:
+    """Who this agent instance was built for.
+
+    Why it belongs in the cache key: a cached instance carries resolved
+    credentials and a resolved workspace. Keyed by session alone, two people who
+    end up on the same ``session_id`` (a shared link, a copied id, a retried
+    request) would share one instance — and therefore one set of key material.
+    Today every user shares the same keys, so this changes no behaviour; it
+    removes the single place where per-user keys could silently cross over the
+    day they exist.
+    """
+    user = current_user()
+    return f"u{user.id}" if user is not None else _ANONYMOUS_SEGMENT
+
+
+def _cache_key(session_id: str, agent_id: Optional[int], agent_version: Optional[str]) -> str:
+    """``u<user>:<session>:<agent>:<version>`` — identity first, so it reads right."""
+    parts = [_user_segment(), session_id]
+    if agent_id is not None:
+        parts.append(str(agent_id))
+        if agent_version is not None:
+            parts.append(str(agent_version))
+    return ":".join(parts)
 
 
 class SessionMetadata:
@@ -82,12 +112,8 @@ class ChatSessionManager:
         Returns:
             Agent instance if cached, None otherwise
         """
-        # Build composite key — agent_id + version bust the cache when config changes
-        cache_key = session_id
-        if agent_id is not None:
-            cache_key = f"{session_id}:{agent_id}"
-            if agent_version is not None:
-                cache_key = f"{cache_key}:{agent_version}"
+        # Composite key: user + agent_id + version — see _cache_key.
+        cache_key = _cache_key(session_id, agent_id, agent_version)
 
         metadata = self.active_sessions.get(cache_key)
         if metadata:
@@ -105,12 +131,8 @@ class ChatSessionManager:
             agent_id: Optional agent ID — used in cache key
             agent_version: Optional version string — invalidates cache on change
         """
-        # Build composite key — see get_agent
-        cache_key = session_id
-        if agent_id is not None:
-            cache_key = f"{session_id}:{agent_id}"
-            if agent_version is not None:
-                cache_key = f"{cache_key}:{agent_version}"
+        # Composite key — see _cache_key
+        cache_key = _cache_key(session_id, agent_id, agent_version)
 
         if cache_key in self.active_sessions:
             # Update existing
@@ -132,10 +154,12 @@ class ChatSessionManager:
         Returns:
             True if session was removed, False if not found
         """
-        prefix = f"{session_id}:"
+        # Segment match, not prefix: the key now starts with the user, and the
+        # session id is in the middle. Session ids are UUIDs, so a segment can
+        # never collide with a user or agent segment.
         keys_to_remove = [
             key for key in self.active_sessions
-            if key == session_id or key.startswith(prefix)
+            if session_id in key.split(":")
         ]
         for key in keys_to_remove:
             del self.active_sessions[key]

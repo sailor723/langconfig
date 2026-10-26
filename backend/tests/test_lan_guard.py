@@ -5,8 +5,15 @@ code-execution surface and the rest of the network, so its defaults are tested
 as carefully as its happy path: "off" must stay off, and "on but misconfigured"
 must fail closed rather than open.
 
-Pure ASGI, no database and no app fixtures — these tests exercise the gate in
-isolation by hand-building scopes.
+Pure ASGI, no app fixtures — these tests exercise the gate in isolation by
+hand-building scopes.
+
+Credentials themselves now live in the ``users`` table, so the gate delegates to
+a ``CredentialVerifier``. The autouse fixture below swaps in a verifier that reads
+the same ``LANGCONFIG_LAN_*`` environment the tests set, which keeps every
+assertion here about the *gate* (challenge, fail closed, loopback, bypass,
+websocket close) rather than about where a password is stored. Database-backed
+verification is covered by ``test_user_service.py``.
 """
 
 import asyncio
@@ -14,12 +21,43 @@ import base64
 
 import pytest
 
+import middleware.lan_guard as lan_guard
+from core.security.lan_auth import InMemoryCredentialVerifier
 from middleware.lan_guard import (
     LanGuardMiddleware,
     _is_loopback,
     lan_access_enabled,
     parse_lan_users,
 )
+
+
+class _EnvVerifier:
+    """A verifier over the ``LANGCONFIG_LAN_*`` fixtures, re-read on every call.
+
+    Re-read rather than snapshotted because several tests change the environment
+    mid-test (e.g. removing one person's credential and asserting the rest still
+    work). The gate caches the verifier *object*, never the credentials, so this
+    stays correct without the gate knowing anything about tests.
+    """
+
+    @staticmethod
+    def _current() -> InMemoryCredentialVerifier:
+        from core.security.lan_auth import parse_env_credentials
+
+        credentials, _problems = parse_env_credentials()
+        return InMemoryCredentialVerifier(dict(credentials))
+
+    def verify(self, username, password):
+        return self._current().verify(username, password)
+
+    def owner(self):
+        return self._current().owner()
+
+
+@pytest.fixture(autouse=True)
+def _env_backed_verifier(monkeypatch):
+    """Verify against the fixtures instead of the ``users`` table."""
+    monkeypatch.setattr(lan_guard, "get_default_verifier", _EnvVerifier, raising=True)
 
 
 PASSWORD = "correct horse battery staple"
@@ -345,12 +383,25 @@ def test_malformed_entries_are_dropped_and_reported(monkeypatch, lan_multi):
     assert sent[0]["status"] == 401
 
 
-def test_users_set_but_wholly_invalid_fails_closed(monkeypatch, lan_multi):
+def test_wholly_invalid_entries_leave_no_account_and_fail_closed(monkeypatch, lan_multi):
+    """Nothing usable is configured, so nothing gets in — via either door.
+
+    Two different refusals, deliberately: no credential at all means "this install
+    has no accounts" (503, with the fix in the body), while a presented credential
+    on an empty user list is an ordinary failed login (401). Both routes must
+    refuse; neither may fall open.
+    """
     monkeypatch.setenv("LANGCONFIG_LAN_USERS", "nonsense, also-nonsense")
-    downstream = _Downstream()
-    sent = _run(_call(LanGuardMiddleware(downstream), headers=[_basic("nonsense", "")]))
-    assert downstream.called is False
+
+    silent = _Downstream()
+    sent = _run(_call(LanGuardMiddleware(silent)))
+    assert silent.called is False
     assert sent[0]["status"] == 503
+
+    claiming = _Downstream()
+    sent = _run(_call(LanGuardMiddleware(claiming), headers=[_basic("nonsense", "")]))
+    assert claiming.called is False
+    assert sent[0]["status"] == 401
 
 
 def test_legacy_single_credential_still_works(lan_on):

@@ -75,6 +75,39 @@ async def lifespan(app: FastAPI):
         logger.error("Make sure PostgreSQL is running: docker-compose up -d postgres")
         raise
 
+    # Bootstrap the first accounts from .env (docs/reference/lan-access.md).
+    # This is a ONE-TIME seed: the first LAN credential becomes the admin, the
+    # rest become members, and afterwards the users table is the only user list —
+    # editing LANGCONFIG_LAN_USERS no longer creates, renames or removes anyone.
+    # A failure here is logged, not raised: an unreachable users table must not
+    # stop a single-user local install from starting.
+    try:
+        from db.database import SessionLocal as _bootstrap_session
+        from services import user_service as _user_service
+
+        _db = _bootstrap_session()
+        try:
+            _created = _user_service.bootstrap_from_env(_db)
+            _total = _user_service.count_users(_db)
+        finally:
+            _db.close()
+        if _created:
+            logger.info(
+                "Bootstrapped %d account(s) from .env: %s — .env is no longer the "
+                "user list; manage accounts in the UI. %d account(s) total.",
+                len(_created),
+                ", ".join(_created),
+                _total,
+            )
+        else:
+            logger.info(
+                "User accounts: %d existing (bootstrap skipped — .env credentials "
+                "no longer define users).",
+                _total,
+            )
+    except Exception as e:
+        logger.warning(f"User bootstrap failed (non-fatal): {e}")
+
     # Register deepagents harness profiles (must happen before any
     # create_deep_agent call). LangConfig excludes the SDK's `read_file` so a
     # deep agent cannot pull an image in as a base64 tool result — that path
@@ -410,34 +443,41 @@ app.add_middleware(
 # Registered last, which in FastAPI means outermost: it refuses before any
 # router, middleware or SSE stream starts work.
 from middleware.lan_guard import LanGuardMiddleware, lan_access_enabled, parse_lan_users
+from middleware.identity import UserContextMiddleware
 
+# Order matters. ``add_middleware`` builds the stack outside-in, so the LAST one
+# added runs FIRST: the gate must reject a bad credential before anything below
+# it does work, and the identity middleware sits just inside it to read the
+# principal the gate parked. Reversing these two would make identity resolve
+# unauthenticated callers.
+app.add_middleware(UserContextMiddleware)
 app.add_middleware(LanGuardMiddleware)
 
 # Report the configuration at boot — the one moment someone is reading the log.
 # A gate that is silently misconfigured is worse than no gate, so each bad state
 # says so in the strongest terms that still lets the server start.
 if lan_access_enabled():
-    _lan_accounts, _lan_problems = parse_lan_users()
+    # Who may sign in is decided by the `users` table, not by .env: those entries
+    # are imported ONCE on first boot (lifespan below) and never read again. So the
+    # only honest thing to report here is that the gate is on — the account count
+    # is logged after bootstrap, when it actually exists.
+    _lan_seeds, _lan_problems = parse_lan_users()
     for _problem in _lan_problems:
         logger.error(
-            "LANGCONFIG_LAN_USERS entry ignored: %s — that person cannot sign in "
-            "until this is fixed.",
+            "LANGCONFIG_LAN_USERS entry ignored: %s — it will not become an account.",
             _problem,
         )
-    if not _lan_accounts:
-        logger.error(
-            "LAN access is ON but no usable credential is configured — every "
-            "non-loopback request will be REFUSED (503). Set LANGCONFIG_LAN_USERS "
-            "(name:password,...) in .env. This is deliberate: an enabled gate with "
-            "no key must not fall open."
-        )
-    else:
-        logger.info(
-            "LAN access mode is ON — non-loopback requests require Basic auth; "
-            "loopback is exempt. %d credential(s): %s",
-            len(_lan_accounts),
-            ", ".join(sorted(_lan_accounts)),
-        )
+    logger.info(
+        "LAN access mode is ON — non-loopback requests need Basic auth against the "
+        "users table; loopback is exempt. %s",
+        (
+            f"{len(_lan_seeds)} credential(s) in .env will be imported on first boot "
+            f"({', '.join(sorted(_lan_seeds))}); after that .env is ignored."
+            if _lan_seeds
+            else "No .env credential to import, so an account must be created with "
+            "backend/scripts/create_user.py if the users table is empty."
+        ),
+    )
 elif os.getenv("LANGCONFIG_LAN_USERS", "").strip() or os.getenv(
     "LANGCONFIG_LAN_PASSWORD", ""
 ):
@@ -594,6 +634,7 @@ async def root():
     }
 
 # Import and register API routers (domain-based organization)
+from api.users import routes as users  # accounts: self-service + admin
 from api.workflows import routes as workflows
 from api.projects import routes as projects
 from api.tasks import routes as tasks
@@ -649,6 +690,7 @@ app.include_router(graphindex_chat.router)  # Phase 9 / Step K — graphindex_ch
 app.include_router(doc_chat.router)  # Simplified doc-chat — folder-based context, no RAG/Neo4j
 app.include_router(kv.router)  # KV document store — no DB dependencies
 app.include_router(background_tasks.router)  # Background task queue management
+app.include_router(users.router)  # User accounts (who is asking)
 app.include_router(workspace.router)  # Workspace file management
 app.include_router(agent_documents.router)  # DB-mode document library
 app.include_router(settings.router)

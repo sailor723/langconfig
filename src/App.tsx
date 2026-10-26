@@ -34,6 +34,7 @@ import DeepAgentHomePage from './components/layout2/DeepAgentHomePage';
 import AgentHomePage from './components/layout2/AgentHomePage';
 import AnalysisPage from './pages/AnalysisPage';
 import SettingsModal from './pages/SettingsPage';
+import { AccountDialog, UsersDialog } from './components/layout2/UserAccountDialogs';
 import { ThemeProvider } from './lib/themes';
 import { ProjectProvider } from './contexts/ProjectContext';
 import { ToastProvider, ToastContainer } from './hooks/useToast';
@@ -341,6 +342,25 @@ function AppContent() {
     const handler = () => setSettingsOpen(true);
     window.addEventListener('settings:open', handler);
     return () => window.removeEventListener('settings:open', handler);
+  }, []);
+
+  // ── Account / Users dialogs ──────────────────────────────
+  // Opened from the user popover in the activity bar ('account:open',
+  // 'users:open') — the same event-driven pattern as the settings modal. They are
+  // separate from Settings on purpose: Settings edits the install, these edit a
+  // person, and a member must reach the first without seeing the second.
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [usersOpen, setUsersOpen] = useState(false);
+
+  useEffect(() => {
+    const openAccount = () => setAccountOpen(true);
+    const openUsers = () => setUsersOpen(true);
+    window.addEventListener('account:open', openAccount);
+    window.addEventListener('users:open', openUsers);
+    return () => {
+      window.removeEventListener('account:open', openAccount);
+      window.removeEventListener('users:open', openUsers);
+    };
   }, []);
 
   const [selectedRecipe, setSelectedRecipe] = useState<WorkflowRecipe | null>(null);
@@ -712,6 +732,9 @@ function AppContent() {
         }}
       />
     )}
+
+    {accountOpen && <AccountDialog onClose={() => setAccountOpen(false)} />}
+    {usersOpen && <UsersDialog onClose={() => setUsersOpen(false)} />}
     </>
   );
 }
