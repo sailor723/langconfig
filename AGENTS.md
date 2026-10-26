@@ -86,7 +86,7 @@ See `docs/` for architecture and design documentation:
 | `docs/system-architecture.md` | System design, five-layer model, agent landscape, storage strategy |
 | `docs/installation.md` | Install and update: local dev, team zip, and the seed out → push → pull → seed loop |
 | `docs/usage.md` | User guide: the shell, the 13 activities, first-agent / first-workflow walkthroughs |
-| `docs/reference/agent-practice.md` | Working *with* agents: eight practical exercises — identity, instruction files, skill triggering, deliverables, verification, one-task-per-chat, tool budget, refusals |
+| `docs/reference/agent-practice.md` | Working *with* agents: eight practical exercises — identity, changing behaviour with rules, skill triggering, deliverables, verification, one-task-per-chat, tool budget, refusals |
 | `docs/reference/` | Reference material (storage map, data taxonomy, skill authoring, settings/tools design, audits, studies) |
 | `docs/reference/sunhing-dashboards.md` | Sun Hing dashboard generation (deterministic generator, producer map, 28-KPI coverage, UI wiring) |
 | `docs/reference/lan-access.md` | Letting other people use this instance over the network: the LAN gate, the /signin page and its sessions, what stays shared, and why per-user data is a rebuild |

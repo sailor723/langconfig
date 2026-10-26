@@ -43,31 +43,109 @@ path. That is a platform bug, not a prompt problem — report it and check
 
 ---
 
-## P2 — The instruction file is in the prompt, not in its head
+## P2 — Changing behaviour: the rule you write versus the behaviour you get
 
-**Do:** open the agent's **Docs** tab, add a rule that is impossible to miss, e.g.
+The template's standard content — workspace map, path map, the file list — is scaffolding.
+Nobody needs to learn it, and editing it teaches nothing. The part worth practising is the
+one skill that decides whether an agent is useful: **writing a rule that changes behaviour,
+and proving it did.**
 
-> Always answer with a single sentence, no lists.
+### Four levers, and what each one can actually change
 
-Save, start a **new** chat, ask something that invites a long answer.
+| Lever | Changes | Cannot change |
+|---|---|---|
+| **System prompt** (agent's Overview tab) | role, tone, priorities, output shape, what to refuse | what the model *can* do |
+| **`AGENTS.md` rules** (Docs tab) | same as above, and applied on **every** turn | ditto — it is still just text in the prompt |
+| **Tools / skills** | what it *can* do at all | whether it chooses to |
+| **Model** | reasoning depth, instruction-following, speed, cost | facts, or a missing tool |
 
-**Expect:** one sentence. Not because the agent remembered, but because `AGENTS.md` is
-embedded into the system prompt on every turn.
+Most "the agent is bad" complaints are lever 1 or 2 problems. Some are lever 3 — no amount
+of prompting lets an agent read a database it has no tool for.
 
-**Why it matters:** two facts that decide where you put an instruction:
+### A rule that works has four parts
 
-| Where you put it | When it takes effect |
-|---|---|
-| `AGENTS.md` (Docs tab) | every turn, immediately — it is inside the prompt |
-| the chat message | that turn only; it is history afterwards |
+| Part | Question it answers | Weak | Strong |
+|---|---|---|---|
+| **Trigger** | when does this apply? | "be careful with data" | "When the user uploads a CSV and asks for numbers…" |
+| **Action** | what exactly do you do? | "analyse it well" | "…load it with `sqlite_load_csv`, then answer with one SQL query per question." |
+| **Shape** | what does the output look like? | "make it clear" | "…respond with a table of the numbers, then at most three bullets of interpretation." |
+| **Edge** | what if you cannot? | *(absent)* | "…if a column is missing, say which one and stop; do not invent values." |
 
-`CLAUDE.md` is a mirror written into the workspace for file-reading consumers; it is **not**
+The edge case is the one people skip, and the one that prevents invented answers.
+
+### One worked example, because the shape is easier to copy than to describe
+
+Task: *"turn this CSV of monthly sales into a short brief"*, running badly (a paragraph of
+prose, no numbers, no file).
+
+**Round 1 — trigger + action**
+
+> When the user uploads a CSV and asks for a summary, load it with `sqlite_load_csv` and ask
+> one SQL question at a time. Do not describe the data from its first few rows.
+
+**Observed:** real numbers now, but a wall of text and still no file.
+
+**Round 2 — add shape and edge**
+
+> …respond with a table of the top five rows by revenue, then at most three bullets. Write the
+> whole thing to `generated/sales-brief.md`. If a column you need is missing, name it and stop
+> — do not estimate or interpolate.
+
+**Observed:** the file exists in `generated/`, the table has five rows, three bullets, and on a
+deliberately broken CSV it stops and names the missing column instead of inventing a total.
+
+Two rounds, two rules, both verified by evidence (tool calls + the file). That is the whole
+practice: the prompt is a specification you iterate against observations, not a description of
+the agent you hope for.
+
+### The loop: state → observe → sharpen → re-test
+
+1. **Write one rule**, in your own words, in the Docs tab. One. Not a paragraph of
+   aspirations.
+2. **New chat** (a rule change does not reach a running conversation), then do the task.
+3. **Observe the evidence**, not the prose: did it call the tool you named? Is the output the
+   shape you asked for? Does the file exist?
+4. **Sharpen the weakest of the four parts** — usually the trigger ("when X") or the edge
+   ("if not, say so").
+5. **Re-test the case that failed, plus one that used to work.** A rule that fixes one case by
+   breaking two is a regression.
+
+Two or three rounds of this beat a long prompt written in one go, and the diff between rounds
+is the actual knowledge of how your agent behaves.
+
+### Where a rule has to live to be real
+
+| What you want | Put it | Effect |
+|---|---|---|
+| a durable rule | Docs → **`AGENTS.md`** | embedded into the system prompt on **every** turn |
+| a one-off instruction | the chat message | that turn only; afterwards it is history |
+| a team-wide default for new agents | `backend/core/agents/templates/AGENTS.default.md` | baked in when an agent is created |
+
+`CLAUDE.md` is a mirror written to the workspace for file-reading consumers — it is **not**
 embedded, so a rule that exists only there is a rule the agent never reads.
 
-**Anti-pattern:** stating a durable requirement in chat ("from now on, always…"). It holds
-for a few turns until summarisation or a new session, then it is gone. Put it in the Docs tab.
+### What prompt cannot fix
 
----
+- **A missing tool.** "Use the database" without a database tool produces guesses, not data.
+- **A capability limit.** Ask a cheap model for long multi-step arithmetic and no prompt fixes
+  it; change the model or give it a tool.
+- **A platform boundary.** Reading another account's workspace is refused below the prompt.
+  A rule cannot grant it, and asking the agent to try only wastes turns.
+- **A fact it could look up.** "Our revenue is 12M" in a prompt goes stale; put the number in
+  the task, the knowledge base, or a file the agent reads.
+
+### Traps, in order of how often they bite
+
+| Trap | Why it fails | Fix |
+|---|---|---|
+| Requirements narrated in chat | gone at the next session, or at summarisation | Docs tab |
+| Adjectives instead of actions ("be thorough") | not testable, so not observable | name the step and the output |
+| The key rule at the end of a long prompt | cheap models attend to the start | first lines, or a Docs rule |
+| Two rules that contradict | the model picks arbitrarily, differently each run | one rule, one owner; delete the loser |
+| A 6 KB `AGENTS.md` | every turn pays for it, and it competes with the task | keep the durable rules; move detail into a skill |
+| Verifying by re-reading the answer | a confident sentence is not compliance | tool calls, files, output shape |
+
+**Rule:** *one behaviour change per round, verified by evidence, then written down.*
 
 ## P3 — Skills are chosen by description, and read on demand
 
