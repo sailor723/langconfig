@@ -71,13 +71,19 @@ def _is_within(path: Path, root: Path) -> bool:
 class WorkspaceManager:
     """Manages workspace directories for project/workflow/task outputs"""
 
-    def __init__(self, base_dir: str = None):
+    def __init__(self, base_dir: str = None, user_scoping: bool = True):
         """
         Initialize workspace manager.
 
         Args:
             base_dir: Base directory for all outputs. If None, uses backend/outputs.
+            user_scoping: Whether this manager resolves into the caller's private
+                tree (``<base>/users/<id>``). True everywhere in the app. False is for
+                code that works on the install's raw layout — path-arithmetic tests,
+                and any tool that walks every user's files — and is deliberately not
+                wired to a request context.
         """
+        self.user_scoping = user_scoping
         if base_dir is None:
             # Default to backend/outputs, overridable via the workspace settings
             # document (base_dir, seeded from the old WORKSPACE_BASE_DIR).
@@ -115,6 +121,46 @@ class WorkspaceManager:
         self.base_dir.mkdir(exist_ok=True)
         logger.info(f"Workspace manager initialized: {self.base_dir}")
     
+    def user_base(self) -> Path:
+        """The private tree of whoever is asking: ``<install root>/users/<id>``.
+
+        Resolved per call, never cached on the instance: this manager is a process
+        singleton shared by every request, so a cached value would hand one person's
+        tree to the next. The identity comes from the request context
+        (``services/user_roots.py``), which falls back to the install's owner for
+        background work — see that module for why.
+        """
+        if not self.user_scoping:
+            return self.base_dir
+
+        from services import user_roots
+
+        return user_roots.current_root(root=self.base_dir)
+
+    def _reanchor_into_user_tree(self, absolute: Path) -> Path:
+        """Map a workspace-internal absolute path onto the caller's own tree.
+
+        ``outputs/my-project/agents/x`` → ``outputs/users/<me>/my-project/agents/x``,
+        and a path that already carries someone else's ``users/<id>`` segment is
+        re-rooted to the caller rather than nested (which would be nonsense, and
+        would look like it worked).
+        """
+        try:
+            relative = absolute.resolve().relative_to(self.base_dir.resolve())
+        except ValueError:
+            return absolute  # outside the workspace: not ours to rewrite
+
+        parts = relative.parts
+        from services.user_roots import USERS_DIRNAME
+
+        if parts and parts[0] == USERS_DIRNAME:
+            # users/<id>/... → drop the two leading segments; the caller decides whose.
+            parts = parts[2:] if len(parts) > 2 else ()
+        mapped = self.user_base().joinpath(*parts) if parts else self.user_base()
+        if mapped != absolute:
+            logger.info(f"Re-anchored workspace path into the caller's tree: {absolute} -> {mapped}")
+        return mapped
+
     def install_base_dir(self) -> Path:
         """The install-wide workspace root (``outputs/`` or the Settings path).
 
@@ -160,7 +206,7 @@ class WorkspaceManager:
             project_folder = "standalone"
 
         # Build path: outputs/<slug>/workflow_Y/task_Z/
-        workspace = self.base_dir / project_folder / f"workflow_{workflow_id}" / f"task_{task_id}"
+        workspace = self.user_base() / project_folder / f"workflow_{workflow_id}" / f"task_{task_id}"
 
         # Create directory if it doesn't exist
         workspace.mkdir(parents=True, exist_ok=True)
@@ -217,7 +263,7 @@ class WorkspaceManager:
             Path to workflow workspace directory
         """
         project_folder = f"project_{project_id}" if project_id else "standalone"
-        workspace = self.base_dir / project_folder / f"workflow_{workflow_id}"
+        workspace = self.user_base() / project_folder / f"workflow_{workflow_id}"
         workspace.mkdir(parents=True, exist_ok=True)
         return workspace
     
@@ -241,9 +287,9 @@ class WorkspaceManager:
         finally:
             _db.close()
         if slug:
-            workspace = self.base_dir / slug
+            workspace = self.user_base() / slug
         else:
-            workspace = self.base_dir / f"project_{project_id}"
+            workspace = self.user_base() / f"project_{project_id}"
         workspace.mkdir(parents=True, exist_ok=True)
         return workspace
 
@@ -256,7 +302,7 @@ class WorkspaceManager:
         are trivial to list. This is the canonical location for chat runs,
         replacing the shared standalone/workflow_None/task_0 default.
         """
-        workspace = self.base_dir / "agents" / f"agent_{agent_id}"
+        workspace = self.user_base() / "agents" / f"agent_{agent_id}"
         ensure_agent_workspace_layout(workspace)
         logger.info(f"Agent workspace: {workspace}")
         return workspace
@@ -308,17 +354,24 @@ class WorkspaceManager:
         custom = getattr(agent, "workspace_path", None)
         if custom and str(custom).strip():
             p = Path(str(custom).strip()).expanduser()
-            if not p.is_absolute():
+            if p.is_absolute():
+                # An absolute path that points *inside* the install's workspace must
+                # be re-anchored to the caller's tree, or one agent configuration
+                # would hand every user the same directory — the one boundary this
+                # slice exists to draw. A path outside the workspace is left alone:
+                # that is a deliberate choice by the person who set it.
+                p = self._reanchor_into_user_tree(p)
+            else:
                 if key is not None:
-                    p = self.base_dir / key / p
+                    p = self.user_base() / key / p
                 else:
-                    p = self.base_dir / p
+                    p = self.user_base() / p
             ensure_agent_workspace_layout(p)
             logger.info(f"Agent workspace (custom): {p}")
             return p
         if key is not None:
             chosen = self._canonical_agent_folder(
-                self.base_dir / key / "agents", id_folder, agent_folder
+                self.user_base() / key / "agents", id_folder, agent_folder
             )
             ensure_agent_workspace_layout(chosen)
             logger.info(f"Agent workspace (vault-scoped): {chosen}")
@@ -329,7 +382,7 @@ class WorkspaceManager:
         # while the chat/upload paths produced ``agents/{slug}``, so one agent
         # ended up with two folders and two contradictory identities.
         chosen = self._canonical_agent_folder(
-            self.base_dir / "agents", id_folder, agent_folder
+            self.user_base() / "agents", id_folder, agent_folder
         )
         ensure_agent_workspace_layout(chosen)
         logger.info(f"Agent workspace (legacy default): {chosen}")
@@ -469,7 +522,7 @@ class WorkspaceManager:
 
         import mimetypes
         try:
-            rel = Path(file_path).resolve().relative_to(Path(self.base_dir).resolve())
+            rel = Path(file_path).resolve().relative_to(Path(self.user_base()).resolve())
         except ValueError:
             # File lives outside the workspace root; keep it addressable by
             # bare name. Path.name returns a str (posix-safe, no separators).
@@ -501,7 +554,7 @@ class WorkspaceManager:
                 stat = file_path.stat()
                 files.append({
                     "filename": file_path.name,
-                    "path": str(file_path.relative_to(self.base_dir)),
+                    "path": str(file_path.relative_to(self.user_base())),
                     "size_bytes": stat.st_size,
                     "size_human": self._format_size(stat.st_size),
                     "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
@@ -543,7 +596,7 @@ class WorkspaceManager:
 
         Returns None if file doesn't exist or is outside workspace (security).
         """
-        default_dir = self.base_dir / "default"
+        default_dir = self.user_base() / "default"
         file_path = (default_dir / filename).resolve()
 
         # Security: Ensure file is within default directory
@@ -563,7 +616,7 @@ class WorkspaceManager:
         Returns:
             List of file info dicts
         """
-        default_dir = self.base_dir / "default"
+        default_dir = self.user_base() / "default"
 
         if not default_dir.exists():
             return []
@@ -574,7 +627,7 @@ class WorkspaceManager:
                 stat = file_path.stat()
                 files.append({
                     "filename": file_path.name,
-                    "path": str(file_path.relative_to(self.base_dir)),
+                    "path": str(file_path.relative_to(self.user_base())),
                     "size_bytes": stat.st_size,
                     "size_human": self._format_size(stat.st_size),
                     "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
@@ -660,7 +713,7 @@ class WorkspaceManager:
 
     def rename_default_file(self, old_name: str, new_name: str) -> bool:
         """Rename a file in the default workspace."""
-        default_dir = self.base_dir / "default"
+        default_dir = self.user_base() / "default"
         old_path = (default_dir / old_name).resolve()
         new_path = (default_dir / new_name).resolve()
 
@@ -860,7 +913,10 @@ class WorkspaceManager:
             List of file info dicts with project/workflow/task context
         """
         all_files = []
-        logger.info(f"Listing all files from base_dir: {self.base_dir}")
+        # The user's own tree: two people browsing Files never see each other's
+        # files, because the walk starts in a different directory for each of them.
+        base = self.user_base()
+        logger.info(f"Listing all files from user root: {base}")
 
         def add_file(file_path: Path, proj_id: Optional[int], wf_id: Optional[int], t_id: Optional[int]):
             """Helper to add a file to the list with filters applied"""
@@ -878,7 +934,7 @@ class WorkspaceManager:
                 stat = file_path.stat()
                 all_files.append({
                     "filename": file_path.name,
-                    "path": str(file_path.relative_to(self.base_dir)),
+                    "path": str(file_path.relative_to(self.user_base())),
                     "full_path": str(file_path),
                     "project_id": proj_id,
                     "workflow_id": wf_id,
@@ -892,22 +948,22 @@ class WorkspaceManager:
                 logger.warning(f"Could not stat file {file_path}: {e}")
 
         # Check if base_dir exists
-        if not self.base_dir.exists():
-            logger.warning(f"Base directory does not exist: {self.base_dir}")
+        if not base.exists():
+            logger.warning(f"Base directory does not exist: {base}")
             return all_files
 
         # First, scan for files directly in outputs/ (root level)
         if not project_id and not workflow_id:
-            for item in self.base_dir.iterdir():
+            for item in base.iterdir():
                 if item.is_file():
                     add_file(item, None, None, None)
 
         # Determine which directories to scan
         if project_id:
-            scan_dirs = [self.base_dir / f"project_{project_id}"]
+            scan_dirs = [base / f"project_{project_id}"]
         else:
             # Scan all subdirectories
-            scan_dirs = [d for d in self.base_dir.iterdir() if d.is_dir()]
+            scan_dirs = [d for d in base.iterdir() if d.is_dir()]
 
         logger.info(f"list_all_files: Scanning directories: {[str(d) for d in scan_dirs]}")
 

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from pathlib import Path
 
 from db.database import get_db
+from services import workspace_scope
 from services.workspace_manager import get_workspace_manager
 from services.document_type import resolve_document_type
 from models.core import Task
@@ -39,8 +40,10 @@ def _validate_path_in_workspace(file_path: str, workspace_mgr) -> Path:
     Raises HTTPException(403) if path traversal is attempted.
     Raises HTTPException(404) if file doesn't exist.
     """
-    full_path = (workspace_mgr.base_dir / file_path).resolve()
-    workspace_resolved = workspace_mgr.base_dir.resolve()
+    # The *user's* tree, not the install root: this is what makes a path taken
+    # from one person's file list useless in another's request.
+    full_path = (workspace_mgr.user_base() / file_path).resolve()
+    workspace_resolved = workspace_mgr.user_base().resolve()
 
     # Security: Use relative_to() for robust path comparison
     try:
@@ -64,7 +67,7 @@ def _get_custom_path_roots(workspace_mgr, db: Session) -> list:
     requested path must resolve inside one of these roots: the default
     workspace directory or a directory configured on a workflow.
     """
-    roots = [workspace_mgr.base_dir.resolve()]
+    roots = [workspace_mgr.user_base().resolve()]
     try:
         from models.workflow import WorkflowProfile
         rows = db.query(WorkflowProfile.custom_output_path).filter(
@@ -485,7 +488,9 @@ async def get_file_metadata(
     """
     from models.workspace_file import WorkspaceFile
 
-    file_record = db.query(WorkspaceFile).filter(WorkspaceFile.id == file_id).first()
+    file_record = workspace_scope.owned(
+        db.query(WorkspaceFile), WorkspaceFile, db
+    ).filter(WorkspaceFile.id == file_id).first()
     if not file_record:
         raise HTTPException(status_code=404, detail="File metadata not found")
 
@@ -526,7 +531,9 @@ async def update_file_metadata(
     """
     from models.workspace_file import WorkspaceFile
 
-    file_record = db.query(WorkspaceFile).filter(WorkspaceFile.id == file_id).first()
+    file_record = workspace_scope.owned(
+        db.query(WorkspaceFile), WorkspaceFile, db
+    ).filter(WorkspaceFile.id == file_id).first()
     if not file_record:
         raise HTTPException(status_code=404, detail="File metadata not found")
 
@@ -580,7 +587,9 @@ async def get_file_metadata_by_path(
     """
     from models.workspace_file import WorkspaceFile
 
-    file_record = db.query(WorkspaceFile).filter(WorkspaceFile.file_path == file_path).first()
+    file_record = workspace_scope.owned(
+        db.query(WorkspaceFile), WorkspaceFile, db
+    ).filter(WorkspaceFile.file_path == file_path).first()
     if not file_record:
         return {"metadata": None, "has_metadata": False}
 
@@ -627,7 +636,7 @@ async def list_files_with_metadata(
     """
     from models.workspace_file import WorkspaceFile
 
-    query = db.query(WorkspaceFile)
+    query = workspace_scope.owned(db.query(WorkspaceFile), WorkspaceFile, db)
 
     if project_id is not None:
         query = query.filter(WorkspaceFile.project_id == project_id)
@@ -1046,8 +1055,8 @@ async def bulk_index_files_by_path(
     for file_path in request.file_paths:
         try:
             # Validate path is within workspace
-            full_path = (workspace_mgr.base_dir / file_path).resolve()
-            workspace_resolved = workspace_mgr.base_dir.resolve()
+            full_path = (workspace_mgr.user_base() / file_path).resolve()
+            workspace_resolved = workspace_mgr.user_base().resolve()
 
             try:
                 full_path.relative_to(workspace_resolved)

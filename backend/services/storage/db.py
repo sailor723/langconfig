@@ -18,6 +18,20 @@ from .base import StorageBackend, StorageStat
 logger = logging.getLogger(__name__)
 
 
+def _owned(query, db):
+    """See services/workspace_scope.py — the same boundary, applied to blobs."""
+    from services import workspace_scope
+    from models.storage_object import StorageObject
+
+    return workspace_scope.owned(query, StorageObject, db)
+
+
+def _stamp(obj, db):
+    from services import workspace_scope
+
+    return workspace_scope.stamp(obj, db)
+
+
 class DbStorageBackend(StorageBackend):
     """Object-addressed blobs in Postgres (storage_objects table)."""
 
@@ -33,9 +47,9 @@ class DbStorageBackend(StorageBackend):
         from models.storage_object import StorageObject
         db = self._session()
         try:
-            obj = db.query(StorageObject).filter(StorageObject.key == key).first()
+            obj = _owned(db.query(StorageObject), db).filter(StorageObject.key == key).first()
             if obj is None:
-                obj = StorageObject(key=key)
+                obj = _stamp(StorageObject(key=key), db)
                 db.add(obj)
             obj.content = content
             obj.size_bytes = len(content)
@@ -50,7 +64,7 @@ class DbStorageBackend(StorageBackend):
         from models.storage_object import StorageObject
         db = self._session()
         try:
-            obj = db.query(StorageObject).filter(StorageObject.key == key).first()
+            obj = _owned(db.query(StorageObject), db).filter(StorageObject.key == key).first()
             if obj is None:
                 raise KeyError(key)
             return bytes(obj.content)
@@ -61,7 +75,7 @@ class DbStorageBackend(StorageBackend):
         from models.storage_object import StorageObject
         db = self._session()
         try:
-            return db.query(StorageObject.id).filter(StorageObject.key == key).first() is not None
+            return _owned(db.query(StorageObject.id), db).filter(StorageObject.key == key).first() is not None
         finally:
             db.close()
 
@@ -69,7 +83,7 @@ class DbStorageBackend(StorageBackend):
         from models.storage_object import StorageObject
         db = self._session()
         try:
-            obj = db.query(StorageObject).filter(StorageObject.key == key).first()
+            obj = _owned(db.query(StorageObject), db).filter(StorageObject.key == key).first()
             if obj is None:
                 return False
             db.delete(obj)
@@ -82,7 +96,7 @@ class DbStorageBackend(StorageBackend):
         from models.storage_object import StorageObject
         db = self._session()
         try:
-            q = db.query(StorageObject.key)
+            q = _owned(db.query(StorageObject.key), db)
             if prefix:
                 # Escape LIKE wildcards so prefix matches literally, keeping
                 # semantics identical to LocalStorageBackend.list().
@@ -100,7 +114,7 @@ class DbStorageBackend(StorageBackend):
         from models.storage_object import StorageObject
         db = self._session()
         try:
-            obj = db.query(StorageObject).filter(StorageObject.key == key).first()
+            obj = _owned(db.query(StorageObject), db).filter(StorageObject.key == key).first()
             if obj is None:
                 return None
             return StorageStat(

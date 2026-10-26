@@ -51,7 +51,7 @@ def _sanitize_csv_stem(csv_stem: str) -> str:
 def _get_sandbox_dir() -> Path:
     """Get the sandbox base directory."""
     ws_mgr = get_workspace_manager()
-    return ws_mgr.base_dir / "default"
+    return ws_mgr.user_base() / "default"
 
 
 def _pending_path(csv_stem: str) -> Path:

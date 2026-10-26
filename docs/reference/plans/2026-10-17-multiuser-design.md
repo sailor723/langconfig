@@ -799,14 +799,43 @@ files live?" — including the two cases that decide whether existing installs b
 **background work with no request context resolves to the owner** so scheduled runs
 still write somewhere a human can find.
 
-Still to do, in this order (the order is load-bearing — moving the data *before*
-flipping the resolver is what keeps the app working throughout):
+Landed since (all four, in the load-bearing order — code first, then the move, then a
+restart, so the app never had a window where it could not find files that exist):
 
-1. `scripts/adopt_user_workspaces.py` — move `<root>/<vault>` → `<root>/users/<admin>/<vault>`, dry-run by default, `--rollback`; run it, verify the Files panel still lists everything.
-2. Service wiring: `workspace_manager` path joins → the user tree (`self.base_dir` stays the install root), `file_storage`, terminal `cwd`, deepagents `root_dir`, agent doc `workspace_root` at materialization.
-3. Read-path filters: every `WorkspaceFile` / `StorageObject` query by `owner_id` (the metadata routes) — the filesystem listing is already scoped by the root.
-4. UI: the Files panel shows only mine; paths render user-relative.
-5. Tests: A uploads → B's list, download and terminal are empty/404 — **and** both still see the same shared knowledge base, which is the half of the boundary that must not silently change.
+1. ✅ `scripts/adopt_user_workspaces.py` — dry-run by default, `--apply`, `--rollback`,
+   `--verify`; refuses to merge two trees, resumes after an interruption. Run on this
+   install: 36 top-level entries, 756.7 MB, moved by rename (no bytes copied, no extra
+   disk), then verified — the sampled DB rows resolve under the new root.
+2. ✅ Wiring: `workspace_manager` path joins now go through `user_base()`, resolved
+   **per call** (the manager is a process singleton — caching the user would hand one
+   person's tree to the next); terminal `cwd` starts in the caller's tree; relative
+   `path` fields in API responses are user-relative; agent `root_dir` inherits the
+   scoping through `resolve_agent_workspace`.
+3. ✅ Read-path filters: `services/workspace_scope.py` (`owned` / `same_owner` / `stamp`)
+   applied to the `WorkspaceFile` queries in the files and tree routes, and to every
+   operation of the DB storage backend. `context_documents` deliberately untouched —
+   knowledge stays shared.
+4. ✅ One extra hole found and closed: an agent configured with an **absolute**
+   `workspace_path` (inside the workspace) was a way to hand everyone the same
+   directory. Such paths are now re-anchored to the caller's tree; a path outside the
+   workspace is left alone, because that is the setter's deliberate choice.
+5. ⬜ Remaining: the Files panel needs no change to *list* only your files (the listing
+   is scoped by the root now), but the empty state should say so; and the A/B tests
+   belong in the suite rather than only in a live check.
+
+Live verification on this install (admin = 227 files):
+
+| Check | Result |
+|---|---|
+| second account's file list | **0 files** |
+| downloads an admin file by its path | **404** |
+| `../1/report.md` (into the admin tree) | **403** |
+| fetches an admin metadata row by id | **404** |
+
+Order note for the record: the earlier draft said "move the data, then flip the
+resolver". That is backwards — between those two steps the app cannot see files that
+exist. The correct sequence, used here, is: **ship the code, stop the server, move the
+data, start the server**.
 
 ### Slice 3 — Agent running with per-user keys  ▶ *your item 3*
 

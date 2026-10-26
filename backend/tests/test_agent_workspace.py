@@ -25,7 +25,8 @@ class _FakeAgent:
 
 
 def _make_manager(tmp_path):
-    return WorkspaceManager(base_dir=str(tmp_path))
+    # Raw layout arithmetic — see WorkspaceManager(user_scoping=...).
+    return WorkspaceManager(base_dir=str(tmp_path), user_scoping=False)
 
 
 def test_resolver_uses_user_defined_path(tmp_path):

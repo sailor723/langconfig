@@ -1020,7 +1020,7 @@ async def send_message_stream(
                     if session_docs:
                         try:
                             _ws_mgr = get_workspace_manager()
-                            _sandbox_dir = _ws_mgr.base_dir / "default"
+                            _sandbox_dir = _ws_mgr.user_base() / "default"
                             for _doc in session_docs:
                                 if _doc.filename.lower().endswith('.csv'):
                                     _stem = _doc.filename.rsplit('.', 1)[0]

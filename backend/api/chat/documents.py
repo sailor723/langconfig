@@ -598,7 +598,7 @@ async def list_session_generated_files(
         )
         return {
             "filename": path.name,
-            "path": str(path.resolve().relative_to(workspace_mgr.base_dir)),
+            "path": str(path.resolve().relative_to(workspace_mgr.user_base())),
             "size_bytes": stat.st_size,
             "size_human": size_human,
             "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
@@ -642,7 +642,7 @@ async def list_session_generated_files(
         chat_workspace_dir = workspace_mgr.get_task_workspace(None, None, 0)
     except Exception:
         chat_workspace_dir = None
-    default_dir = workspace_mgr.base_dir / "default"
+    default_dir = workspace_mgr.user_base() / "default"
     legacy_roots = [r for r in (chat_workspace_dir, default_dir) if r is not None]
 
     write_tools = {"write_file", "file_write", "write"}

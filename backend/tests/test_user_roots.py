@@ -158,3 +158,155 @@ def test_existing_rows_were_adopted_by_the_first_admin(db_session):
     if admin is None or total == 0:
         pytest.skip("no accounts or no files on this install")
     assert unowned == 0, f"{unowned} of {total} file rows have no owner"
+
+
+# ── the manager is scoped, and two people get different trees ───────────────
+
+def test_the_app_manager_is_user_scoped(tmp_path, monkeypatch):
+    """`user_scoping` defaults to True: forgetting it would silently un-isolate."""
+    from services.workspace_manager import WorkspaceManager
+
+    manager = WorkspaceManager(base_dir=str(tmp_path))
+    assert manager.user_scoping is True
+    assert manager.install_base_dir() == tmp_path.resolve()
+    # No request context in a test → the install owner's tree (see subject_user_id).
+    assert manager.user_base() == tmp_path.resolve() / "users" / str(user_roots.subject_user_id())
+
+
+def test_two_users_resolve_different_agent_workspaces(tmp_path):
+    """The same agent, opened by two people, must not share a directory."""
+    from services.workspace_manager import WorkspaceManager
+
+    class _Agent:
+        id = 42
+        workspace_path = None
+
+    manager = WorkspaceManager(base_dir=str(tmp_path))
+    seen = {}
+    for user_id in (1, 2):
+        token = set_current_user(
+            UserContext(id=user_id, username=f"u{user_id}", role="member", via="session")
+        )
+        try:
+            seen[user_id] = manager.get_agent_workspace(42)
+        finally:
+            reset_current_user(token)
+
+    assert seen[1] != seen[2]
+    assert seen[1] == tmp_path.resolve() / "users" / "1" / "agents" / "agent_42"
+    assert seen[2] == tmp_path.resolve() / "users" / "2" / "agents" / "agent_42"
+    # Both were created, and neither is inside the other.
+    assert seen[1].is_dir() and seen[2].is_dir()
+    assert not str(seen[1]).startswith(str(seen[2]))
+
+
+# ── the database side of the boundary ──────────────────────────────────────
+
+def test_owned_filters_rows_to_the_caller(db_session):
+    """`workspace_scope.owned` is what keeps A's metadata out of B's queries."""
+    from models.workspace_file import WorkspaceFile
+    from services import workspace_scope
+
+    token = set_current_user(UserContext(id=1, username="a", role="member", via="session"))
+    try:
+        sql = str(
+            workspace_scope.owned(db_session.query(WorkspaceFile), WorkspaceFile, db_session)
+            .statement.compile(compile_kwargs={"literal_binds": True})
+        )
+        assert "workspace_files.owner_id = 1" in sql
+    finally:
+        reset_current_user(token)
+
+
+def test_owned_falls_back_to_unowned_rows_when_there_is_no_identity(db_session, monkeypatch):
+    """No accounts at all: the install's own rows, exactly as before Slice 2."""
+    from models.workspace_file import WorkspaceFile
+    from services import workspace_scope
+
+    monkeypatch.setattr(workspace_scope, "owner_id", lambda _db=None: None)
+    sql = str(
+        workspace_scope.owned(db_session.query(WorkspaceFile), WorkspaceFile, db_session)
+        .statement.compile(compile_kwargs={"literal_binds": True})
+    )
+    assert "owner_id IS NULL" in sql
+
+
+def test_same_owner_is_false_for_someone_elses_row():
+    from services import workspace_scope
+
+    class _Row:
+        def __init__(self, owner):
+            self.owner_id = owner
+
+    token = set_current_user(UserContext(id=2, username="b", role="member", via="session"))
+    try:
+        assert workspace_scope.same_owner(_Row(2)) is True
+        assert workspace_scope.same_owner(_Row(1)) is False
+        assert workspace_scope.same_owner(_Row(None)) is False
+    finally:
+        reset_current_user(token)
+
+
+# ── path validation lands in the caller's tree ─────────────────────────────
+
+def test_path_validation_refuses_another_users_file(tmp_path):
+    """A path copied out of someone else's file list must be useless here."""
+    import pytest as _pytest
+    from fastapi import HTTPException
+    from api.workspace.files_routes import _validate_path_in_workspace
+    from services.workspace_manager import WorkspaceManager
+
+    manager = WorkspaceManager(base_dir=str(tmp_path))
+    # alice's file exists; bob's tree exists too but holds nothing.
+    alice_file = tmp_path / "users" / "1" / "report.md"
+    alice_file.parent.mkdir(parents=True)
+    alice_file.write_text("secret", encoding="utf-8")
+    (tmp_path / "users" / "2").mkdir(parents=True)
+
+    token = set_current_user(UserContext(id=2, username="bob", role="member", via="session"))
+    try:
+        with _pytest.raises(HTTPException) as denied:
+            _validate_path_in_workspace("report.md", manager)
+        assert denied.value.status_code == 404, "bob has no such file"
+
+        with _pytest.raises(HTTPException) as traversal:
+            _validate_path_in_workspace("../1/report.md", manager)
+        assert traversal.value.status_code == 403, "walking into alice's tree is a traversal"
+    finally:
+        reset_current_user(token)
+
+    # …and alice can read her own file, proving the block is about ownership.
+    token = set_current_user(UserContext(id=1, username="alice", role="member", via="session"))
+    try:
+        assert _validate_path_in_workspace("report.md", manager) == alice_file.resolve()
+    finally:
+        reset_current_user(token)
+
+
+def test_an_absolute_workspace_path_is_re_anchored_to_the_caller(tmp_path):
+    """An agent configured with an absolute path must not hand its directory to
+    everyone: inside the workspace it is re-anchored, outside it is left alone."""
+    from services.workspace_manager import WorkspaceManager
+
+    manager = WorkspaceManager(base_dir=str(tmp_path))
+
+    class _Agent:
+        id = 11
+        workspace_path = str(tmp_path / "vault" / "agents" / "x")
+
+    token = set_current_user(UserContext(id=5, username="e", role="member", via="session"))
+    try:
+        resolved = manager.resolve_agent_workspace(_Agent())
+        assert resolved == (tmp_path / "users" / "5" / "vault" / "agents" / "x").resolve()
+
+        # A path that already names someone else's tree is re-rooted, not nested.
+        _Agent.workspace_path = str(tmp_path / "users" / "1" / "vault" / "y")
+        assert manager.resolve_agent_workspace(_Agent()) == (
+            tmp_path / "users" / "5" / "vault" / "y"
+        ).resolve()
+
+        # A path outside the workspace is the setter's own choice.
+        _Agent.workspace_path = "/tmp/somewhere-else-entirely"
+        assert str(manager.resolve_agent_workspace(_Agent())) == "/tmp/somewhere-else-entirely"
+    finally:
+        reset_current_user(token)

@@ -32,7 +32,8 @@ class _FakeAgent:
 
 
 def _make_manager(tmp_path):
-    return WorkspaceManager(base_dir=str(tmp_path))
+    # Raw layout arithmetic: no user dimension, so the expectation stays a plain path.
+    return WorkspaceManager(base_dir=str(tmp_path), user_scoping=False)
 
 
 # ── vault-scoped resolution ─────────────────────────────────────────
@@ -233,7 +234,8 @@ def test_resolve_prefers_agent_id_folder_and_keeps_legacy_slug_only_with_user_fi
     from pathlib import Path
     import tempfile
     tmp = Path(tempfile.mkdtemp()).resolve()
-    m = WorkspaceManager(base_dir=str(tmp))
+    # Raw layout arithmetic, like the other tests in this file.
+    m = WorkspaceManager(base_dir=str(tmp), user_scoping=False)
 
     # New agent, nothing on disk → canonical id-based folder.
     ws = m.resolve_agent_workspace(_FakeAgent(159), project_id=2, vault_key="my-project", agent_key="hello")

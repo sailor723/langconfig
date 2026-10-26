@@ -49,12 +49,34 @@ class TerminalSession:
         self.reader: Optional[asyncio.Task] = None
         self.closed = False
 
+    @staticmethod
+    def _start_dir() -> str:
+        """Where the shell opens.
+
+        A missing directory must not stop the terminal from opening: fall back to
+        the process's own directory rather than raising into the WebSocket handshake,
+        where the failure would look like "the terminal is broken".
+        """
+        try:
+            from services import user_roots
+
+            path = user_roots.current_root()
+            path.mkdir(parents=True, exist_ok=True)
+            return str(path)
+        except Exception:  # noqa: BLE001 - never break terminal startup over this
+            logger.warning("Could not resolve the workspace root for the terminal", exc_info=True)
+            return os.getcwd()
+
     # ── lifecycle ──────────────────────────────────────────────
 
     async def start(self) -> None:
         """Spawn the shell and kick off the output pump."""
         env = dict(os.environ)
         env["TERM"] = "xterm-256color"
+        # Start in the caller's workspace instead of whatever directory the server
+        # happened to be launched from. This is a starting directory, not a cage:
+        # it is a real shell, so `cd ..` works — see docs/reference/lan-access.md.
+        cwd = self._start_dir()
         if self.shell.endswith("bash"):
             env["PS1"] = "\\u@\\h:\\w$ "
 
@@ -66,6 +88,7 @@ class TerminalSession:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 env=env,
+                cwd=cwd,
             )
         else:
             # POSIX: real PTY for an interactive shell
@@ -91,6 +114,7 @@ class TerminalSession:
                 stderr=slave_fd,
                 close_fds=True,
                 env=env,
+                cwd=cwd,
             )
             os.close(slave_fd)
 

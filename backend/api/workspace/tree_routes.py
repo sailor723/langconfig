@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 from db.database import get_db
+from services import workspace_scope
 from .schemas import (
     FileDiffResponse,
     FileTreeResponse,
@@ -33,7 +34,7 @@ async def get_file_tree(
     from models.workflow import WorkflowProfile
     from models.core import Task
 
-    query = db.query(WorkspaceFile)
+    query = workspace_scope.owned(db.query(WorkspaceFile), WorkspaceFile, db)
 
     if workflow_id is not None:
         query = query.filter(WorkspaceFile.workflow_id == workflow_id)
@@ -140,7 +141,9 @@ async def get_file_versions(
     from models.workspace_file import WorkspaceFile
     from models.file_version import FileVersion
 
-    file_record = db.query(WorkspaceFile).filter(WorkspaceFile.id == file_id).first()
+    file_record = workspace_scope.owned(
+        db.query(WorkspaceFile), WorkspaceFile, db
+    ).filter(WorkspaceFile.id == file_id).first()
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -194,7 +197,9 @@ async def get_file_diff(
     from models.file_version import FileVersion
     from services.diff_service import generate_unified_diff, generate_side_by_side, get_diff_stats
 
-    file_record = db.query(WorkspaceFile).filter(WorkspaceFile.id == file_id).first()
+    file_record = workspace_scope.owned(
+        db.query(WorkspaceFile), WorkspaceFile, db
+    ).filter(WorkspaceFile.id == file_id).first()
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -263,7 +268,9 @@ async def get_version_content(
     from models.workspace_file import WorkspaceFile
     from models.file_version import FileVersion
 
-    file_record = db.query(WorkspaceFile).filter(WorkspaceFile.id == file_id).first()
+    file_record = workspace_scope.owned(
+        db.query(WorkspaceFile), WorkspaceFile, db
+    ).filter(WorkspaceFile.id == file_id).first()
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -313,7 +320,7 @@ async def get_workflow_files_grouped(
         raise HTTPException(status_code=404, detail="Workflow not found")
 
     # Get all files for this workflow
-    files = db.query(WorkspaceFile).filter(
+    files = workspace_scope.owned(db.query(WorkspaceFile), WorkspaceFile, db).filter(
         WorkspaceFile.workflow_id == workflow_id
     ).order_by(WorkspaceFile.task_id, WorkspaceFile.created_at.desc()).all()
 
@@ -372,7 +379,9 @@ async def get_full_file_metadata(
     from models.workspace_file import WorkspaceFile
     from models.file_version import FileVersion
 
-    file_record = db.query(WorkspaceFile).filter(WorkspaceFile.id == file_id).first()
+    file_record = workspace_scope.owned(
+        db.query(WorkspaceFile), WorkspaceFile, db
+    ).filter(WorkspaceFile.id == file_id).first()
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 

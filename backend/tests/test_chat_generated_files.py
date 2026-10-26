@@ -33,6 +33,14 @@ class _FakeWorkspaceManager:
     def __init__(self, base_dir: Path):
         self.base_dir = base_dir
 
+    def user_base(self) -> Path:
+        """The real manager nests each person's tree; this fake is unscoped, so the
+        private root *is* the base. Mirrors WorkspaceManager(user_scoping=False)."""
+        return self.base_dir
+
+    def install_base_dir(self) -> Path:
+        return self.base_dir
+
     def get_agent_workspace(self, agent_id: int) -> Path:
         workspace = self.base_dir / "agents" / f"agent_{agent_id}"
         workspace.mkdir(parents=True, exist_ok=True)

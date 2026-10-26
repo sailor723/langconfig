@@ -108,9 +108,13 @@ def root_for(user_id: Optional[int], root: Optional[Path] = None) -> Path:
     return base / USERS_DIRNAME / str(user_id)
 
 
-def current_root(db=None) -> Path:
-    """The private tree of whoever is asking right now (see :func:`subject_user_id`)."""
-    return root_for(subject_user_id(db))
+def current_root(db=None, root: Optional[Path] = None) -> Path:
+    """The private tree of whoever is asking right now (see :func:`subject_user_id`).
+
+    ``root`` overrides the install root — the workspace manager passes its own
+    resolved base so both agree even when Settings points elsewhere.
+    """
+    return root_for(subject_user_id(db), root=root)
 
 
 def describe(user_id: Optional[int], root: Optional[Path] = None) -> dict:
