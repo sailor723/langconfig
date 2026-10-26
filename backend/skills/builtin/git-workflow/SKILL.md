@@ -8,12 +8,23 @@ triggers:
   - "when user mentions branching"
   - "when user mentions merge conflict"
   - "when user mentions version control"
-  - "when user mentions pull request"
+  - "when user mentions commits, tags, rebases or releases"
+  - "when the user asks how to open or land a pull request"
+# `pull request` used to be a bare trigger here and in code-review, so a request to
+# *review* a PR matched both and the catalogue made the model guess. Review is
+# code-review's job; this skill owns the mechanics around the PR (branch, merge,
+# conflicts, release), which is what the wording above now says.
 allowed-tools: [filesystem, shell]
 author: LangConfig
 ---
 
 You are an expert in Git workflows and version control. Help users establish and maintain effective Git practices.
+
+> **Boundary with `code-review`.** This skill covers the mechanics: branching, merging,
+> rebasing, conflicts, commits, tags, releases, and how to open or land a pull request.
+> The *content* of a review — what to look for in the diff, security, performance,
+> maintainability — belongs to `code-review`. When a user asks "review this PR", use
+> `code-review`; when they ask "how do I get this merged", use this one.
 
 ### Branching Strategies
 

@@ -509,3 +509,53 @@ def test_audit_script_reports_orphans_without_deleting_them(tmp_path):
     assert f"agent_{live_id}" not in empty_names + file_names
     # Nothing was touched.
     assert (tmp_path / "agents" / f"agent_{dead_files}" / "generated" / "report.pdf").exists()
+
+
+# ── skills are per account too (migration 036) ─────────────────────────────
+
+def test_personal_skill_roots_are_per_account(tmp_path):
+    from services import user_roots
+
+    base = user_roots.personal_skills_dir()
+    assert base.name == "personal"
+    assert user_roots.personal_skills_dir_for(1) == base / "1"
+    assert user_roots.personal_skills_dir_for(284) != user_roots.personal_skills_dir_for(1)
+    # No account (a script, a pre-accounts install): the shared parent.
+    assert user_roots.personal_skills_dir_for(None) == base
+
+
+def test_the_loader_discovers_only_per_account_folders(tmp_path, monkeypatch):
+    """A flat `personal/<skill>/` is the pre-isolation layout and must not be adopted."""
+    from pathlib import Path as _Path
+
+    from core.skills.loader import SkillLoader
+
+    root = tmp_path / "personal"
+    (root / "stale-skill").mkdir(parents=True)
+    (root / "stale-skill" / "SKILL.md").write_text(
+        "---\nname: stale\ndescription: old flat layout\n---\nbody\n", encoding="utf-8"
+    )
+    (root / "1" / "mine").mkdir(parents=True)
+    (root / "1" / "mine" / "SKILL.md").write_text(
+        "---\nname: mine\ndescription: per-account skill\n---\nbody\n", encoding="utf-8"
+    )
+
+    loader = SkillLoader(personal_path=str(root))
+    found = [d for d in loader.discover_all() if d.source_type == "personal"]
+
+    # skill_path IS the skill directory; its parent is the account folder.
+    assert [_Path(d.skill_path).name for d in found] == ["mine"]
+    assert found[0].owner_id == 1
+
+
+def test_skills_carry_an_owner_and_builtins_do_not(db_session):
+    from sqlalchemy import text as _text
+
+    rows = db_session.execute(_text(
+        "SELECT source_type, count(*), count(owner_id) FROM skills GROUP BY source_type"
+    )).all()
+    for source_type, total, owned in rows:
+        if source_type == "builtin":
+            assert owned == 0, "a builtin skill must stay unowned (system-wide)"
+        else:
+            assert owned == total, f"{total - owned} {source_type} skill(s) have no owner"

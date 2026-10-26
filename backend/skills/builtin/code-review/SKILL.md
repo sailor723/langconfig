@@ -6,7 +6,7 @@ tags: [code-review, best-practices, security, quality, refactoring]
 triggers:
   - "when user mentions code review"
   - "when user mentions PR review"
-  - "when user mentions pull request"
+  - "when user mentions pull request review"
   - "when user mentions refactor"
 allowed-tools: [filesystem, grep]
 author: LangConfig

@@ -88,10 +88,44 @@ The only change was wording. Treat the anti-loop rule, stop conditions and hard 
 | The **DB row** is what `SkillsMiddleware` serves; `SKILL.md` on disk is the git-tracked source | editing the file alone changes nothing until you reload |
 | `_stage_skill_catalog` re-serialises **every** skill row to storage on each agent build under `skills/<source_type>/<skill_id>/SKILL.md` | no per-skill staging step; but see the next row |
 | Storage keys are **written, never pruned** | moving a skill between roots (personal → builtin) leaves the old object behind |
-| Sources are handed to the middleware in order `[/skills/builtin, /skills/personal]` and the middleware merges by **name, last source wins** | a stale personal copy **shadows** the current builtin one. Live example: `document-deliverables` (personal 2,946 B beats builtin 3,468 B) |
+| Sources are handed to the middleware in order `[/skills/builtin, /skills/personal]` and the middleware merges by **name, last source wins** | a stale personal copy **shadows** the current builtin one — check before promoting a skill: the old duplicate leaves a storage object behind (see the row above) |
 | `config.skills` (the Skills picker) has **no runtime effect** in db mode | pinning ≠ enabling. Discovery is library-wide |
 | `SkillsMiddleware.before_agent` loads `skills_metadata` **once per thread** | the catalog is frozen for that conversation; a new/edited skill needs a new chat |
 | The catalog is metadata only; level 2 is `read_file` on the path, level 3 is whatever that body references | the skill must be readable **as a file**, and the agent must carry a file-reading tool |
+
+### Which root a skill belongs in, and who can see it
+
+Two roots, and the difference is now enforced rather than nominal:
+
+| Root | Who sees it | Path |
+|---|---|---|
+| **builtin** | everyone, every agent | `backend/skills/builtin/<skill_id>/SKILL.md` |
+| **personal** | one account | `backend/skills/personal/<user id>/<skill_id>/SKILL.md` |
+
+Personal skills used to sit in one flat `personal/` folder shared by every account, and the
+`skills` table had no owner column — so "personal" meant nothing. Migration `036` added
+`owner_id` (NULL = builtin, shared; set = that account's) and `UNIQUE(owner_id, skill_id)`
+so two accounts may each own a skill with the same id. The loader discovers one level
+deeper, and **refuses a flat `personal/<skill>/` layout** rather than adopting it back into
+the shared namespace. Move folders with `scripts/adopt_personal_skills.py`.
+
+The test for which root: **would a new colleague need this on day one, for work that is not
+yours?** If yes it is `builtin` (`code-review`, `web-search`, `sql-analyst`, `git-workflow`).
+If it names your company, your market, or your data, it is `personal` (`sunhing-analyst`,
+`a-share-research`, `erp-analyst`). Of this install's 25 "personal" skills, 16 were generic
+and moved; see `scripts/reclassify_skills.py`.
+
+Two consequences worth designing around, because progressive disclosure puts **every**
+skill's name + description into **every** agent's prompt:
+
+- **A shared agent that pins a personal skill cannot see it.** `config.skills` lists ids; a
+  skill the calling account does not own is skipped, with a log line. That is the intended
+  behaviour — the alternative (falling back to the owner's copy) would undo the isolation.
+- **Two skills that claim the same trigger make the model guess.** This is a real
+  collision, not a theoretical one: `code-review` and `git-workflow` both listed "pull
+  request", and a "review this PR" request matched both. Review owns the *content* of a
+  review; git-workflow owns branch/merge/rebase/release mechanics and says so in its own
+  body. When adding a skill, grep the other triggers for its main words first.
 
 ## 6. Measuring — use the checkpointer, not the chat log
 
