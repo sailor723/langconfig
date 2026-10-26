@@ -86,7 +86,13 @@ def _stage_skill_catalog(
 
             db = SessionLocal()
             try:
-                skill_records = db.query(Skill).all()
+                # The catalogue is the list every agent sees in its prompt, so it is
+                # filtered exactly like the API: builtins + the caller's own personal
+                # skills. Staging another account's skills would put their names and
+                # descriptions into this conversation.
+                from services import workspace_scope
+
+                skill_records = workspace_scope.visible_skills(db.query(Skill), db).all()
             finally:
                 db.close()
 
@@ -145,10 +151,15 @@ def _stage_skill_catalog(
         skills_dir = skills_staging_root / "skills"
         skills_dir.mkdir(parents=True, exist_ok=True)
 
+        # Local mode stages the same catalogue the DB path serves: built-ins, plus the
+        # caller's own personal folder — `personal/<user id>`, not the shared parent, or
+        # every account's skills would be copied into this agent's workspace.
+        from services import user_roots
+
         staged = 0
         for root, target_sub in (
             (DEFAULT_BUILTIN_SKILLS_ROOT, "builtin"),
-            (PERSONAL_SKILLS_ROOT, None),
+            (user_roots.personal_skills_dir_for(user_roots.subject_user_id()), None),
         ):
             if not root.is_dir():
                 continue

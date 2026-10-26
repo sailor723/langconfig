@@ -65,3 +65,21 @@ def stamp(record, db: Optional[Session] = None, column: str = "owner_id"):
     """Set the owning column on a row about to be inserted. Returns the record."""
     setattr(record, column, owner_id(db))
     return record
+
+
+def visible_skills(query, db: Optional[Session] = None):
+    """The skills this caller may see: every builtin, plus their own personal ones.
+
+    Skills are not like files — a personal skill is not merely unreadable to another
+    account, it must not appear in their catalogue at all, because progressive disclosure
+    puts every catalogue entry into every agent's prompt. Built-ins (``owner_id IS NULL``)
+    are the product's and stay visible to everyone.
+    """
+    from sqlalchemy import or_
+
+    uid = owner_id(db)
+    if uid is None:
+        return query
+    from models.skill import Skill
+
+    return query.filter(or_(Skill.owner_id.is_(None), Skill.owner_id == uid))

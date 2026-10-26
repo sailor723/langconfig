@@ -251,15 +251,23 @@ def _import_skill(skill_id: str, skill_data: Dict[str, Any], db: Session) -> boo
     """
     Create a personal skill from bundle data; reuse silently if it already exists.
 
-    Writes the bundled files (SKILL.md + extras) under PERSONAL_SKILLS_ROOT so the
-    runtime FilesystemBackend can read them, then inserts the indexed DB row.
+    Writes the bundled files (SKILL.md + extras) under the importing account's personal
+    folder so the runtime FilesystemBackend can read them, then inserts the indexed DB
+    row with that account as owner.
     """
-    existing = db.query(Skill).filter(Skill.skill_id == skill_id).first()
+    existing = db.query(Skill).filter(
+        Skill.skill_id == skill_id,
+        Skill.source_type == SkillSourceType.PERSONAL,
+    ).first()
     if existing:
         logger.info(f"Reusing existing skill '{skill_id}'")
         return False
 
-    skill_dir = PERSONAL_SKILLS_ROOT / skill_id
+    # Under the *importing account*, not the shared parent: a flat
+    # `personal/<skill>` folder is exactly what the loader no longer reads.
+    from services import user_roots
+
+    skill_dir = user_roots.personal_skills_dir_for(user_roots.subject_user_id()) / skill_id
     skill_dir.mkdir(parents=True, exist_ok=True)
 
     files = skill_data.get("files") or {}
@@ -283,6 +291,10 @@ def _import_skill(skill_id: str, skill_data: Dict[str, Any], db: Session) -> boo
 
     db.add(Skill(
         skill_id=skill_id,
+        # The importing account owns it. Without this the row is unowned, and an unowned
+        # "personal" row is visible to nobody (or to everybody, depending on the reader) —
+        # neither is what importing a skill means.
+        owner_id=user_roots.subject_user_id(),
         name=skill_data.get("name", skill_id),
         description=skill_data.get("description") or f"Imported skill '{skill_id}'",
         version=skill_data.get("version", "1.0.0"),

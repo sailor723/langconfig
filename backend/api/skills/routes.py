@@ -315,7 +315,11 @@ async def list_skills(
 
     db = SessionLocal()
     try:
-        query = db.query(Skill)
+        # Built-ins plus this caller's own personal skills. Without this the library
+        # showed one account's private skills to everybody.
+        from services import workspace_scope
+
+        query = workspace_scope.visible_skills(db.query(Skill), db)
 
         if source_type:
             query = query.filter(Skill.source_type == source_type)
@@ -373,7 +377,9 @@ async def get_skills_summary():
 
     db = SessionLocal()
     try:
-        skills = db.query(Skill).all()
+        from services import workspace_scope
+
+        skills = workspace_scope.visible_skills(db.query(Skill), db).all()
         by_source = {}
         tag_counts = {}
         for skill in skills:
@@ -431,7 +437,11 @@ async def get_skill(skill_id: str):
 
     db = SessionLocal()
     try:
-        skill = db.query(Skill).filter(Skill.skill_id == skill_id).first()
+        from services import workspace_scope
+
+        skill = workspace_scope.visible_skills(db.query(Skill), db).filter(
+            Skill.skill_id == skill_id
+        ).first()
     finally:
         db.close()
 

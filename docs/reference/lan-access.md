@@ -338,6 +338,29 @@ If you cannot change the topology, the proxy *is* the gate: treat `LANGCONFIG_LA
 and make the proxy do authentication, accepting that the app then cannot attribute anything to a
 person.
 
+### Verifying it end to end
+
+Three scripts, three questions, all run against a live instance in about a second each:
+
+| Script | Question |
+|---|---|
+| `scripts/verify_auth.sh` | can people get in — and only the right people? |
+| `scripts/verify_isolation.sh` | can A reach B's files, storage or sessions? |
+| **`scripts/verify_tenant.sh`** | **is this one tenant with private working sets and shared assets?** |
+
+```bash
+cd backend
+./scripts/verify_tenant.sh 192.168.3.23:8765 -u admin -A user1     # prompts for both
+```
+
+Thirteen checks, in five groups: each account resolves to itself; files are per account
+(A 227 / B 0, B's download of A's file is 404); conversations are per account (A 267 / B 7,
+A's transcript is 404 for B); built-in skills are shared while personal ones are not
+(A 35+5, B 35+0); and projects, agents, tools and knowledge are **identical** for both —
+that last group asserts a non-zero count on each side, because "0 = 0" passes a naive
+equality check while proving nothing (it caught two wrong endpoint paths when this was
+written).
+
 ### What keeps one account out of another's files
 
 Three layers, each weaker than the one below it, all pointed at the same boundary
