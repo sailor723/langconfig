@@ -779,6 +779,35 @@ Keep the rewriter dry-run + rollback (§9.3).
 
 **Done when:** A uploads a file; B cannot see it, list it, download it, or reach it from the terminal.
 
+### 14.3 Slice 2 in progress — decisions taken 2026-10-26
+
+Three questions were settled before any code, because each one changes the whole
+path of the work:
+
+| Question | Decision |
+|---|---|
+| Where does the user segment go? | **User first**: `<workspace root>/users/<user id>/<vault>/…`. A person's tree is one movable, backup-able, deletable unit; a project (vault) can be shared, a person's files cannot. |
+| Who owns the 210 existing files and 757 storage objects? | **The first admin**, backfilled by the migration. The person who ran the install owns what it produced. |
+| How hard is the isolation? | **Default scope, no enforcement theatre**: `owner_id` filters on read paths, agent `FilesystemBackend(root_dir=…)` confined to the user tree, terminal `cwd` set to it. The terminal is a real shell — `cd ..` works, and the docs say so rather than implying a cage that does not exist. |
+
+Step 1 is landed (migration `034_owner_scoped_files`, `services/user_roots.py`):
+`owner_id` on `workspace_files` and `storage_objects`, global UNIQUE replaced by
+`(owner_id, path)` / `(owner_id, key)` so two people can both have `notes.md`,
+backfill to the first admin, and one resolver answering "where do this person's
+files live?" — including the two cases that decide whether existing installs break:
+**no accounts at all keeps the old flat layout** (no gratuitous `users/` level), and
+**background work with no request context resolves to the owner** so scheduled runs
+still write somewhere a human can find.
+
+Still to do, in this order (the order is load-bearing — moving the data *before*
+flipping the resolver is what keeps the app working throughout):
+
+1. `scripts/adopt_user_workspaces.py` — move `<root>/<vault>` → `<root>/users/<admin>/<vault>`, dry-run by default, `--rollback`; run it, verify the Files panel still lists everything.
+2. Service wiring: `workspace_manager` path joins → the user tree (`self.base_dir` stays the install root), `file_storage`, terminal `cwd`, deepagents `root_dir`, agent doc `workspace_root` at materialization.
+3. Read-path filters: every `WorkspaceFile` / `StorageObject` query by `owner_id` (the metadata routes) — the filesystem listing is already scoped by the root.
+4. UI: the Files panel shows only mine; paths render user-relative.
+5. Tests: A uploads → B's list, download and terminal are empty/404 — **and** both still see the same shared knowledge base, which is the half of the boundary that must not silently change.
+
 ### Slice 3 — Agent running with per-user keys  ▶ *your item 3*
 
 The execution cut: whose key runs, and whose money.

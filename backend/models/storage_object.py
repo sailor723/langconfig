@@ -13,7 +13,17 @@ when an object store (S3 / COS / OSS) is used instead.
 """
 import datetime
 
-from sqlalchemy import BigInteger, Column, DateTime, Integer, LargeBinary, String, func
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    UniqueConstraint,
+    func,
+)
 
 from db.database import Base
 
@@ -28,12 +38,24 @@ class StorageObject(Base):
     __tablename__ = "storage_objects"
 
     id = Column(Integer, primary_key=True, index=True)
-    key = Column(String(500), nullable=False, unique=True)
+    # Uniqueness is per owner: two people may each have the same relative key
+    # (migration 034). NULL means "written before accounts existed".
+    key = Column(String(500), nullable=False)
+    owner_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     content = Column(LargeBinary, nullable=False)  # BYTEA in Postgres
     size_bytes = Column(BigInteger, nullable=False, default=0)
     mime_type = Column(String(100), nullable=True)
     # server_default matches migration 018; Python-side onupdate keeps
     # updated_at fresh on ORM writes (Postgres has no server ON UPDATE clause).
+    __table_args__ = (
+        UniqueConstraint("owner_id", "key", name="storage_objects_owner_key_key"),
+    )
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True),

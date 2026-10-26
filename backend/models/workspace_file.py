@@ -9,7 +9,16 @@ WorkspaceFile Model - Tracks metadata for files created by agents.
 This model stores information about which agent created a file,
 the workflow/task context, and allows for tagging and organizing outputs.
 """
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON, DateTime, Text
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    JSON,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from db.database import Base
 import datetime
@@ -21,7 +30,15 @@ class WorkspaceFile(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String(255), nullable=False)
-    file_path = Column(String(500), nullable=False, unique=True)  # Relative path in outputs/
+    # Relative to the *owner's* workspace root; uniqueness is per owner
+    # (migration 034). NULL owner = written before accounts existed.
+    file_path = Column(String(500), nullable=False)
+    owner_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Source tracking - which agent created this file
     agent_label = Column(String(255), nullable=True)  # "Deep Research 3.1", "Content Writer"
@@ -47,6 +64,10 @@ class WorkspaceFile(Base):
     extension = Column(String(20), nullable=True)
 
     # Timestamps
+    __table_args__ = (
+        UniqueConstraint("owner_id", "file_path", name="workspace_files_owner_path_key"),
+    )
+
     created_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 

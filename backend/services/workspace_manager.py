@@ -115,6 +115,15 @@ class WorkspaceManager:
         self.base_dir.mkdir(exist_ok=True)
         logger.info(f"Workspace manager initialized: {self.base_dir}")
     
+    def install_base_dir(self) -> Path:
+        """The install-wide workspace root (``outputs/`` or the Settings path).
+
+        Named rather than left as ``self.base_dir`` so the distinction is explicit:
+        this is where *everyone's* vaults used to live, and the per-user roots in
+        ``services/user_roots.py`` are derived from it.
+        """
+        return self.base_dir
+
     def get_task_workspace(
         self,
         project_id: Optional[int],
