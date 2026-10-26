@@ -197,6 +197,42 @@ def delete_agents(db, ids: list) -> int:
     return deleted
 
 
+def prune_orphans(root: Path, apply: bool) -> dict:
+    """Directories whose agent no longer exists.
+
+    Two kinds, and they must not be treated the same:
+
+    * **empty skeletons** — created when an agent was first opened; deletion leaves them
+      behind. Nothing is lost by removing them, and the resolver recreates one on demand.
+    * **directories holding real files** — a user's deliverables. Deleting an agent in the
+      UI does not delete its output, so these are the only remaining copy of that work.
+      They are reported and left alone; `--quarantine <dir>` moves them somewhere the
+      owner can find them.
+    """
+    from sqlalchemy import text as _text
+
+    db = SessionLocal()
+    try:
+        live = {i for (i,) in db.execute(_text("SELECT id FROM deep_agent_templates")).all()}
+    finally:
+        db.close()
+
+    empty, with_files = [], []
+    for path in sorted(root.rglob("agent_*")):
+        if not path.is_dir() or not path.name.startswith("agent_"):
+            continue
+        try:
+            agent_id = int(path.name.split("_")[1])
+        except (IndexError, ValueError):
+            continue
+        if agent_id in live:
+            continue
+        real = [f for f in path.rglob("*")
+                if f.is_file() and f.name not in ("AGENTS.md", "CLAUDE.md", ".gitkeep")]
+        (with_files if real else empty).append((path, real))
+    return {"empty": empty, "with_files": with_files}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Audit and repair the agent inventory.")
     parser.add_argument("--apply", action="store_true", help="write missing docs")
@@ -205,6 +241,11 @@ def main() -> int:
     parser.add_argument("--delete", nargs="*", type=int, default=None,
                         help="ids of agent-less-chat agents to delete (refused if they have chats)")
     parser.add_argument("--owner", type=int, default=None, help="user id whose tree to audit")
+    parser.add_argument("--prune-empty", action="store_true",
+                        help="remove skeleton dirs left by deleted agents (never files)")
+    parser.add_argument("--prune-orphans", action="store_true",
+                        help="remove EVERY dir left by a deleted agent, including ones holding "
+                             "files — the files are unreachable from the app, so back them up first")
     args = parser.parse_args()
 
     db = SessionLocal()
@@ -218,6 +259,44 @@ def main() -> int:
             owner = found.id
 
         data = report(db, owner)
+
+        orphans = prune_orphans(user_roots.root_for(owner), args.apply)
+        empty_n, files_n = len(orphans["empty"]), len(orphans["with_files"])
+        print(f"  orphan workspace dirs       {empty_n + files_n:>4}   "
+              f"({empty_n} empty skeletons, {files_n} holding real files)")
+        for path, real in orphans["with_files"]:
+            size = sum(f.stat().st_size for f in real) / 1024
+            print(f"    keeps {len(real)} file(s), {size:.0f} KB — {path.relative_to(user_roots.root_for(owner)).as_posix()}")
+        if args.prune_orphans:
+            targets = orphans["empty"] + orphans["with_files"]
+            files = sum(len(real) for _, real in orphans["with_files"])
+            if not args.apply:
+                print(f"  DRY RUN — --apply would delete {len(targets)} dir(s), "
+                      f"including {files} real file(s)")
+            else:
+                if files:
+                    print(f"  deleting {files} real file(s) too — that data is only in your backup")
+                import shutil
+
+                for path, _ in targets:
+                    shutil.rmtree(path, ignore_errors=True)
+                print(f"  removed {len(targets)} orphan dir(s)")
+            print()
+
+        if args.prune_empty:
+            if args.apply:
+                for path, _ in orphans["empty"]:
+                    for sub in sorted(path.rglob("*"), reverse=True):
+                        if sub.is_dir():
+                            sub.rmdir() if not any(sub.iterdir()) else None
+                    try:
+                        path.rmdir()
+                    except OSError:
+                        pass
+                print(f"  removed {empty_n} empty skeleton dir(s)")
+            else:
+                print(f"  DRY RUN — re-run with --apply to remove the {empty_n} empty skeleton dir(s)")
+        print()
 
         if args.delete:
             print("  delete requested:")

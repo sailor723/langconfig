@@ -459,3 +459,53 @@ def test_the_snapshot_sandbox_reads_the_shared_binding():
         assert ni._sandbox_roots()[0] == user_roots.Path("/tmp/ws/users/42").resolve()
     finally:
         user_roots.clear_run_root(token)
+
+
+def test_audit_script_reports_orphans_without_deleting_them(tmp_path):
+    """`prune_orphans` distinguishes empty skeletons from directories with real files.
+
+    Deleting an agent in the UI leaves its workspace behind, and that directory may hold
+    the only copy of a deliverable the agent produced. The audit reports both kinds and
+    only the caller's explicit flag decides what happens.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "audit_agents", Path(__file__).resolve().parent.parent / "scripts" / "audit_agents.py"
+    )
+    audit = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(audit)
+
+    live_id, dead_empty, dead_files = 1, 777001, 777002
+    for agent_id in (live_id, dead_empty, dead_files):
+        (tmp_path / "agents" / f"agent_{agent_id}" / "generated").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "agents" / f"agent_{dead_empty}" / "AGENTS.md").write_text("doc", encoding="utf-8")
+    (tmp_path / "agents" / f"agent_{dead_files}" / "generated" / "report.pdf").write_bytes(b"%PDF")
+
+    import db.database as database
+
+    class _FakeSession:
+        def execute(self, *_a, **_kw):
+            class _R:
+                def all(self_inner):
+                    return [(live_id,)]
+            return _R()
+
+        def close(self):
+            pass
+
+    original = audit.SessionLocal
+    audit.SessionLocal = _FakeSession
+    try:
+        result = audit.prune_orphans(tmp_path, apply=False)
+    finally:
+        audit.SessionLocal = original
+
+    empty_names = [p.name for p, _ in result["empty"]]
+    file_names = [p.name for p, _ in result["with_files"]]
+    assert f"agent_{dead_empty}" in empty_names
+    assert f"agent_{dead_files}" in file_names
+    assert f"agent_{live_id}" not in empty_names + file_names
+    # Nothing was touched.
+    assert (tmp_path / "agents" / f"agent_{dead_files}" / "generated" / "report.pdf").exists()
