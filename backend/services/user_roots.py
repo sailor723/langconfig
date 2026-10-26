@@ -57,6 +57,25 @@ USERS_DIRNAME = "users"
 _RUN_ROOT: "ContextVar[Optional[str]]" = ContextVar("langconfig_run_root", default=None)
 
 
+def personal_skills_dir() -> Path:
+    """`backend/skills/personal` — the parent of every account's skill folder.
+
+    Personal skills stay in the repository (unlike agent workspaces, which live under
+    the workspace root) so they remain git-tracked and travel with the team seed. What
+    changes is the structure: one folder per account, `personal/<user id>/<skill>/`.
+    """
+    from services.workspace_manager import get_workspace_manager
+
+    backend_dir = Path(get_workspace_manager().install_base_dir()).parent
+    return backend_dir / "skills" / "personal"
+
+
+def personal_skills_dir_for(user_id: Optional[int]) -> Path:
+    """One account's skill folder. No account → the parent, unscoped (legacy installs)."""
+    base = personal_skills_dir()
+    return base if user_id is None else base / str(user_id)
+
+
 def install_root() -> Path:
     """The workspace base directory (``outputs/`` by default, or the Settings path).
 

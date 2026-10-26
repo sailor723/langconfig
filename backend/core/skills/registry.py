@@ -95,7 +95,8 @@ class SkillRegistry:
                         session,
                         discovery.skill_path,
                         discovery.source_type,
-                        discovery.project_path
+                        discovery.project_path,
+                        getattr(discovery, "owner_id", None),
                     )
                     if success:
                         loaded_count += 1
@@ -110,7 +111,8 @@ class SkillRegistry:
         session: AsyncSession,
         skill_dir: str,
         source_type: str,
-        project_path: Optional[str]
+        project_path: Optional[str],
+        owner_id: Optional[int] = None,
     ) -> bool:
         """
         Load a skill from filesystem and sync to database.
@@ -125,10 +127,15 @@ class SkillRegistry:
         logger.info(f"Parsed skill '{parsed.skill_id}' from {skill_dir}")
 
         try:
-            # Check if skill exists in database
-            result = await session.execute(
-                select(Skill).where(Skill.skill_id == parsed.skill_id)
-            )
+            # Check if skill exists in database. Keyed by (skill_id, owner) for personal
+            # skills: two accounts may legitimately hold a skill with the same id, and a
+            # lookup by id alone would let one account's file overwrite the other's row.
+            query = select(Skill).where(Skill.skill_id == parsed.skill_id)
+            if owner_id is None:
+                query = query.where(Skill.owner_id.is_(None))
+            else:
+                query = query.where(Skill.owner_id == owner_id)
+            result = await session.execute(query)
             existing_skill = result.scalar_one_or_none()
 
             if existing_skill:

@@ -43,6 +43,10 @@ class Skill(Base):
 
     # Identity (from SKILL.md frontmatter)
     skill_id = Column(String(100), unique=True, nullable=False, index=True)  # kebab-case name
+    # NULL for built-ins (the product's, shared) and for pre-accounts installs;
+    # set for every personal skill — see migration 036.
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
+                      nullable=True, index=True)
     name = Column(String(200), nullable=False)  # Human-readable name
     description = Column(Text, nullable=False)  # For semantic search and matching
     version = Column(String(20), nullable=False, default="1.0.0")

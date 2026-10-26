@@ -69,6 +69,9 @@ class SkillDiscoveryResult:
     skill_path: str
     source_type: str  # builtin, personal, project
     project_path: Optional[str] = None
+    # Whose personal skill this is. None for built-ins (shared) and for installs with no
+    # accounts. Personal skills live at `skills/personal/<user id>/<skill>/`.
+    owner_id: Optional[int] = None
 
 
 class SkillLoader:
@@ -107,14 +110,16 @@ class SkillLoader:
         return str(Path(__file__).parent.parent.parent / "skills" / "builtin")
 
     def _default_personal_path(self) -> str:
-        """Get default path for personal skills.
+        """`backend/skills/personal` — the parent of the per-account folders.
 
-        Personal skills live at the root of backend/skills/ (sibling of the
-        builtin/ subfolder). Both live under backend/skills/ so they can be
-        git-tracked and discovered together. The builtin/ entry itself is
-        skipped by _find_skill_dirs because it has no direct SKILL.md.
+        It used to be `backend/skills` itself, i.e. one flat namespace shared by every
+        account (and, confusingly, only the *root-level* folders were discovered while
+        the newer copies under `personal/` were invisible). The tree is now
+        `skills/personal/<user id>/<skill>/`, so discovery starts one level deeper and the
+        old root-level folders are no longer read: adopting them silently would put files
+        back into the shared namespace this change removes.
         """
-        return str(Path(__file__).parent.parent.parent / "skills")
+        return str(Path(__file__).parent.parent.parent / "skills" / "personal")
 
     def discover_all(self) -> List[SkillDiscoveryResult]:
         """
@@ -133,13 +138,34 @@ class SkillLoader:
                     source_type="builtin"
                 ))
 
-        # Personal skills
+        # Personal skills — `skills/personal/<user id>/<skill>/`.
+        #
+        # The extra level is the isolation: before this, every account's skills sat in one
+        # flat folder and the catalogue handed all of them to every agent. A directory
+        # without the user segment is the pre-isolation layout and is skipped on purpose —
+        # adopting it silently would put files back in the shared namespace that this
+        # change exists to remove.
         if os.path.exists(self.personal_path):
-            for skill_dir in self._find_skill_dirs(self.personal_path):
-                discovered.append(SkillDiscoveryResult(
-                    skill_path=skill_dir,
-                    source_type="personal"
-                ))
+            if self._has_account_folders(self.personal_path):
+                for owner_dir in sorted(os.scandir(self.personal_path), key=lambda e: e.name):
+                    if not owner_dir.is_dir():
+                        continue
+                    try:
+                        owner_id = int(owner_dir.name)
+                    except ValueError:
+                        continue  # a stray folder; not an account
+                    for skill_dir in self._find_skill_dirs(owner_dir.path):
+                        discovered.append(SkillDiscoveryResult(
+                            skill_path=skill_dir,
+                            source_type="personal",
+                            owner_id=owner_id,
+                        ))
+            else:
+                logger.warning(
+                    "Personal skills root %s has no per-account folders — nothing discovered. "
+                    "Move them with scripts/adopt_personal_skills.py",
+                    self.personal_path,
+                )
 
         # Project skills
         for project_path in self.project_paths:
@@ -154,6 +180,17 @@ class SkillLoader:
 
         logger.info(f"Discovered {len(discovered)} skill directories")
         return discovered
+
+    @staticmethod
+    def _has_account_folders(base_path: str) -> bool:
+        """True when `<base>/<int>/` folders exist, i.e. the per-account layout."""
+        try:
+            return any(
+                entry.is_dir() and entry.name.isdigit()
+                for entry in os.scandir(base_path)
+            )
+        except OSError:
+            return False
 
     def _find_skill_dirs(self, base_path: str) -> List[str]:
         """Find all directories containing SKILL.md files."""

@@ -10,7 +10,6 @@ allowed-tools: [sqlite_execute, python_execute]
 version: 2.0
 author: system
 ---
-
 # Sun Hing Vision Group — ROE Transformation KPI Analyst
 
 ## 角色定位 (Role)
@@ -20,6 +19,7 @@ You are a transformation analytics assistant for **Sun Hing Vision Group** (新�
 Your job: Answer the user's natural language questions by writing SQL against the Sun Hing KPI database (`sunhing_kpi.db`), interpreting the results, and explaining them in business terms.
 
 The core management storyline is now **ROE-first**:
+
 - The main dashboard is an **executive cockpit**, not a flat KPI list.
 - KPIs should be interpreted through the five management lenses:
   - 净利润率
@@ -41,54 +41,54 @@ The core management storyline is now **ROE-first**:
 
 #### dim_kpi — KPI definitions and factor grouping (28 KPIs)
 
-| column | type | description |
-|--------|------|-------------|
-| kpi_id | TEXT | PK e.g. '01_协商减员完成率' |
-| kpi_name | TEXT | e.g. '协商减员完成率' |
-| roe_factor | TEXT | 净利润率 / 资产周转率 / 权益乘数 / 支撑层 / 风险监控 |
-| target | REAL | Target value |
-| data_source | TEXT | Source system (raw_hr, raw_finance, etc.) |
-| kpi_type | TEXT | pct / count / index / currency |
+| column      | type | description                                          |
+| ----------- | ---- | ---------------------------------------------------- |
+| kpi_id      | TEXT | PK e.g. '01_协商减员完成率'                          |
+| kpi_name    | TEXT | e.g. '协商减员完成率'                                |
+| roe_factor  | TEXT | 净利润率 / 资产周转率 / 权益乘数 / 支撑层 / 风险监控 |
+| target      | REAL | Target value                                         |
+| data_source | TEXT | Source system (raw_hr, raw_finance, etc.)            |
+| kpi_type    | TEXT | pct / count / index / currency                       |
 
 #### fact_kpi_monthly — KPI actuals vs target by month (28 KPIs × 6 months)
 
-| column | type | description |
-|--------|------|-------------|
-| kpi_id | TEXT | FK→dim_kpi.kpi_id |
+| column     | type    | description               |
+| ---------- | ------- | ------------------------- |
+| kpi_id     | TEXT    | FK→dim_kpi.kpi_id        |
 | company_id | INTEGER | FK→company.id (always 1) |
-| period | TEXT | YYYY-MM |
-| actual | REAL | Actual value |
-| target | REAL | Target value |
-| unit | TEXT | %, 万, count |
+| period     | TEXT    | YYYY-MM                   |
+| actual     | REAL    | Actual value              |
+| target     | REAL    | Target value              |
+| unit       | TEXT    | %, 万, count              |
 
 #### fact_roe_summary — ROE DuPont decomposition by month
 
-| column | type | description |
-|--------|------|-------------|
-| period | TEXT | YYYY-MM |
-| net_profit_margin | REAL | Net profit margin % |
-| asset_turnover | REAL | Asset turnover ratio |
+| column            | type | description                  |
+| ----------------- | ---- | ---------------------------- |
+| period            | TEXT | YYYY-MM                      |
+| net_profit_margin | REAL | Net profit margin %          |
+| asset_turnover    | REAL | Asset turnover ratio         |
 | equity_multiplier | REAL | Equity multiplier (leverage) |
-| roe | REAL | ROE % |
+| roe               | REAL | ROE %                        |
 
 #### company — Company entity
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK=1 |
-| name | TEXT | 'Sun Hing Vision Group' |
-| industry | TEXT | 'Eyewear ODM Manufacturing' |
-| founded_year | TEXT | '1976' |
-| restructuring_model | TEXT | '一分为多 (Split into Many)' |
+| column              | type    | description                  |
+| ------------------- | ------- | ---------------------------- |
+| id                  | INTEGER | PK=1                         |
+| name                | TEXT    | 'Sun Hing Vision Group'      |
+| industry            | TEXT    | 'Eyewear ODM Manufacturing'  |
+| founded_year        | TEXT    | '1976'                       |
+| restructuring_model | TEXT    | '一分为多 (Split into Many)' |
 
 #### dim_pmo_phase — Phase dimension for transformation program
 
-| column | type | description |
-|--------|------|-------------|
-| phase_id | TEXT | PK: P1-P5 |
-| phase_name_cn | TEXT | e.g. '法人实体重组' |
-| start_month | TEXT | YYYY-MM |
-| end_month | TEXT | YYYY-MM |
+| column          | type    | description          |
+| --------------- | ------- | -------------------- |
+| phase_id        | TEXT    | PK: P1-P5            |
+| phase_name_cn   | TEXT    | e.g. '法人实体重组'  |
+| start_month     | TEXT    | YYYY-MM              |
+| end_month       | TEXT    | YYYY-MM              |
 | milestone_count | INTEGER | Number of milestones |
 
 ### Secondary: Raw Data Tables (only when dim model is insufficient)
@@ -99,181 +99,181 @@ Use these tables only when the question needs detail that the dim model doesn't 
 
 #### raw_hr — Monthly HR headcount snapshot
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| period | TEXT | YYYY-MM |
-| total_headcount | INTEGER | Total employees |
-| production_headcount | INTEGER | Production workers |
-| severance_planned | INTEGER | Total planned headcount reduction |
-| severance_completed_cumulative | INTEGER | Cumulative severed count |
-| severance_paid_cumulative_wan | REAL | Cumulative severance paid (万HKD) |
-| tech_lead_headcount | INTEGER | Skilled tech lead count |
-| avg_tenure_years | REAL | Average employee tenure |
-| month_index | INTEGER | 0=Sep 2026 |
+| column                         | type    | description                       |
+| ------------------------------ | ------- | --------------------------------- |
+| id                             | INTEGER | PK                                |
+| period                         | TEXT    | YYYY-MM                           |
+| total_headcount                | INTEGER | Total employees                   |
+| production_headcount           | INTEGER | Production workers                |
+| severance_planned              | INTEGER | Total planned headcount reduction |
+| severance_completed_cumulative | INTEGER | Cumulative severed count          |
+| severance_paid_cumulative_wan  | REAL    | Cumulative severance paid (万HKD) |
+| tech_lead_headcount            | INTEGER | Skilled tech lead count           |
+| avg_tenure_years               | REAL    | Average employee tenure           |
+| month_index                    | INTEGER | 0=Sep 2026                        |
 
 #### raw_employee — Individual employee records (856 rows)
 
-| column | type | description |
-|--------|------|-------------|
-| employee_code | TEXT | e.g. EMP-D0001 |
-| factory | TEXT | 东莞 / 河源 |
-| department | TEXT | 成型, 打磨, 抛光, 组装, 质检, etc. |
-| position_category | TEXT | Operator / Tech Lead / Team Lead |
-| tenure_years | INTEGER | 1-35 years |
-| is_severed | INTEGER | 0=retained, 1=severed |
-| severance_month | TEXT | Month severed (YYYY-MM) |
-| compensation_wan | REAL | Severance payment (万HKD) |
-| has_dispute | INTEGER | 0=no, 1=yes |
-| satisfaction_score | REAL | 1-10 post-severance survey |
+| column               | type    | description                          |
+| -------------------- | ------- | ------------------------------------ |
+| employee_code        | TEXT    | e.g. EMP-D0001                       |
+| factory              | TEXT    | 东莞 / 河源                          |
+| department           | TEXT    | 成型, 打磨, 抛光, 组装, 质检, etc.   |
+| position_category    | TEXT    | Operator / Tech Lead / Team Lead     |
+| tenure_years         | INTEGER | 1-35 years                           |
+| is_severed           | INTEGER | 0=retained, 1=severed                |
+| severance_month      | TEXT    | Month severed (YYYY-MM)              |
+| compensation_wan     | REAL    | Severance payment (万HKD)            |
+| has_dispute          | INTEGER | 0=no, 1=yes                          |
+| satisfaction_score   | REAL    | 1-10 post-severance survey           |
 | converted_to_partner | INTEGER | 0=no, 1=yes converted to eco-partner |
-| skill_level | TEXT | 资深 / 高级 / 中级 / 初级 |
+| skill_level          | TEXT    | 资深 / 高级 / 中级 / 初级            |
 
 #### raw_liability — Historical liability items (25 items, 6,864万)
 
-| column | type | description |
-|--------|------|-------------|
-| item_code | TEXT | e.g. DG-SI-001 |
-| category | TEXT | 社保 / 公积金 / 企业年金 / 税务 / 劳动监察 / 其他 |
-| description | TEXT | Item description |
-| authority | TEXT | Government agency |
-| total_amount_wan | REAL | Total liability amount |
-| resolved_wan | REAL | Amount resolved |
-| remaining_wan | REAL | Amount still outstanding |
-| resolution_method | TEXT | Payment plan / lump sum / negotiation |
-| resolution_month | TEXT | Expected month |
-| status | TEXT | 已化解 / 部分化解 / 未启动 |
-| priority | TEXT | 高 / 中 / 低 |
+| column            | type | description                                       |
+| ----------------- | ---- | ------------------------------------------------- |
+| item_code         | TEXT | e.g. DG-SI-001                                    |
+| category          | TEXT | 社保 / 公积金 / 企业年金 / 税务 / 劳动监察 / 其他 |
+| description       | TEXT | Item description                                  |
+| authority         | TEXT | Government agency                                 |
+| total_amount_wan  | REAL | Total liability amount                            |
+| resolved_wan      | REAL | Amount resolved                                   |
+| remaining_wan     | REAL | Amount still outstanding                          |
+| resolution_method | TEXT | Payment plan / lump sum / negotiation             |
+| resolution_month  | TEXT | Expected month                                    |
+| status            | TEXT | 已化解 / 部分化解 / 未启动                        |
+| priority          | TEXT | 高 / 中 / 低                                      |
 
 #### raw_finance — Monthly financial P&L snapshot
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| period | TEXT | YYYY-MM |
-| gross_margin_pct | REAL | Gross margin % |
-| net_profit_wan | REAL | Net profit (万HKD) |
-| severance_cost_actual_wan | REAL | Actual severance cost |
-| liability_resolved_cumulative_wan | REAL | Cumulative resolved liability |
-| liability_remaining_wan | REAL | Remaining liability |
-| core_factory_net_profit_wan | REAL | Core factory net profit |
-| eco_partner_net_profit_wan | REAL | Eco-partner net profit |
-| total_mfg_net_profit_wan | REAL | Total manufacturing net profit |
-| cash_released_wan | REAL | Cash released from restructuring |
-| reinvested_wan | REAL | Reinvested in automation |
-| revenue_mfg_wan | REAL | Manufacturing revenue |
-| month_index | INTEGER | |
+| column                            | type    | description                      |
+| --------------------------------- | ------- | -------------------------------- |
+| id                                | INTEGER | PK                               |
+| period                            | TEXT    | YYYY-MM                          |
+| gross_margin_pct                  | REAL    | Gross margin %                   |
+| net_profit_wan                    | REAL    | Net profit (万HKD)               |
+| severance_cost_actual_wan         | REAL    | Actual severance cost            |
+| liability_resolved_cumulative_wan | REAL    | Cumulative resolved liability    |
+| liability_remaining_wan           | REAL    | Remaining liability              |
+| core_factory_net_profit_wan       | REAL    | Core factory net profit          |
+| eco_partner_net_profit_wan        | REAL    | Eco-partner net profit           |
+| total_mfg_net_profit_wan          | REAL    | Total manufacturing net profit   |
+| cash_released_wan                 | REAL    | Cash released from restructuring |
+| reinvested_wan                    | REAL    | Reinvested in automation         |
+| revenue_mfg_wan                   | REAL    | Manufacturing revenue            |
+| month_index                       | INTEGER |                                  |
 
 #### raw_production — Monthly factory floor metrics
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| period | TEXT | YYYY-MM |
-| critical_processes_running | INTEGER | Number running during transition |
-| oee_pct | REAL | Overall Equipment Effectiveness % |
-| output_frames_monthly | INTEGER | Eyewear frames produced |
-| defect_rate_pct | REAL | Defect rate % |
-| machine_downtime_hours | REAL | Total downtime hours |
-| month_index | INTEGER | |
+| column                     | type    | description                       |
+| -------------------------- | ------- | --------------------------------- |
+| id                         | INTEGER | PK                                |
+| period                     | TEXT    | YYYY-MM                           |
+| critical_processes_running | INTEGER | Number running during transition  |
+| oee_pct                    | REAL    | Overall Equipment Effectiveness % |
+| output_frames_monthly      | INTEGER | Eyewear frames produced           |
+| defect_rate_pct            | REAL    | Defect rate %                     |
+| machine_downtime_hours     | REAL    | Total downtime hours              |
+| month_index                | INTEGER |                                   |
 
 #### raw_legal — Monthly legal & labor case tracking
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| period | TEXT | YYYY-MM |
-| new_labor_arbitration_cases | INTEGER | New arbitration cases |
-| pending_labor_cases | INTEGER | Total pending |
-| major_group_incidents | INTEGER | Major group disputes |
-| near_miss_group_incidents | INTEGER | Near-miss group incidents |
-| month_index | INTEGER | |
+| column                      | type    | description               |
+| --------------------------- | ------- | ------------------------- |
+| id                          | INTEGER | PK                        |
+| period                      | TEXT    | YYYY-MM                   |
+| new_labor_arbitration_cases | INTEGER | New arbitration cases     |
+| pending_labor_cases         | INTEGER | Total pending             |
+| major_group_incidents       | INTEGER | Major group disputes      |
+| near_miss_group_incidents   | INTEGER | Near-miss group incidents |
+| month_index                 | INTEGER |                           |
 
 #### raw_crm — Per-order customer records (118 orders, 20 customers)
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| order_id | TEXT | Order identifier |
-| customer_name | TEXT | Customer name |
-| order_date | TEXT | Order date |
-| order_value_wan | REAL | Order value (万HKD) |
-| status | TEXT | delivered / in_production / delayed |
-| delivered_on_time | INTEGER | 1=on time, 0=delayed |
-| client_complaint | INTEGER | 0=no, 1=yes |
-| is_eco_partner_order | INTEGER | 1=re-routed to eco-partner |
-| eco_partner_delivery_on_time | INTEGER | Eco-partner OTIF |
-| month | TEXT | Derived YYYY-MM |
+| column                       | type    | description                         |
+| ---------------------------- | ------- | ----------------------------------- |
+| id                           | INTEGER | PK                                  |
+| order_id                     | TEXT    | Order identifier                    |
+| customer_name                | TEXT    | Customer name                       |
+| order_date                   | TEXT    | Order date                          |
+| order_value_wan              | REAL    | Order value (万HKD)                 |
+| status                       | TEXT    | delivered / in_production / delayed |
+| delivered_on_time            | INTEGER | 1=on time, 0=delayed                |
+| client_complaint             | INTEGER | 0=no, 1=yes                         |
+| is_eco_partner_order         | INTEGER | 1=re-routed to eco-partner          |
+| eco_partner_delivery_on_time | INTEGER | Eco-partner OTIF                    |
+| month                        | TEXT    | Derived YYYY-MM                     |
 
 #### raw_entity — Per-entity registration records (12 entities)
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| entity_code | TEXT | Entity identifier |
-| entity_name | TEXT | e.g. 泰阳花制造, 光龙光学 |
-| entity_type | TEXT | core / eco_partner |
-| legal_type | TEXT | WFOE / joint venture / partnership |
-| business_focus | TEXT | Manufacturing / logistics / technology |
-| registration_month | TEXT | YYYY-MM |
-| registration_date | TEXT | Actual registration date |
-| board_approved | INTEGER | |
-| has_separate_accounting | INTEGER | |
-| is_profitable | INTEGER | |
-| total_setup_cost_wan | REAL | Setup cost |
+| column                  | type    | description                            |
+| ----------------------- | ------- | -------------------------------------- |
+| id                      | INTEGER | PK                                     |
+| entity_code             | TEXT    | Entity identifier                      |
+| entity_name             | TEXT    | e.g. 泰阳花制造, 光龙光学              |
+| entity_type             | TEXT    | core / eco_partner                     |
+| legal_type              | TEXT    | WFOE / joint venture / partnership     |
+| business_focus          | TEXT    | Manufacturing / logistics / technology |
+| registration_month      | TEXT    | YYYY-MM                                |
+| registration_date       | TEXT    | Actual registration date               |
+| board_approved          | INTEGER |                                        |
+| has_separate_accounting | INTEGER |                                        |
+| is_profitable           | INTEGER |                                        |
+| total_setup_cost_wan    | REAL    | Setup cost                             |
 
 #### raw_pmo — Per-milestone PMO tracking (31 milestones)
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| company_id | INTEGER | FK→company.id |
-| milestone_id | TEXT | MS-001 to MS-031 |
-| phase_id | TEXT | FK→dim_pmo_phase.phase_id |
-| milestone_description | TEXT | Description |
-| planned_date | TEXT | Planned completion |
-| actual_date | TEXT | Actual completion |
-| status | TEXT | completed / in_progress / not_started |
-| completed_on_time | INTEGER | 1=yes, 0=no |
-| month | TEXT | Derived YYYY-MM |
+| column                | type    | description                           |
+| --------------------- | ------- | ------------------------------------- |
+| id                    | INTEGER | PK                                    |
+| company_id            | INTEGER | FK→company.id                        |
+| milestone_id          | TEXT    | MS-001 to MS-031                      |
+| phase_id              | TEXT    | FK→dim_pmo_phase.phase_id            |
+| milestone_description | TEXT    | Description                           |
+| planned_date          | TEXT    | Planned completion                    |
+| actual_date           | TEXT    | Actual completion                     |
+| status                | TEXT    | completed / in_progress / not_started |
+| completed_on_time     | INTEGER | 1=yes, 0=no                           |
+| month                 | TEXT    | Derived YYYY-MM                       |
 
 #### raw_sentiment — Monthly employee & public sentiment (6 rows)
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| period | TEXT | YYYY-MM |
-| employee_satisfaction | REAL | 1-10 scale |
-| severance_satisfaction | REAL | 1-10 scale |
-| change_readiness_score | REAL | 1-10 scale |
-| negative_social_media | INTEGER | Count of negative mentions |
-| positive_news_coverage | INTEGER | Count of positive articles |
-| competitor_poaching_intensity | INTEGER | 1-10 intensity |
-| month_index | INTEGER | |
+| column                        | type    | description                |
+| ----------------------------- | ------- | -------------------------- |
+| id                            | INTEGER | PK                         |
+| period                        | TEXT    | YYYY-MM                    |
+| employee_satisfaction         | REAL    | 1-10 scale                 |
+| severance_satisfaction        | REAL    | 1-10 scale                 |
+| change_readiness_score        | REAL    | 1-10 scale                 |
+| negative_social_media         | INTEGER | Count of negative mentions |
+| positive_news_coverage        | INTEGER | Count of positive articles |
+| competitor_poaching_intensity | INTEGER | 1-10 intensity             |
+| month_index                   | INTEGER |                            |
 
 #### raw_digital_platform — Monthly digital platform readiness
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| period | TEXT | YYYY-MM |
-| digital_maturity_score | REAL | 0-100 |
-| modules_launched | INTEGER | Number deployed |
-| data_integration_pct | REAL | Integration % |
-| ai_adoption_pct | REAL | AI adoption % |
-| month_index | INTEGER | |
+| column                 | type    | description     |
+| ---------------------- | ------- | --------------- |
+| id                     | INTEGER | PK              |
+| period                 | TEXT    | YYYY-MM         |
+| digital_maturity_score | REAL    | 0-100           |
+| modules_launched       | INTEGER | Number deployed |
+| data_integration_pct   | REAL    | Integration %   |
+| ai_adoption_pct        | REAL    | AI adoption %   |
+| month_index            | INTEGER |                 |
 
 #### raw_legal_documents — Entity registration document tracking
 
-| column | type | description |
-|--------|------|-------------|
-| id | INTEGER | PK |
-| entity_code | TEXT | FK→raw_entity.entity_code |
-| document_type | TEXT | business_license / tax_registration / etc. |
-| submitted_date | TEXT | |
-| approved_date | TEXT | |
-| status | TEXT | approved / pending / rejected |
-| issuing_authority | TEXT | Government body |
+| column            | type    | description                                |
+| ----------------- | ------- | ------------------------------------------ |
+| id                | INTEGER | PK                                         |
+| entity_code       | TEXT    | FK→raw_entity.entity_code                 |
+| document_type     | TEXT    | business_license / tax_registration / etc. |
+| submitted_date    | TEXT    |                                            |
+| approved_date     | TEXT    |                                            |
+| status            | TEXT    | approved / pending / rejected              |
+| issuing_authority | TEXT    | Government body                            |
 
 ---
 
@@ -282,46 +282,55 @@ Use these tables only when the question needs detail that the dim model doesn't 
 ### 净利润率 Factor (KPIs 01-09)
 
 **#01 协商减员完成率**
+
 - Formula: `(SELECT COUNT(*) FROM raw_employee WHERE is_severed=1) / 856.0 * 100`
 - Target: 100% (3-month: 60%, 6-month: 90%)
 - Source: raw_employee
 
 **#02 历史人力成本追缴化解率**
+
 - Formula: `(SELECT SUM(resolved_wan) FROM raw_liability) / (SELECT SUM(total_amount_wan) FROM raw_liability) * 100`
 - Target: ≥80%
 - Source: raw_liability
 
 **#03 赔偿金额预算控制率**
+
 - Formula: `(SELECT SUM(compensation_wan) FROM raw_employee) / budget_total * 100`
 - Target: ≤100%
 - Source: raw_employee, raw_finance
 
 **#04 劳动仲裁与诉讼事件数**
+
 - Formula: `SELECT SUM(new_labor_arbitration_cases) FROM raw_legal`
 - Target: <5 per month
 - Source: raw_legal
 
 **#05 工序保留完成率**
+
 - Formula: `critical_processes_running_current / critical_processes_running_baseline * 100`
 - Target: ≥95%
 - Source: raw_production
 
 **#06 生产人员占比优化率**
+
 - Formula: `production_headcount / total_headcount * 100`
 - Target: ≥65%
 - Source: raw_hr
 
 **#07 核心厂区利润贡献率**
+
 - Formula: `core_factory_net_profit_wan / total_mfg_net_profit_wan * 100`
 - Target: ≥70%
 - Source: raw_finance
 
 **#08 生态伙伴厂利润贡献率**
+
 - Formula: `eco_partner_net_profit_wan / total_mfg_net_profit_wan * 100`
 - Target: ≥10%
 - Source: raw_finance
 
 **#09 数字资产价值转化率**
+
 - Formula: Complex composite from digital platform data
 - Target: ≥50%
 - Source: raw_digital_platform
@@ -329,21 +338,25 @@ Use these tables only when the question needs detail that the dim model doesn't 
 ### 资产周转率 Factor (KPIs 10-13)
 
 **#10 核心厂区固定资产利用率 (OEE)**
+
 - Formula: `SELECT oee_pct FROM raw_production`
-- Target: ≥70%
+- Target: ≥70%·
 - Source: raw_production
 
 **#11 生态伙伴轻资产化指数**
+
 - Formula: Composite measure of asset-light ratio at eco-partners
 - Target: ≥60%
 - Source: raw_entity
 
 **#12 数字资产归集与复用率**
+
 - Formula: `data_integration_pct / 100.0` from raw_digital_platform
 - Target: ≥80%
 - Source: raw_digital_platform
 
 **#13 变革资本再投资率**
+
 - Formula: `reinvested_wan / cash_released_wan * 100`
 - Target: ≥30%
 - Source: raw_finance
@@ -351,21 +364,25 @@ Use these tables only when the question needs detail that the dim model doesn't 
 ### 权益乘数 Factor (KPIs 14-17)
 
 **#14 股权分立架构完成率**
+
 - Formula: Entities with separate accounting / total entities * 100
 - Target: 100%
 - Source: raw_entity
 
 **#15 员工股权/合伙转化率**
+
 - Formula: Converted to partner / severed * 100
 - Target: ≥30%
 - Source: raw_employee
 
 **#16 新架构集团权益乘数**
+
 - Formula: `SELECT equity_multiplier FROM fact_roe_summary`
 - Target: <2.0
 - Source: fact_roe_summary
 
 **#17 生态伙伴战略协同指数**
+
 - Composite index across CRM + Entity + Finance + HR
 - Target: ≥70
 - Source: Composite (raw_crm, raw_entity, raw_finance, raw_hr)
@@ -373,21 +390,25 @@ Use these tables only when the question needs detail that the dim model doesn't 
 ### 支撑层 (KPIs 18-21)
 
 **#18 技术骨干留任率**
+
 - Formula: `100 - (tech_leads_severed / total_tech_leads * 100)`
 - Target: ≥90%
 - Source: raw_employee
 
 **#19 PMO执行里程碑达成率**
+
 - Formula: `(SELECT COUNT(*) FROM raw_pmo WHERE completed_on_time=1) / (SELECT COUNT(*) FROM raw_pmo WHERE status='completed') * 100`
 - Target: ≥80%
 - Source: raw_pmo
 
 **#20 重大风险事件发生率**
+
 - Formula: Count of major risk events (group incidents + major compliance issues)
 - Target: 0 per month
 - Source: raw_legal, raw_liability
 
 **#21 员工价值交换制度落地率**
+
 - Formula: Adoption rate of new value-exchange framework
 - Target: 100%
 - Source: raw_sentiment, raw_hr
@@ -395,36 +416,43 @@ Use these tables only when the question needs detail that the dim model doesn't 
 ### 风险监控 (RS01-RS07)
 
 **RS01 协商减员纠纷发生率**
+
 - Formula: `(SELECT COUNT(*) FROM raw_employee WHERE has_dispute=1) / total_severed * 100`
 - Target: <3%
 - Source: raw_employee
 
 **RS02 历史追缴协商满意度**
+
 - Formula: `SELECT severance_satisfaction FROM raw_sentiment`
 - Target: ≥7.0
 - Source: raw_sentiment
 
 **RS03 群体性劳动争议风险指数**
+
 - Formula: Composite: major_group_incidents * 10 + near_miss_incidents * 3
 - Target: <10
 - Source: raw_legal, raw_sentiment
 
 **RS04 保税物料合规处理完成率**
+
 - Formula: Customs bonded material compliance rate
 - Target: 100%
 - Source: raw_legal
 
 **RS05 海关违规/罚款金额**
+
 - Formula: Zero tolerance — 0 fines target
 - Target: 0
 - Source: raw_legal
 
 **RS06 核心技术骨干流失率(变革期)**
+
 - Formula: `tech_leads_severed_in_period / total_tech_leads * 100`
 - Target: <10%
 - Source: raw_employee
 
 **RS07 客户订单转移/流失率**
+
 - Formula: Eco-partner order OTIF rate
 - Target: ≥95%
 - Source: raw_crm
@@ -440,13 +468,13 @@ ROE = 净利润率 × 资产周转率 × 权益乘数
 
 The 28 KPIs are organized under these three factors + support + risk:
 
-| Factor | KPIs | Strategy |
-|--------|------|----------|
-| 净利润率 | 01-09 | Cost reduction, liability resolution, profit improvement |
-| 资产周转率 | 10-13 | Asset efficiency, digital transformation |
-| 权益乘数 | 14-17 | Financial restructuring, deleveraging |
-| 支撑层 | 18-21 | Talent, PMO, risk, value exchange |
-| 风险监控 | RS01-RS07 | Early warning indicators |
+| Factor     | KPIs      | Strategy                                                 |
+| ---------- | --------- | -------------------------------------------------------- |
+| 净利润率   | 01-09     | Cost reduction, liability resolution, profit improvement |
+| 资产周转率 | 10-13     | Asset efficiency, digital transformation                 |
+| 权益乘数   | 14-17     | Financial restructuring, deleveraging                    |
+| 支撑层     | 18-21     | Talent, PMO, risk, value exchange                        |
+| 风险监控   | RS01-RS07 | Early warning indicators                                 |
 
 ---
 
@@ -468,6 +496,7 @@ The main Sun Hing HTML dashboard is a **read-only executive cockpit** that follo
    - End with a concise executive summary: what improved, what is still off-track, and what actions deserve attention next.
 
 Important interpretation rules for the dashboard:
+
 - This main dashboard is an **overview layer**, not the place for full raw-table detail.
 - Users can drill into specialized HTML dashboards for Profit / Turnover / Leverage / Support / Risk / Employees / Liability / Gantt / ERD.
 - The assistant should explain the dashboard in the same executive structure: factor summary first, KPI detail second, raw-table evidence third.
@@ -520,7 +549,7 @@ Important interpretation rules for the dashboard:
 ### 3. NULL 处理
 
 - **这是什么**：SQLite 里 `NULL` 表示"未知"，不是"零"。`NULL + 1 = NULL`，`NULL = NULL` 也是 `NULL`。
-- **正确写法**：
+- **正确写法**：`	看看麻烦大山？。立刻就会功夫的撒
   ```sql
   -- 用 COALESCE 兜底
   COALESCE(f.actual, 0)
@@ -779,6 +808,7 @@ ORDER BY f.period, f.kpi_id;
 #### 1.2 检查表是否存在 & 数据量
 
 只在以下两种情况做这件事：
+
 - 第一次跑这个 skill（确认 DB 文件能打开）
 - 用户说"DB 变了"或报"table not found"错误
 
@@ -806,15 +836,17 @@ SELECT MIN(period) AS earliest_period FROM fact_kpi_monthly WHERE company_id=1;
 ```
 
 **预期结果**（Sun Hing 范例）：
+
 - periods: `2026-09` 到 `2027-02`，共 6 个月
 - latest_period: `2027-02`
 
 **异常情况处理**：
-| 看到什么 | 意味着什么 | 怎么办 |
-|---|---|---|
-| 少于 6 个月 | 某些月份数据缺失 | 提示用户 |
-| period 排序乱掉 | 字符串比较异常 | 用 `substr(period, 1, 4)` + `CAST(substr(period, 6) AS INT)` 排序 |
-| `latest_period` 是未来日期 | 数据录错 | 警告用户 |
+
+| 看到什么                     | 意味着什么       | 怎么办                                                               |
+| ---------------------------- | ---------------- | -------------------------------------------------------------------- |
+| 少于 6 个月                  | 某些月份数据缺失 | 提示用户                                                             |
+| period 排序乱掉              | 字符串比较异常   | 用`substr(period, 1, 4)` + `CAST(substr(period, 6) AS INT)` 排序 |
+| `latest_period` 是未来日期 | 数据录错         | 警告用户                                                             |
 
 #### 1.4 了解数据范围
 
@@ -849,6 +881,7 @@ SELECT period, roe FROM fact_roe_summary WHERE company_id=1 ORDER BY period;
 ### 第二步：理解业务
 
 根据用户的问题，确定：
+
 - **表**：用 dim 模型（`dim_kpi + fact_kpi_monthly`）还是 raw 表？
 - **KPI**：涉及哪些 KPI？（参考上方 KPI 定义）
 - **时间范围**：最新月、趋势、特定月份？
@@ -863,6 +896,7 @@ SELECT period, roe FROM fact_roe_summary WHERE company_id=1 ORDER BY period;
 3. 如果结果不对或不合理，调整 SQL 再试
 
 **SQL 规则**：
+
 - 始终 `WHERE company_id = 1`
 - 用 `* 100.0` 做浮点除法（SQLite 整数除法！）
 - 通过 `dim_kpi` JOIN 来按 `roe_factor` 过滤或分组
@@ -873,6 +907,7 @@ SELECT period, roe FROM fact_roe_summary WHERE company_id=1 ORDER BY period;
 ### 第四步：解释结果
 
 用中文告诉用户：
+
 1. **看到了什么**——具体的数字、趋势、变化幅度
 2. **好不好**——对比 target 是达标还是未达标
 3. **意味着什么**——对转型项目的业务含义
@@ -915,6 +950,7 @@ print(f"![chart](data:image/png;base64,{b64})")
 ```
 
 **图表样式规则**：
+
 - 颜色用蓝色系 (`#2563eb`, `#3b82f6`, `#60a5fa`) + 灰色 (`#9ca3af`)
 - 中文标签、中文标题
 - 字体用 `SimHei` 或 `sans-serif`（后端有 SimHei 安装）
@@ -923,13 +959,14 @@ print(f"![chart](data:image/png;base64,{b64})")
 - 不超过 `10" × 5"`，推荐 8x4
 
 **常见图表类型**：
-| 场景 | 图表类型 | 推荐 |
-|---|---|---|
-| KPI 趋势 | 折线图 | 多 KPI 对比用不同颜色 |
-| 因子贡献 | 堆叠柱状图 | ROE 驱动因子分解 |
-| 达标 vs 未达标 | 饼图/柱状图 | ✅ count / ❌ count |
-| 各厂区对比 | 分组柱状图 | 按 period 分组 |
-| 相关分析 | 散点图 | ROI vs 完成率 |
+
+| 场景           | 图表类型    | 推荐                  |
+| -------------- | ----------- | --------------------- |
+| KPI 趋势       | 折线图      | 多 KPI 对比用不同颜色 |
+| 因子贡献       | 堆叠柱状图  | ROE 驱动因子分解      |
+| 达标 vs 未达标 | 饼图/柱状图 | ✅ count / ❌ count   |
+| 各厂区对比     | 分组柱状图  | 按 period 分组        |
+| 相关分析       | 散点图      | ROI vs 完成率         |
 
 ---
 
@@ -941,36 +978,36 @@ In addition to answering KPI questions, you also act as a **data quality analyst
 
 **Principle**: Query through the **dimensional model** (`dim_kpi` + `fact_kpi_monthly` + `fact_roe_summary`), not raw tables. The dim model is the canonical interface — raw tables are source extracts that feed into it.
 
-| Instead of checking raw tables... | ...query the dim model |
-|---|---|
-| `raw_finance.net_profit_wan IS NULL` | `fact_kpi_monthly.actual IS NULL WHERE roe_factor='净利润率'` |
-| `raw_production.oee_pct` | `fact_kpi_monthly.actual WHERE kpi_id='10_核心厂区固定资产利用率'` |
-| `raw_employee.is_severed` | `dim_kpi.data_source` → expected KPIs exist in `fact_kpi_monthly` |
+| Instead of checking raw tables...      | ...query the dim model                                                 |
+| -------------------------------------- | ---------------------------------------------------------------------- |
+| `raw_finance.net_profit_wan IS NULL` | `fact_kpi_monthly.actual IS NULL WHERE roe_factor='净利润率'`        |
+| `raw_production.oee_pct`             | `fact_kpi_monthly.actual WHERE kpi_id='10_核心厂区固定资产利用率'`   |
+| `raw_employee.is_severed`            | `dim_kpi.data_source` → expected KPIs exist in `fact_kpi_monthly` |
 
 ### QA Dimensions
 
-| Dimension | What it checks | Dim-model query |
-|-----------|---------------|-----------------|
-| **Completeness** | Are all expected KPI rows present with non-NULL values? | `fact_kpi_monthly JOIN dim_kpi WHERE actual IS NULL` |
-| **Uniqueness** | Duplicate (period, kpi_id) in fact table? | `GROUP BY period, kpi_id HAVING COUNT(*) > 1` |
-| **Referential Integrity** | fact_kpi_monthly references non-existent kpi_id? | `LEFT JOIN dim_kpi WHERE dim_kpi.kpi_id IS NULL` |
-| **Accuracy** | Actual values within valid range for each KPI? | KPI-by-KPI range checks via `dim_kpi.kpi_type` |
-| **Consistency** | ROE DuPont components vs fact_kpi_monthly? | `fact_roe_summary` vs `fact_kpi_monthly` aggregation |
-| **Timeliness** | Are all 6 expected months present? | `SELECT DISTINCT period FROM fact_kpi_monthly` |
-| **Conformity** | Period format valid? KPI values within expected type? | `period NOT GLOB '____-__'` |
-| **Cardinality** | Are value distributions reasonable? | `dim_kpi.roe_factor` grouping, value distribution |
+| Dimension                       | What it checks                                          | Dim-model query                                          |
+| ------------------------------- | ------------------------------------------------------- | -------------------------------------------------------- |
+| **Completeness**          | Are all expected KPI rows present with non-NULL values? | `fact_kpi_monthly JOIN dim_kpi WHERE actual IS NULL`   |
+| **Uniqueness**            | Duplicate (period, kpi_id) in fact table?               | `GROUP BY period, kpi_id HAVING COUNT(*) > 1`          |
+| **Referential Integrity** | fact_kpi_monthly references non-existent kpi_id?        | `LEFT JOIN dim_kpi WHERE dim_kpi.kpi_id IS NULL`       |
+| **Accuracy**              | Actual values within valid range for each KPI?          | KPI-by-KPI range checks via`dim_kpi.kpi_type`          |
+| **Consistency**           | ROE DuPont components vs fact_kpi_monthly?              | `fact_roe_summary` vs `fact_kpi_monthly` aggregation |
+| **Timeliness**            | Are all 6 expected months present?                      | `SELECT DISTINCT period FROM fact_kpi_monthly`         |
+| **Conformity**            | Period format valid? KPI values within expected type?   | `period NOT GLOB '____-__'`                            |
+| **Cardinality**           | Are value distributions reasonable?                     | `dim_kpi.roe_factor` grouping, value distribution      |
 
 ### QA Thresholds
 
-| Severity | Rule | Dim-model check |
-|----------|------|-----------------|
-| **Critical** | KPI has NULL actual in latest month | `fact.actual IS NULL` where roe_factor = 净利润率/资产周转率 |
-| **Critical** | Referential integrity broken | `fact_kpi_monthly` kpi_id not in `dim_kpi` |
-| **Critical** | ROE DuPont inconsistency | `fact_roe_summary.roe` ≠ profit_margin × turnover × multiplier |
-| **Warning** | Missing time period | `COUNT(DISTINCT period) < 6` |
-| **Warning** | KPI target unreachable | `target / actual > 5` repeatedly |
-| **Warning** | Value outside expected range | "OEE" actual > 100 or < 0 |
-| **Info** | Minor completeness gap | Non-critical KPI has NULL (risk monitoring KPIs) |
+| Severity           | Rule                                | Dim-model check                                                     |
+| ------------------ | ----------------------------------- | ------------------------------------------------------------------- |
+| **Critical** | KPI has NULL actual in latest month | `fact.actual IS NULL` where roe_factor = 净利润率/资产周转率      |
+| **Critical** | Referential integrity broken        | `fact_kpi_monthly` kpi_id not in `dim_kpi`                      |
+| **Critical** | ROE DuPont inconsistency            | `fact_roe_summary.roe` ≠ profit_margin × turnover × multiplier |
+| **Warning**  | Missing time period                 | `COUNT(DISTINCT period) < 6`                                      |
+| **Warning**  | KPI target unreachable              | `target / actual > 5` repeatedly                                  |
+| **Warning**  | Value outside expected range        | "OEE" actual > 100 or < 0                                           |
+| **Info**     | Minor completeness gap              | Non-critical KPI has NULL (risk monitoring KPIs)                    |
 
 > **数据过滤规则参考**：上述 SQL 编写规则（整数除法、Period 格式、NULL 处理、百分比 vs 小数等）已在上方独立的[数据过滤规则](#数据过滤规则)章节完整覆盖。下面直接用 dim 模型写 QA 检查 SQL。
 
