@@ -227,6 +227,13 @@ export default function FilesPanel({ sessionId, onClose }: FilesPanelProps) {
         {!loading && documents.length === 0 && generatedFiles.length === 0 && (
           <div className="text-center text-xs py-6" style={{ color: 'var(--color-text-muted)' }}>
             No files yet
+            {/* Files are per account now. Saying so here answers the question the empty
+                state raises ("where are the files I could see yesterday?") before it is
+                asked, and it is the one place a user looks when it happens. */}
+            <div className="mt-2" style={{ opacity: 0.75 }}>
+              Only this account&apos;s files appear here — each account has its own
+              workspace, and shared knowledge lives in Knowledge.
+            </div>
           </div>
         )}
       </div>

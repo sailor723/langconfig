@@ -2473,9 +2473,22 @@ def bash(command: str, timeout: int = 30, cwd: str = None) -> str:
     else:
         roots = _sandbox_roots()
         run_cwd = str(roots[0]) if roots else "."
+
+    # A path check bounds the tools that take a path; a shell takes a program, so the
+    # only place to bound `cat /anywhere` is the OS. wrap() returns None when no
+    # mechanism is available (probed once, reported at boot) and the plain command runs.
+    from tools.shell_sandbox import wrap as _wrap_shell
+    from services import user_roots as _user_roots
+    try:
+        _run_command = _wrap_shell(
+            command, Path(run_cwd), _user_roots.install_root()
+        ) or command
+    except Exception:
+        _run_command = command
+
     try:
         proc = subprocess.run(
-            command, shell=True, cwd=run_cwd,
+            _run_command, shell=True, cwd=run_cwd,
             capture_output=True, text=True, timeout=timeout,
         )
     except subprocess.TimeoutExpired:

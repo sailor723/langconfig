@@ -108,6 +108,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"User bootstrap failed (non-fatal): {e}")
 
+    # Report the shell sandbox at boot. A sandbox that silently does nothing is worse
+    # than none, and the one moment somebody reads the log is startup.
+    try:
+        from tools.shell_sandbox import describe as _describe_shell_sandbox
+
+        logger.info("Agent shell sandbox: %s", _describe_shell_sandbox())
+    except Exception as e:
+        logger.warning(f"Shell sandbox probe failed (non-fatal): {e}")
+
     # Drop sign-in sessions that are already expired. Cheap, and it keeps the table
     # from accumulating one dead row per browser per week.
     try:
