@@ -274,3 +274,34 @@ def test_the_caller_block_points_at_the_concrete_tree():
         assert str(user_roots.root_for(owner.id)) in block
     finally:
         session.close()
+
+
+def test_the_template_tells_the_agent_who_it_works_for():
+    """The durable rule lives in the docs, so it is embedded on every turn.
+
+    A first-message greeting cannot carry it: an agent introduced on turn 1 still has to
+    answer "whose files are these?" on turn 40, long after any greeting is buried in the
+    transcript.
+    """
+    from core.agents.identity import default_agent_docs
+
+    class _Agent:
+        id = 15
+        name = "demo"
+        description = ""
+
+    docs = default_agent_docs(_Agent(), "/tmp/ws/users/3/agents/agent_15")
+    agents_md = docs["AGENTS.md"]
+    # Prose is wrapped to 100 columns, so a phrase assertion has to be normalised or it
+    # fails on a line break — which is a bug in the test, not in the template.
+    flat = " ".join(agents_md.split())
+
+    assert "## Who you are working for" in agents_md
+    assert "only authority on who your user is" in flat
+    # The two behaviours it asks for, stated as actions rather than as a fact.
+    assert "When you introduce yourself" in flat
+    assert "cannot see them" in flat
+    # …and it must not be the `whoami` trap again.
+    assert "server's" in flat
+
+    assert "Who you are working for" in docs["CLAUDE.md"]

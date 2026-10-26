@@ -221,6 +221,10 @@ def prune_orphans(root: Path, apply: bool) -> dict:
     for path in sorted(root.rglob("agent_*")):
         if not path.is_dir() or not path.name.startswith("agent_"):
             continue
+        if ".trash" in path.parts:
+            # The quarantine keeps deleted agents' folders on purpose; counting them as
+            # orphans made the audit report work the user had deliberately parked.
+            continue
         try:
             agent_id = int(path.name.split("_")[1])
         except (IndexError, ValueError):
@@ -236,6 +240,8 @@ def prune_orphans(root: Path, apply: bool) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Audit and repair the agent inventory.")
     parser.add_argument("--apply", action="store_true", help="write missing docs")
+    parser.add_argument("--caller-section", action="store_true",
+                        help="append the 'who you are working for' rule to agent docs that predate it")
     parser.add_argument("--docs-note", action="store_true",
                         help="append the workspace-ownership note to docs that predate it")
     parser.add_argument("--delete", nargs="*", type=int, default=None,
@@ -335,6 +341,12 @@ def main() -> int:
                 delete_agents(db, args.delete)
             print()
 
+        if args.caller_section:
+            count = inject_caller_section(db, data, apply=args.apply)
+            if not args.apply:
+                print(f"  DRY RUN — re-run with --apply to add it to {count} agent(s)")
+            print()
+
         if args.docs_note:
             if args.apply:
                 count = inject_boundary_note(db, data)
@@ -358,6 +370,69 @@ def main() -> int:
     finally:
         db.close()
 
+
+
+
+CALLER_SECTION_MARKER = "## Who you are working for"
+
+CALLER_SECTION = """## Who you are working for
+
+Your system prompt carries a **Who you are working for** block with the signed-in
+account's display name, username and id. That block is the only authority on who your user
+is — not the shell's own account (`whoami` is the *server's* account, never the user's), not
+a name you infer from a path, and not a guess from earlier messages.
+
+Apply it in two places:
+
+- **When you introduce yourself** — the first message of a session, and any time you are
+  asked — say which account you are working for and that this workspace is private to it.
+- **When you are asked about somebody else's files** — say plainly that you cannot see them.
+  That is the boundary working as designed, not an error, and not something to work around.
+"""
+
+
+def inject_caller_section(db, data, apply: bool = False) -> int:
+    """Add the "who you are working for" rule to agents whose docs predate it.
+
+    Appended, never regenerated: these docs are the agents' operating manuals and people
+    edit them. Idempotent — the marker check keeps a second run a no-op.
+    """
+    from sqlalchemy import text
+
+    targets = []
+    for row in data["rows"]:
+        docs = dict(row.agent_docs or {})
+        agents_md = docs.get("AGENTS.md") or ""
+        if agents_md and CALLER_SECTION_MARKER not in agents_md:
+            targets.append((row.id, row.name, docs))
+
+    print(f"  docs without the caller section: {len(targets)}")
+    if not apply or not targets:
+        return len(targets)
+
+    manager_roots = {}
+    for agent_id, name, docs in targets:
+        docs = dict(docs)
+        docs["AGENTS.md"] = (docs.get("AGENTS.md") or "").rstrip() + "\n\n" + CALLER_SECTION
+        db.execute(text("UPDATE deep_agent_templates SET agent_docs = CAST(:d AS jsonb) WHERE id = :i"),
+                   {"d": __import__("json").dumps(docs), "i": agent_id})
+        # The materialized copy matters too: the Files panel and MemoryMiddleware read it.
+        try:
+            from models.deep_agent import DeepAgentTemplate
+            from services.workspace_manager import WorkspaceManager, get_workspace_manager
+
+            agent = db.query(DeepAgentTemplate).get(agent_id)
+            root = get_workspace_manager().resolve_agent_workspace(
+                agent, None, vault_key=None,
+                agent_key=WorkspaceManager.agent_vault_key(db, agent),
+            )
+            (Path(root) / "AGENTS.md").write_text(docs["AGENTS.md"], encoding="utf-8")
+            manager_roots[agent_id] = str(root)
+        except Exception as exc:  # noqa: BLE001 — the row update is the point
+            print(f"    (agent {agent_id}: row updated, file not rewritten: {exc})")
+    db.commit()
+    print(f"  caller section added to {len(targets)} agent(s)")
+    return len(targets)
 
 if __name__ == "__main__":
     raise SystemExit(main())

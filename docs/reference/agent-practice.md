@@ -29,8 +29,11 @@ display name, username and id. The workspace path must be under `…/users/<your
 
 **Why it matters:** the prompt carries three blocks — `Identity` (agent id + workspace),
 `Who you are working for` (the account, from the signed-in session), and a
-`workspace boundary` rule. If any of them is wrong you will spend the next hour blaming the
-model for something the platform told it.
+`workspace boundary` rule. The default `AGENTS.md` template (and the mirror in `CLAUDE.md`)
+tells every agent to state the account when it introduces itself and to say plainly that it
+cannot see another account's files — so a correct first message proves the whole chain. If
+any part of it is wrong you will spend the next hour blaming the model for something the
+platform told it.
 
 **What "wrong" looks like:** it names an account that is not yours, or a `users/<other id>/`
 path. That is a platform bug, not a prompt problem — report it and check
