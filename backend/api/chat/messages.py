@@ -435,6 +435,18 @@ async def send_message(
             agent_version=agent_version,
         )
 
+        # Built before the cache check: `_resolve_recursion_limit(_safe_config)` runs on
+        # BOTH paths, but this used to be assigned only inside `if not agent_instance:` —
+        # so the second message of a session (agent already cached) died with
+        # UnboundLocalError. A live multi-turn chat found it.
+        # Fix: ensure list fields are never None to avoid "NoneType has no len()"
+        _safe_config = dict(agent.config or {})
+        for _list_key in ['middleware', 'subagents', 'skills', 'native_tools']:
+            if _safe_config.get(_list_key) is None:
+                _safe_config[_list_key] = []
+        if _safe_config.get('guardrails') is None:
+            _safe_config['guardrails'] = {"input": [], "output": []}
+
         if not agent_instance:
             # ── Language preference from DB settings ──
             lang_instruction = ""
@@ -456,20 +468,17 @@ async def send_message(
             # Create agent instance via the appropriate factory.
             # Regular agents (use_deepagents=False) use AgentFactory with _create_task_tool pattern.
             # Deep agents use DeepAgentFactory with SubAgentMiddleware.
-            # Fix: ensure list fields are never None to avoid "NoneType has no len()"
-            _safe_config = dict(agent.config or {})
-            for _list_key in ['middleware', 'subagents', 'skills', 'native_tools']:
-                if _safe_config.get(_list_key) is None:
-                    _safe_config[_list_key] = []
-            if _safe_config.get('guardrails') is None:
-                _safe_config['guardrails'] = {"input": [], "output": []}
             # Re-bake the agent's identity block on every chat so the
             # workspace path matches the SESSION's current project (not the
             # one captured at agent creation). The agent is project-agnostic;
             # the binding lives on chat_sessions.project_id. Strip the stale
             # baked-in identity, resolve the new one, splice it back in.
             _session_project_id = getattr(session, "project_id", None)
-            if _session_project_id is not None:
+            # NOT conditional on project_id. A session with no project still has a
+            # workspace — the caller's — and skipping the rebuild left the creation-time
+            # path (the *first* admin's tree) in the prompt. A live chat caught it: the
+            # agent said it worked for "account ID 1" while running as user 284.
+            if True:
                 from core.agents.identity import (
                     _strip_identity_block,
                     build_identity_system_prompt,
@@ -1074,7 +1083,7 @@ async def send_message_stream(
                     # the creation-time (legacy) root; without this the agent
                     # reports the wrong workspace even though the greeting
                     # below names the resolved root.
-                    if _session_project_id is not None:
+                    if True:  # see the non-streaming path: no project ≠ no workspace
                         from core.agents.identity import (
                             _strip_identity_block,
                             build_identity_system_prompt,

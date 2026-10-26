@@ -163,3 +163,34 @@ def test_guards_are_present_in_the_handlers():
     skills_src = inspect.getsource(skills_routes.update_skill)
     assert "builtin" in skills_src.lower()
     assert "403" in skills_src
+
+
+def test_chat_config_is_built_before_the_agent_cache_check():
+    """`_resolve_recursion_limit(_safe_config)` runs whether or not the agent was cached.
+
+    The config used to be built inside `if not agent_instance:` only, so the second
+    message of a session — by then the agent is cached — raised UnboundLocalError and the
+    chat returned 500. Found by a live three-turn conversation, not by the suite: nothing
+    here exercised a warm cache.
+    """
+    import inspect
+    import re
+
+    from api.chat import messages as chat_messages
+
+    source = inspect.getsource(chat_messages.send_message)
+    # Comments are stripped first: the explanation above the fix quotes the very
+    # expressions being located, and a plain string search happily matches the prose
+    # instead of the code (this test failed twice that way before the strip).
+    code = "\n".join(
+        line for line in source.splitlines() if not line.lstrip().startswith("#")
+    )
+
+    assign = code.index("_safe_config = dict(agent.config or {})")
+    cache_check = re.search(r"^\s+if not agent_instance:", code, re.M).start()
+    use = code.index("_resolve_recursion_limit(_safe_config)")
+
+    assert assign < cache_check, "the config must exist before the cache branch"
+    assert assign < use
+    # Exactly one assignment, so a later edit cannot reintroduce the inner copy.
+    assert len(re.findall(r"^\s*_safe_config = dict\(agent\.config or \{\}\)", source, re.M)) == 1
