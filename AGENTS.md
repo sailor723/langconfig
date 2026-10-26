@@ -47,7 +47,8 @@ npm run build                      # Frontend build check
   - `POST /api/workflows/{id}/execute` - Run workflow (SSE)
   - `POST /api/agents/{id}/chat` - Chat with agent (SSE)
   - `POST /api/knowledge/documents` - Upload RAG document
-  - `GET /api/users/me` - Who is calling (Basic auth via the LAN gate; loopback = owner)
+  - `GET /signin` - Sign-in page (session cookie); `POST /api/auth/login` / `logout`
+  - `GET /api/users/me` - Who is calling (session cookie or Basic via the LAN gate; loopback = owner)
   - `GET /api/users` - Account list and management (admin only)
 
 ## Shell Commands (Important!)
@@ -87,7 +88,7 @@ See `docs/` for architecture and design documentation:
 | `docs/usage.md` | User guide: the shell, the 13 activities, first-agent / first-workflow walkthroughs |
 | `docs/reference/` | Reference material (storage map, data taxonomy, skill authoring, settings/tools design, audits, studies) |
 | `docs/reference/sunhing-dashboards.md` | Sun Hing dashboard generation (deterministic generator, producer map, 28-KPI coverage, UI wiring) |
-| `docs/reference/lan-access.md` | Letting a second person use this instance over the network: the Basic-auth LAN gate, what stays shared, and why per-user data is a rebuild |
+| `docs/reference/lan-access.md` | Letting other people use this instance over the network: the LAN gate, the /signin page and its sessions, what stays shared, and why per-user data is a rebuild |
 | `REFACTORING.md` | Backend refactor status (god-module splits, verification methodology) |
 | `docs/reference/plans/` | SaaS design + implementation plans |
 | `docs/reference/plans/2026-10-17-multiuser-design.md` | Multi-user study: per-user API keys, shared-vs-private assets, per-user workspace, phasing |

@@ -108,6 +108,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"User bootstrap failed (non-fatal): {e}")
 
+    # Drop sign-in sessions that are already expired. Cheap, and it keeps the table
+    # from accumulating one dead row per browser per week.
+    try:
+        from db.database import SessionLocal as _session_cleanup
+        from services import session_service as _session_service
+
+        _sdb = _session_cleanup()
+        try:
+            _purged = _session_service.purge_expired(_sdb)
+        finally:
+            _sdb.close()
+        if _purged:
+            logger.info("Purged %d expired sign-in session(s)", _purged)
+    except Exception as e:
+        logger.warning(f"Session cleanup failed (non-fatal): {e}")
+
     # Register deepagents harness profiles (must happen before any
     # create_deep_agent call). LangConfig excludes the SDK's `read_file` so a
     # deep agent cannot pull an image in as a base64 tool result — that path
@@ -662,7 +678,7 @@ from api.workspace import routes as workspace
 from api.presets import actions as action_presets
 from api.skills import routes as skills
 from api import schemas
-from api.auth import google_router as google_auth, signout_router as auth_signout
+from api.auth import google_router as google_auth, signin_router as auth_signin
 from api.presentations import router as presentations
 from api.schedules import router as schedules
 from api.triggers import router as triggers
@@ -690,7 +706,7 @@ app.include_router(graphindex_chat.router)  # Phase 9 / Step K — graphindex_ch
 app.include_router(doc_chat.router)  # Simplified doc-chat — folder-based context, no RAG/Neo4j
 app.include_router(kv.router)  # KV document store — no DB dependencies
 app.include_router(background_tasks.router)  # Background task queue management
-app.include_router(auth_signout)  # Sign out / sign in (reachable while signed out)
+app.include_router(auth_signin)  # Sign-in page, login/logout, sessions (public)
 app.include_router(users.router)  # User accounts (who is asking)
 app.include_router(workspace.router)  # Workspace file management
 app.include_router(agent_documents.router)  # DB-mode document library

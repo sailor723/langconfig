@@ -377,9 +377,10 @@ if lan_access_enabled; then
     # were imported on the first boot and are ignored from then on. So this says
     # where accounts are managed instead of listing a file that no longer decides
     # anything — the boot log above reports the real count.
-    echo "    Sign in with your own account (Browser asks once). Admin: user icon"
-    echo "    -> Users, to add, disable or re-password people."
-    echo "    Passwords are hashed; the policy is a minimum of 8 characters."
+    echo "    Sign in at /signin with your own account (7-day session; sign out in"
+    echo "    the user menu). Admin: user icon -> Users, to add, disable or"
+    echo "    re-password people. Passwords are hashed; minimum 8 characters."
+    echo "    Scripts can still use: curl -u <name>:<password> http://<ip>:8765/api/..."
     if [ -z "$(env_value LANGCONFIG_LAN_USERS)" ] && [ -z "$(env_value LANGCONFIG_LAN_PASSWORD)" ]; then
         echo "    First boot only: with no .env credential and an empty users table,"
         echo "    every LAN request is REFUSED (503) — deliberate: an enabled gate"

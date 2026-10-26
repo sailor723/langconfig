@@ -204,14 +204,47 @@ def test_enabled_with_empty_password_fails_closed(monkeypatch):
 
 # ── authentication ──────────────────────────────────────────────────────────
 
-def test_network_request_without_credentials_is_challenged(lan_on):
+def test_network_request_without_credentials_is_refused(lan_on):
+    """401 and NO Basic challenge.
+
+    The challenge would make the browser pop its own password dialog, which is
+    exactly what the sign-in page exists to replace. Browsers get a redirect there
+    (next test); API clients get a 401 that names the page and still accepts
+    ``curl -u`` credentials when they are offered.
+    """
     downstream = _Downstream()
     sent = _run(_call(LanGuardMiddleware(downstream)))
     assert downstream.called is False
     assert sent[0]["status"] == 401
-    headers = dict(sent[0]["headers"])
-    assert b"www-authenticate" in headers
-    assert b"Basic" in headers[b"www-authenticate"]
+    headers = {k.lower() for k, _v in sent[0]["headers"]}
+    assert b"www-authenticate" not in headers
+    assert b"/signin" in sent[1]["body"]
+
+
+def test_browser_navigation_is_redirected_to_the_sign_in_page(lan_on):
+    """An unauthenticated document request is a person, not an API call."""
+    downstream = _Downstream()
+    sent = _run(
+        _call(
+            LanGuardMiddleware(downstream),
+            path="/",
+            headers=[(b"accept", b"text/html,application/xhtml+xml")],
+        )
+    )
+    assert downstream.called is False
+    assert sent[0]["status"] == 303
+    location = dict(sent[0]["headers"])[b"location"].decode()
+    assert location.startswith("/signin?next=")
+    assert "%2F" in location or "/" in location
+
+
+def test_sign_in_page_is_reachable_without_credentials(lan_on):
+    """Otherwise the sign-in page could never be reached to sign in."""
+    for path in ("/signin", "/signin/x"):
+        downstream = _Downstream()
+        sent = _run(_call(LanGuardMiddleware(downstream), path=path))
+        assert downstream.called is True, path
+        assert sent[0]["status"] == 200, path
 
 
 def test_network_request_with_correct_credentials_passes(lan_on):
@@ -482,8 +515,8 @@ def test_signed_out_response_offers_no_challenge(lan_on):
     assert b"www-authenticate" not in headers
 
 
-def test_signed_out_browser_gets_the_sign_out_page(lan_on):
-    """A reload must show the page, not a bare 401 from the SPA's document request."""
+def test_signed_out_browser_is_sent_to_the_sign_in_page(lan_on):
+    """A reload must land on the page that can sign you back in."""
     sent = _run(
         _call(
             LanGuardMiddleware(_Downstream()),
@@ -494,10 +527,8 @@ def test_signed_out_browser_gets_the_sign_out_page(lan_on):
             ],
         )
     )
-    assert sent[0]["status"] == 401
-    body = sent[1]["body"].decode()
-    assert "Signed out" in body
-    assert "/api/auth/sign-in" in body
+    assert sent[0]["status"] == 303
+    assert dict(sent[0]["headers"])[b"location"].startswith(b"/signin")
 
 
 def test_sign_out_endpoints_stay_reachable_while_signed_out(lan_on):
@@ -556,3 +587,103 @@ def test_signed_out_marker_is_ignored_when_the_gate_is_off(lan_off):
     )
     assert downstream.called is True
     assert sent[0]["status"] == 200
+
+
+# ── sign-in sessions ────────────────────────────────────────────────────────
+#
+# The sign-in page hands out an opaque cookie; the gate resolves it to an identity.
+# A resolver is injected here so the gate's behaviour is tested without a database.
+
+def _session_verifier(valid_token="good-token", *, expected_user=None):
+    """Stand-in for services.session_service.resolve_context."""
+    from core.security.lan_auth import UserContext
+
+    identity = expected_user or UserContext(id=1, username="alice", role="member", via="session")
+
+    def resolve(_db, token):
+        return identity if token == valid_token else None
+
+    return resolve
+
+
+class _FakeDB:
+    def close(self):
+        pass
+
+
+def test_session_cookie_authenticates_without_any_basic_credentials(lan_on, monkeypatch):
+    import db.database as database
+
+    monkeypatch.setattr(database, "SessionLocal", _FakeDB)
+    downstream = _Downstream()
+    sent = _run(
+        _call(
+            LanGuardMiddleware(downstream, session_resolver=_session_verifier()),
+            headers=[(b"cookie", b"langconfig_session=good-token")],
+        )
+    )
+    assert downstream.called is True
+    assert sent[0]["status"] == 200
+
+
+def test_unknown_session_cookie_is_not_an_identity(lan_on, monkeypatch):
+    import db.database as database
+
+    monkeypatch.setattr(database, "SessionLocal", _FakeDB)
+    downstream = _Downstream()
+    sent = _run(
+        _call(
+            LanGuardMiddleware(downstream, session_resolver=_session_verifier()),
+            headers=[(b"cookie", b"langconfig_session=forged")],
+        )
+    )
+    assert downstream.called is False
+    assert sent[0]["status"] == 401
+
+
+def test_session_identity_reaches_the_request_scope(lan_on, monkeypatch):
+    """The gate parks who it authenticated; identity middleware promotes it."""
+    from core.security.lan_auth import UserContext
+    from middleware.identity import PRINCIPAL_KEY
+
+    import db.database as database
+
+    monkeypatch.setattr(database, "SessionLocal", _FakeDB)
+    expected = UserContext(id=7, username="carol", role="admin", via="session")
+
+    seen = {}
+
+    class _Recorder:
+        async def __call__(self, scope, receive, send):
+            seen["principal"] = scope.get(PRINCIPAL_KEY)
+            await _Downstream()(scope, receive, send)
+
+    _run(
+        _call(
+            LanGuardMiddleware(_Recorder(), session_resolver=_session_verifier(expected_user=expected)),
+            headers=[(b"cookie", b"langconfig_session=good-token")],
+        )
+    )
+    assert seen["principal"] == expected
+
+
+def test_session_cookie_beats_a_stale_sign_out_marker_ordering(lan_on, monkeypatch):
+    """Sign-out outranks a session: the marker is the more recent intent.
+
+    Both cannot normally coexist (logout deletes the cookie and sets the marker),
+    so this pins the precedence rather than a real sequence.
+    """
+    import db.database as database
+
+    monkeypatch.setattr(database, "SessionLocal", _FakeDB)
+    downstream = _Downstream()
+    sent = _run(
+        _call(
+            LanGuardMiddleware(downstream, session_resolver=_session_verifier()),
+            headers=[
+                (b"cookie", f"langconfig_session=good-token; {SIGNOUT_COOKIE}=1".encode()),
+            ],
+        )
+    )
+    assert downstream.called is False
+    assert sent[0]["status"] == 401

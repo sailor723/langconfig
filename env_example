@@ -135,6 +135,13 @@ LANGCONFIG_LAN_PASSWORD=
 # endpoints that verify their own signatures (e.g. /api/webhooks/). Anything
 # listed here is reachable by the whole network unauthenticated.
 LANGCONFIG_LAN_BYPASS_PATHS=
+# Sign-in sessions: people sign in at /signin and get an opaque cookie (only its
+# hash is stored). Lifetime in days; it slides forward while the session is used.
+# Sign-out deletes the row, so revocation is immediate.
+LANGCONFIG_SESSION_DAYS=7
+# Set to `on` ONLY when an HTTPS reverse proxy sits in front. A Secure cookie is
+# silently dropped over plain HTTP, which looks like "login keeps coming back".
+LANGCONFIG_COOKIE_SECURE=
 
 # ════ (2) USER-ADJUSTABLE (bootstrap defaults; UI overrides at runtime) ════
 

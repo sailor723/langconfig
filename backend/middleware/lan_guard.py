@@ -12,8 +12,9 @@ itself, or from the network?"
 
 * Loopback requests (127.0.0.1 / ::1) are always allowed, so local development,
   the Vite dev-server proxy and the test suite are untouched.
-* Every other request must carry HTTP Basic credentials that match a row in the
-  ``users`` table.
+* Every other request must carry either a **session cookie** from the sign-in page
+  at ``/signin`` (the browser path) or HTTP Basic credentials that match a row in
+  the ``users`` table (the script path — ``curl -u name:password``).
 * Credentials cannot be resolved at all (no users configured, database down)
   → **503**, never 200. A misconfiguration must never silently reopen the hole
   this module exists to close.
@@ -67,10 +68,18 @@ _is_loopback = is_loopback_scope
 #: when the browser closes, the same lifetime as the credential it suppresses.
 SIGNOUT_COOKIE = "langconfig_signed_out"
 
+#: Cookie holding the session token handed out by the sign-in page. Only its hash
+#: is stored server-side (``services/session_service.py``).
+SESSION_COOKIE = "langconfig_session"
+
+#: Where an unauthenticated browser is sent. A page, not an SPA route, because the
+#: bundle itself is behind the gate.
+SIGNIN_PATH = "/signin"
+
 #: Paths the gate always passes through, whatever ``LANGCONFIG_LAN_BYPASS_PATHS``
-#: says. The sign-out/sign-in pages have to be reachable while signed out, and they
-#: reveal nothing about any account.
-PUBLIC_PREFIXES: tuple[str, ...] = ("/api/auth/",)
+#: says. The sign-in page and the auth endpoints have to be reachable while signed
+#: out, and they reveal nothing about any account.
+PUBLIC_PREFIXES: tuple[str, ...] = ("/api/auth/", "/signin")
 
 
 def lan_access_enabled() -> bool:
@@ -131,8 +140,8 @@ def _basic_credentials(scope: Scope) -> tuple[Optional[str], Optional[str]]:
     return None, None
 
 
-def _has_signout_marker(scope: Scope) -> bool:
-    """Did this browser explicitly sign out?"""
+def _cookie(scope: Scope, name: str) -> Optional[str]:
+    """Read one cookie without parsing (or trusting) the rest of the header."""
     for key, value in scope.get("headers") or []:
         if key.lower() != b"cookie":
             continue
@@ -141,10 +150,32 @@ def _has_signout_marker(scope: Scope) -> bool:
         except Exception:
             continue
         for part in raw.split(";"):
-            name, sep, val = part.strip().partition("=")
-            if sep and name == SIGNOUT_COOKIE and val.strip():
-                return True
-    return False
+            cookie_name, sep, cookie_value = part.strip().partition("=")
+            if sep and cookie_name == name:
+                return cookie_value.strip() or None
+    return None
+
+
+def _has_signout_marker(scope: Scope) -> bool:
+    """Did this browser explicitly sign out?"""
+    return _cookie(scope, SIGNOUT_COOKIE) is not None
+
+
+def _session_token(scope: Scope) -> Optional[str]:
+    return _cookie(scope, SESSION_COOKIE)
+
+
+def _safe_redirect_target(path: str) -> str:
+    """Where to come back to after signing in.
+
+    The path comes from the request, so it is quoted into a query string and the
+    sign-in page validates it again. Nothing here may become an open redirect.
+    """
+    import urllib.parse
+
+    if not path.startswith("/") or path.startswith("//"):
+        path = "/"
+    return urllib.parse.quote(path, safe="/#?=&%:@!$'()*+,;-._~")
 
 
 def _wants_html(scope: Scope) -> bool:
@@ -169,12 +200,19 @@ def _attempted_username(scope: Scope) -> str:
 class LanGuardMiddleware:
     """Reject non-loopback requests that do not carry valid Basic credentials."""
 
-    def __init__(self, app: ASGIApp, verifier: Optional[CredentialVerifier] = None):
+    def __init__(
+        self,
+        app: ASGIApp,
+        verifier: Optional[CredentialVerifier] = None,
+        session_resolver=None,
+    ):
         self.app = app
         self.enabled = lan_access_enabled()
         self.bypass_paths = _bypass_paths()
         self._verifier = verifier
         self._resolved_verifier: Optional[CredentialVerifier] = None
+        # Cookie token -> UserContext. Injectable so tests need no database.
+        self._session_resolver = session_resolver
 
     # ── plumbing ─────────────────────────────────────────────────────────────
 
@@ -184,6 +222,13 @@ class LanGuardMiddleware:
         if self._resolved_verifier is None:
             self._resolved_verifier = get_default_verifier()
         return self._resolved_verifier
+
+    def _get_session_resolver(self):
+        if self._session_resolver is None:
+            from services.session_service import resolve_context as _resolve
+
+            self._session_resolver = _resolve
+        return self._session_resolver
 
     # ── ASGI ─────────────────────────────────────────────────────────────────
 
@@ -207,6 +252,29 @@ class LanGuardMiddleware:
             await self._deny_signed_out(scope, send, path)
             return
 
+        # A session cookie is what the sign-in page hands out: the browser path.
+        token = _session_token(scope)
+        if token:
+            try:
+                from db.database import SessionLocal
+
+                db = SessionLocal()
+                try:
+                    identity = self._get_session_resolver()(db, token)
+                finally:
+                    db.close()
+            except Exception as exc:  # a broken DB must not read as "no session"
+                logger.error("LAN guard could not read the session store: %s", exc)
+                await self._deny_unavailable(scope, send)
+                return
+
+            if identity is not None:
+                scope[PRINCIPAL_KEY] = identity
+                await self.app(scope, receive, send)
+                return
+            # An invalid/expired cookie falls through: the browser may still hold a
+            # Basic credential, and if it does not, it lands on the sign-in page.
+
         # The local machine always gets in — that is the owner.
         if is_loopback_scope(scope):
             await self.app(scope, receive, send)
@@ -219,7 +287,10 @@ class LanGuardMiddleware:
         username, password = _basic_credentials(scope)
 
         if username is None:
-            # No credentials at all: is there even an install to sign in to?
+            # No credentials at all. Browsers are sent to the sign-in page; API
+            # clients get 401. The "is there even an install here?" check still
+            # comes first, so a fresh install says so instead of showing a login
+            # form nobody can satisfy.
             try:
                 owner = await run_in_threadpool(self._get_verifier().owner)
             except VerifierUnavailable as exc:
@@ -230,7 +301,7 @@ class LanGuardMiddleware:
                 await self._deny_unconfigured(scope, send)
                 return
             self._log_denied(scope, path)
-            await self._deny_unauthorized(scope, send)
+            await self._deny_not_signed_in(scope, send, path)
             return
 
         try:
@@ -289,6 +360,51 @@ class LanGuardMiddleware:
         await send({"type": "http.response.body", "body": body})
 
     @staticmethod
+    async def _deny_not_signed_in(scope: Scope, send: Send, path: str) -> None:
+        """An unauthenticated request: browser → sign-in page, client → 401.
+
+        Note what is *not* sent: ``WWW-Authenticate``. A Basic challenge makes the
+        browser pop its own dialog, which would hide the sign-in page that exists
+        precisely to replace it. Basic is still accepted when a client presents it
+        (``curl -u``); it is simply not advertised.
+        """
+        if scope["type"] == "websocket":
+            await send(
+                {"type": "websocket.close", "code": 1008, "reason": "authentication required"}
+            )
+            return
+
+        if _wants_html(scope):
+            target = _safe_redirect_target(path)
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 303,
+                    "headers": [
+                        (b"location", f"{SIGNIN_PATH}?next={target}".encode("latin-1")),
+                        (b"content-length", b"0"),
+                        (b"cache-control", b"no-store"),
+                    ],
+                }
+            )
+            await send({"type": "http.response.body", "body": b""})
+            return
+
+        body = (
+            b"LangConfig: authentication required.\n\n"
+            b"Sign in at /signin in a browser, or send HTTP Basic credentials\n"
+            b"(curl -u name:password). Accounts are managed by an administrator.\n"
+        )
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 401,
+                "headers": _plain_headers(body),
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+    @staticmethod
     async def _deny_signed_out(scope: Scope, send: Send, path: str) -> None:
         """Refuse a browser that signed out — WITHOUT a challenge.
 
@@ -296,31 +412,28 @@ class LanGuardMiddleware:
         browser would re-prompt for a password (or silently retry with the cached
         credential) and the sign-out would be undone one request later. A 401 that
         offers no challenge means "not for you, and asking again will not help".
+
+        Browsers are sent to the sign-in page, which says the same thing in words
+        and offers the way back in.
         """
         if scope["type"] == "websocket":
             await send({"type": "websocket.close", "code": 1008, "reason": "signed out"})
             return
 
         if _wants_html(scope):
-            body = _SIGNED_OUT_PAGE.encode("utf-8")
-            headers = [(b"content-type", b"text/html; charset=utf-8")]
-        else:
-            body = (
-                b"LangConfig: this browser is signed out.\n\n"
-                b"Open /api/auth/sign-in in a browser tab to sign in again.\n"
-            )
-            headers = [(b"content-type", b"text/plain; charset=utf-8")]
+            await LanGuardMiddleware._deny_not_signed_in(scope, send, path)
+            return
 
+        body = (
+            b"LangConfig: this browser is signed out.\n\n"
+            b"Open /signin in a browser tab to sign in again.\n"
+        )
         logger.info("Refused %s for a signed-out browser", path)
         await send(
             {
                 "type": "http.response.start",
                 "status": 401,
-                "headers": headers
-                + [
-                    (b"content-length", str(len(body)).encode("ascii")),
-                    (b"cache-control", b"no-store"),
-                ],
+                "headers": _plain_headers(body),
             }
         )
         await send({"type": "http.response.body", "body": body})
@@ -359,33 +472,6 @@ class LanGuardMiddleware:
             {"type": "http.response.start", "status": 503, "headers": _plain_headers(body)}
         )
         await send({"type": "http.response.body", "body": body})
-
-
-_SIGNED_OUT_PAGE = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Signed out — LangConfig</title>
-<style>
-  html,body{height:100%;margin:0}
-  body{background:#1e1e1e;color:#d4d4d4;font:14px/1.6 -apple-system,BlinkMacSystemFont,
-    "Segoe UI",Roboto,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}
-  main{max-width:460px;text-align:center}
-  h1{font-size:20px;font-weight:600;margin:0 0 8px;color:#f5f5f5}
-  p{margin:0 0 18px;color:#a3a3a3}
-  a.button{display:inline-block;padding:9px 22px;border-radius:18px;background:#0e639c;
-    color:#fff;text-decoration:none;font-weight:500}
-  a.button:hover{background:#1177bb}
-  .note{margin-top:26px;font-size:12px;color:#7a7a7a;line-height:1.55}
-</style></head>
-<body><main>
-  <h1>Signed out</h1>
-  <p>This browser no longer has access to LangConfig.</p>
-  <a class="button" href="/api/auth/sign-in">Sign in</a>
-  <div class="note">This browser remembers your login, so <em>Sign in</em> returns you
-  to the same account without typing. To sign in as someone else, close the browser or
-  use a private window.</div>
-</main></body></html>
-"""
 
 
 def _plain_headers(body: bytes, extra: list | None = None) -> list:

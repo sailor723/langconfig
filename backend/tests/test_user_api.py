@@ -304,80 +304,231 @@ def test_roles_endpoint_names_the_vocabulary(db_session, accounts):
     assert response.json()["roles"] == ["admin", "member"]
 
 
-# ── sign out ────────────────────────────────────────────────────────────────
+# ── sign in / sign out ──────────────────────────────────────────────────────
 #
-# The marker cookie is the one piece of state an otherwise stateless gate keeps:
-# it is what makes "Sign out" mean anything under HTTP Basic.
+# The sign-in page is a real page with a real form, and the session it creates is
+# the only thing that lets a browser use the app. These tests drive that flow end
+# to end against the database: form post in, cookie out, session row present,
+# logout revoking it.
 
-def test_sign_out_sets_a_session_cookie_and_explains_itself(db_session, monkeypatch):
+from api.auth import signin as signin_module  # noqa: E402
+from db.database import SessionLocal  # noqa: E402
+from services import session_service  # noqa: E402
+
+
+def _auth_app():
+    app = FastAPI()
+    app.include_router(signin_module.router)
+    return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _reset_login_limiter():
+    signin_module.reset_failure_state()
+    yield
+    signin_module.reset_failure_state()
+
+
+def test_sign_in_page_renders_a_form(db_session, accounts, monkeypatch):
     monkeypatch.setenv("LANGCONFIG_LAN_ACCESS", "on")
-    app = FastAPI()
-    from api.auth.signout import router as signout_router
-
-    app.include_router(signout_router)
-    client = TestClient(app)
-
-    response = client.get("/api/auth/sign-out")
+    response = _auth_app().get("/signin")
     assert response.status_code == 200
-    assert "Signed out" in response.text
-    assert "/api/auth/sign-in" in response.text
-
-    cookie = response.headers.get("set-cookie", "")
-    assert "langconfig_signed_out=1" in cookie
-    assert "httponly" in cookie.lower()
-    # A session cookie: it must expire with the browser, like the credential it hides.
-    assert "max-age" not in cookie.lower()
+    assert 'name="username"' in response.text
+    assert 'name="password"' in response.text
+    assert 'action="/api/auth/login"' in response.text
+    assert "no-store" in response.headers.get("cache-control", "")
 
 
-def test_sign_out_says_so_when_the_gate_is_off(monkeypatch):
-    monkeypatch.delenv("LANGCONFIG_LAN_ACCESS", raising=False)
-    app = FastAPI()
-    from api.auth.signout import router as signout_router
+def test_sign_in_page_explains_an_empty_install(db_session, monkeypatch):
+    """With no accounts, a login form would be a dead end — say what to do instead.
 
-    app.include_router(signout_router)
-    response = TestClient(app).get("/api/auth/sign-out")
-    assert response.status_code == 200
-    assert "LAN access is off" in response.text
-    assert "set-cookie" not in response.headers
-
-
-def test_sign_in_clears_the_marker_and_redirects_home(monkeypatch):
+    The count is patched rather than the table emptied: this database belongs to a
+    developer and a test must not delete their accounts to check a message.
+    """
     monkeypatch.setenv("LANGCONFIG_LAN_ACCESS", "on")
-    app = FastAPI()
-    from api.auth.signout import router as signout_router
+    monkeypatch.setattr(signin_module.user_service, "count_users", lambda _db: 0)
 
-    app.include_router(signout_router)
-    response = TestClient(app).get("/api/auth/sign-in", follow_redirects=False)
+    response = _auth_app().get("/signin")
+    assert "No accounts exist yet" in response.text
+    assert "create_user.py" in response.text
+
+
+def test_login_with_the_right_password_creates_a_session(db_session, accounts):
+    me = accounts("signinok", password="signinpass1")
+    client = _auth_app()
+
+    response = client.post(
+        "/api/auth/login",
+        data={"username": me.username, "password": "signinpass1"},
+        headers={"accept": "text/html"},
+        follow_redirects=False,
+    )
 
     assert response.status_code == 303
     assert response.headers["location"] == "/"
     cookie = response.headers.get("set-cookie", "")
-    assert "langconfig_signed_out=" in cookie
-    assert 'Max-Age=0' in cookie or 'max-age=0' in cookie.lower()
+    assert "langconfig_session=" in cookie
+    assert "httponly" in cookie.lower()
+    assert "max-age=" in cookie.lower()
+    # the sign-out marker must not survive a fresh sign-in
+    assert "langconfig_signed_out" in cookie or "langconfig_session" in cookie
+
+    db = SessionLocal()
+    try:
+        rows = session_service.list_for_user(db, me.id)
+        assert len(rows) == 1
+        assert rows[0].expires_at > rows[0].created_at
+        # The cookie value is NOT in the database — only its hash.
+        raw = cookie.split("langconfig_session=")[1].split(";")[0]
+        assert raw not in [row.token_hash for row in rows]
+    finally:
+        db.close()
+        _cleanup_sessions(me.id)
+
+
+def test_login_rejects_a_wrong_password_without_creating_a_session(db_session, accounts):
+    me = accounts("signinbad", password="signinpass1")
+    response = _auth_app().post(
+        "/api/auth/login",
+        data={"username": me.username, "password": "wrong-password"},
+        headers={"accept": "text/html"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 200  # the page, with the error in it
+    assert "Incorrect username or password" in response.text
+    assert "set-cookie" not in response.headers or "langconfig_session" not in response.headers.get("set-cookie", "")
+
+    db = SessionLocal()
+    try:
+        assert session_service.list_for_user(db, me.id) == []
+    finally:
+        db.close()
+
+
+def test_login_refuses_a_disabled_account(db_session, accounts):
+    me = accounts("signindisabled", password="signinpass1")
+    user_service.update_user(db_session, me, is_active=False)
+
+    response = _auth_app().post(
+        "/api/auth/login",
+        data={"username": me.username, "password": "signinpass1"},
+        headers={"accept": "text/html"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+    assert "Incorrect username or password" in response.text
+
+
+def test_login_answers_json_for_api_clients(db_session, accounts):
+    me = accounts("signinjson", password="signinpass1")
+    response = _auth_app().post(
+        "/api/auth/login",
+        json={"username": me.username, "password": "signinpass1"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["user"]["username"] == me.username
+    assert "password" not in str(body)
+    _cleanup_sessions(me.id)
+
+
+def test_login_returns_to_the_requested_page(db_session, accounts):
+    me = accounts("signinnext", password="signinpass1")
+    response = _auth_app().post(
+        "/api/auth/login",
+        data={"username": me.username, "password": "signinpass1", "next": "/#/agents"},
+        headers={"accept": "text/html"},
+        follow_redirects=False,
+    )
+    assert response.headers["location"] == "/#/agents"
+    _cleanup_sessions(me.id)
+
+
+def test_login_is_rate_limited_after_repeated_failures(db_session, accounts):
+    me = accounts("signinbrute", password="signinpass1")
+    client = _auth_app()
+    for _ in range(signin_module.MAX_FAILURES):
+        client.post("/api/auth/login", json={"username": me.username, "password": "nope"})
+
+    response = client.post("/api/auth/login", json={"username": me.username, "password": "signinpass1"})
+    assert response.status_code == 429, "the limiter must stop a guessing script"
+
+
+def test_logout_revokes_the_session_and_returns_to_the_page(db_session, accounts):
+    me = accounts("signinout", password="signinpass1")
+    client = _auth_app()
+    login = client.post(
+        "/api/auth/login",
+        data={"username": me.username, "password": "signinpass1"},
+        headers={"accept": "text/html"},
+        follow_redirects=False,
+    )
+    assert login.status_code == 303
+
+    out = client.get("/api/auth/logout", follow_redirects=False)
+    assert out.status_code == 303
+    assert out.headers["location"] == "/signin"
+    cookie = out.headers.get("set-cookie", "")
+    assert "langconfig_signed_out=1" in cookie, "the Basic-auth fallback needs the marker too"
+
+    db = SessionLocal()
+    try:
+        assert session_service.list_for_user(db, me.id) == []
+    finally:
+        db.close()
+
+
+def test_session_endpoint_reports_who_is_signed_in(db_session, accounts):
+    me = accounts("signinwho", password="signinpass1")
+    client = _auth_app()
+    client.post("/api/auth/login", json={"username": me.username, "password": "signinpass1"})
+
+    response = client.get("/api/auth/session")
+    assert response.status_code == 200
+    assert response.json()["user"]["username"] == me.username
+    assert response.json()["expires_in_seconds"] > 0
+
+    client.get("/api/auth/logout")
+    assert client.get("/api/auth/session").status_code == 401
+
+
+def test_my_sessions_lists_browsers_and_revokes_one(db_session, accounts):
+    me = accounts("signinlist", password="signinpass1")
+    first = _auth_app()
+    first.post("/api/auth/login", json={"username": me.username, "password": "signinpass1"})
+    second = _auth_app()
+    second.post("/api/auth/login", json={"username": me.username, "password": "signinpass1"})
+
+    listing = first.get("/api/auth/sessions").json()
+    assert len(listing["sessions"]) == 2
+    other = next(s for s in listing["sessions"] if s["id"] != listing["current_id"])
+
+    assert first.post(f"/api/auth/sessions/{other['id']}/revoke").status_code == 200
+    listing = first.get("/api/auth/sessions").json()
+    assert len(listing["sessions"]) == 1
+    assert second.get("/api/auth/session").status_code == 401
 
 
 @pytest.mark.parametrize(
     "target",
-    ["https://evil.example/steal", "//evil.example", "/\\evil.example", "javascript:alert(1)"],
+    ["https://evil.example/steal", "//evil.example", "/\\evil.example", "javascript:alert(1)", "/signin"],
 )
-def test_sign_in_refuses_to_render_someone_elses_page(monkeypatch, target):
-    """An unvalidated `next` is an open redirect on a freshly authenticated browser."""
-    monkeypatch.setenv("LANGCONFIG_LAN_ACCESS", "on")
-    app = FastAPI()
-    from api.auth.signout import router as signout_router
-
-    app.include_router(signout_router)
-    response = TestClient(app).get("/api/auth/sign-in", params={"next": target}, follow_redirects=False)
-    assert response.headers["location"] == "/"
-
-
-def test_sign_in_keeps_a_same_origin_path(monkeypatch):
-    monkeypatch.setenv("LANGCONFIG_LAN_ACCESS", "on")
-    app = FastAPI()
-    from api.auth.signout import router as signout_router
-
-    app.include_router(signout_router)
-    response = TestClient(app).get(
-        "/api/auth/sign-in", params={"next": "/#/agents"}, follow_redirects=False
+def test_return_path_cannot_become_an_open_redirect(db_session, accounts, target):
+    me = accounts("signinredir", password="signinpass1")
+    response = _auth_app().post(
+        "/api/auth/login",
+        data={"username": me.username, "password": "signinpass1", "next": target},
+        headers={"accept": "text/html"},
+        follow_redirects=False,
     )
-    assert response.headers["location"] == "/#/agents"
+    assert response.headers["location"] == "/"
+    _cleanup_sessions(me.id)
+
+
+def _cleanup_sessions(user_id: int) -> None:
+    db = SessionLocal()
+    try:
+        session_service.revoke_all_for_user(db, user_id, reason="test cleanup")
+    finally:
+        db.close()

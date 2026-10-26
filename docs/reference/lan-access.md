@@ -3,10 +3,11 @@
 **Questions this answers:** two people need to use LangConfig. How do they sign in, who can
 sign in, and what does everyone still see?
 
-**Short answer:** the app now has **accounts**. A person signs in with the browser's Basic-auth
-prompt, the credential is checked against a `users` table, and every request is attributable to
-that person (`audit_logs.user_id`, `chat_sessions.user_id`). Roles are `admin` and `member`;
-admins manage accounts in the app under **Users**. What accounts do *not* do is isolate data:
+**Short answer:** the app now has **accounts**. A person signs in on a dedicated page
+(`/signin`), the password is checked against the `users` table, and the browser gets an opaque
+session cookie (7 days, sliding, revocable). Every request is attributable to that person
+(`audit_logs.user_id`, `chat_sessions.user_id`). Roles are `admin` and `member`; admins manage
+accounts in the app under **Users**. What accounts do *not* do is isolate data:
 everyone in one install still shares projects, files, chats, tools, skills, knowledge — and
 provider API keys. Separate front doors, one workspace. §5 lists exactly what is shared, and §9
 says what real isolation would take.
@@ -18,7 +19,7 @@ says what real isolation would take.
 | | Default (`LANGCONFIG_LAN_ACCESS=off`) | LAN mode (`=on`) |
 |---|---|---|
 | Requests from this machine (127.0.0.1) | allowed | allowed, unchanged — resolved to the install's owner |
-| Requests from the network | **allowed, unauthenticated** — no gate exists | allowed with a per-person credential from the `users` table |
+| Requests from the network | **allowed, unauthenticated** — no gate exists | sign in at `/signin` (session cookie) or send Basic credentials |
 | UI for other people | — | built bundle served from `:8765` |
 | Local dev server (`:1421`) | works | works, and stays loopback-only |
 | Who did what | unknown | `user_id` on new audit rows and chat sessions |
@@ -39,14 +40,22 @@ tail of `backend/main.py`:
    This is why local development, the Vite dev-server proxy and the test suite needed no changes.
    It is *not* keyed on `Host:` or `X-Forwarded-For`, because both are trivially forged by exactly
    the attacker the gate exists to stop.
-2. **Credentials are verified against the `users` table** (scrypt hashes, one password per
-   person). A verified request carries its identity into the app through a ContextVar
+2. **Signing in happens on a page, and the browser gets a cookie.** `/signin` is a
+   self-contained page (not an SPA route — the bundle is behind the gate); the form posts to
+   `/api/auth/login`, which verifies the password against the `users` table (scrypt) and sets an
+   opaque session cookie. The database stores only the SHA-256 of that token, so a dump is not a
+   set of logins. Sessions last 7 days and slide with use; sign-out deletes the row.
+   HTTP Basic is still **accepted** when a client presents it (`curl -u name:password`), which is
+   what scripts use — it is simply no longer advertised with a `WWW-Authenticate` challenge,
+   because that would pop the browser's own dialog over the sign-in page.
+   Either way the identity reaches the app through a ContextVar
    (`backend/core/context/current_user.py`), so routes and services can ask `current_user()` /
    `require_user()` / `require_admin()` without touching 349 route signatures.
 3. **It fails closed.** LAN mode on with an **empty `users` table** returns **503** to every
    network request rather than opening. A database that cannot be read is also **503** — "the
    store is down" must never look like "wrong password". A misconfigured gate must never silently
-   become an open one.
+   become an open one. A browser asking for a page is redirected (303) to `/signin`; an API client
+   gets 401 and no challenge.
 4. **LAN users are served the built frontend from `:8765` itself.** One origin means the browser
    answers the 401 challenge on the document once, then attaches those credentials to every
    same-origin request — fetches, SSE streams (`/api/chat/...`, workflow execution) and the
@@ -104,6 +113,23 @@ cd backend
 `create_user.py` is an operator tool, not the normal workflow: creating accounts, resetting,
 disabling and promoting all live in the app.
 
+### Signing in
+
+Open the instance in a browser: `http://<your-ip>:8765`. You land on **/signin** — username,
+password, one button. Everything after that is a normal app session; SSE streams and the
+terminal's WebSocket carry the cookie automatically, so nothing else needs credentials.
+
+| Situation | What happens |
+|---|---|
+| Signed in, revisits the URL | straight into the app (the page redirects if the cookie is valid) |
+| Cookie expired (7 days idle) | the page again; sign in once and the session slides again |
+| Account disabled by an admin | the next request 401s and you land on the page |
+| Password changed (yours or by an admin) | every existing session for that account is revoked — sign in with the new one |
+| Scripts / curl | `curl -u name:password http://<ip>:8765/api/...` — Basic still works |
+
+Wrong passwords are rate-limited (10 failures per client address per 5 minutes → 429), because
+each attempt costs a deliberate scrypt hash and a script should not be able to grind that.
+
 ### Accounts, roles and passwords
 
 | | Member | Admin |
@@ -130,51 +156,45 @@ Disabling is immediate — the verifier's cache is invalidated on every change, 
 next request is refused rather than up to a minute later. Nothing is ever hard-deleted: the
 `user_id` columns that now point at existing work keep their owner.
 
-### Signing out, and what it can honestly promise
+### Signing out
 
-The user popover (**activity bar → your icon → Sign out**) really does end access from that
-browser — including a reload, which shows a "Signed out" page instead of the app — because the
-backend marks the browser as signed out and the gate then refuses it *before* it looks at the
-credential.
+**Activity bar → your icon → Sign out** calls `/api/auth/logout`, which **deletes the session row
+on the server**, clears the cookie, and returns you to `/signin`. That is a real sign-out: an
+attacker with a copy of the cookie gets nothing, because the row it pointed at is gone.
 
-That takes one extra piece of state, and it is worth understanding why:
+You can also see and revoke your other browsers: `GET /api/auth/sessions` lists them (with
+user-agent, IP, last seen) and `POST /api/auth/sessions/{id}/revoke` kills one. Useful when you
+signed in on a machine you no longer trust.
 
-- HTTP Basic has **no session and no logout message**. The browser keeps the credential in its own
-  cache and attaches it to every request for the realm until the browser is closed.
-- So signing out sets a **session cookie** (`langconfig_signed_out`, `HttpOnly`, no `Max-Age` — it
-  dies with the browser session, like the credential it suppresses) and answers with **401 and no
-  `WWW-Authenticate` header**. The missing challenge is the trick: a 401 *with* a challenge makes
-  the browser re-prompt or silently retry with the credential it still holds, which would undo the
-  sign-out one request later.
-- **Sign in** (on that page) deletes the marker and redirects back into the app; the browser
-  replays its remembered credential, so returning to your own account needs no typing.
-
-What it does **not** do: forget the password the browser has saved. Anyone who presses *Sign in*
-on that browser is back in as the same person. To hand a machine to someone else, **close the
-browser or use a private window** — that is the only step that also clears the browser's own
-credential cache. The sign-out page says exactly this, in these words.
+**The one case that needs a caveat:** a browser that signed in through the *old* Basic-auth prompt
+holds that credential in its own cache, which no server can clear. For those, logout also sets a
+`langconfig_signed_out` marker cookie, and the gate refuses a marked browser even though it sends
+valid credentials (401, deliberately without a challenge, so the browser neither re-prompts nor
+retries). Pressing *Sign in* clears the marker. To hand a machine to someone else, close the
+browser or use a private window — that is the only step that also empties the browser's cache.
 
 ## 4. Verify it, don't assume it
 
 From **the other machine** (replace the IP):
 
 ```bash
-curl -i http://192.168.3.23:8765/api/users/me                            # 401 + WWW-Authenticate
-curl -i -u alice:<password> http://192.168.3.23:8765/api/users/me        # 200, "username":"alice"
-curl -i -u alice:<bobs-password> http://192.168.3.23:8765/api/users/me   # 401
+curl -i http://192.168.3.23:8765/api/users/me                            # 401, no WWW-Authenticate
+curl -i -H "accept: text/html" http://192.168.3.23:8765/                 # 303 -> /signin?next=/
+curl -s http://192.168.3.23:8765/signin | grep -c 'name="password"'       # 1 (the page renders)
+curl -i -u alice:<password> http://192.168.3.23:8765/api/users/me        # 200, "via":"lan" (Basic)
 curl -i -u alice:<password> http://192.168.3.23:8765/api/users           # 403 when alice is a member
 ```
 
-Sign out / sign in, as the browser does it (a cookie jar stands in for the browser):
+The browser path, with a cookie jar standing in for the browser:
 
 ```bash
-curl -s -c jar -o page.html http://192.168.3.23:8765/api/auth/sign-out   # 200 + session cookie
-grep -c "Signed out" page.html                                          # 1
-curl -s -i -b jar -u alice:<password> http://192.168.3.23:8765/api/chat/health | head -1
-#   401 and NO WWW-Authenticate — the credential alice still holds is not enough
-curl -s -i -b jar -c jar http://192.168.3.23:8765/api/auth/sign-in | head -3   # 303 -> /
-curl -s -o /dev/null -w '%{http_code}\n' -b jar -u alice:<password> \
-  http://192.168.3.23:8765/api/users/me                                          # 200 again
+curl -s -c jar -o /dev/null -D - -X POST -H 'accept: text/html' \
+  -d 'username=alice&password=<password>' http://192.168.3.23:8765/api/auth/login
+#   -> 303 /  and: set-cookie: langconfig_session=…; HttpOnly; Max-Age=604800; SameSite=lax
+curl -s -b jar http://192.168.3.23:8765/api/auth/session                 # who am I, expiry
+curl -s -b jar http://192.168.3.23:8765/api/auth/sessions | head -c 200  # my other browsers
+curl -s -b jar -o /dev/null -D - http://192.168.3.23:8765/api/auth/logout
+#   -> 303 /signin, cookie cleared, and the row is gone: the cookie stops working
 ```
 
 From **this machine**, loopback must stay open (this is what keeps local dev working) and
@@ -189,7 +209,8 @@ Tests for the whole chain — gate contract, verification, roles, attribution:
 ```bash
 cd backend && .venv/bin/python -m pytest \
   tests/test_lan_guard.py tests/test_user_service.py tests/test_user_api.py \
-  tests/test_audit_attribution.py tests/test_chat_session_manager.py -q   # 107
+  tests/test_session_service.py tests/test_audit_attribution.py \
+  tests/test_chat_session_manager.py -q                                  # 138
 ```
 
 ## 5. What everyone shares with you
@@ -242,7 +263,9 @@ APIs; the app hit this and has one fix in place:
 |---|---|---|
 | `503` saying no account exists | gate on, `users` table empty | create the first admin: `backend/scripts/create_user.py <name> <pw> --admin`, or seed `LANGCONFIG_LAN_USERS` |
 | `503` saying the user store is unavailable | database unreachable from the backend | check PostgreSQL (`docker ps`, `DATABASE_URL`), then restart |
-| `401` on every request, browser never prompts | client not sending credentials; some fetch-only flows do not trigger the dialog | open `http://<ip>:8765/` directly first, so the document itself is challenged |
+| Browser shows a password dialog instead of the sign-in page | it has a cached Basic credential from an earlier version, or the page was opened via a link that sent one | sign out once (`/api/auth/logout`); after that the page is used |
+| Sign-in page loads, but the app is blank afterwards | cookie not stored (Secure cookie on plain HTTP, or cookies blocked) | leave `LANGCONFIG_COOKIE_SECURE` unset on plain HTTP, allow cookies for the host |
+| Signed in, then thrown back to the page every few minutes | cookie is being dropped as third-party (embedded/inlined) or cleared by a privacy extension | open `http://<ip>:8765` directly, not inside another site's frame |
 | Browser shows a login box for `192.168…` | working as intended | enter your own name and password |
 | A person suddenly gets `401` | their account was disabled (in **Users**), or the password was reset | re-enable, or give them the new password |
 | An account added to `.env` never appears | `.env` is bootstrap-only and was already imported once | add the account in **Users** |
@@ -308,15 +331,19 @@ multi-tenancy; retrofitting is harder than rebuilding"* — and designs a separa
 | `LANGCONFIG_LAN_USER` | `langconfig` | legacy single username — read only when `LANGCONFIG_LAN_USERS` is empty |
 | `LANGCONFIG_LAN_PASSWORD` | *(empty)* | legacy single password, same bootstrap-only rule |
 | `LANGCONFIG_LAN_BYPASS_PATHS` | *(empty)* | comma-separated path prefixes that skip auth; anyone can reach these |
-| *(no setting)* | — | `/api/auth/` is **always** reachable, signed out or not: it serves the sign-out/sign-in pages. The marker cookie is `langconfig_signed_out` |
+| `LANGCONFIG_SESSION_DAYS` | `7` | sign-in session lifetime; slides forward with use |
+| `LANGCONFIG_COOKIE_SECURE` | *(unset)* | set to `on` **only** behind HTTPS: a `Secure` cookie is dropped over plain HTTP, which looks like "login didn't stick" |
+| *(no setting)* | — | `/api/auth/` and `/signin` are **always** reachable, signed in or not. Cookies: `langconfig_session` (the session), `langconfig_signed_out` (suppresses a browser's cached Basic credential) |
 
 Code: `backend/middleware/lan_guard.py` (gate), `backend/middleware/identity.py` (identity from
 the verified scope), `backend/core/security/{passwords,lan_auth}.py` (scrypt hashes, verifier +
 cache), `backend/core/context/current_user.py` (request identity), `backend/services/user_service.py`
 (accounts, bootstrap, guards), `backend/api/users/routes.py` (self-service + admin API),
 `backend/models/user.py`, `alembic/versions/032_add_users.py`, `backend/scripts/create_user.py`
-(operator tool), `backend/api/auth/signout.py` (sign out/in pages and the marker cookie), and in
-the UI `src/components/layout2/{UserPopover,UserAccountDialogs}.tsx`.
+(operator tool), `backend/api/auth/signin.py` (the `/signin` page, login/logout, session list),
+`backend/services/session_service.py` (token hashing, sliding expiry, revocation),
+`backend/models/auth_session.py`, `alembic/versions/033_add_auth_sessions.py`, and in the UI
+`src/components/layout2/{UserPopover,UserAccountDialogs}.tsx`.
 
-Tests: `backend/tests/test_lan_guard.py`, `test_user_service.py`, `test_user_api.py`,
-`test_audit_attribution.py`, `test_chat_session_manager.py`.
+Tests: `backend/tests/test_lan_guard.py`, `test_session_service.py`, `test_user_service.py`,
+`test_user_api.py`, `test_audit_attribution.py`, `test_chat_session_manager.py`.

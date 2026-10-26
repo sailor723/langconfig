@@ -48,6 +48,7 @@ from .analysis_chat import AnalysisChatMessage
 from .agent_document import AgentDocument
 from .classic_graph import ClassicGraph, ClassicGraphRun
 from .user import User, UserRole
+from .auth_session import AuthSession
 
 __all__ = [
     "Project",
@@ -102,4 +103,5 @@ __all__ = [
     "ClassicGraphRun",
     "User",
     "UserRole",
+    "AuthSession",
 ]

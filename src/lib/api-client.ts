@@ -71,6 +71,8 @@ import { usersApi, type UsersApi } from './api/users';
 export class APIClient {
   private client: AxiosInstance;
   public baseURL: string = API_BASE_URL;
+  /** Guards against firing several /signin navigations from one dead page. */
+  private redirectingToSignIn = false;
 
   constructor() {
     this.client = axios.create({
@@ -180,6 +182,22 @@ export class APIClient {
         // Not found
         const message = errorData?.message || 'Resource not found';
         this.showToast(message, 'error');
+        throw error;
+      }
+
+      case 401: {
+        // Not signed in — the session expired, an admin disabled the account, or
+        // this browser signed out in another tab. Send the whole page to the
+        // sign-in screen instead of stacking error toasts on a dead view: every
+        // panel on it would 401 too.
+        //
+        // One navigation at a time (a page can issue a dozen requests), and the
+        // current route is carried through so the person lands where they were.
+        if (!this.redirectingToSignIn) {
+          this.redirectingToSignIn = true;
+          const next = window.location.pathname + window.location.search;
+          window.location.assign(`/signin?next=${encodeURIComponent(next)}`);
+        }
         throw error;
       }
 

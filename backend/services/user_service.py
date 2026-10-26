@@ -55,6 +55,22 @@ class UserError(ValueError):
 
 # ── auth cache invalidation ──────────────────────────────────────────────────
 
+def _revoke_sessions(db: Session, user_id: int, reason: str) -> None:
+    """Kill an account's signed-in browsers.
+
+    A password change and a disable both have to end live sessions, or "I changed
+    my password" would not stop the browser that already had one. Imported lazily:
+    session_service pulls in the identity types and the session model, and this
+    module is imported from the gate's hottest path.
+    """
+    try:
+        from services.session_service import revoke_all_for_user
+
+        revoke_all_for_user(db, user_id, reason=reason)
+    except Exception:  # pragma: no cover - the sweep must never break account writes
+        logger.warning("Could not revoke sessions for user_id=%s", user_id, exc_info=True)
+
+
 def invalidate_auth_cache() -> None:
     """Drop cached authentications. Called after any credential/state change."""
     try:
@@ -181,6 +197,8 @@ def set_password(db: Session, user: User, new_password: str) -> None:
     user.updated_at = datetime.datetime.now(datetime.timezone.utc)
     db.commit()
     invalidate_auth_cache()
+    # Signing in with a new password ends the sessions made with the old one.
+    _revoke_sessions(db, user.id, "password changed")
 
 
 def update_user(
@@ -219,10 +237,14 @@ def update_user(
     if display_name is not None:
         user.display_name = display_name.strip() or None
 
+    disabling = is_active is not None and not is_active
     user.updated_at = datetime.datetime.now(datetime.timezone.utc)
     db.commit()
     db.refresh(user)
     invalidate_auth_cache()
+    if disabling:
+        # Disabling has to be immediate for browsers, not just for new sign-ins.
+        _revoke_sessions(db, user.id, "account disabled")
     return user
 
 

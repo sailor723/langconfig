@@ -10,13 +10,11 @@
  *   - **Accounts are not isolation.** Everyone in this install sees the same
  *     projects, agents and knowledge.
  *
- * Sign out is real, with a caveat worth keeping honest. HTTP Basic has no session,
- * so the backend marks this browser as signed out with a session cookie and the
- * gate then refuses every request from it — including a reload, which shows a
- * "Signed out" page instead of the app. What this does NOT do is forget the
- * password the browser has cached: pressing Sign in returns you to the same
- * account without typing. To hand the machine to someone else, close the browser
- * or use a private window. The page states that in the same words.
+ * Sign in and sign out both live on the server now: browsers sign in on the
+ * dedicated page at /signin and get an opaque session cookie (7-day sliding),
+ * which this popover's Sign out revokes. HTTP Basic still works for scripts
+ * (curl -u), and a browser holding a cached Basic credential is suppressed by the
+ * sign-out marker until it signs in again.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useLayoutTokens } from './tokens';
@@ -194,14 +192,14 @@ export default function UserPopover({
           </button>
         )}
 
-        {/* A full navigation, not a fetch: the backend answers with a "Signed out"
-            page, and that response is what makes the sign-out effective in this
-            browser. The app document cannot render it — it is refused too. */}
+        {/* A full navigation, not a fetch: the backend revokes the session, clears
+            the cookie and redirects to the sign-in page. Client-side state cannot do
+            this — the server owns the session. */}
         <button
           style={{ ...rowStyle, borderTop: `1px solid ${t.border}`, marginTop: 4 }}
           onClick={() => {
             onClose();
-            window.location.assign('/api/auth/sign-out');
+            window.location.assign('/api/auth/logout');
           }}
           onMouseEnter={(e) => (e.currentTarget.style.background = t.bgHover)}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
@@ -219,9 +217,9 @@ export default function UserPopover({
           color: t.textMuted,
         }}
       >
-        Signing out blocks this browser until someone signs in again. It does not
-        forget the password the browser saved — for a shared machine, close the
-        browser or use a private window.
+        Signing out ends this browser&apos;s session on the server. A browser that
+        signed in through the old Basic-auth prompt also has its saved credential
+        suppressed until it signs in again.
       </div>
     </div>
   );
